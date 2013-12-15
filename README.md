@@ -238,47 +238,6 @@ Block 13: 1984262 => 2348021 => 4194304  [8b38b0c6]
 Block 14: 1880493 => 2218619 => 4194304  [fa1cc886]
 Block 15: 357198 => 416802 => 1288368  [40559fcc]
 
-Decoding:          1041 ms
-Input size:        24286590
-Output size:       60008624
-Throughput (KB/s): 56294
 
-}}}
-
-*Silesia corpus compression tests*
-
-https://kanzi.googlecode.com/files/silesia.png
-
-Compression results for the Silesia Corpus (http://sun.aei.polsl.pl/~sdeor/index.php?page=silesia)
-
-The tests were performed on a desktop i7-2600 @3.40GHz, Win7, 16GB RAM with Oracle JDK7 (1.7.25) with Kanzi 09/13.
-
-Average of median 3 (of 5) tests used.
-
-The block transform was used for all tests.
-
-Java optimized flags: -Xms1024M -XX:+UseTLAB -XX:+AggressiveOpts -XX:+UseFastAccessorMethods 
-
-The block size was set arbitrarily to 4000000 bytes. Bigger sizes yield better compression ratios and smaller sizes yield better speed.
-
-The compression ratio is the size of the compressed file divided by the size of the original size.
-
-For comparison purposes, here are the compression ratios obtained for each file in the corpus with several modern compressors:
-
-https://kanzi.googlecode.com/files/silesia2.png
-
-Kanzi using block compression, PAQ entropy and 16.000.000 bytes per block
-7Z version 9.20, Bzip version 1.05 (option -9), jbzip2 (java implementation), ZPAQ 4.04
-
-
-*See more details about the block transform*
-
-https://code.google.com/p/kanzi/wiki/BlockCodec
-
-*Performance of the Snappy and LZ4 codecs in Kanzi*
-
-https://code.google.com/p/kanzi/wiki/SnappyCodec
-
-== Other examples ==
 
 More details are available at https://code.google.com/p/kanzi/
