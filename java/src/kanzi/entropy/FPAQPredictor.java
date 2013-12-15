@@ -1,0 +1,63 @@
+/*
+Copyright 2011-2013 Frederic Langlet
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+you may obtain a copy of the License at
+
+                http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+package kanzi.entropy;
+
+
+// Based on fpaq1 by Matt Mahoney
+// Simple (and fast) adaptive order 0 entropy coder predictor
+public class FPAQPredictor implements Predictor
+{
+   private static final int THRESHOLD = 200;
+   private static final int SHIFT = 1;
+   
+   private final short[][] states; // 256 frequency contexts for each bit
+   private int ctxIdx; // previous bits
+     
+   
+   public FPAQPredictor()
+   {
+      this.ctxIdx = 1;
+      this.states = new short[256][];
+      
+      for (int i=this.states.length-1; i>=0; i--)
+         this.states[i] = new short[2];      
+   }
+   
+   
+   @Override
+   public void update(int bit)
+   {
+      // Find the number of registered 0 & 1 given the previous bits (in this.ctxIdx)
+      final short[] st = this.states[this.ctxIdx];
+    
+      if (++st[bit] >= THRESHOLD) 
+      {
+         st[0] >>= SHIFT;
+         st[1] >>= SHIFT;
+      }
+      
+      // Update context by registering the current bit (or wrapping after 8 bits)
+      this.ctxIdx = (this.ctxIdx < 128) ? (this.ctxIdx << 1) | bit : 1;
+   }
+
+   
+   // Return the split value representing the probability of 1 in the [0..4095] range. 
+   @Override
+   public int get()
+   {
+      final short[] st = this.states[this.ctxIdx];
+      return ((st[1]+1) << 12) / (st[0]+st[1]+2);      
+   }
+}   
