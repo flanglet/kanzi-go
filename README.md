@@ -74,7 +74,6 @@ The 2 step process allows very fast compression/decompression (Snappy/LZ4+no ent
 
 See some examples below:
 
-{{{
 java -cp kanzi.jar kanzi.app.BlockCompressor -help
 -help                : display this message
 -verbose             : display the block size at each stage (in bytes, floor rounding if fractional)
@@ -96,15 +95,11 @@ java -cp kanzi.jar kanzi.app.BlockDecompressor -help
 -silent              : silent mode, no output (except warnings and errors)
 -input=<inputName>   : mandatory name of the input file to decode
 -output=<outputName> : optional name of the output file
-}}}
+-jobs=<jobs>         : number of parallel jobs
 
 *Testing the compressor*
 
-All tests performed on a desktop i7-2600 @3.40GHz, Win7, 16GB RAM with Oracle JDK7.
 
-With block transform and Huffman codec, no checksum and block of 4000000 bytes
-
-{{{
 java -cp kanzi.jar kanzi.app.BlockCompressor -input=c:\temp\rt.jar -output=c:\temp\rt.knz -overwrite -block=4000000 -transform=block -entropy=huffman
 Encoding ...
 
@@ -113,11 +108,10 @@ Input size:        60008624
 Output size:       16176375
 Ratio:             0.2695675
 Throughput (KB/s): 7086
-}}}
+
 
 With block transform and FPAQ codec, no checksum and block of 4000000 bytes. Slower but better compression ratio
 
-{{{
 java -cp kanzi.jar kanzi.app.BlockCompressor -input=c:\temp\rt.jar -output=c:\temp\rt.knz -overwrite -block=4000000 -transform=block -entropy=fpaq
 Encoding ...
 
@@ -126,11 +120,10 @@ Input size:        60008624
 Output size:       15528498
 Ratio:             0.2587711
 Throughput (KB/s): 5712
-}}}
+
 
 With LZ4 transform and Huffman codec, no checksum and block of 1 MB. Lower compression ratio but very fast
 
-{{{
 java -cp kanzi.jar kanzi.app.BlockCompressor -input=c:\temp\rt.jar -output=c:\temp\rt.knz -overwrite -block=1M -transform=lz4 -entropy=huffman
 Encoding ...
 
@@ -139,72 +132,25 @@ Input size:        60008624
 Output size:       23452848
 Ratio:             0.39082462
 Throughput (KB/s): 67436
-}}}
 
-With Snappy transform and Huffman codec, checksum, verbose and block of 4 MB. Using the Go version. The verbose option shows the impact of each step for each block.
-{{{
-go run BlockCompressor.go -input=c:\temp\rt.jar -output=c:\temp\rt.knz -overwrite -block=4M -verbose -checksum -entropy=huffman -transform=snappy
-Input file name set to 'c:\temp\rt.jar'
-Output file name set to 'c:\temp\rt.knz'
-Block size set to 4194304 bytes
-Debug set to true
-Overwrite set to true
-Checksum set to true
-Using SNAPPY transform (stage 1)
-Using HUFFMAN entropy codec (stage 2)
-Using 1 job
+
+With Snappy transform and Huffman codec, checksum, verbose and block of 4 MB. Using the Go version.
+
+go run BlockCompressor.go -input=c:\temp\rt.jar -output=c:\temp\rt.knz -overwrite -block=4M -checksum -entropy=huffman -transform=snappy
+ntropy codec (stage 2)
 Encoding ...
-Block 0: 4194304 => 1890979 => 1600744 (38%)  [a613036f]
-Block 1: 4194304 => 2050610 => 1732459 (41%)  [d43e35e6]
-Block 2: 4194304 => 2003638 => 1709656 (40%)  [c178520c]
-Block 3: 4194304 => 1959657 => 1665629 (39%)  [6b76374b]
-Block 4: 4194304 => 1772464 => 1511513 (36%)  [4add340a]
-Block 5: 4194304 => 1817654 => 1544182 (36%)  [2b22c33b]
-Block 6: 4194304 => 1926893 => 1637754 (39%)  [414e8c24]
-Block 7: 4194304 => 2001918 => 1700584 (40%)  [ee3876e0]
-Block 8: 4194304 => 1958682 => 1655864 (39%)  [a4abcf1d]
-Block 9: 4194304 => 1906796 => 1624348 (38%)  [de6ce5eb]
-Block 10: 4194304 => 2111934 => 1790768 (42%)  [ae2e1ac1]
-Block 11: 4194304 => 2225195 => 1891118 (45%)  [98235e9f]
-Block 12: 4194304 => 2348021 => 1984262 (47%)  [8b38b0c6]
-Block 13: 4194304 => 2218619 => 1880493 (44%)  [fa1cc886]
-Block 14: 1288368 => 416802 => 357198 (27%)  [40559fcc]
 
 Encoding:          1506 ms
 Input size:        60008624
 Output size:       24286590
 Ratio:             0.404718
 Throughput (KB/s): 38912
-}}}
 
-Decode with verbose mode (Go then Java):
-{{{
+
+Decode (Go then Java):
+
 go run BlockDecompressor.go -input=c:\temp\rt.knz -output=c:\temp\rt.jar -overwrite -verbose
-Input file name set to 'c:\temp\rt.knz'
-Output file name set to 'c:\temp\rt.jar'
-Debug set to true
-Overwrite set to true
-Using 1 job
 Decoding ...
-Checksum set to true
-Block size set to 4194304 bytes
-Using SNAPPY transform (stage 1)
-Using HUFFMAN entropy codec (stage 2)
-Block 0: 1600744 => 1890979 => 4194304  [a613036f]
-Block 1: 1732459 => 2050610 => 4194304  [d43e35e6]
-Block 2: 1709656 => 2003638 => 4194304  [c178520c]
-Block 3: 1665629 => 1959657 => 4194304  [6b76374b]
-Block 4: 1511513 => 1772464 => 4194304  [4add340a]
-Block 5: 1544182 => 1817654 => 4194304  [2b22c33b]
-Block 6: 1637754 => 1926893 => 4194304  [414e8c24]
-Block 7: 1700584 => 2001918 => 4194304  [ee3876e0]
-Block 8: 1655864 => 1958682 => 4194304  [a4abcf1d]
-Block 9: 1624348 => 1906796 => 4194304  [de6ce5eb]
-Block 10: 1790768 => 2111934 => 4194304  [ae2e1ac1]
-Block 11: 1891118 => 2225195 => 4194304  [98235e9f]
-Block 12: 1984262 => 2348021 => 4194304  [8b38b0c6]
-Block 13: 1880493 => 2218619 => 4194304  [fa1cc886]
-Block 14: 357198 => 416802 => 1288368  [40559fcc]
 
 Decoding:          1722 ms
 Input size:        24286590
@@ -212,32 +158,12 @@ Output size:       60008624
 Throughput (KB/s): 34031
 
 java -cp kanzi.jar kanzi.app.BlockDecompressor -input=c:\temp\rt.knz -output=c:\temp\rt.jar -overwrite -verbose 
-Input file name set to 'c:\temp\rt.knz'
-Output file name set to 'c:\temp\rt.jar'
-Verbose set to true
-Overwrite set to true
-Using 1 job
 Decoding ...
-Checksum set to true
-Block size set to 4194304 bytes
-Using SNAPPY transform (stage 1)
-Using HUFFMAN entropy codec (stage 2)
-Block 1: 1600744 => 1890979 => 4194304  [a613036f]
-Block 2: 1732459 => 2050610 => 4194304  [d43e35e6]
-Block 3: 1709656 => 2003638 => 4194304  [c178520c]
-Block 4: 1665629 => 1959657 => 4194304  [6b76374b]
-Block 5: 1511513 => 1772464 => 4194304  [4add340a]
-Block 6: 1544182 => 1817654 => 4194304  [2b22c33b]
-Block 7: 1637754 => 1926893 => 4194304  [414e8c24]
-Block 8: 1700584 => 2001918 => 4194304  [ee3876e0]
-Block 9: 1655864 => 1958682 => 4194304  [a4abcf1d]
-Block 10: 1624348 => 1906796 => 4194304  [de6ce5eb]
-Block 11: 1790768 => 2111934 => 4194304  [ae2e1ac1]
-Block 12: 1891118 => 2225195 => 4194304  [98235e9f]
-Block 13: 1984262 => 2348021 => 4194304  [8b38b0c6]
-Block 14: 1880493 => 2218619 => 4194304  [fa1cc886]
-Block 15: 357198 => 416802 => 1288368  [40559fcc]
 
+Decoding:          1041 ms
+Input size:        24286590
+Output size:       60008624
+Throughput (KB/s): 56294
 
 
 More details are available at https://code.google.com/p/kanzi/
