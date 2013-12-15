@@ -15,22 +15,6 @@ It also provides video filters including fast Gaussian filter, Sobel filter and 
 
 == Package hierarchy ==
 
-kanzi
-    * app
-    * bitstream
-    * entropy
-    * filter
-        * seam
-    * function
-        * wavelet
-    * io
-    * test
-    * transform
-    * util
-        * color
-        * sampling
-        * sort
-                      
                       
   * kanzi: top level including common classes and interfaces
   * app contains applications (E.G. block compressor)
