@@ -41,7 +41,7 @@ public class Global
       32386, 32411, 32435, 32460, 32484, 32508, 32532, 32556, 32580, 32604, 32627, 32651, 32674, 32698, 32721, 32744
    };
            
-   // array with 10 elements: 10 * (4096*Math.log10(x))
+   // array with 100 elements: 10 * (4096*Math.log10(x))
    private static final int[] TEN_LOG10_100 =
    {
           0,     0, 12330, 19542, 24660, 28629, 31873, 34615, 36990, 39085,
@@ -120,7 +120,7 @@ public class Global
 
     
    // Return 1024 * sin(1024*x) [x in radians]
-   // max absolute error is less than 1.5%
+   // Max error is less than 1.5%
    public static int sin(int rad1024) 
    {               
       if ((rad1024 >= PI_1024_MULT2) || (rad1024 <= -PI_1024_MULT2))
@@ -140,7 +140,7 @@ public class Global
    
     
    // Return 1024 * cos(1024*x) [x in radians]
-   // max absolute error is less than 1.5%
+   // Max error is less than 1.5%
    public static int cos(int rad1024) 
    {               
       if ((rad1024 >= PI_1024_MULT2) || (rad1024 <= -PI_1024_MULT2))
@@ -160,7 +160,7 @@ public class Global
    
    
    // Return 1024 * log2(x)
-   // This method should not be used to find non fractional log2(x)
+   // Max error is around 0.1%
    public static int log2(int x) throws ArithmeticException
    {
       if (x <= 0)
@@ -168,48 +168,59 @@ public class Global
 
       if (x < 256)
         return LOG2_4096[x] >> 2;
+      
+      if (x < 512)
+        return 1024 + (LOG2_4096[x>>1] >> 2);
+      
+      int log = 8;
 
-      int log = 0;
-
-      for (long y=x+1; y>1; y>>=1)
+      for (long y=x+1; y>=512; y>>=1)
         log++;
 
       // x is a power of 2 ?
       if ((x & (x-1)) == 0)
          return log << 10;
 
-      long taylor;
+      long base = 0;
+      long z = x - (1 << log);
 
       // Use the fact that log2(x) = log2(2^(log2(x)+1)*y) = log2(2^p)+ 1 + ln(1-z)/ln(2)
       // with z in ]0, 0.5[, it yields log2(x) = p + 1 - (z/1 + z^2/2 + z^3/3 ...)/ln(2)
       // To improve accuracy (keep z in ]0, 0.25[), one can choose either (1+z) or (1-z).
       // EG: log2(257) = log2(256) + log2(1+1/256) is better approximated with Taylor 
       // series expansion than log2(512) + log2(1-255/512)
-      if ((x - (1 << log)) > (1 << (log-1)))
+      if (z >= 1 << (log-1))
+      {         
+         // z in [0.5, 0.75[ => rescale x so that z in [0, 0.25[
+         if (z < 1 << (log-1) + 1 << (log-2)) 
+         {
+            base = 497;
+            x = (int) ((long) x * 5 / 7);   
+         }
+         
+         // z in [0.75, 1[ => select 1 - x Taylor series expansion
+         log++;      
+      } 
+      else 
       {
-         // Select 1 - x Taylor series expansion
-         log++;
-         long z = (1 << log) - x;
-         long z2 = (z*z) >> log;
-         taylor = z;
-         taylor += (z2 >> 1);
-         taylor += (((z*z2) >> log ) / 3);
-         taylor += ((z2*z2) >> (log+log+2));
-         taylor = -taylor;
+         // z in [0.25, 0.5[ => rescale x so that z in [0, 0.25[
+         if (z >= 1 << (log-2))
+         {
+            base = 269;
+            x = (int) ((long) x * 5 / 6);
+         }            
+         
+         // select 1 + x Taylor series expansion
       }
-      else
-      {
-         // Select 1 + x Taylor series expansion
-         long z = x - (1 << log);
-         long z2 = (z*z) >> log;
-         taylor = z;
-         taylor -= (z2 >> 1);
-         taylor += (((z*z2) >> log ) / 3);
-         taylor -= ((z2*z2) >> (log+log+2));
-      }
-
-      taylor *= 5909; // 4096*1/ln(2)
-      return (int) (((log << 12) + (taylor >> log)) >> 2);
+     
+      z = x - (1 << log);
+      long z2 = (z * z) >> log;
+      long taylor = z;
+      taylor -= (z2 >> 1);
+      taylor += (((z*z2) / 3) >> log);
+      taylor -= ((z2*z2) >> (log+2));
+      taylor = (taylor * 5909) >> (log+2); // rescale: 4096*1/log(2)
+      return (int) (base + (log << 10) + taylor);
    }
 
     

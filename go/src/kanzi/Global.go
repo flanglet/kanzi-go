@@ -16,7 +16,7 @@ limitations under the License.
 package kanzi
 
 import (
-       "errors"
+	"errors"
 )
 
 const (
@@ -121,12 +121,12 @@ func Ten_log10(x int) (int, error) {
 		return TEN_LOG10_100[x] >> 2, nil
 	}
 
-    log2, err := Log2(x)    
+	log2, err := Log2(x)
 	return (log2 * 6165) >> 11, err // 10 * 1/log2(10)
 }
 
 // Return 1024 * sin(1024*x) [x in radians]
-// max absolute error is less than 1.5%
+// Max error is less than 1.5%
 func Sin(rad1024 int) int {
 	if rad1024 >= PI_1024_MULT2 || rad1024 <= -PI_1024_MULT2 {
 		rad1024 %= PI_1024_MULT2
@@ -147,7 +147,7 @@ func Sin(rad1024 int) int {
 }
 
 // Return 1024 * cos(1024*x) [x in radians]
-// max absolute error is less than 1.5%
+// Max error is less than 1.5%
 func Cos(rad1024 int) int {
 	if rad1024 >= PI_1024_MULT2 || rad1024 <= -PI_1024_MULT2 {
 		rad1024 %= PI_1024_MULT2
@@ -168,19 +168,19 @@ func Cos(rad1024 int) int {
 }
 
 // Return 1024 * log2(x)
-// This method should not be used to find non fractional log2(x)
+// Max error is around 0.1%
 func Log2(x int) (int, error) {
 	if x <= 0 {
 		return x, errors.New("Cannot calculate log of a negative or null value")
 	}
 
-	if x < 256 {
-		return LOG2_4096[x] >> 2, nil
+	if x < 512 {
+		return 1024 + (LOG2_4096[x>>1] >> 2), nil
 	}
 
-	log := uint(0)
+	log := uint(8)
 
-	for y := int64(x + 1); y > 1; y >>= 1 {
+	for y := int64(x + 1); y >= 512; y >>= 1 {
 		log++
 	}
 
@@ -189,35 +189,41 @@ func Log2(x int) (int, error) {
 		return int(log << 10), nil
 	}
 
-	taylor := int64(0)
+	base := int64(0)
+	z := int64(x - (1 << log))
 
 	// Use the fact that log2(x) = log2(2^(log2(x)+1)*y) = log2(2^p)+ 1 + ln(1-z)/ln(2)
 	// with z in ]0, 0.5[, it yields log2(x) = p + 1 - (z/1 + z^2/2 + z^3/3 ...)/ln(2)
 	// To improve accuracy (keep z in ]0, 0.25[), one can choose either (1+z) or (1-z).
-	// EG: log2(257) = log2(256) + log2(1+1/256) is better approximated with Taylor 
+	// EG: log2(257) = log2(256) + log2(1+1/256) is better approximated with Taylor
 	// series expansion than log2(512) + log2(1-255/512)
-	if x-(1<<log) > 1<<(log-1) {
-		// Select 1 - x Taylor series expansion
+	if z >= 1<<(log-1) {
+		// z in [0.5, 0.75[ => rescale x so that z in [0, 0.25[
+		if z < 1<<(log-1)+1<<(log-2) {
+			base = 497
+			x = int(int64(x) * 5 / 7)
+		}
+
+		// z in [0.75, 1[ => select 1 - x Taylor series expansion
 		log++
-		z := int64((1 << log) - x)
-		z2 := int64((z * z) >> log)
-		taylor = z
-		taylor += (z2 >> 1)
-		taylor += (((z * z2) >> log) / 3)
-		taylor += ((z2 * z2) >> (log + log + 2))
-		taylor = -taylor
 	} else {
-		// Select 1 + x Taylor series expansion
-		z := int64(x - (1 << log))
-		z2 := int64((z * z) >> log)
-		taylor = z
-		taylor -= (z2 >> 1)
-		taylor += (((z * z2) >> log) / 3)
-		taylor -= ((z2 * z2) >> (log + log + 2))
+		// z in [0.25, 0.5[ => rescale x so that z in [0, 0.25[
+		if z >= 1<<(log-2) {
+			base = 269
+			x = int(int64(x) * 5 / 6)
+		}
+
+		// select 1 + x Taylor series expansion
 	}
 
-	taylor *= 5909 // 4096*1/ln(2)
-	return int((int64(log << 12) + (taylor >> log)) >> 2), nil
+	z = int64(x - (1 << log))
+	z2 := int64((z * z) >> log)
+	taylor := z
+	taylor -= (z2 >> 1)
+	taylor += (((z * z2) / 3) >> log)
+	taylor -= ((z2 * z2) >> (log + 2))
+	taylor = (taylor * 5909) >> (log + 2) // rescale: 4096*1/log(2)
+	return int(base + int64(log<<10) + taylor), nil
 }
 
 func Clamp(val, min, max int) int {
