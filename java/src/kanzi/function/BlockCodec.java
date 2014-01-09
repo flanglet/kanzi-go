@@ -29,18 +29,19 @@ import kanzi.transform.MTFT;
 
 // Stream format: Header (m bytes) Data (n bytes)
 // Header: mode (8 bits) + BWT primary index (8, 16 or 24 bits)
-// mode: bit 7 is unused for now
-//       bits 6-4 (contains the size in bits of the primary index - 1) / 4
-//       bits 3-0 4 highest bits of primary index
-// primary index: remaining bits (up to 3 bytes)
-//
-// EG: Mode=0bx.100.xxxx primary index is (4+1)*4=20 bits long
-//     Mode=0bx.000.xxxx primary index is (0+1)*4=4 bits long
+// mode: bits 7-6 contain the size in bits of the primary index : 
+//           00: primary index size <=  6 bits (fits in mode byte)
+//           01: primary index size <= 14 bits (1 extra byte)
+//           10: primary index size <= 22 bits (2 extra bytes)
+//           11: primary index size  > 22 bits (3 extra bytes)
+//       bits 5-0 contain 6 most significant bits of primary index
+// primary index: remaining bits (up to 3 bytes) 
+
 
 public class BlockCodec implements ByteFunction
 {
-   private static final int MAX_HEADER_SIZE  = 3;
-   private static final int MAX_BLOCK_SIZE   = (16*1024*1024) - MAX_HEADER_SIZE;
+   private static final int MAX_HEADER_SIZE  = 4;
+   private static final int MAX_BLOCK_SIZE   = (32*1024*1024) - MAX_HEADER_SIZE;
 
    private final MTFT mtft;
    private final BWT bwt;
@@ -112,13 +113,13 @@ public class BlockCodec implements ByteFunction
       // Apply Move-To-Front Transform
       this.mtft.setSize(blockSize);
       this.mtft.forward(output, input);
-
-      int pIndexSizeBits = 4;
+      
+      int pIndexSizeBits = 6;
 
       while ((1<<pIndexSizeBits) <= primaryIndex)
-         pIndexSizeBits += 4;
+         pIndexSizeBits++;
 
-      final int headerSizeBytes = (4 + pIndexSizeBits + 7) >> 3;
+      final int headerSizeBytes = (2 + pIndexSizeBits + 7) >> 3;
       input.index = savedIIdx;
       output.index = savedOIdx + headerSizeBytes;
       ZLT zlt = new ZLT(blockSize);
@@ -136,19 +137,11 @@ public class BlockCodec implements ByteFunction
          return false;
       }
       
-      // Write block header (mode + primary index)
-      // 'mode' contains size of primaryIndex in bits (bits 6 to 4)
-      // the size is divided by 4 and decreased by one
-      byte mode = (byte) (((pIndexSizeBits >> 2) - 1) << 4);
-      int shift = pIndexSizeBits;
-
-      if ((shift & 7) == 4)
-      {
-         shift -= 4;
-         mode |= (byte) ((primaryIndex >> shift) & 0x0F);
-      }
-
-      output.array[savedOIdx] = mode;
+      // Write block header (mode + primary index). See top of file for format 
+      int shift = (headerSizeBytes - 1) << 3;
+      int mode = (pIndexSizeBits + 1) >> 3;
+      mode = (mode << 6) | ((primaryIndex >> shift) & 0x3F);
+      output.array[savedOIdx] = (byte) mode;
 
       for (int i=1; i<headerSizeBytes; i++)
       {
@@ -170,25 +163,19 @@ public class BlockCodec implements ByteFunction
 
       final int savedIIdx = input.index; 
 
-      // Read block header (mode + primary index)
-      // 'mode' contains size of primaryIndex in bits (bits 6 to 4)
-      // the size is divided by 4 and decreased by one
-      byte mode = input.array[input.index++];
-      final int pIndexSizeBits = (((mode & 0x70) >> 4) + 1) << 2;
-      final int headerSizeBytes = (4 + pIndexSizeBits + 7) >> 3;
-      compressedLength -= headerSizeBytes;
+      // Read block header (mode + primary index). See top of file for format
+      int mode = input.array[input.index++] & 0xFF;
+      int headerSizeBytes = 1 + ((mode >> 6) & 0x03);
 
-      if (compressedLength <= 0)
+      if (compressedLength < headerSizeBytes)
           return false;
 
-      int shift = pIndexSizeBits;
-      int primaryIndex = 0;
+      if (compressedLength == headerSizeBytes)
+          return true;
 
-      if ((shift & 7) == 4)
-      {
-         shift -= 4;
-         primaryIndex |= ((mode & 0x0F) << shift);
-      }
+      compressedLength -= headerSizeBytes;
+      int shift = (headerSizeBytes - 1) << 3;
+      int primaryIndex = (mode & 0x3F) << shift;
 
       // Extract BWT primary index
       for (int i=1; i<headerSizeBytes; i++)

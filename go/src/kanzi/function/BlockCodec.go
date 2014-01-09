@@ -30,17 +30,17 @@ import (
 
 // Stream format: Header (m bytes) Data (n bytes)
 // Header: mode (8 bits) + BWT primary index (8, 16 or 24 bits)
-// mode: bit 7 is unused for now
-//       bits 6-4 (contains the size in bits of the primary index - 1) / 4
-//       bits 3-0 4 highest bits of primary index
+// mode: bits 7-6 contain the size in bits of the primary index :
+//           00: primary index size <=  6 bits (fits in mode byte)
+//           01: primary index size <= 14 bits (1 extra byte)
+//           10: primary index size <= 22 bits (2 extra bytes)
+//           11: primary index size  > 22 bits (3 extra bytes)
+//       bits 5-0 contain 6 most significant bits of primary index
 // primary index: remaining bits (up to 3 bytes)
-//
-// EG: Mode=0bx.100.xxxx primary index is (4+1)*4=20 bits long
-//     Mode=0bx.000.xxxx primary index is (0+1)*4=4 bits long
 
 const (
-	MAX_BLOCK_HEADER_SIZE = 3
-	MAX_BLOCK_SIZE        = 16*1024*1024 - MAX_BLOCK_HEADER_SIZE // 16 MB (24 bits)
+	MAX_BLOCK_HEADER_SIZE = 4
+	MAX_BLOCK_SIZE        = 32*1024*1024 - MAX_BLOCK_HEADER_SIZE
 )
 
 type BlockCodec struct {
@@ -126,13 +126,13 @@ func (this *BlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 	this.mtft.SetSize(blockSize)
 	this.mtft.Forward(dst, src)
 
-	pIndexSizeBits := uint(4)
+	pIndexSizeBits := uint(6)
 
 	for 1<<pIndexSizeBits <= primaryIndex {
-		pIndexSizeBits += 4
+		pIndexSizeBits++
 	}
 
-	headerSizeBytes := (4 + pIndexSizeBits + 7) >> 3
+	headerSizeBytes := (2 + pIndexSizeBits + 7) >> 3
 	zlt, err := NewZLT(blockSize)
 
 	if err != nil {
@@ -151,18 +151,11 @@ func (this *BlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	oIdx += headerSizeBytes
 
-	// Write block header (mode + primary index)
-	// 'mode' contains size of primaryIndex in bits (bits 6 to 4)
-	// the size is divided by 4 and decreased by one
-	mode := byte(((pIndexSizeBits >> 2) - 1) << 4)
-	shift := pIndexSizeBits
-
-	if (shift & 7) == 4 {
-		shift -= 4
-		mode |= byte((primaryIndex >> shift) & 0x0F)
-	}
-
-	dst[0] = mode
+	// Write block header (mode + primary index). See top of file for format
+	shift := (headerSizeBytes - 1) << 3
+	mode := (pIndexSizeBits + 1) >> 3
+	mode = (mode << 6) | ((primaryIndex >> shift) & 0x3F)
+	dst[0] = byte(mode)
 
 	for i := uint(1); i < headerSizeBytes; i++ {
 		shift -= 8
@@ -179,20 +172,21 @@ func (this *BlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, nil
 	}
 
-	// Read block header (mode + primary index)
-	// 'mode' contains size of primaryIndex in bits (bits 6 to 4)
-	// the size is divided by 4 and decreased by one
-	mode := src[0]
-	pIndexSizeBits := uint(((mode&0x70)>>4)+1) << 2
-	headerSizeBytes := (4 + pIndexSizeBits + 7) >> 3
-	compressedLength -= headerSizeBytes
-	shift := pIndexSizeBits
-	primaryIndex := uint(0)
+	// Read block header (mode + primary index). See top of file for format
+	mode := uint(src[0])
+	headerSizeBytes := 1 + ((mode >> 6) & 0x03)
 
-	if (shift & 7) == 4 {
-		shift -= 4
-		primaryIndex |= uint(mode&0x0F) << shift
+	if compressedLength < headerSizeBytes {
+		return 0, 0, errors.New("Invalid compressed length in stream")
 	}
+
+	if compressedLength == 0 {
+		return 0, 0, nil
+	}
+
+	compressedLength -= headerSizeBytes
+	shift := (headerSizeBytes - 1) << 3
+	primaryIndex := (mode & 0x3F) << shift
 
 	// Extract BWT primary index
 	for i := uint(1); i < headerSizeBytes; i++ {

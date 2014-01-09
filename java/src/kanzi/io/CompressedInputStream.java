@@ -36,17 +36,17 @@ import kanzi.function.FunctionFactory;
 import kanzi.util.XXHash;
 
 
-// Implementation of a java.io.InputStream that can dedode a stream
+// Implementation of a java.io.InputStream that can decode a stream
 // compressed with CompressedOutputStream
 public class CompressedInputStream extends InputStream
 {
    private static final int BITSTREAM_TYPE           = 0x4B414E5A; // "KANZ"
-   private static final int BITSTREAM_FORMAT_VERSION = 4;
+   private static final int BITSTREAM_FORMAT_VERSION = 5;
    private static final int DEFAULT_BUFFER_SIZE      = 1024*1024;
    private static final int COPY_LENGTH_MASK         = 0x0F;
    private static final int SMALL_BLOCK_MASK         = 0x80;
    private static final int SKIP_FUNCTION_MASK       = 0x40;
-   private static final int MAX_BLOCK_SIZE           = (16*1024*1024) - 4;
+   private static final int MAX_BLOCK_SIZE           = (32*1024*1024) - 4;
    private static final byte[] EMPTY_BYTE_ARRAY      = new byte[0];
    private static final int CANCEL_TASKS_ID          = -1;
 
@@ -56,7 +56,7 @@ public class CompressedInputStream extends InputStream
    private final IndexedByteArray[] buffers;
    private char entropyType;
    private char transformType;
-   private final InputBitStream  ibs;
+   private final InputBitStream ibs;
    private final PrintStream ds;
    private boolean initialized;
    private boolean closed;
@@ -521,29 +521,29 @@ public class CompressedInputStream extends InputStream
             // Extract header directly from bitstream
             final long read = this.ibs.read();
             byte mode = (byte) this.ibs.readBits(8);
-            int compressedLength;
+            int preTransformLength;
             int checksum1 = 0;
 
             if ((mode & SMALL_BLOCK_MASK) != 0)
             {
-               compressedLength = mode & COPY_LENGTH_MASK;
+               preTransformLength = mode & COPY_LENGTH_MASK;
             }
             else
             {
                final int dataSize = mode & 0x03;
                final int length = dataSize << 3;
                final int mask = (1 << length) - 1;
-               compressedLength = (int) (this.ibs.readBits(length) & mask);
+               preTransformLength = (int) (this.ibs.readBits(length) & mask);
             }
 
-            if (compressedLength == 0)
+            if (preTransformLength == 0)
             {
                // Last block is empty, return success and cancel pending tasks
                this.processedBlockId.set(CANCEL_TASKS_ID);
                return 0;
             }
 
-            if ((compressedLength < 0) || (compressedLength > MAX_BLOCK_SIZE))
+            if ((preTransformLength < 0) || (preTransformLength > MAX_BLOCK_SIZE))
             {
                // Error => cancel concurrent decoding tasks
                this.processedBlockId.set(CANCEL_TASKS_ID);
@@ -572,7 +572,7 @@ public class CompressedInputStream extends InputStream
             final int savedIdx = data.index;
 
             // Block entropy decode
-            if (ed.decode(buffer.array, 0, compressedLength) != compressedLength)
+            if (ed.decode(buffer.array, 0, preTransformLength) != preTransformLength)
             {
                // Error => cancel concurrent decoding tasks
                this.processedBlockId.set(CANCEL_TASKS_ID);
@@ -597,7 +597,7 @@ public class CompressedInputStream extends InputStream
             {
                // Notify before transform (block size after entropy decoding)
                BlockEvent evt = new BlockEvent(BlockEvent.Type.BEFORE_TRANSFORM, currentBlockId,
-                       compressedLength, checksum1, this.hasher != null);
+                       preTransformLength, checksum1, this.hasher != null);
 
                for (BlockListener bl : this.listeners)
                   bl.processEvent(evt);
@@ -606,16 +606,16 @@ public class CompressedInputStream extends InputStream
             if (((mode & SMALL_BLOCK_MASK) != 0) || ((mode & SKIP_FUNCTION_MASK) != 0))
             {
                if (buffer.array != data.array)
-                  System.arraycopy(buffer.array, 0, data.array, savedIdx, compressedLength);
+                  System.arraycopy(buffer.array, 0, data.array, savedIdx, preTransformLength);
 
-               buffer.index = compressedLength;
-               data.index = savedIdx + compressedLength;
+               buffer.index = preTransformLength;
+               data.index = savedIdx + preTransformLength;
             }
             else
             {
                // Each block is decoded separately
                // Rebuild the entropy decoder to reset block statistics
-               ByteFunction transform = new FunctionFactory().newFunction(compressedLength,
+               ByteFunction transform = new FunctionFactory().newFunction(preTransformLength,
                        (byte) this.transformType);
 
                buffer.index = 0;

@@ -36,13 +36,13 @@ import (
 
 const (
 	BITSTREAM_TYPE             = 0x4B414E5A // "KANZ"
-	BITSTREAM_FORMAT_VERSION   = 4
+	BITSTREAM_FORMAT_VERSION   = 5
 	STREAM_DEFAULT_BUFFER_SIZE = 1024 * 1024
 	COPY_LENGTH_MASK           = 0x0F
 	SMALL_BLOCK_MASK           = 0x80
 	SKIP_FUNCTION_MASK         = 0x40
 	MIN_BLOCK_SIZE             = 1024
-	MAX_BLOCK_SIZE             = (16 * 1024 * 1024) - 4
+	MAX_BLOCK_SIZE             = (32 * 1024 * 1024) - 4
 	SMALL_BLOCK_SIZE           = 15
 
 	ERR_MISSING_FILENAME    = -1
@@ -441,7 +441,7 @@ func (this *CompressedOutputStream) encode(data, buf []byte, blockLength uint,
 
 	mode := byte(0)
 	dataSize := uint(0)
-	compressedLength := blockLength
+	postTransformLength := blockLength
 	checksum := uint32(0)
 	iIdx := uint(0)
 	oIdx := uint(0)
@@ -488,10 +488,10 @@ func (this *CompressedOutputStream) encode(data, buf []byte, blockLength uint,
 			mode |= SKIP_FUNCTION_MASK
 		}
 
-		compressedLength = oIdx
+		postTransformLength = oIdx
 		dataSize++
 
-		for i := uint(0xFF); i < compressedLength; i <<= 8 {
+		for i := uint(0xFF); i < postTransformLength; i <<= 8 {
 			dataSize++
 		}
 
@@ -502,7 +502,7 @@ func (this *CompressedOutputStream) encode(data, buf []byte, blockLength uint,
 	if len(listeners_) > 0 {
 		// Notify after transform
 		evt, err := NewBlockEvent(EVT_AFTER_TRANSFORM, currentBlockId,
-			int(compressedLength), checksum, this.hasher != nil)
+			int(postTransformLength), checksum, this.hasher != nil)
 
 		if err == nil {
 			for _, bl := range listeners_ {
@@ -533,7 +533,7 @@ func (this *CompressedOutputStream) encode(data, buf []byte, blockLength uint,
 	this.obs.WriteBits(uint64(mode), 8)
 
 	if dataSize > 0 {
-		if _, err = this.obs.WriteBits(uint64(compressedLength), 8*dataSize); err != nil {
+		if _, err = this.obs.WriteBits(uint64(postTransformLength), 8*dataSize); err != nil {
 			output <- NewIOError(err.Error(), ERR_WRITE_FILE)
 		}
 	}
@@ -548,7 +548,7 @@ func (this *CompressedOutputStream) encode(data, buf []byte, blockLength uint,
 	if len(listeners_) > 0 {
 		// Notify before entropy
 		evt, err := NewBlockEvent(EVT_BEFORE_ENTROPY, currentBlockId,
-			int(compressedLength), checksum, this.hasher != nil)
+			int(postTransformLength), checksum, this.hasher != nil)
 
 		if err == nil {
 			for _, bl := range listeners_ {
@@ -558,7 +558,7 @@ func (this *CompressedOutputStream) encode(data, buf []byte, blockLength uint,
 	}
 
 	// Entropy encode block
-	_, err = ee.Encode(buffer[0:compressedLength])
+	_, err = ee.Encode(buffer[0:postTransformLength])
 
 	if err != nil {
 		output <- NewIOError(err.Error(), ERR_PROCESS_BLOCK)
@@ -1002,11 +1002,11 @@ func (this *CompressedInputStream) decode(data, buf []byte,
 	}
 
 	mode := byte(r)
-	var compressedLength uint
+	var preTransformLength uint
 	checksum1 := uint32(0)
 
 	if (mode & SMALL_BLOCK_MASK) != 0 {
-		compressedLength = uint(mode & COPY_LENGTH_MASK)
+		preTransformLength = uint(mode & COPY_LENGTH_MASK)
 	} else {
 		dataSize := uint(mode & 0x03)
 		length := dataSize << 3
@@ -1019,19 +1019,19 @@ func (this *CompressedInputStream) decode(data, buf []byte,
 			return
 		}
 
-		compressedLength = uint(r & mask)
+		preTransformLength = uint(r & mask)
 	}
 
-	if compressedLength == 0 {
+	if preTransformLength == 0 {
 		// Last block is empty, return success and cancel pending tasks
 		res.decoded = 0
 		notify(output, result, false, res)
 		return
 	}
 
-	if compressedLength > MAX_BLOCK_SIZE {
+	if preTransformLength > MAX_BLOCK_SIZE {
 		// Error => cancel concurrent decoding tasks
-		errMsg := fmt.Sprintf("Invalid compressed block length: %d", compressedLength)
+		errMsg := fmt.Sprintf("Invalid compressed block length: %d", preTransformLength)
 		res.err = NewIOError(errMsg, ERR_BLOCK_SIZE)
 		notify(output, result, false, res)
 		return
@@ -1083,7 +1083,7 @@ func (this *CompressedInputStream) decode(data, buf []byte,
 	defer ed.Dispose()
 
 	// Block entropy decode
-	_, err = ed.Decode(buffer[0:compressedLength])
+	_, err = ed.Decode(buffer[0:preTransformLength])
 
 	if err != nil {
 		// Error => cancel concurrent decoding tasks
@@ -1111,7 +1111,7 @@ func (this *CompressedInputStream) decode(data, buf []byte,
 	if len(listeners_) > 0 {
 		// Notify before transform
 		evt, err := NewBlockEvent(EVT_BEFORE_TRANSFORM, currentBlockId,
-			int(compressedLength), checksum1, this.hasher != nil)
+			int(preTransformLength), checksum1, this.hasher != nil)
 
 		if err == nil {
 			for _, bl := range listeners_ {
@@ -1124,14 +1124,14 @@ func (this *CompressedInputStream) decode(data, buf []byte,
 
 	if ((mode & SMALL_BLOCK_MASK) != 0) || ((mode & SKIP_FUNCTION_MASK) != 0) {
 		if !bytes.Equal(buffer, data) {
-			copy(data, buffer[0:compressedLength])
+			copy(data, buffer[0:preTransformLength])
 		}
 
-		res.decoded = int(compressedLength)
+		res.decoded = int(preTransformLength)
 	} else {
 		// Each block is decoded separately
 		// Rebuild the entropy decoder to reset block statistics
-		transform, err := function.NewByteFunction(compressedLength, typeOfTransform)
+		transform, err := function.NewByteFunction(preTransformLength, typeOfTransform)
 
 		if err != nil {
 			// Error => return

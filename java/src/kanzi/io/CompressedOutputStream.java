@@ -45,12 +45,12 @@ public class CompressedOutputStream extends OutputStream
 {
    private static final int DEFAULT_BLOCK_SIZE       = 1024 * 1024; // Default block size
    private static final int BITSTREAM_TYPE           = 0x4B414E5A; // "KANZ"
-   private static final int BITSTREAM_FORMAT_VERSION = 4;
+   private static final int BITSTREAM_FORMAT_VERSION = 5;
    private static final int COPY_LENGTH_MASK         = 0x0F;
    private static final int SMALL_BLOCK_MASK         = 0x80;
    private static final int SKIP_FUNCTION_MASK       = 0x40;
    private static final int MIN_BLOCK_SIZE           = 1024;
-   private static final int MAX_BLOCK_SIZE           = (16*1024*1024) - 4;
+   private static final int MAX_BLOCK_SIZE           = (32*1024*1024) - 4;
    private static final int SMALL_BLOCK_SIZE         = 15;
    private static final byte[] EMPTY_BYTE_ARRAY      = new byte[0];
 
@@ -61,7 +61,6 @@ public class CompressedOutputStream extends OutputStream
    private final char entropyType;
    private final char transformType;
    private final OutputBitStream  obs;
-   private final PrintStream ds;
    private boolean initialized;
    private boolean closed;
    private final AtomicInteger blockId;
@@ -139,7 +138,6 @@ public class CompressedOutputStream extends OutputStream
       for (int i=0; i<this.jobs; i++)
          this.buffers[i] = new IndexedByteArray(EMPTY_BYTE_ARRAY, 0);
 
-      this.ds = debug;
       this.blockId = new AtomicInteger(0);
       this.listeners = new ArrayList<BlockListener>(10);
    }
@@ -498,7 +496,7 @@ public class CompressedOutputStream extends OutputStream
             buffer.index = 0;
             byte mode = 0;
             int dataSize = 0;
-            int compressedLength = blockLength;
+            int postTransformLength = blockLength;
             int checksum = 0;
 
             // Compute block checksum
@@ -536,19 +534,19 @@ public class CompressedOutputStream extends OutputStream
                   if (data.array != buffer.array)
                      System.arraycopy(data.array, savedIdx, buffer.array, 0, blockLength);
 
-                  data.index = savedIdx +  blockLength;
+                  data.index = savedIdx + blockLength;
                   buffer.index = blockLength;
                   mode |= SKIP_FUNCTION_MASK;
                }
 
-               compressedLength = buffer.index;
+               postTransformLength = buffer.index;
 
-               if (compressedLength < 0)
+               if (postTransformLength < 0)
                   return false;
 
                dataSize++;
 
-               for (int i=0xFF; i<compressedLength; i<<=8)
+               for (int i=0xFF; i<postTransformLength; i<<=8)
                   dataSize++;
 
                // Record size of 'block size' in bytes
@@ -559,7 +557,7 @@ public class CompressedOutputStream extends OutputStream
             {
                // Notify after transform
                BlockEvent evt = new BlockEvent(BlockEvent.Type.AFTER_TRANSFORM, currentBlockId,
-                       compressedLength, checksum, this.hasher != null);
+                       postTransformLength, checksum, this.hasher != null);
                
                for (BlockListener bl : this.listeners)
                   bl.processEvent(evt);
@@ -584,7 +582,7 @@ public class CompressedOutputStream extends OutputStream
             this.obs.writeBits(mode, 8);
 
             if (dataSize > 0)
-               this.obs.writeBits(compressedLength, 8*dataSize);
+               this.obs.writeBits(postTransformLength, 8*dataSize);
 
             // Write checksum
             if (this.hasher != null)
@@ -594,14 +592,14 @@ public class CompressedOutputStream extends OutputStream
             {
                // Notify before entropy
                BlockEvent evt = new BlockEvent(BlockEvent.Type.BEFORE_ENTROPY, currentBlockId,
-                       compressedLength, checksum, this.hasher != null);
+                       postTransformLength, checksum, this.hasher != null);
                
                for (BlockListener bl : this.listeners)
                   bl.processEvent(evt);
             }
 
             // Entropy encode block
-            if (ee.encode(buffer.array, 0, compressedLength) != compressedLength)
+            if (ee.encode(buffer.array, 0, postTransformLength) != postTransformLength)
                return false;
 
             // Dispose before displaying statistics. Dispose may write to the bitstream
