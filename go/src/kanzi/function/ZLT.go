@@ -121,7 +121,7 @@ func (this *ZLT) Forward(src, dst []byte) (uint, uint, error) {
 		srcIdx++
 	}
 
-	if srcIdx < srcEnd {
+	if srcIdx != srcEnd || runLength != 1 {
 		return srcIdx, dstIdx, errors.New("Output buffer is too small")
 	}
 

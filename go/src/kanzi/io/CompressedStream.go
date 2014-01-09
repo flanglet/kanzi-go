@@ -428,6 +428,11 @@ func (this *CompressedOutputStream) encode(data, buf []byte, blockLength uint,
 	buffer := buf
 	requiredSize := transform.MaxEncodedLen(int(blockLength))
 
+	if requiredSize == -1 {
+		// Max size unknown => guess
+		requiredSize = int(blockLength) * 5 >> 2
+	}
+
 	if typeOfTransform == 'N' {
 		buffer = data // share buffers if no transform
 	} else if len(buf) < requiredSize {
@@ -472,7 +477,7 @@ func (this *CompressedOutputStream) encode(data, buf []byte, blockLength uint,
 		// Forward transform
 		iIdx, oIdx, err = transform.Forward(data, buffer)
 
-		if err != nil || iIdx < blockLength {
+		if err != nil || oIdx >= blockLength {
 			// Transform failed or did not compress, skip and copy
 			if !kanzi.SameByteSlices(buffer, data, false) {
 				copy(buffer, data)
@@ -808,10 +813,15 @@ func (this *CompressedInputStream) Read(array []byte) (int, error) {
 	for remaining > 0 {
 		if this.curIdx >= this.maxIdx {
 			// Initially this.maxIdx = 0
-			// If this.maxIdx < this.iba.array.length, the end of stream has been
+			// If this.maxIdx < len(array), the end of stream has been
 			// reached in the previous call
 			if this.maxIdx > 0 && this.maxIdx < len(array) {
-				return len(array) - remaining, nil
+				if len(array) == remaining {
+					// EOF and we did not read any bytes in this call
+					return -1, nil
+				} else {
+					return len(array) - remaining, nil
+				}
 			}
 
 			var err error
@@ -822,7 +832,12 @@ func (this *CompressedInputStream) Read(array []byte) (int, error) {
 			}
 
 			if this.maxIdx == 0 {
-				return len(array) - remaining, nil
+				if len(array) == remaining {
+					// EOF and we did not read any bytes in this call
+					return -1, nil
+				} else {
+					return len(array) - remaining, nil
+				}
 			}
 		}
 
