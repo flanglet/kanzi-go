@@ -485,7 +485,10 @@ public class CompressedOutputStream extends OutputStream
          try
          {
             ByteFunction transform = new FunctionFactory().newFunction(blockLength, typeOfTransform);
-            final int requiredSize = transform.getMaxEncodedLength(blockLength);
+            int requiredSize = transform.getMaxEncodedLength(blockLength);
+            
+            if (requiredSize == -1) // Max size unknown => guess
+               requiredSize = (blockLength * 5) >> 2;
 
             if (typeOfTransform == 'N')
                buffer.array = data.array; // share buffers if no transform

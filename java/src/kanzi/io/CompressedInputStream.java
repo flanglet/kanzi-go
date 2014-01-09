@@ -319,8 +319,14 @@ public class CompressedInputStream extends InputStream
          int c2 = this.read();
 
          if (c2 == -1)
+         {
+            // EOF and we did not read any bytes in this call        
+            if (len == remaining)
+               return -1;
+                          
             break;
-
+         }
+         
          array[off++] = (byte) c2;
          remaining--;
       }
