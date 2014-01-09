@@ -99,6 +99,13 @@ func (this *DefaultInputBitStream) ReadBits(count uint) (uint64, error) {
 func (this *DefaultInputBitStream) readFromInputStream(count int) (int, error) {
 	this.read += uint64((this.maxPosition + 1) << 3)
 	size, err := this.is.Read(this.buffer[0:count])
+	this.position = 0
+
+	if size <= 0 {
+		this.maxPosition = -1
+	} else {
+		this.maxPosition = size - 1
+	}
 
 	if err != nil {
 		return size, err
@@ -108,8 +115,6 @@ func (this *DefaultInputBitStream) readFromInputStream(count int) (int, error) {
 		return size, errors.New("No more data to read in the bitstream")
 	}
 
-	this.position = 0
-	this.maxPosition = size - 1
 	return size, nil
 }
 

@@ -66,24 +66,29 @@ public final class DefaultInputBitStream implements InputBitStream
 
    private int readFromInputStream(int count) throws BitStreamException
    {
+      int size = -1;
+      
       try
       {
          this.read += ((this.maxPosition+1) << 3);
-         final int size = this.is.read(this.buffer, 0, count);
+         size = this.is.read(this.buffer, 0, count);
 
          if (size <= 0)
          {
             throw new BitStreamException("No more data to read in the bitstream",
                     BitStreamException.END_OF_STREAM);
          }
-         
-         this.position = 0;
-         this.maxPosition = size - 1;
+
          return size;
       }
       catch (IOException e)
       {
          throw new BitStreamException(e.getMessage(), BitStreamException.INPUT_OUTPUT);
+      }
+      finally 
+      {
+         this.position = 0;
+         this.maxPosition = (size <= 0) ? -1 : size - 1;
       }
    }
 
