@@ -16,8 +16,8 @@ limitations under the License.
 package kanzi.io;
 
 import java.io.PrintStream;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 
@@ -42,7 +42,7 @@ public class InfoPrinter implements BlockListener
       this.ps = ps;
       this.blockId = new AtomicInteger();
       this.type = type;
-      this.map = new HashMap<Integer, BlockInfo>();
+      this.map = new ConcurrentHashMap<Integer, BlockInfo>();
       this.thresholds = (type == Type.ENCODING) ? 
               new BlockEvent.Type[]
               { 
@@ -97,7 +97,7 @@ public class InfoPrinter implements BlockListener
          if (bi == null)
             return;
              
-         long duration_ms = (System.nanoTime() - bi.time) / 1000000L; 
+         //long duration_ms = (System.nanoTime() - bi.time) / 1000000L; 
          
          // Display block info
          String msg = String.format("Block %d: %d => %d => %d", currentBlockId, 
