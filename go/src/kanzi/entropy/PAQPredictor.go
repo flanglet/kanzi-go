@@ -268,7 +268,7 @@ func (this *PAQPredictor) Update(bit byte) {
 	this.states[this.ctxPtr] = STATE_TABLE[this.states[this.ctxPtr]][y]
 
 	// update context
-	this.c0 += (this.c0 + uint(y))
+	this.c0 = (this.c0 << 1) | uint(y)
 	this.bpos++
 
 	if this.bpos == 8 {
@@ -304,16 +304,18 @@ func (this *PAQPredictor) Update(bit byte) {
 	pred = this.apm3.get(y, pred, this.runCtx, 8)
 	//     ctx := int(this.c0 ^ (((this.c4*uint64(123456791)) & uint64(0xFFFFFFFF)) >> 21)))
 	//     pred = (this.apm5.get(y, pred, ctx, 7) + pred + 1) >> 1
-	this.pr = uint(this.apm4.get(y, pred, this.c0, 7) + pred + 1) >> 1
+	pred = (this.apm4.get(y, pred, this.c0, 7) + pred + 1) >> 1
+	
+	if pred >= 2048 {
+		this.pr = uint(pred)
+	} else {
+		this.pr = uint(pred + 1)
+	}
 }
 
 // Return the split value representing the probability of 1 in the [0..4095] range.
 func (this *PAQPredictor) Get() uint {
-	if this.pr >= 2048 {
-		return this.pr
-	}
-
-	return this.pr + 1
+	return this.pr
 }
 
 // return p = 1/(1 + exp(-d)), d scaled by 8 bits, p scaled by 12 bits

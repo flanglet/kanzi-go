@@ -263,7 +263,7 @@ public class PAQPredictor implements Predictor
      this.states[this.ctxPtr] = STATE_TABLE[this.states[this.ctxPtr]][y];
 
      // update context
-     this.c0 += (this.c0 + y);
+     this.c0 = (this.c0 << 1) | y;
 
      if (++this.bpos == 8)
      {
@@ -300,7 +300,8 @@ public class PAQPredictor implements Predictor
 // Disable APM5 for now. Seems like a good trade off speed/compression ratio     
 //     final int ctx = (int) (this.c0 ^ (((this.c4*123456791L) & 0xFFFFFFFFL) >> 21));
 //     pred = (this.apm5.get(y, pred, ctx, 7) + pred + 1) >> 1;
-     this.pr = (this.apm4.get(y, pred, this.c0, 7) + pred + 1) >> 1;
+     pred = (this.apm4.get(y, pred, this.c0, 7) + pred + 1) >> 1;
+     this.pr = (pred >= 2048) ? pred : pred+1;
    }
 
 
@@ -308,7 +309,7 @@ public class PAQPredictor implements Predictor
    @Override
    public int get()
    {
-      return (this.pr >= 2048) ? this.pr : this.pr+1;
+      return this.pr;
    }
 
 
