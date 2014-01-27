@@ -145,11 +145,11 @@ public class BWT implements ByteTransform
            return true;
         }
 
-       // Lazy dynamic memory allocation
+        // Lazy dynamic memory allocation
         if (this.buffer2.length < count)
            this.buffer2 = new int[count];
 
-       // Lazy dynamic memory allocation
+        // Lazy dynamic memory allocation
         if (this.buffer1.length < count)
            this.buffer1 = new int[count];
         
@@ -170,6 +170,8 @@ public class BWT implements ByteTransform
            output[dstIdx+i] = (byte) sa[i];
 
         this.setPrimaryIndex(pIdx);
+        src.index += count;
+        dst.index += count;
         return true;
     }
 
