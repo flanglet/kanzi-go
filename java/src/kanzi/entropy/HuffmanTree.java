@@ -35,10 +35,17 @@ public final class HuffmanTree
           if (sizes[i] > 0)
              array[n++] = i;
        }
+     
+       if (n == 0) 
+          return 0;
        
        // Sort by decreasing size (first key) and increasing value (second key)
-       QuickSort sorter = new QuickSort(new HuffmanArrayComparator(sizes));
-       sorter.sort(array, 0, n);
+       if (n > 1)
+       {
+          QuickSort sorter = new QuickSort(new HuffmanArrayComparator(sizes));
+          sorter.sort(array, 0, n);
+       }
+       
        int code = 0;
        int len = sizes[array[0]];
 
@@ -109,12 +116,9 @@ public final class HuffmanTree
         {
             // Check sizes (reverse order) as first key
             final int res = this.array[ridx] - this.array[lidx];
-            
-            if (res != 0)
-               return res;
 
             // Check value (natural order) as second key
-            return lidx - ridx;
+            return (res != 0) ? res : lidx - ridx;
         }
     }  
 }

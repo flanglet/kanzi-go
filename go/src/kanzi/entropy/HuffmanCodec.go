@@ -98,8 +98,15 @@ func GenerateCanonicalCodes(sizes []uint8, codes []uint) int {
 		}
 	}
 
+	if n == 0 {
+		return 0
+	}
+
 	// Sort by decreasing size (first key) and increasing value (second key)
-	sort.Sort(array[0:n])
+	if n > 1 {
+		sort.Sort(array[0:n])
+	}
+
 	code := uint(0)
 	length := sizes[array[0].symbol]
 
@@ -188,8 +195,14 @@ func createTreeFromFrequencies(frequencies []uint, sizes_ []uint8) *HuffmanNode 
 		}
 	}
 
+	if n == 0 {
+		return nil
+	}
+
 	// Sort by frequency
-	sort.Sort(array[0:n])
+	if n > 1 {
+		sort.Sort(array[0:n])
+	}
 
 	// Create Huffman tree of (present) symbols
 	queue1 := list.New()
@@ -238,7 +251,12 @@ func createTreeFromFrequencies(frequencies []uint, sizes_ []uint8) *HuffmanNode 
 		rootNode = queue1.Front().Value.(*HuffmanNode)
 	}
 
-	fillTree(rootNode, 0, sizes_)
+	if n == 1 {
+		sizes_[rootNode.symbol] = uint8(1)
+	} else {
+		fillTree(rootNode, 0, sizes_)
+	}
+
 	return rootNode
 }
 
@@ -307,6 +325,10 @@ func (this *HuffmanEncoder) UpdateFrequencies(frequencies []uint) error {
 func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
 	if block == nil {
 		return 0, errors.New("Invalid null block parameter")
+	}
+
+	if len(block) == 0 {
+		return 0, nil
 	}
 
 	buf := this.buffer // aliasing
@@ -422,12 +444,13 @@ func NewHuffmanDecoder(bs kanzi.InputBitStream, chunkSizes ...uint) (*HuffmanDec
 
 	// Create tree from code sizes
 	this.root = this.createTreeFromSizes(8)
-	this.decodingCache = buildDecodingCache(this.root, make([]*HuffmanCacheData, 1<<DECODING_BATCH_SIZE))
+	this.decodingCache = this.buildDecodingCache(make([]*HuffmanCacheData, 1<<DECODING_BATCH_SIZE))
 	this.current = this.decodingCache[0] // point to root
 	return this, nil
 }
 
-func buildDecodingCache(rootNode *HuffmanNode, cache []*HuffmanCacheData) []*HuffmanCacheData {
+func (this *HuffmanDecoder) buildDecodingCache(cache []*HuffmanCacheData) []*HuffmanCacheData {
+	rootNode := this.root
 	end := 1 << DECODING_BATCH_SIZE
 	var previousData *HuffmanCacheData
 
@@ -457,9 +480,19 @@ func buildDecodingCache(rootNode *HuffmanNode, cache []*HuffmanCacheData) []*Huf
 
 				shift--
 
-				if shift < 0 {
+				// Current node is null only if there is only 1 symbol (Huffman code 0).
+				// In this case, trying to map an impossible value (non zero) to
+				// a node fails.
+				if shift < 0 || currentNode == nil {
 					break
 				}
+			}
+
+			// If there is only 1 Huffman symbol to decode (0), no need to create
+			// a big cache. Stop here and return.
+			if currentNode == nil {
+				previousData.next = nil
+				return cache
 			}
 
 			// Reuse cache data objects when recreating the cache
@@ -604,7 +637,7 @@ func (this *HuffmanDecoder) ReadLengths() error {
 
 	// Create tree from code sizes
 	this.root = this.createTreeFromSizes(uint(maxSize))
-	buildDecodingCache(this.root, this.decodingCache)
+	this.buildDecodingCache(this.decodingCache)
 	this.current = &HuffmanCacheData{value: this.root} // point to root
 	return nil
 }
@@ -614,6 +647,10 @@ func (this *HuffmanDecoder) ReadLengths() error {
 func (this *HuffmanDecoder) Decode(block []byte) (int, error) {
 	if block == nil {
 		return 0, errors.New("Invalid null block parameter")
+	}
+
+	if len(block) == 0 {
+		return 0, nil
 	}
 
 	end := len(block)

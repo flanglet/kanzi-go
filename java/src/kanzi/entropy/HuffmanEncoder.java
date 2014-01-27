@@ -114,6 +114,9 @@ public class HuffmanEncoder extends AbstractEncoder
        if ((array == null) || (blkptr + len > array.length) || (blkptr < 0) || (len < 0))
           return -1;
 
+       if (len == 0)
+          return 0;
+       
        final int[] frequencies = this.buffer;
        final int end = blkptr + len;
        final int sz = (this.chunkSize == 0) ? len : this.chunkSize;
@@ -168,11 +171,17 @@ public class HuffmanEncoder extends AbstractEncoder
           if (frequencies[i] > 0)
              array[n++] = i;
        }
+       
+       if (n == 0)
+          return null;
 
        // Sort by frequency
-       QuickSort sorter = new QuickSort(new DefaultArrayComparator(frequencies));
-       sorter.sort(array, 0, n);
-
+       if (n > 1)
+       {
+          QuickSort sorter = new QuickSort(new DefaultArrayComparator(frequencies));
+          sorter.sort(array, 0, n);
+       }
+       
        // Create Huffman tree of (present) symbols
        LinkedList<Node> queue1 = new LinkedList<Node>();
        LinkedList<Node> queue2 = new LinkedList<Node>();
@@ -213,7 +222,12 @@ public class HuffmanEncoder extends AbstractEncoder
        }
 
        final Node rootNode = ((queue1.isEmpty()) ? queue2.removeFirst() : queue1.removeFirst());
-       fillTree(rootNode, 0, sizes_);
+       
+       if (n == 1)
+          sizes_[rootNode.symbol & 0xFF] = (short) 1;
+       else
+          fillTree(rootNode, 0, sizes_);
+       
        return rootNode;
     }
 

@@ -15,7 +15,6 @@ limitations under the License.
 
 package kanzi.test;
 
-import kanzi.BitStreamException;
 import kanzi.bitstream.DebugInputBitStream;
 import kanzi.entropy.HuffmanDecoder;
 import kanzi.entropy.HuffmanEncoder;
@@ -55,14 +54,28 @@ public class TestHuffmanCoder
                      values = new int[] { 0, 0, 32, 15, -4, 16, 0, 16, 0, 7, -1, -4, -32, 0, 31, -1 };
                 else if (ii == 2)
                      values = new int[] { 0x3d, 0x4d, 0x54, 0x47, 0x5a, 0x36, 0x39, 0x26, 0x72, 0x6f, 0x6c, 0x65, 0x3d, 0x70, 0x72, 0x65 };
-                else if (ii == 1)
+                else if (ii == 4)
                      values = new int[] { 65, 71, 74, 66, 76, 65, 69, 77, 74, 79, 68, 75, 73, 72, 77, 68, 78, 65, 79, 79, 78, 66, 77, 71, 64, 70, 74, 77, 64, 67, 71, 64 };
+                else if (ii == 1)
+                {
+                     values = new int[32];
+
+                     for (int i=0; i<values.length; i++)
+                          values[i] = 2; // all identical
+                }
+                else if (ii == 5)
+                {
+                     values = new int[32];
+
+                     for (int i=0; i<values.length; i++)
+                          values[i] = 2 + (i&1); // 2 symbols
+                }
                 else
                 {
                      values = new int[32];
 
                      for (int i=0; i<values.length; i++)
-                          values[i] = 64 + (random.nextInt() & 31);
+                          values[i] = (random.nextInt() & 31);
                 }
 
                 System.out.println("Original:");
@@ -98,27 +111,20 @@ public class TestHuffmanCoder
                 DebugInputBitStream dbgbs2 = new DebugInputBitStream(bs2, System.out);
                 dbgbs2.setMark(true);
                 HuffmanDecoder rd = new HuffmanDecoder(dbgbs2);
-                rd.readLengths();
+//                rd.readLengths();
                 System.out.println("\nDecoded:");
                 int len = values.length; // buf.length >> 3;
                 boolean ok = true;
-                int[] values2 = new int[values.length];
+                byte[] values2 = new byte[values.length];
+                rd.decode(values2, 0, values.length);
 
-                for (int i=0, j=0; i<len; i++)
+                for (int j=0; j<len; j++)
                 {
-                    try
-                    {
-                        int n = rd.decodeByte();
-                        values2[j] = n;
-
-                        if (values[j++] != n)
-                           ok = false;
-                    }
-                    catch (BitStreamException e)
-                    {
-                        e.printStackTrace();
-                        break;
-                    }
+                   if (values2[j] != values[j])
+                   {
+                      ok = false;
+                      break;
+                   }
                 }
 
                 System.out.println();

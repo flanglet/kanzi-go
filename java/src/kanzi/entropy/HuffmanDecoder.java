@@ -73,15 +73,16 @@ public class HuffmanDecoder extends AbstractDecoder
 
        // Create tree from code sizes
        this.root = this.createTreeFromSizes(8);
-       this.decodingCache = buildDecodingCache(this.root, new CacheData[1<<DECODING_BATCH_SIZE]);
+       this.decodingCache = this.buildDecodingCache(new CacheData[1<<DECODING_BATCH_SIZE]);
        this.current = this.decodingCache[0]; // point to root
     }
 
 
-    private static CacheData[] buildDecodingCache(Node rootNode, CacheData[] cache)
+    private CacheData[] buildDecodingCache(CacheData[] cache)
     {
+       Node rootNode = this.root;
        final int end = 1 << DECODING_BATCH_SIZE;
-       CacheData previousData = (cache[0] == null) ? new CacheData(rootNode) : cache[0];
+       CacheData previousData = (cache[0] == null) ? new CacheData(this.root) : cache[0];
 
        // Create an array storing a list of tree nodes (shortcuts) for each input value
        for (int val=0; val<end; val++)
@@ -99,10 +100,21 @@ public class HuffmanDecoder extends AbstractDecoder
              {
                 currentNode = (((val >> shift) & 1) == 0) ? currentNode.left : currentNode.right;
 
-                if (--shift < 0)
-                   break;
+                // Current node is null only if there is only 1 symbol (Huffman code 0).
+                // In this case, trying to map an impossible value (non zero) to
+                // a node fails.
+                if ((--shift < 0) || (currentNode == null))
+                   break;            
              }
 
+             // If there is only 1 Huffman symbol to decode (0), no need to create 
+             // a big cache. Stop here and return.
+             if (currentNode == null)
+             {                
+                previousData.next = null;
+                return cache;
+             }
+             
              // Reuse cache data objects when recreating the cache
              if (previousData.next == null)
                 previousData.next = new CacheData(currentNode);
@@ -229,7 +241,7 @@ public class HuffmanDecoder extends AbstractDecoder
 
         // Create tree from code sizes
         this.root = this.createTreeFromSizes(maxSize);
-        buildDecodingCache(this.root, this.decodingCache);
+        this.buildDecodingCache(this.decodingCache);
         this.current = new CacheData(this.root); // point to root
         return true;
     }
@@ -243,6 +255,9 @@ public class HuffmanDecoder extends AbstractDecoder
        if ((array == null) || (blkptr + len > array.length) || (blkptr < 0) || (len < 0))
          return -1;
 
+       if (len == 0)
+          return 0;
+        
        final int sz = (this.chunkSize == 0) ? len : this.chunkSize;
        int startChunk = blkptr;
        final int end = blkptr + len;
@@ -255,7 +270,7 @@ public class HuffmanDecoder extends AbstractDecoder
           this.readLengths();
           final int endChunk1 = endChunk - DECODING_BATCH_SIZE;
           int i = startChunk;
-
+                 
           try
           {
              // Fast decoding by reading several bits at a time from the bitstream
@@ -297,7 +312,7 @@ public class HuffmanDecoder extends AbstractDecoder
 
        return currNode.symbol;
     }
-
+    
 
     // DECODING_BATCH_SIZE bits must be available in the bitstream
     protected final byte fastDecodeByte()
@@ -363,6 +378,30 @@ public class HuffmanDecoder extends AbstractDecoder
               return len;
 
           return this.code - k.code;
+       }
+
+       @Override
+       public boolean equals(Object o)
+       {
+          if (o == this)
+             return true;
+
+          if (o == null)
+             return false;
+
+          final Key k = (Key) o;
+          final int len = this.length - k.length;
+
+          if (len != 0)
+             return false;
+
+          return (this.code == k.code) ? true : false;
+       }
+
+       @Override
+       public int hashCode() 
+       {
+          return this.code & ((1 << this.length) - 1);
        }
     }
 
