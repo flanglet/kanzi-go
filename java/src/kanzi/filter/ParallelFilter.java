@@ -89,7 +89,6 @@ public class ParallelFilter implements IntFilter
    {
       final int nbThreads = this.delegates.length;
       ArrayList<Callable<Boolean>> filterTasks = new ArrayList<Callable<Boolean>>(nbThreads);
-      List<Future<Boolean>> results = new ArrayList<Future<Boolean>>(nbThreads);
       final int area = this.height * this.stride;
       boolean res = true;
       
@@ -101,12 +100,12 @@ public class ParallelFilter implements IntFilter
          int dstIdx  = (this.direction == HORIZONTAL) ? destination.index + (area * i) / nbThreads
                  : destination.index + (this.width * i) / nbThreads;
          IndexedIntArray dst = new IndexedIntArray(destination.array, dstIdx); 
-         filterTasks.add(new FilterTask(i, this.delegates[i], src, dst));
+         filterTasks.add(new FilterTask(this.delegates[i], src, dst));
       } 
       
       try 
       {
-         results = this.pool.invokeAll(filterTasks);
+         List<Future<Boolean>> results = this.pool.invokeAll(filterTasks);
       
          for (Future<Boolean> fr : results)
             res &= fr.get();      
@@ -126,15 +125,13 @@ public class ParallelFilter implements IntFilter
    
    static class FilterTask implements Callable<Boolean>
    {
-      final int id;
       final IndexedIntArray src;
       final IndexedIntArray dst;
       final IntFilter filter;
       
       
-      public FilterTask(int id, IntFilter filter, IndexedIntArray src, IndexedIntArray dst) 
+      public FilterTask(IntFilter filter, IndexedIntArray src, IndexedIntArray dst) 
       {
-         this.id = id;
          this.filter = filter;
          this.src = src;
          this.dst = dst;
