@@ -115,13 +115,7 @@ public class TestRLT
 
                if (rlt.forward(iba1, iba2) == false)
                {
-                  System.out.println("\nEncoding error");
-                  continue;
-               }
-
-               if (iba1.index != input.length)
-               {
-                  System.out.println("\nNo compression (ratio > 1.0), skip reverse");
+                  System.out.println("\nEncoding error or compression ratio > 1.0");
                   continue;
                }
 
@@ -133,7 +127,7 @@ public class TestRLT
                   System.out.print((output[i] & 255) + " "); //+"("+Integer.toBinaryString(output[i] & 255)+") ");
                }
 
-               rlt = new RLT(); // Required to reset internal attributes
+               rlt = new RLT(iba2.index); // Required to reset internal attributes
                iba1.index = 0;
                iba2.index = 0;
                iba3.index = 0;
@@ -224,7 +218,7 @@ public class TestRLT
             after = System.nanoTime();
             delta1 += (after - before);
 
-            rlt = new RLT(); // Required to reset internal attributes
+            rlt = new RLT(iba2.index); // Required to reset internal attributes
             iba3.index = 0;
             iba2.index = 0;
             before = System.nanoTime();

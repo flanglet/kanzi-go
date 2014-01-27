@@ -91,7 +91,7 @@ func TestCorrectness() {
 			input[i] = byte(arr[i])
 		}
 
-		rlt, _ := function.NewRLT(0, 3)
+		rlt, _ := function.NewRLT(uint(size), 3)
 		fmt.Printf("\nOriginal: ")
 
 		for i := range arr {
@@ -102,7 +102,7 @@ func TestCorrectness() {
 		srcIdx, dstIdx, err := rlt.Forward(input, output)
 
 		if err != nil {
-			fmt.Printf("\n===Encoding error===")
+			fmt.Printf("\nEncoding error")
 			continue
 		}
 
@@ -116,9 +116,15 @@ func TestCorrectness() {
 		}
 
 		// Required to reset internal attributes
-		rlt, _ = function.NewRLT(0, 3)
+		rlt, _ = function.NewRLT(dstIdx, 3)
 
 		srcIdx, _, err = rlt.Inverse(output, reverse)
+
+		if err != nil {
+			fmt.Printf("\nDecoding error")
+			continue
+		}
+
 		fmt.Printf("\nDecoded: ")
 
 		for i := range reverse {
@@ -141,7 +147,7 @@ func TestCorrectness() {
 
 func TestSpeed() {
 	iter := 50000
-	size := 30000
+	size := 50000
 	fmt.Printf("\n\nSpeed test\n")
 	fmt.Printf("Iterations: %v\n", iter)
 

@@ -83,6 +83,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 	dstEnd := uint(len(dst))
 	run := 1
 	threshold := int(this.runThreshold)
+	maxThreshold := RLT_MAX_RUN + int(this.runThreshold)
 	srcIdx := uint(0)
 	dstIdx := uint(0)
 
@@ -94,7 +95,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 		srcIdx++
 
 		// Encode up to 0x7FFF repetitions in the 'length' information
-		if prev == val && run < RLT_MAX_RUN {
+		if prev == val && run < maxThreshold {
 			run++
 
 			if run < threshold {
@@ -196,9 +197,7 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 				}
 
 				// Emit length times the previous byte
-				run--
-
-				for run >= 0 {
+				for run > 0 {
 					dst[dstIdx] = prev
 					dstIdx++
 					run--

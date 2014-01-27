@@ -83,21 +83,22 @@ public class RLT implements ByteFunction
       final byte[] dst = destination.array;
       final int srcEnd = (this.size == 0) ? src.length : srcIdx + this.size;
       final int dstEnd = dst.length;
-      boolean res = true;
+      boolean res;
       int run = 0;
       final int threshold = this.runThreshold;
+      final int maxThreshold = MAX_RUN_VALUE + this.runThreshold;
       
       // Initialize with a value different from the first data
-      byte prev = (byte) (~src[srcIdx]);
+      byte prev = (byte) ~src[srcIdx];
 
       try
-      {
+      {        
          while ((srcIdx < srcEnd) && (dstIdx < dstEnd))
          {
             final byte val = src[srcIdx++];
 
             // Encode up to 0x7FFF repetitions in the 'length' information
-            if ((prev == val) && (run < MAX_RUN_VALUE))
+            if ((prev == val) && (run < maxThreshold))
             {
                if (++run < threshold)
                   dst[dstIdx++] = prev;
@@ -114,7 +115,7 @@ public class RLT implements ByteFunction
                if (run >= TWO_BYTE_RLE_MASK)
                   dst[dstIdx++] = (byte) ((run >> 8) | TWO_BYTE_RLE_MASK);
 
-               dst[dstIdx++] = (byte) (run & 0xFF);
+               dst[dstIdx++] = (byte) run;
                run = 1;
             }
 
@@ -137,8 +138,10 @@ public class RLT implements ByteFunction
             if (run >= TWO_BYTE_RLE_MASK)
                dst[dstIdx++] = (byte) ((run >> 8) | TWO_BYTE_RLE_MASK);
 
-            dst[dstIdx++] = (byte) (run & 0xFF);
+            dst[dstIdx++] = (byte) run;
          }
+         
+         res = (srcIdx == srcEnd) ? true : false;
       }
       catch (ArrayIndexOutOfBoundsException e)
       {
@@ -165,10 +168,10 @@ public class RLT implements ByteFunction
       final int dstEnd = dst.length;
       int run = 0;
       final int threshold = this.runThreshold;
-      boolean res = true;
+      boolean res;
 
       // Initialize with a value different from the first data
-      byte prev = (byte) (~src[srcIdx]);
+      byte prev = (byte) ~src[srcIdx];
 
       try
       {
@@ -192,6 +195,8 @@ public class RLT implements ByteFunction
                   // Emit length times the previous byte
                   while (--run >= 0)
                      dst[dstIdx++] = prev;
+                  
+                  run = 0;
                }
             }
             else
@@ -202,6 +207,8 @@ public class RLT implements ByteFunction
 
             dst[dstIdx++] = val;
          }
+         
+         res = (srcIdx == srcEnd) ? true : false;         
       }
       catch (ArrayIndexOutOfBoundsException e)
       {
