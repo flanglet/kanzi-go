@@ -22,34 +22,31 @@ public class FPAQPredictor implements Predictor
    private static final int THRESHOLD = 200;
    private static final int SHIFT = 1;
    
-   private final short[][] states; // 256 frequency contexts for each bit
+   private final short[] states; // 256 frequency contexts for each bit
    private int ctxIdx; // previous bits
      
    
    public FPAQPredictor()
    {
       this.ctxIdx = 1;
-      this.states = new short[256][];
-      
-      for (int i=this.states.length-1; i>=0; i--)
-         this.states[i] = new short[2];      
+      this.states = new short[512];    
    }
    
    
    @Override
    public void update(int bit)
    {
+      final int idx = this.ctxIdx << 1;
+      
       // Find the number of registered 0 & 1 given the previous bits (in this.ctxIdx)
-      final short[] st = this.states[this.ctxIdx];
-    
-      if (++st[bit] >= THRESHOLD) 
+      if (++this.states[idx+(bit&1)] >= THRESHOLD) 
       {
-         st[0] >>= SHIFT;
-         st[1] >>= SHIFT;
+         this.states[idx] >>>= SHIFT;
+         this.states[idx+1] >>>= SHIFT;
       }
       
       // Update context by registering the current bit (or wrapping after 8 bits)
-      this.ctxIdx = (this.ctxIdx < 128) ? (this.ctxIdx << 1) | bit : 1;
+      this.ctxIdx = (this.ctxIdx < 128) ? (this.ctxIdx << 1) | (bit&1) : 1;
    }
 
    
@@ -57,7 +54,7 @@ public class FPAQPredictor implements Predictor
    @Override
    public int get()
    {
-      final short[] st = this.states[this.ctxIdx];
-      return ((st[1]+1) << 12) / (st[0]+st[1]+2);      
+      final int idx = this.ctxIdx << 1;
+      return ((this.states[idx+1]+1)<<12) / (this.states[idx]+this.states[idx+1]+2);         
    }
 }   

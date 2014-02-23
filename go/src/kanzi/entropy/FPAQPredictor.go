@@ -24,43 +24,40 @@ const (
 // Simple (and fast) adaptive order 0 entropy coder predictor
 type FPAQPredictor struct {
 	ctxIdx int           // previous bits
-	states [256][]uint16 // 256 frequency contexts for each bit
+	states []uint16 // 256 frequency contexts for each bit
 }
 
 func NewFPAQPredictor() (*FPAQPredictor, error) {
 	this := new(FPAQPredictor)
 	this.ctxIdx = 1
-
-	for i := 255; i >= 0; i-- {
-		this.states[i] = make([]uint16, 2)
-	}
-
+	this.states = make([]uint16, 512)
 	return this, nil
 }
 
 // Used to update the probability model
 func (this *FPAQPredictor) Update(bit byte) {
 	// Find the number of registered 0 & 1 given the previous bits (in this.ctxIdx)
-	st := this.states[this.ctxIdx]
-	st[bit]++
+	idx := this.ctxIdx << 1
+	b := int(bit) & 1
+	this.states[idx+b]++
 
-	if st[bit] >= THRESHOLD {
-		st[0] >>= SHIFT
-		st[1] >>= SHIFT
+	if this.states[idx+b] >= THRESHOLD {
+		this.states[idx]   >>= SHIFT
+		this.states[idx+1] >>= SHIFT
 	}
 
 	// Update context by registering the current bit (or wrapping after 8 bits)
 	if this.ctxIdx >= 128 {
 		this.ctxIdx = 1
 	} else {
-		this.ctxIdx = (this.ctxIdx << 1) | int(bit)
+		this.ctxIdx = (this.ctxIdx << 1) | b
 	}
 }
 
 // Return the split value representing the probability of 1 in the [0..4095] range.
 func (this *FPAQPredictor) Get() uint {
-	st := this.states[this.ctxIdx]
-	numberOfOnes := uint(st[1]+1)
-	numberOfBits := uint(st[0]+st[1]+2)
+	idx := this.ctxIdx << 1
+	numberOfOnes := uint(this.states[idx+1]+1)
+	numberOfBits := uint(this.states[idx]+this.states[idx+1]+2)
 	return (numberOfOnes<<12) / numberOfBits
 }

@@ -80,7 +80,7 @@ public class BinaryEntropyEncoder extends AbstractEncoder
 
       // Write unchanged first 32 bits to bitstream
       while (((this.low ^ this.high) & MASK_24_56) == 0)
-         flush();
+         this.flush();
 
       return true;
    }
