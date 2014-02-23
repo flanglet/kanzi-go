@@ -46,6 +46,7 @@ public class CompressedInputStream extends InputStream
    private static final int COPY_LENGTH_MASK         = 0x0F;
    private static final int SMALL_BLOCK_MASK         = 0x80;
    private static final int SKIP_FUNCTION_MASK       = 0x40;
+   private static final int MIN_BLOCK_SIZE           = 1024;
    private static final int MAX_BLOCK_SIZE           = (32*1024*1024) - 4;
    private static final byte[] EMPTY_BYTE_ARRAY      = new byte[0];
    private static final int CANCEL_TASKS_ID          = -1;
@@ -143,7 +144,7 @@ public class CompressedInputStream extends InputStream
       // Read block size
       this.blockSize = (int) this.ibs.readBits(26);
 
-      if ((this.blockSize < 0) || (this.blockSize > MAX_BLOCK_SIZE))
+      if ((this.blockSize < MIN_BLOCK_SIZE) || (this.blockSize > MAX_BLOCK_SIZE))
          throw new kanzi.io.IOException("Invalid bitstream, incorrect block size: " + this.blockSize,
                  Error.ERR_BLOCK_SIZE);
 
@@ -451,7 +452,7 @@ public class CompressedInputStream extends InputStream
    // A task used to decode a block
    // Several tasks may run in parallel. The transforms can be computed concurrently
    // but the entropy decoding is sequential since all tasks share the same bitstream.
-   class DecodingTask implements Callable<Integer>
+   static class DecodingTask implements Callable<Integer>
    {
       private final IndexedByteArray data;
       private final IndexedByteArray buffer;
@@ -566,9 +567,14 @@ public class CompressedInputStream extends InputStream
 
             if (typeOfTransform == 'N')
                buffer.array = data.array; // share buffers if no transform
-            else if (buffer.array.length < this.blockSize)
-               buffer.array = new byte[this.blockSize];
+            else 
+            {
+               int bufferSize = (this.blockSize >= preTransformLength) ? this.blockSize : preTransformLength;
 
+               if (buffer.array.length < bufferSize)
+                  buffer.array = new byte[bufferSize];
+            }
+            
             final int savedIdx = data.index;
 
             // Block entropy decode

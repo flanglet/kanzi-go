@@ -111,23 +111,8 @@ public class CompressedOutputStream extends OutputStream
 
       final int bufferSize = (blockSize > 65536) ? blockSize : 65536;
       this.obs = new DefaultOutputBitStream(os, bufferSize);
-
-      // Check entropy type validity (throws if not valid)
-      char eType = entropyCodec.toUpperCase().charAt(0);
-      String checkedEntropyType = new EntropyCodecFactory().getName((byte) eType);
-
-      if (entropyCodec.equalsIgnoreCase(checkedEntropyType) == false)
-         throw new IllegalArgumentException("Unsupported entropy type: " + entropyCodec);
-
-      // Check transform type validity (throws if not valid)
-      char tType = functionType.toUpperCase().charAt(0);
-      String checkedFunctionType = new FunctionFactory().getName((byte) tType);
-
-      if (functionType.equalsIgnoreCase(checkedFunctionType) == false)
-         throw new IllegalArgumentException("Unsupported function type: " + functionType);
-
-      this.entropyType = eType;
-      this.transformType = tType;
+      this.entropyType = (char) new EntropyCodecFactory().getType(entropyCodec);
+      this.transformType = (char) new FunctionFactory().getType(functionType);
       this.blockSize = blockSize;
       this.hasher = (checksum == true) ? new XXHash(BITSTREAM_TYPE) : null;
       this.jobs = jobs;
@@ -434,7 +419,7 @@ public class CompressedOutputStream extends OutputStream
    // A task used to encode a block
    // Several tasks may run in parallel. The transforms can be computed concurrently
    // but the entropy encoding is sequential since all tasks share the same bitstream.
-   class EncodingTask implements Callable<Boolean>
+   static class EncodingTask implements Callable<Boolean>
    {
       private final IndexedByteArray data;
       private final IndexedByteArray buffer;
@@ -528,9 +513,9 @@ public class CompressedOutputStream extends OutputStream
                final int savedIdx = data.index;
 
                // Forward transform
-               if ((transform.forward(data, buffer) == false) || (buffer.index >= blockLength))
+               if (transform.forward(data, buffer) == false)
                {
-                  // Transform failed or did not compress, skip and copy block
+                  // Transform failed (probably due to lack of space in output buffer)
                   if (data.array != buffer.array)
                      System.arraycopy(data.array, savedIdx, buffer.array, 0, blockLength);
 

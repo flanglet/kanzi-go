@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"kanzi"
+	"strings"
 )
 
 const (
@@ -28,12 +29,13 @@ const (
 	ZLT_TYPE    = byte(90) // 'Z'
 	LZ4_TYPE    = byte(76) // 'L'
 	NONE_TYPE   = byte(78) // 'N'
+	BWT_TYPE    = byte(87) // 'W'
 )
 
 func NewByteFunction(size uint, functionType byte) (kanzi.ByteFunction, error) {
 	switch functionType {
 	case BLOCK_TYPE:
-		return NewBlockCodec(size)
+		return NewBlockCodec(size, true) // BWT+MTFT+ZLT
 
 	case SNAPPY_TYPE:
 		return NewSnappyCodec(size)
@@ -46,6 +48,9 @@ func NewByteFunction(size uint, functionType byte) (kanzi.ByteFunction, error) {
 
 	case ZLT_TYPE:
 		return NewZLT(size)
+		
+	case BWT_TYPE:
+		return NewBlockCodec(size, false) // raw BWT
 
 	case NONE_TYPE:
 		return NewNullFunction(size)
@@ -72,10 +77,41 @@ func GetByteFunctionName(functionType byte) (string, error) {
 	case ZLT_TYPE:
 		return "ZLT", nil
 
+	case BWT_TYPE:
+		return "BWT", nil
+
 	case NONE_TYPE:
 		return "NONE", nil
 	}
 
 	errMsg := fmt.Sprintf("Unsupported function type: '%c'", functionType)
-	return errMsg, errors.New(errMsg)
+	return "", errors.New(errMsg)
+}
+
+func GetByteFunctionType(functionName string) (byte, error) {
+	switch strings.ToUpper(functionName) {
+	case "BLOCK":
+		return BLOCK_TYPE, nil
+
+	case "SNAPPY":
+		return SNAPPY_TYPE, nil
+
+	case "LZ4":
+		return LZ4_TYPE, nil
+
+	case "RLT":
+		return RLT_TYPE, nil
+
+	case "ZLT":
+		return ZLT_TYPE, nil
+
+	case "BWT":
+		return BWT_TYPE, nil
+
+	case "NONE":
+		return NONE_TYPE, nil
+	}
+
+	errMsg := fmt.Sprintf("Unsupported function type: '%s'", functionName)
+	return byte(0), errors.New(errMsg)
 }
