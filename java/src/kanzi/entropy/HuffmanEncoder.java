@@ -30,6 +30,7 @@ public class HuffmanEncoder extends AbstractEncoder
     private final OutputBitStream bitstream;
     private final int[] buffer;
     private final int[] codes;
+    private final int[] ranks;    
     private final short[] sizes; // Cache for speed purpose
     private final int chunkSize;
 
@@ -58,6 +59,7 @@ public class HuffmanEncoder extends AbstractEncoder
         this.bitstream = bitstream;
         this.buffer = new int[256];
         this.sizes = new short[256];
+        this.ranks = new int[256];
         this.codes = new int[256];
         this.chunkSize = chunkSize;
 
@@ -70,18 +72,30 @@ public class HuffmanEncoder extends AbstractEncoder
         }
     }
 
-
+  
     // Rebuild Huffman tree
     public boolean updateFrequencies(int[] frequencies) throws BitStreamException
     {
         if ((frequencies == null) || (frequencies.length != 256))
            return false;
+       
+        int count = 0;
 
+        for (int i=0; i<256; i++)
+        {
+           this.sizes[i] = 0;
+           this.codes[i] = 0;
+
+           if (frequencies[i] > 0)
+              this.ranks[count++] = i;
+        }
+       
         // Create tree from frequencies
-        createTreeFromFrequencies(frequencies, this.sizes);
+        createTreeFromFrequencies(frequencies, this.sizes, this.ranks, count);
 
         // Create canonical codes
-        HuffmanTree.generateCanonicalCodes(this.sizes, this.codes);
+        HuffmanTree.generateCanonicalCodes(this.sizes, this.codes, this.ranks, count);
+
         ExpGolombEncoder egenc = new ExpGolombEncoder(this.bitstream, true);
 
         // Transmit code lengths only, frequencies and codes do not matter
@@ -150,7 +164,6 @@ public class HuffmanEncoder extends AbstractEncoder
     }
 
 
-    // Frequencies of the data block must have been previously set
     @Override
     public boolean encodeByte(byte val)
     {
@@ -159,27 +172,13 @@ public class HuffmanEncoder extends AbstractEncoder
     }
 
 
-    private static Node createTreeFromFrequencies(int[] frequencies, short[] sizes_)
+    private static Node createTreeFromFrequencies(int[] frequencies, short[] sizes_, int[] ranks, int count)
     {
-       int[] array = new int[256];
-       int n = 0;
-
-       for (int i=0; i<256; i++)
-       {
-          sizes_[i] = 0;
-
-          if (frequencies[i] > 0)
-             array[n++] = i;
-       }
-       
-       if (n == 0)
-          return null;
-
        // Sort by frequency
-       if (n > 1)
+       if (count > 1)
        {
           QuickSort sorter = new QuickSort(new DefaultArrayComparator(frequencies));
-          sorter.sort(array, 0, n);
+          sorter.sort(ranks, 0, count);
        }
        
        // Create Huffman tree of (present) symbols
@@ -187,9 +186,9 @@ public class HuffmanEncoder extends AbstractEncoder
        LinkedList<Node> queue2 = new LinkedList<Node>();
        Node[] nodes = new Node[2];
 
-       for (int i=n-1; i>=0; i--)
+       for (int i=count-1; i>=0; i--)
        {
-          queue1.addFirst(new Node((byte) array[i], frequencies[array[i]]));
+          queue1.addFirst(new Node((byte) ranks[i], frequencies[ranks[i]]));
        }
 
        while (queue1.size() + queue2.size() > 1)
@@ -216,14 +215,12 @@ public class HuffmanEncoder extends AbstractEncoder
           }
 
           // Merge minimum nodes and enqueue result
-          final Node left = nodes[0];
-          final Node right = nodes[1];
-          queue2.addLast(new Node(left.weight + right.weight, left, right));
+          queue2.addLast(new Node(nodes[0].weight+nodes[1].weight, nodes[0], nodes[1]));
        }
 
        final Node rootNode = ((queue1.isEmpty()) ? queue2.removeFirst() : queue1.removeFirst());
        
-       if (n == 1)
+       if (count == 1)
           sizes_[rootNode.symbol & 0xFF] = (short) 1;
        else
           fillTree(rootNode, 0, sizes_);

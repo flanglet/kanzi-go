@@ -31,6 +31,7 @@ public class HuffmanDecoder extends AbstractDecoder
 
     private final InputBitStream bitstream;
     private final int[] codes;
+    private final int[] ranks;
     private final short[] sizes;
     private Node root;
     private CacheData[] decodingCache;
@@ -61,6 +62,7 @@ public class HuffmanDecoder extends AbstractDecoder
 
         this.bitstream = bitstream;
         this.sizes = new short[256];
+        this.ranks = new int[256];
         this.codes = new int[256];
         this.chunkSize = chunkSize;
 
@@ -235,9 +237,19 @@ public class HuffmanDecoder extends AbstractDecoder
            if (zeros != 1)
               prevSize = currSize;
         }
+        
+        int count = 0;
 
+        for (int i=0; i<256; i++)
+        {
+           this.codes[i] = 0;
+
+           if (this.sizes[i] > 0)
+              this.ranks[count++] = i;
+        }
+        
         // Create canonical codes
-        HuffmanTree.generateCanonicalCodes(buf, this.codes);
+        HuffmanTree.generateCanonicalCodes(buf, this.codes, this.ranks, count);
 
         // Create tree from code sizes
         this.root = this.createTreeFromSizes(maxSize);

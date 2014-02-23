@@ -23,36 +23,21 @@ import kanzi.util.sort.QuickSort;
 public final class HuffmanTree
 {
     // Return the number of codes generated
-    public static int generateCanonicalCodes(short[] sizes, int[] codes)
+    public static int generateCanonicalCodes(short[] sizes, int[] codes, int[] ranks, int count)
     {
-       final int[] array = new int[sizes.length];
-       int n = 0;
-
-       for (int i=0; i<array.length; i++)
-       {
-          codes[i] = 0;
-
-          if (sizes[i] > 0)
-             array[n++] = i;
-       }
-     
-       if (n == 0) 
-          return 0;
-       
        // Sort by decreasing size (first key) and increasing value (second key)
-       if (n > 1)
+       if (count > 1)
        {
           QuickSort sorter = new QuickSort(new HuffmanArrayComparator(sizes));
-          sorter.sort(array, 0, n);
+          sorter.sort(ranks, 0, count);
        }
        
        int code = 0;
-       int len = sizes[array[0]];
+       int len = sizes[ranks[0]];
 
-       for (int i=0; i<n; i++)
+       for (int i=0; i<count; i++)
        {
-          final int idx = array[i];
-          final int currentSize = sizes[idx];
+          final int currentSize = sizes[ranks[i]];
 
           if (len > currentSize)
           {
@@ -60,11 +45,11 @@ public final class HuffmanTree
              len = currentSize;
           }
 
-          codes[idx] = code;
+          codes[ranks[i]] = code;
           code++;
        }
        
-       return n;
+       return count;
     }
     
 
@@ -114,10 +99,10 @@ public final class HuffmanTree
         @Override
         public int compare(int lidx, int ridx)
         {
-            // Check sizes (reverse order) as first key
+            // Check size (reverse order) as first key
             final int res = this.array[ridx] - this.array[lidx];
 
-            // Check value (natural order) as second key
+            // Check index (natural order) as second key
             return (res != 0) ? res : lidx - ridx;
         }
     }  

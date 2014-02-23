@@ -44,86 +44,91 @@ type HuffmanCacheData struct {
 	next  *HuffmanCacheData
 }
 
-type HuffmanNodeArray []*HuffmanNode
+type SizeComparator struct {
+	ranks []uint
+	sizes []uint8
+}
 
-func (array HuffmanNodeArray) Less(i, j int) bool {
-	// Check sizes (reverse order) as first key
-	if array[i].weight != array[j].weight {
-		return array[j].weight < array[i].weight
+func ByDecreasingSize(ranks []uint, sizes []uint8) SizeComparator {
+	return SizeComparator{ranks: ranks, sizes: sizes}
+}
+
+func (this SizeComparator) Less(i, j int) bool {
+	// Check size (reverse order) as first key
+	if this.sizes[this.ranks[i]] != this.sizes[this.ranks[j]] {
+		return this.sizes[this.ranks[i]] > this.sizes[this.ranks[j]]
 	}
 
-	// Check value (natural order) as second key
-	return array[i].symbol < array[j].symbol
-}
-
-func (array HuffmanNodeArray) Len() int {
-	return len(array)
-}
-
-func (array HuffmanNodeArray) Swap(i, j int) {
-	array[i], array[j] = array[j], array[i]
-}
-
-type HuffmanNodeArray2 []*HuffmanNode
-
-func (array HuffmanNodeArray2) Less(i, j int) bool {
-	// Check sizes (natural order) as first key
-	if array[i].weight != array[j].weight {
-		return array[j].weight > array[i].weight
+	// Check index (natural order) as second key
+	if this.ranks[i] < this.ranks[j] {
+		return true
 	}
 
-	// Check value (natural order) as second key
-	return array[i].symbol < array[j].symbol
+	return false
 }
 
-func (array HuffmanNodeArray2) Len() int {
-	return len(array)
+func (this SizeComparator) Len() int {
+	return len(this.ranks)
 }
 
-func (array HuffmanNodeArray2) Swap(i, j int) {
-	array[i], array[j] = array[j], array[i]
+func (this SizeComparator) Swap(i, j int) {
+	this.ranks[i], this.ranks[j] = this.ranks[j], this.ranks[i]
+}
+
+type FrequencyComparator struct {
+	ranks []uint
+	freqs []uint
+}
+
+func ByIncreasingFrequency(ranks []uint, frequencies []uint) FrequencyComparator {
+	return FrequencyComparator{ranks: ranks, freqs: frequencies}
+}
+
+func (this FrequencyComparator) Less(i, j int) bool {
+	if this.freqs[this.ranks[i]] != this.freqs[this.ranks[j]] {
+		return this.freqs[this.ranks[i]] < this.freqs[this.ranks[j]]
+	}
+
+	// Make the sort stable
+	if this.ranks[i] < this.ranks[j] {
+		return true
+	}
+
+	return false
+}
+
+func (this FrequencyComparator) Len() int {
+	return len(this.ranks)
+}
+
+func (this FrequencyComparator) Swap(i, j int) {
+	this.ranks[i], this.ranks[j] = this.ranks[j], this.ranks[i]
 }
 
 // Return the number of codes generated
-func GenerateCanonicalCodes(sizes []uint8, codes []uint) int {
-	array := make(HuffmanNodeArray, len(sizes))
-	n := 0
-
-	for i := range array {
-		codes[i] = 0
-
-		if sizes[i] > 0 {
-			array[n] = &HuffmanNode{symbol: byte(i), weight: uint(sizes[i])}
-			n++
-		}
-	}
-
-	if n == 0 {
-		return 0
-	}
-
+func GenerateCanonicalCodes(sizes []uint8, codes, ranks []uint) int {
 	// Sort by decreasing size (first key) and increasing value (second key)
-	if n > 1 {
-		sort.Sort(array[0:n])
+	if len(ranks) > 1 {
+		sort.Sort(ByDecreasingSize(ranks, sizes))
 	}
 
 	code := uint(0)
-	length := sizes[array[0].symbol]
+	length := sizes[ranks[0]]
+	count := len(ranks)
 
-	for i := 0; i < n; i++ {
-		idx := array[i].symbol
-		currentSize := sizes[idx]
+	for i := 0; i < count; i++ {
+		currentSize := sizes[ranks[i]]
 
 		if length > currentSize {
 			code >>= (length - currentSize)
 			length = currentSize
 		}
 
-		codes[idx] = code
+		codes[ranks[i]] = code
 		code++
 	}
 
-	return n
+	return len(ranks)
 }
 
 // ---- Encoder
@@ -133,6 +138,7 @@ type HuffmanEncoder struct {
 	buffer    []uint
 	codes     []uint
 	sizes     []uint8
+	ranks     []uint
 	chunkSize int
 }
 
@@ -170,6 +176,7 @@ func NewHuffmanEncoder(bs kanzi.OutputBitStream, chunkSizes ...uint) (*HuffmanEn
 	this.buffer = make([]uint, 256)
 	this.codes = make([]uint, 256)
 	this.sizes = make([]uint8, 256)
+	this.ranks = make([]uint, 256)
 	this.chunkSize = int(chkSize)
 
 	// Default frequencies, sizes and codes
@@ -182,26 +189,10 @@ func NewHuffmanEncoder(bs kanzi.OutputBitStream, chunkSizes ...uint) (*HuffmanEn
 	return this, nil
 }
 
-func createTreeFromFrequencies(frequencies []uint, sizes_ []uint8) *HuffmanNode {
-	array := make(HuffmanNodeArray2, 256)
-	n := 0
-
-	for i := range array {
-		sizes_[i] = 0
-
-		if frequencies[i] > 0 {
-			array[n] = &HuffmanNode{symbol: byte(i), weight: frequencies[i]}
-			n++
-		}
-	}
-
-	if n == 0 {
-		return nil
-	}
-
+func createTreeFromFrequencies(frequencies []uint, sizes_ []uint8, ranks []uint) *HuffmanNode {
 	// Sort by frequency
-	if n > 1 {
-		sort.Sort(array[0:n])
+	if len(ranks) > 1 {
+		sort.Sort(ByIncreasingFrequency(ranks, frequencies))
 	}
 
 	// Create Huffman tree of (present) symbols
@@ -209,8 +200,8 @@ func createTreeFromFrequencies(frequencies []uint, sizes_ []uint8) *HuffmanNode 
 	queue2 := list.New()
 	nodes := make([]*HuffmanNode, 2)
 
-	for i := n - 1; i >= 0; i-- {
-		queue1.PushFront(array[i])
+	for i := len(ranks) - 1; i >= 0; i-- {
+		queue1.PushFront(&HuffmanNode{symbol: uint8(ranks[i]), weight: frequencies[ranks[i]]})
 	}
 
 	for queue1.Len()+queue2.Len() > 1 {
@@ -251,7 +242,7 @@ func createTreeFromFrequencies(frequencies []uint, sizes_ []uint8) *HuffmanNode 
 		rootNode = queue1.Front().Value.(*HuffmanNode)
 	}
 
-	if n == 1 {
+	if len(ranks) == 1 {
 		sizes_[rootNode.symbol] = uint8(1)
 	} else {
 		fillTree(rootNode, 0, sizes_)
@@ -283,11 +274,23 @@ func (this *HuffmanEncoder) UpdateFrequencies(frequencies []uint) error {
 		return errors.New("Invalid frequencies parameter")
 	}
 
+	count := 0
+
+	for i := range this.ranks {
+		this.sizes[i] = 0
+		this.codes[i] = 0
+
+		if frequencies[i] > 0 {
+			this.ranks[count] = uint(i)
+			count++
+		}
+	}
+
 	// Create tree from frequencies
-	createTreeFromFrequencies(frequencies, this.sizes)
+	createTreeFromFrequencies(frequencies, this.sizes, this.ranks[0:count])
 
 	// Create canonical codes
-	GenerateCanonicalCodes(this.sizes, this.codes)
+	GenerateCanonicalCodes(this.sizes, this.codes, this.ranks[0:count])
 	egenc, err := NewExpGolombEncoder(this.bitstream, true)
 
 	if err != nil {
@@ -398,6 +401,7 @@ type HuffmanDecoder struct {
 	root          *HuffmanNode
 	decodingCache []*HuffmanCacheData
 	current       *HuffmanCacheData
+	ranks         []uint
 	chunkSize     int
 }
 
@@ -434,6 +438,7 @@ func NewHuffmanDecoder(bs kanzi.InputBitStream, chunkSizes ...uint) (*HuffmanDec
 	this.bitstream = bs
 	this.sizes = make([]uint8, 256)
 	this.codes = make([]uint, 256)
+	this.ranks = make([]uint, 256)
 	this.chunkSize = int(chkSize)
 
 	// Default lengths & canonical codes
@@ -613,6 +618,7 @@ func (this *HuffmanDecoder) ReadLengths() error {
 		}
 
 		buf[i] = uint8(currSize)
+
 		if currSize == 0 {
 			zeros++
 		} else {
@@ -632,8 +638,19 @@ func (this *HuffmanDecoder) ReadLengths() error {
 		}
 	}
 
+	count := 0
+
+	for i := range this.codes {
+		this.codes[i] = 0
+
+		if this.sizes[i] > 0 {
+			this.ranks[count] = uint(i)
+			count++
+		}
+	}
+
 	// Create canonical codes
-	GenerateCanonicalCodes(buf, this.codes)
+	GenerateCanonicalCodes(buf, this.codes, this.ranks[0:count])
 
 	// Create tree from code sizes
 	this.root = this.createTreeFromSizes(uint(maxSize))
