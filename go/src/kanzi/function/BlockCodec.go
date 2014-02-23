@@ -44,12 +44,15 @@ const (
 )
 
 type BlockCodec struct {
-	mtft *transform.MTFT
-	bwt  *transform.BWT
-	size uint
+	mtft           *transform.MTFT
+	bwt            *transform.BWT
+	size           uint
+	postProcessing bool
 }
 
-func NewBlockCodec(size uint) (*BlockCodec, error) {
+// If postProcessing is true, forward BWT is followed by a Global Structure
+// Transform (here MTFT) and ZLT, else a raw BWT is performed.
+func NewBlockCodec(size uint, postProcessing bool) (*BlockCodec, error) {
 	if size > MAX_BLOCK_SIZE {
 		errMsg := fmt.Sprintf("The block size must be at most %d\n", MAX_BLOCK_SIZE)
 		return nil, errors.New(errMsg)
@@ -57,16 +60,19 @@ func NewBlockCodec(size uint) (*BlockCodec, error) {
 
 	var err error
 	this := new(BlockCodec)
+	this.postProcessing = postProcessing
 	this.bwt, err = transform.NewBWT(0)
 
 	if err != nil {
 		return nil, err
 	}
 
-	this.mtft, err = transform.NewMTFT(0)
+	if postProcessing == true {
+		this.mtft, err = transform.NewMTFT(0)
 
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	this.size = size
@@ -86,7 +92,7 @@ func (this *BlockCodec) SetSize(sz uint) bool {
 	return true
 }
 
-// Return no error is the compression chain succeeded. In this case, the input data
+// Return no error if the compression chain succeeded. In this case, the input data
 // may be modified. If the compression failed, the input data is returned unmodified.
 func (this *BlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 	if src == nil {
@@ -119,13 +125,8 @@ func (this *BlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Apply Burrows-Wheeler Transform
 	this.bwt.SetSize(blockSize)
-	this.bwt.Forward(src, dst)
+	iIdx, oIdx, _ := this.bwt.Forward(src, dst)
 	primaryIndex := this.bwt.PrimaryIndex()
-
-	// Apply Move-To-Front Transform
-	this.mtft.SetSize(blockSize)
-	this.mtft.Forward(dst, src)
-
 	pIndexSizeBits := uint(6)
 
 	for 1<<pIndexSizeBits <= primaryIndex {
@@ -133,20 +134,34 @@ func (this *BlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	headerSizeBytes := (2 + pIndexSizeBits + 7) >> 3
-	zlt, err := NewZLT(blockSize)
 
-	if err != nil {
-		return 0, 0, err
-	}
+	if this.postProcessing == true {
+		// Apply Move-To-Front Transform
+		this.mtft.SetSize(blockSize)
+		this.mtft.Forward(dst, src)
 
-	// Apply Zero Length Encoding
-	iIdx, oIdx, err := zlt.Forward(src, dst[headerSizeBytes:])
+		zlt, err := NewZLT(blockSize)
 
-	if err != nil {
-		// Compression failed, recover source data
-		this.mtft.Inverse(src, dst)
-		this.bwt.Inverse(dst, src)
-		return 0, 0, err
+		if err != nil {
+			return 0, 0, err
+		}
+
+		// Apply Zero Length Encoding
+		iIdx, oIdx, err = zlt.Forward(src, dst[headerSizeBytes:])
+
+		if err != nil {
+			// Compression failed, recover source data
+			this.mtft.Inverse(src, dst)
+			this.bwt.Inverse(dst, src)
+			return 0, 0, err
+		}
+	} else {
+		// Shift output data to leave space for header
+		hs := int(headerSizeBytes)
+
+		for i := int(blockSize - 1); i >= 0; i-- {
+			dst[i+hs] = dst[i]
+		}
 	}
 
 	oIdx += headerSizeBytes
@@ -187,6 +202,8 @@ func (this *BlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	compressedLength -= headerSizeBytes
 	shift := (headerSizeBytes - 1) << 3
 	primaryIndex := (mode & 0x3F) << shift
+	blockSize := compressedLength
+	srcIdx := headerSizeBytes
 
 	// Extract BWT primary index
 	for i := uint(1); i < headerSizeBytes; i++ {
@@ -194,37 +211,38 @@ func (this *BlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		primaryIndex |= uint(src[i]) << shift
 	}
 
-	// Apply Zero Length Decoding
-	zlt, err := NewZLT(compressedLength)
+	if this.postProcessing == true {
+		// Apply Zero Length Decoding
+		zlt, err := NewZLT(compressedLength)
 
-	if err != nil {
-		return 0, 0, err
+		if err != nil {
+			return 0, 0, err
+		}
+
+		iIdx, oIdx, err := zlt.Inverse(src[srcIdx:], dst)
+		iIdx += headerSizeBytes
+
+		if err != nil {
+			return iIdx, oIdx, err
+		}
+
+		srcIdx = 0
+		blockSize = oIdx
+
+		// Apply Move-To-Front Inverse Transform
+		this.mtft.SetSize(blockSize)
+		this.mtft.Inverse(dst, src)
 	}
-
-	iIdx, oIdx, err := zlt.Inverse(src[headerSizeBytes:], dst)
-	iIdx += headerSizeBytes
-
-	if err != nil {
-		return iIdx, oIdx, err
-	}
-
-	blockSize := oIdx
-
-	// Apply Move-To-Front Inverse Transform
-	this.mtft.SetSize(blockSize)
-	this.mtft.Inverse(dst, src)
 
 	// Apply Burrows-Wheeler Inverse Transform
 	this.bwt.SetPrimaryIndex(primaryIndex)
 	this.bwt.SetSize(blockSize)
-	this.bwt.Inverse(src, dst)
-
-	return iIdx, oIdx, nil
+	return this.bwt.Inverse(src[srcIdx:], dst)
 }
 
 func (this BlockCodec) MaxEncodedLen(srcLen int) int {
 	// Return input buffer size + max header size
 	// If forward() fails due to output buffer size, the block is returned
 	// unmodified with an error
-	return srcLen + 32
+	return srcLen + 4
 }

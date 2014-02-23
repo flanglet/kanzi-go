@@ -37,33 +37,42 @@ import kanzi.transform.MTFT;
 //       bits 5-0 contain 6 most significant bits of primary index
 // primary index: remaining bits (up to 3 bytes) 
 
-
 public class BlockCodec implements ByteFunction
 {
    private static final int MAX_HEADER_SIZE  = 4;
    private static final int MAX_BLOCK_SIZE   = (32*1024*1024) - MAX_HEADER_SIZE;
 
+   private final boolean postProcessing;
    private final MTFT mtft;
    private final BWT bwt;
    private int size;
 
-
+   
    public BlockCodec()
    {
-      this(MAX_BLOCK_SIZE);
+      this(MAX_BLOCK_SIZE, true);
    }
 
-
+   
    public BlockCodec(int blockSize)
+   {
+      this(blockSize, true);
+   }
+
+   
+   // If postProcessing is true, forward BWT is followed by a Global Structure 
+   // Transform (here MTFT) and ZLT, else a raw BWT is performed.
+   public BlockCodec(int blockSize, boolean postProcessing)
    {
       if (blockSize < 0)
          throw new IllegalArgumentException("The block size cannot be negative");
 
       if (blockSize > MAX_BLOCK_SIZE)
          throw new IllegalArgumentException("The block size must be at most " + MAX_BLOCK_SIZE);
-
+  
+      this.postProcessing = postProcessing;
       this.bwt = new BWT();
-      this.mtft = new MTFT();
+      this.mtft = (postProcessing == true) ? new MTFT() : null;
       this.size = blockSize;
    }
 
@@ -84,7 +93,7 @@ public class BlockCodec implements ByteFunction
    }
 
 
-   // Return true is the compression chain succeeded. In this case, the input data 
+   // Return true if the compression chain succeeded. In this case, the input data 
    // may be modified. If the compression failed, the input data is returned unmodified.
    @Override
    public boolean forward(IndexedByteArray input, IndexedByteArray output)
@@ -106,35 +115,46 @@ public class BlockCodec implements ByteFunction
       // Apply Burrows-Wheeler Transform
       this.bwt.setSize(blockSize);
       this.bwt.forward(input, output);
-      final int primaryIndex = this.bwt.getPrimaryIndex();
-      input.index = savedIIdx;
-      output.index = savedOIdx;
-
-      // Apply Move-To-Front Transform
-      this.mtft.setSize(blockSize);
-      this.mtft.forward(output, input);
       
+      int primaryIndex = this.bwt.getPrimaryIndex();
       int pIndexSizeBits = 6;
 
       while ((1<<pIndexSizeBits) <= primaryIndex)
-         pIndexSizeBits++;
+         pIndexSizeBits++;          
 
       final int headerSizeBytes = (2 + pIndexSizeBits + 7) >> 3;
-      input.index = savedIIdx;
-      output.index = savedOIdx + headerSizeBytes;
-      ZLT zlt = new ZLT(blockSize);
-
-      // Apply Zero Length Encoding (changes the index of input & output)
-      if (zlt.forward(input, output) == false)
+     
+      if (this.postProcessing == true)
       {
-         // Compression failed, recover source data
          input.index = savedIIdx;
          output.index = savedOIdx;
-         this.mtft.inverse(input, output);
+
+         // Apply Move-To-Front Transform
+         this.mtft.setSize(blockSize);
+         this.mtft.forward(output, input);
+
          input.index = savedIIdx;
-         output.index = savedOIdx;
-         this.bwt.inverse(output, input);
-         return false;
+         output.index = savedOIdx + headerSizeBytes;
+         ZLT zlt = new ZLT(blockSize);
+
+         // Apply Zero Length Encoding (changes the index of input & output)
+         if (zlt.forward(input, output) == false)
+         {
+            // Compression failed, recover source data
+            input.index = savedIIdx;
+            output.index = savedOIdx;
+            this.mtft.inverse(input, output);
+            input.index = savedIIdx;
+            output.index = savedOIdx;
+            this.bwt.inverse(output, input);
+            return false;
+         }
+      } 
+      else
+      {
+         // Shift output data to leave space for header
+         System.arraycopy(output.array, savedOIdx, output.array, savedOIdx+headerSizeBytes, blockSize);
+         output.index += headerSizeBytes;
       }
       
       // Write block header (mode + primary index). See top of file for format 
@@ -176,6 +196,7 @@ public class BlockCodec implements ByteFunction
       compressedLength -= headerSizeBytes;
       int shift = (headerSizeBytes - 1) << 3;
       int primaryIndex = (mode & 0x3F) << shift;
+      int blockSize = compressedLength;
 
       // Extract BWT primary index
       for (int i=1; i<headerSizeBytes; i++)
@@ -183,29 +204,32 @@ public class BlockCodec implements ByteFunction
          shift -= 8;
          primaryIndex |= ((input.array[input.index++] & 0xFF) << shift);
       }
+      
+      if (this.postProcessing == true)
+      {
+         final int savedOIdx = output.index;
+         ZLT zlt = new ZLT(compressedLength);
 
-      final int savedOIdx = output.index;
-      ZLT zlt = new ZLT(compressedLength);
+         // Apply Zero Length Decoding (changes the index of input & output)
+         if (zlt.inverse(input, output) == false)
+            return false;
 
-      // Apply Zero Length Decoding (changes the index of input & output)
-      if (zlt.inverse(input, output) == false)
-         return false;
+         blockSize = output.index - savedOIdx;
+         input.index = savedIIdx;
+         output.index = savedOIdx;
 
-      final int blockSize = output.index - savedOIdx;
-      input.index = savedIIdx;
-      output.index = savedOIdx;
+         // Apply Move-To-Front Inverse Transform
+         this.mtft.setSize(blockSize);
+         this.mtft.inverse(output, input);
 
-      // Apply Move-To-Front Inverse Transform
-      this.mtft.setSize(blockSize);
-      this.mtft.inverse(output, input);
-
-      // Apply Burrows-Wheeler Inverse Transform
-      input.index = savedIIdx;
-      output.index = savedOIdx;
+         input.index = savedIIdx;
+         output.index = savedOIdx;
+      }
+      
+      // Apply Burrows-Wheeler Inverse Transform      
       this.bwt.setPrimaryIndex(primaryIndex);
-      this.bwt.setSize(blockSize);
-      this.bwt.inverse(input, output);
-      return true;
+      this.bwt.setSize(blockSize);     
+      return this.bwt.inverse(input, output);
    }
    
      
@@ -215,6 +239,6 @@ public class BlockCodec implements ByteFunction
       // Return input buffer size + max header size
       // If forward() fails due to output buffer size, the block is returned 
       // unmodified with an error
-      return srcLen + 32; 
+      return srcLen + 4; 
    }
 }
