@@ -50,7 +50,7 @@ public class EntropyCodecFactory
          case NONE_TYPE:
             return new NullEntropyDecoder(ibs);
          default:
-            throw new IllegalArgumentException("Unsupported entropy decoder type: " + (char) entropyType);
+            throw new IllegalArgumentException("Unsupported entropy codec type: " + (char) entropyType);
       }
    } 
    
@@ -96,4 +96,25 @@ public class EntropyCodecFactory
             throw new IllegalArgumentException("Unknown entropy codec type: " + (char) entropyType);
       }
    }
+   
+  
+   public byte getType(String name)
+   {
+      switch (name.toUpperCase())
+      {
+         case "HUFFMAN":
+            return HUFFMAN_TYPE; 
+         case "FPAQ":
+            return FPAQ_TYPE;
+         case "PAQ":
+            return PAQ_TYPE;
+         case "RANGE":
+            return RANGE_TYPE; 
+         case "NONE":
+            return NONE_TYPE;
+         default:
+            throw new IllegalArgumentException("Unsupported entropy codec type: " + name);
+      }
+   } 
+   
 }

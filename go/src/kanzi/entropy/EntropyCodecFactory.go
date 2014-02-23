@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"kanzi"
+	"strings"
 )
 
 const (
@@ -109,5 +110,29 @@ func GetEntropyCodecName(entropyType byte) (string, error) {
 	}
 
 	errMsg := fmt.Sprintf("Unsupported entropy codec type: '%c'", entropyType)
-	return errMsg, errors.New(errMsg)
+	return "", errors.New(errMsg)
+}
+
+func GetEntropyCodecType(entropyName string) (byte, error) {
+	switch strings.ToUpper(entropyName) {
+	
+	case "HUFFMAN":
+		return HUFFMAN_TYPE, nil
+
+	case "RANGE":
+		return RANGE_TYPE, nil
+
+	case "PAQ":
+		return PAQ_TYPE, nil
+
+	case "FPAQ":
+		return FPAQ_TYPE, nil
+
+	case "NONE":
+		return NONE_TYPE, nil
+
+	}
+
+	errMsg := fmt.Sprintf("Unsupported entropy codec type: '%s'", entropyName)
+	return byte(0), errors.New(errMsg)
 }
