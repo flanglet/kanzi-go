@@ -60,6 +60,9 @@ package transform
 // The suffix array and permutation vector are equal when the input is 0 terminated
 // In this example, for a non \0 terminated string the output is pssmipissii.
 // The insertion of a guard is done internally and is entirely transparent.
+//
+// See https://code.google.com/p/libdivsufsort/source/browse/wiki/SACA_Benchmarks.wiki
+// for respective performance of different suffix sorting algorithms.
 
 type BWT struct {
 	size         uint

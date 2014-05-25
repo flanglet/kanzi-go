@@ -39,7 +39,8 @@ func TestCorrectness() {
 
 		size := uint(0)
 		var buf1 []byte
-		var strbuf []byte
+		var buf2 []byte
+		var buf3 []byte
 
 		if ii == 0 {
 			size = 0
@@ -55,33 +56,32 @@ func TestCorrectness() {
 			buf1[len(buf1)-1] = byte(0)
 		}
 
-		strbuf = make([]byte, len(buf1))
-
-		for k := range buf1 {
-			strbuf[k] = buf1[k]
-		}
+		buf2 = make([]byte, len(buf1))
+		buf3 = make([]byte, len(buf1))
 
 		bwt, _ := transform.NewBWT(size)
-		str1 := string(strbuf)
+		str1 := string(buf1)
 		fmt.Printf("Input:   %s\n", str1)
-		buf2 := bwt.Forward(buf1)
-		primaryIndex := bwt.PrimaryIndex()
-
-		for k := range buf2 {
-			strbuf[k] = buf2[k]
+		_, _, err1 := bwt.Forward(buf1, buf2)
+				
+		if err1 != nil {
+			fmt.Printf("Error: %v\n", err1)
+			os.Exit(1)
 		}
-
-		str2 := string(strbuf)
+		
+		primaryIndex := bwt.PrimaryIndex()
+		str2 := string(buf2)
 		fmt.Printf("Encoded: %s", str2)
 		fmt.Printf("  (Primary index=%v)\n", bwt.PrimaryIndex())
 		bwt.SetPrimaryIndex(primaryIndex)
-		buf3 := bwt.Inverse(buf2)
+		_, _, err2 := bwt.Inverse(buf2, buf3)
 
-		for k := range buf3 {
-			strbuf[k] = buf3[k]
+		if err2 != nil {
+			fmt.Printf("Error: %v\n", err2)
+			os.Exit(1)
 		}
 
-		str3 := string(strbuf)
+		str3 := string(buf3)
 		fmt.Printf("Output:  %s\n", str3)
 
 		if str1 == str3 {
@@ -97,15 +97,16 @@ func TestSpeed() {
 	fmt.Printf("\nSpeed test")
 	iter := 2000
 	size := 256 * 1024
-	delta1 := int64(0)
-	delta2 := int64(0)
 	buf1 := make([]byte, size)
 	buf2 := make([]byte, size)
+	buf3 := make([]byte, size)
 	fmt.Printf("\nIterations: %v", iter)
 	fmt.Printf("\nTransform size: %v\n", size)
 
 
 	for jj := 0; jj < 3; jj++ {
+		delta1 := int64(0)
+		delta2 := int64(0)
 		bwt, _ := transform.NewBWT(0)
 		rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
@@ -115,20 +116,19 @@ func TestSpeed() {
 			}
 
 			buf1[size-1] = 0
-			copy(buf2, buf1)
 			before := time.Now()
-			bwt.Forward(buf2)
+			bwt.Forward(buf1, buf2)
 			after := time.Now()
 			delta1 += after.Sub(before).Nanoseconds()
 			before = time.Now()
-			bwt.Inverse(buf2)
+			bwt.Inverse(buf2, buf3)
 			after = time.Now()
 			delta2 += after.Sub(before).Nanoseconds()
 
 			// Sanity check
 			for i := range buf1 {
-				if buf1[i] != buf2[i] {
-					println("Error at index %v: %v<->%v\n", i, buf1[i], buf2[i])
+				if buf1[i] != buf3[i] {
+					println("Error at index %v: %v<->%v\n", i, buf1[i], buf3[i])
 					os.Exit(1)
 				}
 			}
@@ -136,10 +136,10 @@ func TestSpeed() {
 
 		println()
 		prod := int64(iter) * int64(size)
-		fmt.Printf("BWT Forward transform [ms]: %v\n", delta1/1000000)
-		fmt.Printf("Throughput [KB/s]         : %d\n", prod*1000000/delta1*1000/1024)
-		fmt.Printf("BWT Inverse transform [ms]: %v\n", delta2/1000000)
-		fmt.Printf("Throughput [KB/s]         : %d\n", prod*1000000/delta1*1000/1024)
+		fmt.Printf("Forward transform [ms] : %v\n", delta1/1000000)
+		fmt.Printf("Throughput [KB/s]      : %d\n", prod*1000000/delta1*1000/1024)
+		fmt.Printf("Inverse transform [ms] : %v\n", delta2/1000000)
+		fmt.Printf("Throughput [KB/s]      : %d\n", prod*1000000/delta2*1000/1024)
 		println()
 	}
 }

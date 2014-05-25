@@ -47,7 +47,7 @@ import kanzi.IndexedIntArray;
 // Step 3 - Problem induction: based on the suffix array of the reduced problem, that of the
 //          unreduced problem is induced
 //
-// E.G.
+// E.G.    0123456789A
 // Source: mississippi\0
 // Suffixes:    rank  sorted
 // mississippi\0  0  -> 4
@@ -65,6 +65,9 @@ import kanzi.IndexedIntArray;
 // The suffix array and permutation vector are equal when the input is 0 terminated
 // In this example, for a non \0 terminated string the output is pssmipissii.
 // The insertion of a guard is done internally and is entirely transparent.
+//
+// See https://code.google.com/p/libdivsufsort/source/browse/wiki/SACA_Benchmarks.wiki
+// for respective performance of different suffix sorting algorithms.
 
 public class BWT implements ByteTransform
 {
@@ -158,16 +161,24 @@ public class BWT implements ByteTransform
         for (int i=0; i<count; i++)
            data_[i] = input[srcIdx+i] & 0xFF;
 
+        int[] sa = new DivSufSort().buildSuffixArray(data_, srcIdx, count);
         // Suffix array
-        final int[] sa = this.buffer1;
-        final int pIdx = computeSuffixArray(new IndexedIntArray(this.buffer2, 0), sa, 0, count, 256, true);
+        //final int[] sa = this.buffer1;
+        //final int pIdx = computeSuffixArray(new IndexedIntArray(this.buffer2, 0), sa, 0, count, 256, true);
         output[dstIdx] = (byte) this.buffer2[count-1];
-
-        for (int i=0; i<pIdx; i++)
-           output[dstIdx+i+1] = (byte) sa[i];
-
+           int pIdx = 0;
+        for (int i=0; i<count; i++) {
+           output[dstIdx+i+1] = input[sa[i]];
+           
+           if (sa[i] == 0) 
+           {
+              pIdx = i;
+              break;
+           }
+        }
+        
         for (int i=pIdx+1; i<count; i++)
-           output[dstIdx+i] = (byte) sa[i];
+           output[dstIdx+i] = input[sa[i]];
 
         this.setPrimaryIndex(pIdx);
         src.index += count;
