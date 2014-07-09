@@ -14,39 +14,34 @@
 */
 package kanzi.test;
 
+import java.util.Arrays;
 import java.util.Random;
 import kanzi.util.IntBTree;
-import kanzi.util.IntBTree.IntBTNode;
 
 
-public class TestIntBTree 
+public class TestIntBTree
 {
    public static void main(String[] args)
    {
       System.out.println("Correctness Test");
-      
+
       {
          Random random = new Random();
          IntBTree tree = new IntBTree();
-
-         IntBTree.Callback printNode = new IntBTree.Callback()
-         {
-            @Override
-            public void call(IntBTNode node) 
-            {
-               System.out.print(node.value()+", ");
-            }        
-         };
 
          for (int ii=0; ii<5; ii++)
          {
             System.out.println("\nIteration "+ii);
             int max = 0;
             int min = Integer.MAX_VALUE;
+            int[] array = new int[30];
 
-            for (int i=0; i<30; i++)
+            for (int i=0; i<array.length; i++)
+               array[i] = 64+random.nextInt(5*i+20);
+
+            for (int i=0; i<array.length; i++)
             {
-               int val = 64+random.nextInt(5*i+20);
+               int val = array[i];
                min = (min < val) ? min : val;
                max = (max > val) ? max : val;
                tree.add(val);
@@ -67,20 +62,26 @@ public class TestIntBTree
                }
             }
 
-            System.out.print("All nodes in reverse order: ");
-            tree.scan(printNode, true);            System.out.println("");
-
+     //       System.out.print("All nodes in reverse order: ");
+     //       tree.scan(printNode, true);
+            System.out.println("");
+            int[] res = tree.toArray(new int[tree.size()]);
+            System.out.print("All nodes in natural order: ");
+            System.out.println(Arrays.toString(res));
+            System.out.println("");
 
             while (tree.size() > 0)
             {
                min = tree.min();
                max = tree.max();
+               System.out.println("Remove: " + min + " " + max);
                tree.remove(min);
                tree.remove(max);
-               System.out.print("Remove: " + min + " " + max);
+               res = tree.toArray(new int[tree.size()]);
+               System.out.println(Arrays.toString(res));
                System.out.println(" Size: " +tree.size());
 
-               if (tree.size() > 0) 
+               if (tree.size() > 0)
                {
                   min = tree.min();
                   max = tree.max();
@@ -91,51 +92,66 @@ public class TestIntBTree
             System.out.println("Success\n");
          }
       }
-      
+
       System.out.println("Speed Test");
-      
+
+      try
       {
-         int iter = 10000;
+         int iter = 5000;
          int size = 10000;
-         long before1, after1;
-         long before2, after2;
-         long before3, after3;
-         long delta1 = 0;
-         long delta2 = 0;
-         long delta3 = 0;
+         long before, after;
+         long delta01 = 0;
+         long delta02 = 0;
+         long delta03 = 0;
+         long delta04 = 0;
          int[] array = new int[size];
-         
+
          Random random = new Random();
-         
+
          for (int ii=0; ii<iter; ii++)
          {
             IntBTree tree = new IntBTree();
-            
-            for (int i=0; i<size; i++)
-              array[i] = random.nextInt(size/2);
-             
-            before1 = System.nanoTime();
+            array[0] = 100000;
+
+            for (int i=1; i<size; i++)
+              array[i] = random.nextInt(200000);
+
+            tree.clear();
+            before = System.nanoTime();
 
             for (int i=0; i<size; i++)
                tree.add(array[i]);
-            
-            after1 = System.nanoTime();
-            delta1 += (after1 - before1);
-            
+
+            after = System.nanoTime();
+            delta01 += (after - before);
+            before = System.nanoTime();
+
+            for (int i=0; i<size; i++)
+               tree.contains(array[size-1-i]);
+
+            after = System.nanoTime();
+            delta04 += (after - before);
+
             // Sanity check
             if (tree.size() != size)
             {
                System.err.println("Error: found size="+tree.size()+", expected size="+size);
                System.exit(1);
             }
-            
-            before2 = System.nanoTime();
+
+            before = System.nanoTime();
 
             for (int i=0; i<size; i++)
-               tree.remove(array[i]);
-            
-            after2 = System.nanoTime();
-            delta2 += (after2 - before2);
+            {
+              if (tree.remove(array[i]) == false)
+              {
+                 System.err.println("Failed to remove: "+array[i]);
+                 System.exit(1);
+              }
+            }
+
+            after = System.nanoTime();
+            delta02 += (after - before);
 
             // Sanity check
             if (tree.size() != 0)
@@ -147,15 +163,15 @@ public class TestIntBTree
             // Recreate a 'size' array tree
             for (int i=0; i<size; i++)
                tree.add(array[i]);
-            
+
             for (int i=0; i<size; i++)
             {
-               int val = random.nextInt(size/2);
-               before3 = System.nanoTime();
+               int val = random.nextInt(size);
+               before = System.nanoTime();
                tree.add(val);
                tree.remove(val);
-               after3 = System.nanoTime();
-               delta3 += (after3 - before3);
+               after = System.nanoTime();
+               delta03 += (after - before);
             }
 
             // Sanity check
@@ -167,9 +183,14 @@ public class TestIntBTree
          }
 
          System.out.println(size*iter+" iterations");
-         System.out.println("Additions [ms]: "+(delta1/1000000L));
-         System.out.println("Deletions [ms]: "+(delta2/1000000L));
-         System.out.println("Additions/Deletions at size="+size+" [ms]: "+(delta3/1000000L));
-      }      
-   }   
+         System.out.println("Additions [ms]: "+(delta01/1000000L));
+         System.out.println("Deletions [ms]: "+(delta02/1000000L));
+         System.out.println("Contains  [ms]: "+(delta04/1000000L));
+         System.out.println("Additions/Deletions at size="+size+" [ms]: "+(delta03/1000000L));
+      }
+      catch (Exception e)
+      {
+         e.printStackTrace();
+      }
+   }
 }
