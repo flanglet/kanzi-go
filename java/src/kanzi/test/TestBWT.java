@@ -17,9 +17,7 @@ package kanzi.test;
 
 import java.util.Random;
 import kanzi.IndexedByteArray;
-import kanzi.IndexedIntArray;
 import kanzi.transform.BWT;
-import kanzi.transform.DivSufSort;
 
 
 public class TestBWT
@@ -41,7 +39,7 @@ public class TestBWT
         {
             System.out.println("\nTest "+ii);
             int start = 0;
-            int size;
+            int size = 0;
             byte[] buf1;
             Random rnd = new Random();
 
@@ -49,6 +47,10 @@ public class TestBWT
             {
                size = 0;
                buf1 = "mississippi".getBytes();
+            }
+            else if (ii == 2)
+            {
+               buf1 = "3.14159265358979323846264338327950288419716939937510".getBytes();
             }
             else
             {

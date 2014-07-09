@@ -33,7 +33,7 @@ func TestCorrectness() {
 	fmt.Printf("\n\nCorrectness test")
 
 	// Test behavior
-	for ii := 0; ii < 20; ii++ {
+	for ii := 1; ii <= 20; ii++ {
 		fmt.Printf("\nTest %v\n", ii)
 		rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
@@ -42,10 +42,12 @@ func TestCorrectness() {
 		var buf2 []byte
 		var buf3 []byte
 
-		if ii == 0 {
+		if ii == 1 {
 			size = 0
 			buf1 = []byte{'m', 'i', 's', 's', 'i', 's', 's', 'i', 'p', 'p', 'i'}
-		} else {
+            } else if ii == 2 {
+               buf1 = []byte{'3', '.', '1', '4', '1', '5', '9', '2', '6', '5', '3', '5', '8', '9', '7', '9', '3', '2', '3', '8', '4', '6', '2', '6', '4', '3', '8', '3', '2', '7', '9' }
+      		} else {
 			size = 128
 			buf1 = make([]byte, size)
 

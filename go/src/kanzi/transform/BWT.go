@@ -15,6 +15,10 @@ limitations under the License.
 
 package transform
 
+import (
+	"kanzi/util"
+)
+
 // The Burrows-Wheeler Transform is a reversible transform based on
 // permutation of the data in the original message to reduce the entropy.
 
@@ -29,20 +33,7 @@ package transform
 // with the construction of a suffix array (faster but more complex).
 // The suffix array contains the indexes of the sorted suffixes.
 //
-// This implementation is based on the SA_IS (Suffix Array Induction Sorting) algorithm.
-// This is a port of sais.c by Yuta Mori (http://sites.google.com/site/yuta256/sais)
-// See original publication of the algorithm here:
-// [Ge Nong, Sen Zhang and Wai Hong Chan, Two Efficient Algorithms for
-// Linear Suffix Array Construction, 2008]
-// Another good read: http://labh-curien.univ-st-etienne.fr/~bellet/misc/SA_report.pdf
-//
-// Overview of the algorithm:
-// Step 1 - Problem reduction: the input string is reduced into a smaller string.
-// Step 2 - Recursion: the suffix array of the reduced problem is recursively computed.
-// Step 3 - Problem induction: based on the suffix array of the reduced problem, that of the
-//          unreduced problem is induced
-//
-// E.G.
+// E.G.    0123456789A
 // Source: mississippi\0
 // Suffixes:    rank  sorted
 // mississippi\0  0  -> 4
@@ -66,17 +57,16 @@ package transform
 
 type BWT struct {
 	size         uint
-	data         []int
-	buffer1      []int
+	buffer       []int
 	buckets      []int
 	primaryIndex uint
+	saAlgo       *util.DivSufSort
 }
 
 func NewBWT(sz uint) (*BWT, error) {
 	this := new(BWT)
 	this.size = sz
-	this.data = make([]int, sz)
-	this.buffer1 = make([]int, sz)
+	this.buffer = make([]int, sz+1) // (SA algo requires sz+1 bytes)
 	this.buckets = make([]int, 256)
 	return this, nil
 }
@@ -117,36 +107,54 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 		return uint(count), uint(count), nil
 	}
 
-	// Lazy dynamic memory allocation
-	if len(this.data) < count {
-		this.data = make([]int, count)
+	// Lazy dynamic memory allocation (SA algo requires count+1 bytes)
+	if len(this.buffer) < count+1 {
+		this.buffer = make([]int, count+1)
 	}
 
-	// Lazy dynamic memory allocation
-	if len(this.buffer1) < count {
-		this.buffer1 = make([]int, count)
-	}
+	// Aliasing
+	data := this.buffer
 
-	data_ := this.data
+	if this.saAlgo == nil {
+		err := error(nil)
+		this.saAlgo, err = util.NewDivSufSort() // lazy instantiation
+
+		if err != nil {
+			return 0, 0, err
+		}
+	} else {
+		this.saAlgo.Reset()
+	}
 
 	for i := 0; i < count; i++ {
-		data_[i] = int(src[i])
+		data[i] = int(src[i])
 	}
 
-	// Suffix array
-	sa := this.buffer1
-	pIdx := computeSuffixArray(this.data, sa, 0, count, 256, true)
-	dst[0] = byte(this.data[count-1])
+	data[count] = data[0]
 
-	for i := uint(0); i < pIdx; i++ {
-		dst[i+1] = byte(sa[i])
+	// Compute suffix array
+	sa := this.saAlgo.ComputeSuffixArray(data[0:count])
+	dst[0] = byte(data[count-1])
+
+	i := 0
+
+	for i < count {
+		if sa[i] == 0 {
+			// Found primary index
+			this.SetPrimaryIndex(uint(i))
+			i++
+			break
+		}
+
+		dst[i+1] = src[sa[i]-1]
+		i++
 	}
 
-	for i := int(pIdx + 1); i < count; i++ {
-		dst[i] = byte(sa[i])
+	for i < count {
+		dst[i] = src[sa[i]-1]
+		i++
 	}
 
-	this.SetPrimaryIndex(pIdx)
 	return uint(count), uint(count), nil
 }
 
@@ -165,14 +173,14 @@ func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 		return uint(count), uint(count), nil
 	}
 
+	// Lazy dynamic memory allocation
+	if len(this.buffer) < count {
+		this.buffer = make([]int, count)
+	}
+
 	// Aliasing
 	buckets_ := this.buckets
-	data_ := this.data
-
-	// Lazy dynamic memory allocation
-	if len(this.data) < count {
-		data_ = make([]int, count)
-	}
+	data := this.buffer
 
 	// Create histogram
 	for i := range this.buckets {
@@ -183,18 +191,18 @@ func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 	// Start with the primary index position
 	pIdx := int(this.PrimaryIndex())
 	val := int(src[0])
-	data_[pIdx] = (buckets_[val] << 8) | val
+	data[pIdx] = (buckets_[val] << 8) | val
 	buckets_[val]++
 
 	for i := 0; i < pIdx; i++ {
 		val = int(src[i+1])
-		data_[i] = (buckets_[val] << 8) | val
+		data[i] = (buckets_[val] << 8) | val
 		buckets_[val]++
 	}
 
 	for i := pIdx + 1; i < count; i++ {
 		val = int(src[i])
-		data_[i] = (buckets_[val] << 8) | val
+		data[i] = (buckets_[val] << 8) | val
 		buckets_[val]++
 	}
 
@@ -211,724 +219,10 @@ func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 
 	// Build inverse
 	for i := count - 1; i >= 0; i-- {
-		ptr := data_[idx]
+		ptr := data[idx]
 		dst[i] = byte(ptr)
 		idx = (ptr >> 8) + buckets_[ptr&0xFF]
 	}
 
 	return uint(count), uint(count), nil
-}
-
-func getCounts(src []int, dst []int, n, k int) {
-	for i := 0; i < k; i++ {
-		dst[i] = 0
-	}
-
-	for i := 0; i < n; i++ {
-		dst[src[i]]++
-	}
-}
-
-func getBuckets(src []int, dst []int, k int, end bool) {
-	sum := 0
-
-	if end == true {
-		for i := 0; i < k; i++ {
-			sum += src[i]
-			dst[i] = sum
-		}
-	} else {
-		for i := 0; i < k; i++ {
-			// The temp variable is required if src == dst
-			tmp := src[i]
-			dst[i] = sum
-			sum += tmp
-		}
-	}
-}
-
-// sort all type LMS suffixes
-func sortLMSSuffixes(src []int, sa []int, ptrC *[]int, ptrB *[]int, n, k int) {
-	// compute sal
-	if ptrC == ptrB {
-		getCounts(src, *ptrC, n, k)
-	}
-
-	B := *ptrB
-	C := *ptrC
-
-	// find starts of buckets
-	getBuckets(C, B, k, false)
-
-	j := n - 1
-	c1 := src[j]
-	b := B[c1]
-	j--
-
-	if src[j] < c1 {
-		sa[b] = ^j
-	} else {
-		sa[b] = j
-	}
-
-	b++
-
-	for i := 0; i < n; i++ {
-		j = sa[i]
-
-		if j > 0 {
-			c0 := src[j]
-
-			if c0 != c1 {
-				B[c1] = b
-				c1 = c0
-				b = B[c1]
-			}
-
-			j--
-
-			if src[j] < c1 {
-				sa[b] = ^j
-			} else {
-				sa[b] = j
-			}
-
-			b++
-			sa[i] = 0
-
-		} else if j < 0 {
-			sa[i] = ^j
-		}
-	}
-
-	// compute sas
-	if ptrC == ptrB {
-		getCounts(src, C, n, k)
-	}
-
-	// find ends of buckets
-	getBuckets(C, B, k, true)
-	c1 = 0
-	b = B[c1]
-
-	for i := n - 1; i >= 0; i-- {
-		j = sa[i]
-
-		if j <= 0 {
-			continue
-		}
-
-		c0 := src[j]
-
-		if c0 != c1 {
-			B[c1] = b
-			c1 = c0
-			b = B[c1]
-		}
-
-		j--
-		b--
-
-		if src[j] > c1 {
-			sa[b] = ^(j + 1)
-		} else {
-			sa[b] = j
-		}
-
-		sa[i] = 0
-	}
-}
-
-func postProcessLMS(src []int, sa []int, n, m int) int {
-	i := 0
-	j := 0
-
-	// compact all the sorted substrings into the first m items of sa
-	// 2*m must be not larger than n
-	for p := sa[i]; p < 0; i++ {
-		sa[i] = ^p
-		p = sa[i+1]
-	}
-
-	if i < m {
-		j = i
-		i++
-
-		for {
-			p := sa[i]
-			i++
-
-			if p >= 0 {
-				continue
-			}
-
-			sa[j] = ^p
-			sa[i-1] = 0
-			j++
-
-			if j == m {
-				break
-			}
-		}
-	}
-
-	// store the length of all substrings
-	i = n - 2
-	j = n - 1
-	c0 := src[n-2]
-	c1 := src[n-1]
-
-	if i >= 0 {
-		for c0 >= c1 {
-			c1 = c0
-			i--
-
-			if i < 0 {
-				break
-			}
-
-			c0 = src[i]
-		}
-	}
-
-	for i >= 0 {
-		c1 = c0
-		i--
-
-		if i < 0 {
-			break
-		}
-
-		c0 = src[i]
-
-		for c0 <= c1 {
-			c1 = c0
-			i--
-
-			if i < 0 {
-				break
-			}
-
-			c0 = src[i]
-		}
-
-		if i < 0 {
-			break
-		}
-
-		sa[m+((i+1)>>1)] = j - i
-		j = i + 1
-		c1 = c0
-		i--
-
-		if i >= 0 {
-			c0 = src[i]
-
-			for c0 >= c1 {
-				c1 = c0
-				i--
-
-				if i < 0 {
-					break
-				}
-
-				c0 = src[i]
-			}
-		}
-	}
-
-	// find the lexicographic names of all substrings
-	name := 0
-	q := n
-	qlen := 0
-
-	for ii := 0; ii < m; ii++ {
-		p := sa[ii]
-		plen := sa[m+(p>>1)]
-		diff := true
-
-		if plen == qlen && q+plen < n {
-			j = 0
-
-			for j < plen && src[p+j] == src[q+j] {
-				j++
-			}
-
-			if j == plen {
-				diff = false
-			}
-		}
-
-		if diff == true {
-			name++
-			q = p
-			qlen = plen
-		}
-
-		sa[m+(p>>1)] = name
-	}
-
-	return name
-}
-
-func induceSuffixArray(src []int, sa []int, ptrBuf1 *[]int, ptrBuf2 *[]int, n int, k int) {
-	buf1 := *ptrBuf1
-	buf2 := *ptrBuf2
-
-	// compute sal
-	if ptrBuf1 == ptrBuf2 {
-		getCounts(src, buf1, n, k)
-	}
-
-	// find starts of buckets
-	getBuckets(buf1, buf2, k, false)
-
-	j := n - 1
-	c1 := src[j]
-	b := buf2[c1]
-
-	if j > 0 && src[j-1] < c1 {
-		sa[b] = ^j
-	} else {
-		sa[b] = j
-	}
-
-	b++
-
-	for i := 0; i < n; i++ {
-		j = sa[i]
-		sa[i] = ^j
-
-		if j <= 0 {
-			continue
-		}
-
-		j--
-		c0 := src[j]
-
-		if c0 != c1 {
-			buf2[c1] = b
-			c1 = c0
-			b = buf2[c1]
-		}
-
-		if j > 0 && src[j-1] < c1 {
-			sa[b] = ^j
-		} else {
-			sa[b] = j
-		}
-
-		b++
-	}
-
-	// compute sas
-	if ptrBuf1 == ptrBuf2 {
-		getCounts(src, buf1, n, k)
-	}
-
-	// find ends of buckets
-	getBuckets(buf1, buf2, k, true)
-	c1 = 0
-	b = buf2[c1]
-
-	for i := n - 1; i >= 0; i-- {
-		j = sa[i]
-
-		if j <= 0 {
-			sa[i] = ^j
-			continue
-		}
-
-		j--
-		c0 := src[j]
-
-		if c0 != c1 {
-			buf2[c1] = b
-			c1 = c0
-			b = buf2[c1]
-		}
-
-		b--
-
-		if j == 0 || src[j-1] > c1 {
-			sa[b] = ^j
-		} else {
-			sa[b] = j
-		}
-	}
-}
-
-func computeBWT(data []int, sa []int, ptrBuf1 *[]int, ptrBuf2 *[]int, n int, k int) int {
-	buf1 := *ptrBuf1
-	buf2 := *ptrBuf2
-
-	// compute sal
-	if ptrBuf1 == ptrBuf2 {
-		getCounts(data, buf1, n, k)
-	}
-
-	// find starts of buckets
-	getBuckets(buf1, buf2, k, false)
-	j := n - 1
-	c1 := data[j]
-	b := buf2[c1]
-
-	if j > 0 && data[j-1] < c1 {
-		sa[b] = ^j
-	} else {
-		sa[b] = j
-	}
-
-	b++
-
-	for i := 0; i < n; i++ {
-		j = sa[i]
-
-		if j > 0 {
-			j--
-			c0 := data[j]
-			sa[i] = ^c0
-
-			if c0 != c1 {
-				buf2[c1] = b
-				c1 = c0
-				b = buf2[c1]
-			}
-
-			if j > 0 && data[j-1] < c1 {
-				sa[b] = ^j
-			} else {
-				sa[b] = j
-			}
-
-			b++
-		} else if j != 0 {
-			sa[i] = ^j
-		}
-	}
-
-	// compute sas
-	if ptrBuf1 == ptrBuf2 {
-		getCounts(data, buf1, n, k)
-	}
-
-	// find ends of buckets
-	getBuckets(buf1, buf2, k, true)
-	c1 = 0
-	b = buf2[c1]
-	pidx := -1
-
-	for i := n - 1; i >= 0; i-- {
-		j = sa[i]
-
-		if j > 0 {
-			j--
-			c0 := data[j]
-			sa[i] = c0
-
-			if c0 != c1 {
-				buf2[c1] = b
-				c1 = c0
-				b = buf2[c1]
-			}
-
-			b--
-
-			if j > 0 && data[j-1] > c1 {
-				sa[b] = ^data[j-1]
-			} else {
-				sa[b] = j
-			}
-		} else if j != 0 {
-			sa[i] = ^j
-		} else {
-			pidx = i
-		}
-	}
-
-	return pidx
-}
-
-// Find the suffix array sa of data[0..n-1] in {0..k-1}^n
-// Return the primary index if isbwt is true (0 otherwise)
-func computeSuffixArray(data []int, sa []int, fs int, n int, k int, isbwt bool) uint {
-	var B, C []int
-	var ptrB, ptrC *[]int
-	flags := 0
-
-	if k <= 256 {
-		C = make([]int, k)
-		ptrC = &C
-
-		if k <= fs {
-			B = sa[n+fs-k:]
-			flags = 1
-		} else {
-			B = make([]int, k)
-			flags = 3
-		}
-
-		ptrB = &B
-
-	} else if k <= fs {
-		C = sa[n+fs-k:]
-		ptrC = &C
-
-		if k <= fs-k {
-			B = sa[n+fs-(k+k):]
-			ptrB = &B
-			flags = 0
-		} else if k <= 1024 {
-			B = make([]int, k)
-			ptrB = &B
-			flags = 2
-		} else {
-			ptrB = ptrC
-			B = *ptrB
-			flags = 8
-		}
-	} else {
-		B = make([]int, k)
-		ptrB = &B
-		ptrC = ptrB
-		C = *ptrC
-		flags = 12
-	}
-
-	// stage 1: reduce the problem by at least 1/2, sort all the LMS-substrings
-	// find ends of buckets
-	getCounts(data, C, n, k)
-	getBuckets(C, B, k, true)
-
-	for ii := 0; ii < n; ii++ {
-		sa[ii] = 0
-	}
-
-	b := -1
-	i := n - 1
-	j := n
-	m := 0
-	c0 := data[n-1]
-	c1 := c0
-
-	for c0 >= c1 {
-		c1 = c0
-		i--
-
-		if i < 0 {
-			break
-		}
-
-		c0 = data[i]
-	}
-
-	for i >= 0 {
-		for {
-			c1 = c0
-			i--
-
-			if i < 0 {
-				break
-			}
-
-			c0 = data[i]
-
-			if c0 > c1 {
-				break
-			}
-		}
-
-		if i < 0 {
-			break
-		}
-
-		if b >= 0 {
-			sa[b] = j
-		}
-
-		B[c1]--
-		b = B[c1]
-		j = i
-		m++
-
-		for {
-			c1 = c0
-			i--
-
-			if i < 0 {
-				break
-			}
-
-			c0 = data[i]
-
-			if c0 < c1 {
-				break
-			}
-		}
-	}
-
-	name := 0
-
-	if m > 1 {
-		sortLMSSuffixes(data, sa, ptrC, ptrB, n, k)
-		name = postProcessLMS(data, sa, n, m)
-	} else if m == 1 {
-		sa[b] = j + 1
-		name = 1
-	}
-
-	// stage 2: solve the reduced problem, recurse if names are not yet unique
-	if name < m {
-		newfs := (n + fs) - (m + m)
-
-		if flags&13 == 0 {
-			if k+name <= newfs {
-				newfs -= k
-			} else {
-				flags |= 8
-			}
-		}
-
-		j = m + m + newfs - 1
-
-		for ii := m + (n >> 1) - 1; ii >= m; ii-- {
-			if sa[ii] != 0 {
-				sa[j] = sa[ii] - 1
-				j--
-			}
-		}
-
-		computeSuffixArray(sa[m+newfs:], sa, newfs, m, name, false)
-
-		i = n - 1
-		j = m + m - 1
-		c0 = data[i]
-
-		for {
-			c1 = c0
-			i--
-
-			if i < 0 {
-				break
-			}
-
-			c0 = data[i]
-
-			if c0 < c1 {
-				break
-			}
-		}
-
-		for i >= 0 {
-			for {
-				c1 = c0
-				i--
-
-				if i < 0 {
-					break
-				}
-
-				c0 = data[i]
-
-				if c0 > c1 {
-					break
-				}
-			}
-
-			if i < 0 {
-				break
-			}
-
-			sa[j] = i + 1
-			j--
-
-			for {
-				c1 = c0
-				i--
-
-				if i < 0 {
-					break
-				}
-
-				c0 = data[i]
-
-				if c0 < c1 {
-					break
-				}
-			}
-		}
-
-		for ii := 0; ii < m; ii++ {
-			sa[ii] = sa[m+sa[ii]]
-		}
-
-		if flags&4 != 0 {
-			B = make([]int, k)
-			ptrB = &B
-			ptrC = ptrB
-			C = *ptrC
-		} else if flags&2 != 0 {
-			B = make([]int, k)
-			ptrB = &B
-		}
-	}
-
-	// stage 3: induce the result for the original problem
-	if flags&8 != 0 {
-		getCounts(data, C, n, k)
-	}
-
-	// put all left-most S characters into their buckets
-	if m > 1 {
-		// find ends of buckets
-		getBuckets(C, B, k, true)
-		i = m - 1
-		j = n
-		p := sa[m-1]
-		c1 = data[p]
-
-		for {
-			c0 = c1
-			q := B[c0]
-
-			for q < j {
-				j--
-				sa[j] = 0
-			}
-
-			for {
-				j--
-				sa[j] = p
-				i--
-
-				if i < 0 {
-					break
-				}
-
-				p = sa[i]
-				c1 = data[p]
-
-				if c1 != c0 {
-					break
-				}
-			}
-
-			if i < 0 {
-				break
-			}
-		}
-
-		for j > 0 {
-			j--
-			sa[j] = 0
-		}
-	}
-
-	if isbwt == false {
-		induceSuffixArray(data, sa, ptrC, ptrB, n, k)
-		return uint(0)
-	}
-
-	pidx := computeBWT(data, sa, ptrC, ptrB, n, k)
-	return uint(pidx)
 }
