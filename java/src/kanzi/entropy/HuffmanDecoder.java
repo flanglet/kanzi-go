@@ -174,7 +174,7 @@ public class HuffmanDecoder extends AbstractDecoder
           Key key = last.getKey();
           final int code = key.code;
           key.length--;
-          key.code = code >> 1;
+          key.code >>= 1;
           Node upNode = codeMap.get(key);
 
           // Create superior node if it does not exist (length gap > 1)
@@ -382,7 +382,7 @@ public class HuffmanDecoder extends AbstractDecoder
 
           if (o == null)
              return 1;
-
+        
           final Key k = (Key) o;
           final int len = this.length - k.length;
 
@@ -402,18 +402,13 @@ public class HuffmanDecoder extends AbstractDecoder
              return false;
 
           final Key k = (Key) o;
-          final int len = this.length - k.length;
-
-          if (len != 0)
-             return false;
-
-          return (this.code == k.code) ? true : false;
+          return (this.length == k.length) && (this.code == k.code);
        }
 
        @Override
        public int hashCode() 
        {
-          return this.code & ((1 << this.length) - 1);
+          return ((this.length & 0xFF) << 24) | (this.code & 0xFFFFFF);
        }
     }
 

@@ -241,6 +241,7 @@ func NewPAQPredictor() (*PAQPredictor, error) {
 	this.pr = 2048
 	this.c0 = 1
 	this.states = make([]int, 256)
+	this.bpos = 7
 	this.apm2, err = newAdaptiveProbMap(1024)
 
 	if err == nil {
@@ -269,33 +270,31 @@ func (this *PAQPredictor) Update(bit byte) {
 
 	// update context
 	this.c0 = (this.c0 << 1) | uint(y)
-	this.bpos++
+	this.bpos--
+	this.bpos &= 7
 
-	if this.bpos == 8 {
-		this.bpos = 0
-		this.c4 = (this.c4 << 8) | (this.c0 - 256)
-		this.c0 = 1
-
-		if ((this.c4 ^ (this.c4 >> 8)) & 255) == 0 {
-			if this.run < 0xFFFF {
-				this.run++
-			}
-
-			if (this.run == 1) || (this.run == 2) || (this.run == 4) {
+	if this.bpos == 7 {
+		if this.c0 & 0xFF == this.c4 & 0xFF {
+			if this.run < 4 && this.run != 2 {
 				this.runCtx++
 			}
+
+			this.run++
 		} else {
 			this.run = 0
 			this.runCtx = 0
 		}
+
+		this.c4 = (this.c4 << 8) | (this.c0 & 0xFF)
+		this.c0 = 1
 	}
 
-	c1c := ((this.c4 & 255) + 256) >> (8 - this.bpos)
-	c1d := (this.c4 >> (7 - this.bpos)) & 1
+	c1d := (this.c4 >> this.bpos) & 1
 
-	if c1c == this.c0 {
-		c1d += 2
-	}
+	if ((this.c4&0xFF)|256)>>(1+this.bpos) == this.c0 {
+		c1d |= 2
+	} 
+
 
 	// Prediction chain
 	this.ctxPtr = this.c0
@@ -305,7 +304,7 @@ func (this *PAQPredictor) Update(bit byte) {
 	//     ctx := int(this.c0 ^ (((this.c4*uint64(123456791)) & uint64(0xFFFFFFFF)) >> 21)))
 	//     pred = (this.apm5.get(y, pred, ctx, 7) + pred + 1) >> 1
 	pred = (this.apm4.get(y, pred, this.c0, 7) + pred + 1) >> 1
-	
+
 	if pred >= 2048 {
 		this.pr = uint(pred)
 	} else {

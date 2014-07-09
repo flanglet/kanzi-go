@@ -556,7 +556,7 @@ func (this *HuffmanDecoder) createTreeFromSizes(maxSize uint) *HuffmanNode {
 		key, _ := tree.Max()
 		tree.Remove(key)
 		node := codeMap[key]
-		l := (key >> 24) & 0xFFFF
+		l := (key >> 24) & 0xFF
 		c := key & 0xFFFFFF
 		upKey := ((l - 1) << 24) | (c >> 1)
 		upNode := codeMap[upKey]

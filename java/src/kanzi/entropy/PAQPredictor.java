@@ -253,6 +253,7 @@ public class PAQPredictor implements Predictor
      this.apm4 = new AdaptiveProbMap(256);
      //this.apm5 = new AdaptiveProbMap(2048);
      this.sm = new StateMap();
+     this.bpos = 7;
    }
 
 
@@ -264,33 +265,32 @@ public class PAQPredictor implements Predictor
 
      // update context
      this.c0 = (this.c0 << 1) | y;
+     this.bpos--;
 
-     if (++this.bpos == 8)
+     if (this.bpos < 0)
      {
-        this.bpos = 0;
-        this.c4 = (this.c4 << 8) | (this.c0 - 256);
-        this.c0 = 1;
-
-        if (((this.c4 ^ (this.c4>>8)) & 255) == 0)
+        if ((this.c0 & 0xFF) == (this.c4 & 0xFF))
         {
-           if (this.run < 0xFFFF)
-              this.run++;
-
-           if ((this.run == 1) || (this.run == 2) || (this.run == 4))
+           if ((this.run < 4) && (this.run != 2))
               this.runCtx++;
+
+           this.run++;
         }
         else
         {
            this.run = 0;
            this.runCtx = 0;
         }
+
+        this.bpos = 7;
+        this.c4 = (this.c4 << 8) | (this.c0 & 0xFF);
+        this.c0 = 1;
      }
 
-     final int c1c = ((this.c4 & 255) + 256) >> (8 - this.bpos);
-     int c1d = (this.c4 >> (7-this.bpos)) & 1;
+     int c1d = (this.c4 >> this.bpos) & 1;
 
-     if (c1c == this.c0)
-        c1d += 2;
+     if ((((this.c4 & 0xFF) | 256) >> (1+this.bpos)) == this.c0)
+        c1d |= 2;
 
      // Prediction chain
      this.ctxPtr = this.c0;
