@@ -47,6 +47,7 @@ public final class LZ4Codec implements ByteFunction
    private static final int SHIFT4             = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN) ?  0  : 24;
    private static final int COPY_LENGTH        = 8;
    private static final int MIN_LENGTH         = 14;
+   private static final int MAX_LENGTH         = (32*1024*1024) - 4 - MIN_MATCH;
    private static final int DEFAULT_FIND_MATCH_ATTEMPTS = (1 << SKIP_STRENGTH) + 3;
 
    private int size;
@@ -310,10 +311,13 @@ public final class LZ4Codec implements ByteFunction
          {
             byte len;
 
-            while ((len = src[srcIdx++]) == (byte) 0xFF)
+            while (((len = src[srcIdx++]) == (byte) 0xFF) && (srcIdx <= srcEnd))
                length += 0xFF;
 
             length += (len & 0xFF);
+            
+            if (length > MAX_LENGTH)
+               throw new IllegalArgumentException("Invalid length decoded: " + length);
          }
 
          if ((dstIdx + length > dstEnd2) || (srcIdx + length > srcEnd2))
@@ -338,10 +342,13 @@ public final class LZ4Codec implements ByteFunction
          {
             byte len;
 
-            while ((len = src[srcIdx++]) == (byte) 0xFF)
+            while (((len = src[srcIdx++]) == (byte) 0xFF) && (srcIdx <= srcEnd))
                length += 0xFF;
 
             length += (len & 0xFF);
+
+            if (length > MAX_LENGTH)
+               throw new IllegalArgumentException("Invalid length decoded: " + length);
          }
 
          length += MIN_MATCH;
@@ -377,7 +384,7 @@ public final class LZ4Codec implements ByteFunction
 
       destination.index = dstIdx;
       source.index = srcIdx;
-      return (srcIdx == srcEnd) ? true : false;
+      return srcIdx == srcEnd;
    }
 
 

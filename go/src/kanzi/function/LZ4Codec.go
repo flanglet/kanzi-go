@@ -44,6 +44,7 @@ const (
 	RUN_MASK                    = (1 << RUN_BITS) - 1
 	COPY_LENGTH                 = 8
 	MIN_LENGTH                  = 14
+	MAX_LENGTH                  = (32 * 1024 * 1024) - 4 - MIN_MATCH
 	DEFAULT_FIND_MATCH_ATTEMPTS = (1 << SKIP_STRENGTH) + 3
 )
 
@@ -337,13 +338,17 @@ func (this *LZ4Codec) Inverse(src, dst []byte) (uint, uint, error) {
 		length := token >> ML_BITS
 
 		if length == RUN_MASK {
-			for src[srcIdx] == byte(0xFF) {
+			for srcIdx < srcEnd && src[srcIdx] == byte(0xFF) {
 				srcIdx++
 				length += 0xFF
 			}
 
 			length += int(src[srcIdx])
 			srcIdx++
+
+			if length >= MAX_LENGTH {
+				return 0, 0, fmt.Errorf("Invalid length decoded: %d", length)
+			}
 		}
 
 		for i := 0; i < length; i++ {
@@ -365,13 +370,18 @@ func (this *LZ4Codec) Inverse(src, dst []byte) (uint, uint, error) {
 
 		// Get match length
 		if length == ML_MASK {
-			for src[srcIdx] == byte(0xFF) {
+			for srcIdx < srcEnd && src[srcIdx] == byte(0xFF) {
 				srcIdx++
 				length += 0xFF
+
 			}
 
 			length += int(src[srcIdx])
 			srcIdx++
+
+			if length >= MAX_LENGTH {
+				return 0, 0, fmt.Errorf("Invalid length decoded: %d", length)
+			}
 		}
 
 		length += MIN_MATCH
