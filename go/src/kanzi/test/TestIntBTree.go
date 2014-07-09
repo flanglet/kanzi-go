@@ -23,9 +23,6 @@ import (
 	"time"
 )
 
-func printNode(node *util.IntBTNode) {
-	fmt.Printf("%v, ", node.Value())
-}
 
 func main() {
 	fmt.Printf("Correctness Test\n")
@@ -79,8 +76,16 @@ func main() {
 				}
 			}
 
-			fmt.Printf("All nodes in reverse order\n")
-			tree.Scan(printNode, true)
+			//	fmt.Printf("All nodes in reverse order:\n")
+			//	tree.Scan(printNode, true)
+			println()
+			fmt.Printf("All nodes in natural order\n")
+			array := tree.ToArray(make([]int, tree.Size()))
+
+			for i := range array {
+				fmt.Printf("%v, ", array[i])
+			}
+
 			println()
 			fmt.Printf("Size: %v\n", tree.Size())
 
@@ -100,7 +105,14 @@ func main() {
 
 				tree.Remove(tMin)
 				tree.Remove(tMax)
-				fmt.Printf("Remove: %v %v ", tMin, tMax)
+				fmt.Printf("Remove: %v %v\n", tMin, tMax)
+				array = tree.ToArray(make([]int, tree.Size()))
+
+				for i := range array {
+					fmt.Printf("%v, ", array[i])
+				}
+
+				println()
 				fmt.Printf("Size: %v\n", tree.Size())
 
 				if tree.Size() > 0 {
@@ -128,75 +140,87 @@ func main() {
 	fmt.Printf("Speed Test\n")
 
 	{
-		iter := 10000
+		iter := 5000
 		size := 10000
-		delta1 := int64(0)
-		delta2 := int64(0)
-		delta3 := int64(0)
+		var before, after time.Time
+		delta01 := int64(0)
+		delta02 := int64(0)
+		delta03 := int64(0)
+		delta04 := int64(0)
 		array := make([]int, size)
 
 		for ii := 0; ii < iter; ii++ {
-	   		tree, _ := util.NewIntBTree()
+			tree1, _ := util.NewIntBTree()
+			array[0] = 100000
 			r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 			for i := 0; i < size; i++ {
 				array[i] = r.Intn(size / 2)
 			}
 
-			before1 := time.Now()
+			before = time.Now()
 
 			for i := 0; i < size; i++ {
-				tree.Add(array[i])
+				tree1.Add(array[i])
 			}
 
-			after1 := time.Now()
-			delta1 += after1.Sub(before1).Nanoseconds()
+			after = time.Now()
+			delta01 += after.Sub(before).Nanoseconds()
+			before = time.Now()
+
+			for i := 0; i < size; i++ {
+				tree1.Contains(array[size-1-i])
+			}
+
+			after = time.Now()
+			delta04 += after.Sub(before).Nanoseconds()
 
 			// Sanity check
-			if tree.Size() != size {
-				fmt.Printf("Error: Found size=%v, expected size=%v\n", tree.Size(), size)
+			if tree1.Size() != size {
+				fmt.Printf("Error: Found size=%v, expected size=%v\n", tree1.Size(), size)
 				os.Exit(1)
 			}
 
-			before2 := time.Now()
+			before = time.Now()
 
 			for i := 0; i < size; i++ {
-				tree.Remove(array[i])
+				tree1.Remove(array[i])
 			}
 
-			after2 := time.Now()
-			delta2 += after2.Sub(before2).Nanoseconds()
+			after := time.Now()
+			delta02 += after.Sub(before).Nanoseconds()
 
 			// Sanity check
-			if tree.Size() != 0 {
-				fmt.Printf("Error: Found size=%v, expected size=%v\n", tree.Size(), 0)
+			if tree1.Size() != 0 {
+				fmt.Printf("Error: Found size=%v, expected size=%v\n", tree1.Size(), 0)
 				os.Exit(1)
 			}
 
 			// Recreate a 'size' array tree
 			for i := 0; i < size; i++ {
-				tree.Add(array[i])
+				tree1.Add(array[i])
 			}
 
 			for i := 0; i < size; i++ {
 				val := rand.Intn(size / 2)
-				before3 := time.Now()
-				tree.Add(val)
-				tree.Remove(val)
-				after3 := time.Now()
-				delta3 += after3.Sub(before3).Nanoseconds()
+				before = time.Now()
+				tree1.Add(val)
+				tree1.Remove(val)
+				after = time.Now()
+				delta03 += after.Sub(before).Nanoseconds()
 			}
 
 			// Sanity check
-			if tree.Size() != size {
-				fmt.Printf("Error: Found size=%v, expected size=%v\n", tree.Size(), size)
+			if tree1.Size() != size {
+				fmt.Printf("Error: Found size=%v, expected size=%v\n", tree1.Size(), size)
 				os.Exit(1)
 			}
 		}
 
 		fmt.Printf("%v iterations\n", size*iter)
-		fmt.Printf("Additions [ms]: %d\n", delta1/1000000)
-		fmt.Printf("Deletions [ms]: %d\n", delta2/1000000)
-		fmt.Printf("Additions/Deletions at size=%v [ms]: %d\n", size, delta3/1000000)
+		fmt.Printf("Additions [ms]: %d\n", delta01/1000000)
+		fmt.Printf("Deletions [ms]: %d\n", delta02/1000000)
+		fmt.Printf("Contains  [ms]: %d\n", delta04/1000000)
+		fmt.Printf("Additions/Deletions at size=%v [ms]: %d\n", size, delta03/1000000)
 	}
 }

@@ -23,19 +23,46 @@ import (
 // and fast access to minimum and maximum values (usually constant time, else log n time).
 
 const (
-	MAX_DIRTY = uint8(1)
-	MIN_DIRTY = uint8(2)
+	MAX_DIRTY            = uint8(1)
+	MIN_DIRTY            = uint8(2)
+	LOG_NODE_BUFFER_SIZE = 4
+	NODE_BUFFER_SIZE     = 1 << LOG_NODE_BUFFER_SIZE
+	MASK_NODE_BUFFER     = NODE_BUFFER_SIZE - 1
 )
 
 type IntBTNode struct {
-	value int
-	count uint
-	left  *IntBTNode
-	right *IntBTNode
+	base   int
+	counts []uint
+	left   *IntBTNode
+	right  *IntBTNode
 }
 
-func (this *IntBTNode) Value() int {
-	return this.value
+func (this *IntBTNode) Values(values []int, idx int, reverse bool) int {
+	if reverse == true {
+		for i := len(this.counts) - 1; i >= 0; i-- {
+			for j := this.counts[i]; j > 0; j-- {
+				values[idx] = this.base + i
+				idx++
+			}
+		}
+	} else {
+		for i := range this.counts {
+			for j := this.counts[i]; j > 0; j-- {
+				values[idx] = this.base + i
+				idx++
+			}
+		}
+	}
+
+	return idx
+}
+
+func newIntBTNode(val int) *IntBTNode {
+	this := new(IntBTNode)
+	this.base = val & -NODE_BUFFER_SIZE
+	this.counts = make([]uint, NODE_BUFFER_SIZE)
+	this.counts[val&MASK_NODE_BUFFER]++
+	return this
 }
 
 type IntBTree struct {
@@ -47,7 +74,7 @@ type IntBTree struct {
 }
 
 // Visitor pattern. Must return the node value
-type IntBTreeCallback func(node *IntBTNode) int
+type IntBTreeCallback func(node *IntBTNode, values []int, idx int, reverse bool) int
 
 func NewIntBTree() (*IntBTree, error) {
 	this := new(IntBTree)
@@ -59,14 +86,12 @@ func (this *IntBTree) Size() int {
 }
 
 func (this *IntBTree) Add(val int) {
-	node := &IntBTNode{value: val, count: 1}
-
 	if this.root == nil {
-		this.root = node
+		this.root = newIntBTNode(val)
 		this.min = val
 		this.max = val
 	} else {
-		addNode(this.root, node)
+		addValue(this.root, val)
 
 		if val < this.min {
 			this.min = val
@@ -80,28 +105,54 @@ func (this *IntBTree) Add(val int) {
 	this.size++
 }
 
+// Add existing node
 func addNode(parent, node *IntBTNode) {
-	value := node.value
+	value := node.base
 
-	for value != parent.value {
-		if value < parent.value {
+	for true {
+		if value < parent.base {
 			if parent.left == nil {
 				parent.left = node
 				return
 			}
 
 			parent = parent.left
-		} else {
+		} else if value >= parent.base+NODE_BUFFER_SIZE {
 			if parent.right == nil {
 				parent.right = node
 				return
 			}
 
 			parent = parent.right
+		} else {
+			break
 		}
 	}
 
-	parent.count++
+	parent.counts[value&MASK_NODE_BUFFER]++
+}
+
+func addValue(parent *IntBTNode, value int) {
+	for parent != nil {
+		if value < parent.base {
+			if parent.left == nil {
+				parent.left = newIntBTNode(value)
+				break
+			}
+
+			parent = parent.left
+		} else if value >= parent.base+NODE_BUFFER_SIZE {
+			if parent.right == nil {
+				parent.right = newIntBTNode(value)
+				break
+			}
+
+			parent = parent.right
+		} else {
+			parent.counts[value&MASK_NODE_BUFFER]++
+			break
+		}
+	}
 }
 
 // Return the number of matches
@@ -112,27 +163,18 @@ func (this *IntBTree) Contains(value int) uint {
 		return 0
 	}
 
-	return res.count
+	return res.counts[value&MASK_NODE_BUFFER]
 }
 
 func findNode(current *IntBTNode, value int) *IntBTNode {
-	if current == nil {
-		return nil
-	}
 
-	for value != current.value {
-		if value < current.value {
-			if current.left == nil {
-				return nil
-			}
-
+	for current != nil {
+		if value < current.base {
 			current = current.left
-		} else {
-			if current.right == nil {
-				return nil
-			}
-
+		} else if value >= current.base+NODE_BUFFER_SIZE {
 			current = current.right
+		} else {
+			break
 		}
 	}
 
@@ -167,30 +209,39 @@ func (this *IntBTree) Remove(value int) bool {
 func (this *IntBTree) removeNode(value int) *IntBTNode {
 	current := this.root
 	var prev *IntBTNode
+	prev = nil
 
-	for value != current.value {
-		if value < current.value {
+	for true {
+		if value < current.base {
 			if current.left == nil {
 				return nil
 			}
 
 			prev = current
 			current = current.left
-		} else {
+		} else if value >= current.base+NODE_BUFFER_SIZE {
 			if current.right == nil {
 				return nil
 			}
 
 			prev = current
 			current = current.right
+		} else {
+			break
 		}
 	}
 
 	// Found target
-	current.count--
+	current.counts[value&MASK_NODE_BUFFER]--
 
-	if current.count != 0 {
+	if current.counts[value&MASK_NODE_BUFFER] != 0 {
 		return current
+	}
+
+	for i := 0; i < NODE_BUFFER_SIZE; i++ {
+		if current.counts[i] != 0 {
+			return current
+		}
 	}
 
 	if current == this.root {
@@ -254,10 +305,7 @@ func scanAndCall(current *IntBTNode, array []int, index int, callback IntBTreeCa
 			index = scanAndCall(current.left, array, index, callback, false)
 		}
 
-		for i := current.count; i > 0; i-- {
-			array[index] = callback(current)
-			index++
-		}
+		index = callback(current, array, index, reverse)
 
 		if current.right != nil {
 			index = scanAndCall(current.right, array, index, callback, false)
@@ -267,10 +315,7 @@ func scanAndCall(current *IntBTNode, array []int, index int, callback IntBTreeCa
 			index = scanAndCall(current.right, array, index, callback, true)
 		}
 
-		for i := current.count; i > 0; i-- {
-			array[index] = callback(current)
-			index++
-		}
+		index = callback(current, array, index, reverse)
 
 		if current.left != nil {
 			index = scanAndCall(current.left, array, index, callback, true)
@@ -298,7 +343,13 @@ func (this *IntBTree) Min() (int, error) {
 			node = node.left
 		}
 
-		this.min = node.value
+		for i := 0; i < NODE_BUFFER_SIZE; i++ {
+			if node.counts[i] > 0 {
+				this.min = node.base + i
+				break
+			}
+		}
+
 		this.flags &= ^MIN_DIRTY
 	}
 
@@ -318,7 +369,13 @@ func (this *IntBTree) Max() (int, error) {
 			node = node.right
 		}
 
-		this.max = node.value
+		for i := MASK_NODE_BUFFER; i >= 0; i-- {
+			if node.counts[i] > 0 {
+				this.max = node.base + i
+				break
+			}
+		}
+
 		this.flags &= ^MAX_DIRTY
 	}
 
@@ -335,10 +392,10 @@ func (this *IntBTree) ToArray(array []int) []int {
 	}
 
 	res := array
-	scanAndCall(this.root, res, 0, emptyCallback, false)
+	scanAndCall(this.root, res, 0, defaultCallback, false)
 	return res
 }
 
-func emptyCallback(node *IntBTNode) int {
-	return node.value
+func defaultCallback(node *IntBTNode, values []int, index int, reverse bool) int {
+	return node.Values(values, index, reverse)
 }
