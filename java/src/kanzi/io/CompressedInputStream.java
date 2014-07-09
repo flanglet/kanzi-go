@@ -41,7 +41,7 @@ import kanzi.util.XXHash;
 public class CompressedInputStream extends InputStream
 {
    private static final int BITSTREAM_TYPE           = 0x4B414E5A; // "KANZ"
-   private static final int BITSTREAM_FORMAT_VERSION = 5;
+   private static final int BITSTREAM_FORMAT_VERSION = 6;
    private static final int DEFAULT_BUFFER_SIZE      = 1024*1024;
    private static final int COPY_LENGTH_MASK         = 0x0F;
    private static final int SMALL_BLOCK_MASK         = 0x80;
@@ -150,8 +150,8 @@ public class CompressedInputStream extends InputStream
 
       if (this.ds != null)
       {
-         this.ds.println("Checksum set to "+(this.hasher != null));
-         this.ds.println("Block size set to "+this.blockSize+" bytes");
+         this.ds.println("Checksum set to " + (this.hasher != null));
+         this.ds.println("Block size set to " + this.blockSize + " bytes");
 
          try
          {
@@ -531,9 +531,9 @@ public class CompressedInputStream extends InputStream
             }
             else
             {
-               final int dataSize = mode & 0x03;
+               final int dataSize = 1 + (mode & 0x03);
                final int length = dataSize << 3;
-               final int mask = (1 << length) - 1;
+               final long mask = (1L << length) - 1;
                preTransformLength = (int) (this.ibs.readBits(length) & mask);
             }
 

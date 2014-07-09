@@ -45,7 +45,7 @@ public class CompressedOutputStream extends OutputStream
 {
    private static final int DEFAULT_BLOCK_SIZE       = 1024 * 1024; // Default block size
    private static final int BITSTREAM_TYPE           = 0x4B414E5A; // "KANZ"
-   private static final int BITSTREAM_FORMAT_VERSION = 5;
+   private static final int BITSTREAM_FORMAT_VERSION = 6;
    private static final int COPY_LENGTH_MASK         = 0x0F;
    private static final int SMALL_BLOCK_MASK         = 0x80;
    private static final int SKIP_FUNCTION_MASK       = 0x40;
@@ -529,13 +529,16 @@ public class CompressedOutputStream extends OutputStream
                if (postTransformLength < 0)
                   return false;
 
-               dataSize++;
-
-               for (int i=0xFF; i<postTransformLength; i<<=8)
+               for (long n=0xFF; n<postTransformLength; n<<=8)
                   dataSize++;
 
-               // Record size of 'block size' in bytes
+               if (dataSize > 3) 
+                  return false;
+               
+               // Record size of 'block size' - 1 in bytes
                mode |= (dataSize & 0x03);
+               
+               dataSize++;
             }
 
             if (this.listeners != null) 

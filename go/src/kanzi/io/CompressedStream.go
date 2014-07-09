@@ -36,7 +36,7 @@ import (
 
 const (
 	BITSTREAM_TYPE             = 0x4B414E5A // "KANZ"
-	BITSTREAM_FORMAT_VERSION   = 5
+	BITSTREAM_FORMAT_VERSION   = 6
 	STREAM_DEFAULT_BUFFER_SIZE = 1024 * 1024
 	COPY_LENGTH_MASK           = 0x0F
 	SMALL_BLOCK_MASK           = 0x80
@@ -477,14 +477,18 @@ func (this *CompressedOutputStream) encode(data []byte, buf *[]byte, blockLength
 		}
 
 		postTransformLength = oIdx
-		dataSize++
 
-		for i := uint(0xFF); i < postTransformLength; i <<= 8 {
+		for i := uint64(0xFF); i < uint64(postTransformLength); i <<= 8 {
 			dataSize++
 		}
 
-		// Record size of 'block size' in bytes
+		if dataSize > 3 {
+			output <- NewIOError("Invalid block data length", ERR_WRITE_FILE)
+		}
+
+		// Record size of 'block size' - 1 in bytes
 		mode |= byte(dataSize & 0x03)
+		dataSize++
 	}
 
 	if len(listeners_) > 0 {
@@ -995,7 +999,7 @@ func (this *CompressedInputStream) decode(data []byte, buf *[]byte,
 	if (mode & SMALL_BLOCK_MASK) != 0 {
 		preTransformLength = uint(mode & COPY_LENGTH_MASK)
 	} else {
-		dataSize := uint(mode & 0x03)
+		dataSize := uint(1 + (mode & 0x03))
 		length := dataSize << 3
 		mask := uint64(1<<length) - 1
 
