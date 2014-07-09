@@ -74,32 +74,38 @@ public final class DefaultOutputBitStream implements OutputBitStream
       if (this.isClosed() == true)
          throw new BitStreamException("Stream closed", BitStreamException.STREAM_CLOSED);
 
-      if (count == 0)
-         return 0;
+      if ((count <= 0) || (count > 64))
+      {
+         if (count == 0)
+            return 0;
 
-      if ((count < 0) || (count > 64))
          throw new IllegalArgumentException("Invalid length: "+count+" (must be in [1..64])");
-
+      }
+      
       value &= (-1L >>> (64 - count));
-      final int remaining = count - this.bitIndex - 1;
+      final int remaining = this.bitIndex + 1 - count;
 
-      if (remaining <= 0)
+      if (remaining >= 0)
       {
          // Enough spots available in 'current'
-         this.current |= (value << -remaining);
-
          if (remaining == 0)
+         {
+            this.current |= value;
             this.pushCurrent();
+         }
          else
+         {
+            this.current |= (value << remaining);
             this.bitIndex -= count;        
+         }
       }
       else
       {
          // Not enough spots available in 'current'
-         this.current |= (value >>> remaining);
+         this.current |= (value >>> -remaining);
          this.pushCurrent();
-         this.current |= (value << (64 - remaining));
-         this.bitIndex -= remaining;
+         this.current |= (value << (64 + remaining));
+         this.bitIndex += remaining;
       }
 
       return count;
@@ -140,8 +146,6 @@ public final class DefaultOutputBitStream implements OutputBitStream
             this.written += (this.position << 3);
             this.position = 0;
          }
-
-         this.os.flush();
       }
       catch (IOException e)
       {
@@ -179,6 +183,7 @@ public final class DefaultOutputBitStream implements OutputBitStream
 
       try
       {
+         this.os.flush();
          this.os.close();
       }
       catch (IOException e)

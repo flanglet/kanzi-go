@@ -24,8 +24,8 @@ import (
 type DefaultOutputBitStream struct {
 	closed   bool
 	written  uint64
-	position int  // index of current byte in buffer
-	bitIndex uint // index of current bit to write
+	position int    // index of current byte in buffer
+	bitIndex uint   // index of current bit to write
 	current  uint64 // cached bits
 	os       kanzi.OutputStream
 	buffer   []byte
@@ -88,11 +88,12 @@ func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) (uint, e
 	if count <= this.bitIndex+1 {
 		// Enough spots available in 'current'
 		remaining := this.bitIndex + 1 - count
-		this.current |= (value << remaining)
-		
+
 		if remaining == 0 {
+			this.current |= value
 			this.pushCurrent()
 		} else {
+			this.current |= (value << remaining)
 			this.bitIndex -= count
 		}
 	} else {
@@ -141,7 +142,7 @@ func (this *DefaultOutputBitStream) flush() error {
 		this.position = 0
 	}
 
-	return this.os.Sync()
+	return nil
 }
 
 func (this *DefaultOutputBitStream) Close() (bool, error) {
@@ -163,6 +164,10 @@ func (this *DefaultOutputBitStream) Close() (bool, error) {
 		this.bitIndex = savedBitIndex
 		this.position = savedPosition
 		this.current = savedCurrent
+		return false, err
+	}
+
+	if err := this.os.Sync(); err != nil {
 		return false, err
 	}
 
