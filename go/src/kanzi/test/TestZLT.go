@@ -116,7 +116,7 @@ func TestCorrectness() {
 
 func TestSpeed() {
 	iter := 50000
-	size := 30000
+	size := 50000
 	fmt.Printf("\n\nSpeed test\n")
 	fmt.Printf("Iterations: %v\n", iter)
 
