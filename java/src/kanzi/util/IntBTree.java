@@ -360,7 +360,7 @@ public final class IntBTree
          while (node.right != null)
             node = node.right;
 
-         for (int i=MASK_NODE_BUFFER; i>=0; i--)
+         for (int i=NODE_BUFFER_SIZE-1; i>=0; i--)
          {
             if (node.counts[i] > 0)
             {
@@ -434,12 +434,13 @@ public final class IntBTree
          }
          else
          {
-            for (int i=0; i<NODE_BUFFER_SIZE-1; i++)
+            for (int i=0; i<NODE_BUFFER_SIZE; i++)
             {
                for (int j=this.counts[i]; j>0; j--)
                   values[idx++] = this.base + i;
             }
          }
+         
          return idx;
       }
    }

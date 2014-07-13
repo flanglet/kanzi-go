@@ -39,7 +39,7 @@ type IntBTNode struct {
 
 func (this *IntBTNode) Values(values []int, idx int, reverse bool) int {
 	if reverse == true {
-		for i := len(this.counts) - 1; i >= 0; i-- {
+		for i := NODE_BUFFER_SIZE - 1; i >= 0; i-- {
 			for j := this.counts[i]; j > 0; j-- {
 				values[idx] = this.base + i
 				idx++
@@ -369,7 +369,7 @@ func (this *IntBTree) Max() (int, error) {
 			node = node.right
 		}
 
-		for i := MASK_NODE_BUFFER; i >= 0; i-- {
+		for i := NODE_BUFFER_SIZE - 1; i >= 0; i-- {
 			if node.counts[i] > 0 {
 				this.max = node.base + i
 				break
