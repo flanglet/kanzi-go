@@ -97,7 +97,7 @@ type CompressedOutputStream struct {
 	blockSize     uint
 	hasher        *util.XXHash
 	data          []byte
-	buffers       []*[]byte
+	buffers       [][]byte
 	entropyType   byte
 	transformType byte
 	obs           kanzi.OutputBitStream
@@ -172,10 +172,10 @@ func NewCompressedOutputStream(entropyCodec string, functionType string, os kanz
 	}
 
 	this.data = make([]byte, jobs*blockSize)
-	this.buffers = make([]*[]byte, jobs)
+	this.buffers = make([][]byte, jobs)
 
 	for i := range this.buffers {
-		this.buffers[i] = &EMPTY_BYTE_SLICE
+		this.buffers[i] = EMPTY_BYTE_SLICE
 	}
 
 	this.debugWriter = debugWriter
@@ -325,7 +325,7 @@ func (this *CompressedOutputStream) Close() error {
 	this.data = EMPTY_BYTE_SLICE
 
 	for i := range this.buffers {
-		this.buffers[i] = &EMPTY_BYTE_SLICE
+		this.buffers[i] = EMPTY_BYTE_SLICE
 	}
 
 	for _, c := range this.channels {
@@ -403,7 +403,7 @@ func (this *CompressedOutputStream) GetWritten() uint64 {
 	return (this.obs.Written() + 7) >> 3
 }
 
-func (this *CompressedOutputStream) encode(data []byte, buf *[]byte, blockLength uint,
+func (this *CompressedOutputStream) encode(data, buf []byte, blockLength uint,
 	typeOfTransform byte, typeOfEntropy byte, currentBlockId int,
 	input, output chan error, listeners_ []BlockListener) {
 	transform, err := function.NewByteFunction(blockLength, typeOfTransform)
@@ -412,7 +412,7 @@ func (this *CompressedOutputStream) encode(data []byte, buf *[]byte, blockLength
 		output <- NewIOError(err.Error(), ERR_CREATE_CODEC)
 	}
 
-	buffer := *buf
+	buffer := buf
 	requiredSize := transform.MaxEncodedLen(int(blockLength))
 
 	if requiredSize == -1 {
@@ -423,8 +423,7 @@ func (this *CompressedOutputStream) encode(data []byte, buf *[]byte, blockLength
 	if typeOfTransform == 'N' {
 		buffer = data // share buffers if no transform
 	} else if len(buffer) < requiredSize {
-		*buf = make([]byte, requiredSize)
-		buffer = *buf
+		buffer = make([]byte, requiredSize)
 	}
 
 	mode := byte(0)
@@ -589,7 +588,7 @@ type CompressedInputStream struct {
 	blockSize     uint
 	hasher        *util.XXHash
 	data          []byte
-	buffers       []*[]byte
+	buffers       [][]byte
 	entropyType   byte
 	transformType byte
 	ibs           kanzi.InputBitStream
@@ -620,10 +619,10 @@ func NewCompressedInputStream(is kanzi.InputStream,
 	this.jobs = int(jobs)
 	this.blockId = 0
 	this.data = EMPTY_BYTE_SLICE
-	this.buffers = make([]*[]byte, jobs)
+	this.buffers = make([][]byte, jobs)
 
 	for i := range this.buffers {
-		this.buffers[i] = &EMPTY_BYTE_SLICE
+		this.buffers[i] = EMPTY_BYTE_SLICE
 	}
 
 	// Channel of semaphores
@@ -779,7 +778,7 @@ func (this *CompressedInputStream) Close() error {
 	this.data = EMPTY_BYTE_SLICE
 
 	for i := range this.buffers {
-		this.buffers[i] = &EMPTY_BYTE_SLICE
+		this.buffers[i] = EMPTY_BYTE_SLICE
 	}
 
 	for _, c := range this.syncChan {
@@ -963,11 +962,11 @@ func notify(chan1 chan bool, chan2 chan Message, run bool, msg Message) {
 	}
 }
 
-func (this *CompressedInputStream) decode(data []byte, buf *[]byte,
+func (this *CompressedInputStream) decode(data, buf []byte,
 	typeOfTransform byte, typeOfEntropy byte, currentBlockId int,
 	input, output chan bool, result chan Message,
 	listeners_ []BlockListener) {
-	buffer := *buf
+	buffer := buf
 	res := Message{blockId: currentBlockId}
 
 	// Wait for task processing the previous block to complete
@@ -1064,8 +1063,7 @@ func (this *CompressedInputStream) decode(data []byte, buf *[]byte,
 		}
 
 		if len(buffer) < int(bufferSize) {
-			*buf = make([]byte, bufferSize)
-			buffer = *buf
+			buffer = make([]byte, bufferSize)
 		}
 	}
 
