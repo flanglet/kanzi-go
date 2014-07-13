@@ -70,21 +70,10 @@ public class XXHash
       
         do
         {
-           v1 += (((data[idx] & 0xFF) | ((data[idx+1] & 0xFF) << 8) | ((data[idx+2] & 0xFF) << 16) | 
-                  ((data[idx+3] & 0xFF) << 24)) * PRIME2);
-           v1 = ((v1 << 13) | (v1 >>> 19)) * PRIME1;
-
-           v2 += (((data[idx+4] & 0xFF) | ((data[idx+5] & 0xFF) << 8) | ((data[idx+6] & 0xFF) << 16) | 
-                  ((data[idx+7] & 0xFF) << 24)) * PRIME2);
-           v2 = ((v2 << 13) | (v2 >>> 19)) * PRIME1;
- 
-           v3 += (((data[idx+8] & 0xFF) | ((data[idx+9] & 0xFF) << 8) | ((data[idx+10] & 0xFF) << 16) | 
-                  ((data[idx+11] & 0xFF) << 24)) * PRIME2);
-           v3 = ((v3 << 13) | (v3 >>> 19)) * PRIME1;
-
-           v4 += (((data[idx+12] & 0xFF) | ((data[idx+13] & 0xFF) << 8) | ((data[idx+14] & 0xFF) << 16) | 
-                  ((data[idx+15] & 0xFF) << 24)) * PRIME2);
-           v4 = ((v4 << 13) | (v4 >>> 19)) * PRIME1;
+           v1 = pack(v1, data, idx);
+           v2 = pack(v2, data, idx+4);
+           v3 = pack(v3, data, idx+8);
+           v4 = pack(v4, data, idx+12);
            idx += 16;
         } 
         while (idx <= limit);
@@ -122,4 +111,12 @@ public class XXHash
       h32 *= PRIME3;
       return h32 ^ (h32 >>> 16);
    }
+  
+  
+  private static int pack(int v, byte[] data, int idx)
+  {
+     v += ((data[idx] & 0xFF) | ((data[idx+1] & 0xFF) << 8) | ((data[idx+2] & 0xFF) << 16) | 
+                  ((data[idx+3] & 0xFF) << 24) * PRIME2);
+     return ((v << 13) | (v >>> 19)) * PRIME1;
+  }
 }

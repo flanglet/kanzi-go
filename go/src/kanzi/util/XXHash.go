@@ -15,6 +15,8 @@ limitations under the License.
 
 package util
 
+import "unsafe"
+
 // XXHash is an extremely fast hash algorithm. It was written by Yann Collet.
 // Port to Go from the original source code: https://code.google.com/p/xxhash/
 
@@ -42,32 +44,27 @@ func (this *XXHash) SetSeed(seed uint32) {
 
 func (this *XXHash) Hash(data []byte) uint32 {
 	length := uint32(len(data))
+	p := uintptr(unsafe.Pointer(&data[0]))
+	end := p + uintptr(length)
 	var h32 uint32
-	idx := uint32(0)
 
 	if length >= 16 {
-		limit := length - 16
+		limit := end - 16
 		v1 := this.seed + PRIME1 + PRIME2
 		v2 := this.seed + PRIME2
 		v3 := this.seed
 		v4 := this.seed - PRIME1
 
-		for idx <= limit {
-			v1 += ((uint32(data[idx]) | (uint32(data[idx+1]) << 8) | (uint32(data[idx+2]) << 16) |
-				(uint32(data[idx+3]) << 24)) * PRIME2)
+		for p <= limit {
+			v1 += ((*(*uint32)(unsafe.Pointer(p))) * PRIME2)
 			v1 = ((v1 << 13) | (v1 >> 19)) * PRIME1
-			v2 += ((uint32(data[idx+4]) | (uint32(data[idx+5]) << 8) | (uint32(data[idx+6]) << 16) |
-				(uint32(data[idx+7]) << 24)) * PRIME2)
+			v2 += ((*(*uint32)(unsafe.Pointer(p + 4))) * PRIME2)
 			v2 = ((v2 << 13) | (v2 >> 19)) * PRIME1
-
-			v3 += ((uint32(data[idx+8]) | (uint32(data[idx+9]) << 8) | (uint32(data[idx+10]) << 16) |
-				(uint32(data[idx+11]) << 24)) * PRIME2)
+			v3 += ((*(*uint32)(unsafe.Pointer(p + 8))) * PRIME2)
 			v3 = ((v3 << 13) | (v3 >> 19)) * PRIME1
-
-			v4 += ((uint32(data[idx+12]) | (uint32(data[idx+13]) << 8) | (uint32(data[idx+14]) << 16) |
-				(uint32(data[idx+15]) << 24)) * PRIME2)
+			v4 += ((*(*uint32)(unsafe.Pointer(p + 12))) * PRIME2)
 			v4 = ((v4 << 13) | (v4 >> 19)) * PRIME1
-			idx += 16
+			p += 16
 		}
 
 		h32 = ((v1 << 1) | (v1 >> 31))
@@ -80,17 +77,16 @@ func (this *XXHash) Hash(data []byte) uint32 {
 
 	h32 += length
 
-	for idx <= length-4 {
-		h32 += ((uint32(data[idx]) | (uint32(data[idx+1]) << 8) | (uint32(data[idx+2]) << 16) |
-			(uint32(data[idx+3]) << 24)) * PRIME3)
+	for p <= end-4 {
+		h32 += ((*(*uint32)(unsafe.Pointer(p))) * PRIME3)
 		h32 = ((h32 << 17) | (h32 >> 15)) * PRIME4
-		idx += 4
+		p += 4
 	}
 
-	for idx < length {
-		h32 += (uint32(data[idx]) * PRIME5)
+	for p < end {
+		h32 += ((*(*uint32)(unsafe.Pointer(p))) * PRIME5)
 		h32 = ((h32 << 11) | (h32 >> 21)) * PRIME1
-		idx++
+		p++
 	}
 
 	h32 ^= (h32 >> 15)
