@@ -65,19 +65,20 @@ func (this *MTFT) Inverse(src, dst []byte) (uint, uint, error) {
 		count = len(src)
 	}
 
-	for i := 0; i < count; i++ {
-		idx := src[i]
+	value := byte(0)
 
-		if idx == 0 {
-			dst[i] = indexes[0]
+	for i := 0; i < count; i++ {
+		if src[i] == 0 {
+			dst[i] = value
 			continue
 		}
 
-		value := indexes[idx]
+		idx := int(src[i])
+		value = indexes[idx]
 		dst[i] = value
 
-		if idx < 16 {
-			for j := int(idx - 1); j >= 0; j-- {
+		if idx <= 16 {
+			for j := idx - 1; j >= 0; j-- {
 				indexes[j+1] = indexes[j]
 			}
 		} else {

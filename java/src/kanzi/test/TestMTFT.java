@@ -30,11 +30,11 @@ public class TestMTFT
         {
             System.out.println("\nCorrectness test");
 
-            for (int ii=0; ii<20; ii++)
+            for (int ii=1; ii<=20; ii++)
             {
                 byte[] input;
                 
-                if (ii == 0)
+                if (ii == 1)
                 {
                     input = new byte[] { 5, 2, 4, 7, 0, 0, 7, 1, 7 };
                 }
@@ -57,7 +57,7 @@ public class TestMTFT
                 IndexedByteArray iba2 = new IndexedByteArray(transform, 0);
                 IndexedByteArray iba3 = new IndexedByteArray(reverse, 0);
 
-                System.out.println("\nTest "+(ii+1));
+                System.out.println("\nTest "+ii);
                 System.out.print("Input     : ");
 
                 for (int i = 0; i < size; i++)
@@ -110,7 +110,7 @@ public class TestMTFT
       final int size = 10000;
       System.out.println("\n\nSpeed test");
       System.out.println("Iterations: "+iter);
-      
+     
       for (int jj=0; jj<4; jj++)
       {     
             byte[] input = new byte[size];
@@ -185,6 +185,7 @@ public class TestMTFT
             System.out.println("Throughput [KB/s]          : " + prod * 1000000L / delta1 * 1000L / 1024);
             System.out.println("MTFT Reverse transform [ms]: " + delta2 / 1000000);
             System.out.println("Throughput [KB/s]          : " + prod * 1000000L / delta2 * 1000L / 1024);        
+            System.out.println();
         }
     }
-}
+} 

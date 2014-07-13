@@ -64,13 +64,13 @@ public final class MTFT implements ByteTransform
 
         final byte[] input = src.array;
         final byte[] output = dst.array;
-        int srcIdx = src.index;
-        int dstIdx = dst.index;
+        final int srcIdx = src.index;
+        final int dstIdx = dst.index;
         final int count = (this.size == 0) ? input.length - srcIdx : this.size;
 
         for (int i=0; i<count; i++)
         {
-           final int idx = input[srcIdx+i] & 0xFF;
+           int idx = input[srcIdx+i];
            
            if (idx == 0)
            {
@@ -79,11 +79,12 @@ public final class MTFT implements ByteTransform
               continue;
            }
            
+           idx &= 0xFF;
            final byte value = indexes[idx];
            output[dstIdx+i] = value;
 
-           if (idx < 16)
-           {
+           if (idx <= 16)
+           {     
               for (int j=idx-1; j>=0; j--)
                  indexes[j+1] = indexes[j];
            }
