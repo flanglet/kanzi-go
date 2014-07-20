@@ -59,11 +59,11 @@ import kanzi.IndexedByteArray;
 public class BWT implements ByteTransform
 {
     private int size;
-    private int[] buffer;
+    private int[] buffer1;
+    private int[] buffer2;  // Only used for big blocks (size >= 1<<24)
     private int[] buckets;
     private int primaryIndex;
     private DivSufSort saAlgo;
-
 
     public BWT()
     {
@@ -78,7 +78,8 @@ public class BWT implements ByteTransform
           throw new IllegalArgumentException("Invalid size parameter (must be at least 0)");
 
        this.size = size;
-       this.buffer = new int[size+1]; // (SA algo requires size+1 bytes)
+       this.buffer1 = new int[size+1]; // (SA algo requires size+1 bytes)
+       this.buffer2 = new int[0]; // Allocate empty: only used for big blocks (size >= 1<<24)
        this.buckets = new int[256];
     }
 
@@ -135,11 +136,11 @@ public class BWT implements ByteTransform
         }
 
         // Lazy dynamic memory allocation (SA algo requires count+1 bytes)
-        if (this.buffer.length < count+1)
-           this.buffer = new int[count+1];
+        if (this.buffer1.length < count+1)
+           this.buffer1 = new int[count+1];
  
         // Aliasing
-        final int[] data = this.buffer;
+        final int[] data = this.buffer1;
        
         if (this.saAlgo == null)
            this.saAlgo = new DivSufSort(); // lazy instantiation
@@ -182,27 +183,38 @@ public class BWT implements ByteTransform
     @Override
     public boolean inverse(IndexedByteArray src, IndexedByteArray dst)
     {
-       final byte[] input = src.array;
-       final byte[] output = dst.array;
-       final int srcIdx = src.index;
-       final int dstIdx = dst.index;
-       final int count = (this.size == 0) ? input.length - srcIdx :  this.size;
+       final int count = (this.size == 0) ? src.array.length - src.index :  this.size;
 
        if (count < 2)
        {
           if (count == 1)
-             output[dst.index++] = input[src.index++];
+             dst.array[dst.index++] = src.array[src.index++];
 
           return true;
        }
        
+       if (count >= 1<<24)
+          return this.inverseBigBlock(src, dst, count);
+       
+       return this.inverseRegularBlock(src, dst, count);
+    }
+    
+    
+    // When count < 1<<24
+    private boolean inverseRegularBlock(IndexedByteArray src, IndexedByteArray dst, int count)
+    {
+       final byte[] input = src.array;
+       final byte[] output = dst.array;
+       final int srcIdx = src.index;
+       final int dstIdx = dst.index;
+       
        // Lazy dynamic memory allocation
-       if (this.buffer.length < count)
-          this.buffer = new int[count];
+       if (this.buffer1.length < count)
+          this.buffer1 = new int[count];
 
        // Aliasing
        final int[] buckets_ = this.buckets;
-       final int[] data = this.buffer;
+       final int[] data = this.buffer1;
        
        // Create histogram
        for (int i=0; i<256; i++)
@@ -214,7 +226,7 @@ public class BWT implements ByteTransform
        final int val0 = input[srcIdx] & 0xFF;
        data[pIdx] = (buckets_[val0] << 8) | val0;
        buckets_[val0]++;
-       
+
        for (int i=0; i<pIdx; i++)
        {
           final int val = input[srcIdx+i+1] & 0xFF;
@@ -229,7 +241,7 @@ public class BWT implements ByteTransform
           buckets_[val]++;
        }
 
-        // Create cumulative histogram
+       // Create cumulative histogram
        for (int i=0, sum=0; i<256; i++)
        {
           final int tmp = buckets_[i];
@@ -237,18 +249,92 @@ public class BWT implements ByteTransform
           sum += tmp;
        }
 
+       int ptr = data[pIdx];
+       
        // Build inverse
-       for (int i=dstIdx+count-1, idx=pIdx; i>=dstIdx; i--)
+       for (int i=dstIdx+count-1; i>=dstIdx; i--)
        {
-          final int ptr = data[idx];
           output[i] = (byte) ptr;
-          idx = (ptr >> 8) + buckets_[ptr & 0xFF];
+          ptr = data[(ptr>>>8) + buckets_[ptr&0xFF]];
        }
-
+       
        src.index += count;
        dst.index += count;
        return true;
     }
 
+    
+    // When count >= 1<<24
+    private boolean inverseBigBlock(IndexedByteArray src, IndexedByteArray dst, int count)
+    {
+       final byte[] input = src.array;
+       final byte[] output = dst.array;
+       final int srcIdx = src.index;
+       final int dstIdx = dst.index;
+       
+       // Lazy dynamic memory allocations
+       if (this.buffer1.length < count)
+          this.buffer1 = new int[count];
+
+       if (this.buffer2.length < count)
+          this.buffer2 = new int[count];
+
+       // Aliasing
+       final int[] buckets_ = this.buckets;
+       final int[] data1 = this.buffer1;
+       final int[] data2 = this.buffer2;
+       
+       // Create histogram
+       for (int i=0; i<256; i++)
+          buckets_[i] = 0;
+
+       // Build arrays
+       // Start with the primary index position
+       final int pIdx = this.getPrimaryIndex();
+       final int val0 = input[srcIdx] & 0xFF;
+       data1[pIdx] = buckets_[val0];
+       data2[pIdx] = val0;
+       buckets_[val0]++;
+
+       for (int i=0; i<pIdx; i++)
+       {
+          final int val = input[srcIdx+i+1] & 0xFF;
+          data1[i] = buckets_[val];
+          data2[i] = val;
+          buckets_[val]++;
+       }
+       
+       for (int i=pIdx+1; i<count; i++)
+       {
+          final int val = input[srcIdx+i] & 0xFF;
+          data1[i] = buckets_[val];
+          data2[i] = val;
+          buckets_[val]++;
+       }
+
+       // Create cumulative histogram
+       for (int i=0, sum=0; i<256; i++)
+       {
+          final int tmp = buckets_[i];
+          buckets_[i] = sum;
+          sum += tmp;
+       }
+
+       int val1 = data1[pIdx];
+       int val2 = data2[pIdx];
+       
+       // Build inverse
+       for (int i=dstIdx+count-1; i>=dstIdx; i--)
+       {
+          output[i] = (byte) val2;
+          final int idx = val1 + buckets_[val2];
+          val1 = data1[idx];
+          val2 = data2[idx];
+       }      
+       
+       src.index += count;
+       dst.index += count;
+       return true;
+    }
 
 }

@@ -57,7 +57,8 @@ import (
 
 type BWT struct {
 	size         uint
-	buffer       []int
+	buffer1      []int
+	buffer2      []int // Only used for big blocks (size >= 1<<24)
 	buckets      []int
 	primaryIndex uint
 	saAlgo       *util.DivSufSort
@@ -66,7 +67,8 @@ type BWT struct {
 func NewBWT(sz uint) (*BWT, error) {
 	this := new(BWT)
 	this.size = sz
-	this.buffer = make([]int, sz+1) // (SA algo requires sz+1 bytes)
+	this.buffer1 = make([]int, sz+1) // (SA algo requires sz+1 bytes)
+	this.buffer1 = make([]int, 0)    // Allocate empty: only used for big blocks (size >= 1<<24)
 	this.buckets = make([]int, 256)
 	return this, nil
 }
@@ -108,12 +110,12 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	// Lazy dynamic memory allocation (SA algo requires count+1 bytes)
-	if len(this.buffer) < count+1 {
-		this.buffer = make([]int, count+1)
+	if len(this.buffer1) < count+1 {
+		this.buffer1 = make([]int, count+1)
 	}
 
 	// Aliasing
-	data := this.buffer
+	data := this.buffer1
 
 	if this.saAlgo == nil {
 		err := error(nil)
@@ -173,14 +175,23 @@ func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 		return uint(count), uint(count), nil
 	}
 
+	if count >= 1<<24 {
+		return this.inverseBigBlock(src, dst, count)
+	}
+
+	return this.inverseRegularBlock(src, dst, count)
+}
+
+// When count < 1<<24
+func (this *BWT) inverseRegularBlock(src, dst []byte, count int) (uint, uint, error) {
 	// Lazy dynamic memory allocation
-	if len(this.buffer) < count {
-		this.buffer = make([]int, count)
+	if len(this.buffer1) < count {
+		this.buffer1 = make([]int, count)
 	}
 
 	// Aliasing
 	buckets_ := this.buckets
-	data := this.buffer
+	data := this.buffer1
 
 	// Create histogram
 	for i := range this.buckets {
@@ -215,13 +226,78 @@ func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 		sum += tmp
 	}
 
-	idx := pIdx
+	ptr := data[pIdx]
 
 	// Build inverse
 	for i := count - 1; i >= 0; i-- {
-		ptr := data[idx]
 		dst[i] = byte(ptr)
-		idx = (ptr >> 8) + buckets_[ptr&0xFF]
+		ptr = data[uint(ptr>>8)+uint(buckets_[ptr&0xFF])]
+	}
+
+	return uint(count), uint(count), nil
+}
+
+// When count >= 1<<24
+func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error) {
+	// Lazy dynamic memory allocations
+	if len(this.buffer1) < count {
+		this.buffer1 = make([]int, count)
+	}
+
+	if len(this.buffer2) < count {
+		this.buffer2 = make([]int, count)
+	}
+
+	// Aliasing
+	buckets_ := this.buckets
+	data1 := this.buffer1
+	data2 := this.buffer2
+
+	// Create histogram
+	for i := range this.buckets {
+		buckets_[i] = 0
+	}
+
+	// Build arrays
+	// Start with the primary index position
+	pIdx := int(this.PrimaryIndex())
+	val := int(src[0])
+	data1[pIdx] = buckets_[val]
+	data2[pIdx] = val
+	buckets_[val]++
+
+	for i := 0; i < pIdx; i++ {
+		val = int(src[i+1])
+		data1[i] = buckets_[val]
+		data2[i] = val
+		buckets_[val]++
+	}
+
+	for i := pIdx + 1; i < count; i++ {
+		val = int(src[i])
+		data1[i] = buckets_[val]
+		data2[i] = val
+		buckets_[val]++
+	}
+
+	sum := 0
+
+	// Create cumulative histogram
+	for i := range buckets_ {
+		tmp := buckets_[i]
+		buckets_[i] = sum
+		sum += tmp
+	}
+
+	val1 := data1[pIdx]
+	val2 := data2[pIdx]
+
+	// Build inverse
+	for i := count - 1; i >= 0; i-- {
+		dst[i] = byte(val2)
+		idx := val1 + buckets_[val2]
+		val1 = data1[idx]
+		val2 = data2[idx]
 	}
 
 	return uint(count), uint(count), nil
