@@ -100,6 +100,9 @@ public final class RangeDecoder extends AbstractDecoder
       if ((array == null) || (blkptr + len > array.length) || (blkptr < 0) || (len < 0))
          return -1;
 
+      if (len == 0)
+         return 0;
+      
       // Deferred initialization: the bitstream may not be ready at build time
       // Initialize 'current' with bytes read from the bitstream
       this.initialize();

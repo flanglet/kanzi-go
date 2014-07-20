@@ -96,6 +96,9 @@ public final class RangeEncoder extends AbstractEncoder
        if ((array == null) || (blkptr + len > array.length) || (blkptr < 0) || (len < 0))
           return -1;
         
+       if (len == 0)
+          return 0;
+      
        final int end = blkptr + len;
        final int sz = (this.chunkSize == 0) ? len : this.chunkSize;
        int startChunk = blkptr;

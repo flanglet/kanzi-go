@@ -167,8 +167,8 @@ public class HuffmanEncoder extends AbstractEncoder
     @Override
     public boolean encodeByte(byte val)
     {
-       final int idx = val & 0xFF;
-       return (this.bitstream.writeBits(this.codes[idx], this.sizes[idx]) == this.sizes[idx]);
+       final int sz = this.sizes[val & 0xFF];
+       return this.bitstream.writeBits(this.codes[val & 0xFF], sz) == sz;
     }
 
 

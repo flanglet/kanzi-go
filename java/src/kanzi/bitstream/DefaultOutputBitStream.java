@@ -56,13 +56,17 @@ public final class DefaultOutputBitStream implements OutputBitStream
       if (this.isClosed() == true)
          throw new BitStreamException("Stream closed", BitStreamException.STREAM_CLOSED);
 
-      this.current |= ((long) (bit & 1) << this.bitIndex);
-
       if (this.bitIndex == 0)
+      {
+         this.current |= (bit & 1);
          this.pushCurrent();
+      }
       else
+      {
+         this.current |= ((long) (bit & 1) << this.bitIndex);
          this.bitIndex--;
-
+      }
+      
       return true;
    }
 
@@ -85,27 +89,22 @@ public final class DefaultOutputBitStream implements OutputBitStream
       value &= (-1L >>> (64 - count));
       final int remaining = this.bitIndex + 1 - count;
 
-      if (remaining >= 0)
+      if (remaining > 0)
       {
          // Enough spots available in 'current'
-         if (remaining == 0)
-         {
-            this.current |= value;
-            this.pushCurrent();
-         }
-         else
-         {
-            this.current |= (value << remaining);
-            this.bitIndex -= count;        
-         }
+         this.current |= (value << remaining);
+         this.bitIndex -= count;                 
       }
       else
       {
-         // Not enough spots available in 'current'
          this.current |= (value >>> -remaining);
          this.pushCurrent();
-         this.current |= (value << (64 + remaining));
-         this.bitIndex += remaining;
+         
+         if (remaining != 0) 
+         {
+            this.current |= (value << remaining);
+            this.bitIndex += remaining;
+         }
       }
 
       return count;

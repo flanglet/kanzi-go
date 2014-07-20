@@ -114,9 +114,8 @@ public final class DefaultInputBitStream implements InputBitStream
             shift += (this.bitIndex - 63); // adjust if bitIndex != 63 (end of stream)
          }
          
-         res = this.current >>> shift;   
-         res &= (-1L >>> (64 - count));
-         this.bitIndex = (this.bitIndex + 64 - count) & 63;
+         res = (this.current >>> shift) & (-1L >>> -count);
+         this.bitIndex = (this.bitIndex - count) & 63;
       }
       else
       {
