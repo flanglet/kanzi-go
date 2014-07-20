@@ -115,8 +115,8 @@ public class XXHash
   
   private static int pack(int v, byte[] data, int idx)
   {
-     v += ((data[idx] & 0xFF) | ((data[idx+1] & 0xFF) << 8) | ((data[idx+2] & 0xFF) << 16) | 
-                  ((data[idx+3] & 0xFF) << 24) * PRIME2);
+     v += (((data[idx] & 0xFF) | ((data[idx+1] & 0xFF) << 8) | ((data[idx+2] & 0xFF) << 16) | 
+                  ((data[idx+3] & 0xFF) << 24)) * PRIME2);
      return ((v << 13) | (v >>> 19)) * PRIME1;
   }
 }
