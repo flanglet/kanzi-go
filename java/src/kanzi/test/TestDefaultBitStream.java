@@ -25,6 +25,7 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Random;
+import kanzi.BitStreamException;
 import kanzi.InputBitStream;
 import kanzi.OutputBitStream;
 import kanzi.bitstream.DebugOutputBitStream;
@@ -38,7 +39,7 @@ public class TestDefaultBitStream
     {
  	testCorrectnessAligned();
 	testCorrectnessMisaligned();
-	testSpeed(args);
+	testSpeed(args); // Writes big output.bin file to local dir (or specified file name) !!!
     }
     
     
@@ -151,6 +152,19 @@ public class TestDefaultBitStream
 
                // Close first to force flush()
                dbs.close();
+               
+               System.out.println();
+               System.out.println("Trying to write to closed stream");
+               
+               try
+               {
+                  dbs.writeBit(1);
+               }
+               catch (BitStreamException e)
+               {
+                  System.out.println("Exception: " + e.getMessage());
+               }
+               
                byte[] output = baos.toByteArray();
                ByteArrayInputStream bais = new ByteArrayInputStream(output);
                InputStream is = new BufferedInputStream(bais);
@@ -177,6 +191,16 @@ public class TestDefaultBitStream
                System.out.println("\n"+((ok)?"Success":"Failure"));
                System.out.println();
                System.out.println();
+               System.out.println("Trying to read from closed stream");
+               
+               try
+               {
+                  ibs.readBits(1);
+               }
+               catch (BitStreamException e)
+               {
+                  System.out.println("Exception: " + e.getMessage());
+               }
             }
         }
         catch (Exception e)
@@ -191,6 +215,8 @@ public class TestDefaultBitStream
         // Test speed
         System.out.println("\nSpeed Test");
         String fileName = (args.length > 0) ? args[0] : "output.bin";
+        File file = new File(fileName);
+        file.deleteOnExit();
         int[] values = new int[] { 3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9, 3,
                                    31, 14, 41, 15, 59, 92, 26, 65, 53, 35, 58, 89, 97, 79, 93, 32 };
 
@@ -205,7 +231,7 @@ public class TestDefaultBitStream
             
             for (int test=0; test<iter; test++)
             {
-               FileOutputStream os = new FileOutputStream(new File(fileName));
+               FileOutputStream os = new FileOutputStream(file);
                OutputBitStream obs = new DefaultOutputBitStream(os, 1024*1024);
                before = System.nanoTime();
 

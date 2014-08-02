@@ -19,6 +19,7 @@ import (
 	"flag"
 	"fmt"
 	"kanzi/bitstream"
+	"kanzi/io"
 	"kanzi/util"
 	"math/rand"
 	"os"
@@ -28,7 +29,7 @@ import (
 func main() {
 	testCorrectnessAligned()
 	testCorrectnessMisaligned()
-	testSpeed()
+	testSpeed() // Writes big output.bin file to local dir !!!
 }
 
 func testCorrectnessAligned() {
@@ -144,6 +145,13 @@ func testCorrectnessMisaligned() {
 		// Close first to force flush()
 		dbs.Close()
 
+		fmt.Printf("\nTrying to write to closed stream\n")
+		errWClosed := dbs.WriteBit(1)
+		
+		if errWClosed != nil { 
+		   fmt.Printf("Error: %v\n", errWClosed.Error())
+		}
+		
 		is_, _ := util.NewByteArrayInputStream(buffer, false)
 		ibs, _ := bitstream.NewDefaultInputBitStream(is_, 16384)
 		fmt.Printf("\nRead:\n")
@@ -166,6 +174,14 @@ func testCorrectnessMisaligned() {
 		}
 
 		ibs.Close()
+		
+		fmt.Printf("\nTrying to read from closed stream\n")
+		_, errRClosed := ibs.ReadBit()
+		
+		if errRClosed != nil { 
+		   fmt.Printf("Error: %v\n", errRClosed.Error())
+		}
+		
 		println()
 		println()
 		fmt.Printf("Bits written: %v\n", dbs.Written())
@@ -195,6 +211,7 @@ func testSpeed() {
 	delta1 := int64(0)
 	delta2 := int64(0)
 	nn := 100000 * len(values)
+	defer os.Remove(*filename)
 
 	for test := 0; test < iter; test++ {
 		file1, err := os.Create(*filename)
@@ -205,7 +222,8 @@ func testSpeed() {
 			return
 		}
 
-		obs, _ := bitstream.NewDefaultOutputBitStream(file1, 1024*1024)
+		bos, _ := io.NewBufferedOutputStream(file1)
+		obs, _ := bitstream.NewDefaultOutputBitStream(bos, 16*1024)
 		before := time.Now()
 		for i := 0; i < nn; i++ {
 			obs.WriteBits(values[i%len(values)], 1+uint(i&63))
@@ -225,7 +243,8 @@ func testSpeed() {
 			return
 		}
 
-		ibs, _ := bitstream.NewDefaultInputBitStream(file2, 1024*1024)
+		bis, _ := io.NewBufferedInputStream(file2)
+		ibs, _ := bitstream.NewDefaultInputBitStream(bis, 1024*1024)
 		before = time.Now()
 
 		for i := 0; i < nn; i++ {

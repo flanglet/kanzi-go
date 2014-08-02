@@ -24,7 +24,7 @@ import kanzi.OutputBitStream;
 public final class DefaultOutputBitStream implements OutputBitStream
 {
    private final OutputStream os;
-   private final byte[] buffer;
+   private byte[] buffer;
    private boolean closed;
    private int position;  // index of current byte in buffer
    private int bitIndex;  // index of current bit to write in current
@@ -53,10 +53,7 @@ public final class DefaultOutputBitStream implements OutputBitStream
    @Override
    public boolean writeBit(int bit)
    {
-      if (this.isClosed() == true)
-         throw new BitStreamException("Stream closed", BitStreamException.STREAM_CLOSED);
-
-      if (this.bitIndex == 0)
+      if (this.bitIndex <= 0) // bitIndex = -1 if stream is closed => force pushCurrent()
       {
          this.current |= (bit & 1);
          this.pushCurrent();
@@ -75,9 +72,6 @@ public final class DefaultOutputBitStream implements OutputBitStream
    @Override
    public int writeBits(long value, int count)
    {
-      if (this.isClosed() == true)
-         throw new BitStreamException("Stream closed", BitStreamException.STREAM_CLOSED);
-
       if ((count <= 0) || (count > 64))
       {
          if (count == 0)
@@ -126,8 +120,15 @@ public final class DefaultOutputBitStream implements OutputBitStream
       this.current = 0;
       this.position += 8;
 
-      if (this.position >= this.buffer.length)
-         this.flush();
+      try
+      {
+         if (this.position >= this.buffer.length)
+            this.flush();
+      }
+      catch (BitStreamException e)
+      {
+         throw e;
+      }
    }
 
 
@@ -192,7 +193,12 @@ public final class DefaultOutputBitStream implements OutputBitStream
 
       this.closed = true;
       this.position = 0;
-      this.bitIndex = 63;
+      
+      // Reset fields to force a flush() and trigger an exception
+      // on writeBit() or writeBits()
+      this.bitIndex = -1;
+      this.buffer = new byte[8];
+      this.written -= 64; // adjust for method written()
    }
 
 

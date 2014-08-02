@@ -56,16 +56,19 @@ public final class DefaultInputBitStream implements InputBitStream
    public int readBit() throws BitStreamException
    {
       if (this.bitIndex == 63)
-         this.pullCurrent();
+         this.pullCurrent(); // Triggers an exception if stream is closed
 
       final int bit = (int) ((this.current >> this.bitIndex) & 1);
-      this.bitIndex = (this.bitIndex + 63) & 63;
+      this.bitIndex = (this.bitIndex - 1) & 63;
       return bit;
    }
 
 
    private int readFromInputStream(int count) throws BitStreamException
    {
+      if (this.isClosed() == true)
+         throw new BitStreamException("Stream closed", BitStreamException.STREAM_CLOSED);
+
       int size = -1;
       
       try
@@ -101,20 +104,18 @@ public final class DefaultInputBitStream implements InputBitStream
          throw new IllegalArgumentException("Invalid length: "+count+" (must be in [1..64])");
 
       long res;
-      final int remaining = count - this.bitIndex - 1;
+      int remaining = count - this.bitIndex - 1;
 
       if (remaining <= 0)
       {         
-         // Enough spots available in 'current'
-         int shift = -remaining;
-         
+         // Enough spots available in 'current'     
          if (this.bitIndex == 63)
          {
             this.pullCurrent();
-            shift += (this.bitIndex - 63); // adjust if bitIndex != 63 (end of stream)
+            remaining -= (this.bitIndex - 63); // adjust if bitIndex != 63 (end of stream)
          }
          
-         res = (this.current >>> shift) & (-1L >>> -count);
+         res = (this.current >>> -remaining) & (-1L >>> -count);
          this.bitIndex = (this.bitIndex - count) & 63;
       }
       else
