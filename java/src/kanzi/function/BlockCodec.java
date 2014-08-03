@@ -16,9 +16,11 @@ limitations under the License.
 package kanzi.function;
 
 import kanzi.ByteFunction;
+import kanzi.ByteTransform;
 import kanzi.IndexedByteArray;
 import kanzi.transform.BWT;
 import kanzi.transform.MTFT;
+import kanzi.transform.SBRT;
 
 
 // Utility class to compress/decompress a data block
@@ -39,44 +41,62 @@ import kanzi.transform.MTFT;
 
 public class BlockCodec implements ByteFunction
 {
+   public static final int MODE_RAW_BWT = 0;
+   public static final int MODE_MTF = 1;
+   public static final int MODE_RANK = 2;
+   public static final int MODE_TIMESTAMP = 3;
+   
    private static final int MAX_HEADER_SIZE  = 4;
-   private static final int MAX_BLOCK_SIZE   = (32*1024*1024) - MAX_HEADER_SIZE;
+   private static final int MAX_BLOCK_SIZE   = (64*1024*1024) - MAX_HEADER_SIZE;
 
-   private final boolean postProcessing;
-   private final MTFT mtft;
+   private final int mode;
    private final BWT bwt;
    private int size;
 
    
    public BlockCodec()
    {
-      this(MAX_BLOCK_SIZE, true);
+      this(MODE_MTF, MAX_BLOCK_SIZE, true);
    }
 
    
-   public BlockCodec(int blockSize)
+   public BlockCodec(int mode, int blockSize)
    {
-      this(blockSize, true);
+      this(mode, blockSize, true);
    }
 
    
-   // If postProcessing is true, forward BWT is followed by a Global Structure 
-   // Transform (here MTFT) and ZLT, else a raw BWT is performed.
-   public BlockCodec(int blockSize, boolean postProcessing)
+   // Base on the mode, the forward BWT is followed by a Global Structure 
+   // Transform and ZRLT, else a raw BWT is performed.
+   public BlockCodec(int mode, int blockSize, boolean postProcessing)
    {
+     if ((mode != MODE_RAW_BWT) && (mode != MODE_MTF) && (mode != MODE_RANK) && (mode != MODE_TIMESTAMP))
+        throw new IllegalArgumentException("Invalid mode parameter");
+     
       if (blockSize < 0)
          throw new IllegalArgumentException("The block size cannot be negative");
 
       if (blockSize > MAX_BLOCK_SIZE)
          throw new IllegalArgumentException("The block size must be at most " + MAX_BLOCK_SIZE);
   
-      this.postProcessing = postProcessing;
+      this.mode = mode;
       this.bwt = new BWT();
-      this.mtft = (postProcessing == true) ? new MTFT() : null;
       this.size = blockSize;
    }
 
 
+   protected ByteTransform createTransform(int blockSize) 
+   {
+      // SBRT can perform MTFT but the dedicated class is faster
+      if (this.mode == MODE_RAW_BWT)
+         return null;
+      else if (this.mode == MODE_MTF) 
+         return new MTFT(blockSize);      
+      
+      return new SBRT(this.mode, blockSize);            
+   }
+   
+   
    public int size()
    {
        return this.size;
@@ -124,26 +144,26 @@ public class BlockCodec implements ByteFunction
 
       final int headerSizeBytes = (2 + pIndexSizeBits + 7) >> 3;
      
-      if (this.postProcessing == true)
+      if (this.mode != MODE_RAW_BWT)
       {
          input.index = savedIIdx;
          output.index = savedOIdx;
 
-         // Apply Move-To-Front Transform
-         this.mtft.setSize(blockSize);
-         this.mtft.forward(output, input);
+         // Apply Post BWT Transform
+         ByteTransform gst = this.createTransform(blockSize);
+         gst.forward(output, input);
 
          input.index = savedIIdx;
          output.index = savedOIdx + headerSizeBytes;
-         ZLT zlt = new ZLT(blockSize);
+         ZRLT zrlt = new ZRLT(blockSize);
 
-         // Apply Zero Length Encoding (changes the index of input & output)
-         if (zlt.forward(input, output) == false)
+         // Apply Zero Run Length Encoding (changes the index of input & output)
+         if (zrlt.forward(input, output) == false)
          {
             // Compression failed, recover source data
             input.index = savedIIdx;
             output.index = savedOIdx;
-            this.mtft.inverse(input, output);
+            gst.inverse(input, output);
             input.index = savedIIdx;
             output.index = savedOIdx;
             this.bwt.inverse(output, input);
@@ -159,9 +179,9 @@ public class BlockCodec implements ByteFunction
       
       // Write block header (mode + primary index). See top of file for format 
       int shift = (headerSizeBytes - 1) << 3;
-      int mode = (pIndexSizeBits + 1) >> 3;
-      mode = (mode << 6) | ((primaryIndex >> shift) & 0x3F);
-      output.array[savedOIdx] = (byte) mode;
+      int blockMode = (pIndexSizeBits + 1) >> 3;
+      blockMode = (blockMode << 6) | ((primaryIndex >> shift) & 0x3F);
+      output.array[savedOIdx] = (byte) blockMode;
 
       for (int i=1; i<headerSizeBytes; i++)
       {
@@ -184,8 +204,8 @@ public class BlockCodec implements ByteFunction
       final int savedIIdx = input.index; 
 
       // Read block header (mode + primary index). See top of file for format
-      int mode = input.array[input.index++] & 0xFF;
-      int headerSizeBytes = 1 + ((mode >> 6) & 0x03);
+      int blockMode = input.array[input.index++] & 0xFF;
+      int headerSizeBytes = 1 + ((blockMode >> 6) & 0x03);
 
       if (compressedLength < headerSizeBytes)
           return false;
@@ -195,7 +215,7 @@ public class BlockCodec implements ByteFunction
 
       compressedLength -= headerSizeBytes;
       int shift = (headerSizeBytes - 1) << 3;
-      int primaryIndex = (mode & 0x3F) << shift;
+      int primaryIndex = (blockMode & 0x3F) << shift;
       int blockSize = compressedLength;
 
       // Extract BWT primary index
@@ -205,22 +225,22 @@ public class BlockCodec implements ByteFunction
          primaryIndex |= ((input.array[input.index++] & 0xFF) << shift);
       }
       
-      if (this.postProcessing == true)
+      if (this.mode != MODE_RAW_BWT)
       {
          final int savedOIdx = output.index;
-         ZLT zlt = new ZLT(compressedLength);
+         ZRLT zrlt = new ZRLT(compressedLength);
 
-         // Apply Zero Length Decoding (changes the index of input & output)
-         if (zlt.inverse(input, output) == false)
+         // Apply Zero Run Length Decoding (changes the index of input & output)
+         if (zrlt.inverse(input, output) == false)
             return false;
 
          blockSize = output.index - savedOIdx;
          input.index = savedIIdx;
          output.index = savedOIdx;
 
-         // Apply Move-To-Front Inverse Transform
-         this.mtft.setSize(blockSize);
-         this.mtft.inverse(output, input);
+         // Apply Pre BWT inverse Transform
+         ByteTransform gst = this.createTransform(blockSize);
+         gst.inverse(output, input);
 
          input.index = savedIIdx;
          output.index = savedOIdx;

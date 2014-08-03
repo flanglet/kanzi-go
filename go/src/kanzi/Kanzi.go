@@ -85,15 +85,13 @@ type InputBitStream interface {
 	HasMoreToRead() (bool, error)
 }
 
-// OuputStream = io.Writer + io.Closer + Sync()
+// OuputStream = io.Writer + io.Closer
 // Hence an OuputStream is a Writer
-// Any Writer with the appropriate Close() & Sync() functions can be used
+// Any Writer with the appropriate Close() function can be used
 type OutputStream interface {
 	Write(b []byte) (n int, err error)
 
 	Close() error
-	
-	Sync() error
 }
 
 type OutputBitStream interface {

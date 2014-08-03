@@ -50,7 +50,7 @@ public class CompressedOutputStream extends OutputStream
    private static final int SMALL_BLOCK_MASK         = 0x80;
    private static final int SKIP_FUNCTION_MASK       = 0x40;
    private static final int MIN_BLOCK_SIZE           = 1024;
-   private static final int MAX_BLOCK_SIZE           = (32*1024*1024) - 4;
+   private static final int MAX_BLOCK_SIZE           = (64*1024*1024) - 4;
    private static final int SMALL_BLOCK_SIZE         = 15;
    private static final byte[] EMPTY_BYTE_ARRAY      = new byte[0];
 
@@ -355,7 +355,7 @@ public class CompressedOutputStream extends OutputStream
       {
          final int dataLength = this.iba.index;
          this.iba.index = 0;
-         List<Callable<Boolean>> tasks = new ArrayList<Callable<Boolean>>(this.jobs);
+         List<Callable<Status>> tasks = new ArrayList<Callable<Status>>(this.jobs);
          int blockNumber = this.blockId.get();
 
          // Create as many tasks as required
@@ -364,7 +364,7 @@ public class CompressedOutputStream extends OutputStream
             blockNumber++;
             final int sz = (this.iba.index + this.blockSize > dataLength) ?
                     dataLength - this.iba.index : this.blockSize;
-            Callable<Boolean> task = new EncodingTask(this.iba.array, this.iba.index,
+            Callable<Status> task = new EncodingTask(this.iba.array, this.iba.index,
                     this.buffers[jobId].array, sz, (byte) this.transformType,
                     (byte) this.entropyType, blockNumber,
                     this.obs, this.hasher, this.blockId,
@@ -379,17 +379,21 @@ public class CompressedOutputStream extends OutputStream
          if (this.jobs == 1)
          {
             // Synchronous call
-            if (tasks.get(0).call() == false)
-               throw new kanzi.io.IOException("Error in transform forward()", Error.ERR_PROCESS_BLOCK);
+            Status status = tasks.get(0).call();
+            
+            if (status.error != 0)
+               throw new kanzi.io.IOException(status.msg, status.error);
          }
          else
          {
             // Invoke the tasks concurrently and validate the results
-            for (Future<Boolean> result : this.pool.invokeAll(tasks))
+            for (Future<Status> result : this.pool.invokeAll(tasks))
             {
                // Wait for completion of next task and validate result
-               if (result.get() == false)
-                  throw new kanzi.io.IOException("Error in transform forward()", Error.ERR_PROCESS_BLOCK);
+               Status status = result.get();
+               
+               if (status.error != 0)
+                  throw new kanzi.io.IOException(status.msg, status.error);
             }
          }
 
@@ -419,7 +423,7 @@ public class CompressedOutputStream extends OutputStream
    // A task used to encode a block
    // Several tasks may run in parallel. The transforms can be computed concurrently
    // but the entropy encoding is sequential since all tasks share the same bitstream.
-   static class EncodingTask implements Callable<Boolean>
+   static class EncodingTask implements Callable<Status>
    {
       private final IndexedByteArray data;
       private final IndexedByteArray buffer;
@@ -452,14 +456,14 @@ public class CompressedOutputStream extends OutputStream
 
 
       @Override
-      public Boolean call() throws Exception
+      public Status call() throws Exception
       {
          return this.encodeBlock(this.data, this.buffer, this.length,
                  this.transformType, this.entropyType, this.blockId);
       }
 
 
-      private boolean encodeBlock(IndexedByteArray data, IndexedByteArray buffer,
+      private Status encodeBlock(IndexedByteArray data, IndexedByteArray buffer,
            int blockLength, byte typeOfTransform,
            byte typeOfEntropy, int currentBlockId)
       {
@@ -527,13 +531,13 @@ public class CompressedOutputStream extends OutputStream
                postTransformLength = buffer.index;
 
                if (postTransformLength < 0)
-                  return false;
+                  return new Status(Error.ERR_WRITE_FILE, "Invalid transform size");
 
                for (long n=0xFF; n<postTransformLength; n<<=8)
                   dataSize++;
 
                if (dataSize > 3) 
-                  return false;
+                  return new Status(Error.ERR_WRITE_FILE, "Invalid block data length");
                
                // Record size of 'block size' - 1 in bytes
                mode |= (dataSize & 0x03);
@@ -588,7 +592,7 @@ public class CompressedOutputStream extends OutputStream
 
             // Entropy encode block
             if (ee.encode(buffer.array, 0, postTransformLength) != postTransformLength)
-               return false;
+               return new Status(Error.ERR_PROCESS_BLOCK, "Entropy coding failed");
 
             // Dispose before displaying statistics. Dispose may write to the bitstream
             ee.dispose();
@@ -612,11 +616,11 @@ public class CompressedOutputStream extends OutputStream
                   bl.processEvent(evt);
             }
 
-            return true;
+            return new Status(0, "Success");
          }
          catch (Exception e)
          {
-            return false;
+            return new Status(Error.ERR_PROCESS_BLOCK, e.getMessage());
          }
          finally
          {
@@ -630,4 +634,16 @@ public class CompressedOutputStream extends OutputStream
       }
    }
 
+   
+   static class Status
+   {
+      final int error; // 0 = OK
+      final String msg;
+      
+      Status(int error, String msg)
+      {
+         this.error = error;
+         this.msg = msg;
+      }
+   }
 }

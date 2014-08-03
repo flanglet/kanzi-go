@@ -206,7 +206,14 @@ func (this *BlockDecompressor) call() (int, uint64) {
 		verboseWriter = nil
 	}
 
-	cis, err := io.NewCompressedInputStream(input, verboseWriter, this.jobs)
+	bis, err := io.NewBufferedInputStream(input)
+
+	if err != nil {
+		fmt.Printf("Cannot create compressed stream: %v\n", err)
+		return io.ERR_CREATE_DECOMPRESSOR, read
+	}
+
+	cis, err := io.NewCompressedInputStream(bis, verboseWriter, this.jobs)
 
 	if err != nil {
 		if err.(*io.IOError) != nil {

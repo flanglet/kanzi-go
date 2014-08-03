@@ -47,7 +47,7 @@ public class CompressedInputStream extends InputStream
    private static final int SMALL_BLOCK_MASK         = 0x80;
    private static final int SKIP_FUNCTION_MASK       = 0x40;
    private static final int MIN_BLOCK_SIZE           = 1024;
-   private static final int MAX_BLOCK_SIZE           = (32*1024*1024) - 4;
+   private static final int MAX_BLOCK_SIZE           = (64*1024*1024) - 4;
    private static final byte[] EMPTY_BYTE_ARRAY      = new byte[0];
    private static final int CANCEL_TASKS_ID          = -1;
 

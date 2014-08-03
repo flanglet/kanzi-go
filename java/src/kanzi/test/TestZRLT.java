@@ -18,14 +18,14 @@ package kanzi.test;
 import java.util.Arrays;
 import java.util.Random;
 import kanzi.IndexedByteArray;
-import kanzi.function.ZLT;
+import kanzi.function.ZRLT;
 
 
-public class TestZLT
+public class TestZRLT
 {
    public static void main(String[] args)
    {
-       System.out.println("TestZLT");
+       System.out.println("TestZRLT");
        testCorrectness();
        testSpeed();
    }
@@ -72,7 +72,7 @@ public class TestZLT
                input[i] = (byte) (arr[i] & 255);
          }
 
-         ZLT zlt = new ZLT();
+         ZRLT zrlt = new ZRLT();
          System.out.println("\nOriginal: ");
 
          for (int i = 0; i < input.length; i++)
@@ -80,7 +80,7 @@ public class TestZLT
             System.out.print((input[i] & 255) + " ");
          }
 
-         if (zlt.forward(iba1, iba2) == false)
+         if (zrlt.forward(iba1, iba2) == false)
          {
             System.out.println("\nEncoding error");
             System.exit(1);
@@ -100,12 +100,12 @@ public class TestZLT
          }
 
          System.out.print(" (Compression ratio: " + (iba2.index * 100 / input.length)+ "%)");
-         zlt = new ZLT(iba2.index); 
+         zrlt = new ZRLT(iba2.index); 
          iba1.index = 0;
          iba2.index = 0;
          iba3.index = 0;
          
-         if (zlt.inverse(iba2, iba3) == false)
+         if (zrlt.inverse(iba2, iba3) == false)
          {
             System.out.println("\nDecoding error");
             System.exit(1);
@@ -170,12 +170,12 @@ public class TestZLT
                    input[n++] = val;
              }
          
-            ZLT zlt = new ZLT(); 
+            ZRLT zrlt = new ZRLT(); 
             iba1.index = 0;
             iba2.index = 0;
             before = System.nanoTime();
 
-            if (zlt.forward(iba1, iba2) == false)
+            if (zrlt.forward(iba1, iba2) == false)
             {
                System.out.println("Encoding error");
                System.exit(1);
@@ -183,12 +183,12 @@ public class TestZLT
                
             after = System.nanoTime();
             delta1 += (after - before);
-            zlt = new ZLT(iba2.index); 
+            zrlt = new ZRLT(iba2.index); 
             iba2.index = 0;
             iba3.index = 0;
             before = System.nanoTime();
             
-            if (zlt.inverse(iba2, iba3) == false)
+            if (zrlt.inverse(iba2, iba3) == false)
             {
                System.out.println("Decoding error");
                System.exit(1);
@@ -214,10 +214,10 @@ public class TestZLT
             System.out.println("Failure at index "+idx+" ("+iba1.array[idx]+"<->"+iba3.array[idx]+")");
 
          final long prod = (long) iter * (long) size;
-         System.out.println("ZLT encoding [ms] : " + delta1 / 1000000);
-         System.out.println("Throughput [MB/s] : " + prod * 1000000L / delta1 * 1000L / (1024*1024));
-         System.out.println("ZLT decoding [ms] : " + delta2 / 1000000);
-         System.out.println("Throughput [MB/s] : " + prod * 1000000L / delta2 * 1000L / (1024*1024));
+         System.out.println("ZRLT encoding [ms] : " + delta1 / 1000000);
+         System.out.println("Throughput [MB/s]  : " + prod * 1000000L / delta1 * 1000L / (1024*1024));
+         System.out.println("ZRLT decoding [ms] : " + delta2 / 1000000);
+         System.out.println("Throughput [MB/s]  : " + prod * 1000000L / delta2 * 1000L / (1024*1024));
       }
    }
 }

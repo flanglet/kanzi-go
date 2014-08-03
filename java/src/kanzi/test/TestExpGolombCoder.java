@@ -54,7 +54,7 @@ public class TestExpGolombCoder
                 System.out.println("\nTest "+ii);
                 
                 if (ii == 1)
-                   values = new byte[] { -13, -3, -15, -11, 12, -14, -11, 15, 7, 9, 5, -7, 4, 3, 15, -12 }; 
+                   values = new byte[] {17, 8, 30, 28, 6, 26, 2, 9, 31, 0, 15, 30, 11, 27, 17, 11, 24, 6, 10, 24, 15, 10, 16, 13, 6, 21, 1, 18, 0, 3, 23, 6 };//{ -13, -3, -15, -11, 12, -14, -11, 15, 7, 9, 5, -7, 4, 3, 15, -12 }; 
                 else
                 {
                    values = new byte[32];
@@ -63,6 +63,7 @@ public class TestExpGolombCoder
                       values[i] = (byte) (rnd.nextInt(32) - 16*(ii&1));
                 }
                 
+                System.out.print("\nOriginal: ");
                 ByteArrayOutputStream os = new ByteArrayOutputStream(16384);
                 OutputBitStream bs = new DefaultOutputBitStream(os, 16384);
                 DebugOutputBitStream dbgbs = new DebugOutputBitStream(bs, System.out, -1);
@@ -75,7 +76,7 @@ public class TestExpGolombCoder
                     System.out.print(values[i]+" ");
                 }
                 
-                System.out.println();
+                System.out.print("\nEncoded: ");
                 
                 for (int i=0; i<values.length; i++)
                 {
@@ -92,7 +93,7 @@ public class TestExpGolombCoder
                 dbgbs2.setMark(true);
                 ExpGolombDecoder gd = new ExpGolombDecoder(dbgbs2, (ii&1)==1);
                 byte[] values2 = new byte[values.length];
-                System.out.println("\nDecoded:");
+                System.out.print("\nDecoded: ");
                 
                 for (int i=0; i<values2.length; i++)
                 {

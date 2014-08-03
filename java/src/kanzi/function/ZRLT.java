@@ -18,26 +18,26 @@ package kanzi.function;
 import kanzi.ByteFunction;
 import kanzi.IndexedByteArray;
 
-// Zero Length Encoding is a simple encoding algorithm by Wheeler
+// Zero Run Length Encoding is a simple encoding algorithm by Wheeler
 // closely related to Run Length Encoding. The main difference is
 // that only runs of 0 values are processed. Also, the length is
 // encoded in a different way (each digit in a different byte)
 // This little algorithm is well adapted to process post BWT/MTFT data
 
-public final class ZLT implements ByteFunction
+public final class ZRLT implements ByteFunction
 {
-   private static int ZLT_MAX_RUN = Integer.MAX_VALUE;
+   private static int ZRLT_MAX_RUN = Integer.MAX_VALUE;
 
    private final int size;
 
 
-   public ZLT()
+   public ZRLT()
    {
       this(0);
    }
 
 
-   public ZLT(int size)
+   public ZRLT(int size)
    {
       if (size < 0)
          throw new IllegalArgumentException("Invalid size parameter (must be at least 0)");
@@ -76,7 +76,7 @@ public final class ZLT implements ByteFunction
             runLength++;
             srcIdx++;
 
-            if ((srcIdx < srcEnd) && (runLength < ZLT_MAX_RUN))
+            if ((srcIdx < srcEnd) && (runLength < ZRLT_MAX_RUN))
                 continue;
          }
 
@@ -178,14 +178,14 @@ public final class ZLT implements ByteFunction
 
             if (srcIdx >= srcEnd)
                break;
-            
+
             dst[dstIdx] = (byte) (0xFE + src[srcIdx]);
          }
          else
-         {         
+         {
             dst[dstIdx] = (byte) (val - 1);
          }
-         
+
          dstIdx++;
          srcIdx++;
       }
@@ -195,7 +195,7 @@ public final class ZLT implements ByteFunction
 
       if (end > dstEnd)
          return false;
-      
+
       while (dstIdx < end)
          dst[dstIdx++] = 0;
 
@@ -203,8 +203,8 @@ public final class ZLT implements ByteFunction
       destination.index = dstIdx;
       return (srcIdx == srcEnd) ? true : false;
    }
-   
-   
+
+
    // Required encoding output buffer size unknown
    @Override
    public int getMaxEncodedLength(int srcLen)

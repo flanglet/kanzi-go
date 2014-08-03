@@ -42,7 +42,7 @@ const (
 	SMALL_BLOCK_MASK           = 0x80
 	SKIP_FUNCTION_MASK         = 0x40
 	MIN_BLOCK_SIZE             = 1024
-	MAX_BLOCK_SIZE             = (32 * 1024 * 1024) - 4
+	MAX_BLOCK_SIZE             = (64 * 1024 * 1024) - 4
 	SMALL_BLOCK_SIZE           = 15
 
 	ERR_MISSING_FILENAME    = -1
@@ -82,7 +82,7 @@ func NewIOError(msg string, code int) *IOError {
 
 // Implement error interface
 func (this IOError) Error() string {
-	return fmt.Sprintf("%v: %v", this.msg, this.code)
+	return fmt.Sprintf("%v (code %v)", this.msg, this.code)
 }
 
 func (this IOError) Message() string {
@@ -291,12 +291,6 @@ func (this *CompressedOutputStream) Write(array []byte) (int, error) {
 }
 
 // Implement the kanzi.OutputStream interface
-func (this *CompressedOutputStream) Sync() error {
-	// Let the embedded bitstream take care of the flushing
-	return nil
-}
-
-// Implement the kanzi.OutputStream interface
 func (this *CompressedOutputStream) Close() error {
 	if this.closed == true {
 		return nil
@@ -409,7 +403,9 @@ func (this *CompressedOutputStream) encode(data, buf []byte, blockLength uint,
 	transform, err := function.NewByteFunction(blockLength, typeOfTransform)
 
 	if err != nil {
+		<-input
 		output <- NewIOError(err.Error(), ERR_CREATE_CODEC)
+		return
 	}
 
 	buffer := buf
@@ -482,7 +478,9 @@ func (this *CompressedOutputStream) encode(data, buf []byte, blockLength uint,
 		}
 
 		if dataSize > 3 {
+			<-input
 			output <- NewIOError("Invalid block data length", ERR_WRITE_FILE)
+			return
 		}
 
 		// Record size of 'block size' - 1 in bytes
@@ -509,6 +507,7 @@ func (this *CompressedOutputStream) encode(data, buf []byte, blockLength uint,
 
 	if err2 != nil {
 		output <- err2
+		return
 	}
 
 	// Each block is encoded separately
@@ -517,6 +516,7 @@ func (this *CompressedOutputStream) encode(data, buf []byte, blockLength uint,
 
 	if err != nil {
 		output <- NewIOError(err.Error(), ERR_CREATE_CODEC)
+		return
 	}
 
 	// Write block 'header' (mode + compressed length)
@@ -526,6 +526,7 @@ func (this *CompressedOutputStream) encode(data, buf []byte, blockLength uint,
 	if dataSize > 0 {
 		if _, err = this.obs.WriteBits(uint64(postTransformLength), 8*dataSize); err != nil {
 			output <- NewIOError(err.Error(), ERR_WRITE_FILE)
+			return
 		}
 	}
 
@@ -533,6 +534,7 @@ func (this *CompressedOutputStream) encode(data, buf []byte, blockLength uint,
 	if this.hasher != nil {
 		if _, err = this.obs.WriteBits(uint64(checksum), 32); err != nil {
 			output <- NewIOError(err.Error(), ERR_WRITE_FILE)
+			return
 		}
 	}
 
@@ -553,6 +555,7 @@ func (this *CompressedOutputStream) encode(data, buf []byte, blockLength uint,
 
 	if err != nil {
 		output <- NewIOError(err.Error(), ERR_PROCESS_BLOCK)
+		return
 	}
 
 	// Dispose before displaying statistics. Dispose may write to the bitstream

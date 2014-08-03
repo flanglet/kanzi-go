@@ -288,8 +288,6 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 		anchor = srcIdx
 		srcIdx++
 	}
-
-	return uint(srcIdx), uint(dstIdx), error(nil)
 }
 
 func differentInts(array []byte, srcIdx, dstIdx int) bool {

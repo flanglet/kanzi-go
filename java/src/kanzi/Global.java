@@ -223,10 +223,14 @@ public class Global
       return (int) (base + (log << 10) + taylor);
    }
 
+   
+   // Branchless conditional variable set
+   // if x = (a<b) ? c : d; is ((((a-b) >> 31) & (c^d)) ^ d)
+   
     
     public static boolean isIn(int x, int a, int b)
     {
-       return (x-a) < (b-a) ? true : false;
+       return x - a < b - a;
     }
 
 
@@ -258,16 +262,53 @@ public class Global
     public static int positiveOrNull(int x)
     {
        // return (x & ((-x) >> 31));
-        return (x & (~(x >> 31)));
+        return (x & ~(x >> 31));
     }
     
     
     public static boolean isPowerOf2(int x)
     {
-        return ((x & (x-1)) == 0) ? true : false;
+        return (x & (x-1)) == 0;
+    }
+
+    
+    public static int resetLSB(int x)
+    {
+        return x & (x-1);
+    }
+    
+    
+    // Least significant bit
+    public static int lsb(int x)
+    {
+        return x & -x;
+    }
+    
+    
+    // Most significant bit
+    public static int msb(int x)
+    {
+        x |= (x >> 1);
+        x |= (x >> 2);
+        x |= (x >> 4);
+        x |= (x >> 8);
+        x |= (x >> 16);
+        return x & ~(x >> 1);
     }
 
 
+    public static int roundUpPowerOfTwo(int x)
+    {
+        x--;
+        x |= (x >> 1);
+        x |= (x >> 2);
+        x |= (x >> 4);
+        x |= (x >> 8);
+        x |= (x >> 16);
+        return x + 1;
+    }
+       
+       
     private static final int[] SQRT = new int[]
     {
         0,  16,  23,  28,  32,  36,  39,  42,  45,  48,  51,  53,  55,  58,  60,  62,

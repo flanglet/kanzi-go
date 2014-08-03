@@ -24,7 +24,7 @@ import (
 )
 
 func main() {
-	fmt.Printf("TestZLT\n")
+	fmt.Printf("TestZRLT\n")
 	TestCorrectness()
 	TestSpeed()
 }
@@ -65,7 +65,7 @@ func TestCorrectness() {
 			}
 		}
 
-		zlt, _ := function.NewZLT(0)
+		ZRLT, _ := function.NewZRLT(0)
 		fmt.Printf("\nOriginal: ")
 
 		for i := range input {
@@ -77,7 +77,7 @@ func TestCorrectness() {
 		}
 
 		fmt.Printf("\nCoded: ")
-		srcIdx, dstIdx, _ := zlt.Forward(input, output)
+		srcIdx, dstIdx, _ := ZRLT.Forward(input, output)
 
 		for i := uint(0); i < dstIdx; i++ {
 			if i%100 == 0 {
@@ -88,8 +88,8 @@ func TestCorrectness() {
 		}
 
 		fmt.Printf(" (Compression ratio: %v%%)", dstIdx*100/srcIdx)
-		zlt, _ = function.NewZLT(dstIdx)
-		zlt.Inverse(output, reverse)
+		ZRLT, _ = function.NewZRLT(dstIdx)
+		ZRLT.Inverse(output, reverse)
 		fmt.Printf("\nDecoded: ")
 		ok := true
 
@@ -147,10 +147,10 @@ func TestSpeed() {
 		}
 
 		for ii := 0; ii < iter; ii++ {
-			zlt, _ := function.NewZLT(0)
+			ZRLT, _ := function.NewZRLT(0)
 			before := time.Now()
 
-			if _, compressed, err = zlt.Forward(input, output); err != nil {
+			if _, compressed, err = ZRLT.Forward(input, output); err != nil {
 				fmt.Printf("Encoding error: %v\n", err)
 				os.Exit(1)
 			}
@@ -160,10 +160,10 @@ func TestSpeed() {
 		}
 
 		for ii := 0; ii < iter; ii++ {
-			zlt, _ := function.NewZLT(compressed)
+			ZRLT, _ := function.NewZRLT(compressed)
 			before := time.Now()
 
-			if _, _, err = zlt.Inverse(output, reverse); err != nil {
+			if _, _, err = ZRLT.Inverse(output, reverse); err != nil {
 				fmt.Printf("Decoding error: %v\n", err)
 				os.Exit(1)
 			}
@@ -188,9 +188,9 @@ func TestSpeed() {
 		}
 
 		prod := int64(iter) * int64(size)
-		fmt.Printf("\nZLT encoding [ms]: %v", delta1/1000000)
+		fmt.Printf("\nZRLT encoding [ms]: %v", delta1/1000000)
 		fmt.Printf("\nThroughput [MB/s]: %d", prod*1000000/delta1*1000/(1024*1024))
-		fmt.Printf("\nZLT decoding [ms]: %v", delta2/1000000)
+		fmt.Printf("\nZRLT decoding [ms]: %v", delta2/1000000)
 		fmt.Printf("\nThroughput [MB/s]: %d", prod*1000000/delta2*1000/(1024*1024))
 		println()
 	}

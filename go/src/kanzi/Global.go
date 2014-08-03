@@ -266,6 +266,35 @@ func IsPowerOf2(x int) bool {
 	return (x & (x - 1)) == 0
 }
 
+func ResetLSB(x int) int {
+	return x & (x - 1)
+}
+
+// Least significant bit
+func Lsb(x int) int {
+	return x & -x
+}
+
+// Most significant bit
+func Msb(x int) int {
+	x |= (x >> 1)
+	x |= (x >> 2)
+	x |= (x >> 4)
+	x |= (x >> 8)
+	x |= (x >> 16)
+	return (x & ^(x >> 1))
+}
+
+func RoundUpPowerOfTwo(x int) int {
+	x--
+	x |= (x >> 1)
+	x |= (x >> 2)
+	x |= (x >> 4)
+	x |= (x >> 8)
+	x |= (x >> 16)
+	return x + 1
+}
+
 var SQRT = [...]int{
 	0, 16, 23, 28, 32, 36, 39, 42, 45, 48, 51, 53, 55, 58, 60, 62,
 	64, 66, 68, 70, 72, 73, 75, 77, 78, 80, 82, 83, 85, 86, 88, 89,

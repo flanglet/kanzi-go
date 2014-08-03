@@ -27,24 +27,24 @@ import (
 // This algorithm is well adapted to process post BWT/MTFT data
 
 const (
-	ZLT_MAX_RUN = int(1<<31) - 1
+	ZRLT_MAX_RUN = int(1<<31) - 1
 )
 
-type ZLT struct {
+type ZRLT struct {
 	size uint
 }
 
-func NewZLT(sz uint) (*ZLT, error) {
-	this := new(ZLT)
+func NewZRLT(sz uint) (*ZRLT, error) {
+	this := new(ZRLT)
 	this.size = sz
 	return this, nil
 }
 
-func (this *ZLT) Size() uint {
+func (this *ZRLT) Size() uint {
 	return this.size
 }
 
-func (this *ZLT) Forward(src, dst []byte) (uint, uint, error) {
+func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 	if src == nil {
 		return uint(0), uint(0), errors.New("Invalid null source buffer")
 	}
@@ -76,7 +76,7 @@ func (this *ZLT) Forward(src, dst []byte) (uint, uint, error) {
 			runLength++
 			srcIdx++
 
-			if srcIdx < srcEnd && runLength < ZLT_MAX_RUN {
+			if srcIdx < srcEnd && runLength < ZRLT_MAX_RUN {
 				continue
 			}
 		}
@@ -128,7 +128,7 @@ func (this *ZLT) Forward(src, dst []byte) (uint, uint, error) {
 	return srcIdx, dstIdx, nil
 }
 
-func (this *ZLT) Inverse(src, dst []byte) (uint, uint, error) {
+func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 	if src == nil {
 		return uint(0), uint(0), errors.New("Invalid null source buffer")
 	}
@@ -221,6 +221,6 @@ func (this *ZLT) Inverse(src, dst []byte) (uint, uint, error) {
 }
 
 // Required encoding output buffer size unknown
-func (this ZLT) MaxEncodedLen(srcLen int) int {
+func (this ZRLT) MaxEncodedLen(srcLen int) int {
 	return -1
 }

@@ -21,11 +21,16 @@ import (
 	"kanzi/entropy"
 	"kanzi/util"
 	"math/rand"
+	"net/http/pprof"
 	"os"
 	"time"
 )
 
 func main() {
+    f, _ := os.Create("cpu.txt")
+    pprof.StartCPUProfile(f)
+    defer pprof.StopCPUProfile()
+
 	fmt.Printf("\nTestExpGolombCodec")
 	TestCorrectness()
 	TestSpeed()
@@ -41,7 +46,7 @@ func TestCorrectness() {
 		rand.Seed(time.Now().UTC().UnixNano())
 
 		if ii == 1 {
-			values = []byte{13, 3, 15, 11, 12, 14, 11, 15, 7, 9, 5, 7, 4, 3, 15, 12}
+			values = []byte{17, 8, 30, 28, 6, 26, 2, 9, 31, 0, 15, 30, 11, 27, 17, 11, 24, 6, 10, 24, 15, 10, 16, 13, 6, 21, 1, 18, 0, 3, 23, 6}
 		} else {
 			values = make([]byte, 32)
 
@@ -135,7 +140,7 @@ func TestSpeed() {
 		delta1 := int64(0)
 		delta2 := int64(0)
 		size := 50000
-		iter := 2000
+		iter := 4000
 		buffer := make([]byte, size*2)
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)

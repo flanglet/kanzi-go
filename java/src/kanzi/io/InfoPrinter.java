@@ -105,7 +105,7 @@ public class InfoPrinter implements BlockListener
 
          // Add percentage for encoding
          if (this.type == Type.ENCODING)
-            msg += String.format(" (%d%%)", (stage2Size*100/bi.stage0Size));
+            msg += String.format(" (%d%%)", (stage2Size*100L/(long) bi.stage0Size));
          
          // Optionally add hash
          if (evt.getHash() != null) 

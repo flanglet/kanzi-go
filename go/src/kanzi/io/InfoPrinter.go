@@ -115,7 +115,7 @@ func (this *InfoPrinter) ProcessEvent(evt *BlockEvent) {
 		// Add percentage for encoding
 		if this.type_ == ENCODING {
 			if bi.stage0Size != 0 {
-				msg += fmt.Sprintf(" (%d%%)", stage2Size*100/bi.stage0Size)
+				msg += fmt.Sprintf(" (%d%%)", uint64(stage2Size)*100/uint64(bi.stage0Size))
 			}
 		}
 
