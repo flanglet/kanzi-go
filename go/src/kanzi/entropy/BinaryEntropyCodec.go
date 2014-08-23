@@ -61,17 +61,14 @@ func NewBinaryEntropyEncoder(bs kanzi.OutputBitStream, predictor Predictor) (*Bi
 	return this, nil
 }
 
-func (this *BinaryEntropyEncoder) EncodeByte(val byte) error {
+func (this *BinaryEntropyEncoder) EncodeByte(val byte) {
 	for i := 7; i >= 0; i-- {
-		if err := this.EncodeBit((val >> uint(i)) & 1); err != nil {
-			return err
-		}
+		this.EncodeBit((val >> uint(i)) & 1)
 	}
 
-	return nil
 }
 
-func (this *BinaryEntropyEncoder) EncodeBit(bit byte) error {
+func (this *BinaryEntropyEncoder) EncodeBit(bit byte) {
 	// Compute prediction
 	prediction := this.predictor.Get()
 
@@ -92,8 +89,6 @@ func (this *BinaryEntropyEncoder) EncodeBit(bit byte) error {
 	for (this.low^this.high)&MASK_24_56 == 0 {
 		this.flush()
 	}
-
-	return nil
 }
 
 func (this *BinaryEntropyEncoder) Encode(block []byte) (int, error) {
@@ -146,53 +141,40 @@ func NewBinaryEntropyDecoder(bs kanzi.InputBitStream, predictor Predictor) (*Bin
 	return this, nil
 }
 
-func (this *BinaryEntropyDecoder) DecodeByte() (byte, error) {
+func (this *BinaryEntropyDecoder) DecodeByte() byte {
 	// Deferred initialization: the bitstream may not be ready at build time
 	// Initialize 'current' with bytes read from the bitstream
-	if this.Initialized() == false {
+	if this.initialized == false {
 		this.Initialize()
 	}
 
 	return this.decodeByte_()
 }
 
-func (this *BinaryEntropyDecoder) decodeByte_() (byte, error) {
+func (this *BinaryEntropyDecoder) decodeByte_() byte {
 	res := 0
 
 	for i := 7; i >= 0; i-- {
-		bit, err := this.DecodeBit()
-
-		if err != nil {
-			return 0, err
-		}
-
-		res |= (bit << uint(i))
+		res |= (this.DecodeBit() << uint(i))
 	}
 
-	return byte(res), nil
+	return byte(res)
 }
 
 func (this *BinaryEntropyDecoder) Initialized() bool {
 	return this.initialized
 }
 
-func (this *BinaryEntropyDecoder) Initialize() error {
+func (this *BinaryEntropyDecoder) Initialize() {
 	if this.initialized == true {
-		return nil
+		return
 	}
 
-	read, err := this.bitstream.ReadBits(56)
-
-	if err != nil {
-		return err
-	}
-
-	this.current = read
+	this.current = this.bitstream.ReadBits(56)
 	this.initialized = true
-	return nil
 }
 
-func (this *BinaryEntropyDecoder) DecodeBit() (int, error) {
+func (this *BinaryEntropyDecoder) DecodeBit() int {
 	// Compute prediction
 	prediction := this.predictor.Get()
 
@@ -213,24 +195,16 @@ func (this *BinaryEntropyDecoder) DecodeBit() (int, error) {
 
 	// Read 32 bits from bitstream
 	for (this.low^this.high)&MASK_24_56 == 0 {
-		if err := this.Read(); err != nil {
-			return 0, err
-		}
+		this.read()
 	}
 
-	return bit, nil
+	return bit
 }
 
-func (this *BinaryEntropyDecoder) Read() error {
+func (this *BinaryEntropyDecoder) read() {
 	this.low = this.low << 32
 	this.high = (this.high << 32) | MASK_0_32
-	read, err := this.bitstream.ReadBits(32)
-
-	if err == nil {
-		this.current = (this.current << 32) | read
-	}
-
-	return err
+	this.current = (this.current << 32) | this.bitstream.ReadBits(32)
 }
 
 func (this *BinaryEntropyDecoder) Decode(block []byte) (int, error) {
@@ -239,15 +213,11 @@ func (this *BinaryEntropyDecoder) Decode(block []byte) (int, error) {
 	// Deferred initialization: the bitstream may not be ready at build time
 	// Initialize 'current' with bytes read from the bitstream
 	if this.Initialized() == false {
-		if err = this.Initialize(); err != nil {
-			return 0, err
-		}
+		this.Initialize()
 	}
 
 	for i := range block {
-		if block[i], err = this.decodeByte_(); err != nil {
-			return i, err
-		}
+		block[i] = this.decodeByte_()
 	}
 
 	return len(block), err

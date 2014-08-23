@@ -48,7 +48,7 @@ func NewDebugOutputBitStream(obs kanzi.OutputBitStream, writer io.Writer) (*Debu
 	return this, nil
 }
 
-func (this *DebugOutputBitStream) WriteBit(bit int) error {
+func (this *DebugOutputBitStream) WriteBit(bit int) {
 	bit &= 1
 	fmt.Fprintf(this.out, "%d", bit)
 	this.current <<= 1
@@ -82,15 +82,11 @@ func (this *DebugOutputBitStream) WriteBit(bit int) error {
 		}
 	}
 
-	return this.delegate.WriteBit(bit)
+	this.delegate.WriteBit(bit)
 }
 
-func (this *DebugOutputBitStream) WriteBits(bits uint64, length uint) (uint, error) {
-	res, err := this.delegate.WriteBits(bits, length)
-
-	if err != nil {
-		return res, err
-	}
+func (this *DebugOutputBitStream) WriteBits(bits uint64, length uint) uint {
+	res := this.delegate.WriteBits(bits, length)
 
 	for i := uint(1); i <= length; i++ {
 		bit := (bits >> (length - i)) & 1
@@ -127,7 +123,7 @@ func (this *DebugOutputBitStream) WriteBits(bits uint64, length uint) (uint, err
 		}
 	}
 
-	return res, err
+	return res
 }
 
 func (this *DebugOutputBitStream) Close() (bool, error) {

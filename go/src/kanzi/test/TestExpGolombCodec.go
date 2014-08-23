@@ -21,16 +21,11 @@ import (
 	"kanzi/entropy"
 	"kanzi/util"
 	"math/rand"
-	"net/http/pprof"
 	"os"
 	"time"
 )
 
 func main() {
-    f, _ := os.Create("cpu.txt")
-    pprof.StartCPUProfile(f)
-    defer pprof.StopCPUProfile()
-
 	fmt.Printf("\nTestExpGolombCodec")
 	TestCorrectness()
 	TestSpeed()

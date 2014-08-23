@@ -55,7 +55,7 @@ func TestCorrectness() {
 			values = make([]byte, 32)
 
 			for i := range values {
-				values[i] = byte(2+(i&1)) // 2 symbols
+				values[i] = byte(2 + (i & 1)) // 2 symbols
 			}
 		} else {
 			values = make([]byte, 32)
@@ -136,8 +136,8 @@ func TestSpeed() {
 		fmt.Printf("Test %v\n", jj+1)
 		delta1 := int64(0)
 		delta2 := int64(0)
+		iter := 4000
 		size := 50000
-		iter := 2000
 		buffer := make([]byte, size*2)
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)

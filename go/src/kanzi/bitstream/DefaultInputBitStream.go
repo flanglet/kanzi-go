@@ -54,32 +54,29 @@ func NewDefaultInputBitStream(stream kanzi.InputStream, bufferSize uint) (*Defau
 }
 
 // Return 1 or 0. Return error if stream is closed
-func (this *DefaultInputBitStream) ReadBit() (int, error) {
+func (this *DefaultInputBitStream) ReadBit() int {
 	if this.bitIndex == 63 {
-		if err := this.pullCurrent(); err != nil { // Triggers an error if stream is closed
-			return 0, err
-		}
+		this.pullCurrent()  // Panic if stream is closed
 	}
 
 	bit := int(this.current>>this.bitIndex) & 1
 	this.bitIndex = (this.bitIndex + 63) & 63
-	return bit, nil
+	return bit
 }
 
-func (this *DefaultInputBitStream) ReadBits(count uint) (uint64, error) {
+func (this *DefaultInputBitStream) ReadBits(count uint) uint64 {
 	if count == 0 || count > 64 {
-		return 0, fmt.Errorf("Invalid count: %v (must be in [1..64])", count)
+		panic(fmt.Errorf("Invalid count: %v (must be in [1..64])", count))
 	}
 
 	var res uint64
-	var err error
 
 	if count <= this.bitIndex+1 {
 		// Enough spots available in 'current'
 		shift := this.bitIndex + 1 - count
 
 		if this.bitIndex == 63 {
-			err = this.pullCurrent()
+			this.pullCurrent()
 			shift += (this.bitIndex - 63) // adjust if bitIndex != 63 (end of stream)
 		}
 
@@ -89,13 +86,13 @@ func (this *DefaultInputBitStream) ReadBits(count uint) (uint64, error) {
 		// Not enough spots available in 'current'
 		remaining := count - this.bitIndex - 1
 		res = this.current & (0xFFFFFFFFFFFFFFFF >> (63 - this.bitIndex))
-		err = this.pullCurrent()
+		this.pullCurrent()
 		res <<= remaining
 		this.bitIndex -= remaining
 		res |= (this.current >> (this.bitIndex + 1))
 	}
 
-	return res, err
+	return res
 }
 
 func (this *DefaultInputBitStream) readFromInputStream(count int) (int, error) {
@@ -138,10 +135,10 @@ func (this *DefaultInputBitStream) HasMoreToRead() (bool, error) {
 }
 
 // Pull 64 bits of current value from buffer.
-func (this *DefaultInputBitStream) pullCurrent() error {
+func (this *DefaultInputBitStream) pullCurrent() {
 	if this.position > this.maxPosition {
 		if _, err := this.readFromInputStream(len(this.buffer)); err != nil {
-			return err
+			panic(err)
 		}
 	}
 
@@ -174,7 +171,6 @@ func (this *DefaultInputBitStream) pullCurrent() error {
 	}
 
 	this.current = val
-	return nil
 }
 
 func (this *DefaultInputBitStream) Close() (bool, error) {

@@ -74,16 +74,17 @@ type InputStream interface {
 }
 
 type InputBitStream interface {
-	ReadBit() (int, error)
+	ReadBit() int // panic if error
 
-	ReadBits(length uint) (uint64, error)
+	ReadBits(length uint) uint64 // panic if error
 
 	Close() (bool, error)
 
-	Read() uint64
+	Read() uint64 // number of bits read so far
 
 	HasMoreToRead() (bool, error)
 }
+
 
 // OuputStream = io.Writer + io.Closer
 // Hence an OuputStream is a Writer
@@ -95,14 +96,15 @@ type OutputStream interface {
 }
 
 type OutputBitStream interface {
-	WriteBit(bit int) error
+	WriteBit(bit int) // panic if error
 
-	WriteBits(bits uint64, length uint) (uint, error)
+	WriteBits(bits uint64, length uint) uint // panic if error
 
 	Close() (bool, error)
 
-	Written() uint64
+	Written() uint64 // number of bits written so far
 }
+
 
 type EntropyEncoder interface {
 	// Encode the array provided into the bitstream. Return the number of byte
@@ -110,7 +112,7 @@ type EntropyEncoder interface {
 	Encode(block []byte) (int, error)
 
 	// Encode the byte value provided into the bitstream
-	EncodeByte(val byte) error
+	EncodeByte(val byte)
 
 	// Return the underlying bitstream
 	BitStream() OutputBitStream
@@ -121,7 +123,7 @@ type EntropyEncoder interface {
 
 type EntropyDecoder interface {
 	// Decode the next chunk of data from the bitstream and return as a byte
-	DecodeByte() (byte, error)
+	DecodeByte() byte
 
 	// Decode the next chunk of data from the bitstream and return in the
 	// provided buffer.

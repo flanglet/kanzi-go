@@ -18,6 +18,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"kanzi"
 	"kanzi/bitstream"
 	"kanzi/io"
 	"kanzi/util"
@@ -74,7 +75,7 @@ func testCorrectnessAligned() {
 		ok := true
 
 		for i := range values {
-			x, _ := ibs.ReadBits(32)
+			x := ibs.ReadBits(32)
 			fmt.Printf("%v", x)
 
 			if int(x) == values[i] {
@@ -144,21 +145,15 @@ func testCorrectnessMisaligned() {
 
 		// Close first to force flush()
 		dbs.Close()
+		testWritePostClose(dbs)
 
-		fmt.Printf("\nTrying to write to closed stream\n")
-		errWClosed := dbs.WriteBit(1)
-		
-		if errWClosed != nil { 
-		   fmt.Printf("Error: %v\n", errWClosed.Error())
-		}
-		
 		is_, _ := util.NewByteArrayInputStream(buffer, false)
 		ibs, _ := bitstream.NewDefaultInputBitStream(is_, 16384)
 		fmt.Printf("\nRead:\n")
 		ok := true
 
 		for i := range values {
-			x, _ := ibs.ReadBits(1 + uint(i&63))
+			x := ibs.ReadBits(1 + uint(i&63))
 			fmt.Printf("%v", x)
 
 			if int(x) == values[i] {
@@ -174,14 +169,8 @@ func testCorrectnessMisaligned() {
 		}
 
 		ibs.Close()
-		
-		fmt.Printf("\nTrying to read from closed stream\n")
-		_, errRClosed := ibs.ReadBit()
-		
-		if errRClosed != nil { 
-		   fmt.Printf("Error: %v\n", errRClosed.Error())
-		}
-		
+		testReadPostClose(ibs)
+
 		println()
 		println()
 		fmt.Printf("Bits written: %v\n", dbs.Written())
@@ -196,6 +185,28 @@ func testCorrectnessMisaligned() {
 		println()
 		println()
 	}
+}
+
+func testWritePostClose(obs kanzi.OutputBitStream) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("Error: %v\n", r.(error).Error())
+		}
+	}()
+
+	fmt.Printf("\nTrying to write to closed stream\n")
+	obs.WriteBit(1)
+}
+
+func testReadPostClose(ibs kanzi.InputBitStream) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("Error: %v\n", r.(error).Error())
+		}
+	}()
+
+	fmt.Printf("\nTrying to read from closed stream\n")
+	ibs.ReadBit()
 }
 
 func testSpeed() {

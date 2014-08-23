@@ -48,12 +48,8 @@ func NewDebugInputBitStream(ibs kanzi.InputBitStream, writer io.Writer) (*DebugI
 	return this, nil
 }
 
-func (this *DebugInputBitStream) ReadBit() (int, error) {
-	res, err := this.delegate.ReadBit()
-
-	if err != nil {
-		return 0, err
-	}
+func (this *DebugInputBitStream) ReadBit() int {
+	res := this.delegate.ReadBit()
 
 	this.current <<= 1
 	this.current |= byte(res)
@@ -92,15 +88,11 @@ func (this *DebugInputBitStream) ReadBit() (int, error) {
 		}
 	}
 
-	return res, nil
+	return res
 }
 
-func (this *DebugInputBitStream) ReadBits(length uint) (uint64, error) {
-	res, err := this.delegate.ReadBits(length)
-
-	if err != nil {
-		return res, err
-	}
+func (this *DebugInputBitStream) ReadBits(length uint) uint64 {
+	res := this.delegate.ReadBits(length)
 
 	for i := uint(1); i <= length; i++ {
 		bit := (res >> (length - i)) & 1
@@ -137,7 +129,7 @@ func (this *DebugInputBitStream) ReadBits(length uint) (uint64, error) {
 		}
 	}
 
-	return res, err
+	return res
 }
 
 func (this *DebugInputBitStream) HasMoreToRead() (bool, error) {

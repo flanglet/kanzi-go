@@ -48,19 +48,19 @@ type RangeEncoder struct {
 // Since the number of args is variable, this function can be called like this:
 // NewRangeEncoder(bs) or NewRangeEncoder(bs, 16384)
 // The default chunk size is 65536 bytes.
-func NewRangeEncoder(bs kanzi.OutputBitStream, chunkSizes ...uint) (*RangeEncoder, error) {
+func NewRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*RangeEncoder, error) {
 	if bs == nil {
 		return nil, errors.New("Invalid null bitstream parameter")
 	}
 
-	if len(chunkSizes) > 1 {
+	if len(args) > 1 {
 		return nil, errors.New("At most one chunk size can be provided")
 	}
 
 	chkSize := DEFAULT_RANGE_CHUNK_SIZE
 
-	if len(chunkSizes) == 1 {
-		chkSize = chunkSizes[0]
+	if len(args) == 1 {
+		chkSize = args[0]
 	}
 
 	if chkSize != 0 && chkSize < 1024 {
@@ -99,7 +99,7 @@ func (this *RangeEncoder) ResetFrequencies() {
 
 // This method is on the speed critical path (called for each byte)
 // The speed optimization is focused on reducing the frequency table update
-func (this *RangeEncoder) EncodeByte(b byte) error {
+func (this *RangeEncoder) EncodeByte(b byte) {
 	value := int(b)
 	symbolLow := uint64(this.baseFreq[value>>4] + this.deltaFreq[value])
 	symbolHigh := uint64(this.baseFreq[(value+1)>>4] + this.deltaFreq[value+1])
@@ -126,7 +126,6 @@ func (this *RangeEncoder) EncodeByte(b byte) error {
 	}
 
 	this.updateFrequencies(int(value + 1))
-	return nil
 }
 
 func (this *RangeEncoder) updateFrequencies(value int) {
@@ -166,9 +165,7 @@ func (this *RangeEncoder) Encode(block []byte) (int, error) {
 		this.ResetFrequencies()
 
 		for i := startChunk; i < endChunk; i++ {
-			if err := this.EncodeByte(block[i]); err != nil {
-				return i, err
-			}
+			this.EncodeByte(block[i])
 		}
 
 		startChunk = endChunk
@@ -193,11 +190,7 @@ func (this *RangeEncoder) Dispose() {
 	}
 
 	this.disposed = true
-
-	for i := 0; i < 7; i++ {
-		this.bitstream.WriteBits(this.low>>48, 8)
-		this.low <<= 8
-	}
+	this.bitstream.WriteBits(this.low, 56)
 }
 
 type RangeDecoder struct {
@@ -217,19 +210,19 @@ type RangeDecoder struct {
 // Since the number of args is variable, this function can be called like this:
 // NewRangeDecoder(bs) or NewRangeDecoder(bs, 16384)
 // The default chunk size is 65536 bytes.
-func NewRangeDecoder(bs kanzi.InputBitStream, chunkSizes ...uint) (*RangeDecoder, error) {
+func NewRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*RangeDecoder, error) {
 	if bs == nil {
 		return nil, errors.New("Invalid null bitstream parameter")
 	}
 
-	if len(chunkSizes) > 1 {
+	if len(args) > 1 {
 		return nil, errors.New("At most one chunk size can be provided")
 	}
 
 	chkSize := DEFAULT_RANGE_CHUNK_SIZE
 
-	if len(chunkSizes) == 1 {
-		chkSize = chunkSizes[0]
+	if len(args) == 1 {
+		chkSize = args[0]
 	}
 
 	if chkSize != 0 && chkSize < 1024 {
@@ -271,26 +264,18 @@ func (this *RangeDecoder) Initialized() bool {
 	return this.initialized
 }
 
-func (this *RangeDecoder) Initialize() error {
+func (this *RangeDecoder) Initialize() {
 	if this.initialized == true {
-		return nil
+		return
 	}
 
 	this.initialized = true
-	read, err := this.bitstream.ReadBits(56)
-
-	if err == nil {
-		this.code = read
-	}
-
-	return err
+	this.code = this.bitstream.ReadBits(56)
 }
 
-func (this *RangeDecoder) DecodeByte() (byte, error) {
+func (this *RangeDecoder) DecodeByte() byte {
 	if this.initialized == false {
-		if err := this.Initialize(); err != nil {
-			return byte(0), err
-		}
+		this.Initialize()
 	}
 
 	return this.decodeByte_()
@@ -298,7 +283,7 @@ func (this *RangeDecoder) DecodeByte() (byte, error) {
 
 // This method is on the speed critical path (called for each byte)
 // The speed optimization is focused on reducing the frequency table update
-func (this *RangeDecoder) decodeByte_() (byte, error) {
+func (this *RangeDecoder) decodeByte_() byte {
 	bfreq := this.baseFreq  // alias
 	dfreq := this.deltaFreq // alias
 	this.range_ /= uint64(bfreq[BASE_LEN] + dfreq[NB_SYMBOLS])
@@ -311,15 +296,15 @@ func (this *RangeDecoder) decodeByte_() (byte, error) {
 		more, err := this.bitstream.HasMoreToRead()
 
 		if err != nil {
-			return 0, err
+			panic(err)
 		}
 
 		if more == false {
-			return 0, errors.New("End of bitstream")
+			panic(errors.New("End of bitstream"))
 		}
 
 		errMsg := fmt.Sprintf("Unknown symbol: %d", value)
-		return 0, errors.New(errMsg)
+		panic(errors.New(errMsg))
 	}
 
 	symbolLow := uint64(bfreq[value>>4] + dfreq[value])
@@ -339,19 +324,13 @@ func (this *RangeDecoder) decodeByte_() (byte, error) {
 			}
 		}
 
-		read, err := this.bitstream.ReadBits(8)
-
-		if err != nil {
-			return 0, err
-		}
-
-		this.code = (this.code << 8) | read
+		this.code = (this.code << 8) | this.bitstream.ReadBits(8)
 		this.range_ <<= 8
 		this.low <<= 8
 	}
 
 	this.updateFrequencies(value + 1)
-	return byte(value), nil
+	return byte(value)
 }
 
 func (this *RangeDecoder) findSymbol(freq int) int {
@@ -421,9 +400,7 @@ func (this *RangeDecoder) Decode(block []byte) (int, error) {
 	// Deferred initialization: the bitstream may not be ready at build time
 	// Initialize 'current' with bytes read from the bitstream
 	if this.Initialized() == false {
-		if err := this.Initialize(); err != nil {
-			return 0, err
-		}
+		this.Initialize()
 	}
 
 	end := len(block)
@@ -442,12 +419,9 @@ func (this *RangeDecoder) Decode(block []byte) (int, error) {
 
 	for startChunk < end {
 		this.ResetFrequencies()
-		var err error
 
 		for i := startChunk; i < endChunk; i++ {
-			if block[i], err = this.decodeByte_(); err != nil {
-				return i, err
-			}
+			block[i] = this.decodeByte_()
 		}
 
 		startChunk = endChunk

@@ -54,10 +54,10 @@ func (this *RiceGolombEncoder) Signed() bool {
 func (this *RiceGolombEncoder) Dispose() {
 }
 
-func (this *RiceGolombEncoder) EncodeByte(val byte) error {
+func (this *RiceGolombEncoder) EncodeByte(val byte) {
 	if val == 0 {
-		_, err := this.bitstream.WriteBits(this.base, uint(this.logBase+1))
-		return err
+		this.bitstream.WriteBits(this.base, uint(this.logBase+1))
+		return
 	}
 
 	var emit uint64
@@ -79,8 +79,7 @@ func (this *RiceGolombEncoder) EncodeByte(val byte) error {
 		emit = (emit << 1) | uint64((val>>7)&1)
 	}
 
-	_, err := this.bitstream.WriteBits(emit, n)
-	return err
+	this.bitstream.WriteBits(emit, n)
 }
 
 func (this *RiceGolombEncoder) BitStream() kanzi.OutputBitStream {
@@ -121,47 +120,25 @@ func (this *RiceGolombDecoder) Dispose() {
 }
 
 // If the decoder is signed, the returned value is a byte encoded int8
-func (this *RiceGolombDecoder) DecodeByte() (byte, error) {
+func (this *RiceGolombDecoder) DecodeByte() byte {
 	q := 0
-	bit, err := this.bitstream.ReadBit()
-
-	if err != nil {
-		return byte(0), err
-	}
 
 	// quotient is unary encoded
-	for bit == 0 {
+	for this.bitstream.ReadBit() == 0 {
 		q++
-		bit, err = this.bitstream.ReadBit()
-
-		if err != nil {
-			return 0, err
-		}
 	}
 
 	// remainder is binary encoded
-	r, err := this.bitstream.ReadBits(this.logBase)
-
-	if err != nil {
-		return 0, err
-	}
-
-	res := (q << this.logBase) | int(r)
+	res := (q << this.logBase) | int(this.bitstream.ReadBits(this.logBase))
 
 	if res != 0 && this.signed == true {
 		// If res != 0, Get the 'sign', encoded as 1 for negative values
-		bit, err = this.bitstream.ReadBit()
-
-		if err != nil {
-			return 0, err
-		}
-
-		if bit == 1 {
-			return byte(^res + 1), nil
+		if this.bitstream.ReadBit() == 1 {
+			return byte(^res + 1)
 		}
 	}
 
-	return byte(res), nil
+	return byte(res)
 }
 
 func (this *RiceGolombDecoder) BitStream() kanzi.InputBitStream {

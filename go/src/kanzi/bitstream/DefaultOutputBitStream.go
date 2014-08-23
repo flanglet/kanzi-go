@@ -51,31 +51,29 @@ func NewDefaultOutputBitStream(stream kanzi.OutputStream, bufferSize uint) (*Def
 	return this, nil
 }
 
-// Write least significant bit of the input integer. Report error if stream is closed
-func (this *DefaultOutputBitStream) WriteBit(bit int) error {
-	if this.bitIndex <= 0 { // bitIndex = -1 if stream is closed => force pushCurrent()
+// Write least significant bit of the input integer. Panics if stream is closed
+func (this *DefaultOutputBitStream) WriteBit(bit int) {
+	if this.bitIndex <= 0 { // bitIndex = -1 if stream is closed => force pushCurrent() => panic
 		this.current |= uint64(bit & 1)
-		if err := this.pushCurrent(); err != nil {
-			return err
-		}
+		this.pushCurrent()
 	} else {
 		this.current |= (uint64(bit&1) << uint(this.bitIndex))
 		this.bitIndex--
 	}
 
-	return nil
 }
 
-// Write 'count' (in [1..64]) bits. Report error if stream is closed
-func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) (uint, error) {
+// Write 'count' (in [1..64]) bits. Panics if stream is closed.
+// Return number of written bits
+func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) uint {
 	if count == 0 {
-		return 0, nil
+		return 0
 	}
 
 	length := int(count)
 
 	if length > 64 {
-		return 0, fmt.Errorf("Invalid length: %v (must be in [1..64])", count)
+		panic(fmt.Errorf("Invalid length: %v (must be in [1..64])", count))
 	}
 
 	value &= (0xFFFFFFFFFFFFFFFF >> (64 - count))
@@ -89,20 +87,16 @@ func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) (uint, e
 	} else {
 		remaining := uint(length - this.bitIndex - 1)
 		this.current |= (value >> remaining)
-
-		if err := this.pushCurrent(); err != nil {
-			return uint(this.bitIndex+1), err
-		}
-
+		this.pushCurrent()
 		this.current |= (value << (64 - remaining))
 		this.bitIndex -= int(remaining)
 	}
 
-	return count, nil
+	return count
 }
 
 // Push 64 bits of current value into buffer.
-func (this *DefaultOutputBitStream) pushCurrent() error {
+func (this *DefaultOutputBitStream) pushCurrent() {
 
 	this.buffer[this.position] = byte(this.current >> 56)
 	this.buffer[this.position+1] = byte(this.current >> 48)
@@ -118,11 +112,9 @@ func (this *DefaultOutputBitStream) pushCurrent() error {
 
 	if this.position >= len(this.buffer) {
 		if err := this.flush(); err != nil {
-			return err
+			panic(err)
 		}
 	}
-
-	return nil
 }
 
 // Write buffer into underlying stream
