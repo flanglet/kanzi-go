@@ -15,28 +15,29 @@ limitations under the License.
 
 package kanzi.entropy;
 
-import java.util.Map;
-import java.util.TreeMap;
 import kanzi.BitStreamException;
 import kanzi.InputBitStream;
-import kanzi.entropy.HuffmanTree.Node;
 
 
 
 public class HuffmanDecoder extends AbstractDecoder
 {
     public static final int DECODING_BATCH_SIZE = 10; // in bits
+    public static final int DECODING_MASK = (1 << DECODING_BATCH_SIZE) - 1;
     private static final int DEFAULT_CHUNK_SIZE = 1 << 16; // 64 KB by default
-    private static final Key ZERO_KEY = new Key((short) 0, 0);
+    private static final int ABSENT = Integer.MAX_VALUE;
 
     private final InputBitStream bitstream;
     private final int[] codes;
     private final int[] ranks;
     private final short[] sizes;
-    private Node root;
-    private CacheData[] decodingCache;
-    private CacheData current;
+    private final int[] fdTable; // Fast decoding table
+    private final int[] sdTable; // Slow decoding table
+    private final int[] sdtIndexes; // Indexes for slow decoding table
     private final int chunkSize;
+    private long state; // holds bits read from bitstream
+    private int bits; // hold number of unused bits in 'state'
+    private int minCodeLen;
 
 
     public HuffmanDecoder(InputBitStream bitstream) throws BitStreamException
@@ -64,7 +65,11 @@ public class HuffmanDecoder extends AbstractDecoder
         this.sizes = new short[256];
         this.ranks = new int[256];
         this.codes = new int[256];
+        this.fdTable = new int[1<<DECODING_BATCH_SIZE];
+        this.sdTable = new int[256];
+        this.sdtIndexes = new int[24];
         this.chunkSize = chunkSize;
+        this.minCodeLen = 8;
 
         // Default lengths & canonical codes
         for (int i=0; i<256; i++)
@@ -72,190 +77,109 @@ public class HuffmanDecoder extends AbstractDecoder
            this.sizes[i] = 8;
            this.codes[i] = i;
         }
-
-       // Create tree from code sizes
-       this.root = this.createTreeFromSizes(8);
-       this.decodingCache = this.buildDecodingCache(new CacheData[1<<DECODING_BATCH_SIZE]);
-       this.current = this.decodingCache[0]; // point to root
     }
 
 
-    private CacheData[] buildDecodingCache(CacheData[] cache)
+    public int readLengths() throws BitStreamException
     {
-       Node rootNode = this.root;
-       final int end = 1 << DECODING_BATCH_SIZE;
-       CacheData previousData = (cache[0] == null) ? new CacheData(this.root) : cache[0];
-
-       // Create an array storing a list of tree nodes (shortcuts) for each input value
-       for (int val=0; val<end; val++)
-       {
-          int shift = DECODING_BATCH_SIZE - 1;
-          boolean firstAdded = false;
-
-          while (shift >= 0)
-          {
-             // Start from root
-             Node currentNode = rootNode;
-
-             // Process next bit
-             while ((currentNode.left != null) || (currentNode.right != null))
-             {
-                currentNode = (((val >> shift) & 1) == 0) ? currentNode.left : currentNode.right;
-
-                // Current node is null only if there is only 1 symbol (Huffman code 0).
-                // In this case, trying to map an impossible value (non zero) to
-                // a node fails.
-                if ((--shift < 0) || (currentNode == null))
-                   break;            
-             }
-
-             // If there is only 1 Huffman symbol to decode (0), no need to create 
-             // a big cache. Stop here and return.
-             if (currentNode == null)
-             {                
-                previousData.next = null;
-                return cache;
-             }
-             
-             // Reuse cache data objects when recreating the cache
-             if (previousData.next == null)
-                previousData.next = new CacheData(currentNode);
-             else
-                previousData.next.value = currentNode;
-
-             // The cache is made of linked nodes
-             previousData = previousData.next;
-
-             if (firstAdded == false)
-             {
-                // Add first node of list to array (whether it is a leaf or not)
-                cache[val] = previousData;
-                firstAdded = true;
-             }
-          }
-
-          // Reuse cache data objects when recreating the cache
-          if (previousData.next == null)
-             previousData.next = new CacheData(rootNode);
-          else
-             previousData.next.value = rootNode;
-
-          previousData = previousData.next;
-       }
-
-       return cache;
-    }
-
-
-    private Node createTreeFromSizes(int maxSize)
-    {
-       TreeMap<Key, Node> codeMap = new TreeMap<Key, Node>();
-       final int sum = 1 << maxSize;
-       codeMap.put(ZERO_KEY, new Node((byte) 0, sum));
-
-       // Create node for each (present) symbol and add to map
-       for (int i=this.sizes.length-1; i>=0; i--)
-       {
-          final short size = this.sizes[i];
-
-          if (size <= 0)
-             continue;
-
-          final Key key = new Key(size, this.codes[i]);
-          final Node value = new Node((byte) i, sum >> size);
-          codeMap.put(key, value);
-       }
-
-       // Process each element of the map except the root node
-       while (codeMap.size() > 1)
-       {
-          // Remove last entry and reuse key for upNode
-          final Map.Entry<Key, Node> last = codeMap.pollLastEntry();
-          Key key = last.getKey();
-          final int code = key.code;
-          key.length--;
-          key.code >>= 1;
-          Node upNode = codeMap.get(key);
-
-          // Create superior node if it does not exist (length gap > 1)
-          if (upNode == null)
-          {
-             upNode = new Node((byte) 0, sum >> key.length);
-             codeMap.put(key, upNode);
-          }
-
-          // Add the current node to its parent at the correct place
-          if ((code & 1) == 1)
-             upNode.right = last.getValue();
-          else
-             upNode.left = last.getValue();
-       }
-
-       // Return the last element of the map (root node)
-       return codeMap.firstEntry().getValue();
-    }
-
-
-    public boolean readLengths() throws BitStreamException
-    {
-        final short[] buf = this.sizes;
+        int count = EntropyUtils.decodeAlphabet(this.bitstream, this.ranks);
         ExpGolombDecoder egdec = new ExpGolombDecoder(this.bitstream, true);
-        int currSize = 2 + egdec.decodeByte();
-
-        if (currSize < 0)
-        {
-           throw new BitStreamException("Invalid bitstream: incorrect size "+currSize+
-                   " for Huffman symbol 0", BitStreamException.INVALID_STREAM);
-        }
-
-        int maxSize = currSize;
-        int prevSize = currSize;
-        buf[0] = (short) currSize;
-        int zeros = 0;
-
+        int currSize ;
+        this.minCodeLen = 24; // max code length
+        int prevSize = 2;
+        
         // Read lengths
-        for (int i=1; i<256; i++)
+        for (int i=0; i<count; i++)
         {
-           currSize = prevSize + egdec.decodeByte();
+           final int r = this.ranks[i];
+           this.codes[r] = 0;
+           int delta = egdec.decodeByte();
+           currSize = prevSize + delta;
 
            if (currSize < 0)
            {
-              throw new BitStreamException("Invalid bitstream: incorrect size "+currSize+
-                      " for Huffman symbol "+i, BitStreamException.INVALID_STREAM);
+              throw new BitStreamException("Invalid bitstream: incorrect size " + currSize +
+                      " for Huffman symbol " + r, BitStreamException.INVALID_STREAM);
+           }
+           
+           if (currSize != 0)
+           {
+              if (currSize > 24)
+              {
+                 throw new BitStreamException("Invalid bitstream: incorrect max size " + currSize +
+                    " for Huffman symbol " + r, BitStreamException.INVALID_STREAM);
+              }
+
+              if (this.minCodeLen > currSize)
+                 this.minCodeLen = currSize;
+           }
+           
+           this.sizes[r] = (short) currSize;
+           prevSize = currSize;
+        }
+ 
+        if (count == 0)
+           return 0;
+
+        // Create canonical codes
+        HuffmanTree.generateCanonicalCodes(this.sizes, this.codes, this.ranks, count);
+
+        // Build decoding tables
+        this.buildDecodingTables(count);
+        return count;
+    }
+
+
+    // Build decoding tables
+    // The slow decoding table contains the codes in natural order.
+    // The fast decoding table contains all the prefixes with DECODING_BATCH_SIZE bits.
+    private void buildDecodingTables(int count)
+    {
+        for (int i=this.fdTable.length-1; i>=0; i--)
+           this.fdTable[i] = 0;
+
+        for (int i=this.sdTable.length-1; i>=0; i--)
+           this.sdTable[i] = 0;
+
+        for (int i=this.sdtIndexes.length-1; i>=0; i--)
+           this.sdtIndexes[i] = ABSENT;
+
+        int len = 0;
+
+        for (int i=0; i<count; i++)
+        {
+           final int r = this.ranks[i];
+           final int code = this.codes[r];
+
+           if (this.sizes[r] > len)
+           {
+              len = this.sizes[r];
+              this.sdtIndexes[len] = i - code;
+           }
+    
+           // Fill slow decoding table
+           final int val = (r << 8) | this.sizes[r];
+           this.sdTable[i] = val;
+           int idx, end;
+
+           // Fill fast decoding table
+           // Find location index in table
+           if (len < DECODING_BATCH_SIZE)
+           {
+              idx = code << (DECODING_BATCH_SIZE - len);
+              end = idx + (1 << (DECODING_BATCH_SIZE - len));
+           }
+           else
+           {
+              idx = code >> (len - DECODING_BATCH_SIZE);
+              end = idx + 1;
            }
 
-           buf[i] = (short) currSize;
-           zeros = (currSize == 0) ? zeros+1 : 0;
-
-           if (maxSize < currSize)
-              maxSize = currSize;
-
-           // If there is one zero size symbol, save a few bits by avoiding the
-           // encoding of a big size difference twice
-           // EG: 13 13 0 13 14 ... encoded as 0 -13 0 +1 instead of 0 -13 +13 0 +1
-           // If there are several zero size symbols in a row, use regular decoding
-           if (zeros != 1)
-              prevSize = currSize;
+           // All DECODING_BATCH_SIZE bit values read from the bit stream and
+           // starting with the same prefix point to symbol r
+           while (idx < end)
+              this.fdTable[idx++] = val;
         }
-        
-        int count = 0;
-
-        for (int i=0; i<256; i++)
-        {
-           this.codes[i] = 0;
-
-           if (this.sizes[i] > 0)
-              this.ranks[count++] = i;
-        }
-        
-        // Create canonical codes
-        HuffmanTree.generateCanonicalCodes(buf, this.codes, this.ranks, count);
-
-        // Create tree from code sizes
-        this.root = this.createTreeFromSizes(maxSize);
-        this.buildDecodingCache(this.decodingCache);
-        this.current = new CacheData(this.root); // point to root
-        return true;
     }
 
 
@@ -269,27 +193,34 @@ public class HuffmanDecoder extends AbstractDecoder
 
        if (len == 0)
           return 0;
-        
+
        final int sz = (this.chunkSize == 0) ? len : this.chunkSize;
        int startChunk = blkptr;
        final int end = blkptr + len;
-       int sizeChunk = (startChunk + sz < end) ? sz : end - startChunk;
-       int endChunk = startChunk + sizeChunk;
+       int endChunk = (startChunk + sz < end) ? startChunk + sz : end;
 
        while (startChunk < end)
-       {
-          // Reinitialize the Huffman tree
-          this.readLengths();
-          final int endChunk1 = endChunk - DECODING_BATCH_SIZE;
+       { 
+          // Reinitialize the Huffman tables
+          if (this.readLengths() == 0)
+             return startChunk - blkptr;
+
+          // Compute minimum number of bits requires in bitstream for fast decoding
+          int endPaddingSize = 64 / this.minCodeLen;
+
+          if (this.minCodeLen * endPaddingSize != 64)
+             endPaddingSize++;
+
+          final int endChunk1 = endChunk - endPaddingSize;
           int i = startChunk;
-                 
+
           try
           {
-             // Fast decoding by reading several bits at a time from the bitstream
+             // Fast decoding (read DECODING_BATCH_SIZE bits at a time)
              for ( ; i<endChunk1; i++)
                 array[i] = this.fastDecodeByte();
 
-             // Regular decoding by reading one bit at a time from the bitstream
+             // Fallback to regular decoding (read one bit at a time)
              for ( ; i<endChunk; i++)
                 array[i] = this.decodeByte();
           }
@@ -299,60 +230,75 @@ public class HuffmanDecoder extends AbstractDecoder
           }
 
           startChunk = endChunk;
-          sizeChunk = (startChunk + sz < end) ? sz : end - startChunk;
-          endChunk = startChunk + sizeChunk;
+          endChunk = (startChunk + sz < end) ? startChunk + sz : end;
        }
 
        return len;
     }
 
 
-    // The data block header must have been read before
+    // The data block header must have been read before (call to updateFrequencies())
     @Override
     public byte decodeByte()
     {
-       // Empty cache
-       Node currNode = this.current.value;
-
-       if (currNode != this.root)
-          this.current = this.current.next;
-
-       while ((currNode.left != null) || (currNode.right != null))
-       {
-          currNode = (this.bitstream.readBit() == 0) ? currNode.left : currNode.right;
-       }
-
-       return currNode.symbol;
+       return this.slowDecodeByte(0, 0);
     }
-    
 
-    // DECODING_BATCH_SIZE bits must be available in the bitstream
-    protected final byte fastDecodeByte()
-    {
-       Node currNode = this.current.value;
 
-       // Use the cache to find a good starting point in the tree
-       if (currNode == this.root)
+    private byte slowDecodeByte(int code, int codeLen)
+    { 
+       while (codeLen < 23)
        {
-          // Read more bits from the bitstream and fetch starting point from cache
-          final int idx = (int) this.bitstream.readBits(DECODING_BATCH_SIZE);
-          this.current = this.decodingCache[idx];
-          currNode = this.current.value;
-       }
+          codeLen++;
+          code <<= 1;
 
-       // The node symbol is 0 only if the node is not a leaf or it codes the value 0.
-       // We need to check if it is a leaf only if the symbol is 0.
-       if (currNode.symbol == 0)
-       {
-          while ((currNode.left != null) || (currNode.right != null))
+          if (this.bits == 0)
+             code |= this.bitstream.readBit();
+          else
           {
-             currNode = (this.bitstream.readBit() == 0) ? currNode.left : currNode.right;
+             // Consume remaining bits in 'state'
+             this.bits--;
+             code |= ((this.state >>> this.bits) & 1);
           }
+
+          int idx = this.sdtIndexes[codeLen];
+
+          if (idx == ABSENT) // No code with this length ?
+             continue;
+
+          if ((this.sdTable[idx+code] & 0xFF) == codeLen)
+             return (byte) (this.sdTable[idx+code] >>> 8);
        }
 
-       // Move to next starting point in cache
-       this.current = this.current.next;
-       return currNode.symbol;
+       throw new BitStreamException("Invalid bitstream: incorrect Huffman code",
+          BitStreamException.INVALID_STREAM);
+    }
+
+
+    // 64 bits must be available in the bitstream
+    private byte fastDecodeByte()
+    { 
+       if (this.bits < DECODING_BATCH_SIZE)
+       {
+          // Fetch more bits from bitstream
+          long read = this.bitstream.readBits(64-this.bits);
+          final long mask = (1 << this.bits) - 1;
+          this.state = ((this.state & mask) << (64-this.bits)) | read;
+          this.bits = 64;
+       }
+
+       // Retrieve symbol from fast decoding table
+       int idx = (int) (this.state >>> (this.bits-DECODING_BATCH_SIZE)) & DECODING_MASK;
+       int val = this.fdTable[idx];
+
+       if ((val & 0xFF) > DECODING_BATCH_SIZE)
+       {
+          this.bits -= DECODING_BATCH_SIZE;
+          return this.slowDecodeByte(idx, DECODING_BATCH_SIZE);
+       }
+
+       this.bits -= (val & 0xFF);
+       return (byte) (val >>> 8);      
     }
 
 
@@ -360,67 +306,5 @@ public class HuffmanDecoder extends AbstractDecoder
     public InputBitStream getBitStream()
     {
        return this.bitstream;
-    }
-
-
-    private static class Key implements Comparable<Key>
-    {
-       int code;
-       short length;
-
-       Key(short length, int code)
-       {
-          this.code = code;
-          this.length = length;
-       }
-
-       @Override
-       public int compareTo(Key o)
-       {
-          if (o == this)
-             return 0;
-
-          if (o == null)
-             return 1;
-        
-          final Key k = (Key) o;
-          final int len = this.length - k.length;
-
-          if (len != 0)
-              return len;
-
-          return this.code - k.code;
-       }
-
-       @Override
-       public boolean equals(Object o)
-       {
-          if (o == this)
-             return true;
-
-          if (o == null)
-             return false;
-
-          final Key k = (Key) o;
-          return (this.length == k.length) && (this.code == k.code);
-       }
-
-       @Override
-       public int hashCode() 
-       {
-          return ((this.length & 0xFF) << 24) | (this.code & 0xFFFFFF);
-       }
-    }
-
-
-    private static class CacheData
-    {
-       Node value;
-       CacheData next;
-
-       CacheData(Node value)
-       {
-          this.value = value;
-       }
     }
 }

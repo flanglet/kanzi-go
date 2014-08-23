@@ -25,36 +25,40 @@ public final class HuffmanTree
     // Return the number of codes generated
     public static int generateCanonicalCodes(short[] sizes, int[] codes, int[] ranks, int count)
     {
-       // Sort by decreasing size (first key) and increasing value (second key)
+       // Sort by increasing size (first key) and increasing value (second key)
        if (count > 1)
        {
           QuickSort sorter = new QuickSort(new HuffmanArrayComparator(sizes));
           sorter.sort(ranks, 0, count);
        }
-       
+
        int code = 0;
        int len = sizes[ranks[0]];
 
        for (int i=0; i<count; i++)
        {
-          final int currentSize = sizes[ranks[i]];
+          final int r = ranks[i];
 
-          if (len > currentSize)
+          if (sizes[r] > len)
           {
-             code >>= (len - currentSize);
-             len = currentSize;
+             code <<= (sizes[r] - len);
+             len = sizes[r];
+
+             // Max length reached
+             if (len > 24)
+                return -1;
           }
 
-          codes[ranks[i]] = code;
+          codes[r] = code;
           code++;
        }
-       
+
        return count;
     }
-    
+
 
     // Huffman node
-    public static class Node
+    public static class Node implements Comparable<Node>
     {
        protected final int weight;
        protected final byte symbol;
@@ -71,12 +75,33 @@ public final class HuffmanTree
 
 
        // Not leaf
-       Node(int frequency, Node node1, Node node2)
+       Node(Node left, Node right)
        {
-          this.weight = frequency;
-          this.symbol = 0;
-          this.left  = node1;
-          this.right = node2;
+          this.weight = left.weight + right.weight;
+          this.symbol = left.symbol; // Critical to resolve ties during node sorting !
+          this.left = left;
+          this.right = right;
+       }
+
+
+       @Override
+       public int compareTo(Node o)
+       {
+          if (o == null)
+             return 1;
+   
+          int res = this.weight - o.weight;
+          
+          if (res != 0) 
+             return res;
+          
+          if ((this.left == null) && (o.left != null))
+             return -1;
+                     
+          if ((this.left != null) && (o.left == null))
+             return 1;
+                     
+          return (this.symbol & 0xFF) - (o.symbol & 0xFF);
        }
     }
 
@@ -85,25 +110,25 @@ public final class HuffmanTree
     private static class HuffmanArrayComparator implements ArrayComparator
     {
         private final short[] array;
-        
 
-        public HuffmanArrayComparator(short[] array)
+
+        public HuffmanArrayComparator(short[] sizes)
         {
-            if (array == null)
+            if (sizes == null)
                 throw new NullPointerException("Invalid null array parameter");
 
-            this.array = array;
+            this.array = sizes;
         }
 
 
         @Override
         public int compare(int lidx, int ridx)
         {
-            // Check size (reverse order) as first key
-            final int res = this.array[ridx] - this.array[lidx];
+            // Check size (natural order) as first key
+            final int res = this.array[lidx] - this.array[ridx];
 
             // Check index (natural order) as second key
             return (res != 0) ? res : lidx - ridx;
         }
-    }  
+    }
 }
