@@ -46,7 +46,8 @@ import (
 //         ppi\0  8  -> 6      sissippi\0
 //          pi\0  9  -> 5        ssippi\0
 //           i\0  10 -> 0     ssissippi\0
-// Suffix array        10 7 4 1 0 9 8 6 3 5 2 => ipss\0mpissii (+ primary index 4)
+// Suffix array SA : 10 7 4 1 0 9 8 6 3 5 2 
+// BWT[i] = SA[input[i]-1] => BWT(input) = ipss\0mpissii (+ primary index 4) 
 // The suffix array and permutation vector are equal when the input is 0 terminated
 // In this example, for a non \0 terminated string the output is pssmipissii.
 // The insertion of a guard is done internally and is entirely transparent.

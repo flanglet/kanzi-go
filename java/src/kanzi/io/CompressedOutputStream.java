@@ -45,7 +45,7 @@ public class CompressedOutputStream extends OutputStream
 {
    private static final int DEFAULT_BLOCK_SIZE       = 1024 * 1024; // Default block size
    private static final int BITSTREAM_TYPE           = 0x4B414E5A; // "KANZ"
-   private static final int BITSTREAM_FORMAT_VERSION = 6;
+   private static final int BITSTREAM_FORMAT_VERSION = 7;
    private static final int COPY_LENGTH_MASK         = 0x0F;
    private static final int SMALL_BLOCK_MASK         = 0x80;
    private static final int SKIP_FUNCTION_MASK       = 0x40;
@@ -338,7 +338,6 @@ public class CompressedOutputStream extends OutputStream
       for (int i=0; i<this.jobs; i++)
          this.buffers[i] = new IndexedByteArray(EMPTY_BYTE_ARRAY, -1);
    }
-
 
    private void processBlock() throws IOException
    {

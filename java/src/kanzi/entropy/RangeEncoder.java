@@ -180,12 +180,7 @@ public final class RangeEncoder extends AbstractEncoder
           return;
         
        this.disposed = true;
-
-       for (int i=0; i<7; i++)
-       {
-          this.bitstream.writeBits(this.low >> 48, 8);
-          this.low <<= 8;
-       }
+       this.bitstream.writeBits(this.low, 56);
     }
 
 

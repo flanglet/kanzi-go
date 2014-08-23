@@ -63,12 +63,12 @@ public final class DefaultOutputBitStream implements OutputBitStream
          this.current |= ((long) (bit & 1) << this.bitIndex);
          this.bitIndex--;
       }
-      
+
       return true;
    }
 
 
-   // Write 'count' (in [1..64]) bits. Trigger exception if stream is closed   
+   // Write 'count' (in [1..64]) bits. Trigger exception if stream is closed
    @Override
    public int writeBits(long value, int count)
    {
@@ -79,7 +79,7 @@ public final class DefaultOutputBitStream implements OutputBitStream
 
          throw new IllegalArgumentException("Invalid length: "+count+" (must be in [1..64])");
       }
-      
+
       value &= (-1L >>> (64 - count));
       final int remaining = this.bitIndex + 1 - count;
 
@@ -87,7 +87,7 @@ public final class DefaultOutputBitStream implements OutputBitStream
       {
          // Enough spots available in 'current'
          this.current |= (value << remaining);
-         this.bitIndex -= count;                 
+         this.bitIndex -= count;
       }
       else
       {
@@ -169,7 +169,7 @@ public final class DefaultOutputBitStream implements OutputBitStream
          // Push last bytes (the very last byte may be incomplete)
          final int size = ((63 - this.bitIndex) + 7) >> 3;
          this.pushCurrent();
-         this.position -= (8 - size);         
+         this.position -= (8 - size);
          this.flush();
       }
       catch (BitStreamException e)
@@ -193,7 +193,7 @@ public final class DefaultOutputBitStream implements OutputBitStream
 
       this.closed = true;
       this.position = 0;
-      
+
       // Reset fields to force a flush() and trigger an exception
       // on writeBit() or writeBits()
       this.bitIndex = -1;

@@ -59,21 +59,23 @@ public final class ExpGolombEncoder extends AbstractEncoder
        }
        else
        {
-          //  Count the bits (log2), subtract one, and write that number of zeros
-          //  preceding the previous bit string to get the encoded value
+          // Count the bits (log2), subtract one, and write that number of zeros
+          // preceding the previous bit string to get the encoded value
           int log2 = 2;
-
+          
           for ( ; val2>=4; val2>>=1)
              log2++;
 
-          // Add log2 zeros and 1 one (unary coding), then remainder
-          // 0 => 1 => 1
-          // 1 => 10 => 010
-          // 2 => 11 => 011
-          // 3 => 100 => 00100
-          // 4 => 101 => 00101
-          // 5 => 110 => 00110
-          // 6 => 111 => 00111
+          //  val   val+1    exp-golomb
+          //   0 =>  1    =>  1
+          //   1 =>  10   =>  010
+          //   2 =>  11   =>  011
+          //   3 =>  100  =>  00100
+          //   4 =>  101  =>  00101
+          //   5 =>  110  =>  00110
+          //   6 =>  111  =>  00111
+          //   7 =>  1000 =>  0001000
+          //   8 =>  1001 =>  0001001
           n = log2 + (log2 - 1);
        }
 

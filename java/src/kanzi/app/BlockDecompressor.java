@@ -237,10 +237,14 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
                System.err.println("Reached end of stream");
                return Error.ERR_READ_FILE;
             }
-
+            
             try
             {
-               this.fos.write(iba.array, 0, decoded);
+               if (decoded > 0)
+               {
+                  this.fos.write(iba.array, 0, decoded);
+                  read += decoded;
+               }
             }
             catch (Exception e)
             {
@@ -248,8 +252,6 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
                System.err.println(e.getMessage());
                return Error.ERR_READ_FILE;
             }
-
-            read += decoded;
          }
          while (decoded == iba.array.length);
       }

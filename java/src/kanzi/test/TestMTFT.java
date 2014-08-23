@@ -43,7 +43,7 @@ public class TestMTFT
                     input = new byte[32];
                     Random rnd = new Random();
 
-                    for (int i = 0; i < input.length; i++)
+                    for (int i=0; i<input.length; i++)
                     {
                         input[i] = (byte) (65 + rnd.nextInt(5*ii));
                     }
@@ -60,7 +60,7 @@ public class TestMTFT
                 System.out.println("\nTest "+ii);
                 System.out.print("Input     : ");
 
-                for (int i = 0; i < size; i++)
+                for (int i=0; i<size; i++)
                 {
                     System.out.print((input[i] & 0xFF) + " ");
                 }
@@ -71,7 +71,7 @@ public class TestMTFT
                 System.out.println();
                 System.out.print("Transform : ");
 
-                for (int i = start; i < start+size; i++)
+                for (int i=start; i<start+size; i++)
                 {
                     System.out.print((transform[i] & 0xFF) + " ");
                 }
@@ -89,7 +89,7 @@ public class TestMTFT
                 System.out.println();
                 boolean ok = true;
 
-                for (int i = 0; i < size; i++)
+                for (int i=0; i<size; i++)
                 {
                     if (reverse[i] != input[i])
                     {

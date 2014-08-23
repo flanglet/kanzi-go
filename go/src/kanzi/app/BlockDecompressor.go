@@ -235,7 +235,6 @@ func (this *BlockDecompressor) call() (int, uint64) {
 
 	// Decode next block
 	for decoded == len(buffer) {
-
 		if decoded, err = cis.Read(buffer); err != nil {
 			if ioerr, isIOErr := err.(*io.IOError); isIOErr == true {
 				fmt.Printf("%s\n", ioerr.Message())
