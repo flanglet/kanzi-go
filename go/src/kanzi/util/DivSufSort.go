@@ -159,9 +159,9 @@ func (this *DivSufSort) constructSuffixArray(bucket_A, bucket_B []int, n, m int)
 
 		if s <= 0 {
 			this.sa[i] = ^s
-			continue;
+			continue
 		}
-		
+
 		s--
 		c0 = this.buffer[s]
 
@@ -174,7 +174,7 @@ func (this *DivSufSort) constructSuffixArray(bucket_A, bucket_B []int, n, m int)
 			c2 = c0
 			k = bucket_A[c2]
 		}
-		
+
 		this.sa[k] = s
 		k++
 	}
@@ -440,7 +440,7 @@ func (this *DivSufSort) ssSort(pa, first, last, buf, bufSize, depth, n int, last
 	k := SS_BLOCKSIZE
 
 	for i != 0 {
-		if i & 1 != 0 {
+		if i&1 != 0 {
 			this.ssSwapMerge(pa, a-k, a, middle, buf, bufSize, depth)
 			a -= k
 		}
@@ -1459,7 +1459,7 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 				}
 			}
 		} else {
-			if buf1[buf2[this.sa[first]]-1] < v {
+			if this.buffer[idx+this.sa[pa+this.sa[first]]-1] < v {
 				first = this.ssPartition(pa, first, last, depth)
 				limit = ssIlg(last - first)
 			} else {
@@ -1584,7 +1584,7 @@ func (this *DivSufSort) ssPartition(pa, first, last, depth int) int {
 	if first < a {
 		sa_[first] = ^sa_[first]
 	}
-	
+
 	return a
 }
 
