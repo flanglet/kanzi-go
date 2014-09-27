@@ -18,13 +18,14 @@ package kanzi.transform;
 
 import kanzi.ByteTransform;
 import kanzi.IndexedByteArray;
+import kanzi.Sizeable;
 
 // The Move-To-Front Transform is a simple reversible transform based on
 // permutation of the data in the original message to reduce the entropy.
 // See http://en.wikipedia.org/wiki/Move-to-front_transform
 // Fast implementation using double linked lists to minimize the number of lookups
 
-public final class MTFT implements ByteTransform
+public final class MTFT implements ByteTransform, Sizeable
 {
     private static final int RESET_THRESHOLD = 64;
     private static final int LIST_LENGTH = 17;
@@ -70,30 +71,11 @@ public final class MTFT implements ByteTransform
 
         for (int i=0; i<count; i++)
         {
-           int idx = input[srcIdx+i];
-           
-           if (idx == 0)
-           {
-              // Shortcut
-              output[dstIdx+i] = indexes[0];
-              continue;
-           }
-           
-           idx &= 0xFF;
-           final byte value = indexes[idx];
-           output[dstIdx+i] = value;
-
-           if (idx <= 16)
-           {     
-              for (int j=idx-1; j>=0; j--)
-                 indexes[j+1] = indexes[j];
-           }
-           else
-           {
-              System.arraycopy(indexes, 0, indexes, 1, idx);
-           }
-
-           indexes[0] = value;
+            int idx = input[srcIdx+i] & 0xFF;     
+            final byte value = indexes[idx];
+            System.arraycopy(indexes, 0, indexes, 1, idx);
+            indexes[0] = value;
+            output[dstIdx+i] = value;
         }
 
         src.index += count;
@@ -102,6 +84,7 @@ public final class MTFT implements ByteTransform
     }
 
 
+    @Override
     public boolean setSize(int size)
     {
         if (size < 0) // 0 is valid
@@ -113,6 +96,7 @@ public final class MTFT implements ByteTransform
 
 
     // Not thread safe
+    @Override
     public int size()
     {
        return this.size;

@@ -17,12 +17,13 @@ package kanzi.function;
 
 import kanzi.ByteFunction;
 import kanzi.IndexedByteArray;
+import kanzi.Sizeable;
 
 
 // Snappy is a fast compression codec aiming for very high speed and
 // reasonable compression ratios.
 // This implementation is a port of the Go source at http://code.google.com/p/snappy-go/
-public final class SnappyCodec implements ByteFunction
+public final class SnappyCodec implements ByteFunction, Sizeable
 {
    private static final int MAX_OFFSET     = 32768;
    private static final int TAG_LITERAL    = 0x00;
@@ -60,12 +61,14 @@ public final class SnappyCodec implements ByteFunction
    }
 
 
+   @Override
    public int size()
    {
       return this.size;
    }
 
    
+   @Override
    public boolean setSize(int sz)
    {
       if (size < 0)

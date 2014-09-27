@@ -16,84 +16,140 @@ limitations under the License.
 package kanzi.function;
 
 import kanzi.ByteFunction;
+import kanzi.transform.BWT;
+import kanzi.transform.BWTS;
 
 
 public class FunctionFactory
 {
-   public static final byte BLOCK_TYPE   = 66; // 'B'
-   public static final byte RLT_TYPE     = 82; // 'R'
-   public static final byte SNAPPY_TYPE  = 83; // 'S'
-   public static final byte ZRLT_TYPE    = 90; // 'Z'
-   public static final byte LZ4_TYPE     = 76; // 'L'
-   public static final byte NONE_TYPE    = 78; // 'N'
-   public static final byte BWT_TYPE     = 87; // 'W'
-
+   // Transform: 4 lsb
+   public static final byte NULL_TRANSFORM_TYPE = 0; 
+   public static final byte BWT_TYPE            = 1; 
+   public static final byte BWTS_TYPE           = 2; 
+   public static final byte LZ4_TYPE            = 3; 
+   public static final byte SNAPPY_TYPE         = 4; 
+   public static final byte RLT_TYPE            = 5; 
+ 
+   // GST: 3 msb
+ 
 
    public byte getType(String name)
    {
-      switch (name.toUpperCase())
+      String args = "";
+      name = name.toUpperCase();
+      
+      if (name.startsWith("BWT"))
       {
-         case "BLOCK":
-            return BLOCK_TYPE; // BWT+GST+ZRLT
+         int idx = name.indexOf('+');
+
+         if (idx >= 0)
+         {
+            args = name.substring(idx+1);
+            name = name.substring(0, idx);
+         }
+      }
+      
+      switch (name)
+      {
          case "SNAPPY":
             return SNAPPY_TYPE;
          case "LZ4":
             return LZ4_TYPE;
          case "RLT":
             return RLT_TYPE;
-         case "ZRLT":
-            return ZRLT_TYPE;
-         case "BWT":
-            return BWT_TYPE; // raw BWT
+         case "BWT": 
+            return (byte) ((getGSTType(args) << 4) | BWT_TYPE);
+         case "BWTS":
+            return (byte) ((getGSTType(args) << 4) | BWTS_TYPE);
          case "NONE":
-            return NONE_TYPE;
+            return NULL_TRANSFORM_TYPE;
          default:
             throw new IllegalArgumentException("Unknown transform type: " + name);
       }
    }
 
 
+   private static byte getGSTType(String args)
+   {
+      if (args == null)
+         throw new IllegalArgumentException("Missing GST type");
+      
+      switch (args.toUpperCase())
+      {
+         case "MTF":
+            return BlockCodec.MODE_MTF;
+         case "RANK":
+            return BlockCodec.MODE_RANK;
+         case "TIMESTAMP":
+            return BlockCodec.MODE_TIMESTAMP;
+         case "":
+         case "NONE":
+            return BlockCodec.MODE_RAW;
+         default:
+            throw new IllegalArgumentException("Unknown GST type: " + args);
+      }
+   }
+   
+   
    public ByteFunction newFunction(int size, byte type)
    {
-      switch (type)
+      switch (type & 0x0F)
       {
-         case BLOCK_TYPE:
-            return new BlockCodec(BlockCodec.MODE_MTF, size); // BWT+GST+ZRLT
          case SNAPPY_TYPE:
             return new SnappyCodec(size);
          case LZ4_TYPE:
             return new LZ4Codec(size);
          case RLT_TYPE:
             return new RLT(size);
-         case ZRLT_TYPE:
-            return new ZRLT(size);
-         case NONE_TYPE:
+         case NULL_TRANSFORM_TYPE:
             return new NullFunction(size);
          case BWT_TYPE:
-            return new BlockCodec(BlockCodec.MODE_RAW_BWT, size); // raw BWT
+            return new BlockCodec(new BWT(), type >>> 4, size); 
+          case BWTS_TYPE:
+            return new BlockCodec(new BWTS(), type >>> 4, size); 
          default:
             throw new IllegalArgumentException("Unknown transform type: " + (char) type);
       }
    }
 
+   
+   private static String getGSTName(int type)
+   {
+       switch (type)
+      {
+         case BlockCodec.MODE_MTF:
+            return "MTF";
+         case BlockCodec.MODE_RANK:
+            return "RANK";
+         case BlockCodec.MODE_TIMESTAMP:
+            return "TIMESTAMP";
+         case BlockCodec.MODE_RAW:
+            return "";
+         default:
+            throw new IllegalArgumentException("Unknown GST type: " + type);
+      }
+   }
 
+   
    public String getName(byte type)
    {
-      switch (type)
+      switch (type & 0x0F)
       {
-         case BLOCK_TYPE:
-            return "BLOCK";
-         case SNAPPY_TYPE:
-            return "SNAPPY";
          case LZ4_TYPE:
             return "LZ4";
+         case BWT_TYPE:
+         case BWTS_TYPE:
+            String gstName = getGSTName(type >>> 4);
+            
+            if ((type & 0x0F) == BWT_TYPE)
+               return (gstName.length() == 0) ? "BWT" : "BWT+" + gstName;         
+               
+            return (gstName.length() == 0) ? "BWTS" : "BWTS+" + gstName;
+         case SNAPPY_TYPE:
+            return "SNAPPY";
          case RLT_TYPE:
             return "RLT";
-         case ZRLT_TYPE:
-            return "ZRLT";
-         case BWT_TYPE:
-            return "BWT";
-         case NONE_TYPE:
+         case NULL_TRANSFORM_TYPE:
             return "NONE";
          default:
             throw new IllegalArgumentException("Unknown transform type: " + (char) type);

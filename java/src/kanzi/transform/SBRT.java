@@ -17,6 +17,7 @@ package kanzi.transform;
 
 import kanzi.ByteTransform;
 import kanzi.IndexedByteArray;
+import kanzi.Sizeable;
 
 
 // Sort by Rank Transform is a family of transforms typically used after
@@ -28,7 +29,7 @@ import kanzi.IndexedByteArray;
 // It turns out that SBR(0)= Move to Front Transform
 // It turns out that SBR(1)= Time Stamp Transform
 // This code implements SBR(0), SBR(1/2) and SBR(1). Code derived from openBWT
-public class SBRT implements ByteTransform
+public class SBRT implements ByteTransform, Sizeable
 {
    public static final int MODE_MTF = 1;       // alpha = 0
    public static final int MODE_RANK = 2;      // alpha = 1/2
@@ -171,6 +172,7 @@ public class SBRT implements ByteTransform
 
    
    // Not thread safe
+   @Override
    public boolean setSize(int size)
    {
       if (size < 0) // 0 is valid
@@ -181,6 +183,7 @@ public class SBRT implements ByteTransform
    }
 
 
+   @Override
    public int size()
    {
       return this.size;

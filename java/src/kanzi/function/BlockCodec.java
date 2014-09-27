@@ -18,6 +18,7 @@ package kanzi.function;
 import kanzi.ByteFunction;
 import kanzi.ByteTransform;
 import kanzi.IndexedByteArray;
+import kanzi.Sizeable;
 import kanzi.transform.BWT;
 import kanzi.transform.MTFT;
 import kanzi.transform.SBRT;
@@ -25,87 +26,105 @@ import kanzi.transform.SBRT;
 
 // Utility class to compress/decompress a data block
 // Fast reversible block coder/decoder based on a pipeline of transformations:
-// Forward: Burrows-Wheeler -> Move to Front -> Zero Length
-// Inverse: Zero Length -> Move to Front -> Burrows-Wheeler
+// Forward: (Bijective) Burrows-Wheeler -> Move to Front -> Zero Run Length
+// Inverse: Zero Run Length -> Move to Front -> (Bijective) Burrows-Wheeler
 // The block size determines the balance between speed and compression ratio
 
-// Stream format: Header (m bytes) Data (n bytes)
+// BWT stream format: Header (m bytes) Data (n bytes)
 // Header: mode (8 bits) + BWT primary index (8, 16 or 24 bits)
-// mode: bits 7-6 contain the size in bits of the primary index : 
+// mode: bits 7-6 contain the size in bits of the primary index :
 //           00: primary index size <=  6 bits (fits in mode byte)
 //           01: primary index size <= 14 bits (1 extra byte)
 //           10: primary index size <= 22 bits (2 extra bytes)
 //           11: primary index size  > 22 bits (3 extra bytes)
 //       bits 5-0 contain 6 most significant bits of primary index
-// primary index: remaining bits (up to 3 bytes) 
+// primary index: remaining bits (up to 3 bytes)
+// Bijective BWT stream format: Data (n bytes)
 
-public class BlockCodec implements ByteFunction
+public class BlockCodec implements ByteFunction, Sizeable
 {
-   public static final int MODE_RAW_BWT = 0;
+   public static final int MODE_RAW = 0;
    public static final int MODE_MTF = 1;
    public static final int MODE_RANK = 2;
    public static final int MODE_TIMESTAMP = 3;
-   
-   private static final int MAX_HEADER_SIZE  = 4;
-   private static final int MAX_BLOCK_SIZE   = (64*1024*1024) - MAX_HEADER_SIZE;
+ 
+   private static final int BWT_MAX_HEADER_SIZE  = 4;
+   private static final int MAX_BLOCK_SIZE       = (64*1024*1024);
 
    private final int mode;
-   private final BWT bwt;
+   private final boolean isBWT;
+   private final ByteTransform transform;
    private int size;
 
    
    public BlockCodec()
    {
-      this(MODE_MTF, MAX_BLOCK_SIZE, true);
+      this(new BWT(), MODE_MTF, 4*1024*1024);
    }
 
    
-   public BlockCodec(int mode, int blockSize)
+   public BlockCodec(int postTransformMode, int blockSize)
    {
-      this(mode, blockSize, true);
+      this(new BWT(), postTransformMode, blockSize);
    }
 
    
-   // Base on the mode, the forward BWT is followed by a Global Structure 
-   // Transform and ZRLT, else a raw BWT is performed.
-   public BlockCodec(int mode, int blockSize, boolean postProcessing)
+   // Base on the mode, the forward transform is followed by a Global Structure 
+   // Transform and ZRLT, else a raw transform is performed.
+   public BlockCodec(ByteTransform transform, int mode, int blockSize)
    {
-     if ((mode != MODE_RAW_BWT) && (mode != MODE_MTF) && (mode != MODE_RANK) && (mode != MODE_TIMESTAMP))
-        throw new IllegalArgumentException("Invalid mode parameter");
+      if (transform == null)
+        throw new NullPointerException("Invalid null transform parameter");
+
+      if ((transform instanceof Sizeable) == false)
+        throw new IllegalArgumentException("The transform must implement the Sizeable interface");
+
+      if ((mode != MODE_RAW) && (mode != MODE_MTF) && (mode != MODE_RANK) && (mode != MODE_TIMESTAMP))
+        throw new IllegalArgumentException("Invalid GST mode parameter");
      
       if (blockSize < 0)
          throw new IllegalArgumentException("The block size cannot be negative");
-
-      if (blockSize > MAX_BLOCK_SIZE)
-         throw new IllegalArgumentException("The block size must be at most " + MAX_BLOCK_SIZE);
-  
+        
       this.mode = mode;
-      this.bwt = new BWT();
-      this.size = blockSize;
+      this.transform = transform;
+      this.size = blockSize;      
+      this.isBWT = (transform instanceof BWT);  
+
+      if (blockSize > this.maxBlockSize())
+         throw new IllegalArgumentException("The block size must be at most " + this.maxBlockSize());
    }
 
 
-   protected ByteTransform createTransform(int blockSize) 
+   protected ByteTransform createGST(int blockSize) 
    {
       // SBRT can perform MTFT but the dedicated class is faster
-      if (this.mode == MODE_RAW_BWT)
+      if (this.mode == MODE_RAW)
          return null;
-      else if (this.mode == MODE_MTF) 
+      
+      if (this.mode == MODE_MTF) 
          return new MTFT(blockSize);      
       
       return new SBRT(this.mode, blockSize);            
    }
    
    
+   private int maxBlockSize() 
+   {
+      return (this.isBWT == true) ? MAX_BLOCK_SIZE - BWT_MAX_HEADER_SIZE : MAX_BLOCK_SIZE;      
+   }
+   
+   
+   @Override
    public int size()
    {
        return this.size;
    }
 
 
+   @Override
    public boolean setSize(int size)
    {
-       if ((size < 0) || (size > MAX_BLOCK_SIZE))
+       if ((size < 0) || (size > this.maxBlockSize()))
           return false;
 
        this.size = size;
@@ -123,7 +142,7 @@ public class BlockCodec implements ByteFunction
 
       final int blockSize = (this.size == 0) ? input.array.length - input.index : this.size;
 
-      if ((blockSize < 0) || (blockSize > MAX_BLOCK_SIZE))
+      if ((blockSize < 0) || (blockSize > this.maxBlockSize()))
          return false;
 
       if (blockSize + input.index > input.array.length)
@@ -132,25 +151,33 @@ public class BlockCodec implements ByteFunction
       final int savedIIdx = input.index; 
       final int savedOIdx = output.index;
       
-      // Apply Burrows-Wheeler Transform
-      this.bwt.setSize(blockSize);
-      this.bwt.forward(input, output);
+      ((Sizeable) this.transform).setSize(blockSize);
+
+      // Apply forward transform
+      this.transform.forward(input, output);
       
-      int primaryIndex = this.bwt.getPrimaryIndex();
-      int pIndexSizeBits = 6;
+      int headerSizeBytes = 0;
+      int pIndexSizeBits = 0;
+      int primaryIndex = 0;
+      
+      if (this.isBWT == true)
+      {
+         primaryIndex = ((BWT) this.transform).getPrimaryIndex();
+         pIndexSizeBits = 6;
 
-      while ((1<<pIndexSizeBits) <= primaryIndex)
-         pIndexSizeBits++;          
+         while ((1<<pIndexSizeBits) <= primaryIndex)
+            pIndexSizeBits++;          
 
-      final int headerSizeBytes = (2 + pIndexSizeBits + 7) >> 3;
+         headerSizeBytes = (2 + pIndexSizeBits + 7) >> 3;
+      }
      
-      if (this.mode != MODE_RAW_BWT)
+      if (this.mode != MODE_RAW)
       {
          input.index = savedIIdx;
          output.index = savedOIdx;
 
-         // Apply Post BWT Transform
-         ByteTransform gst = this.createTransform(blockSize);
+         // Apply Post Transform
+         ByteTransform gst = this.createGST(blockSize);         
          gst.forward(output, input);
 
          input.index = savedIIdx;
@@ -166,29 +193,32 @@ public class BlockCodec implements ByteFunction
             gst.inverse(input, output);
             input.index = savedIIdx;
             output.index = savedOIdx;
-            this.bwt.inverse(output, input);
+            this.transform.inverse(output, input);
             return false;
          }
-      } 
-      else
+      }      
+      else if (headerSizeBytes > 0)
       {
          // Shift output data to leave space for header
          System.arraycopy(output.array, savedOIdx, output.array, savedOIdx+headerSizeBytes, blockSize);
          output.index += headerSizeBytes;
+      } 
+      
+      if (this.isBWT == true)
+      {
+         // Write block header (mode + primary index). See top of file for format 
+         int shift = (headerSizeBytes - 1) << 3;
+         int blockMode = (pIndexSizeBits + 1) >> 3;
+         blockMode = (blockMode << 6) | ((primaryIndex >> shift) & 0x3F);
+         output.array[savedOIdx] = (byte) blockMode;
+
+         for (int i=1; i<headerSizeBytes; i++)
+         {
+            shift -= 8;
+            output.array[savedOIdx+i] = (byte) (primaryIndex >>> shift);
+         }
       }
       
-      // Write block header (mode + primary index). See top of file for format 
-      int shift = (headerSizeBytes - 1) << 3;
-      int blockMode = (pIndexSizeBits + 1) >> 3;
-      blockMode = (blockMode << 6) | ((primaryIndex >> shift) & 0x3F);
-      output.array[savedOIdx] = (byte) blockMode;
-
-      for (int i=1; i<headerSizeBytes; i++)
-      {
-         shift -= 8;
-         output.array[savedOIdx+i] = (byte) (primaryIndex >>> shift);
-      }
-
       return true;
    }
 
@@ -202,30 +232,38 @@ public class BlockCodec implements ByteFunction
          return true;
 
       final int savedIIdx = input.index; 
-
-      // Read block header (mode + primary index). See top of file for format
-      int blockMode = input.array[input.index++] & 0xFF;
-      int headerSizeBytes = 1 + ((blockMode >> 6) & 0x03);
-
-      if (compressedLength < headerSizeBytes)
-          return false;
-
-      if (compressedLength == headerSizeBytes)
-          return true;
-
-      compressedLength -= headerSizeBytes;
-      int shift = (headerSizeBytes - 1) << 3;
-      int primaryIndex = (blockMode & 0x3F) << shift;
+      int primaryIndex = 0;
       int blockSize = compressedLength;
 
-      // Extract BWT primary index
-      for (int i=1; i<headerSizeBytes; i++)
+      if (this.isBWT == true)
       {
-         shift -= 8;
-         primaryIndex |= ((input.array[input.index++] & 0xFF) << shift);
+         // Read block header (mode + primary index). See top of file for format
+         int blockMode = input.array[input.index++] & 0xFF;
+         int headerSizeBytes = 1 + ((blockMode >> 6) & 0x03);
+
+         if (compressedLength < headerSizeBytes)
+             return false;
+
+         if (compressedLength == headerSizeBytes)
+             return true;
+
+         compressedLength -= headerSizeBytes;
+         int shift = (headerSizeBytes - 1) << 3;
+         primaryIndex = (blockMode & 0x3F) << shift;
+         blockSize = compressedLength;
+
+         // Extract BWT primary index
+         for (int i=1; i<headerSizeBytes; i++)
+         {
+            shift -= 8;
+            primaryIndex |= ((input.array[input.index++] & 0xFF) << shift);
+         }
       }
       
-      if (this.mode != MODE_RAW_BWT)
+      if ((blockSize < 0) || (blockSize > this.maxBlockSize()))
+         return false;
+
+      if (this.mode != MODE_RAW)
       {
          final int savedOIdx = output.index;
          ZRLT zrlt = new ZRLT(compressedLength);
@@ -238,18 +276,21 @@ public class BlockCodec implements ByteFunction
          input.index = savedIIdx;
          output.index = savedOIdx;
 
-         // Apply Pre BWT inverse Transform
-         ByteTransform gst = this.createTransform(blockSize);
+         // Apply inverse Pre Transform
+         ByteTransform gst = this.createGST(blockSize);
          gst.inverse(output, input);
 
          input.index = savedIIdx;
          output.index = savedOIdx;
       }
       
-      // Apply Burrows-Wheeler Inverse Transform      
-      this.bwt.setPrimaryIndex(primaryIndex);
-      this.bwt.setSize(blockSize);     
-      return this.bwt.inverse(input, output);
+      if (this.isBWT == true)
+         ((BWT) this.transform).setPrimaryIndex(primaryIndex);
+      
+      ((Sizeable) this.transform).setSize(blockSize);     
+
+      // Apply inverse Transform            
+      return this.transform.inverse(input, output);
    }
    
      

@@ -18,6 +18,7 @@ package kanzi.function;
 import java.nio.ByteOrder;
 import kanzi.ByteFunction;
 import kanzi.IndexedByteArray;
+import kanzi.Sizeable;
 
 
 // Pure Java implementation of a LZ4 codec.
@@ -26,7 +27,7 @@ import kanzi.IndexedByteArray;
 // More details on the algorithm are available here:
 // http://fastcompression.blogspot.com/2011/05/lz4-explained.html
 
-public final class LZ4Codec implements ByteFunction
+public final class LZ4Codec implements ByteFunction, Sizeable
 {
    private static final int HASH_SEED          = 0x9E3779B1;
    private static final int HASH_LOG           = 12;
@@ -70,12 +71,14 @@ public final class LZ4Codec implements ByteFunction
    }
 
 
+   @Override
    public int size()
    {
       return this.size;
    }
 
 
+   @Override
    public boolean setSize(int sz)
    {
       if (size < 0)

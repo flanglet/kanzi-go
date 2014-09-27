@@ -24,11 +24,11 @@ import (
 
 // Utility class to compress/decompress a data block
 // Fast reversible block coder/decoder based on a pipeline of transformations:
-// Forward: Burrows-Wheeler -> Move to Front -> Zero Length
-// Inverse: Zero Length -> Move to Front -> Burrows-Wheeler
+// Forward: (Bijective) Burrows-Wheeler -> Move to Front -> Zero Run Length
+// Inverse: Zero Run Length -> Move to Front -> (Bijective) Burrows-Wheeler
 // The block size determines the balance between speed and compression ratio
 
-// Stream format: Header (m bytes) Data (n bytes)
+// BWT stream format: Header (m bytes) Data (n bytes)
 // Header: mode (8 bits) + BWT primary index (8, 16 or 24 bits)
 // mode: bits 7-6 contain the size in bits of the primary index :
 //           00: primary index size <=  6 bits (fits in mode byte)
@@ -37,52 +37,80 @@ import (
 //           11: primary index size  > 22 bits (3 extra bytes)
 //       bits 5-0 contain 6 most significant bits of primary index
 // primary index: remaining bits (up to 3 bytes)
+// Bijective BWT stream format: Data (n bytes)
 
 const (
-	MODE_RAW_BWT          = 0
-	MODE_MTF              = 1
-	MODE_RANK             = 2
-	MODE_TIMESTAMP        = 3
-	MAX_BLOCK_HEADER_SIZE = 4
-	MAX_BLOCK_SIZE        = 64*1024*1024 - MAX_BLOCK_HEADER_SIZE
+	GST_MODE_RAW        = 0
+	GST_MODE_MTF        = 1
+	GST_MODE_RANK       = 2
+	GST_MODE_TIMESTAMP  = 3
+	BWT_MAX_HEADER_SIZE = 4
+	MAX_BLOCK_SIZE      = 64 * 1024 * 1024
 )
 
 type BlockCodec struct {
-	bwt            *transform.BWT
-	mode           int
-	size           uint
-	postProcessing bool
+	transform kanzi.ByteTransform
+	mode      int
+	size      uint
+	isBWT     bool
 }
 
-// Based on the mode, the forward BWT is followed by a Global Structure
-// Transform and ZRLT, else a raw BWT is performed.
-func NewBlockCodec(mode int, size uint) (*BlockCodec, error) {
-	if mode != MODE_RAW_BWT && mode != MODE_MTF && mode != MODE_RANK && mode != MODE_TIMESTAMP {
-		return nil, errors.New("Invalid mode parameter")
+// Based on the mode, the forward transform is followed by a Global Structure
+// Transform and ZRLT, else a raw transform is performed.
+func NewBlockCodec(tr interface{}, mode int, blockSize uint) (*BlockCodec, error) {
+	if tr == nil {
+		return nil, errors.New("Invalid null transform parameter")
 	}
 
-	if size > MAX_BLOCK_SIZE {
-		errMsg := fmt.Sprintf("The block size must be at most %d", MAX_BLOCK_SIZE)
+	if _, isTransform := tr.(kanzi.ByteTransform); isTransform == false {
+		return nil, errors.New("The transform must implement the ByteTransform interface")
+	}
+
+	if _, isSizeable := tr.(kanzi.Sizeable); isSizeable == false {
+		return nil, errors.New("The transform must implement the Sizeable interface")
+	}
+
+	if mode != GST_MODE_RAW && mode != GST_MODE_MTF && mode != GST_MODE_RANK && mode != GST_MODE_TIMESTAMP {
+		return nil, errors.New("Invalid GST mode parameter")
+	}
+
+	_, isBWT := tr.(*transform.BWT)
+
+	this := new(BlockCodec)
+	this.mode = mode
+	this.size = blockSize
+	this.transform = tr.(kanzi.ByteTransform)
+	this.isBWT = isBWT
+
+	if blockSize > this.maxBlockSize() {
+		errMsg := fmt.Sprintf("The block size must be at most %d", this.maxBlockSize())
 		return nil, errors.New(errMsg)
 	}
 
-	var err error
-	this := new(BlockCodec)
-	this.mode = mode
-	this.size = size
-	this.bwt, err = transform.NewBWT(0)
-	return this, err
+	return this, nil
 }
 
-func (this *BlockCodec) createTransform(blockSize uint) (kanzi.ByteTransform, error) {
+func (this *BlockCodec) createGST(blockSize uint) (kanzi.ByteTransform, error) {
 	// SBRT can perform MTFT but the dedicated class is faster
-	if this.mode == MODE_RAW_BWT {
+	if this.mode == GST_MODE_RAW {
 		return nil, nil
-	} else if this.mode == MODE_MTF {
+	}
+
+	if this.mode == GST_MODE_MTF {
 		return transform.NewMTFT(blockSize)
 	}
 
 	return transform.NewSBRT(this.mode, blockSize)
+}
+
+func (this *BlockCodec) maxBlockSize() uint {
+	maxSize := uint(MAX_BLOCK_SIZE)
+
+	if this.isBWT {
+		maxSize -= BWT_MAX_HEADER_SIZE
+	}
+
+	return maxSize
 }
 
 func (this *BlockCodec) Size() uint {
@@ -90,7 +118,7 @@ func (this *BlockCodec) Size() uint {
 }
 
 func (this *BlockCodec) SetSize(sz uint) bool {
-	if sz > MAX_BLOCK_SIZE {
+	if sz > this.maxBlockSize() {
 		return false
 	}
 
@@ -115,35 +143,41 @@ func (this *BlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	blockSize := this.size
 
-	if this.size == 0 {
+	if blockSize == 0 {
 		blockSize = uint(len(src))
-	}
 
-	if blockSize > MAX_BLOCK_SIZE {
-		errMsg := fmt.Sprintf("Block size is %v, max value is %v", blockSize, MAX_BLOCK_SIZE)
-		return 0, 0, errors.New(errMsg)
-	}
-
-	if blockSize > uint(len(src)) {
+		if blockSize > this.maxBlockSize() {
+			errMsg := fmt.Sprintf("Block size is %v, max value is %v", blockSize, this.maxBlockSize())
+			return 0, 0, errors.New(errMsg)
+		}
+	} else if blockSize > uint(len(src)) {
 		errMsg := fmt.Sprintf("Block size is %v, input buffer length is %v", blockSize, len(src))
 		return 0, 0, errors.New(errMsg)
 	}
 
-	// Apply Burrows-Wheeler Transform
-	this.bwt.SetSize(blockSize)
-	iIdx, oIdx, _ := this.bwt.Forward(src, dst)
-	primaryIndex := this.bwt.PrimaryIndex()
-	pIndexSizeBits := uint(6)
+	this.transform.(kanzi.Sizeable).SetSize(blockSize)
 
-	for 1<<pIndexSizeBits <= primaryIndex {
-		pIndexSizeBits++
+	// Apply forward Transform
+	iIdx, oIdx, _ := this.transform.Forward(src, dst)
+
+	headerSizeBytes := uint(0)
+	pIndexSizeBits := uint(0)
+	primaryIndex := uint(0)
+
+	if this.isBWT {
+		primaryIndex = this.transform.(*transform.BWT).PrimaryIndex()
+		pIndexSizeBits = uint(6)
+
+		for 1<<pIndexSizeBits <= primaryIndex {
+			pIndexSizeBits++
+		}
+
+		headerSizeBytes = (2 + pIndexSizeBits + 7) >> 3
 	}
 
-	headerSizeBytes := (2 + pIndexSizeBits + 7) >> 3
-
-	if this.mode != MODE_RAW_BWT {
-		// Apply Post BWT Transform
-		gst, err := this.createTransform(blockSize)
+	if this.mode != GST_MODE_RAW {
+		// Apply Post Transform
+		gst, err := this.createGST(blockSize)
 
 		if err != nil {
 			return 0, 0, err
@@ -154,15 +188,15 @@ func (this *BlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 		if ZRLT, err := NewZRLT(blockSize); err == nil {
 			// Apply Zero Run Length Encoding
 			iIdx, oIdx, err = ZRLT.Forward(src, dst[headerSizeBytes:])
-		}
 
-		if err != nil {
-			// Compression failed, recover source data
-			gst.Inverse(src, dst)
-			this.bwt.Inverse(dst, src)
-			return 0, 0, err
+			if err != nil {
+				// Compression failed, recover source data
+				gst.Inverse(src, dst)
+				this.transform.Inverse(dst, src)
+				return 0, 0, err
+			}
 		}
-	} else {
+	} else if headerSizeBytes > 0 {
 		// Shift output data to leave space for header
 		hs := int(headerSizeBytes)
 
@@ -171,17 +205,19 @@ func (this *BlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
-	oIdx += headerSizeBytes
+	if this.isBWT {
+		oIdx += headerSizeBytes
 
-	// Write block header (mode + primary index). See top of file for format
-	shift := (headerSizeBytes - 1) << 3
-	blockMode := (pIndexSizeBits + 1) >> 3
-	blockMode = (blockMode << 6) | ((primaryIndex >> shift) & 0x3F)
-	dst[0] = byte(blockMode)
+		// Write block header (mode + primary index). See top of file for format
+		shift := (headerSizeBytes - 1) << 3
+		blockMode := (pIndexSizeBits + 1) >> 3
+		blockMode = (blockMode << 6) | ((primaryIndex >> shift) & 0x3F)
+		dst[0] = byte(blockMode)
 
-	for i := uint(1); i < headerSizeBytes; i++ {
-		shift -= 8
-		dst[i] = byte(primaryIndex >> shift)
+		for i := uint(1); i < headerSizeBytes; i++ {
+			shift -= 8
+			dst[i] = byte(primaryIndex >> shift)
+		}
 	}
 
 	return iIdx, oIdx, nil
@@ -194,31 +230,43 @@ func (this *BlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, nil
 	}
 
-	// Read block header (mode + primary index). See top of file for format
-	blockMode := uint(src[0])
-	headerSizeBytes := 1 + ((blockMode >> 6) & 0x03)
-
-	if compressedLength < headerSizeBytes {
-		return 0, 0, errors.New("Invalid compressed length in stream")
-	}
-
-	if compressedLength == 0 {
-		return 0, 0, nil
-	}
-
-	compressedLength -= headerSizeBytes
-	shift := (headerSizeBytes - 1) << 3
-	primaryIndex := (blockMode & 0x3F) << shift
+	primaryIndex := uint(0)
 	blockSize := compressedLength
-	srcIdx := headerSizeBytes
+	headerSizeBytes := uint(0)
+	srcIdx := uint(0)
 
-	// Extract BWT primary index
-	for i := uint(1); i < headerSizeBytes; i++ {
-		shift -= 8
-		primaryIndex |= uint(src[i]) << shift
+	if this.isBWT {
+		// Read block header (mode + primary index). See top of file for format
+		blockMode := uint(src[0])
+		headerSizeBytes = 1 + ((blockMode >> 6) & 0x03)
+
+		if compressedLength < headerSizeBytes {
+			return 0, 0, errors.New("Invalid compressed length in stream")
+		}
+
+		if compressedLength == 0 {
+			return 0, 0, nil
+		}
+
+		compressedLength -= headerSizeBytes
+		shift := (headerSizeBytes - 1) << 3
+		primaryIndex = (blockMode & 0x3F) << shift
+		blockSize = compressedLength
+		srcIdx = headerSizeBytes
+
+		// Extract BWT primary index
+		for i := uint(1); i < headerSizeBytes; i++ {
+			shift -= 8
+			primaryIndex |= uint(src[i]) << shift
+		}
 	}
 
-	if this.mode != MODE_RAW_BWT {
+	if blockSize > this.maxBlockSize() {
+		errMsg := fmt.Sprintf("Block size is %v, max value is %v", blockSize, this.maxBlockSize())
+		return 0, 0, errors.New(errMsg)
+	}
+
+	if this.mode != GST_MODE_RAW {
 		// Apply Zero Run Length Decoding
 		ZRLT, err := NewZRLT(compressedLength)
 
@@ -236,8 +284,8 @@ func (this *BlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		srcIdx = 0
 		blockSize = oIdx
 
-		// Apply Pre BWT Inverse Transform
-		gst, err := this.createTransform(blockSize)
+		// Apply inverse Pre Transform
+		gst, err := this.createGST(blockSize)
 
 		if err != nil {
 			return 0, 0, err
@@ -246,10 +294,14 @@ func (this *BlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		gst.Inverse(dst, src)
 	}
 
-	// Apply Burrows-Wheeler Inverse Transform
-	this.bwt.SetPrimaryIndex(primaryIndex)
-	this.bwt.SetSize(blockSize)
-	return this.bwt.Inverse(src[srcIdx:], dst)
+	if this.isBWT {
+		this.transform.(*transform.BWT).SetPrimaryIndex(primaryIndex)
+	}
+
+	this.transform.(kanzi.Sizeable).SetSize(blockSize)
+
+	// Apply inverse Transform
+	return this.transform.Inverse(src[srcIdx:], dst)
 }
 
 func (this BlockCodec) MaxEncodedLen(srcLen int) int {
