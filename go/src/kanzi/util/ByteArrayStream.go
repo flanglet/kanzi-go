@@ -19,10 +19,10 @@ import (
 	"fmt"
 )
 
-type ByteArrayOutputStream struct {	
-	array []byte
-	index int
-	autogrow	bool
+type ByteArrayOutputStream struct {
+	array    []byte
+	index    int
+	autogrow bool
 }
 
 func NewByteArrayOutputStream(buffer []byte, autogrow bool) (*ByteArrayOutputStream, error) {
@@ -57,9 +57,9 @@ func (this ByteArrayOutputStream) Sync() error {
 }
 
 type ByteArrayInputStream struct {
-	array []byte
-	index int
-	autogrow	bool
+	array    []byte
+	index    int
+	autogrow bool
 }
 
 func NewByteArrayInputStream(buffer []byte, autogrow bool) (*ByteArrayInputStream, error) {

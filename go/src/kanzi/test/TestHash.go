@@ -25,7 +25,9 @@ import (
 
 func main() {
 	var filename = flag.String("input", "c:\\temp\\rt.jar", "name of the input file")
+	flag.Parse()
 	iter := 500
+	fmt.Printf("Processing %v\n", *filename)
 	fmt.Printf("%v iterations\n", iter)
 
 	{

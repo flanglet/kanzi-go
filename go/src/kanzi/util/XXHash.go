@@ -84,7 +84,7 @@ func (this *XXHash) Hash(data []byte) uint32 {
 	}
 
 	for p < end {
-		h32 += ((*(*uint32)(unsafe.Pointer(p))) * PRIME5)
+		h32 += (uint32(*(*byte)(unsafe.Pointer(p))) * PRIME5)
 		h32 = ((h32 << 11) | (h32 >> 21)) * PRIME1
 		p++
 	}

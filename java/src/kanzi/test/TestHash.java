@@ -29,6 +29,7 @@ public class TestHash
       {
          String fileName = (args.length > 0) ? args[0] : "c:\\temp\\rt.jar";
          int iter = 500;
+         System.out.println("Processing "+fileName);
          System.out.println(iter+" iterations");
 
          {
