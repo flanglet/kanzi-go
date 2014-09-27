@@ -36,7 +36,7 @@ import (
 
 const (
 	BITSTREAM_TYPE             = 0x4B414E5A // "KANZ"
-	BITSTREAM_FORMAT_VERSION   = 7
+	BITSTREAM_FORMAT_VERSION   = 8
 	STREAM_DEFAULT_BUFFER_SIZE = 1024 * 1024
 	COPY_LENGTH_MASK           = 0x0F
 	SMALL_BLOCK_MASK           = 0x80
@@ -401,7 +401,7 @@ func (this *CompressedOutputStream) encode(data, buf []byte, blockLength uint,
 		requiredSize = int(blockLength) * 5 >> 2
 	}
 
-	if typeOfTransform == 'N' {
+	if typeOfTransform == function.NULL_TRANSFORM_TYPE {
 		buffer = data // share buffers if no transform
 	} else if len(buffer) < requiredSize {
 		buffer = make([]byte, requiredSize)
@@ -1005,7 +1005,7 @@ func (this *CompressedInputStream) decode(data, buf []byte,
 
 	res.checksum = checksum1
 
-	if this.transformType == 'N' {
+	if this.transformType == function.NULL_TRANSFORM_TYPE {
 		buffer = data // share buffers if no transform
 	} else {
 		bufferSize := this.blockSize

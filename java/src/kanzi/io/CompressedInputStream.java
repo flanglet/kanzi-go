@@ -41,7 +41,7 @@ import kanzi.util.XXHash;
 public class CompressedInputStream extends InputStream
 {
    private static final int BITSTREAM_TYPE           = 0x4B414E5A; // "KANZ"
-   private static final int BITSTREAM_FORMAT_VERSION = 7;
+   private static final int BITSTREAM_FORMAT_VERSION = 8;
    private static final int DEFAULT_BUFFER_SIZE      = 1024*1024;
    private static final int COPY_LENGTH_MASK         = 0x0F;
    private static final int SMALL_BLOCK_MASK         = 0x80;
@@ -55,8 +55,8 @@ public class CompressedInputStream extends InputStream
    private XXHash hasher;
    private final IndexedByteArray iba;
    private final IndexedByteArray[] buffers;
-   private char entropyType;
-   private char transformType;
+   private byte entropyType;
+   private byte transformType;
    private final InputBitStream ibs;
    private final PrintStream ds;
    private boolean initialized;
@@ -136,10 +136,10 @@ public class CompressedInputStream extends InputStream
          this.hasher = new XXHash(BITSTREAM_TYPE);
 
       // Read entropy codec
-      this.entropyType = (char) this.ibs.readBits(7);
+      this.entropyType = (byte) this.ibs.readBits(7);
 
       // Read transform
-      this.transformType = (char) this.ibs.readBits(7);
+      this.transformType = (byte) this.ibs.readBits(7);
 
       // Read block size
       this.blockSize = (int) this.ibs.readBits(26);
@@ -559,7 +559,7 @@ public class CompressedInputStream extends InputStream
                   bl.processEvent(evt);
             }
 
-            if (typeOfTransform == 'N')
+            if (typeOfTransform == FunctionFactory.NULL_TRANSFORM_TYPE)
                buffer.array = data.array; // share buffers if no transform
             else
             {
@@ -652,7 +652,7 @@ public class CompressedInputStream extends InputStream
          finally
          {
             // Reset buffer in case another block uses a different transform
-            if (typeOfTransform == 'N')
+            if (typeOfTransform == FunctionFactory.NULL_TRANSFORM_TYPE)
                buffer.array = EMPTY_BYTE_ARRAY;
 
             if (ed != null)

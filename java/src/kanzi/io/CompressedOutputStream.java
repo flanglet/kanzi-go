@@ -45,7 +45,7 @@ public class CompressedOutputStream extends OutputStream
 {
    private static final int DEFAULT_BLOCK_SIZE       = 1024 * 1024; // Default block size
    private static final int BITSTREAM_TYPE           = 0x4B414E5A; // "KANZ"
-   private static final int BITSTREAM_FORMAT_VERSION = 7;
+   private static final int BITSTREAM_FORMAT_VERSION = 8;
    private static final int COPY_LENGTH_MASK         = 0x0F;
    private static final int SMALL_BLOCK_MASK         = 0x80;
    private static final int SKIP_FUNCTION_MASK       = 0x40;
@@ -58,8 +58,8 @@ public class CompressedOutputStream extends OutputStream
    private final XXHash hasher;
    private final IndexedByteArray iba;
    private final IndexedByteArray[] buffers;
-   private final char entropyType;
-   private final char transformType;
+   private final byte entropyType;
+   private final byte transformType;
    private final OutputBitStream  obs;
    private boolean initialized;
    private boolean closed;
@@ -111,8 +111,8 @@ public class CompressedOutputStream extends OutputStream
 
       final int bufferSize = (blockSize > 65536) ? blockSize : 65536;
       this.obs = new DefaultOutputBitStream(os, bufferSize);
-      this.entropyType = (char) new EntropyCodecFactory().getType(entropyCodec);
-      this.transformType = (char) new FunctionFactory().getType(functionType);
+      this.entropyType = new EntropyCodecFactory().getType(entropyCodec);
+      this.transformType = new FunctionFactory().getType(functionType);
       this.blockSize = blockSize;
       this.hasher = (checksum == true) ? new XXHash(BITSTREAM_TYPE) : null;
       this.jobs = jobs;
@@ -476,7 +476,7 @@ public class CompressedOutputStream extends OutputStream
             if (requiredSize == -1) // Max size unknown => guess
                requiredSize = (blockLength * 5) >> 2;
 
-            if (typeOfTransform == 'N')
+            if (typeOfTransform == FunctionFactory.NULL_TRANSFORM_TYPE)
                buffer.array = data.array; // share buffers if no transform
             else if (buffer.array.length < requiredSize)
                 buffer.array = new byte[requiredSize];
@@ -624,7 +624,7 @@ public class CompressedOutputStream extends OutputStream
          finally
          {
             // Reset buffer in case another block uses a different transform
-            if (typeOfTransform == 'N')
+            if (typeOfTransform == FunctionFactory.NULL_TRANSFORM_TYPE)
                buffer.array = EMPTY_BYTE_ARRAY;
 
             if (ee != null)
