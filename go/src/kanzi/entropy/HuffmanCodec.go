@@ -611,7 +611,7 @@ func (this *HuffmanDecoder) DecodeByte() byte {
 }
 
 func (this *HuffmanDecoder) slowDecodeByte(code int, codeLen uint) byte {
-	for codeLen < 23 {
+	for codeLen < 24 {
 		codeLen++
 		code <<= 1
 

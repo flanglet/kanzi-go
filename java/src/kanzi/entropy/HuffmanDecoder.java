@@ -247,7 +247,7 @@ public class HuffmanDecoder extends AbstractDecoder
 
     private byte slowDecodeByte(int code, int codeLen)
     { 
-       while (codeLen < 23)
+       while (codeLen < 24)
        {
           codeLen++;
           code <<= 1;

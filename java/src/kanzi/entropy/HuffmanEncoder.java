@@ -19,7 +19,6 @@ import java.util.PriorityQueue;
 import kanzi.OutputBitStream;
 import kanzi.BitStreamException;
 import kanzi.entropy.HuffmanTree.Node;
-import kanzi.io.CompressedOutputStream;
 
 
 public class HuffmanEncoder extends AbstractEncoder

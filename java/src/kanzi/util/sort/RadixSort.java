@@ -173,16 +173,14 @@ public final class RadixSort implements IntSorter, ByteSorter
 // ------ Utility classes ------
 
 
-    private static class Node
+    private static class Node<T>
     {
         Node next;
-        Object value;
+        T value;
 
         Node()  { }
 
-        Node(int[] array) { this.value = array; }
-
-        Node(byte[] array) { this.value = array; }
+        Node(T array) { this.value = array; }
     }
 
 
