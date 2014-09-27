@@ -137,6 +137,12 @@ type EntropyDecoder interface {
 	Dispose()
 }
 
+type Sizeable interface {
+	Size() uint
+	
+	SetSize(sz uint) bool
+}
+
 func SameIntSlices(slice1, slice2 []int, checkLengths bool) bool {
 	if slice2 == nil {
 		return slice1 == nil

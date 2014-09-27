@@ -16,23 +16,27 @@ limitations under the License.
 package kanzi.test;
 
 import java.util.Random;
+import kanzi.ByteTransform;
 import kanzi.IndexedByteArray;
 import kanzi.transform.BWT;
+import kanzi.transform.BWTS;
 
 
 public class TestBWT
 {
     public static void main(String[] args)
     {
-        System.out.println("TestBWT");
-        testCorrectness();
-        testSpeed();
+        System.out.println("TestBWT and TestBWTS");
+        testCorrectness(true);
+        testCorrectness(false);
+        testSpeed(true);
+        testSpeed(false);
     }
     
     
-    public static void testCorrectness()
+    public static void testCorrectness(boolean isBWT)
     {
-        System.out.println("\nCorrectness test");
+        System.out.println("\nBWT"+(!isBWT?"S":"")+" Correctness test");
 
         // Test behavior
         for (int ii=1; ii<=20; ii++)
@@ -56,13 +60,13 @@ public class TestBWT
             {
                size = 128;
                buf1 = new byte[size];
+               start = 2;
 
                for (int i=0; i<buf1.length; i++)
                {
                    buf1[i] = (byte) (65 + rnd.nextInt(4*ii));
                }
-
-               buf1[buf1.length-1] = (byte) 0;
+               size -=2;
             }
 
             byte[] buf2 = new byte[buf1.length];
@@ -70,19 +74,29 @@ public class TestBWT
             IndexedByteArray iba1 = new IndexedByteArray(buf1, 0);
             IndexedByteArray iba2 = new IndexedByteArray(buf2, 0);
             IndexedByteArray iba3 = new IndexedByteArray(buf3, 0);
-            BWT bwt = new BWT(size);
+            ByteTransform bwt = (isBWT) ? new BWT(size) : new BWTS(size);
             String str1 = new String(buf1, start, buf1.length-start);
             System.out.println("Input:   "+str1);
             iba1.index = start;
             iba2.index = 0;
             bwt.forward(iba1, iba2);
-            int primaryIndex = bwt.getPrimaryIndex();
             String str2 = new String(buf2);
             System.out.print("Encoded: "+str2);
-            System.out.println("  (Primary index="+primaryIndex+")");
-            bwt.setPrimaryIndex(primaryIndex);
+            
+            if (isBWT)
+            {
+               int primaryIndex = ((BWT) bwt).getPrimaryIndex();
+               System.out.println("  (Primary index="+primaryIndex+")");
+               ((BWT) bwt).setPrimaryIndex(primaryIndex);
+            }
+            else
+            {
+               System.out.println("");
+            }
+            
             iba2.index = 0;
             iba3.index = start;
+            
             bwt.inverse(iba2, iba3);
             String str3 = new String(buf3, start, buf3.length-start);
             System.out.println("Output:  "+str3);
@@ -98,9 +112,9 @@ public class TestBWT
     }
     
     
-    public static void testSpeed()
+    public static void testSpeed(boolean isBWT)
     {
-         System.out.println("\nSpeed test");
+         System.out.println("\nBWT"+(!isBWT?"S":"")+" Speed test");
          int iter = 2000;
          int size = 256*1024;
          byte[] buf1 = new byte[size];
@@ -116,7 +130,7 @@ public class TestBWT
          {
              long delta1 = 0;
              long delta2 = 0;
-             BWT bwt = new BWT(size);
+             ByteTransform bwt = (isBWT) ? new BWT(size) : new BWTS(size);
              java.util.Random random = new java.util.Random();
              long before, after;
 
@@ -125,7 +139,6 @@ public class TestBWT
                  for (int i = 0; i < size; i++)
                      buf1[i] = (byte) (random.nextInt(255) + 1);
 
-                 buf1[size-1] = 0;
                  before = System.nanoTime();
                  iba1.index = 0;
                  iba2.index = 0;

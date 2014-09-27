@@ -17,6 +17,7 @@ package main
 
 import (
 	"fmt"
+	"kanzi"
 	"kanzi/transform"
 	"math/rand"
 	"os"
@@ -24,13 +25,19 @@ import (
 )
 
 func main() {
-	fmt.Printf("\nTestBWT")
-	TestCorrectness()
-	TestSpeed()
+	fmt.Printf("TestBWT and TestBWTS")
+	TestCorrectness(true)
+	TestCorrectness(false)
+	TestSpeed(true)
+	TestSpeed(false)
 }
 
-func TestCorrectness() {
-	fmt.Printf("\n\nCorrectness test")
+func TestCorrectness(isBWT bool) {
+	if isBWT {
+		fmt.Printf("\n\nBWT Correctness test")
+	} else {
+		fmt.Printf("\n\nBWTS Correctness test")
+	}
 
 	// Test behavior
 	for ii := 1; ii <= 20; ii++ {
@@ -44,38 +51,48 @@ func TestCorrectness() {
 
 		if ii == 1 {
 			size = 0
-			buf1 = []byte{'m', 'i', 's', 's', 'i', 's', 's', 'i', 'p', 'p', 'i'}
-            } else if ii == 2 {
-               buf1 = []byte{'3', '.', '1', '4', '1', '5', '9', '2', '6', '5', '3', '5', '8', '9', '7', '9', '3', '2', '3', '8', '4', '6', '2', '6', '4', '3', '8', '3', '2', '7', '9' }
-      		} else {
+			buf1 = []byte("mississippi")
+		} else if ii == 2 {
+			buf1 = []byte("3.14159265358979323846264338327950288419716939937510")
+		} else {
 			size = 128
 			buf1 = make([]byte, size)
 
 			for i := 0; i < len(buf1); i++ {
 				buf1[i] = byte(65 + rnd.Intn(4*ii))
 			}
-
-			buf1[len(buf1)-1] = byte(0)
 		}
 
 		buf2 = make([]byte, len(buf1))
 		buf3 = make([]byte, len(buf1))
+		var bwt kanzi.ByteTransform
 
-		bwt, _ := transform.NewBWT(size)
+		if isBWT {
+			bwt, _ = transform.NewBWT(size)
+		} else {
+			bwt, _ = transform.NewBWTS(size)
+		}
+
 		str1 := string(buf1)
 		fmt.Printf("Input:   %s\n", str1)
 		_, _, err1 := bwt.Forward(buf1, buf2)
-				
+
 		if err1 != nil {
 			fmt.Printf("Error: %v\n", err1)
 			os.Exit(1)
 		}
-		
-		primaryIndex := bwt.PrimaryIndex()
+
 		str2 := string(buf2)
 		fmt.Printf("Encoded: %s", str2)
-		fmt.Printf("  (Primary index=%v)\n", bwt.PrimaryIndex())
-		bwt.SetPrimaryIndex(primaryIndex)
+
+		if isBWT {
+			primaryIndex := bwt.(*transform.BWT).PrimaryIndex()
+			fmt.Printf("  (Primary index=%v)\n", primaryIndex)
+			bwt.(*transform.BWT).SetPrimaryIndex(primaryIndex)
+		} else {
+			println()
+		}
+		
 		_, _, err2 := bwt.Inverse(buf2, buf3)
 
 		if err2 != nil {
@@ -95,8 +112,13 @@ func TestCorrectness() {
 	}
 }
 
-func TestSpeed() {
-	fmt.Printf("\nSpeed test")
+func TestSpeed(isBWT bool) {
+	if isBWT {
+		fmt.Printf("\n\nBWT Speed test")
+	} else {
+		fmt.Printf("\n\nBWTS Speed test")
+	}
+
 	iter := 2000
 	size := 256 * 1024
 	buf1 := make([]byte, size)
@@ -105,11 +127,17 @@ func TestSpeed() {
 	fmt.Printf("\nIterations: %v", iter)
 	fmt.Printf("\nTransform size: %v\n", size)
 
-
 	for jj := 0; jj < 3; jj++ {
 		delta1 := int64(0)
 		delta2 := int64(0)
-		bwt, _ := transform.NewBWT(0)
+		var bwt kanzi.ByteTransform
+
+		if isBWT {
+			bwt, _ = transform.NewBWT(0)
+		} else {
+			bwt, _ = transform.NewBWTS(0)
+		}
+
 		rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 		for i := 0; i < iter; i++ {
@@ -117,7 +145,6 @@ func TestSpeed() {
 				buf1[i] = byte(rnd.Intn(255) + 1)
 			}
 
-			buf1[size-1] = 0
 			before := time.Now()
 			bwt.Forward(buf1, buf2)
 			after := time.Now()

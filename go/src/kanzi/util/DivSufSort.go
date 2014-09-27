@@ -71,6 +71,7 @@ func NewDivSufSort() (*DivSufSort, error) {
 	this.bucketA = make([]int, 256)
 	this.bucketB = make([]int, 65536)
 	this.sa = make([]int, 0)
+	this.buffer = make([]int, 0)
 	this.ssStack = newStack(SS_MISORT_STACKSIZE)
 	this.trStack = newStack(TR_STACKSIZE)
 	this.mergeStack = newStack(SS_SMERGE_STACKSIZE)
@@ -91,14 +92,23 @@ func (this *DivSufSort) Reset() {
 	}
 }
 
-func (this *DivSufSort) ComputeSuffixArray(input []int) []int {
-	length := len(input)
+func (this *DivSufSort) ComputeSuffixArray(src []byte) []int {
+	length := len(src)
 
 	if len(this.sa) < length {
 		this.sa = make([]int, length)
 	}
 
-	this.buffer = input
+	if len(this.buffer) < length+1 {
+		this.buffer = make([]int, length+1)
+	}
+
+	for i := 0; i < length; i++ {
+		this.buffer[i] = int(src[i])
+	}
+
+	this.buffer[length] = this.buffer[0]
+
 	m := this.sortTypeBstar(this.bucketA, this.bucketB, length)
 	this.constructSuffixArray(this.bucketA, this.bucketB, length, m)
 	return this.sa

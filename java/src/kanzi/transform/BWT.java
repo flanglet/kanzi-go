@@ -18,6 +18,7 @@ package kanzi.transform;
 import kanzi.util.DivSufSort;
 import kanzi.ByteTransform;
 import kanzi.IndexedByteArray;
+import kanzi.Sizeable;
 
 
 // The Burrows-Wheeler Transform is a reversible transform based on
@@ -49,23 +50,23 @@ import kanzi.IndexedByteArray;
 //          pi\0  9  -> 5        ssippi\0
 //           i\0  10 -> 0     ssissippi\0
 // Suffix array SA : 10 7 4 1 0 9 8 6 3 5 2 
-// BWT[i] = SA[input[i]-1] => BWT(input) = ipss\0mpissii (+ primary index 4) 
+// BWT[i] = input[SA[i]-1] => BWT(input) = pssm[i]pissii, encoded as ipss[]mpissii (+ primary index 4) 
 // The suffix array and permutation vector are equal when the input is 0 terminated
-// In this example, for a non \0 terminated string the output is pssmipissii.
 // The insertion of a guard is done internally and is entirely transparent.
 //
 // See https://code.google.com/p/libdivsufsort/source/browse/wiki/SACA_Benchmarks.wiki
 // for respective performance of different suffix sorting algorithms.
 
-public class BWT implements ByteTransform
+public class BWT implements ByteTransform, Sizeable
 {
     private int size;
-    private int[] buffer1;
+    private int[] buffer1;  // Only used in inverse
     private int[] buffer2;  // Only used for big blocks (size >= 1<<24)
     private int[] buckets;
     private int primaryIndex;
     private DivSufSort saAlgo;
 
+    
     public BWT()
     {
        this(0);
@@ -79,7 +80,7 @@ public class BWT implements ByteTransform
           throw new IllegalArgumentException("Invalid size parameter (must be at least 0)");
 
        this.size = size;
-       this.buffer1 = new int[size+1]; // (SA algo requires size+1 bytes)
+       this.buffer1 = new int[0]; // Allocate empty: only used in inverse
        this.buffer2 = new int[0]; // Allocate empty: only used for big blocks (size >= 1<<24)
        this.buckets = new int[256];
     }
@@ -102,12 +103,14 @@ public class BWT implements ByteTransform
     }
 
 
+    @Override
     public int size()
     {
        return this.size;
     }
 
 
+    @Override
     public boolean setSize(int size)
     {
        if (size < 0)
@@ -135,44 +138,32 @@ public class BWT implements ByteTransform
 
            return true;
         }
-
-        // Lazy dynamic memory allocation (SA algo requires count+1 bytes)
-        if (this.buffer1.length < count+1)
-           this.buffer1 = new int[count+1];
- 
-        // Aliasing
-        final int[] data = this.buffer1;
        
         if (this.saAlgo == null)
            this.saAlgo = new DivSufSort(); // lazy instantiation
         else
            this.saAlgo.reset();
-        
-        for (int i=0; i<count; i++)
-           data[i] = input[srcIdx+i] & 0xFF;
-
-        data[count] = data[0];
 
         // Compute suffix array
-        final int[] sa = this.saAlgo.computeSuffixArray(data, 0, count);
-        output[dstIdx] = (byte) data[count-1];     
+        final int[] sa = this.saAlgo.computeSuffixArray(input, srcIdx, count);
+        final int srcIdx2 = srcIdx - 1;
+        final int dstIdx2 = dstIdx + 1;
+        output[dstIdx] = input[srcIdx2+count];     
         int i = 0;
        
         for (; i<count; i++) 
         {
+          // Found primary index
            if (sa[i] == 0)
-           {
-              // Found primary index
-              this.setPrimaryIndex(i);
-              i++;
               break;
-           }
 
-           output[dstIdx+i+1] = input[srcIdx+sa[i]-1];
+           output[dstIdx2+i] = input[srcIdx2+sa[i]];
         }
         
-        for (; i<count; i++) 
-           output[dstIdx+i] = input[srcIdx+sa[i]-1];
+        this.setPrimaryIndex(i);
+
+        for (i++; i<count; i++) 
+           output[dstIdx+i] = input[srcIdx2+sa[i]];
                 
         src.index += count;
         dst.index += count;
@@ -225,12 +216,13 @@ public class BWT implements ByteTransform
        // Start with the primary index position
        final int pIdx = this.getPrimaryIndex();
        final int val0 = input[srcIdx] & 0xFF;
-       data[pIdx] = (buckets_[val0] << 8) | val0;
+       data[pIdx] = val0;
        buckets_[val0]++;
+       final int srcIdx2 = srcIdx + 1;
 
        for (int i=0; i<pIdx; i++)
        {
-          final int val = input[srcIdx+i+1] & 0xFF;
+          final int val = input[srcIdx2+i] & 0xFF;
           data[i] = (buckets_[val] << 8) | val;
           buckets_[val]++;
        }
@@ -296,10 +288,11 @@ public class BWT implements ByteTransform
        data1[pIdx] = buckets_[val0];
        data2[pIdx] = val0;
        buckets_[val0]++;
+       final int srcIdx2 = srcIdx + 1;
 
        for (int i=0; i<pIdx; i++)
        {
-          final int val = input[srcIdx+i+1] & 0xFF;
+          final int val = input[srcIdx2+i] & 0xFF;
           data1[i] = buckets_[val];
           data2[i] = val;
           buckets_[val]++;
