@@ -92,11 +92,15 @@ public class BinaryEntropyDecoder extends AbstractDecoder
 
    protected byte decodeByte_()
    {
-      int res = 0;
-
-      for (int i=7; i>=0; i--)
-         res |= (this.decodeBit() << i);
-
+      int res;     
+      res   = (this.decodeBit() << 7);
+      res  |= (this.decodeBit() << 6);
+      res  |= (this.decodeBit() << 5);
+      res  |= (this.decodeBit() << 4);
+      res  |= (this.decodeBit() << 3);
+      res  |= (this.decodeBit() << 2);
+      res  |= (this.decodeBit() << 1);
+      res  |= this.decodeBit();
       return (byte) res;
    }
 

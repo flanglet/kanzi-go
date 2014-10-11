@@ -41,10 +41,14 @@ public final class ExpGolombEncoder extends AbstractEncoder
        
     
     @Override
-    public boolean encodeByte(byte val)
+    public void encodeByte(byte val)
     {
-       if (val == 0) // shortcut when input is 0
-          return this.bitstream.writeBit(1);
+       if (val == 0) 
+       {
+          // shortcut when input is 0
+          this.bitstream.writeBit(1);
+          return;
+       }
 
        //  Take the abs() of 'val' add 1 to it
        int val2 = val;
@@ -83,10 +87,10 @@ public final class ExpGolombEncoder extends AbstractEncoder
        {
           // Add 0 for positive and 1 for negative sign
           n++;
-          emit = (emit << 1) | (val >>> 31);
+          emit = (emit << 1) | (((int) val) >>> 31);
        }
 
-       return (this.bitstream.writeBits(emit, n) == n);
+       this.bitstream.writeBits(emit, n);
     }  
 
 

@@ -48,10 +48,13 @@ public final class RiceGolombEncoder extends AbstractEncoder
 
 
     @Override
-    public boolean encodeByte(byte val)
+    public void encodeByte(byte val)
     {
        if (val == 0)
-          return (this.bitstream.writeBits(this.base, this.logBase+1) == this.logBase+1);
+       {
+          this.bitstream.writeBits(this.base, this.logBase+1);
+          return;
+       }
 
        int val2 = val;
        val2 = (val2 + (val2 >> 31)) ^ (val2 >> 31); // abs(val2)
@@ -64,10 +67,10 @@ public final class RiceGolombEncoder extends AbstractEncoder
        {
           // Add 0 for positive and 1 for negative sign
           n++;
-          emit = (emit << 1) | (val >>> 31);
+          emit = (emit << 1) | (((int) val) >>> 31);
        }
 
-       return (this.bitstream.writeBits(emit, n) == n);
+       this.bitstream.writeBits(emit, n);
     }
 
 

@@ -18,9 +18,6 @@ package kanzi;
 
 public interface EntropyDecoder
 {
-    // Decode the next chunk of data from the bitstream and return as a byte
-    public byte decodeByte();
-
     // Decode the next chunk of data from the bitstream and return in the
     // provided buffer.
     public int decode(byte[] buffer, int blkptr, int len);

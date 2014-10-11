@@ -50,18 +50,26 @@ public class BinaryEntropyEncoder extends AbstractEncoder
 
 
    @Override
-   public boolean encodeByte(byte val)
+   public void encodeByte(byte val)
    {
-      boolean res = true;
-
-      for (int i=7; i>=0; i--)
-         res &= this.encodeBit((val >> i) & 1);
-
-      return res;
+      this.encodeBit_((val >> 7) & 1);
+      this.encodeBit_((val >> 6) & 1);
+      this.encodeBit_((val >> 5) & 1);
+      this.encodeBit_((val >> 4) & 1);
+      this.encodeBit_((val >> 3) & 1);
+      this.encodeBit_((val >> 2) & 1);
+      this.encodeBit_((val >> 1) & 1);
+      this.encodeBit_(val & 1);          
    }
-
+   
 
    public boolean encodeBit(int bit)
+   {
+      return this.encodeBit_(bit & 1);
+   }
+   
+   
+   private boolean encodeBit_(int bit)
    {
       // Compute prediction
       final int prediction = this.predictor.get();
@@ -70,10 +78,9 @@ public class BinaryEntropyEncoder extends AbstractEncoder
       final long xmid = this.low + ((this.high - this.low) >> 12) * prediction;
 
       // Update fields with new interval bounds
-      if ((bit & 1) == 1)
-         this.high = xmid;
-      else
-         this.low = xmid + 1;
+      final int bitmask = bit - 1;
+      this.low = (bitmask & (xmid + 1)) | (~bitmask & this.low);
+      this.high = (bitmask & this.high) | (~bitmask & xmid);
 
       // Update predictor
       this.predictor.update(bit);

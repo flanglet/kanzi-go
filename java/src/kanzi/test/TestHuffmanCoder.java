@@ -20,6 +20,7 @@ import kanzi.entropy.HuffmanDecoder;
 import kanzi.entropy.HuffmanEncoder;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.util.Random;
 import kanzi.InputBitStream;
 import kanzi.OutputBitStream;
 import kanzi.bitstream.DebugOutputBitStream;
@@ -52,7 +53,7 @@ public class TestHuffmanCoder
                 java.util.Random random = new java.util.Random();
 
                 if (ii == 3)
-                     values = new byte[] { 0, 0, 32, 15, -4, 16, 0, 16, 0, 7, -1, -4, -32, 0, 31, -1 };
+                   values = new byte[] { 0, 0, 32, 15, -4, 16, 0, 16, 0, 7, -1, -4, -32, 0, 31, -1 };
                 else if (ii == 2)
                      values = new byte[] { 0x3d, 0x4d, 0x54, 0x47, 0x5a, 0x36, 0x39, 0x26, 0x72, 0x6f, 0x6c, 0x65, 0x3d, 0x70, 0x72, 0x65 };
                 else if (ii == 4)
@@ -150,6 +151,7 @@ public class TestHuffmanCoder
             byte[] values1 = new byte[size];
             byte[] values2 = new byte[size];
             long delta1 = 0, delta2 = 0;
+            Random rnd = new Random();
 
             for (int ii=0; ii<iter; ii++)
             {
@@ -164,9 +166,11 @@ public class TestHuffmanCoder
                     if (i0+len >= values1.length)
                         len = 1;
 
+                    final byte b = (byte) rnd.nextInt();
+                    
                     for (int j=i0; j<i0+len; j++)
                     {
-                       values1[j] = (byte) (i0 & 255);
+                       values1[j] = b;
                        i++;
                     }
                 }

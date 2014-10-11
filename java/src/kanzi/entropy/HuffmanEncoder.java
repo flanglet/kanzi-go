@@ -142,11 +142,11 @@ public class HuffmanEncoder extends AbstractEncoder
        final int end = blkptr + len;
        final int sz = (this.chunkSize == 0) ? len : this.chunkSize;
        int startChunk = blkptr;
-       int sizeChunk = (startChunk + sz < end) ? sz : end - startChunk;
-       int endChunk = startChunk + sizeChunk;
-
+       
        while (startChunk < end)
        {
+          final int endChunk = (startChunk + sz < end) ? startChunk + sz : end;
+
           for (int i=0; i<256; i++)
              frequencies[i] = 0;
 
@@ -155,16 +155,11 @@ public class HuffmanEncoder extends AbstractEncoder
 
           // Rebuild Huffman tree
           this.updateFrequencies(frequencies);
-
+          
           for (int i=startChunk; i<endChunk; i++)
-          {
-             if (this.encodeByte(array[i]) == false)
-                return i - blkptr;
-          }
+             this.encodeByte(array[i]);
 
           startChunk = endChunk;
-          sizeChunk = (startChunk + sz < end) ? sz : end - startChunk;
-          endChunk = startChunk + sizeChunk;
        }
 
        return len;
@@ -173,10 +168,9 @@ public class HuffmanEncoder extends AbstractEncoder
 
     // Frequencies of the data block must have been previously set
     @Override
-    public boolean encodeByte(byte val)
+    public void encodeByte(byte val)
     {
-       final int len = this.codes[val&0xFF] >>> 24;
-       return this.bitstream.writeBits(this.codes[val&0xFF], len) == len;
+       this.bitstream.writeBits(this.codes[val&0xFF], this.codes[val&0xFF] >>> 24);
     }
 
 

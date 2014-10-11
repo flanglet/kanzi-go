@@ -48,21 +48,21 @@ public class TestRangeCoder
             
             try
             {
-                int[] values;
+                byte[] values;
                 java.util.Random random = new java.util.Random();
 
                 if (ii == 3)
-                     values = new int[] { 0, 0, 32, 15, -4, 16, 0, 16, 0, 7, -1, -4, -32, 0, 31, -1 };
+                     values = new byte[] { 0, 0, 32, 15, -4, 16, 0, 16, 0, 7, -1, -4, -32, 0, 31, -1 };
                 else if (ii == 2)
-                     values = new int[] { 0x3d, 0x4d, 0x54, 0x47, 0x5a, 0x36, 0x39, 0x26, 0x72, 0x6f, 0x6c, 0x65, 0x3d, 0x70, 0x72, 0x65 };
+                     values = new byte[] { 0x3d, 0x4d, 0x54, 0x47, 0x5a, 0x36, 0x39, 0x26, 0x72, 0x6f, 0x6c, 0x65, 0x3d, 0x70, 0x72, 0x65 };
                 else if (ii == 1)
-                     values = new int[] { 65, 71, 74, 66, 76, 65, 69, 77, 74, 79, 68, 75, 73, 72, 77, 68, 78, 65, 79, 79, 78, 66, 77, 71, 64, 70, 74, 77, 64, 67, 71, 64 };
+                     values = new byte[] { 65, 71, 74, 66, 76, 65, 69, 77, 74, 79, 68, 75, 73, 72, 77, 68, 78, 65, 79, 79, 78, 66, 77, 71, 64, 70, 74, 77, 64, 67, 71, 64 };
                 else
                 {
-                     values = new int[32];
+                     values = new byte[32];
 
                      for (int i=0; i<values.length; i++)
-                          values[i] = 64 + (random.nextInt() & 15);
+                          values[i] = (byte) (64 + (random.nextInt() & 15));
                 }
 
                 System.out.println("Original:");
@@ -76,12 +76,7 @@ public class TestRangeCoder
                 DebugOutputBitStream dbgbs = new DebugOutputBitStream(bs, System.out);
                 dbgbs.showByte(true);
                 RangeEncoder rc = new RangeEncoder(dbgbs);
-
-                for (int i=0; i<values.length; i++)
-                {
-                    if (rc.encodeByte((byte) (values[i] & 255)) == false)
-                        break;
-                }
+                rc.encode(values, 0, values.length);    
 
                 //dbgbs.flush();
                 rc.dispose();

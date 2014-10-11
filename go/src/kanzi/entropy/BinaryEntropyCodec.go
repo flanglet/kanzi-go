@@ -21,14 +21,14 @@ import (
 )
 
 const (
-	TOP        = uint64(0x00FFFFFFFFFFFFFF)
-	MASK_24_56 = uint64(0x00FFFFFFFF000000)
-	MASK_0_24  = uint64(0x0000000000FFFFFF)
-	MASK_0_32  = uint64(0x00000000FFFFFFFF)
+	BINARY_ENTROPY_TOP = uint64(0x00FFFFFFFFFFFFFF)
+	MASK_24_56         = uint64(0x00FFFFFFFF000000)
+	MASK_0_24          = uint64(0x0000000000FFFFFF)
+	MASK_0_32          = uint64(0x00000000FFFFFFFF)
 )
 
 type Predictor interface {
-	// Used to update the probability model
+	// Update the probability model
 	Update(bit byte)
 
 	// Return the split value representing the probability of 1 in the [0..4095] range.
@@ -56,19 +56,27 @@ func NewBinaryEntropyEncoder(bs kanzi.OutputBitStream, predictor Predictor) (*Bi
 	this := new(BinaryEntropyEncoder)
 	this.predictor = predictor
 	this.low = 0
-	this.high = TOP
+	this.high = BINARY_ENTROPY_TOP
 	this.bitstream = bs
 	return this, nil
 }
 
 func (this *BinaryEntropyEncoder) EncodeByte(val byte) {
-	for i := 7; i >= 0; i-- {
-		this.EncodeBit((val >> uint(i)) & 1)
-	}
-
+	this.encodeBit((val >> 7) & 1)
+	this.encodeBit((val >> 6) & 1)
+	this.encodeBit((val >> 5) & 1)
+	this.encodeBit((val >> 4) & 1)
+	this.encodeBit((val >> 3) & 1)
+	this.encodeBit((val >> 2) & 1)
+	this.encodeBit((val >> 1) & 1)
+	this.encodeBit(val & 1)
 }
 
 func (this *BinaryEntropyEncoder) EncodeBit(bit byte) {
+	this.encodeBit(bit & 1)
+}
+
+func (this *BinaryEntropyEncoder) encodeBit(bit byte) {
 	// Compute prediction
 	prediction := this.predictor.Get()
 
@@ -76,11 +84,9 @@ func (this *BinaryEntropyEncoder) EncodeBit(bit byte) {
 	xmid := this.low + ((this.high-this.low)>>12)*uint64(prediction)
 
 	// Update fields with new interval bounds
-	if bit&1 == 1 {
-		this.high = xmid
-	} else {
-		this.low = xmid + 1
-	}
+	bitmask := uint64(int64(bit) - 1)
+	this.low = (bitmask & (xmid + 1)) | (^bitmask & this.low)
+	this.high = (bitmask & this.high) | (^bitmask & xmid)
 
 	// Update predictor
 	this.predictor.Update(bit)
@@ -92,7 +98,11 @@ func (this *BinaryEntropyEncoder) EncodeBit(bit byte) {
 }
 
 func (this *BinaryEntropyEncoder) Encode(block []byte) (int, error) {
-	return EntropyEncodeArray(this, block)
+	for i := range block {
+		this.EncodeByte(block[i])
+	}
+
+	return len(block), nil
 }
 
 func (this *BinaryEntropyEncoder) flush() {
@@ -136,7 +146,7 @@ func NewBinaryEntropyDecoder(bs kanzi.InputBitStream, predictor Predictor) (*Bin
 	this := new(BinaryEntropyDecoder)
 	this.predictor = predictor
 	this.low = 0
-	this.high = TOP
+	this.high = BINARY_ENTROPY_TOP
 	this.bitstream = bs
 	return this, nil
 }
@@ -148,17 +158,19 @@ func (this *BinaryEntropyDecoder) DecodeByte() byte {
 		this.Initialize()
 	}
 
-	return this.decodeByte_()
+	return this.decodeByte()
 }
 
-func (this *BinaryEntropyDecoder) decodeByte_() byte {
-	res := 0
-
-	for i := 7; i >= 0; i-- {
-		res |= (this.DecodeBit() << uint(i))
-	}
-
-	return byte(res)
+func (this *BinaryEntropyDecoder) decodeByte() byte {
+	res := (this.DecodeBit() << 7)
+	res |= (this.DecodeBit() << 6)
+	res |= (this.DecodeBit() << 5)
+	res |= (this.DecodeBit() << 4)
+	res |= (this.DecodeBit() << 3)
+	res |= (this.DecodeBit() << 2)
+	res |= (this.DecodeBit() << 1)
+	res |= this.DecodeBit()
+	return res
 }
 
 func (this *BinaryEntropyDecoder) Initialized() bool {
@@ -174,13 +186,13 @@ func (this *BinaryEntropyDecoder) Initialize() {
 	this.initialized = true
 }
 
-func (this *BinaryEntropyDecoder) DecodeBit() int {
+func (this *BinaryEntropyDecoder) DecodeBit() byte {
 	// Compute prediction
 	prediction := this.predictor.Get()
 
 	// Calculate interval split
 	xmid := this.low + ((this.high-this.low)>>12)*uint64(prediction)
-	var bit int
+	var bit byte
 
 	if this.current <= xmid {
 		bit = 1
@@ -191,7 +203,7 @@ func (this *BinaryEntropyDecoder) DecodeBit() int {
 	}
 
 	// Update predictor
-	this.predictor.Update(byte(bit))
+	this.predictor.Update(bit)
 
 	// Read 32 bits from bitstream
 	for (this.low^this.high)&MASK_24_56 == 0 {
@@ -217,7 +229,7 @@ func (this *BinaryEntropyDecoder) Decode(block []byte) (int, error) {
 	}
 
 	for i := range block {
-		block[i] = this.decodeByte_()
+		block[i] = this.decodeByte()
 	}
 
 	return len(block), err

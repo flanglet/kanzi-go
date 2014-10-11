@@ -22,8 +22,7 @@ import kanzi.InputBitStream;
 
 public abstract class AbstractDecoder implements EntropyDecoder
 {
-   @Override
-   public abstract byte decodeByte();
+   protected abstract byte decodeByte();
    
    
    @Override

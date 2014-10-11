@@ -85,20 +85,43 @@ public final class HuffmanTree
 
 
        @Override
+       public boolean equals(Object o)
+       {
+           if (o == null)
+               return false;
+     
+           if (o == this)
+               return true;
+     
+           return this.symbol == ((Node) o).symbol; 
+       }
+
+       
+       @Override
+       public int hashCode()
+       {
+          return this.symbol;
+       }
+       
+       
+       @Override
        public int compareTo(Node o)
        {
           if (o == null)
              return 1;
+
+          if (o == this)
+             return 0;
    
-          int res = this.weight - o.weight;
+          if (this.weight != o.weight) 
+             return this.weight - o.weight;
           
-          if (res != 0) 
-             return res;
-          
-          if ((this.left == null) && (o.left != null))
-             return -1;
-                     
-          if ((this.left != null) && (o.left == null))
+          if (this.left == null) 
+          {
+             if (o.left != null)
+                return -1;
+          } 
+          else if (o.left == null)
              return 1;
                      
           return (this.symbol & 0xFF) - (o.symbol & 0xFF);

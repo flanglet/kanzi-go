@@ -76,14 +76,8 @@ public class TestExpGolombCoder
                     System.out.print(values[i]+" ");
                 }
                 
-                System.out.print("\nEncoded: ");
-                
-                for (int i=0; i<values.length; i++)
-                {
-                    if (gc.encodeByte(values[i]) == false)
-                        break;
-                }
-                
+                System.out.print("\nEncoded: ");               
+                gc.encode(values, 0, values.length);               
                 gc.dispose();
                 dbgbs.close();
                 byte[] array = os.toByteArray();

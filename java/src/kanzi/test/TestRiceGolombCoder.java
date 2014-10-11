@@ -68,13 +68,7 @@ public class TestRiceGolombCoder
                 }
 
                 System.out.println();
-
-                for (int i=0; i<values.length; i++)
-                {
-                    if (gc.encodeByte(values[i]) == false)
-                        break;
-                }
-
+                gc.encode(values, 0, values.length);    
                 gc.dispose();
                 bs.close();
                 byte[] array = os.toByteArray();

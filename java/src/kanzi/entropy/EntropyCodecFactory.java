@@ -28,6 +28,7 @@ public class EntropyCodecFactory
    public static final byte FPAQ_TYPE    = 70;
    public static final byte PAQ_TYPE     = 80;
    public static final byte RANGE_TYPE   = 82;
+   public static final byte ANS_TYPE     = 64;
    
    
    public EntropyDecoder newDecoder(InputBitStream ibs, byte entropyType)
@@ -41,6 +42,8 @@ public class EntropyCodecFactory
          // Rebuild the entropy decoder to reset block statistics
          case HUFFMAN_TYPE:
             return new HuffmanDecoder(ibs);
+         case ANS_TYPE:
+            return new ANSRangeDecoder(ibs);
          case RANGE_TYPE:
             return new RangeDecoder(ibs);
          case PAQ_TYPE:
@@ -64,6 +67,8 @@ public class EntropyCodecFactory
       {
          case HUFFMAN_TYPE:
             return new HuffmanEncoder(obs);
+         case ANS_TYPE:
+            return new ANSRangeEncoder(obs);
          case RANGE_TYPE:
             return new RangeEncoder(obs);
          case PAQ_TYPE:
@@ -84,6 +89,8 @@ public class EntropyCodecFactory
       {
          case HUFFMAN_TYPE:
             return "HUFFMAN";
+         case ANS_TYPE:
+            return "ANS";
          case RANGE_TYPE:
             return "RANGE";
          case PAQ_TYPE:
@@ -104,6 +111,8 @@ public class EntropyCodecFactory
       {
          case "HUFFMAN":
             return HUFFMAN_TYPE; 
+         case "ANS":
+            return ANS_TYPE; 
          case "FPAQ":
             return FPAQ_TYPE;
          case "PAQ":

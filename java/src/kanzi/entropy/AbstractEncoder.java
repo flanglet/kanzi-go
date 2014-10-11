@@ -17,13 +17,11 @@ package kanzi.entropy;
 
 import kanzi.EntropyEncoder;
 import kanzi.OutputBitStream;
-import kanzi.BitStreamException;
 
 
 public abstract class AbstractEncoder implements EntropyEncoder
 {
-    @Override
-    public abstract boolean encodeByte(byte val);
+    protected abstract void encodeByte(byte val);
 
     
     @Override
@@ -39,20 +37,9 @@ public abstract class AbstractEncoder implements EntropyEncoder
            return -1;
 
         final int end = blkptr + len;
-        int i = blkptr;
 
-        try
-        {
-           for ( ; i<end; i++)
-           {            
-              if (this.encodeByte(array[i]) == false)
-                 return i - blkptr;
-           }
-        }
-        catch (BitStreamException e)
-        {
-           return i - blkptr;
-        }
+        for (int i = blkptr; i<end; i++)
+           this.encodeByte(array[i]);
 
         return len;
     }

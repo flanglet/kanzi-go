@@ -196,8 +196,7 @@ public class HuffmanDecoder extends AbstractDecoder
 
        final int sz = (this.chunkSize == 0) ? len : this.chunkSize;
        int startChunk = blkptr;
-       final int end = blkptr + len;
-       int endChunk = (startChunk + sz < end) ? startChunk + sz : end;
+       final int end = blkptr + len;       
 
        while (startChunk < end)
        { 
@@ -211,26 +210,19 @@ public class HuffmanDecoder extends AbstractDecoder
           if (this.minCodeLen * endPaddingSize != 64)
              endPaddingSize++;
 
+          final int endChunk = (startChunk + sz < end) ? startChunk + sz : end;
           final int endChunk1 = endChunk - endPaddingSize;
           int i = startChunk;
 
-          try
-          {
-             // Fast decoding (read DECODING_BATCH_SIZE bits at a time)
-             for ( ; i<endChunk1; i++)
-                array[i] = this.fastDecodeByte();
+          // Fast decoding (read DECODING_BATCH_SIZE bits at a time)
+          for ( ; i<endChunk1; i++)
+             array[i] = this.fastDecodeByte();
 
-             // Fallback to regular decoding (read one bit at a time)
-             for ( ; i<endChunk; i++)
-                array[i] = this.decodeByte();
-          }
-          catch (BitStreamException e)
-          {
-             return i - blkptr;
-          }
+          // Fallback to regular decoding (read one bit at a time)
+          for ( ; i<endChunk; i++)
+             array[i] = this.decodeByte();
 
           startChunk = endChunk;
-          endChunk = (startChunk + sz < end) ? startChunk + sz : end;
        }
 
        return len;
@@ -247,7 +239,7 @@ public class HuffmanDecoder extends AbstractDecoder
 
     private byte slowDecodeByte(int code, int codeLen)
     { 
-       while (codeLen < 24)
+       while (codeLen < 23)
        {
           codeLen++;
           code <<= 1;
