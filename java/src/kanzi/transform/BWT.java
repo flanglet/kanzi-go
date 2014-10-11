@@ -50,7 +50,7 @@ import kanzi.Sizeable;
 //          pi\0  9  -> 5        ssippi\0
 //           i\0  10 -> 0     ssissippi\0
 // Suffix array SA : 10 7 4 1 0 9 8 6 3 5 2 
-// BWT[i] = input[SA[i]-1] => BWT(input) = pssm[i]pissii, encoded as ipss[]mpissii (+ primary index 4) 
+// BWT[i] = input[SA[i]-1] => BWT(input) = pssm[i]pissii (+ primary index 4) 
 // The suffix array and permutation vector are equal when the input is 0 terminated
 // The insertion of a guard is done internally and is entirely transparent.
 //
@@ -60,8 +60,8 @@ import kanzi.Sizeable;
 public class BWT implements ByteTransform, Sizeable
 {
     private int size;
-    private int[] buffer1;  // Only used in inverse
-    private int[] buffer2;  // Only used for big blocks (size >= 1<<24)
+    private int[] buffer1;   // Only used in inverse
+    private byte[] buffer2;  // Only used for big blocks (size >= 1<<24)
     private int[] buckets;
     private int primaryIndex;
     private DivSufSort saAlgo;
@@ -80,8 +80,8 @@ public class BWT implements ByteTransform, Sizeable
           throw new IllegalArgumentException("Invalid size parameter (must be at least 0)");
 
        this.size = size;
-       this.buffer1 = new int[0]; // Allocate empty: only used in inverse
-       this.buffer2 = new int[0]; // Allocate empty: only used for big blocks (size >= 1<<24)
+       this.buffer1 = new int[0];  // Allocate empty: only used in inverse
+       this.buffer2 = new byte[0]; // Allocate empty: only used for big blocks (size >= 1<<24)
        this.buckets = new int[256];
     }
 
@@ -146,9 +146,7 @@ public class BWT implements ByteTransform, Sizeable
 
         // Compute suffix array
         final int[] sa = this.saAlgo.computeSuffixArray(input, srcIdx, count);
-        final int srcIdx2 = srcIdx - 1;
-        final int dstIdx2 = dstIdx + 1;
-        output[dstIdx] = input[srcIdx2+count];     
+        final int srcIdx2 = srcIdx - 1;    
         int i = 0;
        
         for (; i<count; i++) 
@@ -157,9 +155,10 @@ public class BWT implements ByteTransform, Sizeable
            if (sa[i] == 0)
               break;
 
-           output[dstIdx2+i] = input[srcIdx2+sa[i]];
+           output[dstIdx+i] = input[srcIdx2+sa[i]];
         }
         
+        output[dstIdx+i] = input[srcIdx2+count];
         this.setPrimaryIndex(i);
 
         for (i++; i<count; i++) 
@@ -184,7 +183,7 @@ public class BWT implements ByteTransform, Sizeable
 
           return true;
        }
-       
+
        if (count >= 1<<24)
           return this.inverseBigBlock(src, dst, count);
        
@@ -211,18 +210,17 @@ public class BWT implements ByteTransform, Sizeable
        // Initialize histogram
        for (int i=0; i<256; i++)
           buckets_[i] = 0;
-
+       
        // Build array of packed index + value (assumes block size < 2^24)
        // Start with the primary index position
        final int pIdx = this.getPrimaryIndex();
-       final int val0 = input[srcIdx] & 0xFF;
+       final int val0 = input[srcIdx+pIdx] & 0xFF;
        data[pIdx] = val0;
        buckets_[val0]++;
-       final int srcIdx2 = srcIdx + 1;
 
        for (int i=0; i<pIdx; i++)
        {
-          final int val = input[srcIdx2+i] & 0xFF;
+          final int val = input[srcIdx+i] & 0xFF;
           data[i] = (buckets_[val] << 8) | val;
           buckets_[val]++;
        }
@@ -270,12 +268,12 @@ public class BWT implements ByteTransform, Sizeable
           this.buffer1 = new int[count];
 
        if (this.buffer2.length < count)
-          this.buffer2 = new int[count];
+          this.buffer2 = new byte[count];
 
        // Aliasing
        final int[] buckets_ = this.buckets;
        final int[] data1 = this.buffer1;
-       final int[] data2 = this.buffer2;
+       final byte[] data2 = this.buffer2;
        
        // Initialize histogram
        for (int i=0; i<256; i++)
@@ -284,26 +282,25 @@ public class BWT implements ByteTransform, Sizeable
        // Build arrays
        // Start with the primary index position
        final int pIdx = this.getPrimaryIndex();
-       final int val0 = input[srcIdx] & 0xFF;
-       data1[pIdx] = buckets_[val0];
+       final byte val0 = input[srcIdx+pIdx];
+       data1[pIdx] = buckets_[val0&0xFF];
        data2[pIdx] = val0;
-       buckets_[val0]++;
-       final int srcIdx2 = srcIdx + 1;
+       buckets_[val0&0xFF]++;
 
        for (int i=0; i<pIdx; i++)
        {
-          final int val = input[srcIdx2+i] & 0xFF;
-          data1[i] = buckets_[val];
+          final byte val = input[srcIdx+i];
+          data1[i] = buckets_[val&0xFF];
           data2[i] = val;
-          buckets_[val]++;
+          buckets_[val&0xFF]++;
        }
        
        for (int i=pIdx+1; i<count; i++)
        {
-          final int val = input[srcIdx+i] & 0xFF;
-          data1[i] = buckets_[val];
+          final byte val = input[srcIdx+i];
+          data1[i] = buckets_[val&0xFF];
           data2[i] = val;
-          buckets_[val]++;
+          buckets_[val&0xFF]++;
        }
 
        // Create cumulative histogram
@@ -315,13 +312,13 @@ public class BWT implements ByteTransform, Sizeable
        }
 
        int val1 = data1[pIdx];
-       int val2 = data2[pIdx];
+       byte val2 = data2[pIdx];
        
        // Build inverse
        for (int i=dstIdx+count-1; i>=dstIdx; i--)
        {
-          output[i] = (byte) val2;
-          final int idx = val1 + buckets_[val2];
+          output[i] = val2;
+          final int idx = val1 + buckets_[val2&0xFF];
           val1 = data1[idx];
           val2 = data2[idx];
        }      

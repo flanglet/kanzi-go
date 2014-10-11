@@ -36,7 +36,7 @@ import (
 
 const (
 	BITSTREAM_TYPE             = 0x4B414E5A // "KANZ"
-	BITSTREAM_FORMAT_VERSION   = 8
+	BITSTREAM_FORMAT_VERSION   = 9
 	STREAM_DEFAULT_BUFFER_SIZE = 1024 * 1024
 	COPY_LENGTH_MASK           = 0x0F
 	SMALL_BLOCK_MASK           = 0x80
@@ -144,23 +144,12 @@ func NewCompressedOutputStream(entropyCodec string, functionType string, os kanz
 		return nil, err
 	}
 
-	// Check entropy type validity
-	checkedEntropyType, err := entropy.GetEntropyCodecType(entropyCodec)
+	// Check entropy type validity (panic on error)
+	this.entropyType = entropy.GetEntropyCodecType(entropyCodec)
 
-	if err != nil {
-		return nil, NewIOError(err.Error(), ERR_CREATE_CODEC)
-	}
+	// Check transform type validity (panic on error)
+	this.transformType = function.GetByteFunctionType(functionType)
 
-	this.entropyType = checkedEntropyType
-
-	// Check transform type validity
-	checkedFunctionType, err := function.GetByteFunctionType(functionType)
-
-	if err != nil {
-		return nil, err
-	}
-
-	this.transformType = checkedFunctionType
 	this.blockSize = blockSize
 
 	if checksum == true {
@@ -219,14 +208,7 @@ func (this *CompressedOutputStream) WriteHeader() *IOError {
 	if this.initialized == true {
 		return nil
 	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			msg := "Cannot write bitstream header: " + r.(error).Error()
-			panic(NewIOError(msg, ERR_WRITE_FILE))
-		}
-	}()
-
+	
 	cksum := 0
 
 	if this.hasher != nil {
@@ -660,7 +642,7 @@ func (this *CompressedInputStream) ReadHeader() error {
 
 	defer func() {
 		if r := recover(); r != nil {
-			panic(NewIOError("Cannot read bitstream header: "+r.(error).Error(), ERR_WRITE_FILE))
+			panic(NewIOError("Cannot read bitstream header: "+r.(error).Error(), ERR_READ_FILE))
 		}
 	}()
 
@@ -711,27 +693,17 @@ func (this *CompressedInputStream) ReadHeader() error {
 	if this.debugWriter != nil {
 		fmt.Fprintf(this.debugWriter, "Checksum set to %v\n", (this.hasher != nil))
 		fmt.Fprintf(this.debugWriter, "Block size set to %d bytes\n", this.blockSize)
-		w1, err := function.GetByteFunctionName(this.transformType)
-
-		if err != nil {
-			errMsg := fmt.Sprintf("Invalid bitstream, unknown transform type: %d", this.transformType)
-			return NewIOError(errMsg, ERR_INVALID_CODEC)
-		}
+		w1 := function.GetByteFunctionName(this.transformType)
 
 		if w1 == "NONE" {
 			w1 = "no"
 		}
 
 		fmt.Fprintf(this.debugWriter, "Using %v transform (stage 1)\n", w1)
-		w2, err := entropy.GetEntropyCodecName(this.entropyType)
+		w2 := entropy.GetEntropyCodecName(this.entropyType)
 
 		if w2 == "NONE" {
 			w2 = "no"
-		}
-
-		if err != nil {
-			errMsg := fmt.Sprintf("Invalid bitstream, unknown entropy codec type: %d", this.entropyType)
-			return NewIOError(errMsg, ERR_INVALID_CODEC)
 		}
 
 		fmt.Fprintf(this.debugWriter, "Using %v entropy codec (stage 2)\n", w2)
@@ -871,7 +843,7 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 		offset += this.blockSize
 	}
 
-	err := error(nil)
+	var err error
 	decoded := 0
 	results := make([]Message, this.jobs)
 
@@ -887,7 +859,7 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 	// Process results
 	for _, res := range results {
 		if res.err != nil {
-			if err != nil {
+			if err == nil {
 				// Keep first error encountered
 				err = res.err
 			}

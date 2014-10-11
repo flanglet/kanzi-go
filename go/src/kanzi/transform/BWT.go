@@ -47,7 +47,7 @@ import (
 //          pi\0  9  -> 5        ssippi\0
 //           i\0  10 -> 0     ssissippi\0
 // Suffix array SA : 10 7 4 1 0 9 8 6 3 5 2
-// BWT[i] = input[SA[i]-1] => BWT(input) = pssm[i]pissii, encoded as ipss[]mpissii (+ primary index 4)
+// BWT[i] = input[SA[i]-1] => BWT(input) = pssm[i]pissii (+ primary index 4)
 // The suffix array and permutation vector are equal when the input is 0 terminated
 // The insertion of a guard is done internally and is entirely transparent.
 //
@@ -57,7 +57,7 @@ import (
 type BWT struct {
 	size         uint
 	buffer1      []int
-	buffer2      []int // Only used for big blocks (size >= 1<<24)
+	buffer2      []byte // Only used for big blocks (size >= 1<<24)
 	buckets      []int
 	primaryIndex uint
 	saAlgo       *util.DivSufSort
@@ -66,8 +66,8 @@ type BWT struct {
 func NewBWT(sz uint) (*BWT, error) {
 	this := new(BWT)
 	this.size = sz
-	this.buffer1 = make([]int, 0)    // Allocate empty: only used in inverse
-	this.buffer2 = make([]int, 0)    // Allocate empty: only used for big blocks (size >= 1<<24)
+	this.buffer1 = make([]int, 0)  // Allocate empty: only used in inverse
+	this.buffer2 = make([]byte, 0) // Allocate empty: only used for big blocks (size >= 1<<24)
 	this.buckets = make([]int, 256)
 	return this, nil
 }
@@ -121,7 +121,6 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Compute suffix array
 	sa := this.saAlgo.ComputeSuffixArray(src[0:count])
-	dst[0] = src[count-1]
 	i := 0
 
 	for i < count {
@@ -130,10 +129,11 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 			break
 		}
 
-		dst[i+1] = src[sa[i]-1]
+		dst[i] = src[sa[i]-1]
 		i++
 	}
 
+	dst[i] = src[count-1]
 	this.SetPrimaryIndex(uint(i))
 	i++
 
@@ -186,12 +186,12 @@ func (this *BWT) inverseRegularBlock(src, dst []byte, count int) (uint, uint, er
 	// Build array of packed index + value (assumes block size < 2^24)
 	// Start with the primary index position
 	pIdx := int(this.PrimaryIndex())
-	val0 := int(src[0])
+	val0 := int(src[pIdx])
 	data[pIdx] = val0
 	buckets_[val0]++
 
 	for i := 0; i < pIdx; i++ {
-		val := int(src[i+1])
+		val := int(src[i])
 		data[i] = (buckets_[val] << 8) | val
 		buckets_[val]++
 	}
@@ -230,7 +230,7 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 	}
 
 	if len(this.buffer2) < count {
-		this.buffer2 = make([]int, count)
+		this.buffer2 = make([]byte, count)
 	}
 
 	// Aliasing
@@ -246,20 +246,20 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 	// Build arrays
 	// Start with the primary index position
 	pIdx := int(this.PrimaryIndex())
-	val0 := int(src[0])
+	val0 := src[pIdx]
 	data1[pIdx] = buckets_[val0]
 	data2[pIdx] = val0
 	buckets_[val0]++
 
 	for i := 0; i < pIdx; i++ {
-		val := int(src[i+1])
+		val := src[i]
 		data1[i] = buckets_[val]
 		data2[i] = val
 		buckets_[val]++
 	}
 
 	for i := pIdx + 1; i < count; i++ {
-		val := int(src[i])
+		val := src[i]
 		data1[i] = buckets_[val]
 		data2[i] = val
 		buckets_[val]++
@@ -279,7 +279,7 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 
 	// Build inverse
 	for i := count - 1; i >= 0; i-- {
-		dst[i] = byte(val2)
+		dst[i] = val2
 		idx := val1 + buckets_[val2]
 		val1 = data1[idx]
 		val2 = data2[idx]

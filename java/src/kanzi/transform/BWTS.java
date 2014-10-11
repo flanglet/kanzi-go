@@ -244,16 +244,14 @@ public class BWTS implements ByteTransform, Sizeable
           buckets_[i] = 0;
 
        for (int i=0; i<count; i++)
-       {
           buckets_[input[srcIdx+i] & 0xFF]++;
-       }
 
        // Histogram
-       for (int i=0, j=0; i<256; i++)
+       for (int i=0, sum=0; i<256; i++)
        { 
-          final int t = buckets_[i]; 
-          buckets_[i] = j; 
-          j += t; 
+          final int tmp = buckets_[i]; 
+          buckets_[i] = sum; 
+          sum += tmp; 
        }
        
        for (int i=0; i<count; i++)
