@@ -30,19 +30,34 @@ public class TestBlockCoder
     public static void main(String[] args)
     {
        ExecutorService pool = Executors.newCachedThreadPool();
+       boolean addListeners = true;
+       
+       for (String arg : args)
+       {
+          if (arg.equals("-noListeners"))
+          {
+             addListeners = false;
+             break;
+          }
+       }
+
        BlockCompressor enc = new BlockCompressor(args, pool);
        
-       // Trivial example of a block listener
-       enc.addListener(new BlockListener() 
+       if (addListeners == true)
        {
-          @Override
-          public void processEvent(BlockEvent evt) 
+          // Trivial example of a block listener
+          enc.addListener(new BlockListener() 
           {
-            System.out.println(">>> "+evt);
-          }
-       });
+             @Override
+             public void processEvent(BlockEvent evt) 
+             {
+               System.out.println(">>> "+evt);
+             }
+          });
+
+          // enc.addListener(new InfoPrinter(InfoPrinter.Type.ENCODING, System.out));
+       }
        
-       // enc.addListener(new InfoPrinter(InfoPrinter.Type.ENCODING, System.out));
        int status = enc.call();
        
        if (status < 0)
@@ -54,30 +69,33 @@ public class TestBlockCoder
        Set<String> set = new HashSet<String>();
        set.add("-overwrite");
 
-       for (int i=0; i<args.length; i++)
+       for (String arg : args)
        {
-          if (args[i].startsWith("-input="))
-             set.add(args[i]+".knz");
-          else if (args[i].equals("-verbose"))
-             set.add(args[i]);
-          else if (args[i].equals("-silent"))
-             set.add(args[i]);
-          else if (args[i].startsWith("-jobs="))
-             set.add(args[i]);
+          if (arg.startsWith("-input="))
+             set.add(arg+".knz");
+          else if (arg.equals("-verbose"))
+             set.add(arg);
+          else if (arg.equals("-silent"))
+             set.add(arg);
+          else if (arg.startsWith("-jobs="))
+             set.add(arg);
        }
 
        args = (String[]) set.toArray(new String[set.size()]);
        BlockDecompressor dec = new BlockDecompressor(args, pool);
 
-       // Trivial example of a block listener
-       dec.addListener(new BlockListener() 
-       {
-          @Override
-          public void processEvent(BlockEvent evt) 
+       if (addListeners == true)
+       {  
+          // Trivial example of a block listener
+          dec.addListener(new BlockListener() 
           {
-             System.out.println("<<< "+evt);
-          }
-       });
+             @Override
+             public void processEvent(BlockEvent evt) 
+             {
+                System.out.println("<<< "+evt);
+             }
+          });
+       }
        
        // dec.addListener(new InfoPrinter(InfoPrinter.Type.DECODING, System.out));
        status = dec.call();

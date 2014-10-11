@@ -15,6 +15,7 @@ limitations under the License.
 
 package kanzi.util;
 
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,13 +33,11 @@ public class LyndonWords
    
    
    // Not thread safe
-   private List<Integer> ChenFoxLyndonBreakpoints(String s)
+   private List<Integer> chenFoxLyndonBreakpoints(byte[] buf, int length)
    {
       int k = 0;
-      final int length = s.length();
-      byte[] buf = s.getBytes();
       this.breakpoints.clear();
-     
+
       while (k < length)
       {
          int i = k;
@@ -53,7 +52,7 @@ public class LyndonWords
          while (k <= i)
          {
             k += (j-i);
-            this.breakpoints.add(k);
+            this.breakpoints.add(k);            
          }
       }
       
@@ -64,7 +63,15 @@ public class LyndonWords
    // Not thread safe
    public String[] split(String s)
    {
-      ChenFoxLyndonBreakpoints(s);
+      return this.split(s, null);  // relies on default encoding
+   }
+	   
+   
+   // Not thread safe
+   public String[] split(String s, Charset cs)
+   {
+      byte[] buf = (cs == null) ? s.getBytes() : s.getBytes(cs);
+      this.chenFoxLyndonBreakpoints(buf, s.length());
       String[] res = new String[this.breakpoints.size()];
       int n = 0;
       int prev = 0;
@@ -81,7 +88,14 @@ public class LyndonWords
    
    public int[] getPositions(String s)
    {      
-      ChenFoxLyndonBreakpoints(s);
+      return this.getPositions(s, null);   // relies on default encoding
+   }
+    
+   
+   public int[] getPositions(String s, Charset cs)
+   {      
+      byte[] buf = (cs == null) ? s.getBytes() : s.getBytes(cs);
+      this.chenFoxLyndonBreakpoints(buf, s.length());
       int[] res = new int[this.breakpoints.size()];     
       int n = 0;
       

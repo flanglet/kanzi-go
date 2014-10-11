@@ -110,10 +110,7 @@ public final class RangeEncoder extends AbstractEncoder
           this.resetFrequencies(); 
           
           for (int i=startChunk; i<endChunk; i++)
-          {
-             if (this.encodeByte(array[i]) == false)
-                return i - blkptr;
-          }
+             this.encodeByte(array[i]);
          
           startChunk = endChunk;
           sizeChunk = (startChunk + sz < end) ? sz : end - startChunk;
@@ -127,7 +124,7 @@ public final class RangeEncoder extends AbstractEncoder
     // This method is on the speed critical path (called for each byte)
     // The speed optimization is focused on reducing the frequency table update
     @Override
-    public boolean encodeByte(byte b)
+    public void encodeByte(byte b)
     {
         final int value = b & 0xFF;
         final int symbolLow = this.baseFreq[value>>4] + this.deltaFreq[value];
@@ -155,7 +152,6 @@ public final class RangeEncoder extends AbstractEncoder
         }
 
         this.updateFrequencies(value+1);
-        return true;
     }
 
 

@@ -190,7 +190,7 @@ func Log2(x int) (int, error) {
 	}
 
 	base := int64(0)
-	z := int64(x - (1 << log))
+	z := int64(x) - (int64(1) << log)
 
 	// Use the fact that log2(x) = log2(2^(log2(x)+1)*y) = log2(2^p)+ 1 + ln(1-z)/ln(2)
 	// with z in ]0, 0.5[, it yields log2(x) = p + 1 - (z/1 + z^2/2 + z^3/3 ...)/ln(2)

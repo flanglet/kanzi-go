@@ -111,9 +111,6 @@ type EntropyEncoder interface {
 	// written to the bitstream
 	Encode(block []byte) (int, error)
 
-	// Encode the byte value provided into the bitstream
-	EncodeByte(val byte)
-
 	// Return the underlying bitstream
 	BitStream() OutputBitStream
 
@@ -122,9 +119,6 @@ type EntropyEncoder interface {
 }
 
 type EntropyDecoder interface {
-	// Decode the next chunk of data from the bitstream and return as a byte
-	DecodeByte() byte
-
 	// Decode the next chunk of data from the bitstream and return in the
 	// provided buffer.
 	Decode(block []byte) (int, error)

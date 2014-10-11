@@ -60,6 +60,7 @@ func TestCorrectness() {
 			fmt.Printf("%d ", values[i])
 		}
 
+		fmt.Printf("\nEncoded: ")
 		buffer := make([]byte, 16384)
 		oFile, _ := util.NewByteArrayOutputStream(buffer, true)
 		defer oFile.Close()
@@ -78,6 +79,7 @@ func TestCorrectness() {
 		fpc.Dispose()
 		dbgbs.Close()
 		println()
+		
 		iFile, _ := util.NewByteArrayInputStream(buffer, true)
 		defer iFile.Close()
 		ibs, _ := bitstream.NewDefaultInputBitStream(iFile, 16384)

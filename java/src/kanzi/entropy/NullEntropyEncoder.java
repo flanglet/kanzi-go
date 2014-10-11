@@ -58,8 +58,7 @@ public final class NullEntropyEncoder extends AbstractEncoder
            
            while (i < blkptr + len)
            {            
-              if (this.encodeByte(array[i]) == false)
-                 return i;
+              this.encodeByte(array[i]);
 
               i++;
            }
@@ -74,9 +73,9 @@ public final class NullEntropyEncoder extends AbstractEncoder
 
     
     @Override
-    public boolean encodeByte(byte val)
+    public void encodeByte(byte val)
     {
-        return (this.bitstream.writeBits(val, 8) == 8);
+        this.bitstream.writeBits(val, 8);
     }
 
     

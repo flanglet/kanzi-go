@@ -71,11 +71,30 @@ public final class MTFT implements ByteTransform, Sizeable
 
         for (int i=0; i<count; i++)
         {
-            int idx = input[srcIdx+i] & 0xFF;     
-            final byte value = indexes[idx];
-            System.arraycopy(indexes, 0, indexes, 1, idx);
-            indexes[0] = value;
-            output[dstIdx+i] = value;
+           int idx = input[srcIdx+i];
+           
+           if (idx == 0)
+           {
+              // Shortcut
+              output[dstIdx+i] = indexes[0];
+              continue;
+           }
+           
+           idx &= 0xFF;
+           final byte value = indexes[idx];
+           output[dstIdx+i] = value;
+
+           if (idx <= 16)
+           {     
+              for (int j=idx-1; j>=0; j--)
+                 indexes[j+1] = indexes[j];
+           }
+           else
+           {
+              System.arraycopy(indexes, 0, indexes, 1, idx);
+           }
+
+           indexes[0] = value;
         }
 
         src.index += count;
