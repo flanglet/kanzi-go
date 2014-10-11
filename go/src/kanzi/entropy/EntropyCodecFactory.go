@@ -16,7 +16,6 @@ limitations under the License.
 package entropy
 
 import (
-	"errors"
 	"fmt"
 	"kanzi"
 	"strings"
@@ -28,17 +27,17 @@ const (
 	FPAQ_TYPE    = byte(70)
 	PAQ_TYPE     = byte(80)
 	RANGE_TYPE   = byte(82)
+	ANS_TYPE     = byte(64)
 )
 
 func NewEntropyDecoder(ibs kanzi.InputBitStream, entropyType byte) (kanzi.EntropyDecoder, error) {
-	if ibs == nil {
-		return nil, errors.New("Invalid null input bit stream parameter")
-	}
-
 	switch entropyType {
 
 	case HUFFMAN_TYPE:
 		return NewHuffmanDecoder(ibs)
+
+	case ANS_TYPE:
+		return NewANSRangeDecoder(ibs)
 
 	case RANGE_TYPE:
 		return NewRangeDecoder(ibs)
@@ -53,21 +52,20 @@ func NewEntropyDecoder(ibs kanzi.InputBitStream, entropyType byte) (kanzi.Entrop
 
 	case NONE_TYPE:
 		return NewNullEntropyDecoder(ibs)
+		
+	default:
+		return nil, fmt.Errorf("Unsupported entropy codec type: '%c'", entropyType)
 	}
-
-	errMsg := fmt.Sprintf("Unsupported entropy codec type: '%c'", entropyType)
-	return nil, errors.New(errMsg)
 }
 
 func NewEntropyEncoder(obs kanzi.OutputBitStream, entropyType byte) (kanzi.EntropyEncoder, error) {
-	if obs == nil {
-		return nil, errors.New("Invalid null output bit stream parameter")
-	}
-
 	switch byte(entropyType) {
 
 	case HUFFMAN_TYPE:
 		return NewHuffmanEncoder(obs)
+
+	case ANS_TYPE:
+		return NewANSRangeEncoder(obs)
 
 	case RANGE_TYPE:
 		return NewRangeEncoder(obs)
@@ -83,56 +81,59 @@ func NewEntropyEncoder(obs kanzi.OutputBitStream, entropyType byte) (kanzi.Entro
 	case NONE_TYPE:
 		return NewNullEntropyEncoder(obs)
 
+	default:
+		return nil, fmt.Errorf("Unsupported entropy codec type: '%c'", entropyType)
 	}
-
-	errMsg := fmt.Sprintf("Unsupported entropy codec type: '%c'", entropyType)
-	return nil, errors.New(errMsg)
 }
 
-func GetEntropyCodecName(entropyType byte) (string, error) {
+func GetEntropyCodecName(entropyType byte) string {
 	switch byte(entropyType) {
 
 	case HUFFMAN_TYPE:
-		return "HUFFMAN", nil
+		return "HUFFMAN"
+
+	case ANS_TYPE:
+		return "ANS"
 
 	case RANGE_TYPE:
-		return "RANGE", nil
+		return "RANGE"
 
 	case PAQ_TYPE:
-		return "PAQ", nil
+		return "PAQ"
 
 	case FPAQ_TYPE:
-		return "FPAQ", nil
+		return "FPAQ"
 
 	case NONE_TYPE:
-		return "NONE", nil
+		return "NONE"
 
+	default:
+		panic(fmt.Errorf("Unsupported entropy codec type: '%c'", entropyType))
 	}
-
-	errMsg := fmt.Sprintf("Unsupported entropy codec type: '%c'", entropyType)
-	return "", errors.New(errMsg)
 }
 
-func GetEntropyCodecType(entropyName string) (byte, error) {
+func GetEntropyCodecType(entropyName string) byte {
 	switch strings.ToUpper(entropyName) {
 
 	case "HUFFMAN":
-		return HUFFMAN_TYPE, nil
+		return HUFFMAN_TYPE
+
+	case "ANS":
+		return ANS_TYPE
 
 	case "RANGE":
-		return RANGE_TYPE, nil
+		return RANGE_TYPE
 
 	case "PAQ":
-		return PAQ_TYPE, nil
+		return PAQ_TYPE
 
 	case "FPAQ":
-		return FPAQ_TYPE, nil
+		return FPAQ_TYPE
 
 	case "NONE":
-		return NONE_TYPE, nil
+		return NONE_TYPE
 
+	default:
+		panic(fmt.Errorf("Unsupported entropy codec type: '%s'", entropyName))
 	}
-
-	errMsg := fmt.Sprintf("Unsupported entropy codec type: '%s'", entropyName)
-	return byte(0), errors.New(errMsg)
 }

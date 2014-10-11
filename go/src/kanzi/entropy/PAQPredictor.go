@@ -262,6 +262,7 @@ func NewPAQPredictor() (*PAQPredictor, error) {
 	return this, err
 }
 
+// Update the probability model
 func (this *PAQPredictor) Update(bit byte) {
 	y := int(bit)
 
@@ -274,7 +275,7 @@ func (this *PAQPredictor) Update(bit byte) {
 	this.bpos &= 7
 
 	if this.bpos == 7 {
-		if this.c0 & 0xFF == this.c4 & 0xFF {
+		if this.c0&0xFF == this.c4&0xFF {
 			if this.run < 4 && this.run != 2 {
 				this.runCtx++
 			}
@@ -293,8 +294,7 @@ func (this *PAQPredictor) Update(bit byte) {
 
 	if ((this.c4&0xFF)|256)>>(1+this.bpos) == this.c0 {
 		c1d |= 2
-	} 
-
+	}
 
 	// Prediction chain
 	this.ctxPtr = this.c0
@@ -347,11 +347,12 @@ type StateMap struct {
 	data []int
 }
 
-func newStateMap() (*StateMap, error) {
-	this := new(StateMap)
-	this.data = make([]int, 256)
+var STATEMAP_DATA = initStateMapData()
 
-	for i := range this.data {
+func initStateMapData() []int {
+	array := make([]int, 256)
+
+	for i := range array {
 		n0 := STATE_TABLE[i][2]
 		n1 := STATE_TABLE[i][3]
 
@@ -363,14 +364,21 @@ func newStateMap() (*StateMap, error) {
 			n0 <<= 7
 		}
 
-		this.data[i] = ((n1 + 1) << 16) / (n0 + n1 + 2)
+		array[i] = ((n1 + 1) << 16) / (n0 + n1 + 2)
 	}
 
+	return array
+}
+
+func newStateMap() (*StateMap, error) {
+	this := new(StateMap)
+	this.data = make([]int, 256)
+	copy(this.data, STATEMAP_DATA)
 	return this, nil
 }
 
-func (this *StateMap) get(y int, cx int) int {
-	this.data[this.ctx] += (((y << 16) - this.data[this.ctx] + 128) >> 8)
+func (this *StateMap) get(bit int, cx int) int {
+	this.data[this.ctx] += (((bit << 16) - this.data[this.ctx] + 128) >> 8)
 	this.ctx = cx
 	return this.data[this.ctx] >> 4
 }
@@ -410,9 +418,9 @@ func newAdaptiveProbMap(n uint) (*AdaptiveProbMap, error) {
 	return this, nil
 }
 
-func (this *AdaptiveProbMap) get(y int, pr int, ctx uint, rate uint) int {
+func (this *AdaptiveProbMap) get(bit int, pr int, ctx uint, rate uint) int {
 	pr = STRETCH[pr]
-	g := (y << 16) + (y << rate) - (y << 1)
+	g := (bit << 16) + (bit << rate) - (bit << 1)
 	this.data[this.index] += ((g - this.data[this.index]) >> rate)
 	this.data[this.index+1] += ((g - this.data[this.index+1]) >> rate)
 	w := pr & 127 // interpolation weight (33 points)

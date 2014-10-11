@@ -41,11 +41,11 @@ type HuffmanNode struct {
 }
 
 type SizeComparator struct {
-	ranks []uint8
-	sizes []uint8
+	ranks []byte
+	sizes []byte
 }
 
-func ByIncreasingSize(ranks []uint8, sizes []uint8) SizeComparator {
+func ByIncreasingSize(ranks, sizes []byte) SizeComparator {
 	return SizeComparator{ranks: ranks, sizes: sizes}
 }
 
@@ -70,13 +70,13 @@ func (this SizeComparator) Swap(i, j int) {
 	this.ranks[i], this.ranks[j] = this.ranks[j], this.ranks[i]
 }
 
-type PriorityQueue []*HuffmanNode
+type HuffmanPriorityQueue []*HuffmanNode
 
-func (this PriorityQueue) Len() int {
+func (this HuffmanPriorityQueue) Len() int {
 	return len(this)
 }
 
-func (this PriorityQueue) Less(i, j int) bool {
+func (this HuffmanPriorityQueue) Less(i, j int) bool {
 	ni := this[i]
 	nj := this[j]
 
@@ -95,15 +95,15 @@ func (this PriorityQueue) Less(i, j int) bool {
 	return ni.symbol&0xFF < nj.symbol&0xFF
 }
 
-func (this PriorityQueue) Swap(i, j int) {
+func (this HuffmanPriorityQueue) Swap(i, j int) {
 	this[i], this[j] = this[j], this[i]
 }
 
-func (this *PriorityQueue) Push(node interface{}) {
+func (this *HuffmanPriorityQueue) Push(node interface{}) {
 	*this = append(*this, node.(*HuffmanNode))
 }
 
-func (this *PriorityQueue) Pop() interface{} {
+func (this *HuffmanPriorityQueue) Pop() interface{} {
 	old := *this
 	n := len(old)
 	node := old[n-1]
@@ -112,7 +112,7 @@ func (this *PriorityQueue) Pop() interface{} {
 }
 
 // Return the number of codes generated
-func generateCanonicalCodes(sizes []uint8, codes []uint, ranks []uint8) int {
+func generateCanonicalCodes(sizes []byte, codes []uint, ranks []byte) int {
 	count := len(ranks)
 
 	// Sort by increasing size (first key) and increasing value (second key)
@@ -149,8 +149,8 @@ type HuffmanEncoder struct {
 	bitstream kanzi.OutputBitStream
 	buffer    []uint
 	codes     []uint
-	sizes     []uint8
-	ranks     []uint8
+	sizes     []byte
+	ranks     []byte
 	chunkSize int
 }
 
@@ -187,8 +187,8 @@ func NewHuffmanEncoder(bs kanzi.OutputBitStream, args ...uint) (*HuffmanEncoder,
 	this.bitstream = bs
 	this.buffer = make([]uint, 256)
 	this.codes = make([]uint, 256)
-	this.sizes = make([]uint8, 256)
-	this.ranks = make([]uint8, 256)
+	this.sizes = make([]byte, 256)
+	this.ranks = make([]byte, 256)
 	this.chunkSize = int(chkSize)
 
 	// Default frequencies, sizes and codes
@@ -201,9 +201,9 @@ func NewHuffmanEncoder(bs kanzi.OutputBitStream, args ...uint) (*HuffmanEncoder,
 	return this, nil
 }
 
-func createTreeFromFrequencies(frequencies []uint, sizes_ []uint8, ranks []uint8) error {
+func createTreeFromFrequencies(frequencies []uint, sizes_ []byte, ranks []byte) error {
 	// Create Huffman tree of (present) symbols
-	queue := make(PriorityQueue, 0)
+	queue := make(HuffmanPriorityQueue, 0)
 
 	for i := range ranks {
 		heap.Push(&queue, &HuffmanNode{symbol: ranks[i], weight: frequencies[ranks[i]]})
@@ -222,7 +222,7 @@ func createTreeFromFrequencies(frequencies []uint, sizes_ []uint8, ranks []uint8
 	var err error
 
 	if len(ranks) == 1 {
-		sizes_[rootNode.symbol] = uint8(1)
+		sizes_[rootNode.symbol] = byte(1)
 	} else {
 		err = fillSizes(rootNode, 0, sizes_)
 	}
@@ -231,13 +231,13 @@ func createTreeFromFrequencies(frequencies []uint, sizes_ []uint8, ranks []uint8
 }
 
 // Recursively fill sizes
-func fillSizes(node *HuffmanNode, depth uint, sizes_ []uint8) error {
+func fillSizes(node *HuffmanNode, depth uint, sizes_ []byte) error {
 	if node.left == nil && node.right == nil {
 		if depth > 24 {
 			return fmt.Errorf("Cannot code symbol '%v'", node.symbol&0xFF)
 		}
 
-		sizes_[node.symbol] = uint8(depth)
+		sizes_[node.symbol] = byte(depth)
 		return nil
 	}
 
@@ -258,26 +258,26 @@ func (this *HuffmanEncoder) UpdateFrequencies(frequencies []uint) error {
 		return errors.New("Invalid frequencies parameter")
 	}
 
-	count := 0
+	alphabetSize := 0
 
 	for i := range this.sizes {
 		this.sizes[i] = 0
 		this.codes[i] = 0
 
 		if frequencies[i] > 0 {
-			this.ranks[count] = uint8(i)
-			count++
+			this.ranks[alphabetSize] = byte(i)
+			alphabetSize++
 		}
 	}
 
 	// Create tree from frequencies
-	err := createTreeFromFrequencies(frequencies, this.sizes, this.ranks[0:count])
+	err := createTreeFromFrequencies(frequencies, this.sizes, this.ranks[0:alphabetSize])
 
 	if err != nil {
 		return err
 	}
 
-	EncodeAlphabet(this.bitstream, this.ranks[0:count])
+	EncodeAlphabet(this.bitstream, this.ranks[0:alphabetSize])
 
 	// Transmit code lengths only, frequencies and codes do not matter
 	// Unary encode the length difference
@@ -287,19 +287,19 @@ func (this *HuffmanEncoder) UpdateFrequencies(frequencies []uint) error {
 		return err
 	}
 
-	prevSize := uint8(2)
+	prevSize := byte(2)
 
-	for i := 0; i < count; i++ {
+	for i := 0; i < alphabetSize; i++ {
 		currSize := this.sizes[this.ranks[i]]
 		egenc.EncodeByte(currSize - prevSize)
 		prevSize = currSize
 	}
 
 	// Create canonical codes (reorders ranks)
-	generateCanonicalCodes(this.sizes, this.codes, this.ranks[0:count])
+	generateCanonicalCodes(this.sizes, this.codes, this.ranks[0:alphabetSize])
 
 	// Pack size and code (size <= 24 bits)
-	for i := 0; i < count; i++ {
+	for i := 0; i < alphabetSize; i++ {
 		r := this.ranks[i]
 		this.codes[r] = (uint(this.sizes[r]) << 24) | this.codes[r]
 	}
@@ -326,15 +326,15 @@ func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
 		sizeChunk = end
 	}
 
-	if startChunk+sizeChunk >= end {
-		sizeChunk = end - startChunk
-	}
-
-	endChunk := startChunk + sizeChunk
-
 	for startChunk < end {
 		for i := range buf {
 			buf[i] = 0
+		}
+
+		endChunk := startChunk + sizeChunk
+
+		if endChunk > len(block) {
+			endChunk = len(block)
 		}
 
 		for i := startChunk; i < endChunk; i++ {
@@ -349,12 +349,6 @@ func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
 		}
 
 		startChunk = endChunk
-
-		if startChunk+sizeChunk >= end {
-			sizeChunk = end - startChunk
-		}
-
-		endChunk = startChunk + sizeChunk
 	}
 
 	return len(block), nil
@@ -377,8 +371,8 @@ func (this *HuffmanEncoder) BitStream() kanzi.OutputBitStream {
 type HuffmanDecoder struct {
 	bitstream  kanzi.InputBitStream
 	codes      []uint
-	ranks      []uint8
-	sizes      []uint8
+	ranks      []byte
+	sizes      []byte
 	fdTable    []uint // Fast decoding table
 	sdTable    []uint // Slow decoding table
 	sdtIndexes []int  // Indexes for slow decoding table (can be negative)
@@ -419,9 +413,9 @@ func NewHuffmanDecoder(bs kanzi.InputBitStream, args ...uint) (*HuffmanDecoder, 
 
 	this := new(HuffmanDecoder)
 	this.bitstream = bs
-	this.sizes = make([]uint8, 256)
+	this.sizes = make([]byte, 256)
 	this.codes = make([]uint, 256)
-	this.ranks = make([]uint8, 256)
+	this.ranks = make([]byte, 256)
 	this.fdTable = make([]uint, 1<<DECODING_BATCH_SIZE)
 	this.sdTable = make([]uint, 256)
 	this.sdtIndexes = make([]int, 24)
@@ -474,7 +468,7 @@ func (this *HuffmanDecoder) ReadLengths() (int, error) {
 			}
 		}
 
-		this.sizes[r] = uint8(currSize)
+		this.sizes[r] = byte(currSize)
 		prevSize = currSize
 	}
 
@@ -506,7 +500,7 @@ func (this *HuffmanDecoder) buildDecodingTables(count int) {
 		this.sdtIndexes[i] = ABSENT
 	}
 
-	length := uint8(0)
+	length := byte(0)
 
 	for i := 0; i < count; i++ {
 		r := uint(this.ranks[i])
@@ -560,16 +554,16 @@ func (this *HuffmanDecoder) Decode(block []byte) (int, error) {
 		sizeChunk = len(block)
 	}
 
-	if startChunk+sizeChunk >= end {
-		sizeChunk = end - startChunk
-	}
-
-	endChunk := startChunk + sizeChunk
-
 	for startChunk < end {
 		// Reinitialize the Huffman tables
 		if r, err := this.ReadLengths(); r == 0 || err != nil {
 			return startChunk, err
+		}
+
+		endChunk := startChunk + sizeChunk
+
+		if endChunk > end {
+			endChunk = end
 		}
 
 		// Compute minimum number of bits requires in bitstream for fast decoding
@@ -593,14 +587,8 @@ func (this *HuffmanDecoder) Decode(block []byte) (int, error) {
 			block[i] = this.DecodeByte()
 			i++
 		}
-
+		
 		startChunk = endChunk
-
-		if startChunk+sizeChunk >= end {
-			sizeChunk = end - startChunk
-		}
-
-		endChunk = startChunk + sizeChunk
 	}
 
 	return len(block), nil
@@ -611,7 +599,7 @@ func (this *HuffmanDecoder) DecodeByte() byte {
 }
 
 func (this *HuffmanDecoder) slowDecodeByte(code int, codeLen uint) byte {
-	for codeLen < 24 {
+	for codeLen < 23 {
 		codeLen++
 		code <<= 1
 

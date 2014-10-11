@@ -276,7 +276,7 @@ public class QuadTreeGenerator
       {
          final int iend = this.x + this.w;
          final int jend = this.y + this.h;
-         final long len = this.w * this.h;
+         final int len = this.w * this.h;
          long sq_sumR = 0, sq_sumB = 0, sq_sumG = 0;
          long sumR = 0, sumG = 0, sumB = 0;
          int offs = this.y * stride;
@@ -313,7 +313,7 @@ public class QuadTreeGenerator
       {
          final int iend = this.x + this.w;
          final int jend = this.y + this.h;
-         final long len = this.w * this.h;
+         final int len = this.w * this.h;
          long sq_sum = 0;
          long sum = 0;
          int offs = this.y * stride;

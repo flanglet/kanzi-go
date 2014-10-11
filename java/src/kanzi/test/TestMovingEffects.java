@@ -53,13 +53,14 @@ public class TestMovingEffects
             {
                // Assume all files are valid images
                fileNames = file.list();
-               Arrays.sort(fileNames);
 
-               if (fileNames.length == 0)
+               if ((fileNames == null) || (fileNames.length == 0))
                {
                   System.err.println("The provided file name is a directory containing no image");
                   System.exit(1);
                }
+
+               Arrays.sort(fileNames);
 
                for (int i=0; i<fileNames.length; i++)
                   fileNames[i] = fileName + "\\" + fileNames[i];

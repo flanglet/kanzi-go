@@ -17,6 +17,7 @@ package entropy
 
 import (
 	"errors"
+	"fmt"
 	"kanzi"
 )
 
@@ -36,7 +37,7 @@ func NewRiceGolombEncoder(bs kanzi.OutputBitStream, sgn bool, logBase uint) (*Ri
 	}
 
 	if logBase <= 0 || logBase >= 8 {
-		return nil, errors.New("Invalid logBase value (must be in [1..7])")
+		return nil, fmt.Errorf("Invalid logBase '%v' value (must be in [1..7])", logBase)
 	}
 
 	this := new(RiceGolombEncoder)
@@ -87,7 +88,11 @@ func (this *RiceGolombEncoder) BitStream() kanzi.OutputBitStream {
 }
 
 func (this *RiceGolombEncoder) Encode(block []byte) (int, error) {
-	return EntropyEncodeArray(this, block)
+	for i := range block {
+		this.EncodeByte(block[i])
+	}
+
+	return len(block), nil
 }
 
 type RiceGolombDecoder struct {
@@ -146,5 +151,9 @@ func (this *RiceGolombDecoder) BitStream() kanzi.InputBitStream {
 }
 
 func (this *RiceGolombDecoder) Decode(block []byte) (int, error) {
-	return EntropyDecodeArray(this, block)
+	for i := range block {
+		block[i] = this.DecodeByte()
+	}
+
+	return len(block), nil
 }

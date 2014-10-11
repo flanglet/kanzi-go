@@ -221,7 +221,7 @@ public class FourTapUpSampler implements UpSampler
                    else
                    {
                       x0 = 0;
-                      x1 = (sx >= 1) ? 1 : 0;
+                      x1 = 0;
                    }
 
                    x2 = x1 + 1;

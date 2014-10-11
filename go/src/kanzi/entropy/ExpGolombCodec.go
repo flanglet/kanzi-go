@@ -103,7 +103,11 @@ func (this *ExpGolombEncoder) BitStream() kanzi.OutputBitStream {
 }
 
 func (this *ExpGolombEncoder) Encode(block []byte) (int, error) {
-	return EntropyEncodeArray(this, block)
+	for i := range block {
+		this.EncodeByte(block[i])
+	}
+
+	return len(block), nil
 }
 
 type ExpGolombDecoder struct {
@@ -169,5 +173,9 @@ func (this *ExpGolombDecoder) BitStream() kanzi.InputBitStream {
 }
 
 func (this *ExpGolombDecoder) Decode(block []byte) (int, error) {
-	return EntropyDecodeArray(this, block)
+	for i := range block {
+		block[i] = this.DecodeByte()
+	}
+
+	return len(block), nil
 }

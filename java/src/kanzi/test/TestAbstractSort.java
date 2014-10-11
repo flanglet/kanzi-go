@@ -39,7 +39,7 @@ public class TestAbstractSort
             byte[] b = new byte[array.length];
 
             for (int i=idx; i<b.length; i++)
-                b[i] = (byte) (array[i] & 255);
+                b[i] = (byte) array[i];
 
             System.out.println(new String(b));
 
@@ -76,7 +76,7 @@ public class TestAbstractSort
         int[] array2 = new int[10000];
         Random random = new Random();
         long before, after;
-        int[] masks = { 0xFF, 0xFFFF, 0xFFFFFF, 0x7FFFFFFF, -1 };
+        int[] vals = { 0xFF, 0xFFFF, 0xFFFFFF, 0x7FFFFFFF, Integer.MAX_VALUE };
         String empty = "                   ";
         int idx2 = sortName.length() - "arrays.sort".length();
         String adjust2 = (idx2 > 0 ) ? empty.substring(0, idx2) : "";
@@ -87,12 +87,12 @@ public class TestAbstractSort
         {
             long sum = 0;
             long sum2 = 0;
-            final int mask = masks[k];
+            final int val = vals[k];
 
             for (int ii=0; ii<iters; ii++)
             {
                 for (int i=0; i<array.length; i++)
-                    array[i] = Math.abs(random.nextInt()) & mask;
+                    array[i] = random.nextInt(val);
 
                 System.arraycopy(array, 0, array2, 0, array.length);
 

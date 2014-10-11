@@ -19,7 +19,7 @@ package kanzi.entropy;
 // symbols in the input signal
 public interface Predictor 
 {
-    // Used to update the probability model
+    // Update the probability model
     public void update(int bit);
    
     

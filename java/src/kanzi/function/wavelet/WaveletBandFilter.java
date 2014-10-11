@@ -238,7 +238,7 @@ public class WaveletBandFilter implements IntFunction
                 for (int j=0; j<w0; j++)
                 {
                    int val = block[offset+j];
-                   int scaled = (val + adjust) / q;
+                   int scaled = (q == 0) ? val : (val + adjust) / q;
 
                    if (scaled > 127)
                       scaled = 127;

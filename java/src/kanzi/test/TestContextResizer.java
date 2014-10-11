@@ -191,7 +191,7 @@ public class TestContextResizer
             frame2.setVisible(true);
 
             // Speed test
-//            if (speed == true)
+            if (speed == true)
             {
                 ExecutorService pool = Executors.newFixedThreadPool(4);
                 System.out.println("Speed test");

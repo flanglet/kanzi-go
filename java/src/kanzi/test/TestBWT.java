@@ -25,7 +25,25 @@ import kanzi.transform.BWTS;
 public class TestBWT
 {
     public static void main(String[] args)
-    {
+    {   
+        if (args.length > 0)
+        {
+           byte[] buf1 = args[0].getBytes();
+           byte[] buf2 = new byte[buf1.length];           
+           IndexedByteArray iba1 = new IndexedByteArray(buf1, 0);
+           IndexedByteArray iba2 = new IndexedByteArray(buf2, 0);
+           BWT bwt = new BWT();
+           bwt.forward(iba1, iba2);
+           System.out.print("BWT:  " + new String(buf2));
+           System.out.println(" (" + bwt.getPrimaryIndex() + ")");
+           iba1.index = 0;
+           iba2.index = 0;
+           BWTS bwts = new BWTS();
+           bwts.forward(iba1, iba2);
+           System.out.println("BWTS: " + new String(buf2));
+           System.exit(0);
+        }
+        
         System.out.println("TestBWT and TestBWTS");
         testCorrectness(true);
         testCorrectness(false);
@@ -60,13 +78,11 @@ public class TestBWT
             {
                size = 128;
                buf1 = new byte[size];
-               start = 2;
 
                for (int i=0; i<buf1.length; i++)
                {
                    buf1[i] = (byte) (65 + rnd.nextInt(4*ii));
                }
-               size -=2;
             }
 
             byte[] buf2 = new byte[buf1.length];

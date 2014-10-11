@@ -124,7 +124,7 @@ public class PAQPredictor implements Predictor
    // Also, when a bit is observed and the count of the opposite bit is large,
    // then part of this count is discarded to favor newer data over old.
 
-    private static int[][] STATE_TABLE =
+    private static final int[][] STATE_TABLE =
     {
        {  1,  2, 0, 0}, {  3,  5, 1, 0}, {  4,  6, 0, 1}, {  7, 10, 2, 0}, // 0-3
        {  8, 12, 1, 1}, {  9, 13, 1, 1}, { 11, 14, 0, 2}, { 15, 19, 3, 0}, // 4-7
@@ -193,7 +193,7 @@ public class PAQPredictor implements Predictor
     };  
 
 
-    private static int[] INV_EXP =
+    private static final int[] INV_EXP =
     {
          1,    2,    3,    6,   10,   16,   27,   45,
         73,  120,  194,  310,  488,  747, 1101, 1546,
@@ -205,7 +205,7 @@ public class PAQPredictor implements Predictor
 
     // Inverse of squash. d = ln(p/(1-p)), d scaled by 8 bits, p by 12 bits.
     // d has range -2047 to 2047 representing -8 to 8.  p has range 0 to 4095.
-    private static int[] STRETCH = init();
+    private static final int[] STRETCH = init();
 
 
     private static int[] init()
@@ -256,15 +256,14 @@ public class PAQPredictor implements Predictor
      this.bpos = 7;
    }
 
-
+   // Update the probability model
    @Override
-   public void update(int y)
+   public void update(int bit)
    {
-     // update model
-     this.states[this.ctxPtr] = STATE_TABLE[this.states[this.ctxPtr]][y];
+     this.states[this.ctxPtr] = STATE_TABLE[this.states[this.ctxPtr]][bit];
 
      // update context
-     this.c0 = (this.c0 << 1) | y;
+     this.c0 = (this.c0 << 1) | bit;
      this.bpos--;
 
      if (this.bpos < 0)
@@ -294,13 +293,13 @@ public class PAQPredictor implements Predictor
 
      // Prediction chain
      this.ctxPtr = this.c0;
-     int pred = this.sm.get(y, this.states[this.ctxPtr]);
-     pred = this.apm2.get(y, pred, this.c0 | (c1d<<8), 7);
-     pred = this.apm3.get(y, pred, this.runCtx, 8);
+     int pred = this.sm.get(bit, this.states[this.ctxPtr]);
+     pred = this.apm2.get(bit, pred, this.c0 | (c1d<<8), 7);
+     pred = this.apm3.get(bit, pred, this.runCtx, 8);
 // Disable APM5 for now. Seems like a good trade off speed/compression ratio     
 //     final int ctx = (int) (this.c0 ^ (((this.c4*123456791L) & 0xFFFFFFFFL) >> 21));
 //     pred = (this.apm5.get(y, pred, ctx, 7) + pred + 1) >> 1;
-     pred = (this.apm4.get(y, pred, this.c0, 7) + pred + 1) >> 1;
+     pred = (this.apm4.get(bit, pred, this.c0, 7) + pred + 1) >> 1;
      this.pr = (pred >= 2048) ? pred : pred+1;
    }
 
@@ -340,14 +339,12 @@ public class PAQPredictor implements Predictor
    //////////////////////////////////////////////////////////////////
    static class StateMap
    {
-      private int ctx;
-      private final int[] data;
-
-
-      StateMap()
+      private static final int[] DATA = init();
+      
+      private static int[] init() 
       {
-         this.data = new int[256];
-
+         int[] array = new int[256];
+         
          for (int i=0; i<256; i++)
          {
             int n0 = STATE_TABLE[i][2];
@@ -359,14 +356,27 @@ public class PAQPredictor implements Predictor
             if (n1 == 0)
                n0 <<= 7;
 
-            this.data[i] = (int) (((n1+1) << 16) / (n0+n1+2));
+            array[i] = (int) (((n1+1) << 16) / (n0+n1+2));   
          }
+         
+         return array;
+      }
+
+     
+      private int ctx;
+      private final int[] data;
+
+
+      StateMap()
+      {
+         this.data = new int[256];
+         System.arraycopy(DATA, 0, this.data, 0, 256);
       }
 
 
-      int get(int y, int cx)
+      int get(int bit, int cx)
       {
-         this.data[this.ctx] += (((y<<16) - this.data[this.ctx] + 128) >> 8);
+         this.data[this.ctx] += (((bit<<16) - this.data[this.ctx] + 128) >> 8);
          this.ctx = cx;
          return this.data[cx] >> 4;
       }
@@ -402,10 +412,10 @@ public class PAQPredictor implements Predictor
      }
 
 
-     int get(int y, int pr, int ctx, int rate)
+     int get(int bit, int pr, int ctx, int rate)
      {
         pr = STRETCH[pr];
-        final int g = (y<<16) + (y<<rate) - (y<<1);
+        final int g = (bit<<16) + (bit<<rate) - (bit<<1);
         this.data[this.index] += ((g-this.data[this.index]) >> rate);
         this.data[this.index+1] += ((g-this.data[this.index+1]) >> rate);
         final int w = pr & 127;  // interpolation weight (33 points)

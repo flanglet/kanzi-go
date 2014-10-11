@@ -18,6 +18,8 @@ package kanzi.io;
 
 public class IOException extends java.io.IOException 
 {
+   private static final long serialVersionUID = -9153775235137373283L;
+
    private final int code;
    
    public IOException(String msg, int code)

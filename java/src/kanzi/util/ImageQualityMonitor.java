@@ -577,9 +577,9 @@ public final class ImageQualityMonitor
             }
 
             if (d_mask_1024*d_gvar64 > s_mask_1024*s_gvar64)
-               s_mask_1024 = (long) ((Global.sqrt((int) d_mask_1024) >> 8) * (Global.sqrt(d_gvar64) >> 7));
+               s_mask_1024 = (long) (Global.sqrt((int) d_mask_1024) >> 8) * (long) (Global.sqrt(d_gvar64) >> 7);
             else
-               s_mask_1024 = (long) ((Global.sqrt((int) s_mask_1024) >> 8) * (Global.sqrt(s_gvar64) >> 7));
+               s_mask_1024 = (long) (Global.sqrt((int) s_mask_1024) >> 8) * (long) (Global.sqrt(s_gvar64) >> 7);
             
             // Calculate error
             for (int i=0; i<8; i++)
@@ -589,7 +589,7 @@ public final class ImageQualityMonitor
                for (int j=0; j<8; j++)
                {
                   final int idx = i8 + j;
-                  long err1024 = Math.abs(dct_s[idx] - dct_d[idx]) << 10;
+                  long err1024 = ((long) Math.abs(dct_s[idx] - dct_d[idx])) << 10;
 
                   if ((i != 0) || (j != 0))
                      err1024 = (err1024*mask_csf[idx]<s_mask_1024) ? 0 : err1024-(s_mask_1024/mask_csf[idx]);
@@ -602,7 +602,7 @@ public final class ImageQualityMonitor
          }
       }
 
-      return (int) (((lsum+512)>>10) / pixels);
+      return (pixels == 0) ? 0 : (int) (((lsum+512)>>10) / pixels);
    }
 
    
@@ -758,7 +758,7 @@ public final class ImageQualityMonitor
           }
        }
 
-       return (int) (ctx.sumSSIM + (iterations >> 1)) / iterations;
+       return (iterations == 0) ? 0 : (int) (ctx.sumSSIM + (iterations >> 1)) / iterations;
    }
 
 
@@ -778,7 +778,7 @@ public final class ImageQualityMonitor
      final int[] data2 = ctx.data2;
      final int[] kernel = ctx.kernel;
      int offset = yMin * ctx.w;
-     long sumWeights = 0, sumX = 0, sumY = 0, sumXY = 0, sumXX = 0, sumYY = 0;
+     long sumWeights = 1, sumX = 0, sumY = 0, sumXY = 0, sumXX = 0, sumYY = 0;
 
      for (int y=yMin; y<=yMax; y+=inc)
      {

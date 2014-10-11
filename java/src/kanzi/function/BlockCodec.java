@@ -215,7 +215,7 @@ public class BlockCodec implements ByteFunction, Sizeable
          for (int i=1; i<headerSizeBytes; i++)
          {
             shift -= 8;
-            output.array[savedOIdx+i] = (byte) (primaryIndex >>> shift);
+            output.array[savedOIdx+i] = (byte) (primaryIndex >> shift);
          }
       }
       
