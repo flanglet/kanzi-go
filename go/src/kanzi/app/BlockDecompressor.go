@@ -50,7 +50,7 @@ func NewBlockDecompressor() (*BlockDecompressor, error) {
 	var silent = flag.Bool("silent", false, "silent mode, no output (except warnings and errors)")
 	var inputName = flag.String("input", "", "mandatory name of the input file to decode")
 	var outputName = flag.String("output", "", "optional name of the output file")
-	var tasks = flag.Int("jobs", 1, "number of parallel jobs")
+	var tasks = flag.Int("jobs", 1, "number of concurrent jobs")
 
 	// Parse
 	flag.Parse()
@@ -62,7 +62,7 @@ func NewBlockDecompressor() (*BlockDecompressor, error) {
 		printOut("-silent              : silent mode, no output (except warnings and errors)", true)
 		printOut("-input=<inputName>   : mandatory name of the input file to decode", true)
 		printOut("-output=<outputName> : optional name of the output file", true)
-		printOut("-jobs=<jobs>         : number of parallel jobs", true)
+		printOut("-jobs=<jobs>         : number of concurrent jobs", true)
 		os.Exit(0)
 	}
 

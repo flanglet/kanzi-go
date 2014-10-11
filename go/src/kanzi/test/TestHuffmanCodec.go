@@ -155,8 +155,10 @@ func TestSpeed() {
 					length = 1
 				}
 
+				b := byte(rand.Intn(256))
+				
 				for j := i0; j < i0+length; j++ {
-					values1[j] = byte(uint(i0) & 0xFF)
+					values1[j] = b
 					i++
 				}
 			}

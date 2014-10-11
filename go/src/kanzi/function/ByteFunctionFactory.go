@@ -16,7 +16,6 @@ limitations under the License.
 package function
 
 import (
-	"errors"
 	"fmt"
 	"kanzi"
 	"kanzi/transform"
@@ -67,93 +66,92 @@ func NewByteFunction(size uint, functionType byte) (kanzi.ByteFunction, error) {
 
 	case NULL_TRANSFORM_TYPE:
 		return NewNullFunction(size)
-	}
 
-	errMsg := fmt.Sprintf("Unsupported function type: '%c'", functionType)
-	return nil, errors.New(errMsg)
+	default:
+		return nil, fmt.Errorf("Unsupported function type: '%c'", functionType)
+	}
 }
 
-func getGSTType(args string) (byte, error) {
+func getGSTType(args string) byte {
 	switch strings.ToUpper(args) {
 	case "MTF":
-		return GST_MODE_MTF, nil
+		return GST_MODE_MTF
 
 	case "RANK":
-		return GST_MODE_RANK, nil
+		return GST_MODE_RANK
 
 	case "TIMESTAMP":
-		return GST_MODE_TIMESTAMP, nil
+		return GST_MODE_TIMESTAMP
 
 	case "":
-		return GST_MODE_RAW, nil
+		return GST_MODE_RAW
 
 	case "NONE":
-		return GST_MODE_RAW, nil
+		return GST_MODE_RAW
+	
+	default:
+		panic(fmt.Errorf("Unknown GST type: '%v'", args))
 	}
-
-	errMsg := fmt.Sprintf("Unknown GST type: '%v'", args)
-	return byte(255), errors.New(errMsg)
 }
 
-func getGSTName(gstType int) (string, error) {
+func getGSTName(gstType int) string {
 	switch gstType {
 	case GST_MODE_MTF:
-		return "MTF", nil
+		return "MTF"
 
 	case GST_MODE_RANK:
-		return "RANK", nil
+		return "RANK"
 
 	case GST_MODE_TIMESTAMP:
-		return "TIMESTAMP", nil
+		return "TIMESTAMP"
 
 	case GST_MODE_RAW:
-		return "", nil
+		return ""
 
+	default:
+		panic(fmt.Errorf("Unknown GST type: '%v'", gstType))
 	}
-
-	errMsg := fmt.Sprintf("Unknown GST type: '%v'", gstType)
-	return "Unknown", errors.New(errMsg)
 }
 
-func GetByteFunctionName(functionType byte) (string, error) {
+func GetByteFunctionName(functionType byte) string {
 	switch byte(functionType & 0x0F) {
 
 	case SNAPPY_TYPE:
-		return "SNAPPY", nil
+		return "SNAPPY"
 
 	case LZ4_TYPE:
-		return "LZ4", nil
+		return "LZ4"
 
 	case RLT_TYPE:
-		return "RLT", nil
+		return "RLT"
 
-	case BWT_TYPE:	
-		gstName, _ := getGSTName(int(functionType) >> 4)
+	case BWT_TYPE:
+		gstName := getGSTName(int(functionType) >> 4)
 
 		if len(gstName) == 0 {
-			return "BWT", nil
+			return "BWT"
 		} else {
-			return "BWT+" + gstName, nil
+			return "BWT+" + gstName
 		}
 
 	case BWTS_TYPE:
-		gstName, _ := getGSTName(int(functionType) >> 4)
+		gstName := getGSTName(int(functionType) >> 4)
 
 		if len(gstName) == 0 {
-			return "BWTS", nil
+			return "BWTS"
 		} else {
-			return "BWTS+" + gstName, nil
+			return "BWTS+" + gstName
 		}
 
 	case NULL_TRANSFORM_TYPE:
-		return "NONE", nil
-	}
+		return "NONE"
 
-	errMsg := fmt.Sprintf("Unsupported function type: '%c'", functionType)
-	return "", errors.New(errMsg)
+	default:
+		panic(fmt.Errorf("Unsupported function type: '%c'", functionType))
+	}
 }
 
-func GetByteFunctionType(functionName string) (byte, error) {
+func GetByteFunctionType(functionName string) byte {
 	args := ""
 	functionName = strings.ToUpper(functionName)
 
@@ -169,26 +167,26 @@ func GetByteFunctionType(functionName string) (byte, error) {
 	switch functionName {
 
 	case "SNAPPY":
-		return SNAPPY_TYPE, nil
+		return SNAPPY_TYPE
 
 	case "LZ4":
-		return LZ4_TYPE, nil
+		return LZ4_TYPE
 
 	case "RLT":
-		return RLT_TYPE, nil
+		return RLT_TYPE
 
 	case "BWT":
-		gst, _ := getGSTType(args)
-		return byte((gst << 4) | BWT_TYPE), nil
+		gst := getGSTType(args)
+		return byte((gst << 4) | BWT_TYPE)
 
 	case "BWTS":
-		gst, _ := getGSTType(args)
-		return byte((gst << 4) | BWTS_TYPE), nil
+		gst := getGSTType(args)
+		return byte((gst << 4) | BWTS_TYPE)
 
 	case "NONE":
-		return NULL_TRANSFORM_TYPE, nil
-	}
+		return NULL_TRANSFORM_TYPE
 
-	errMsg := fmt.Sprintf("Unsupported function type: '%s'", functionName)
-	return byte(0), errors.New(errMsg)
+	default:
+		panic(fmt.Errorf("Unsupported function type: '%s'", functionName))
+	}
 }

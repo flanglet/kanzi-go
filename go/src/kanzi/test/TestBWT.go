@@ -16,6 +16,7 @@ limitations under the License.
 package main
 
 import (
+	"flag"
 	"fmt"
 	"kanzi"
 	"kanzi/transform"
@@ -25,6 +26,24 @@ import (
 )
 
 func main() {
+	var input = flag.String("input", "", "input string")
+
+	// Parse
+	flag.Parse()
+
+    if len(*input) > 0 {
+    	buf1 := []byte(*input)
+    	size := uint(len(buf1))
+    	buf2 := make([]byte, size)
+    	bwt, _ := transform.NewBWT(size)
+    	bwt.Forward(buf1, buf2)
+		fmt.Printf("BWT:  %s (%v)\n", buf2, bwt.PrimaryIndex())
+    	bwts, _ := transform.NewBWTS(size)
+    	bwts.Forward(buf1, buf2)
+		fmt.Printf("BWTS: %s\n", buf2)
+		os.Exit(0)
+    }
+        
 	fmt.Printf("TestBWT and TestBWTS")
 	TestCorrectness(true)
 	TestCorrectness(false)

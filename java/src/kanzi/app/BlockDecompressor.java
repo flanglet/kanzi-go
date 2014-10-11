@@ -306,7 +306,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
               printOut("-silent              : silent mode, no output (except warnings and errors)", true);
               printOut("-input=<inputName>   : mandatory name of the input file to decode", true);
               printOut("-output=<outputName> : optional name of the output file", true);
-              printOut("-jobs=<jobs>         : number of parallel jobs", true);
+              printOut("-jobs=<jobs>         : number of concurrent jobs", true);
               System.exit(0);
            }
            else if (arg.equals("-verbose"))

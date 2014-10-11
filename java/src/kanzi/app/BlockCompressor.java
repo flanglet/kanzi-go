@@ -315,12 +315,12 @@ public class BlockCompressor implements Runnable, Callable<Integer>
                printOut("-input=<inputName>   : mandatory name of the input file to encode", true);
                printOut("-output=<outputName> : optional name of the output file (defaults to <input.knz>)", true);
                printOut("-block=<size>        : size of the input blocks (max 64MB - 4 / min 1KB / default 1MB)", true);
-               printOut("-entropy=<codec>     : entropy codec to use [None|Huffman*|Range|PAQ|FPAQ]", true);
+               printOut("-entropy=<codec>     : entropy codec to use [None|Huffman*|ANS|Range|PAQ|FPAQ]", true);
                printOut("-transform=<codec>   : transform to use [None|BWT|BWTS|Snappy|LZ4|RLT]", true);
                printOut("                       for BWT(S), an optional GST can be provided: [MTF|RANK|TIMESTAMP]", true);
                printOut("                       EG: BWT+RANK or BWTS+MTF (default is BWT+MTF)", true);
                printOut("-checksum            : enable block checksum", true);
-               printOut("-jobs=<jobs>         : number of parallel jobs", true);
+               printOut("-jobs=<jobs>         : number of concurrent jobs", true);
                printOut("", true);
                printOut("EG. java -cp kanzi.jar kanzi.app.BlockCompressor -input=foo.txt -output=foo.knz -overwrite "
                        + "-transform=BWT+MTF -block=4m -entropy=FPAQ -verbose -jobs=4", true);
