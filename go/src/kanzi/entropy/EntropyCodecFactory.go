@@ -22,12 +22,12 @@ import (
 )
 
 const (
-	HUFFMAN_TYPE = byte(72)
-	NONE_TYPE    = byte(78)
-	FPAQ_TYPE    = byte(70)
-	PAQ_TYPE     = byte(80)
-	RANGE_TYPE   = byte(82)
-	ANS_TYPE     = byte(64)
+	NONE_TYPE    = byte(0)
+	HUFFMAN_TYPE = byte(1)
+	FPAQ_TYPE    = byte(2)
+	PAQ_TYPE     = byte(3)
+	RANGE_TYPE   = byte(4)
+	ANS_TYPE     = byte(5)
 )
 
 func NewEntropyDecoder(ibs kanzi.InputBitStream, entropyType byte) (kanzi.EntropyDecoder, error) {
@@ -52,7 +52,7 @@ func NewEntropyDecoder(ibs kanzi.InputBitStream, entropyType byte) (kanzi.Entrop
 
 	case NONE_TYPE:
 		return NewNullEntropyDecoder(ibs)
-		
+
 	default:
 		return nil, fmt.Errorf("Unsupported entropy codec type: '%c'", entropyType)
 	}

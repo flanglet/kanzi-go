@@ -36,13 +36,13 @@ import (
 
 const (
 	BITSTREAM_TYPE             = 0x4B414E5A // "KANZ"
-	BITSTREAM_FORMAT_VERSION   = 9
+	BITSTREAM_FORMAT_VERSION   = 0
 	STREAM_DEFAULT_BUFFER_SIZE = 1024 * 1024
 	COPY_LENGTH_MASK           = 0x0F
 	SMALL_BLOCK_MASK           = 0x80
 	SKIP_FUNCTION_MASK         = 0x40
-	MIN_BLOCK_SIZE             = 1024
-	MAX_BLOCK_SIZE             = (64 * 1024 * 1024) - 4
+	MIN_BITSTREAM_BLOCK_SIZE   = 1024
+	MAX_BITSTREAM_BLOCK_SIZE   = 512 * 1024 * 1024
 	SMALL_BLOCK_SIZE           = 15
 
 	ERR_MISSING_FILENAME    = -1
@@ -117,14 +117,18 @@ func NewCompressedOutputStream(entropyCodec string, functionType string, os kanz
 		return nil, errors.New("Invalid null output stream parameter")
 	}
 
-	if blockSize > MAX_BLOCK_SIZE {
-		errMsg := fmt.Sprintf("The block size must be at most %d", MAX_BLOCK_SIZE)
+	if blockSize > MAX_BITSTREAM_BLOCK_SIZE {
+		errMsg := fmt.Sprintf("The block size must be at most %d", MAX_BITSTREAM_BLOCK_SIZE)
 		return nil, errors.New(errMsg)
 	}
 
-	if blockSize < MIN_BLOCK_SIZE {
-		errMsg := fmt.Sprintf("The block size must be at least %d", MIN_BLOCK_SIZE)
+	if blockSize < MIN_BITSTREAM_BLOCK_SIZE {
+		errMsg := fmt.Sprintf("The block size must be at least %d", MIN_BITSTREAM_BLOCK_SIZE)
 		return nil, errors.New(errMsg)
+	}
+
+	if int(blockSize)&-8 != int(blockSize) {
+		return nil, errors.New("The block size must be a multiple of 8")
 	}
 
 	if jobs < 1 || jobs > 16 {
@@ -208,7 +212,7 @@ func (this *CompressedOutputStream) WriteHeader() *IOError {
 	if this.initialized == true {
 		return nil
 	}
-	
+
 	cksum := 0
 
 	if this.hasher != nil {
@@ -218,9 +222,9 @@ func (this *CompressedOutputStream) WriteHeader() *IOError {
 	this.obs.WriteBits(BITSTREAM_TYPE, 32)
 	this.obs.WriteBits(BITSTREAM_FORMAT_VERSION, 7)
 	this.obs.WriteBit(cksum)
-	this.obs.WriteBits(uint64(this.entropyType&0x7F), 7)
-	this.obs.WriteBits(uint64(this.transformType&0x7F), 7)
-	this.obs.WriteBits(uint64(this.blockSize), 26)
+	this.obs.WriteBits(uint64(this.entropyType&0x1F), 5)
+	this.obs.WriteBits(uint64(this.transformType&0x1F), 5)
+	this.obs.WriteBits(uint64(this.blockSize>>3), 30)
 	return nil
 }
 
@@ -236,12 +240,12 @@ func (this *CompressedOutputStream) Write(array []byte) (int, error) {
 
 	for remaining > 0 {
 		if this.curIdx >= bSize {
-			// Buffer full, time to encode
+			// Buffer full, time to encode			
 			if err := this.processBlock(); err != nil {
 				return len(array) - remaining, err
 			}
 		}
-
+		
 		lenChunk := len(array) - startChunk
 
 		if lenChunk+this.curIdx >= bSize {
@@ -265,7 +269,7 @@ func (this *CompressedOutputStream) Close() error {
 		return nil
 	}
 
-	if this.curIdx > 0 {
+	if this.curIdx > 0 {	
 		if err := this.processBlock(); err != nil {
 			return err
 		}
@@ -568,7 +572,7 @@ type CompressedInputStream struct {
 	listeners     *list.List
 }
 
-func NewCompressedInputStream(is kanzi.InputStream,
+func NewCompressedInputStream(is *BufferedInputStream,
 	debugWriter io.Writer, jobs uint) (*CompressedInputStream, error) {
 	if is == nil {
 		return nil, errors.New("Invalid null input stream parameter")
@@ -655,8 +659,7 @@ func (this *CompressedInputStream) ReadHeader() error {
 		return NewIOError(errMsg, ERR_INVALID_FILE)
 	}
 
-	header := this.ibs.ReadBits(48)
-	version := int(header>>41) & 0x7F
+	version := this.ibs.ReadBits(7)
 
 	// Sanity check
 	if version != BITSTREAM_FORMAT_VERSION {
@@ -665,9 +668,7 @@ func (this *CompressedInputStream) ReadHeader() error {
 	}
 
 	// Read block checksum
-	checksum := (header >> 40) & 1
-
-	if checksum == 1 {
+	if this.ibs.ReadBit() == 1 {
 		var err error
 		this.hasher, err = util.NewXXHash(BITSTREAM_TYPE)
 
@@ -677,15 +678,15 @@ func (this *CompressedInputStream) ReadHeader() error {
 	}
 
 	// Read entropy codec
-	this.entropyType = byte(header>>33) & 0x7F
+	this.entropyType = byte(this.ibs.ReadBits(5))
 
 	// Read transform
-	this.transformType = byte(header>>26) & 0x7F
+	this.transformType = byte(this.ibs.ReadBits(5))
 
 	// Read block size
-	this.blockSize = uint(header & 0x03FFFFFF)
+	this.blockSize = uint(this.ibs.ReadBits(30)) << 3
 
-	if this.blockSize < MIN_BLOCK_SIZE || this.blockSize > MAX_BLOCK_SIZE {
+	if this.blockSize < MIN_BITSTREAM_BLOCK_SIZE || this.blockSize > MAX_BITSTREAM_BLOCK_SIZE {
 		errMsg := fmt.Sprintf("Invalid bitstream, incorrect block size: %d", this.blockSize)
 		return NewIOError(errMsg, ERR_BLOCK_SIZE)
 	}
@@ -950,7 +951,7 @@ func (this *CompressedInputStream) decode(data, buf []byte,
 		return
 	}
 
-	if preTransformLength > MAX_BLOCK_SIZE {
+	if preTransformLength > MAX_BITSTREAM_BLOCK_SIZE {
 		// Error => cancel concurrent decoding tasks
 		errMsg := fmt.Sprintf("Invalid compressed block length: %d", preTransformLength)
 		res.err = NewIOError(errMsg, ERR_BLOCK_SIZE)

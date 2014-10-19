@@ -41,13 +41,13 @@ import kanzi.util.XXHash;
 public class CompressedInputStream extends InputStream
 {
    private static final int BITSTREAM_TYPE           = 0x4B414E5A; // "KANZ"
-   private static final int BITSTREAM_FORMAT_VERSION = 9;
+   private static final int BITSTREAM_FORMAT_VERSION = 0;
    private static final int DEFAULT_BUFFER_SIZE      = 1024*1024;
    private static final int COPY_LENGTH_MASK         = 0x0F;
    private static final int SMALL_BLOCK_MASK         = 0x80;
    private static final int SKIP_FUNCTION_MASK       = 0x40;
-   private static final int MIN_BLOCK_SIZE           = 1024;
-   private static final int MAX_BLOCK_SIZE           = (64*1024*1024) - 4;
+   private static final int MIN_BITSTREAM_BLOCK_SIZE = 1024;
+   private static final int MAX_BITSTREAM_BLOCK_SIZE = 512*1024*1024;
    private static final byte[] EMPTY_BYTE_ARRAY      = new byte[0];
    private static final int CANCEL_TASKS_ID          = -1;
 
@@ -136,15 +136,15 @@ public class CompressedInputStream extends InputStream
          this.hasher = new XXHash(BITSTREAM_TYPE);
 
       // Read entropy codec
-      this.entropyType = (byte) this.ibs.readBits(7);
+      this.entropyType = (byte) this.ibs.readBits(5);
 
       // Read transform
-      this.transformType = (byte) this.ibs.readBits(7);
+      this.transformType = (byte) this.ibs.readBits(5);
 
       // Read block size
-      this.blockSize = (int) this.ibs.readBits(26);
+      this.blockSize = (int) this.ibs.readBits(30) << 3;
 
-      if ((this.blockSize < MIN_BLOCK_SIZE) || (this.blockSize > MAX_BLOCK_SIZE))
+      if ((this.blockSize < MIN_BITSTREAM_BLOCK_SIZE) || (this.blockSize > MAX_BITSTREAM_BLOCK_SIZE))
          throw new kanzi.io.IOException("Invalid bitstream, incorrect block size: " + this.blockSize,
                  Error.ERR_BLOCK_SIZE);
 
@@ -527,7 +527,7 @@ public class CompressedInputStream extends InputStream
             {
                final int dataSize = 1 + (mode & 0x03);
                final int length = dataSize << 3;
-               final long mask = (1L << length) - 1;
+               final long mask = (1L << length) - 1;              
                preTransformLength = (int) (this.ibs.readBits(length) & mask);
             }
 
@@ -538,7 +538,7 @@ public class CompressedInputStream extends InputStream
                return 0;
             }
 
-            if ((preTransformLength < 0) || (preTransformLength > MAX_BLOCK_SIZE))
+            if ((preTransformLength < 0) || (preTransformLength > MAX_BITSTREAM_BLOCK_SIZE))
             {
                // Error => cancel concurrent decoding tasks
                this.processedBlockId.set(CANCEL_TASKS_ID);

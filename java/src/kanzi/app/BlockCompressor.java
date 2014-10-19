@@ -20,6 +20,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -33,6 +34,7 @@ import kanzi.io.BlockListener;
 import kanzi.io.CompressedOutputStream;
 import kanzi.io.Error;
 import kanzi.io.InfoPrinter;
+import kanzi.io.NullOutputStream;
 
 
 public class BlockCompressor implements Runnable, Callable<Integer>
@@ -170,29 +172,35 @@ public class BlockCompressor implements Runnable, Callable<Integer>
 
       try
       {
-         File output = new File(this.outputName);
-
-         if (output.exists())
+         File output = null;
+         
+         if (!this.outputName.equalsIgnoreCase("NONE"))
          {
-            if (output.isDirectory())
+           output = new File(this.outputName);
+         
+            if (output.exists())
             {
-               System.err.println("The output file is a directory");
-               return Error.ERR_OUTPUT_IS_DIR;
-            }
+               if (output.isDirectory())
+               {
+                  System.err.println("The output file is a directory");
+                  return Error.ERR_OUTPUT_IS_DIR;
+               }
 
-            if (this.overwrite == false)
-            {
-               System.err.println("The output file exists and the 'overwrite' command "
-                       + "line option has not been provided");
-               return Error.ERR_OVERWRITE_FILE;
+               if (this.overwrite == false)
+               {
+                  System.err.println("The output file exists and the 'overwrite' command "
+                          + "line option has not been provided");
+                  return Error.ERR_OVERWRITE_FILE;
+               }
             }
          }
-
+         
          try
          {
             PrintStream ds = (this.verbose == true) ? System.out : null;
+            OutputStream fos = (output == null) ? new NullOutputStream() : new FileOutputStream(output);
             this.cos = new CompressedOutputStream(this.codec, this.transform,
-                 new FileOutputStream(output), this.blockSize, this.checksum,
+                 fos, this.blockSize, this.checksum,
                  ds, this.pool, this.jobs);
             
             for (BlockListener bl : this.listeners)
@@ -313,10 +321,10 @@ public class BlockCompressor implements Runnable, Callable<Integer>
                printOut("-silent              : silent mode, no output (except warnings and errors)", true);
                printOut("-overwrite           : overwrite the output file if it already exists", true);
                printOut("-input=<inputName>   : mandatory name of the input file to encode", true);
-               printOut("-output=<outputName> : optional name of the output file (defaults to <input.knz>)", true);
-               printOut("-block=<size>        : size of the input blocks (max 64MB - 4 / min 1KB / default 1MB)", true);
+               printOut("-output=<outputName> : optional name of the output file (defaults to <input.knz>) or 'none' for dry-run", true);
+               printOut("-block=<size>        : size of the input blocks, multiple of 8, max 512 MB (depends on transform), min 1KB, default 1MB", true);
                printOut("-entropy=<codec>     : entropy codec to use [None|Huffman*|ANS|Range|PAQ|FPAQ]", true);
-               printOut("-transform=<codec>   : transform to use [None|BWT|BWTS|Snappy|LZ4|RLT]", true);
+               printOut("-transform=<codec>   : transform to use [None|BWT*|BWTS|Snappy|LZ4|RLT]", true);
                printOut("                       for BWT(S), an optional GST can be provided: [MTF|RANK|TIMESTAMP]", true);
                printOut("                       EG: BWT+RANK or BWTS+MTF (default is BWT+MTF)", true);
                printOut("-checksum            : enable block checksum", true);
@@ -442,13 +450,13 @@ public class BlockCompressor implements Runnable, Callable<Integer>
     }
     
 
-    public boolean addListener(BlockListener bl)
+    public final boolean addListener(BlockListener bl)
     {
        return (bl != null) ? this.listeners.add(bl) : false;
     }
 
    
-    public boolean removeListener(BlockListener bl)
+    public final boolean removeListener(BlockListener bl)
     {
        return (bl != null) ? this.listeners.remove(bl) : false;
     }

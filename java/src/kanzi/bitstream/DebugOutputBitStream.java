@@ -102,7 +102,7 @@ public final class DebugOutputBitStream implements OutputBitStream
 
     // Processes the least significant bit of the input integer
     @Override
-    public synchronized boolean writeBit(int bit) throws BitStreamException
+    public synchronized void writeBit(int bit) throws BitStreamException
     {
          bit &= 1;
          this.out.print((bit == 1) ? "1" : "0");
@@ -139,7 +139,7 @@ public final class DebugOutputBitStream implements OutputBitStream
                  this.printByte(this.current);
          }
 
-        return this.delegate.writeBit(bit);
+        this.delegate.writeBit(bit);
     }
 
 

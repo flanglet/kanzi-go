@@ -49,23 +49,25 @@ public class FunctionFactory
          }
       }
       
-      switch (name)
-      {
-         case "SNAPPY":
+      if (name.equalsIgnoreCase("SNAPPY"))
             return SNAPPY_TYPE;
-         case "LZ4":
+      
+      if (name.equalsIgnoreCase("LZ4"))
             return LZ4_TYPE;
-         case "RLT":
+      
+      if (name.equalsIgnoreCase("RLT"))
             return RLT_TYPE;
-         case "BWT": 
+      
+      if (name.equalsIgnoreCase("BWT")) 
             return (byte) ((getGSTType(args) << 4) | BWT_TYPE);
-         case "BWTS":
+      
+      if (name.equalsIgnoreCase("BWTS"))
             return (byte) ((getGSTType(args) << 4) | BWTS_TYPE);
-         case "NONE":
+      
+      if (name.equalsIgnoreCase("NONE"))
             return NULL_TRANSFORM_TYPE;
-         default:
-            throw new IllegalArgumentException("Unknown transform type: " + name);
-      }
+ 
+      throw new IllegalArgumentException("Unknown transform type: " + name);
    }
 
 
@@ -74,20 +76,19 @@ public class FunctionFactory
       if (args == null)
          throw new IllegalArgumentException("Missing GST type");
       
-      switch (args.toUpperCase())
-      {
-         case "MTF":
-            return BlockCodec.MODE_MTF;
-         case "RANK":
-            return BlockCodec.MODE_RANK;
-         case "TIMESTAMP":
-            return BlockCodec.MODE_TIMESTAMP;
-         case "":
-         case "NONE":
-            return BlockCodec.MODE_RAW;
-         default:
-            throw new IllegalArgumentException("Unknown GST type: " + args);
-      }
+      if ((args.length() == 0) || (args.equalsIgnoreCase("NONE")))
+         return BlockCodec.MODE_RAW;
+      
+      if (args.equalsIgnoreCase("MTF"))
+         return BlockCodec.MODE_MTF;
+      
+      if (args.equalsIgnoreCase("RANK"))        
+         return BlockCodec.MODE_RANK;
+      
+      if (args.equalsIgnoreCase("TIMESTAMP"))
+         return BlockCodec.MODE_TIMESTAMP;
+      
+       throw new IllegalArgumentException("Unknown GST type: " + args);
    }
    
    
@@ -97,16 +98,22 @@ public class FunctionFactory
       {
          case SNAPPY_TYPE:
             return new SnappyCodec(size);
+            
          case LZ4_TYPE:
             return new LZ4Codec(size);
+            
          case RLT_TYPE:
             return new RLT(size);
+            
          case NULL_TRANSFORM_TYPE:
             return new NullFunction(size);
+            
          case BWT_TYPE:
             return new BlockCodec(new BWT(), type >>> 4, size); 
+            
           case BWTS_TYPE:
             return new BlockCodec(new BWTS(), type >>> 4, size); 
+             
          default:
             throw new IllegalArgumentException("Unknown transform type: " + (char) type);
       }

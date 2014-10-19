@@ -45,7 +45,7 @@ const (
 	GST_MODE_RANK       = 2
 	GST_MODE_TIMESTAMP  = 3
 	BWT_MAX_HEADER_SIZE = 4
-	MAX_BLOCK_SIZE      = 64 * 1024 * 1024
+	MAX_BLOCK_SIZE      = 256 * 1024 * 1024  // 30 bits
 )
 
 type BlockCodec struct {
@@ -83,7 +83,13 @@ func NewBlockCodec(tr interface{}, mode int, blockSize uint) (*BlockCodec, error
 	this.isBWT = isBWT
 
 	if blockSize > this.maxBlockSize() {
-		errMsg := fmt.Sprintf("The block size must be at most %d", this.maxBlockSize())
+		transformName := "BWT"
+		
+		if this.isBWT == false {
+			transformName = "BWTS"
+		}
+		
+		errMsg := fmt.Sprintf("The max block size for the %v is %d", transformName, this.maxBlockSize())
 		return nil, errors.New(errMsg)
 	}
 
@@ -106,7 +112,7 @@ func (this *BlockCodec) createGST(blockSize uint) (kanzi.ByteTransform, error) {
 func (this *BlockCodec) maxBlockSize() uint {
 	maxSize := uint(MAX_BLOCK_SIZE)
 
-	if this.isBWT {
+	if this.isBWT == true {
 		maxSize -= BWT_MAX_HEADER_SIZE
 	}
 
@@ -308,5 +314,9 @@ func (this BlockCodec) MaxEncodedLen(srcLen int) int {
 	// Return input buffer size + max header size
 	// If forward() fails due to output buffer size, the block is returned
 	// unmodified with an error
-	return srcLen + 4
+	if this.isBWT == true {
+		return srcLen + 4
+	}
+	
+	return srcLen
 }

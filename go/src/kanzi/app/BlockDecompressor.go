@@ -19,6 +19,7 @@ import (
 	"container/list"
 	"flag"
 	"fmt"
+	"kanzi"
 	"kanzi/io"
 	"os"
 	"runtime"
@@ -49,7 +50,7 @@ func NewBlockDecompressor() (*BlockDecompressor, error) {
 	var overwrite = flag.Bool("overwrite", false, "overwrite the output file if it already exists")
 	var silent = flag.Bool("silent", false, "silent mode, no output (except warnings and errors)")
 	var inputName = flag.String("input", "", "mandatory name of the input file to decode")
-	var outputName = flag.String("output", "", "optional name of the output file")
+	var outputName = flag.String("output", "", "optional name of the output file or 'none' for dry-run")
 	var tasks = flag.Int("jobs", 1, "number of concurrent jobs")
 
 	// Parse
@@ -61,8 +62,10 @@ func NewBlockDecompressor() (*BlockDecompressor, error) {
 		printOut("-overwrite           : overwrite the output file if it already exists", true)
 		printOut("-silent              : silent mode, no output (except warnings and errors)", true)
 		printOut("-input=<inputName>   : mandatory name of the input file to decode", true)
-		printOut("-output=<outputName> : optional name of the output file", true)
+		printOut("-output=<outputName> : optional name of the output file or 'none' for dry-run", true)
 		printOut("-jobs=<jobs>         : number of concurrent jobs", true)
+		printOut("", true)
+		printOut("EG. go run BlockDecompressor -input=foo.knz -overwrite -verbose -jobs=2", true)
 		os.Exit(0)
 	}
 
@@ -166,24 +169,30 @@ func (this *BlockDecompressor) call() (int, uint64) {
 
 	msg = fmt.Sprintf("Using %d job%s", this.jobs, prefix)
 	printOut(msg, this.verbose)
+	var output kanzi.OutputStream
 
-	output, err := os.OpenFile(this.outputName, os.O_RDWR, 666)
-
-	if err == nil {
-		// File exists
-		if this.overwrite == false {
-			fmt.Printf("The output file '%v' exists and the 'overwrite' command ", this.outputName)
-			fmt.Println("line option has not been provided")
-			output.Close()
-			return io.ERR_OVERWRITE_FILE, 0
-		}
+	if strings.ToUpper(this.outputName) == "NONE" {
+		output, _ = io.NewNullOutputStream()
 	} else {
-		// File does not exist, create
-		output, err = os.Create(this.outputName)
+		var err error
+		output, err = os.OpenFile(this.outputName, os.O_RDWR, 666)
 
-		if err != nil {
-			fmt.Printf("Cannot open output file '%v' for writing: %v\n", this.outputName, err)
-			return io.ERR_CREATE_FILE, 0
+		if err == nil {
+			// File exists
+			if this.overwrite == false {
+				fmt.Printf("The output file '%v' exists and the 'overwrite' command ", this.outputName)
+				fmt.Println("line option has not been provided")
+				output.Close()
+				return io.ERR_OVERWRITE_FILE, 0
+			}
+		} else {
+			// File does not exist, create
+			output, err = os.Create(this.outputName)
+
+			if err != nil {
+				fmt.Printf("Cannot open output file '%v' for writing: %v\n", this.outputName, err)
+				return io.ERR_CREATE_FILE, 0
+			}
 		}
 	}
 
@@ -259,7 +268,10 @@ func (this *BlockDecompressor) call() (int, uint64) {
 
 	// Close streams to ensure all data are flushed
 	// Deferred close is fallback for error paths
-	cis.Close()
+	if err := cis.Close(); err != nil {
+		fmt.Printf("%v\n", err)
+		return io.ERR_PROCESS_BLOCK, read
+	}
 
 	after := time.Now()
 	delta := after.Sub(before).Nanoseconds() / 1000000 // convert to ms

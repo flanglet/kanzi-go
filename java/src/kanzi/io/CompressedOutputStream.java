@@ -43,14 +43,14 @@ import kanzi.util.XXHash;
 // - step 2: an EntropyEncoder is used to entropy code the results of step 1 (bytes input, bits output)
 public class CompressedOutputStream extends OutputStream
 {
-   private static final int DEFAULT_BLOCK_SIZE       = 1024 * 1024; // Default block size
+   private static final int DEFAULT_BLOCK_SIZE       = 1024*1024; // Default block size
    private static final int BITSTREAM_TYPE           = 0x4B414E5A; // "KANZ"
-   private static final int BITSTREAM_FORMAT_VERSION = 9;
+   private static final int BITSTREAM_FORMAT_VERSION = 0;
    private static final int COPY_LENGTH_MASK         = 0x0F;
    private static final int SMALL_BLOCK_MASK         = 0x80;
    private static final int SKIP_FUNCTION_MASK       = 0x40;
-   private static final int MIN_BLOCK_SIZE           = 1024;
-   private static final int MAX_BLOCK_SIZE           = (64*1024*1024) - 4;
+   private static final int MIN_BITSTREAM_BLOCK_SIZE = 1024;
+   private static final int MAX_BITSTREAM_BLOCK_SIZE = 512*1024*1024;
    private static final int SMALL_BLOCK_SIZE         = 15;
    private static final byte[] EMPTY_BYTE_ARRAY      = new byte[0];
 
@@ -97,11 +97,14 @@ public class CompressedOutputStream extends OutputStream
       if (os == null)
          throw new NullPointerException("Invalid null output stream parameter");
 
-      if (blockSize > MAX_BLOCK_SIZE)
-         throw new IllegalArgumentException("The block size must be at most "+MAX_BLOCK_SIZE);
+      if (blockSize > MAX_BITSTREAM_BLOCK_SIZE)
+         throw new IllegalArgumentException("The block size must be at most "+MAX_BITSTREAM_BLOCK_SIZE);
 
-      if (blockSize < MIN_BLOCK_SIZE)
-         throw new IllegalArgumentException("The block size must be at least "+MIN_BLOCK_SIZE);
+      if (blockSize < MIN_BITSTREAM_BLOCK_SIZE)
+         throw new IllegalArgumentException("The block size must be at least "+MIN_BITSTREAM_BLOCK_SIZE);
+
+      if ((blockSize & -8) != blockSize)
+         throw new IllegalArgumentException("The block size must be a multiple of 8");
 
       if ((jobs < 1) || (jobs > 16))
          throw new IllegalArgumentException("The number of jobs must be in [1..16]");
@@ -139,16 +142,16 @@ public class CompressedOutputStream extends OutputStream
       if (this.obs.writeBits(BITSTREAM_FORMAT_VERSION, 7) != 7)
          throw new kanzi.io.IOException("Cannot write bitstream version to header", Error.ERR_WRITE_FILE);
 
-      if (this.obs.writeBit((this.hasher != null) ? 1 : 0) == false)
+      if (this.obs.writeBits((this.hasher != null) ? 1 : 0, 1) != 1)
          throw new kanzi.io.IOException("Cannot write checksum to header", Error.ERR_WRITE_FILE);
-
-      if (this.obs.writeBits(this.entropyType & 0x7F, 7) != 7)
+      
+      if (this.obs.writeBits(this.entropyType & 0x1F, 5) != 5)
          throw new kanzi.io.IOException("Cannot write entropy type to header", Error.ERR_WRITE_FILE);
 
-      if (this.obs.writeBits(this.transformType & 0x7F, 7) != 7)
+      if (this.obs.writeBits(this.transformType & 0x1F, 5) != 5)
          throw new kanzi.io.IOException("Cannot write transform type to header", Error.ERR_WRITE_FILE);
 
-      if (this.obs.writeBits(this.blockSize, 26) != 26)
+      if (this.obs.writeBits(this.blockSize >> 3, 30) != 30)
          throw new kanzi.io.IOException("Cannot write block size to header", Error.ERR_WRITE_FILE);
    }
 
@@ -479,7 +482,7 @@ public class CompressedOutputStream extends OutputStream
             if (typeOfTransform == FunctionFactory.NULL_TRANSFORM_TYPE)
                buffer.array = data.array; // share buffers if no transform
             else if (buffer.array.length < requiredSize)
-                buffer.array = new byte[requiredSize];
+               buffer.array = new byte[requiredSize];
 
             buffer.index = 0;
             byte mode = 0;

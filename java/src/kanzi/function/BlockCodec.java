@@ -49,7 +49,7 @@ public class BlockCodec implements ByteFunction, Sizeable
    public static final int MODE_TIMESTAMP = 3;
  
    private static final int BWT_MAX_HEADER_SIZE  = 4;
-   private static final int MAX_BLOCK_SIZE       = (64*1024*1024);
+   private static final int MAX_BLOCK_SIZE = 256*1024*1024; // 30 bits
 
    private final int mode;
    private final boolean isBWT;
@@ -91,7 +91,8 @@ public class BlockCodec implements ByteFunction, Sizeable
       this.isBWT = (transform instanceof BWT);  
 
       if (blockSize > this.maxBlockSize())
-         throw new IllegalArgumentException("The block size must be at most " + this.maxBlockSize());
+         throw new IllegalArgumentException("The max block size for the BWT" +
+                 ((this.isBWT) ? "" : "S") + " is " + this.maxBlockSize());
    }
 
 
@@ -300,6 +301,6 @@ public class BlockCodec implements ByteFunction, Sizeable
       // Return input buffer size + max header size
       // If forward() fails due to output buffer size, the block is returned 
       // unmodified with an error
-      return srcLen + 4; 
+      return srcLen + (this.isBWT ? 4 : 0); 
    }
 }

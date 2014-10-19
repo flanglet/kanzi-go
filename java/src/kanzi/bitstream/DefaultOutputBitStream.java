@@ -51,7 +51,7 @@ public final class DefaultOutputBitStream implements OutputBitStream
 
    // Write least significant bit of the input integer. Trigger exception if stream is closed
    @Override
-   public boolean writeBit(int bit)
+   public void writeBit(int bit)
    {
       if (this.bitIndex <= 0) // bitIndex = -1 if stream is closed => force pushCurrent()
       {
@@ -63,8 +63,6 @@ public final class DefaultOutputBitStream implements OutputBitStream
          this.current |= ((long) (bit & 1) << this.bitIndex);
          this.bitIndex--;
       }
-
-      return true;
    }
 
 

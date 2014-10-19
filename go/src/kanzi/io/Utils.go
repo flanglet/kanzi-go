@@ -17,6 +17,7 @@ package io
 
 import (
 	"bufio"
+	"errors"
 	"os"
 )
 
@@ -64,4 +65,27 @@ func (this *BufferedInputStream) Read(b []byte) (n int, err error) {
 
 func (this *BufferedInputStream) Close() error {
 	return this.file.Close()
+}
+
+type NullOutputStream struct {
+	closed bool
+}
+
+func NewNullOutputStream() (*NullOutputStream, error) {
+	bos := new(NullOutputStream)
+	bos.closed = false
+	return bos, nil
+}
+
+func (this *NullOutputStream) Write(b []byte) (n int, err error) {
+	if this.closed == true {
+		panic(errors.New("File closed"))
+	}
+
+	return len(b), nil
+}
+
+func (this *NullOutputStream) Close() error {
+	this.closed = true
+	return nil
 }

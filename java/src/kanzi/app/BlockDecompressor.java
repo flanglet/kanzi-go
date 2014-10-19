@@ -33,6 +33,7 @@ import kanzi.IndexedByteArray;
 import kanzi.io.BlockListener;
 import kanzi.io.CompressedInputStream;
 import kanzi.io.InfoPrinter;
+import kanzi.io.NullOutputStream;
 
 
 
@@ -155,45 +156,53 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
 
       long read = 0;
       printOut("Decoding ...", !this.silent);
-      File output;
 
-      try
+      if (this.outputName.equalsIgnoreCase("NONE"))
       {
-         output = new File(this.outputName);
-
-         if (output.exists())
+         this.fos = new NullOutputStream();
+      }
+      else
+      {
+         File output;
+         
+         try
          {
-            if (output.isDirectory())
-            {
-               System.err.println("The output file is a directory");
-               return Error.ERR_OUTPUT_IS_DIR;
-            }
+            output = new File(this.outputName);
 
-            if (this.overwrite == false)
+            if (output.exists())
             {
-               System.err.println("The output file exists and the 'overwrite' command "
-                       + "line option has not been provided");
-               return Error.ERR_OVERWRITE_FILE;
+               if (output.isDirectory())
+               {
+                  System.err.println("The output file is a directory");
+                  return Error.ERR_OUTPUT_IS_DIR;
+               }
+
+               if (this.overwrite == false)
+               {
+                  System.err.println("The output file exists and the 'overwrite' command "
+                          + "line option has not been provided");
+                  return Error.ERR_OVERWRITE_FILE;
+               }
             }
          }
-      }
-      catch (Exception e)
-      {
-         System.err.println("Cannot open output file '"+ this.outputName+"' for writing: " + e.getMessage());
-         return Error.ERR_CREATE_FILE;
-      }
+         catch (Exception e)
+         {
+            System.err.println("Cannot open output file '"+ this.outputName+"' for writing: " + e.getMessage());
+            return Error.ERR_CREATE_FILE;
+         }
 
-      try
-      {
-         // Create output steam (note: it creates the file yielding file.exists()
-         // to return true so it must be called after the check).
-         this.fos = new FileOutputStream(output);
-      }
-      catch (IOException e)
-      {
-         System.err.println("Cannot open output file '"+ this.outputName+"' for writing: " + e.getMessage());
-         return Error.ERR_CREATE_FILE;
-      }
+         try
+         {
+            // Create output stream (note: it creates the file yielding file.exists()
+            // to return true so it must be called after the check).
+            this.fos = new FileOutputStream(output);
+         }
+         catch (IOException e)
+         {
+            System.err.println("Cannot open output file '"+ this.outputName+"' for writing: " + e.getMessage());
+            return Error.ERR_CREATE_FILE;
+         }
+      } 
 
       try
       {
@@ -305,8 +314,10 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
               printOut("-overwrite           : overwrite the output file if it already exists", true);
               printOut("-silent              : silent mode, no output (except warnings and errors)", true);
               printOut("-input=<inputName>   : mandatory name of the input file to decode", true);
-              printOut("-output=<outputName> : optional name of the output file", true);
+              printOut("-output=<outputName> : optional name of the output file or 'none' for dry-run", true);
               printOut("-jobs=<jobs>         : number of concurrent jobs", true);
+              printOut("", true);
+              printOut("EG. java -cp kanzi.jar kanzi.app.BlockDecompressor -input=foo.knz -overwrite -verbose -jobs=2", true);
               System.exit(0);
            }
            else if (arg.equals("-verbose"))
@@ -387,13 +398,13 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
     }
     
 
-    public boolean addListener(BlockListener bl)
+    public final boolean addListener(BlockListener bl)
     {
        return (bl != null) ? this.listeners.add(bl) : false;
     }
 
    
-    public boolean removeListener(BlockListener bl)
+    public final boolean removeListener(BlockListener bl)
     {
        return (bl != null) ? this.listeners.remove(bl) : false;
     }

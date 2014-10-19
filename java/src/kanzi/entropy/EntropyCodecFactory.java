@@ -23,12 +23,12 @@ import kanzi.OutputBitStream;
 
 public class EntropyCodecFactory 
 {
-   public static final byte HUFFMAN_TYPE = 72;
-   public static final byte NONE_TYPE    = 78;
-   public static final byte FPAQ_TYPE    = 70;
-   public static final byte PAQ_TYPE     = 80;
-   public static final byte RANGE_TYPE   = 82;
-   public static final byte ANS_TYPE     = 64;
+   public static final byte NONE_TYPE    = 0;
+   public static final byte HUFFMAN_TYPE = 1;
+   public static final byte FPAQ_TYPE    = 2;
+   public static final byte PAQ_TYPE     = 3;
+   public static final byte RANGE_TYPE   = 4;
+   public static final byte ANS_TYPE     = 5;
    
    
    public EntropyDecoder newDecoder(InputBitStream ibs, byte entropyType)
@@ -107,23 +107,26 @@ public class EntropyCodecFactory
   
    public byte getType(String name)
    {
-      switch (name.toUpperCase())
-      {
-         case "HUFFMAN":
-            return HUFFMAN_TYPE; 
-         case "ANS":
-            return ANS_TYPE; 
-         case "FPAQ":
-            return FPAQ_TYPE;
-         case "PAQ":
-            return PAQ_TYPE;
-         case "RANGE":
-            return RANGE_TYPE; 
-         case "NONE":
-            return NONE_TYPE;
-         default:
-            throw new IllegalArgumentException("Unsupported entropy codec type: " + name);
-      }
+      if (name.equalsIgnoreCase("HUFFMAN"))
+         return HUFFMAN_TYPE; 
+      
+      if (name.equalsIgnoreCase("ANS"))
+         return ANS_TYPE; 
+      
+      if (name.equalsIgnoreCase("FPAQ"))
+         return FPAQ_TYPE;
+      
+      if (name.equalsIgnoreCase("PAQ"))
+         return PAQ_TYPE;
+      
+      if (name.equalsIgnoreCase("RANGE"))
+         return RANGE_TYPE; 
+      
+      if (name.equalsIgnoreCase("NONE"))
+         return NONE_TYPE;
+
+      throw new IllegalArgumentException("Unsupported entropy codec type: " + name); 
    } 
    
 }
+
