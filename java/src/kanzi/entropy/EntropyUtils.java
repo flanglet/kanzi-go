@@ -232,19 +232,19 @@ public class EntropyUtils
    // Not thread safe
    // Returns the size of the alphabet
    // The alphabet and freqs parameters are updated
-   public int normalizeFrequencies(int[] freqs, int[] alphabet, int count, int logRange)
+   public int normalizeFrequencies(int[] freqs, int[] alphabet, int count, int scale)
    {
       if (count == 0)
          return 0;
 
-      if ((logRange < 8) || (logRange > 16))
-         throw new IllegalArgumentException("Invalid range parameter: "+ logRange +
-                 " (must be in [8..16])");
+      if ((scale < 1<<8) || (scale > 1<<16))
+         throw new IllegalArgumentException("Invalid scale parameter: "+ scale +
+                 " (must be in [256..65536])");
 
       int alphabetSize = 0;
 
       // range == count shortcut
-      if (count == 1<<logRange)
+      if (count == scale)
       {
          for (int i=0; i<256; i++)
          {
@@ -263,7 +263,7 @@ public class EntropyUtils
 
       final int[] ranks = this.buf1;
       final int[] errors = this.buf2;
-      int sum = -(1 << logRange);
+      int sum = -scale;
 
       // Scale frequencies by stretching distribution over complete range
       for (int i=0; i<256; i++)
@@ -275,7 +275,7 @@ public class EntropyUtils
          if (freqs[i] == 0)
             continue;
 
-         long sf = (long) freqs[i] << logRange;
+         long sf = (long) freqs[i] * scale;
          int scaledFreq = (int) (sf / count);
 
          if (scaledFreq == 0)
@@ -310,7 +310,7 @@ public class EntropyUtils
 
       if (alphabetSize == 1)
       {
-         freqs[alphabet[0]] = 1 << logRange;
+         freqs[alphabet[0]] = scale;
          return 1;
       }
 
@@ -338,7 +338,7 @@ public class EntropyUtils
 
              // Distort frequency and error
              freqs[fsd.symbol] += inc;
-             errors[fsd.symbol] -= (1 << logRange);
+             errors[fsd.symbol] -= scale;
              sum += inc;
              queue.add(fsd);
          }
@@ -363,6 +363,26 @@ public class EntropyUtils
       }
 
 
+      @Override
+      public boolean equals(Object o)
+      {
+         if (o == null)
+            return false;
+         
+         if (this == o)
+            return true;
+         
+         return ((FreqSortData) o).symbol == this.symbol;
+      }
+
+      
+      @Override
+      public int hashCode() 
+      {
+         return this.symbol;
+      }
+      
+      
       @Override
       public int compareTo(FreqSortData sd)
       {

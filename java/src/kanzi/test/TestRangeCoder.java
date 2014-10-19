@@ -15,11 +15,12 @@ limitations under the License.
 
 package kanzi.test;
 
-import kanzi.BitStreamException;
+import kanzi.bitstream.DebugInputBitStream;
 import kanzi.entropy.RangeDecoder;
 import kanzi.entropy.RangeEncoder;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.util.Random;
 import kanzi.InputBitStream;
 import kanzi.OutputBitStream;
 import kanzi.bitstream.DebugOutputBitStream;
@@ -35,34 +36,48 @@ public class TestRangeCoder
         testCorrectness();
         testSpeed();
     }
-    
-    
+
+
     public static void testCorrectness()
     {
         // Test behavior
         System.out.println("Correctness test");
-        
+
         for (int ii=1; ii<20; ii++)
         {
             System.out.println("\n\nTest "+ii);
-            
+
             try
             {
                 byte[] values;
                 java.util.Random random = new java.util.Random();
 
                 if (ii == 3)
-                     values = new byte[] { 0, 0, 32, 15, -4, 16, 0, 16, 0, 7, -1, -4, -32, 0, 31, -1 };
+                   values = new byte[] { 0, 0, 32, 15, -4, 16, 0, 16, 0, 7, -1, -4, -32, 0, 31, -1 };
                 else if (ii == 2)
                      values = new byte[] { 0x3d, 0x4d, 0x54, 0x47, 0x5a, 0x36, 0x39, 0x26, 0x72, 0x6f, 0x6c, 0x65, 0x3d, 0x70, 0x72, 0x65 };
-                else if (ii == 1)
+                else if (ii == 4)
                      values = new byte[] { 65, 71, 74, 66, 76, 65, 69, 77, 74, 79, 68, 75, 73, 72, 77, 68, 78, 65, 79, 79, 78, 66, 77, 71, 64, 70, 74, 77, 64, 67, 71, 64 };
-                else
+                else if (ii == 1)
                 {
                      values = new byte[32];
 
                      for (int i=0; i<values.length; i++)
-                          values[i] = (byte) (64 + (random.nextInt() & 15));
+                          values[i] = 2; // all identical
+                }
+                else if (ii == 5)
+                {
+                     values = new byte[70];
+
+                     for (int i=0; i<values.length; i++)
+                          values[i] = (byte) (2 + (i&1)); // 2 symbols
+                }
+                else
+                {
+                     values = new byte[70];
+
+                     for (int i=0; i<values.length; i++)
+                          values[i] = (byte) (random.nextInt() & 31);
                 }
 
                 System.out.println("Original:");
@@ -75,40 +90,44 @@ public class TestRangeCoder
                 OutputBitStream bs = new DefaultOutputBitStream(os, 16384);
                 DebugOutputBitStream dbgbs = new DebugOutputBitStream(bs, System.out);
                 dbgbs.showByte(true);
-                RangeEncoder rc = new RangeEncoder(dbgbs);
-                rc.encode(values, 0, values.length);    
+                dbgbs.setMark(true);
+                int[] freq = new int[256];
 
-                //dbgbs.flush();
+                for (int i=0; i<values.length; i++)
+                    freq[values[i] & 255]++;
+
+                RangeEncoder rc = new RangeEncoder(dbgbs);
+                rc.encode(values, 0, values.length);
                 rc.dispose();
                 dbgbs.close();
+                System.out.println();
                 byte[] buf = os.toByteArray();
-                InputBitStream bs2 = new DefaultInputBitStream(new ByteArrayInputStream(buf), 1024);
-                RangeDecoder rd = new RangeDecoder(bs2);
+                InputBitStream bs2 = new DefaultInputBitStream(new ByteArrayInputStream(buf), 16384);
+                DebugInputBitStream dbgbs2 = new DebugInputBitStream(bs2, System.out);
+                dbgbs2.setMark(true);
+                RangeDecoder rd = new RangeDecoder(dbgbs2);
                 System.out.println("\nDecoded:");
                 int len = values.length; // buf.length >> 3;
                 boolean ok = true;
+                byte[] values2 = new byte[values.length];
+                rd.decode(values2, 0, values.length);
 
-                for (int i=0, j=0; i<len; i++)
+                for (int j=0; j<len; j++)
                 {
-                    try
-                    {
-                        byte n = rd.decodeByte();
-
-                        if (values[j++] != n)
-                           ok = false;
-
-                        System.out.print(n+" ");
-                    }
-                    catch (BitStreamException e)
-                    {
-                        e.printStackTrace();
-                        break;
-                    }
+                   if (values2[j] != values[j])
+                   {
+                      ok = false;
+                      break;
+                   }
                 }
 
-                System.out.println("\n"+((ok == true) ? "Identical" : "Different"));
-                rc.dispose();
-                bs2.close();
+                System.out.println();
+
+                for (int i=0; i<values2.length; i++)
+                    System.out.print(values2[i]+" ");
+
+                System.out.println("\n"+((ok == true) ? "Identical" : "! *** Different *** !"));
+                rd.dispose();
             }
             catch (Exception e)
             {
@@ -117,11 +136,11 @@ public class TestRangeCoder
         }
      }
 
-    
+
      public static void testSpeed()
      {
         // Test speed
-        System.out.println("\n\nSpeed test");
+        System.out.println("\n\nSpeed Test");
         int[] repeats = { 3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9, 3 };
         final int iter = 4000;
         final int size = 50000;
@@ -132,6 +151,7 @@ public class TestRangeCoder
             byte[] values1 = new byte[size];
             byte[] values2 = new byte[size];
             long delta1 = 0, delta2 = 0;
+            Random rnd = new Random();
 
             for (int ii=0; ii<iter; ii++)
             {
@@ -146,11 +166,13 @@ public class TestRangeCoder
                     if (i0+len >= values1.length)
                         len = 1;
 
+                    final byte b = (byte) rnd.nextInt();
+
                     for (int j=i0; j<i0+len; j++)
                     {
-                       values1[j] = (byte) (i0 & 255);
+                       values1[j] = b;
                        i++;
-                    }                    
+                    }
                 }
 
                 // Encode
@@ -158,13 +180,13 @@ public class TestRangeCoder
                 OutputBitStream bs = new DefaultOutputBitStream(os, size);
                 RangeEncoder rc = new RangeEncoder(bs);
                 long before1 = System.nanoTime();
-                
+
                 if (rc.encode(values1, 0, values1.length) < 0)
                 {
                    System.out.println("Encoding error");
                    System.exit(1);
                 }
-                   
+
                 long after1 = System.nanoTime();
                 delta1 += (after1 - before1);
                 rc.dispose();
@@ -181,11 +203,10 @@ public class TestRangeCoder
                    System.out.println("Decoding error");
                    System.exit(1);
                 }
-                
+
                 long after2 = System.nanoTime();
                 delta2 += (after2 - before2);
                 rd.dispose();
-                bs2.close();
 
                 // Sanity check
                 for (int i=0; i<values1.length; i++)
@@ -198,7 +219,7 @@ public class TestRangeCoder
                    }
                 }
             }
-            
+
             final long prod = (long) iter * (long) size;
             System.out.println("Encode [ms]       : " + delta1/1000000);
             System.out.println("Throughput [KB/s] : " + prod * 1000000L / delta1 * 1000L / 1024L);

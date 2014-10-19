@@ -74,7 +74,7 @@ public class ANSRangeEncoder extends AbstractEncoder
       if ((frequencies == null) || (frequencies.length != 256))
          return -1;
 
-      int alphabetSize = this.eu.normalizeFrequencies(frequencies, this.alphabet, size, lr);
+      int alphabetSize = this.eu.normalizeFrequencies(frequencies, this.alphabet, size, 1<<lr);
       this.cumFreqs[0] = 0;
 
       // Create histogram of frequencies scaled to 'range'

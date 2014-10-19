@@ -65,13 +65,13 @@ func TestCorrectness() {
 			}
 		}
 
-		fmt.Printf("\nOriginal: ")
+		fmt.Printf("\nOriginal: \n")
 
 		for i := range values {
 			fmt.Printf("%d ", values[i])
 		}
 
-		fmt.Printf("\nEncoded: ")
+		fmt.Printf("\nEncoded: \n")
 		buffer := make([]byte, 16384)
 		oFile, _ := util.NewByteArrayOutputStream(buffer, true)
 		defer oFile.Close()
@@ -88,7 +88,7 @@ func TestCorrectness() {
 
 		hc.Dispose()
 		dbgbs.Close()
-		println()
+		fmt.Printf("\nDecoded: \n")
 
 		iFile, _ := util.NewByteArrayInputStream(buffer, true)
 		defer iFile.Close()
@@ -106,7 +106,7 @@ func TestCorrectness() {
 			os.Exit(1)
 		}
 
-		fmt.Printf("\nDecoded: ")
+		println()
 
 		for i := range values2 {
 			fmt.Printf("%v ", values2[i])

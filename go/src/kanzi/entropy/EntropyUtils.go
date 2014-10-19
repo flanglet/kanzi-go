@@ -87,7 +87,7 @@ func (this FreqSortPriorityQueue) Less(i, j int) bool {
 	if di.frequencies[di.symbol] != dj.frequencies[dj.symbol] {
 		return di.frequencies[di.symbol] > dj.frequencies[dj.symbol]
 	}
-	
+
 	// Decreasing symbol
 	return dj.symbol < di.symbol
 }
@@ -310,19 +310,19 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []byte) (int, error) {
 
 // Returns the size of the alphabet
 // The alphabet and freqs parameters are updated
-func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []byte, count int, logRange uint) (int, error) {
+func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []byte, count int, scale int) (int, error) {
 	if count == 0 {
 		return 0, nil
 	}
 
-	if logRange < 8 || logRange > 16 {
-		return 0, fmt.Errorf("Invalid range parameter: %v (must be in [8..16])", logRange)
+	if scale < 1<<8 || scale > 1<<16 {
+		return 0, fmt.Errorf("Invalid range parameter: %v (must be in [256..65536])", scale)
 	}
 
 	alphabetSize := 0
 
 	// range == count shortcut
-	if count == 1<<logRange {
+	if count == scale {
 		for i := 0; i < 256; i++ {
 			if freqs[i] != 0 {
 				alphabet[alphabetSize] = byte(i)
@@ -343,8 +343,7 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []byte, cou
 
 	ranks := this.ranks
 	errors := this.errors
-	sum := -(1 << logRange)
-
+	sum := -scale
 	// Scale frequencies by stretching distribution over complete range
 	for i := 0; i < 256; i++ {
 		alphabet[i] = 0
@@ -355,7 +354,7 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []byte, cou
 			continue
 		}
 
-		sf := int64(freqs[i]) << logRange
+		sf := int64(freqs[i]) * int64(scale)
 		scaledFreq := int(sf / int64(count))
 
 		if scaledFreq == 0 {
@@ -385,12 +384,12 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []byte, cou
 	}
 
 	if alphabetSize == 1 {
-		freqs[alphabet[0]] = 1 << logRange
+		freqs[alphabet[0]] = scale
 		return 1, nil
 	}
 
 	if sum != 0 {
-		// Need to normalize frequency sum to range		
+		// Need to normalize frequency sum to range
 		var inc int
 
 		if sum > 0 {
@@ -401,7 +400,7 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []byte, cou
 
 		queue := make(FreqSortPriorityQueue, 0)
 
-         // Create sorted queue of present symbols (except those with 'quantum frequency')
+		// Create sorted queue of present symbols (except those with 'quantum frequency')
 		for i := 0; i < alphabetSize; i++ {
 			if errors[alphabet[i]] >= 0 {
 				heap.Push(&queue, &FreqSortData{errors: errors, frequencies: freqs, symbol: alphabet[i]})
@@ -419,7 +418,7 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []byte, cou
 
 			// Distort frequency and error
 			freqs[fsd.symbol] += inc
-			errors[fsd.symbol] -= (1 << logRange)
+			errors[fsd.symbol] -= scale
 			sum += inc
 			heap.Push(&queue, fsd)
 		}

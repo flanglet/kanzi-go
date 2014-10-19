@@ -27,26 +27,27 @@ import kanzi.OutputBitStream;
 public final class RangeEncoder extends AbstractEncoder
 {
     private static final long TOP_RANGE    = 0x00FFFFFFFFFFFFFFL;
-    private static final long BOTTOM_RANGE = 0x000000FFFFFFFFFFL;
-    private static final long MASK         = 0x00FF000000000000L;
-    private static final long MAX_RANGE = BOTTOM_RANGE + 1;
-    
+    private static final long BOTTOM_RANGE = 0x00000000FFFFFFFFL;
+    private static final long MASK         = 0x00FFFF0000000000L;
     private static final int DEFAULT_CHUNK_SIZE = 1 << 16; // 64 KB by default
-    private static final int NB_SYMBOLS = 257; //256 + EOF
-    private static final int BASE_LEN = NB_SYMBOLS >> 4;
+    private static final int DEFAULT_LOG_RANGE = 13;
+
 
     private long low;
     private long range;
-    private boolean disposed;
-    private final int[] baseFreq;
-    private final int[] deltaFreq;
+    private final int[] alphabet;
+    private final int[] freqs;
+    private final int[] cumFreqs;
+    private final EntropyUtils eu;
     private final OutputBitStream bitstream;
     private final int chunkSize;
-
-
+    private int logRange;
+    private long invSum;
+    
+    
     public RangeEncoder(OutputBitStream bitstream)
     {
-       this(bitstream, DEFAULT_CHUNK_SIZE);
+       this(bitstream, DEFAULT_CHUNK_SIZE, DEFAULT_LOG_RANGE);
     }
     
     
@@ -54,39 +55,93 @@ public final class RangeEncoder extends AbstractEncoder
     // resetting the frequency stats. 0 means that frequencies calculated at the
     // beginning of the block apply to the whole block.
     // The default chunk size is 65536 bytes.
-    public RangeEncoder(OutputBitStream bitstream, int chunkSize)
+    public RangeEncoder(OutputBitStream bs, int chunkSize, int logRange)
     {
-        if (bitstream == null)
-            throw new NullPointerException("Invalid null bitstream parameter");
+      if (bs == null)
+         throw new NullPointerException("Invalid null bitstream parameter");
 
-        if ((chunkSize != 0) && (chunkSize < 1024))
-           throw new IllegalArgumentException("The chunk size must be at least 1024");
+      if ((chunkSize != 0) && (chunkSize < 1024))
+         throw new IllegalArgumentException("The chunk size must be at least 1024");
 
-        if (chunkSize > 1<<30)
-           throw new IllegalArgumentException("The chunk size must be at most 2^30");
+      if (chunkSize > 1<<30)
+         throw new IllegalArgumentException("The chunk size must be at most 2^30");
 
-        this.range = TOP_RANGE;
-        this.bitstream = bitstream;
-        this.chunkSize = chunkSize;
+      if ((logRange < 8) || (logRange > 16))
+         throw new IllegalArgumentException("Invalid range parameter: "+logRange+" (must be in [8..16])");
 
-        // Since the frequency update after each byte encoded is the bottleneck,
-        // split the frequency table into an array of absolute frequencies (with
-        // indexes multiple of 16) and delta frequencies (relative to the previous
-        // absolute frequency) with indexes in the [0..15] range
-        this.deltaFreq = new int[NB_SYMBOLS+1];
-        this.baseFreq = new int[BASE_LEN+1];
-        this.resetFrequencies();
+      this.bitstream = bs;
+      this.alphabet = new int[256];
+      this.freqs = new int[256];
+      this.cumFreqs = new int[257];
+      this.logRange = logRange;
+      this.chunkSize = chunkSize;
+      this.eu = new EntropyUtils();
     }
 
     
-    public final void resetFrequencies()
-    {
-       for (int i=0; i<=NB_SYMBOLS; i++)
-          this.deltaFreq[i] = i & 15; // DELTA
+   protected int updateFrequencies(int[] frequencies, int size, int lr)
+   {
+      if ((frequencies == null) || (frequencies.length != 256))
+         return -1;
 
-       for (int i=0; i<=BASE_LEN; i++)
-          this.baseFreq[i] = i << 4; // BASE  
-    }
+      int alphabetSize = this.eu.normalizeFrequencies(frequencies, this.alphabet, size, 1<<lr);
+      
+      if (alphabetSize > 0)
+      {
+         this.cumFreqs[0] = 0;
+
+         // Create histogram of frequencies scaled to 'range'
+         for (int i=0; i<256; i++)
+            this.cumFreqs[i+1] = this.cumFreqs[i] + frequencies[i];
+
+         this.invSum = (1L<<24) / this.cumFreqs[256];
+      }
+      
+      this.encodeHeader(alphabetSize, this.alphabet, frequencies, lr);
+      return alphabetSize;
+   }
+
+   
+   protected boolean encodeHeader(int alphabetSize, int[] alphabet, int[] frequencies, int lr)
+   {
+      EntropyUtils.encodeAlphabet(this.bitstream, alphabetSize, alphabet);
+
+      if (alphabetSize == 0)
+         return true;
+
+      this.bitstream.writeBits(lr-8, 3); // logRange
+      int inc = (alphabetSize > 64) ? 16 : 8;
+      int llr = 3;
+
+      while (1<<llr <= lr)
+         llr++;
+
+      // Encode all frequencies (but the first one) by chunks of size 'inc'
+      for (int i=1; i<alphabetSize; i+=inc)
+      {
+         int max = 0;
+         int logMax = 1;
+         final int endj = (i+inc < alphabetSize) ? i + inc : alphabetSize;
+
+         // Search for max frequency log size in next chunk
+         for (int j=i; j<endj; j++)
+         {
+            if (frequencies[alphabet[j]] > max)
+               max = frequencies[alphabet[j]];
+         }
+
+         while (1<<logMax <= max)
+            logMax++;
+
+         this.bitstream.writeBits(logMax-1, llr);
+
+         // Write frequencies
+         for (int j=i; j<endj; j++)
+            this.bitstream.writeBits(frequencies[alphabet[j]], logMax);
+      }
+
+      return true;
+   }
 
     
     // Reset frequency stats for each chunk of data in the block
@@ -99,84 +154,71 @@ public final class RangeEncoder extends AbstractEncoder
        if (len == 0)
           return 0;
       
+       final int[] frequencies = this.freqs;
        final int end = blkptr + len;
        final int sz = (this.chunkSize == 0) ? len : this.chunkSize;
        int startChunk = blkptr;
-       int sizeChunk = (startChunk + sz < end) ? sz : end - startChunk;
-       int endChunk = startChunk + sizeChunk;
 
        while (startChunk < end)
        {         
-          this.resetFrequencies(); 
+           final int endChunk = (startChunk + sz < end) ? startChunk + sz : end;
+           this.range = TOP_RANGE;
+           this.low = 0;
+           int lr = this.logRange;
+
+           // Lower log range if the size of the data chunk is small
+           while ((lr > 8) && (1<<lr > endChunk-startChunk))
+              lr--;
           
-          for (int i=startChunk; i<endChunk; i++)
-             this.encodeByte(array[i]);
+           for (int i=0; i<256; i++)
+              frequencies[i] = 0;
+
+           for (int i=startChunk; i<endChunk; i++)
+              frequencies[array[i] & 0xFF]++;
+          
+           // Rebuild statistics
+           this.updateFrequencies(frequencies, endChunk-startChunk, lr);
+        
+           for (int i=startChunk; i<endChunk; i++)
+              this.encodeByte(array[i]);
          
-          startChunk = endChunk;
-          sizeChunk = (startChunk + sz < end) ? sz : end - startChunk;
-          endChunk = startChunk + sizeChunk;
+           // Flush 'low'
+           this.bitstream.writeBits(this.low, 56);
+           startChunk = endChunk;
        }
        
        return len;
     }
     
-    
-    // This method is on the speed critical path (called for each byte)
-    // The speed optimization is focused on reducing the frequency table update
+
     @Override
-    public void encodeByte(byte b)
+    protected void encodeByte(byte b)
     {
         final int value = b & 0xFF;
-        final int symbolLow = this.baseFreq[value>>4] + this.deltaFreq[value];
-        final int symbolHigh = this.baseFreq[(value+1)>>4] + this.deltaFreq[value+1];
-        this.range /= (this.baseFreq[BASE_LEN] + this.deltaFreq[NB_SYMBOLS]);
+        final int symbolLow = this.cumFreqs[value];
+        final int symbolHigh = this.cumFreqs[value+1];
 
-        // Encode symbol
+        // Compute next low and range
+        this.range = (this.range >> 24) * this.invSum;
         this.low += (symbolLow * this.range);
         this.range *= (symbolHigh - symbolLow);
-
+ 
         // If the left-most digits are the same throughout the range, write bits to bitstream
         while (true)
         {                       
             if (((this.low ^ (this.low + this.range)) & MASK) != 0)
             {
-               if (this.range >= MAX_RANGE)
+               if (this.range > BOTTOM_RANGE)
                   break;
-               else // Normalize
-                  this.range = -this.low & BOTTOM_RANGE;
+               
+               // Normalize
+               this.range = -this.low & BOTTOM_RANGE;
             }
 
-            this.bitstream.writeBits(this.low >> 48, 8);
-            this.range <<= 8;
-            this.low <<= 8;
+            this.bitstream.writeBits(this.low >> 40, 16);
+            this.range <<= 16;
+            this.low <<= 16;
         }
-
-        this.updateFrequencies(value+1);
-    }
-
-
-    private void updateFrequencies(int value)
-    {
-       final int start = (value + 15) >> 4;
-
-       // Update absolute frequencies
-       for (int j=start; j<=BASE_LEN; j++)
-          this.baseFreq[j]++;
-
-       // Update relative frequencies (in the 'right' segment only)
-       for (int j=value; j<(start<<4); j++)
-          this.deltaFreq[j]++;
-    }
-
-
-    @Override
-    public void dispose()
-    {
-       if (this.disposed == true)
-          return;
-        
-       this.disposed = true;
-       this.bitstream.writeBits(this.low, 56);
     }
 
 

@@ -28,8 +28,8 @@ import (
 
 const (
 	ANS_TOP                = uint64(1) << 24
-		DEFAULT_ANS_CHUNK_SIZE = uint(1 << 16) // 64 KB by default
-		DEFAULT_ANS_LOG_RANGE  = uint(13)
+	DEFAULT_ANS_CHUNK_SIZE = uint(1 << 16) // 64 KB by default
+	DEFAULT_ANS_LOG_RANGE  = uint(13)
 )
 
 type ANSRangeEncoder struct {
@@ -48,6 +48,7 @@ type ANSRangeEncoder struct {
 // beginning of the block apply to the whole block
 // Since the number of args is variable, this function can be called like this:
 // NewANSRangeEncoder(bs) or NewANSRangeEncoder(bs, 16384, 14)
+// The default chunk size is 65536 bytes.
 func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncoder, error) {
 	if bs == nil {
 		return nil, errors.New("Invalid null bitstream parameter")
@@ -90,15 +91,15 @@ func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncode
 	return this, err
 }
 
-func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, size int, lr uint) error {
+func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, size int, lr uint) (int, error) {
 	if frequencies == nil || len(frequencies) != 256 {
-		return errors.New("Invalid frequencies parameter")
+		return 0, errors.New("Invalid frequencies parameter")
 	}
 
-	alphabetSize, err := this.eu.NormalizeFrequencies(frequencies, this.alphabet, size, lr)
+	alphabetSize, err := this.eu.NormalizeFrequencies(frequencies, this.alphabet, size, 1<<lr)
 
 	if err != nil {
-		return err
+		return alphabetSize, err
 	}
 
 	this.cumFreqs[0] = 0
@@ -109,7 +110,7 @@ func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, size int, lr u
 	}
 
 	this.encodeHeader(alphabetSize, this.alphabet, frequencies, lr)
-	return nil
+	return alphabetSize, nil
 }
 
 func (this *ANSRangeEncoder) encodeHeader(alphabetSize int, alphabet []byte, frequencies []int, lr uint) bool {
@@ -212,7 +213,9 @@ func (this *ANSRangeEncoder) Encode(block []byte) (int, error) {
 		}
 
 		// Rebuild statistics
-		this.updateFrequencies(frequencies, endChunk-startChunk, lr)
+		if _, err := this.updateFrequencies(frequencies, endChunk-startChunk, lr); err != nil {
+			return startChunk, err
+		}
 
 		top := (ANS_TOP >> lr) << 32
 		n := 0
@@ -319,6 +322,7 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, uint, error) 
 
 	// Decode frequencies
 	logRange := uint(8 + this.bitstream.ReadBits(3))
+	scale := 1 << logRange
 	sum := 0
 	inc := 16
 	llr := uint(3)
@@ -344,7 +348,7 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, uint, error) 
 		for j := i; j < endj; j++ {
 			val := int(this.bitstream.ReadBits(logMax))
 
-			if val <= 0 || val >= 1<<logRange {
+			if val <= 0 || val >= scale {
 				error := fmt.Errorf("Invalid bitstream: incorrect frequency %v  for symbol '%v' in ANS range decoder", val, this.alphabet[j])
 				return alphabetSize, logRange, error
 			}
@@ -355,7 +359,7 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, uint, error) 
 	}
 
 	// Infer first frequency
-	frequencies[this.alphabet[0]] = (1 << logRange) - sum
+	frequencies[this.alphabet[0]] = scale - sum
 
 	if frequencies[this.alphabet[0]] <= 0 || frequencies[this.alphabet[0]] > 1<<logRange {
 		error := fmt.Errorf("Invalid bitstream: incorrect frequency %v  for symbol '%v' in ANS range decoder", frequencies[this.alphabet[0]], this.alphabet[0])
@@ -364,8 +368,8 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, uint, error) 
 
 	this.cumFreqs[0] = 0
 
-	if len(this.f2s) < 1<<logRange {
-		this.f2s = make([]byte, 1<<logRange)
+	if len(this.f2s) < scale {
+		this.f2s = make([]byte, scale)
 	}
 
 	// Create histogram of frequencies scaled to 'range' and reverse mapping

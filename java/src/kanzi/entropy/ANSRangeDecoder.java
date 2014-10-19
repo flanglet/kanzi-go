@@ -131,6 +131,7 @@ public class ANSRangeDecoder extends AbstractDecoder
       }
 
       this.logRange = (int) (8 + this.bitstream.readBits(3));
+      final int scale = 1 << this.logRange;
       int sum = 0;
       int inc = (alphabetSize > 64) ? 16 : 8;
       int llr = 3;
@@ -149,7 +150,7 @@ public class ANSRangeDecoder extends AbstractDecoder
          {
             int val = (int) this.bitstream.readBits(logMax);
 
-            if ((val <= 0) || (val >= 1 << this.logRange))
+            if ((val <= 0) || (val >= scale))
             {
                throw new BitStreamException("Invalid bitstream: incorrect frequency " +
                        val + " for symbol '" + this.alphabet[j] + "' in ANS range decoder",
@@ -162,7 +163,7 @@ public class ANSRangeDecoder extends AbstractDecoder
       }
 
       // Infer first frequency
-      frequencies[this.alphabet[0]] = (1 << this.logRange) - sum;
+      frequencies[this.alphabet[0]] = scale - sum;
 
       if ((frequencies[this.alphabet[0]] <= 0) || (frequencies[this.alphabet[0]] > 1 << this.logRange))
       {
@@ -173,8 +174,8 @@ public class ANSRangeDecoder extends AbstractDecoder
 
       this.cumFreqs[0] = 0;
 
-      if (this.f2s.length < 1<<this.logRange)
-         this.f2s = new short[1<<this.logRange];
+      if (this.f2s.length < scale)
+         this.f2s = new short[scale];
 
       // Create histogram of frequencies scaled to 'range' and reverse mapping
       for (int i=0; i<256; i++)

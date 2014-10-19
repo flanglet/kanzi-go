@@ -26,7 +26,6 @@ import (
 )
 
 func main() {
-	fmt.Printf("\nTestRangeCodec")
 	TestCorrectness()
 	TestSpeed()
 }
@@ -44,8 +43,20 @@ func TestCorrectness() {
 			values = []byte{0, 0, 32, 15, -4 & 0xFF, 16, 0, 16, 0, 7, -1 & 0xFF, -4 & 0xFF, -32 & 0xFF, 0, 31, -1 & 0xFF}
 		} else if ii == 2 {
 			values = []byte{0x3d, 0x4d, 0x54, 0x47, 0x5a, 0x36, 0x39, 0x26, 0x72, 0x6f, 0x6c, 0x65, 0x3d, 0x70, 0x72, 0x65}
-		} else if ii == 1 {
+		} else if ii == 4 {
 			values = []byte{65, 71, 74, 66, 76, 65, 69, 77, 74, 79, 68, 75, 73, 72, 77, 68, 78, 65, 79, 79, 78, 66, 77, 71, 64, 70, 74, 77, 64, 67, 71, 64}
+		} else if ii == 1 {
+			values = make([]byte, 32)
+
+			for i := range values {
+				values[i] = byte(2) // all identical
+			}
+		} else if ii == 5 {
+			values = make([]byte, 32)
+
+			for i := range values {
+				values[i] = byte(2 + (i & 1)) // 2 symbols
+			}
 		} else {
 			values = make([]byte, 32)
 
@@ -54,13 +65,13 @@ func TestCorrectness() {
 			}
 		}
 
-		fmt.Printf("\nOriginal: ")
+		fmt.Printf("\nOriginal: \n")
 
 		for i := range values {
 			fmt.Printf("%d ", values[i])
 		}
 
-		fmt.Printf("\nEncoded: ")
+		fmt.Printf("\nEncoded: \n")
 		buffer := make([]byte, 16384)
 		oFile, _ := util.NewByteArrayOutputStream(buffer, true)
 		defer oFile.Close()
@@ -78,24 +89,25 @@ func TestCorrectness() {
 		rc.Dispose()
 		dbgbs.Close()
 		println()
+		fmt.Printf("\nDecoded: \n")
+
 		iFile, _ := util.NewByteArrayInputStream(buffer, true)
 		defer iFile.Close()
 		ibs, _ := bitstream.NewDefaultInputBitStream(iFile, 16384)
 		dbgbs2, _ := bitstream.NewDebugInputBitStream(ibs, os.Stdout)
-		dbgbs2.ShowByte(true)
-		//dbgbs2.Mark(true)
+		//dbgbs2.ShowByte(true)
+		dbgbs2.Mark(true)
 
 		rd, _ := entropy.NewRangeDecoder(dbgbs2)
 
 		ok := true
 		values2 := make([]byte, len(values))
-
 		if _, err := rd.Decode(values2); err != nil {
 			fmt.Printf("Error during decoding: %s", err)
 			os.Exit(1)
 		}
-
-		fmt.Printf("\nDecoded: ")
+		
+		println()
 
 		for i := range values2 {
 			fmt.Printf("%v ", values2[i])
@@ -113,8 +125,7 @@ func TestCorrectness() {
 		}
 
 		rd.Dispose()
-		dbgbs2.Close()
-		fmt.Printf("\n")
+		println()
 	}
 }
 
@@ -123,14 +134,14 @@ func TestSpeed() {
 	repeats := []int{3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9, 3}
 
 	for jj := 0; jj < 3; jj++ {
-		fmt.Printf("\nTest %v\n", jj+1)
+		fmt.Printf("Test %v\n", jj+1)
+		delta1 := int64(0)
+		delta2 := int64(0)
+		iter := 4000
 		size := 50000
-		iter := 2000
 		buffer := make([]byte, size*2)
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
-		delta1 := int64(0)
-		delta2 := int64(0)
 
 		for ii := 0; ii < iter; ii++ {
 			idx := jj
@@ -145,8 +156,10 @@ func TestSpeed() {
 					length = 1
 				}
 
+				b := byte(rand.Intn(256))
+				
 				for j := i0; j < i0+length; j++ {
-					values1[j] = byte(i0)
+					values1[j] = b
 					i++
 				}
 			}
@@ -165,7 +178,6 @@ func TestSpeed() {
 			}
 
 			rc.Dispose()
-			obs.Close()
 
 			if _, err := obs.Close(); err != nil {
 				fmt.Printf("Error during close: %v\n", err)
@@ -191,7 +203,6 @@ func TestSpeed() {
 			}
 
 			rd.Dispose()
-			ibs.Close()
 
 			if _, err := ibs.Close(); err != nil {
 				fmt.Printf("Error during close: %v\n", err)
@@ -200,13 +211,11 @@ func TestSpeed() {
 
 			after := time.Now()
 			delta2 += after.Sub(before).Nanoseconds()
-
 		}
 
-		prod := int64(iter) * int64(size)
 		fmt.Printf("Encode [ms]      : %d\n", delta1/1000000)
-		fmt.Printf("Throughput [KB/s]: %d\n", prod*1000000/delta1*1000/1024)
+		fmt.Printf("Throughput [KB/s]: %d\n", (int64(iter*size))*1000000/delta1*1000/1024)
 		fmt.Printf("Decode [ms]      : %d\n", delta2/1000000)
-		fmt.Printf("Throughput [KB/s]: %d\n", prod*1000000/delta2*1000/1024)
+		fmt.Printf("Throughput [KB/s]: %d\n", (int64(iter*size))*1000000/delta2*1000/1024)
 	}
 }
