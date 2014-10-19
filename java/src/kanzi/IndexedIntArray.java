@@ -57,7 +57,7 @@ public final class IndexedIntArray
     public int hashCode()
     {
        // Non constant !
-       return this.index + ((this.array == null) ? 0 :(17 * this.array.hashCode()));
+       return this.index + ((this.array == null) ? 0 : (17 * this.array.hashCode()));
     }
 
 

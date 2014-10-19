@@ -182,20 +182,20 @@ public class Global
          return log << 10;
 
       long base = 0;
-      long z = x - (1 << log);
+      long z = (long) x - (1L << log);
 
       // Use the fact that log2(x) = log2(2^(log2(x)+1)*y) = log2(2^p)+ 1 + ln(1-z)/ln(2)
       // with z in ]0, 0.5[, it yields log2(x) = p + 1 - (z/1 + z^2/2 + z^3/3 ...)/ln(2)
       // To improve accuracy (keep z in ]0, 0.25[), one can choose either (1+z) or (1-z).
       // EG: log2(257) = log2(256) + log2(1+1/256) is better approximated with Taylor 
       // series expansion than log2(512) + log2(1-255/512)
-      if (z >= 1 << (log-1))
+      if (z >= 1L << (log-1))
       {         
          // z in [0.5, 0.75[ => rescale x so that z in [0, 0.25[
-         if (z < 1 << (log-1) + 1 << (log-2)) 
+         if (z < 1L << (log-1) + 1L << (log-2)) 
          {
             base = 497;
-            x = (int) ((long) x * 5 / 7);   
+            x = (int) ((x * 5L) / 7L);   
          }
          
          // z in [0.75, 1[ => select 1 - x Taylor series expansion
@@ -204,7 +204,7 @@ public class Global
       else 
       {
          // z in [0.25, 0.5[ => rescale x so that z in [0, 0.25[
-         if (z >= 1 << (log-2))
+         if (z >= 1L << (log-2))
          {
             base = 269;
             x = (int) ((long) x * 5 / 6);

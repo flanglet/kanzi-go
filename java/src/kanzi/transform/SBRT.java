@@ -92,7 +92,7 @@ public class SBRT implements ByteTransform, Sizeable
          p[i] = 0;
          q[i] = 0;
          s2r[i] = i;
-         r2s[i] =  i; 
+         r2s[i] = i; 
       }
   
       for (int i=0; i < count; i++)

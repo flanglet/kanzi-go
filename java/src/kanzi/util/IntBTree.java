@@ -400,6 +400,40 @@ public final class IntBTree
    }
 
 
+   @Override
+   public String toString()
+   {
+      if (this.size() == 0)
+         return "[]";
+      
+      int[] res = new int[this.size()];
+      
+      Callback cb = new Callback()
+      {
+         @Override
+         public int call(IntBTNode node, int[] values, int idx, boolean reverse)
+         {
+            return node.values(values, idx, reverse);
+         }
+      };
+      
+      scanAndCall(this.root, res, 0, cb, false);
+      StringBuilder sb = new StringBuilder(res.length*5);
+      sb.append('[');
+      
+      if (res.length > 0)
+      {
+         sb.append(res[0]);
+         
+         for (int i=1; i<res.length; i++)
+            sb.append(',').append(res[i]);
+      }
+      
+      sb.append(']');
+      return sb.toString();
+   }
+   
+   
    // Interface to implement visitor pattern. Must return the node value
    public interface Callback
    {
@@ -407,10 +441,10 @@ public final class IntBTree
    }
 
 
-   // A node containing an integer (one or several times)
+   // A node containing a range of integers
    public static class IntBTNode
    {
-      protected int base;
+      protected int base;  // range base
       protected int[] counts;
       protected IntBTNode left;
       protected IntBTNode right;

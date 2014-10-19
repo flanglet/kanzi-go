@@ -1685,7 +1685,7 @@ public final class DivSufSort
 
         while (b < last)
         {
-	       x = this.sa[isad + this.sa[b]];
+           x = this.sa[isad + this.sa[b]];
 
            if (x != v)
               break;

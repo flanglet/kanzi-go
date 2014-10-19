@@ -122,7 +122,7 @@ public final class ZRLT implements ByteFunction
 
       source.index = srcIdx;
       destination.index = dstIdx;
-      return ((srcIdx == srcEnd) && (runLength == 1)) ? true : false;
+      return (srcIdx == srcEnd) && (runLength == 1);
    }
 
 
@@ -185,7 +185,7 @@ public final class ZRLT implements ByteFunction
          {
             dst[dstIdx] = (byte) (val - 1);
          }
-
+         
          dstIdx++;
          srcIdx++;
       }
@@ -201,7 +201,7 @@ public final class ZRLT implements ByteFunction
 
       source.index = srcIdx;
       destination.index = dstIdx;
-      return (srcIdx == srcEnd) ? true : false;
+      return srcIdx == srcEnd;
    }
 
 

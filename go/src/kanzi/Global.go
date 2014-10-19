@@ -197,9 +197,9 @@ func Log2(x int) (int, error) {
 	// To improve accuracy (keep z in ]0, 0.25[), one can choose either (1+z) or (1-z).
 	// EG: log2(257) = log2(256) + log2(1+1/256) is better approximated with Taylor
 	// series expansion than log2(512) + log2(1-255/512)
-	if z >= 1<<(log-1) {
+	if z >= int64(1)<<(log-1) {
 		// z in [0.5, 0.75[ => rescale x so that z in [0, 0.25[
-		if z < 1<<(log-1)+1<<(log-2) {
+		if z < int64(1)<<(log-1)+int64(1)<<(log-2) {
 			base = 497
 			x = int(int64(x) * 5 / 7)
 		}
@@ -208,7 +208,7 @@ func Log2(x int) (int, error) {
 		log++
 	} else {
 		// z in [0.25, 0.5[ => rescale x so that z in [0, 0.25[
-		if z >= 1<<(log-2) {
+		if z >= int64(1)<<(log-2) {
 			base = 269
 			x = int(int64(x) * 5 / 6)
 		}
