@@ -151,8 +151,11 @@ public class CompressedOutputStream extends OutputStream
       if (this.obs.writeBits(this.transformType & 0x1F, 5) != 5)
          throw new kanzi.io.IOException("Cannot write transform type to header", Error.ERR_WRITE_FILE);
 
-      if (this.obs.writeBits(this.blockSize >> 3, 30) != 30)
+      if (this.obs.writeBits(this.blockSize >> 3, 26) != 26)
          throw new kanzi.io.IOException("Cannot write block size to header", Error.ERR_WRITE_FILE);
+
+      if (this.obs.writeBits(0L, 4) != 4)
+         throw new kanzi.io.IOException("Cannot write reserved bits to header", Error.ERR_WRITE_FILE);
    }
 
 

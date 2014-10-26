@@ -219,12 +219,34 @@ func (this *CompressedOutputStream) WriteHeader() *IOError {
 		cksum = 1
 	}
 
-	this.obs.WriteBits(BITSTREAM_TYPE, 32)
-	this.obs.WriteBits(BITSTREAM_FORMAT_VERSION, 7)
-	this.obs.WriteBit(cksum)
-	this.obs.WriteBits(uint64(this.entropyType&0x1F), 5)
-	this.obs.WriteBits(uint64(this.transformType&0x1F), 5)
-	this.obs.WriteBits(uint64(this.blockSize>>3), 30)
+	if this.obs.WriteBits(BITSTREAM_TYPE, 32) != 32 {
+		return NewIOError("Cannot write bitstream type to header", ERR_WRITE_FILE)
+	}
+
+	if this.obs.WriteBits(BITSTREAM_FORMAT_VERSION, 7) != 7 {
+		return NewIOError("Cannot write bitstream version to header", ERR_WRITE_FILE)
+	}
+
+	if this.obs.WriteBits(uint64(cksum), 1) != 1 {
+		return NewIOError("Cannot write checksum to header", ERR_WRITE_FILE)
+	}
+
+	if this.obs.WriteBits(uint64(this.entropyType&0x1F), 5) != 5 {
+		return NewIOError("Cannot write entropy type to header", ERR_WRITE_FILE)
+	}
+
+	if this.obs.WriteBits(uint64(this.transformType&0x1F), 5) != 5 {
+		return NewIOError("Cannot write transform type to header", ERR_WRITE_FILE)
+	}
+
+	if this.obs.WriteBits(uint64(this.blockSize>>3), 26) != 26 {
+		return NewIOError("Cannot write block size to header", ERR_WRITE_FILE)
+	}
+
+	if this.obs.WriteBits(0, 4) != 4 {
+		return NewIOError("Cannot write reserved bits to header", ERR_WRITE_FILE)
+	}
+
 	return nil
 }
 
@@ -240,12 +262,12 @@ func (this *CompressedOutputStream) Write(array []byte) (int, error) {
 
 	for remaining > 0 {
 		if this.curIdx >= bSize {
-			// Buffer full, time to encode			
+			// Buffer full, time to encode
 			if err := this.processBlock(); err != nil {
 				return len(array) - remaining, err
 			}
 		}
-		
+
 		lenChunk := len(array) - startChunk
 
 		if lenChunk+this.curIdx >= bSize {
@@ -269,7 +291,7 @@ func (this *CompressedOutputStream) Close() error {
 		return nil
 	}
 
-	if this.curIdx > 0 {	
+	if this.curIdx > 0 {
 		if err := this.processBlock(); err != nil {
 			return err
 		}
@@ -684,12 +706,15 @@ func (this *CompressedInputStream) ReadHeader() error {
 	this.transformType = byte(this.ibs.ReadBits(5))
 
 	// Read block size
-	this.blockSize = uint(this.ibs.ReadBits(30)) << 3
+	this.blockSize = uint(this.ibs.ReadBits(26)) << 3
 
 	if this.blockSize < MIN_BITSTREAM_BLOCK_SIZE || this.blockSize > MAX_BITSTREAM_BLOCK_SIZE {
 		errMsg := fmt.Sprintf("Invalid bitstream, incorrect block size: %d", this.blockSize)
 		return NewIOError(errMsg, ERR_BLOCK_SIZE)
 	}
+
+	// Read reserved bits
+	this.ibs.ReadBits(4)
 
 	if this.debugWriter != nil {
 		fmt.Fprintf(this.debugWriter, "Checksum set to %v\n", (this.hasher != nil))
