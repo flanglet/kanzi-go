@@ -90,7 +90,7 @@ package kanzi.filter.seam;
               if (cost > current.value.cost)
               {
                  if (current.right != null)
-                   current = current.right;
+                    current = current.right;
                  else
                  {
                     Node node = this.nodes[this.freeNodeIdx++];
@@ -103,7 +103,7 @@ package kanzi.filter.seam;
               else
               {
                  if (current.left != null)
-                   current = current.left;
+                    current = current.left;
                  else
                  {
                     Node node = this.nodes[this.freeNodeIdx++];

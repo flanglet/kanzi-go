@@ -15,16 +15,13 @@ limitations under the License.
 
 package kanzi.test;
 
-import java.awt.Graphics2D;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.Rectangle;
 import java.awt.Transparency;
-import java.awt.image.BufferStrategy;
 import java.awt.image.BufferedImage;
-import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import javax.swing.ImageIcon;
@@ -45,7 +42,7 @@ public class TestContextResizer
             boolean vertical = false;
             boolean horizontal = false;
             boolean speed = false;
-            int effectPct = 10;
+            int effectPerMil = 100;
             boolean fileProvided = false;
             
             for (String arg : args)
@@ -89,20 +86,7 @@ public class TestContextResizer
                   
                   try
                   {
-                     int pct = Integer.parseInt(arg);
-
-                     if (pct < 1)
-                     {
-                         System.err.println("The minimum strength is 1%, the provided value is "+arg);
-                         System.exit(1);
-                     }
-                     else if (pct > 90)
-                     {
-                         System.err.println("The maximum strength is 90%, the provided value is  "+arg);
-                         System.exit(1);
-                     }
-                     else
-                         effectPct = pct;                     
+                     effectPerMil = 10*Integer.parseInt(arg);                   
                   }
                   catch (NumberFormatException e)
                   {
@@ -131,7 +115,7 @@ public class TestContextResizer
                 System.out.println("No image file name provided on command line, using default value");
 
             System.out.println("File name set to '" + fileName + "'");
-            System.out.println("Strength set to "+effectPct+"%");
+            System.out.println("Strength set to "+effectPerMil+"%");
             ImageIcon icon = new ImageIcon(fileName);
             Image image = icon.getImage();
             int w = image.getWidth(null);
@@ -161,24 +145,15 @@ public class TestContextResizer
             img.getRaster().getDataElements(0, 0, w, h, src.array);
             ContextResizer effect;
 
-            Arrays.fill(tmp.array, 0);
             int dir = 0;
-            int min = Integer.MAX_VALUE;
             
             if (vertical == true) 
-            {
                 dir |= ContextResizer.VERTICAL;
-                min = Math.min(min, w);
-            }
             
             if (horizontal == true)
-            {
                 dir |= ContextResizer.HORIZONTAL;
-                min = Math.min(min, h);
-            }
 
-            effect = new ContextResizer(w, h,  w, dir,
-                    ContextResizer.SHRINK, min * effectPct / 100, false, debug, null);            
+            effect = new ContextResizer(w, h,  w, dir, -effectPerMil, false, debug, null);            
             effect.apply(src, tmp);
 
             Rectangle bounds = gs.getDefaultConfiguration().getBounds();
@@ -198,8 +173,7 @@ public class TestContextResizer
                 long sum = 0;
                 int iter = 1000;
                 System.out.println("Accurate mode");
-                effect = new ContextResizer(w, h, w, dir,
-                       ContextResizer.SHRINK, min * effectPct/100, false, false, pool);
+                effect = new ContextResizer(w, h, w, dir, -effectPerMil, false, false, pool);
 
                 for (int ii=0; ii<iter; ii++)
                 {
@@ -214,8 +188,7 @@ public class TestContextResizer
                 System.out.println(1000000000*(long)iter/sum+" FPS");
                 System.out.println("Fast mode");
                 sum = 0;
-                effect = new ContextResizer(w, h, w, dir,
-                       ContextResizer.SHRINK, min * effectPct/100, true, false, pool);
+                effect = new ContextResizer(w, h, w, dir, -effectPerMil, true, false, pool);
 
                 for (int ii=0; ii<iter; ii++)
                 {
@@ -247,48 +220,49 @@ public class TestContextResizer
             frame3.createBufferStrategy(1);
             ExecutorService pool = Executors.newFixedThreadPool(4);
             System.arraycopy(src.array, 0, dst.array, 0, src.array.length);
-            int iters = 1;
-            
-            for (int ii=0; ii<iters; ii++)
-            {
-               while (w>= 3*w0/4)
-               {
-                  effect = new ContextResizer(w, h, w0, ContextResizer.VERTICAL,
-                          ContextResizer.SHRINK, 1, true, true, pool);
-                  effect.apply(src, dst);
-                  img3.getRaster().setDataElements(0, 0, w0, h, dst.array);
-                  BufferStrategy bufferStrategy = frame3.getBufferStrategy();
-                  Graphics2D g = (Graphics2D) bufferStrategy.getDrawGraphics();
-                  g.drawImage(img3, 0, 0, w0, h, null);
-                  img3.getRaster().setDataElements(0, 0, w0, h, dst.array);
-                  frame3.setBounds(Math.max(10, Math.min(w0+w0+50,bounds.width-5*w0/4)), 100, w0, h);
-                  bufferStrategy.show();
-                  int offset = 0;
-
-                  for (int j=h; j>0; j--, offset+=w0)
-                     src.array[offset+w-1] = 0;
-
-                  Thread.sleep(150);
-                  effect.setDebug(false);
-                  effect.apply(src, dst);
-                  img3.getRaster().setDataElements(0, 0, w0, h, dst.array);
-                  g.drawImage(img3, 0, 0, w0, h, null);
-                  frame3.setBounds(Math.max(10, Math.min(w0+w0+50,bounds.width-5*w0/4)), 100, w0, h);
-                  bufferStrategy.show();
-                  System.arraycopy(dst.array, 0, src.array, 0, dst.array.length);
-                  offset = 0;
-
-                  for (int j=h; j>0; j--, offset+=w0)
-                     src.array[offset+w-1] = 0;
-
-                  Thread.sleep(150);
-                  w--;
-               }
-
-               w = w0;
-               img.getRaster().getDataElements(0, 0, w0, h, src.array);             
-               Thread.sleep(51000);
-            }
+//            int iters = 1;
+//            BufferStrategy bufferStrategy = frame3.getBufferStrategy();
+//            Graphics2D g = (Graphics2D) bufferStrategy.getDrawGraphics();
+//            
+//            for (int ii=0; ii<iters; ii++)
+//            {
+//               while (w >= 3*w0/4)
+//               {   
+//                  int scaling = (-1000/w) < -10 ? -1000/w : -10; // in per mil
+//                  effect = new ContextResizer(w, h, w0, ContextResizer.VERTICAL,
+//                          scaling, true, true, pool);
+//                  effect.apply(src, dst);
+//                  img3.getRaster().setDataElements(0, 0, w0, h, dst.array);
+//                  g.drawImage(img3, 0, 0, null);
+//                  img3.getRaster().setDataElements(0, 0, w0, h, dst.array);
+//                  //frame3.setBounds(Math.max(10, Math.min(w0+w0+50,bounds.width-5*w0/4)), 100, w0, h);
+//                  bufferStrategy.show();
+//                  int offset = 0;
+//
+//                  for (int j=h; j>0; j--, offset+=w0)
+//                     src.array[offset+w-1] = 0;
+//                  
+//                  Thread.sleep(150);
+//                  effect.setDebug(false);
+//                  effect.apply(src, dst);
+//                  img3.getRaster().setDataElements(0, 0, w0, h, dst.array);
+//                  g.drawImage(img3, 0, 0, w0, h, null);
+//                  frame3.setBounds(Math.max(10, Math.min(w0+w0+50,bounds.width-5*w0/4)), 100, w0, h);
+//                  bufferStrategy.show();
+//                  System.arraycopy(dst.array, 0, src.array, 0, dst.array.length);
+//                  offset = 0;
+//
+//                  for (int j=h; j>0; j--, offset+=w0)
+//                     src.array[offset+w-1] = 0;
+//
+//                  Thread.sleep(150);
+//                  w--;
+//               }
+//
+//               w = w0;
+//               img.getRaster().getDataElements(0, 0, w0, h, src.array);             
+//               Thread.sleep(15000);
+//            }
             
             Thread.sleep(4000);
         }

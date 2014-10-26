@@ -177,7 +177,7 @@ public final class SobelFilter implements IntFilter
              {
                 val = -val00 + val02 - val10 - val10 + val12 + val12 - val20 + val22;
                 val = (val + (val >> 31)) ^ (val >> 31);
-                 
+
                 if (isVertical == true)
                 {
                    int valV = val00 + val01 + val01 + val02 - val20 - val21 - val21 - val22;

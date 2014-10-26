@@ -23,7 +23,6 @@ import kanzi.IntFilter;
 import kanzi.filter.ParallelFilter;
 import kanzi.filter.SobelFilter;
 import kanzi.util.sort.BucketSort;
-import kanzi.util.sort.RadixSort;
 
 
 // Based on algorithm by Shai Avidan, Ariel Shamir
@@ -62,8 +61,7 @@ public class ContextResizer implements IntFilter
     private final int maxSearches;
     private final int maxAvgGeoPixCost;
     private final int[] costs;
-    private final int nbGeodesics;
-    private int action;
+    private int scalingFactor;
     private boolean debug;
     private final IntSorter sorter;
     private IndexedIntArray buffer;
@@ -73,14 +71,14 @@ public class ContextResizer implements IntFilter
 
     public ContextResizer(int width, int height, int direction, int action)
     {
-        this(width, height, width, direction, action, 1, false, false, null);
+        this(width, height, width, direction, 1, false, false, null);
     }
 
 
     public ContextResizer(int width, int height, int stride, int direction, 
-            int action, int nbGeodesics)
+            int scalingFactor)
     {
-        this(width, height, stride, direction, action, nbGeodesics, false, false, null);
+        this(width, height, stride, direction, scalingFactor, false, false, null);
     }
 
 
@@ -89,10 +87,10 @@ public class ContextResizer implements IntFilter
     // and one channel mode (fastMode=true) for faster results.  
     // For unpacked images, use one channel mode (fastMode=true).
     public ContextResizer(int width, int height, int stride,
-            int direction, int action, int nbGeodesics,
+            int direction, int scalingFactor,
             boolean fastMode, boolean debug, ExecutorService pool)
     {
-        this(width, height, stride, direction, action, nbGeodesics, 
+        this(width, height, stride, direction, scalingFactor, 
                 Math.max(width, height), fastMode, debug, pool, DEFAULT_MAX_COST_PER_PIXEL);
     }
 
@@ -104,9 +102,10 @@ public class ContextResizer implements IntFilter
     // For packed RGB images, use 3 channels mode for more accurate results (fastMode=false)
     // and one channel mode (fastMode=true) for faster results.  
     // For unpacked images, use one channel mode (fastMode=true).
-    public ContextResizer(int width, int height, int stride,
-            int direction, int action, int nbGeodesics, int maxSearches,
-             boolean fastMode, boolean debug, ExecutorService pool, int maxAvgGeoPixCost)
+    // Scaling factor (unit is 0.1% or per mil), negative for shrink and positive for expand.
+    public ContextResizer(int width, int height, int stride, int direction,
+            int scalingFactor, int maxSearches, boolean fastMode, 
+            boolean debug, ExecutorService pool, int maxAvgGeoPixCost)
     {
         if (height < 8)
             throw new IllegalArgumentException("The height must be at least 8");
@@ -114,30 +113,45 @@ public class ContextResizer implements IntFilter
         if (width < 8)
             throw new IllegalArgumentException("The width must be at least 8");
 
+        if (height > 4096)
+            throw new IllegalArgumentException("The height must be at most 4096");
+
+        if (width > 4096)
+            throw new IllegalArgumentException("The width must be at least 4096");
+
         if (stride < 8)
             throw new IllegalArgumentException("The stride must be at least 8");
 
         if (maxAvgGeoPixCost < 1)
             throw new IllegalArgumentException("The max average pixel cost in a geodesic must be at least 1");
 
-        if (nbGeodesics < 1)
-            throw new IllegalArgumentException("The number of geodesics must be at least 1");
+        if ((scalingFactor <= -1000) || (scalingFactor == 0) || (scalingFactor >= 1000))
+            throw new IllegalArgumentException("The scaling factor unit is 0.1% (valid range "
+                    + "]-1000..0[ or ]0..1000[) : "+scalingFactor);
 
         if (((direction & HORIZONTAL) == 0) && ((direction & VERTICAL) == 0))
             throw new IllegalArgumentException("Invalid direction parameter (must be VERTICAL or HORIZONTAL)");
 
-        if ((action != SHRINK) && (action != EXPAND))
-            throw new IllegalArgumentException("Invalid action parameter (must be SHRINK or EXPAND)");
+        int absScalingFactor = Math.abs(scalingFactor);
+        
+        if ((direction & VERTICAL) != 0)
+        {
+           if ((absScalingFactor * width / 1000) == 0)
+              throw new IllegalArgumentException("The number of vertical geodesics is 0, increase scaling factor");
 
-        if ((direction & HORIZONTAL) == 0)
-        {
-           if (nbGeodesics > width)
-              throw new IllegalArgumentException("The number of geodesics must be at most "+width);
+           if ((absScalingFactor * width / 1000) == width)
+              throw new IllegalArgumentException("The number of vertical geodesics is " + 
+                      width + ", decrease scaling factor");
         }
-        else
+        
+        if ((direction & HORIZONTAL) != 0)
         {
-           if (nbGeodesics > height)
-              throw new IllegalArgumentException("The number of geodesics must be at most "+height);
+           if ((absScalingFactor * height / 1000) == 0)
+              throw new IllegalArgumentException("The number of horizontal geodesics is 0, increase scaling factor");
+
+           if ((absScalingFactor * height / 1000) == height)
+              throw new IllegalArgumentException("The number of horizontal geodesics is " + 
+                      height + ", decrease scaling factor");
         }
 
         this.height = height;
@@ -146,24 +160,20 @@ public class ContextResizer implements IntFilter
         this.direction = direction;
         this.maxSearches = maxSearches;
         this.costs = new int[stride*height];
-        this.nbGeodesics = nbGeodesics;
+        this.scalingFactor = scalingFactor;
         this.maxAvgGeoPixCost = maxAvgGeoPixCost;
-        this.action = action;
         this.buffer = new IndexedIntArray(new int[0], 0);
         this.fastMode = fastMode;
         this.debug = debug;
         this.pool = pool;
         int dim = (height >= width) ? height : width;
-        int log = 0;
+        int log = 3;
 
-        for (long val=dim+1; val>1; val>>=1)
-          log++;
-
-        if ((dim & (dim-1)) != 0)
-            log++;
-
+        while (1<<log < dim)
+           log++;
+        
         // Used to sort coordinates of geodesics
-        this.sorter = (log < 12) ? new BucketSort(log) : new RadixSort(8, log);
+        this.sorter = new BucketSort(log);
     }
 
 
@@ -195,7 +205,7 @@ public class ContextResizer implements IntFilter
 
     public int getAction()
     {
-        return this.action;
+        return (this.scalingFactor > 0) ? EXPAND : SHRINK;
     }
 
 
@@ -205,7 +215,8 @@ public class ContextResizer implements IntFilter
         if ((action != SHRINK) && (action != EXPAND))
             return false;
 
-        this.action = action;
+        this.scalingFactor = (action == SHRINK) ? -Math.abs(this.scalingFactor)
+                : Math.abs(this.scalingFactor);
         return true;
     }
 
@@ -224,17 +235,17 @@ public class ContextResizer implements IntFilter
     }
 
 
-    // Will modify the width and/or height attributes
+    // Modifies the width and/or height attributes
     // The src image is modified if both directions are selected
     @Override
     public boolean apply(IndexedIntArray src, IndexedIntArray dst)
     {
-       return (this.action == SHRINK) ? this.shrink_(src, dst) : 
+       return (this.scalingFactor < 0) ? this.shrink_(src, dst) : 
                this.expand_(src, dst);
     }
 
 
-    // Will increase the width and/or height attributes. Result must fit in width*height
+    // Increases the width and/or height attributes. Result must fit in width*height
     private boolean expand_(IndexedIntArray src, IndexedIntArray dst)
     {
         int processed = 0;
@@ -287,7 +298,7 @@ public class ContextResizer implements IntFilter
     }
 
 
-    // Will decrease the width and/or height attributes
+    // Decreases the width and/or height attributes
     private boolean shrink_(IndexedIntArray src, IndexedIntArray dst)
     {
         int processed = 0;
@@ -647,26 +658,27 @@ public class ContextResizer implements IntFilter
         final int geoLength;
         final int inc;
         final int incLine;
-        final int lineLength;
+        final int dim;
 
         if (dir == HORIZONTAL)
         {
             geoLength = this.width;
-            lineLength = this.height;
+            dim = this.height;
             inc = this.stride;
             incLine = 1;
         }
         else
         {
             geoLength = this.height;
-            lineLength = this.width;
+            dim = this.width;
             inc = 1;
             incLine = this.stride;
         }
 
         // Calculate cost at each pixel
         this.calculateCosts(source, this.costs);
-        final int maxGeo = (this.nbGeodesics > searches) ? searches : this.nbGeodesics;
+        final int nbGeodesics = dim * Math.abs(this.scalingFactor) / 1000;
+        final int maxGeo = (nbGeodesics > searches) ? searches : nbGeodesics;
 
         // Queue of geodesics sorted by cost
         // The queue size could be less than firstPositions.length
@@ -727,7 +739,7 @@ public class ContextResizer implements IntFilter
                     // Check right/lower pixel, skip already used pixels
                     int idx = startCostIdx + inc;
 
-                    for (int linePos=startBestLinePos+1; linePos<lineLength; idx+=inc, linePos++)
+                    for (int linePos=startBestLinePos+1; linePos<dim; idx+=inc, linePos++)
                     {
                         final int cost = costs_[idx];
 
@@ -765,7 +777,7 @@ public class ContextResizer implements IntFilter
 
                  // Prevent geodesics from sharing pixels by marking the used pixels
                  // Only the pixels of the geodesics in the queue are marked as used
-                 if (this.nbGeodesics > 1)
+                 if (nbGeodesics > 1)
                  {
                      // If the previous last element has been expelled from the queue,
                      // the corresponding pixels can be reused by other geodesics

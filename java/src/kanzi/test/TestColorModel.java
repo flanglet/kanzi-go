@@ -203,11 +203,13 @@ public class TestColorModel
     {
       private final int w;
       private final int h;
+      private final DWT_CDF_9_7 dwt;
       
       public DWTDownSampler(int w, int h)
       {
          this.w = w;
          this.h = h;
+         this.dwt = new DWT_CDF_9_7(this.w, this.h, 1);
       }
             
       @Override
@@ -225,21 +227,26 @@ public class TestColorModel
       @Override
       public void subSample(int[] input, int[] output) 
       {
-         DWT_CDF_9_7 dwt = new DWT_CDF_9_7(this.w, this.h, 1);
          IndexedIntArray src = new IndexedIntArray(input, 0);
          IndexedIntArray dst = new IndexedIntArray(output, 0);
-         dwt.forward(src, dst);
+         this.dwt.forward(src, dst);
          
-         for (int j=0; j<this.h; j++)
+         for (int j=this.h/2-1; j>=0; j--)
          {
-            int offset = j * this.w;
+            final int offset = j * this.w + this.w/2;
             
-            for (int i=0; i<this.w; i++)
-            {
-               // Remove high bands coefficients to down sample
-               if ((i+i >= this.w) || (j+j >= this.h))
-                  output[offset+i] = 0;
-            }
+            // Remove high bands coefficients to down sample
+            for (int i=offset+this.w/2-1; i>=offset; i--)
+               output[i] = 0;
+         }
+
+         for (int j=this.h/2; j<this.h; j++)
+         {
+            final int offset = j * this.w;
+            
+            // Remove high bands coefficients to down sample
+            for (int i=offset+this.w-1; i>=offset; i--)
+               output[i] = 0;
          }
       }
 
@@ -256,11 +263,13 @@ public class TestColorModel
     {
       private final int w;
       private final int h;
+      private final DWT_CDF_9_7 dwt;
       
       public DWTUpSampler(int w, int h)
       {
          this.w = w;
          this.h = h;
+         this.dwt = new DWT_CDF_9_7(this.w, this.h, 1);
       }
 
       @Override
@@ -278,7 +287,6 @@ public class TestColorModel
       @Override
       public void superSample(int[] input, int[] output) 
       {
-         DWT_CDF_9_7 dwt = new DWT_CDF_9_7(this.w, this.h, 1);
          IndexedIntArray src = new IndexedIntArray(input, 0);
          IndexedIntArray dst = new IndexedIntArray(output, 0);
          dwt.inverse(src, dst);
