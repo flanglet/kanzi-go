@@ -220,19 +220,18 @@ func initStretch() []int {
 var STRETCH = initStretch()
 
 type PAQPredictor struct {
+	// Removed apm11, apm12 and apm5 from original
 	pr     uint      // next predicted value (0-4095)
 	c0     uint      // bitwise context: last 0-7 bits with a leading 1 (1-255)
 	c4     uint      // last 4 whole bytes, last is in low 8 bits
 	bpos   uint      // number of bits in c0 (0-7)
 	states []int     // context -> state
 	sm     *StateMap // state -> pr
-	ctxPtr uint      // context pointer
 	run    uint      // count of consecutive identical bytes (0-65535)
 	runCtx uint      // (0-3) if run is 0, 1, 2-3, 4+
 	apm2   *AdaptiveProbMap
 	apm3   *AdaptiveProbMap
-	//apm5 *AdaptiveProbMap
-	apm4 *AdaptiveProbMap
+	apm4   *AdaptiveProbMap
 }
 
 func NewPAQPredictor() (*PAQPredictor, error) {
@@ -245,15 +244,12 @@ func NewPAQPredictor() (*PAQPredictor, error) {
 	this.apm2, err = newAdaptiveProbMap(1024)
 
 	if err == nil {
-		this.apm3, err = newAdaptiveProbMap(4)
+		this.apm3, err = newAdaptiveProbMap(1024)
 	}
 
 	if err == nil {
-		this.apm4, err = newAdaptiveProbMap(256)
+		this.apm4, err = newAdaptiveProbMap(8192)
 	}
-
-	// Disable APM5 for now. Seems like a good trade off speed/compression ratio
-	//this.apm5 = newAdaptiveProbMap(2048)
 
 	if err == nil {
 		this.sm, err = newStateMap()
@@ -267,7 +263,7 @@ func (this *PAQPredictor) Update(bit byte) {
 	y := int(bit)
 
 	// update model
-	this.states[this.ctxPtr] = STATE_TABLE[this.states[this.ctxPtr]][y]
+	this.states[this.c0] = STATE_TABLE[this.states[this.c0]][y]
 
 	// update context
 	this.c0 = (this.c0 << 1) | uint(y)
@@ -277,7 +273,7 @@ func (this *PAQPredictor) Update(bit byte) {
 	if this.bpos == 7 {
 		if this.c0&0xFF == this.c4&0xFF {
 			if this.run < 4 && this.run != 2 {
-				this.runCtx++
+				this.runCtx += 256
 			}
 
 			this.run++
@@ -297,13 +293,10 @@ func (this *PAQPredictor) Update(bit byte) {
 	}
 
 	// Prediction chain
-	this.ctxPtr = this.c0
-	pred := this.sm.get(y, this.states[this.ctxPtr])
+	pred := this.sm.get(y, this.states[this.c0])
 	pred = this.apm2.get(y, pred, this.c0|(c1d<<8), 7)
-	pred = this.apm3.get(y, pred, this.runCtx, 8)
-	//     ctx := int(this.c0 ^ (((this.c4*uint64(123456791)) & uint64(0xFFFFFFFF)) >> 21)))
-	//     pred = (this.apm5.get(y, pred, ctx, 7) + pred + 1) >> 1
-	pred = (this.apm4.get(y, pred, this.c0, 7) + pred + 1) >> 1
+	pred = this.apm3.get(y, pred, (this.c4&0xFF)|this.runCtx, 8)
+	pred = (this.apm4.get(y, pred, this.c0|(this.c4&0x1F00), 7) + pred + 1) >> 1
 
 	if pred >= 2048 {
 		this.pr = uint(pred)

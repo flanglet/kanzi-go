@@ -227,19 +227,17 @@ public class PAQPredictor implements Predictor
        return res;
    }
 
-
+   // Removed apm11, apm12 and apm5 from original
    private int pr;                   // next predicted value (0-4095)
    private int c0;                   // bitwise context: last 0-7 bits with a leading 1 (1-255)
    private int c4;                   // last 4 whole bytes, last is in low 8 bits
    private int bpos;                 // number of bits in c0 (0-7)
    private final int[] states;       // context -> state
    private final StateMap sm;        // state -> pr
-   private int ctxPtr;               // context pointer
    private int run;                  // count of consecutive identical bytes (0-65535)
    private int runCtx;               // (0-3) if run is 0, 1, 2-3, 4+
    private final AdaptiveProbMap apm2;
    private final AdaptiveProbMap apm3;
-   //private final AdaptiveProbMap apm5;
    private final AdaptiveProbMap apm4;
 
 
@@ -249,9 +247,8 @@ public class PAQPredictor implements Predictor
      this.c0 = 1;
      this.states = new int[256];
      this.apm2 = new AdaptiveProbMap(1024);
-     this.apm3 = new AdaptiveProbMap(4);
-     this.apm4 = new AdaptiveProbMap(256);
-     //this.apm5 = new AdaptiveProbMap(2048);
+     this.apm3 = new AdaptiveProbMap(1024);
+     this.apm4 = new AdaptiveProbMap(8192);
      this.sm = new StateMap();
      this.bpos = 7;
    }
@@ -259,8 +256,8 @@ public class PAQPredictor implements Predictor
    // Update the probability model
    @Override
    public void update(int bit)
-   {
-     this.states[this.ctxPtr] = STATE_TABLE[this.states[this.ctxPtr]][bit];
+   {    
+     this.states[this.c0] = STATE_TABLE[this.states[this.c0]][bit];
 
      // update context
      this.c0 = (this.c0 << 1) | bit;
@@ -269,9 +266,9 @@ public class PAQPredictor implements Predictor
      if (this.bpos < 0)
      {
         if ((this.c0 & 0xFF) == (this.c4 & 0xFF))
-        {
+        {          
            if ((this.run < 4) && (this.run != 2))
-              this.runCtx++;
+              this.runCtx += 256;
 
            this.run++;
         }
@@ -288,18 +285,14 @@ public class PAQPredictor implements Predictor
 
      int c1d = (this.c4 >> this.bpos) & 1;
 
-     if ((((this.c4 & 0xFF) | 256) >> (1+this.bpos)) == this.c0)
+     if ((((this.c4 & 0xFF) | 256) >> (1+this.bpos)) == this.c0) 
         c1d |= 2;
 
      // Prediction chain
-     this.ctxPtr = this.c0;
-     int pred = this.sm.get(bit, this.states[this.ctxPtr]);
+     int pred = this.sm.get(bit, this.states[this.c0]);
      pred = this.apm2.get(bit, pred, this.c0 | (c1d<<8), 7);
-     pred = this.apm3.get(bit, pred, this.runCtx, 8);
-// Disable APM5 for now. Seems like a good trade off speed/compression ratio     
-//     final int ctx = (int) (this.c0 ^ (((this.c4*123456791L) & 0xFFFFFFFFL) >> 21));
-//     pred = (this.apm5.get(y, pred, ctx, 7) + pred + 1) >> 1;
-     pred = (this.apm4.get(bit, pred, this.c0, 7) + pred + 1) >> 1;
+     pred = this.apm3.get(bit, pred, (this.c4&0xFF) | this.runCtx, 8);
+     pred = (this.apm4.get(bit, pred, this.c0 | (this.c4&0x1F00), 7) + pred + 1) >> 1;
      this.pr = (pred >= 2048) ? pred : pred+1;
    }
 
