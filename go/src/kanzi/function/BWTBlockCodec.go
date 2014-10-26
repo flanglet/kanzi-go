@@ -45,10 +45,10 @@ const (
 	GST_MODE_RANK       = 2
 	GST_MODE_TIMESTAMP  = 3
 	BWT_MAX_HEADER_SIZE = 4
-	MAX_BLOCK_SIZE      = 256 * 1024 * 1024  // 30 bits
+	MAX_BLOCK_SIZE      = 256 * 1024 * 1024 // 30 bits
 )
 
-type BlockCodec struct {
+type BWTBlockCodec struct {
 	transform kanzi.ByteTransform
 	mode      int
 	size      uint
@@ -57,7 +57,7 @@ type BlockCodec struct {
 
 // Based on the mode, the forward transform is followed by a Global Structure
 // Transform and ZRLT, else a raw transform is performed.
-func NewBlockCodec(tr interface{}, mode int, blockSize uint) (*BlockCodec, error) {
+func NewBWTBlockCodec(tr interface{}, mode int, blockSize uint) (*BWTBlockCodec, error) {
 	if tr == nil {
 		return nil, errors.New("Invalid null transform parameter")
 	}
@@ -76,7 +76,7 @@ func NewBlockCodec(tr interface{}, mode int, blockSize uint) (*BlockCodec, error
 
 	_, isBWT := tr.(*transform.BWT)
 
-	this := new(BlockCodec)
+	this := new(BWTBlockCodec)
 	this.mode = mode
 	this.size = blockSize
 	this.transform = tr.(kanzi.ByteTransform)
@@ -84,11 +84,11 @@ func NewBlockCodec(tr interface{}, mode int, blockSize uint) (*BlockCodec, error
 
 	if blockSize > this.maxBlockSize() {
 		transformName := "BWT"
-		
+
 		if this.isBWT == false {
 			transformName = "BWTS"
 		}
-		
+
 		errMsg := fmt.Sprintf("The max block size for the %v is %d", transformName, this.maxBlockSize())
 		return nil, errors.New(errMsg)
 	}
@@ -96,7 +96,7 @@ func NewBlockCodec(tr interface{}, mode int, blockSize uint) (*BlockCodec, error
 	return this, nil
 }
 
-func (this *BlockCodec) createGST(blockSize uint) (kanzi.ByteTransform, error) {
+func (this *BWTBlockCodec) createGST(blockSize uint) (kanzi.ByteTransform, error) {
 	// SBRT can perform MTFT but the dedicated class is faster
 	if this.mode == GST_MODE_RAW {
 		return nil, nil
@@ -109,7 +109,7 @@ func (this *BlockCodec) createGST(blockSize uint) (kanzi.ByteTransform, error) {
 	return transform.NewSBRT(this.mode, blockSize)
 }
 
-func (this *BlockCodec) maxBlockSize() uint {
+func (this *BWTBlockCodec) maxBlockSize() uint {
 	maxSize := uint(MAX_BLOCK_SIZE)
 
 	if this.isBWT == true {
@@ -119,11 +119,11 @@ func (this *BlockCodec) maxBlockSize() uint {
 	return maxSize
 }
 
-func (this *BlockCodec) Size() uint {
+func (this *BWTBlockCodec) Size() uint {
 	return this.size
 }
 
-func (this *BlockCodec) SetSize(sz uint) bool {
+func (this *BWTBlockCodec) SetSize(sz uint) bool {
 	if sz > this.maxBlockSize() {
 		return false
 	}
@@ -134,7 +134,7 @@ func (this *BlockCodec) SetSize(sz uint) bool {
 
 // Return no error if the compression chain succeeded. In this case, the input data
 // may be modified. If the compression failed, the input data is returned unmodified.
-func (this *BlockCodec) Forward(src, dst []byte) (uint, uint, error) {
+func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 	if src == nil {
 		return 0, 0, errors.New("Input buffer cannot be null")
 	}
@@ -229,7 +229,7 @@ func (this *BlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 	return iIdx, oIdx, nil
 }
 
-func (this *BlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
+func (this *BWTBlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	compressedLength := this.size
 
 	if compressedLength == 0 {
@@ -310,13 +310,13 @@ func (this *BlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	return this.transform.Inverse(src[srcIdx:], dst)
 }
 
-func (this BlockCodec) MaxEncodedLen(srcLen int) int {
+func (this BWTBlockCodec) MaxEncodedLen(srcLen int) int {
 	// Return input buffer size + max header size
 	// If forward() fails due to output buffer size, the block is returned
 	// unmodified with an error
 	if this.isBWT == true {
 		return srcLen + 4
 	}
-	
+
 	return srcLen
 }

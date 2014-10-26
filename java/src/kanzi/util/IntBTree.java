@@ -271,8 +271,8 @@ public final class IntBTree
 
       return current;
    }
-
-
+   
+   
    public int[] scan(Callback cb, boolean reverse)
    {
       if ((cb == null) || (this.root == null))

@@ -115,8 +115,6 @@ func (this *DivSufSort) ComputeSuffixArray(src []byte) []int {
 }
 
 func (this *DivSufSort) constructSuffixArray(bucket_A, bucket_B []int, n, m int) {
-	var c0 int
-
 	if m > 0 {
 		for c1 := 254; c1 >= 0; c1-- {
 			idx := c1 << 8
@@ -128,26 +126,28 @@ func (this *DivSufSort) constructSuffixArray(bucket_A, bucket_B []int, n, m int)
 				s := this.sa[j]
 				this.sa[j] = ^s
 
-				if s > 0 {
-					s--
-					c0 = this.buffer[s]
-
-					if s > 0 && this.buffer[s-1] > c0 {
-						s = ^s
-					}
-
-					if c0 != c2 {
-						if c2 >= 0 {
-							bucket_B[idx+c2] = k
-						}
-
-						c2 = c0
-						k = bucket_B[idx+c2]
-					}
-
-					this.sa[k] = s
-					k--
+				if s <= 0 {
+					continue
 				}
+
+				s--
+				c0 := this.buffer[s]
+
+				if s > 0 && this.buffer[s-1] > c0 {
+					s = ^s
+				}
+
+				if c0 != c2 {
+					if c2 >= 0 {
+						bucket_B[idx+c2] = k
+					}
+
+					c2 = c0
+					k = bucket_B[idx+c2]
+				}
+
+				this.sa[k] = s
+				k--
 			}
 		}
 	}
@@ -173,7 +173,7 @@ func (this *DivSufSort) constructSuffixArray(bucket_A, bucket_B []int, n, m int)
 		}
 
 		s--
-		c0 = this.buffer[s]
+		c0 := this.buffer[s]
 
 		if s == 0 || this.buffer[s-1] < c0 {
 			s = ^s

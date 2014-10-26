@@ -31,7 +31,7 @@ const (
 )
 
 type IntBTNode struct {
-	base   int
+	base   int // range base
 	counts []uint
 	left   *IntBTNode
 	right  *IntBTNode

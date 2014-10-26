@@ -41,7 +41,7 @@ import kanzi.transform.SBRT;
 // primary index: remaining bits (up to 3 bytes)
 // Bijective BWT stream format: Data (n bytes)
 
-public class BlockCodec implements ByteFunction, Sizeable
+public class BWTBlockCodec implements ByteFunction, Sizeable
 {
    public static final int MODE_RAW = 0;
    public static final int MODE_MTF = 1;
@@ -57,13 +57,13 @@ public class BlockCodec implements ByteFunction, Sizeable
    private int size;
 
    
-   public BlockCodec()
+   public BWTBlockCodec()
    {
       this(new BWT(), MODE_MTF, 4*1024*1024);
    }
 
    
-   public BlockCodec(int postTransformMode, int blockSize)
+   public BWTBlockCodec(int postTransformMode, int blockSize)
    {
       this(new BWT(), postTransformMode, blockSize);
    }
@@ -71,7 +71,7 @@ public class BlockCodec implements ByteFunction, Sizeable
    
    // Base on the mode, the forward transform is followed by a Global Structure 
    // Transform and ZRLT, else a raw transform is performed.
-   public BlockCodec(ByteTransform transform, int mode, int blockSize)
+   public BWTBlockCodec(ByteTransform transform, int mode, int blockSize)
    {
       if (transform == null)
         throw new NullPointerException("Invalid null transform parameter");

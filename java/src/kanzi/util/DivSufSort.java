@@ -124,8 +124,6 @@ public final class DivSufSort
 
     private void constructSuffixArray(int[] bucket_A, int[] bucket_B, int n, int m)
     {
-        int c0;
-
         if (m > 0)
         {
             for (int c1=254; c1>=0; c1--)
@@ -140,25 +138,25 @@ public final class DivSufSort
                     int s = this.sa[j];
                     this.sa[j] = ~s;
 
-                    if (s > 0)
+                    if (s <= 0)
+                       continue;
+                    
+                    s--;
+                    final int c0 = this.buffer[s];
+
+                    if ((s > 0) && (this.buffer[s-1] > c0))
+                        s = ~s;
+
+                    if (c0 != c2)
                     {
-                        s--;
-                        c0 = this.buffer[s];
+                        if (c2 >= 0)
+                            bucket_B[idx+c2] = k;
 
-                        if ((s > 0) && (this.buffer[s-1] > c0))
-                            s = ~s;
-
-                        if (c0 != c2)
-                        {
-                            if (c2 >= 0)
-                                bucket_B[idx+c2] = k;
-
-                            c2 = c0;
-                            k = bucket_B[idx+c2];
-                        }
-
-                        this.sa[k--] = s;
+                        c2 = c0;
+                        k = bucket_B[idx+c2];
                     }
+
+                    this.sa[k--] = s;
                 }
             }
         }
@@ -179,7 +177,7 @@ public final class DivSufSort
             }
              
             s--;
-            c0 = this.buffer[s];
+            final int c0 = this.buffer[s];
 
             if ((s == 0) || (this.buffer[s-1] < c0))
                 s = ~s;

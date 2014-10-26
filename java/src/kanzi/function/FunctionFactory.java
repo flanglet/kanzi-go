@@ -77,16 +77,16 @@ public class FunctionFactory
          throw new IllegalArgumentException("Missing GST type");
       
       if ((args.length() == 0) || (args.equalsIgnoreCase("NONE")))
-         return BlockCodec.MODE_RAW;
+         return BWTBlockCodec.MODE_RAW;
       
       if (args.equalsIgnoreCase("MTF"))
-         return BlockCodec.MODE_MTF;
+         return BWTBlockCodec.MODE_MTF;
       
       if (args.equalsIgnoreCase("RANK"))        
-         return BlockCodec.MODE_RANK;
+         return BWTBlockCodec.MODE_RANK;
       
       if (args.equalsIgnoreCase("TIMESTAMP"))
-         return BlockCodec.MODE_TIMESTAMP;
+         return BWTBlockCodec.MODE_TIMESTAMP;
       
        throw new IllegalArgumentException("Unknown GST type: " + args);
    }
@@ -109,29 +109,33 @@ public class FunctionFactory
             return new NullFunction(size);
             
          case BWT_TYPE:
-            return new BlockCodec(new BWT(), type >>> 4, size); 
+            return new BWTBlockCodec(new BWT(), type >>> 4, size); 
             
-          case BWTS_TYPE:
-            return new BlockCodec(new BWTS(), type >>> 4, size); 
-             
+         case BWTS_TYPE:
+            return new BWTBlockCodec(new BWTS(), type >>> 4, size); 
+          
          default:
             throw new IllegalArgumentException("Unknown transform type: " + (char) type);
       }
    }
 
-   
+      
    private static String getGSTName(int type)
    {
        switch (type)
       {
-         case BlockCodec.MODE_MTF:
+         case BWTBlockCodec.MODE_MTF:
             return "MTF";
-         case BlockCodec.MODE_RANK:
+            
+         case BWTBlockCodec.MODE_RANK:
             return "RANK";
-         case BlockCodec.MODE_TIMESTAMP:
+            
+         case BWTBlockCodec.MODE_TIMESTAMP:
             return "TIMESTAMP";
-         case BlockCodec.MODE_RAW:
+            
+         case BWTBlockCodec.MODE_RAW:
             return "";
+            
          default:
             throw new IllegalArgumentException("Unknown GST type: " + type);
       }
@@ -144,6 +148,7 @@ public class FunctionFactory
       {
          case LZ4_TYPE:
             return "LZ4";
+            
          case BWT_TYPE:
          case BWTS_TYPE:
             String gstName = getGSTName(type >>> 4);
@@ -152,12 +157,16 @@ public class FunctionFactory
                return (gstName.length() == 0) ? "BWT" : "BWT+" + gstName;         
                
             return (gstName.length() == 0) ? "BWTS" : "BWTS+" + gstName;
+            
          case SNAPPY_TYPE:
             return "SNAPPY";
+            
          case RLT_TYPE:
             return "RLT";
+            
          case NULL_TRANSFORM_TYPE:
             return "NONE";
+            
          default:
             throw new IllegalArgumentException("Unknown transform type: " + (char) type);
       }
