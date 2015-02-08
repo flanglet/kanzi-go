@@ -65,6 +65,7 @@ public class TestSobelFilter
             effect = new SobelFilter(w, h, w);
             test(effect, icon, "Sobel - 1 thread", 0, 200, 150, 5000*adjust/100, 0);
             IntFilter[] effects = new IntFilter[4];
+            int dir = SobelFilter.HORIZONTAL | SobelFilter.VERTICAL;
                         
             // 4 threads, vertical split 
             // Overlap by increasing dim and do not process boundaries to avoid artefacts
@@ -73,7 +74,7 @@ public class TestSobelFilter
             // kernel cannot be applied at the boundary), creating visible artefacts.
             // Overlapping filters and no boundary processing avoids the artefacts.
             for (int i=0; i<effects.length; i++)
-               effects[i] = new SobelFilter(w/effects.length+2, h+2, w, false);
+               effects[i] = new SobelFilter(w/effects.length+2, h+2, w, dir, false);
             
             effect = new ParallelFilter(w, h, w, pool, effects, ParallelFilter.VERTICAL);            
             test(effect, icon, "Sobel - 4 threads - vertical split", 0, 300, 350, 10000*adjust/100, 0);
@@ -81,7 +82,7 @@ public class TestSobelFilter
             // 4 threads, horizontal split
             // Overlap filters and do not process boundaries to avoid artefacts
             for (int i=0; i<effects.length; i++)
-               effects[i] = new SobelFilter(w+2, h/effects.length+2, w, false);
+               effects[i] = new SobelFilter(w+2, h/effects.length+2, w, dir, false);
             
             effect = new ParallelFilter(w, h, w, pool, effects, ParallelFilter.HORIZONTAL);            
             test(effect, icon, "Sobel - 4 threads - horizontal split", 0, 400, 550, 10000*adjust/100, 30000);

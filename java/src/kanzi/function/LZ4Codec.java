@@ -89,21 +89,21 @@ public final class LZ4Codec implements ByteFunction, Sizeable
    }
 
 
-   private static int writeLength(byte[] array, int idx, int len) 
-   {   
-      while (len >= 0x1FE) 
+   private static int writeLength(byte[] array, int idx, int len)
+   {
+      while (len >= 0x1FE)
       {
          array[idx++] = (byte) 0xFF;
          array[idx++] = (byte) 0xFF;
          len -= 0x1FE;
       }
 
-      if (len >= 0xFF) 
+      if (len >= 0xFF)
       {
          array[idx++] = (byte) 0xFF;
          len -= 0xFF;
       }
-    
+
       array[idx++] = (byte) len;
       return idx;
    }
@@ -202,10 +202,10 @@ public final class LZ4Codec implements ByteFunction, Sizeable
             attempts++;
             final int h = (readInt(src, srcIdx) * HASH_SEED) >>> hashShift;
             ref = base + table[h];
-            table[h] = srcIdx - base;        
+            table[h] = srcIdx - base;
          }
          while ((differentInts(src, ref, srcIdx) == true) || (ref <= srcIdx - MAX_DISTANCE));
-       
+
          // Catch up
          while ((ref > srcIdx0) && (srcIdx > anchor) && (src[ref-1] == src[srcIdx-1]))
          {
@@ -224,7 +224,7 @@ public final class LZ4Codec implements ByteFunction, Sizeable
          dstIdx = destination.index;
 
          do
-         {       
+         {
             // Encode offset
             dst[dstIdx++] = (byte) (srcIdx-ref);
             dst[dstIdx++] = (byte) ((srcIdx-ref) >> 8);
@@ -318,7 +318,7 @@ public final class LZ4Codec implements ByteFunction, Sizeable
                length += 0xFF;
 
             length += (len & 0xFF);
-            
+
             if (length > MAX_LENGTH)
                throw new IllegalArgumentException("Invalid length decoded: " + length);
          }
@@ -360,7 +360,7 @@ public final class LZ4Codec implements ByteFunction, Sizeable
          if (matchEnd > dstEnd2)
          {
             for (int i=0; i<length; i++)
-               dst[dstIdx+i] = dst[matchOffset+i];
+            dst[dstIdx+i] = dst[matchOffset+i]; 
          }
          else
          {
@@ -380,7 +380,7 @@ public final class LZ4Codec implements ByteFunction, Sizeable
             }
             while (dstIdx < matchEnd);
          }
-
+         
          // Correction
          dstIdx = matchEnd;
       }
@@ -410,8 +410,8 @@ public final class LZ4Codec implements ByteFunction, Sizeable
    {
       return srcLen + (srcLen / 255) + 16;
    }
-   
-   
+
+
    private static boolean differentInts(byte[] array, int srcIdx, int dstIdx)
    {
       return ((array[srcIdx] != array[dstIdx])     ||
@@ -420,12 +420,12 @@ public final class LZ4Codec implements ByteFunction, Sizeable
               (array[srcIdx+3] != array[dstIdx+3]));
    }
 
-   
+
    private static int readInt(byte[] array, int srcIdx)
    {
-      return ((array[srcIdx]   & 0xFF) << SHIFT1) | 
+      return ((array[srcIdx]   & 0xFF) << SHIFT1) |
              ((array[srcIdx+1] & 0xFF) << SHIFT2) |
-             ((array[srcIdx+2] & 0xFF) << SHIFT3) | 
+             ((array[srcIdx+2] & 0xFF) << SHIFT3) |
              ((array[srcIdx+3] & 0xFF) << SHIFT4);
    }
 }

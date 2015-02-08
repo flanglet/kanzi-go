@@ -18,7 +18,7 @@ package kanzi;
 
 public enum ColorModelType
 {
-    RGB(1), YUV444(2), YUV422(3), YUV420(4), YUV411(5);
+    RGB(1), YUV444(2), YUV422(3), YUV420(4), YUV411(5), XYZ(6), LAB(7);
 
     private final byte value;
 
@@ -31,18 +31,28 @@ public enum ColorModelType
     @Override
     public String toString()
     {
-        if (this.value == 2)
-            return "YUV_444";
+       switch (this.value)
+       {
+          case 2 :
+             return "YUV_444";
 
-        if (this.value == 3)
-            return "YUV_422";
+          case 3 :
+             return "YUV_422";
 
-        if (this.value == 4)
-            return "YUV_420";
+          case 4 :
+             return "YUV_420";
 
-        if (this.value == 5)
-            return "YUV_411";
+          case 5 :
+             return "YUV_411";
 
-        return "RGB";
+          case 6 :
+             return "XYZ";
+
+          case 7 :
+             return "LAB";
+
+          default:
+             return "RGB";
+       }
     }
 };

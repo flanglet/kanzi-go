@@ -20,7 +20,6 @@ package kanzi.entropy;
 public class FPAQPredictor implements Predictor
 {
    private static final int THRESHOLD = 200;
-   private static final int SHIFT = 1;
    
    private final short[] states; // 256 frequency contexts for each bit
    private int ctxIdx; // previous bits
@@ -44,8 +43,8 @@ public class FPAQPredictor implements Predictor
       // Find the number of registered 0 & 1 given the previous bits (in this.ctxIdx)
       if (++this.states[idx] >= THRESHOLD) 
       {
-         this.states[idx&-2] >>= SHIFT;
-         this.states[(idx&-2)+1] >>= SHIFT;
+         this.states[idx&-2] >>= 1;
+         this.states[(idx&-2)+1] >>= 1;
       }  
       
       // Update context by registering the current bit (or wrapping after 8 bits)

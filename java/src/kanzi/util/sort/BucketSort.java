@@ -33,7 +33,6 @@ public class BucketSort implements IntSorter, ByteSorter
         this.count = new int[256];
     }
 
-
     
     // Limit size to handle shorts
     public BucketSort(int logMaxValue)

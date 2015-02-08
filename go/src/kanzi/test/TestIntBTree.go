@@ -23,7 +23,6 @@ import (
 	"time"
 )
 
-
 func main() {
 	fmt.Printf("Correctness Test\n")
 
@@ -88,6 +87,11 @@ func main() {
 
 			println()
 			fmt.Printf("Size: %v\n", tree.Size())
+
+			for i := 0; i < len(array)/2; i++ {
+				r := tree.Rank(array[i])
+				fmt.Printf("Rank %v: %v ", array[i], r)
+			}
 
 			for tree.Size() > 0 {
 				tMin, err1 := tree.Min()

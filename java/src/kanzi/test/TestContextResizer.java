@@ -115,7 +115,7 @@ public class TestContextResizer
                 System.out.println("No image file name provided on command line, using default value");
 
             System.out.println("File name set to '" + fileName + "'");
-            System.out.println("Strength set to "+effectPerMil+"%");
+            System.out.println("Strength set to "+(effectPerMil/10)+"%");
             ImageIcon icon = new ImageIcon(fileName);
             Image image = icon.getImage();
             int w = image.getWidth(null);
@@ -211,15 +211,15 @@ public class TestContextResizer
             frame3.setUndecorated(true);
             ImageIcon newIcon = new ImageIcon(img2);
             frame3.add(new JLabel(newIcon));
-            frame3.setVisible(true);
-            BufferedImage img3 = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
-            final int w0 = w;
-
-            // Add delay to make sure that the frame is visible before creating back buffer
-            Thread.sleep(10);
-            frame3.createBufferStrategy(1);
-            ExecutorService pool = Executors.newFixedThreadPool(4);
-            System.arraycopy(src.array, 0, dst.array, 0, src.array.length);
+//            frame3.setVisible(true);
+//            BufferedImage img3 = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
+//            final int w0 = w;
+//
+//            // Add delay to make sure that the frame is visible before creating back buffer
+//            Thread.sleep(10);
+//            frame3.createBufferStrategy(1);
+//            ExecutorService pool = Executors.newFixedThreadPool(4);
+//            System.arraycopy(src.array, 0, dst.array, 0, src.array.length);
 //            int iters = 1;
 //            BufferStrategy bufferStrategy = frame3.getBufferStrategy();
 //            Graphics2D g = (Graphics2D) bufferStrategy.getDrawGraphics();
@@ -264,7 +264,7 @@ public class TestContextResizer
 //               Thread.sleep(15000);
 //            }
             
-            Thread.sleep(4000);
+            Thread.sleep(99000);
         }
         catch (Exception e)
         {

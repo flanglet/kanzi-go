@@ -412,10 +412,10 @@ func newAdaptiveProbMap(n uint) (*AdaptiveProbMap, error) {
 }
 
 func (this *AdaptiveProbMap) get(bit int, pr int, ctx uint, rate uint) int {
-	pr = STRETCH[pr]
 	g := (bit << 16) + (bit << rate) - (bit << 1)
 	this.data[this.index] += ((g - this.data[this.index]) >> rate)
 	this.data[this.index+1] += ((g - this.data[this.index+1]) >> rate)
+	pr = STRETCH[pr]
 	w := pr & 127 // interpolation weight (33 points)
 	this.index = (uint(pr+2048) >> 7) + (ctx * 33)
 	return (this.data[this.index]*(128-w) + this.data[this.index+1]*w) >> 11

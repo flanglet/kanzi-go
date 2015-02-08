@@ -26,19 +26,19 @@ import kanzi.Sizeable;
 public final class SnappyCodec implements ByteFunction, Sizeable
 {
    private static final int MAX_OFFSET     = 32768;
+   private static final int MAX_TABLE_SIZE = 16384;
    private static final int TAG_LITERAL    = 0x00;
    private static final int TAG_COPY1      = 0x01;
    private static final int TAG_COPY2      = 0x02;
-   private static final int TAG_DEC_LEN1   = 60;
-   private static final int TAG_DEC_LEN2   = 61;
-   private static final int TAG_DEC_LEN3   = 62;
-   private static final int TAG_DEC_LEN4   = 63;
-   private static final byte TAG_ENC_LEN1  = (byte) ((TAG_DEC_LEN1<<2) | TAG_LITERAL);
-   private static final byte TAG_ENC_LEN2  = (byte) ((TAG_DEC_LEN2<<2) | TAG_LITERAL);
-   private static final byte TAG_ENC_LEN3  = (byte) ((TAG_DEC_LEN3<<2) | TAG_LITERAL);
-   private static final byte TAG_ENG_LEN4  = (byte) ((TAG_DEC_LEN4<<2) | TAG_LITERAL);
-   private static final int MAX_TABLE_SIZE = 16384;
-   private static final byte B0            = (byte) ((TAG_DEC_LEN4 << 2) | TAG_COPY2);
+   private static final int TAG_DEC_LEN1   = 0xF0;
+   private static final int TAG_DEC_LEN2   = 0xF4;
+   private static final int TAG_DEC_LEN3   = 0xF8;
+   private static final int TAG_DEC_LEN4   = 0xFC;
+   private static final byte TAG_ENC_LEN1  = (byte) (TAG_DEC_LEN1 | TAG_LITERAL);
+   private static final byte TAG_ENC_LEN2  = (byte) (TAG_DEC_LEN2 | TAG_LITERAL);
+   private static final byte TAG_ENC_LEN3  = (byte) (TAG_DEC_LEN3 | TAG_LITERAL);
+   private static final byte TAG_ENG_LEN4  = (byte) (TAG_DEC_LEN4 | TAG_LITERAL);
+   private static final byte B0            = (byte) (TAG_DEC_LEN4 | TAG_COPY2);
    private static final int HASH_SEED      = 0x1e35a7bd;
 
    private int size;
@@ -82,7 +82,7 @@ public final class SnappyCodec implements ByteFunction, Sizeable
    // emitLiteral writes a literal chunk and returns the number of bytes written.
    private static int emitLiteral(IndexedByteArray source, IndexedByteArray destination, int len)
    {
-     int srcIdx = source.index;
+     final int srcIdx = source.index;
      int dstIdx = destination.index;
      final byte[] src = source.array;
      final byte[] dst = destination.array;
@@ -95,11 +95,27 @@ public final class SnappyCodec implements ByteFunction, Sizeable
         dstIdx++;
         res = len + 1;
         
-        if (len < 16)
+        if (len <= 16)
         {
-	   for (int i=0; i<len; i++)
-	      dst[dstIdx+i] = src[srcIdx+i];
+           if (len >= 4) 
+           {
+              dst[dstIdx]   = src[srcIdx];
+              dst[dstIdx+1] = src[srcIdx+1];
+              dst[dstIdx+2] = src[srcIdx+2];
+              dst[dstIdx+3] = src[srcIdx+3];             
+           }
 
+           if (len >= 8) 
+           {
+              dst[dstIdx+4] = src[srcIdx+4];
+              dst[dstIdx+5] = src[srcIdx+5];
+              dst[dstIdx+6] = src[srcIdx+6];
+              dst[dstIdx+7] = src[srcIdx+7];             
+           }
+           
+           for (int i=0; i<len; i++)
+	      dst[dstIdx+i] = src[srcIdx+i];
+           
            return res;
         }
      }
@@ -187,10 +203,9 @@ public final class SnappyCodec implements ByteFunction, Sizeable
      if ((source == null) || (destination == null) || (source.array == destination.array))
         return false;
 
-     final int srcIdx0 = source.index;
      final byte[] src = source.array;
      final byte[] dst = destination.array;
-     final int count = (this.size > 0) ? this.size : src.length - srcIdx0;
+     final int count = (this.size > 0) ? this.size : src.length - source.index;
 
      if (dst.length - destination.index < getMaxEncodedLength(count))
         return false;
@@ -207,7 +222,7 @@ public final class SnappyCodec implements ByteFunction, Sizeable
            dstIdx += emitLiteral(source, destination, count);
         }
 
-        source.index = srcIdx0 + count;
+        source.index += count;
         destination.index = dstIdx;
         return true;
      }
@@ -228,6 +243,7 @@ public final class SnappyCodec implements ByteFunction, Sizeable
         table[i] = -1;
 
      // Iterate over the source bytes
+     final int srcIdx0 = source.index;
      int srcIdx = srcIdx0; // The iterator position
      int lit = srcIdx0; // The start position of any pending literal bytes
      final int ends1 = srcIdx0 + count;
@@ -423,10 +439,13 @@ public final class SnappyCodec implements ByteFunction, Sizeable
            {
               case TAG_LITERAL:
               {
-                int x = (src[s] & 0xFF) >> 2;
+                int x = src[s] & 0xFC;
 
                 if (x < TAG_DEC_LEN1)
+                {
                     s++;
+                    x >>= 2;
+                }
                 else if (x == TAG_DEC_LEN1)
                 {
                    s += 2;
@@ -507,7 +526,7 @@ public final class SnappyCodec implements ByteFunction, Sizeable
           
      source.index = ends;
      destination.index = d;
-     return (d - dstIdx != dLen) ? false : true;
+     return (d - dstIdx == dLen);
   }
   
   

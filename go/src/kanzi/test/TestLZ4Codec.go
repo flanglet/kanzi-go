@@ -34,7 +34,7 @@ func TestCorrectness() {
 
 	for ii := 0; ii < 20; ii++ {
 		rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
-		fmt.Printf("\nTest %v\n", ii)
+		fmt.Printf("\nTest %v\n\n", ii)
 		var arr []int
 
 		if ii == 0 {
@@ -92,7 +92,7 @@ func TestCorrectness() {
 		}
 
 		lz4, _ := function.NewLZ4Codec(0)
-		fmt.Printf("\nOriginal: ")
+		fmt.Printf("\nOriginal: \n")
 
 		for i := range arr {
 			fmt.Printf("%v ", input[i])
@@ -110,7 +110,7 @@ func TestCorrectness() {
 			continue
 		}
 
-		fmt.Printf("\nCoded: ")
+		fmt.Printf("\nCoded: \n")
 
 		for i := uint(0); i < dstIdx; i++ {
 			fmt.Printf("%v ", output[i])
@@ -126,7 +126,7 @@ func TestCorrectness() {
 			os.Exit(1)
 		}
 
-		fmt.Printf("\nDecoded: ")
+		fmt.Printf("\nDecoded: \n")
 
 		for i := range reverse {
 			fmt.Printf("%v ", reverse[i])
@@ -148,7 +148,7 @@ func TestCorrectness() {
 
 func TestSpeed() {
 	iter := 50000
-	size := 30000
+	size := 50000
 	fmt.Printf("\n\nSpeed test\n")
 	fmt.Printf("Iterations: %v\n", iter)
 

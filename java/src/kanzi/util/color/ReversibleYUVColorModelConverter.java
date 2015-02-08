@@ -71,7 +71,7 @@ public final class ReversibleYUVColorModelConverter implements ColorModelConvert
 
         for (int j=0; j<this.height; j++)
         {
-            int end = startLine + this.width;
+            final int end = startLine + this.width;
 
             for (int k=startLine, i=startLine2; k<end; i++)
             {
@@ -107,7 +107,7 @@ public final class ReversibleYUVColorModelConverter implements ColorModelConvert
 
         for (int j=0; j<this.height; j++)
         {
-            int end = startLine + this.width;
+            final int end = startLine + this.width;
 
             for (int i=startLine, k=startLine2; i<end; i++)
             {

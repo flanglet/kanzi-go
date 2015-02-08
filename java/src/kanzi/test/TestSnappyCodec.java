@@ -196,7 +196,7 @@ public class TestSnappyCodec
             {
                byte val = (byte) (rnd.nextInt() & 255);
                input[n++] = val;
-               int run = rnd.nextInt() & 255;
+               int run = 150+(n&255);
                run -= 200;
 
                while ((--run > 0) && (n < input.length))       

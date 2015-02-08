@@ -32,6 +32,7 @@ import kanzi.util.color.ColorModelConverter;
 import kanzi.util.color.YCbCrColorModelConverter;
 import kanzi.util.ImageQualityMonitor;
 import kanzi.util.color.ReversibleYUVColorModelConverter;
+import kanzi.util.color.XYZColorModelConverter;
 import kanzi.util.color.YSbSrColorModelConverter;
 import kanzi.util.sampling.BilinearUpSampler;
 import kanzi.util.sampling.DecimateDownSampler;
@@ -72,6 +73,7 @@ public class TestColorModel
 
         ColorModelConverter[] cvts = new ColorModelConverter[]
         {
+           new XYZColorModelConverter(w, h),
            new YCbCrColorModelConverter(w, h, dFourTap, uFourTap1),
            new YCbCrColorModelConverter(w, h, dBilinear, uBilinear),
            new YCbCrColorModelConverter(w, h, dDWT, uDWT),
@@ -87,12 +89,13 @@ public class TestColorModel
 
         boolean[] is420 = new boolean[]
         {
-            true, true, true, true, false,
-            true, true, true, true, false,
-            false
+            false, true, true, true, true, 
+            false, true, true, true, true, 
+            false, false
         };
 
-        String[] names = { "YCbCr - four taps",
+        String[] names = { "XYZ",
+                           "YCbCr - four taps",
                            "YCbCr - bilinear",
                            "YCbCr - DWT",
                            "YCbCr - built-in (bilinear)",
@@ -146,8 +149,16 @@ public class TestColorModel
         }
         else
         {
-          cvt.convertRGBtoYUV(rgb1, y1, u1, v1, ColorModelType.YUV444);
-          cvt.convertYUVtoRGB(y1, u1, v1, rgb2, ColorModelType.YUV444);
+           if (cvt instanceof XYZColorModelConverter) 
+           {
+              cvt.convertRGBtoYUV(rgb1, y1, u1, v1, ColorModelType.XYZ);
+              cvt.convertYUVtoRGB(y1, u1, v1, rgb2, ColorModelType.XYZ);
+           } 
+           else
+           {
+              cvt.convertRGBtoYUV(rgb1, y1, u1, v1, ColorModelType.YUV444);
+              cvt.convertYUVtoRGB(y1, u1, v1, rgb2, ColorModelType.YUV444);
+           }
         }
 
         // Compute PSNR
@@ -188,8 +199,18 @@ public class TestColorModel
            {
                Arrays.fill(rgb2, 0);
                long before = System.nanoTime();
-               cvt.convertRGBtoYUV(rgb1, y1, u1, v1, ColorModelType.YUV444);
-               cvt.convertYUVtoRGB(y1, u1, v1, rgb2, ColorModelType.YUV444);
+
+               if (cvt instanceof XYZColorModelConverter) 
+               {
+                  cvt.convertRGBtoYUV(rgb1, y1, u1, v1, ColorModelType.XYZ);
+                  cvt.convertYUVtoRGB(y1, u1, v1, rgb2, ColorModelType.XYZ);
+               } 
+               else
+               {
+                  cvt.convertRGBtoYUV(rgb1, y1, u1, v1, ColorModelType.YUV444);
+                  cvt.convertYUVtoRGB(y1, u1, v1, rgb2, ColorModelType.YUV444);
+               }
+               
                long after = System.nanoTime();
                sum += (after - before);
            }

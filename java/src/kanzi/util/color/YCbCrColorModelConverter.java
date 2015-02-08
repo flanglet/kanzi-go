@@ -136,6 +136,10 @@ public final class YCbCrColorModelConverter implements ColorModelConverter
     }
 
 
+    // conversion matrix
+    //  0.257  0.504  0.098
+    // -0.148 -0.291  0.439
+    //  0.439 -0.368 -0.071
     private boolean convertRGBtoYUV444(int[] rgb, int[] y, int[] u, int[] v)
     {
         int startLine  = this.rgbOffset;
@@ -143,21 +147,18 @@ public final class YCbCrColorModelConverter implements ColorModelConverter
 
         for (int j=0; j<this.height; j++)
         {
-            int end = startLine + this.width;
+            final int end = startLine + this.width;
 
             for (int k=startLine, i=startLine2; k<end; i++)
             {
-                int rgbVal, r, g, b, yVal, uVal, vVal;
-
                 // ------- fromRGB 'Macro'
-                rgbVal = rgb[k++];
-                r = (rgbVal >> 16) & 0xFF;
-                g = (rgbVal >> 8) & 0xFF;
-                b =  rgbVal & 0xFF;
-
-                yVal = 1052*r + 2065*g +  401*b;
-                uVal = -607*r - 1192*g + 1799*b;
-                vVal = 1799*r - 1506*g -  293*b;
+                final int rgbVal = rgb[k++];
+                final int r = (rgbVal >> 16) & 0xFF;
+                final int g = (rgbVal >> 8) & 0xFF;
+                final int b =  rgbVal & 0xFF;
+                final int yVal = 1052*r + 2065*g +  401*b;
+                final int uVal = -607*r - 1192*g + 1799*b;
+                final int vVal = 1799*r - 1506*g -  293*b;
 
                 y[i] = ((yVal + 2048) >> 12) + 16;
                 u[i] = ((uVal + 2048) >> 12) + 128;
@@ -173,6 +174,10 @@ public final class YCbCrColorModelConverter implements ColorModelConverter
     }
 
 
+    // conversion matrix
+    // 1.164 0.000 1.596
+    // 1.164 0.392 0.813
+    // 1.164 2.017 0.000 
     private boolean convertYUV444toRGB(int[] y, int[] u, int[] v, int[] rgb)
     {
         int startLine = 0;
@@ -180,17 +185,17 @@ public final class YCbCrColorModelConverter implements ColorModelConverter
 
         for (int j=0; j<this.height; j++)
         {
-            int end = startLine + this.width;
+            final int end = startLine + this.width;
 
             for (int i=startLine, k=startLine2; i<end; i++)
             {
-                int r, g, b, yVal, uVal, vVal;
-
                 // ------- toRGB 'Macro'
-                yVal = 4769 * (y[i] - 16); uVal = u[i] - 128; vVal = v[i] - 128;
-                r = yVal + 6537*vVal;
-                g = yVal - 1605*uVal - 3330*vVal;
-                b = yVal + 8263*uVal;
+                final int yVal = 4769 * (y[i] - 16); 
+                final int uVal = u[i] - 128; 
+                final int vVal = v[i] - 128;
+                int r = yVal             + 6537*vVal;
+                int g = yVal - 1605*uVal - 3330*vVal;
+                int b = yVal + 8263*uVal;
 
                 if (r >= 1046528) r = 0x00FF0000;
                 else { r = (r + 2048) >> 12; r &= (-r >> 31); r <<= 16; }
@@ -656,7 +661,7 @@ public final class YCbCrColorModelConverter implements ColorModelConverter
 
         for (int j=this.height-1; j>=0; j-=2)
         {
-            int nextLine = startLine + this.stride;
+            final int nextLine = startLine + this.stride;
 
             for (int i=0; i<this.width; )
             {
@@ -793,7 +798,7 @@ public final class YCbCrColorModelConverter implements ColorModelConverter
 
         for (int j=0; j<this.height; j++)
         {
-            int end = iOffs + this.width;
+            final int end = iOffs + this.width;
 
             for (int k=iOffs, i=oOffs; k<end; i++)
             {

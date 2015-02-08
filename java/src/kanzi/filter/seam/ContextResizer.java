@@ -39,14 +39,14 @@ import kanzi.util.sort.BucketSort;
 // the image. These paths really are geodesics.
 public class ContextResizer implements IntFilter
 {
-    // Possible directions
+    // Directions
     public static final int HORIZONTAL = 1;
     public static final int VERTICAL = 2;
 
-    // Possible actions
+    // Actions
     public static final int SHRINK = 1;
     public static final int EXPAND = 2;
-
+   
     private static final int USED_MASK = 0x80000000;
     private static final int VALUE_MASK = USED_MASK - 1;
     private static final int DEFAULT_BEST_COST = 0x0FFFFFFF;
@@ -886,9 +886,9 @@ public class ContextResizer implements IntFilter
     private int[] calculateCosts(IndexedIntArray source, int[] costs_)
     {
         // For packed RGB images, use 3 channels mode for more accurate results and 
-        // one channel mode (blue) for faster results.  
+        // one channel mode (green) for faster results.  
         // For unpacked images, use one channel mode (Y for YUV or any for RGB).
-        int sobelMode = (this.fastMode == true) ? SobelFilter.ONE_CHANNEL : SobelFilter.THREE_CHANNELS;
+        int sobelMode = (this.fastMode == true) ? SobelFilter.G_CHANNEL : SobelFilter.THREE_CHANNELS;
         
         if (this.pool != null)
         {
@@ -930,8 +930,8 @@ public class ContextResizer implements IntFilter
            gradientFilter.apply(source, new IndexedIntArray(costs_, 0));
         }
         
-        // Add a quadratic contribution to the cost
-        // Favor straight lines if costs of neighbors are all low
+        // Add a quadratic contribution to the cost to favor straight lines
+        // if costs of neighbors are all low
         for (int i=0; i<costs_.length; i++)
         {
            final int c = costs_[i];           

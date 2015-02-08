@@ -17,7 +17,6 @@ package entropy
 
 const (
 	THRESHOLD = 200
-	SHIFT     = 1
 )
 
 // Based on fpaq1 by Matt Mahoney
@@ -43,8 +42,8 @@ func (this *FPAQPredictor) Update(bit byte) {
 	this.states[idx]++
 
 	if this.states[idx] >= THRESHOLD {
-		this.states[idx&-2] >>= SHIFT
-		this.states[(idx&-2)+1] >>= SHIFT
+		this.states[idx&-2] >>= 1
+		this.states[(idx&-2)+1] >>= 1
 	}
 
 	// Update context by registering the current bit (or wrapping after 8 bits)

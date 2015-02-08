@@ -24,18 +24,21 @@ public final class SobelFilter implements IntFilter
     public static final int HORIZONTAL = 1;
     public static final int VERTICAL = 2;
 
-    // Type of Sobel filter
-    // Can generate RGB/YCC image or array of costs (cost range = [0..255])
-    public static final int IMAGE = 0xFFFFFFFF;
-    public static final int COST = 0x0000FF;
-    public static final int THREE_CHANNELS = 3;
-    public static final int ONE_CHANNEL = 1;
+    // Type of filter output (3 'pixel' channels or 1 'cost' channel)
+    public static final int IMAGE = 0;
+    public static final int COST = 1;
 
+    // Type of input filter (use RGB = accurate mode or only R or G or B = fast mode)
+    public static final int THREE_CHANNELS = 3;
+    public static final int R_CHANNEL = 0;
+    public static final int G_CHANNEL = 1;
+    public static final int B_CHANNEL = 2;
+    
     private final int width;
     private final int height;
     private final int stride;
     private final int direction;
-    private final int mask;
+    private final int filterType;
     private final int channels;
     private final boolean processBoundaries;
 
@@ -52,17 +55,17 @@ public final class SobelFilter implements IntFilter
     }
 
 
-    public SobelFilter(int width, int height, int stride, boolean processBoundaries)
+    public SobelFilter(int width, int height, int stride, int direction, boolean processBoundaries)
     {
-       this(width, height, stride, VERTICAL | HORIZONTAL, THREE_CHANNELS, IMAGE, processBoundaries);
+       this(width, height, stride, direction, THREE_CHANNELS, IMAGE, processBoundaries);
     }
 
 
     // If 'processBoundaries' is false, the first & last lines, first & last rows
     // are not processed. Otherwise, these boundaries get a copy of the nearest
     // pixels (since a 3x3 Sobel kernel cannot be applied).
-    public SobelFilter(int width, int height, int stride,
-            int direction, int nbChannels, int filterType, boolean processBoundaries)
+    public SobelFilter(int width, int height, int stride, int direction,
+            int channels, int filterType, boolean processBoundaries)
     {
         if (height < 8)
             throw new IllegalArgumentException("The height must be at least 8");
@@ -82,15 +85,16 @@ public final class SobelFilter implements IntFilter
         if ((filterType != COST) && (filterType != IMAGE))
             throw new IllegalArgumentException("Invalid filter type parameter (must be IMAGE or COST)");
 
-        if ((nbChannels != THREE_CHANNELS) && (nbChannels != ONE_CHANNEL))
-            throw new IllegalArgumentException("Invalid image type parameter (must be ONE_CHANNEL or THREE_CHANNELS)");
+        if ((channels != THREE_CHANNELS) && (channels != R_CHANNEL) && 
+                (channels != G_CHANNEL) && (channels != B_CHANNEL))
+            throw new IllegalArgumentException("Invalid input channel parameter (must be RGB or R or G or B)");
 
         this.height = height;
         this.width = width;
         this.stride = stride;
         this.direction = direction;
-        this.mask = filterType;
-        this.channels = nbChannels;
+        this.filterType = filterType;
+        this.channels = channels;
         this.processBoundaries = processBoundaries;
     }
 
@@ -109,13 +113,13 @@ public final class SobelFilter implements IntFilter
         final int[] dst = destination.array;
         int srcStart = source.index;
         int dstStart = destination.index;
-        final int mask_ = this.mask;
+        final boolean isVertical = ((this.direction & VERTICAL) != 0);
+        final boolean isHorizontal = ((this.direction & HORIZONTAL) != 0);
+        boolean isPacked = (this.channels == THREE_CHANNELS);
+        final int shiftChannel = (this.channels == R_CHANNEL) ? 16 : ((this.channels == G_CHANNEL) ? 8 : 0);
+        final int mask = (this.filterType == COST) ? 0xFF : -1;
         final int h = this.height;
         final int w = this.width;
-        final boolean isVertical = ((this.direction & VERTICAL) != 0) ? true : false;
-        final boolean isHorizontal = ((this.direction & HORIZONTAL) != 0) ? true : false;
-        final int maxVal = 0x00FFFFFF & mask_;
-        boolean isPacked = (this.channels == 3) ? true : false;
         final int st = this.stride;
 
         for (int y=h-2; y>0; y--)
@@ -133,7 +137,8 @@ public final class SobelFilter implements IntFilter
 
            if (isPacked == true)
            {
-              // Use Yreversible = (R + G + G + B) >> 2;
+              // Use Y = (R+G+G+B) >> 2;
+              // A slower but more accurate estimate of the luminance: (3*R+4*G+B) >> 3
               val00 = (((pixel00 >> 16) & 0xFF) + ((pixel00 >> 7) & 0x1FE) + (pixel00 & 0xFF)) >> 2;
               val01 = (((pixel01 >> 16) & 0xFF) + ((pixel01 >> 7) & 0x1FE) + (pixel01 & 0xFF)) >> 2;
               val10 = (((pixel10 >> 16) & 0xFF) + ((pixel10 >> 7) & 0x1FE) + (pixel10 & 0xFF)) >> 2;
@@ -143,12 +148,12 @@ public final class SobelFilter implements IntFilter
            }
            else
            {
-              val00 = pixel00 & 0xFF;
-              val01 = pixel01 & 0xFF;
-              val10 = pixel10 & 0xFF;
-              val11 = pixel11 & 0xFF;
-              val20 = pixel20 & 0xFF;
-              val21 = pixel21 & 0xFF;
+              val00 = (pixel00 >> shiftChannel) & 0xFF;
+              val01 = (pixel01 >> shiftChannel) & 0xFF;
+              val10 = (pixel10 >> shiftChannel) & 0xFF;
+              val11 = (pixel11 >> shiftChannel) & 0xFF;
+              val20 = (pixel20 >> shiftChannel) & 0xFF;
+              val21 = (pixel21 >> shiftChannel) & 0xFF;
            }
 
            for (int x=2; x<w; x++)
@@ -161,16 +166,17 @@ public final class SobelFilter implements IntFilter
 
              if (isPacked == true)
              {                
-                // Use Yreversible = (R + G + G + B) >> 2;
+                // Use Y = (R+G+G+B) >> 2;
+                // A slower but more accurate estimate of the luminance: (3*R+4*G+B) >> 3
                 val02 = (((pixel02 >> 16) & 0xFF) + ((pixel02 >> 7) & 0x1FE) + (pixel02 & 0xFF)) >> 2;
                 val12 = (((pixel12 >> 16) & 0xFF) + ((pixel12 >> 7) & 0x1FE) + (pixel12 & 0xFF)) >> 2;
                 val22 = (((pixel22 >> 16) & 0xFF) + ((pixel22 >> 7) & 0x1FE) + (pixel22 & 0xFF)) >> 2;
              }
              else
              {
-                val02 = pixel02 & 0xFF;
-                val12 = pixel12 & 0xFF;
-                val22 = pixel22 & 0xFF;
+                val02 = (pixel02 >> shiftChannel) & 0xFF;
+                val12 = (pixel12 >> shiftChannel) & 0xFF;
+                val22 = (pixel22 >> shiftChannel) & 0xFF;
              }
              
              if (isHorizontal == true)
@@ -185,13 +191,13 @@ public final class SobelFilter implements IntFilter
                    val = (val + valV) >> 1;
                 }
              }
-             else // if Horizontal==false, then Vertical==true by construct
+             else // if Horizontal==false, then Vertical==true
              {
                 val = val00 + val01 + val01 + val02 - val20 - val21 - val21 - val22;
                 val = (val + (val >> 31)) ^ (val >> 31);
              }
 
-             dst[dstLine+x-1] = (val > 255) ? maxVal : ((val << 16) | (val << 8) | val) & mask_;
+             dst[dstLine+x-1] = (val > 255) ? mask : (0xFF000000 | (val << 16) | (val << 8) | val) & mask;
 
              // Slide the 3x3 window (reassign 6 pixels: left + center columns)
              val00 = val01;

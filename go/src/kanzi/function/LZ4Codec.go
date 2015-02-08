@@ -238,9 +238,8 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 		for true {
 			// Encode offset
 			dst[dstIdx] = byte(srcIdx - ref)
-			dstIdx++
-			dst[dstIdx] = byte((srcIdx - ref) >> 8)
-			dstIdx++
+			dst[dstIdx+1] = byte((srcIdx - ref) >> 8)
+			dstIdx += 2
 
 			// Count matches
 			srcIdx += MIN_MATCH
@@ -336,7 +335,7 @@ func (this *LZ4Codec) Inverse(src, dst []byte) (uint, uint, error) {
 		length := token >> ML_BITS
 
 		if length == RUN_MASK {
-			for srcIdx < srcEnd && src[srcIdx] == byte(0xFF) {
+			for src[srcIdx] == byte(0xFF) && srcIdx < count {
 				srcIdx++
 				length += 0xFF
 			}
@@ -344,7 +343,7 @@ func (this *LZ4Codec) Inverse(src, dst []byte) (uint, uint, error) {
 			length += int(src[srcIdx])
 			srcIdx++
 
-			if length >= MAX_LENGTH {
+			if length > MAX_LENGTH {
 				return 0, 0, fmt.Errorf("Invalid length decoded: %d", length)
 			}
 		}
@@ -362,35 +361,57 @@ func (this *LZ4Codec) Inverse(src, dst []byte) (uint, uint, error) {
 
 		// Get offset
 		delta := int(src[srcIdx]) | (int(src[srcIdx+1]) << 8)
+
 		srcIdx += 2
 		matchOffset := dstIdx - delta
 		length = token & ML_MASK
 
 		// Get match length
 		if length == ML_MASK {
-			for srcIdx < srcEnd && src[srcIdx] == byte(0xFF) {
+
+			for src[srcIdx] == byte(0xFF) && srcIdx < count {
 				srcIdx++
 				length += 0xFF
-
 			}
 
 			length += int(src[srcIdx])
 			srcIdx++
 
-			if length >= MAX_LENGTH {
+			if length > MAX_LENGTH {
 				return 0, 0, fmt.Errorf("Invalid length decoded: %d", length)
 			}
 		}
 
 		length += MIN_MATCH
+		matchEnd := dstIdx + length
 
-		// Do not use copy on (potentially) overlapping slices
-		for i := 0; i < length; i++ {
-			dst[dstIdx+i] = dst[matchOffset+i]
+		if matchEnd > dstEnd {
+			// Do not use copy on (potentially) overlapping slices
+			for i := 0; i < length; i++ {
+				dst[dstIdx+i] = dst[matchOffset+i]
+			}
+		} else {
+			// Unroll loop
+			for {
+				dst[dstIdx] = dst[matchOffset]
+				dst[dstIdx+1] = dst[matchOffset+1]
+				dst[dstIdx+2] = dst[matchOffset+2]
+				dst[dstIdx+3] = dst[matchOffset+3]
+				dst[dstIdx+4] = dst[matchOffset+4]
+				dst[dstIdx+5] = dst[matchOffset+5]
+				dst[dstIdx+6] = dst[matchOffset+6]
+				dst[dstIdx+7] = dst[matchOffset+7]
+				matchOffset += 8
+				dstIdx += 8
+
+				if dstIdx >= matchEnd {
+					break
+				}
+			}
 		}
 
 		// Correction
-		dstIdx += length
+		dstIdx = matchEnd
 	}
 
 	return uint(count), uint(dstIdx), nil

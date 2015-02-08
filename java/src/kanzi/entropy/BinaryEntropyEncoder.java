@@ -33,7 +33,7 @@ public class BinaryEntropyEncoder extends AbstractEncoder
    private final OutputBitStream bitstream;
    private boolean disposed;
 
-
+   
    public BinaryEntropyEncoder(OutputBitStream bitstream, Predictor predictor)
    {
       if (bitstream == null)
@@ -48,7 +48,7 @@ public class BinaryEntropyEncoder extends AbstractEncoder
       this.predictor = predictor;
    }
 
-
+   
    @Override
    public void encodeByte(byte val)
    {

@@ -70,6 +70,12 @@ public class TestIntBTree
             System.out.println(Arrays.toString(res));
             System.out.println("");
 
+            for (int i=0; i<array.length/2; i++)
+            {
+               int r = tree.rank(array[i]);
+               System.out.println("Rank "+array[i]+": "+r);
+            }
+            
             while (tree.size() > 0)
             {
                min = tree.min();

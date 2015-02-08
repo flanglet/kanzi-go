@@ -289,6 +289,46 @@ func (this *IntBTree) removeNode(value int) *IntBTNode {
 	return current
 }
 
+func (this *IntBTree) Rank(value int) int {
+	if this.root == nil {
+		return -1
+	}
+
+	if val, _ :=this.Min(); val == value {
+		return 0
+	}
+
+	rank := findRank(this.root, value, 0)
+
+	if rank == this.size {
+		return -1
+	} else {
+		return -rank
+	}
+}
+
+func findRank(current *IntBTNode, value, rank int) int {
+	if rank >= 0 && current.left != nil {
+		rank = findRank(current.left, value, rank)
+	}
+
+	for i := 0; i < NODE_BUFFER_SIZE; i++ {
+		if value == current.base+i {
+			return -rank
+		}
+
+		if rank >= 0 {
+			rank += int(current.counts[i])
+		}
+	}
+
+	if rank >= 0 && current.right != nil {
+		rank = findRank(current.right, value, rank)
+	}
+
+	return rank
+}
+
 func (this *IntBTree) Scan(callback IntBTreeCallback, reverse bool) []int {
 	if callback == nil || this.root == nil {
 		return nil
