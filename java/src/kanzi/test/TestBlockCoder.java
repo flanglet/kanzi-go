@@ -31,14 +31,17 @@ public class TestBlockCoder
     {
        ExecutorService pool = Executors.newCachedThreadPool();
        boolean addListeners = true;
+       String output = null;
+       String input = null;
        
        for (String arg : args)
        {
           if (arg.equals("-noListeners"))
-          {
              addListeners = false;
-             break;
-          }
+          else if (arg.startsWith("-output="))
+             output = arg.substring("-output=".length());
+          else if (arg.startsWith("-input="))
+             input = arg.substring("-input=".length());
        }
 
        BlockCompressor enc = new BlockCompressor(args, pool);
@@ -66,14 +69,15 @@ public class TestBlockCoder
           System.exit(status);
        }
 
+       if ("none".equalsIgnoreCase(output))
+          System.exit(0);
+       
        Set<String> set = new HashSet<String>();
        set.add("-overwrite");
 
        for (String arg : args)
        {
-          if (arg.startsWith("-input="))
-             set.add(arg+".knz");
-          else if (arg.equals("-verbose"))
+          if (arg.equals("-verbose"))
              set.add(arg);
           else if (arg.equals("-silent"))
              set.add(arg);
@@ -81,6 +85,11 @@ public class TestBlockCoder
              set.add(arg);
        }
 
+       if (output != null)
+          set.add("-input="+output);
+       else
+          set.add("-input="+input+".knz");
+       
        args = (String[]) set.toArray(new String[set.size()]);
        BlockDecompressor dec = new BlockDecompressor(args, pool);
 
