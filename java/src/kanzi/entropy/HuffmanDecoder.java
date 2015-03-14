@@ -16,11 +16,12 @@ limitations under the License.
 package kanzi.entropy;
 
 import kanzi.BitStreamException;
+import kanzi.EntropyDecoder;
 import kanzi.InputBitStream;
 
 
 
-public class HuffmanDecoder extends AbstractDecoder
+public class HuffmanDecoder implements EntropyDecoder
 {
     public static final int DECODING_BATCH_SIZE = 10; // in bits
     public static final int DECODING_MASK = (1 << DECODING_BATCH_SIZE) - 1;
@@ -220,20 +221,12 @@ public class HuffmanDecoder extends AbstractDecoder
 
           // Fallback to regular decoding (read one bit at a time)
           for ( ; i<endChunk; i++)
-             array[i] = this.decodeByte();
+             array[i] = this.slowDecodeByte(0, 0);
 
           startChunk = endChunk;
        }
 
        return len;
-    }
-
-
-    // The data block header must have been read before (call to updateFrequencies())
-    @Override
-    public byte decodeByte()
-    {
-       return this.slowDecodeByte(0, 0);
     }
 
 
@@ -298,5 +291,11 @@ public class HuffmanDecoder extends AbstractDecoder
     public InputBitStream getBitStream()
     {
        return this.bitstream;
+    }
+
+  
+    @Override
+    public void dispose() 
+    {
     }
 }

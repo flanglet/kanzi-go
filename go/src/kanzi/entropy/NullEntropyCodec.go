@@ -39,14 +39,10 @@ func (this *NullEntropyEncoder) Encode(block []byte) (int, error) {
 	}
 
 	for i := len8; i < len(block); i++ {
-		this.EncodeByte(block[i])
+		this.bitstream.WriteBits(uint64(block[i]), 8)
 	}
 
 	return len(block), nil
-}
-
-func (this *NullEntropyEncoder) EncodeByte(val byte) {
-	this.bitstream.WriteBits(uint64(val), 8)
 }
 
 func (this *NullEntropyEncoder) encodeLong(block []byte, offset int) {
@@ -86,14 +82,10 @@ func (this *NullEntropyDecoder) Decode(block []byte) (int, error) {
 	}
 
 	for i := len8; i < len(block); i++ {
-		block[i] = this.DecodeByte()
+		block[i] = byte(this.bitstream.ReadBits(8))
 	}
 
 	return len(block), nil
-}
-
-func (this *NullEntropyDecoder) DecodeByte() byte {
-	return byte(this.bitstream.ReadBits(8))
 }
 
 func (this *NullEntropyDecoder) decodeLong(block []byte, offset int) {

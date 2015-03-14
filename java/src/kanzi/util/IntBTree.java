@@ -271,6 +271,40 @@ public final class IntBTree
 
       return current;
    }
+
+
+   public int rank(int value) 
+   {
+      if (this.root == null)
+         return -1;
+      
+      if (this.min() == value)
+         return 0;
+      
+      int rank = findRank(this.root, value, 0);
+      return (rank == this.size) ? -1 : -rank;
+   }
+   
+   
+   private static int findRank(IntBTNode current, int value, int rank)
+   { 
+      if ((rank >= 0) && (current.left != null))
+         rank = findRank(current.left, value, rank);
+
+      for (int i=0; i<NODE_BUFFER_SIZE; i++)
+      {
+         if (value == current.base + i)
+            return -rank; 
+
+         if (rank >= 0)
+            rank += current.counts[i];
+      }
+      
+      if ((rank >= 0) && (current.right != null))
+         rank = findRank(current.right, value, rank);
+         
+      return rank;
+   }
    
    
    public int[] scan(Callback cb, boolean reverse)

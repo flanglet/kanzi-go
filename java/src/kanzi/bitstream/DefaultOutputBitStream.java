@@ -40,6 +40,9 @@ public final class DefaultOutputBitStream implements OutputBitStream
       if (bufferSize < 1024)
          throw new IllegalArgumentException("Invalid buffer size (must be at least 1024)");
 
+      if (bufferSize > 1<<28)
+         throw new IllegalArgumentException("Invalid buffer size (must be at most 268435456)");
+
       if ((bufferSize & 7) != 0)
          throw new IllegalArgumentException("Invalid buffer size (must be a multiple of 8)");
 
@@ -70,15 +73,13 @@ public final class DefaultOutputBitStream implements OutputBitStream
    @Override
    public int writeBits(long value, int count)
    {
-      if ((count <= 0) || (count > 64))
-      {
-         if (count == 0)
-            return 0;
+      if (count == 0)
+         return 0;
 
+      if (count > 64)
          throw new IllegalArgumentException("Invalid length: "+count+" (must be in [1..64])");
-      }
 
-      value &= (-1L >>> (64 - count));
+      value &= (-1L >>> -count);
       final int remaining = this.bitIndex + 1 - count;
 
       if (remaining > 0)
@@ -118,15 +119,8 @@ public final class DefaultOutputBitStream implements OutputBitStream
       this.current = 0;
       this.position += 8;
 
-      try
-      {
-         if (this.position >= this.buffer.length)
-            this.flush();
-      }
-      catch (BitStreamException e)
-      {
-         throw e;
-      }
+      if (this.position >= this.buffer.length)
+         this.flush();
    }
 
 

@@ -41,6 +41,10 @@ func NewDefaultInputBitStream(stream kanzi.InputStream, bufferSize uint) (*Defau
 		return nil, errors.New("Invalid buffer size parameter (must be at least 1024 bytes)")
 	}
 
+	if bufferSize > 1<<29 {
+		return nil, errors.New("Invalid buffer size parameter (must be at most 536870912 bytes)")
+	}
+
 	if bufferSize&7 != 0 {
 		return nil, errors.New("Invalid buffer size (must be a multiple of 8)")
 	}
@@ -53,7 +57,7 @@ func NewDefaultInputBitStream(stream kanzi.InputStream, bufferSize uint) (*Defau
 	return this, nil
 }
 
-// Return 1 or 0. Return error if stream is closed
+// Return 1 or 0
 func (this *DefaultInputBitStream) ReadBit() int {
 	if this.bitIndex == 63 {
 		this.pullCurrent()  // Panic if stream is closed
@@ -86,8 +90,8 @@ func (this *DefaultInputBitStream) ReadBits(count uint) uint64 {
 		// Not enough spots available in 'current'
 		remaining := count - this.bitIndex - 1
 		res = this.current & (0xFFFFFFFFFFFFFFFF >> (63 - this.bitIndex))
-		this.pullCurrent()
 		res <<= remaining
+		this.pullCurrent()
 		this.bitIndex -= remaining
 		res |= (this.current >> (this.bitIndex + 1))
 	}
@@ -165,7 +169,6 @@ func (this *DefaultInputBitStream) pullCurrent() {
 		val |= (uint64(this.buffer[this.position+5]) << 16)
 		val |= (uint64(this.buffer[this.position+6]) << 8)
 		val |= uint64(this.buffer[this.position+7])
-
 		this.bitIndex = 63
 		this.position += 8
 	}
@@ -190,7 +193,7 @@ func (this *DefaultInputBitStream) Close() (bool, error) {
 
 // Return number of bits read so far
 func (this *DefaultInputBitStream) Read() uint64 {
-	return this.read + uint64(this.position<<3) - uint64(this.bitIndex)
+	return this.read + uint64(this.position)<<3 - uint64(this.bitIndex)
 }
 
 func (this *DefaultInputBitStream) Closed() bool {

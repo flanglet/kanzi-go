@@ -25,20 +25,54 @@ import kanzi.OutputBitStream;
 import kanzi.bitstream.DebugOutputBitStream;
 import kanzi.bitstream.DefaultInputBitStream;
 import kanzi.bitstream.DefaultOutputBitStream;
+import kanzi.entropy.CMPredictor;
+import kanzi.entropy.FPAQPredictor;
 import kanzi.entropy.PAQPredictor;
+import kanzi.entropy.Predictor;
 
 
-public class TestPAQEntropyCoder
+public class TestBinaryEntropyCoder
 {
     public static void main(String[] args)
     {
-        System.out.println("TestPAQEntropyCoder");
-        testCorrectness();
-        testSpeed();
+       if (args.length == 0)
+       {
+          System.out.println("\n\nTestFPAQEntropyCoder");
+          testCorrectness("FPAQ");
+          testSpeed("FPAQ");
+          System.out.println("\n\nTestCMEntropyCoder");
+          testCorrectness("CM");
+          testSpeed("CM");
+          System.out.println("\n\nTestPAQEntropyCoder");
+          testCorrectness("PAQ");
+          testSpeed("PAQ");
+       }
+       else
+       {
+          String type = args[0].toUpperCase();
+          System.out.println("Test" + type + "EntropyCoder");
+          testCorrectness(type);
+          testSpeed(type);         
+       }
     }
     
     
-    public static void testCorrectness()
+    private static Predictor getPredictor(String type)
+    {
+       if (type.equals("PAQ"))
+          return new PAQPredictor();
+       
+       if (type.equals("FPAQ"))
+          return new FPAQPredictor();
+       
+       if (type.equals("CM"))
+          return new CMPredictor();
+       
+       return null;
+    }
+    
+    
+    public static void testCorrectness(String type)
     {
         // Test behavior
         System.out.println("Correctness test");
@@ -56,14 +90,28 @@ public class TestPAQEntropyCoder
                      values = new byte[] { 0, 0, 32, 15, -4, 16, 0, 16, 0, 7, -1, -4, -32, 0, 31, -1 };
                 else if (ii == 2)
                      values = new byte[] { 0x3d, 0x4d, 0x54, 0x47, 0x5a, 0x36, 0x39, 0x26, 0x72, 0x6f, 0x6c, 0x65, 0x3d, 0x70, 0x72, 0x65 };
-                else if (ii == 1)
+                else if (ii == 4)
                      values = new byte[] { 65, 71, 74, 66, 76, 65, 69, 77, 74, 79, 68, 75, 73, 72, 77, 68, 78, 65, 79, 79, 78, 66, 77, 71, 64, 70, 74, 77, 64, 67, 71, 64 };
+                else if (ii == 1)
+                {
+                     values = new byte[32];
+
+                     for (int i=0; i<values.length; i++)
+                          values[i] = (byte) 2; // all identical
+                }
+                else if (ii == 5)
+                {
+                     values = new byte[32];
+
+                     for (int i=0; i<values.length; i++)
+                          values[i] = (byte) (2 + (i & 1)); // 2 symbols
+                }
                 else
                 {
                      values = new byte[32];
 
                      for (int i=0; i<values.length; i++)
-                          values[i] = (byte) (64 + (random.nextInt() & 15));
+                          values[i] = (byte) (64 + 3*ii + random.nextInt(ii+1));
                 }
 
                 System.out.println("Original:");
@@ -76,13 +124,14 @@ public class TestPAQEntropyCoder
                 OutputBitStream bs = new DefaultOutputBitStream(os, 16384);
                 DebugOutputBitStream dbgbs = new DebugOutputBitStream(bs, System.out);
                 dbgbs.showByte(true);
-                BinaryEntropyEncoder bec = new BinaryEntropyEncoder(dbgbs, new PAQPredictor());  
+                BinaryEntropyEncoder bec = new BinaryEntropyEncoder(dbgbs, getPredictor(type));
                 bec.encode(values, 0, values.length);
+                
                 bec.dispose();
-                bs.close();
+                dbgbs.close();
                 byte[] buf = os.toByteArray();
                 InputBitStream bs2 = new DefaultInputBitStream(new ByteArrayInputStream(buf), 1024);
-                BinaryEntropyDecoder bed = new BinaryEntropyDecoder(bs2, new PAQPredictor());
+                BinaryEntropyDecoder bed = new BinaryEntropyDecoder(bs2, getPredictor(type));
                 System.out.println("\nDecoded:");
                 boolean ok = true;
                 byte[] values2 = new byte[values.length];
@@ -110,14 +159,14 @@ public class TestPAQEntropyCoder
             }
             catch (Exception e)
             {
-               e.printStackTrace();
+                e.printStackTrace();
             }
         }
-    }
-    
+     }
 
-    public static void testSpeed()
-    {
+    
+     public static void testSpeed(String type)
+     {
         // Test speed
         System.out.println("\n\nSpeed test");
         int[] repeats = { 3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9, 3 };
@@ -154,7 +203,7 @@ public class TestPAQEntropyCoder
                 // Encode
                 ByteArrayOutputStream os = new ByteArrayOutputStream(size*2);
                 OutputBitStream bs = new DefaultOutputBitStream(os, size);
-                BinaryEntropyEncoder bec = new BinaryEntropyEncoder(bs, new PAQPredictor());
+                BinaryEntropyEncoder bec = new BinaryEntropyEncoder(bs, getPredictor(type));
                 long before1 = System.nanoTime();
                 
                 if (bec.encode(values1, 0, values1.length) < 0)
@@ -171,7 +220,7 @@ public class TestPAQEntropyCoder
                 // Decode
                 byte[] buf = os.toByteArray();
                 InputBitStream bs2 = new DefaultInputBitStream(new ByteArrayInputStream(buf), size);
-                BinaryEntropyDecoder bed = new BinaryEntropyDecoder(bs2, new PAQPredictor());
+                BinaryEntropyDecoder bed = new BinaryEntropyDecoder(bs2, getPredictor(type));
                 long before2 = System.nanoTime();
                 
                 if (bed.decode(values2, 0, values2.length) < 0)

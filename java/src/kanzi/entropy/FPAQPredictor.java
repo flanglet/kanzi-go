@@ -28,7 +28,7 @@ public class FPAQPredictor implements Predictor
    
    public FPAQPredictor()
    {
-      this.ctxIdx = 1;
+      this.ctxIdx = 2;
       this.states = new short[512];    
       this.prediction = 2048;
    }
@@ -38,7 +38,7 @@ public class FPAQPredictor implements Predictor
    @Override
    public void update(int bit)
    {
-      int idx = (this.ctxIdx << 1) | (bit & 1);
+      final int idx = this.ctxIdx | (bit & 1);
       
       // Find the number of registered 0 & 1 given the previous bits (in this.ctxIdx)
       if (++this.states[idx] >= THRESHOLD) 
@@ -48,9 +48,16 @@ public class FPAQPredictor implements Predictor
       }  
       
       // Update context by registering the current bit (or wrapping after 8 bits)
-      this.ctxIdx = (idx < 256) ? idx : 1;
-      idx = this.ctxIdx << 1;
-      this.prediction = ((this.states[idx+1]+1)<<12) / (this.states[idx]+this.states[idx+1]+2);    
+      if (idx < 256)
+      {
+         this.ctxIdx = idx << 1;
+         this.prediction = ((this.states[this.ctxIdx+1]+1)<<12) / (this.states[this.ctxIdx]+this.states[this.ctxIdx+1]+2);          
+      }
+      else
+      {
+         this.ctxIdx = 2;
+         this.prediction = ((this.states[3]+1)<<12) / (this.states[2]+this.states[3]+2);             
+      }
    }
 
    

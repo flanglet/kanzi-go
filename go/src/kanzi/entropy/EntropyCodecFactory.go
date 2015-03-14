@@ -22,12 +22,13 @@ import (
 )
 
 const (
-	NONE_TYPE    = byte(0)
-	HUFFMAN_TYPE = byte(1)
-	FPAQ_TYPE    = byte(2)
-	PAQ_TYPE     = byte(3)
-	RANGE_TYPE   = byte(4)
-	ANS_TYPE     = byte(5)
+	NONE_TYPE    = byte(0) // No compression
+	HUFFMAN_TYPE = byte(1) // Huffman
+	FPAQ_TYPE    = byte(2) // Fast PAQ
+	PAQ_TYPE     = byte(3) // PAQ
+	RANGE_TYPE   = byte(4) // Range
+	ANS_TYPE     = byte(5) // Asymetric Numerical System
+	CM_TYPE      = byte(6) // Context Model
 )
 
 func NewEntropyDecoder(ibs kanzi.InputBitStream, entropyType byte) (kanzi.EntropyDecoder, error) {
@@ -48,6 +49,10 @@ func NewEntropyDecoder(ibs kanzi.InputBitStream, entropyType byte) (kanzi.Entrop
 
 	case FPAQ_TYPE:
 		predictor, _ := NewFPAQPredictor()
+		return NewBinaryEntropyDecoder(ibs, predictor)
+
+	case CM_TYPE:
+		predictor, _ := NewCMPredictor()
 		return NewBinaryEntropyDecoder(ibs, predictor)
 
 	case NONE_TYPE:
@@ -78,6 +83,10 @@ func NewEntropyEncoder(obs kanzi.OutputBitStream, entropyType byte) (kanzi.Entro
 		predictor, _ := NewFPAQPredictor()
 		return NewBinaryEntropyEncoder(obs, predictor)
 
+	case CM_TYPE:
+		predictor, _ := NewCMPredictor()
+		return NewBinaryEntropyEncoder(obs, predictor)
+
 	case NONE_TYPE:
 		return NewNullEntropyEncoder(obs)
 
@@ -104,6 +113,9 @@ func GetEntropyCodecName(entropyType byte) string {
 	case FPAQ_TYPE:
 		return "FPAQ"
 
+	case CM_TYPE:
+		return "CM"
+
 	case NONE_TYPE:
 		return "NONE"
 
@@ -129,6 +141,9 @@ func GetEntropyCodecType(entropyName string) byte {
 
 	case "FPAQ":
 		return FPAQ_TYPE
+
+	case "CM":
+		return CM_TYPE
 
 	case "NONE":
 		return NONE_TYPE

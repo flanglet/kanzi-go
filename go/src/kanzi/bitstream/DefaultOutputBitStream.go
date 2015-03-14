@@ -40,6 +40,10 @@ func NewDefaultOutputBitStream(stream kanzi.OutputStream, bufferSize uint) (*Def
 		return nil, errors.New("Invalid buffer size parameter (must be at least 1024 bytes)")
 	}
 
+	if bufferSize > 1<<29 {
+		return nil, errors.New("Invalid buffer size parameter (must be at most 536870912 bytes)")
+	}
+
 	if bufferSize&7 != 0 {
 		return nil, errors.New("Invalid buffer size (must be a multiple of 8)")
 	}
@@ -70,13 +74,12 @@ func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) uint {
 		return 0
 	}
 
-	length := int(count)
-
-	if length > 64 {
+	if count > 64 {
 		panic(fmt.Errorf("Invalid length: %v (must be in [1..64])", count))
 	}
 
 	value &= (0xFFFFFFFFFFFFFFFF >> (64 - count))
+	length := int(count)
 
 	// Pad the current position in buffer
 	if length < this.bitIndex+1 {
@@ -88,8 +91,11 @@ func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) uint {
 		remaining := uint(length - this.bitIndex - 1)
 		this.current |= (value >> remaining)
 		this.pushCurrent()
-		this.current |= (value << (64 - remaining))
-		this.bitIndex -= int(remaining)
+
+		if remaining != 0 {
+			this.current |= (value << (64 - remaining))
+			this.bitIndex -= int(remaining)
+		}
 	}
 
 	return count
@@ -97,7 +103,6 @@ func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) uint {
 
 // Push 64 bits of current value into buffer.
 func (this *DefaultOutputBitStream) pushCurrent() {
-
 	this.buffer[this.position] = byte(this.current >> 56)
 	this.buffer[this.position+1] = byte(this.current >> 48)
 	this.buffer[this.position+2] = byte(this.current >> 40)
@@ -128,7 +133,7 @@ func (this *DefaultOutputBitStream) flush() error {
 			return err
 		}
 
-		this.written += uint64(this.position << 3)
+		this.written += (uint64(this.position) << 3)
 		this.position = 0
 	}
 

@@ -658,8 +658,7 @@ public class CompressedInputStream extends InputStream
             if (typeOfTransform == FunctionFactory.NULL_TRANSFORM_TYPE)
                buffer.array = EMPTY_BYTE_ARRAY;
 
-            if (ed != null)
-               ed.dispose();
+            ed.dispose();
          }
       }
    }

@@ -16,24 +16,25 @@ limitations under the License.
 package kanzi.entropy;
 
 
+import kanzi.EntropyEncoder;
 import kanzi.OutputBitStream;
 
 
 // This class is a generic implementation of a boolean entropy encoder
-public class BinaryEntropyEncoder extends AbstractEncoder
+public class BinaryEntropyEncoder implements EntropyEncoder
 {
    private static final long TOP        = 0x00FFFFFFFFFFFFFFL;
    private static final long MASK_24_56 = 0x00FFFFFFFF000000L;
    private static final long MASK_0_24  = 0x0000000000FFFFFFL;
    private static final long MASK_0_32  = 0x00000000FFFFFFFFL;
-   
+
    private final Predictor predictor;
    private long low;
    private long high;
    private final OutputBitStream bitstream;
    private boolean disposed;
 
-   
+
    public BinaryEntropyEncoder(OutputBitStream bitstream, Predictor predictor)
    {
       if (bitstream == null)
@@ -48,52 +49,56 @@ public class BinaryEntropyEncoder extends AbstractEncoder
       this.predictor = predictor;
    }
 
-   
+
    @Override
-   public void encodeByte(byte val)
+   public int encode(byte[] array, int blkptr, int len)
    {
-      this.encodeBit_((val >> 7) & 1);
-      this.encodeBit_((val >> 6) & 1);
-      this.encodeBit_((val >> 5) & 1);
-      this.encodeBit_((val >> 4) & 1);
-      this.encodeBit_((val >> 3) & 1);
-      this.encodeBit_((val >> 2) & 1);
-      this.encodeBit_((val >> 1) & 1);
-      this.encodeBit_(val & 1);          
-   }
-   
+      if ((array == null) || (blkptr + len > array.length) || (blkptr < 0) || (len < 0))
+         return -1;
 
-   public boolean encodeBit(int bit)
-   {
-      return this.encodeBit_(bit & 1);
-   }
-   
-   
-   private boolean encodeBit_(int bit)
-   {
-      // Compute prediction
-      final int prediction = this.predictor.get();
+      final int end = blkptr + len;
 
+      for (int i = blkptr; i<end; i++)
+         this.encodeByte(array[i]);
+
+      return len;
+   }
+
+
+   protected void encodeByte(byte val)
+   {
+      this.encodeBit((val >> 7) & 1);
+      this.encodeBit((val >> 6) & 1);
+      this.encodeBit((val >> 5) & 1);
+      this.encodeBit((val >> 4) & 1);
+      this.encodeBit((val >> 3) & 1);
+      this.encodeBit((val >> 2) & 1);
+      this.encodeBit((val >> 1) & 1);
+      this.encodeBit(val & 1);
+   }
+
+
+   protected void encodeBit(int bit)
+   {
       // Calculate interval split
-      final long xmid = this.low + ((this.high - this.low) >> 12) * prediction;
+      // Written in a way to maximize accuracy of multiplication/division
+      final long split = (((this.high - this.low) >> 7) * this.predictor.get()) >> 5;
 
       // Update fields with new interval bounds
-      final int bitmask = bit - 1;
-      this.low = (bitmask & (xmid + 1)) | (~bitmask & this.low);
-      this.high = (bitmask & this.high) | (~bitmask & xmid);
-
+      final long bitmask = bit - 1;
+      this.high -= (~bitmask & (this.high - this.low - split));
+      this.low += (bitmask & (split + 1));
+     
       // Update predictor
       this.predictor.update(bit);
-
+            
       // Write unchanged first 32 bits to bitstream
       while (((this.low ^ this.high) & MASK_24_56) == 0)
          this.flush();
-
-      return true;
    }
 
 
-   protected void flush()
+   private void flush()
    {
       this.bitstream.writeBits(this.high >>> 24, 32);
       this.low <<= 32;

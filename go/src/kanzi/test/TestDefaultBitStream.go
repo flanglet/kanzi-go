@@ -211,7 +211,7 @@ func testReadPostClose(ibs kanzi.InputBitStream) {
 
 func testSpeed() {
 	fmt.Printf("Speed Test\n")
-	var filename = flag.String("filename", "output.bin", "Ouput file name for speed test")
+	var filename = flag.String("filename", "r:\\output.bin", "Ouput file name for speed test")
 	flag.Parse()
 
 	values := []uint64{3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9, 3,

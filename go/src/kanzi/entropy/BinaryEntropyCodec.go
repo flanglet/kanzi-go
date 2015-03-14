@@ -61,7 +61,7 @@ func NewBinaryEntropyEncoder(bs kanzi.OutputBitStream, predictor Predictor) (*Bi
 	return this, nil
 }
 
-func (this *BinaryEntropyEncoder) EncodeByte(val byte) {
+func (this *BinaryEntropyEncoder) encodeByte(val byte) {
 	this.encodeBit((val >> 7) & 1)
 	this.encodeBit((val >> 6) & 1)
 	this.encodeBit((val >> 5) & 1)
@@ -72,21 +72,15 @@ func (this *BinaryEntropyEncoder) EncodeByte(val byte) {
 	this.encodeBit(val & 1)
 }
 
-func (this *BinaryEntropyEncoder) EncodeBit(bit byte) {
-	this.encodeBit(bit & 1)
-}
-
 func (this *BinaryEntropyEncoder) encodeBit(bit byte) {
-	// Compute prediction
-	prediction := this.predictor.Get()
-
 	// Calculate interval split
-	xmid := this.low + ((this.high-this.low)>>12)*uint64(prediction)
+	// Written in a way to maximize accuracy of multiplication/division
+	split := (((this.high - this.low) >> 7) * uint64(this.predictor.Get())) >> 5
 
 	// Update fields with new interval bounds
-	bitmask := uint64(int64(bit) - 1)
-	this.low = (bitmask & (xmid + 1)) | (^bitmask & this.low)
-	this.high = (bitmask & this.high) | (^bitmask & xmid)
+	bitmask := uint64(bit) - 1
+	this.high -= (^bitmask & (this.high - this.low - split))
+	this.low += (bitmask & (split + 1))
 
 	// Update predictor
 	this.predictor.Update(bit)
@@ -99,7 +93,7 @@ func (this *BinaryEntropyEncoder) encodeBit(bit byte) {
 
 func (this *BinaryEntropyEncoder) Encode(block []byte) (int, error) {
 	for i := range block {
-		this.EncodeByte(block[i])
+		this.encodeByte(block[i])
 	}
 
 	return len(block), nil
@@ -151,26 +145,15 @@ func NewBinaryEntropyDecoder(bs kanzi.InputBitStream, predictor Predictor) (*Bin
 	return this, nil
 }
 
-func (this *BinaryEntropyDecoder) DecodeByte() byte {
-	// Deferred initialization: the bitstream may not be ready at build time
-	// Initialize 'current' with bytes read from the bitstream
-	if this.initialized == false {
-		this.Initialize()
-	}
-
-	return this.decodeByte()
-}
-
 func (this *BinaryEntropyDecoder) decodeByte() byte {
-	res := (this.DecodeBit() << 7)
-	res |= (this.DecodeBit() << 6)
-	res |= (this.DecodeBit() << 5)
-	res |= (this.DecodeBit() << 4)
-	res |= (this.DecodeBit() << 3)
-	res |= (this.DecodeBit() << 2)
-	res |= (this.DecodeBit() << 1)
-	res |= this.DecodeBit()
-	return res
+	res := (this.decodeBit() << 7)
+	res |= (this.decodeBit() << 6)
+	res |= (this.decodeBit() << 5)
+	res |= (this.decodeBit() << 4)
+	res |= (this.decodeBit() << 3)
+	res |= (this.decodeBit() << 2)
+	res |= (this.decodeBit() << 1)
+	return res | this.decodeBit()
 }
 
 func (this *BinaryEntropyDecoder) Initialized() bool {
@@ -186,12 +169,10 @@ func (this *BinaryEntropyDecoder) Initialize() {
 	this.initialized = true
 }
 
-func (this *BinaryEntropyDecoder) DecodeBit() byte {
-	// Compute prediction
-	prediction := this.predictor.Get()
-
+func (this *BinaryEntropyDecoder) decodeBit() byte {
 	// Calculate interval split
-	xmid := this.low + ((this.high-this.low)>>12)*uint64(prediction)
+	// Written in a way to maximize accuracy of multiplication/division
+	xmid := ((((this.high - this.low) >> 7) * uint64(this.predictor.Get())) >> 5) + this.low
 	var bit byte
 
 	if this.current <= xmid {

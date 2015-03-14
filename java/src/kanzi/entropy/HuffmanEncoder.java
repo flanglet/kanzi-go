@@ -18,10 +18,11 @@ package kanzi.entropy;
 import java.util.PriorityQueue;
 import kanzi.OutputBitStream;
 import kanzi.BitStreamException;
+import kanzi.EntropyEncoder;
 import kanzi.entropy.HuffmanTree.Node;
 
 
-public class HuffmanEncoder extends AbstractEncoder
+public class HuffmanEncoder implements EntropyEncoder
 {
     private static final int DEFAULT_CHUNK_SIZE = 1 << 16; // 64 KB by default
 
@@ -157,20 +158,15 @@ public class HuffmanEncoder extends AbstractEncoder
           this.updateFrequencies(frequencies);
           
           for (int i=startChunk; i<endChunk; i++)
-             this.encodeByte(array[i]);
+          {
+             final int val = array[i] & 0xFF;
+             this.bitstream.writeBits(this.codes[val], this.codes[val] >>> 24);
+          }
 
           startChunk = endChunk;
        }
 
        return len;
-    }
-
-
-    // Frequencies of the data block must have been previously set
-    @Override
-    public void encodeByte(byte val)
-    {
-       this.bitstream.writeBits(this.codes[val&0xFF], this.codes[val&0xFF] >>> 24);
     }
 
 
@@ -225,5 +221,11 @@ public class HuffmanEncoder extends AbstractEncoder
     public OutputBitStream getBitStream()
     {
        return this.bitstream;
+    }
+
+ 
+    @Override
+    public void dispose() 
+    {
     }
 }

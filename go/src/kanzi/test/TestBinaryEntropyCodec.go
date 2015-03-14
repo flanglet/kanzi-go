@@ -16,22 +16,64 @@ limitations under the License.
 package main
 
 import (
+	"flag"
 	"fmt"
 	"kanzi/bitstream"
 	"kanzi/entropy"
 	"kanzi/util"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
 )
 
 func main() {
-	TestCorrectness()
-	TestSpeed()
+
+	var name = flag.String("type", "all", "Type of predictor (all, CM, FPAQ or PAQ)")
+
+	// Parse
+	flag.Parse()
+	name_ := strings.ToUpper(*name)
+
+	if name_ == "ALL" {
+		fmt.Printf("\n\nTestFPAQEntropyCoder")
+		TestCorrectness("FPAQ")
+		TestSpeed("FPAQ")
+		fmt.Printf("\n\nTestCMEntropyCoder")
+		TestCorrectness("CM")
+		TestSpeed("CM")
+		fmt.Printf("\n\nTestPAQEntropyCoder")
+		TestCorrectness("PAQ")
+		TestSpeed("PAQ")
+	} else {
+		fmt.Printf("\n\nTest%vEntropyCoder", name_)
+		TestCorrectness(name_)
+		TestSpeed(name_)
+	}
+
 }
 
-func TestCorrectness() {
-	fmt.Printf("\n\nCorrectness test")
+func getPredictor(name string) entropy.Predictor {
+	switch name {
+	case "PAQ":
+		res, _ := entropy.NewPAQPredictor()
+		return res
+
+	case "FPAQ":
+		res, _ := entropy.NewFPAQPredictor()
+		return res
+
+	case "CM":
+		res, _ := entropy.NewCMPredictor()
+		return res
+
+	default:
+		panic(fmt.Errorf("Unsupported type: '%s'", name))
+	}
+}
+
+func TestCorrectness(name string) {
+	fmt.Printf("\n\nCorrectness test %v", name)
 
 	// Test behavior
 	for ii := 1; ii < 20; ii++ {
@@ -79,8 +121,7 @@ func TestCorrectness() {
 		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
 		dbgbs.ShowByte(true)
 		dbgbs.Mark(true)
-		predictor1, _ := entropy.NewFPAQPredictor()
-		fc, _ := entropy.NewBinaryEntropyEncoder(dbgbs, predictor1)
+		fc, _ := entropy.NewBinaryEntropyEncoder(dbgbs, getPredictor(name))
 
 		if _, err := fc.Encode(values); err != nil {
 			fmt.Printf("Error during encoding: %s", err)
@@ -99,8 +140,7 @@ func TestCorrectness() {
 		//dbgbs2.ShowByte(true)
 		dbgbs2.Mark(true)
 
-		predictor2, _ := entropy.NewFPAQPredictor()
-		fd, _ := entropy.NewBinaryEntropyDecoder(dbgbs2, predictor2)
+		fd, _ := entropy.NewBinaryEntropyDecoder(dbgbs2, getPredictor(name))
 
 		ok := true
 		values2 := make([]byte, len(values))
@@ -131,7 +171,7 @@ func TestCorrectness() {
 	}
 }
 
-func TestSpeed() {
+func TestSpeed(name string) {
 	fmt.Printf("\n\nSpeed test\n")
 	repeats := []int{3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9, 3}
 
@@ -159,7 +199,7 @@ func TestSpeed() {
 				}
 
 				b := byte(rand.Intn(256))
-				
+
 				for j := i0; j < i0+length; j++ {
 					values1[j] = b
 					i++
@@ -168,9 +208,8 @@ func TestSpeed() {
 
 			oFile, _ := util.NewByteArrayOutputStream(buffer, false)
 			defer oFile.Close()
-			predictor1, _ := entropy.NewFPAQPredictor()
 			obs, _ := bitstream.NewDefaultOutputBitStream(oFile, uint(size))
-			fc, _ := entropy.NewBinaryEntropyEncoder(obs, predictor1)
+			fc, _ := entropy.NewBinaryEntropyEncoder(obs, getPredictor(name))
 
 			// Encode
 			before := time.Now()
@@ -194,9 +233,8 @@ func TestSpeed() {
 		for ii := 0; ii < iter; ii++ {
 			iFile, _ := util.NewByteArrayInputStream(buffer, false)
 			defer iFile.Close()
-			predictor2, _ := entropy.NewFPAQPredictor()
 			ibs, _ := bitstream.NewDefaultInputBitStream(iFile, uint(size))
-			fd, _ := entropy.NewBinaryEntropyDecoder(ibs, predictor2)
+			fd, _ := entropy.NewBinaryEntropyDecoder(ibs, getPredictor(name))
 
 			// Decode
 			before := time.Now()

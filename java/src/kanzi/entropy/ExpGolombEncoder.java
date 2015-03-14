@@ -15,10 +15,11 @@ limitations under the License.
 
 package kanzi.entropy;
 
+import kanzi.EntropyEncoder;
 import kanzi.OutputBitStream;
 
 
-public final class ExpGolombEncoder extends AbstractEncoder
+public final class ExpGolombEncoder implements EntropyEncoder
 {
     private final boolean signed;
     private final OutputBitStream bitstream;
@@ -41,6 +42,20 @@ public final class ExpGolombEncoder extends AbstractEncoder
        
     
     @Override
+    public int encode(byte[] array, int blkptr, int len)
+    {
+      if ((array == null) || (blkptr + len > array.length) || (blkptr < 0) || (len < 0))
+         return -1;
+
+      final int end = blkptr + len;
+
+      for (int i = blkptr; i<end; i++)
+         this.encodeByte(array[i]);
+
+      return len;
+    }
+    
+
     public void encodeByte(byte val)
     {
        if (val == 0) 
@@ -98,5 +113,11 @@ public final class ExpGolombEncoder extends AbstractEncoder
     public OutputBitStream getBitStream()
     {
        return this.bitstream;
+    }
+
+    
+    @Override
+    public void dispose()
+    {
     }
 }

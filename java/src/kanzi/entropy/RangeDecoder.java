@@ -17,6 +17,7 @@ package kanzi.entropy;
 
 import kanzi.InputBitStream;
 import kanzi.BitStreamException;
+import kanzi.EntropyDecoder;
 
 
 // Based on Order 0 range coder by Dmitry Subbotin itself derived from the algorithm
@@ -25,7 +26,7 @@ import kanzi.BitStreamException;
 // Optimized for speed.
 
 // Not thread safe
-public final class RangeDecoder extends AbstractDecoder
+public final class RangeDecoder implements EntropyDecoder
 {
     private static final long TOP_RANGE    = 0x00FFFFFFFFFFFFFFL;
     private static final long BOTTOM_RANGE = 0x00000000FFFFFFFFL;
@@ -185,7 +186,6 @@ public final class RangeDecoder extends AbstractDecoder
     }
 
 
-    @Override
     protected byte decodeByte()
     {
        this.range = (this.range >> 24) * this.invSum;
@@ -222,5 +222,11 @@ public final class RangeDecoder extends AbstractDecoder
     public InputBitStream getBitStream()
     {
        return this.bitstream;
-   }
+    }
+
+   
+    @Override  
+    public void dispose() 
+    {
+    }
 }

@@ -79,20 +79,7 @@ public class TestRiceGolombCoder
                 RiceGolombDecoder gd = new RiceGolombDecoder(dbgbs2, (ii&1)==1, 1+ii%6);
                 byte[] values2 = new byte[values.length];
                 System.out.println("\nDecoded:");
-
-                for (int i=0; i<values2.length; i++)
-                {
-                    try
-                    {
-                        values2[i] = gd.decodeByte();
-                    }
-                    catch (Exception e)
-                    {
-                        e.printStackTrace();
-                        break;
-                    }
-                }
-
+                gd.decode(values2, 0, values2.length);
                 System.out.println();
                 gd.dispose();
                 dbgbs2.close();

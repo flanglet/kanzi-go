@@ -15,11 +15,12 @@ limitations under the License.
 
 package kanzi.entropy;
 
+import kanzi.EntropyDecoder;
 import kanzi.InputBitStream;
 
 
 // Rice-Golomb Coder
-public final class RiceGolombDecoder extends AbstractDecoder
+public final class RiceGolombDecoder implements EntropyDecoder
 {
     private final boolean signed;
     private final InputBitStream bitstream;
@@ -45,7 +46,6 @@ public final class RiceGolombDecoder extends AbstractDecoder
     }
 
 
-    @Override
     public byte decodeByte()
     {
        long q = 0;
@@ -71,5 +71,26 @@ public final class RiceGolombDecoder extends AbstractDecoder
     public InputBitStream getBitStream()
     {
        return this.bitstream;
+    }
+
+    
+    @Override
+    public int decode(byte[] array, int blkptr, int len) 
+    {
+      if ((array == null) || (blkptr + len > array.length) || (blkptr < 0) || (len < 0))
+         return -1;
+
+      final int end = blkptr + len;
+
+      for (int i=blkptr; i<end; i++)
+         array[i] = this.decodeByte();
+
+      return len;
+    }
+
+
+    @Override
+    public void dispose() 
+    {
     }
 }

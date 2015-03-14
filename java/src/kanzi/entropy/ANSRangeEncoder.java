@@ -15,6 +15,7 @@ limitations under the License.
 
 package kanzi.entropy;
 
+import kanzi.EntropyEncoder;
 import kanzi.OutputBitStream;
 
 // Implementation of Asymetric Numeral System encoder.
@@ -22,7 +23,7 @@ import kanzi.OutputBitStream;
 // For alternate C implementation examples, see https://github.com/Cyan4973/FiniteStateEntropy
 // and https://github.com/rygorous/ryg_rans
 
-public class ANSRangeEncoder extends AbstractEncoder
+public class ANSRangeEncoder implements EntropyEncoder
 {
    private static final long TOP = 1L << 24;
    private static final int DEFAULT_CHUNK_SIZE = 1 << 16; // 64 KB by default
@@ -201,17 +202,16 @@ public class ANSRangeEncoder extends AbstractEncoder
    }
 
 
-   @Override
-   protected void encodeByte(byte val)
-   {
-      throw new UnsupportedOperationException("Not supported");
-   }
-
-
    // Not thread safe
    @Override
    public OutputBitStream getBitStream()
    {
       return this.bitstream;
    }
+   
+   
+   @Override
+   public void dispose()
+   {
+   }   
 }

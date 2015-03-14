@@ -264,13 +264,11 @@ func (this *DivSufSort) sortTypeBstar(bucket_A, bucket_B []int, n int) int {
 		}
 
 		t := arr[pab+m-1]
-		c0 = this.buffer[t]
-		c1 = this.buffer[t+1]
-		bucket_B[(c0<<8)+c1]--
-		arr[bucket_B[(c0<<8)+c1]] = m - 1
+		c0 = (this.buffer[t] << 8) + this.buffer[t+1]
+		bucket_B[c0]--
+		arr[bucket_B[c0]] = m - 1
 
-		// Sort the type B* substrings using sssort.
-		buf := m
+		// Sort the type B* substrings using ssSort.
 		bufSize := n - m - m
 		c0 = 254
 
@@ -279,7 +277,7 @@ func (this *DivSufSort) sortTypeBstar(bucket_A, bucket_B []int, n int) int {
 				i := bucket_B[(c0<<8)+c1]
 
 				if j-i > 1 {
-					this.ssSort(pab, i, j, buf, bufSize, 2, n, arr[i] == m-1)
+					this.ssSort(pab, i, j, m, bufSize, 2, n, arr[i] == m-1)
 				}
 
 				j = i
@@ -375,6 +373,7 @@ func (this *DivSufSort) sortTypeBstar(bucket_A, bucket_B []int, n int) int {
 
 		for k := m - 1; c0 >= 0; c0-- {
 			i := bucket_A[c0+1] - 1
+			c2 := c0 << 8
 
 			for c1 = 255; c1 > c0; c1-- {
 				tt := i - bucket_B[(c1<<8)+c0]
@@ -383,15 +382,15 @@ func (this *DivSufSort) sortTypeBstar(bucket_A, bucket_B []int, n int) int {
 
 				// Move all type B* suffixes to the correct position.
 				// Typically very small number of copies
-				for j := bucket_B[(c0<<8)+c1]; j <= k; {
+				for j := bucket_B[c2+c1]; j <= k; {
 					arr[i] = arr[k]
 					i--
 					k--
 				}
 			}
 
-			bucket_B[(c0<<8)+c0+1] = i - bucket_B[(c0<<8)+c0] + 1
-			bucket_B[(c0<<8)+c0] = i // end point
+			bucket_B[c2+c0+1] = i - bucket_B[c2+c0] + 1
+			bucket_B[c2+c0] = i // end point
 		}
 	}
 
@@ -1132,9 +1131,9 @@ func (this *DivSufSort) ssInsertionSort(pa, first, last, depth int) {
 	arr := this.sa
 
 	for i := last - 2; i >= first; i-- {
-		t := arr[i]
+		t := pa + arr[i]
 		j := i + 1
-		r := this.ssCompare3(pa+t, pa+arr[j], depth)
+		r := this.ssCompare3(t, pa+arr[j], depth)
 
 		for r > 0 {
 			for true {
@@ -1150,14 +1149,14 @@ func (this *DivSufSort) ssInsertionSort(pa, first, last, depth int) {
 				break
 			}
 
-			r = this.ssCompare3(pa+t, pa+arr[j], depth)
+			r = this.ssCompare3(t, pa+arr[j], depth)
 		}
 
 		if r == 0 {
 			arr[j] = ^arr[j]
 		}
 
-		arr[j-1] = t
+		arr[j-1] = t - pa
 	}
 }
 
@@ -1210,7 +1209,6 @@ func ssIsqrt(x int) int {
 func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 	limit := ssIlg(last - first)
 	x := 0
-	var v int
 
 	for true {
 		if last-first <= SS_INSERTIONSORT_THRESHOLD {
@@ -1231,8 +1229,7 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 			continue
 		}
 
-		td := depth
-		idx := td
+		idx := depth
 		buf1 := this.buffer[idx:]
 		buf2 := this.sa[pa:]
 
@@ -1244,7 +1241,7 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 		var a int
 
 		if limit < 0 {
-			v = buf1[buf2[this.sa[first]]]
+			v := buf1[buf2[this.sa[first]]]
 
 			for a = first + 1; a < last; a++ {
 				x = buf1[buf2[this.sa[a]]]
@@ -1289,8 +1286,8 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 		}
 
 		// choose pivot
-		a = this.ssPivot(td, pa, first, last)
-		v = buf1[buf2[this.sa[a]]]
+		a = this.ssPivot(idx, pa, first, last)
+		v := buf1[buf2[this.sa[a]]]
 		this.swapInSA(first, a)
 		b := first + 1
 

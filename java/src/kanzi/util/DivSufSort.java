@@ -108,7 +108,7 @@ public final class DivSufSort
         // Lazy dynamic memory allocation 
         if (this.sa.length < length)
            this.sa = new int[length];
-
+        
         if (this.buffer.length < length+1)
            this.buffer = new short[length+1];
 
@@ -133,7 +133,7 @@ public final class DivSufSort
                 int k = 0;
                 int c2 = -1;
 
-                for (int j=bucket_A[c1+1]-1; j >= i; j--)
+                for (int j=bucket_A[c1+1]-1; j>=i; j--)
                 {
                     int s = this.sa[j];
                     this.sa[j] = ~s;
@@ -201,7 +201,7 @@ public final class DivSufSort
         int c0 = this.buffer[n-1];
         final int[] arr = this.sa;
 
-        for (int i=n-1; i >= 0; )
+        for (int i=n-1; i>=0; )
         {
             do
             {
@@ -232,14 +232,14 @@ public final class DivSufSort
         c0 = 0;
 
         // Calculate the index of start/end point of each bucket.
-        for (int i=0, j=0; c0 < 256; c0++)
+        for (int i=0, j=0; c0<256; c0++)
         {
             final int t = i + bucket_A[c0];
             bucket_A[c0] = i + j; // start point
             final int idx = c0 << 8;
             i = t + bucket_B[idx+c0];
 
-            for (c1=c0+1; c1 < 256; c1++)
+            for (c1=c0+1; c1<256; c1++)
             {
                 j += bucket_B[idx+c1];
                 bucket_B[idx+c1] = j; // end point
@@ -253,33 +253,31 @@ public final class DivSufSort
             final int pab = n - m;
             final int isab = m;
 
-            for (int i=m-2; i >= 0; i--)
+            for (int i=m-2; i>=0; i--)
             {
                 final int t = arr[pab+i];
-                final int idx = (this.buffer[t] << 8) + this.buffer[t+1];
+                final int idx = (this.buffer[t]<<8) + this.buffer[t+1];
                 bucket_B[idx]--;
                 arr[bucket_B[idx]] = i;
             }
 
             final int t = arr[pab+m-1];
-            c0 = this.buffer[t];
-            c1 = this.buffer[t+1];
-            bucket_B[(c0<<8)+c1]--;
-            arr[bucket_B[(c0<<8)+c1]] = m - 1;
+            c0 = (this.buffer[t]<<8) + this.buffer[t+1];
+            bucket_B[c0]--;
+            arr[bucket_B[c0]] = m - 1;
 
-            // Sort the type B* substrings using sssort.
-            final int buf = m;
+            // Sort the type B* substrings using ssSort.
             final int bufSize = n - m - m;
             c0 = 254;
 
-            for (int j=m; j > 0; c0--)
+            for (int j=m; j>0; c0--)
             {
-                for (c1=255; c1 > c0; c1--)
+                for (c1=255; c1>c0; c1--)
                 {
                     final int i = bucket_B[(c0<<8)+c1];
 
                     if (j > i + 1)
-                        this.ssSort(pab, i, j, buf, bufSize, 2, n, arr[i] == m - 1);
+                        this.ssSort(pab, i, j, m, bufSize, 2, n, arr[i] == m - 1);
 
                     j = i;
                 }
@@ -354,11 +352,12 @@ public final class DivSufSort
             bucket_B[bucket_B.length-1] = n; // end
             c0 = 254;
 
-            for (int k=m-1; c0 >= 0; c0--)
+            for (int k=m-1; c0>=0; c0--)
             {
                 int i = bucket_A[c0+1] - 1;
+                final int c2 = c0 << 8;
 
-                for (c1=255; c1 > c0; c1--)
+                for (c1=255; c1>c0; c1--)
                 {
                     final int tt = i - bucket_B[(c1<<8)+c0];
                     bucket_B[(c1<<8)+c0] = i; // end point
@@ -366,12 +365,12 @@ public final class DivSufSort
 
                     // Move all type B* suffixes to the correct position.
                     // Typically very small number of copies, no need for arraycopy
-                    for (int j=bucket_B[(c0<<8)+c1]; j <= k; i--, k--)
+                    for (int j=bucket_B[c2+c1]; j<=k; i--, k--)
                         arr[i] = arr[k];
                 }
 
-                bucket_B[(c0<<8)+c0+1] = i - bucket_B[(c0<<8)+c0] + 1;
-                bucket_B[(c0<<8)+c0] = i; // end point
+                bucket_B[c2+c0+1] = i - bucket_B[c2+c0] + 1;
+                bucket_B[c2+c0] = i; // end point
             }
         }
 
@@ -1117,11 +1116,11 @@ public final class DivSufSort
 
         for (int i=last-2; i >= first; i--)
         {
-            int t = arr[i];
+            final int t = pa + arr[i];
             int j = i + 1;
             int r;
 
-            while ((r = this.ssCompare(pa+t, pa+arr[j], depth)) > 0)
+            while ((r = this.ssCompare(t, pa+arr[j], depth)) > 0)
             {
                 do
                 {
@@ -1137,7 +1136,7 @@ public final class DivSufSort
             if (r == 0)
                 arr[j] = ~arr[j];
 
-            arr[j-1] = t;
+            arr[j-1] = t - pa;
         }
     }
 
@@ -1180,7 +1179,7 @@ public final class DivSufSort
     private void ssMultiKeyIntroSort(final int pa, int first, int last, int depth)
     {
         int limit = ssIlg(last-first);
-        int v, x = 0;
+        int x = 0;
 
         while (true)
         {
@@ -1201,9 +1200,8 @@ public final class DivSufSort
                 continue;
             }
 
-            final int td = depth;
-            final int idx = td;
-
+            final int idx = depth;
+            
             if (limit == 0)
                 this.ssHeapSort(idx, pa, first, last - first);
 
@@ -1212,15 +1210,13 @@ public final class DivSufSort
 
             if (limit < 0)
             {
-                v = this.buffer[idx+this.sa[pa+this.sa[first]]];
+                int v = this.buffer[idx+this.sa[pa+this.sa[first]]];
 
-                for (a=first+1; a < last; a++)
+                for (a=first+1; a<last; a++)
                 {
-                    x = this.buffer[idx+this.sa[pa+this.sa[a]]];
-
-                    if (x != v)
+                    if ((x=this.buffer[idx+this.sa[pa+this.sa[a]]]) != v)
                     {
-                        if (a - first > 1)
+                       if (a - first > 1)
                             break;
 
                         v = x;
@@ -1266,22 +1262,27 @@ public final class DivSufSort
             }
 
             // choose pivot
-            a = this.ssPivot(td, pa, first, last);
-            v = this.buffer[idx+this.sa[pa+this.sa[a]]];
+            a = this.ssPivot(idx, pa, first, last);
+            final int v = this.buffer[idx+this.sa[pa+this.sa[a]]];
             this.swapInSA(first, a);
             int b = first;
 
             // partition
-            while ((++b < last) && ((x=this.buffer[idx+this.sa[pa+this.sa[b]]]) == v))
+            while (++b < last)
             {
+               if ((x=this.buffer[idx+this.sa[pa+this.sa[b]]]) != v)
+                  break;
             }
 
             a = b;
 
             if ((a < last) && (x < v))
             {
-                while ((++b < last) && ((x=this.buffer[idx+this.sa[pa+this.sa[b]]]) <= v))
+                while (++b < last)
                 {
+                    if ((x=this.buffer[idx+this.sa[pa+this.sa[b]]]) > v)
+                       break;
+                    
                     if (x == v)
                     {
                         this.swapInSA(b, a);
@@ -1292,16 +1293,21 @@ public final class DivSufSort
 
             int c = last;
 
-            while ((--c > b) && ((x=this.buffer[idx+this.sa[pa+this.sa[c]]]) == v))
+            while (--c > b)
             {
+               if ((x=this.buffer[idx+this.sa[pa+this.sa[c]]]) != v)
+                  break;
             }
 
             int d = c;
 
             if ((b < d) && (x > v))
             {
-                while ((--c > b) && ((x=this.buffer[idx+this.sa[pa+this.sa[c]]]) >= v))
+                while (--c > b)
                 {
+                    if ((x=this.buffer[idx+this.sa[pa+this.sa[c]]]) < v)
+                       break;
+                    
                     if (x == v)
                     {
                         this.swapInSA(c, d);
@@ -1314,8 +1320,11 @@ public final class DivSufSort
             {
                 this.swapInSA(b, c);
 
-                while ((++b < c) && ((x=this.buffer[idx+this.sa[pa+this.sa[b]]]) <= v))
+                while (++b < c)
                 {
+                    if ((x=this.buffer[idx+this.sa[pa+this.sa[b]]]) > v)
+                       break;
+                    
                     if (x == v)
                     {
                         this.swapInSA(b, a);
@@ -1323,8 +1332,11 @@ public final class DivSufSort
                     }
                 }
 
-                while ((--c > b) && ((x=this.buffer[idx+this.sa[pa+this.sa[c]]]) >= v))
+                while (--c > b)
                 {
+                    if ((x=this.buffer[idx+this.sa[pa+this.sa[c]]]) < v)
+                       break;
+                    
                     if (x == v)
                     {
                         this.swapInSA(c, d);

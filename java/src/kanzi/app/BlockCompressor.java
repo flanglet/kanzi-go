@@ -323,7 +323,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
                printOut("-input=<inputName>   : mandatory name of the input file to encode", true);
                printOut("-output=<outputName> : optional name of the output file (defaults to <input.knz>) or 'none' for dry-run", true);
                printOut("-block=<size>        : size of the input blocks, multiple of 8, max 512 MB (depends on transform), min 1KB, default 1MB", true);
-               printOut("-entropy=<codec>     : entropy codec to use [None|Huffman*|ANS|Range|PAQ|FPAQ]", true);
+               printOut("-entropy=<codec>     : entropy codec to use [None|Huffman*|ANS|Range|PAQ|FPAQ|CM]", true);
                printOut("-transform=<codec>   : transform to use [None|BWT*|BWTS|Snappy|LZ4|RLT]", true);
                printOut("                       for BWT(S), an optional GST can be provided: [MTF|RANK|TIMESTAMP]", true);
                printOut("                       EG: BWT+RANK or BWTS+MTF (default is BWT+MTF)", true);

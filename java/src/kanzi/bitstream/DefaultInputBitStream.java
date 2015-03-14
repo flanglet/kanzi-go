@@ -41,6 +41,9 @@ public final class DefaultInputBitStream implements InputBitStream
       if (bufferSize < 1024)
          throw new IllegalArgumentException("Invalid buffer size (must be at least 1024)");
 
+      if (bufferSize > 1<<28)
+         throw new IllegalArgumentException("Invalid buffer size (must be at most 268435456)");
+
       if ((bufferSize & 7) != 0)
          throw new IllegalArgumentException("Invalid buffer size (must be a multiple of 8)");
 
@@ -73,7 +76,7 @@ public final class DefaultInputBitStream implements InputBitStream
       
       try
       {
-         this.read += ((this.maxPosition+1) << 3);
+         this.read += (((long) this.maxPosition+1) << 3);
          size = this.is.read(this.buffer, 0, count);
 
          if (size <= 0)

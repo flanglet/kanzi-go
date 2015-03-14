@@ -16,13 +16,14 @@ limitations under the License.
 package kanzi.entropy;
 
 import kanzi.BitStreamException;
+import kanzi.EntropyEncoder;
 import kanzi.OutputBitStream;
 
 
 // Null entropy encoder and decoder
 // Pass through that writes the data directly to the bitstream
 // Helpful to debug
-public final class NullEntropyEncoder extends AbstractEncoder
+public final class NullEntropyEncoder implements EntropyEncoder
 {
     private final OutputBitStream bitstream;
 
@@ -58,7 +59,7 @@ public final class NullEntropyEncoder extends AbstractEncoder
            
            while (i < blkptr + len)
            {            
-              this.encodeByte(array[i]);
+              this.bitstream.writeBits(array[i], 8);
 
               i++;
            }
@@ -69,13 +70,6 @@ public final class NullEntropyEncoder extends AbstractEncoder
         }
 
         return len;
-    }
-
-    
-    @Override
-    public void encodeByte(byte val)
-    {
-        this.bitstream.writeBits(val, 8);
     }
 
     
@@ -98,5 +92,11 @@ public final class NullEntropyEncoder extends AbstractEncoder
     public OutputBitStream getBitStream()
     {
        return this.bitstream;
+    }
+
+  
+    @Override
+    public void dispose() 
+    {
     }
 }

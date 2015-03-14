@@ -16,12 +16,12 @@ limitations under the License.
 package kanzi.entropy;
 
 
-import kanzi.BitStreamException;
+import kanzi.EntropyDecoder;
 import kanzi.InputBitStream;
 
 
 // This class is a generic implementation of a boolean entropy decoder
-public class BinaryEntropyDecoder extends AbstractDecoder
+public class BinaryEntropyDecoder implements EntropyDecoder
 {
    private static final long TOP        = 0x00FFFFFFFFFFFFFFL;
    private static final long MASK_24_56 = 0x00FFFFFFFF000000L;
@@ -57,51 +57,30 @@ public class BinaryEntropyDecoder extends AbstractDecoder
    {
      if ((array == null) || (blkptr + len > array.length) || (blkptr < 0) || (len < 0))
         return -1;
-
-     final int end = blkptr + len;
-     int i = blkptr;
-
+      
      if (this.isInitialized() == false)
         this.initialize();
 
-     try
-     {
-        while (i < end)
-           array[i++] = this.decodeByte_();
-     }
-     catch (BitStreamException e)
-     {
-        // Fall through
-     }
+     final int end = blkptr + len;
 
-     return i - blkptr;
+     for (int i=blkptr; i<end; i++)
+        array[i] = this.decodeByte();
+
+     return len;
    }
+   
 
-
-   @Override
-   public byte decodeByte()
-   {
-      // Deferred initialization: the bitstream may not be ready at build time
-      // Initialize 'current' with bytes read from the bitstream
-      if (this.isInitialized() == false)
-         this.initialize();
-
-      return this.decodeByte_();
-   }
-
-
-   protected byte decodeByte_()
+   protected byte decodeByte()
    {
       int res;     
-      res   = (this.decodeBit() << 7);
-      res  |= (this.decodeBit() << 6);
-      res  |= (this.decodeBit() << 5);
-      res  |= (this.decodeBit() << 4);
-      res  |= (this.decodeBit() << 3);
-      res  |= (this.decodeBit() << 2);
-      res  |= (this.decodeBit() << 1);
-      res  |= this.decodeBit();
-      return (byte) res;
+      res  = (this.decodeBit() << 7);
+      res |= (this.decodeBit() << 6);
+      res |= (this.decodeBit() << 5);
+      res |= (this.decodeBit() << 4);
+      res |= (this.decodeBit() << 3);
+      res |= (this.decodeBit() << 2);
+      res |= (this.decodeBit() << 1);
+      return (byte) (res | this.decodeBit());
    }
 
 
@@ -123,14 +102,12 @@ public class BinaryEntropyDecoder extends AbstractDecoder
    }
 
 
-   public int decodeBit()
+   protected int decodeBit()
    {
-      // Compute prediction
-      final int prediction = this.predictor.get();
-
       // Calculate interval split
-      final long xmid = this.low + ((this.high - this.low) >> 12) * prediction;
-      int bit;
+      // Written in a way to maximize accuracy of multiplication/division
+      final long xmid = ((((this.high - this.low) >> 7) * this.predictor.get()) >> 5) + this.low;
+      final int bit;
 
       if (this.current <= xmid)
       {
@@ -166,5 +143,11 @@ public class BinaryEntropyDecoder extends AbstractDecoder
    public InputBitStream getBitStream()
    {
       return this.bitstream;
+   }
+
+   
+   @Override
+   public void dispose() 
+   {
    }
 }

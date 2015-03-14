@@ -29,7 +29,7 @@ type FPAQPredictor struct {
 
 func NewFPAQPredictor() (*FPAQPredictor, error) {
 	this := new(FPAQPredictor)
-	this.ctxIdx = 1
+	this.ctxIdx = 2
 	this.states = make([]uint, 512)
 	this.prediction = 2048
 	return this, nil
@@ -38,7 +38,7 @@ func NewFPAQPredictor() (*FPAQPredictor, error) {
 // Update the probability model
 func (this *FPAQPredictor) Update(bit byte) {
 	// Find the number of registered 0 & 1 given the previous bits (in this.ctxIdx)
-	idx := (this.ctxIdx << 1) | int(bit&1)
+	idx := this.ctxIdx | int(bit&1)
 	this.states[idx]++
 
 	if this.states[idx] >= THRESHOLD {
@@ -48,13 +48,12 @@ func (this *FPAQPredictor) Update(bit byte) {
 
 	// Update context by registering the current bit (or wrapping after 8 bits)
 	if idx < 256 {
-		this.ctxIdx = idx
+		this.ctxIdx = idx << 1
+		this.prediction = ((this.states[this.ctxIdx+1] + 1) << 12) / (this.states[this.ctxIdx] + this.states[this.ctxIdx+1] + 2)
 	} else {
-		this.ctxIdx = 1
+		this.ctxIdx = 2
+		this.prediction = ((this.states[3] + 1) << 12) / (this.states[2] + this.states[3] + 2)
 	}
-
-	idx = this.ctxIdx << 1
-	this.prediction = ((this.states[idx+1] + 1) << 12) / (this.states[idx] + this.states[idx+1] + 2)
 }
 
 // Return the split value representing the probability of 1 in the [0..4095] range.

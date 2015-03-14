@@ -345,7 +345,7 @@ func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
 		this.UpdateFrequencies(buf)
 
 		for i := startChunk; i < endChunk; i++ {
-			this.EncodeByte(block[i])
+			this.bitstream.WriteBits(uint64(this.codes[block[i]]), this.codes[block[i]]>>24)
 		}
 
 		startChunk = endChunk
@@ -354,10 +354,6 @@ func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
 	return len(block), nil
 }
 
-// Frequencies of the data block must have been previously set
-func (this *HuffmanEncoder) EncodeByte(val byte) {
-	this.bitstream.WriteBits(uint64(this.codes[val]), this.codes[val]>>24)
-}
 
 func (this *HuffmanEncoder) Dispose() {
 }
@@ -584,7 +580,7 @@ func (this *HuffmanDecoder) Decode(block []byte) (int, error) {
 
 		for i < endChunk {
 			// Fallback to regular decoding (read one bit at a time)
-			block[i] = this.DecodeByte()
+			block[i] = this.slowDecodeByte(0, 0)
 			i++
 		}
 		
@@ -594,9 +590,6 @@ func (this *HuffmanDecoder) Decode(block []byte) (int, error) {
 	return len(block), nil
 }
 
-func (this *HuffmanDecoder) DecodeByte() byte {
-	return this.slowDecodeByte(0, 0)
-}
 
 func (this *HuffmanDecoder) slowDecodeByte(code int, codeLen uint) byte {
 	for codeLen < 23 {

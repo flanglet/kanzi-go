@@ -16,6 +16,7 @@ limitations under the License.
 package kanzi.entropy;
 
 import kanzi.BitStreamException;
+import kanzi.EntropyDecoder;
 import kanzi.InputBitStream;
 
 // Implementation of Asymetric Numeral System decoder.
@@ -23,7 +24,7 @@ import kanzi.InputBitStream;
 // For alternate C implementation examples, see https://github.com/Cyan4973/FiniteStateEntropy
 // and https://github.com/rygorous/ryg_rans
 
-public class ANSRangeDecoder extends AbstractDecoder
+public class ANSRangeDecoder implements EntropyDecoder
 {
    private static final long TOP = 1L << 24;
    private static final int DEFAULT_CHUNK_SIZE = 1 << 16; // 64 KB by default
@@ -110,13 +111,6 @@ public class ANSRangeDecoder extends AbstractDecoder
    }
 
 
-   @Override
-   protected byte decodeByte()
-   {
-      throw new UnsupportedOperationException("Not supported");
-   }
-
-
    protected int decodeHeader(int[] frequencies)
    {
       int alphabetSize = EntropyUtils.decodeAlphabet(this.bitstream, this.alphabet);
@@ -194,5 +188,11 @@ public class ANSRangeDecoder extends AbstractDecoder
    public InputBitStream getBitStream()
    {
       return this.bitstream;
+   }
+
+
+   @Override
+   public void dispose() 
+   {
    }
 }

@@ -114,7 +114,7 @@ public final class SnappyCodec implements ByteFunction, Sizeable
            }
            
            for (int i=0; i<len; i++)
-	      dst[dstIdx+i] = src[srcIdx+i];
+              dst[dstIdx+i] = src[srcIdx+i];
            
            return res;
         }

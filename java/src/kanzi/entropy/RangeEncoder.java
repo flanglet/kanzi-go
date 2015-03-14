@@ -15,6 +15,7 @@ limitations under the License.
 
 package kanzi.entropy;
 
+import kanzi.EntropyEncoder;
 import kanzi.OutputBitStream;
 
 
@@ -24,7 +25,7 @@ import kanzi.OutputBitStream;
 // Optimized for speed.
 
 // Not thread safe
-public final class RangeEncoder extends AbstractEncoder
+public final class RangeEncoder implements EntropyEncoder
 {
     private static final long TOP_RANGE    = 0x00FFFFFFFFFFFFFFL;
     private static final long BOTTOM_RANGE = 0x00000000FFFFFFFFL;
@@ -191,7 +192,6 @@ public final class RangeEncoder extends AbstractEncoder
     }
     
 
-    @Override
     protected void encodeByte(byte b)
     {
         final int value = b & 0xFF;
@@ -226,5 +226,11 @@ public final class RangeEncoder extends AbstractEncoder
     public OutputBitStream getBitStream()
     {
        return this.bitstream;
+    }
+
+   
+    @Override
+    public void dispose() 
+    {
     }
 }

@@ -23,12 +23,13 @@ import kanzi.OutputBitStream;
 
 public class EntropyCodecFactory 
 {
-   public static final byte NONE_TYPE    = 0;
-   public static final byte HUFFMAN_TYPE = 1;
-   public static final byte FPAQ_TYPE    = 2;
-   public static final byte PAQ_TYPE     = 3;
-   public static final byte RANGE_TYPE   = 4;
-   public static final byte ANS_TYPE     = 5;
+   public static final byte NONE_TYPE    = 0; // No compression
+   public static final byte HUFFMAN_TYPE = 1; // Huffman
+   public static final byte FPAQ_TYPE    = 2; // Fast PAQ
+   public static final byte PAQ_TYPE     = 3; // PAQ
+   public static final byte RANGE_TYPE   = 4; // Range
+   public static final byte ANS_TYPE     = 5; // Asymetric Numerical System
+   public static final byte CM_TYPE      = 6; // Context Model
    
    
    public EntropyDecoder newDecoder(InputBitStream ibs, byte entropyType)
@@ -50,6 +51,8 @@ public class EntropyCodecFactory
             return new BinaryEntropyDecoder(ibs, new PAQPredictor());
          case FPAQ_TYPE:
             return new BinaryEntropyDecoder(ibs, new FPAQPredictor());
+         case CM_TYPE:
+            return new BinaryEntropyDecoder(ibs, new CMPredictor());
          case NONE_TYPE:
             return new NullEntropyDecoder(ibs);
          default:
@@ -75,6 +78,8 @@ public class EntropyCodecFactory
             return new BinaryEntropyEncoder(obs, new PAQPredictor());
          case FPAQ_TYPE:
             return new BinaryEntropyEncoder(obs, new FPAQPredictor());
+         case CM_TYPE:
+            return new BinaryEntropyEncoder(obs, new CMPredictor());
          case NONE_TYPE:
             return new NullEntropyEncoder(obs);
          default :
@@ -97,6 +102,8 @@ public class EntropyCodecFactory
             return "PAQ";
          case FPAQ_TYPE:
             return "FPAQ";
+         case CM_TYPE:
+            return "CM";
          case NONE_TYPE:
             return "NONE";
          default :
@@ -104,25 +111,30 @@ public class EntropyCodecFactory
       }
    }
    
-  
+   // Do not use switch on String because some versions of Java do not support it
    public byte getType(String name)
    {
-      if (name.equalsIgnoreCase("HUFFMAN"))
+      name = String.valueOf(name).toUpperCase();
+      
+      if (name.equals("HUFFMAN"))
          return HUFFMAN_TYPE; 
       
-      if (name.equalsIgnoreCase("ANS"))
+      if (name.equals("ANS"))
          return ANS_TYPE; 
       
-      if (name.equalsIgnoreCase("FPAQ"))
+      if (name.equals("FPAQ"))
          return FPAQ_TYPE;
       
-      if (name.equalsIgnoreCase("PAQ"))
+      if (name.equals("PAQ"))
          return PAQ_TYPE;
       
-      if (name.equalsIgnoreCase("RANGE"))
+      if (name.equals("RANGE"))
          return RANGE_TYPE; 
       
-      if (name.equalsIgnoreCase("NONE"))
+      if (name.equals("CM"))
+         return CM_TYPE; 
+      
+      if (name.equals("NONE"))
          return NONE_TYPE;
 
       throw new IllegalArgumentException("Unsupported entropy codec type: " + name); 
