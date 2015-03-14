@@ -65,22 +65,21 @@ public class BinaryEntropyDecoder implements EntropyDecoder
 
      for (int i=blkptr; i<end; i++)
         array[i] = this.decodeByte();
-
+     
      return len;
    }
    
 
    protected byte decodeByte()
    {
-      int res;     
-      res  = (this.decodeBit() << 7);
-      res |= (this.decodeBit() << 6);
-      res |= (this.decodeBit() << 5);
-      res |= (this.decodeBit() << 4);
-      res |= (this.decodeBit() << 3);
-      res |= (this.decodeBit() << 2);
-      res |= (this.decodeBit() << 1);
-      return (byte) (res | this.decodeBit());
+      return (byte) ((this.decodeBit() << 7)
+            | (this.decodeBit() << 6)
+            | (this.decodeBit() << 5)
+            | (this.decodeBit() << 4)
+            | (this.decodeBit() << 3)
+            | (this.decodeBit() << 2)
+            | (this.decodeBit() << 1)
+            | this.decodeBit());
    }
 
 

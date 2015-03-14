@@ -30,9 +30,10 @@ public class CMPredictor implements Predictor
    private int run;
    private int bpos;
    private int idx;
+   private int runMask;
    private final int[] counter0;
    private final int[][] counter1;
-   private final int[][][] counter2;
+   private final int[][] counter2;
    
    
    public CMPredictor()
@@ -43,7 +44,7 @@ public class CMPredictor implements Predictor
       this.idx = 8;
       this.counter0 = new int[256];
       this.counter1 = new int[256][256];
-      this.counter2 = new int[2][256][17];
+      this.counter2 = new int[512][17];
       
       for (int i=0; i<256; i++)
       {
@@ -54,12 +55,12 @@ public class CMPredictor implements Predictor
             
          for (int j=0; j<16; j++)
          {
-            this.counter2[0][i][j] = j << 12;
-            this.counter2[1][i][j] = j << 12;
+            this.counter2[i+i][j]   = j << 12;
+            this.counter2[i+i+1][j] = j << 12;
          }
 
-         this.counter2[0][i][16] = 15 << 12;
-         this.counter2[1][i][16] = 15 << 12;
+         this.counter2[i+i][16]   = 15 << 12;
+         this.counter2[i+i+1][16] = 15 << 12;
       }			
    }
    
@@ -68,29 +69,26 @@ public class CMPredictor implements Predictor
    @Override
    public void update(int bit)
    { 
-      final int ctx_ = this.ctx;
-      final int runCtx = (2-this.run) >>> 31;
-      final int[] counter0_ = this.counter0;
+      final int[] counter2_ = this.counter2[(this.ctx<<1)|this.runMask];            
       final int[] counter1_ = this.counter1[this.c1];
-      final int[] counter2_ = this.counter2[runCtx][ctx_];
+      final int[] counter0_ = this.counter0;
            
       if (bit == 0)
       {
-         counter0_[ctx_] -= (counter0_[ctx_] >> LOW_RATE);
-         counter1_[ctx_] -= (counter1_[ctx_] >> MEDIUM_RATE);
+         counter0_[this.ctx] -= (counter0_[this.ctx] >> LOW_RATE);
+         counter1_[this.ctx] -= (counter1_[this.ctx] >> MEDIUM_RATE);
          counter2_[this.idx] -= (counter2_[this.idx] >> FAST_RATE);
-         counter2_[this.idx+1] -= (counter2_[this.idx+1] >> FAST_RATE);
-         this.ctx <<= 1;
+         counter2_[this.idx+1] -= (counter2_[this.idx+1] >> FAST_RATE);         
       }
       else
       {
-         counter0_[ctx_] += ((counter0_[ctx_]^0xFFFF) >> LOW_RATE);
-         counter1_[ctx_] += ((counter1_[ctx_]^0xFFFF) >> MEDIUM_RATE);
+         counter0_[this.ctx] += ((counter0_[this.ctx]^0xFFFF) >> LOW_RATE);
+         counter1_[this.ctx] += ((counter1_[this.ctx]^0xFFFF) >> MEDIUM_RATE);
          counter2_[this.idx] += ((counter2_[this.idx]^0xFFFF) >> FAST_RATE);
          counter2_[this.idx+1] += ((counter2_[this.idx+1]^0xFFFF) >> FAST_RATE);
-         this.ctx = (ctx_ << 1) | 1;
       } 
       
+      this.ctx = (this.ctx << 1) | bit;
       this.bpos--;
 
       if (this.bpos < 0)
@@ -101,9 +99,15 @@ public class CMPredictor implements Predictor
         this.ctx = 1;
 
         if (this.c1 == this.c2)
+        {
            this.run++;
+           this.runMask = (2-this.run) >>> 31;
+        }
          else
-           this.run = 0;     
+        {
+           this.run = 0; 
+           this.runMask = 0;
+        }
       }      
    }
 
@@ -117,8 +121,7 @@ public class CMPredictor implements Predictor
       final int p2 = this.counter1[this.c2][this.ctx];
       final int p = ((p0<<2)+p1+p1+p1+p2+4) >> 3;
       this.idx = p >> 12;
-      final int runCtx = (2-this.run) >>> 31;
-      final int[] counter2_ = this.counter2[runCtx][this.ctx];            
+      final int[] counter2_ = this.counter2[(this.ctx<<1)|this.runMask];            
       final int x1 = counter2_[this.idx];
       final int x2 = counter2_[this.idx+1];
       final int ssep = x1 + (((x2-x1)*(p&4095)) >> 12);

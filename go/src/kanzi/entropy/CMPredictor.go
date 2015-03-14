@@ -26,13 +26,14 @@ const (
 type CMPredictor struct {
 	c1       byte
 	c2       byte
-	ctx      uint
-	run      uint
+	ctx      int
+	run      uint32
+	runMask  int
 	bpos     int
 	idx      int
 	counter0 []int
 	counter1 [][]int
-	counter2 [][][]int
+	counter2 [][]int
 }
 
 func NewCMPredictor() (*CMPredictor, error) {
@@ -40,30 +41,29 @@ func NewCMPredictor() (*CMPredictor, error) {
 	this.bpos = 7
 	this.ctx = 1
 	this.run = 1
+	this.runMask = 0
 	this.idx = 8
 	this.counter0 = make([]int, 256)
 	this.counter1 = make([][]int, 256)
-	this.counter2 = make([][][]int, 2)
-	this.counter2[0] = make([][]int, 256)
-	this.counter2[1] = make([][]int, 256)
+	this.counter2 = make([][]int, 512)
 
 	for i := 0; i < 256; i++ {
 		this.counter0[i] = 32768
 		this.counter1[i] = make([]int, 256)
-		this.counter2[0][i] = make([]int, 17)
-		this.counter2[1][i] = make([]int, 17)
+		this.counter2[2*i] = make([]int, 17)
+		this.counter2[2*i+1] = make([]int, 17)
 
 		for j := 0; j < 256; j++ {
 			this.counter1[i][j] = 32768
 		}
 
 		for j := 0; j < 16; j++ {
-			this.counter2[0][i][j] = j << 12
-			this.counter2[1][i][j] = j << 12
+			this.counter2[i+i][j] = j << 12
+			this.counter2[i+i+1][j] = j << 12
 		}
 
-		this.counter2[0][i][16] = 15 << 12
-		this.counter2[1][i][16] = 15 << 12
+		this.counter2[i+i][16] = 15 << 12
+		this.counter2[i+i+1][16] = 15 << 12
 	}
 
 	return this, nil
@@ -72,25 +72,24 @@ func NewCMPredictor() (*CMPredictor, error) {
 // Update the probability model
 func (this *CMPredictor) Update(bit byte) {
 	ctx_ := this.ctx
-	runCtx := uint32(2-this.run) >> 31
-	counter0_ := this.counter0
+	counter2_ := this.counter2[(ctx_<<1)|this.runMask]
 	counter1_ := this.counter1[this.c1]
-	counter2_ := this.counter2[runCtx][ctx_]
+	counter0_ := this.counter0
 
 	if bit == 0 {
 		counter0_[ctx_] -= (counter0_[ctx_] >> LOW_RATE)
 		counter1_[ctx_] -= (counter1_[ctx_] >> MEDIUM_RATE)
 		counter2_[this.idx] -= (counter2_[this.idx] >> FAST_RATE)
 		counter2_[this.idx+1] -= (counter2_[this.idx+1] >> FAST_RATE)
-		this.ctx <<= 1
 	} else {
 		counter0_[ctx_] += ((counter0_[ctx_] ^ 0xFFFF) >> LOW_RATE)
 		counter1_[ctx_] += ((counter1_[ctx_] ^ 0xFFFF) >> MEDIUM_RATE)
 		counter2_[this.idx] += ((counter2_[this.idx] ^ 0xFFFF) >> FAST_RATE)
 		counter2_[this.idx+1] += ((counter2_[this.idx+1] ^ 0xFFFF) >> FAST_RATE)
-		this.ctx = (ctx_ << 1) | 1
+
 	}
 
+	this.ctx = (ctx_ << 1) | int(bit)
 	this.bpos--
 
 	if this.bpos < 0 {
@@ -101,8 +100,10 @@ func (this *CMPredictor) Update(bit byte) {
 
 		if this.c1 == this.c2 {
 			this.run++
+			this.runMask = int((2 - this.run) >> 31)
 		} else {
 			this.run = 0
+			this.runMask = 0
 		}
 	}
 }
@@ -114,8 +115,7 @@ func (this *CMPredictor) Get() uint {
 	p2 := this.counter1[this.c2][this.ctx]
 	p := ((p0 << 2) + p1 + p1 + p1 + p2 + 4) >> 3
 	this.idx = p >> 12
-	runCtx := uint32(2-this.run) >> 31
-	counter2_ := this.counter2[runCtx][this.ctx]
+	counter2_ := this.counter2[(this.ctx<<1)|this.runMask]
 	x1 := counter2_[this.idx]
 	x2 := counter2_[this.idx+1]
 	ssep := x1 + (((x2 - x1) * (p & 4095)) >> 12)
