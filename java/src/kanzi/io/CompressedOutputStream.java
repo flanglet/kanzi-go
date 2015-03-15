@@ -60,7 +60,7 @@ public class CompressedOutputStream extends OutputStream
    private final IndexedByteArray[] buffers;
    private final byte entropyType;
    private final byte transformType;
-   private final OutputBitStream  obs;
+   private final OutputBitStream obs;
    private boolean initialized;
    private boolean closed;
    private final AtomicInteger blockId;
@@ -98,7 +98,7 @@ public class CompressedOutputStream extends OutputStream
          throw new NullPointerException("Invalid null output stream parameter");
 
       if (blockSize > MAX_BITSTREAM_BLOCK_SIZE)
-         throw new IllegalArgumentException("The block size must be at most "+MAX_BITSTREAM_BLOCK_SIZE);
+         throw new IllegalArgumentException("The block size must be at most "+(MAX_BITSTREAM_BLOCK_SIZE>>20)+ " MB");
 
       if (blockSize < MIN_BITSTREAM_BLOCK_SIZE)
          throw new IllegalArgumentException("The block size must be at least "+MIN_BITSTREAM_BLOCK_SIZE);
@@ -112,7 +112,7 @@ public class CompressedOutputStream extends OutputStream
       if ((jobs != 1) && (pool == null))
          throw new IllegalArgumentException("The thread pool cannot be null when the number of jobs is "+jobs);
 
-      final int bufferSize = (blockSize > 65536) ? blockSize : 65536;
+      final int bufferSize = (blockSize <= 65536) ? blockSize : 65536;
       this.obs = new DefaultOutputBitStream(os, bufferSize);
       this.entropyType = new EntropyCodecFactory().getType(entropyCodec);
       this.transformType = new FunctionFactory().getType(functionType);

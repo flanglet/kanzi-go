@@ -118,7 +118,7 @@ func NewCompressedOutputStream(entropyCodec string, functionType string, os kanz
 	}
 
 	if blockSize > MAX_BITSTREAM_BLOCK_SIZE {
-		errMsg := fmt.Sprintf("The block size must be at most %d", MAX_BITSTREAM_BLOCK_SIZE)
+		errMsg := fmt.Sprintf("The block size must be at most %d MB", MAX_BITSTREAM_BLOCK_SIZE>>20)
 		return nil, errors.New(errMsg)
 	}
 
@@ -140,7 +140,7 @@ func NewCompressedOutputStream(entropyCodec string, functionType string, os kanz
 
 	bufferSize := blockSize
 
-	if bufferSize < 65536 {
+	if bufferSize > 65536 {
 		bufferSize = 65536
 	}
 
