@@ -212,11 +212,12 @@ func (this *BWT) inverseRegularBlock(src, dst []byte, count int) (uint, uint, er
 	}
 
 	ptr := data[pIdx]
+	dst[count-1] = byte(ptr)
 
 	// Build inverse
-	for i := count - 1; i >= 0; i-- {
-		dst[i] = byte(ptr)
+	for i := count - 2; i >= 0; i-- {
 		ptr = data[uint(ptr>>8)+uint(buckets_[ptr&0xFF])]
+		dst[i] = byte(ptr)
 	}
 
 	return uint(count), uint(count), nil
@@ -276,13 +277,14 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 
 	val1 := data1[pIdx]
 	val2 := data2[pIdx]
+	dst[count-1] = val2
 
 	// Build inverse
-	for i := count - 1; i >= 0; i-- {
-		dst[i] = val2
+	for i := count - 2; i >= 0; i-- {
 		idx := val1 + buckets_[val2]
 		val1 = data1[idx]
 		val2 = data2[idx]
+		dst[i] = val2
 	}
 
 	return uint(count), uint(count), nil

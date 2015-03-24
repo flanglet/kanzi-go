@@ -241,12 +241,13 @@ public class BWT implements ByteTransform, Sizeable
        }
 
        int ptr = data[pIdx];
+       output[dstIdx+count-1] = (byte) ptr;
        
        // Build inverse
-       for (int i=dstIdx+count-1; i>=dstIdx; i--)
+       for (int i=dstIdx+count-2; i>=dstIdx; i--)
        {
-          output[i] = (byte) ptr;
           ptr = data[(ptr>>>8) + buckets_[ptr&0xFF]];
+          output[i] = (byte) ptr;
        }
        
        src.index += count;
@@ -313,14 +314,15 @@ public class BWT implements ByteTransform, Sizeable
 
        int val1 = data1[pIdx];
        byte val2 = data2[pIdx];
+       output[dstIdx+count-1] = val2;
        
        // Build inverse
-       for (int i=dstIdx+count-1; i>=dstIdx; i--)
+       for (int i=dstIdx+count-2; i>=dstIdx; i--)
        {
-          output[i] = val2;
           final int idx = val1 + buckets_[val2&0xFF];
           val1 = data1[idx];
           val2 = data2[idx];
+          output[i] = val2;
        }      
        
        src.index += count;

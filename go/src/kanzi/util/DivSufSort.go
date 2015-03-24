@@ -273,8 +273,10 @@ func (this *DivSufSort) sortTypeBstar(bucket_A, bucket_B []int, n int) int {
 		c0 = 254
 
 		for j := m; j > 0; c0-- {
+			idx := c0 << 8
+
 			for c1 = 255; c1 > c0; c1-- {
-				i := bucket_B[(c0<<8)+c1]
+				i := bucket_B[idx+c1]
 
 				if j-i > 1 {
 					this.ssSort(pab, i, j, m, bufSize, 2, n, arr[i] == m-1)

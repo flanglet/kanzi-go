@@ -921,12 +921,12 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 			// Add the number of decoded bytes for the current block
 			decoded += res.decoded
 
-                        if len(this.listeners) > 0 {
-                                // Notify after transform
-                                evt := &BlockEvent{eventType: EVT_AFTER_TRANSFORM, blockId: res.blockId,
-                                        blockSize: res.decoded, hash: res.checksum, hashing: this.hasher != nil}
-                                notifyListeners(this.listeners, evt)
-                        }
+			if len(this.listeners) > 0 {
+				// Notify after transform
+				evt := &BlockEvent{eventType: EVT_AFTER_TRANSFORM, blockId: res.blockId,
+					blockSize: res.decoded, hash: res.checksum, hashing: this.hasher != nil}
+				notifyListeners(this.listeners, evt)
+			}
 
 			if res.decoded == 0 {
 				this.readLastBlock = true
