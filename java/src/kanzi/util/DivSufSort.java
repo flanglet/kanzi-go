@@ -272,9 +272,11 @@ public final class DivSufSort
 
             for (int j=m; j>0; c0--)
             {
+                final int idx = c0 << 8;
+               
                 for (c1=255; c1>c0; c1--)
                 {
-                    final int i = bucket_B[(c0<<8)+c1];
+                    final int i = bucket_B[idx+c1];
 
                     if (j > i + 1)
                         this.ssSort(pab, i, j, m, bufSize, 2, n, arr[i] == m - 1);
@@ -322,7 +324,7 @@ public final class DivSufSort
             // Set the sorted order of type B* suffixes.
             c0 = this.buffer[n-1];
 
-            for (int i=n-1, j=m; i >= 0; )
+            for (int i=n-1, j=m; i>=0; )
             {
                 i--;
                 c1 = c0;
@@ -355,7 +357,7 @@ public final class DivSufSort
             for (int k=m-1; c0>=0; c0--)
             {
                 int i = bucket_A[c0+1] - 1;
-                final int c2 = c0 << 8;
+                final int idx = c0 << 8;
 
                 for (c1=255; c1>c0; c1--)
                 {
@@ -365,12 +367,12 @@ public final class DivSufSort
 
                     // Move all type B* suffixes to the correct position.
                     // Typically very small number of copies, no need for arraycopy
-                    for (int j=bucket_B[c2+c1]; j<=k; i--, k--)
+                    for (int j=bucket_B[idx+c1]; j<=k; i--, k--)
                         arr[i] = arr[k];
                 }
 
-                bucket_B[c2+c0+1] = i - bucket_B[c2+c0] + 1;
-                bucket_B[c2+c0] = i; // end point
+                bucket_B[idx+c0+1] = i - bucket_B[idx+c0] + 1;
+                bucket_B[idx+c0] = i; // end point
             }
         }
 
@@ -1446,10 +1448,8 @@ public final class DivSufSort
     }
 
 
-    private int ssMedian5(int td, int pa, int v1, int v2, int v3, int v4, int v5)
+    private int ssMedian5(final int idx, int pa, int v1, int v2, int v3, int v4, int v5)
     {
-        final int idx = td;
-
         if (this.buffer[idx+this.sa[pa+this.sa[v2]]] > this.buffer[idx+this.sa[pa+this.sa[v3]]])
         {
             final int t = v2;

@@ -34,5 +34,6 @@ public final class Error
    public static final int ERR_CREATE_CODEC        = -14;
    public static final int ERR_INVALID_FILE        = -15;
    public static final int ERR_STREAM_VERSION      = -16;
+   public static final int ERR_CREATE_STREAM       = -17;
    public static final int ERR_UNKNOWN             = -127;
 }

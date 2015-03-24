@@ -377,7 +377,7 @@ public class CompressedOutputStream extends OutputStream
             tasks.add(task);
             this.iba.index += sz;
 
-            if (sz < this.blockSize)
+            if (this.iba.index >= this.iba.array.length) 
                break;
          }
 
@@ -503,8 +503,7 @@ public class CompressedOutputStream extends OutputStream
                BlockEvent evt = new BlockEvent(BlockEvent.Type.BEFORE_TRANSFORM, currentBlockId,
                        blockLength, checksum, this.hasher != null);
                
-               for (BlockListener bl : this.listeners)
-                  bl.processEvent(evt);
+               this.notifyListeners(evt);
             }
             
             if (blockLength <= SMALL_BLOCK_SIZE)
@@ -556,8 +555,7 @@ public class CompressedOutputStream extends OutputStream
                BlockEvent evt = new BlockEvent(BlockEvent.Type.AFTER_TRANSFORM, currentBlockId,
                        postTransformLength, checksum, this.hasher != null);
                
-               for (BlockListener bl : this.listeners)
-                  bl.processEvent(evt);
+               this.notifyListeners(evt);
             }
 
             // Lock free synchronization
@@ -591,8 +589,7 @@ public class CompressedOutputStream extends OutputStream
                BlockEvent evt = new BlockEvent(BlockEvent.Type.BEFORE_ENTROPY, currentBlockId,
                        postTransformLength, checksum, this.hasher != null);
                
-               for (BlockListener bl : this.listeners)
-                  bl.processEvent(evt);
+               this.notifyListeners(evt);
             }
 
             // Entropy encode block
@@ -617,8 +614,7 @@ public class CompressedOutputStream extends OutputStream
                BlockEvent evt = new BlockEvent(BlockEvent.Type.AFTER_ENTROPY, 
                        currentBlockId, w, checksum, this.hasher != null);
                
-               for (BlockListener bl : this.listeners)
-                  bl.processEvent(evt);
+               this.notifyListeners(evt);
             }
 
             return new Status(0, "Success");
@@ -637,6 +633,22 @@ public class CompressedOutputStream extends OutputStream
               ee.dispose();
          }
       }
+           
+      
+      private void notifyListeners(BlockEvent evt)
+      {
+         for (BlockListener bl : this.listeners)
+         {
+            try 
+            {
+               bl.processEvent(evt);
+            }
+            catch (Exception e)
+            {
+               // Ignore exceptions in block listeners
+            }
+         }
+      }      
    }
 
    

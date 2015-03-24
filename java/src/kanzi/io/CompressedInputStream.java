@@ -363,7 +363,7 @@ public class CompressedInputStream extends InputStream
             tasks.add(task);
             this.iba.index += this.blockSize;
          }
-
+         
          if (this.jobs == 1)
          {
             // Synchronous call
@@ -558,8 +558,7 @@ public class CompressedInputStream extends InputStream
                BlockEvent evt = new BlockEvent(BlockEvent.Type.BEFORE_ENTROPY, currentBlockId,
                        -1, checksum1, this.hasher != null);
 
-               for (BlockListener bl : this.listeners)
-                  bl.processEvent(evt);
+               this.notifyListeners(evt);
             }
 
             if (typeOfTransform == FunctionFactory.NULL_TRANSFORM_TYPE)
@@ -588,10 +587,9 @@ public class CompressedInputStream extends InputStream
                BlockEvent evt = new BlockEvent(BlockEvent.Type.AFTER_ENTROPY, currentBlockId,
                        (int) ((this.ibs.read()-read)/8L), checksum1, this.hasher != null);
 
-               for (BlockListener bl : this.listeners)
-                  bl.processEvent(evt);
+               this.notifyListeners(evt);
             }
-
+            
             // After completion of the entropy decoding, increment the block id.
             // It unfreezes the task processing the next block (if any)
             this.processedBlockId.incrementAndGet();
@@ -602,8 +600,7 @@ public class CompressedInputStream extends InputStream
                BlockEvent evt = new BlockEvent(BlockEvent.Type.BEFORE_TRANSFORM, currentBlockId,
                        preTransformLength, checksum1, this.hasher != null);
 
-               for (BlockListener bl : this.listeners)
-                  bl.processEvent(evt);
+               this.notifyListeners(evt);
             }
 
             if (((mode & SMALL_BLOCK_MASK) != 0) || ((mode & SKIP_FUNCTION_MASK) != 0))
@@ -636,8 +633,7 @@ public class CompressedInputStream extends InputStream
                BlockEvent evt = new BlockEvent(BlockEvent.Type.AFTER_TRANSFORM, currentBlockId,
                        decoded, checksum1, this.hasher != null);
 
-               for (BlockListener bl : this.listeners)
-                  bl.processEvent(evt);
+               this.notifyListeners(evt);
             }
 
             // Verify checksum
@@ -658,7 +654,27 @@ public class CompressedInputStream extends InputStream
             if (typeOfTransform == FunctionFactory.NULL_TRANSFORM_TYPE)
                buffer.array = EMPTY_BYTE_ARRAY;
 
+            // Make sure to unfreeze next block
+            if (this.processedBlockId.get() == this.blockId-1)
+               this.processedBlockId.incrementAndGet();
+            
             ed.dispose();
+         }
+      }
+      
+      
+      private void notifyListeners(BlockEvent evt)
+      {
+         for (BlockListener bl : this.listeners)
+         {
+            try 
+            {
+               bl.processEvent(evt);
+            }
+            catch (Exception e)
+            {
+               // Ignore exceptions in block listeners
+            }
          }
       }
    }

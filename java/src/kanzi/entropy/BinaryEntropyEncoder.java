@@ -58,7 +58,7 @@ public class BinaryEntropyEncoder implements EntropyEncoder
 
       final int end = blkptr + len;
 
-      for (int i = blkptr; i<end; i++)
+      for (int i=blkptr; i<end; i++)
          this.encodeByte(array[i]);
 
       return len;
@@ -88,7 +88,7 @@ public class BinaryEntropyEncoder implements EntropyEncoder
       final long bitmask = bit - 1;
       this.high -= (~bitmask & (this.high - this.low - split));
       this.low += (bitmask & (split + 1));
-     
+         
       // Update predictor
       this.predictor.update(bit);
             

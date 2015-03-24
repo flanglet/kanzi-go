@@ -30,16 +30,6 @@ type BlockEvent struct {
 	hashing   bool
 }
 
-func NewBlockEvent(type_, blockId, blockSize int, hash uint32, hashing bool) (*BlockEvent, error) {
-	this := new(BlockEvent)
-	this.eventType = type_
-	this.blockId = blockId
-	this.blockSize = blockSize
-	this.hash = hash
-	this.hashing = hashing
-	return this, nil
-}
-
 func (this *BlockEvent) EventType() int {
 	return this.eventType
 }
