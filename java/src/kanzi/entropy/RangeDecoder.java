@@ -28,9 +28,9 @@ import kanzi.EntropyDecoder;
 // Not thread safe
 public final class RangeDecoder implements EntropyDecoder
 {
-    private static final long TOP_RANGE    = 0x00FFFFFFFFFFFFFFL;
-    private static final long BOTTOM_RANGE = 0x00000000FFFFFFFFL;
-    private static final long MASK         = 0x00FFFF0000000000L;
+    private static final long TOP_RANGE    = 0x0FFFFFFFFFFFFFFFL;
+    private static final long BOTTOM_RANGE = 0x0000000000FFFFFFL;
+    private static final long MASK         = 0x0FFFFF0000000000L;
     private static final int DEFAULT_CHUNK_SIZE = 1 << 16; // 64 KB by default
 
 
@@ -173,7 +173,7 @@ public final class RangeDecoder implements EntropyDecoder
 
          this.range = TOP_RANGE;
          this.low = 0;
-         this.code = this.bitstream.readBits(56);
+         this.code = this.bitstream.readBits(60);
          final int endChunk = (startChunk + sz < end) ? startChunk + sz : end;
 
          for (int i=startChunk; i<endChunk; i++)
@@ -188,7 +188,7 @@ public final class RangeDecoder implements EntropyDecoder
 
     protected byte decodeByte()
     {
-       this.range = (this.range >> 24) * this.invSum;
+       this.range = (this.range >>> 24) * this.invSum;
        final int count = (int) ((this.code - this.low) / this.range);
        final int value = this.f2s[count];
 
@@ -209,9 +209,9 @@ public final class RangeDecoder implements EntropyDecoder
              this.range = -this.low & BOTTOM_RANGE;
           }
 
-          this.code = (this.code << 16) | this.bitstream.readBits(16);
-          this.range <<= 16;
-          this.low <<= 16;
+          this.code = (this.code << 20) | this.bitstream.readBits(20);
+          this.range <<= 20;
+          this.low <<= 20;
        }
 
        return (byte) value;

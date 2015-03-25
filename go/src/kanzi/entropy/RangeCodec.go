@@ -22,9 +22,9 @@ import (
 )
 
 const (
-	TOP_RANGE                = uint64(0x00FFFFFFFFFFFFFF)
-	BOTTOM_RANGE             = uint64(0x00000000FFFFFFFF)
-	MASK                     = uint64(0x00FFFF0000000000)
+	TOP_RANGE                = uint64(0x0FFFFFFFFFFFFFFF)
+	BOTTOM_RANGE             = uint64(0x0000000000FFFFFF)
+	MASK                     = uint64(0x0FFFFF0000000000)
 	DEFAULT_RANGE_CHUNK_SIZE = uint(1 << 16) // 64 KB by default
 	DEFAULT_RANGE_LOG_RANGE  = uint(13)
 )
@@ -220,7 +220,7 @@ func (this *RangeEncoder) Encode(block []byte) (int, error) {
 		}
 
 		// Flush 'low'
-		this.bitstream.WriteBits(this.low, 56)
+		this.bitstream.WriteBits(this.low, 60)
 		startChunk = endChunk
 	}
 
@@ -248,9 +248,9 @@ func (this *RangeEncoder) encodeByte(b byte) {
 			this.range_ = -this.low & BOTTOM_RANGE
 		}
 
-		this.bitstream.WriteBits(this.low>>40, 16)
-		this.range_ <<= 16
-		this.low <<= 16
+		this.bitstream.WriteBits(this.low>>40, 20)
+		this.range_ <<= 20
+		this.low <<= 20
 	}
 }
 
@@ -414,7 +414,7 @@ func (this *RangeDecoder) Decode(block []byte) (int, error) {
 
 		this.range_ = TOP_RANGE
 		this.low = 0
-		this.code = this.bitstream.ReadBits(56)
+		this.code = this.bitstream.ReadBits(60)
 		endChunk := startChunk + sizeChunk
 
 		if endChunk > end {
@@ -452,9 +452,9 @@ func (this *RangeDecoder) decodeByte() byte {
 			this.range_ = -this.low & BOTTOM_RANGE
 		}
 
-		this.code = (this.code << 16) | this.bitstream.ReadBits(16)
-		this.range_ <<= 16
-		this.low <<= 16
+		this.code = (this.code << 20) | this.bitstream.ReadBits(20)
+		this.range_ <<= 20
+		this.low <<= 20
 	}
 
 	return byte(value)

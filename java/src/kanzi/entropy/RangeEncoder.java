@@ -27,9 +27,9 @@ import kanzi.OutputBitStream;
 // Not thread safe
 public final class RangeEncoder implements EntropyEncoder
 {
-    private static final long TOP_RANGE    = 0x00FFFFFFFFFFFFFFL;
-    private static final long BOTTOM_RANGE = 0x00000000FFFFFFFFL;
-    private static final long MASK         = 0x00FFFF0000000000L;
+    private static final long TOP_RANGE    = 0x0FFFFFFFFFFFFFFFL;
+    private static final long BOTTOM_RANGE = 0x0000000000FFFFFFL;
+    private static final long MASK         = 0x0FFFFF0000000000L;
     private static final int DEFAULT_CHUNK_SIZE = 1 << 16; // 64 KB by default
     private static final int DEFAULT_LOG_RANGE = 13;
 
@@ -184,7 +184,7 @@ public final class RangeEncoder implements EntropyEncoder
               this.encodeByte(array[i]);
          
            // Flush 'low'
-           this.bitstream.writeBits(this.low, 56);
+           this.bitstream.writeBits(this.low, 60);
            startChunk = endChunk;
        }
        
@@ -199,13 +199,13 @@ public final class RangeEncoder implements EntropyEncoder
         final int symbolHigh = this.cumFreqs[value+1];
 
         // Compute next low and range
-        this.range = (this.range >> 24) * this.invSum;
+        this.range = (this.range >>> 24) * this.invSum;
         this.low += (symbolLow * this.range);
         this.range *= (symbolHigh - symbolLow);
  
         // If the left-most digits are the same throughout the range, write bits to bitstream
         while (true)
-        {                       
+        {
             if (((this.low ^ (this.low + this.range)) & MASK) != 0)
             {
                if (this.range > BOTTOM_RANGE)
@@ -215,9 +215,9 @@ public final class RangeEncoder implements EntropyEncoder
                this.range = -this.low & BOTTOM_RANGE;
             }
 
-            this.bitstream.writeBits(this.low >> 40, 16);
-            this.range <<= 16;
-            this.low <<= 16;
+            this.bitstream.writeBits(this.low >> 40, 20);
+            this.range <<= 20;
+            this.low <<= 20;
         }
     }
 
