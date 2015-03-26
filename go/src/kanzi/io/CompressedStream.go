@@ -349,15 +349,13 @@ func (this *CompressedOutputStream) processBlock() error {
 	}
 
 	offset := uint(0)
-	blockNumber := this.blockId
 
 	// Protect against future concurrent modification of the list of block listeners
-	listeners_ := make([]BlockListener, len(this.listeners))
-	copy(listeners_, this.listeners)
+	blockListeners := make([]BlockListener, len(this.listeners))
+	copy(blockListeners, this.listeners)
 
 	// Invoke as many go routines as required
 	for jobId := 0; jobId < this.jobs; jobId++ {
-		blockNumber++
 		sz := uint(this.curIdx)
 
 		if sz >= this.blockSize {
@@ -371,11 +369,11 @@ func (this *CompressedOutputStream) processBlock() error {
 			blockLength:     sz,
 			typeOfTransform: this.transformType,
 			typeOfEntropy:   this.entropyType,
-			currentBlockId:  blockNumber,
+			currentBlockId:  this.blockId + jobId + 1,
 			input:           this.channels[jobId],
 			output:          this.channels[jobId+1],
 			obs:             this.obs,
-			listeners:       listeners_}
+			listeners:       blockListeners}
 
 		// Invoke the tasks concurrently
 		// Tasks are chained through channels. Upon completion of transform
@@ -394,7 +392,7 @@ func (this *CompressedOutputStream) processBlock() error {
 	this.channels[0] <- error(nil)
 
 	// Wait for completion of last task
-	err := <-this.channels[blockNumber-this.blockId]
+	err := <-this.channels[this.jobs]
 
 	this.blockId += this.jobs
 	return err
@@ -858,16 +856,14 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 		this.data = make([]byte, this.jobs*int(this.blockSize))
 	}
 
-	blockNumber := this.blockId
 	offset := uint(0)
 
 	// Protect against future concurrent modification of the list of block listeners
-	listeners_ := make([]BlockListener, len(this.listeners))
-	copy(listeners_, this.listeners)
+	blockListeners := make([]BlockListener, len(this.listeners))
+	copy(blockListeners, this.listeners)
 
 	// Invoke as many go routines as required
 	for jobId := 0; jobId < this.jobs; jobId++ {
-		blockNumber++
 		curChan := this.syncChan[jobId]
 		nextChan := this.syncChan[(jobId+1)%this.jobs]
 
@@ -878,11 +874,11 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 			blockLength:     this.blockSize,
 			typeOfTransform: this.transformType,
 			typeOfEntropy:   this.entropyType,
-			currentBlockId:  blockNumber,
+			currentBlockId:  this.blockId + jobId + 1,
 			input:           curChan,
 			output:          nextChan,
 			result:          this.resChan,
-			listeners:       listeners_,
+			listeners:       blockListeners,
 			ibs:             this.ibs}
 
 		// Invoke the tasks concurrently
@@ -921,11 +917,11 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 			// Add the number of decoded bytes for the current block
 			decoded += res.decoded
 
-			if len(this.listeners) > 0 {
-				// Notify after transform
+			if len(blockListeners) > 0 {
+				// Notify after transform ... in block order
 				evt := &BlockEvent{eventType: EVT_AFTER_TRANSFORM, blockId: res.blockId,
 					blockSize: res.decoded, hash: res.checksum, hashing: this.hasher != nil}
-				notifyListeners(this.listeners, evt)
+				notifyListeners(blockListeners, evt)
 			}
 
 			if res.decoded == 0 {
@@ -1085,8 +1081,6 @@ func (this *DecodingTask) decode() {
 
 		res.decoded = int(preTransformLength)
 	} else {
-		// Each block is decoded separately
-		// Rebuild the entropy decoder to reset block statistics
 		transform, err := function.NewByteFunction(preTransformLength, this.typeOfTransform)
 
 		if err != nil {

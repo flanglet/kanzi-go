@@ -50,7 +50,7 @@ public class BlockEvent
       this.size = size;
       this.hash = hash;
       this.hashing = hashing;
-      this.type =  type;
+      this.type = type;
    }
    
    

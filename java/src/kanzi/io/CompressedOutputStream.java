@@ -358,22 +358,23 @@ public class CompressedOutputStream extends OutputStream
 
       try
       {
+	 // Protect against future concurrent modification of the list of block listeners         
+         BlockListener[] blockListeners = this.listeners.toArray(new BlockListener[this.listeners.size()]);
          final int dataLength = this.iba.index;
          this.iba.index = 0;
          List<Callable<Status>> tasks = new ArrayList<Callable<Status>>(this.jobs);
-         int blockNumber = this.blockId.get();
+         int firstBlockId = this.blockId.get();
 
          // Create as many tasks as required
          for (int jobId=0; jobId<this.jobs; jobId++)
          {
-            blockNumber++;
             final int sz = (this.iba.index + this.blockSize > dataLength) ?
                     dataLength - this.iba.index : this.blockSize;
             Callable<Status> task = new EncodingTask(this.iba.array, this.iba.index,
                     this.buffers[jobId].array, sz, (byte) this.transformType,
-                    (byte) this.entropyType, blockNumber,
+                    (byte) this.entropyType, firstBlockId+jobId+1,
                     this.obs, this.hasher, this.blockId,
-                    this.listeners.toArray(new BlockListener[this.listeners.size()]));
+                    blockListeners);
             tasks.add(task);
             this.iba.index += sz;
 
@@ -396,7 +397,7 @@ public class CompressedOutputStream extends OutputStream
             {
                // Wait for completion of next task and validate result
                Status status = result.get();
-               
+
                if (status.error != 0)
                   throw new kanzi.io.IOException(status.msg, status.error);
             }
@@ -423,8 +424,23 @@ public class CompressedOutputStream extends OutputStream
       return (this.obs.written() + 7) >> 3;
    }
 
-
-
+   
+   static void notifyListeners(BlockListener[] listeners, BlockEvent evt)
+   {
+      for (BlockListener bl : listeners)
+      {
+         try 
+         {
+            bl.processEvent(evt);
+         }
+         catch (Exception e)
+         {
+            // Ignore exceptions in block listeners
+         }
+      }
+   }
+      
+   
    // A task used to encode a block
    // Several tasks may run in parallel. The transforms can be computed concurrently
    // but the entropy encoding is sequential since all tasks share the same bitstream.
@@ -456,7 +472,7 @@ public class CompressedOutputStream extends OutputStream
          this.obs = obs;
          this.hasher = hasher;
          this.processedBlockId = processedBlockId;
-         this.listeners = ((listeners != null) && (listeners.length > 0)) ? listeners : null;
+         this.listeners = listeners;
       }
 
 
@@ -497,13 +513,13 @@ public class CompressedOutputStream extends OutputStream
             if (this.hasher != null)
                checksum = this.hasher.hash(data.array, data.index, blockLength);
 
-            if (this.listeners != null) 
+            if (this.listeners.length > 0)
             {
                // Notify before transform               
                BlockEvent evt = new BlockEvent(BlockEvent.Type.BEFORE_TRANSFORM, currentBlockId,
                        blockLength, checksum, this.hasher != null);
                
-               this.notifyListeners(evt);
+               notifyListeners(this.listeners, evt);
             }
             
             if (blockLength <= SMALL_BLOCK_SIZE)
@@ -535,13 +551,13 @@ public class CompressedOutputStream extends OutputStream
                postTransformLength = buffer.index;
 
                if (postTransformLength < 0)
-                  return new Status(Error.ERR_WRITE_FILE, "Invalid transform size");
+                  return new Status(currentBlockId, Error.ERR_WRITE_FILE, "Invalid transform size");
 
                for (long n=0xFF; n<postTransformLength; n<<=8)
                   dataSize++;
 
                if (dataSize > 3) 
-                  return new Status(Error.ERR_WRITE_FILE, "Invalid block data length");
+                  return new Status(currentBlockId, Error.ERR_WRITE_FILE, "Invalid block data length");
                
                // Record size of 'block size' - 1 in bytes
                mode |= (dataSize & 0x03);
@@ -549,13 +565,13 @@ public class CompressedOutputStream extends OutputStream
                dataSize++;
             }
 
-            if (this.listeners != null) 
+            if (this.listeners.length > 0)
             {
                // Notify after transform
                BlockEvent evt = new BlockEvent(BlockEvent.Type.AFTER_TRANSFORM, currentBlockId,
                        postTransformLength, checksum, this.hasher != null);
                
-               this.notifyListeners(evt);
+               notifyListeners(this.listeners, evt);
             }
 
             // Lock free synchronization
@@ -583,18 +599,18 @@ public class CompressedOutputStream extends OutputStream
             if (this.hasher != null)
                this.obs.writeBits(checksum, 32);
 
-            if (this.listeners != null) 
+            if (this.listeners.length > 0)
             {
                // Notify before entropy
                BlockEvent evt = new BlockEvent(BlockEvent.Type.BEFORE_ENTROPY, currentBlockId,
                        postTransformLength, checksum, this.hasher != null);
                
-               this.notifyListeners(evt);
+               notifyListeners(this.listeners, evt);
             }
 
             // Entropy encode block
             if (ee.encode(buffer.array, 0, postTransformLength) != postTransformLength)
-               return new Status(Error.ERR_PROCESS_BLOCK, "Entropy coding failed");
+               return new Status(currentBlockId, Error.ERR_PROCESS_BLOCK, "Entropy coding failed");
 
             // Dispose before displaying statistics. Dispose may write to the bitstream
             ee.dispose();
@@ -608,20 +624,20 @@ public class CompressedOutputStream extends OutputStream
             // It unfreezes the task processing the next block (if any)
             this.processedBlockId.incrementAndGet();
 
-            if (this.listeners != null) 
+            if (this.listeners.length > 0)
             {
                // Notify after entropy
                BlockEvent evt = new BlockEvent(BlockEvent.Type.AFTER_ENTROPY, 
                        currentBlockId, w, checksum, this.hasher != null);
                
-               this.notifyListeners(evt);
+               notifyListeners(this.listeners, evt);
             }
 
-            return new Status(0, "Success");
+            return new Status(currentBlockId, 0, "Success");
          }
          catch (Exception e)
          {
-            return new Status(Error.ERR_PROCESS_BLOCK, e.getMessage());
+            return new Status(currentBlockId, Error.ERR_PROCESS_BLOCK, e.getMessage());
          }
          finally
          {
@@ -629,36 +645,26 @@ public class CompressedOutputStream extends OutputStream
             if (typeOfTransform == FunctionFactory.NULL_TRANSFORM_TYPE)
                buffer.array = EMPTY_BYTE_ARRAY;
 
+            // Make sure to unfreeze next block
+            if (this.processedBlockId.get() == this.blockId-1)
+               this.processedBlockId.incrementAndGet();
+            
             if (ee != null)
               ee.dispose();
          }
-      }
-           
-      
-      private void notifyListeners(BlockEvent evt)
-      {
-         for (BlockListener bl : this.listeners)
-         {
-            try 
-            {
-               bl.processEvent(evt);
-            }
-            catch (Exception e)
-            {
-               // Ignore exceptions in block listeners
-            }
-         }
-      }      
+      }     
    }
 
    
    static class Status
    {
+      final int blockId;
       final int error; // 0 = OK
       final String msg;
       
-      Status(int error, String msg)
+      Status(int blockId, int error, String msg)
       {
+         this.blockId = blockId;
          this.error = error;
          this.msg = msg;
       }

@@ -19,7 +19,6 @@ import java.io.PrintStream;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.LockSupport;
 
 // An implementation of BlockListener to display block information (verbose option
 // of the BlockCompressor/BlockDecompressor)
@@ -81,15 +80,7 @@ public class InfoPrinter implements BlockListener
             bi.stage1Size = evt.getSize();
       }
       else if (evt.getType() == this.thresholds[2])
-      {
-         // Need a synchronization point to ensure that the data
-         // output happens in the proper order (increasing block ID)
-         while (this.blockId.get() != currentBlockId-1)
-         {    
-            // Backoff improves performance in heavy contention scenarios
-            LockSupport.parkNanos(1);
-         }        
-         
+      {        
          // Get block size after stage 2
          int stage2Size = evt.getSize();
          BlockInfo bi = this.map.remove(currentBlockId);
@@ -100,19 +91,24 @@ public class InfoPrinter implements BlockListener
          //long duration_ms = (System.nanoTime() - bi.time) / 1000000L; 
          
          // Display block info
-         String msg = String.format("Block %d: %d => %d => %d", currentBlockId, 
-                 bi.stage0Size, bi.stage1Size, stage2Size);
+         StringBuilder msg = new StringBuilder();
+         msg.append(String.format("Block %d: %d => %d => %d", currentBlockId, 
+                 bi.stage0Size, bi.stage1Size, stage2Size));
 
          // Add percentage for encoding
          if (this.type == Type.ENCODING)
-            msg += String.format(" (%d%%)", (stage2Size*100L/(long) bi.stage0Size));
+            msg.append(String.format(" (%d%%)", (stage2Size*100L/(long) bi.stage0Size)));
          
          // Optionally add hash
          if (evt.getHash() != null) 
-            msg += ("  [" + Integer.toHexString(evt.getHash()) + "]");
-
-         //msg += String.format(" [%d ms]", duration_ms);
-         this.ps.println(msg);
+         {
+            msg.append("  [");
+            msg.append(Integer.toHexString(evt.getHash()));
+            msg.append("]");
+         }
+         
+         //msg.append(String.format(" [%d ms]", duration_ms));
+         this.ps.println(msg.toString());
          this.blockId.getAndSet(currentBlockId);
       }
    }
