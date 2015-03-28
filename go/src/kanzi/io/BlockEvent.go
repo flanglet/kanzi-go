@@ -64,8 +64,8 @@ func (this *BlockEvent) String() string {
 	hash := ""
 	type_ := ""
 
-	if this.hashing {
-		hash = fmt.Sprintf(",%x", this.hashing)
+	if this.hashing == true {
+		hash = fmt.Sprintf(",%x", this.hash)
 	}
 
 	if this.eventType == EVT_BEFORE_TRANSFORM {

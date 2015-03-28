@@ -294,7 +294,7 @@ func (this *BlockCompressor) call() (int, uint64) {
 	len := 0
 	read := int64(0)
 	silent := this.verbosity < 1
-	printOut("Encoding ...", silent)
+	printOut("Encoding ...", !silent)
 	written = cos.GetWritten()
 	buffer := make([]byte, COMP_DEFAULT_BUFFER_SIZE)
 	before := time.Now()
@@ -336,22 +336,22 @@ func (this *BlockCompressor) call() (int, uint64) {
 	after := time.Now()
 	delta := after.Sub(before).Nanoseconds() / 1000000 // convert to ms
 
-	printOut("", silent)
+	printOut("", !silent)
 	msg = fmt.Sprintf("Encoding:          %d ms", delta)
-	printOut(msg, silent)
+	printOut(msg, !silent)
 	msg = fmt.Sprintf("Input size:        %d", read)
-	printOut(msg, silent)
+	printOut(msg, !silent)
 	msg = fmt.Sprintf("Output size:       %d", cos.GetWritten())
-	printOut(msg, silent)
+	printOut(msg, !silent)
 	msg = fmt.Sprintf("Ratio:             %f", float64(cos.GetWritten())/float64(read))
-	printOut(msg, silent)
+	printOut(msg, !silent)
 
 	if delta > 0 {
 		msg = fmt.Sprintf("Throughput (KB/s): %d", ((read*int64(1000))>>10)/delta)
-		printOut(msg, silent)
+		printOut(msg, !silent)
 	}
 
-	printOut("", silent)
+	printOut("", !silent)
 	return 0, cos.GetWritten()
 }
 
