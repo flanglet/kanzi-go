@@ -42,8 +42,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
    private static final int DEFAULT_BUFFER_SIZE = 32768;
    public static final int WARN_EMPTY_INPUT = -128;
 
-   private boolean verbose;
-   private boolean silent;
+   private int verbosity;
    private boolean overwrite;
    private boolean checksum;
    private String inputName;
@@ -75,8 +74,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
    {
       Map<String, Object> map = new HashMap<String, Object>();
       processCommandLine(args, map);
-      this.verbose = (Boolean) map.get("verbose");
-      this.silent = (Boolean) map.get("silent");
+      this.verbosity = (Integer) map.get("verbose");
       this.overwrite = (Boolean) map.get("overwrite");
       this.inputName = (String) map.get("inputName");
       this.outputName = (String) map.get("outputName");
@@ -90,8 +88,8 @@ public class BlockCompressor implements Runnable, Callable<Integer>
       this.ownPool = ownPool;
       this.listeners = new ArrayList<BlockListener>(10);
       
-      if (this.verbose == true)
-         this.addListener(new InfoPrinter(InfoPrinter.Type.ENCODING, System.out));
+      if (this.verbosity > 1)
+         this.addListener(new InfoPrinter(this.verbosity, InfoPrinter.Type.ENCODING, System.out));
    }
 
 
@@ -158,17 +156,18 @@ public class BlockCompressor implements Runnable, Callable<Integer>
    @Override
    public Integer call()
    {
-      printOut("Input file name set to '" + this.inputName + "'", this.verbose);
-      printOut("Output file name set to '" + this.outputName + "'", this.verbose);
-      printOut("Block size set to "+this.blockSize+ " bytes", this.verbose);
-      printOut("Verbose set to "+this.verbose, this.verbose);
-      printOut("Overwrite set to "+this.overwrite, this.verbose);
-      printOut("Checksum set to "+this.checksum, this.verbose);
+      boolean printFlag = this.verbosity > 1;
+      printOut("Input file name set to '" + this.inputName + "'", printFlag);
+      printOut("Output file name set to '" + this.outputName + "'", printFlag);
+      printOut("Block size set to "+this.blockSize+ " bytes", printFlag);
+      printOut("Verbosity set to "+this.verbosity, printFlag);
+      printOut("Overwrite set to "+this.overwrite, printFlag);
+      printOut("Checksum set to "+this.checksum, printFlag);
       String etransform = ("NONE".equals(this.transform)) ? "no" : this.transform;
-      printOut("Using " + etransform + " transform (stage 1)", this.verbose);
+      printOut("Using " + etransform + " transform (stage 1)", printFlag);
       String ecodec = ("NONE".equals(this.codec)) ? "no" : this.codec;
-      printOut("Using " + ecodec + " entropy codec (stage 2)", this.verbose);
-      printOut("Using " + this.jobs + " job" + ((this.jobs > 1) ? "s" : ""), this.verbose);
+      printOut("Using " + ecodec + " entropy codec (stage 2)", printFlag);
+      printOut("Using " + this.jobs + " job" + ((this.jobs > 1) ? "s" : ""), printFlag);
 
       try
       {
@@ -197,7 +196,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
          
          try
          {
-            PrintStream ds = (this.verbose == true) ? System.out : null;
+            PrintStream ds = (printFlag == true) ? System.out : null;
             OutputStream fos = (output == null) ? new NullOutputStream() : new FileOutputStream(output);
             this.cos = new CompressedOutputStream(this.codec, this.transform,
                  fos, this.blockSize, this.checksum,
@@ -230,7 +229,8 @@ public class BlockCompressor implements Runnable, Callable<Integer>
       }
 
       // Encode
-      printOut("Encoding ...", !this.silent);
+      boolean silent = this.verbosity < 1;
+      printOut("Encoding ...", !silent);
       int read = 0;
       IndexedByteArray iba = new IndexedByteArray(new byte[DEFAULT_BUFFER_SIZE], 0);
       int len;
@@ -282,16 +282,16 @@ public class BlockCompressor implements Runnable, Callable<Integer>
 
        long after = System.nanoTime();
        long delta = (after - before) / 1000000L; // convert to ms
-       printOut("", !this.silent);
-       printOut("Encoding:          "+delta+" ms", !this.silent);
-       printOut("Input size:        "+read, !this.silent);
-       printOut("Output size:       "+this.cos.getWritten(), !this.silent);
-       printOut("Ratio:             "+this.cos.getWritten() / (float) read, !this.silent);
+       printOut("", !silent);
+       printOut("Encoding:          "+delta+" ms", !silent);
+       printOut("Input size:        "+read, !silent);
+       printOut("Output size:       "+this.cos.getWritten(), !silent);
+       printOut("Ratio:             "+this.cos.getWritten() / (float) read, !silent);
 
        if (delta > 0)
-          printOut("Throughput (KB/s): "+(((read * 1000L) >> 10) / delta), !this.silent);
+          printOut("Throughput (KB/s): "+(((read * 1000L) >> 10) / delta), !silent);
 
-       printOut("", !this.silent);
+       printOut("", !silent);
        return 0;
     }
 
@@ -300,8 +300,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
     {
         // Set default values
         int blockSize = 1024 * 1024; // 1 MB
-        boolean verbose = false;
-        boolean silent = false;
+        int verbose = 1;
         boolean overwrite = false;
         boolean checksum = false;
         String inputName = null;
@@ -317,8 +316,8 @@ public class BlockCompressor implements Runnable, Callable<Integer>
            if (arg.equals("-help"))
            {
                printOut("-help                : display this message", true);
-               printOut("-verbose             : display the block size at each stage (in bytes, floor rounding if fractional)", true);
-               printOut("-silent              : silent mode, no output (except warnings and errors)", true);
+               printOut("-verbose=<level>     : set the verbosity level", true);
+               printOut("                       0:silent, 1:default, 2:display block size (byte rounded), 3:display timings, 4:display extra information", true);
                printOut("-overwrite           : overwrite the output file if it already exists", true);
                printOut("-input=<inputName>   : mandatory name of the input file to encode", true);
                printOut("-output=<outputName> : optional name of the output file (defaults to <input.knz>) or 'none' for dry-run", true);
@@ -331,16 +330,25 @@ public class BlockCompressor implements Runnable, Callable<Integer>
                printOut("-jobs=<jobs>         : number of concurrent jobs", true);
                printOut("", true);
                printOut("EG. java -cp kanzi.jar kanzi.app.BlockCompressor -input=foo.txt -output=foo.knz -overwrite "
-                       + "-transform=BWT+MTF -block=4m -entropy=FPAQ -verbose -jobs=4", true);
+                       + "-transform=BWT+MTF -block=4m -entropy=FPAQ -verbose=3 -jobs=4", true);
                System.exit(0);
            }
-           else if (arg.equals("-verbose"))
+           else if (arg.startsWith("-verbose="))
            {
-               verbose = true;
-           }
-           else if (arg.equals("-silent"))
-           {
-               silent = true;
+               String verboseLevel = arg.substring(9).trim();
+               
+               try
+               {
+                   verbose = Integer.parseInt(verboseLevel);
+                   
+                   if (verbose < 0)
+                      throw new NumberFormatException();
+               }
+               catch (NumberFormatException e)
+               {
+                  System.err.println("Invalid verbosity level provided on command line: "+arg);
+                  System.exit(Error.ERR_INVALID_PARAM);
+               }               
            }
            else if (arg.equals("-overwrite"))
            {
@@ -391,22 +399,24 @@ public class BlockCompressor implements Runnable, Callable<Integer>
               catch (NumberFormatException e)
               {
                  System.err.println("Invalid block size provided on command line: "+arg);
-                 System.exit(Error.ERR_BLOCK_SIZE);
+                 System.exit(Error.ERR_INVALID_PARAM);
               }
            }
            else if (arg.startsWith("-jobs="))
            {
               arg = arg.substring(6).trim();
-              String str = arg.toUpperCase();
               
               try
               {
-                 tasks = Integer.parseInt(str);
+                 tasks = Integer.parseInt(arg);
+                   
+                 if (tasks < 1)
+                    throw new NumberFormatException();
               }
               catch (NumberFormatException e)
               {
                  System.err.println("Invalid number of jobs provided on command line: "+arg);
-                 System.exit(Error.ERR_BLOCK_SIZE);
+                 System.exit(Error.ERR_INVALID_PARAM);
               }
            }
            else
@@ -418,21 +428,14 @@ public class BlockCompressor implements Runnable, Callable<Integer>
         if (inputName == null)
         {
            System.err.println("Missing input file name, exiting ...");
-           System.exit(Error.ERR_MISSING_FILENAME);
+           System.exit(Error.ERR_MISSING_PARAM);
         }
 
         if (outputName == null)
            outputName = inputName + ".knz";
 
-        if ((silent == true) && (verbose == true))
-        {
-           printOut("Warning: both 'silent' and 'verbose' options were selected, ignoring 'verbose'", true);
-           verbose = false;
-        }
-
         map.put("blockSize", blockSize);
         map.put("verbose", verbose);
-        map.put("silent", silent);
         map.put("overwrite", overwrite);
         map.put("inputName", inputName);
         map.put("outputName", outputName);

@@ -41,8 +41,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
 {
    private static final int DEFAULT_BUFFER_SIZE = 32768;
 
-   private final boolean verbose;
-   private final boolean silent;
+   private final int verbosity;
    private final boolean overwrite;
    private final String inputName;
    private final String outputName;
@@ -70,8 +69,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
    {
       Map<String, Object> map = new HashMap<String, Object>();
       processCommandLine(args, map);
-      this.verbose = (Boolean) map.get("verbose");
-      this.silent = (Boolean) map.get("silent");
+      this.verbosity = (Integer) map.get("verbose");
       this.overwrite = (Boolean) map.get("overwrite");
       this.inputName = (String) map.get("inputName");
       this.outputName = (String) map.get("outputName");
@@ -81,8 +79,8 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       this.ownPool = ownPool;
       this.listeners = new ArrayList<BlockListener>(10);      
       
-      if (this.verbose == true)
-         this.addListener(new InfoPrinter(InfoPrinter.Type.DECODING, System.out));   
+      if (this.verbosity > 1)
+         this.addListener(new InfoPrinter(this.verbosity, InfoPrinter.Type.DECODING, System.out));   
    }
 
 
@@ -148,14 +146,16 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
    @Override
    public Integer call()
    {
-      printOut("Input file name set to '" + this.inputName + "'", this.verbose);
-      printOut("Output file name set to '" + this.outputName + "'", this.verbose);
-      printOut("Verbose set to "+this.verbose, this.verbose);
-      printOut("Overwrite set to "+this.overwrite, this.verbose);
-      printOut("Using " + this.jobs + " job" + ((this.jobs > 1) ? "s" : ""), this.verbose);
+      boolean printFlag = this.verbosity > 1;
+      printOut("Input file name set to '" + this.inputName + "'", printFlag);
+      printOut("Output file name set to '" + this.outputName + "'", printFlag);
+      printOut("Verbosity set to "+this.verbosity, printFlag);
+      printOut("Overwrite set to "+this.overwrite, printFlag);
+      printOut("Using " + this.jobs + " job" + ((this.jobs > 1) ? "s" : ""), printFlag);
 
       long read = 0;
-      printOut("Decoding ...", !this.silent);
+      boolean silent = this.verbosity < 1;
+      printOut("Decoding ...", !silent);
 
       if (this.outputName.equalsIgnoreCase("NONE"))
       {
@@ -210,7 +210,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
          
          try
          {
-            PrintStream ds = (this.verbose == true) ? System.out : null; 
+            PrintStream ds = (printFlag == true) ? System.out : null; 
             this.cis = new CompressedInputStream(new FileInputStream(input),
                  ds, this.pool, this.jobs);
             
@@ -281,23 +281,22 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
 
       long after = System.nanoTime();
       long delta = (after - before) / 1000000L; // convert to ms
-      printOut("", !this.silent);
-      printOut("Decoding:          "+delta+" ms", !this.silent);
-      printOut("Input size:        "+this.cis.getRead(), !this.silent);
-      printOut("Output size:       "+read, !this.silent);
+      printOut("", !silent);
+      printOut("Decoding:          "+delta+" ms", !silent);
+      printOut("Input size:        "+this.cis.getRead(), !silent);
+      printOut("Output size:       "+read, !silent);
       
       if (delta > 0)
-         printOut("Throughput (KB/s): "+(((read * 1000L) >> 10) / delta), !this.silent);
+         printOut("Throughput (KB/s): "+(((read * 1000L) >> 10) / delta), !silent);
       
-      printOut("", !this.silent);
+      printOut("", !silent);
       return 0;
    }
 
 
     private static void processCommandLine(String args[], Map<String, Object> map)
     {
-        boolean verbose = false;
-        boolean silent = false;
+        int verbose = 1;
         boolean overwrite = false;
         String inputName = null;
         String outputName = null;
@@ -310,23 +309,32 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
            if (arg.equals("-help"))
            {
               printOut("-help                : display this message", true);
-              printOut("-verbose             : display the block size at each stage (in bytes, floor rounding if fractional)", true);
+              printOut("-verbose=<level>     : set the verbosity level", true);
+              printOut("                       0:silent, 1:default, 2:display block size (byte rounded), 3:display timings, 4:display extra information", true);
               printOut("-overwrite           : overwrite the output file if it already exists", true);
-              printOut("-silent              : silent mode, no output (except warnings and errors)", true);
               printOut("-input=<inputName>   : mandatory name of the input file to decode", true);
               printOut("-output=<outputName> : optional name of the output file or 'none' for dry-run", true);
               printOut("-jobs=<jobs>         : number of concurrent jobs", true);
               printOut("", true);
-              printOut("EG. java -cp kanzi.jar kanzi.app.BlockDecompressor -input=foo.knz -overwrite -verbose -jobs=2", true);
+              printOut("EG. java -cp kanzi.jar kanzi.app.BlockDecompressor -input=foo.knz -overwrite -verbose=2 -jobs=2", true);
               System.exit(0);
            }
-           else if (arg.equals("-verbose"))
+           else if (arg.startsWith("-verbose="))
            {
-              verbose = true;
-           }
-           else if (arg.equals("-silent"))
-           {
-              silent = true;
+               String verboseLevel = arg.substring(9).trim();
+               
+               try
+               {
+                   verbose = Integer.parseInt(verboseLevel);
+                   
+                   if (verbose < 0)
+                      throw new NumberFormatException();
+               }
+               catch (NumberFormatException e)
+               {
+                  System.err.println("Invalid verbosity level provided on command line: "+arg);
+                  System.exit(Error.ERR_INVALID_PARAM);
+               }               
            }
            else if (arg.equals("-overwrite"))
            {
@@ -343,16 +351,18 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
            else if (arg.startsWith("-jobs="))
            {
               arg = arg.substring(6).trim();
-              String str = arg.toUpperCase();
               
               try
               {
-                 tasks = Integer.parseInt(str);
+                 tasks = Integer.parseInt(arg);
+                   
+                 if (tasks < 1)
+                    throw new NumberFormatException();
               }
               catch (NumberFormatException e)
               {
                  System.err.println("Invalid number of jobs provided on command line: "+arg);
-                 System.exit(Error.ERR_BLOCK_SIZE);
+                 System.exit(Error.ERR_INVALID_PARAM);
               }
            }
            else
@@ -364,7 +374,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
         if (inputName == null)
         {
            System.err.println("Missing input file name, exiting ...");
-           System.exit(Error.ERR_MISSING_FILENAME);
+           System.exit(Error.ERR_MISSING_PARAM);
         }
 
         if (inputName.endsWith(".knz") == false)
@@ -376,15 +386,8 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
                    : inputName + ".tmp";
         }
 
-        if ((silent == true) && (verbose == true))
-        {
-           printOut("Warning: both 'silent' and 'verbose' options were selected, ignoring 'verbose'", true);
-           verbose = false;
-        }
-
         map.put("verbose", verbose);
         map.put("overwrite", overwrite);
-        map.put("silent", silent);
         map.put("outputName", outputName);
         map.put("inputName", inputName);
         map.put("jobs", tasks);
