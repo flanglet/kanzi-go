@@ -18,7 +18,6 @@ package kanzi.io;
 import java.io.PrintStream;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 // An implementation of BlockListener to display block information (verbose option
 // of the BlockCompressor/BlockDecompressor)
@@ -27,19 +26,19 @@ public class InfoPrinter implements BlockListener
    public enum Type { ENCODING, DECODING };
    
    private final PrintStream ps;
-   private final AtomicInteger blockId;
    private final Map<Integer, BlockInfo> map;
    private final BlockEvent.Type[] thresholds;
    private final Type type;
+   private final int level;
    
    
-   public InfoPrinter(Type type, PrintStream ps) 
+   public InfoPrinter(int infoLevel, Type type, PrintStream ps) 
    {
       if (ps == null)
          throw new NullPointerException("Invalid null print stream parameter");
       
       this.ps = ps;
-      this.blockId = new AtomicInteger();
+      this.level = infoLevel;
       this.type = type;
       this.map = new ConcurrentHashMap<Integer, BlockInfo>();
       this.thresholds = (type == Type.ENCODING) ? 
@@ -47,10 +46,12 @@ public class InfoPrinter implements BlockListener
               { 
                  BlockEvent.Type.BEFORE_TRANSFORM,
                  BlockEvent.Type.AFTER_TRANSFORM,
+                 BlockEvent.Type.BEFORE_ENTROPY,
                  BlockEvent.Type.AFTER_ENTROPY
               } :
               new BlockEvent.Type[]
               { 
+                 BlockEvent.Type.BEFORE_ENTROPY,
                  BlockEvent.Type.AFTER_ENTROPY,
                  BlockEvent.Type.BEFORE_TRANSFORM,
                  BlockEvent.Type.AFTER_TRANSFORM
@@ -67,58 +68,105 @@ public class InfoPrinter implements BlockListener
       {
          // Register initial block size
          BlockInfo bi = new BlockInfo();
-         bi.stage0Size = evt.getSize();
+         bi.time0 = evt.getTime();
+         
+         if (this.type == Type.ENCODING)
+            bi.stage0Size = evt.getSize();
+         
          this.map.put(currentBlockId, bi);
-         bi.time = System.nanoTime();
+         
+         if (this.level >= 4)
+         {
+            this.ps.println(evt);
+         }
       }
       else if (evt.getType() == this.thresholds[1])
-      {
-         // Register block size after stage 1
+      { 
          BlockInfo bi = this.map.get(currentBlockId);
-         
-         if (bi != null)
-            bi.stage1Size = evt.getSize();
-      }
-      else if (evt.getType() == this.thresholds[2])
-      {        
-         // Get block size after stage 2
-         int stage2Size = evt.getSize();
-         BlockInfo bi = this.map.remove(currentBlockId);
          
          if (bi == null)
             return;
+         
+         bi.time1 = evt.getTime();
+         
+         if (this.type == Type.DECODING)
+            bi.stage0Size = evt.getSize();
+                          
+         if (this.level >= 4)
+         {
+            long duration_ms = (bi.time1 - bi.time0) / 1000000L; 
+            this.ps.println(String.format("%s [%d ms]", evt, duration_ms));
+         }
+      }
+      else if (evt.getType() == this.thresholds[2])
+      {
+         BlockInfo bi = this.map.get(currentBlockId);
+         
+         if (bi == null)
+            return;
+         
+         bi.time2 = evt.getTime();
+         bi.stage1Size = evt.getSize();
+         
+         if (this.level >= 4)
+         {
+            long duration_ms = (bi.time2 - bi.time1) / 1000000L; 
+            this.ps.println(String.format("%s [%d ms]", evt, duration_ms));
+         }
+      }
+      else if (evt.getType() == this.thresholds[3])
+      {        
+         int stage2Size = evt.getSize();
+         BlockInfo bi = this.map.remove(currentBlockId);
+         
+         if ((bi == null) || (this.level < 2))
+            return;
              
-         //long duration_ms = (System.nanoTime() - bi.time) / 1000000L; 
+         bi.time3 = evt.getTime();
+         long duration1_ms = (bi.time1 - bi.time0) / 1000000L; 
+         long duration2_ms = (bi.time3 - bi.time2) / 1000000L; 
+         StringBuilder msg = new StringBuilder();
+                  
+         if (this.level >= 4)
+         {
+            this.ps.println(String.format("%s [%d ms]", evt, duration2_ms));
+         }
          
          // Display block info
-         StringBuilder msg = new StringBuilder();
-         msg.append(String.format("Block %d: %d => %d => %d", currentBlockId, 
-                 bi.stage0Size, bi.stage1Size, stage2Size));
+         if (this.level >= 3)
+         {
+            msg.append(String.format("Block %d: %d => %d [%d ms] => %d [%d ms]", currentBlockId, 
+                    bi.stage0Size, bi.stage1Size, duration1_ms, stage2Size, duration2_ms));
+         }
+         else
+         {
+            msg.append(String.format("Block %d: %d => %d => %d", currentBlockId, 
+                    bi.stage0Size, bi.stage1Size, stage2Size));
+         }
 
-         // Add percentage for encoding
+         // Add compression ratio for encoding
          if (this.type == Type.ENCODING)
-            msg.append(String.format(" (%d%%)", (stage2Size*100L/(long) bi.stage0Size)));
+         {
+            if (bi.stage0Size != 0)
+               msg.append(String.format(" (%d%%)", (stage2Size*100L/(long) bi.stage0Size)));
+         }
          
          // Optionally add hash
          if (evt.getHash() != null) 
-         {
-            msg.append("  [");
-            msg.append(Integer.toHexString(evt.getHash()));
-            msg.append("]");
-         }
+            msg.append(String.format("  [%s]", Integer.toHexString(evt.getHash())));
          
-         //msg.append(String.format(" [%d ms]", duration_ms));
-         this.ps.println(msg.toString());
-         this.blockId.getAndSet(currentBlockId);
+         this.ps.println(msg.toString());         
       }
    }
    
    
    static class BlockInfo
    {
-      long time;
+      long time0;
+      long time1;
+      long time2;
+      long time3;
       int stage0Size;
       int stage1Size;
    }
-   
 }

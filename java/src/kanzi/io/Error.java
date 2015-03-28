@@ -18,7 +18,7 @@ package kanzi.io;
 
 public final class Error 
 {
-   public static final int ERR_MISSING_FILENAME    = -1;
+   public static final int ERR_MISSING_PARAM       = -1;
    public static final int ERR_BLOCK_SIZE          = -2;
    public static final int ERR_INVALID_CODEC       = -3;
    public static final int ERR_CREATE_COMPRESSOR   = -4;
@@ -35,5 +35,6 @@ public final class Error
    public static final int ERR_INVALID_FILE        = -15;
    public static final int ERR_STREAM_VERSION      = -16;
    public static final int ERR_CREATE_STREAM       = -17;
+   public static final int ERR_INVALID_PARAM       = -18;
    public static final int ERR_UNKNOWN             = -127;
 }

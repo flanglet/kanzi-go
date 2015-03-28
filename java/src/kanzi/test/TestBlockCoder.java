@@ -77,7 +77,7 @@ public class TestBlockCoder
 
        for (String arg : args)
        {
-          if (arg.equals("-verbose"))
+          if (arg.startsWith("-verbose="))
              set.add(arg);
           else if (arg.equals("-silent"))
              set.add(arg);

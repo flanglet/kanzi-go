@@ -16,7 +16,6 @@ limitations under the License.
 package main
 
 import (
-	"container/list"
 	"flag"
 	"fmt"
 	"kanzi"
@@ -34,8 +33,7 @@ const (
 )
 
 type BlockCompressor struct {
-	verbose      bool
-	silent       bool
+	verbosity    uint
 	overwrite    bool
 	checksum     bool
 	inputName    string
@@ -44,7 +42,7 @@ type BlockCompressor struct {
 	transform    string
 	blockSize    uint
 	jobs         uint
-	listeners    *list.List
+	listeners    []io.BlockListener
 }
 
 func NewBlockCompressor() (*BlockCompressor, error) {
@@ -52,8 +50,7 @@ func NewBlockCompressor() (*BlockCompressor, error) {
 
 	// Define flags
 	var help = flag.Bool("help", false, "display the help message")
-	var verbose = flag.Bool("verbose", false, "display the block size at each stage (in bytes, floor rounding if fractional)")
-	var silent = flag.Bool("silent", false, "silent mode, no output (except warnings and errors)")
+	var verbose = flag.Int("verbose", 1, "set the verbosity level [0..4]")
 	var overwrite = flag.Bool("overwrite", false, "overwrite the output file if it already exists")
 	var inputName = flag.String("input", "", "mandatory name of the input file to encode")
 	var outputName = flag.String("output", "", "optional name of the output file (defaults to <input.knz>), or 'none' for dry-run")
@@ -68,8 +65,8 @@ func NewBlockCompressor() (*BlockCompressor, error) {
 
 	if *help == true {
 		printOut("-help                : display this message", true)
-		printOut("-verbose             : display the block size at each stage (in bytes, floor rounding if fractional)", true)
-		printOut("-silent              : silent mode, no output (except warnings and errors)", true)
+		printOut("-verbose=<level>     : set the verbosity level", true)
+		printOut("                       0:silent, 1:default, 2:display block size (byte rounded), 3:display timings, 4:display extra information", true)
 		printOut("-overwrite           : overwrite the output file if it already exists", true)
 		printOut("-input=<inputName>   : mandatory name of the input file to encode", true)
 		printOut("-output=<outputName> : optional name of the output file (defaults to <input.knz>) or 'none' for dry-run", true)
@@ -85,22 +82,26 @@ func NewBlockCompressor() (*BlockCompressor, error) {
 		os.Exit(0)
 	}
 
-	if *silent == true && *verbose == true {
-		printOut("Warning: both 'silent' and 'verbose' options were selected, ignoring 'verbose'", true)
-		*verbose = false
-	}
-
 	if len(*inputName) == 0 {
 		fmt.Printf("Missing input file name, exiting ...\n")
-		os.Exit(io.ERR_MISSING_FILENAME)
+		os.Exit(io.ERR_MISSING_PARAM)
 	}
 
 	if len(*outputName) == 0 {
 		*outputName = *inputName + ".knz"
 	}
 
-	this.verbose = *verbose
-	this.silent = *silent
+	if *tasks < 1 {
+		fmt.Printf("Invalid number of jobs provided on command line: %v\n", *tasks)
+		os.Exit(io.ERR_INVALID_PARAM)
+	}
+
+	if *verbose < 0 {
+		fmt.Printf("Invalid verbosity level provided on command line: %v\n", *verbose)
+		os.Exit(io.ERR_INVALID_PARAM)
+	}
+
+	this.verbosity = uint(*verbose)
 	this.overwrite = *overwrite
 	this.inputName = *inputName
 	this.outputName = *outputName
@@ -119,7 +120,7 @@ func NewBlockCompressor() (*BlockCompressor, error) {
 
 	bSize, err := strconv.Atoi(strBlockSize)
 
-	if err != nil {
+	if err != nil || bSize <= 0 {
 		fmt.Printf("Invalid block size provided on command line: %v\n", *blockSize)
 		os.Exit(io.ERR_BLOCK_SIZE)
 	}
@@ -129,11 +130,12 @@ func NewBlockCompressor() (*BlockCompressor, error) {
 	this.transform = strings.ToUpper(*function)
 	this.checksum = *cksum
 	this.jobs = uint(*tasks)
-	this.listeners = list.New()
+	this.listeners = make([]io.BlockListener, 0)
 
-	if this.verbose == true {
-		listener, _ := io.NewInfoPrinter(io.ENCODING, os.Stdout)
-		this.listeners.PushFront(listener)
+	if this.verbosity > 1 {
+		if listener, err := io.NewInfoPrinter(this.verbosity, io.ENCODING, os.Stdout); err == nil {
+			this.AddListener(listener)
+		}
 	}
 
 	return this, nil
@@ -144,18 +146,14 @@ func (this *BlockCompressor) AddListener(bl io.BlockListener) bool {
 		return false
 	}
 
-	this.listeners.PushFront(bl)
+	this.listeners = append(this.listeners, bl)
 	return true
 }
 
 func (this *BlockCompressor) RemoveListener(bl io.BlockListener) bool {
-	if bl == nil {
-		return false
-	}
-
-	for e := this.listeners.Front(); e != nil; e = e.Next() {
-		if e.Value == bl {
-			this.listeners.Remove(e)
+	for i, e := range this.listeners {
+		if e == bl {
+			this.listeners = append(this.listeners[:i-1], this.listeners[i+1:]...)
 			return true
 		}
 	}
@@ -180,23 +178,23 @@ func main() {
 	}()
 
 	code, _ := bc.call()
-	bc.listeners.Init()
 	os.Exit(code)
 }
 
 // Return exit code, number of bits written
 func (this *BlockCompressor) call() (int, uint64) {
 	var msg string
-	printOut("Input file name set to '"+this.inputName+"'", this.verbose)
-	printOut("Output file name set to '"+this.outputName+"'", this.verbose)
+	printFlag := this.verbosity > 1
+	printOut("Input file name set to '"+this.inputName+"'", printFlag)
+	printOut("Output file name set to '"+this.outputName+"'", printFlag)
 	msg = fmt.Sprintf("Block size set to %d bytes", this.blockSize)
-	printOut(msg, this.verbose)
-	msg = fmt.Sprintf("Verbose set to %t", this.verbose)
-	printOut(msg, this.verbose)
+	printOut(msg, printFlag)
+	msg = fmt.Sprintf("Verbose set to %t", printFlag)
+	printOut(msg, printFlag)
 	msg = fmt.Sprintf("Overwrite set to %t", this.overwrite)
-	printOut(msg, this.verbose)
+	printOut(msg, printFlag)
 	msg = fmt.Sprintf("Checksum set to %t", this.checksum)
-	printOut(msg, this.verbose)
+	printOut(msg, printFlag)
 	w1 := "no"
 
 	if this.transform != "NONE" {
@@ -204,7 +202,7 @@ func (this *BlockCompressor) call() (int, uint64) {
 	}
 
 	msg = fmt.Sprintf("Using %s transform (stage 1)", w1)
-	printOut(msg, this.verbose)
+	printOut(msg, printFlag)
 	w2 := "no"
 
 	if this.entropyCodec != "NONE" {
@@ -212,7 +210,7 @@ func (this *BlockCompressor) call() (int, uint64) {
 	}
 
 	msg = fmt.Sprintf("Using %s entropy codec (stage 2)", w2)
-	printOut(msg, this.verbose)
+	printOut(msg, printFlag)
 	prefix := ""
 
 	if this.jobs > 1 {
@@ -220,7 +218,7 @@ func (this *BlockCompressor) call() (int, uint64) {
 	}
 
 	msg = fmt.Sprintf("Using %d job%s", this.jobs, prefix)
-	printOut(msg, this.verbose)
+	printOut(msg, printFlag)
 	written := uint64(0)
 	var output *os.File
 	var bos kanzi.OutputStream
@@ -261,7 +259,7 @@ func (this *BlockCompressor) call() (int, uint64) {
 
 	verboseWriter := os.Stdout
 
-	if this.verbose == false {
+	if printFlag == false {
 		verboseWriter = nil
 	}
 
@@ -288,14 +286,15 @@ func (this *BlockCompressor) call() (int, uint64) {
 
 	defer input.Close()
 
-	for e := this.listeners.Front(); e != nil; e = e.Next() {
-		cos.AddListener(e.Value.(io.BlockListener))
+	for _, bl:= range this.listeners {
+		cos.AddListener(bl)
 	}
 
 	// Encode
 	len := 0
 	read := int64(0)
-	printOut("Encoding ...", !this.silent)
+	silent := this.verbosity < 1
+	printOut("Encoding ...", silent)
 	written = cos.GetWritten()
 	buffer := make([]byte, COMP_DEFAULT_BUFFER_SIZE)
 	before := time.Now()
@@ -337,22 +336,22 @@ func (this *BlockCompressor) call() (int, uint64) {
 	after := time.Now()
 	delta := after.Sub(before).Nanoseconds() / 1000000 // convert to ms
 
-	printOut("", !this.silent)
+	printOut("", silent)
 	msg = fmt.Sprintf("Encoding:          %d ms", delta)
-	printOut(msg, !this.silent)
+	printOut(msg, silent)
 	msg = fmt.Sprintf("Input size:        %d", read)
-	printOut(msg, !this.silent)
+	printOut(msg, silent)
 	msg = fmt.Sprintf("Output size:       %d", cos.GetWritten())
-	printOut(msg, !this.silent)
+	printOut(msg, silent)
 	msg = fmt.Sprintf("Ratio:             %f", float64(cos.GetWritten())/float64(read))
-	printOut(msg, !this.silent)
+	printOut(msg, silent)
 
 	if delta > 0 {
 		msg = fmt.Sprintf("Throughput (KB/s): %d", ((read*int64(1000))>>10)/delta)
-		printOut(msg, !this.silent)
+		printOut(msg, silent)
 	}
 
-	printOut("", !this.silent)
+	printOut("", silent)
 	return 0, cos.GetWritten()
 }
 

@@ -24,6 +24,7 @@ import (
 	"kanzi/entropy"
 	"kanzi/function"
 	"kanzi/util"
+	"time"
 )
 
 // Write to/read from stream using a 2 step process:
@@ -43,7 +44,7 @@ const (
 	MAX_BITSTREAM_BLOCK_SIZE   = 512 * 1024 * 1024
 	SMALL_BLOCK_SIZE           = 15
 
-	ERR_MISSING_FILENAME    = -1
+	ERR_MISSING_PARAM       = -1
 	ERR_BLOCK_SIZE          = -2
 	ERR_INVALID_CODEC       = -3
 	ERR_CREATE_COMPRESSOR   = -4
@@ -60,6 +61,7 @@ const (
 	ERR_INVALID_FILE        = -15
 	ERR_STREAM_VERSION      = -16
 	ERR_CREATE_STREAM       = -17
+	ERR_INVALID_PARAM       = -18
 	ERR_UNKNOWN             = -127
 )
 
@@ -441,7 +443,8 @@ func (this *EncodingTask) encode() {
 	if len(this.listeners) > 0 {
 		// Notify before transform
 		evt := &BlockEvent{eventType: EVT_BEFORE_TRANSFORM, blockId: this.currentBlockId,
-			blockSize: int(this.blockLength), hash: checksum, hashing: this.hasher != nil}
+			blockSize: int(this.blockLength), hash: checksum, time_: time.Now(),
+			hashing: this.hasher != nil}
 		notifyListeners(this.listeners, evt)
 	}
 
@@ -490,7 +493,8 @@ func (this *EncodingTask) encode() {
 	if len(this.listeners) > 0 {
 		// Notify after transform
 		evt := &BlockEvent{eventType: EVT_AFTER_TRANSFORM, blockId: this.currentBlockId,
-			blockSize: int(postTransformLength), hash: checksum, hashing: this.hasher != nil}
+			blockSize: int(postTransformLength), hash: checksum, time_: time.Now(),
+			hashing: this.hasher != nil}
 		notifyListeners(this.listeners, evt)
 	}
 
@@ -529,7 +533,8 @@ func (this *EncodingTask) encode() {
 	if len(this.listeners) > 0 {
 		// Notify before entropy
 		evt := &BlockEvent{eventType: EVT_BEFORE_ENTROPY, blockId: this.currentBlockId,
-			blockSize: int(postTransformLength), hash: checksum, hashing: this.hasher != nil}
+			blockSize: int(postTransformLength), time_: time.Now(),
+			hash: checksum, hashing: this.hasher != nil}
 		notifyListeners(this.listeners, evt)
 	}
 
@@ -547,7 +552,8 @@ func (this *EncodingTask) encode() {
 	if len(this.listeners) > 0 {
 		// Notify after entropy
 		evt := &BlockEvent{eventType: EVT_AFTER_ENTROPY, blockId: this.currentBlockId,
-			blockSize: int((this.obs.Written() - written) / 8), hash: checksum, hashing: this.hasher != nil}
+			blockSize: int((this.obs.Written() - written) / 8), time_: time.Now(),
+			hash: checksum, hashing: this.hasher != nil}
 		notifyListeners(this.listeners, evt)
 	}
 
@@ -920,7 +926,8 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 			if len(blockListeners) > 0 {
 				// Notify after transform ... in block order
 				evt := &BlockEvent{eventType: EVT_AFTER_TRANSFORM, blockId: res.blockId,
-					blockSize: res.decoded, hash: res.checksum, hashing: this.hasher != nil}
+					blockSize: res.decoded, hash: res.checksum, time_: time.Now(),
+					hashing: this.hasher != nil}
 				notifyListeners(blockListeners, evt)
 			}
 
@@ -1012,7 +1019,8 @@ func (this *DecodingTask) decode() {
 	if len(this.listeners) > 0 {
 		// Notify before entropy (block size in bitstream is unknown)
 		evt := &BlockEvent{eventType: EVT_BEFORE_ENTROPY, blockId: this.currentBlockId,
-			blockSize: -1, hash: checksum1, hashing: this.hasher != nil}
+			blockSize: -1, hash: checksum1, time_: time.Now(),
+			hashing: this.hasher != nil}
 
 		notifyListeners(this.listeners, evt)
 	}
@@ -1057,7 +1065,8 @@ func (this *DecodingTask) decode() {
 	if len(this.listeners) > 0 {
 		// Notify after entropy
 		evt := &BlockEvent{eventType: EVT_AFTER_ENTROPY, blockId: this.currentBlockId,
-			blockSize: int((this.ibs.Read() - read) / 8), hash: checksum1, hashing: this.hasher != nil}
+			blockSize: int((this.ibs.Read() - read) / 8), hash: checksum1,
+			time_: time.Now(), hashing: this.hasher != nil}
 		notifyListeners(this.listeners, evt)
 	}
 
@@ -1068,7 +1077,8 @@ func (this *DecodingTask) decode() {
 	if len(this.listeners) > 0 {
 		// Notify before transform
 		evt := &BlockEvent{eventType: EVT_BEFORE_TRANSFORM, blockId: this.currentBlockId,
-			blockSize: int(preTransformLength), hash: checksum1, hashing: this.hasher != nil}
+			blockSize: int(preTransformLength), hash: checksum1, time_: time.Now(),
+			hashing: this.hasher != nil}
 		notifyListeners(this.listeners, evt)
 	}
 

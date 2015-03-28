@@ -15,6 +15,11 @@ limitations under the License.
 
 package io
 
+import (
+	"fmt"
+	"time"
+)
+
 const (
 	EVT_BEFORE_TRANSFORM = 0
 	EVT_AFTER_TRANSFORM  = 1
@@ -28,6 +33,7 @@ type BlockEvent struct {
 	blockSize int
 	hash      uint32
 	hashing   bool
+	time_     time.Time
 }
 
 func (this *BlockEvent) EventType() int {
@@ -36,6 +42,10 @@ func (this *BlockEvent) EventType() int {
 
 func (this *BlockEvent) BlockId() int {
 	return this.blockId
+}
+
+func (this *BlockEvent) Time() time.Time {
+	return this.time_
 }
 
 func (this *BlockEvent) BlockSize() int {
@@ -48,6 +58,27 @@ func (this *BlockEvent) Hash() uint32 {
 
 func (this *BlockEvent) Hashing() bool {
 	return this.hashing
+}
+
+func (this *BlockEvent) String() string {
+	hash := ""
+	type_ := ""
+
+	if this.hashing {
+		hash = fmt.Sprintf(",%x", this.hashing)
+	}
+
+	if this.eventType == EVT_BEFORE_TRANSFORM {
+		type_ = "EVT_BEFORE_TRANSFORM"
+	} else if this.eventType == EVT_AFTER_TRANSFORM {
+		type_ = "EVT_AFTER_TRANSFORM"
+	} else if this.eventType == EVT_BEFORE_ENTROPY {
+		type_ = "EVT_BEFORE_ENTROPY"
+	} else if this.eventType == EVT_AFTER_ENTROPY {
+		type_ = "EVT_AFTER_ENTROPY"
+	}
+
+	return fmt.Sprintf("[%s,%d,%d%s]", type_, this.blockId, this.blockSize, hash)
 }
 
 type BlockListener interface {

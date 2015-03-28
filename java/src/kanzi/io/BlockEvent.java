@@ -30,6 +30,7 @@ public class BlockEvent
    private final int hash;
    private final Type type;
    private final boolean hashing;
+   private final long time;
    
    
    public BlockEvent(Type type, int id, int size)
@@ -51,6 +52,7 @@ public class BlockEvent
       this.hash = hash;
       this.hashing = hashing;
       this.type = type;
+      this.time = System.nanoTime();
    }
    
    
@@ -63,6 +65,12 @@ public class BlockEvent
    public int getSize() 
    {
       return this.size;
+   }
+
+   
+   public long getTime() 
+   {
+      return this.time;
    }
 
    
