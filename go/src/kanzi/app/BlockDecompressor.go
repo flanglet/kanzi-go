@@ -55,14 +55,15 @@ func NewBlockDecompressor() (*BlockDecompressor, error) {
 
 	if *help == true {
 		printOut("-help                : display this message", true)
-		printOut("-verbose=<level>     : set the verbosity level", true)
-		printOut("                       0:silent, 1:default, 2:display block size (byte rounded), 3:display timings, 4:display extra information", true)
+		printOut("-verbose=<level>     : set the verbosity level [0..4]", true)
+		printOut("                       0=silent, 1=default, 2=display block size (byte rounded)", true)
+		printOut("                       3=display timings, 4=display extra information", true)
 		printOut("-overwrite           : overwrite the output file if it already exists", true)
 		printOut("-input=<inputName>   : mandatory name of the input file to decode", true)
 		printOut("-output=<outputName> : optional name of the output file or 'none' for dry-run", true)
 		printOut("-jobs=<jobs>         : number of concurrent jobs", true)
 		printOut("", true)
-		printOut("EG. go run BlockDecompressor -input=foo.knz -overwrite -verbose -jobs=2", true)
+		printOut("EG. go run BlockDecompressor -input=foo.knz -overwrite -verbose=2 -jobs=2", true)
 		os.Exit(0)
 	}
 

@@ -309,8 +309,9 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
            if (arg.equals("-help"))
            {
               printOut("-help                : display this message", true);
-              printOut("-verbose=<level>     : set the verbosity level", true);
-              printOut("                       0:silent, 1:default, 2:display block size (byte rounded), 3:display timings, 4:display extra information", true);
+              printOut("-verbose=<level>     : set the verbosity level [0..4]", true);
+              printOut("                       0=silent, 1=default, 2=display block size (byte rounded)", true);
+              printOut("                       3=display timings, 4=display extra information", true);
               printOut("-overwrite           : overwrite the output file if it already exists", true);
               printOut("-input=<inputName>   : mandatory name of the input file to decode", true);
               printOut("-output=<outputName> : optional name of the output file or 'none' for dry-run", true);

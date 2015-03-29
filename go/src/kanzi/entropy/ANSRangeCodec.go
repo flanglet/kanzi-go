@@ -224,10 +224,9 @@ func (this *ANSRangeEncoder) Encode(block []byte) (int, error) {
 		for i := endChunk - 1; i >= startChunk; i-- {
 			symbol := block[i]
 			freq := uint64(frequencies[symbol])
-			max := top * freq
 
 			// Normalize
-			for st >= max {
+			for st >= top * freq {
 				this.buffer[n] = int32(st)
 				n++
 				st >>= 32

@@ -65,8 +65,9 @@ func NewBlockCompressor() (*BlockCompressor, error) {
 
 	if *help == true {
 		printOut("-help                : display this message", true)
-		printOut("-verbose=<level>     : set the verbosity level", true)
-		printOut("                       0:silent, 1:default, 2:display block size (byte rounded), 3:display timings, 4:display extra information", true)
+		printOut("-verbose=<level>     : set the verbosity level [0..4]", true)
+		printOut("                       0=silent, 1=default, 2=display block size (byte rounded)", true)
+		printOut("                       3=display timings, 4=display extra information", true)
 		printOut("-overwrite           : overwrite the output file if it already exists", true)
 		printOut("-input=<inputName>   : mandatory name of the input file to encode", true)
 		printOut("-output=<outputName> : optional name of the output file (defaults to <input.knz>) or 'none' for dry-run", true)
@@ -286,7 +287,7 @@ func (this *BlockCompressor) call() (int, uint64) {
 
 	defer input.Close()
 
-	for _, bl:= range this.listeners {
+	for _, bl := range this.listeners {
 		cos.AddListener(bl)
 	}
 

@@ -61,18 +61,12 @@ public class TestANSRangeCoder
                      values = new byte[] { 65, 71, 74, 66, 76, 65, 69, 77, 74, 79, 68, 75, 73, 72, 77, 68, 78, 65, 79, 79, 78, 66, 77, 71, 64, 70, 74, 77, 64, 67, 71, 64 };
                 else if (ii == 1)
                 {
-                   FileInputStream fis = new FileInputStream("e:\\temp\\book1");
-                   byte[] buf = new byte[1024*1024];
-                   int r = fis.read(buf);
-                   values = new byte[r];
-                   System.arraycopy(buf, 0, values, 0, r);
-                   fis.close();
-//                     values = new byte[32];
-//
-//                     for (int i=0; i<values.length; i++)
-//                          values[i] = 2; // all identical
-//                     
-//                     values="mississippi".getBytes();
+                     values = new byte[32];
+
+                     for (int i=0; i<values.length; i++)
+                          values[i] = 2; // all identical
+
+                     values="mississippi".getBytes();
                 }
                 else if (ii == 5)
                 {
@@ -114,7 +108,7 @@ public class TestANSRangeCoder
                 InputBitStream bs2 = new DefaultInputBitStream(new ByteArrayInputStream(buf), 16384);
                 DebugInputBitStream dbgbs2 = new DebugInputBitStream(bs2, System.out);
                 dbgbs2.setMark(true);
-                ANSRangeDecoder rd = new ANSRangeDecoder(dbgbs2);;
+                ANSRangeDecoder rd = new ANSRangeDecoder(dbgbs2);
                 System.out.println("\nDecoded:");
                 boolean ok = true;
                 byte[] values2 = new byte[size];

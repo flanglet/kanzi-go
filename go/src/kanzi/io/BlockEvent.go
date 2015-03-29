@@ -69,16 +69,17 @@ func (this *BlockEvent) String() string {
 	}
 
 	if this.eventType == EVT_BEFORE_TRANSFORM {
-		type_ = "EVT_BEFORE_TRANSFORM"
+		type_ = "BEFORE_TRANSFORM"
 	} else if this.eventType == EVT_AFTER_TRANSFORM {
-		type_ = "EVT_AFTER_TRANSFORM"
+		type_ = "AFTER_TRANSFORM"
 	} else if this.eventType == EVT_BEFORE_ENTROPY {
-		type_ = "EVT_BEFORE_ENTROPY"
+		type_ = "BEFORE_ENTROPY"
 	} else if this.eventType == EVT_AFTER_ENTROPY {
-		type_ = "EVT_AFTER_ENTROPY"
+		type_ = "AFTER_ENTROPY"
 	}
 
-	return fmt.Sprintf("[%s,%d,%d%s]", type_, this.blockId, this.blockSize, hash)
+	return fmt.Sprintf("[%s,%d,%d,%d%s]", type_, this.blockId, this.blockSize,
+		this.time_.UnixNano()/1000000, hash)
 }
 
 type BlockListener interface {

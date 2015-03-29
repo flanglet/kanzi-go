@@ -174,10 +174,9 @@ public class ANSRangeEncoder implements EntropyEncoder
          {
             final int symbol = array[i] & 0xFF;
             final int freq = frequencies[symbol];
-            final long max = top * freq;
 
             // Normalize
-            while (st >= max)
+            while (st >= top*freq)
             {
                this.buffer[n++] = (int) st;
                st >>>= 32;

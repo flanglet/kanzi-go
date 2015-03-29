@@ -31,6 +31,7 @@ public class BlockEvent
    private final Type type;
    private final boolean hashing;
    private final long time;
+   private final long unixTime;
    
    
    public BlockEvent(Type type, int id, int size)
@@ -53,6 +54,7 @@ public class BlockEvent
       this.hashing = hashing;
       this.type = type;
       this.time = System.nanoTime();
+      this.unixTime = System.currentTimeMillis();
    }
    
    
@@ -93,6 +95,7 @@ public class BlockEvent
       sb.append("[").append(this.type);
       sb.append(",").append(this.id);
       sb.append(",").append(this.size);
+      sb.append(",").append(this.unixTime);
       
       if (this.hashing == true)
          sb.append(",").append(Integer.toHexString(this.hash));

@@ -45,7 +45,7 @@ public class FPAQPredictor implements Predictor
       {
          this.states[idx&-2] >>= 1;
          this.states[(idx&-2)+1] >>= 1;
-      }  
+      }
       
       // Update context by registering the current bit (or wrapping after 8 bits)
       if (idx < 256)
