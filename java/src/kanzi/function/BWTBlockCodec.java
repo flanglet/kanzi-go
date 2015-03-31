@@ -20,14 +20,15 @@ import kanzi.ByteTransform;
 import kanzi.IndexedByteArray;
 import kanzi.Sizeable;
 import kanzi.transform.BWT;
+import kanzi.transform.BWTS;
 import kanzi.transform.MTFT;
 import kanzi.transform.SBRT;
 
 
 // Utility class to compress/decompress a data block
 // Fast reversible block coder/decoder based on a pipeline of transformations:
-// Forward: (Bijective) Burrows-Wheeler -> Move to Front -> Zero Run Length
-// Inverse: Zero Run Length -> Move to Front -> (Bijective) Burrows-Wheeler
+// Forward: (Bijective|Regular) Burrows-Wheeler -> Move to Front -> Zero Run Length
+// Inverse: Zero Run Length -> Move to Front -> (Bijective|Regular) Burrows-Wheeler
 // The block size determines the balance between speed and compression ratio
 
 // BWT stream format: Header (m bytes) Data (n bytes)
@@ -49,10 +50,10 @@ public class BWTBlockCodec implements ByteFunction, Sizeable
    public static final int MODE_TIMESTAMP = 3;
  
    private static final int BWT_MAX_HEADER_SIZE  = 4;
-   private static final int MAX_BLOCK_SIZE = 256*1024*1024; // 30 bits
+   private static final int MAX_BLOCK_SIZE = 1024*1024*1024; // 1 GB (30 bits)
 
    private final int mode;
-   private final boolean isBWT;
+   private final boolean isBijectiveBWT;
    private final ByteTransform transform;
    private int size;
 
@@ -88,11 +89,11 @@ public class BWTBlockCodec implements ByteFunction, Sizeable
       this.mode = mode;
       this.transform = transform;
       this.size = blockSize;      
-      this.isBWT = (transform instanceof BWT);  
+      this.isBijectiveBWT = (transform instanceof BWTS);  
 
       if (blockSize > this.maxBlockSize())
          throw new IllegalArgumentException("The max block size for the BWT" +
-                 ((this.isBWT) ? "" : "S") + " is " + this.maxBlockSize());
+                 ((this.isBijectiveBWT) ? "S" : "") + " is " + this.maxBlockSize());
    }
 
 
@@ -111,7 +112,7 @@ public class BWTBlockCodec implements ByteFunction, Sizeable
    
    private int maxBlockSize() 
    {
-      return (this.isBWT == true) ? MAX_BLOCK_SIZE - BWT_MAX_HEADER_SIZE : MAX_BLOCK_SIZE;      
+      return (this.isBijectiveBWT == true) ? MAX_BLOCK_SIZE : MAX_BLOCK_SIZE - BWT_MAX_HEADER_SIZE;      
    }
    
    
@@ -161,7 +162,7 @@ public class BWTBlockCodec implements ByteFunction, Sizeable
       int pIndexSizeBits = 0;
       int primaryIndex = 0;
       
-      if (this.isBWT == true)
+      if (this.isBijectiveBWT == false)
       {
          primaryIndex = ((BWT) this.transform).getPrimaryIndex();
          pIndexSizeBits = 6;
@@ -205,7 +206,7 @@ public class BWTBlockCodec implements ByteFunction, Sizeable
          output.index += headerSizeBytes;
       } 
       
-      if (this.isBWT == true)
+      if (this.isBijectiveBWT == false)
       {
          // Write block header (mode + primary index). See top of file for format 
          int shift = (headerSizeBytes - 1) << 3;
@@ -236,7 +237,7 @@ public class BWTBlockCodec implements ByteFunction, Sizeable
       int primaryIndex = 0;
       int blockSize = compressedLength;
 
-      if (this.isBWT == true)
+      if (this.isBijectiveBWT == false)
       {
          // Read block header (mode + primary index). See top of file for format
          int blockMode = input.array[input.index++] & 0xFF;
@@ -285,7 +286,7 @@ public class BWTBlockCodec implements ByteFunction, Sizeable
          output.index = savedOIdx;
       }
       
-      if (this.isBWT == true)
+      if (this.isBijectiveBWT == false)
          ((BWT) this.transform).setPrimaryIndex(primaryIndex);
       
       ((Sizeable) this.transform).setSize(blockSize);     
@@ -301,6 +302,6 @@ public class BWTBlockCodec implements ByteFunction, Sizeable
       // Return input buffer size + max header size
       // If forward() fails due to output buffer size, the block is returned 
       // unmodified with an error
-      return srcLen + (this.isBWT ? 4 : 0); 
+      return srcLen + (this.isBijectiveBWT ? 0 : 4); 
    }
 }

@@ -50,7 +50,7 @@ public class CompressedOutputStream extends OutputStream
    private static final int SMALL_BLOCK_MASK         = 0x80;
    private static final int SKIP_FUNCTION_MASK       = 0x40;
    private static final int MIN_BITSTREAM_BLOCK_SIZE = 1024;
-   private static final int MAX_BITSTREAM_BLOCK_SIZE = 512*1024*1024;
+   private static final int MAX_BITSTREAM_BLOCK_SIZE = 1024*1024*1024;
    private static final int SMALL_BLOCK_SIZE         = 15;
    private static final byte[] EMPTY_BYTE_ARRAY      = new byte[0];
 
@@ -103,8 +103,8 @@ public class CompressedOutputStream extends OutputStream
       if (blockSize < MIN_BITSTREAM_BLOCK_SIZE)
          throw new IllegalArgumentException("The block size must be at least "+MIN_BITSTREAM_BLOCK_SIZE);
 
-      if ((blockSize & -8) != blockSize)
-         throw new IllegalArgumentException("The block size must be a multiple of 8");
+      if ((blockSize & -16) != blockSize)
+         throw new IllegalArgumentException("The block size must be a multiple of 16");
 
       if ((jobs < 1) || (jobs > 16))
          throw new IllegalArgumentException("The number of jobs must be in [1..16]");
@@ -151,7 +151,7 @@ public class CompressedOutputStream extends OutputStream
       if (this.obs.writeBits(this.transformType & 0x1F, 5) != 5)
          throw new kanzi.io.IOException("Cannot write transform type to header", Error.ERR_WRITE_FILE);
 
-      if (this.obs.writeBits(this.blockSize >> 3, 26) != 26)
+      if (this.obs.writeBits(this.blockSize >> 4, 26) != 26)
          throw new kanzi.io.IOException("Cannot write block size to header", Error.ERR_WRITE_FILE);
 
       if (this.obs.writeBits(0L, 4) != 4)

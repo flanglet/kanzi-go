@@ -24,8 +24,8 @@ import (
 
 // Utility class to compress/decompress a data block
 // Fast reversible block coder/decoder based on a pipeline of transformations:
-// Forward: (Bijective) Burrows-Wheeler -> Move to Front -> Zero Run Length
-// Inverse: Zero Run Length -> Move to Front -> (Bijective) Burrows-Wheeler
+// Forward: (Bijective|Regular) Burrows-Wheeler -> Move to Front -> Zero Run Length
+// Inverse: Zero Run Length -> Move to Front -> (Bijective|Regular) Burrows-Wheeler
 // The block size determines the balance between speed and compression ratio
 
 // BWT stream format: Header (m bytes) Data (n bytes)
@@ -45,14 +45,14 @@ const (
 	GST_MODE_RANK       = 2
 	GST_MODE_TIMESTAMP  = 3
 	BWT_MAX_HEADER_SIZE = 4
-	MAX_BLOCK_SIZE      = 256 * 1024 * 1024 // 30 bits
+	MAX_BLOCK_SIZE      = 1024 * 1024 * 1024 // 1 GB (30 bits)
 )
 
 type BWTBlockCodec struct {
 	transform kanzi.ByteTransform
 	mode      int
 	size      uint
-	isBWT     bool
+	isBijectiveBWT     bool
 }
 
 // Based on the mode, the forward transform is followed by a Global Structure
@@ -80,12 +80,12 @@ func NewBWTBlockCodec(tr interface{}, mode int, blockSize uint) (*BWTBlockCodec,
 	this.mode = mode
 	this.size = blockSize
 	this.transform = tr.(kanzi.ByteTransform)
-	this.isBWT = isBWT
+	this.isBijectiveBWT = !isBWT
 
 	if blockSize > this.maxBlockSize() {
 		transformName := "BWT"
 
-		if this.isBWT == false {
+		if this.isBijectiveBWT == true {
 			transformName = "BWTS"
 		}
 
@@ -112,7 +112,7 @@ func (this *BWTBlockCodec) createGST(blockSize uint) (kanzi.ByteTransform, error
 func (this *BWTBlockCodec) maxBlockSize() uint {
 	maxSize := uint(MAX_BLOCK_SIZE)
 
-	if this.isBWT == true {
+	if this.isBijectiveBWT == false {
 		maxSize -= BWT_MAX_HEADER_SIZE
 	}
 
@@ -170,7 +170,7 @@ func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 	pIndexSizeBits := uint(0)
 	primaryIndex := uint(0)
 
-	if this.isBWT {
+	if this.isBijectiveBWT == false {
 		primaryIndex = this.transform.(*transform.BWT).PrimaryIndex()
 		pIndexSizeBits = uint(6)
 
@@ -211,7 +211,7 @@ func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
-	if this.isBWT {
+	if this.isBijectiveBWT == false {
 		oIdx += headerSizeBytes
 
 		// Write block header (mode + primary index). See top of file for format
@@ -241,7 +241,7 @@ func (this *BWTBlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	headerSizeBytes := uint(0)
 	srcIdx := uint(0)
 
-	if this.isBWT {
+	if this.isBijectiveBWT == false {
 		// Read block header (mode + primary index). See top of file for format
 		blockMode := uint(src[0])
 		headerSizeBytes = 1 + ((blockMode >> 6) & 0x03)
@@ -300,7 +300,7 @@ func (this *BWTBlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		gst.Inverse(dst, src)
 	}
 
-	if this.isBWT {
+	if this.isBijectiveBWT == false {
 		this.transform.(*transform.BWT).SetPrimaryIndex(primaryIndex)
 	}
 
@@ -314,9 +314,9 @@ func (this BWTBlockCodec) MaxEncodedLen(srcLen int) int {
 	// Return input buffer size + max header size
 	// If forward() fails due to output buffer size, the block is returned
 	// unmodified with an error
-	if this.isBWT == true {
-		return srcLen + 4
+	if this.isBijectiveBWT == true {
+		return srcLen
 	}
 
-	return srcLen
+	return srcLen + 4
 }

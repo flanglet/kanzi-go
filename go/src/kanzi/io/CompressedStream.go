@@ -41,7 +41,7 @@ const (
 	SMALL_BLOCK_MASK           = 0x80
 	SKIP_FUNCTION_MASK         = 0x40
 	MIN_BITSTREAM_BLOCK_SIZE   = 1024
-	MAX_BITSTREAM_BLOCK_SIZE   = 512 * 1024 * 1024
+	MAX_BITSTREAM_BLOCK_SIZE   = 1024 * 1024 * 1024
 	SMALL_BLOCK_SIZE           = 15
 
 	ERR_MISSING_PARAM       = -1
@@ -142,8 +142,8 @@ func NewCompressedOutputStream(entropyCodec string, functionType string, os kanz
 		return nil, NewIOError(errMsg, ERR_CREATE_STREAM)
 	}
 
-	if int(blockSize)&-8 != int(blockSize) {
-		return nil, NewIOError("The block size must be a multiple of 8", ERR_CREATE_STREAM)
+	if int(blockSize)&-16 != int(blockSize) {
+		return nil, NewIOError("The block size must be a multiple of 16", ERR_CREATE_STREAM)
 	}
 
 	if jobs < 1 || jobs > 16 {
@@ -254,7 +254,7 @@ func (this *CompressedOutputStream) WriteHeader() *IOError {
 		return NewIOError("Cannot write transform type to header", ERR_WRITE_FILE)
 	}
 
-	if this.obs.WriteBits(uint64(this.blockSize>>3), 26) != 26 {
+	if this.obs.WriteBits(uint64(this.blockSize>>4), 26) != 26 {
 		return NewIOError("Cannot write block size to header", ERR_WRITE_FILE)
 	}
 
@@ -731,7 +731,7 @@ func (this *CompressedInputStream) ReadHeader() error {
 	this.transformType = byte(this.ibs.ReadBits(5))
 
 	// Read block size
-	this.blockSize = uint(this.ibs.ReadBits(26)) << 3
+	this.blockSize = uint(this.ibs.ReadBits(26)) << 4
 
 	if this.blockSize < MIN_BITSTREAM_BLOCK_SIZE || this.blockSize > MAX_BITSTREAM_BLOCK_SIZE {
 		errMsg := fmt.Sprintf("Invalid bitstream, incorrect block size: %d", this.blockSize)
