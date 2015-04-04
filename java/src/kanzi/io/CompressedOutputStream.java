@@ -17,7 +17,6 @@ package kanzi.io;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -71,21 +70,21 @@ public class CompressedOutputStream extends OutputStream
 
    public CompressedOutputStream(String entropyCodec, String functionType, OutputStream os)
    {
-      this(entropyCodec, functionType, os, DEFAULT_BLOCK_SIZE, false, null);
+      this(entropyCodec, functionType, os, DEFAULT_BLOCK_SIZE, false);
    }
 
 
    // debug print stream is optional (may be null)
    public CompressedOutputStream(String entropyCodec, String functionType,
-               OutputStream os, int blockSize, boolean checksum, PrintStream debug)
+               OutputStream os, int blockSize, boolean checksum)
    {
-      this(entropyCodec, functionType, os, blockSize, checksum, debug, null, 1);
+      this(entropyCodec, functionType, os, blockSize, checksum, null, 1);
    }
 
 
    // debug print stream is optional (may be null)
    public CompressedOutputStream(String entropyCodec, String functionType,
-               OutputStream os, int blockSize, boolean checksum, PrintStream debug,
+               OutputStream os, int blockSize, boolean checksum, 
                ExecutorService pool, int jobs)
    {
       if (entropyCodec == null)

@@ -21,7 +21,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -196,11 +195,10 @@ public class BlockCompressor implements Runnable, Callable<Integer>
          
          try
          {
-            PrintStream ds = (printFlag == true) ? System.out : null;
             OutputStream fos = (output == null) ? new NullOutputStream() : new FileOutputStream(output);
             this.cos = new CompressedOutputStream(this.codec, this.transform,
                  fos, this.blockSize, this.checksum,
-                 ds, this.pool, this.jobs);
+                 this.pool, this.jobs);
             
             for (BlockListener bl : this.listeners)
                this.cos.addListener(bl);
