@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+   <project name="Kanzi Compression" default="build_compress">
+   <property name="website" value="https://github.com/flanglet/kanzi"/>
+   <property name="Implementation-Version" value="1.0"/>
+   <property name="src.dir" value="src"/>
+   <property name="build.dir" value="target"/>
+   
+   <target name="build_compress" depends="compile_compress">
+     <jar destfile="${build.dir}/kanzi.jar" basedir="${build.dir}/classes" />
+   </target>
+    
+   <target name="compile_compress" depends="clean">
+     <mkdir dir="${build.dir}"/>
+     <mkdir dir="${build.dir}/classes"/>
+	 <javac includeantruntime="false" 
+	        srcdir="${src.dir}" 
+	        destdir="${build.dir}/classes" 
+	        classpath="${build.dir}/classes" 
+	        debug="on">        
+		 <include name="kanzi/*.java"/>
+		 <include name="kanzi/app/**"/>
+		 <include name="kanzi/bitstream/**"/>
+		 <include name="kanzi/entropy/**"/>
+		 <include name="kanzi/function/**"/>
+		 <include name="kanzi/io/**"/>
+		 <include name="kanzi/transform/**"/>
+		 <include name="kanzi/util/**"/>
+	  </javac>
+   </target>
+   
+   <target name="check_target" description="Clean output top directory">
+     <condition property="target.exists">
+       <available file="${build.dir}" type="dir"/>
+     </condition>
+   </target>
+
+   <target name="clean" description="Clean output directories" depends="check_target" if="target.exists">
+	  <delete dir="${build.dir}" />	     
+   </target>
+
+</project>
