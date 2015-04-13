@@ -123,7 +123,8 @@ public class HuffmanDecoder implements EntropyDecoder
            return 0;
 
         // Create canonical codes
-        HuffmanTree.generateCanonicalCodes(this.sizes, this.codes, this.ranks, count);
+        if (HuffmanTree.generateCanonicalCodes(this.sizes, this.codes, this.ranks, count) < 0)
+           return -1;
 
         // Build decoding tables
         this.buildDecodingTables(count);
@@ -202,7 +203,7 @@ public class HuffmanDecoder implements EntropyDecoder
        while (startChunk < end)
        { 
           // Reinitialize the Huffman tables
-          if (this.readLengths() == 0)
+          if (this.readLengths() <= 0)
              return startChunk - blkptr;
 
           // Compute minimum number of bits requires in bitstream for fast decoding

@@ -84,15 +84,15 @@ func (this HuffmanPriorityQueue) Less(i, j int) bool {
 		return ni.weight < nj.weight
 	}
 
-	if ni.left == nil && nj.left != nil {
-		return true
-	}
-
-	if ni.left != nil && nj.left == nil {
+	if ni.left == nil {
+		if nj.left != nil {
+			return true
+		}
+	} else if nj.left == nil {
 		return false
 	}
 
-	return ni.symbol&0xFF < nj.symbol&0xFF
+	return ni.symbol < nj.symbol
 }
 
 func (this HuffmanPriorityQueue) Swap(i, j int) {
@@ -204,6 +204,7 @@ func NewHuffmanEncoder(bs kanzi.OutputBitStream, args ...uint) (*HuffmanEncoder,
 func createTreeFromFrequencies(frequencies []uint, sizes_ []byte, ranks []byte) error {
 	// Create Huffman tree of (present) symbols
 	queue := make(HuffmanPriorityQueue, 0)
+	heap.Init(&queue)
 
 	for i := range ranks {
 		heap.Push(&queue, &HuffmanNode{symbol: ranks[i], weight: frequencies[ranks[i]]})
@@ -234,7 +235,7 @@ func createTreeFromFrequencies(frequencies []uint, sizes_ []byte, ranks []byte) 
 func fillSizes(node *HuffmanNode, depth uint, sizes_ []byte) error {
 	if node.left == nil && node.right == nil {
 		if depth > 24 {
-			return fmt.Errorf("Cannot code symbol '%v'", node.symbol&0xFF)
+			return fmt.Errorf("Cannot code symbol '%v'", node.symbol)
 		}
 
 		sizes_[node.symbol] = byte(depth)
@@ -296,7 +297,9 @@ func (this *HuffmanEncoder) UpdateFrequencies(frequencies []uint) error {
 	}
 
 	// Create canonical codes (reorders ranks)
-	generateCanonicalCodes(this.sizes, this.codes, this.ranks[0:alphabetSize])
+	if generateCanonicalCodes(this.sizes, this.codes, this.ranks[0:alphabetSize]) < 0 {
+		return errors.New("Could not generate codes: max code length (24 bits) exceeded")
+	}
 
 	// Pack size and code (size <= 24 bits)
 	for i := 0; i < alphabetSize; i++ {
@@ -353,7 +356,6 @@ func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
 
 	return len(block), nil
 }
-
 
 func (this *HuffmanEncoder) Dispose() {
 }
@@ -473,7 +475,9 @@ func (this *HuffmanDecoder) ReadLengths() (int, error) {
 	}
 
 	// Create canonical codes
-	generateCanonicalCodes(this.sizes, this.codes, this.ranks[0:count])
+	if generateCanonicalCodes(this.sizes, this.codes, this.ranks[0:count]) < 0 {
+		return 0, errors.New("Could not generate codes: max code length (24 bits) exceeded")
+	}
 
 	// Build decoding tables
 	this.buildDecodingTables(count)
@@ -583,13 +587,12 @@ func (this *HuffmanDecoder) Decode(block []byte) (int, error) {
 			block[i] = this.slowDecodeByte(0, 0)
 			i++
 		}
-		
+
 		startChunk = endChunk
 	}
 
 	return len(block), nil
 }
-
 
 func (this *HuffmanDecoder) slowDecodeByte(code int, codeLen uint) byte {
 	for codeLen < 23 {
