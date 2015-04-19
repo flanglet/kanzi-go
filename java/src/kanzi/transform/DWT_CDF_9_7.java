@@ -40,14 +40,13 @@ public class DWT_CDF_9_7 implements IntTransform
     private final int steps;
 
 
-    // dim (dimension of the whole image) must be a power of 2
+    // dim (dimension of the whole image)
     public DWT_CDF_9_7(int dim)
     {
        this(dim, dim, 5);
     }
 
 
-    // dim (dimension of the whole image) must be a power of 2
     public DWT_CDF_9_7(int width, int height)
     {
        this(width, height, 5);
