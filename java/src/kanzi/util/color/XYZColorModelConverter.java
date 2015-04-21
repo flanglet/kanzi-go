@@ -196,7 +196,9 @@ public final class XYZColorModelConverter implements ColorModelConverter
                 int r =  (13273*xVal - 6296*yVal - 2042*zVal + 2048) >> 12;
                 int g =  (-3970*xVal + 7684*yVal +  170*zVal + 2048) >> 12;
                 int b =    (228*xVal -  836*yVal + 4330*zVal + 2048) >> 12;
-
+                r &= ~(r >> 31);
+                g &= ~(g >> 31);
+                b &= ~(b >> 31);
                 r = (XYZ_RGB[r>>3] + XYZ_RGB[(r>>3)+1]) >> 1;
                 g = (XYZ_RGB[g>>3] + XYZ_RGB[(g>>3)+1]) >> 1;
                 b = (XYZ_RGB[b>>3] + XYZ_RGB[(b>>3)+1]) >> 1;
