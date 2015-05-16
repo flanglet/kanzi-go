@@ -38,90 +38,91 @@ public class TestDWT
 {
    public static void main(String[] args)
    {
-      String fileName = (args.length > 0) ? args[0] : "c:\\temp\\lena.jpg";
-      ImageIcon icon = new ImageIcon(fileName);
-      Image image = icon.getImage();
-      int ww = image.getWidth(null);
-      int hh = image.getHeight(null);
-      int w = 512;//image.getWidth(null);
-      int h = 512;//image.getHeight(null);
-
-      if (image.getWidth(null) <= 0)
-      {
-         System.out.println("Cannot find file "+fileName);
-         System.exit(1);
-      }
-
-      GraphicsDevice gs = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
-      GraphicsConfiguration gc = gs.getDefaultConfiguration();
-      BufferedImage img  = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
-      BufferedImage img2 = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
-      BufferedImage img3 = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
-      img.getGraphics().drawImage(image, 0, 0, null);
-      int[] source = new int[ww * hh];
-      int[] destination = new int[ww * hh];
-      img.getRaster().getDataElements(0, 0, w, h, source);
-
-      int dim = w;
-      IndexedIntArray iia2 = new IndexedIntArray(source, 0);
-      IndexedIntArray iia3 = new IndexedIntArray(destination, 0);
-      ColorModelConverter cvt = new YSbSrColorModelConverter(w, h);
-      process(dim, w, h, cvt, iia2, iia3, ColorModelType.YUV420);
-
-      ImageQualityMonitor monitor = new ImageQualityMonitor(w, h);
-      int psnr1024 = monitor.computePSNR(source, destination);
-      System.out.println("PSNR: "+(float) psnr1024 /1024);
-      int ssim1024 = monitor.computeSSIM(source, destination);
-      System.out.println("SSIM: "+(float) ssim1024 / 1024);
-
-      img2.getRaster().setDataElements(0, 0, w, h, destination);
-      JFrame frame2 = new JFrame("Reverse");
-      frame2.setBounds(580, 100, w, h);
-      ImageIcon newIcon2 = new ImageIcon(img2);
-      frame2.add(new JLabel(newIcon2));
-
-      img.getRaster().setDataElements(0, 0, w, h, source);
-      JFrame frame3 = new JFrame("Original");
-      frame3.setBounds(30, 100, w, h);
-      ImageIcon newIcon3 = new ImageIcon(img);
-      frame3.add(new JLabel(newIcon3));
-
-      // Calculate image difference
-     for (int j = 0; j < h; j++)
-     {
-        for (int i = 0; i < w; i++)
-        {
-           int p1 = source[j * w + i];
-           int p2 = destination[j * w + i];
-           int r1 = (p1 >> 16) & 0xFF;
-           int g1 = (p1 >> 8) & 0xFF;
-           int b1 = p1 & 0xFF;
-           int r2 = (p2 >> 16) & 0xFF;
-           int g2 = (p2 >> 8) & 0xFF;
-           int b2 = p2 & 0xFF;
-           int rr = Math.min(4*(Math.abs(r1 - r2) & 0xFF), 255) << 16;
-           int gg = Math.min(4*(Math.abs(g1 - g2) & 0xFF), 255) << 8;
-           int bb = Math.min(4*(Math.abs(b1 - b2) & 0xFF), 255);
-           destination[j * w + i] = rr | gg | bb;
-        }
-     }
-
-      img3.getRaster().setDataElements(0, 0, w, h, destination);
-      JFrame frame4 = new JFrame("Diff");
-      frame4.setBounds(1100, 100, w, h);
-      ImageIcon newIcon4 = new ImageIcon(img3);
-      frame4.add(new JLabel(newIcon4));
-
-      frame3.setVisible(true);
-      frame2.setVisible(true);
-      frame4.setVisible(true);
-
       try
       {
+         String fileName = (args.length > 0) ? args[0] : "c:\\temp\\lena.jpg";
+         ImageIcon icon = new ImageIcon(fileName);
+         Image image = icon.getImage();
+         int ww = image.getWidth(null);
+         int hh = image.getHeight(null);
+         int w = image.getWidth(null);
+         int h = image.getHeight(null);
+
+         if (image.getWidth(null) <= 0)
+         {
+            System.out.println("Cannot find file "+fileName);
+            System.exit(1);
+         }
+
+         GraphicsDevice gs = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
+         GraphicsConfiguration gc = gs.getDefaultConfiguration();
+         BufferedImage img  = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
+         BufferedImage img2 = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
+         BufferedImage img3 = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
+         img.getGraphics().drawImage(image, 0, 0, null);
+         int[] source = new int[ww * hh];
+         int[] destination = new int[ww * hh];
+         img.getRaster().getDataElements(0, 0, w, h, source);
+
+         int dim = w;
+         IndexedIntArray iia2 = new IndexedIntArray(source, 0);
+         IndexedIntArray iia3 = new IndexedIntArray(destination, 0);
+         ColorModelConverter cvt = new YSbSrColorModelConverter(w, h);
+         process(dim, w, h, cvt, iia2, iia3, ColorModelType.YUV420);
+
+         ImageQualityMonitor monitor = new ImageQualityMonitor(w, h);
+         int psnr1024 = monitor.computePSNR(source, destination);
+         System.out.println("PSNR: "+(float) psnr1024 /1024);
+         int ssim1024 = monitor.computeSSIM(source, destination);
+         System.out.println("SSIM: "+(float) ssim1024 / 1024);
+
+         img2.getRaster().setDataElements(0, 0, w, h, destination);
+         JFrame frame2 = new JFrame("Reverse");
+         frame2.setBounds(580, 100, w, h);
+         ImageIcon newIcon2 = new ImageIcon(img2);
+         frame2.add(new JLabel(newIcon2));
+
+         img.getRaster().setDataElements(0, 0, w, h, source);
+         JFrame frame3 = new JFrame("Original");
+         frame3.setBounds(30, 100, w, h);
+         ImageIcon newIcon3 = new ImageIcon(img);
+         frame3.add(new JLabel(newIcon3));
+
+         // Calculate image difference
+        for (int j = 0; j < h; j++)
+        {
+           for (int i = 0; i < w; i++)
+           {
+              int p1 = source[j * w + i];
+              int p2 = destination[j * w + i];
+              int r1 = (p1 >> 16) & 0xFF;
+              int g1 = (p1 >> 8) & 0xFF;
+              int b1 = p1 & 0xFF;
+              int r2 = (p2 >> 16) & 0xFF;
+              int g2 = (p2 >> 8) & 0xFF;
+              int b2 = p2 & 0xFF;
+              int rr = Math.min(4*(Math.abs(r1 - r2) & 0xFF), 255) << 16;
+              int gg = Math.min(4*(Math.abs(g1 - g2) & 0xFF), 255) << 8;
+              int bb = Math.min(4*(Math.abs(b1 - b2) & 0xFF), 255);
+              destination[j * w + i] = rr | gg | bb;
+           }
+        }
+
+         img3.getRaster().setDataElements(0, 0, w, h, destination);
+         JFrame frame4 = new JFrame("Diff");
+         frame4.setBounds(1100, 100, w, h);
+         ImageIcon newIcon4 = new ImageIcon(img3);
+         frame4.add(new JLabel(newIcon4));
+
+         frame3.setVisible(true);
+         frame2.setVisible(true);
+         frame4.setVisible(true);
+
          Thread.sleep(40000);
       }
       catch (Exception e)
       {
+         e.printStackTrace();
       }
 
       System.exit(0);

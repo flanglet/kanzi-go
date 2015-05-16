@@ -45,87 +45,88 @@ public class TestColorModel
 {
     public static void main(String[] args)
     {
-        String fileName = (args.length > 0) ? args[0] : "c:\\temp\\lena.jpg";
-        ImageIcon icon = new ImageIcon(fileName);
-        Image image = icon.getImage();
-        int w = image.getWidth(null);
-        int h = image.getHeight(null);
-        GraphicsDevice gs = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
-        GraphicsConfiguration gc = gs.getDefaultConfiguration();
-        BufferedImage img = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
+       try
+       {
+         String fileName = (args.length > 0) ? args[0] : "c:\\temp\\lena.jpg";
+         ImageIcon icon = new ImageIcon(fileName);
+         Image image = icon.getImage();
+         int w = image.getWidth(null) & -15;
+         int h = image.getHeight(null) & -15;
+         GraphicsDevice gs = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
+         GraphicsConfiguration gc = gs.getDefaultConfiguration();
+         BufferedImage img = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
 
-        img.getGraphics().drawImage(image, 0, 0, null);
-        int[] rgb = new int[w*h];
-        int[] rgb2 = new int[w*h];
-        // Do NOT use img.getRGB(): it is more than 10 times slower than
-        // img.getRaster().getDataElements()
-        img.getRaster().getDataElements(0, 0, w, h, rgb);
+         img.getGraphics().drawImage(image, 0, 0, null);
+         int[] rgb = new int[w*h];
+         int[] rgb2 = new int[w*h];
+         // Do NOT use img.getRGB(): it is more than 10 times slower than
+         // img.getRaster().getDataElements()
+         img.getRaster().getDataElements(0, 0, w, h, rgb);
 
-        System.out.println(w + "x" + h);
+         System.out.println(w + "x" + h);
 
-        UpSampler uFourTap1 = new FourTapUpSampler(w/2, h/2, 2, true);
-        UpSampler uFourTap2 = new FourTapUpSampler(w/2, h/2, 2, false);
-        UpSampler uBilinear = new BilinearUpSampler(w/2, h/2, 2);
-        DownSampler dFourTap = new DecimateDownSampler(w, h, 2); // For now !!!
-        DownSampler dBilinear = new DecimateDownSampler(w, h, 2);//BilinearDownSampler(w, h, 2);
-        DownSampler dDWT = new DWTDownSampler(w, h);
-        UpSampler uDWT = new DWTUpSampler(w, h);
+         UpSampler uFourTap1 = new FourTapUpSampler(w/2, h/2, 2, true);
+         UpSampler uFourTap2 = new FourTapUpSampler(w/2, h/2, 2, false);
+         UpSampler uBilinear = new BilinearUpSampler(w/2, h/2, 2);
+         DownSampler dFourTap = new DecimateDownSampler(w, h, 2); // For now !!!
+         DownSampler dBilinear = new DecimateDownSampler(w, h, 2);//BilinearDownSampler(w, h, 2);
+         DownSampler dDWT = new DWTDownSampler(w, h);
+         UpSampler uDWT = new DWTUpSampler(w, h);
 
-        ColorModelConverter[] cvts = new ColorModelConverter[]
-        {
-           new XYZColorModelConverter(w, h),
-           new YCbCrColorModelConverter(w, h, dFourTap, uFourTap1),
-           new YCbCrColorModelConverter(w, h, dBilinear, uBilinear),
-           new YCbCrColorModelConverter(w, h, dDWT, uDWT),
-           new YCbCrColorModelConverter(w, h),
-           new YCbCrColorModelConverter(w, h),
-           new YSbSrColorModelConverter(w, h, dFourTap, uFourTap2),
-           new YSbSrColorModelConverter(w, h, dBilinear, uBilinear),
-           new YSbSrColorModelConverter(w, h, dDWT, uDWT),
-           new YSbSrColorModelConverter(w, h),
-           new YSbSrColorModelConverter(w, h),
-           new ReversibleYUVColorModelConverter(w, h)
-        };
+         ColorModelConverter[] cvts = new ColorModelConverter[]
+         {
+            new XYZColorModelConverter(w, h),
+            new YCbCrColorModelConverter(w, h, dFourTap, uFourTap1),
+            new YCbCrColorModelConverter(w, h, dBilinear, uBilinear),
+            new YCbCrColorModelConverter(w, h, dDWT, uDWT),
+            new YCbCrColorModelConverter(w, h),
+            new YCbCrColorModelConverter(w, h),
+            new YSbSrColorModelConverter(w, h, dFourTap, uFourTap2),
+            new YSbSrColorModelConverter(w, h, dBilinear, uBilinear),
+            new YSbSrColorModelConverter(w, h, dDWT, uDWT),
+            new YSbSrColorModelConverter(w, h),
+            new YSbSrColorModelConverter(w, h),
+            new ReversibleYUVColorModelConverter(w, h)
+         };
 
-        boolean[] is420 = new boolean[]
-        {
-            false, true, true, true, true, 
-            false, true, true, true, true, 
-            false, false
-        };
+         boolean[] is420 = new boolean[]
+         {
+             false, true, true, true, true, 
+             false, true, true, true, true, 
+             false, false
+         };
 
-        String[] names = { "XYZ",
-                           "YCbCr - four taps",
-                           "YCbCr - bilinear",
-                           "YCbCr - DWT",
-                           "YCbCr - built-in (bilinear)",
-                           "YCbCr",
-                           "YSbSr - four taps",
-                           "YSbSr - bilinear",
-                           "YSbSr - DWT",
-                           "YSbSr - built-in (bilinear)",
-                           "YSbSr",
-                           "Reversible YUV"
-                         };
+         String[] names = { "XYZ",
+                            "YCbCr - four taps",
+                            "YCbCr - bilinear",
+                            "YCbCr - DWT",
+                            "YCbCr - built-in (bilinear)",
+                            "YCbCr",
+                            "YSbSr - four taps",
+                            "YSbSr - bilinear",
+                            "YSbSr - DWT",
+                            "YSbSr - built-in (bilinear)",
+                            "YSbSr",
+                            "Reversible YUV"
+                          };
 
-        icon = new ImageIcon(img);
-        JFrame frame = new JFrame("Original");
-        frame.setBounds(20, 30, w, h);
-        frame.add(new JLabel(icon));
-        frame.setVisible(true);
-        System.out.println("================ Test round trip RGB -> YXX -> RGB ================");
+         icon = new ImageIcon(img);
+         JFrame frame = new JFrame("Original");
+         frame.setBounds(20, 30, w, h);
+         frame.add(new JLabel(icon));
+         frame.setVisible(true);
+         System.out.println("================ Test round trip RGB -> YXX -> RGB ================");
 
-        for (int i=0; i<cvts.length; i++)
-        {
-           test(names[i], cvts[i], rgb, rgb2, w, h, i+1, is420[i]);
-        }
+         for (int i=0; i<cvts.length; i++)
+         {
+            test(names[i], cvts[i], rgb, rgb2, w, h, i+1, is420[i]);
+         }
 
-        try
-        {
            Thread.sleep(35000);
         }
         catch (Exception e)
         {
+           e.printStackTrace();
         }
 
         System.exit(0);

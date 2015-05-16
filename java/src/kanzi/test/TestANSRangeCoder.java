@@ -18,7 +18,6 @@ package kanzi.test;
 import kanzi.bitstream.DebugInputBitStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.FileInputStream;
 import java.util.Random;
 import kanzi.InputBitStream;
 import kanzi.OutputBitStream;

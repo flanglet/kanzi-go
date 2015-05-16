@@ -1854,7 +1854,7 @@ public class IntraPredictor
       int x;
       int y;
 
-      private static SearchBlockContext[] CACHE = init();
+      private static final SearchBlockContext[] CACHE = init();
       private static int INDEX = 0;
 
       private static SearchBlockContext[] init()
@@ -1919,10 +1919,7 @@ public class IntraPredictor
             if (this.y != c.y)
                return false;
 
-            if (this.x != c.x)
-               return false;
-
-            return true;
+            return this.x == c.x;
          }
          catch (ClassCastException e)
          {

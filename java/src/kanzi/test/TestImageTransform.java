@@ -21,6 +21,7 @@ import kanzi.IntTransform;
 import kanzi.transform.DCT16;
 import kanzi.transform.DCT32;
 import kanzi.transform.DCT4;
+import kanzi.transform.DWT_CDF_9_7;
 import kanzi.transform.WHT16;
 import kanzi.transform.WHT32;
 import kanzi.transform.WHT4;
@@ -84,6 +85,12 @@ public class TestImageTransform
         WHT32 wht32 = new WHT32();
         transform(wht32, w, h, rgb, 32, "Walsh-Hadamard Transform 32x32", 500, 500);
 
+        DWT_CDF_9_7 dwt1 = new DWT_CDF_9_7(w, h, 4);
+        transform(dwt1, w, h, rgb, Math.min(w, h), "Wavelet Transform CDF 9/7 "+w+"x"+h, 550, 550);
+
+        DWT_CDF_9_7 dwt2 = new DWT_CDF_9_7(32, 32, 2);
+        transform(dwt2,  w, h, rgb, 32, "Wavelet Transform CDF 9/7 32x32", 600, 600);
+
         try
         {
            Thread.sleep(25000);
@@ -101,7 +108,7 @@ public class TestImageTransform
   {
     int len = w * h;
     int[] rgb2 = new int[len];
-    int[] data = new int[1024];
+    int[] data = new int[w*h];
     long sum = 0L;
     int iter = 1000;
     IndexedIntArray iia = new IndexedIntArray(data, 0);
@@ -146,8 +153,6 @@ public class TestImageTransform
        }
     }
 
-    System.out.println(title);
-    System.out.println("Elapsed time for "+iter+" iterations [ms]: "+sum/1000000L);
     int psnr1024 = new ImageQualityMonitor(w, h).computePSNR(rgb, rgb2);
     int ssim1024 = new ImageQualityMonitor(w, h).computeSSIM(rgb, rgb2);
     //System.out.println("PSNR: "+(float) psnr256 / 256);
@@ -155,6 +160,8 @@ public class TestImageTransform
     title += (psnr1024 < 1024) ? "Infinite" : ((float) psnr1024 / 1024);
     title += " - SSIM: ";
     title += ((float) ssim1024 / 1024);
+    System.out.println(title);
+    System.out.println("Elapsed time for "+iter+" iterations [ms]: "+sum/1000000L);
 
     java.awt.GraphicsDevice gs = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
     java.awt.GraphicsConfiguration gc = gs.getDefaultConfiguration();
