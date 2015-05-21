@@ -44,9 +44,9 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
    private final int verbosity;
    private final boolean overwrite;
    private final String inputName;
-   private final String outputName;
+   private final String outputName;   
    private CompressedInputStream cis;
-   private OutputStream fos;
+   private OutputStream os;
    private int jobs;
    private boolean ownPool;
    private final ExecutorService pool;
@@ -62,6 +62,24 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
    public BlockDecompressor(String[] args, ExecutorService threadPool)
    {
       this(args, threadPool, false);
+   }
+   
+   
+   public BlockDecompressor(Map<String, Object> map, ExecutorService threadPool, boolean ownPool)
+   {
+      this.verbosity = (Integer) map.get("verbose");
+      this.overwrite = (Boolean) map.get("overwrite");
+      this.inputName = (String) map.get("inputName");
+      this.outputName = (String) map.get("outputName");
+      this.jobs = (Integer) map.get("jobs");
+      this.pool = (this.jobs == 1) ? null : 
+              ((threadPool == null) ? Executors.newCachedThreadPool() : threadPool);
+      this.ownPool = ownPool;
+      this.os = (OutputStream) map.get("outputStream");
+      this.listeners = new ArrayList<BlockListener>(10);      
+      
+      if (this.verbosity > 1)
+         this.addListener(new InfoPrinter(this.verbosity, InfoPrinter.Type.DECODING, System.out));   
    }
    
    
@@ -98,8 +116,8 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
 
       try
       {
-         if (this.fos != null)
-            this.fos.close();
+         if (this.os != null)
+            this.os.close();
       }
       catch (IOException ioe)
       {
@@ -157,52 +175,53 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       boolean silent = this.verbosity < 1;
       printOut("Decoding ...", !silent);
 
-      if (this.outputName.equalsIgnoreCase("NONE"))
+      if (this.os == null)
       {
-         this.fos = new NullOutputStream();
-      }
-      else
-      {
-         File output;
-         
-         try
+         if (this.outputName.equalsIgnoreCase("NONE"))
          {
-            output = new File(this.outputName);
-
-            if (output.exists())
+            this.os = new NullOutputStream();
+         }
+         else
+         {
+            try
             {
-               if (output.isDirectory())
-               {
-                  System.err.println("The output file is a directory");
-                  return Error.ERR_OUTPUT_IS_DIR;
-               }
+               File output = new File(this.outputName);
 
-               if (this.overwrite == false)
+               if (output.exists())
                {
-                  System.err.println("The output file exists and the 'overwrite' command "
-                          + "line option has not been provided");
-                  return Error.ERR_OVERWRITE_FILE;
+                  if (output.isDirectory())
+                  {
+                     System.err.println("The output file is a directory");
+                     return Error.ERR_OUTPUT_IS_DIR;
+                  }
+
+                  if (this.overwrite == false)
+                  {
+                     System.err.println("The output file exists and the 'overwrite' command "
+                             + "line option has not been provided");
+                     return Error.ERR_OVERWRITE_FILE;
+                  }
                }
             }
-         }
-         catch (Exception e)
-         {
-            System.err.println("Cannot open output file '"+ this.outputName+"' for writing: " + e.getMessage());
-            return Error.ERR_CREATE_FILE;
-         }
+            catch (Exception e)
+            {
+               System.err.println("Cannot open output file '"+ this.outputName+"' for writing: " + e.getMessage());
+               return Error.ERR_CREATE_FILE;
+            }
 
-         try
-         {
-            // Create output stream (note: it creates the file yielding file.exists()
-            // to return true so it must be called after the check).
-            this.fos = new FileOutputStream(output);
-         }
-         catch (IOException e)
-         {
-            System.err.println("Cannot open output file '"+ this.outputName+"' for writing: " + e.getMessage());
-            return Error.ERR_CREATE_FILE;
-         }
-      } 
+            try
+            {
+               // Create output stream (note: it creates the file yielding file.exists()
+               // to return true so it must be called after the check).
+               this.os = new FileOutputStream(this.outputName);
+            }
+            catch (IOException e)
+            {
+               System.err.println("Cannot open output file '"+ this.outputName+"' for writing: " + e.getMessage());
+               return Error.ERR_CREATE_FILE;
+            }
+         } 
+      }
 
       try
       {
@@ -251,7 +270,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
             {
                if (decoded > 0)
                {
-                  this.fos.write(iba.array, 0, decoded);
+                  this.os.write(iba.array, 0, decoded);
                   read += decoded;
                }
             }

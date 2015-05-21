@@ -69,6 +69,28 @@ public class BlockCompressor implements Runnable, Callable<Integer>
    }
    
    
+   public BlockCompressor(Map<String, Object> map, ExecutorService threadPool)
+   {
+      this.verbosity = (Integer) map.get("verbose");
+      this.overwrite = (Boolean) map.get("overwrite");
+      this.inputName = (String) map.get("inputName");
+      this.outputName = (String) map.get("outputName");
+      this.codec = (String) map.get("codec");
+      this.blockSize = (Integer) map.get("blockSize");
+      this.transform = (String) map.get("transform");
+      this.checksum = (Boolean) map.get("checksum");
+      this.jobs = (Integer) map.get("jobs");
+      this.pool = (this.jobs == 1) ? null : 
+              ((threadPool == null) ? Executors.newCachedThreadPool() : threadPool);
+      this.ownPool = false;
+      this.is = (InputStream) map.get("inputStream");
+      this.listeners = new ArrayList<BlockListener>(10);
+      
+      if (this.verbosity > 1)
+         this.addListener(new InfoPrinter(this.verbosity, InfoPrinter.Type.ENCODING, System.out));
+   }
+    
+   
    protected BlockCompressor(String[] args, ExecutorService threadPool, boolean ownPool)
    {
       Map<String, Object> map = new HashMap<String, Object>();
@@ -158,10 +180,10 @@ public class BlockCompressor implements Runnable, Callable<Integer>
       boolean printFlag = this.verbosity > 1;
       printOut("Input file name set to '" + this.inputName + "'", printFlag);
       printOut("Output file name set to '" + this.outputName + "'", printFlag);
-      printOut("Block size set to "+this.blockSize+ " bytes", printFlag);
-      printOut("Verbosity set to "+this.verbosity, printFlag);
-      printOut("Overwrite set to "+this.overwrite, printFlag);
-      printOut("Checksum set to "+this.checksum, printFlag);
+      printOut("Block size set to " + this.blockSize + " bytes", printFlag);
+      printOut("Verbosity set to " + this.verbosity, printFlag);
+      printOut("Overwrite set to " + this.overwrite, printFlag);
+      printOut("Checksum set to "+  this.checksum, printFlag);
       String etransform = ("NONE".equals(this.transform)) ? "no" : this.transform;
       printOut("Using " + etransform + " transform (stage 1)", printFlag);
       String ecodec = ("NONE".equals(this.codec)) ? "no" : this.codec;
@@ -174,7 +196,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
          
          if (!this.outputName.equalsIgnoreCase("NONE"))
          {
-           output = new File(this.outputName);
+            output = new File(this.outputName);
          
             if (output.exists())
             {
@@ -208,7 +230,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
             System.err.println("Cannot create compressed stream: "+e.getMessage());
             return Error.ERR_CREATE_COMPRESSOR;
          }
-     }
+      }
       catch (Exception e)
       {
          System.err.println("Cannot open output file '"+ this.outputName+"' for writing: " + e.getMessage());
@@ -217,8 +239,8 @@ public class BlockCompressor implements Runnable, Callable<Integer>
 
       try
       {
-         File input = new File(this.inputName);
-         this.is = new FileInputStream(input);
+         if (this.is == null)
+           this.is = new FileInputStream(this.inputName);
       }
       catch (Exception e)
       {
