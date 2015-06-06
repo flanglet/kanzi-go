@@ -758,7 +758,11 @@ public final class ImageQualityMonitor
           }
        }
 
-       return (iterations == 0) ? 0 : (int) (ctx.sumSSIM + (iterations >> 1)) / iterations;
+       if (iterations == 0) 
+          return 0;
+       
+       int res = (int) (ctx.sumSSIM + (iterations >> 1)) / iterations;       
+       return (res < 0 ) ? 0 : res;
    }
 
 

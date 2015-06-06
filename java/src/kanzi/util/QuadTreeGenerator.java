@@ -75,7 +75,7 @@ public class QuadTreeGenerator
    // The decomposition stops when enough nodes have been computed or the minimum
    // node dimension has been reached.
    // Input nodes are reused and new nodes are added to the input collection (if needed).
-   public Collection<Node> decomposeNodes(Collection<Node> list, int[] input, int offs, int nbNodes)
+   public Collection<Node> decomposeNodes(Collection<Node> list, int[] input, int nbNodes)
    {
       if (nbNodes < list.size())
          throw new IllegalArgumentException("The target number of nodes must be at least list.size()");
@@ -83,31 +83,33 @@ public class QuadTreeGenerator
       if (nbNodes == list.size())
          return list;
       
-      return this.decompose(list, input, offs, nbNodes, -1);
+      return this.decompose(list, input, nbNodes, -1);
    }
 
 
    // Quad-tree decomposition of the input image based on variance of each node
-   // The decomposition stops when all the nodes in the tree has a variance lower
+   // The decomposition stops when all the nodes in the tree have a variance lower
    // than or equal to the target variance or the minimum node dimension has been
    // reached.
    // Input nodes are reused and new nodes are added to the input collection (if needed).
-   public Collection<Node> decomposeVariance(Collection<Node> list, int[] input, int offs, int variance)
+   public Collection<Node> decomposeVariance(Collection<Node> list, int[] input, int variance)
    {
       if (variance < 0)
          throw new IllegalArgumentException("The target variance of nodes must be at least 0");
 
-      return this.decompose(list, input, offs, -1, variance);
+      return this.decompose(list, input, -1, variance);
    }
 
 
    protected Collection<Node> decompose(Collection<Node> list, int[] input,
-           int offs, int nbNodes, int variance)
+           int nbNodes, int variance)
    {
+      if (list == null)
+         return null;
+      
       final TreeSet<Node> processed = new TreeSet<Node>();
       final TreeSet<Node> nodes = new TreeSet<Node>();
       final int st = this.stride;
-      offs += this.offset;
 
       for (Node node : list)
       {
@@ -115,18 +117,7 @@ public class QuadTreeGenerator
             processed.add(node);
          else
             nodes.add(node);
-      }
-
-      if (nodes.isEmpty() == true)
-      {
-         final int y0 = offs / this.stride;
-         final int x0 = offs - y0*this.stride;
-
-         // Level 0 (root node)
-         Node root = getNode(null, x0, y0, this.width, this.height, this.isRGB);
-         root.computeVariance(input, st);
-         nodes.add(root);
-      }
+      }      
 
       while ((nodes.size() > 0) && ((nbNodes < 0) || (processed.size() + nodes.size() < nbNodes)))
       {
@@ -170,6 +161,7 @@ public class QuadTreeGenerator
       }
       
       nodes.addAll(processed);
+      list.clear();    
       list.addAll(nodes);
       return list;
    }
@@ -185,10 +177,10 @@ public class QuadTreeGenerator
    public static class Node implements Comparable<Node>
    {
       public final Node parent;
-      public final int x;
-      public final int y;
-      public final int w;
-      public final int h;
+      public int x;
+      public int y;
+      public int w;
+      public int h;
       public int variance;
       public final boolean isRGB;
 
@@ -236,10 +228,7 @@ public class QuadTreeGenerator
            if (this.w != n.w)
               return false;
 
-           if (this.h != n.h)
-              return false;
-
-           return true;
+           return (this.h == n.h);
          }
          catch (NullPointerException e)
          {
@@ -261,11 +250,12 @@ public class QuadTreeGenerator
          hash = 79 * hash + this.w;
          hash = 79 * hash + this.h;
          //hash = 79 * hash + this.variance;
+        
          return hash;
       }
 
 
-      int computeVariance(int[] buffer, int stride)
+      public int computeVariance(int[] buffer, int stride)
       {
          return (this.isRGB == true) ? this.computeVarianceRGB(buffer, stride) :
              this.computeVarianceY(buffer, stride);

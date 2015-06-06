@@ -26,7 +26,7 @@ import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import kanzi.ColorModelType;
-import kanzi.prediction.IntraPredictor;
+import kanzi.prediction.LossyIntraPredictor;
 import kanzi.prediction.Prediction;
 import kanzi.util.ImageQualityMonitor;
 import kanzi.util.color.ColorModelConverter;
@@ -70,7 +70,7 @@ public class TestIntraPredictor
         Arrays.fill(y2, 0);
 
         {
-          int predictionType = IntraPredictor.DIR_RIGHT | IntraPredictor.REFERENCE;
+          int predictionType = LossyIntraPredictor.DIR_RIGHT | LossyIntraPredictor.REFERENCE;
           System.out.println("Direction: Right");
           testRoundTrip(y1, y2, w, h, 4, predictionType);
           testRoundTrip(y1, y2, w, h, 8, predictionType);
@@ -81,7 +81,7 @@ public class TestIntraPredictor
         System.out.println();
         
         {
-          int predictionType = IntraPredictor.DIR_LEFT | IntraPredictor.REFERENCE; 
+          int predictionType = LossyIntraPredictor.DIR_LEFT | LossyIntraPredictor.REFERENCE; 
           System.out.println("Direction: Left");
           testRoundTrip(y1, y2, w, h, 4, predictionType);
           testRoundTrip(y1, y2, w, h, 8, predictionType);
@@ -118,7 +118,7 @@ public class TestIntraPredictor
 
    private static void testRoundTrip(int[] frame1, int[] frame2, int w, int h, int dim, int predictionType)
    {
-      IntraPredictor predictor = new IntraPredictor(w, h, 32, w, false, 5, 2);
+      LossyIntraPredictor predictor = new LossyIntraPredictor(w, h, 32, w, false, 5, 2);
       Prediction[] results = new Prediction[8];
       System.out.println();
 
@@ -136,14 +136,14 @@ public class TestIntraPredictor
              {
                 Prediction pred = results[nn];
 
-                if (pred.sad != IntraPredictor.MAX_ERROR)
+                if (pred.sad != LossyIntraPredictor.MAX_ERROR)
                 {
                    for (int jj=j; jj<j+dim; jj++)
                       for (int ii=i; ii<i+dim; ii++)
                          frame2[jj*w+ii] = 0;
                    
-                   System.out.println("Prediction "+IntraPredictor.Mode.getMode(nn));
-                   predictor.computeBlock(pred, frame2, i, j, IntraPredictor.Mode.getMode(nn), predictionType);
+                   System.out.println("Prediction "+LossyIntraPredictor.Mode.getMode(nn));
+                   predictor.computeBlock(pred, frame2, i, j, LossyIntraPredictor.Mode.getMode(nn), predictionType);
                    long error = computeError(frame1, frame2, i, j, w, dim);
                    System.out.println("Error average: "+(float) (error)/(dim*dim));
 

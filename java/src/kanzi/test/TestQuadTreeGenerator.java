@@ -65,11 +65,14 @@ public class TestQuadTreeGenerator
             int nbNodes = 8;
             int minNodeDim = 8;
             nodes.clear();
-            new QuadTreeGenerator(w, h, minNodeDim).decomposeNodes(nodes, source, 0, nbNodes);
+            QuadTreeGenerator.Node node = QuadTreeGenerator.getNode(null, 0, 0, w, h, true);
+            node.computeVariance(source, w);
+            nodes.add(node);            
+            new QuadTreeGenerator(w, h, minNodeDim).decomposeNodes(nodes, source, nbNodes);
             img2.getRaster().setDataElements(0, 0, w, h, dest);
 
-            for (QuadTreeGenerator.Node node : nodes)
-               img2.getGraphics().drawRect(node.x, node.y, node.w, node.h);
+            for (QuadTreeGenerator.Node n : nodes)
+               img2.getGraphics().drawRect(n.x, n.y, n.w, n.h);
 
             //icon = new ImageIcon(img);
             final JFrame frame = new JFrame("Original");
@@ -110,11 +113,14 @@ public class TestQuadTreeGenerator
                {
                   nodes.clear();
                   nbNodes++;
-                  new QuadTreeGenerator(w, h, minNodeDim).decomposeNodes(nodes, source, 0, nbNodes);
+                  node = QuadTreeGenerator.getNode(null, 0, 0, w, h, true);
+                  node.computeVariance(source, w);
+                  nodes.add(node);  
+                  new QuadTreeGenerator(w, h, minNodeDim).decomposeNodes(nodes, source, nbNodes);
                   img2.getRaster().setDataElements(0, 0, w, h, source);
-
-                  for (QuadTreeGenerator.Node node : nodes)
-                    img2.getGraphics().drawRect(node.x, node.y, node.w, node.h);
+                  
+                  for (QuadTreeGenerator.Node n : nodes)
+                    img2.getGraphics().drawRect(n.x, n.y, n.w, n.h);
 
                   String title = frame2.getTitle();
                   int idx = title.lastIndexOf("- nodes=");

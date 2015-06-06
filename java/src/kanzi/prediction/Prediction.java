@@ -22,7 +22,7 @@ public class Prediction
    public int blockDim;
    public int sad;
    public int[] frame;
-   public int[] residue;
+   public final int[] residue;
    public int x;
    public int y;
    public int anchor;
