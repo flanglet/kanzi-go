@@ -163,6 +163,8 @@ public class RSET implements IntTransform
            this.forward(dst.array, dst.index, this.stride, 1, this.height>>i, this.width>>i);
         }
 
+        src.index += (this.width*this.height);
+        dst.index += (this.width*this.height);
         return true;
     }
 
@@ -239,6 +241,8 @@ public class RSET implements IntTransform
            this.inverse(dst.array, dst.index, 1, this.stride, this.width>>i, this.height>>i);
         }
 
+        src.index += (this.width*this.height);
+        dst.index += (this.width*this.height);
         return true;
     }
 
@@ -255,9 +259,9 @@ public class RSET implements IntTransform
        {
           int n = 0;
           
-          for (int i=0; i<half; i+=inc)
-             delta[n++] = block[offs+half+i];
-          
+          for (int i=0; i<half; i+=inc) 
+             delta[n++] = block[offs+half+i];         
+             
           int prev = block[offs+half-inc];
           
           for (int i=end2; i>0; i-=inc)

@@ -253,6 +253,7 @@ public class PAQPredictor implements Predictor
      this.bpos = 7;
    }
 
+   
    // Update the probability model
    @Override
    public void update(int bit)

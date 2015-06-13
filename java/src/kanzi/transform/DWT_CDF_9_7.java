@@ -133,6 +133,8 @@ public class DWT_CDF_9_7 implements IntTransform
            this.forward(dst.array, dst.index, 1, this.width, this.height>>i, this.width>>i);
         }
 
+        src.index += (this.width*this.height);
+        dst.index += (this.width*this.height);
         return true;
     }
 
@@ -244,6 +246,8 @@ public class DWT_CDF_9_7 implements IntTransform
            this.inverse(dst.array, dst.index, this.width, 1, this.width>>i, this.height>>i);
         }
 
+        src.index += (this.width*this.height);
+        dst.index += (this.width*this.height);
         return true;
     }
 

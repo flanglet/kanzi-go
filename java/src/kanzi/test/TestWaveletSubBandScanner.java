@@ -65,6 +65,7 @@ public class TestWaveletSubBandScanner
         {
             if (count == 130900)
                 System.out.println("");
+            
             int processed = scanner.getIndexes(output, output.length, count);
             count += processed;
             System.out.println(processed+" coefficients (total="+count+")");
