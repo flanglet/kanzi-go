@@ -116,7 +116,7 @@ public final class ReversibleYUVColorModelConverter implements ColorModelConvert
                 final int r = u[i] + g;
                 final int b = v[i] + g;
                 
-                rgb[k++] = (r << 16) | (g << 8) | b;
+                rgb[k++] = ((r&0xFF) << 16) | ((g&0xFF) << 8) | (b&0xFF);
                 // ------- toRGB 'Macro' END
             }
 
