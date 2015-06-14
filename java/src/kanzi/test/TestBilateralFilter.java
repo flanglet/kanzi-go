@@ -21,6 +21,8 @@ import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.Transparency;
 import java.awt.image.BufferedImage;
+import java.io.File;
+import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -33,11 +35,10 @@ import kanzi.filter.FastBilateralFilter;
 public class TestBilateralFilter
 {
 
-    public static void main(String[] args)
+    public static void main(String[] args) throws Exception
     {
         String fileName = (args.length > 0) ? args[0] : "C:\\temp\\lena.jpg";
-        ImageIcon icon = new ImageIcon(fileName);
-        Image image = icon.getImage();
+        Image image = ImageIO.read(new File(fileName));
         int w = image.getWidth(null);
         int h = image.getHeight(null);
         System.out.println(w+"x"+h);
@@ -65,7 +66,7 @@ public class TestBilateralFilter
         img3.getRaster().setDataElements(0, 0, w, h, dst2.array);
         JFrame frame = new JFrame("Original");
         frame.setBounds(200, 100, w, h);
-        frame.add(new JLabel(icon));
+        frame.add(new JLabel(new ImageIcon(image)));
         frame.setVisible(true);
         JFrame frame2 = new JFrame("Fast Bilateral Filter");
         frame2.setBounds(400, 200, w, h);

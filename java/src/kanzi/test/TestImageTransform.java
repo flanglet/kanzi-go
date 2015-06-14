@@ -15,6 +15,9 @@ limitations under the License.
 
 package kanzi.test;
 
+import java.awt.Image;
+import java.io.File;
+import javax.imageio.ImageIO;
 import kanzi.IndexedIntArray;
 import kanzi.transform.DCT8;
 import kanzi.IntTransform;
@@ -30,11 +33,10 @@ import kanzi.util.ImageQualityMonitor;
 
 public class TestImageTransform
 {
-  public static void main(String[] args)
+  public static void main(String[] args) throws Exception
   {
-        String filename = (args.length > 0) ? args[0] : "C:\\temp\\lena.jpg";
-        javax.swing.ImageIcon icon = new javax.swing.ImageIcon(filename);
-        java.awt.Image image = icon.getImage();
+        String fileName = (args.length > 0) ? args[0] : "C:\\temp\\lena.jpg";
+        Image image = ImageIO.read(new File(fileName));        
         int w = image.getWidth(null) & 0xFFF0;
         int h = image.getHeight(null) & 0xFFF0;
         java.awt.GraphicsDevice gs = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];

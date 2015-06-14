@@ -15,28 +15,36 @@ limitations under the License.
 
 package kanzi.test;
 
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
+import java.awt.Image;
+import java.awt.image.BufferedImage;
+import java.io.File;
 import java.util.Arrays;
 import java.util.Random;
+import javax.imageio.ImageIO;
 import kanzi.util.ImageQualityMonitor;
 
 
 public class TestImageQuality
 {
 
-   public static void main(String[] args)
+   public static void main(String[] args) throws Exception
    {
-        String fileName = (args.length > 0) ? args[0] : "c:\\temp\\lena.jpg";
-        javax.swing.ImageIcon icon1 = new javax.swing.ImageIcon(fileName);
-        java.awt.Image image1 = icon1.getImage();
-
+        String fileName1 = (args.length > 0) ? args[0] : "r:\\lena.jpg";
+        String fileName2 = (args.length > 1) ? args[1] : "r:\\lena.jpg";
+        Image image1 = ImageIO.read(new File(fileName1));
+        Image image2 = ImageIO.read(new File(fileName2));
         int w = image1.getWidth(null) & -8;
         int h = image1.getHeight(null) & -8;
-        java.awt.GraphicsDevice gs = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
-        java.awt.GraphicsConfiguration gc = gs.getDefaultConfiguration();
-        java.awt.image.BufferedImage img1 = gc.createCompatibleImage(w, h, java.awt.Transparency.OPAQUE);
-        java.awt.image.BufferedImage img2 = gc.createCompatibleImage(w, h, java.awt.Transparency.OPAQUE);
+        GraphicsDevice gs = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
+        GraphicsConfiguration gc = gs.getDefaultConfiguration();
+        BufferedImage img1 = gc.createCompatibleImage(w, h, java.awt.Transparency.OPAQUE);
+        BufferedImage img2 = gc.createCompatibleImage(w, h, java.awt.Transparency.OPAQUE);
 
         img1.getGraphics().drawImage(image1, 0, 0, null);
+        img2.getGraphics().drawImage(image2, 0, 0, null);
         int[] rgb1 = new int[w*h];
         int[] rgb2 = new int[w*h];
         ImageQualityMonitor monitor;
@@ -46,11 +54,11 @@ public class TestImageQuality
         // Do NOT use img.getRGB(): it is more than 10 times slower than
         // img.getRaster().getDataElements()
         img1.getRaster().getDataElements(0, 0, w, h, rgb1);
-        img1.getRaster().getDataElements(0, 0, w, h, rgb2);
+        img2.getRaster().getDataElements(0, 0, w, h, rgb2);
 
         {
            img2.getRaster().setDataElements(0, 0, w, h, rgb2);
-           System.out.println("\nSame images");
+           System.out.println("\nNo distortion");
            monitor = new ImageQualityMonitor(w, h);
            psnr = monitor.computePSNR(rgb1, rgb2);
            ssim = monitor.computeSSIM(rgb1, rgb2);

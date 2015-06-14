@@ -21,7 +21,9 @@ import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.Transparency;
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.util.Arrays;
+import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -48,8 +50,7 @@ public class TestColorModel
        try
        {
          String fileName = (args.length > 0) ? args[0] : "c:\\temp\\lena.jpg";
-         ImageIcon icon = new ImageIcon(fileName);
-         Image image = icon.getImage();
+         Image image = ImageIO.read(new File(fileName));
          int w = image.getWidth(null) & -15;
          int h = image.getHeight(null) & -15;
          GraphicsDevice gs = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
@@ -110,10 +111,9 @@ public class TestColorModel
                             "Reversible YUV"
                           };
 
-         icon = new ImageIcon(img);
          JFrame frame = new JFrame("Original");
          frame.setBounds(20, 30, w, h);
-         frame.add(new JLabel(icon));
+         frame.add(new JLabel(new ImageIcon(img)));
          frame.setVisible(true);
          System.out.println("================ Test round trip RGB -> YXX -> RGB ================");
 

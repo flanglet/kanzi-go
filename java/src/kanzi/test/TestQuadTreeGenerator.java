@@ -23,8 +23,10 @@ import java.awt.Transparency;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -43,8 +45,7 @@ public class TestQuadTreeGenerator
         try
         {
             String fileName = (args.length > 0) ? args[0] : "c:\\temp\\lena.jpg";
-            ImageIcon icon = new ImageIcon(fileName);
-            Image image = icon.getImage();
+            Image image = ImageIO.read(new File(fileName));            
             int w = image.getWidth(null) & -8;
             int h = image.getHeight(null) & -8;
             System.out.println(w+"x"+h);
@@ -77,7 +78,7 @@ public class TestQuadTreeGenerator
             //icon = new ImageIcon(img);
             final JFrame frame = new JFrame("Original");
             frame.setBounds(150, 100, w, h);
-            frame.add(new JLabel(icon));
+            frame.add(new JLabel(new ImageIcon(image)));
             frame.setVisible(true);
             final JFrame frame2 = new JFrame("Filter");
             frame2.setBounds(700, 150, w, h);

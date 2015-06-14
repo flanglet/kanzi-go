@@ -22,8 +22,10 @@ import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.Transparency;
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -40,8 +42,7 @@ public class TestSobelFilter
         try
         {
             String fileName = (args.length > 0) ? args[0] : "c:\\temp\\lena.jpg";
-            ImageIcon icon = new ImageIcon(fileName);
-            Image image = icon.getImage();
+            Image image = ImageIO.read(new File(fileName));
             int w = image.getWidth(null);
             int h = image.getHeight(null);
             
@@ -51,6 +52,7 @@ public class TestSobelFilter
                System.exit(1);
             }
 
+            ImageIcon icon = new ImageIcon(image);
             int adjust = 100 * 512 * 512 / (w * h); // adjust number of tests based on size
             System.out.println(fileName);
             System.out.println(w+"x"+h);
