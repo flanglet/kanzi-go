@@ -35,6 +35,7 @@ import kanzi.util.color.YCbCrColorModelConverter;
 import kanzi.util.ImageQualityMonitor;
 import kanzi.util.color.ReversibleYUVColorModelConverter;
 import kanzi.util.color.XYZColorModelConverter;
+import kanzi.util.color.YCgCoColorModelConverter;
 import kanzi.util.color.YSbSrColorModelConverter;
 import kanzi.util.sampling.BilinearUpSampler;
 import kanzi.util.sampling.DecimateDownSampler;
@@ -87,6 +88,7 @@ public class TestColorModel
             new YSbSrColorModelConverter(w, h, dDWT, uDWT),
             new YSbSrColorModelConverter(w, h),
             new YSbSrColorModelConverter(w, h),
+            new YCgCoColorModelConverter(w, h),
             new ReversibleYUVColorModelConverter(w, h)
          };
 
@@ -94,7 +96,7 @@ public class TestColorModel
          {
              false, true, true, true, true, 
              false, true, true, true, true, 
-             false, false
+             false, false, false
          };
 
          String[] names = { "XYZ",
@@ -108,6 +110,7 @@ public class TestColorModel
                             "YSbSr - DWT",
                             "YSbSr - built-in (bilinear)",
                             "YSbSr",
+                            "YCoCg",
                             "Reversible YUV"
                           };
 
