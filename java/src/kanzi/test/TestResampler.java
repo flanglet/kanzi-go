@@ -34,6 +34,7 @@ import kanzi.util.sampling.DecimateDownSampler;
 import kanzi.util.sampling.FourTapUpSampler;
 import kanzi.util.sampling.SixTapUpSampler;
 import kanzi.util.sampling.DownSampler;
+import kanzi.util.sampling.EdgeDirectedUpSampler;
 import kanzi.util.sampling.UpSampler;
 
 
@@ -95,10 +96,11 @@ public class TestResampler
         UpSampler uFourtap = new FourTapUpSampler(w/factor, h/factor, factor);
         //SubSampler dFourtap = new FourTapDownSampler(w, h, factor);
         UpSampler uSixtap = new SixTapUpSampler(w/factor, h/factor, factor);
+        UpSampler oriented = new EdgeDirectedUpSampler(w/factor, h/factor);
         //SubSampler dSixtap = new SixTapDownSampler(w, h, factor);
-        DownSampler[] subSamplers = new DownSampler[]  { dBilinear, dBilinear, dBilinear };
-        UpSampler[] superSamplers = new UpSampler[]  { uBilinear, uFourtap, uSixtap };
-        String[] titles = new String[] { "Bilinear", "Four taps", "Six taps" };
+        DownSampler[] subSamplers = new DownSampler[]  { dBilinear, dBilinear, dBilinear, dBilinear };
+        UpSampler[] superSamplers = new UpSampler[]  { uBilinear, uFourtap, uSixtap, oriented };
+        String[] titles = new String[] { "Bilinear", "Four taps", "Six taps", "Oriented" };
         System.out.println(w + "x" + h);
         System.out.println();
 
@@ -116,10 +118,13 @@ public class TestResampler
            {
                long before = System.nanoTime();
                subSamplers[s].subSample(y, output);
+               Arrays.fill(y, 0);
                superSamplers[s].superSample(output, y);
                subSamplers[s].subSample(u, output);
+               Arrays.fill(u, 0);
                superSamplers[s].superSample(output, u);
                subSamplers[s].subSample(v, output);
+               Arrays.fill(v, 0);
                superSamplers[s].superSample(output, v);
                long after = System.nanoTime();
                delta += (after - before);
@@ -167,7 +172,7 @@ public class TestResampler
         GraphicsDevice gs = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
         GraphicsConfiguration gc = gs.getDefaultConfiguration();
         BufferedImage img = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
-        System.out.println("========= Testing round trip: original -> downsample by 2 -> upsample by 2");
+        System.out.println("========= Testing upsampling by 2");
 
         img.getGraphics().drawImage(image, 0, 0, null);
         int[] rgb = new int[w*h];
