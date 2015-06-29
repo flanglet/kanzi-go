@@ -17,7 +17,7 @@ package kanzi.util.sampling;
 
 
 // Edge Oriented Interpolation based upsampler.
-// Original code by David Schleef: <./original/gstediupsample.c>
+// Original code by David Schleef: gstediupsample.c
 // See http://schleef.org/ds/cgak-demo-1 for explanation of the algo and
 // http://schleef.org/ds/cgak-demo-1.png for visual examples.
 public class EdgeDirectedUpSampler implements UpSampler
@@ -73,31 +73,22 @@ public class EdgeDirectedUpSampler implements UpSampler
    private static int reconstructV(int[] buf, int offs, int stride, int a, int b, int c, int d)
    {
       int x;
-      x  = buf[offs-3*stride] * a;
-      x += buf[offs-2*stride] * b;
-      x += buf[offs-1*stride] * c;
-      x += buf[offs-0*stride] * d;
-      offs++;
-      x += buf[offs+0*stride] * d;
-      x += buf[offs+1*stride] * c;
-      x += buf[offs+2*stride] * b;
-      x += buf[offs+3*stride] * a;
-      return (x + 0) >> 5;
+      x  = (buf[offs-3*stride]+buf[offs+1+3*stride]) * a;
+      x += (buf[offs-2*stride]+buf[offs+1+2*stride]) * b;
+      x += (buf[offs-1*stride]+buf[offs+1+1*stride]) * c;
+      x += (buf[offs-0*stride]+buf[offs+1+0*stride]) * d;
+      return (x + 16) >> 5;
    }
 
    
    private static int reconstructH(int[] buf, int offs1, int offs2, int a, int b, int c, int d)
    {
       int x;
-      x  = buf[offs1-3] * a;
-      x += buf[offs1-2] * b;
-      x += buf[offs1-1] * c;
-      x += buf[offs1-0] * d;
-      x += buf[offs2+0] * d;
-      x += buf[offs2+1] * c;
-      x += buf[offs2+2] * b;
-      x += buf[offs2+3] * a;
-      return (x + 0) >> 5;
+      x  = (buf[offs1-3]+buf[offs2+3]) * a;
+      x += (buf[offs1-2]+buf[offs2+2]) * b;
+      x += (buf[offs1-1]+buf[offs2+1]) * c;
+      x += (buf[offs1-0]+buf[offs2+0]) * d;
+      return (x + 16) >> 5;
    }
 
    
@@ -121,44 +112,48 @@ public class EdgeDirectedUpSampler implements UpSampler
             {
                int v;
                int dx  = (-src[srcOffs-st+i] - src[srcOffs-st+i+1] + src[srcOffs+st+i] + src[srcOffs+st+i+1]) << 1;
-               int dy  = -src[srcOffs-st+i] - 2*src[srcOffs+i] - src[srcOffs+st+i] + src[srcOffs-st+i+1] + 2*src[srcOffs+i+1] + src[srcOffs+st+i+1];
                int dx2 = -src[srcOffs-st+i] + 2*src[srcOffs+i] - src[srcOffs+st+i] - src[srcOffs-st+i+1] + 2*src[srcOffs+i+1] - src[srcOffs+st+i+1];
 
-               if (dy < 0)
+               if (Math.abs(dx) <= 4*Math.abs(dx2))
                {
-		  dy = -dy;
-		  dx = -dx;
-               }
-
-               if (Math.abs(dx) <= 4 * Math.abs(dx2))
-               {
-                  v = (src[srcOffs+i] + src[srcOffs+i+1] + 1) >> 1;
-               }
-               else if (dx < 0)
-               {
-                  if (dx < -2*dy)
-                    v = reconstructV(src, srcOffs+i, st, 0, 0, 0, 16);
-                  else if (dx < -dy)
-                    v = reconstructV(src, srcOffs+i, st, 0, 0, 8, 8);
-                  else if (2*dx < -dy)
-                    v = reconstructV(src, srcOffs+i, st, 0, 4, 8, 4);
-                  else if (3*dx < -dy)
-                    v = reconstructV(src, srcOffs+i, st, 1, 7, 7, 1);
-                  else
-                    v = reconstructV(src, srcOffs+i, st, 4, 8, 4, 0);
+                  v = (src[srcOffs+i] + src[srcOffs+i+1]) >> 1;
                }
                else
                {
-                 if (dx > 2*dy)
-                   v = reconstructV(src, srcOffs+i, -st, 0, 0, 0, 16);
-                 else if (dx > dy)
-                   v = reconstructV(src, srcOffs+i, -st, 0, 0, 8, 8);
-                 else if (2*dx > dy)
-                   v = reconstructV(src, srcOffs+i, -st, 0, 4, 8, 4);
-                 else if (3*dx > dy)
-                   v = reconstructV(src, srcOffs+i, -st, 1, 7, 7, 1);
-                 else
-                   v = reconstructV(src, srcOffs+i, -st, 4, 8, 4, 0);
+                  int dy  = -src[srcOffs-st+i] - 2*src[srcOffs+i] - src[srcOffs+st+i] + src[srcOffs-st+i+1] + 2*src[srcOffs+i+1] + src[srcOffs+st+i+1];
+
+                  if (dy < 0)
+                  {
+                     dy = -dy;
+                     dx = -dx;
+                  }
+                  
+                  if (dx < 0)
+                  {
+                     if (dx < -2*dy)
+                       v = reconstructV(src, srcOffs+i, st, 0, 0, 0, 16);
+                     else if (dx < -dy)
+                       v = reconstructV(src, srcOffs+i, st, 0, 0, 8, 8);
+                     else if (2*dx < -dy)
+                       v = reconstructV(src, srcOffs+i, st, 0, 4, 8, 4);
+                     else if (3*dx < -dy)
+                       v = reconstructV(src, srcOffs+i, st, 1, 7, 7, 1);
+                     else
+                       v = reconstructV(src, srcOffs+i, st, 4, 8, 4, 0);
+                  }
+                  else
+                  {
+                    if (dx > 2*dy)
+                      v = reconstructV(src, srcOffs+i, -st, 0, 0, 0, 16);
+                    else if (dx > dy)
+                      v = reconstructV(src, srcOffs+i, -st, 0, 0, 8, 8);
+                    else if (2*dx > dy)
+                      v = reconstructV(src, srcOffs+i, -st, 0, 4, 8, 4);
+                    else if (3*dx > dy)
+                      v = reconstructV(src, srcOffs+i, -st, 1, 7, 7, 1);
+                    else
+                      v = reconstructV(src, srcOffs+i, -st, 4, 8, 4, 0);
+                  }
                }
 
                dst[dstOffs+i+i] = src[srcOffs+i];
@@ -171,22 +166,26 @@ public class EdgeDirectedUpSampler implements UpSampler
          }
          else
          {
+            // Bilinear upsampling for first and last lines
             final int dstOffs1 = dstOffs;
             final int dstOffs2 = dstOffs + dw;
             final int srcOffs1 = srcOffs;
+            int prev = src[srcOffs1];
+            dst[dstOffs1] = prev;
+            dst[dstOffs2] = prev;
             
-            for (int i=0; i<sw-1; i++)
+            for (int i=1; i<sw; i++)
             {
-               dst[dstOffs1+i+i] = src[srcOffs1+i];
-               dst[dstOffs1+i+i+1] = (src[srcOffs1+i] + src[srcOffs1+i+1]) >> 1;
-               dst[dstOffs2+i+i] = src[srcOffs1+i];
-               dst[dstOffs2+i+i+1] = (src[srcOffs1+i] + src[srcOffs1+i+1]) >> 1;
+               final int cur = src[srcOffs1+i];
+               dst[dstOffs1+i+i] = cur;
+               dst[dstOffs1+i+i-1] = (cur + prev) >> 1;
+               dst[dstOffs2+i+i] = cur;
+               dst[dstOffs2+i+i-1] = (cur + prev) >> 1;
+               prev = cur;
             }
 
-            dst[dstOffs1+dw-2] = src[srcOffs1+sw-1];
-            dst[dstOffs1+dw-1] = src[srcOffs1+sw-1];
-            dst[dstOffs2+dw-2] = src[srcOffs1+sw-1];
-            dst[dstOffs2+dw-1] = src[srcOffs1+sw-1];
+            dst[dstOffs1+dw-1] = prev;
+            dst[dstOffs2+dw-1] = prev;
          }
          
          srcOffs += st;
@@ -208,42 +207,48 @@ public class EdgeDirectedUpSampler implements UpSampler
             {
                int v;
                int dx  = (-dst[dstOffs1+i-1] - dst[dstOffs3+i-1] + dst[dstOffs1+i+1] + dst[dstOffs3+i+1]) << 1;
-               int dy  = -dst[dstOffs1+i-1] - 2*dst[dstOffs1+i] - dst[dstOffs1+i+1] + dst[dstOffs3+i-1] + 2*dst[dstOffs3+i] + dst[dstOffs3+i+1];
                int dx2 = -dst[dstOffs1+i-1] + 2*dst[dstOffs1+i] - dst[dstOffs1+i+1] - dst[dstOffs3+i-1] + 2*dst[dstOffs3+i] - dst[dstOffs3+i+1];
 
-               if (dy < 0)
-               {
-                  dy = -dy;
-                  dx = -dx;
-               }
-
                if (Math.abs(dx) <= 4*Math.abs(dx2))
+               {
                  v = (dst[dstOffs1+i] + dst[dstOffs3+i]) >> 1;
-               else if (dx < 0)
-               {
-                 if (dx < -2*dy)
-                   v = reconstructH(dst, dstOffs1+i, dstOffs3+i, 0, 0, 0, 16);
-                 else if (dx < -dy)
-                   v = reconstructH(dst, dstOffs1+i, dstOffs3+i, 0, 0, 8, 8);
-                 else if (2*dx < -dy)
-                   v = reconstructH(dst, dstOffs1+i, dstOffs3+i, 0, 4, 8, 4);
-                 else if (3*dx < -dy)
-                   v = reconstructH(dst, dstOffs1+i, dstOffs3+i, 1, 7, 7, 1);
-                 else
-                   v = reconstructH(dst, dstOffs1+i, dstOffs3+i, 4, 8, 4, 0);
                }
-               else
+               else 
                {
-                 if (dx > 2*dy)
-                   v = reconstructH(dst, dstOffs3+i, dstOffs1+i, 0, 0, 0, 16);
-                 else if (dx > dy)
-                   v = reconstructH(dst, dstOffs3+i, dstOffs1+i, 0, 0, 8, 8);
-                 else if (2*dx > dy)
-                   v = reconstructH(dst, dstOffs3+i, dstOffs1+i, 0, 4, 8, 4);
-                 else if (3*dx > dy)
-                   v = reconstructH(dst, dstOffs3+i, dstOffs1+i, 1, 7, 7, 1);
-                 else
-                   v = reconstructH(dst, dstOffs3+i, dstOffs1+i, 4, 8, 4, 0);
+                  int dy  = -dst[dstOffs1+i-1] - 2*dst[dstOffs1+i] - dst[dstOffs1+i+1] + dst[dstOffs3+i-1] + 2*dst[dstOffs3+i] + dst[dstOffs3+i+1];
+
+                  if (dy < 0)
+                  {
+                     dy = -dy;
+                     dx = -dx;
+                  }
+
+                  if (dx < 0)
+                  {
+                    if (dx < -2*dy)
+                      v = reconstructH(dst, dstOffs1+i, dstOffs3+i, 0, 0, 0, 16);
+                    else if (dx < -dy)
+                      v = reconstructH(dst, dstOffs1+i, dstOffs3+i, 0, 0, 8, 8);
+                    else if (2*dx < -dy)
+                      v = reconstructH(dst, dstOffs1+i, dstOffs3+i, 0, 4, 8, 4);
+                    else if (3*dx < -dy)
+                      v = reconstructH(dst, dstOffs1+i, dstOffs3+i, 1, 7, 7, 1);
+                    else
+                      v = reconstructH(dst, dstOffs1+i, dstOffs3+i, 4, 8, 4, 0);
+                  }
+                  else
+                  {
+                    if (dx > 2*dy)
+                      v = reconstructH(dst, dstOffs3+i, dstOffs1+i, 0, 0, 0, 16);
+                    else if (dx > dy)
+                      v = reconstructH(dst, dstOffs3+i, dstOffs1+i, 0, 0, 8, 8);
+                    else if (2*dx > dy)
+                      v = reconstructH(dst, dstOffs3+i, dstOffs1+i, 0, 4, 8, 4);
+                    else if (3*dx > dy)
+                      v = reconstructH(dst, dstOffs3+i, dstOffs1+i, 1, 7, 7, 1);
+                    else
+                      v = reconstructH(dst, dstOffs3+i, dstOffs1+i, 4, 8, 4, 0);
+                  }
                }
 
                //dst[dstOffs2+i] = Math.min(Math.max(v, 0), 255);
@@ -258,14 +263,23 @@ public class EdgeDirectedUpSampler implements UpSampler
          dstOffs += dw2;         
       }
    
-      for (int i=0; i<sw; i++) 
+      int prev = dst[dstOffs];
+      dst[dstOffs+1] = prev;
+      dst[dstOffs+dw] = prev;
+      dst[dstOffs+dw+1] = prev;
+      
+      // Bilinear upsampling for first and last lines
+      for (int i=2; i<sw; i++) 
       {
          final int dstOffs1 = dstOffs + i + i;
-         final int dstOffs2 = dstOffs + dw + i + i;		            
-         dst[dstOffs1+1] = dst[dstOffs1];
-         dst[dstOffs2] = dst[dstOffs1];
-         dst[dstOffs2+1] = dst[dstOffs1];
-      }   
+         final int dstOffs2 = dstOffs + dw + i + i;
+         final int cur = dst[dstOffs1];
+         dst[dstOffs1-1] = (cur + prev) >> 1;
+         dst[dstOffs2] = cur;
+         dst[dstOffs2-1] = (cur + prev) >> 1;
+         prev = cur;
+      }      
+
    }
    
    
