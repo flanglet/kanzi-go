@@ -21,7 +21,9 @@ import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.Transparency;
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.util.Arrays;
+import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -30,11 +32,14 @@ import kanzi.util.ImageQualityMonitor;
 import kanzi.util.color.ColorModelConverter;
 import kanzi.util.color.YCbCrColorModelConverter;
 import kanzi.util.sampling.BilinearUpSampler;
+import kanzi.util.sampling.DWTDownSampler;
+import kanzi.util.sampling.DWTUpSampler;
 import kanzi.util.sampling.DecimateDownSampler;
 import kanzi.util.sampling.FourTapUpSampler;
 import kanzi.util.sampling.SixTapUpSampler;
 import kanzi.util.sampling.DownSampler;
 import kanzi.util.sampling.EdgeDirectedUpSampler;
+import kanzi.util.sampling.SixTapDownSampler;
 import kanzi.util.sampling.UpSampler;
 
 
@@ -42,16 +47,27 @@ public class TestResampler
 {
    public static void main(String[] args)
    {
-        String fileName = (args.length > 0) ? args[0] : "c:\\temp\\lena.jpg";
-        roundtrip(fileName, 2, 1);
-        upscale("c:\\temp\\lena256.jpg", 2, 100);
-
         try
         {
-            Thread.sleep(60000);
+           String fileName = (args.length > 0) ? args[0] : "c:\\temp\\lena.jpg";
+           Image image1 = ImageIO.read(new File(fileName));
+           int w = image1.getWidth(null);
+           int h = image1.getHeight(null);
+           GraphicsDevice gs = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
+           GraphicsConfiguration gc = gs.getDefaultConfiguration();
+           BufferedImage bi = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
+           bi.getGraphics().drawImage(image1, 0, 0, null);
+           roundtrip(image1, 1);
+           Image image = ImageIO.read(new File("c:\\temp\\lena256.jpg"));
+           upscale(image, bi, 100, true, 2);
+           image = ImageIO.read(new File("c:\\temp\\lena128.jpg"));
+           image = upscale(image, null, 100, false, 2);
+           upscale(image, bi, 100, true, 4);
+           Thread.sleep(60000);
         }
         catch (Exception e)
         {
+           e.printStackTrace();
         }
 
         System.exit(0);
@@ -59,19 +75,14 @@ public class TestResampler
    }
 
 
-    public static void roundtrip(String fileName, int factor, int iter)
+    public static void roundtrip(Image image, int iter) throws Exception 
     {
-       //for (int i=-0; i<=300; i++)
-       //   System.out.println(i+"  "+((((255-i) >> 31) & 255) | (i & 255)));
-
-        ImageIcon icon = new ImageIcon(fileName);
-        Image image = icon.getImage();
-        int w = image.getWidth(null);
-        int h = image.getHeight(null);
+        int w = image.getWidth(null) & -15;
+        int h = image.getHeight(null) & -15;
         GraphicsDevice gs = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
         GraphicsConfiguration gc = gs.getDefaultConfiguration();
         BufferedImage img = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
-        System.out.println("\n\n========= Testing round trip: original -> downsample by " + factor + " -> upsample by " + factor);
+        System.out.println("\n\n========= Testing round trip: original -> downsample by " + 2 + " -> upsample by " + 2);
 
         img.getGraphics().drawImage(image, 0, 0, null);
         int[] rgb = new int[w*h];
@@ -83,24 +94,24 @@ public class TestResampler
         int[] u = new int[rgb.length];
         int[] v = new int[rgb.length];
         int[] input = rgb;
-        //int[] tmp = new int[rgb.length/factor];
         int[] output = new int[rgb.length];
 
         JFrame frame = new JFrame("Original");
         frame.setBounds(20, 20, w, h);
-        frame.add(new JLabel(icon));
+        frame.add(new JLabel(new ImageIcon(image)));
         frame.setVisible(true);
 
-        UpSampler uBilinear = new BilinearUpSampler(w/factor, h/factor, factor);
-        DownSampler dBilinear = new DecimateDownSampler(w, h, factor);
-        UpSampler uFourtap = new FourTapUpSampler(w/factor, h/factor, factor);
-        //SubSampler dFourtap = new FourTapDownSampler(w, h, factor);
-        UpSampler uSixtap = new SixTapUpSampler(w/factor, h/factor, factor);
-        UpSampler oriented = new EdgeDirectedUpSampler(w/factor, h/factor);
-        //SubSampler dSixtap = new SixTapDownSampler(w, h, factor);
-        DownSampler[] subSamplers = new DownSampler[]  { dBilinear, dBilinear, dBilinear, dBilinear };
-        UpSampler[] superSamplers = new UpSampler[]  { uBilinear, uFourtap, uSixtap, oriented };
-        String[] titles = new String[] { "Bilinear", "Four taps", "Six taps", "Oriented" };
+        UpSampler uBilinear = new BilinearUpSampler(w/2, h/2, 2);
+        DownSampler dDecimate = new DecimateDownSampler(w, h, 2);
+        UpSampler uFourtap = new FourTapUpSampler(w/2, h/2, 2);
+        UpSampler uSixtap = new SixTapUpSampler(w/2, h/2, 2);
+        UpSampler oriented = new EdgeDirectedUpSampler(w/2, h/2);
+        DownSampler dSixtap = new SixTapDownSampler(w, h, 2);
+        DownSampler dDWT = new DWTDownSampler(w, h, w, 1);
+        UpSampler uDWT = new DWTUpSampler(w/2, h/2, w, 1);
+        DownSampler[] subSamplers = new DownSampler[]  { dDecimate, dDecimate, dSixtap, dDecimate, dDWT };
+        UpSampler[] superSamplers = new UpSampler[]  { uBilinear, uFourtap, uSixtap, oriented, uDWT };
+        String[] titles = new String[] { "Bilinear", "Four taps", "Six taps", "Oriented", "DWT" };
         System.out.println(w + "x" + h);
         System.out.println();
 
@@ -131,17 +142,14 @@ public class TestResampler
            }
 
            System.out.println("Elapsed [ms] ("+iter+" iterations): "+delta/1000000);
-           System.out.println();
-
            cvt.convertYUVtoRGB(y, u, v, output, ColorModelType.YUV444);
-
            int psnr1024, ssim1024;
            psnr1024 = new ImageQualityMonitor(w, h).computePSNR(input, output);
            String res =  "PSNR: "+(float) psnr1024 /1024;
            ssim1024 = new ImageQualityMonitor(w, h).computeSSIM(input, output);
            res += " SSIM: "+(float) ssim1024 /1024;
            System.out.println(res);
-           title += " x" + factor + " round trip - " + res;
+           title += " x" + 2 + " round trip - " + res;
            BufferedImage img2 = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
            img2.getRaster().setDataElements(0, 0, w, h, output);
            JFrame frame2 = new JFrame(title);
@@ -150,29 +158,19 @@ public class TestResampler
            frame2.add(new JLabel(icon2));
            frame2.setVisible(true);
         }
-
-        // Test up sample of sub image by 2
-        // TODO
-
-        // Test up sample of sub image by 4
-        // TODO
     }
 
 
 
-    public static void upscale(String fileName, int factor, int iter)
+    public static Image upscale(Image image, BufferedImage refImage, 
+       int iter, boolean displayResult, int scale)
     {
-       //for (int i=-0; i<=300; i++)
-       //   System.out.println(i+"  "+((((255-i) >> 31) & 255) | (i & 255)));
-
-        ImageIcon icon = new ImageIcon(fileName);
-        Image image = icon.getImage();
         int w = image.getWidth(null);
         int h = image.getHeight(null);
         GraphicsDevice gs = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
         GraphicsConfiguration gc = gs.getDefaultConfiguration();
         BufferedImage img = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
-        System.out.println("========= Testing upsampling by 2");
+        System.out.println("\n\n========= Testing upsampling by 2");
 
         img.getGraphics().drawImage(image, 0, 0, null);
         int[] rgb = new int[w*h];
@@ -183,28 +181,29 @@ public class TestResampler
         int[] r = new int[rgb.length];
         int[] g = new int[rgb.length];
         int[] b = new int[rgb.length];
-        int[] ro = new int[rgb.length*factor*factor];
-        int[] go = new int[rgb.length*factor*factor];
-        int[] bo = new int[rgb.length*factor*factor];
-        int[] input = rgb;
-        //int[] tmp = new int[rgb.length/factor];
-        int[] output = new int[rgb.length*factor*factor];
+        int[] ro = new int[rgb.length*2*2];
+        int[] go = new int[rgb.length*2*2];
+        int[] bo = new int[rgb.length*2*2];;
+        int[] ref = new int[rgb.length*2*2];
+        int[] output = new int[rgb.length*2*2];
 
         JFrame frame = new JFrame("Original");
         frame.setBounds(20, 20, w, h);
-        frame.add(new JLabel(icon));
+        frame.add(new JLabel(new ImageIcon(image)));
         frame.setVisible(true);
 
-        UpSampler uBilinear = new BilinearUpSampler(w, h, factor);
-        UpSampler uFourtap = new FourTapUpSampler(w, h, factor);
-        UpSampler uSixtap = new SixTapUpSampler(w, h, factor);
-        w *= factor;
-        h *= factor;
-        UpSampler[] superSamplers = new UpSampler[]  { uBilinear, uFourtap, uSixtap };
-        String[] titles = new String[] { "Bilinear", "Four taps", "Six taps" };
+        UpSampler uBilinear = new BilinearUpSampler(w, h, 2);
+        UpSampler uFourtap = new FourTapUpSampler(w, h, 2);
+        UpSampler uSixtap = new SixTapUpSampler(w, h, 2);
+        UpSampler edi = new EdgeDirectedUpSampler(w, h);
+        w *= 2;
+        h *= 2;
+        UpSampler[] superSamplers = new UpSampler[]  { uBilinear, uFourtap, uSixtap, edi };
+        String[] titles = new String[] { "Bilinear", "Four taps", "Six taps", "Edge Oriented" };
         System.out.println(w + "x" + h);
         System.out.println();
         long delta = 0;
+        Image res = null;
 
         // Round trip down / up
         for (int s=0; s<superSamplers.length; s++)
@@ -229,21 +228,37 @@ public class TestResampler
                long after = System.nanoTime();
                delta += (after - before);
            }
-
-           System.out.println("Elapsed [ms] ("+iter+" iterations): "+delta/1000000);
-           System.out.println();
+           
+           if (refImage != null)
+              refImage.getRaster().getDataElements(0, 0, w, h, ref);
 
            for (int i=0; i<output.length; i++)
               output[i] = (ro[i] << 16) | (go[i] << 8) | bo[i];
 
-            title += " scale by " + factor;
+           if (refImage != null)
+           {
+             System.out.println("Elapsed [ms] ("+iter+" iterations): "+delta/1000000);
+             int psnr1024 = new ImageQualityMonitor(w, h).computePSNR(output, ref);
+             System.out.println("PSNR: "+ (float) psnr1024 /1024);
+           }
+
+           title += " scale by " + scale;
            BufferedImage img2 = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
            img2.getRaster().setDataElements(0, 0, w, h, output);
-           JFrame frame2 = new JFrame(title);
-           frame2.setBounds(50+100*s, 50+100*s, w, h);
-           ImageIcon icon2 = new ImageIcon(img2);
-           frame2.add(new JLabel(icon2));
-           frame2.setVisible(true);
+
+           if (displayResult == true)
+           {
+              JFrame frame2 = new JFrame(title);
+              frame2.setBounds(50+100*s, 50+100*s, w, h);
+              ImageIcon icon2 = new ImageIcon(img2);
+              frame2.add(new JLabel(icon2));
+              frame2.setVisible(true);
+           }
+           
+           res = img2;
         }
+        
+        return res;
     }
+    
 }

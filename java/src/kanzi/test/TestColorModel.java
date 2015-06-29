@@ -28,8 +28,6 @@ import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import kanzi.ColorModelType;
-import kanzi.IndexedIntArray;
-import kanzi.transform.DWT_CDF_9_7;
 import kanzi.util.color.ColorModelConverter;
 import kanzi.util.color.YCbCrColorModelConverter;
 import kanzi.util.ImageQualityMonitor;
@@ -38,6 +36,8 @@ import kanzi.util.color.XYZColorModelConverter;
 import kanzi.util.color.YCoCgColorModelConverter;
 import kanzi.util.color.YSbSrColorModelConverter;
 import kanzi.util.sampling.BilinearUpSampler;
+import kanzi.util.sampling.DWTDownSampler;
+import kanzi.util.sampling.DWTUpSampler;
 import kanzi.util.sampling.DecimateDownSampler;
 import kanzi.util.sampling.FourTapUpSampler;
 import kanzi.util.sampling.DownSampler;
@@ -73,7 +73,7 @@ public class TestColorModel
          DownSampler dFourTap = new DecimateDownSampler(w, h, 2); // For now !!!
          DownSampler dBilinear = new DecimateDownSampler(w, h, 2);//BilinearDownSampler(w, h, 2);
          DownSampler dDWT = new DWTDownSampler(w, h);
-         UpSampler uDWT = new DWTUpSampler(w, h);
+         UpSampler uDWT = new DWTUpSampler(w/2, h/2);
 
          ColorModelConverter[] cvts = new ColorModelConverter[]
          {
@@ -222,106 +222,4 @@ public class TestColorModel
 
         System.out.println("Elapsed [ms] ("+nn+" iterations): "+sum/1000000);
     }
-    
-    
-    static class DWTDownSampler implements DownSampler
-    {
-      private final int w;
-      private final int h;
-      private final DWT_CDF_9_7 dwt;
-      
-      public DWTDownSampler(int w, int h)
-      {
-         this.w = w;
-         this.h = h;
-         this.dwt = new DWT_CDF_9_7(this.w, this.h, 1);
-      }
-            
-      @Override
-      public void subSampleHorizontal(int[] input, int[] output) 
-      {
-         throw new UnsupportedOperationException("Not supported yet."); 
-      }
-
-      @Override
-      public void subSampleVertical(int[] input, int[] output)
-      {
-         throw new UnsupportedOperationException("Not supported yet.");
-      }
-
-      @Override
-      public void subSample(int[] input, int[] output) 
-      {
-         IndexedIntArray src = new IndexedIntArray(input, 0);
-         IndexedIntArray dst = new IndexedIntArray(output, 0);
-         this.dwt.forward(src, dst);
-         
-         for (int j=this.h/2-1; j>=0; j--)
-         {
-            final int offset = j * this.w + this.w/2;
-            
-            // Remove high bands coefficients to down sample
-            for (int i=offset+this.w/2-1; i>=offset; i--)
-               output[i] = 0;
-         }
-
-         for (int j=this.h/2; j<this.h; j++)
-         {
-            final int offset = j * this.w;
-            
-            // Remove high bands coefficients to down sample
-            for (int i=offset+this.w-1; i>=offset; i--)
-               output[i] = 0;
-         }
-      }
-
-      @Override
-      public boolean supportsScalingFactor(int factor) 
-      {
-         return (factor == 2);
-      }
-       
-    }
-    
-    
-    static class DWTUpSampler implements UpSampler
-    {
-      private final int w;
-      private final int h;
-      private final DWT_CDF_9_7 dwt;
-      
-      public DWTUpSampler(int w, int h)
-      {
-         this.w = w;
-         this.h = h;
-         this.dwt = new DWT_CDF_9_7(this.w, this.h, 1);
-      }
-
-      @Override
-      public void superSampleHorizontal(int[] input, int[] output) 
-      {
-         throw new UnsupportedOperationException("Not supported yet.");       
-      }
-
-      @Override
-      public void superSampleVertical(int[] input, int[] output) 
-      {
-         throw new UnsupportedOperationException("Not supported yet."); 
-      }
-
-      @Override
-      public void superSample(int[] input, int[] output) 
-      {
-         IndexedIntArray src = new IndexedIntArray(input, 0);
-         IndexedIntArray dst = new IndexedIntArray(output, 0);
-         dwt.inverse(src, dst);
-      }
-
-      @Override
-      public boolean supportsScalingFactor(int factor) 
-      {
-         return (factor == 2);
-      }
-    }
-    
 }
