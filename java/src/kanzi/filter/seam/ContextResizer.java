@@ -117,7 +117,7 @@ public class ContextResizer implements IntFilter
             throw new IllegalArgumentException("The height must be at most 4096");
 
         if (width > 4096)
-            throw new IllegalArgumentException("The width must be at least 4096");
+            throw new IllegalArgumentException("The width must be at most 4096");
 
         if (stride < 8)
             throw new IllegalArgumentException("The stride must be at least 8");
