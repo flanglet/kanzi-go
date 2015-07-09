@@ -16,57 +16,10 @@ limitations under the License.
 package io
 
 import (
-	"bufio"
 	"errors"
-	"os"
 )
 
-// Simple wrapper around File to add buffered read/write and implement
-// kanzi.InputStream & kanzi.OutputStream
-type BufferedOutputStream struct {
-	file   *os.File
-	writer *bufio.Writer
-}
-
-func NewBufferedOutputStream(file *os.File) (*BufferedOutputStream, error) {
-	bos := new(BufferedOutputStream)
-	bos.file = file
-	bos.writer = bufio.NewWriter(file)
-	return bos, nil
-}
-
-func (this *BufferedOutputStream) Write(b []byte) (n int, err error) {
-	return this.writer.Write(b)
-}
-
-func (this *BufferedOutputStream) Close() error {
-	if err := this.writer.Flush(); err != nil {
-		return err
-	}
-
-	return this.file.Close()
-}
-
-type BufferedInputStream struct {
-	file   *os.File
-	reader *bufio.Reader
-}
-
-func NewBufferedInputStream(file *os.File) (*BufferedInputStream, error) {
-	bis := new(BufferedInputStream)
-	bis.file = file
-	bis.reader = bufio.NewReader(file)
-	return bis, nil
-}
-
-func (this *BufferedInputStream) Read(b []byte) (n int, err error) {
-	return this.reader.Read(b)
-}
-
-func (this *BufferedInputStream) Close() error {
-	return this.file.Close()
-}
-
+// Implements io.WriteCloser
 type NullOutputStream struct {
 	closed bool
 }
@@ -79,7 +32,7 @@ func NewNullOutputStream() (*NullOutputStream, error) {
 
 func (this *NullOutputStream) Write(b []byte) (n int, err error) {
 	if this.closed == true {
-		panic(errors.New("File closed"))
+		panic(errors.New("Stream closed"))
 	}
 
 	return len(b), nil

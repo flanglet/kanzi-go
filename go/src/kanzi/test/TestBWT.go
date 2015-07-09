@@ -176,7 +176,7 @@ func TestSpeed(isBWT bool) {
 			// Sanity check
 			for i := range buf1 {
 				if buf1[i] != buf3[i] {
-					println("Error at index %v: %v<->%v\n", i, buf1[i], buf3[i])
+					fmt.Printf("Error at index %v: %v<->%v\n", i, buf1[i], buf3[i])
 					os.Exit(1)
 				}
 			}

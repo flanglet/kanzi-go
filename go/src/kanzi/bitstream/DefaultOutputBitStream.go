@@ -18,7 +18,7 @@ package bitstream
 import (
 	"errors"
 	"fmt"
-	"kanzi"
+	"io"
 )
 
 type DefaultOutputBitStream struct {
@@ -27,11 +27,11 @@ type DefaultOutputBitStream struct {
 	position int    // index of current byte in buffer
 	bitIndex int    // index of current bit to write
 	current  uint64 // cached bits
-	os       kanzi.OutputStream
+	os       io.WriteCloser
 	buffer   []byte
 }
 
-func NewDefaultOutputBitStream(stream kanzi.OutputStream, bufferSize uint) (*DefaultOutputBitStream, error) {
+func NewDefaultOutputBitStream(stream io.WriteCloser, bufferSize uint) (*DefaultOutputBitStream, error) {
 	if stream == nil {
 		return nil, errors.New("Invalid null output stream parameter")
 	}

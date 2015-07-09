@@ -16,10 +16,11 @@ limitations under the License.
 package main
 
 import (
+	//	"bufio"
 	"flag"
 	"fmt"
-	"kanzi"
-	"kanzi/io"
+	"io"
+	kio "kanzi/io"
 	"os"
 	"runtime"
 	"strconv"
@@ -42,7 +43,7 @@ type BlockCompressor struct {
 	transform    string
 	blockSize    uint
 	jobs         uint
-	listeners    []io.BlockListener
+	listeners    []kio.BlockListener
 }
 
 func NewBlockCompressor() (*BlockCompressor, error) {
@@ -85,7 +86,7 @@ func NewBlockCompressor() (*BlockCompressor, error) {
 
 	if len(*inputName) == 0 {
 		fmt.Printf("Missing input file name, exiting ...\n")
-		os.Exit(io.ERR_MISSING_PARAM)
+		os.Exit(kio.ERR_MISSING_PARAM)
 	}
 
 	if len(*outputName) == 0 {
@@ -94,12 +95,12 @@ func NewBlockCompressor() (*BlockCompressor, error) {
 
 	if *tasks < 1 {
 		fmt.Printf("Invalid number of jobs provided on command line: %v\n", *tasks)
-		os.Exit(io.ERR_INVALID_PARAM)
+		os.Exit(kio.ERR_INVALID_PARAM)
 	}
 
 	if *verbose < 0 {
 		fmt.Printf("Invalid verbosity level provided on command line: %v\n", *verbose)
-		os.Exit(io.ERR_INVALID_PARAM)
+		os.Exit(kio.ERR_INVALID_PARAM)
 	}
 
 	this.verbosity = uint(*verbose)
@@ -123,7 +124,7 @@ func NewBlockCompressor() (*BlockCompressor, error) {
 
 	if err != nil || bSize <= 0 {
 		fmt.Printf("Invalid block size provided on command line: %v\n", *blockSize)
-		os.Exit(io.ERR_BLOCK_SIZE)
+		os.Exit(kio.ERR_BLOCK_SIZE)
 	}
 
 	this.blockSize = uint(scale * bSize)
@@ -131,10 +132,10 @@ func NewBlockCompressor() (*BlockCompressor, error) {
 	this.transform = strings.ToUpper(*function)
 	this.checksum = *cksum
 	this.jobs = uint(*tasks)
-	this.listeners = make([]io.BlockListener, 0)
+	this.listeners = make([]kio.BlockListener, 0)
 
 	if this.verbosity > 1 {
-		if listener, err := io.NewInfoPrinter(this.verbosity, io.ENCODING, os.Stdout); err == nil {
+		if listener, err := kio.NewInfoPrinter(this.verbosity, kio.ENCODING, os.Stdout); err == nil {
 			this.AddListener(listener)
 		}
 	}
@@ -142,7 +143,7 @@ func NewBlockCompressor() (*BlockCompressor, error) {
 	return this, nil
 }
 
-func (this *BlockCompressor) AddListener(bl io.BlockListener) bool {
+func (this *BlockCompressor) AddListener(bl kio.BlockListener) bool {
 	if bl == nil {
 		return false
 	}
@@ -151,7 +152,7 @@ func (this *BlockCompressor) AddListener(bl io.BlockListener) bool {
 	return true
 }
 
-func (this *BlockCompressor) RemoveListener(bl io.BlockListener) bool {
+func (this *BlockCompressor) RemoveListener(bl kio.BlockListener) bool {
 	for i, e := range this.listeners {
 		if e == bl {
 			this.listeners = append(this.listeners[:i-1], this.listeners[i+1:]...)
@@ -168,13 +169,13 @@ func main() {
 
 	if err != nil {
 		fmt.Printf("Failed to create block compressor: %v\n", err)
-		os.Exit(io.ERR_CREATE_COMPRESSOR)
+		os.Exit(kio.ERR_CREATE_COMPRESSOR)
 	}
 
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Printf("An unexpected error occured during compression: %v\n", r.(error))
-			os.Exit(io.ERR_UNKNOWN)
+			os.Exit(kio.ERR_UNKNOWN)
 		}
 	}()
 
@@ -221,8 +222,7 @@ func (this *BlockCompressor) call() (int, uint64) {
 	msg = fmt.Sprintf("Using %d job%s", this.jobs, prefix)
 	printOut(msg, printFlag)
 	written := uint64(0)
-	var output *os.File
-	var bos kanzi.OutputStream
+	var output io.WriteCloser
 
 	if strings.ToUpper(this.outputName) != "NONE" {
 		var err error
@@ -235,7 +235,7 @@ func (this *BlockCompressor) call() (int, uint64) {
 			if this.overwrite == false {
 				fmt.Print("The output file exists and the 'overwrite' command ")
 				fmt.Println("line option has not been provided")
-				return io.ERR_OVERWRITE_FILE, written
+				return kio.ERR_OVERWRITE_FILE, written
 			}
 		}
 
@@ -243,19 +243,12 @@ func (this *BlockCompressor) call() (int, uint64) {
 
 		if err != nil {
 			fmt.Printf("Cannot open output file '%v' for writing: %v\n", this.outputName, err)
-			return io.ERR_CREATE_FILE, written
+			return kio.ERR_CREATE_FILE, written
 		}
 
 		defer output.Close()
-
-		bos, err = io.NewBufferedOutputStream(output)
-
-		if err != nil {
-			fmt.Printf("Cannot create compressed stream: %s\n", err.Error())
-			return io.ERR_CREATE_COMPRESSOR, written
-		}
 	} else {
-		bos, _ = io.NewNullOutputStream()
+		output, _ = kio.NewNullOutputStream()
 	}
 
 	verboseWriter := os.Stdout
@@ -264,16 +257,16 @@ func (this *BlockCompressor) call() (int, uint64) {
 		verboseWriter = nil
 	}
 
-	cos, err := io.NewCompressedOutputStream(this.entropyCodec, this.transform,
-		bos, this.blockSize, this.checksum, verboseWriter, this.jobs)
+	cos, err := kio.NewCompressedOutputStream(this.entropyCodec, this.transform,
+		output, this.blockSize, this.checksum, verboseWriter, this.jobs)
 
 	if err != nil {
-		if ioerr, isIOErr := err.(io.IOError); isIOErr == true {
+		if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
 			fmt.Printf("%s\n", ioerr.Error())
 			return ioerr.ErrorCode(), written
 		} else {
 			fmt.Printf("Cannot create compressed stream: %s\n", err.Error())
-			return io.ERR_CREATE_COMPRESSOR, written
+			return kio.ERR_CREATE_COMPRESSOR, written
 		}
 	}
 
@@ -282,7 +275,7 @@ func (this *BlockCompressor) call() (int, uint64) {
 
 	if err != nil {
 		fmt.Printf("Cannot open input file '%v': %v\n", this.inputName, err)
-		return io.ERR_OPEN_FILE, written
+		return kio.ERR_OPEN_FILE, written
 	}
 
 	defer input.Close()
@@ -304,18 +297,18 @@ func (this *BlockCompressor) call() (int, uint64) {
 	for len > 0 {
 		if err != nil {
 			fmt.Printf("Failed to read block from file '%v': %v\n", this.inputName, err)
-			return io.ERR_READ_FILE, written
+			return kio.ERR_READ_FILE, written
 		}
 
 		read += int64(len)
 
 		if _, err = cos.Write(buffer[0:len]); err != nil {
-			if ioerr, isIOErr := err.(io.IOError); isIOErr == true {
+			if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
 				fmt.Printf("%s\n", ioerr.Error())
 				return ioerr.ErrorCode(), written
 			} else {
 				fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err.Error())
-				return io.ERR_PROCESS_BLOCK, written
+				return kio.ERR_PROCESS_BLOCK, written
 			}
 		}
 
@@ -331,7 +324,7 @@ func (this *BlockCompressor) call() (int, uint64) {
 	// Deferred close is fallback for error paths
 	if err := cos.Close(); err != nil {
 		fmt.Printf("%v\n", err)
-		return io.ERR_PROCESS_BLOCK, written
+		return kio.ERR_PROCESS_BLOCK, written
 	}
 
 	after := time.Now()

@@ -18,7 +18,7 @@ package bitstream
 import (
 	"errors"
 	"fmt"
-	"kanzi"
+	"io"
 )
 
 type DefaultInputBitStream struct {
@@ -26,13 +26,13 @@ type DefaultInputBitStream struct {
 	read        uint64
 	position    int  // index of current byte (consumed if bitIndex == 63)
 	bitIndex    uint // index of current bit to read
-	is          kanzi.InputStream
+	is          io.ReadCloser
 	buffer      []byte
 	maxPosition int
 	current     uint64 // cached bits
 }
 
-func NewDefaultInputBitStream(stream kanzi.InputStream, bufferSize uint) (*DefaultInputBitStream, error) {
+func NewDefaultInputBitStream(stream io.ReadCloser, bufferSize uint) (*DefaultInputBitStream, error) {
 	if stream == nil {
 		return nil, errors.New("Invalid null input stream parameter")
 	}
@@ -60,7 +60,7 @@ func NewDefaultInputBitStream(stream kanzi.InputStream, bufferSize uint) (*Defau
 // Return 1 or 0
 func (this *DefaultInputBitStream) ReadBit() int {
 	if this.bitIndex == 63 {
-		this.pullCurrent()  // Panic if stream is closed
+		this.pullCurrent() // Panic if stream is closed
 	}
 
 	bit := int(this.current>>this.bitIndex) & 1

@@ -126,7 +126,7 @@ type EncodingTask struct {
 	obs             kanzi.OutputBitStream
 }
 
-func NewCompressedOutputStream(entropyCodec string, functionType string, os kanzi.OutputStream, blockSize uint,
+func NewCompressedOutputStream(entropyCodec string, functionType string, os io.WriteCloser, blockSize uint,
 	checksum bool, debugWriter io.Writer, jobs uint) (*CompressedOutputStream, error) {
 	if os == nil {
 		return nil, NewIOError("Invalid null output stream parameter", ERR_CREATE_STREAM)
@@ -619,7 +619,7 @@ type DecodingTask struct {
 	ibs             kanzi.InputBitStream
 }
 
-func NewCompressedInputStream(is *BufferedInputStream,
+func NewCompressedInputStream(is io.ReadCloser,
 	debugWriter io.Writer, jobs uint) (*CompressedInputStream, error) {
 	if is == nil {
 		return nil, NewIOError("Invalid null input stream parameter", ERR_CREATE_STREAM)

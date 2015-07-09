@@ -18,8 +18,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	"kanzi"
-	"kanzi/io"
+	"io"
+	kio "kanzi/io"
 	"os"
 	"runtime"
 	"strings"
@@ -36,7 +36,7 @@ type BlockDecompressor struct {
 	inputName  string
 	outputName string
 	jobs       uint
-	listeners  []io.BlockListener
+	listeners  []kio.BlockListener
 }
 
 func NewBlockDecompressor() (*BlockDecompressor, error) {
@@ -69,7 +69,7 @@ func NewBlockDecompressor() (*BlockDecompressor, error) {
 
 	if len(*inputName) == 0 {
 		fmt.Printf("Missing input file name, exiting ...\n")
-		os.Exit(io.ERR_MISSING_PARAM)
+		os.Exit(kio.ERR_MISSING_PARAM)
 	}
 
 	if strings.HasSuffix(*inputName, ".knz") == false {
@@ -86,12 +86,12 @@ func NewBlockDecompressor() (*BlockDecompressor, error) {
 
 	if *tasks < 1 {
 		fmt.Printf("Invalid number of jobs provided on command line: %v\n", *tasks)
-		os.Exit(io.ERR_INVALID_PARAM)
+		os.Exit(kio.ERR_INVALID_PARAM)
 	}
 
 	if *verbose < 0 {
 		fmt.Printf("Invalid verbosity level provided on command line: %v\n", *verbose)
-		os.Exit(io.ERR_INVALID_PARAM)
+		os.Exit(kio.ERR_INVALID_PARAM)
 	}
 
 	this.verbosity = uint(*verbose)
@@ -99,10 +99,10 @@ func NewBlockDecompressor() (*BlockDecompressor, error) {
 	this.outputName = *outputName
 	this.overwrite = *overwrite
 	this.jobs = uint(*tasks)
-	this.listeners = make([]io.BlockListener, 0)
+	this.listeners = make([]kio.BlockListener, 0)
 
 	if this.verbosity > 1 {
-		if listener, err := io.NewInfoPrinter(this.verbosity, io.DECODING, os.Stdout); err == nil {
+		if listener, err := kio.NewInfoPrinter(this.verbosity, kio.DECODING, os.Stdout); err == nil {
 			this.AddListener(listener)
 		}
 	}
@@ -110,7 +110,7 @@ func NewBlockDecompressor() (*BlockDecompressor, error) {
 	return this, nil
 }
 
-func (this *BlockDecompressor) AddListener(bl io.BlockListener) bool {
+func (this *BlockDecompressor) AddListener(bl kio.BlockListener) bool {
 	if bl == nil {
 		return false
 	}
@@ -119,7 +119,7 @@ func (this *BlockDecompressor) AddListener(bl io.BlockListener) bool {
 	return true
 }
 
-func (this *BlockDecompressor) RemoveListener(bl io.BlockListener) bool {
+func (this *BlockDecompressor) RemoveListener(bl kio.BlockListener) bool {
 	for i, e := range this.listeners {
 		if e == bl {
 			this.listeners = append(this.listeners[:i-1], this.listeners[i+1:]...)
@@ -136,13 +136,13 @@ func main() {
 
 	if err != nil {
 		fmt.Printf("Failed to create block decompressor: %v\n", err)
-		os.Exit(io.ERR_CREATE_DECOMPRESSOR)
+		os.Exit(kio.ERR_CREATE_DECOMPRESSOR)
 	}
 
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Printf("An unexpected error occured during decompression: %v\n", r.(error))
-			os.Exit(io.ERR_UNKNOWN)
+			os.Exit(kio.ERR_UNKNOWN)
 		}
 	}()
 
@@ -168,10 +168,10 @@ func (this *BlockDecompressor) call() (int, uint64) {
 
 	msg = fmt.Sprintf("Using %d job%s", this.jobs, prefix)
 	printOut(msg, printFlag)
-	var output kanzi.OutputStream
+	var output io.WriteCloser
 
 	if strings.ToUpper(this.outputName) == "NONE" {
-		output, _ = io.NewNullOutputStream()
+		output, _ = kio.NewNullOutputStream()
 	} else {
 		var err error
 		output, err = os.OpenFile(this.outputName, os.O_RDWR, 666)
@@ -182,7 +182,7 @@ func (this *BlockDecompressor) call() (int, uint64) {
 				fmt.Printf("The output file '%v' exists and the 'overwrite' command ", this.outputName)
 				fmt.Println("line option has not been provided")
 				output.Close()
-				return io.ERR_OVERWRITE_FILE, 0
+				return kio.ERR_OVERWRITE_FILE, 0
 			}
 		} else {
 			// File does not exist, create
@@ -190,7 +190,7 @@ func (this *BlockDecompressor) call() (int, uint64) {
 
 			if err != nil {
 				fmt.Printf("Cannot open output file '%v' for writing: %v\n", this.outputName, err)
-				return io.ERR_CREATE_FILE, 0
+				return kio.ERR_CREATE_FILE, 0
 			}
 		}
 	}
@@ -205,7 +205,7 @@ func (this *BlockDecompressor) call() (int, uint64) {
 
 	if err != nil {
 		fmt.Printf("Cannot open input file '%v': %v\n", this.inputName, err)
-		return io.ERR_OPEN_FILE, read
+		return kio.ERR_OPEN_FILE, read
 	}
 
 	defer input.Close()
@@ -215,22 +215,15 @@ func (this *BlockDecompressor) call() (int, uint64) {
 		verboseWriter = nil
 	}
 
-	bis, err := io.NewBufferedInputStream(input)
+	cis, err := kio.NewCompressedInputStream(input, verboseWriter, this.jobs)
 
 	if err != nil {
-		fmt.Printf("Cannot create compressed stream: %v\n", err)
-		return io.ERR_CREATE_DECOMPRESSOR, read
-	}
-
-	cis, err := io.NewCompressedInputStream(bis, verboseWriter, this.jobs)
-
-	if err != nil {
-		if err.(*io.IOError) != nil {
-			fmt.Printf("%s\n", err.(*io.IOError).Message())
-			return err.(*io.IOError).ErrorCode(), read
+		if err.(*kio.IOError) != nil {
+			fmt.Printf("%s\n", err.(*kio.IOError).Message())
+			return err.(*kio.IOError).ErrorCode(), read
 		} else {
 			fmt.Printf("Cannot create compressed stream: %v\n", err)
-			return io.ERR_CREATE_DECOMPRESSOR, read
+			return kio.ERR_CREATE_DECOMPRESSOR, read
 		}
 	}
 
@@ -245,12 +238,12 @@ func (this *BlockDecompressor) call() (int, uint64) {
 	// Decode next block
 	for decoded == len(buffer) {
 		if decoded, err = cis.Read(buffer); err != nil {
-			if ioerr, isIOErr := err.(*io.IOError); isIOErr == true {
+			if ioerr, isIOErr := err.(*kio.IOError); isIOErr == true {
 				fmt.Printf("%s\n", ioerr.Message())
 				return ioerr.ErrorCode(), read
 			} else {
 				fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err)
-				return io.ERR_PROCESS_BLOCK, read
+				return kio.ERR_PROCESS_BLOCK, read
 			}
 		}
 
@@ -259,7 +252,7 @@ func (this *BlockDecompressor) call() (int, uint64) {
 
 			if err != nil {
 				fmt.Printf("Failed to write decompressed block to file '%v': %v\n", this.outputName, err)
-				return io.ERR_WRITE_FILE, read
+				return kio.ERR_WRITE_FILE, read
 			}
 
 			read += uint64(decoded)
@@ -270,7 +263,7 @@ func (this *BlockDecompressor) call() (int, uint64) {
 	// Deferred close is fallback for error paths
 	if err := cis.Close(); err != nil {
 		fmt.Printf("%v\n", err)
-		return io.ERR_PROCESS_BLOCK, read
+		return kio.ERR_PROCESS_BLOCK, read
 	}
 
 	after := time.Now()
