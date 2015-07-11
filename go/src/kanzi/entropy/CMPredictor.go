@@ -31,7 +31,6 @@ type CMPredictor struct {
 	runMask  int
 	bpos     int
 	idx      int
-	counter0 []int
 	counter1 [][]int
 	counter2 [][]int
 }
@@ -43,17 +42,15 @@ func NewCMPredictor() (*CMPredictor, error) {
 	this.run = 1
 	this.runMask = 0
 	this.idx = 8
-	this.counter0 = make([]int, 256)
 	this.counter1 = make([][]int, 256)
 	this.counter2 = make([][]int, 512)
 
 	for i := 0; i < 256; i++ {
-		this.counter0[i] = 32768
-		this.counter1[i] = make([]int, 256)
-		this.counter2[2*i] = make([]int, 17)
-		this.counter2[2*i+1] = make([]int, 17)
+		this.counter1[i] = make([]int, 257)
+		this.counter2[i+i] = make([]int, 17)
+		this.counter2[i+i+1] = make([]int, 17)
 
-		for j := 0; j < 256; j++ {
+		for j := 0; j <= 256; j++ {
 			this.counter1[i][j] = 32768
 		}
 
@@ -71,31 +68,27 @@ func NewCMPredictor() (*CMPredictor, error) {
 
 // Update the probability model
 func (this *CMPredictor) Update(bit byte) {
-	ctx_ := this.ctx
-	counter2_ := this.counter2[(ctx_<<1)|this.runMask]
-	counter1_ := this.counter1[this.c1]
-	counter0_ := this.counter0
+	counter2_ := this.counter2[(this.ctx<<1)|this.runMask]
+	counter1_ := this.counter1[this.ctx]
 
 	if bit == 0 {
-		counter0_[ctx_] -= (counter0_[ctx_] >> LOW_RATE)
-		counter1_[ctx_] -= (counter1_[ctx_] >> MEDIUM_RATE)
+		counter1_[256] -= (counter1_[256] >> LOW_RATE)
+		counter1_[this.c1] -= (counter1_[this.c1] >> MEDIUM_RATE)
 		counter2_[this.idx] -= (counter2_[this.idx] >> FAST_RATE)
 		counter2_[this.idx+1] -= (counter2_[this.idx+1] >> FAST_RATE)
 	} else {
-		counter0_[ctx_] += ((counter0_[ctx_] ^ 0xFFFF) >> LOW_RATE)
-		counter1_[ctx_] += ((counter1_[ctx_] ^ 0xFFFF) >> MEDIUM_RATE)
+		counter1_[256] += ((counter1_[256] ^ 0xFFFF) >> LOW_RATE)
+		counter1_[this.c1] += ((counter1_[this.c1] ^ 0xFFFF) >> MEDIUM_RATE)
 		counter2_[this.idx] += ((counter2_[this.idx] ^ 0xFFFF) >> FAST_RATE)
 		counter2_[this.idx+1] += ((counter2_[this.idx+1] ^ 0xFFFF) >> FAST_RATE)
-
 	}
 
-	this.ctx = (ctx_ << 1) | int(bit)
-	this.bpos--
+	this.ctx = (this.ctx << 1) | int(bit)
 
-	if this.bpos < 0 {
+	if this.bpos == 0 {
+		this.bpos = 7
 		this.c2 = this.c1
 		this.c1 = byte(this.ctx)
-		this.bpos = 7
 		this.ctx = 1
 
 		if this.c1 == this.c2 {
@@ -105,14 +98,17 @@ func (this *CMPredictor) Update(bit byte) {
 			this.run = 0
 			this.runMask = 0
 		}
+	} else {
+		this.bpos--
 	}
 }
 
 // Return the split value representing the probability of 1 in the [0..4095] range.
 func (this *CMPredictor) Get() uint {
-	p0 := this.counter0[this.ctx]
-	p1 := this.counter1[this.c1][this.ctx]
-	p2 := this.counter1[this.c2][this.ctx]
+	c := this.counter1[this.ctx]
+	p0 := c[256]
+	p1 := c[this.c1]
+	p2 := c[this.c2]
 	p := ((p0 << 2) + p1 + p1 + p1 + p2 + 4) >> 3
 	this.idx = p >> 12
 	counter2_ := this.counter2[(this.ctx<<1)|this.runMask]
