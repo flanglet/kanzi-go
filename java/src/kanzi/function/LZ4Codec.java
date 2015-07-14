@@ -49,7 +49,9 @@ public final class LZ4Codec implements ByteFunction, Sizeable
    private static final int COPY_LENGTH        = 8;
    private static final int MIN_LENGTH         = 14;
    private static final int MAX_LENGTH         = (32*1024*1024) - 4 - MIN_MATCH;
-   private static final int DEFAULT_FIND_MATCH_ATTEMPTS = (1 << SKIP_STRENGTH) + 3;
+   private static final int ACCELERATION       = 1;
+   private static final int SKIP_TRIGGER       = 6;
+   private static final int SEARCH_MATCH_NB    = ACCELERATION << SKIP_TRIGGER;
 
    private int size;
    private final int[] buffer;
@@ -93,8 +95,9 @@ public final class LZ4Codec implements ByteFunction, Sizeable
    {
       while (len >= 0x1FE)
       {
-         array[idx++] = (byte) 0xFF;
-         array[idx++] = (byte) 0xFF;
+         array[idx]   = (byte) 0xFF;
+         array[idx+1] = (byte) 0xFF;
+         idx += 2;
          len -= 0x1FE;
       }
 
@@ -104,45 +107,30 @@ public final class LZ4Codec implements ByteFunction, Sizeable
          len -= 0xFF;
       }
 
-      array[idx++] = (byte) len;
-      return idx;
+      array[idx] = (byte) len;
+      return idx + 1;
    }
 
-
-   private static int emitLiterals(IndexedByteArray source,
-           IndexedByteArray destination, int runLen, boolean last)
+   
+   private static int writeLastLiterals(byte[] src, int srcIdx, byte[] dst, int dstIdx, int runLength)
    {
-      int token;
-
-      // Emit literal lengths
-      if (runLen >= RUN_MASK)
+      if (runLength >= RUN_MASK)
       {
-         token = RUN_MASK << ML_BITS;
-
-         if (last == true)
-            destination.array[destination.index++] = (byte) token;
-
-         destination.index = writeLength(destination.array, destination.index, runLen - RUN_MASK);
+         dst[dstIdx++] = (byte) (RUN_MASK << ML_BITS);
+         dstIdx = writeLength(dst, dstIdx, runLength - RUN_MASK);               
       }
       else
       {
-         token = runLen << ML_BITS;
-
-         if (last == true)
-            destination.array[destination.index++] = (byte) token;
-      }
-
-      // Emit literals
-      if (last == true)
-         System.arraycopy(source.array, source.index, destination.array, destination.index, runLen);
-      else
-         customArrayCopy(source.array, source.index, destination.array, destination.index, runLen);
-
-      source.index += runLen;
-      destination.index += runLen;
-      return token;
+         dst[dstIdx++] = (byte) (runLength << ML_BITS);
+      } 
+            
+      System.arraycopy(src, srcIdx, dst, dstIdx, runLength);
+      return dstIdx + runLength;
    }
-
+     
+   
+   // Generates same byte output as LZ4_compress_generic in LZ4 r131 (7/15) 
+   // for a 32 bit architecture.
    @Override
    public boolean forward(IndexedByteArray source, IndexedByteArray destination)
    {
@@ -155,136 +143,161 @@ public final class LZ4Codec implements ByteFunction, Sizeable
       final byte[] dst = destination.array;
       final int count = (this.size > 0) ? this.size : src.length - srcIdx0;
 
-      if (destination.array.length - destination.index < getMaxEncodedLength(count))
+      if (dst.length - dstIdx0 < this.getMaxEncodedLength(count))
          return false;
 
-      if (count <= MIN_LENGTH)
-      {
-         emitLiterals(source, destination, count, true);
-         return true;
-      }
-
-      final int base = source.index;
+      final int base = srcIdx0;
       final int hashLog = (count < LZ4_64K_LIMIT) ? HASH_LOG_64K : HASH_LOG;
       final int hashShift = 32 - hashLog;
       final int srcEnd = srcIdx0 + count;
-      final int srcLimit = srcEnd - LAST_LITERALS;
+      final int matchLimit = srcEnd - LAST_LITERALS;
       final int mfLimit = srcEnd - MF_LIMIT;
       int srcIdx = srcIdx0;
       int dstIdx = dstIdx0;
-      int anchor = srcIdx;
-      srcIdx++;
+      int anchor = srcIdx0;
       final int[] table = this.buffer; // aliasing
 
-      for (int i=(1<<hashLog)-1; i>=0; i--)
-         table[i] = 0;
+      if (count > MIN_LENGTH)
+      {    
+         for (int i=(1<<hashLog)-1; i>=0; i--)
+            table[i] = 0;
 
-      while (true)
-      {
-         int attempts = DEFAULT_FIND_MATCH_ATTEMPTS;
-         int fwdIdx = srcIdx;
-         int ref;
+         // First byte
+         int h0 = (readInt(src, srcIdx) * HASH_SEED) >>> hashShift;
+         table[h0] = srcIdx - base;         
+         srcIdx++;
+         int fwdH = (readInt(src, srcIdx) * HASH_SEED) >>> hashShift;
 
-         // Find a match
-         do
+         while (true)
          {
-            srcIdx = fwdIdx;
-            fwdIdx += (attempts >>> SKIP_STRENGTH);
+            int fwdIdx = srcIdx;
+            int step = 1;
+            int searchMatchNb = SEARCH_MATCH_NB;
+            int match;
 
-            if (fwdIdx > mfLimit)
+            // Find a match
+            do
             {
-               source.index = anchor;
-               destination.index = dstIdx;
-               emitLiterals(source, destination, srcEnd - anchor, true);
-               return true;
+               int h = fwdH;
+               srcIdx = fwdIdx;
+               fwdIdx += step;
+
+               if (fwdIdx > mfLimit)
+               {
+                  // Encode last literals
+                  destination.index = writeLastLiterals(src, anchor, dst, dstIdx, srcEnd-anchor);                                    
+                  source.index = srcEnd;
+                  return true;
+               }
+
+               step = searchMatchNb >> SKIP_STRENGTH;
+               searchMatchNb++;
+               match = table[h] + base;            
+               table[h] = srcIdx - base;
+               fwdH = (readInt(src, fwdIdx) * HASH_SEED) >>> hashShift;
+            }
+            while ((differentInts(src, match, srcIdx) == true) || (match <= srcIdx - MAX_DISTANCE));
+
+            // Catch up
+            while ((match > srcIdx0) && (srcIdx > anchor) && (src[match-1] == src[srcIdx-1]))
+            {
+               match--;
+               srcIdx--;
             }
 
-            attempts++;
-            final int h = (readInt(src, srcIdx) * HASH_SEED) >>> hashShift;
-            ref = base + table[h];
-            table[h] = srcIdx - base;
-         }
-         while ((differentInts(src, ref, srcIdx) == true) || (ref <= srcIdx - MAX_DISTANCE));
-
-         // Catch up
-         while ((ref > srcIdx0) && (srcIdx > anchor) && (src[ref-1] == src[srcIdx-1]))
-         {
-            ref--;
-            srcIdx--;
-         }
-
-         // Encode literal length
-         final int runLen = srcIdx - anchor;
-         int tokenOff = dstIdx;
-         dstIdx++;
-
-         source.index = anchor;
-         destination.index = dstIdx;
-         int token = emitLiterals(source, destination, runLen, false);
-         dstIdx = destination.index;
-
-         do
-         {
-            // Encode offset
-            dst[dstIdx++] = (byte) (srcIdx-ref);
-            dst[dstIdx++] = (byte) ((srcIdx-ref) >> 8);
-
-            // Start counting
-            srcIdx += MIN_MATCH;
-            ref += MIN_MATCH;
-            anchor = srcIdx;
-
-            while ((srcIdx < srcLimit) && (src[srcIdx] == src[ref]))
+            // Encode literal length
+            final int litLength = srcIdx - anchor;
+            int token = dstIdx;
+            dstIdx++;
+          
+            if (litLength >= RUN_MASK)
             {
-               srcIdx++;
-               ref++;
-            }
-
-            final int matchLen = srcIdx - anchor;
-
-            // Encode match length
-            if (matchLen >= ML_MASK)
-            {
-               dst[tokenOff] = (byte) (token | ML_MASK);
-               dstIdx = writeLength(dst, dstIdx, matchLen-ML_MASK);
+               dst[token] = (byte) (RUN_MASK << ML_BITS);
+               dstIdx = writeLength(dst, dstIdx, litLength-RUN_MASK);               
             }
             else
             {
-               dst[tokenOff] = (byte) (token | matchLen);
+               dst[token] = (byte) (litLength << ML_BITS);
             }
-
-            // Test end of chunk
-            if (srcIdx > mfLimit)
+           
+            // Copy literals
+            customArrayCopy(src, anchor, dst, dstIdx, litLength);
+            dstIdx += litLength;
+          
+            // Next match
+            do
             {
-               source.index = srcIdx;
-               destination.index = dstIdx;
-               emitLiterals(source, destination, srcEnd - srcIdx, true);
-               return true;
+               // Encode offset
+               dst[dstIdx++] = (byte) (srcIdx-match);
+               dst[dstIdx++] = (byte) ((srcIdx-match) >> 8);
+
+               // Encode match length
+               srcIdx += MIN_MATCH;
+               match += MIN_MATCH;
+               anchor = srcIdx;
+
+               while ((srcIdx < matchLimit) && (src[srcIdx] == src[match]))
+               {
+                  srcIdx++;
+                  match++;
+               }
+
+               final int matchLength = srcIdx - anchor;
+
+               // Encode match length
+               if (matchLength >= ML_MASK)
+               {
+                  dst[token] += (byte) ML_MASK;
+                  dstIdx = writeLength(dst, dstIdx, matchLength-ML_MASK);                 
+               }
+               else
+               {
+                  dst[token] += (byte) matchLength;
+               }            
+
+               anchor = srcIdx;
+
+               if (srcIdx > mfLimit)
+               {
+                  // Encode last literals
+                  destination.index = writeLastLiterals(src, anchor, dst, dstIdx, srcEnd-anchor);
+                  source.index = srcEnd;
+                  return true;
+               }
+
+               // Fill table
+               int h = (readInt(src, srcIdx-2) * HASH_SEED) >>> hashShift;
+               table[h] = srcIdx - 2 - base;
+
+               // Test next position
+               h = (readInt(src, srcIdx) * HASH_SEED) >>> hashShift;
+               match = table[h] + base;
+               table[h] = srcIdx - base;
+
+               if ((differentInts(src, match, srcIdx) == true) || (match <= srcIdx - MAX_DISTANCE))
+                  break;
+               
+               token = dstIdx;
+               dstIdx++;
+               dst[token] = 0;
             }
-
-            // Test next position
-            final int h1 = (readInt(src, srcIdx-2) * HASH_SEED) >>> hashShift;
-            final int h2 = (readInt(src, srcIdx) * HASH_SEED) >>> hashShift;
-            table[h1] = srcIdx - 2 - base;
-            ref = base + table[h2];
-            table[h2] = srcIdx - base;
-
-            if ((differentInts(src, ref, srcIdx) == true) || (ref <= srcIdx - MAX_DISTANCE))
-               break;
-
-            tokenOff = dstIdx;
-            dstIdx++;
-            token = 0;
+            while (true);
+            
+            // Prepare next loop
+            srcIdx++;
+            fwdH = (readInt(src, srcIdx) * HASH_SEED) >>> hashShift;
          }
-         while (true);
-
-         // Prepare next loop
-         anchor = srcIdx;
-         srcIdx++;
       }
+
+      // Encode last literals
+      destination.index = writeLastLiterals(src, anchor, dst, dstIdx, srcEnd-anchor);
+      source.index = srcEnd;
+      return true;
    }
 
 
+   // Reads same byte input as LZ4_decompress_generic in LZ4 r131 (7/15) 
+   // for a 32 bit architecture.
    @Override
    public boolean inverse(IndexedByteArray source, IndexedByteArray destination)
    {
@@ -303,11 +316,10 @@ public final class LZ4Codec implements ByteFunction, Sizeable
       int srcIdx = srcIdx0;
       int dstIdx = dstIdx0;
 
-      while (srcIdx < srcEnd)
+      while (true)
       {
+         // Get literal length 
          final int token = src[srcIdx++] & 0xFF;
-
-         // Literals
          int length = token >> ML_BITS;
 
          if (length == RUN_MASK)
@@ -322,7 +334,8 @@ public final class LZ4Codec implements ByteFunction, Sizeable
             if (length > MAX_LENGTH)
                throw new IllegalArgumentException("Invalid length decoded: " + length);
          }
-
+        
+         // Copy literals
          if ((dstIdx + length > dstEnd2) || (srcIdx + length > srcEnd2))
          {
             System.arraycopy(src, srcIdx, dst, dstIdx, length);
@@ -337,7 +350,11 @@ public final class LZ4Codec implements ByteFunction, Sizeable
 
          // Get offset
          final int delta = (src[srcIdx++] & 0xFF) | ((src[srcIdx++] & 0xFF) << 8);
-         int matchOffset = dstIdx - delta;
+         int match = dstIdx - delta;
+                  
+         if (match < dstIdx0)
+            break;
+         
          length = token & ML_MASK;
 
          // Get match length
@@ -355,34 +372,35 @@ public final class LZ4Codec implements ByteFunction, Sizeable
          }
 
          length += MIN_MATCH;
-         final int matchEnd = dstIdx + length;
+         final int cpy = dstIdx + length;
 
-         if (matchEnd > dstEnd2)
+         // Copy repeated sequence 
+         if (cpy > dstEnd2)
          {
             for (int i=0; i<length; i++)
-            dst[dstIdx+i] = dst[matchOffset+i]; 
+               dst[dstIdx+i] = dst[match+i]; 
          }
          else
-         {
+         { 
             // Unroll loop
             do
             {
-               dst[dstIdx]   = dst[matchOffset];
-               dst[dstIdx+1] = dst[matchOffset+1];
-               dst[dstIdx+2] = dst[matchOffset+2];
-               dst[dstIdx+3] = dst[matchOffset+3];
-               dst[dstIdx+4] = dst[matchOffset+4];
-               dst[dstIdx+5] = dst[matchOffset+5];
-               dst[dstIdx+6] = dst[matchOffset+6];
-               dst[dstIdx+7] = dst[matchOffset+7];
-               matchOffset += 8;
+               dst[dstIdx]   = dst[match];
+               dst[dstIdx+1] = dst[match+1];
+               dst[dstIdx+2] = dst[match+2];
+               dst[dstIdx+3] = dst[match+3];
+               dst[dstIdx+4] = dst[match+4];
+               dst[dstIdx+5] = dst[match+5];
+               dst[dstIdx+6] = dst[match+6];
+               dst[dstIdx+7] = dst[match+7];
+               match += 8;
                dstIdx += 8;
             }
-            while (dstIdx < matchEnd);
+            while (dstIdx < cpy);
          }
          
          // Correction
-         dstIdx = matchEnd;
+         dstIdx = cpy;
       }
 
       destination.index = dstIdx;
