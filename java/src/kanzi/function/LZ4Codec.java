@@ -163,10 +163,10 @@ public final class LZ4Codec implements ByteFunction, Sizeable
             table[i] = 0;
 
          // First byte
-         int h0 = (readInt(src, srcIdx) * HASH_SEED) >>> hashShift;
-         table[h0] = srcIdx - base;         
+         int h = (readInt(src, srcIdx) * HASH_SEED) >>> hashShift;
+         table[h] = srcIdx - base;         
          srcIdx++;
-         int fwdH = (readInt(src, srcIdx) * HASH_SEED) >>> hashShift;
+         h = (readInt(src, srcIdx) * HASH_SEED) >>> hashShift;
 
          while (true)
          {
@@ -178,7 +178,6 @@ public final class LZ4Codec implements ByteFunction, Sizeable
             // Find a match
             do
             {
-               int h = fwdH;
                srcIdx = fwdIdx;
                fwdIdx += step;
 
@@ -194,7 +193,7 @@ public final class LZ4Codec implements ByteFunction, Sizeable
                searchMatchNb++;
                match = table[h] + base;            
                table[h] = srcIdx - base;
-               fwdH = (readInt(src, fwdIdx) * HASH_SEED) >>> hashShift;
+               h = (readInt(src, fwdIdx) * HASH_SEED) >>> hashShift;
             }
             while ((differentInts(src, match, srcIdx) == true) || (match <= srcIdx - MAX_DISTANCE));
 
@@ -266,7 +265,7 @@ public final class LZ4Codec implements ByteFunction, Sizeable
                }
 
                // Fill table
-               int h = (readInt(src, srcIdx-2) * HASH_SEED) >>> hashShift;
+               h = (readInt(src, srcIdx-2) * HASH_SEED) >>> hashShift;
                table[h] = srcIdx - 2 - base;
 
                // Test next position
@@ -285,7 +284,7 @@ public final class LZ4Codec implements ByteFunction, Sizeable
             
             // Prepare next loop
             srcIdx++;
-            fwdH = (readInt(src, srcIdx) * HASH_SEED) >>> hashShift;
+            h = (readInt(src, srcIdx) * HASH_SEED) >>> hashShift;
          }
       }
 

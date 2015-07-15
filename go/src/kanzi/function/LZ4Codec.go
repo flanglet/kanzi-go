@@ -184,7 +184,7 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 		h32 := (readInt(src[srcIdx:]) * HASH_SEED) >> hashShift
 		table[h32] = srcIdx
 		srcIdx++
-		fwdH32 := (readInt(src[srcIdx:]) * HASH_SEED) >> hashShift
+		h32 = (readInt(src[srcIdx:]) * HASH_SEED) >> hashShift
 
 		for {
 			fwdIdx := srcIdx
@@ -194,7 +194,6 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 
 			// Find a match
 			for {
-				h32 = fwdH32
 				srcIdx = fwdIdx
 				fwdIdx += step
 
@@ -208,7 +207,7 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 				searchMatchNb++
 				match = table[h32]
 				table[h32] = srcIdx
-				fwdH32 = (readInt(src[fwdIdx:]) * HASH_SEED) >> hashShift
+				h32 = (readInt(src[fwdIdx:]) * HASH_SEED) >> hashShift
 
 				if differentInts(src, match, srcIdx) == false && match > srcIdx-MAX_DISTANCE {
 					break
@@ -291,7 +290,7 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 
 			// Prepare next loop
 			srcIdx++
-			fwdH32 = (readInt(src[srcIdx:]) * HASH_SEED) >> hashShift
+			h32 = (readInt(src[srcIdx:]) * HASH_SEED) >> hashShift
 		}
 	}
 

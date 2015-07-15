@@ -20,7 +20,7 @@ import (
 )
 
 // Null entropy encoder and decoder
-// Pass through that writes the data directly to the bitstream
+// Pass through codec that writes the input bytes directly to the bitstream
 type NullEntropyEncoder struct {
 	bitstream kanzi.OutputBitStream
 }
@@ -35,7 +35,15 @@ func (this *NullEntropyEncoder) Encode(block []byte) (int, error) {
 	len8 := len(block) & -8
 
 	for i := 0; i < len8; i += 8 {
-		this.encodeLong(block, i)
+		val := uint64(block[i]) << 56
+		val |= (uint64(block[i+1]) << 48)
+		val |= (uint64(block[i+2]) << 40)
+		val |= (uint64(block[i+3]) << 32)
+		val |= (uint64(block[i+4]) << 24)
+		val |= (uint64(block[i+5]) << 16)
+		val |= (uint64(block[i+6]) << 8)
+		val |= uint64(block[i+7])
+		this.bitstream.WriteBits(val, 64)
 	}
 
 	for i := len8; i < len(block); i++ {
@@ -43,18 +51,6 @@ func (this *NullEntropyEncoder) Encode(block []byte) (int, error) {
 	}
 
 	return len(block), nil
-}
-
-func (this *NullEntropyEncoder) encodeLong(block []byte, offset int) {
-	val := uint64(block[offset]) << 56
-	val |= (uint64(block[offset+1]) << 48)
-	val |= (uint64(block[offset+2]) << 40)
-	val |= (uint64(block[offset+3]) << 32)
-	val |= (uint64(block[offset+4]) << 24)
-	val |= (uint64(block[offset+5]) << 16)
-	val |= (uint64(block[offset+6]) << 8)
-	val |= uint64(block[offset+7])
-	this.bitstream.WriteBits(val, 64)
 }
 
 func (this *NullEntropyEncoder) BitStream() kanzi.OutputBitStream {
@@ -78,7 +74,15 @@ func (this *NullEntropyDecoder) Decode(block []byte) (int, error) {
 	len8 := len(block) & -8
 
 	for i := 0; i < len8; i += 8 {
-		this.decodeLong(block, i)
+		val := this.bitstream.ReadBits(64)
+		block[i] = byte(val >> 56)
+		block[i+1] = byte(val >> 48)
+		block[i+2] = byte(val >> 40)
+		block[i+3] = byte(val >> 32)
+		block[i+4] = byte(val >> 24)
+		block[i+5] = byte(val >> 16)
+		block[i+6] = byte(val >> 8)
+		block[i+7] = byte(val)
 	}
 
 	for i := len8; i < len(block); i++ {
@@ -86,18 +90,6 @@ func (this *NullEntropyDecoder) Decode(block []byte) (int, error) {
 	}
 
 	return len(block), nil
-}
-
-func (this *NullEntropyDecoder) decodeLong(block []byte, offset int) {
-	val := this.bitstream.ReadBits(64)
-	block[offset] = byte(val >> 56)
-	block[offset+1] = byte(val >> 48)
-	block[offset+2] = byte(val >> 40)
-	block[offset+3] = byte(val >> 32)
-	block[offset+4] = byte(val >> 24)
-	block[offset+5] = byte(val >> 16)
-	block[offset+6] = byte(val >> 8)
-	block[offset+7] = byte(val)
 }
 
 func (this *NullEntropyDecoder) BitStream() kanzi.InputBitStream {
