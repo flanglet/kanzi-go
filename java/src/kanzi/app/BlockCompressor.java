@@ -399,19 +399,25 @@ public class BlockCompressor implements Runnable, Callable<Integer>
            {
               arg = arg.substring(7).trim();
               String str = arg.toUpperCase();
+              char lastChar = str.charAt(str.length()-1);
               int scale = 1;              
 
               try
               {
-                 // Process K or M suffix
-                 if ('K' == str.charAt(str.length()-1))
+                 // Process K or M or G suffix
+                 if ('K' == lastChar)
                  {
                     scale = 1024;
                     str = str.substring(0, str.length()-1);
                  }
-                 else if ('M' == str.charAt(str.length()-1))
+                 else if ('M' == lastChar)
                  {
                     scale = 1024 * 1024;
+                    str = str.substring(0, str.length()-1);
+                 }
+                 else if ('G' == lastChar)
+                 {
+                    scale = 1024 * 1024 * 1024;
                     str = str.substring(0, str.length()-1);
                  }
                  

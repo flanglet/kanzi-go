@@ -111,13 +111,17 @@ func NewBlockCompressor() (*BlockCompressor, error) {
 
 	// Process K or M suffix
 	scale := 1
+        lastChar := strBlockSize[len(strBlockSize)-1]
 
-	if strBlockSize[len(strBlockSize)-1] == 'K' {
+	if lastChar == 'K' {
 		strBlockSize = strBlockSize[0 : len(strBlockSize)-1]
 		scale = 1024
-	} else if strBlockSize[len(strBlockSize)-1] == 'M' {
+	} else if lastChar == 'M' {
 		strBlockSize = strBlockSize[0 : len(strBlockSize)-1]
 		scale = 1024 * 1024
+	} else if lastChar == 'G' {
+		strBlockSize = strBlockSize[0 : len(strBlockSize)-1]
+		scale = 1024 * 1024 * 1024
 	}
 
 	bSize, err := strconv.Atoi(strBlockSize)
