@@ -247,6 +247,7 @@ public class CompressedOutputStream extends OutputStream
     * implementation for this method.
     *
     * @param      b   the <code>byte</code>..
+    * @throws java.io.IOException
     */
    @Override
    public void write(int b) throws IOException

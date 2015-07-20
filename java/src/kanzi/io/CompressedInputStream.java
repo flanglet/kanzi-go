@@ -228,16 +228,13 @@ public class CompressedInputStream extends InputStream
 
          return this.iba.array[this.iba.index++] & 0xFF;
       }
-      catch (BitStreamException e)
-      {
-         if (e.getErrorCode() == BitStreamException.END_OF_STREAM)
-            return -1;
-
-         throw new kanzi.io.IOException(e.getMessage(), Error.ERR_READ_FILE);
-      }
       catch (kanzi.io.IOException e)
       {
          throw e;
+      }
+      catch (BitStreamException e)
+      {
+         throw new kanzi.io.IOException(e.getMessage(), Error.ERR_READ_FILE);
       }
       catch (ArrayIndexOutOfBoundsException e)
       {
@@ -316,14 +313,9 @@ public class CompressedInputStream extends InputStream
          // Buffer empty, time to decode
          int c2 = this.read();
 
+         // EOF ?
          if (c2 == -1)
-         {
-            // EOF and we did not read any bytes in this call
-            if (len == remaining)
-               return -1;
-
             break;
-         }
 
          array[off++] = (byte) c2;
          remaining--;
