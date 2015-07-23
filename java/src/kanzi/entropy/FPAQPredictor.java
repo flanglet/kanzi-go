@@ -19,7 +19,7 @@ package kanzi.entropy;
 // Simple (and fast) adaptive order 0 entropy coder predictor
 public class FPAQPredictor implements Predictor
 {
-   private static final int THRESHOLD = 200;
+   private static final int THRESHOLD = 96;
    
    private final short[] states; // 256 frequency contexts for each bit
    private int ctxIdx; // previous bits

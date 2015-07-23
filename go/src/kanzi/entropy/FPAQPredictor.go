@@ -16,7 +16,7 @@ limitations under the License.
 package entropy
 
 const (
-	THRESHOLD = 200
+	THRESHOLD = 96
 )
 
 // Based on fpaq1 by Matt Mahoney
