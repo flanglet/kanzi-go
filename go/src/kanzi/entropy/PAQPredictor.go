@@ -294,8 +294,8 @@ func (this *PAQPredictor) Update(bit byte) {
 	// Prediction chain
 	p := this.sm.get(y, this.states[this.c0])
 	p = this.apm2.get(y, p, this.c0|(c1d<<8), 6)
-	p = (3*this.apm3.get(y, p, (this.c4&0xFF)|this.runCtx, 8) + p) >> 2
-	p = (3*this.apm4.get(y, p, this.c0|(this.c4&0x1F00), 7) + p) >> 2
+	p = (3*this.apm3.get(y, p, (this.c4&0xFF)|this.runCtx, 8) + p + 2) >> 2
+	p = (3*this.apm4.get(y, p, this.c0|(this.c4&0x1F00), 7) + p + 2) >> 2
 
 	if p >= 2048 {
 		this.pr = uint(p)
