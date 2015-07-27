@@ -347,19 +347,10 @@ func initStateMapData() []int {
 	for i := range array {
 		n0 := STATE_TABLE[(i<<2)+2]
 		n1 := STATE_TABLE[(i<<2)+3]
+		array[i] = ((n1 + 5) << 16) / (n0 + n1 + 10)
 
-		if n0 == 0 {
-			n1 <<= 7
-		}
-
-		if n1 == 0 {
-			n0 <<= 7
-		}
-
-		array[i] = ((n1 + 1) << 16) / (n0 + n1 + 2)
-
-		// Boost low probabilities
-		if array[i] < 512 {
+		// Boost low probabilities (typically under estimated by above formula)
+		if array[i] < 128 {
 			array[i] <<= 5
 		}
 	}
@@ -374,10 +365,10 @@ func newStateMap() (*StateMap, error) {
 	return this, nil
 }
 
-func (this *StateMap) get(bit int, cx int) int {
-	this.data[this.ctx] += (((bit << 16) - this.data[this.ctx] + 128) >> 8)
-	this.ctx = cx
-	return this.data[this.ctx] >> 4
+func (this *StateMap) get(bit int, nctx int) int {
+	this.data[this.ctx] += (((bit << 16) - this.data[this.ctx] + 256) >> 9)
+	this.ctx = nctx
+	return this.data[nctx] >> 4
 }
 
 /////////////////////////////////////////////////////////////////

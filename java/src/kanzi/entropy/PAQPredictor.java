@@ -124,7 +124,7 @@ public class PAQPredictor implements Predictor
    // Also, when a bit is observed and the count of the opposite bit is large,
    // then part of this count is discarded to favor newer data over old.
    private static final int[] STATE_TABLE =
-    {
+   {
          1,  2, 0, 0,   3,  5, 1, 0,   4,  6, 0, 1,   7, 10, 2, 0, // 0-3
          8, 12, 1, 1,   9, 13, 1, 1,  11, 14, 0, 2,  15, 19, 3, 0, // 4-7
         16, 23, 2, 1,  17, 24, 2, 1,  18, 25, 2, 1,  20, 27, 1, 2, // 8-11
@@ -189,7 +189,7 @@ public class PAQPredictor implements Predictor
        140,248, 0,39, 249,135,40, 0, 250, 69,39, 1,  80,251, 1,39, // 244-247
        140,252, 0,40, 249,135,41, 0, 250, 69,40, 1,  80,251, 1,40, // 248-251
        140,252, 0,41,   0,  0, 0, 0,   0,  0, 0, 0,   0,  0, 0, 0  // 253-255 are reserved
-    };  
+   };
 
 
     private static final int[] INV_EXP =
@@ -224,6 +224,7 @@ public class PAQPredictor implements Predictor
        return res;
    }
 
+    
    // Removed apm11, apm12 and apm5 from original
    private int pr;                   // next predicted value (0-4095)
    private int c0;                   // bitwise context: last 0-7 bits with a leading 1 (1-255)
@@ -250,11 +251,11 @@ public class PAQPredictor implements Predictor
      this.bpos = 7;
    }
 
-   
+
    // Update the probability model
    @Override
    public void update(int bit)
-   {    
+   {
      this.states[this.c0] = STATE_TABLE[(this.states[this.c0]<<2)+bit];
 
      // update context
@@ -264,7 +265,7 @@ public class PAQPredictor implements Predictor
      if (this.bpos < 0)
      {
         if ((this.c0 & 0xFF) == (this.c4 & 0xFF))
-        {          
+        {
            if ((this.run < 4) && (this.run != 2))
               this.runCtx += 256;
 
@@ -283,7 +284,7 @@ public class PAQPredictor implements Predictor
 
      int c1d = (this.c4 >> this.bpos) & 1;
 
-     if ((((this.c4 & 0xFF) | 256) >> (1+this.bpos)) == this.c0) 
+     if ((((this.c4 & 0xFF) | 256) >> (1+this.bpos)) == this.c0)
         c1d |= 2;
 
      // Prediction chain
@@ -295,14 +296,14 @@ public class PAQPredictor implements Predictor
    }
 
 
-   // Return the split value representing the probability of 1 in the [0..4095] range. 
+   // Return the split value representing the probability of 1 in the [0..4095] range.
    @Override
    public int get()
    {
       return this.pr;
    }
 
-   
+
    // return p = 1/(1 + exp(-d)), d scaled by 8 bits, p scaled by 12 bits
    private static int squash(int d)
    {
@@ -330,34 +331,27 @@ public class PAQPredictor implements Predictor
    //////////////////////////////////////////////////////////////////
    static class StateMap
    {
-      private static final int[] DATA = init();
-      
-      private static int[] init() 
+      private static final int[] DATA = initStateMapData();
+
+      private static int[] initStateMapData()
       {
          int[] array = new int[256];
-         
+
          for (int i=0; i<256; i++)
          {
             int n0 = STATE_TABLE[(i<<2)+2];
             int n1 = STATE_TABLE[(i<<2)+3];
+            array[i] = ((n1+5) << 16) / (n0+n1+10);
 
-            if (n0 == 0)
-               n1 <<= 7;
-
-            if (n1 == 0)
-               n0 <<= 7;
-            
-            array[i] = ((n1+1) << 16) / (n0+n1+2);   
-            
-            // Boost low probabilities
-            if (array[i] < 512)
-               array[i] <<= 5;
+            // Boost lowest probabilities (typically under estimated by above formula)
+            if (array[i] < 128)
+               array[i] <<= 5; 
          }
 
          return array;
       }
 
-     
+
       private int ctx;
       private final int[] data;
 
@@ -369,11 +363,11 @@ public class PAQPredictor implements Predictor
       }
 
 
-      int get(int bit, int cx)
+      int get(int bit, int nctx)
       {
-         this.data[this.ctx] += (((bit<<16) - this.data[this.ctx] + 128) >> 8);
-         this.ctx = cx;
-         return this.data[cx] >> 4;
+         this.data[this.ctx] += (((bit<<16) - this.data[this.ctx] + 256) >> 9);
+         this.ctx = nctx;
+         return this.data[nctx] >> 4;
       }
    }
 
@@ -413,7 +407,7 @@ public class PAQPredictor implements Predictor
         this.data[this.index] += ((g-this.data[this.index]) >> rate);
         this.data[this.index+1] += ((g-this.data[this.index+1]) >> rate);
         pr = STRETCH[pr];
-        final int w = pr & 127;  
+        final int w = pr & 127;
         this.index = ((pr+2048) >> 7) + (ctx<<5) + ctx;
         return (this.data[this.index]*(128-w) + this.data[this.index+1]*w) >> 11;
      }
