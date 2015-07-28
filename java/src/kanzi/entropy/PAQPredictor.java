@@ -238,7 +238,7 @@ public class PAQPredictor implements Predictor
    private final AdaptiveProbMap apm3;
    private final AdaptiveProbMap apm4;
 
-
+   
    public PAQPredictor()
    {
      this.pr = 2048;
@@ -246,12 +246,12 @@ public class PAQPredictor implements Predictor
      this.states = new int[256];
      this.apm2 = new AdaptiveProbMap(1024);
      this.apm3 = new AdaptiveProbMap(1024);
-     this.apm4 = new AdaptiveProbMap(8192);
+     this.apm4 = new AdaptiveProbMap(32768);
      this.sm = new StateMap();
      this.bpos = 7;
-   }
+   } 
 
-
+   
    // Update the probability model
    @Override
    public void update(int bit)
@@ -291,7 +291,7 @@ public class PAQPredictor implements Predictor
      int p = this.sm.get(bit, this.states[this.c0]);
      p = this.apm2.get(bit, p, this.c0 | (c1d<<8), 6);
      p = (3*this.apm3.get(bit, p, (this.c4&0xFF) | this.runCtx, 8) + p + 2) >> 2;    
-     p = (3*this.apm4.get(bit, p, this.c0 | (this.c4&0x1F00), 7) + p + 2) >> 2;
+     p = (3*this.apm4.get(bit, p, this.c0 | (this.c4&0x7F00), 8) + p + 2) >> 2;
      this.pr = (p >= 2048) ? p : p+1;      
    }
 
