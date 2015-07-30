@@ -20,7 +20,7 @@ package kanzi.entropy;
 // See http://sourceforge.net/projects/bcm
 public class CMPredictor implements Predictor
 {
-   private static final int LOW_RATE    = 2;
+   private static final int SLOW_RATE   = 2;
    private static final int MEDIUM_RATE = 4;
    private static final int FAST_RATE   = 6;
    
@@ -70,14 +70,14 @@ public class CMPredictor implements Predictor
            
       if (bit == 0)
       {
-         counter1_[256]        -= (counter1_[256]        >> LOW_RATE);
+         counter1_[256]        -= (counter1_[256]        >> SLOW_RATE);
          counter1_[this.c1]    -= (counter1_[this.c1]    >> MEDIUM_RATE);
          counter2_[this.idx]   -= (counter2_[this.idx]   >> FAST_RATE);
          counter2_[this.idx+1] -= (counter2_[this.idx+1] >> FAST_RATE);         
       }
       else
       {
-         counter1_[256]        += ((counter1_[256]^0xFFFF)        >> LOW_RATE);
+         counter1_[256]        += ((counter1_[256]^0xFFFF)        >> SLOW_RATE);
          counter1_[this.c1]    += ((counter1_[this.c1]^0xFFFF)    >> MEDIUM_RATE);
          counter2_[this.idx]   += ((counter2_[this.idx]^0xFFFF)   >> FAST_RATE);
          counter2_[this.idx+1] += ((counter2_[this.idx+1]^0xFFFF) >> FAST_RATE);
@@ -117,12 +117,12 @@ public class CMPredictor implements Predictor
       final int p0 = this.counter1[this.ctx][256];
       final int p1 = this.counter1[this.ctx][this.c1];
       final int p2 = this.counter1[this.ctx][this.c2];
-      final int p = ((p0<<2)+p1+p1+p1+p2+4) >> 3;
-      this.idx = p >> 12;
+      final int p = ((p0<<2)+(p1<<1)+p1+p2+4) >>> 3;
+      this.idx = p >>> 12;
       final int[] counter2_ = this.counter2[(this.ctx<<1)|this.runMask];            
       final int x1 = counter2_[this.idx];
       final int x2 = counter2_[this.idx+1];
       final int ssep = x1 + (((x2-x1)*(p&4095)) >> 12);
-      return (p + ssep + ssep + ssep + 32) >> 6; // rescale to [0..4095]
+      return (p + ssep + ssep + ssep + 32) >>> 6; // rescale to [0..4095]
    }
 }   

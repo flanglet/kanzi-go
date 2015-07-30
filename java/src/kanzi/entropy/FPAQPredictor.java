@@ -19,7 +19,19 @@ package kanzi.entropy;
 // Simple (and fast) adaptive order 0 entropy coder predictor
 public class FPAQPredictor implements Predictor
 {
-   private static final int THRESHOLD = 96;
+   private static final int THRESHOLD = 96;   
+   private static final int[] INVERSE = initInverse();
+   
+   private static int[] initInverse()
+   {
+      int[] res = new int[2*THRESHOLD+4];
+      
+      for (int i=1; i<res.length; i++)
+         res[i] = (1<<12) / i;
+         
+      return res;
+   }
+      
    
    private final short[] states; // 256 frequency contexts for each bit
    private int ctxIdx; // previous bits
@@ -51,12 +63,12 @@ public class FPAQPredictor implements Predictor
       if (idx < 256)
       {
          this.ctxIdx = idx << 1;
-         this.prediction = ((this.states[this.ctxIdx+1]+1)<<12) / (this.states[this.ctxIdx]+this.states[this.ctxIdx+1]+2);          
+         this.prediction = (this.states[this.ctxIdx+1]+1) * INVERSE[this.states[this.ctxIdx]+this.states[this.ctxIdx+1]+3]; 
       }
       else
       {
          this.ctxIdx = 2;
-         this.prediction = ((this.states[3]+1)<<12) / (this.states[2]+this.states[3]+2);             
+         this.prediction = (this.states[3]+1) * INVERSE[this.states[2]+this.states[3]+3];             
       }
    }
 

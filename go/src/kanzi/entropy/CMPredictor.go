@@ -16,7 +16,7 @@ limitations under the License.
 package entropy
 
 const (
-	LOW_RATE    = 2
+	SLOW_RATE   = 2
 	MEDIUM_RATE = 4
 	FAST_RATE   = 6
 )
@@ -72,12 +72,12 @@ func (this *CMPredictor) Update(bit byte) {
 	counter1_ := this.counter1[this.ctx]
 
 	if bit == 0 {
-		counter1_[256] -= (counter1_[256] >> LOW_RATE)
+		counter1_[256] -= (counter1_[256] >> SLOW_RATE)
 		counter1_[this.c1] -= (counter1_[this.c1] >> MEDIUM_RATE)
 		counter2_[this.idx] -= (counter2_[this.idx] >> FAST_RATE)
 		counter2_[this.idx+1] -= (counter2_[this.idx+1] >> FAST_RATE)
 	} else {
-		counter1_[256] += ((counter1_[256] ^ 0xFFFF) >> LOW_RATE)
+		counter1_[256] += ((counter1_[256] ^ 0xFFFF) >> SLOW_RATE)
 		counter1_[this.c1] += ((counter1_[this.c1] ^ 0xFFFF) >> MEDIUM_RATE)
 		counter2_[this.idx] += ((counter2_[this.idx] ^ 0xFFFF) >> FAST_RATE)
 		counter2_[this.idx+1] += ((counter2_[this.idx+1] ^ 0xFFFF) >> FAST_RATE)
