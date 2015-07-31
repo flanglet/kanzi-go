@@ -25,10 +25,10 @@ public class EntropyCodecFactory
 {
    public static final byte NONE_TYPE    = 0; // No compression
    public static final byte HUFFMAN_TYPE = 1; // Huffman
-   public static final byte FPAQ_TYPE    = 2; // Fast PAQ
+   public static final byte FPAQ_TYPE    = 2; // Fast PAQ (order 0)
    public static final byte PAQ_TYPE     = 3; // PAQ
    public static final byte RANGE_TYPE   = 4; // Range
-   public static final byte ANS_TYPE     = 5; // Asymetric Numerical System
+   public static final byte ANS_TYPE     = 5; // Asymmetric Numerical System
    public static final byte CM_TYPE      = 6; // Context Model
    
    

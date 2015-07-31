@@ -233,11 +233,11 @@ func createTreeFromFrequencies(frequencies []uint, sizes_ []byte, ranks []byte) 
 
 // Recursively fill sizes
 func fillSizes(node *HuffmanNode, depth uint, sizes_ []byte) error {
-	if node.left == nil && node.right == nil {
-		if depth > 24 {
-			return fmt.Errorf("Cannot code symbol '%v'", node.symbol)
-		}
+	if depth > 24 {
+		return fmt.Errorf("Cannot code symbol '%v'", node.symbol)
+	}
 
+	if node.left == nil && node.right == nil {
 		sizes_[node.symbol] = byte(depth)
 		return nil
 	}

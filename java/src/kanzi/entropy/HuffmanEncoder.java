@@ -200,11 +200,11 @@ public class HuffmanEncoder implements EntropyEncoder
     // Recursively fill sizes
     private static void fillSizes(Node node, int depth, short[] sizes_)
     {
+       if (depth > 24)
+          throw new IllegalArgumentException("Cannot code symbol '" + (node.symbol & 0xFF) + "'");
+
        if ((node.left == null) && (node.right == null))
        {
-          if (depth > 24)
-             throw new IllegalArgumentException("Cannot code symbol '" + (node.symbol & 0xFF) + "'");
-
           sizes_[node.symbol & 0xFF] = (short) depth;
           return;
        }

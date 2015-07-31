@@ -24,10 +24,10 @@ import (
 const (
 	NONE_TYPE    = byte(0) // No compression
 	HUFFMAN_TYPE = byte(1) // Huffman
-	FPAQ_TYPE    = byte(2) // Fast PAQ
+	FPAQ_TYPE    = byte(2) // Fast PAQ (order 0)
 	PAQ_TYPE     = byte(3) // PAQ
 	RANGE_TYPE   = byte(4) // Range
-	ANS_TYPE     = byte(5) // Asymetric Numerical System
+	ANS_TYPE     = byte(5) // Asymmetric Numerical System
 	CM_TYPE      = byte(6) // Context Model
 )
 
