@@ -1942,17 +1942,15 @@ func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *TRBudget
 			} else if limit == -2 {
 				// tandem repeat copy
 				se := this.trStack.pop()
-				a := se.b
-				b := se.c
 
 				if se.d == 0 {
-					this.trCopy(isa, first, a, b, last, isad-isa)
+					this.trCopy(isa, first, se.b, se.c, last, isad-isa)
 				} else {
 					if trlink >= 0 {
 						this.trStack.get(trlink).d = -1
 					}
 
-					this.trPartialCopy(isa, first, a, b, last, isad-isa)
+					this.trPartialCopy(isa, first, se.b, se.c, last, isad-isa)
 				}
 
 				se = this.trStack.pop()
@@ -2578,10 +2576,6 @@ func newStack(size int) *Stack {
 }
 
 func (this *Stack) get(idx int) *StackElement {
-	if idx > this.index {
-		return nil
-	}
-
 	return this.array[idx]
 }
 

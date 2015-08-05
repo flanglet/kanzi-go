@@ -1849,8 +1849,8 @@ public final class DivSufSort
                         {
                             StackElement se = this.trStack.pop();
 
-                           if (se == null)
-                              return;
+                            if (se == null)
+                               return;
 
                             isad = se.a;
                             first = se.b;
@@ -1891,19 +1891,17 @@ public final class DivSufSort
                 {
                     // tandem repeat copy
                     StackElement se = this.trStack.pop();
-                    final int a = se.b;
-                    final int b = se.c;
-
+                    
                     if (se.d == 0)
                     {
-                       this.trCopy(isa, first, a, b, last, isad - isa);
+                       this.trCopy(isa, first, se.b, se.c, last, isad - isa);
                     }
                     else
                     {
                        if (trlink >= 0)
                            this.trStack.get(trlink).d = -1;
 
-                       this.trPartialCopy(isa, first, a, b, last, isad - isa);
+                       this.trPartialCopy(isa, first, se.b, se.c, last, isad - isa);
                     }
 
                     se = this.trStack.pop();
@@ -2578,20 +2576,6 @@ public final class DivSufSort
     private static class StackElement
     {
         int a, b, c, d, e;
-
-        StackElement(int a, int b, int c, int d, int e)
-        {
-            this.a = a;
-            this.b = b;
-            this.c = c;
-            this.d = d;
-            this.e = e;
-        }
-
-        StackElement(int a, int b, int c, int d)
-        {
-            this(a, b, c, d, 0);
-        }
     }
 
 
@@ -2606,12 +2590,12 @@ public final class DivSufSort
           this.array = new StackElement[size];
 
           for (int i=0; i<size; i++)
-             this.array[i] = new StackElement(0, 0, 0, 0);
+             this.array[i] = new StackElement();
        }
 
        StackElement get(int idx)
        {
-          return (idx > this.index) ? null : this.array[idx];
+          return this.array[idx];
        }
 
        int size()

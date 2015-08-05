@@ -83,6 +83,10 @@ public class ImageUtils
          case "JPEG" :
          {
            Image image = ImageIO.read(is);
+           
+           if (image == null)
+        	   return null;
+           
            int w = image.getWidth(null);
            int h = image.getHeight(null);
            int[] data = new int[w*h];
@@ -183,7 +187,6 @@ public class ImageUtils
          final int[] tmp = new int[dw*dh];
          int offs1 = 0;
          int offs2 = 0;
-
       
          for (int j=0; j<sh; j++)
          {

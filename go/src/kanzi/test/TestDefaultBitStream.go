@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"kanzi"
 	"kanzi/bitstream"
-	"kanzi/io"
 	"kanzi/util"
 	"math/rand"
 	"os"
@@ -233,7 +232,7 @@ func testSpeed() {
 			return
 		}
 
-		bos, _ := io.NewBufferedOutputStream(file1)
+		bos := file1
 		obs, _ := bitstream.NewDefaultOutputBitStream(bos, 16*1024)
 		before := time.Now()
 		for i := 0; i < nn; i++ {
@@ -254,7 +253,7 @@ func testSpeed() {
 			return
 		}
 
-		bis, _ := io.NewBufferedInputStream(file2)
+		bis := file2
 		ibs, _ := bitstream.NewDefaultInputBitStream(bis, 1024*1024)
 		before = time.Now()
 
