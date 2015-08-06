@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 import kanzi.BitStreamException;
@@ -60,8 +61,8 @@ public class CompressedOutputStream extends OutputStream
    private final byte entropyType;
    private final byte transformType;
    private final OutputBitStream obs;
-   private boolean initialized;
-   private boolean closed;
+   private final AtomicBoolean initialized;
+   private final AtomicBoolean closed;
    private final AtomicInteger blockId;
    private final int jobs;
    private final ExecutorService pool;
@@ -121,6 +122,8 @@ public class CompressedOutputStream extends OutputStream
       this.pool = pool;
       this.iba = new IndexedByteArray(new byte[blockSize*this.jobs], 0);
       this.buffers = new IndexedByteArray[this.jobs];
+      this.closed = new AtomicBoolean(false);
+      this.initialized = new AtomicBoolean(false);
 
       for (int i=0; i<this.jobs; i++)
          this.buffers[i] = new IndexedByteArray(EMPTY_BYTE_ARRAY, 0);
@@ -132,9 +135,6 @@ public class CompressedOutputStream extends OutputStream
 
    protected void writeHeader() throws IOException
    {
-      if (this.initialized == true)
-         return;
-
       if (this.obs.writeBits(BITSTREAM_TYPE, 32) != 32)
          throw new kanzi.io.IOException("Cannot write bitstream type to header", Error.ERR_WRITE_FILE);
 
@@ -204,7 +204,7 @@ public class CompressedOutputStream extends OutputStream
       if ((off < 0) || (len < 0) || (len + off > array.length))
          throw new IndexOutOfBoundsException();
 
-      if (this.closed == true)
+      if (this.closed.get() == true)
          throw new kanzi.io.IOException("Stream closed", Error.ERR_WRITE_FILE);
 
       int remaining = len;
@@ -314,9 +314,9 @@ public class CompressedOutputStream extends OutputStream
     * @exception  IOException  if an I/O error occurs.
     */
    @Override
-   public synchronized void close() throws IOException
+   public void close() throws IOException
    {
-      if (this.closed == true)
+      if (this.closed.getAndSet(true) == true)
          return;
 
       if (this.iba.index > 0)
@@ -333,7 +333,6 @@ public class CompressedOutputStream extends OutputStream
          throw new kanzi.io.IOException(e.getMessage(), ((BitStreamException) e).getErrorCode());
       }
 
-      this.closed = true;
       this.listeners.clear();
 
       // Release resources
@@ -345,16 +344,14 @@ public class CompressedOutputStream extends OutputStream
          this.buffers[i] = new IndexedByteArray(EMPTY_BYTE_ARRAY, -1);
    }
 
+   
    private void processBlock() throws IOException
    {
       if (this.iba.index == 0)
          return;
 
-      if (this.initialized == false)
-      {
+      if (this.initialized.getAndSet(true) == false)
          this.writeHeader();
-         this.initialized = true;
-      }
 
       try
       {

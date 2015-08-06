@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 import kanzi.BitStreamException;
@@ -59,8 +60,8 @@ public class CompressedInputStream extends InputStream
    private byte transformType;
    private final InputBitStream ibs;
    private final PrintStream ds;
-   private boolean initialized;
-   private boolean closed;
+   private final AtomicBoolean initialized;
+   private final AtomicBoolean closed;
    private int maxIdx;
    private final AtomicInteger blockId;
    private final int jobs;
@@ -99,6 +100,8 @@ public class CompressedInputStream extends InputStream
       this.jobs = jobs;
       this.pool = pool;
       this.buffers = new IndexedByteArray[this.jobs];
+      this.closed = new AtomicBoolean(false);
+      this.initialized = new AtomicBoolean(false);
 
       for (int i=0; i<this.jobs; i++)
          this.buffers[i] = new IndexedByteArray(EMPTY_BYTE_ARRAY, 0);
@@ -111,9 +114,6 @@ public class CompressedInputStream extends InputStream
 
    protected void readHeader() throws IOException
    {
-      if (this.initialized == true)
-         return;
-
       // Read stream type
       final int type = (int) this.ibs.readBits(32);
 
@@ -287,7 +287,7 @@ public class CompressedInputStream extends InputStream
       if ((off < 0) || (len < 0) || (len + off > array.length))
          throw new IndexOutOfBoundsException();
 
-      if (this.closed == true)
+      if (this.closed.get() == true)
          throw new kanzi.io.IOException("Stream closed", Error.ERR_READ_FILE);
 
       int remaining = len;
@@ -327,18 +327,15 @@ public class CompressedInputStream extends InputStream
 
    private int processBlock() throws IOException
    {
-      if (this.initialized == false)
-      {
+      if (this.initialized.getAndSet(true)== false)
          this.readHeader();
-         this.initialized = true;
-      }
 
       try
       {
          if (this.iba.array.length < this.jobs*this.blockSize)
             this.iba.array = new byte[this.jobs*this.blockSize];
 
-  	  // Protect against future concurrent modification of the list of block listeners
+  	 // Protect against future concurrent modification of the list of block listeners
          BlockListener[] blockListeners = this.listeners.toArray(new BlockListener[this.listeners.size()]);
          int decoded = 0;
          this.iba.index = 0;
@@ -385,14 +382,11 @@ public class CompressedInputStream extends InputStream
 
          for (Status res : results)
          {
-            if (this.listeners != null)
-            {
-               // Notify after transform ... in block order
-               BlockEvent evt = new BlockEvent(BlockEvent.Type.AFTER_TRANSFORM, res.blockId,
-                       res.decoded, res.checksum, this.hasher != null);
+            // Notify after transform ... in block order
+            BlockEvent evt = new BlockEvent(BlockEvent.Type.AFTER_TRANSFORM, res.blockId,
+                    res.decoded, res.checksum, this.hasher != null);
 
-               notifyListeners(blockListeners, evt);
-            } 
+            notifyListeners(blockListeners, evt);
          }
          
          this.iba.index = 0;
@@ -418,9 +412,9 @@ public class CompressedInputStream extends InputStream
     * @exception  IOException  if an I/O error occurs.
     */
    @Override
-   public synchronized void close() throws IOException
+   public void close() throws IOException
    {
-      if (this.closed == true)
+      if (this.closed.getAndSet(true)== true)
          return;
 
       try
@@ -431,9 +425,6 @@ public class CompressedInputStream extends InputStream
       {
          throw new kanzi.io.IOException(e.getMessage(), ((BitStreamException) e).getErrorCode());
       }
-
-      this.closed = true;
-
 
       // Release resources
       // Force error on any subsequent write attempt

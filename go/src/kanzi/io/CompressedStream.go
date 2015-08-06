@@ -16,6 +16,7 @@ limitations under the License.
 package io
 
 import (
+        "sync/atomic"
 	"bytes"
 	"fmt"
 	"io"
@@ -103,8 +104,8 @@ type CompressedOutputStream struct {
 	transformType byte
 	obs           kanzi.OutputBitStream
 	debugWriter   io.Writer
-	initialized   bool
-	closed        bool
+	initialized   int32
+	closed        int32
 	blockId       int
 	curIdx        int
 	jobs          int
@@ -223,11 +224,7 @@ func (this *CompressedOutputStream) RemoveListener(bl BlockListener) bool {
 	return false
 }
 
-func (this *CompressedOutputStream) WriteHeader() *IOError {
-	if this.initialized == true {
-		return nil
-	}
-
+func (this *CompressedOutputStream) writeHeader() *IOError {
 	cksum := 0
 
 	if this.hasher != nil {
@@ -265,9 +262,8 @@ func (this *CompressedOutputStream) WriteHeader() *IOError {
 	return nil
 }
 
-// Implement the kanzi.OutputStream interface
 func (this *CompressedOutputStream) Write(array []byte) (int, error) {
-	if this.closed == true {
+	if atomic.LoadInt32(&this.closed) == 1 {
 		return 0, NewIOError("Stream closed", ERR_WRITE_FILE)
 	}
 
@@ -300,9 +296,8 @@ func (this *CompressedOutputStream) Write(array []byte) (int, error) {
 	return len(array) - remaining, nil
 }
 
-// Implement the kanzi.OutputStream interface
 func (this *CompressedOutputStream) Close() error {
-	if this.closed == true {
+	if atomic.SwapInt32(&this.closed, 1) == 1 {
 		return nil
 	}
 
@@ -320,8 +315,6 @@ func (this *CompressedOutputStream) Close() error {
 	if _, err := this.obs.Close(); err != nil {
 		return err
 	}
-
-	this.closed = true
 
 	// Release resources
 	this.data = EMPTY_BYTE_SLICE
@@ -342,12 +335,10 @@ func (this *CompressedOutputStream) processBlock() error {
 		return nil
 	}
 
-	if this.initialized == false {
-		if err := this.WriteHeader(); err != nil {
+	if atomic.SwapInt32(&this.initialized, 1) == 0  {
+		if err := this.writeHeader(); err != nil {
 			return err
 		}
-
-		this.initialized = true
 	}
 
 	offset := uint(0)
@@ -592,8 +583,8 @@ type CompressedInputStream struct {
 	transformType byte
 	ibs           kanzi.InputBitStream
 	debugWriter   io.Writer
-	initialized   bool
-	closed        bool
+	initialized   int32
+	closed        int32
 	blockId       int
 	maxIdx        int
 	curIdx        int
@@ -686,11 +677,7 @@ func (this *CompressedInputStream) RemoveListener(bl BlockListener) bool {
 	return false
 }
 
-func (this *CompressedInputStream) ReadHeader() error {
-	if this.initialized == true {
-		return nil
-	}
-
+func (this *CompressedInputStream) readHeader() error {
 	defer func() {
 		if r := recover(); r != nil {
 			panic(NewIOError("Cannot read bitstream header: "+r.(error).Error(), ERR_READ_FILE))
@@ -765,15 +752,13 @@ func (this *CompressedInputStream) ReadHeader() error {
 
 // Implement kanzi.InputStream interface
 func (this *CompressedInputStream) Close() error {
-	if this.closed == true {
+	if atomic.SwapInt32(&this.closed, 1) == 1 {
 		return nil
 	}
 
 	if _, err := this.ibs.Close(); err != nil {
 		return err
 	}
-
-	this.closed = true
 
 	// Release resources
 	this.maxIdx = 0
@@ -795,7 +780,7 @@ func (this *CompressedInputStream) Close() error {
 
 // Implement kanzi.InputStream interface
 func (this *CompressedInputStream) Read(array []byte) (int, error) {
-	if this.closed == true {
+	if atomic.LoadInt32(&this.closed) == 1 {
 		return 0, NewIOError("Stream closed", ERR_READ_FILE)
 	}
 
@@ -846,12 +831,10 @@ func (this *CompressedInputStream) Read(array []byte) (int, error) {
 }
 
 func (this *CompressedInputStream) processBlock() (int, error) {
-	if this.initialized == false {
-		if err := this.ReadHeader(); err != nil {
+	if atomic.SwapInt32(&this.initialized, 1) == 1  {
+		if err := this.readHeader(); err != nil {
 			return 0, err
 		}
-
-		this.initialized = true
 	}
 
 	if this.readLastBlock == true {
@@ -904,7 +887,7 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 	results := make([]Message, this.jobs)
 
 	// Wait for completion of all concurrent tasks
-	for range results {
+	for _ = range results {
 		// Listen for results on the shared channel
 		msg := <-this.resChan
 
