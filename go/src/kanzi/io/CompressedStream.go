@@ -16,7 +16,6 @@ limitations under the License.
 package io
 
 import (
-        "sync/atomic"
 	"bytes"
 	"fmt"
 	"io"
@@ -25,6 +24,7 @@ import (
 	"kanzi/entropy"
 	"kanzi/function"
 	"kanzi/util"
+	"sync/atomic"
 	"time"
 )
 
@@ -335,7 +335,7 @@ func (this *CompressedOutputStream) processBlock() error {
 		return nil
 	}
 
-	if atomic.SwapInt32(&this.initialized, 1) == 0  {
+	if atomic.SwapInt32(&this.initialized, 1) == 0 {
 		if err := this.writeHeader(); err != nil {
 			return err
 		}
@@ -346,10 +346,12 @@ func (this *CompressedOutputStream) processBlock() error {
 	// Protect against future concurrent modification of the list of block listeners
 	blockListeners := make([]BlockListener, len(this.listeners))
 	copy(blockListeners, this.listeners)
+	nbJobs := 0
 
 	// Invoke as many go routines as required
 	for jobId := 0; jobId < this.jobs; jobId++ {
 		sz := uint(this.curIdx)
+		nbJobs = jobId + 1
 
 		if sz >= this.blockSize {
 			sz = this.blockSize
@@ -385,7 +387,7 @@ func (this *CompressedOutputStream) processBlock() error {
 	this.channels[0] <- error(nil)
 
 	// Wait for completion of last task
-	err := <-this.channels[this.jobs]
+	err := <-this.channels[nbJobs]
 
 	this.blockId += this.jobs
 	return err
@@ -410,7 +412,7 @@ func (this *EncodingTask) encode() {
 
 	if requiredSize == -1 {
 		// Max size unknown => guess
-		requiredSize = int(this.blockLength) * 5 >> 2
+		requiredSize = int(this.blockLength*5) >> 2
 	}
 
 	if this.typeOfTransform == function.NULL_TRANSFORM_TYPE {
@@ -831,7 +833,7 @@ func (this *CompressedInputStream) Read(array []byte) (int, error) {
 }
 
 func (this *CompressedInputStream) processBlock() (int, error) {
-	if atomic.SwapInt32(&this.initialized, 1) == 1  {
+	if atomic.SwapInt32(&this.initialized, 1) == 0 {
 		if err := this.readHeader(); err != nil {
 			return 0, err
 		}
