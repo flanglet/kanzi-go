@@ -320,7 +320,7 @@ func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
 		return 0, nil
 	}
 
-	buf := this.buffer // aliasing
+	frequencies := this.buffer // aliasing
 	end := len(block)
 	startChunk := 0
 	sizeChunk := this.chunkSize
@@ -330,25 +330,26 @@ func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
 	}
 
 	for startChunk < end {
-		for i := range buf {
-			buf[i] = 0
-		}
-
 		endChunk := startChunk + sizeChunk
 
 		if endChunk > len(block) {
 			endChunk = len(block)
 		}
 
+		for i := range buf {
+			frequencies[i] = 0
+		}
+
 		for i := startChunk; i < endChunk; i++ {
-			buf[block[i]]++
+			frequencies[block[i]]++
 		}
 
 		// Rebuild Huffman tree
-		this.UpdateFrequencies(buf)
+		this.UpdateFrequencies(frequencies)
 
 		for i := startChunk; i < endChunk; i++ {
-			this.bitstream.WriteBits(uint64(this.codes[block[i]]), this.codes[block[i]]>>24)
+			val := this.codes[block[i]]
+			this.bitstream.WriteBits(uint64(val), val>>24)
 		}
 
 		startChunk = endChunk

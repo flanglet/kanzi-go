@@ -159,8 +159,8 @@ public class HuffmanEncoder implements EntropyEncoder
           
           for (int i=startChunk; i<endChunk; i++)
           {
-             final int val = array[i] & 0xFF;
-             this.bitstream.writeBits(this.codes[val], this.codes[val] >>> 24);
+             final int val = this.codes[array[i]&0xFF];
+             this.bitstream.writeBits(val, val >>> 24);
           }
 
           startChunk = endChunk;

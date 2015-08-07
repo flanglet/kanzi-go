@@ -329,8 +329,8 @@ public class EntropyUtils
 
          while ((sum != 0) && (queue.size() > 0))
          {
-            // Remove symbol with highest error
-            FreqSortData fsd = queue.poll();
+             // Remove symbol with highest error
+             FreqSortData fsd = queue.poll();
 
              // Do not zero out any frequency
              if (freqs[fsd.symbol] == -inc)

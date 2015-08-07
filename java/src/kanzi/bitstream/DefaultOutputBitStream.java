@@ -76,7 +76,7 @@ public final class DefaultOutputBitStream implements OutputBitStream
       if (count == 0)
          return 0;
 
-      if (count > 64)
+      if ((count < 0) || (count > 64))
          throw new IllegalArgumentException("Invalid length: "+count+" (must be in [1..64])");
 
       value &= (-1L >>> -count);
@@ -97,7 +97,7 @@ public final class DefaultOutputBitStream implements OutputBitStream
          {
             this.current |= (value << remaining);
             this.bitIndex += remaining;
-         }
+         } 
       }
 
       return count;
