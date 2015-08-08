@@ -336,7 +336,7 @@ func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
 			endChunk = len(block)
 		}
 
-		for i := range buf {
+		for i := range frequencies {
 			frequencies[i] = 0
 		}
 

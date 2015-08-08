@@ -32,19 +32,19 @@ func NewByteArrayOutputStream(buffer []byte, autogrow bool) (*ByteArrayOutputStr
 	return this, nil
 }
 
-func (this *ByteArrayOutputStream) Write(b []byte) (n int, err error) {
-	if this.index+len(b) > len(this.array) {
+func (this *ByteArrayOutputStream) Write(b []byte) (int, error) {
+	if len(b) > len(this.array) {
 		if this.autogrow == true {
-			buffer := make([]byte, this.index+len(b))
-			copy(buffer, this.array[0:this.index])
+			buffer := make([]byte, len(b)-len(this.array))
+			copy(buffer, this.array)
 			this.array = buffer
 		} else {
-			return 0, fmt.Errorf("Output buffer too small, required:%v, available:%v", len(b), len(this.array)-this.index)
+			return 0, fmt.Errorf("Output buffer too small, required:%v, available:%v", len(b), len(this.array))
 		}
 	}
 
-	copy(this.array[this.index:], b)
-	this.index += len(b)
+	copy(this.array, b)
+	this.array = this.array[len(b):]
 	return len(b), nil
 }
 
@@ -58,7 +58,6 @@ func (this ByteArrayOutputStream) Sync() error {
 
 type ByteArrayInputStream struct {
 	array    []byte
-	index    int
 	autogrow bool
 }
 
@@ -69,19 +68,19 @@ func NewByteArrayInputStream(buffer []byte, autogrow bool) (*ByteArrayInputStrea
 	return this, nil
 }
 
-func (this *ByteArrayInputStream) Read(b []byte) (n int, err error) {
-	if this.index+len(b) > len(this.array) {
+func (this *ByteArrayInputStream) Read(b []byte) (int, error) {
+	if len(b) > len(this.array) {
 		if this.autogrow == true {
-			buffer := make([]byte, this.index+len(b))
-			copy(buffer, this.array[0:this.index])
+			buffer := make([]byte, len(b)-len(this.array))
+			copy(buffer, this.array)
 			this.array = buffer
 		} else {
-			return 0, fmt.Errorf("Input buffer too small, required:%v, available:%v", len(b), len(this.array)-this.index)
+			return 0, fmt.Errorf("Input buffer too small, required:%v, available:%v", len(b), len(this.array))
 		}
 	}
 
-	copy(b, this.array[this.index:this.index+len(b)])
-	this.index += len(b)
+	copy(b, this.array[:len(b)])
+	this.array = this.array[len(b):]
 	return len(b), nil
 }
 

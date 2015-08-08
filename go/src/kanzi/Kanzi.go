@@ -15,6 +15,10 @@ limitations under the License.
 
 package kanzi
 
+import (
+	"bytes"
+)
+
 // An integer function is an operation that takes an array of integers as input and
 // and turns it into another array of integers. The size of the returned array
 // is not known in advance (by the caller).
@@ -135,7 +139,7 @@ func SameIntSlices(slice1, slice2 []int, checkLengths bool) bool {
 
 	if len(slice2) == 0 {
 		return len(slice1) == 0
-	}
+        }
 
 	if len(slice1) == 0 {
 		return false
@@ -145,10 +149,13 @@ func SameIntSlices(slice1, slice2 []int, checkLengths bool) bool {
 		return false
 	}
 
-	saved := slice1[0]
+	if slice2[0] != slice1[0] {
+		return false
+	}
+
 	slice2[0] = ^slice2[0]
 
-	if slice1[0] == saved {
+	if slice2[0] != ^slice1[0] {
 		slice2[0] = ^slice2[0]
 		return false
 	}
@@ -170,26 +177,5 @@ func SameByteSlices(slice1, slice2 []byte, checkLengths bool) bool {
 		return true
 	}
 
-	if len(slice2) == 0 {
-		return len(slice1) == 0
-	}
-
-	if len(slice1) == 0 {
-		return false
-	}
-
-	if checkLengths == true && len(slice1) != len(slice2) {
-		return false
-	}
-
-	saved := slice1[0]
-	slice2[0] = ^slice2[0]
-
-	if slice1[0] == saved {
-		slice2[0] = ^slice2[0]
-		return false
-	}
-
-	slice2[0] = ^slice2[0]
-	return true
+	return bytes.Equal(slice1, slice2);
 }
