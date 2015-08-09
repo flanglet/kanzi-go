@@ -26,6 +26,7 @@ import (
 const (
 	DECODING_BATCH_SIZE        = 10 // in bits
 	DECODING_MASK              = (1 << DECODING_BATCH_SIZE) - 1
+	MAX_DECODING_INDEX         = (DECODING_BATCH_SIZE << 8) | 0xFF
 	DEFAULT_HUFFMAN_CHUNK_SIZE = uint(1 << 16) // 64 KB by default
 	ABSENT                     = (1 << 31) - 1
 )
@@ -513,7 +514,7 @@ func (this *HuffmanDecoder) buildDecodingTables(count int) {
 		}
 
 		// Fill slow decoding table
-		val := (r << 8) | uint(this.sizes[r])
+		val := (uint(this.sizes[r]) << 8) | r
 		this.sdTable[i] = val
 		var idx, end uint
 
@@ -614,8 +615,8 @@ func (this *HuffmanDecoder) slowDecodeByte(code int, codeLen uint) byte {
 			continue
 		}
 
-		if this.sdTable[idx+code]&0xFF == codeLen {
-			return byte(this.sdTable[idx+code] >> 8)
+		if this.sdTable[idx+code]>>8 == codeLen {
+			return byte(this.sdTable[idx+code])
 		}
 	}
 
@@ -627,8 +628,8 @@ func (this *HuffmanDecoder) fastDecodeByte() byte {
 	if this.bits < DECODING_BATCH_SIZE {
 		// Fetch more bits from bitstream
 		read := this.bitstream.ReadBits(64 - this.bits)
-		mask := uint64((1 << this.bits) - 1)
-		this.state = ((this.state & mask) << (64 - this.bits)) | read
+		// No need to mask this.state because uint64(xyz) << 64 = 0
+		this.state = (this.state << (64 - this.bits)) | read
 		this.bits = 64
 	}
 
@@ -636,13 +637,13 @@ func (this *HuffmanDecoder) fastDecodeByte() byte {
 	idx := int(this.state>>(this.bits-DECODING_BATCH_SIZE)) & DECODING_MASK
 	val := this.fdTable[idx]
 
-	if val&0xFF > DECODING_BATCH_SIZE {
+	if val > MAX_DECODING_INDEX {
 		this.bits -= DECODING_BATCH_SIZE
 		return this.slowDecodeByte(idx, DECODING_BATCH_SIZE)
 	}
 
-	this.bits -= (val & 0xFF)
-	return byte(val >> 8)
+	this.bits -= (val >> 8)
+	return byte(val)
 }
 
 func (this *HuffmanDecoder) BitStream() kanzi.InputBitStream {

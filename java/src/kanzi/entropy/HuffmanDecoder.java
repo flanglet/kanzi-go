@@ -25,6 +25,7 @@ public class HuffmanDecoder implements EntropyDecoder
 {
     public static final int DECODING_BATCH_SIZE = 10; // in bits
     public static final int DECODING_MASK = (1 << DECODING_BATCH_SIZE) - 1;
+    private static final int MAX_DECODING_INDEX = (DECODING_BATCH_SIZE << 8) | 0xFF;
     private static final int DEFAULT_CHUNK_SIZE = 1 << 16; // 64 KB by default
     private static final int ABSENT = Integer.MAX_VALUE;
 
@@ -160,7 +161,7 @@ public class HuffmanDecoder implements EntropyDecoder
            }
     
            // Fill slow decoding table
-           final int val = (r << 8) | this.sizes[r];
+           final int val = (this.sizes[r] << 8) | r;
            this.sdTable[i] = val;
            int idx, end;
 
@@ -173,7 +174,7 @@ public class HuffmanDecoder implements EntropyDecoder
            }
            else
            {
-              idx = code >> (len - DECODING_BATCH_SIZE);
+              idx = code >>> (len - DECODING_BATCH_SIZE);
               end = idx + 1;
            }
 
@@ -247,13 +248,13 @@ public class HuffmanDecoder implements EntropyDecoder
              code |= ((this.state >>> this.bits) & 1);
           }
 
-          int idx = this.sdtIndexes[codeLen];
+          final int idx = this.sdtIndexes[codeLen];
 
           if (idx == ABSENT) // No code with this length ?
              continue;
 
-          if ((this.sdTable[idx+code] & 0xFF) == codeLen)
-             return (byte) (this.sdTable[idx+code] >>> 8);
+          if ((this.sdTable[idx+code] >>> 8) == codeLen)
+             return (byte) this.sdTable[idx+code];
        }
 
        throw new BitStreamException("Invalid bitstream: incorrect Huffman code",
@@ -267,24 +268,25 @@ public class HuffmanDecoder implements EntropyDecoder
        if (this.bits < DECODING_BATCH_SIZE)
        {
           // Fetch more bits from bitstream
-          long read = this.bitstream.readBits(64-this.bits);
+          final long read = this.bitstream.readBits(64-this.bits);
+          // Mask: 0 if this.bits == 0
           final long mask = (1 << this.bits) - 1;
-          this.state = ((this.state & mask) << (64-this.bits)) | read;
+          this.state = ((this.state & mask) << -this.bits) | read;
           this.bits = 64;
        }
 
        // Retrieve symbol from fast decoding table
-       int idx = (int) (this.state >>> (this.bits-DECODING_BATCH_SIZE)) & DECODING_MASK;
-       int val = this.fdTable[idx];
+       final int idx = (int) (this.state >>> (this.bits-DECODING_BATCH_SIZE)) & DECODING_MASK;
+       final int val = this.fdTable[idx];
 
-       if ((val & 0xFF) > DECODING_BATCH_SIZE)
+       if (val > MAX_DECODING_INDEX)
        {
           this.bits -= DECODING_BATCH_SIZE;
           return this.slowDecodeByte(idx, DECODING_BATCH_SIZE);
        }
 
-       this.bits -= (val & 0xFF);
-       return (byte) (val >>> 8);      
+       this.bits -= (val >>> 8);
+       return (byte) (val);      
     }
 
 
