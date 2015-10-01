@@ -41,6 +41,12 @@ public class TestDWT2
       String fileName = (args.length > 0) ? args[0] : "c:\\temp\\lena.jpg";
       Image image = ImageIO.read(new File(fileName));
 
+      if (image.getWidth(null) <= 0)
+      {
+         System.out.println("Cannot find file "+fileName);
+         System.exit(1);
+      }
+      
       {
          // Square image
          int w = 512;//image.getWidth(null);

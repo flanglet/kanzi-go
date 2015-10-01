@@ -97,7 +97,7 @@ public class ANSRangeDecoder implements EntropyDecoder
 
             // Compute next ANS state
             // D(x) = (s, q_s (x/M) + mod(x,M) - b_s) where s is such b_s <= x mod M < b_{s+1}
-            st = (this.freqs[symbol] * (st >> this.logRange)) + idx - this.cumFreqs[symbol];
+            st = (this.freqs[symbol] * (st >>> this.logRange)) + idx - this.cumFreqs[symbol];
 
             // Normalize
             while (st < TOP)

@@ -170,8 +170,8 @@ public class TestBinaryEntropyCoder
         // Test speed
         System.out.println("\n\nSpeed test");
         int[] repeats = { 3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9, 3 };
-        final int size = 50000;
-        final int iter = 2000;
+        final int size = 500000;
+        final int iter = 200;
 
         for (int jj=0; jj<3; jj++)
         {

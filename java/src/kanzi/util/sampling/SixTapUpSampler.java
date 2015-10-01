@@ -94,7 +94,7 @@ public class SixTapUpSampler implements UpSampler
     @Override
     public boolean supportsScalingFactor(int factor)
     {
-        return ((factor == 2) || (factor == 4)) ? true : false;
+        return ((factor == 2) || (factor == 4));
     }
 
 

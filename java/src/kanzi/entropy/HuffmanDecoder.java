@@ -23,11 +23,11 @@ import kanzi.InputBitStream;
 
 public class HuffmanDecoder implements EntropyDecoder
 {
-    public static final int DECODING_BATCH_SIZE = 10; // in bits
+    public static final int DECODING_BATCH_SIZE = 12; // in bits
     public static final int DECODING_MASK = (1 << DECODING_BATCH_SIZE) - 1;
     private static final int MAX_DECODING_INDEX = (DECODING_BATCH_SIZE << 8) | 0xFF;
     private static final int DEFAULT_CHUNK_SIZE = 1 << 16; // 64 KB by default
-    private static final int ABSENT = Integer.MAX_VALUE;
+    private static final int SYMBOL_ABSENT = Integer.MAX_VALUE;
 
     private final InputBitStream bitstream;
     private final int[] codes;
@@ -145,7 +145,7 @@ public class HuffmanDecoder implements EntropyDecoder
            this.sdTable[i] = 0;
 
         for (int i=this.sdtIndexes.length-1; i>=0; i--)
-           this.sdtIndexes[i] = ABSENT;
+           this.sdtIndexes[i] = SYMBOL_ABSENT;
 
         int len = 0;
 
@@ -250,7 +250,7 @@ public class HuffmanDecoder implements EntropyDecoder
 
           final int idx = this.sdtIndexes[codeLen];
 
-          if (idx == ABSENT) // No code with this length ?
+          if (idx == SYMBOL_ABSENT) // No code with this length ?
              continue;
 
           if ((this.sdTable[idx+code] >>> 8) == codeLen)

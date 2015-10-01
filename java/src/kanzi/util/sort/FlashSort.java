@@ -20,7 +20,7 @@ import kanzi.IntSorter;
 //
 // Karl-Dietrich Neubert's Flashsort1 Algorithm
 // See [http://www.neubert.net/Flapaper/9802n.htm]
-//
+// Fast distribution based non stable sort
 
 public class FlashSort implements IntSorter
 {
@@ -45,14 +45,13 @@ public class FlashSort implements IntSorter
         if (len == 1)
            return true;
         
-       final int m = len / 5; // speed optimum m in [0.2n .. m=0.5n]
+       final int m = (len * 215) >> 9; // speed optimum m = 0.42 n
 
        if (this.buffer.length < m)
-          this.buffer = new int[(m < 32) ? 32 : (m + 7) & -8];
+          this.buffer = new int[(m<32) ? 32 : (m+7) & -8];
 
        this.partialFlashSort(input, blkptr, len);
-       new InsertionSort().sort(input, blkptr, len);
-       return true;
+       return new InsertionSort().sort(input, blkptr, len);
     }
 
 

@@ -68,7 +68,6 @@ type ByteFunction interface {
 	MaxEncodedLen(srcLen int) int
 }
 
-
 type InputBitStream interface {
 	ReadBit() int // panic if error
 
@@ -81,7 +80,6 @@ type InputBitStream interface {
 	HasMoreToRead() (bool, error)
 }
 
-
 type OutputBitStream interface {
 	WriteBit(bit int) // panic if error
 
@@ -91,7 +89,6 @@ type OutputBitStream interface {
 
 	Written() uint64 // number of bits written so far
 }
-
 
 type EntropyEncoder interface {
 	// Encode the array provided into the bitstream. Return the number of byte
@@ -120,7 +117,7 @@ type EntropyDecoder interface {
 
 type Sizeable interface {
 	Size() uint
-	
+
 	SetSize(sz uint) bool
 }
 
@@ -139,7 +136,7 @@ func SameIntSlices(slice1, slice2 []int, checkLengths bool) bool {
 
 	if len(slice2) == 0 {
 		return len(slice1) == 0
-        }
+	}
 
 	if len(slice1) == 0 {
 		return false
@@ -177,5 +174,5 @@ func SameByteSlices(slice1, slice2 []byte, checkLengths bool) bool {
 		return true
 	}
 
-	return bytes.Equal(slice1, slice2);
+	return bytes.Equal(slice1, slice2)
 }

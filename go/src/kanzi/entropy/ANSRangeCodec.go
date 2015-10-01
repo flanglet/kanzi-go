@@ -226,7 +226,7 @@ func (this *ANSRangeEncoder) Encode(block []byte) (int, error) {
 			freq := uint64(frequencies[symbol])
 
 			// Normalize
-			for st >= top * freq {
+			if st >= top * freq {
 				this.buffer[n] = int32(st)
 				n++
 				st >>= 32

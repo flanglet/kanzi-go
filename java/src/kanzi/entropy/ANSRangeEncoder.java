@@ -168,7 +168,7 @@ public class ANSRangeEncoder implements EntropyEncoder
 
          final long top = (TOP >> lr) << 32;
          int n = 0;
-
+         
          // Encoding works in reverse
          for (int i=endChunk-1; i>=startChunk; i--)
          {
@@ -176,8 +176,8 @@ public class ANSRangeEncoder implements EntropyEncoder
             final int freq = frequencies[symbol];
 
             // Normalize
-            while (st >= top*freq)
-            {
+            if (st >= top*freq)
+            {            
                this.buffer[n++] = (int) st;
                st >>>= 32;
             }

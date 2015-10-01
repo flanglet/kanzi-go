@@ -179,8 +179,8 @@ func TestSpeed(name string) {
 		fmt.Printf("Test %v\n", jj+1)
 		delta1 := int64(0)
 		delta2 := int64(0)
-		iter := 2000
-		size := 50000
+		iter := 200
+		size := 500000
 		buffer := make([]byte, size*2)
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)

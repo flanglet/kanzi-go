@@ -24,11 +24,11 @@ import (
 )
 
 const (
-	DECODING_BATCH_SIZE        = 10 // in bits
+	DECODING_BATCH_SIZE        = 12 // in bits
 	DECODING_MASK              = (1 << DECODING_BATCH_SIZE) - 1
 	MAX_DECODING_INDEX         = (DECODING_BATCH_SIZE << 8) | 0xFF
 	DEFAULT_HUFFMAN_CHUNK_SIZE = uint(1 << 16) // 64 KB by default
-	ABSENT                     = (1 << 31) - 1
+	SYMBOL_ABSENT              = (1 << 31) - 1
 )
 
 // ---- Utilities
@@ -499,7 +499,7 @@ func (this *HuffmanDecoder) buildDecodingTables(count int) {
 	}
 
 	for i := range this.sdtIndexes {
-		this.sdtIndexes[i] = ABSENT
+		this.sdtIndexes[i] = SYMBOL_ABSENT
 	}
 
 	length := byte(0)
@@ -611,7 +611,7 @@ func (this *HuffmanDecoder) slowDecodeByte(code int, codeLen uint) byte {
 
 		idx := this.sdtIndexes[codeLen]
 
-		if idx == ABSENT {
+		if idx == SYMBOL_ABSENT {
 			continue
 		}
 
