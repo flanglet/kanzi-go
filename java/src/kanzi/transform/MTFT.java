@@ -35,7 +35,7 @@ public final class MTFT implements ByteTransform, Sizeable
     private final int[] lengths;   // length of linked list
     private final byte[] buckets;  // index of list
     private Payload anchor;
-    
+
 
     public MTFT()
     {
@@ -161,7 +161,7 @@ public final class MTFT implements ByteTransform, Sizeable
     // Update lengths and buckets accordingly. 
     // Used by forward() only
     private void balanceLists(boolean resetValues)
-    {
+    {  
        this.lengths[0] = 1;
        Payload p = this.heads[0].next;
        byte val = 0;
@@ -187,7 +187,7 @@ public final class MTFT implements ByteTransform, Sizeable
           }
        }
     }
-
+          
 
     @Override
     public boolean forward(IndexedByteArray src, IndexedByteArray dst)
@@ -221,7 +221,7 @@ public final class MTFT implements ByteTransform, Sizeable
 
           for (int ii=0; ii<listIdx; ii++)
              idx += this.lengths[ii];
-          
+
           // Find index in list (less than RESET_THRESHOLD iterations)
           while (p.value != current)
           {
