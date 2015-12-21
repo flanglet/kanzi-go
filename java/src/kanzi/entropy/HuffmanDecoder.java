@@ -20,7 +20,7 @@ import kanzi.EntropyDecoder;
 import kanzi.InputBitStream;
 
 
-
+// Uses tables to decode symbols instead of a tree
 public class HuffmanDecoder implements EntropyDecoder
 {
     public static final int DECODING_BATCH_SIZE = 12; // in bits
@@ -94,6 +94,13 @@ public class HuffmanDecoder implements EntropyDecoder
         for (int i=0; i<count; i++)
         {
            final int r = this.ranks[i];
+           
+           if ((r < 0) || (r >= this.ranks.length))
+           {
+              throw new BitStreamException("Invalid bitstream: incorrect Huffman symbol " + r, 
+                 BitStreamException.INVALID_STREAM);
+           }
+           
            this.codes[r] = 0;
            int delta = egdec.decodeByte();
            currSize = prevSize + delta;
@@ -104,17 +111,14 @@ public class HuffmanDecoder implements EntropyDecoder
                       " for Huffman symbol " + r, BitStreamException.INVALID_STREAM);
            }
            
-           if (currSize != 0)
+           if (currSize > 24)
            {
-              if (currSize > 24)
-              {
-                 throw new BitStreamException("Invalid bitstream: incorrect max size " + currSize +
-                    " for Huffman symbol " + r, BitStreamException.INVALID_STREAM);
-              }
-
-              if (this.minCodeLen > currSize)
-                 this.minCodeLen = currSize;
+              throw new BitStreamException("Invalid bitstream: incorrect max size " + currSize +
+                 " for Huffman symbol " + r, BitStreamException.INVALID_STREAM);
            }
+
+           if (this.minCodeLen > currSize)
+              this.minCodeLen = currSize;
            
            this.sizes[r] = (short) currSize;
            prevSize = currSize;

@@ -19,7 +19,7 @@ import kanzi.ArrayComparator;
 import kanzi.util.sort.QuickSort;
 
 
-// Tree utility class for a canonical implementation of Huffman codec
+// Utility class for a canonical implementation of Huffman codec
 public final class HuffmanTree
 {
     // Return the number of codes generated
@@ -28,7 +28,7 @@ public final class HuffmanTree
        // Sort by increasing size (first key) and increasing value (second key)
        if (count > 1)
        {
-          QuickSort sorter = new QuickSort(new HuffmanArrayComparator(sizes));
+          QuickSort sorter = new QuickSort(new CodeLengthArrayComparator(sizes));
           sorter.sort(ranks, 0, count);
        }
 
@@ -57,85 +57,13 @@ public final class HuffmanTree
     }
 
 
-    // Huffman node
-    public static class Node implements Comparable<Node>
-    {
-       protected final int weight;
-       protected final byte symbol;
-       protected Node left;
-       protected Node right;
-
-
-       // Leaf
-       Node(byte symbol, int frequency)
-       {
-          this.weight = frequency;
-          this.symbol = symbol;
-       }
-
-
-       // Not leaf
-       Node(Node left, Node right)
-       {
-          this.weight = left.weight + right.weight;
-          this.symbol = left.symbol; // Critical to resolve ties during node sorting !
-          this.left = left;
-          this.right = right;
-       }
-
-
-       @Override
-       public boolean equals(Object o)
-       {
-           if (o == null)
-               return false;
-     
-           if (o == this)
-               return true;
-     
-           return this.symbol == ((Node) o).symbol; 
-       }
-
-       
-       @Override
-       public int hashCode()
-       {
-          return this.symbol;
-       }
-       
-       
-       @Override
-       public int compareTo(Node o)
-       {
-          if (o == null)
-             return 1;
-
-          if (o == this)
-             return 0;
-   
-          if (this.weight != o.weight) 
-             return this.weight - o.weight;
-          
-          if (this.left == null) 
-          {
-             if (o.left != null)
-                return -1;
-          } 
-          else if (o.left == null)
-             return 1;
-                     
-          return (this.symbol & 0xFF) - (o.symbol & 0xFF);
-       }
-    }
-
-
     // Array comparator used to sort keys and values to generate canonical codes
-    private static class HuffmanArrayComparator implements ArrayComparator
+    private static class CodeLengthArrayComparator implements ArrayComparator
     {
         private final short[] array;
 
 
-        public HuffmanArrayComparator(short[] sizes)
+        public CodeLengthArrayComparator(short[] sizes)
         {
             if (sizes == null)
                 throw new NullPointerException("Invalid null array parameter");
@@ -154,4 +82,30 @@ public final class HuffmanTree
             return (res != 0) ? res : lidx - ridx;
         }
     }
+    
+    
+    public static class FrequencyArrayComparator implements ArrayComparator
+    {
+        private final int[] array;
+
+
+        public FrequencyArrayComparator(int[] frequencies)
+        {
+            if (frequencies == null)
+                throw new NullPointerException("Invalid null array parameter");
+
+            this.array = frequencies;
+        }
+
+
+        @Override
+        public int compare(int lidx, int ridx)
+        {
+            // Check size (natural order) as first key
+            final int res = this.array[lidx] - this.array[ridx];
+
+            // Check index (natural order) as second key
+            return (res != 0) ? res : lidx - ridx;
+        }
+    };    
 }

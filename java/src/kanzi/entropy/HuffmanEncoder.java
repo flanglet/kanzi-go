@@ -15,21 +15,25 @@ limitations under the License.
 
 package kanzi.entropy;
 
-import java.util.PriorityQueue;
 import kanzi.OutputBitStream;
 import kanzi.BitStreamException;
 import kanzi.EntropyEncoder;
-import kanzi.entropy.HuffmanTree.Node;
+import kanzi.entropy.HuffmanTree.FrequencyArrayComparator;
+import kanzi.util.sort.QuickSort;
 
 
+// Implementation of a static Huffman encoder.
+// Uses in place generation of canonical codes instead of a tree
 public class HuffmanEncoder implements EntropyEncoder
 {
     private static final int DEFAULT_CHUNK_SIZE = 1 << 16; // 64 KB by default
 
     private final OutputBitStream bitstream;
-    private final int[] buffer;
+    private final int[] freqs;
     private final int[] codes;
     private final int[] ranks;
+    private final int[] sranks;  // sorted ranks
+    private final int[] buffer;  // temporary data
     private final short[] sizes; // Cache for speed purpose
     private final int chunkSize;
 
@@ -56,23 +60,25 @@ public class HuffmanEncoder implements EntropyEncoder
            throw new IllegalArgumentException("The chunk size must be at most 2^30");
 
         this.bitstream = bitstream;
-        this.buffer = new int[256];
+        this.freqs = new int[256];
         this.sizes = new short[256];
         this.ranks = new int[256];
+        this.sranks = new int[256];
+        this.buffer = new int[256];
         this.codes = new int[256];
         this.chunkSize = chunkSize;
 
         // Default frequencies, sizes and codes
         for (int i=0; i<256; i++)
         {
-           this.buffer[i] = 1;
+           this.freqs[i] = 1;
            this.sizes[i] = 8;
            this.codes[i] = i;
         }
     }
 
-
-    // Rebuild Huffman tree
+    
+    // Rebuild Huffman codes
     public boolean updateFrequencies(int[] frequencies) throws BitStreamException
     {
         if ((frequencies == null) || (frequencies.length != 256))
@@ -91,8 +97,10 @@ public class HuffmanEncoder implements EntropyEncoder
 
         try
         {
-           // Create tree from frequencies
-           createTreeFromFrequencies(frequencies, this.sizes, this.ranks, count);
+           if (count == 1)
+              this.sizes[this.ranks[0]] = 1;
+           else            
+              this.computeCodeLengths(frequencies, count);
         }
         catch (IllegalArgumentException e)
         {
@@ -109,26 +117,112 @@ public class HuffmanEncoder implements EntropyEncoder
 
         for (int i=0; i<count; i++)
         {
-           final int currSize = this.sizes[this.ranks[i]];
+           final int currSize = this.sizes[this.ranks[i]];           
            egenc.encodeByte((byte) (currSize - prevSize));
            prevSize = currSize;
         }
 
-        // Create canonical codes (reorders ranks)
-        if (HuffmanTree.generateCanonicalCodes(this.sizes, this.codes, this.ranks, count) < 0)
+        // Create canonical codes 
+        if (HuffmanTree.generateCanonicalCodes(this.sizes, this.codes, this.sranks, count) < 0)
            return false;
 
         // Pack size and code (size <= 24 bits)
         for (int i=0; i<count; i++)
         {
            final int r = this.ranks[i];
-           this.codes[r] = (this.sizes[r] << 24) | this.codes[r];
+           this.codes[r] |= (this.sizes[r] << 24);
         }
 
         return true;
     }
 
+    
+    // See [In-Place Calculation of Minimum-Redundancy Codes]
+    // by Alistair Moffat & Jyrki Katajainen
+    private void computeCodeLengths(int[] frequencies, int count) 
+    {  
+      // Sort ranks by increasing frequency
+      System.arraycopy(this.ranks, 0, this.sranks, 0, count);
+      
+      // Sort by increasing frequencies (first key) and increasing value (second key)
+      if (count > 1)
+         new QuickSort(new FrequencyArrayComparator(frequencies)).sort(this.sranks, 0, count);
+    
+      for (int i=0; i<count; i++)               
+         this.buffer[i] = frequencies[this.sranks[i]];
+      
+      computeInPlaceSizesPhase1(this.buffer, count);
+      computeInPlaceSizesPhase2(this.buffer, count);
+      
+      for (int i=0; i<count; i++) 
+      {
+         short codeLen = (short) this.buffer[i];
+         
+         if (codeLen > 24)
+            throw new IllegalArgumentException("Could not generate codes: max code length (24 bits) exceeded");
+         
+         this.sizes[this.sranks[i]] = codeLen;
+      }
+    }
+    
+    
+    static void computeInPlaceSizesPhase1(int[] data, int n) 
+    {
+      for (int s=0, r=0, t=0; t<n-1; t++) 
+      {
+         int sum = 0;
 
+         for (int i=0; i<2; i++) 
+         {
+            if ((s>=n) || ((r<t) && (data[r]<data[s]))) 
+            {
+               sum += data[r];
+               data[r] = t;
+               r++;
+            }
+            else 
+            {
+               sum += data[s];
+
+               if (s > t) 
+                  data[s] = 0;
+
+               s++;
+            }
+         }
+
+         data[t] = sum;
+      }
+    }
+
+    
+    static void computeInPlaceSizesPhase2(int[] data, int n) 
+    {
+        int level_top = n - 2; //root
+        int depth = 1;
+        int i = n;
+        int total_nodes_at_level = 2;
+
+        while (i > 0) 
+        {
+           int k = level_top;
+
+           while ((k>0) && (data[k-1]>=level_top))
+              k--;
+
+           final int internal_nodes_at_level = level_top - k;
+           final int leaves_at_level = total_nodes_at_level - internal_nodes_at_level;
+
+           for (int j=0; j<leaves_at_level; j++)
+              data[--i] = depth;
+
+           total_nodes_at_level = internal_nodes_at_level << 1;
+           level_top = k;
+           depth++;
+        }
+    }
+   
+    
     // Dynamically compute the frequencies for every chunk of data in the block
     @Override
     public int encode(byte[] array, int blkptr, int len)
@@ -139,7 +233,7 @@ public class HuffmanEncoder implements EntropyEncoder
        if (len == 0)
           return 0;
 
-       final int[] frequencies = this.buffer;
+       final int[] frequencies = this.freqs;
        final int end = blkptr + len;
        final int sz = (this.chunkSize == 0) ? len : this.chunkSize;
        int startChunk = blkptr;
@@ -168,54 +262,7 @@ public class HuffmanEncoder implements EntropyEncoder
 
        return len;
     }
-
-
-    private static Node createTreeFromFrequencies(int[] frequencies, short[] sizes_, int[] ranks, int count)
-    {
-       // Create Huffman tree of (present) symbols
-       PriorityQueue<Node> queue = new PriorityQueue<Node>();
-
-       for (int i=0; i<count; i++)
-       {
-          queue.offer(new Node((byte) ranks[i], frequencies[ranks[i]]));
-       }
-
-       while (queue.size() > 1)
-       {
-           // Extract 2 minimum nodes, merge them and enqueue result
-           queue.offer(new Node(queue.poll(), queue.poll()));
-       }
-
-       final Node rootNode = queue.poll();
-
-       if (count == 1)
-          sizes_[rootNode.symbol & 0xFF] = (short) 1;
-       else
-          fillSizes(rootNode, 0, sizes_);
-
-       return rootNode;
-    }
-
-
-    // Recursively fill sizes
-    private static void fillSizes(Node node, int depth, short[] sizes_)
-    {
-       if (depth > 24)
-          throw new IllegalArgumentException("Cannot code symbol '" + (node.symbol & 0xFF) + "'");
-
-       if ((node.left == null) && (node.right == null))
-       {
-          sizes_[node.symbol & 0xFF] = (short) depth;
-          return;
-       }
-
-       if (node.left != null)
-          fillSizes(node.left, depth+1, sizes_);
-
-       if (node.right != null)
-          fillSizes(node.right, depth+1, sizes_);
-    }
-
+    
 
     @Override
     public OutputBitStream getBitStream()

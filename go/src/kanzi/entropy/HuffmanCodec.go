@@ -16,7 +16,6 @@ limitations under the License.
 package entropy
 
 import (
-	"container/heap"
 	"errors"
 	"fmt"
 	"kanzi"
@@ -33,24 +32,16 @@ const (
 
 // ---- Utilities
 
-// Huffman node
-type HuffmanNode struct {
-	symbol byte
-	weight uint
-	left   *HuffmanNode
-	right  *HuffmanNode
-}
-
-type SizeComparator struct {
+type CodeLengthComparator struct {
 	ranks []byte
 	sizes []byte
 }
 
-func ByIncreasingSize(ranks, sizes []byte) SizeComparator {
-	return SizeComparator{ranks: ranks, sizes: sizes}
+func ByIncreasingCodeLength(ranks, sizes []byte) CodeLengthComparator {
+	return CodeLengthComparator{ranks: ranks, sizes: sizes}
 }
 
-func (this SizeComparator) Less(i, j int) bool {
+func (this CodeLengthComparator) Less(i, j int) bool {
 	// Check size (natural order) as first key
 	ri := this.ranks[i]
 	rj := this.ranks[j]
@@ -63,53 +54,42 @@ func (this SizeComparator) Less(i, j int) bool {
 	return ri < rj
 }
 
-func (this SizeComparator) Len() int {
+func (this CodeLengthComparator) Len() int {
 	return len(this.ranks)
 }
 
-func (this SizeComparator) Swap(i, j int) {
+func (this CodeLengthComparator) Swap(i, j int) {
 	this.ranks[i], this.ranks[j] = this.ranks[j], this.ranks[i]
 }
 
-type HuffmanPriorityQueue []*HuffmanNode
-
-func (this HuffmanPriorityQueue) Len() int {
-	return len(this)
+func ByIncreasingFrequency(ranks []byte, frequencies []uint) FrequencyComparator {
+	return FrequencyComparator{ranks: ranks, frequencies: frequencies}
 }
 
-func (this HuffmanPriorityQueue) Less(i, j int) bool {
-	ni := this[i]
-	nj := this[j]
+type FrequencyComparator struct {
+	ranks       []byte
+	frequencies []uint
+}
 
-	if ni.weight != nj.weight {
-		return ni.weight < nj.weight
+func (this FrequencyComparator) Less(i, j int) bool {
+	// Check frequency (natural order) as first key
+	ri := this.ranks[i]
+	rj := this.ranks[j]
+
+	if this.frequencies[ri] != this.frequencies[rj] {
+		return this.frequencies[ri] < this.frequencies[rj]
 	}
 
-	if ni.left == nil {
-		if nj.left != nil {
-			return true
-		}
-	} else if nj.left == nil {
-		return false
-	}
-
-	return ni.symbol < nj.symbol
+	// Check index (natural order) as second key
+	return ri < rj
 }
 
-func (this HuffmanPriorityQueue) Swap(i, j int) {
-	this[i], this[j] = this[j], this[i]
+func (this FrequencyComparator) Len() int {
+	return len(this.ranks)
 }
 
-func (this *HuffmanPriorityQueue) Push(node interface{}) {
-	*this = append(*this, node.(*HuffmanNode))
-}
-
-func (this *HuffmanPriorityQueue) Pop() interface{} {
-	old := *this
-	n := len(old)
-	node := old[n-1]
-	*this = old[0 : n-1]
-	return node
+func (this FrequencyComparator) Swap(i, j int) {
+	this.ranks[i], this.ranks[j] = this.ranks[j], this.ranks[i]
 }
 
 // Return the number of codes generated
@@ -118,7 +98,7 @@ func generateCanonicalCodes(sizes []byte, codes []uint, ranks []byte) int {
 
 	// Sort by increasing size (first key) and increasing value (second key)
 	if count > 1 {
-		sort.Sort(ByIncreasingSize(ranks, sizes))
+		sort.Sort(ByIncreasingCodeLength(ranks, sizes))
 	}
 
 	code := uint(0)
@@ -145,13 +125,16 @@ func generateCanonicalCodes(sizes []byte, codes []uint, ranks []byte) int {
 }
 
 // ---- Encoder
-
+// Implementation of a static Huffman encoder.
+// Uses in place generation of canonical codes instead of a tree
 type HuffmanEncoder struct {
 	bitstream kanzi.OutputBitStream
-	buffer    []uint
+	freqs     []uint
 	codes     []uint
 	sizes     []byte
 	ranks     []byte
+	sranks    []byte
+	buffer    []uint
 	chunkSize int
 }
 
@@ -186,15 +169,17 @@ func NewHuffmanEncoder(bs kanzi.OutputBitStream, args ...uint) (*HuffmanEncoder,
 
 	this := new(HuffmanEncoder)
 	this.bitstream = bs
-	this.buffer = make([]uint, 256)
+	this.freqs = make([]uint, 256)
 	this.codes = make([]uint, 256)
 	this.sizes = make([]byte, 256)
 	this.ranks = make([]byte, 256)
+	this.sranks = make([]byte, 256)
+	this.buffer = make([]uint, 256)
 	this.chunkSize = int(chkSize)
 
 	// Default frequencies, sizes and codes
 	for i := 0; i < 256; i++ {
-		this.buffer[i] = 1
+		this.freqs[i] = 1
 		this.sizes[i] = 8
 		this.codes[i] = uint(i)
 	}
@@ -202,84 +187,31 @@ func NewHuffmanEncoder(bs kanzi.OutputBitStream, args ...uint) (*HuffmanEncoder,
 	return this, nil
 }
 
-func createTreeFromFrequencies(frequencies []uint, sizes_ []byte, ranks []byte) error {
-	// Create Huffman tree of (present) symbols
-	queue := make(HuffmanPriorityQueue, 0)
-	heap.Init(&queue)
-
-	for i := range ranks {
-		heap.Push(&queue, &HuffmanNode{symbol: ranks[i], weight: frequencies[ranks[i]]})
-	}
-
-	for queue.Len() > 1 {
-		// Extract 2 minimum nodes, merge them and enqueue result
-		lNode := heap.Pop(&queue).(*HuffmanNode)
-		rNode := heap.Pop(&queue).(*HuffmanNode)
-
-		// Setting the symbol is critical to resolve ties during node sorting !
-		heap.Push(&queue, &HuffmanNode{weight: lNode.weight + rNode.weight, left: lNode, right: rNode, symbol: lNode.symbol})
-	}
-
-	rootNode := heap.Pop(&queue).(*HuffmanNode)
-	var err error
-
-	if len(ranks) == 1 {
-		sizes_[rootNode.symbol] = byte(1)
-	} else {
-		err = fillSizes(rootNode, 0, sizes_)
-	}
-
-	return err
-}
-
-// Recursively fill sizes
-func fillSizes(node *HuffmanNode, depth uint, sizes_ []byte) error {
-	if depth > 24 {
-		return fmt.Errorf("Cannot code symbol '%v'", node.symbol)
-	}
-
-	if node.left == nil && node.right == nil {
-		sizes_[node.symbol] = byte(depth)
-		return nil
-	}
-
-	if node.left != nil {
-		fillSizes(node.left, depth+1, sizes_)
-	}
-
-	if node.right != nil {
-		fillSizes(node.right, depth+1, sizes_)
-	}
-
-	return nil
-}
-
-// Rebuild Huffman tree
+// Rebuild Huffman codes
 func (this *HuffmanEncoder) UpdateFrequencies(frequencies []uint) error {
 	if frequencies == nil || len(frequencies) != 256 {
 		return errors.New("Invalid frequencies parameter")
 	}
 
-	alphabetSize := 0
+	count := 0
 
 	for i := range this.sizes {
 		this.sizes[i] = 0
 		this.codes[i] = 0
 
 		if frequencies[i] > 0 {
-			this.ranks[alphabetSize] = byte(i)
-			alphabetSize++
+			this.ranks[count] = byte(i)
+			count++
 		}
 	}
 
-	// Create tree from frequencies
-	err := createTreeFromFrequencies(frequencies, this.sizes, this.ranks[0:alphabetSize])
-
-	if err != nil {
-		return err
+	if count == 1 {
+		this.sizes[this.ranks[0]] = 1
+	} else {
+		this.computeCodeLengths(frequencies, count)
 	}
 
-	EncodeAlphabet(this.bitstream, this.ranks[0:alphabetSize])
+	EncodeAlphabet(this.bitstream, this.ranks[0:count])
 
 	// Transmit code lengths only, frequencies and codes do not matter
 	// Unary encode the length difference
@@ -291,24 +223,100 @@ func (this *HuffmanEncoder) UpdateFrequencies(frequencies []uint) error {
 
 	prevSize := byte(2)
 
-	for i := 0; i < alphabetSize; i++ {
+	for i := 0; i < count; i++ {
 		currSize := this.sizes[this.ranks[i]]
 		egenc.EncodeByte(currSize - prevSize)
 		prevSize = currSize
 	}
 
-	// Create canonical codes (reorders ranks)
-	if generateCanonicalCodes(this.sizes, this.codes, this.ranks[0:alphabetSize]) < 0 {
+	// Create canonical codes
+	if generateCanonicalCodes(this.sizes, this.codes, this.sranks[0:count]) < 0 {
 		return errors.New("Could not generate codes: max code length (24 bits) exceeded")
 	}
 
 	// Pack size and code (size <= 24 bits)
-	for i := 0; i < alphabetSize; i++ {
+	for i := 0; i < count; i++ {
 		r := this.ranks[i]
-		this.codes[r] = (uint(this.sizes[r]) << 24) | this.codes[r]
+		this.codes[r] |= (uint(this.sizes[r]) << 24)
 	}
 
 	return nil
+}
+
+// See [In-Place Calculation of Minimum-Redundancy Codes]
+// by Alistair Moffat & Jyrki Katajainen
+func (this *HuffmanEncoder) computeCodeLengths(frequencies []uint, count int) {
+	// Sort ranks by increasing frequency
+	for i := 0; i < count; i++ {
+		this.sranks[i] = this.ranks[i]
+	}
+
+	// Sort by increasing frequencies (first key) and increasing value (second key)
+	if count > 1 {
+		sort.Sort(ByIncreasingFrequency(this.sranks[0:count], frequencies))
+	}
+
+	for i := 0; i < count; i++ {
+		this.buffer[i] = frequencies[this.sranks[i]]
+	}
+
+	computeInPlaceSizesPhase1(this.buffer, count)
+	computeInPlaceSizesPhase2(this.buffer, count)
+
+	for i := 0; i < count; i++ {
+		this.sizes[this.sranks[i]] = byte(this.buffer[i])
+	}
+}
+
+func computeInPlaceSizesPhase1(data []uint, n int) {
+	for s, r, t := 0, 0, 0; t < n-1; t++ {
+		sum := uint(0)
+
+		for i := 0; i < 2; i++ {
+			if s >= n || (r < t && data[r] < data[s]) {
+				sum += data[r]
+				data[r] = uint(t)
+				r++
+			} else {
+				sum += data[s]
+
+				if s > t {
+					data[s] = 0
+				}
+
+				s++
+			}
+		}
+
+		data[t] = sum
+	}
+}
+
+func computeInPlaceSizesPhase2(data []uint, n int) {
+	level_top := uint(n - 2) //root
+	depth := uint(1)
+	i := n
+	total_nodes_at_level := uint(2)
+
+	for i > 0 {
+		k := level_top
+
+		for k > 0 && data[k-1] >= level_top {
+			k--
+		}
+
+		internal_nodes_at_level := uint(level_top - k)
+		leaves_at_level := total_nodes_at_level - internal_nodes_at_level
+
+		for j := uint(0); j < leaves_at_level; j++ {
+			i--
+			data[i] = depth
+		}
+
+		total_nodes_at_level = internal_nodes_at_level << 1
+		level_top = k
+		depth++
+	}
 }
 
 // Dynamically compute the frequencies for every chunk of data in the block
@@ -321,7 +329,7 @@ func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
 		return 0, nil
 	}
 
-	frequencies := this.buffer // aliasing
+	frequencies := this.freqs // aliasing
 	end := len(block)
 	startChunk := 0
 	sizeChunk := this.chunkSize
@@ -367,7 +375,7 @@ func (this *HuffmanEncoder) BitStream() kanzi.OutputBitStream {
 }
 
 // ---- Decoder
-
+// Uses tables to decode symbols instead of a tree
 type HuffmanDecoder struct {
 	bitstream  kanzi.InputBitStream
 	codes      []uint
@@ -451,6 +459,11 @@ func (this *HuffmanDecoder) ReadLengths() (int, error) {
 	// Read lengths
 	for i := 0; i < count; i++ {
 		r := this.ranks[i]
+
+		if int(r) > len(this.ranks) {
+			return 0, fmt.Errorf("Invalid bitstream: incorrect Huffman symbol %v", r)
+		}
+
 		this.codes[r] = 0
 		currSize = int8(egdec.DecodeByte()) + prevSize
 
