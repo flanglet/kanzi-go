@@ -195,7 +195,9 @@ func (this *BlockDecompressor) call() (int, uint64) {
 		}
 	}
 
-	defer output.Close()
+	defer func() {
+		output.Close()
+	}()
 
 	// Decode
 	read := uint64(0)
@@ -208,7 +210,10 @@ func (this *BlockDecompressor) call() (int, uint64) {
 		return kio.ERR_OPEN_FILE, read
 	}
 
-	defer input.Close()
+	defer func() {
+		input.Close()
+	}()
+
 	verboseWriter := os.Stdout
 
 	if printFlag == false {

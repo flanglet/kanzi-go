@@ -110,7 +110,7 @@ func NewBlockCompressor() (*BlockCompressor, error) {
 
 	// Process K or M suffix
 	scale := 1
-        lastChar := strBlockSize[len(strBlockSize)-1]
+	lastChar := strBlockSize[len(strBlockSize)-1]
 
 	if lastChar == 'K' {
 		strBlockSize = strBlockSize[0 : len(strBlockSize)-1]
@@ -249,7 +249,10 @@ func (this *BlockCompressor) call() (int, uint64) {
 			return kio.ERR_CREATE_FILE, written
 		}
 
-		defer output.Close()
+		defer func() {
+			output.Close()
+		}()
+
 	} else {
 		output, _ = kio.NewNullOutputStream()
 	}
@@ -273,7 +276,10 @@ func (this *BlockCompressor) call() (int, uint64) {
 		}
 	}
 
-	defer cos.Close()
+	defer func() {
+		cos.Close()
+	}()
+
 	input, err := os.Open(this.inputName)
 
 	if err != nil {
