@@ -90,8 +90,8 @@ func (this *DefaultInputBitStream) ReadBits(count uint) uint64 {
 		// Not enough spots available in 'current'
 		remaining := count - this.bitIndex - 1
 		res = this.current & (0xFFFFFFFFFFFFFFFF >> (63 - this.bitIndex))
-		res <<= remaining
 		this.pullCurrent()
+		res <<= remaining
 		this.bitIndex -= remaining
 		res |= (this.current >> (this.bitIndex + 1))
 	}

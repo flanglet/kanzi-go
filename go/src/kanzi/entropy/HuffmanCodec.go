@@ -345,18 +345,51 @@ func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
 			endChunk = len(block)
 		}
 
+		endChunk8 := ((endChunk - startChunk) & 0xFFFFFFF8) + startChunk
+
 		for i := range frequencies {
 			frequencies[i] = 0
 		}
 
-		for i := startChunk; i < endChunk; i++ {
+		for i := startChunk; i < endChunk8; i += 8 {
+			frequencies[block[i]]++
+			frequencies[block[i+1]]++
+			frequencies[block[i+2]]++
+			frequencies[block[i+3]]++
+			frequencies[block[i+4]]++
+			frequencies[block[i+5]]++
+			frequencies[block[i+6]]++
+			frequencies[block[i+7]]++
+		}
+
+		for i := endChunk8; i < endChunk; i++ {
 			frequencies[block[i]]++
 		}
 
-		// Rebuild Huffman tree
+		// Rebuild Huffman codes
 		this.UpdateFrequencies(frequencies)
 
-		for i := startChunk; i < endChunk; i++ {
+		for i := startChunk; i < endChunk8; i += 8 {
+			var val uint
+			val = this.codes[block[i]]
+			this.bitstream.WriteBits(uint64(val), val>>24)
+			val = this.codes[block[i+1]]
+			this.bitstream.WriteBits(uint64(val), val>>24)
+			val = this.codes[block[i+2]]
+			this.bitstream.WriteBits(uint64(val), val>>24)
+			val = this.codes[block[i+3]]
+			this.bitstream.WriteBits(uint64(val), val>>24)
+			val = this.codes[block[i+4]]
+			this.bitstream.WriteBits(uint64(val), val>>24)
+			val = this.codes[block[i+5]]
+			this.bitstream.WriteBits(uint64(val), val>>24)
+			val = this.codes[block[i+6]]
+			this.bitstream.WriteBits(uint64(val), val>>24)
+			val = this.codes[block[i+7]]
+			this.bitstream.WriteBits(uint64(val), val>>24)
+		}
+
+		for i := endChunk8; i < endChunk; i++ {
 			val := this.codes[block[i]]
 			this.bitstream.WriteBits(uint64(val), val>>24)
 		}

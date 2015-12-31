@@ -103,7 +103,7 @@ public final class DefaultInputBitStream implements InputBitStream
    @Override
    public long readBits(int count) throws BitStreamException
    {
-      if ((count <= 0) || (count > 64))
+      if (((count-1) & -64) != 0)
          throw new IllegalArgumentException("Invalid length: "+count+" (must be in [1..64])");
 
       long res;
