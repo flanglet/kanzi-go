@@ -105,8 +105,28 @@ public class RGBColorModelConverter implements ColorModelConverter
 
             for (int i=startLine, k=startLine2; i<end; i++)
             {
-               // Pack channels
-               rgb[k++] = ((y[i]&0xFF) << 16) | ((u[i]&0xFF) << 8) | (v[i]&0xFF);
+               // Pack channels. Ensure that channel values are in [0.255]
+               // convertRGBtoYUV() ewnsures proper range but the values may have been
+               // manipulated after the convertRGBtoYUV() call.
+               int r = y[i];
+               r &= ~(r >> 31);
+              
+               if (r > 255) 
+                  r = 255;
+               
+               int g = u[i];
+               g &= ~(g >> 31);
+               
+               if (g > 255)
+                  g = 255;
+               
+               int b = v[i];
+               b &= ~(b >> 31);
+               
+               if (b > 255) 
+                  b = 255;
+               
+               rgb[k++] = (r << 16) | (g << 8) | b;
             }
 
             startLine  += this.width;
