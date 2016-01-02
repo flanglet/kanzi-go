@@ -168,19 +168,13 @@ package kanzi.filter.seam;
 
     public Geodesic getLast()
     {
-        if (this.size == 0)
-            return null;
-
-        return this.tail.value;
+        return (this.tail == null) ? null : this.tail.value;
     }
 
 
     public Geodesic getFirst()
     {
-        if (this.size == 0)
-            return null;
-
-        return this.head.value;
+        return (this.head == null) ? null : this.head.value;
     }
 
 
@@ -257,4 +251,3 @@ package kanzi.filter.seam;
     }
 
 }
-

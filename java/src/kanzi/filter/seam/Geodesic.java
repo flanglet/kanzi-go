@@ -38,7 +38,7 @@ public class Geodesic implements Comparable<Geodesic>
       return this.cost - geo.cost;
    }
 
-   
+
    @Override
    public String toString()
    {

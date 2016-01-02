@@ -41,7 +41,7 @@ public class TestContextResizer
             boolean debug = false;
             boolean vertical = false;
             boolean horizontal = false;
-            boolean speed = false;
+            int tests = 0;
             int effectPerMil = 100;
             boolean fileProvided = false;
             
@@ -57,7 +57,7 @@ public class TestContextResizer
                    System.out.println("-strength=<percent> : number of geodesics to create (in percent of dimension)");
                    System.out.println("-vertical           : process vertical geodesics");
                    System.out.println("-horizontal         : process horizontal geodesics");
-                   System.out.println("-speedtest          : run an extra speed test");
+                   System.out.println("-speedtest=<steps>  : run an extra speed test");
                    System.exit(0);
                }
                else if (arg.equals("-debug"))
@@ -93,10 +93,20 @@ public class TestContextResizer
                      System.err.println("Invalid effect strength (percentage) provided on command line: "+arg);
                   }
                }
-               else if (arg.equals("-speedtest"))
+               else if (arg.startsWith("-speedtest="))
                {
-                   speed = true;
-                   System.out.println("Speed test set to true");
+                  arg = arg.substring(11);
+                  
+                  try
+                  {
+                     tests = Integer.parseInt(arg);                   
+                  }
+                  catch (NumberFormatException e)
+                  {
+                     System.err.println("Invalid number of speed tests provided on command line: "+arg);
+                  }
+                  
+                  System.out.println("Speed test set to " + tests);
                }
                else
                {
@@ -166,17 +176,20 @@ public class TestContextResizer
             frame2.setVisible(true);
 
             // Speed test
-            if (speed == true)
+            if (tests > 0)
             {
                 ExecutorService pool = Executors.newFixedThreadPool(4);
                 System.out.println("Speed test");
                 long sum = 0;
-                int iter = 1000;
-                System.out.println("Accurate mode");
+                int iter = tests;
+                System.out.print("Accurate mode");
                 effect = new ContextResizer(w, h, w, dir, -effectPerMil, false, false, pool);
 
                 for (int ii=0; ii<iter; ii++)
                 {
+                   if ((ii % (iter/10)) == (iter/10) - 1)
+                      System.out.print(".");
+                   
                    img.getRaster().getDataElements(0, 0, w, h, src);
                    long before = System.nanoTime();
                    effect.apply(src, tmp);
@@ -184,7 +197,7 @@ public class TestContextResizer
                    sum += (after - before);
                 }
 
-                System.out.println("Elapsed [ms]: "+ sum/1000000+" ("+iter+" iterations)"); 
+                System.out.println("\nElapsed [ms]: "+ sum/1000000+" ("+iter+" iterations)"); 
                 System.out.println(1000000000*(long)iter/sum+" FPS");
                 System.out.println("Fast mode");
                 sum = 0;

@@ -394,27 +394,29 @@ public class ContextResizer implements IntFilter
 
         for (int j=endj-1; j>=0; j--)
         {
+            final int endPosIdx = linePositions.length;
+
             // Find all the pixels belonging to geodesics in this line
-            for (int k=0; k<linePositions.length; k++)
+            for (int k=0; k<endPosIdx; k++)
                 linePositions[k] = geodesics[k].positions[j];
 
             // Sort the pixels by increasing position
-            if (linePositions.length > 1)
-                this.sorter.sort(linePositions, 0, linePositions.length);
+            if (endPosIdx > 1)
+                this.sorter.sort(linePositions, 0, endPosIdx);
 
             int posIdx = 0;
             int srcIdx = srcStart;
             int dstIdx = dstStart;
-            final int endPosIdx = linePositions.length;
             int pos = 0;
             
             while (posIdx < endPosIdx)
             {
-                int newPos = linePositions[posIdx];
-                final int len = newPos - pos;
+                final int newPos = linePositions[posIdx];
                 
-                if (len > 0)
+                if (newPos > pos)
                 {     
+                   final int len = newPos - pos;
+                   
                    if ((dir == VERTICAL) && (len >= 32))
                    {
                        // Speed up copy
@@ -429,7 +431,7 @@ public class ContextResizer implements IntFilter
                        dstIdx += (len * incIdx);
                     }
                 
-                   pos = newPos;
+                    pos = newPos;
                 }
 
                 // Insert new pixel into the destination
@@ -439,11 +441,7 @@ public class ContextResizer implements IntFilter
                 }
                 else
                 {
-                   final int pix = src[srcIdx]; 
-                   final int r = (pix >> 16) & 0xFF;
-                   final int g = (pix >> 8)  & 0xFF;
-                   final int b =  pix & 0xFF;
-                   dst[dstIdx] = (r << 16) | (g << 8) | b;
+                   dst[dstIdx] = src[srcIdx];
                 }
 
                 pos++;
@@ -521,28 +519,30 @@ public class ContextResizer implements IntFilter
 
         for (int j=0; j<endj; j++)
         {
+            final int endPosIdx = linePositions.length;
+
             // Find all the pixels belonging to geodesics in this line
-            for (int k=0; k<linePositions.length; k++)
+            for (int k=0; k<endPosIdx; k++)
                 linePositions[k] = geodesics[k].positions[j];
 
             // Sort the pixels by increasing position
-            if (linePositions.length > 1)
-                this.sorter.sort(linePositions, 0, linePositions.length);
+            if (endPosIdx > 1)
+                this.sorter.sort(linePositions, 0, endPosIdx);
 
             int srcIdx = srcStart;
             int dstIdx = dstStart;
             int posIdx = 0;
-            final int endPosIdx = linePositions.length;
             int pos = 0;
 
             while (posIdx < endPosIdx)
             {
-                final int nextPos = linePositions[posIdx];
-                final int len = nextPos - pos;
+                final int newPos = linePositions[posIdx];
 
                 // Copy pixels not belonging to a geodesic
-                if (len > 0)
+                if (newPos > pos)
                 {
+                    final int len = newPos - pos;
+                    
                     if ((dir == VERTICAL) && (len >= 32))
                     {
                        // Speed up copy
@@ -558,7 +558,7 @@ public class ContextResizer implements IntFilter
                        dstIdx += (len * incIdx);
                     }
 
-                    pos = nextPos;
+                    pos = newPos;
                 }
 
                 // Mark or remove pixel belonging to a geodesic
@@ -619,7 +619,7 @@ public class ContextResizer implements IntFilter
         // It will improve quality by spreading the search over the whole image
         // if maxSearches is small.
         for (int i=0; ((n<searches) && (i<24)); i+=3)
-        {
+        { 
             // i & 7 shuffles the start position : 0, 3, 6, 1, 4, 7, 2, 5
             for (int j=(i & 7); ((n<searches) && (j<dim)); j+=8)
                 firstPositions[n++] = j;
@@ -683,7 +683,6 @@ public class ContextResizer implements IntFilter
         // Queue of geodesics sorted by cost
         // The queue size could be less than firstPositions.length
         final GeodesicSortedQueue queue = new GeodesicSortedQueue(maxGeo);
-        boolean consumed = true;
         Geodesic geodesic = null;
         Geodesic last = null; // last in queue
         int maxCost = geoLength * this.maxAvgGeoPixCost;
@@ -692,10 +691,9 @@ public class ContextResizer implements IntFilter
         // Calculate path and cost for each geodesic
         for (int i=0; i<searches; i++)
         {
-            if (consumed == true)
+            if (geodesic == null)
                 geodesic = new Geodesic(dir, geoLength);
 
-            consumed = false;
             int bestLinePos = firstPositions[i];
             int costIdx = inc * bestLinePos;
             geodesic.positions[0] = bestLinePos;
@@ -707,7 +705,7 @@ public class ContextResizer implements IntFilter
                 costIdx += incLine;
                 final int startCostIdx = costIdx;
                 int startBestLinePos = bestLinePos;
-                int  bestCost = ((costs_[startCostIdx] & USED_MASK) == 0) ? costs_[startCostIdx]
+                int bestCost = ((costs_[startCostIdx] & USED_MASK) == 0) ? costs_[startCostIdx]
                         : DEFAULT_BEST_COST;
 
                 if (bestCost > 0)
@@ -768,19 +766,16 @@ public class ContextResizer implements IntFilter
 
             if (geodesic.cost < maxCost)
             {
-                 final int geoLength4 = geoLength & -4;
-
-                 // Add geodesic (in increasing cost order). It is sure to succeed
-                 // (it may evict the current tail) because geodesic.cos < maxCost
-                 // and maxCost is adjusted to tail.value
+                 // Add geodesic (in increasing cost order). 
                  Geodesic newLast = queue.add(geodesic);
 
                  // Prevent geodesics from sharing pixels by marking the used pixels
                  // Only the pixels of the geodesics in the queue are marked as used
                  if (nbGeodesics > 1)
-                 {
+                 {                     
                      // If the previous last element has been expelled from the queue,
                      // the corresponding pixels can be reused by other geodesics
+                     final int geoLength4 = geoLength & -4;
                      int startLine = 0;
                      final int[] gp = geodesic.positions;
 
@@ -835,10 +830,7 @@ public class ContextResizer implements IntFilter
                  }
 
                  // Be green, recycle
-                 if (last == null)
-                    consumed = true;
-                 else
-                    geodesic = last;
+                 geodesic = last;
 
                  // Update maxCost
                  if (queue.isFull())
