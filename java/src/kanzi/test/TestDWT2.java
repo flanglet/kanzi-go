@@ -60,12 +60,12 @@ public class TestDWT2
          int[] source = new int[w * h];
          int[] destination = new int[w * h];
          img.getRaster().getDataElements(0, 0, w, h, source);
-         IndexedIntArray iia2 = new IndexedIntArray(source, 0);
-         IndexedIntArray iia3 = new IndexedIntArray(destination, 0);
+         IndexedIntArray iia1 = new IndexedIntArray(source, 0);
+         IndexedIntArray iia2 = new IndexedIntArray(destination, 0);
          long before = System.nanoTime();
 
          ColorModelConverter cvt = new YCbCrColorModelConverter(w, h);//, (y*w)+x, ww);
-         process(1, w, h, cvt, iia2, iia3);
+         process(1, w, h, cvt, iia1, iia2);
          long after = System.nanoTime();
          System.out.println("Time elapsed [ms]: "+ (after-before)/1000000);
 
