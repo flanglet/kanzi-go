@@ -224,7 +224,7 @@ public class HuffmanDecoder implements EntropyDecoder
           // Fast decoding (read DECODING_BATCH_SIZE bits at a time)
           for ( ; i<endChunk1; i++)
              array[i] = this.fastDecodeByte();
-
+          
           // Fallback to regular decoding (read one bit at a time)
           for ( ; i<endChunk; i++)
              array[i] = this.slowDecodeByte(0, 0);
