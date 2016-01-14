@@ -111,6 +111,54 @@ var COS_1024 = [256]int{
 	-1004, -1006, -1008, -1010, -1012, -1014, -1016, -1017, -1019, -1020, -1021, -1022, -1022, -1023, -1023, -1023,
 }
 
+//  1<<12* 1/(1 + exp(-2*d))
+var INV_EXP = []int{
+	0, 24, 41, 70, 118, 200, 338, 570,
+	958, 1606, 2673, 4400, 7116, 11203, 16955, 24339,
+	32768, 41197, 48581, 54333, 58420, 61136, 62863, 63930,
+	64578, 64966, 65198, 65336, 65418, 65466, 65495, 65512,
+	65522,
+}
+
+// Inverse of squash. d = ln(p/(1-p)), d scaled by 8 bits, p by 12 bits.
+// d has range -2047 to 2047 representing -8 to 8.  p has range 0 to 4095.
+var STRETCH = initStretch()
+
+// Inverse of squash. d = ln(p/(1-p)), d scaled by 8 bits, p by 12 bits.
+// d has range -2047 to 2047 representing -8 to 8.  p has range 0 to 4095.
+func initStretch() []int {
+	res := make([]int, 4096)
+	pi := 0
+
+	for x := -2047; x <= 2047; x++ {
+		i := Squash(x)
+
+		for pi <= i {
+			res[pi] = x
+			pi++
+		}
+	}
+
+	res[4095] = 2047
+	return res
+}
+
+// return p = 1/(1 + exp(-d)), d scaled by 8 bits, p scaled by 12 bits
+func Squash(d int) int {
+	if d > 2047 {
+		return 4095
+	}
+
+	if d < -2047 {
+		return 0
+	}
+
+	w := d & 127
+	d = (d >> 7) + 16
+	return (INV_EXP[d]*(128-w) + INV_EXP[d+1]*w) >> 11
+}
+
+
 // Return 1024 * 10 * log10(x)
 func Ten_log10(x int) (int, error) {
 	if x <= 0 {

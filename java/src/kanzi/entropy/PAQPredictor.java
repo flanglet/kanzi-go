@@ -14,6 +14,9 @@ limitations under the License.
 */
 package kanzi.entropy;
 
+import static kanzi.Global.STRETCH;
+import static kanzi.Global.squash;
+
 
 // This class is a port from the code of the dcs-bwt-compressor project
 // http://code.google.com/p/dcs-bwt-compressor/(itself based on PAQ coders)
@@ -72,9 +75,7 @@ package kanzi.entropy;
 ////
 //// [ The APM chain has been modified into:
 ////
-////                 +--->---+ +--->---+
-////                 |       | |       |
-////  p --> A2 -> A3 +-> A5 -+-+-> A4 -+-> Encoder
+////  p --> A2 -> A3 --> A4 --> Encoder
 ////
 //// ]
 ////
@@ -190,46 +191,13 @@ public class PAQPredictor implements Predictor
        140,252, 0,40, 249,135,41, 0, 250, 69,40, 1,  80,251, 1,40, // 248-251
        140,252, 0,41,   0,  0, 0, 0,   0,  0, 0, 0,   0,  0, 0, 0  // 253-255 are reserved
    };
-
-
-    private static final int[] INV_EXP =
-    {
-         0,    2,    4,    6,   10,   17,   27,   45,
-        74,  120,  194,  311,  488,  747, 1102, 1546,
-      2048, 2550, 2994, 3349, 3608, 3785, 3902, 3976,
-      4022, 4051, 4069, 4079, 4086, 4090, 4092, 4094,
-      4095
-    };
-
-
-    // Inverse of squash. d = ln(p/(1-p)), d scaled by 8 bits, p by 12 bits.
-    // d has range -2047 to 2047 representing -8 to 8.  p has range 0 to 4095.
-    private static final int[] STRETCH = initStretch();
-
-
-    private static int[] initStretch()
-    {
-       int[] res = new int[4096];
-       int pi = 0;
-
-       for (int x=-2047; (x<=2047) && (pi<4096); x++)
-       {
-          final int i = squash(x);
-
-          while (pi<=i)
-            res[pi++] = x;
-       }
-
-       res[4095] = 2047;
-       return res;
-   }
-
+ 
     
    // Removed apm11, apm12 and apm5 from original
    private int pr;                   // next predicted value (0-4095)
    private int c0;                   // bitwise context: last 0-7 bits with a leading 1 (1-255)
    private int c4;                   // last 4 whole bytes, last is in low 8 bits
-   private int bpos;                 // number of bits in c0 (0-7)
+   private int bpos;                 // bit in c0 (0-7)
    private final int[] states;       // context -> state
    private final StateMap sm;        // state -> pr
    private int run;                  // count of consecutive identical bytes (0-65535)
@@ -237,18 +205,18 @@ public class PAQPredictor implements Predictor
    private final AdaptiveProbMap apm2;
    private final AdaptiveProbMap apm3;
    private final AdaptiveProbMap apm4;
-
+   
    
    public PAQPredictor()
    {
      this.pr = 2048;
      this.c0 = 1;
      this.states = new int[256];
-     this.apm2 = new AdaptiveProbMap(1024);
-     this.apm3 = new AdaptiveProbMap(1024);
-     this.apm4 = new AdaptiveProbMap(32768);
+     this.apm2 = new AdaptiveProbMap(1024, 6);
+     this.apm3 = new AdaptiveProbMap(1024, 8);
+     this.apm4 = new AdaptiveProbMap(32768, 8);
      this.sm = new StateMap();
-     this.bpos = 7;
+     this.bpos = 8;
    } 
 
    
@@ -260,9 +228,8 @@ public class PAQPredictor implements Predictor
 
      // update context
      this.c0 = (this.c0 << 1) | bit;
-     this.bpos--;
 
-     if (this.bpos < 0)
+     if (this.c0 > 255)
      {
         if ((this.c0 & 0xFF) == (this.c4 & 0xFF))
         {
@@ -277,22 +244,23 @@ public class PAQPredictor implements Predictor
            this.runCtx = 0;
         }
 
-        this.bpos = 7;
+        this.bpos = 8;
         this.c4 = (this.c4 << 8) | (this.c0 & 0xFF);
         this.c0 = 1;
      }
 
+     this.bpos--;
      int c1d = (this.c4 >> this.bpos) & 1;
 
      if ((((this.c4 & 0xFF) | 256) >> (1+this.bpos)) == this.c0)
         c1d |= 2;
-
+     
      // Prediction chain
      int p = this.sm.get(bit, this.states[this.c0]);
-     p = this.apm2.get(bit, p, this.c0 | (c1d<<8), 6);
-     p = (3*this.apm3.get(bit, p, (this.c4&0xFF) | this.runCtx, 8) + p + 2) >> 2;    
-     p = (3*this.apm4.get(bit, p, this.c0 | (this.c4&0x7F00), 8) + p + 2) >> 2;
-     this.pr = (p >= 2048) ? p : p+1;      
+     p = this.apm2.get(bit, p, this.c0 | (c1d<<8));
+     p = (3*this.apm3.get(bit, p, (this.c4&0xFF) | this.runCtx) + p + 2) >> 2;    
+     p = (3*this.apm4.get(bit, p, this.c0 | (this.c4&0x7F00)) + p + 2) >> 2;
+     this.pr = p + ((p - 2048) >>> 31);   
    }
 
 
@@ -301,21 +269,6 @@ public class PAQPredictor implements Predictor
    public int get()
    {
       return this.pr;
-   }
-
-
-   // return p = 1/(1 + exp(-d)), d scaled by 8 bits, p scaled by 12 bits
-   private static int squash(int d)
-   {
-      if (d > 2047)
-         return 4095;
-
-      if (d < -2047)
-         return 0;
-
-      final int w = d & 127;
-      d = (d >> 7) + 16;
-      return (INV_EXP[d]*(128-w) + INV_EXP[d+1]*w + 64) >> 7;
    }
 
 
@@ -345,7 +298,7 @@ public class PAQPredictor implements Predictor
 
             // Boost lowest probabilities (typically under estimated by above formula)
             if (array[i] < 128)
-               array[i] <<= 5; 
+               array[i] <<= 5;
          }
 
          return array;
@@ -367,7 +320,7 @@ public class PAQPredictor implements Predictor
       {
          this.data[this.ctx] += (((bit<<16) - this.data[this.ctx] + 256) >> 9);
          this.ctx = nctx;
-         return this.data[nctx] >> 4;
+         return this.data[nctx] >>> 4;
       }
    }
 
@@ -385,27 +338,29 @@ public class PAQPredictor implements Predictor
    static class AdaptiveProbMap
    {
      private int index;        // last p, context
+     private final int rate;   // update rate 
      private final int[] data; // [NbCtx][33]:  p, context -> p
 
 
      // maps p, cxt -> p initially
-     AdaptiveProbMap(int n)
+     AdaptiveProbMap(int n, int rate)
      {
         this.data = new int[n*33];
-
+        this.rate = rate;
+        
         for (int i=0, k=0; i<n; i++, k+=33)
         {
            for (int j=0; j<33; j++)
-              this.data[k+j] = (i == 0) ? (int) (squash((j-16) << 7) << 4) : this.data[j];
+              this.data[k+j] = (i == 0) ? squash((j-16) << 7) << 4 : this.data[j];
         }
      }
 
 
-     int get(int bit, int pr, int ctx, int rate)
+     int get(int bit, int pr, int ctx)
      {
-        final int g = (bit<<16) + (bit<<rate) - (bit<<1);
-        this.data[this.index] += ((g-this.data[this.index]) >> rate);
-        this.data[this.index+1] += ((g-this.data[this.index+1]) >> rate);
+        final int g = (bit<<16) + (bit<<this.rate) - (bit<<1);
+        this.data[this.index] += ((g-this.data[this.index]) >> this.rate);
+        this.data[this.index+1] += ((g-this.data[this.index+1]) >> this.rate);
         pr = STRETCH[pr];
         final int w = pr & 127;
         this.index = ((pr+2048) >> 7) + (ctx<<5) + ctx;

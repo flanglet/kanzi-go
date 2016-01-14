@@ -26,10 +26,11 @@ public class EntropyCodecFactory
    public static final byte NONE_TYPE    = 0; // No compression
    public static final byte HUFFMAN_TYPE = 1; // Huffman
    public static final byte FPAQ_TYPE    = 2; // Fast PAQ (order 0)
-   public static final byte PAQ_TYPE     = 3; // PAQ
+   public static final byte PAQ_TYPE     = 3; // PAQ (stripped from many models for speed)
    public static final byte RANGE_TYPE   = 4; // Range
    public static final byte ANS_TYPE     = 5; // Asymmetric Numerical System
    public static final byte CM_TYPE      = 6; // Context Model
+   public static final byte TPAQ_TYPE    = 7; // Tangelo PAQ
    
    
    public EntropyDecoder newDecoder(InputBitStream ibs, byte entropyType)
@@ -53,6 +54,8 @@ public class EntropyCodecFactory
             return new BinaryEntropyDecoder(ibs, new FPAQPredictor());
          case CM_TYPE:
             return new BinaryEntropyDecoder(ibs, new CMPredictor());
+         case TPAQ_TYPE:
+            return new BinaryEntropyDecoder(ibs, new TPAQPredictor());
          case NONE_TYPE:
             return new NullEntropyDecoder(ibs);
          default:
@@ -80,6 +83,8 @@ public class EntropyCodecFactory
             return new BinaryEntropyEncoder(obs, new FPAQPredictor());
          case CM_TYPE:
             return new BinaryEntropyEncoder(obs, new CMPredictor());
+         case TPAQ_TYPE:
+            return new BinaryEntropyEncoder(obs, new TPAQPredictor());
          case NONE_TYPE:
             return new NullEntropyEncoder(obs);
          default :
@@ -104,6 +109,8 @@ public class EntropyCodecFactory
             return "FPAQ";
          case CM_TYPE:
             return "CM";
+         case TPAQ_TYPE:
+            return "TPAQ";
          case NONE_TYPE:
             return "NONE";
          default :
@@ -137,6 +144,9 @@ public class EntropyCodecFactory
       if (name.equals("NONE"))
          return NONE_TYPE;
 
+      if (name.equals("TPAQ"))
+         return TPAQ_TYPE;
+      
       throw new IllegalArgumentException("Unsupported entropy codec type: " + name); 
    } 
    

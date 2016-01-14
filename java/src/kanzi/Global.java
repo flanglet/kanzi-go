@@ -105,6 +105,54 @@ public class Global
       -1004, -1006, -1008, -1010, -1012, -1014, -1016, -1017, -1019, -1020, -1021, -1022, -1022, -1023, -1023, -1023
    };
    
+    //  1<<12* 1/(1 + exp(-2*d))
+    private static final int[] INV_EXP =
+    {
+           0,    24,    41,    70,   118,   200,   338,   570,
+         958,  1606,  2673,  4400,  7116, 11203, 16955, 24339,
+       32768, 41197, 48581, 54333, 58420, 61136, 62863, 63930,
+       64578, 64966, 65198, 65336, 65418, 65466, 65495, 65512,
+       65522     
+    };
+
+
+    // Inverse of squash. d = ln(p/(1-p)), d scaled by 8 bits, p by 12 bits.
+    // d has range -2047 to 2047 representing -8 to 8.  p has range 0 to 4095.
+    public static final int[] STRETCH = initStretch();
+
+
+    private static int[] initStretch()
+    {
+       final int[] res = new int[4096];
+       int pi = 0;
+
+       for (int x=-2047; (x<=2047) && (pi<4096); x++)
+       {
+          final int i = squash(x);
+
+          while (pi <= i)
+            res[pi++] = x;
+       }
+
+       res[4095] = 2047;
+       return res;
+   }
+   
+   
+   // return p = 1/(1 + exp(-d)), d scaled by 8 bits, p scaled by 12 bits
+   public static int squash(int d)
+   {
+      if (d > 2047)
+         return 4095;
+
+      if (d < -2047)
+         return 0;
+
+      final int w = d & 127;
+      d = (d >> 7) + 16;
+      return (INV_EXP[d]*(128-w) + INV_EXP[d+1]*w) >> 11;
+   }
+   
    
    // Return 1024 * 10 * log10(x)
    public static int ten_log10(int x) throws ArithmeticException

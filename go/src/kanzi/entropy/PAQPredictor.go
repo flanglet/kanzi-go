@@ -15,6 +15,10 @@ limitations under the License.
 
 package entropy
 
+import(
+"kanzi"
+)
+
 // This file is a port from the code of the dcs-bwt-compressor project
 // http://code.google.com/p/dcs-bwt-compressor/(itself based on PAQ coders)
 
@@ -72,9 +76,7 @@ package entropy
 ////
 //// [ The APM chain has been modified into:
 ////
-////                 +--->---+ +--->---+
-////                 |       | |       |
-////  p --> A2 -> A3 +-> A5 -+-+-> A4 -+-> Encoder
+////  p --> A2 -> A3 --> A4 --> Encoder
 ////
 //// ]
 ////
@@ -122,7 +124,7 @@ package entropy
 // Also, when a bit is observed and the count of the opposite bit is large,
 // then part of this count is discarded to favor newer data over old.
 
-var STATE_TABLE = []int{
+var PAQ_STATE_TABLE = []int{
 	1, 2, 0, 0, 3, 5, 1, 0, 4, 6, 0, 1, 7, 10, 2, 0, // 0-3
 	8, 12, 1, 1, 9, 13, 1, 1, 11, 14, 0, 2, 15, 19, 3, 0, // 4-7
 	16, 23, 2, 1, 17, 24, 2, 1, 18, 25, 2, 1, 20, 27, 1, 2, // 8-11
@@ -189,48 +191,21 @@ var STATE_TABLE = []int{
 	140, 252, 0, 41, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 253-255 are reserved
 }
 
-var INV_EXP = []int{
-	0, 2, 4, 6, 10, 17, 27, 45,
-	74, 120, 194, 311, 488, 747, 1102, 1546,
-	2048, 2550, 2994, 3349, 3608, 3785, 3902, 3976,
-	4022, 4051, 4069, 4079, 4086, 4090, 4092, 4094,
-	4095,
-}
 
-func initStretch() []int {
-	res := make([]int, 4096)
-	pi := 0
-
-	for x := -2047; x <= 2047; x++ {
-		i := squash(x)
-
-		for pi <= i {
-			res[pi] = x
-			pi++
-		}
-	}
-
-	res[4095] = 2047
-	return res
-}
-
-// Inverse of squash. d = ln(p/(1-p)), d scaled by 8 bits, p by 12 bits.
-// d has range -2047 to 2047 representing -8 to 8.  p has range 0 to 4095.
-var STRETCH = initStretch()
 
 type PAQPredictor struct {
 	// Removed apm11, apm12 and apm5 from original
-	pr     uint      // next predicted value (0-4095)
-	c0     int       // bitwise context: last 0-7 bits with a leading 1 (1-255)
-	c4     int       // last 4 whole bytes, last is in low 8 bits
-	bpos   uint      // number of bits in c0 (0-7)
-	states []int     // context -> state
-	sm     *StateMap // state -> pr
-	run    uint      // count of consecutive identical bytes (0-65535)
-	runCtx int       // (0-3) if run is 0, 1, 2-3, 4+
-	apm2   *AdaptiveProbMap
-	apm3   *AdaptiveProbMap
-	apm4   *AdaptiveProbMap
+	pr     uint         // next predicted value (0-4095)
+	c0     int          // bitwise context: last 0-7 bits with a leading 1 (1-255)
+	c4     int          // last 4 whole bytes, last is in low 8 bits
+	bpos   uint         // number of bits in c0 (0-7)
+	states []int        // context -> state
+	sm     *PAQStateMap // state -> pr
+	run    uint         // count of consecutive identical bytes (0-65535)
+	runCtx int          // (0-3) if run is 0, 1, 2-3, 4+
+	apm2   *PAQAdaptiveProbMap
+	apm3   *PAQAdaptiveProbMap
+	apm4   *PAQAdaptiveProbMap
 }
 
 func NewPAQPredictor() (*PAQPredictor, error) {
@@ -239,19 +214,19 @@ func NewPAQPredictor() (*PAQPredictor, error) {
 	this.pr = 2048
 	this.c0 = 1
 	this.states = make([]int, 256)
-	this.bpos = 7
-	this.apm2, err = newAdaptiveProbMap(1024)
+	this.bpos = 8
+	this.apm2, err = newPAQAdaptiveProbMap(1024, 6)
 
 	if err == nil {
-		this.apm3, err = newAdaptiveProbMap(1024)
+		this.apm3, err = newPAQAdaptiveProbMap(1024, 8)
 	}
 
 	if err == nil {
-		this.apm4, err = newAdaptiveProbMap(32768)
+		this.apm4, err = newPAQAdaptiveProbMap(32768, 8)
 	}
 
 	if err == nil {
-		this.sm, err = newStateMap()
+		this.sm, err = newPAQStateMap()
 	}
 
 	return this, err
@@ -260,16 +235,10 @@ func NewPAQPredictor() (*PAQPredictor, error) {
 // Update the probability model
 func (this *PAQPredictor) Update(bit byte) {
 	y := int(bit)
+	this.states[this.c0] = PAQ_STATE_TABLE[(this.states[this.c0]<<2)+y]
+	this.c0 = (this.c0 << 1) | y
 
-	// update model
-	this.states[this.c0] = STATE_TABLE[(this.states[this.c0]<<2)+y]
-
-	// update context
-	this.c0 = (this.c0 << 1) + y
-	this.bpos--
-	this.bpos &= 7
-
-	if this.bpos == 7 {
+	if this.c0 > 255 {
 		if this.c0&0xFF == this.c4&0xFF {
 			if this.run < 4 && this.run != 2 {
 				this.runCtx += 256
@@ -281,11 +250,13 @@ func (this *PAQPredictor) Update(bit byte) {
 			this.runCtx = 0
 		}
 
+		this.bpos = 8
 		this.c4 = (this.c4 << 8) | (this.c0 & 0xFF)
 		this.c0 = 1
 	}
 
-	c1d := (this.c4 >> this.bpos) & 1
+	this.bpos--
+	c1d := ((this.c4 >> this.bpos) & 1)
 
 	if ((this.c4&0xFF)|256)>>(1+this.bpos) == this.c0 {
 		c1d |= 2
@@ -293,9 +264,9 @@ func (this *PAQPredictor) Update(bit byte) {
 
 	// Prediction chain
 	p := this.sm.get(y, this.states[this.c0])
-	p = this.apm2.get(y, p, this.c0|(c1d<<8), 6)
-	p = (3*this.apm3.get(y, p, (this.c4&0xFF)|this.runCtx, 8) + p + 2) >> 2
-	p = (3*this.apm4.get(y, p, this.c0|(this.c4&0x7F00), 8) + p + 2) >> 2
+	p = this.apm2.get(y, p, this.c0|(c1d<<8))
+	p = (3*this.apm3.get(y, p, (this.c4&0xFF)|this.runCtx) + p + 2) >> 2
+	p = (3*this.apm4.get(y, p, this.c0|(this.c4&0x7F00)) + p + 2) >> 2
 
 	if p >= 2048 {
 		this.pr = uint(p)
@@ -309,20 +280,6 @@ func (this *PAQPredictor) Get() uint {
 	return this.pr
 }
 
-// return p = 1/(1 + exp(-d)), d scaled by 8 bits, p scaled by 12 bits
-func squash(d int) int {
-	if d > 2047 {
-		return 4095
-	}
-
-	if d < -2047 {
-		return 0
-	}
-
-	w := d & 127
-	d = (d >> 7) + 16
-	return (INV_EXP[d]*(128-w) + INV_EXP[d+1]*w + 64) >> 7
-}
 
 //////////////////////////////////////////////////////////////////
 // A StateMap maps a nonstationary counter state to a probability.
@@ -334,19 +291,19 @@ func squash(d int) int {
 //
 // Counter state -> probability * 256
 //////////////////////////////////////////////////////////////////
-type StateMap struct {
+type PAQStateMap struct {
 	ctx  int
 	data []int
 }
 
-var STATEMAP_DATA = initStateMapData()
+var PAQ_STATEMAP_DATA = initPAQStateMapData()
 
-func initStateMapData() []int {
+func initPAQStateMapData() []int {
 	array := make([]int, 256)
 
 	for i := range array {
-		n0 := STATE_TABLE[(i<<2)+2]
-		n1 := STATE_TABLE[(i<<2)+3]
+		n0 := PAQ_STATE_TABLE[(i<<2)+2]
+		n1 := PAQ_STATE_TABLE[(i<<2)+3]
 		array[i] = ((n1 + 5) << 16) / (n0 + n1 + 10)
 
 		// Boost low probabilities (typically under estimated by above formula)
@@ -358,14 +315,14 @@ func initStateMapData() []int {
 	return array
 }
 
-func newStateMap() (*StateMap, error) {
-	this := new(StateMap)
+func newPAQStateMap() (*PAQStateMap, error) {
+	this := new(PAQStateMap)
 	this.data = make([]int, 256)
-	copy(this.data, STATEMAP_DATA)
+	copy(this.data, PAQ_STATEMAP_DATA)
 	return this, nil
 }
 
-func (this *StateMap) get(bit int, nctx int) int {
+func (this *PAQStateMap) get(bit int, nctx int) int {
 	this.data[this.ctx] += (((bit << 16) - this.data[this.ctx] + 256) >> 9)
 	this.ctx = nctx
 	return this.data[nctx] >> 4
@@ -381,20 +338,22 @@ func (this *StateMap) get(bit int, nctx int) int {
 //   N-1).  rate determines the learning rate (smaller = faster, default 8).
 //   Probabilities are scaled 12 bits (0-4095).  Update on last bit y (0-1).
 //////////////////////////////////////////////////////////////////
-type AdaptiveProbMap struct {
+type PAQAdaptiveProbMap struct {
 	index int   // last p, context
+	rate  uint  // update rate
 	data  []int // [NbCtx][33]:  p, context -> p
 }
 
-func newAdaptiveProbMap(n uint) (*AdaptiveProbMap, error) {
-	this := new(AdaptiveProbMap)
+func newPAQAdaptiveProbMap(n, rate uint) (*PAQAdaptiveProbMap, error) {
+	this := new(PAQAdaptiveProbMap)
 	this.data = make([]int, n*33)
+	this.rate = rate
 	k := 0
 
 	for i := uint(0); i < n; i++ {
 		for j := 0; j < 33; j++ {
 			if i == 0 {
-				this.data[k+j] = int(squash((j-16)<<7) << 4)
+				this.data[k+j] = kanzi.Squash((j-16)<<7) << 4
 			} else {
 				this.data[k+j] = this.data[j]
 			}
@@ -406,11 +365,11 @@ func newAdaptiveProbMap(n uint) (*AdaptiveProbMap, error) {
 	return this, nil
 }
 
-func (this *AdaptiveProbMap) get(bit int, pr int, ctx int, rate uint) int {
-	g := (bit << 16) + (bit << rate) - (bit << 1)
-	this.data[this.index] += ((g - this.data[this.index]) >> rate)
-	this.data[this.index+1] += ((g - this.data[this.index+1]) >> rate)
-	pr = STRETCH[pr]
+func (this *PAQAdaptiveProbMap) get(bit int, pr int, ctx int) int {
+	g := (bit << 16) + (bit << this.rate) - (bit << 1)
+	this.data[this.index] += ((g - this.data[this.index]) >> this.rate)
+	this.data[this.index+1] += ((g - this.data[this.index+1]) >> this.rate)
+	pr = kanzi.STRETCH[pr]
 	w := pr & 127 // interpolation weight (33 points)
 	this.index = ((pr + 2048) >> 7) + (ctx << 5) + ctx
 	return (this.data[this.index]*(128-w) + this.data[this.index+1]*w) >> 11
