@@ -14,8 +14,7 @@ limitations under the License.
 */
 package kanzi.entropy;
 
-import static kanzi.Global.STRETCH;
-import static kanzi.Global.squash;
+import kanzi.Global;
 
 
 // Tangelo PAQ predictor
@@ -640,7 +639,7 @@ public class TPAQPredictor implements Predictor
          this.addMatchContext();
 
       // Get prediction from NN
-      int p = squash(this.mixer.get());
+      int p = this.mixer.get();
   
       // Adjust with APM
       p = this.apm.get(bit, p, this.c0);
@@ -723,7 +722,7 @@ public class TPAQPredictor implements Predictor
    // APM a(N) creates with N contexts, uses 66*N bytes memory.
    // a.p(y, pr, cx, rate=8) returned adjusted probability in context cx (0 to
    //   N-1).  rate determines the learning rate (smaller = faster, default 8).
-   //   Probabilities are scaled 12 bits (0-4095).  Update on last bit y (0-1).
+   //   Probabilities are scaled 12 bits (0-4095).  Update on last bit (0-1).
    //////////////////////////////////////////////////////////////////
    static class AdaptiveProbMap
    {
@@ -741,7 +740,7 @@ public class TPAQPredictor implements Predictor
         for (int i=0, k=0; i<n; i++, k+=33)
         {
            for (int j=0; j<33; j++)
-              this.data[k+j] = (i == 0) ? squash((j-16) << 7) << 4 : this.data[j];
+              this.data[k+j] = (i == 0) ? Global.squash((j-16)<<7) << 4 : this.data[j];
         }
      }
 
@@ -751,7 +750,7 @@ public class TPAQPredictor implements Predictor
         final int g = (bit<<16) + (bit<<this.rate) - (bit<<1);
         this.data[this.index] += ((g-this.data[this.index]) >> this.rate);
         this.data[this.index+1] += ((g-this.data[this.index+1]) >> this.rate);
-        pr = STRETCH[pr];
+        pr = Global.STRETCH[pr];
         final int w = pr & 127;
         this.index = ((pr+2048) >> 7) + (ctx<<5) + ctx;
         return (this.data[this.index]*(128-w) + this.data[this.index+1]*w) >> 11;
@@ -761,15 +760,15 @@ public class TPAQPredictor implements Predictor
    
    //////////////////////////// Mixer /////////////////////////////
 
-   // Mixer combines models using M neural networks with
-   //     N inputs each using 4*M*N bytes of memory.  It is used as follows:
+   // Mixer combines models using 4096 neural networks with 8 inputs.  
+   // It is used as follows:
    // m.update(y) trains the network where the expected output is the last bit.
    // m.addInput(stretch(p)) inputs prediction from one of N models.  The
    //     prediction should be positive to predict a 1 bit, negative for 0,
    //     nominally -2K to 2K.
-   // m.setContext(cxt) selects cxt (0..M-1) as one of M neural networks to use.
-   // m.get() returns the output prediction that the next bit is 1 as a
-   //     12 bit number (0 to 4095).  The normal sequence per prediction is:
+   // m.setContext(cxt) selects cxt (0..4095) as one of M neural networks to use.
+   // m.get() returns the (squashed) output prediction that the next bit is 1.
+   //  The normal sequence per prediction is:
    //
    // - m.addInput(x) called N times with input x=(-2047..2047)
    // - m.setContext(cxt) called once with cxt=(0..M-1)
@@ -780,20 +779,20 @@ public class TPAQPredictor implements Predictor
       private final int[] buffer;   // packed buffer: 8 inputs + 8 weights per ctx
       private int ctx;              // context
       private int idx;              // input index
-      private int pr;               // prediction in [1..4095]
+      private int pr;               // squashed prediction
 
       
       Mixer()
       {
          this.buffer = new int[4096*16]; // 4096 contexts, index << 4
-         this.pr = 2048;
+         this.pr = 32768;
       }
 
       // Adjust weights to minimize coding cost of last prediction
       void update(int bit) 
       {
          this.idx = 0;
-         int err = (bit<<12) - squash(this.pr);
+         int err = (bit<<12) - this.pr;
 
          if (err == 0)
             return;        
@@ -824,16 +823,17 @@ public class TPAQPredictor implements Predictor
             this.idx++;
          }
              
-         // Neural Network dot product
-         this.pr = ((this.buffer[this.ctx]   *this.buffer[this.ctx+8]) 
-                   + (this.buffer[this.ctx+1]*this.buffer[this.ctx+9])
-                   + (this.buffer[this.ctx+2]*this.buffer[this.ctx+10])
-                   + (this.buffer[this.ctx+3]*this.buffer[this.ctx+11])
-                   + (this.buffer[this.ctx+4]*this.buffer[this.ctx+12])
-                   + (this.buffer[this.ctx+5]*this.buffer[this.ctx+13])
-                   + (this.buffer[this.ctx+6]*this.buffer[this.ctx+14])
-                   + (this.buffer[this.ctx+7]*this.buffer[this.ctx+15])) >> 15;
+         // Neural Network dot product (sum weights*inputs)
+         int p = (this.buffer[this.ctx]   *this.buffer[this.ctx+8]) 
+                  + (this.buffer[this.ctx+1]*this.buffer[this.ctx+9])
+                  + (this.buffer[this.ctx+2]*this.buffer[this.ctx+10])
+                  + (this.buffer[this.ctx+3]*this.buffer[this.ctx+11])
+                  + (this.buffer[this.ctx+4]*this.buffer[this.ctx+12])
+                  + (this.buffer[this.ctx+5]*this.buffer[this.ctx+13])
+                  + (this.buffer[this.ctx+6]*this.buffer[this.ctx+14])
+                  + (this.buffer[this.ctx+7]*this.buffer[this.ctx+15]);
 
+         this.pr = Global.squash(p>>15);
          return this.pr;
       }
 

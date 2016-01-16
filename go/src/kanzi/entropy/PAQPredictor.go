@@ -15,8 +15,8 @@ limitations under the License.
 
 package entropy
 
-import(
-"kanzi"
+import (
+	"kanzi"
 )
 
 // This file is a port from the code of the dcs-bwt-compressor project
@@ -191,8 +191,6 @@ var PAQ_STATE_TABLE = []int{
 	140, 252, 0, 41, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 253-255 are reserved
 }
 
-
-
 type PAQPredictor struct {
 	// Removed apm11, apm12 and apm5 from original
 	pr     uint         // next predicted value (0-4095)
@@ -279,7 +277,6 @@ func (this *PAQPredictor) Update(bit byte) {
 func (this *PAQPredictor) Get() uint {
 	return this.pr
 }
-
 
 //////////////////////////////////////////////////////////////////
 // A StateMap maps a nonstationary counter state to a probability.

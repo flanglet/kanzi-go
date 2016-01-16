@@ -640,7 +640,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 	}
 
 	// Get prediction from NN
-	p := kanzi.Squash(this.mixer.get())
+	p := this.mixer.get()
 
 	// Adjust with APM
 	p = this.apm.get(y, p, int(this.c0))
@@ -713,7 +713,7 @@ func (this *TPAQPredictor) addContext(cx int32) {
 // APM a(N) creates with N contexts, uses 66*N bytes memory.
 // a.p(y, pr, cx, rate=8) returned adjusted probability in context cx (0 to
 //   N-1).  rate determines the learning rate (smaller = faster, default 8).
-//   Probabilities are scaled 12 bits (0-4095).  Update on last bit y (0-1).
+//   Probabilities are scaled 12 bits (0-4095).  Update on last bit (0-1).
 //////////////////////////////////////////////////////////////////
 type TPAQAdaptiveProbMap struct {
 	index int   // last p, context
@@ -752,18 +752,17 @@ func (this *TPAQAdaptiveProbMap) get(bit int, pr int, ctx int) int {
 	return (this.data[this.index]*(128-w) + this.data[this.index+1]*w) >> 11
 }
 
-
 //////////////////////////// Mixer /////////////////////////////
 
-// Mixer combines models using M neural networks with
-//     N inputs each using 4*M*N bytes of memory.  It is used as follows:
+// Mixer combines models using 4096 neural networks with 8 inputs.
+// It is used as follows:
 // m.update(y) trains the network where the expected output is the last bit.
 // m.addInput(stretch(p)) inputs prediction from one of N models.  The
 //     prediction should be positive to predict a 1 bit, negative for 0,
 //     nominally -2K to 2K.
-// m.setContext(cxt) selects cxt (0..M-1) as one of M neural networks to use.
-// m.get() returns the output prediction that the next bit is 1 as a
-//     12 bit number (0 to 4095).  The normal sequence per prediction is:
+// m.setContext(cxt) selects cxt (0..4095) as one of M neural networks to use.
+// m.get() returns the (squashed) output prediction that the next bit is 1.
+//  The normal sequence per prediction is:
 //
 // - m.addInput(x) called N times with input x=(-2047..2047)
 // - m.setContext(cxt) called once with cxt=(0..M-1)
@@ -773,21 +772,21 @@ type TPAQMixer struct {
 	buffer []int // packed buffer: 8 inputs + 8 weights per ctx
 	ctx    int   // context
 	idx    int   // input index
-	pr     int   // prediction in [1..4095]
+	pr     int   // squashed prediction
 }
 
 func newTPAQMixer() (*TPAQMixer, error) {
 	var err error
 	this := new(TPAQMixer)
 	this.buffer = make([]int, 4096*16) // 4096 contexts, index << 4
-	this.pr = 2048
+	this.pr = 32768
 	return this, err
 }
 
 // Adjust weights to minimize coding cost of last prediction
 func (this *TPAQMixer) update(bit int) {
 	this.idx = 0
-	err := (bit << 12) - kanzi.Squash(this.pr)
+	err := (bit << 12) - this.pr
 
 	if err == 0 {
 		return
@@ -816,16 +815,17 @@ func (this *TPAQMixer) get() int {
 		this.idx++
 	}
 
-	// Neural Network dot product
-	this.pr = ((this.buffer[this.ctx] * this.buffer[this.ctx+8]) +
+	// Neural Network dot product (sum weights*inputs)
+	p := (this.buffer[this.ctx] * this.buffer[this.ctx+8]) +
 		(this.buffer[this.ctx+1] * this.buffer[this.ctx+9]) +
 		(this.buffer[this.ctx+2] * this.buffer[this.ctx+10]) +
 		(this.buffer[this.ctx+3] * this.buffer[this.ctx+11]) +
 		(this.buffer[this.ctx+4] * this.buffer[this.ctx+12]) +
 		(this.buffer[this.ctx+5] * this.buffer[this.ctx+13]) +
 		(this.buffer[this.ctx+6] * this.buffer[this.ctx+14]) +
-		(this.buffer[this.ctx+7] * this.buffer[this.ctx+15])) >> 15
+		(this.buffer[this.ctx+7] * this.buffer[this.ctx+15])
 
+	this.pr = kanzi.Squash(p >> 15)
 	return this.pr
 }
 

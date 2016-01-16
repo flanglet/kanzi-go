@@ -14,8 +14,7 @@ limitations under the License.
 */
 package kanzi.entropy;
 
-import static kanzi.Global.STRETCH;
-import static kanzi.Global.squash;
+import kanzi.Global;
 
 
 // This class is a port from the code of the dcs-bwt-compressor project
@@ -351,7 +350,7 @@ public class PAQPredictor implements Predictor
         for (int i=0, k=0; i<n; i++, k+=33)
         {
            for (int j=0; j<33; j++)
-              this.data[k+j] = (i == 0) ? squash((j-16) << 7) << 4 : this.data[j];
+              this.data[k+j] = (i == 0) ? Global.squash((j-16)<<7) << 4 : this.data[j];
         }
      }
 
@@ -361,7 +360,7 @@ public class PAQPredictor implements Predictor
         final int g = (bit<<16) + (bit<<this.rate) - (bit<<1);
         this.data[this.index] += ((g-this.data[this.index]) >> this.rate);
         this.data[this.index+1] += ((g-this.data[this.index+1]) >> this.rate);
-        pr = STRETCH[pr];
+        pr = Global.STRETCH[pr];
         final int w = pr & 127;
         this.index = ((pr+2048) >> 7) + (ctx<<5) + ctx;
         return (this.data[this.index]*(128-w) + this.data[this.index+1]*w) >> 11;
