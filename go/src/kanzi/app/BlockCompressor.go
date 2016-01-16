@@ -79,7 +79,7 @@ func NewBlockCompressor() (*BlockCompressor, error) {
 		printOut("-checksum            : enable block checksum", true)
 		printOut("-jobs=<jobs>         : number of concurrent jobs", true)
 		printOut("", true)
-		printOut("EG. go run BlockCompressor -input=foo.txt -output=foo.knz -overwrite -transform=BWT+MTF -block=4m -entropy=FPAQ -verbose -jobs=4", true)
+		printOut("EG. go run BlockCompressor -input=foo.txt -output=foo.knz -overwrite -transform=BWT+MTF -block=4m -entropy=FPAQ -verbose=2 -jobs=4", true)
 		os.Exit(0)
 	}
 
