@@ -24,10 +24,10 @@ public class FPAQPredictor implements Predictor
    
    private static int[] initInverse()
    {
-      int[] res = new int[2*THRESHOLD+4];
+      final int[] res = new int[2*THRESHOLD+4];
       
       for (int i=1; i<res.length; i++)
-         res[i] = (1<<12) / i;
+         res[i] = (1<<16) / i;
          
       return res;
    }
@@ -63,12 +63,12 @@ public class FPAQPredictor implements Predictor
       if (idx < 256)
       {
          this.ctxIdx = idx << 1;
-         this.prediction = (this.states[this.ctxIdx+1]+1) * INVERSE[this.states[this.ctxIdx]+this.states[this.ctxIdx+1]+3]; 
+         this.prediction = ((this.states[this.ctxIdx+1]+1) * INVERSE[this.states[this.ctxIdx]+this.states[this.ctxIdx+1]+3] + 8) >> 4;
       }
       else
       {
          this.ctxIdx = 2;
-         this.prediction = (this.states[3]+1) * INVERSE[this.states[2]+this.states[3]+3];             
+         this.prediction = ((this.states[3]+1) * INVERSE[this.states[2]+this.states[3]+3] + 8) >> 4;            
       }
    }
 
