@@ -69,10 +69,11 @@ func TestCorrectness(isBWT bool) {
 		var buf3 []byte
 
 		if ii == 1 {
-			size = 0
 			buf1 = []byte("mississippi")
 		} else if ii == 2 {
 			buf1 = []byte("3.14159265358979323846264338327950288419716939937510")
+		} else if ii == 3 {
+			buf1 = []byte("SIX.MIXED.PIXIES.SIFT.SIXTY.PIXIE.DUST.BOXES")
 		} else {
 			size = 128
 			buf1 = make([]byte, size)

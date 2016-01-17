@@ -595,6 +595,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 	if this.c0 > 255 {
 		this.buffer[this.pos&TPAQ_MASK2] = int8(this.c0)
 		this.pos++
+		this.ctxId = 0
 		this.c4 = (this.c4 << 8) | (this.c0 & 0xFF)
 		this.hash = (((this.hash * 43707) << 4) + int32(this.c4)) & TPAQ_MASK1
 		shiftIsBinary := uint(-(this.c4>>31)|((this.c4&0x00800000)>>23)|
@@ -629,10 +630,6 @@ func (this *TPAQPredictor) Update(bit byte) {
 
 		this.cp[i] = (this.ctx[i] + int(this.c0)) & TPAQ_MASK3
 		this.mixer.addInput(TPAQ_SM[(i<<8)|this.states[this.cp[i]]])
-	}
-
-	if this.bpos == 7 {
-		this.ctxId = 0
 	}
 
 	if this.matchLen > 0 {

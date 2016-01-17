@@ -67,12 +67,15 @@ public class TestBWT
 
             if (ii == 1)
             {
-               size = 0;
                buf1 = "mississippi".getBytes();
             }
             else if (ii == 2)
             {
                buf1 = "3.14159265358979323846264338327950288419716939937510".getBytes();
+            }
+            else if (ii == 3)
+            {
+               buf1 = "SIX.MIXED.PIXIES.SIFT.SIXTY.PIXIE.DUST.BOXES".getBytes();
             }
             else
             {

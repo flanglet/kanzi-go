@@ -596,6 +596,7 @@ public class TPAQPredictor implements Predictor
      {    
         this.buffer[this.pos&MASK2] = (byte) this.c0;
         this.pos++;
+        this.ctxId = 0;
         this.c4 = (this.c4 << 8) | (this.c0 & 0xFF);
         this.hash = (((this.hash*43707) << 4) + this.c4) & MASK1;
         final int shiftIsBinary = ((this.c4 >>> 31) | ((this.c4 & 0x00800000) >>> 23) | 
@@ -632,9 +633,6 @@ public class TPAQPredictor implements Predictor
          this.mixer.addInput(SM[(i<<8)|this.states[this.cp[i]]]); 
       }
 
-      if (this.bpos == 7)
-         this.ctxId = 0;
-      
       if (this.matchLen > 0) 
          this.addMatchContext();
 

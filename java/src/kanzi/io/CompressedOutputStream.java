@@ -604,7 +604,7 @@ public class CompressedOutputStream extends OutputStream
                
                notifyListeners(this.listeners, evt);
             }
-
+   
             // Entropy encode block
             if (ee.encode(buffer.array, 0, postTransformLength) != postTransformLength)
                return new Status(currentBlockId, Error.ERR_PROCESS_BLOCK, "Entropy coding failed");
