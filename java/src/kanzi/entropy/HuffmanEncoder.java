@@ -98,9 +98,14 @@ public class HuffmanEncoder implements EntropyEncoder
         try
         {
            if (count == 1)
+           {
+              this.sranks[0] = this.ranks[0];
               this.sizes[this.ranks[0]] = 1;
-           else            
+           }
+           else   
+           {
               this.computeCodeLengths(frequencies, count);
+           }
         }
         catch (IllegalArgumentException e)
         {
@@ -113,18 +118,19 @@ public class HuffmanEncoder implements EntropyEncoder
         // Transmit code lengths only, frequencies and codes do not matter
         // Unary encode the length difference
         ExpGolombEncoder egenc = new ExpGolombEncoder(this.bitstream, true);
-        int prevSize = 2;
+        short prevSize = 2;
 
         for (int i=0; i<count; i++)
         {
-           final int currSize = this.sizes[this.ranks[i]];           
+           final short currSize = this.sizes[this.ranks[i]];
            egenc.encodeByte((byte) (currSize - prevSize));
            prevSize = currSize;
         }
 
         // Create canonical codes 
         if (HuffmanTree.generateCanonicalCodes(this.sizes, this.codes, this.sranks, count) < 0)
-           return false;
+           throw new BitStreamException("Could not generate codes: max code length (24 bits) exceeded",
+                                        BitStreamException.INVALID_STREAM);
 
         // Pack size and code (size <= 24 bits)
         for (int i=0; i<count; i++)
@@ -139,14 +145,14 @@ public class HuffmanEncoder implements EntropyEncoder
     
     // See [In-Place Calculation of Minimum-Redundancy Codes]
     // by Alistair Moffat & Jyrki Katajainen
+    // count > 1 by design
     private void computeCodeLengths(int[] frequencies, int count) 
     {  
       // Sort ranks by increasing frequency
       System.arraycopy(this.ranks, 0, this.sranks, 0, count);
       
       // Sort by increasing frequencies (first key) and increasing value (second key)
-      if (count > 1)
-         new QuickSort(new FrequencyArrayComparator(frequencies)).sort(this.sranks, 0, count);
+      new QuickSort(new FrequencyArrayComparator(frequencies)).sort(this.sranks, 0, count);
     
       for (int i=0; i<count; i++)               
          this.buffer[i] = frequencies[this.sranks[i]];
@@ -158,7 +164,7 @@ public class HuffmanEncoder implements EntropyEncoder
       {
          short codeLen = (short) this.buffer[i];
          
-         if (codeLen > 24)
+         if ((codeLen <= 0) || (codeLen > 24))
             throw new IllegalArgumentException("Could not generate codes: max code length (24 bits) exceeded");
          
          this.sizes[this.sranks[i]] = codeLen;

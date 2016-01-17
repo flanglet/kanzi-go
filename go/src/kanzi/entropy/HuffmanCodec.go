@@ -206,9 +206,12 @@ func (this *HuffmanEncoder) UpdateFrequencies(frequencies []uint) error {
 	}
 
 	if count == 1 {
+		this.sranks[0] = this.ranks[0]
 		this.sizes[this.ranks[0]] = 1
 	} else {
-		this.computeCodeLengths(frequencies, count)
+		if err := this.computeCodeLengths(frequencies, count); err != nil {
+			return err
+		}
 	}
 
 	EncodeAlphabet(this.bitstream, this.ranks[0:count])
@@ -245,16 +248,13 @@ func (this *HuffmanEncoder) UpdateFrequencies(frequencies []uint) error {
 
 // See [In-Place Calculation of Minimum-Redundancy Codes]
 // by Alistair Moffat & Jyrki Katajainen
-func (this *HuffmanEncoder) computeCodeLengths(frequencies []uint, count int) {
+// count > 1 by design
+func (this *HuffmanEncoder) computeCodeLengths(frequencies []uint, count int) error {
 	// Sort ranks by increasing frequency
-	for i := 0; i < count; i++ {
-		this.sranks[i] = this.ranks[i]
-	}
+	copy(this.sranks, this.ranks[0:count])
 
 	// Sort by increasing frequencies (first key) and increasing value (second key)
-	if count > 1 {
-		sort.Sort(ByIncreasingFrequency(this.sranks[0:count], frequencies))
-	}
+	sort.Sort(ByIncreasingFrequency(this.sranks[0:count], frequencies))
 
 	for i := 0; i < count; i++ {
 		this.buffer[i] = frequencies[this.sranks[i]]
@@ -262,10 +262,20 @@ func (this *HuffmanEncoder) computeCodeLengths(frequencies []uint, count int) {
 
 	computeInPlaceSizesPhase1(this.buffer, count)
 	computeInPlaceSizesPhase2(this.buffer, count)
+	var err error
 
 	for i := 0; i < count; i++ {
-		this.sizes[this.sranks[i]] = byte(this.buffer[i])
+		codeLen := byte(this.buffer[i])
+
+		if codeLen == 0 || codeLen > 24 {
+			err = errors.New("Could not generate codes: max code length (24 bits) exceeded")
+			break
+		}
+
+		this.sizes[this.sranks[i]] = codeLen
 	}
+
+	return err
 }
 
 func computeInPlaceSizesPhase1(data []uint, n int) {
