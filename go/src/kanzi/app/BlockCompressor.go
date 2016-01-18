@@ -194,7 +194,7 @@ func (this *BlockCompressor) call() (int, uint64) {
 	printOut("Output file name set to '"+this.outputName+"'", printFlag)
 	msg = fmt.Sprintf("Block size set to %d bytes", this.blockSize)
 	printOut(msg, printFlag)
-	msg = fmt.Sprintf("Verbose set to %t", printFlag)
+	msg = fmt.Sprintf("Verbosity set to %v", this.verbosity)
 	printOut(msg, printFlag)
 	msg = fmt.Sprintf("Overwrite set to %t", this.overwrite)
 	printOut(msg, printFlag)

@@ -156,7 +156,7 @@ func (this *BlockDecompressor) call() (int, uint64) {
 	printFlag := this.verbosity > 1
 	printOut("Input file name set to '"+this.inputName+"'", printFlag)
 	printOut("Output file name set to '"+this.outputName+"'", printFlag)
-	msg = fmt.Sprintf("Verbose set to %t", printFlag)
+	msg = fmt.Sprintf("Verbosity set to %v", this.verbosity)
 	printOut(msg, printFlag)
 	msg = fmt.Sprintf("Overwrite set to %t", this.overwrite)
 	printOut(msg, printFlag)
