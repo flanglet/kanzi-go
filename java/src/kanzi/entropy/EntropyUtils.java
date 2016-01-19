@@ -93,20 +93,20 @@ public class EntropyUtils
             {
                if (symbol == alphabet[i])
                {
-                  if (i < alphabet.length-1)
+                  if (i < 255 - alphabetSize)
                      i++;
-
+                     
                   symbol++;
                   continue;
                }
-
+               
                diffs[n] = symbol - previous;
                symbol++;
                previous = symbol;
-
+                        
                if (diffs[n] > maxSymbolDiff)
                   maxSymbolDiff = diffs[n];
-
+               
                n++;
             }
          }
@@ -137,9 +137,9 @@ public class EntropyUtils
 
          // Write all symbols with delta encoding
          for (int i=0; i<alphabetSize; i++)
-            obs.writeBits(diffs[i], log);
+            encodeSize(obs, log, diffs[i]);
       }
-      else
+      else 
       {
          // Regular (or empty) alphabet
          obs.writeBit(BIT_ENCODED_ALPHABET);
@@ -156,6 +156,18 @@ public class EntropyUtils
    }
 
 
+   private static void encodeSize(OutputBitStream obs, int log, int val)
+   {
+      obs.writeBits(val, log);
+   }
+   
+   
+   private static long decodeSize(InputBitStream ibs, int log)
+   {
+      return ibs.readBits(log);            
+   }
+   
+   
    public static int decodeAlphabet(InputBitStream ibs, int[] alphabet) throws BitStreamException
    {
       // Read encoding mode from bitstream
@@ -201,7 +213,7 @@ public class EntropyUtils
          {
             for (int i=0; i<alphabetSize; i++)
             {
-               final int next = symbol + (int) ibs.readBits(log);
+               final int next = symbol + (int) decodeSize(ibs, log);
 
                while (symbol < next)
                   alphabet[n++] = symbol++;
@@ -218,7 +230,7 @@ public class EntropyUtils
          {
             for (int i=0; i<alphabetSize; i++)
             {
-               symbol += (int) ibs.readBits(log);
+               symbol += (int) decodeSize(ibs, log);
                alphabet[i] = symbol;
                symbol++;
             }

@@ -212,7 +212,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []byte) int {
 
 		// Write all symbols with delta encoding
 		for i := 0; i < alphabetSize; i++ {
-			obs.WriteBits(uint64(diffs[i]), log)
+			encodeSize(obs, log, uint64(diffs[i]))
 		}
 	} else {
 		// Regular (or empty) alphabet
@@ -229,6 +229,14 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []byte) int {
 	}
 
 	return alphabetSize
+}
+
+func encodeSize(obs kanzi.OutputBitStream, log uint, val uint64) {
+	obs.WriteBits(val, log)
+}
+
+func decodeSize(ibs kanzi.InputBitStream, log uint) uint64 {
+	return ibs.ReadBits(log)
 }
 
 func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []byte) (int, error) {
@@ -277,7 +285,7 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []byte) (int, error) {
 
 		if val&1 == ABSENT_SYMBOLS_MASK {
 			for i := 0; i < alphabetSize; i++ {
-				next := symbol + byte(ibs.ReadBits(log))
+				next := symbol + byte(decodeSize(ibs, log))
 
 				for symbol < next {
 					alphabet[n] = symbol
@@ -298,7 +306,7 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []byte) (int, error) {
 
 		} else {
 			for i := 0; i < alphabetSize; i++ {
-				symbol += uint8(ibs.ReadBits(log))
+				symbol += uint8(decodeSize(ibs, log))
 				alphabet[i] = symbol
 				symbol++
 			}
