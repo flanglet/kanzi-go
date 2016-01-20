@@ -16,7 +16,9 @@ limitations under the License.
 package kanzi.util.sampling;
 
 import kanzi.IndexedIntArray;
+import kanzi.IntTransform;
 import kanzi.transform.DWT_CDF_9_7;
+import kanzi.transform.DWT_Haar;
 
 
 /**
@@ -29,18 +31,24 @@ public class DWTDownSampler implements DownSampler
    private final int height;
    private final int stride;
    private final int shift;
-   private final DWT_CDF_9_7 dwt;
+   private final IntTransform dwt;
 
    
    public DWTDownSampler(int w, int h)
    {
-      this(w, h, w, 0);
+      this(w, h, w, 0, false);
+   }
+   
+   
+   public DWTDownSampler(int width, int height, int stride, int shift)
+   {
+      this(width, height, stride, shift, false);
    }
    
    
    // If shift > 0, the output values are rescaled (shifted by scaling factor)
    // It allows the output values to be in the byte range.
-   public DWTDownSampler(int width, int height, int stride, int shift)
+   public DWTDownSampler(int width, int height, int stride, int shift, boolean isHaar)
    {
       if (height < 8)
           throw new IllegalArgumentException("The height must be at least 8");
@@ -58,7 +66,8 @@ public class DWTDownSampler implements DownSampler
       this.height = height;
       this.stride = stride;
       this.shift = shift;
-      this.dwt = new DWT_CDF_9_7(this.width, this.height, 1);
+      this.dwt = (isHaar) ? new DWT_Haar(this.width, this.height, 1, false) :
+         new DWT_CDF_9_7(this.width, this.height, 1);
    }
 
    
