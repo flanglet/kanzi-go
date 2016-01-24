@@ -33,6 +33,9 @@ const (
 	TPAQ_C3         = int32(-430675100)
 	TPAQ_C4         = int32(-2048144789)
 	TPAQ_C5         = int32(-1028477387)
+	HASH1           = int32(200002979)
+	HASH2           = int32(30005491)
+	HASH3           = int32(50004239)
 )
 
 ///////////////////////// state table ////////////////////////
@@ -542,8 +545,8 @@ var TPAQ_SM = []int{
 }
 
 func hashTPAQ(x, y int32) int32 {
-	h := x*200002979 ^ y*30005491
-	return h>>1 ^ h>>9 ^ x>>2 ^ y>>3 ^ 50004239
+	h := x*HASH1 ^ y*HASH2
+	return h>>1 ^ h>>9 ^ x>>2 ^ y>>3 ^ HASH3
 }
 
 type TPAQPredictor struct {

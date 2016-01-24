@@ -248,11 +248,9 @@ public class PAQPredictor implements Predictor
         this.c0 = 1;
      }
 
+     int c1d = ((((this.c4 & 0xFF) | 256) >> this.bpos) == this.c0) ? 2 : 0;
      this.bpos--;
-     int c1d = (this.c4 >> this.bpos) & 1;
-
-     if ((((this.c4 & 0xFF) | 256) >> (1+this.bpos)) == this.c0)
-        c1d |= 2;
+     c1d += ((this.c4 >> this.bpos) & 1);
      
      // Prediction chain
      int p = this.sm.get(bit, this.states[this.c0]);

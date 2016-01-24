@@ -22,8 +22,7 @@ import kanzi.Global;
 // See http://encode.ru/threads/1738-TANGELO-new-compressor-(derived-from-PAQ8-FP8)
 
 public class TPAQPredictor implements Predictor
-{
-   
+{  
    private static final int MASK1 = 8*1024*1024 - 1;
    private static final int MASK2 = 8*(MASK1+1) - 1;
    private static final int MASK3 = 32*8*1024*1024 - 1;
@@ -33,7 +32,10 @@ public class TPAQPredictor implements Predictor
    private static final int C3 = 0xe6546b64;
    private static final int C4 = 0x85ebca6b;
    private static final int C5 = 0xc2b2ae35;
-   
+   private static final int HASH1 = 200002979;
+   private static final int HASH2 = 30005491;
+   private static final int HASH3 = 50004239;
+
    ///////////////////////// state table ////////////////////////
    // STATE_TABLE[state,0] = next state if bit is 0, 0 <= state < 256
    // STATE_TABLE[state,1] = next state if bit is 1
@@ -545,11 +547,11 @@ public class TPAQPredictor implements Predictor
 
    static int hash(int x, int y)
    {
-      final int h = x*200002979 ^ y*30005491;
-      return (h>>1) ^ (h>>9) ^ (x>>2) ^ (y>>3) ^ 50004239;      
+      final int h = x*HASH1 ^ y*HASH2;
+      return (h>>1) ^ (h>>9) ^ (x>>2) ^ (y>>3) ^ HASH3;      
    }
-   
 
+  
     
    private int pr;                     // next predicted value (0-4095)
    private int c0;                     // bitwise context: last 0-7 bits with a leading 1 (1-255)
@@ -806,7 +808,7 @@ public class TPAQPredictor implements Predictor
          this.buffer[this.ctx+13] += ((this.buffer[this.ctx+5]*err + 0) >> 16);  
          this.buffer[this.ctx+14] += ((this.buffer[this.ctx+6]*err + 0) >> 16);  
          this.buffer[this.ctx+15] += ((this.buffer[this.ctx+7]*err + 0) >> 16);                    
-      }
+     }
            
       void setContext(int ctx)
       {
