@@ -33,10 +33,10 @@ public class BilinearUpSampler implements UpSampler
 
     public BilinearUpSampler(int width, int height, int factor)
     {
-        this(width, height, width, 0, factor);
+       this(width, height, width, 0, factor);
     }
-
-
+    
+    
     public BilinearUpSampler(int width, int height, int stride, int offset, int factor)
     {
         if (height < 8)
@@ -79,38 +79,42 @@ public class BilinearUpSampler implements UpSampler
        final int dw = sw;
        final int dh = sh * this.factor;
        final int dw2 = dw + dw;
-       int iOffs = sw * (sh - 1) + this.offset;
+       int iOffs = st * (sh - 1) + this.offset;
        int oOffs = dw * (dh - 1);
 
        if (this.factor == 2)
        {
            System.arraycopy(input, iOffs, output, oOffs, sw);
            oOffs -= dw;
-           System.arraycopy(input, iOffs, output, oOffs, sw);
+           System.arraycopy(input, iOffs, output, oOffs, sw);           
            oOffs -= dw;
            iOffs -= st;
 
-           for (int j=sh-2; j>=0; j--)
+           for (int j=sh-2; j>0; j--)
            {
-              // Copy even lines
-              System.arraycopy(input, iOffs, output, oOffs, sw);
-
               // Interpolate odd lines
               for (int i=0; i<sw; i+=4)
               {
-                 int idx = oOffs + dw + i;
-                 int idx1 = idx - dw;
-                 int idx2 = idx + dw;
-                 output[idx]   = (output[idx1]   + output[idx2])   >> 1;
-                 output[idx+1] = (output[idx1+1] + output[idx2+1]) >> 1;
-                 output[idx+2] = (output[idx1+2] + output[idx2+2]) >> 1;
-                 output[idx+3] = (output[idx1+3] + output[idx2+3]) >> 1;
-              }
-
+                 final int idx1 = iOffs + i;
+                 final int idx2 = idx1 + st;
+                 output[oOffs+i]   = (input[idx1]   + input[idx2])   >> 1;
+                 output[oOffs+i+1] = (input[idx1+1] + input[idx2+1]) >> 1;
+                 output[oOffs+i+2] = (input[idx1+2] + input[idx2+2]) >> 1;
+                 output[oOffs+i+3] = (input[idx1+3] + input[idx2+3]) >> 1;
+              } 
+              
+              // Copy even lines
+              oOffs -= dw;
+              System.arraycopy(input, iOffs, output, oOffs, sw);
+              
+              oOffs -= dw;
               iOffs -= st;
-              oOffs -= dw2;
            }
-       }
+           
+           System.arraycopy(input, iOffs, output, oOffs, sw);
+           oOffs -= dw;  
+           System.arraycopy(input, iOffs, output, oOffs, sw);
+       }            
        else // factor = 4
        {
            final int dw4 = dw2 + dw2;
@@ -124,30 +128,26 @@ public class BilinearUpSampler implements UpSampler
            oOffs -= dw;
            iOffs -= st;
 
-           for (int j=sh-2; j>=0; j--)
+           for (int j=sh-2; j>0; j--)
            {
-              // Copy
-              System.arraycopy(input, iOffs, output, oOffs, sw);
-
               // Interpolate
               for (int i=0; i<sw; i++)
               {
-                 int idx = oOffs + dw2 + i;
-                 int idx1 = idx - dw2;
-                 int idx2 = idx + dw2;
-                 int val10 = output[idx1];
-                 int val20 = output[idx2];
-                 output[idx] = (val10 + val20) >> 1;
-                 idx -= dw;
-                 output[idx] = (val10 + val10 + val10 + val20 + 2) >> 2;
-                 idx += dw2;
-                 output[idx] = (val10 + val20 + val20 + val20 + 2) >> 2;
+                 final int val10 = input[iOffs+i];
+                 final int val20 = input[iOffs+i+st];
+                 output[oOffs+i] = (val10 + val20) >> 1;
+                 output[oOffs-dw+i] = (val10 + val10 + val10 + val20 + 2) >> 2;;
+                 output[oOffs+dw+i] = (val10 + val20 + val20 + val20 + 2) >> 2;
               }
 
+              // Copy
+              oOffs -= dw2;
+              System.arraycopy(input, iOffs, output, oOffs, sw);
+              
+              oOffs -= dw2;
               iOffs -= st;
-              oOffs -= dw4;
            }
-       }
+       }           
     }
 
 
@@ -160,7 +160,7 @@ public class BilinearUpSampler implements UpSampler
        final int st = this.stride;
        final int dw = sw * this.factor;
        final int dh = sh;
-       int iOffs = sw * (sh - 1) + this.offset;
+       int iOffs = st * (sh - 1) + this.offset;
        int oOffs = dw * (dh - 1);
 
        if (this.factor == 2)
@@ -184,7 +184,7 @@ public class BilinearUpSampler implements UpSampler
                  output[idx+1] = (val + prv) >> 1;
                  prv = val;
               }
-
+              
               iOffs -= st;
               oOffs -= dw;
            }
@@ -199,7 +199,7 @@ public class BilinearUpSampler implements UpSampler
               output[oOffs+dw-2] = prv;
               output[oOffs+dw-3] = prv;
               output[oOffs+dw-4] = prv;
-
+              
               for (int i=sw-2; i>=0; i--)
               {
                  final int idx = oOffs + (i << 2);
@@ -400,6 +400,6 @@ public class BilinearUpSampler implements UpSampler
     @Override
     public boolean supportsScalingFactor(int factor)
     {
-        return ((factor == 2) || (factor == 4)) ? true : false;
+        return ((factor == 2) || (factor == 4));
     }
 }
