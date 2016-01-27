@@ -165,9 +165,9 @@ public class BilinearUpSampler implements UpSampler
 
        if (this.factor == 2)
        {
-           for (int j=dh-1; j>=0; j--)
+           for (int j=sh-1; j>=0; j--)
            {
-              // Copy last 2 columns
+              // Columns w-1, w-2
               int prv = input[iOffs+sw-1];
               output[oOffs+dw-1] = prv;
               output[oOffs+dw-2] = prv;
@@ -191,9 +191,9 @@ public class BilinearUpSampler implements UpSampler
        }
        else // factor 4
        {
-           for (int j=dh-1; j>=0; j--)
+           for (int j=sh-1; j>=0; j--)
            {
-              // Copy last 4 columns
+              // Columns w-1, w-2, w-3, w-4
               int prv = input[iOffs+sw-1];
               output[oOffs+dw-1] = prv;
               output[oOffs+dw-2] = prv;
@@ -205,7 +205,7 @@ public class BilinearUpSampler implements UpSampler
                  final int idx = oOffs + (i << 2);
                  final int val = input[iOffs+i];
 
-                 // Copy (colum is multiple of 4)
+                 // Copy (column is multiple of 4)
                  output[idx] = val;
 
                  // Interpolate

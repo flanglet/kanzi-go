@@ -181,7 +181,7 @@ public class RSET implements IntTransform
        {
           int prev = block[offs];
           int n = 0;
-
+  
           for (int i=inc; i<end2; i+=inc)
           {
              final int mid = block[offs+i];
@@ -269,7 +269,8 @@ public class RSET implements IntTransform
              i -= inc;
              final int cur = block[offs+(i>>1)];
              block[offs+i] = cur;
-             block[offs+i+inc] = ((cur + prev) >> 1) + delta[--n];
+             final int val = ((cur + prev) >> 1) + delta[--n];
+             block[offs+i+inc] = (val < 256) ? val : 255;
              prev = cur;
           }
        
