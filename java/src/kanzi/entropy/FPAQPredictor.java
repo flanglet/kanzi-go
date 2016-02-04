@@ -51,9 +51,10 @@ public class FPAQPredictor implements Predictor
    public void update(int bit)
    {
       final int idx = this.ctxIdx | (bit & 1);
+      this.states[idx]++;
       
       // Find the number of registered 0 & 1 given the previous bits (in this.ctxIdx)
-      if (++this.states[idx] >= THRESHOLD) 
+      if (this.states[idx] >= THRESHOLD) 
       {
          this.states[idx&-2] >>= 1;
          this.states[(idx&-2)+1] >>= 1;

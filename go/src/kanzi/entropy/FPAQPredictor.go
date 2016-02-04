@@ -25,7 +25,7 @@ func initInverse() []uint {
 	res := make([]uint, 2*THRESHOLD+4)
 
 	for i := 1; i < len(res); i++ {
-		res[i] = (1 << 20) / uint(i)
+		res[i] = (1 << 16) / uint(i)
 	}
 
 	return res
@@ -61,10 +61,10 @@ func (this *FPAQPredictor) Update(bit byte) {
 	// Update context by registering the current bit (or wrapping after 8 bits)
 	if idx < 256 {
 		this.ctxIdx = idx << 1
-		this.prediction = ((this.states[this.ctxIdx+1]+1)*INVERSE[this.states[this.ctxIdx]+this.states[this.ctxIdx+1]+3] + 128) >> 8
+		this.prediction = ((this.states[this.ctxIdx+1]+1)*INVERSE[this.states[this.ctxIdx]+this.states[this.ctxIdx+1]+3] + 8) >> 4
 	} else {
 		this.ctxIdx = 2
-		this.prediction = ((this.states[3]+1)*INVERSE[this.states[2]+this.states[3]+3] + 128) >> 8
+		this.prediction = ((this.states[3]+1)*INVERSE[this.states[2]+this.states[3]+3] + 8) >> 4
 	}
 }
 
