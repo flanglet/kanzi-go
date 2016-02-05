@@ -124,8 +124,8 @@ public class FourTapUpSampler implements UpSampler
     // Diagonal
     // e = (w00*D + w01*J + w02*P + w03*U + ADJUST) >> SHIFT;
     // g = (w00*G + w01*K + w02*O + w03*R + ADJUST) >> SHIFT;
-    // p = (w04*D + w05*J + w06*P + w07*U + ADJUST) >> SHIFT;
-    // r = (w04*G + w05*K + w06*O + w07*R + ADJUST) >> SHIFT;
+    // p = (w04*G + w05*K + w06*O + w07*R + ADJUST) >> SHIFT;
+    // r = (w04*D + w05*J + w06*P + w07*U + ADJUST) >> SHIFT;
     // Combination
     // f = (e+g)>>1
     // i = (e+p)>>1
@@ -315,9 +315,9 @@ public class FourTapUpSampler implements UpSampler
                         eVal = (eVal > 255) ? 255 : eVal & ~(eVal >> 31);
                         int gVal = (w00*pG + w01*pK + w02*pO + w03*pR + ADJUST) >> SHIFT;
                         gVal = (gVal > 255) ? 255 : gVal & ~(gVal >> 31);
-                        int pVal = (w04*pD + w05*pJ + w06*pP + w07*pU + ADJUST) >> SHIFT;
+                        int pVal = (w04*pG + w05*pK + w06*pO + w07*pR + ADJUST) >> SHIFT;
                         pVal = (pVal > 255) ? 255 : pVal & ~(pVal >> 31);
-                        int rVal = (w04*pG + w05*pK + w06*pO + w07*pR + ADJUST) >> SHIFT;
+                        int rVal = (w04*pD + w05*pJ + w06*pP + w07*pU + ADJUST) >> SHIFT;
                         rVal = (rVal > 255) ? 255 : rVal & ~(rVal >> 31);
                         final int fVal = (eVal + gVal) >> 1;
                         final int iVal = (eVal + pVal) >> 1;

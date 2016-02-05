@@ -133,8 +133,8 @@ public class SixTapUpSampler implements UpSampler
     // Diagonal
     // e = (w00*A + w01*D + w02*J + w03*P + w04*U + w05*X + ADJUST) >> SHIFT;
     // g = (w00*C + w01*G + w02*K + w03*O + w04*R + w05*V + ADJUST) >> SHIFT;
-    // p = (w12*A + w13*D + w14*J + w15*P + w16*U + w17*X + ADJUST) >> SHIFT;
-    // r = (w12*C + w13*G + w14*K + w15*O + w16*R + w17*V + ADJUST) >> SHIFT;
+    // p = (w12*C + w13*G + w14*K + w15*O + w16*R + w17*V + ADJUST) >> SHIFT;
+    // r = (w12*A + w13*D + w14*J + w15*P + w16*U + w17*X + ADJUST) >> SHIFT;
     // Combination
     // f = (e+g)>>1
     // i = (e+p)>>1
@@ -348,9 +348,9 @@ public class SixTapUpSampler implements UpSampler
                         eVal = (eVal > 255) ? 255 : eVal & ~(eVal >> 31);
                         int gVal = (w00*pC + w01*pG + w02*pK + w03*pO + w04*pR + w05*pV + ADJUST) >> SHIFT;
                         gVal = (gVal > 255) ? 255 : gVal & ~(gVal >> 31);
-                        int pVal = (w12*pA + w13*pD + w14*pJ + w15*pP + w16*pU + w17*pX + ADJUST) >> SHIFT;
+                        int pVal = (w12*pC + w13*pG + w14*pK + w15*pO + w16*pR + w17*pV + ADJUST) >> SHIFT;
                         pVal = (pVal > 255) ? 255 : pVal & ~(pVal >> 31);
-                        int rVal = (w12*pC + w13*pG + w14*pK + w15*pO + w16*pR + w17*pV + ADJUST) >> SHIFT;
+                        int rVal = (w12*pA + w13*pD + w14*pJ + w15*pP + w16*pU + w17*pX + ADJUST) >> SHIFT;
                         rVal = (rVal > 255) ? 255 : rVal & ~(rVal >> 31);
                         final int fVal = (eVal + gVal) >> 1;
                         final int iVal = (eVal + pVal) >> 1;

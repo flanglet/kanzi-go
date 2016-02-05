@@ -76,7 +76,7 @@ public class BilinearDownSampler implements DownSampler
         int oOffs = 0;
         final int w = this.width;
         final int st = this.stride;
-
+        
         if (this.factor == 2)
         {
             for (int j=this.height; j>0; j--)
@@ -125,7 +125,7 @@ public class BilinearDownSampler implements DownSampler
         {
             for (int j=this.height; j>0; j-=2)
             {
-                int end = iOffs + w;
+                final int end = iOffs + w;
 
                 for (int i=iOffs; i<end; )
                 {
@@ -149,7 +149,7 @@ public class BilinearDownSampler implements DownSampler
 
             for (int j=this.height; j>0; j-=4)
             {
-                int end = iOffs + w;
+                final int end = iOffs + w;
 
                 for (int i=iOffs; i<end; )
                 {
@@ -175,7 +175,7 @@ public class BilinearDownSampler implements DownSampler
         int line0 = this.offset;
         final int w = this.width;
         final int st = this.stride;
-        int oOffs = 0;
+        int oOffs = 0;      
 
         if (this.factor == 2)
         {
@@ -204,12 +204,12 @@ public class BilinearDownSampler implements DownSampler
                 for (int i=0; i<w; i+=4)
                 {
                     final int val = input[line0+i]   + input[line0+i+1] +
-                                    input[line0+i+2] + input[line0+i+3] +
-                                    input[line1+i]   + input[line1+i+1] +
-                                    input[line1+i+2] + input[line1+i+3] +
-                                    input[line2+i]   + input[line2+i+1] +
-                                    input[line2+i+2] + input[line2+i+3] +
-                                    input[line3+i]   + input[line3+i+1] +
+                                       input[line0+i+2] + input[line0+i+3] +
+                                       input[line1+i]   + input[line1+i+1] +
+                                       input[line1+i+2] + input[line1+i+3] +
+                                       input[line2+i]   + input[line2+i+1] +
+                                       input[line2+i+2] + input[line2+i+3] +
+                                       input[line3+i]   + input[line3+i+1] +
                                     input[line3+i+2] + input[line3+i+3];
                     output[oOffs++] = (val + 8) >> 4;
                 }
@@ -223,6 +223,6 @@ public class BilinearDownSampler implements DownSampler
     @Override
     public boolean supportsScalingFactor(int factor)
     {
-        return ((factor == 2) || (factor == 4)) ? true : false;
+        return ((factor == 2) || (factor == 4));
     }
 }

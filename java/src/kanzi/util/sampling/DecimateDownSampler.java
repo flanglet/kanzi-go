@@ -126,6 +126,6 @@ public class DecimateDownSampler implements DownSampler
     @Override
     public boolean supportsScalingFactor(int factor)
     {
-        return (factor >= 2) ? true : false;
+        return (factor >= 2);
     }
 }

@@ -117,7 +117,6 @@ public class BilinearUpSampler implements UpSampler
        }            
        else // factor = 4
        {
-           final int dw4 = dw2 + dw2;
            System.arraycopy(input, iOffs, output, oOffs, sw);
            oOffs -= dw;
            System.arraycopy(input, iOffs, output, oOffs, sw);

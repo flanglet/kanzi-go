@@ -585,7 +585,6 @@ public class TPAQPredictor implements Predictor
      this.bpos = 0;
    } 
 
-   static boolean isText = true;
    // Update the probability model
    @Override
    public void update(int bit)
@@ -601,8 +600,8 @@ public class TPAQPredictor implements Predictor
         this.ctxId = 0;
         this.c4 = (this.c4 << 8) | (this.c0 & 0xFF);
         this.hash = (((this.hash*43707) << 4) + this.c4) & MASK1;
-        final int shiftIsBinary = ((this.c4 >>> 31) | ((this.c4 & 0x00800000) >>> 23) | 
-           ((this.c4 & 0x00008000) >>> 15) | ((this.c4 & 0x80) >>> 7)) << 4;
+        final int shiftIsBinary = ((this.c4 >>> 31) | ((this.c4 >>> 23) & 1) | 
+           ((this.c4 >>> 15) & 1) | ((this.c4 >>> 7) & 1)) << 4;
         this.c0 = 1;
 
         // Select Neural Net
