@@ -31,14 +31,13 @@ import kanzi.ColorModelType;
 import kanzi.util.ImageQualityMonitor;
 import kanzi.util.color.ColorModelConverter;
 import kanzi.util.color.YCbCrColorModelConverter;
+import kanzi.util.sampling.BicubicUpSampler;
 import kanzi.util.sampling.BilinearUpSampler;
 import kanzi.util.sampling.DWTDownSampler;
 import kanzi.util.sampling.DWTUpSampler;
 import kanzi.util.sampling.DecimateDownSampler;
-import kanzi.util.sampling.FourTapUpSampler;
 import kanzi.util.sampling.DownSampler;
 import kanzi.util.sampling.EdgeDirectedUpSampler;
-import kanzi.util.sampling.SixTapUpSampler;
 import kanzi.util.sampling.UpSampler;
 
 
@@ -104,14 +103,13 @@ public class TestResampler
 
         UpSampler uBilinear = new BilinearUpSampler(w/2, h/2, 2);
         DownSampler dDecimate = new DecimateDownSampler(w, h, 2);
-        UpSampler uFourtap = new FourTapUpSampler(w/2, h/2, 2);
-        UpSampler uSixtap = new SixTapUpSampler(w/2, h/2, 2);
         UpSampler oriented = new EdgeDirectedUpSampler(w/2, h/2);
-        DownSampler dDWT = new DWTDownSampler(w, h, w, 1);
-        UpSampler uDWT = new DWTUpSampler(w/2, h/2, w, 1);
-        DownSampler[] subSamplers = new DownSampler[]  { dDecimate, dDecimate, dDecimate, dDecimate, dDWT };
-        UpSampler[] superSamplers = new UpSampler[]  { uBilinear, uFourtap, uSixtap, oriented, uDWT };
-        String[] titles = new String[] { "Bilinear", "Four taps", "Six taps", "Oriented", "DWT" };
+        DownSampler dDWT = new DWTDownSampler(w, h, w, 1, false);
+        UpSampler uDWT = new DWTUpSampler(w/2, h/2, w, 1, false);
+        UpSampler uBicubic = new BicubicUpSampler(w/2, h/2, w/2, w, 0);
+        DownSampler[] subSamplers = new DownSampler[]  { dDecimate, dDecimate, dDecimate, dDWT };
+        UpSampler[] superSamplers = new UpSampler[]  { uBilinear, uBicubic, oriented, uDWT };
+        String[] titles = new String[] { "Bilinear", "Bicubic", "Oriented", "DWT" };
         System.out.println(w + "x" + h);
         System.out.println();
 
@@ -193,13 +191,12 @@ public class TestResampler
         frame.setVisible(true);
 
         UpSampler uBilinear = new BilinearUpSampler(w, h, scale);
-        UpSampler uFourtap = new FourTapUpSampler(w, h, scale);
-        UpSampler uSixtap = new SixTapUpSampler(w, h, scale);
+        UpSampler uBicubic = (scale == 2) ? new BicubicUpSampler(w, h, w, 2*w, 0) : null;
         UpSampler edi = (scale == 2) ? new EdgeDirectedUpSampler(w, h) : null;
         w *= scale;
         h *= scale;
-        UpSampler[] superSamplers = new UpSampler[] { uBilinear, uFourtap, uSixtap, edi };
-        String[] titles = new String[] { "Bilinear", "Four taps", "Six taps", "Edge Oriented" };
+        UpSampler[] superSamplers = new UpSampler[] { uBilinear, uBicubic, edi };
+        String[] titles = new String[] { "Bilinear", "Bicubic", "Edge Oriented" };
         System.out.println(w + "x" + h);
         System.out.println();
         long delta = 0;
