@@ -35,11 +35,11 @@ import kanzi.util.color.ReversibleYUVColorModelConverter;
 import kanzi.util.color.XYZColorModelConverter;
 import kanzi.util.color.YCoCgColorModelConverter;
 import kanzi.util.color.YSbSrColorModelConverter;
+import kanzi.util.sampling.BicubicUpSampler;
 import kanzi.util.sampling.BilinearUpSampler;
 import kanzi.util.sampling.DWTDownSampler;
 import kanzi.util.sampling.DWTUpSampler;
 import kanzi.util.sampling.DecimateDownSampler;
-import kanzi.util.sampling.FourTapUpSampler;
 import kanzi.util.sampling.DownSampler;
 import kanzi.util.sampling.UpSampler;
 
@@ -67,10 +67,8 @@ public class TestColorModel
 
          System.out.println(w + "x" + h);
 
-         UpSampler uFourTap1 = new FourTapUpSampler(w/2, h/2, 2, true);
-         UpSampler uFourTap2 = new FourTapUpSampler(w/2, h/2, 2, false);
+         UpSampler uBicubic = new BicubicUpSampler(w/2, h/2, w/2, w, 0);
          UpSampler uBilinear = new BilinearUpSampler(w/2, h/2, 2);
-         DownSampler dFourTap = new DecimateDownSampler(w, h, 2); // For now !!!
          DownSampler dBilinear = new DecimateDownSampler(w, h, 2);//BilinearDownSampler(w, h, 2);
          DownSampler dDWT = new DWTDownSampler(w, h);
          UpSampler uDWT = new DWTUpSampler(w/2, h/2);
@@ -78,12 +76,11 @@ public class TestColorModel
          ColorModelConverter[] cvts = new ColorModelConverter[]
          {
             new XYZColorModelConverter(w, h),
-            new YCbCrColorModelConverter(w, h, dFourTap, uFourTap1),
+            new YCbCrColorModelConverter(w, h, dBilinear, uBicubic),
             new YCbCrColorModelConverter(w, h, dBilinear, uBilinear),
             new YCbCrColorModelConverter(w, h, dDWT, uDWT),
             new YCbCrColorModelConverter(w, h),
             new YCbCrColorModelConverter(w, h),
-            new YSbSrColorModelConverter(w, h, dFourTap, uFourTap2),
             new YSbSrColorModelConverter(w, h, dBilinear, uBilinear),
             new YSbSrColorModelConverter(w, h, dDWT, uDWT),
             new YSbSrColorModelConverter(w, h),
@@ -100,12 +97,12 @@ public class TestColorModel
          };
 
          String[] names = { "XYZ",
-                            "YCbCr - four taps",
+                            "YCbCr - bicubic",
                             "YCbCr - bilinear",
                             "YCbCr - DWT",
                             "YCbCr - built-in (bilinear)",
                             "YCbCr",
-                            "YSbSr - four taps",
+                            "YSbSr - bicubic",
                             "YSbSr - bilinear",
                             "YSbSr - DWT",
                             "YSbSr - built-in (bilinear)",
