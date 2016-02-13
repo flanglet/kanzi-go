@@ -67,21 +67,22 @@ public class TestColorModel
 
          System.out.println(w + "x" + h);
 
-         UpSampler uBicubic = new BicubicUpSampler(w/2, h/2, w/2, w, 0);
+         UpSampler uBicubic = new BicubicUpSampler(w/2, h/2, w/2, w, 0, false);
          UpSampler uBilinear = new BilinearUpSampler(w/2, h/2, 2);
-         DownSampler dBilinear = new DecimateDownSampler(w, h, 2);//BilinearDownSampler(w, h, 2);
+         DownSampler downSampler = new DecimateDownSampler(w, h, 2);
          DownSampler dDWT = new DWTDownSampler(w, h);
          UpSampler uDWT = new DWTUpSampler(w/2, h/2);
 
          ColorModelConverter[] cvts = new ColorModelConverter[]
          {
             new XYZColorModelConverter(w, h),
-            new YCbCrColorModelConverter(w, h, dBilinear, uBicubic),
-            new YCbCrColorModelConverter(w, h, dBilinear, uBilinear),
+            new YCbCrColorModelConverter(w, h, downSampler, uBicubic),
+            new YCbCrColorModelConverter(w, h, downSampler, uBilinear),
             new YCbCrColorModelConverter(w, h, dDWT, uDWT),
             new YCbCrColorModelConverter(w, h),
             new YCbCrColorModelConverter(w, h),
-            new YSbSrColorModelConverter(w, h, dBilinear, uBilinear),
+            new YSbSrColorModelConverter(w, h, downSampler, uBicubic),
+            new YCbCrColorModelConverter(w, h, downSampler, uBilinear),
             new YSbSrColorModelConverter(w, h, dDWT, uDWT),
             new YSbSrColorModelConverter(w, h),
             new YSbSrColorModelConverter(w, h),

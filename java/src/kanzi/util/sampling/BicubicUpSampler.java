@@ -23,6 +23,7 @@ public class BicubicUpSampler implements UpSampler
     private final int srcStride;
     private final int dstStride;
     private final int offset;
+    private final boolean isRGB;
 
 
     public BicubicUpSampler(int width, int height)
@@ -38,6 +39,12 @@ public class BicubicUpSampler implements UpSampler
     
     
     public BicubicUpSampler(int width, int height, int srcStride, int dstStride, int offset)
+    {
+       this(width, height, srcStride, dstStride, offset, true);
+    }
+    
+    
+    public BicubicUpSampler(int width, int height, int srcStride, int dstStride, int offset, boolean isRGB)
     {
       if (height < 8)
          throw new IllegalArgumentException("The height must be at least 8");
@@ -65,6 +72,7 @@ public class BicubicUpSampler implements UpSampler
       this.srcStride = srcStride;
       this.dstStride = dstStride;
       this.offset = offset;
+      this.isRGB = isRGB;
     }
     
     
@@ -114,9 +122,9 @@ public class BicubicUpSampler implements UpSampler
             //output[oOffs+i] = (int) (p1 + 0.5 * x*(p2 - p0 + x*(2.0*p0 - 5.0*p1 + 4.0*p2 - p3 + x*(3.0*(p1 - p2) + p3 - p0))));
             final int val = (p1<<4) + (p2<<2) - (p1<<3) - (p1<<1) + (p2<<3) - (p3<<1) + 
                ((p1<<1) + p1 - (p2<<1) - p2 + p3 - p0);
-            output[oOffs+i] = (val < 0) ? 0 : ((val >= 4087) ? 255 : (val+8)>>4); 
+            output[oOffs+i] = this.getValue(val); 
          } 
-         
+
          oOffs -= dw;        
       }    
       
@@ -169,7 +177,7 @@ public class BicubicUpSampler implements UpSampler
             //output[idx+1] = (int) (p1 + 0.5 * x*(p2 - p0 + x*(2.0*p0 - 5.0*p1 + 4.0*p2 - p3 + x*(3.0*(p1 - p2) + p3 - p0))));
             val = (p1<<4) + (p2<<2) - (p1<<3) - (p1<<1) + (p2<<3) - (p3<<1) + 
                ((p1<<1) + p1 - (p2<<1) - p2 + p3 - p0);
-            output[idx+1] =  (val < 0) ? 0 : ((val >= 4087) ? 255 : (val+8)>>4); 
+            output[idx+1] = this.getValue(val); 
          }
 
          // Columns 1, 2, 3
@@ -182,7 +190,17 @@ public class BicubicUpSampler implements UpSampler
        }
     }
 
+    
+    private int getValue(int val)
+    {
+       if (this.isRGB == false)
+          return (val + 8 + ((val>>31)<<4)) >> 4;
+       
+       val &= (-val >> 31);
+       return (val >= 4087) ? 255 : (val+8) >> 4;       
+    }
 
+    
     @Override
     public void superSample(int[] input, int[] output)
     {

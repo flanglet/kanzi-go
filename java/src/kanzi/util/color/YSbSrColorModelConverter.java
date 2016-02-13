@@ -191,20 +191,18 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
                 final int yVal = y[i] << 11; 
                 final int bVal = u[i]; 
                 final int rVal = v[i];
-                int r = (yVal - 2489*bVal -  881*rVal + 2048) >> 12;
-                int g = (yVal +  491*bVal + 2583*rVal + 2048) >> 12;
-                int b = (yVal + 1907*bVal - 1813*rVal + 2048) >> 12;
-                r &= ((-r) >> 31);
-                g &= ((-g) >> 31);
-                b &= ((-b) >> 31);
+                int r = yVal - 2489*bVal -  881*rVal;
+                int g = yVal +  491*bVal + 2583*rVal;
+                int b = yVal + 1907*bVal - 1813*rVal;
+                
+                if (r >= 1046528) r = 0x00FF0000;
+                else { r &= (-r >> 31); r = (r + 2048) >> 12; r <<= 16; }
 
-                if (r >= 255) r = 0x00FF0000;
-                else { r <<= 16; }
+                if (g >= 1046528) g = 0x0000FF00;
+                else { g &= (-g >> 31); g = (g + 2048) >> 12; g <<= 8; }
 
-                if (g >= 255) g = 0x0000FF00;
-                else { g <<= 8; }
-
-                if (b >= 255) b = 0x000000FF;
+                if (b >= 1046528) b = 0x000000FF;
+                else { b &= (-b >> 31); b = (b + 2048) >> 12; }
                 // ------- toRGB 'Macro' END
 
                 rgb[k++] = r | g | b;
@@ -323,10 +321,10 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
 
         // In-place super sampling
        final int st = this.stride;
-       final int w  = this.width;
+       final int sw  = this.width;
        final int halfH = this.height >> 1;
-       final int halfW = this.width >> 1;
-       final int decY = st + st - w;
+       final int halfW = sw >> 1;
+       final int decY = st + st - sw;
        int oOffs = ((st * (this.height - 2)) + this.width - 1);
        int iOffs = (halfW * halfH) - 1;
        int uPrev = u[iOffs];
@@ -388,6 +386,7 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
           int uPrev2 = uVal2; // F
           int vPrev1 = vVal1; // C
           int vPrev2 = vVal2; // F
+          int val;
 
           // All columns
           for (int i=halfW-2; i>=0; i--)
@@ -397,9 +396,11 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
               vVal2 = v[iOffs+halfW]; // E
               vVal1 = v[iOffs]; // B
               iOffs--;
-              u[oOffs+st] = (uVal1 + uVal2 + uPrev1 + uPrev2 + 2) >> 2; // BCEF
+              val = uVal1 + uVal2 + uPrev1 + uPrev2;
+              u[oOffs+st] = (val + 2 + ((val>>31)<<2)) >> 2; // BCEF
               u[oOffs]    = (uVal1 + uPrev1) >> 1; // BC
-              v[oOffs+st] = (vVal1 + vVal2 + vPrev1 + vPrev2 + 2) >> 2; // BCEF
+              val = vVal1 + vVal2 + vPrev1 + vPrev2;
+              v[oOffs+st] = (val + 2 + ((val>>31)<<2)) >> 2; // BCEF
               v[oOffs]    = (vVal1 + vPrev1) >> 1; // BC
               oOffs--;
               u[oOffs+st] = (uVal1 + uVal2) >> 1; // BE
@@ -463,7 +464,7 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
     // and 1:2 vertically
     private boolean convertYUV420toRGB(int[] y, int[] u, int[] v, int[] rgb)
     {
-        if ((this.downSampler != null) && (this.upSampler != null))
+        if (this.upSampler != null)
         {
            this.convertYUV420toYUV444(y, u, v);
            this.convertYUV444toRGB(y, u, v, rgb);
@@ -509,20 +510,18 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
                 yVal = y[idx] << 11; 
                 bVal = bVal0; 
                 rVal = rVal0;
-                r = (yVal - 2489*bVal -  881*rVal + 2048) >> 12;
-                g = (yVal +  491*bVal + 2583*rVal + 2048) >> 12;
-                b = (yVal + 1907*bVal - 1813*rVal + 2048) >> 12;
-                r &= ((-r) >> 31);
-                g &= ((-g) >> 31);
-                b &= ((-b) >> 31);
+                r = yVal - 2489*bVal -  881*rVal;
+                g = yVal +  491*bVal + 2583*rVal;
+                b = yVal + 1907*bVal - 1813*rVal;
+                
+                if (r >= 1046528) r = 0x00FF0000;
+                else { r &= (-r >> 31); r = (r + 2048) >> 12; r <<= 16; }
 
-                if (r >= 255) r = 0x00FF0000;
-                else { r <<= 16; }
+                if (g >= 1046528) g = 0x0000FF00;
+                else { g &= (-g >> 31); g = (g + 2048) >> 12; g <<= 8; }
 
-                if (g >= 255) g = 0x0000FF00;
-                else { g <<= 8; }
-
-                if (b >= 255) b = 0x000000FF;
+                if (b >= 1046528) b = 0x000000FF;
+                else { b &= (-b >> 31); b = (b + 2048) >> 12; }
                 // ------- toRGB 'Macro' END
 
                 rgb[idx+rgbOffs] = r | g | b;
@@ -535,20 +534,18 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
                 yVal = y[idx+1] << 11; 
                 bVal = uu; 
                 rVal = vv;
-                r = (yVal - 2489*bVal -  881*rVal + 2048) >> 12;
-                g = (yVal +  491*bVal + 2583*rVal + 2048) >> 12;
-                b = (yVal + 1907*bVal - 1813*rVal + 2048) >> 12;
-                r &= ((-r) >> 31);
-                g &= ((-g) >> 31);
-                b &= ((-b) >> 31);
+                r = yVal - 2489*bVal -  881*rVal;
+                g = yVal +  491*bVal + 2583*rVal;
+                b = yVal + 1907*bVal - 1813*rVal;
+                
+                if (r >= 1046528) r = 0x00FF0000;
+                else { r &= (-r >> 31); r = (r + 2048) >> 12; r <<= 16; }
 
-                if (r >= 255) r = 0x00FF0000;
-                else { r <<= 16; }
+                if (g >= 1046528) g = 0x0000FF00;
+                else { g &= (-g >> 31); g = (g + 2048) >> 12; g <<= 8; }
 
-                if (g >= 255) g = 0x0000FF00;
-                else { g <<= 8; }
-
-                if (b >= 255) b = 0x000000FF;
+                if (b >= 1046528) b = 0x000000FF;
+                else { b &= (-b >> 31); b = (b + 2048) >> 12; }
                 // ------- toRGB 'Macro' END
 
                 rgb[idx+rgbOffs+1] = r | g | b;
@@ -559,20 +556,18 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
                 yVal = y[offs] << 11; 
                 bVal = uu; 
                 rVal = vv;
-                r = (yVal - 2489*bVal -  881*rVal + 2048) >> 12;
-                g = (yVal +  491*bVal + 2583*rVal + 2048) >> 12;
-                b = (yVal + 1907*bVal - 1813*rVal + 2048) >> 12;
-                r &= ((-r) >> 31);
-                g &= ((-g) >> 31);
-                b &= ((-b) >> 31);
+                r = yVal - 2489*bVal -  881*rVal;
+                g = yVal +  491*bVal + 2583*rVal;
+                b = yVal + 1907*bVal - 1813*rVal;
+                
+                if (r >= 1046528) r = 0x00FF0000;
+                else { r &= (-r >> 31); r = (r + 2048) >> 12; r <<= 16; }
 
-                if (r >= 255) r = 0x00FF0000;
-                else { r <<= 16; }
+                if (g >= 1046528) g = 0x0000FF00;
+                else { g &= (-g >> 31); g = (g + 2048) >> 12; g <<= 8; }
 
-                if (g >= 255) g = 0x0000FF00;
-                else { g <<= 8; }
-
-                if (b >= 255) b = 0x000000FF;
+                if (b >= 1046528) b = 0x000000FF;
+                else { b &= (-b >> 31); b = (b + 2048) >> 12; }
                 // ------- toRGB 'Macro' END
 
                 rgb[offs+rgbOffs] = r | g | b;
@@ -583,20 +578,18 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
                 yVal = y[offs+1] << 11; 
                 bVal = uu; 
                 rVal = vv;
-                r = (yVal - 2489*bVal -  881*rVal + 2048) >> 12;
-                g = (yVal +  491*bVal + 2583*rVal + 2048) >> 12;
-                b = (yVal + 1907*bVal - 1813*rVal + 2048) >> 12;
-                r &= ((-r) >> 31);
-                g &= ((-g) >> 31);
-                b &= ((-b) >> 31);
+                r = yVal - 2489*bVal -  881*rVal;
+                g = yVal +  491*bVal + 2583*rVal;
+                b = yVal + 1907*bVal - 1813*rVal;
+                
+                if (r >= 1046528) r = 0x00FF0000;
+                else { r &= (-r >> 31); r = (r + 2048) >> 12; r <<= 16; }
 
-                if (r >= 255) r = 0x00FF0000;
-                else { r <<= 16; }
+                if (g >= 1046528) g = 0x0000FF00;
+                else { g &= (-g >> 31); g = (g + 2048) >> 12; g <<= 8; }
 
-                if (g >= 255) g = 0x0000FF00;
-                else { g <<= 8; }
-
-                if (b >= 255) b = 0x000000FF;
+                if (b >= 1046528) b = 0x000000FF;
+                else { b &= (-b >> 31); b = (b + 2048) >> 12; }
                 // ------- toRGB 'Macro' END
 
                 rgb[offs+rgbOffs+1] = r | g | b;
@@ -613,20 +606,18 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
             yVal = y[idx] << 11; 
             bVal = bVal0; 
             rVal = rVal0;
-            r = (yVal - 2489*bVal -  881*rVal + 2048) >> 12;
-            g = (yVal +  491*bVal + 2583*rVal + 2048) >> 12;
-            b = (yVal + 1907*bVal - 1813*rVal + 2048) >> 12;
-            r &= ((-r) >> 31);
-            g &= ((-g) >> 31);
-            b &= ((-b) >> 31);
+            r = yVal - 2489*bVal -  881*rVal;
+            g = yVal +  491*bVal + 2583*rVal;
+            b = yVal + 1907*bVal - 1813*rVal;
+            
+            if (r >= 1046528) r = 0x00FF0000;
+            else { r &= (-r >> 31); r = (r + 2048) >> 12; r <<= 16; }
 
-            if (r >= 255) r = 0x00FF0000;
-            else { r <<= 16; }
+            if (g >= 1046528) g = 0x0000FF00;
+            else { g &= (-g >> 31); g = (g + 2048) >> 12; g <<= 8; }
 
-            if (g >= 255) g = 0x0000FF00;
-            else { g <<= 8; }
-
-            if (b >= 255) b = 0x000000FF;
+            if (b >= 1046528) b = 0x000000FF;
+            else { b &= (-b >> 31); b = (b + 2048) >> 12; }
             // ------- toRGB 'Macro' END
 
             rgb[idx+rgbOffs]   = r | g | b;
@@ -639,20 +630,18 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
             yVal = y[offs] << 11; 
             bVal = uu; 
             rVal = vv;
-            r = (yVal - 2489*bVal -  881*rVal + 2048) >> 12;
-            g = (yVal +  491*bVal + 2583*rVal + 2048) >> 12;
-            b = (yVal + 1907*bVal - 1813*rVal + 2048) >> 12;
-            r &= ((-r) >> 31);
-            g &= ((-g) >> 31);
-            b &= ((-b) >> 31);
+            r = yVal - 2489*bVal -  881*rVal;
+            g = yVal +  491*bVal + 2583*rVal;
+            b = yVal + 1907*bVal - 1813*rVal;
 
-            if (r >= 255) r = 0x00FF0000;
-            else { r <<= 16; }
+            if (r >= 1046528) r = 0x00FF0000;
+            else { r &= (-r >> 31); r = (r + 2048) >> 12; r <<= 16; }
 
-            if (g >= 255) g = 0x0000FF00;
-            else { g <<= 8; }
+            if (g >= 1046528) g = 0x0000FF00;
+            else { g &= (-g >> 31); g = (g + 2048) >> 12; g <<= 8; }
 
-            if (b >= 255) b = 0x000000FF;
+            if (b >= 1046528) b = 0x000000FF;
+            else { b &= (-b >> 31); b = (b + 2048) >> 12; }
             // ------- toRGB 'Macro' END
 
             rgb[offs+rgbOffs]   =  r | g | b;
@@ -669,7 +658,7 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
     // and 1:2 vertically
     private boolean convertRGBtoYUV420(int[] rgb, int[] y, int[] u, int[] v)
     {
-        if ((this.downSampler != null) && (this.upSampler != null))
+        if (this.downSampler != null)
         {
            this.convertRGBtoYUV444(rgb, y, u, v);
            this.convertYUV444toYUV420(y, u, v);
@@ -732,7 +721,7 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
     // In YUV422 format the U and V color components are subsampled 1:2 horizontally
     private boolean convertYUV422toRGB(int[] y, int[] u, int[] v, int[] rgb)
     {
-        if ((this.downSampler != null) && (this.upSampler != null))
+        if (this.upSampler != null)
         {
            this.convertYUV422toYUV444(y, u, v);
            this.convertYUV444toRGB(y, u, v, rgb);
@@ -756,40 +745,36 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
                 yVal = y[k++] << 11; 
                 bVal = u[iOffs+i]; 
                 rVal = v[iOffs+i];
-                r = (yVal - 2489*bVal -  881*rVal + 2048) >> 12;
-                g = (yVal +  491*bVal + 2583*rVal + 2048) >> 12;
-                b = (yVal + 1907*bVal - 1813*rVal + 2048) >> 12;
-                r &= ((-r) >> 31);
-                g &= ((-g) >> 31);
-                b &= ((-b) >> 31);
+                r = yVal - 2489*bVal -  881*rVal;
+                g = yVal +  491*bVal + 2583*rVal;
+                b = yVal + 1907*bVal - 1813*rVal;
+                
+                if (r >= 1046528) r = 0x00FF0000;
+                else { r &= (-r >> 31); r = (r + 2048) >> 12; r <<= 16; }
 
-                if (r >= 255) r = 0x00FF0000;
-                else { r <<= 16; }
+                if (g >= 1046528) g = 0x0000FF00;
+                else { g &= (-g >> 31); g = (g + 2048) >> 12; g <<= 8; }
 
-                if (g >= 255) g = 0x0000FF00;
-                else { g <<= 8; }
-
-                if (b >= 255) b = 0x000000FF;
+                if (b >= 1046528) b = 0x000000FF;
+                else { b &= (-b >> 31); b = (b + 2048) >> 12; }
                 // ------- toRGB 'Macro' END
 
                 rgb[idx+rgbOffs] = r | g | b;
 
                 // ------- toRGB 'Macro'
                 yVal = y[k++] << 11;
-                r = (yVal - 2489*bVal -  881*rVal + 2048) >> 12;
-                g = (yVal +  491*bVal + 2583*rVal + 2048) >> 12;
-                b = (yVal + 1907*bVal - 1813*rVal + 2048) >> 12;
-                r &= ((-r) >> 31);
-                g &= ((-g) >> 31);
-                b &= ((-b) >> 31);
+                r = yVal - 2489*bVal -  881*rVal;
+                g = yVal +  491*bVal + 2583*rVal;
+                b = yVal + 1907*bVal - 1813*rVal;
+                
+                if (r >= 1046528) r = 0x00FF0000;
+                else { r &= (-r >> 31); r = (r + 2048) >> 12; r <<= 16; }
 
-                if (r >= 255) r = 0x00FF0000;
-                else { r <<= 16; }
+                if (g >= 1046528) g = 0x0000FF00;
+                else { g &= (-g >> 31); g = (g + 2048) >> 12; g <<= 8; }
 
-                if (g >= 255) g = 0x0000FF00;
-                else { g <<= 8; }
-
-                if (b >= 255) b = 0x000000FF;
+                if (b >= 1046528) b = 0x000000FF;
+                else { b &= (-b >> 31); b = (b + 2048) >> 12; }
                 // ------- toRGB 'Macro' END
 
                 rgb[idx+rgbOffs+1] = r | g | b;
@@ -806,7 +791,7 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
     // In YUV422 format the U and V color components are subsampled 1:2 horizontally
     private boolean convertRGBtoYUV422(int[] rgb, int[] y, int[] u, int[] v)
     {
-        if ((this.downSampler != null) && (this.upSampler != null))
+        if (this.downSampler != null)
         {
            this.convertRGBtoYUV444(rgb, y, u, v);
            this.convertYUV444toYUV422(y, u, v);
