@@ -577,9 +577,9 @@ public final class ImageQualityMonitor
             }
 
             if (d_mask_1024*d_gvar64 > s_mask_1024*s_gvar64)
-               s_mask_1024 = (long) (Global.sqrt((int) d_mask_1024) >> 8) * (long) (Global.sqrt(d_gvar64) >> 7);
+               s_mask_1024 = (long) (Global.sqrt((int) (d_mask_1024>>>4))) * (long) (Global.sqrt(d_gvar64>>>2) >>> 3);
             else
-               s_mask_1024 = (long) (Global.sqrt((int) s_mask_1024) >> 8) * (long) (Global.sqrt(s_gvar64) >> 7);
+               s_mask_1024 = (long) (Global.sqrt((int) (s_mask_1024>>>4))) * (long) (Global.sqrt(s_gvar64>>>2) >>> 3);
             
             // Calculate error
             for (int i=0; i<8; i++)
