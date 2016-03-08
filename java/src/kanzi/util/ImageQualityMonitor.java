@@ -378,18 +378,18 @@ public final class ImageQualityMonitor
    {
       final int scaleX = ((type == ColorModelType.YUV420) || (type == ColorModelType.YUV422)) ? 1 : 0;
       final int scaleY = (type == ColorModelType.YUV420) ? 1 : 0;
-      int psnr1024_chanY = computePSNR_HVS_M(img1_chanY, img2_chanY, x, y, w, h, 0, type);
+      int psnr1024_chanY = this.computePSNR_HVS_M(img1_chanY, img2_chanY, x, y, w, h, 0, type);
       
       if (psnr1024_chanY == Global.INFINITE_VALUE)
          return psnr1024_chanY;
       
-      int psnr1024_chanU = computePSNR_HVS_M(img1_chanU, img2_chanU, x>>scaleX, 
+      int psnr1024_chanU = this.computePSNR_HVS_M(img1_chanU, img2_chanU, x>>scaleX, 
               y>>scaleX, w>>scaleX, h>>scaleX, 1, type);
       
       if (psnr1024_chanU == Global.INFINITE_VALUE)
          return psnr1024_chanU;
       
-      int pnsr1024_chanV = computePSNR_HVS_M(img1_chanV, img2_chanV, x>>scaleY, 
+      int pnsr1024_chanV = this.computePSNR_HVS_M(img1_chanV, img2_chanV, x>>scaleY, 
               y>>scaleY, w>>scaleY, h>>scaleY, 2, type);
       
       if (pnsr1024_chanV == Global.INFINITE_VALUE)
@@ -444,167 +444,173 @@ public final class ImageQualityMonitor
    }
    
    
-   private int computeCSFDeltaAvg(int[] src, int[] dst, int x0, int y0, int w, int h, int channelIdx) 
+   private int computeCSFDeltaAvg(int[] src, int[] dst, int x0, int y0,
+           int w, int h, int channelIdx)
    {
-      final int[] csf;
-      final int[] mask_csf;
+     final int[] csf;
+     final int[] mask_csf;
 
-      if (channelIdx == 0) 
-      {
-         csf = CSF_Y_1024;
-         mask_csf = MASK_CSF_Y_1024;
-      }
-      else if (channelIdx == 1)
-      {
-         csf = CSF_Cb_1024;
-         mask_csf = MASK_CSF_Cb_1024;        
-      }
-      else
-      {
-         csf = CSF_Cr_1024;
-         mask_csf = MASK_CSF_Cr_1024;        
-      }
+     if (channelIdx == 0)
+     {
+        csf = CSF_Y_1024;
+        mask_csf = MASK_CSF_Y_1024;
+     }
+     else if (channelIdx == 1)
+     {
+        csf = CSF_Cb_1024;
+        mask_csf = MASK_CSF_Cb_1024;
+     }
+     else if (channelIdx == 2)
+     {
+        csf = CSF_Cr_1024;
+        mask_csf = MASK_CSF_Cr_1024;
+     }
+     else 
+     {
+        return -1;
+     }
+     
+     long lsum = 0;
+     final int[] dct_s = new int[64];
+     final int[] dct_d = new int[64];
+     final int st = this.stride << this.downSampling;
+     int pixels = 0;
+     final DCT8 dct = new DCT8();
+     IndexedIntArray iia_s = new IndexedIntArray(dct_s, 0);
+     IndexedIntArray iia_d = new IndexedIntArray(dct_d, 0);
+     final int[] s_means = new int[4];
+     final int[] d_means = new int[4];
+     final int[] s_vars = new int[4];
+     final int[] d_vars = new int[4];
+     final int inc = 1 << this.downSampling;
+     final int inc7 = 7 * inc;
 
-      long lsum = 0;
-      final int[] dct_s = new int[64];
-      final int[] dct_d = new int[64];
-      int pixels = 0;
-      final DCT8 dct = new DCT8();
-      IndexedIntArray iia_s = new IndexedIntArray(dct_s, 0);
-      IndexedIntArray iia_d = new IndexedIntArray(dct_d, 0);
-      int[] s_means_64 = new int[4];
-      int[] d_means_64 = new int[4];
-      int[] s_vars_1024 = new int[4];
-      int[] d_vars_1024 = new int[4];
-      final int st = this.stride << this.downSampling;
-      final int inc = 1 << this.downSampling;
-      final int inc7 = 7 * inc;
+     for (int y=y0; y<h-7; y+=inc7)
+     {
+       final int offsY = y * st;
+       
+       for (int x=x0; x<w-7; x+=inc7)
+       {
+         s_means[0] = s_means[1] = s_means[2] = s_means[3] = 0;
+         d_means[0] = d_means[1] = d_means[2] = d_means[3] = 0;
+         s_vars[0] = s_vars[1] = s_vars[2] = s_vars[3] = 0;
+         d_vars[0] = d_vars[1] = d_vars[2] = d_vars[3] = 0;
+         int s_gmean = 0;
+         int d_gmean = 0;
 
-      for (int y=y0; y<h-7; y+=inc7)
-      {
-         for (int x=x0; x<w-7; x+=inc7)
+         for (int i=0, offs=offsY+x; i<8; i++, offs+=st)
          {
-            s_means_64[0] = s_means_64[1] = s_means_64[2] = s_means_64[3] = 0;
-            d_means_64[0] = d_means_64[1] = d_means_64[2] = d_means_64[3] = 0;
-            s_vars_1024[0] = s_vars_1024[1] = s_vars_1024[2] = s_vars_1024[3] = 0;
-            d_vars_1024[0] = d_vars_1024[1] = d_vars_1024[2] = d_vars_1024[3] = 0;
-            int s_gmean64 = 0;
-            int d_gmean64 = 0;
-            int s_gvar64 = 0;
-            int d_gvar64 = 0;
+           final int i8 = i << 3;
 
-            // Populate DCT arrays
-            for (int i=0; i<8; i++)
+           for (int j=0; j<8; j++)
+           {
+              final int idx = i8 + j;
+              final int sub = ((i&12)>>2) + ((j&12)>>1);
+              dct_s[idx] = src[offs+j];
+              dct_d[idx] = dst[offs+j];
+              s_gmean += dct_s[idx];
+              d_gmean += dct_d[idx];
+              s_means[sub] += dct_s[idx];
+              d_means[sub] += dct_d[idx];
+           }
+         }
+
+         double s_gvar = 0;
+         double d_gvar = 0;
+
+         for (int i=0; i<8; i++)
+         {
+           final int i8 = i << 3;
+
+           for (int j=0; j<8; j++)
+           {
+              final int s16 = dct_s[i8+j] << 4;
+              final int d16 = dct_d[i8+j] << 4;
+              final int sub = ((i&12)>>2) + ((j&12)>>1);
+              s_gvar += (((s16*4-s_gmean)*(s16*4-s_gmean) + 2048) >> 12);
+              d_gvar += (((d16*4-d_gmean)*(d16*4-d_gmean) + 2048) >> 12);
+              s_vars[sub] += (((s16-s_means[sub])*(s16-s_means[sub]) + 128) >> 8);
+              d_vars[sub] += (((d16-d_means[sub])*(d16-d_means[sub]) + 128) >> 8);
+           } 
+         }
+
+         // Perform forward DCT
+         iia_s.index = 0;
+         dct.forward(iia_s, iia_s);
+         iia_d.index = 0;
+         dct.forward(iia_d, iia_d);
+
+         // Offset DCT gain
+         dct_s[0] >>= 5;
+         dct_d[0] >>= 5;
+
+         long s_mask1024 = 0;
+         long d_mask1024 = 0;
+
+         for (int i=0; i<8; i++)
+         {
+            final int i8 = i << 3;
+            final int j0 = (i-1) >>> 31; // (i == 0) ? 1 : 0;
+
+            for (int j=j0; j<8; j++)
             {
-               final int i8 = i << 3;
-               final int offs = (y+i) * st + (x * inc);
+               final int idx = i8 + j;
 
-               for (int j=0; j<8; j++)
-               {
-                  final int idx1 = i8 + j;
-                  final int idx2 = offs + (j*inc);
-                  final int sub = ((i&12)>>2) + ((j&12)>>1);
-                  dct_s[idx1] = src[idx2];
-                  dct_d[idx1] = dst[idx2];           
-                  s_gmean64 += dct_s[idx1];
-                  d_gmean64 += dct_d[idx1];
-                  s_means_64[sub] += (dct_s[idx1] << 2);
-                  d_means_64[sub] += (dct_d[idx1] << 2);
-               }
-            }
-
-            // Compute variance
-            for (int i=0; i<8; i++)
-            {
-               final int i8 = i << 3;
-
-               for (int j=0; j<8; j++)
-               {
-                  final int s = dct_s[i8+j] << 6;
-                  final int d = dct_d[i8+j] << 6;
-                  final int sub = ((i&12)>>2) + ((j&12)>>1);
-                  s_gvar64 += (s-s_gmean64)*(s-s_gmean64);
-                  d_gvar64 += (d-d_gmean64)*(d-d_gmean64);                   
-                  s_vars_1024[sub] += (s-s_means_64[sub])*(s-s_means_64[sub]);
-                  d_vars_1024[sub] += (d-d_means_64[sub])*(d-d_means_64[sub]);             
-               }
-            }
-
-            // Replace s_gvar64 /= (63*64) and s_vars_1024[i] *= 16/15 with 63*64*16/15 = 275251/64
-            // Since s_vars_1024[i] is scaled by 4 (s_means_1024 scaled by 64*64 instead of 1024),
-            // use rescaling factor 275251/256.
-            if (s_gvar64 > 0)
-            {
-               long sum = (long) (s_vars_1024[0] + s_vars_1024[1] + s_vars_1024[2] + s_vars_1024[3]);
-               s_gvar64 = (int) (sum/256*275251/s_gvar64);
-            }
-            
-            if (d_gvar64 > 0)
-            {
-               long sum = (long) (d_vars_1024[0] + d_vars_1024[1] + d_vars_1024[2] + d_vars_1024[3]);
-               d_gvar64 = (int) (sum/256*275251/d_gvar64);
-            }
-            
-            // Perform forward DCT (gain is 1<<5)
-            iia_s.index = 0;
-            dct.forward(iia_s, iia_s);
-            iia_d.index = 0;
-            dct.forward(iia_d, iia_d); 
-
-            // Offset DCT gain
-            dct_s[0] >>= 5; 
-            dct_d[0] >>= 5;       
-
-            long s_mask_1024 = 0;
-            long d_mask_1024 = 0;
-
-            // Compute masks
-            for (int i=0; i<8; i++)
-            {
-               final int i8 = i << 3;
-               final int j0 = (i == 0) ? 1 : 0;
-
-               for (int j=j0; j<8; j++)
-               {
-                  final int idx = i8 + j;
-
-                  // Offset DCT gain
-                  dct_s[idx] >>= 5; 
-                  dct_d[idx] >>= 5;        
-                  s_mask_1024 += (dct_s[idx]*dct_s[idx]*mask_csf[idx]);            
-                  d_mask_1024 += (dct_d[idx]*dct_d[idx]*mask_csf[idx]);                   
-               }
-            }
-
-            if (d_mask_1024*d_gvar64 > s_mask_1024*s_gvar64)
-               s_mask_1024 = (long) (Global.sqrt((int) (d_mask_1024>>>4))) * (long) (Global.sqrt(d_gvar64>>>2) >>> 3);
-            else
-               s_mask_1024 = (long) (Global.sqrt((int) (s_mask_1024>>>4))) * (long) (Global.sqrt(s_gvar64>>>2) >>> 3);
-            
-            // Calculate error
-            for (int i=0; i<8; i++)
-            {
-               final int i8 = i << 3;
-
-               for (int j=0; j<8; j++)
-               {
-                  final int idx = i8 + j;
-                  long err1024 = ((long) Math.abs(dct_s[idx] - dct_d[idx])) << 10;
-
-                  if ((i != 0) || (j != 0))
-                     err1024 = (err1024*mask_csf[idx]<s_mask_1024) ? 0 : err1024-(s_mask_1024/mask_csf[idx]);
-
-                  final long val1024 = (err1024*csf[idx] + 512) >> 10;
-                  lsum += ((val1024*val1024) >> 10);
-                  pixels++;
-               }
+               // Offset DCT gain
+               dct_s[idx] >>= 5;
+               dct_d[idx] >>= 5;
+               s_mask1024 += (dct_s[idx]*dct_s[idx]*mask_csf[idx]);
+               d_mask1024 += (dct_d[idx]*dct_d[idx]*mask_csf[idx]);
             }
          }
-      }
 
-      return (pixels == 0) ? 0 : (int) (((lsum+512)>>10) / pixels);
+         // s_gvar *= 64.f/63.f and d_gvar *= 64.f/63.f 
+         // and s_vars[i] *= 16.f/15.f and d_vars[i] *= 16.f/15.f
+         // folded into (num*16/15) / (den*64/63) => num*63 / den*60
+         
+         if (s_gvar != 0)
+            s_gvar = ((s_vars[0]+s_vars[1]+s_vars[2]+s_vars[3])*63) / (60*s_gvar);
+
+         if (d_gvar != 0)
+            d_gvar = ((d_vars[0]+d_vars[1]+d_vars[2]+d_vars[3])*63) / (60*d_gvar);
+    
+         long sm1024 = (Global.sqrt((int) (s_mask1024*s_gvar)) + 16) >> 5;
+         long dm1024 = (Global.sqrt((int) (d_mask1024*d_gvar)) + 16) >> 5;
+
+         if (dm1024 > sm1024)
+            sm1024 = dm1024;
+
+         for (int i=0; i<8; i++)
+         {
+           final int i8 = i << 3;
+
+           for (int j=0; j<8; j++)
+           {
+              final int idx = i8 + j;
+              long err1024 = ((long) Math.abs(dct_s[idx] - dct_d[idx])) << 10;
+
+              if ((i!=0) || (j!=0))
+              {
+                 final long errThreshold = (long) (sm1024 << 5) / mask_csf[idx];
+                 
+                 if (err1024 < errThreshold)
+                    continue;
+                 
+                 err1024 = err1024 - errThreshold;
+              }
+              
+              final long val1024 = (err1024*csf[idx] + 512) >> 10;
+              lsum += ((val1024*val1024) >> 10);              
+           }
+         }
+         
+         pixels += 64;
+       }
+     }
+
+     return (pixels == 0) ? 0 : (int) (((lsum+512)>>10) / pixels);
    }
-
+  
    
    // return SSIM * 1024
    public int computeSSIM(int[] img1_chan1, int[] img1_chan2, int[] img1_chan3,
