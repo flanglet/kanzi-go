@@ -32,6 +32,7 @@ const (
 	WARN_EMPTY_INPUT         = -128
 )
 
+// Main block compressor struct
 type BlockCompressor struct {
 	verbosity    uint
 	overwrite    bool
@@ -270,10 +271,11 @@ func (this *BlockCompressor) call() (int, uint64) {
 		if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
 			fmt.Printf("%s\n", ioerr.Error())
 			return ioerr.ErrorCode(), written
-		} else {
-			fmt.Printf("Cannot create compressed stream: %s\n", err.Error())
-			return kio.ERR_CREATE_COMPRESSOR, written
 		}
+
+		fmt.Printf("Cannot create compressed stream: %s\n", err.Error())
+		return kio.ERR_CREATE_COMPRESSOR, written
+
 	}
 
 	defer func() {
@@ -315,10 +317,10 @@ func (this *BlockCompressor) call() (int, uint64) {
 			if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
 				fmt.Printf("%s\n", ioerr.Error())
 				return ioerr.ErrorCode(), written
-			} else {
-				fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err.Error())
-				return kio.ERR_PROCESS_BLOCK, written
 			}
+
+			fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err.Error())
+			return kio.ERR_PROCESS_BLOCK, written
 		}
 
 		len, err = input.Read(buffer)

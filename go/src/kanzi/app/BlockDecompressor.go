@@ -30,6 +30,7 @@ const (
 	DECOMP_DEFAULT_BUFFER_SIZE = 32768
 )
 
+// Main block decompressor struct
 type BlockDecompressor struct {
 	verbosity  uint
 	overwrite  bool
@@ -226,10 +227,10 @@ func (this *BlockDecompressor) call() (int, uint64) {
 		if err.(*kio.IOError) != nil {
 			fmt.Printf("%s\n", err.(*kio.IOError).Message())
 			return err.(*kio.IOError).ErrorCode(), read
-		} else {
-			fmt.Printf("Cannot create compressed stream: %v\n", err)
-			return kio.ERR_CREATE_DECOMPRESSOR, read
 		}
+
+		fmt.Printf("Cannot create compressed stream: %v\n", err)
+		return kio.ERR_CREATE_DECOMPRESSOR, read
 	}
 
 	for _, bl := range this.listeners {
@@ -246,10 +247,10 @@ func (this *BlockDecompressor) call() (int, uint64) {
 			if ioerr, isIOErr := err.(*kio.IOError); isIOErr == true {
 				fmt.Printf("%s\n", ioerr.Message())
 				return ioerr.ErrorCode(), read
-			} else {
-				fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err)
-				return kio.ERR_PROCESS_BLOCK, read
 			}
+
+			fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err)
+			return kio.ERR_PROCESS_BLOCK, read
 		}
 
 		if decoded > 0 {
