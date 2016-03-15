@@ -20,7 +20,6 @@ import kanzi.IntTransform;
 
 
 // Implementation of Discrete Cosine Transform of dimension 4 
-// Due to rounding errors, the reconstruction may not be perfect
 public final class DCT4 implements IntTransform
 {
     // Weights

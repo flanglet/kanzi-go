@@ -22,6 +22,7 @@ import kanzi.transform.DCT16;
 import kanzi.transform.DCT32;
 import kanzi.transform.DCT4;
 import kanzi.transform.DCT8;
+import kanzi.transform.DST4;
 
 public class TestDCT
 {
@@ -99,14 +100,14 @@ public class TestDCT
             
             @Override
             public void run()
-            {
-              IntTransform[] dcts = new IntTransform[] 
-                      { new DCT4(), new DCT8(), new DCT16(), new DCT32() };
+            {            
+              IntTransform[] transforms = new IntTransform[] 
+                      { new DCT4(), new DCT8(), new DCT16(), new DCT32(), new DST4() };
               
-              for (int dimIdx=0; dimIdx<dcts.length; dimIdx++)
+              for (int dimIdx=0; dimIdx<transforms.length; dimIdx++)
               {   
-                  final int dim = 4 << dimIdx;
-                  System.out.println("\nDCT"+dim+" correctness");
+                  int dim = ((4<<dimIdx) >= 64) ? 4 : 4<<dimIdx;
+                  System.out.println("\n"+((dimIdx<4) ?"DCT" : "DST")+dim+" correctness");
                   final int blockSize = dim * dim;
                   int[] data1 = new int[blockSize+20]; // source
                   int[] data2 = new int[blockSize+20]; // destination
@@ -144,7 +145,7 @@ public class TestDCT
                      iia1.index = 0;
                      iia2.array = data;
                      iia2.index = start;
-                     dcts[dimIdx].forward(iia1, iia2);
+                     transforms[dimIdx].forward(iia1, iia2);
                      System.out.println();
                      System.out.println("Output");
 
@@ -157,7 +158,7 @@ public class TestDCT
                      iia1.array = data2;
                      iia1.index = 0;
                      iia2.index = start;
-                     dcts[dimIdx].inverse(iia2, iia1);
+                     transforms[dimIdx].inverse(iia2, iia1);
                      System.out.println();
                      System.out.println("Result");
 
