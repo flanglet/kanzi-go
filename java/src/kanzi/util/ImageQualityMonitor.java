@@ -273,21 +273,28 @@ public final class ImageQualityMonitor
    // return psnr * 1024 or INFINITE_PSNR (=0)
    public int computePSNR(int[] data1, int[] data2, int x, int y, int w, int h, ColorModelType type)
    {
-      final long lsum = this.computeDeltaSum(data1, data2, x, y, w, h, type);
+      long lsum = this.computeDeltaSum(data1, data2, x, y, w, h, type);
 
-      // Rescale to avoid overflow
-      final int isum = (int) ((lsum + 50) / 100);
-
-      if (isum <= 0)
+      if (lsum <= 0)
          return Global.INFINITE_VALUE;
 
+      int scale = 0;
+      
+      while (lsum >= (1<<24))
+      {
+         lsum >>= 2;
+         scale += 2;
+      }      
+      
+      final int logScale = Global.ten_log10(1<<scale);
+      
       // Formula:  double mse = (double) (sum) / size
       //           double psnr = 10 * Math.log10(255d*255d/mse);
       // or        double psnr = 10 * (Math.log10(65025) + (Math.log10(size) - Math.log10(sum))
       // Calculate PSNR << 10 with 1024 * 10 * (log10(65025L) = 49286
       // 1024*10*log10(100) = 20480
       final int iterations = ((w - x) >> this.downSampling) * ((h - y) >> this.downSampling);
-      return 49286 + (Global.ten_log10(iterations) - Global.ten_log10(isum)) - 20480;
+      return 49286 + (Global.ten_log10(iterations) - Global.ten_log10((int) lsum)) - logScale;
    }
 
 
@@ -351,264 +358,6 @@ public final class ImageQualityMonitor
       }
 
       return sum;
-   }
-
-   
-   // Compute a modified version of the PSNR that takes into account only the errors
-   // that can be detected by the Human Visual System. All channels.
-   // Color model must be YUV444 or YUV420.
-   // return psnr * 1024 or INFINITE_PSNR (=0)
-   public int computePSNR_HVS_M(int[] img1_chan1, int[] img1_chan2, int[] img1_chan3,
-                                int[] img2_chan1, int[] img2_chan2, int[] img2_chan3,
-                                ColorModelType type)
-   {
-      return this.computePSNR_HVS_M(img1_chan1, img1_chan2, img1_chan3,
-                                    img2_chan1, img2_chan2, img2_chan3,
-                                    0, 0, this.width, this.height, type);
-   }
-
-
-   // Compute a modified version of the PSNR that takes into account only the errors
-   // that can be detected by the Human Visual System. All channels.
-   // Color model must be YUV444 or YUV420.
-   // return psnr * 1024 or INFINITE_PSNR (=0)
-   public int computePSNR_HVS_M(int[] img1_chanY, int[] img1_chanU, int[] img1_chanV,
-                                int[] img2_chanY, int[] img2_chanU, int[] img2_chanV,
-                                int x, int y, int w, int h, ColorModelType type)
-   {
-      final int scaleX = ((type == ColorModelType.YUV420) || (type == ColorModelType.YUV422)) ? 1 : 0;
-      final int scaleY = (type == ColorModelType.YUV420) ? 1 : 0;
-      int psnr1024_chanY = this.computePSNR_HVS_M(img1_chanY, img2_chanY, x, y, w, h, 0, type);
-      
-      if (psnr1024_chanY == Global.INFINITE_VALUE)
-         return psnr1024_chanY;
-      
-      int psnr1024_chanU = this.computePSNR_HVS_M(img1_chanU, img2_chanU, x>>scaleX, 
-              y>>scaleX, w>>scaleX, h>>scaleX, 1, type);
-      
-      if (psnr1024_chanU == Global.INFINITE_VALUE)
-         return psnr1024_chanU;
-      
-      int pnsr1024_chanV = this.computePSNR_HVS_M(img1_chanV, img2_chanV, x>>scaleY, 
-              y>>scaleY, w>>scaleY, h>>scaleY, 2, type);
-      
-      if (pnsr1024_chanV == Global.INFINITE_VALUE)
-         return pnsr1024_chanV;
-
-      // YUV => weight 0.8 for Y and 0.1 for U & V
-      return ((102*psnr1024_chanY) + (13*psnr1024_chanU) + (13*pnsr1024_chanV)) >> 7;
-   }
-   
-   
-   // Compute a modified version of the PSNR that takes into account only the errors
-   // that can be detected by the Human Visual System. Only one channel.
-   // Color model must be YUV444 or YUV420.
-   // return psnr * 1024 or INFINITE_PSNR (=0)
-   public int computePSNR_HVS_M(int[] src, int[] dst, int channelIdx, ColorModelType type) 
-   {
-      return this.computePSNR_HVS_M(src, dst, 0, 0, this.width, this.height, channelIdx, type);
-   }
-   
-   
-   // Compute a modified version of the PSNR that takes into account only errors
-   // that can be detected by the Human Visual System. Only one channel.
-   // Color model must be YUV444 or YUV420.
-   // return psnr * 1024 or INFINITE_PSNR (=0)
-   public int computePSNR_HVS_M(int[] src, int[] dst, int x, int y, int w, int h,
-           int channelIdx, ColorModelType type) 
-   {
-      if ((type != ColorModelType.YUV420) && (type != ColorModelType.YUV422) && (type != ColorModelType.YUV444))
-         throw new IllegalArgumentException("Invalid image type: must be YUV 420, 422 or 444");
-
-      if ((channelIdx !=0) && (channelIdx != 1) && (channelIdx != 2))
-         throw new IllegalArgumentException("Invalid channel index: must be 0 for Y, 1 for U or 2 for V");
-
-      if ((x < 0) || (y < 0))
-          throw new IllegalArgumentException("Illegal argument: x and y must be positive or null");
-   
-      if ((w <= 0) || (h <= 0))
-          throw new IllegalArgumentException("Illegal argument: w and h must be positive");
-   
-      if (src == dst)
-         return 0;
-      
-      final int mse = computeCSFDeltaAvg(src, dst, x, y, w, h, channelIdx);  
-
-      if (mse <= 0)
-         return Global.INFINITE_VALUE;
-
-      // Formula:  double mse = (double) (sum) / size
-      //           double psnr = 10 * Math.log10(255d*255d/mse);
-      // Calculate PSNR << 10 with 1024 * 10 * (log10(65025L) = 49286
-      return 49286 - Global.ten_log10(mse);     
-   }
-   
-   
-   private int computeCSFDeltaAvg(int[] src, int[] dst, int x0, int y0,
-           int w, int h, int channelIdx)
-   {
-     final int[] csf;
-     final int[] mask_csf;
-
-     if (channelIdx == 0)
-     {
-        csf = CSF_Y_1024;
-        mask_csf = MASK_CSF_Y_1024;
-     }
-     else if (channelIdx == 1)
-     {
-        csf = CSF_Cb_1024;
-        mask_csf = MASK_CSF_Cb_1024;
-     }
-     else if (channelIdx == 2)
-     {
-        csf = CSF_Cr_1024;
-        mask_csf = MASK_CSF_Cr_1024;
-     }
-     else 
-     {
-        return -1;
-     }
-     
-     long lsum = 0;
-     final int[] dct_s = new int[64];
-     final int[] dct_d = new int[64];
-     final int st = this.stride << this.downSampling;
-     int pixels = 0;
-     final DCT8 dct = new DCT8();
-     IndexedIntArray iia_s = new IndexedIntArray(dct_s, 0);
-     IndexedIntArray iia_d = new IndexedIntArray(dct_d, 0);
-     final int[] s_means = new int[4];
-     final int[] d_means = new int[4];
-     final int[] s_vars = new int[4];
-     final int[] d_vars = new int[4];
-     final int inc = 1 << this.downSampling;
-     final int inc7 = 7 * inc;
-
-     for (int y=y0; y<h-7; y+=inc7)
-     {
-       final int offsY = y * st;
-       
-       for (int x=x0; x<w-7; x+=inc7)
-       {
-         s_means[0] = s_means[1] = s_means[2] = s_means[3] = 0;
-         d_means[0] = d_means[1] = d_means[2] = d_means[3] = 0;
-         s_vars[0] = s_vars[1] = s_vars[2] = s_vars[3] = 0;
-         d_vars[0] = d_vars[1] = d_vars[2] = d_vars[3] = 0;
-         int s_gmean = 0;
-         int d_gmean = 0;
-
-         for (int i=0, offs=offsY+x; i<8; i++, offs+=st)
-         {
-           final int i8 = i << 3;
-
-           for (int j=0; j<8; j++)
-           {
-              final int idx = i8 + j;
-              final int sub = ((i&12)>>2) + ((j&12)>>1);
-              dct_s[idx] = src[offs+j];
-              dct_d[idx] = dst[offs+j];
-              s_gmean += dct_s[idx];
-              d_gmean += dct_d[idx];
-              s_means[sub] += dct_s[idx];
-              d_means[sub] += dct_d[idx];
-           }
-         }
-
-         double s_gvar = 0;
-         double d_gvar = 0;
-
-         for (int i=0; i<8; i++)
-         {
-           final int i8 = i << 3;
-
-           for (int j=0; j<8; j++)
-           {
-              final int s16 = dct_s[i8+j] << 4;
-              final int d16 = dct_d[i8+j] << 4;
-              final int sub = ((i&12)>>2) + ((j&12)>>1);
-              s_gvar += (((s16*4-s_gmean)*(s16*4-s_gmean) + 2048) >> 12);
-              d_gvar += (((d16*4-d_gmean)*(d16*4-d_gmean) + 2048) >> 12);
-              s_vars[sub] += (((s16-s_means[sub])*(s16-s_means[sub]) + 128) >> 8);
-              d_vars[sub] += (((d16-d_means[sub])*(d16-d_means[sub]) + 128) >> 8);
-           } 
-         }
-
-         // Perform forward DCT
-         iia_s.index = 0;
-         dct.forward(iia_s, iia_s);
-         iia_d.index = 0;
-         dct.forward(iia_d, iia_d);
-
-         // Offset DCT gain
-         dct_s[0] >>= 5;
-         dct_d[0] >>= 5;
-
-         long s_mask1024 = 0;
-         long d_mask1024 = 0;
-
-         for (int i=0; i<8; i++)
-         {
-            final int i8 = i << 3;
-            final int j0 = (i-1) >>> 31; // (i == 0) ? 1 : 0;
-
-            for (int j=j0; j<8; j++)
-            {
-               final int idx = i8 + j;
-
-               // Offset DCT gain
-               dct_s[idx] >>= 5;
-               dct_d[idx] >>= 5;
-               s_mask1024 += (dct_s[idx]*dct_s[idx]*mask_csf[idx]);
-               d_mask1024 += (dct_d[idx]*dct_d[idx]*mask_csf[idx]);
-            }
-         }
-
-         // s_gvar *= 64.f/63.f and d_gvar *= 64.f/63.f 
-         // and s_vars[i] *= 16.f/15.f and d_vars[i] *= 16.f/15.f
-         // folded into (num*16/15) / (den*64/63) => num*63 / den*60
-         
-         if (s_gvar != 0)
-            s_gvar = ((s_vars[0]+s_vars[1]+s_vars[2]+s_vars[3])*63) / (60*s_gvar);
-
-         if (d_gvar != 0)
-            d_gvar = ((d_vars[0]+d_vars[1]+d_vars[2]+d_vars[3])*63) / (60*d_gvar);
-    
-         long sm1024 = (Global.sqrt((int) (s_mask1024*s_gvar)) + 16) >> 5;
-         long dm1024 = (Global.sqrt((int) (d_mask1024*d_gvar)) + 16) >> 5;
-
-         if (dm1024 > sm1024)
-            sm1024 = dm1024;
-
-         for (int i=0; i<8; i++)
-         {
-           final int i8 = i << 3;
-
-           for (int j=0; j<8; j++)
-           {
-              final int idx = i8 + j;
-              long err1024 = ((long) Math.abs(dct_s[idx] - dct_d[idx])) << 10;
-
-              if ((i!=0) || (j!=0))
-              {
-                 final long errThreshold = (long) (sm1024 << 5) / mask_csf[idx];
-                 
-                 if (err1024 < errThreshold)
-                    continue;
-                 
-                 err1024 = err1024 - errThreshold;
-              }
-              
-              final long val1024 = (err1024*csf[idx] + 512) >> 10;
-              lsum += ((val1024*val1024) >> 10);              
-           }
-         }
-         
-         pixels += 64;
-       }
-     }
-
-     return (pixels == 0) ? 0 : (int) (((lsum+512)>>10) / pixels);
    }
   
    
