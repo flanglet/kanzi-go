@@ -25,7 +25,6 @@ public class Prediction
    public final int[] residue;
    public int x;
    public int y;
-   public int anchor;
 
 
    public Prediction(int maxBlockDim)
@@ -48,5 +47,23 @@ public class Prediction
       this.y = y;
       this.residue = new int[blockDim*blockDim];
       this.blockDim = blockDim;
+   }
+   
+   
+   @Override
+   public String toString() 
+   {
+      StringBuilder sb = new StringBuilder(100);
+      sb.append("[ ");
+      sb.append("x=");
+      sb.append(this.x);
+      sb.append(", y=");
+      sb.append(this.y);
+      sb.append(", dim=");
+      sb.append(this.blockDim);
+      sb.append(", sad=");
+      sb.append(this.sad);
+      sb.append(" ]");
+      return sb.toString();
    }
 }
