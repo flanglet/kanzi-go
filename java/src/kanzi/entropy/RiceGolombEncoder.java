@@ -32,8 +32,8 @@ public final class RiceGolombEncoder implements EntropyEncoder
         if (bitstream == null)
            throw new NullPointerException("Invalid null bitstream parameter");
 
-        if ((logBase <= 0) || (logBase >= 8))
-           throw new IllegalArgumentException("Invalid logBase value (must be in [1..7])");
+        if ((logBase < 1) || (logBase > 12))
+           throw new IllegalArgumentException("Invalid logBase value (must be in [1..12])");
 
         this.signed = signed;
         this.bitstream = bitstream;
@@ -56,12 +56,12 @@ public final class RiceGolombEncoder implements EntropyEncoder
           return;
        }
 
-       int val2 = val;
-       val2 = (val2 + (val2 >> 31)) ^ (val2 >> 31); // abs(val2)
+       int iVal = val;
+       iVal = (iVal + (iVal >> 31)) ^ (iVal >> 31); // abs(val2)
 
         // quotient is unary encoded, remainder is binary encoded
-       int emit = this.base | (val2 & (this.base-1));
-       int n = (1 + (val2 >> this.logBase)) + this.logBase;
+       int emit = this.base | (iVal & (this.base-1));
+       int n = (1 + (iVal >> this.logBase)) + this.logBase;
 
        if (this.signed == true)
        {

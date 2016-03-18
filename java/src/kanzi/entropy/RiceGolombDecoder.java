@@ -26,13 +26,14 @@ public final class RiceGolombDecoder implements EntropyDecoder
     private final InputBitStream bitstream;
     private final int logBase;
 
+    
     public RiceGolombDecoder(InputBitStream bitstream, boolean signed, int logBase)
     {
         if (bitstream == null)
            throw new NullPointerException("Invalid null bitstream parameter");
 
-        if ((logBase <= 0) || (logBase >= 8))
-           throw new IllegalArgumentException("Invalid logBase value (must be in [1..7])");
+        if ((logBase < 1) || (logBase > 12))
+           throw new IllegalArgumentException("Invalid logBase value (must be in [1..12])");
 
         this.signed = signed;
         this.bitstream = bitstream;

@@ -36,8 +36,8 @@ func NewRiceGolombEncoder(bs kanzi.OutputBitStream, sgn bool, logBase uint) (*Ri
 		return nil, errors.New("Invalid null bitstream parameter")
 	}
 
-	if logBase <= 0 || logBase >= 8 {
-		return nil, fmt.Errorf("Invalid logBase '%v' value (must be in [1..7])", logBase)
+	if logBase < 1 || logBase > 12 {
+		return nil, fmt.Errorf("Invalid logBase '%v' value (must be in [1..12])", logBase)
 	}
 
 	this := new(RiceGolombEncoder)
@@ -107,8 +107,8 @@ func NewRiceGolombDecoder(bs kanzi.InputBitStream, sgn bool, logBase uint) (*Ric
 		return nil, errors.New("Invalid null bitstream parameter")
 	}
 
-	if logBase <= 0 || logBase >= 8 {
-		return nil, errors.New("Invalid logBase value (must be in [1..7])")
+	if logBase < 1 || logBase > 12 {
+		return nil, errors.New("Invalid logBase value (must be in [1..12])")
 	}
 
 	this := new(RiceGolombDecoder)
