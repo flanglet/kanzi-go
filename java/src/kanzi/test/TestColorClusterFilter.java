@@ -21,22 +21,34 @@ import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.Transparency;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
+import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import kanzi.IndexedIntArray;
+import kanzi.InputBitStream;
+import kanzi.OutputBitStream;
+import kanzi.bitstream.DebugInputBitStream;
+import kanzi.bitstream.DebugOutputBitStream;
+import kanzi.bitstream.DefaultInputBitStream;
+import kanzi.bitstream.DefaultOutputBitStream;
 import kanzi.filter.ColorClusterFilter;
 import kanzi.filter.FastBilateralFilter;
 import kanzi.filter.SobelFilter;
 
 
 public class TestColorClusterFilter
-{
+   {
     public static void main(String[] args)
-    {
-        try
+   {
+       try
         {
-            String fileName = (args.length > 0) ? args[0] : "c:\\temp\\lena.jpg";
+            String fileName = (args.length > 0) ? args[0] : "r:\\kodim24.png";
             ImageIcon icon = new ImageIcon(fileName);
             Image image = icon.getImage();
             int w = image.getWidth(null) & -8;
@@ -50,14 +62,15 @@ public class TestColorClusterFilter
             IndexedIntArray source = new IndexedIntArray(new int[w*h], 0);
             IndexedIntArray temp = new IndexedIntArray(new int[w*h], 0);
             IndexedIntArray dest = new IndexedIntArray(new int[w*h], 0);
-            boolean applySobel = true;
-            boolean applyBilateral = true;
+            boolean applySobel = false;
+            boolean applyBilateral = false;
 
             // Do NOT use img.getRGB(): it is more than 10 times slower than
             // img.getRaster().getDataElements()
             img.getRaster().getDataElements(0, 0, w, h, source.array);
 
-            ColorClusterFilter effect = new ColorClusterFilter(w, h, w, 30, 12, null, 1);
+            ColorClusterFilter effect = new ColorClusterFilter(w, h, w, 200, 8);
+            effect.setShowBorders(true);
             //System.arraycopy(dest, 0, source, 0, w*h);
             effect.apply(source, dest);
             final int[] dArray = dest.array;
@@ -99,7 +112,7 @@ public class TestColorClusterFilter
             // Smooth the results by adding bilateral filtering
             if (applyBilateral == true)
             {
-               FastBilateralFilter fbl = new FastBilateralFilter(w, h, 70.0f, 0.03f);
+               FastBilateralFilter fbl = new FastBilateralFilter(w, h, 40.0f, 0.03f);
                fbl.apply(dest, dest);
             }
 
@@ -108,7 +121,7 @@ public class TestColorClusterFilter
             //icon = new ImageIcon(img);
             JFrame frame = new JFrame("Original");
             frame.setBounds(150, 100, w, h);
-            frame.add(new JLabel(icon));
+            frame.add(new JLabel(new ImageIcon(image)));
             frame.setVisible(true);
             JFrame frame2 = new JFrame("Filter");
             frame2.setBounds(700, 150, w, h);

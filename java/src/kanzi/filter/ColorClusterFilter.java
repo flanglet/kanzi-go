@@ -45,25 +45,26 @@ public class ColorClusterFilter implements IntFilter
     private final int maxIterations;
     private final Cluster[] clusters;
     private final int[] buffer;
+    private final short[] labels;
     private boolean chooseCentroids;
-    private int subSample;
+    private boolean showBorders;
 
     
     public ColorClusterFilter(int width, int height, int nbClusters)
     {
-       this(width, height, width, nbClusters, 16, null, 0);
+       this(width, height, width, nbClusters, 16, null);
     }
 
 
     public ColorClusterFilter(int width, int height, int stride, int nbClusters, int iterations)
     {
-       this(width, height, stride, nbClusters, iterations, null, 0);
+       this(width, height, stride, nbClusters, iterations, null);
     }
 
 
     // centroidXY is an optional array of packed (16 bits + 16 bits) centroid coordinates
     public ColorClusterFilter(int width, int height, int stride, int nbClusters, 
-            int iterations, int[] centroidsXY, int downSampling)
+            int iterations, int[] centroidsXY)
     {
       if (height < 8)
          throw new IllegalArgumentException("The height must be at least 8");
@@ -80,14 +81,14 @@ public class ColorClusterFilter implements IntFilter
       if (stride < 8)
          throw new IllegalArgumentException("The stride must be at least 8");
 
-      if ((nbClusters < 2) || (nbClusters > 256))
-         throw new IllegalArgumentException("The number of clusters must be in [2..256]");
+      if ((nbClusters < 2) || (nbClusters >= 65536))
+         throw new IllegalArgumentException("The number of clusters must be in [2..65535]");
 
-      if ((downSampling < 0) || (downSampling > 2))
-         throw new IllegalArgumentException("The down sampling factor must be in [0..2]");
+      if (nbClusters > width*height)
+         throw new IllegalArgumentException("The number of clusters must be less than the number of pixels]");
 
-      if ((iterations < 2) || (iterations > 256))
-         throw new IllegalArgumentException("The maximum number of iterations must be in [2..256]");
+      if ((iterations < 2) || (iterations >= 256))
+         throw new IllegalArgumentException("The maximum number of iterations must be in [2..255]");
 
       if ((centroidsXY != null) && (centroidsXY.length < nbClusters))
          throw new IllegalArgumentException("The number of centroid coordinates "
@@ -97,10 +98,10 @@ public class ColorClusterFilter implements IntFilter
       this.height = height;
       this.stride = stride;
       this.maxIterations = iterations;
-      this.chooseCentroids = (centroidsXY == null) ? true : false;
+      this.chooseCentroids = (centroidsXY == null);
       this.clusters = new Cluster[nbClusters];
-      this.subSample = downSampling + 1; // down scale by 2 at least
-      this.buffer = new int[(width>>1)*(height>>1)]; // always 1 because of the automatic upsampling in apply()
+      this.buffer = new int[width*height/4];
+      this.labels = new short[width*height];
 
       for (int i=0; i<nbClusters; i++)
       {
@@ -110,8 +111,8 @@ public class ColorClusterFilter implements IntFilter
          {
             // The work image is downscaled by 2 at the beginning of the process
             // Rescale the coordinates
-            this.clusters[i].centroidX = ((centroidsXY[i] >> 16) & 0x0000FFFF) >> this.subSample;
-            this.clusters[i].centroidY =  (centroidsXY[i] & 0x0000FFFF) >> this.subSample;
+            this.clusters[i].centroidX = ((centroidsXY[i] >> 16) & 0x0000FFFF) >> 1;
+            this.clusters[i].centroidY =  (centroidsXY[i] & 0x0000FFFF) >> 1;
          }
       }
     }
@@ -121,18 +122,17 @@ public class ColorClusterFilter implements IntFilter
     @Override
     public boolean apply(IndexedIntArray src, IndexedIntArray dst)
     {
-       final int[] buf = this.buffer;
-       int scale = this.subSample;
-       final int adjust = (1 << scale) - 1;
-       int scaledW = (this.width + adjust) >> scale;
-       int scaledH = (this.height + adjust) >> scale;
+       int scale = 1; // for now
+       int scaledW = this.width >> scale;
+       int scaledH = this.height >> scale;
+       int scaledSt = this.stride >> scale;
        final Cluster[] cl = this.clusters;
        final int nbClusters = cl.length;
        final int rescaleThreshold = (this.maxIterations * 2 / 3);
        int iterations = 0;
 
        // Create a down sampled copy of the source 
-       this.createWorkImage(src.array, src.index, scale);
+       int[] buf = this.createWorkImage(src.array, src.index, scale);
 
        // Choose centers
        if (this.chooseCentroids == true)
@@ -145,9 +145,9 @@ public class ColorClusterFilter implements IntFilter
          int moves = 0;
 
          // Associate a pixel to the nearest cluster
-         for (int j=0; j<scaledH; j++, offs+=scaledW)
+         for (int j=0; j<scaledH; j++, offs+=scaledSt)
          {
-            int kfound = -1;
+            int kfound = 0;
 
             for (int i=0; i<scaledW; i++)
             {
@@ -155,25 +155,20 @@ public class ColorClusterFilter implements IntFilter
                final int r = (pixel >> 16) & 0xFF;
                final int g = (pixel >>  8) & 0xFF;
                final int b =  pixel & 0xFF;
-               int nearest;
+               int minSqDist;
 
-               if (kfound >= 0)
                {
                   // Reuse previous cluster as 'best initial guess' which yield
                   // a small value for 'nearest' most of the time
-                  final Cluster cluster = cl[kfound];
-                  final int dx = i - cluster.centroidX;
-                  final int dy = j - cluster.centroidY;
-                  final int dr = r - cluster.centroidR;
-                  final int dg = g - cluster.centroidG;
-                  final int db = b - cluster.centroidB;
-
+                  final Cluster refCluster = cl[kfound];
+                  final int dx = i - refCluster.centroidX;
+                  final int dy = j - refCluster.centroidY;
+                  final int dr = r - refCluster.centroidR;
+                  final int dg = g - refCluster.centroidG;
+                  final int db = b - refCluster.centroidB;
+               
                   // Distance is based on 3 color and 2 position coordinates
-                  nearest = 2 * (dx*dx + dy*dy) + (dr*dr + dg*dg + db*db);
-               }
-               else
-               {
-                  nearest = Integer.MAX_VALUE;
+                  minSqDist = 16 * (dx*dx + dy*dy) + (dr*dr + dg*dg + db*db);
                }
 
                // Iterate over clusters, calculating pixel distance to centroid
@@ -184,9 +179,9 @@ public class ColorClusterFilter implements IntFilter
                   final int dy = j - cluster.centroidY;
 
                   // Distance is based on 3 color and 2 position coordinates
-                  int sq_dist = (dx*dx + dy*dy) << 1;
+                  int sqDist = 16 *(dx*dx + dy*dy);
 
-                  if (sq_dist >= nearest) // early exit
+                  if (sqDist >= minSqDist) // early exit
                      continue;
 
                   final int dr = r - cluster.centroidR;
@@ -194,18 +189,17 @@ public class ColorClusterFilter implements IntFilter
                   final int db = b - cluster.centroidB;
 
                   // Distance is based on 3 color and 2 position coordinates
-                  sq_dist += (dr*dr + dg*dg + db*db);
+                  sqDist += (dr*dr + dg*dg + db*db);
 
-                  if (sq_dist < nearest)
-                  {
-                     nearest = sq_dist;
-                     kfound = k;
-                  }
+                  if (sqDist >= minSqDist)
+                     continue;
+
+                  minSqDist = sqDist;
+                  kfound = k;
                }
 
                final Cluster cluster = cl[kfound];
-               buf[offs+i] &= 0x00FFFFFF;
-               buf[offs+i] |= ((kfound + 1) << 24); // update pixel's cluster index (top byte)
+               this.labels[offs+i] = (short) kfound;
                cluster.sumR += r;
                cluster.sumG += g;
                cluster.sumB += b;
@@ -218,12 +212,7 @@ public class ColorClusterFilter implements IntFilter
          // Compute new centroid for each cluster
          for (int j=0; j<nbClusters; j++)
          {
-            final Cluster cluster = cl[j];
-
-            if (cluster.items == 0)
-               continue;
-
-            if (cluster.computeCentroid() == true)
+            if (cl[j].computeCentroid() == true)
                moves++;
          }
 
@@ -232,10 +221,11 @@ public class ColorClusterFilter implements IntFilter
          if ((scale > 1) && ((iterations == rescaleThreshold) || (moves == 0)))
          {
             // Upscale by 2 in each dimension, now that centroids are somewhat stable
-            scale >>= 1;
+            scale--;
             scaledW <<= 1;
             scaledH <<= 1;
-            this.createWorkImage(src.array, src.index, scale);
+            scaledSt <<= 1;
+            buf = this.createWorkImage(src.array, src.index, scale);
 
             for (int j=0; j<nbClusters; j++)
             {
@@ -256,7 +246,6 @@ public class ColorClusterFilter implements IntFilter
          c.centroidY <<= 1;
       }
 
-      this.subSample = scale;
       return this.createFinalImage(src, dst);
    }
 
@@ -299,7 +288,7 @@ public class ColorClusterFilter implements IntFilter
              r = (r + adjust) >> scale2;
              g = (g + adjust) >> scale2;
              b = (b + adjust) >> scale2;
-             buf[dstIdx++] = ((r << 16) | (g << 8) | b) & 0x00FFFFFF;
+             buf[dstIdx++] = (r << 16) | (g << 8) | b;
           }
 
           srcIdx += scaledStride;
@@ -312,41 +301,52 @@ public class ColorClusterFilter implements IntFilter
    // Up-sample and set all points in the cluster to the color of the centroid pixel
    private boolean createFinalImage(IndexedIntArray source, IndexedIntArray destination)
    {
-      final int[] buf = this.buffer;
       final int[] src = source.array;
       final int[] dst = destination.array;
       final int srcStart = source.index;
       final int dstStart = destination.index;
-      final Cluster[] cl = this.clusters;
-      final int scale = this.subSample; 
-      final int scaledW = this.width >> scale;
-      final int scaledY = this.height >> scale;
+      final Cluster[] cl = this.clusters; 
+      final short[] labels_ = this.labels; 
+      final int scaledW = this.width >> 1;
+      final int scaledH = this.height >> 1;
       final int st = this.stride;
-      int offs = (scaledY - 1) * scaledW;
+      final int scaledSt = st >> 1;
+      int offs = (scaledH - 1) * scaledSt;
       int nlOffs = offs;
-           
+
       for (int j=this.height-2; j>=0; j-=2)
-      {
-         Cluster c1 = cl[(buf[offs+scaledW-1]>>>24)-1]; // pixel p1 to the right of current p0
-         Cluster c3 = cl[(buf[nlOffs+scaledW-1]>>>24)-1]; // pixel p3 to the right of p2
-         final int srcIdx = srcStart + j * st;
+      {        
+         Cluster c1 = cl[labels_[offs+scaledW-1]]; // pixel p1 to the right of current p0
+         Cluster c3 = cl[labels_[nlOffs+scaledW-1]]; // pixel p3 to the right of p2
+         final int srcIdx = srcStart + offs;
          final int dstIdx = dstStart + j * st;
 
          for (int i=this.width-2; i>=0; i-=2)
          {
-            int iOffs = srcIdx + i;
-            int oOffs = dstIdx + i;
-            final int cluster0Idx = (buf[offs+(i>>scale)] >>> 24) - 1;
+            final int iOffs = srcIdx + (i>>1);
+            final int oOffs = dstIdx + i;
+            final int cluster0Idx = labels_[offs+(i>>1)];
             final Cluster c0 = cl[cluster0Idx];
-            final int cluster2Idx = (buf[nlOffs+(i>>scale)] >>> 24) - 1;
-            final Cluster c2 = cl[cluster2Idx]; // pixel p2 below current p0
             final int pixel0 = c0.centroidValue;
-            dst[oOffs] = pixel0;
+            final int c0r = c0.centroidR;
+            final int c0g = c0.centroidG;
+            final int c0b = c0.centroidB;
+            final int c0x = c0.centroidX;
+            final int c0y = c0.centroidY;
+            final int cluster2Idx = labels_[nlOffs+(i>>1)];
+            final Cluster c2 = cl[cluster2Idx]; // pixel p2 below current p0
+            //dst[oOffs] = pixel0;
+            dst[oOffs] = src[oOffs];
 
             if (c0 == c3)
             {
                // Inside cluster
-               dst[oOffs+st+1] = pixel0;
+               //dst[oOffs+st+1] = pixel0;
+               dst[oOffs+st+1] = src[oOffs+st+1];
+            }
+            else if (this.showBorders == true)
+            {
+               dst[oOffs+st+1] = 0xFFFFFFFF;
             }
             else
             {
@@ -355,19 +355,26 @@ public class ColorClusterFilter implements IntFilter
                final int r = (pixel >> 16) & 0xFF;
                final int g = (pixel >>  8) & 0xFF;
                final int b =  pixel & 0xFF;
-               final int d0 = ((r-c0.centroidR)*(r-c0.centroidR)
-                             + (g-c0.centroidG)*(g-c0.centroidG)
-                             + (b-c0.centroidB)*(b-c0.centroidB));
-               final int d3 = ((r-c3.centroidR)*(r-c3.centroidR)
+               final int d0 = 16 * ((i+1-c0x)*(i+1-c0x)+(j+1-c0y)*(j+1-c0y)) 
+                            + (r-c0r)*(r-c0r)
+                            + (g-c0g)*(g-c0g)
+                            + (b-c0b)*(b-c0b);
+               final int d3 = 16 * ((i+1-c3.centroidX)*(i+1-c3.centroidX)+(j+1-c3.centroidY)*(j+1-c3.centroidY))
+                             + (r-c3.centroidR)*(r-c3.centroidR)
                              + (g-c3.centroidG)*(g-c3.centroidG)
-                             + (b-c3.centroidB)*(b-c3.centroidB));
+                             + (b-c3.centroidB)*(b-c3.centroidB);
                dst[oOffs+st+1] = (d0 < d3) ? pixel0 : c3.centroidValue;
             }
 
             if (c0 == c2)
             {
                // Inside cluster
-               dst[oOffs+st] = pixel0;
+               //dst[oOffs+st] = pixel0;
+               dst[oOffs+st] = src[oOffs+st];
+            }
+            else if (this.showBorders == true)
+            {
+               dst[oOffs+st] = 0xFFFFFFFF;
             }
             else
             {
@@ -376,19 +383,26 @@ public class ColorClusterFilter implements IntFilter
                final int r = (pixel >> 16) & 0xFF;
                final int g = (pixel >>  8) & 0xFF;
                final int b =  pixel & 0xFF;
-               final int d0 = ((r-c0.centroidR)*(r-c0.centroidR)
-                             + (g-c0.centroidG)*(g-c0.centroidG)
-                             + (b-c0.centroidB)*(b-c0.centroidB));
-               final int d2 = ((r-c2.centroidR)*(r-c2.centroidR)
+               final int d0 = 16 * ((i-c0x)*(i-c0x)+(j+1-c0y)*(j+1-c0y)) 
+                            + (r-c0r)*(r-c0r)
+                            + (g-c0g)*(g-c0g)
+                            + (b-c0b)*(b-c0b);
+               final int d2 = 16 * ((i-c2.centroidX)*(i-c2.centroidX)+(j+1-c2.centroidY)*(j+1-c2.centroidY))
+                             + (r-c2.centroidR)*(r-c2.centroidR)
                              + (g-c2.centroidG)*(g-c2.centroidG)
-                             + (b-c2.centroidB)*(b-c2.centroidB));
+                             + (b-c2.centroidB)*(b-c2.centroidB);
                dst[oOffs+st] = (d0 < d2) ? pixel0 : c2.centroidValue;
-            }
+            }           
 
             if (c0 == c1)
             {
                // Inside cluster
-               dst[oOffs+1] = pixel0;
+             //  dst[oOffs+1] = pixel0;
+               dst[oOffs+1] = src[oOffs+1];
+            }
+            else if (this.showBorders == true)
+            {
+               dst[oOffs+1] = 0xFFFFFFFF;
             }
             else
             {
@@ -397,10 +411,12 @@ public class ColorClusterFilter implements IntFilter
                final int r = (pixel >> 16) & 0xFF;
                final int g = (pixel >>  8) & 0xFF;
                final int b =  pixel & 0xFF;
-               final int d0 = ((r-c0.centroidR)*(r-c0.centroidR)
-                             + (g-c0.centroidG)*(g-c0.centroidG)
-                             + (b-c0.centroidB)*(b-c0.centroidB));
-               final int d1 = ((r-c1.centroidR)*(r-c1.centroidR)
+               final int d0 = ((i+1-c0x)*(i+1-c0x)+(j-c0y)*(j-c0y)) 
+                            + (r-c0r)*(r-c0r)
+                            + (g-c0g)*(g-c0g)
+                            + (b-c0b)*(b-c0b);
+               final int d1 = 16 * ((i+1-c1.centroidX)*(i+1-c1.centroidX)+(j-c1.centroidY)*(j-c1.centroidY))
+                             + ((r-c1.centroidR)*(r-c1.centroidR)
                              + (g-c1.centroidG)*(g-c1.centroidG)
                              + (b-c1.centroidB)*(b-c1.centroidB));
                dst[oOffs+1] = (d0 < d1) ? pixel0 : c1.centroidValue;
@@ -411,7 +427,7 @@ public class ColorClusterFilter implements IntFilter
          }
            
          nlOffs = offs;
-         offs -= scaledW;
+         offs -= scaledSt;
       }
 
       return true;
@@ -426,14 +442,17 @@ public class ColorClusterFilter implements IntFilter
    private void chooseCentroids(Cluster[] clusters, int[] buffer, int ww, int hh)
    {
       // Create quad tree decomposition of the image
-      final LinkedList<QuadTreeGenerator.Node> nodes = new LinkedList<QuadTreeGenerator.Node>();
-      final QuadTreeGenerator qtg = new QuadTreeGenerator(ww & -3, hh & -3, 8);
-      qtg.decomposeNodes(nodes, buffer, 0, clusters.length);
+      LinkedList<QuadTreeGenerator.Node> nodes = new LinkedList<QuadTreeGenerator.Node>();
+      QuadTreeGenerator qtg = new QuadTreeGenerator(8, true);
+      QuadTreeGenerator.Node node = QuadTreeGenerator.getNode(null, 0, 0, ww, hh, true);
+      node.computeVariance(buffer, ww);
+      nodes.add(node);  
+      qtg.decomposeNodes(nodes, buffer, clusters.length, ww & -4);
       int n = clusters.length-1;
 
       while ((n >= 0) && (nodes.size() > 0))
       {
-         final QuadTreeGenerator.Node next = nodes.removeFirst();
+         QuadTreeGenerator.Node next = nodes.removeFirst();
          final Cluster c = clusters[n];
          c.centroidX = next.x + (next.w >> 1);
          c.centroidY = next.y + (next.h >> 1);
@@ -444,7 +463,7 @@ public class ColorClusterFilter implements IntFilter
          n--;
      }
 
-     if (n > 0)
+     if (n >= 0)
      {
        // If needed, other centroids are set to random values
        Random rnd = new Random();
@@ -491,6 +510,18 @@ public class ColorClusterFilter implements IntFilter
    }
 
 
+   public boolean showBorders()
+   {
+      return this.showBorders;
+   }
+
+
+   public void setShowBorders(boolean showBorders)
+   {
+      this.showBorders = showBorders;
+   }
+
+
 
    private static class Cluster
    {
@@ -500,27 +531,24 @@ public class ColorClusterFilter implements IntFilter
       int centroidB;
       int centroidX;
       int centroidY;
-      int centroidValue;
+      int centroidValue; // only used in final step
       int sumR;
       int sumG;
       int sumB;
       int sumX;
       int sumY;
 
-      // Requires items != 0
       boolean computeCentroid()
       {
+         if (this.items == 0)
+            return false;
+         
          final int r = (this.sumR / this.items);
          final int g = (this.sumG / this.items);
          final int b = (this.sumB / this.items);
          final int newCentroidX = (this.sumX / this.items);
          final int newCentroidY = (this.sumY / this.items);
-         this.items = 0;
-         this.sumR = 0;
-         this.sumG = 0;
-         this.sumB = 0;
-         this.sumX = 0;
-         this.sumY = 0;
+         this.reset();
 
          if ((r != this.centroidR) || (g != this.centroidG)
                  || (b != this.centroidB) || (newCentroidX != this.centroidX)
@@ -535,6 +563,16 @@ public class ColorClusterFilter implements IntFilter
         }
 
          return false;
+      }
+      
+      void reset()
+      {
+         this.items = 0;
+         this.sumR = 0;
+         this.sumG = 0;
+         this.sumB = 0;
+         this.sumX = 0;
+         this.sumY = 0;
       }
    }
 }
