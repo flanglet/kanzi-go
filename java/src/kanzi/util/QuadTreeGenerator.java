@@ -21,51 +21,12 @@ import java.util.TreeSet;
 
 public class QuadTreeGenerator
 {
-    private final int width;
-    private final int height;
-    private final int stride;
-    private final int offset;
     private final int minNodeDim;
     private final boolean isRGB;
 
 
-    public QuadTreeGenerator(int width, int height)
+    public QuadTreeGenerator(int minNodeDim, boolean isRGB)
     {
-       this(width, height, 0, width, 8);
-    }
-
-
-    public QuadTreeGenerator(int width, int height, int minNodeDim)
-    {
-       this(width, height, 0, width, minNodeDim);
-    }
-
-
-    public QuadTreeGenerator(int width, int height, int offset, int stride, int minNodeDim)
-    {
-       this(width, height, offset, stride, minNodeDim, true);
-    }
-
-
-    public QuadTreeGenerator(int width, int height, int offset, int stride,
-            int minNodeDim, boolean isRGB)
-    {
-      if (height < 8)
-         throw new IllegalArgumentException("The height must be at least 8");
-
-      if (width < 8)
-         throw new IllegalArgumentException("The width must be at least 8");
-
-      if ((height & 1) != 0)
-         throw new IllegalArgumentException("The height must be a multiple of 2");
-
-      if ((width & 1) != 0)
-         throw new IllegalArgumentException("The width must be a multiple of 2");
-
-      this.width = width;
-      this.height = height;
-      this.stride = stride;
-      this.offset = offset;
       this.minNodeDim = minNodeDim;
       this.isRGB = isRGB;
    }
@@ -75,7 +36,7 @@ public class QuadTreeGenerator
    // The decomposition stops when enough nodes have been computed or the minimum
    // node dimension has been reached.
    // Input nodes are reused and new nodes are added to the input collection (if needed).
-   public Collection<Node> decomposeNodes(Collection<Node> list, int[] input, int nbNodes)
+   public Collection<Node> decomposeNodes(Collection<Node> list, int[] input, int nbNodes, int stride)
    {
       if (nbNodes < list.size())
          throw new IllegalArgumentException("The target number of nodes must be at least list.size()");
@@ -83,7 +44,7 @@ public class QuadTreeGenerator
       if (nbNodes == list.size())
          return list;
       
-      return this.decompose(list, input, nbNodes, -1);
+      return this.decompose(list, input, nbNodes, -1, stride);
    }
 
 
@@ -92,24 +53,23 @@ public class QuadTreeGenerator
    // than or equal to the target variance or the minimum node dimension has been
    // reached.
    // Input nodes are reused and new nodes are added to the input collection (if needed).
-   public Collection<Node> decomposeVariance(Collection<Node> list, int[] input, int variance)
+   public Collection<Node> decomposeVariance(Collection<Node> list, int[] input, int variance, int stride)
    {
       if (variance < 0)
          throw new IllegalArgumentException("The target variance of nodes must be at least 0");
 
-      return this.decompose(list, input, -1, variance);
+      return this.decompose(list, input, -1, variance, stride);
    }
 
 
    protected Collection<Node> decompose(Collection<Node> list, int[] input,
-           int nbNodes, int variance)
+           int nbNodes, int variance, int stride)
    {
       if (list == null)
          return null;
       
       final TreeSet<Node> processed = new TreeSet<Node>();
       final TreeSet<Node> nodes = new TreeSet<Node>();
-      final int st = this.stride;
 
       for (Node node : list)
       {
@@ -148,10 +108,10 @@ public class QuadTreeGenerator
          Node node3 = getNode(parent, px, py+ph-ch, cw, ch, this.isRGB);
          Node node4 = getNode(parent, px+pw-cw, py+ph-ch, cw, ch, this.isRGB);
 
-         node1.computeVariance(input, st);
-         node2.computeVariance(input, st);
-         node3.computeVariance(input, st);
-         node4.computeVariance(input, st);
+         node1.computeVariance(input, stride);
+         node2.computeVariance(input, stride);
+         node3.computeVariance(input, stride);
+         node4.computeVariance(input, stride);
 
          // Add to set of nodes sorted by decreasing variance
          nodes.add(node1);
