@@ -16,6 +16,7 @@ limitations under the License.
 package kanzi.prediction;
 
 import java.util.TreeSet;
+import kanzi.Global;
 
 
 // Class used to predict a block based on its neighbors in the current frame or 
@@ -533,10 +534,10 @@ public class LossyIntraPredictor
              for (int i=j; i<endi; i+=4)
              {
                 // HORIZONTAL_L: xi+bi
-                output[i]   = residue[k]   + b;
-                output[i+1] = residue[k+1] + b;
-                output[i+2] = residue[k+2] + b;
-                output[i+3] = residue[k+3] + b;
+                output[i]   = Global.clip0_255(residue[k]   + b);
+                output[i+1] = Global.clip0_255(residue[k+1] + b);
+                output[i+2] = Global.clip0_255(residue[k+2] + b);
+                output[i+3] = Global.clip0_255(residue[k+3] + b);
                 k += 4;
              }
           }
@@ -552,10 +553,10 @@ public class LossyIntraPredictor
              for (int i=j; i<endi; i+=4)
              {
                 // HORIZONTAL_R: xi+ci
-                output[i]   = residue[k]   + c;
-                output[i+1] = residue[k+1] + c;
-                output[i+2] = residue[k+2] + c;
-                output[i+3] = residue[k+3] + c;
+                output[i]   = Global.clip0_255(residue[k]   + c);
+                output[i+1] = Global.clip0_255(residue[k+1] + c);
+                output[i+2] = Global.clip0_255(residue[k+2] + c);
+                output[i+3] = Global.clip0_255(residue[k+3] + c);
                 k += 4;
              }
           }
@@ -597,10 +598,10 @@ public class LossyIntraPredictor
                 a3 = input[blockAbove+3] & mask_;
              }
 
-             output[i]   = residue[k]   + a0;
-             output[i+1] = residue[k+1] + a1;
-             output[i+2] = residue[k+2] + a2;
-             output[i+3] = residue[k+3] + a3;
+             output[i]   = Global.clip0_255(residue[k]   + a0);
+             output[i+1] = Global.clip0_255(residue[k+1] + a1);
+             output[i+2] = Global.clip0_255(residue[k+2] + a2);
+             output[i+3] = Global.clip0_255(residue[k+3] + a3);
              k += 4;
           }
        }
@@ -647,10 +648,10 @@ public class LossyIntraPredictor
                 }
 
                 // BILINEAR_HV_L: (xi,yi)+(dist(xi,ai)*bi+dist(xi,bi)*ai))/(dist(xi,a1)+dist(xi,bi))
-                output[i]   = residue[k]   + ((((jjb +     ii*a0) * IDIV[ii+jj])   + 32768) >> 16);
-                output[i+1] = residue[k+1] + ((((jjb + (ii+1)*a1) * IDIV[ii+jj+1]) + 32768) >> 16);
-                output[i+2] = residue[k+2] + ((((jjb + (ii+2)*a2) * IDIV[ii+jj+2]) + 32768) >> 16);
-                output[i+3] = residue[k+3] + ((((jjb + (ii+3)*a3) * IDIV[ii+jj+3]) + 32768) >> 16);
+                output[i]   = Global.clip0_255(residue[k]   + ((((jjb +     ii*a0) * IDIV[ii+jj])   + 32768) >> 16));
+                output[i+1] = Global.clip0_255(residue[k+1] + ((((jjb + (ii+1)*a1) * IDIV[ii+jj+1]) + 32768) >> 16));
+                output[i+2] = Global.clip0_255(residue[k+2] + ((((jjb + (ii+2)*a2) * IDIV[ii+jj+2]) + 32768) >> 16));
+                output[i+3] = Global.clip0_255(residue[k+3] + ((((jjb + (ii+3)*a3) * IDIV[ii+jj+3]) + 32768) >> 16));
                 k += 4;
              }
           }
@@ -681,10 +682,10 @@ public class LossyIntraPredictor
                 }
 
                 // BILINEAR_HV_R: (xi,yi)+(dist(xi,a1)*ci+dist(xi,ci)*ai))/(dist(xi,ai)+dist(xi,ci))
-                output[i]   = residue[k]   + ((((jjc +     ii*a0) * IDIV[ii+jj])   + 32768) >> 16);
-                output[i+1] = residue[k+1] + ((((jjc + (ii+1)*a1) * IDIV[ii+jj+1]) + 32768) >> 16);
-                output[i+2] = residue[k+2] + ((((jjc + (ii+2)*a2) * IDIV[ii+jj+2]) + 32768) >> 16);
-                output[i+3] = residue[k+3] + ((((jjc + (ii+3)*a3) * IDIV[ii+jj+3]) + 32768) >> 16);
+                output[i]   = Global.clip0_255(residue[k]   + ((((jjc +     ii*a0) * IDIV[ii+jj])   + 32768) >> 16));
+                output[i+1] = Global.clip0_255(residue[k+1] + ((((jjc + (ii+1)*a1) * IDIV[ii+jj+1]) + 32768) >> 16));
+                output[i+2] = Global.clip0_255(residue[k+2] + ((((jjc + (ii+2)*a2) * IDIV[ii+jj+2]) + 32768) >> 16));
+                output[i+3] = Global.clip0_255(residue[k+3] + ((((jjc + (ii+3)*a3) * IDIV[ii+jj+3]) + 32768) >> 16));
              }
 
              line += blockDim;
@@ -733,10 +734,10 @@ public class LossyIntraPredictor
                 }
 
                 // MEDIAN: (xi,yi)+MEDIAN(ai, bi, (ai+bi)-d)
-                output[i]   = residue[k]   + median(a0, b, a0+b-d);
-                output[i+1] = residue[k+1] + median(a1, b, a1+b-d);
-                output[i+2] = residue[k+2] + median(a2, b, a2+b-d);
-                output[i+3] = residue[k+3] + median(a3, b, a3+b-d);
+                output[i]   = Global.clip0_255(residue[k]   + median(a0, b, a0+b-d));
+                output[i+1] = Global.clip0_255(residue[k+1] + median(a1, b, a1+b-d));
+                output[i+2] = Global.clip0_255(residue[k+2] + median(a2, b, a2+b-d));
+                output[i+3] = Global.clip0_255(residue[k+3] + median(a3, b, a3+b-d));
                 k += 4;
              }
           }
@@ -766,10 +767,10 @@ public class LossyIntraPredictor
                 }
 
                 // MEDIAN: (xi,yi)+MEDIAN(ai, ci, (ai+ci)-e)  
-                output[i]   = residue[k]   + median(a0, c, a0+c-e);
-                output[i+1] = residue[k+1] + median(a1, c, a1+c-e);
-                output[i+2] = residue[k+2] + median(a2, c, a2+c-e);
-                output[i+3] = residue[k+3] + median(a3, c, a3+c-e);
+                output[i]   = Global.clip0_255(residue[k]   + median(a0, c, a0+c-e));
+                output[i+1] = Global.clip0_255(residue[k+1] + median(a1, c, a1+c-e));
+                output[i+2] = Global.clip0_255(residue[k+2] + median(a2, c, a2+c-e));
+                output[i+3] = Global.clip0_255(residue[k+3] + median(a3, c, a3+c-e));
              }
 
              line += blockDim;
@@ -829,9 +830,9 @@ public class LossyIntraPredictor
                }  
 
                if (offset >= 0)
-                  output[i] = residue[k] + (input[offset] & mask_);
+                  output[i] = Global.clip0_255(residue[k] + (input[offset] & mask_));
                else
-                  output[i] = residue[k] + this.defaultPixVal;
+                  output[i] = Global.clip0_255(residue[k] + this.defaultPixVal);
 
                k++;
             }         
@@ -867,9 +868,9 @@ public class LossyIntraPredictor
                 }
 
                 if (offset >= 0)
-                   output[i] = residue[k] + (input[offset] & mask_);
+                   output[i] = Global.clip0_255(residue[k] + (input[offset] & mask_));
                 else
-                   output[i] = residue[k] + this.defaultPixVal;
+                   output[i] = Global.clip0_255(residue[k] + this.defaultPixVal);
              } 
              
              line += blockDim; 
@@ -951,10 +952,10 @@ public class LossyIntraPredictor
           {
              // DC_L: xi+dc_l
              // DC_R: xi+dc_r
-             output[i]   = residue[k]   + dc;
-             output[i+1] = residue[k+1] + dc;
-             output[i+2] = residue[k+2] + dc;
-             output[i+3] = residue[k+3] + dc;
+             output[i]   = Global.clip0_255(residue[k]   + dc);
+             output[i+1] = Global.clip0_255(residue[k+1] + dc);
+             output[i+2] = Global.clip0_255(residue[k+2] + dc);
+             output[i+3] = Global.clip0_255(residue[k+3] + dc);
              k += 4;
           }
        }

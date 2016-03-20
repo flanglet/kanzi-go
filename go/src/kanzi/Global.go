@@ -296,7 +296,11 @@ func Min(x, y int32) int32 {
 }
 
 func Clip0_255(x int32) int32 {
-	return ((^(x >> 31)) & 255 & (x | ((255 - x) >> 31)))
+	if x >= 255 {
+		return 255
+	} else {
+		return x & ^(x >> 31)
+	}
 }
 
 func Abs(x int32) int32 {
@@ -306,7 +310,7 @@ func Abs(x int32) int32 {
 
 func PositiveOrNull(x int32) int32 {
 	// return (x & ((-x) >> 31))
-	return (x & (^(x >> 31)))
+	return x & ^(x >> 31)
 }
 
 func IsPowerOf2(x int) bool {

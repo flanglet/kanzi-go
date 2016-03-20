@@ -296,7 +296,7 @@ public class Global
 
     public static int clip0_255(int x)
     {
-        return ((~(x >> 31)) & 255 & (x | ((255-x) >> 31)));
+        return (x >= 255) ? 255 : positiveOrNull(x);
     }
 
     
