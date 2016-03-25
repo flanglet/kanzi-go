@@ -45,6 +45,7 @@ public class TestQuadTreeGenerator
         try
         {
             String fileName = (args.length > 0) ? args[0] : "c:\\temp\\lena.jpg";
+            String strNbNodes = (args.length > 1) ? args[1] : "5000";
             Image image = ImageIO.read(new File(fileName));            
             int w = image.getWidth(null) & -8;
             int h = image.getHeight(null) & -8;
@@ -63,8 +64,8 @@ public class TestQuadTreeGenerator
             img.getRaster().getDataElements(0, 0, w, h, source);
             System.arraycopy(source, 0, dest, 0, w*h);
 
-            int nbNodes = 8;
-            int minNodeDim = 8;
+            int nbNodes = Integer.parseInt(strNbNodes);
+            int minNodeDim = 4;
             nodes.clear();
             QuadTreeGenerator.Node node = QuadTreeGenerator.getNode(null, 0, 0, w, h, true);
             node.computeVariance(source, w);
@@ -108,39 +109,45 @@ public class TestQuadTreeGenerator
                }
             });
 
-            try
+            boolean animate = false;
+            
+            if (animate)
             {
-               while (nodes.size() < 1000)
+               try
                {
-                  nodes.clear();
-                  nbNodes++;
-                  node = QuadTreeGenerator.getNode(null, 0, 0, w, h, true);
-                  node.computeVariance(source, w);
-                  nodes.add(node);  
-                  new QuadTreeGenerator(minNodeDim, true).decomposeNodes(nodes, source, nbNodes, w);
-                  img2.getRaster().setDataElements(0, 0, w, h, source);
-                  
-                  for (QuadTreeGenerator.Node n : nodes)
-                    img2.getGraphics().drawRect(n.x, n.y, n.w, n.h);
+                  while (nodes.size() < 10000)
+                  {
+                     nodes.clear();
+                     nbNodes++;
+                     node = QuadTreeGenerator.getNode(null, 0, 0, w, h, true);
+                     node.computeVariance(source, w);
+                     nodes.add(node);  
+                     new QuadTreeGenerator(minNodeDim, true).decomposeNodes(nodes, source, nbNodes, w);
+                     img2.getRaster().setDataElements(0, 0, w, h, source);
 
-                  String title = frame2.getTitle();
-                  int idx = title.lastIndexOf("- nodes=");
+                     for (QuadTreeGenerator.Node n : nodes)
+                       img2.getGraphics().drawRect(n.x, n.y, n.w, n.h);
 
-                  if (idx > 0)
-                     title = title.substring(0, idx);
+                     String title = frame2.getTitle();
+                     int idx = title.lastIndexOf("- nodes=");
 
-                  frame2.setTitle(title+"- nodes="+String.valueOf(nodes.size()));
-                  frame2.invalidate();
-                  frame2.repaint();
-                  Thread.sleep(40);
+                     if (idx > 0)
+                        title = title.substring(0, idx);
+
+                     frame2.setTitle(title+"- nodes="+String.valueOf(nodes.size()));
+                     frame2.invalidate();
+                     frame2.repaint();
+                     Thread.sleep(4);
+                  }
+
                }
+               catch (Exception e)
+               {
+                 e.printStackTrace();
+               }
+            }
 
-               Thread.sleep(40000);
-            }
-            catch (Exception e)
-            {
-              e.printStackTrace();
-            }
+            Thread.sleep(60000);            
         }
         catch (Exception e)
         {
