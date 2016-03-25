@@ -119,7 +119,7 @@ public class TestIntraPredictor
    private static void testRoundTrip(int[] frame1, int[] frame2, int w, int h, int dim, int predictionType)
    {
       LossyIntraPredictor predictor = new LossyIntraPredictor(w, h, 32, w, false, 5, 2);
-      Prediction[] results = new Prediction[8];
+      Prediction[] results = new Prediction[10];
       System.out.println();
 
       for (int i=0; i<results.length; i++)
@@ -130,7 +130,7 @@ public class TestIntraPredictor
          for (int i=0; i<w; i+=dim)
          {            
              System.out.println("Processing "+i+"@"+j+" dim="+dim);
-             predictor.computeResidues(frame1, i, j, null, i, j, results, dim, predictionType);
+             predictor.computeResidues(frame1, i, j, null, i, j, results, dim, predictionType, true);
 
              for (int nn=0; nn<results.length; nn++)
              {
