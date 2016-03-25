@@ -35,6 +35,13 @@ import javax.imageio.ImageIO;
 
 public class ImageUtils
 {
+   public static final int NO_TRANSFORM     = 0;
+   public static final int MIRROR_TRANSFORM = 1;
+   public static final int FLIP_TRANSFORM   = 2;
+   public static final int ROTATE_TRANSFORM = 4;
+
+   
+   
    private int[] iBuf;
    private byte[] bBuf;
    private final int width;
@@ -167,6 +174,21 @@ public class ImageUtils
    }
    
    
+   public int[] toGrey(int[] rgb)   
+   {
+      final int length = this.width * this.height;
+      
+      for (int i=0; i<length; i++)
+      {
+         final int val = rgb[i];
+         final int grey = (((val>>16) & 0xFF) + ((val>>8) & 0xFF) + (val & 0xFF)) / 3;
+         rgb[i] = (grey<<16) | (grey<<8) | grey;
+      }
+      
+      return rgb;
+   }
+   
+   
    // Expand to new dw x dh dimensions by duplicating last row / last column
    public int[] pad(int[] data, int dw, int dh)
    {
@@ -264,6 +286,26 @@ public class ImageUtils
       return data;
    }  
    
+   
+   public byte[] toGrey(byte[] rgb)   
+   {
+      final int length = 3 * this.width * this.height;
+      
+      for (int i=0; i<length; i+=3)
+      {
+         final int val1 = rgb[i] & 0xFF;
+         final int val2 = rgb[2] & 0xFF;
+         final int val3 = rgb[3] & 0xFF;
+         final int grey = (val1 + val2 + val3) / 3;
+         rgb[i]   = (byte) grey;
+         rgb[i+1] = (byte) grey;
+         rgb[i+2] = (byte) grey;
+      }
+      
+      return rgb;
+   }
+   
+      
    
    public byte[] flip(byte[] data)
    {
