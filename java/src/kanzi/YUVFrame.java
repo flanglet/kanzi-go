@@ -71,4 +71,17 @@ public final class YUVFrame
       this.cmType = cmType;
    }
 
+   
+   @Override
+   public String toString()
+   {
+      StringBuilder sb = new StringBuilder(200);
+      sb.append("{ \"width\":").append(this.width);
+      sb.append(", \"height\":").append(this.height);
+      sb.append(", \"stride\":").append(this.stride);
+      sb.append(", \"offset\":").append(this.offset);
+      sb.append(", \"color model\":\"").append(this.cmType.name()).append("\"");
+      sb.append(" }");
+      return sb.toString();
+   }     
 }

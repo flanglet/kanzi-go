@@ -86,21 +86,27 @@ public class BlockEvent
    {
       return this.type;
    }
+
+
+   public long getUnixTime()
+   {
+      return this.unixTime;
+   }
    
    
    @Override
    public String toString()
    {
       StringBuilder sb = new StringBuilder(200);
-      sb.append("[").append(this.type);
-      sb.append(",").append(this.id);
-      sb.append(",").append(this.size);
-      sb.append(",").append(this.unixTime);
+      sb.append("{ \"type\":\"").append(this.getType()).append("\"");
+      sb.append(", \"id\":").append(this.getId());
+      sb.append(", \"size\":").append(this.getSize());
+      sb.append(", \"time\":").append(this.getUnixTime());
       
       if (this.hashing == true)
-         sb.append(",").append(Integer.toHexString(this.hash));
+         sb.append(", \"hash\":").append(Integer.toHexString(this.getHash()));
 
-      sb.append("]");
+      sb.append(" }");
       return sb.toString();
    }
 }
