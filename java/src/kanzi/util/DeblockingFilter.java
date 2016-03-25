@@ -21,6 +21,7 @@ import kanzi.prediction.LossyIntraPredictor;
 public class DeblockingFilter
 {
    private final static int DEFAULT_STEP = 8;
+   private final static int DEFAULT_STRENGTH = 12;
    
    private final int width;
    private final int height;
@@ -35,6 +36,12 @@ public class DeblockingFilter
    
    
    public DeblockingFilter(int width, int height, int stride, int step)
+   {
+      this(width, height, stride, DEFAULT_STEP, DEFAULT_STRENGTH);
+   }
+   
+   
+   public DeblockingFilter(int width, int height, int stride, int step, int strength)
    {
       if (height < 8)
          throw new IllegalArgumentException("The height must be at least 8");
@@ -259,7 +266,7 @@ public class DeblockingFilter
    
    private int getFilterStrength(int q, boolean strong)
    {
-      return 12; // for now
+      return DEFAULT_STRENGTH;
    }
    
    
