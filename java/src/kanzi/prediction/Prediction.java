@@ -54,16 +54,16 @@ public class Prediction
    public String toString() 
    {
       StringBuilder sb = new StringBuilder(100);
-      sb.append("[ ");
-      sb.append("x=");
+      sb.append("{ ");
+      sb.append("\"x\":");
       sb.append(this.x);
-      sb.append(", y=");
+      sb.append(", \"y\":");
       sb.append(this.y);
-      sb.append(", dim=");
+      sb.append(", \"dim\":");
       sb.append(this.blockDim);
-      sb.append(", sad=");
+      sb.append(", \"SAD\":");
       sb.append(this.sad);
-      sb.append(" ]");
+      sb.append(" }");
       return sb.toString();
    }
 }
