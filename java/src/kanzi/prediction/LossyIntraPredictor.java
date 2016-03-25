@@ -183,10 +183,28 @@ public class LossyIntraPredictor
      this.refPrediction = new Prediction(maxBlockDim);
      this.refSearchStepRatio = refSearchStepRatio;
      this.mask = (this.isRGB == true) ? 0xFF : -1;
-     this.defaultPixVal = (this.isRGB == true) ? 128 : 0;
+     this.defaultPixVal = 128;
    }
 
 
+   public int getWidth()
+   {
+      return this.width;
+   }
+
+
+   public int getHeight()
+   {
+      return this.height;
+   }
+
+
+   public int getStride()
+   {
+      return this.stride;
+   }
+
+   
    // Compute block prediction (from other blocks) using several different methods (modes)
    // Another block (spatial or temporal) can be provided optionally
    // The input arrays must be frame channels (R,G,B or Y,U,V)
@@ -267,44 +285,43 @@ public class LossyIntraPredictor
          //  b7   x0 x1 x2 x3 x4 x5 x6 x7   c7    
          int sad;
          sad = this.computePredictionVertical(predictions[Mode.VERTICAL.ordinal()], input, ox, oy, predictionType);
-         
-         if ((sad == 0)  && (exhaustive == false))
+                  
+         if ((sad == 0) && (exhaustive == false))
             return Mode.VERTICAL.ordinal();
-         
-         sad = this.computePredictionHorizontal(predictions[Mode.HORIZONTAL.ordinal()], input, ox, oy, predictionType);
-         
-         if ((sad == 0)  && (exhaustive == false))
-            return Mode.HORIZONTAL.ordinal();
          
          sad = this.computePredictionDC(predictions[Mode.DC.ordinal()], input, ox, oy, predictionType);
          
-         if ((sad == 0)  && (exhaustive == false))
+         if ((sad == 0) && (exhaustive == false))
             return Mode.DC.ordinal();
          
-         sad = this.computePredictionDirectional(predictions[Mode.DIRECTIONAL_30.ordinal()], input, ox, oy, ANGLE_30, predictionType);
-         
-         if ((sad == 0)  && (exhaustive == false))
-            return Mode.DIRECTIONAL_30.ordinal();
-         
-         sad = this.computePredictionDirectional(predictions[Mode.DIRECTIONAL_45.ordinal()], input, ox, oy, ANGLE_45, predictionType);
-         
-         if ((sad == 0)  && (exhaustive == false))
-            return Mode.DIRECTIONAL_45.ordinal();
-         
-         sad = this.computePredictionDirectional(predictions[Mode.DIRECTIONAL_60.ordinal()], input, ox, oy, ANGLE_60, predictionType);
-         
-         if ((sad == 0)  && (exhaustive == false))
-            return Mode.DIRECTIONAL_60.ordinal();
+         sad = this.computePredictionHorizontal(predictions[Mode.HORIZONTAL.ordinal()], input, ox, oy, predictionType);
+         if ((sad == 0) && (exhaustive == false))
+            return Mode.HORIZONTAL.ordinal();
          
          sad = this.computePredictionMedian(predictions[Mode.MEDIAN.ordinal()], input, ox, oy, predictionType);
          
-         if ((sad == 0)  && (exhaustive == false))
+         if ((sad == 0) && (exhaustive == false))
             return Mode.MEDIAN.ordinal();
                   
          sad = this.computePredictionBilinearHV(predictions[Mode.BILINEAR_HV.ordinal()], input, ox, oy, predictionType);
          
-         if ((sad == 0)  && (exhaustive == false))
+         if ((sad == 0) && (exhaustive == false))
             return Mode.BILINEAR_HV.ordinal();
+
+         sad = this.computePredictionDirectional(predictions[Mode.DIRECTIONAL_30.ordinal()], input, ox, oy, ANGLE_30, predictionType);
+         
+         if ((sad == 0) && (exhaustive == false))
+            return Mode.DIRECTIONAL_30.ordinal();
+         
+         sad = this.computePredictionDirectional(predictions[Mode.DIRECTIONAL_45.ordinal()], input, ox, oy, ANGLE_45, predictionType);
+         
+         if ((sad == 0) && (exhaustive == false))
+            return Mode.DIRECTIONAL_45.ordinal();
+         
+         sad = this.computePredictionDirectional(predictions[Mode.DIRECTIONAL_60.ordinal()], input, ox, oy, ANGLE_60, predictionType);
+         
+         if ((sad == 0) && (exhaustive == false))
+            return Mode.DIRECTIONAL_60.ordinal();         
       }
       
       // Find best prediction
@@ -316,7 +333,7 @@ public class LossyIntraPredictor
 
       // If the error of the best prediction is not low 'enough' and the
       // spatial reference is set, start a spatial search
-      if (((predictionType & REFERENCE) != 0) && (predictions[minIdx].sad >= blockDim * blockDim * this.thresholdSAD))
+      if (((predictionType & REFERENCE) != 0) && (predictions[minIdx].sad >= blockDim*blockDim*this.thresholdSAD))
       {
          // Spatial search of best matching nearby block
          final Prediction newPrediction = this.refPrediction;
@@ -352,7 +369,7 @@ public class LossyIntraPredictor
    // Compute residue against another (spatial/temporal) block
    // Return error of difference block
    private int computePredictionReference(Prediction prediction, int[] input, int iIdx, 
-      int[] other, int oIdx, int blockDim)
+      final int[] other, int oIdx, int blockDim)
    {
       final int st = this.stride;
       final int mask_ = this.mask;
@@ -360,59 +377,42 @@ public class LossyIntraPredictor
       final int[] output = prediction.residue;
       int k = 0;
       int sad = 0;
+      int ref0 = 0;
+      int ref1 = 0;
+      int ref2 = 0;
+      int ref3 = 0;
 
-      if (other == null)
+      for (int j=iIdx; j<endj; j+=st)
       {
-          // Simple copy
-          for (int j=iIdx; j<endj; j+=st)
-          {
-             final int endi = j + blockDim;
+         final int endi = j + blockDim;
 
-             for (int i=j; i<endi; i+=4)
-             {
-                final int val0 = input[i]   & mask_;
-                final int val1 = input[i+1] & mask_;
-                final int val2 = input[i+2] & mask_;
-                final int val3 = input[i+3] & mask_;
-                sad += ((val0 + (val0 >> 31)) ^ (val0 >> 31)); //abs
-                sad += ((val1 + (val1 >> 31)) ^ (val1 >> 31)); //abs
-                sad += ((val2 + (val2 >> 31)) ^ (val2 >> 31)); //abs
-                sad += ((val3 + (val3 >> 31)) ^ (val3 >> 31)); //abs
-                output[k]   = val0;
-                output[k+1] = val1;
-                output[k+2] = val2;
-                output[k+3] = val3;
-                k += 4;
-             }
-          }
-      }
-      else
-      {
-         // Block delta
-         for (int j=iIdx; j<endj; j+=st)
+         for (int i=j; i<endi; i+=4)
          {
-            final int endi = j + blockDim;
-
-            for (int i=j; i<endi; i+=4)
-            {
-                final int val0 = (input[i]   & mask_) - (other[oIdx]   & mask_);
-                final int val1 = (input[i+1] & mask_) - (other[oIdx+1] & mask_);
-                final int val2 = (input[i+2] & mask_) - (other[oIdx+2] & mask_);
-                final int val3 = (input[i+3] & mask_) - (other[oIdx+3] & mask_);
-                sad += ((val0 + (val0 >> 31)) ^ (val0 >> 31)); //abs
-                sad += ((val1 + (val1 >> 31)) ^ (val1 >> 31)); //abs
-                sad += ((val2 + (val2 >> 31)) ^ (val2 >> 31)); //abs
-                sad += ((val3 + (val3 >> 31)) ^ (val3 >> 31)); //abs
-                output[k]   = val0;
-                output[k+1] = val1;
-                output[k+2] = val2;
-                output[k+3] = val3;
-                k += 4;
-                oIdx += 4;
-            }
-
-            oIdx += (st - blockDim);
+             if (other != null)
+             {
+                ref0 = other[oIdx]   & mask_;
+                ref1 = other[oIdx+1] & mask_;
+                ref2 = other[oIdx+2] & mask_;
+                ref3 = other[oIdx+3] & mask_;
+             }
+             
+             final int val0 = (input[i]   & mask_) - ref0;
+             final int val1 = (input[i+1] & mask_) - ref1;
+             final int val2 = (input[i+2] & mask_) - ref2;
+             final int val3 = (input[i+3] & mask_) - ref3;
+             sad += ((val0 + (val0 >> 31)) ^ (val0 >> 31)); //abs
+             sad += ((val1 + (val1 >> 31)) ^ (val1 >> 31)); //abs
+             sad += ((val2 + (val2 >> 31)) ^ (val2 >> 31)); //abs
+             sad += ((val3 + (val3 >> 31)) ^ (val3 >> 31)); //abs
+             output[k]   = val0;
+             output[k+1] = val1;
+             output[k+2] = val2;
+             output[k+3] = val3;
+             k += 4;
+             oIdx += 4;
          }
+
+         oIdx += (st - blockDim);
       }
 
       prediction.sad = sad;
@@ -1082,8 +1082,8 @@ public class LossyIntraPredictor
              residue[k+2] = val2;
              residue[k+3] = val3;
              k += 4;
-         }
-      }
+          }
+       }
 
        prediction.sad = sad;
        return prediction.sad;
