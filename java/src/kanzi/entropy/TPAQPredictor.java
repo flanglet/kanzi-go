@@ -52,7 +52,7 @@ public class TPAQPredictor implements Predictor
    // pair, so another state with about the same ratio of n0/n1 is substituted.
    // Also, when a bit is observed and the count of the opposite bit is large,
    // then part of this count is discarded to favor newer data over old.
-   private static final int[] STATE_TABLE =
+   private static final short[] STATE_TABLE =
    {
          1,     2,     3,   163,   143,   169,     4,   163,     5,   165, 
          6,    89,     7,   245,     8,   217,     9,   245,    10,   245, 
@@ -565,7 +565,7 @@ public class TPAQPredictor implements Predictor
    private final Mixer mixer;
    private final byte[] buffer;        
    private final int[] hashes;         // hash table(context, buffer position)
-   private final int[] states;         // hash table(context, prediction)
+   private final byte[] states;        // hash table(context, prediction)
    private final int[] cp;             // context pointers
    private final int[] ctx;            // contexts
    private int ctxId;   
@@ -575,9 +575,9 @@ public class TPAQPredictor implements Predictor
    {
      this.pr = 2048;
      this.c0 = 1;
-     this.states = new int[MASK3+1];  // 256 MB
-     this.hashes = new int[MASK1+1];  // 64 MB
-     this.buffer = new byte[MASK2+1]; // 8 MB
+     this.states = new byte[MASK3+1];
+     this.hashes = new int[MASK1+1];
+     this.buffer = new byte[MASK2+1]; 
      this.cp = new int[7];
      this.ctx = new int[7];   
      this.apm = new AdaptiveProbMap(1024, 7);
@@ -615,7 +615,7 @@ public class TPAQPredictor implements Predictor
         this.addContext(hash(C4, this.c4 & 0xF0F0F0F0));
         this.addContext(hash(C5, this.c4));
         this.addContext(hash(this.c4>>shiftIsBinary, 
-           (this.buffer[(this.pos-6)&MASK2]<<8)| (this.buffer[(this.pos-5)&MASK2])));                
+           (this.buffer[(this.pos-6)&MASK2]<<8) | (this.buffer[(this.pos-5)&MASK2])));                
         
         // Find match
         this.findMatch();    
@@ -627,11 +627,11 @@ public class TPAQPredictor implements Predictor
       // Add inputs to NN
       for (int i=this.ctxId-1; i>=0; i--)
       {
-         if (this.cp[i] != 0)
-            this.states[this.cp[i]] = STATE_TABLE[(this.states[this.cp[i]]<<1)|bit]; 
+         if (this.cp[i] != 0) 
+            this.states[this.cp[i]] = (byte) STATE_TABLE[((this.states[this.cp[i]]&0xFF)<<1)|bit]; 
          
          this.cp[i] = (this.ctx[i] + this.c0) & MASK3;                 
-         this.mixer.addInput(SM[(i<<8)|this.states[this.cp[i]]]); 
+         this.mixer.addInput(SM[(i<<8)|(this.states[this.cp[i]]&0xFF)]); 
       }
 
       if (this.matchLen > 0) 
@@ -699,7 +699,7 @@ public class TPAQPredictor implements Predictor
    {
       cx = cx*987654323 + this.ctxId;
       cx = (cx << 16) | (cx >>> 16);
-      this.ctx[this.ctxId] = (cx*123456791 + this.ctxId);
+      this.ctx[this.ctxId] = cx*123456791 + this.ctxId;
       this.ctxId++;
    }   
      
@@ -783,8 +783,8 @@ public class TPAQPredictor implements Predictor
       
       Mixer()
       {
-         this.buffer = new int[4096*16]; // 4096 contexts, index << 4
-         this.pr = 32768;
+         this.buffer = new int[2048*16]; // 2048 contexts, index << 4
+         this.pr = 2048;
       }
 
       // Adjust weights to minimize coding cost of last prediction
@@ -811,7 +811,7 @@ public class TPAQPredictor implements Predictor
            
       void setContext(int ctx)
       {
-         this.ctx = ctx << 4;            
+         this.ctx = ctx << 4; 
       }
             
       public int get() 
@@ -823,7 +823,7 @@ public class TPAQPredictor implements Predictor
          }
              
          // Neural Network dot product (sum weights*inputs)
-         int p = (this.buffer[this.ctx]   *this.buffer[this.ctx+8]) 
+         int p =    (this.buffer[this.ctx]  *this.buffer[this.ctx+8]) 
                   + (this.buffer[this.ctx+1]*this.buffer[this.ctx+9])
                   + (this.buffer[this.ctx+2]*this.buffer[this.ctx+10])
                   + (this.buffer[this.ctx+3]*this.buffer[this.ctx+11])

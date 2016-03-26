@@ -54,7 +54,7 @@ const (
 // pair, so another state with about the same ratio of n0/n1 is substituted.
 // Also, when a bit is observed and the count of the opposite bit is large,
 // then part of this count is discarded to favor newer data over old.
-var TPAQ_STATE_TABLE = []int{
+var TPAQ_STATE_TABLE = []uint8{
 	1, 2, 3, 163, 143, 169, 4, 163, 5, 165,
 	6, 89, 7, 245, 8, 217, 9, 245, 10, 245,
 	11, 233, 12, 244, 13, 227, 14, 74, 15, 221,
@@ -561,10 +561,10 @@ type TPAQPredictor struct {
 	apm      *TPAQAdaptiveProbMap
 	mixer    *TPAQMixer
 	buffer   []int8
-	hashes   []int // hash table(context, buffer position)
-	states   []int // hash table(context, prediction)
-	cp       []int // context pointers
-	ctx      []int // contexts
+	hashes   []int   // hash table(context, buffer position)
+	states   []uint8 // hash table(context, prediction)
+	cp       []int   // context pointers
+	ctx      []int   // contexts
 	ctxId    int
 }
 
@@ -573,9 +573,9 @@ func NewTPAQPredictor() (*TPAQPredictor, error) {
 	this := new(TPAQPredictor)
 	this.pr = 2048
 	this.c0 = 1
-	this.states = make([]int, TPAQ_MASK3+1)  // 256 MB
-	this.hashes = make([]int, TPAQ_MASK1+1)  // 64 MB
-	this.buffer = make([]int8, TPAQ_MASK2+1) // 8 MB
+	this.states = make([]uint8, TPAQ_MASK3+1)
+	this.hashes = make([]int, TPAQ_MASK1+1)
+	this.buffer = make([]int8, TPAQ_MASK2+1)
 	this.cp = make([]int, 7)
 	this.ctx = make([]int, 7)
 	this.bpos = 0
@@ -628,11 +628,11 @@ func (this *TPAQPredictor) Update(bit byte) {
 	// Add inputs to NN
 	for i := this.ctxId - 1; i >= 0; i-- {
 		if this.cp[i] != 0 {
-			this.states[this.cp[i]] = TPAQ_STATE_TABLE[(this.states[this.cp[i]]<<1)|y]
+			this.states[this.cp[i]] = TPAQ_STATE_TABLE[(int(this.states[this.cp[i]])<<1)|y]
 		}
 
 		this.cp[i] = (this.ctx[i] + int(this.c0)) & TPAQ_MASK3
-		this.mixer.addInput(TPAQ_SM[(i<<8)|this.states[this.cp[i]]])
+		this.mixer.addInput(TPAQ_SM[(i<<8)|int(this.states[this.cp[i]])])
 	}
 
 	if this.matchLen > 0 {
@@ -778,8 +778,8 @@ type TPAQMixer struct {
 func newTPAQMixer() (*TPAQMixer, error) {
 	var err error
 	this := new(TPAQMixer)
-	this.buffer = make([]int, 4096*16) // 4096 contexts, index << 4
-	this.pr = 32768
+	this.buffer = make([]int, 2048*16) // 2048 contexts, index << 4
+	this.pr = 2048
 	return this, err
 }
 
