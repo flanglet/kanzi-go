@@ -23,10 +23,13 @@ import kanzi.Global;
 
 public class TPAQPredictor implements Predictor
 {  
-   private static final int MASK1 = 8*1024*1024 - 1;
-   private static final int MASK2 = 8*(MASK1+1) - 1;
-   private static final int MASK3 = 32*8*1024*1024 - 1;
    private static final int MAX_LENGTH = 160;
+   private static final int MIXER_SIZE = 0x1000;
+   private static final int HASH_SIZE = 8*1024*1024;
+   private static final int MASK0 = MIXER_SIZE - 1;
+   private static final int MASK1 = HASH_SIZE - 1;
+   private static final int MASK2 = 8*HASH_SIZE - 1;
+   private static final int MASK3 = 32*HASH_SIZE - 1;
    private static final int C1 = 0xcc9e2d51;
    private static final int C2 = 0x1b873593;
    private static final int C3 = 0xe6546b64;
@@ -569,19 +572,19 @@ public class TPAQPredictor implements Predictor
    private final int[] cp;             // context pointers
    private final int[] ctx;            // contexts
    private int ctxId;   
-
+   
    
    public TPAQPredictor()
    {
      this.pr = 2048;
      this.c0 = 1;
      this.states = new byte[MASK3+1];
-     this.hashes = new int[MASK1+1];
+     this.hashes = new int[HASH_SIZE];
      this.buffer = new byte[MASK2+1]; 
      this.cp = new int[7];
      this.ctx = new int[7];   
      this.apm = new AdaptiveProbMap(1024, 7);
-     this.mixer = new Mixer();
+     this.mixer = new Mixer(MIXER_SIZE);
      this.bpos = 0;
    } 
 
@@ -605,7 +608,7 @@ public class TPAQPredictor implements Predictor
         this.c0 = 1;
 
         // Select Neural Net
-        this.mixer.setContext(this.c4 & 0x07FF);
+        this.mixer.setContext(this.c4 & MASK0);
         
         // Add contexts to NN
         this.addContext(this.c4 ^ (this.c4 & 0xFFFF));
@@ -678,17 +681,12 @@ public class TPAQPredictor implements Predictor
       if (this.c0 == ((this.buffer[this.matchPos&MASK2] & 0xFF) | 256) >> (8-this.bpos)) 
       {
          // Add match length to NN inputs. Compute input based on run length
-         int p;
-
-         if (this.matchLen < 32) 
-            p = this.matchLen << 6; 
-         else      
-            p = (32 + ((this.matchLen-32)>>2)) << 6;
+         int p = (this.matchLen<32) ? this.matchLen : 32+((this.matchLen-32)>>2);
 
          if (((this.buffer[this.matchPos&MASK2] >> (7-this.bpos)) & 1) == 0) 
             p = -p;
 
-         this.mixer.addInput(p);
+         this.mixer.addInput(p<<6);
       } 
       else
          this.matchLen = 0;       
@@ -781,9 +779,9 @@ public class TPAQPredictor implements Predictor
       private int pr;               // squashed prediction
       
       
-      Mixer()
+      Mixer(int size)
       {
-         this.buffer = new int[2048*16]; // 2048 contexts, index << 4
+         this.buffer = new int[size*16]; // context index << 4
          this.pr = 2048;
       }
 
