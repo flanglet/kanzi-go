@@ -27,6 +27,7 @@ import kanzi.util.sort.QuickSort;
 public class HuffmanEncoder implements EntropyEncoder
 {
     private static final int DEFAULT_CHUNK_SIZE = 1 << 16; // 64 KB by default
+    private static final int MAX_SYMBOL_SIZE = 24;
 
     private final OutputBitStream bitstream;
     private final int[] freqs;
@@ -132,11 +133,11 @@ public class HuffmanEncoder implements EntropyEncoder
            throw new BitStreamException("Could not generate codes: max code length (24 bits) exceeded",
                                         BitStreamException.INVALID_STREAM);
 
-        // Pack size and code (size <= 24 bits)
+        // Pack size and code (size <= MAX_SYMBOL_SIZE bits)
         for (int i=0; i<count; i++)
         {
            final int r = this.ranks[i];
-           this.codes[r] |= (this.sizes[r] << 24);
+           this.codes[r] |= (this.sizes[r] << 24);           
         }
 
         return true;
@@ -164,8 +165,9 @@ public class HuffmanEncoder implements EntropyEncoder
       {
          short codeLen = (short) this.buffer[i];
          
-         if ((codeLen <= 0) || (codeLen > 24))
-            throw new IllegalArgumentException("Could not generate codes: max code length (24 bits) exceeded");
+         if ((codeLen <= 0) || (codeLen > MAX_SYMBOL_SIZE))
+            throw new IllegalArgumentException("Could not generate codes: max code " +
+               "length (" + MAX_SYMBOL_SIZE + " bits) exceeded");
          
          this.sizes[this.sranks[i]] = codeLen;
       }
@@ -227,10 +229,9 @@ public class HuffmanEncoder implements EntropyEncoder
            depth++;
         }
     }
-   
     
-    // Dynamically compute the frequencies for every chunk of data in the block
     
+    // Dynamically compute the frequencies for every chunk of data in the block   
     @Override
     public int encode(byte[] array, int blkptr, int len)
     {
@@ -270,7 +271,7 @@ public class HuffmanEncoder implements EntropyEncoder
 
           // Rebuild Huffman codes
           this.updateFrequencies(frequencies);
-          
+ 
           for (int i=startChunk; i<endChunk8; i+=8)
           {
              int val;

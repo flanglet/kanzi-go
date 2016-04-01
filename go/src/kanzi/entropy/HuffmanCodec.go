@@ -28,6 +28,7 @@ const (
 	MAX_DECODING_INDEX         = (DECODING_BATCH_SIZE << 8) | 0xFF
 	DEFAULT_HUFFMAN_CHUNK_SIZE = uint(1 << 16) // 64 KB by default
 	SYMBOL_ABSENT              = (1 << 31) - 1
+	MAX_SYMBOL_SIZE            = 24
 )
 
 // ---- Utilities
@@ -112,7 +113,7 @@ func generateCanonicalCodes(sizes []byte, codes []uint, ranks []byte) int {
 			length = sizes[r]
 
 			// Max length reached
-			if length > 24 {
+			if length > MAX_SYMBOL_SIZE {
 				return -1
 			}
 		}
@@ -234,10 +235,10 @@ func (this *HuffmanEncoder) UpdateFrequencies(frequencies []uint) error {
 
 	// Create canonical codes
 	if generateCanonicalCodes(this.sizes, this.codes, this.sranks[0:count]) < 0 {
-		return errors.New("Could not generate codes: max code length (24 bits) exceeded")
+		return fmt.Errorf("Could not generate codes: max code length (%v bits) exceeded", MAX_SYMBOL_SIZE)
 	}
 
-	// Pack size and code (size <= 24 bits)
+	// Pack size and code (size <= MAX_SYMBOL_SIZE bits)
 	for i := 0; i < count; i++ {
 		r := this.ranks[i]
 		this.codes[r] |= (uint(this.sizes[r]) << 24)
@@ -267,8 +268,8 @@ func (this *HuffmanEncoder) computeCodeLengths(frequencies []uint, count int) er
 	for i := 0; i < count; i++ {
 		codeLen := byte(this.buffer[i])
 
-		if codeLen == 0 || codeLen > 24 {
-			err = errors.New("Could not generate codes: max code length (24 bits) exceeded")
+		if codeLen == 0 || codeLen > MAX_SYMBOL_SIZE {
+			err = fmt.Errorf("Could not generate codes: max code length (%v bits) exceeded", MAX_SYMBOL_SIZE)
 			break
 		}
 
@@ -469,7 +470,7 @@ func NewHuffmanDecoder(bs kanzi.InputBitStream, args ...uint) (*HuffmanDecoder, 
 	this.ranks = make([]byte, 256)
 	this.fdTable = make([]uint, 1<<DECODING_BATCH_SIZE)
 	this.sdTable = make([]uint, 256)
-	this.sdtIndexes = make([]int, 24)
+	this.sdtIndexes = make([]int, MAX_SYMBOL_SIZE+1)
 	this.chunkSize = int(chkSize)
 	this.minCodeLen = 8
 
@@ -496,32 +497,26 @@ func (this *HuffmanDecoder) ReadLengths() (int, error) {
 	}
 
 	var currSize int8
-	this.minCodeLen = 24 // max code length
+	this.minCodeLen = MAX_SYMBOL_SIZE // max code length
 	prevSize := int8(2)
 
 	// Read lengths
 	for i := 0; i < count; i++ {
 		r := this.ranks[i]
 
-		if int(r) > len(this.ranks) {
+		if int(r) > len(this.codes) {
 			return 0, fmt.Errorf("Invalid bitstream: incorrect Huffman symbol %v", r)
 		}
 
 		this.codes[r] = 0
-		currSize = int8(egdec.DecodeByte()) + prevSize
+		currSize = prevSize + int8(egdec.DecodeByte())
 
-		if currSize < 0 {
+		if currSize <= 0 || currSize > MAX_SYMBOL_SIZE {
 			return 0, fmt.Errorf("Invalid bitstream: incorrect size %v for Huffman symbol %v", currSize, i)
 		}
 
-		if currSize != 0 {
-			if currSize > 24 {
-				return 0, fmt.Errorf("Invalid bitstream: incorrect size %v for Huffman symbol %v", currSize, i)
-			}
-
-			if this.minCodeLen > currSize {
-				this.minCodeLen = currSize
-			}
+		if this.minCodeLen > currSize {
+			this.minCodeLen = currSize
 		}
 
 		this.sizes[r] = byte(currSize)
@@ -593,7 +588,6 @@ func (this *HuffmanDecoder) buildDecodingTables(count int) {
 	}
 }
 
-// Rebuild the Huffman tree for each chunk of data in the block
 // Use fastDecodeByte until the near end of chunk or block.
 func (this *HuffmanDecoder) Decode(block []byte) (int, error) {
 	if block == nil {
@@ -602,6 +596,10 @@ func (this *HuffmanDecoder) Decode(block []byte) (int, error) {
 
 	if len(block) == 0 {
 		return 0, nil
+	}
+
+	if this.minCodeLen == 0 {
+		return 0, errors.New("Invalid minimum code length: 0")
 	}
 
 	end := len(block)
@@ -627,7 +625,7 @@ func (this *HuffmanDecoder) Decode(block []byte) (int, error) {
 		// Compute minimum number of bits requires in bitstream for fast decoding
 		endPaddingSize := int(64 / this.minCodeLen)
 
-		if this.minCodeLen*(64/this.minCodeLen) != 64 {
+		if int(this.minCodeLen)*endPaddingSize != 64 {
 			endPaddingSize++
 		}
 
@@ -653,7 +651,7 @@ func (this *HuffmanDecoder) Decode(block []byte) (int, error) {
 }
 
 func (this *HuffmanDecoder) slowDecodeByte(code int, codeLen uint) byte {
-	for codeLen < 23 {
+	for codeLen < MAX_SYMBOL_SIZE {
 		codeLen++
 		code <<= 1
 
@@ -667,7 +665,7 @@ func (this *HuffmanDecoder) slowDecodeByte(code int, codeLen uint) byte {
 
 		idx := this.sdtIndexes[codeLen]
 
-		if idx == SYMBOL_ABSENT {
+		if idx == SYMBOL_ABSENT { // No code with this length ?
 			continue
 		}
 

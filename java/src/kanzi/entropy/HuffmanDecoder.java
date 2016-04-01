@@ -28,6 +28,7 @@ public class HuffmanDecoder implements EntropyDecoder
     private static final int MAX_DECODING_INDEX = (DECODING_BATCH_SIZE << 8) | 0xFF;
     private static final int DEFAULT_CHUNK_SIZE = 1 << 16; // 64 KB by default
     private static final int SYMBOL_ABSENT = Integer.MAX_VALUE;
+    private static final int MAX_SYMBOL_SIZE = 24;
 
     private final InputBitStream bitstream;
     private final int[] codes;
@@ -69,7 +70,7 @@ public class HuffmanDecoder implements EntropyDecoder
         this.codes = new int[256];
         this.fdTable = new int[1<<DECODING_BATCH_SIZE];
         this.sdTable = new int[256];
-        this.sdtIndexes = new int[24];
+        this.sdtIndexes = new int[MAX_SYMBOL_SIZE+1];
         this.chunkSize = chunkSize;
         this.minCodeLen = 8;
 
@@ -87,7 +88,7 @@ public class HuffmanDecoder implements EntropyDecoder
         int count = EntropyUtils.decodeAlphabet(this.bitstream, this.ranks);
         ExpGolombDecoder egdec = new ExpGolombDecoder(this.bitstream, true);
         int currSize ;
-        this.minCodeLen = 24; // max code length
+        this.minCodeLen = MAX_SYMBOL_SIZE; // max code length
         int prevSize = 2;
         
         // Read lengths
@@ -95,23 +96,22 @@ public class HuffmanDecoder implements EntropyDecoder
         {
            final int r = this.ranks[i];
            
-           if ((r < 0) || (r >= this.ranks.length))
+           if ((r < 0) || (r >= this.codes.length))
            {
               throw new BitStreamException("Invalid bitstream: incorrect Huffman symbol " + r, 
                  BitStreamException.INVALID_STREAM);
            }
            
            this.codes[r] = 0;
-           int delta = egdec.decodeByte();
-           currSize = prevSize + delta;
+           currSize = prevSize + egdec.decodeByte();
 
-           if (currSize < 0)
+           if (currSize <= 0)
            {
               throw new BitStreamException("Invalid bitstream: incorrect size " + currSize +
                       " for Huffman symbol " + r, BitStreamException.INVALID_STREAM);
            }
            
-           if (currSize > 24)
+           if (currSize > MAX_SYMBOL_SIZE)
            {
               throw new BitStreamException("Invalid bitstream: incorrect max size " + currSize +
                  " for Huffman symbol " + r, BitStreamException.INVALID_STREAM);
@@ -129,7 +129,10 @@ public class HuffmanDecoder implements EntropyDecoder
 
         // Create canonical codes
         if (HuffmanTree.generateCanonicalCodes(this.sizes, this.codes, this.ranks, count) < 0)
-           return -1;
+        {
+           throw new BitStreamException("Could not generate codes: max code length " +
+                "(" + MAX_SYMBOL_SIZE + " bits) exceeded", BitStreamException.INVALID_STREAM);
+        }
 
         // Build decoding tables
         this.buildDecodingTables(count);
@@ -190,7 +193,6 @@ public class HuffmanDecoder implements EntropyDecoder
     }
 
 
-    // Rebuild the Huffman tree for each chunk of data in the block
     // Use fastDecodeByte until the near end of chunk or block.
     @Override
     public int decode(byte[] array, int blkptr, int len)
@@ -200,6 +202,9 @@ public class HuffmanDecoder implements EntropyDecoder
 
        if (len == 0)
           return 0;
+
+       if (this.minCodeLen == 0)
+          return -1;
 
        final int sz = (this.chunkSize == 0) ? len : this.chunkSize;
        int startChunk = blkptr;
@@ -224,7 +229,7 @@ public class HuffmanDecoder implements EntropyDecoder
           // Fast decoding (read DECODING_BATCH_SIZE bits at a time)
           for ( ; i<endChunk1; i++)
              array[i] = this.fastDecodeByte();
-          
+             
           // Fallback to regular decoding (read one bit at a time)
           for ( ; i<endChunk; i++)
              array[i] = this.slowDecodeByte(0, 0);
@@ -238,7 +243,7 @@ public class HuffmanDecoder implements EntropyDecoder
 
     private byte slowDecodeByte(int code, int codeLen)
     { 
-       while (codeLen < 23)
+       while (codeLen < MAX_SYMBOL_SIZE)
        {
           codeLen++;
           code <<= 1;
