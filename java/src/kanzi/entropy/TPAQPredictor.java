@@ -615,7 +615,7 @@ public class TPAQPredictor implements Predictor
         this.addContext(hash(C4, this.c4 & 0xF0F0F0F0));
         this.addContext(hash(C5, this.c4));
         this.addContext(hash(this.c4>>shiftIsBinary, 
-           (this.buffer[(this.pos-6)&MASK2]<<8) | (this.buffer[(this.pos-5)&MASK2])));                
+           (this.buffer[(this.pos-8)&MASK2]<<16) | (this.buffer[(this.pos-7)&MASK2]<<8) |(this.buffer[(this.pos-6)&MASK2])));                
         
         // Find match
         this.findMatch();    
@@ -779,7 +779,7 @@ public class TPAQPredictor implements Predictor
       private int ctx;              // context
       private int idx;              // input index
       private int pr;               // squashed prediction
-
+      
       
       Mixer()
       {
@@ -795,7 +795,7 @@ public class TPAQPredictor implements Predictor
 
          if (err == 0)
             return;        
-         
+
          err = (err << 3) - err;
 
          // Train Neural Network: update weights

@@ -616,7 +616,9 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.addContext(hashTPAQ(TPAQ_C4, this.c4&-252645136))
 		this.addContext(hashTPAQ(TPAQ_C5, this.c4))
 		this.addContext(hashTPAQ(this.c4>>shiftIsBinary,
-			(int32(this.buffer[(this.pos-6)&TPAQ_MASK2])<<8)|int32(this.buffer[(this.pos-5)&TPAQ_MASK2])))
+			(int32(this.buffer[(this.pos-8)&TPAQ_MASK2])<<16)|
+				(int32(this.buffer[(this.pos-7)&TPAQ_MASK2])<<8)|
+				(int32(this.buffer[(this.pos-6)&TPAQ_MASK2]))))
 
 		// Find match
 		this.findMatch()
