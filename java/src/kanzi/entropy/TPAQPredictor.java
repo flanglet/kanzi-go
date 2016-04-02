@@ -109,10 +109,10 @@ public class TPAQPredictor implements Predictor
         82,   217,     0,     0,     0,     0,     0,     0,     0,     0, 
          0,     0,     0,     0,     0,     0,     0,     0,     0,     0, 
          0,     0
-  };
+   };
 
-    // State Map
-   private static final int[] SM =
+   // State Map
+   private static final int[] STATE_MAP =
    {
        -119,  -120,   169,  -476,  -484,  -386,  -737,  -881,  -874,  -712, 
        -848,  -679,  -559,  -794, -1212,  -782, -1205, -1205,  -613,  -753, 
@@ -583,7 +583,7 @@ public class TPAQPredictor implements Predictor
      this.buffer = new byte[MASK2+1]; 
      this.cp = new int[7];
      this.ctx = new int[7];   
-     this.apm = new AdaptiveProbMap(1024, 7);
+     this.apm = new AdaptiveProbMap(65536, 7);
      this.mixer = new Mixer(MIXER_SIZE);
      this.bpos = 0;
    } 
@@ -593,7 +593,7 @@ public class TPAQPredictor implements Predictor
    public void update(int bit)
    {
      this.mixer.update(bit);
-     this.bpos = (this.bpos + 1) & 7;
+     this.bpos++;
      this.c0 = (this.c0 << 1) | bit;
 
      if (this.c0 > 255)
@@ -606,7 +606,8 @@ public class TPAQPredictor implements Predictor
         final int shiftIsBinary = ((this.c4 >>> 31) | ((this.c4 >>> 23) & 1) | 
            ((this.c4 >>> 15) & 1) | ((this.c4 >>> 7) & 1)) << 4;
         this.c0 = 1;
-
+        this.bpos = 0;
+        
         // Select Neural Net
         this.mixer.setContext(this.c4 & MASK0);
         
@@ -634,7 +635,7 @@ public class TPAQPredictor implements Predictor
             this.states[this.cp[i]] = (byte) STATE_TABLE[((this.states[this.cp[i]]&0xFF)<<1)|bit]; 
          
          this.cp[i] = (this.ctx[i] + this.c0) & MASK3;                 
-         this.mixer.addInput(SM[(i<<8)|(this.states[this.cp[i]]&0xFF)]); 
+         this.mixer.addInput(STATE_MAP[(i<<8)|(this.states[this.cp[i]]&0xFF)]); 
       }
 
       if (this.matchLen > 0) 
@@ -644,8 +645,8 @@ public class TPAQPredictor implements Predictor
       int p = this.mixer.get();
   
       // Adjust with APM
-      p = this.apm.get(bit, p, this.c0);
-      this.pr = p + ((p - 2048) >>> 31);       
+      p = this.apm.get(bit, p, this.c0 | (this.c4 & 0xFF00));
+      this.pr = p + ((p-2048) >>> 31);       
    }  
 
    

@@ -113,7 +113,7 @@ var TPAQ_STATE_TABLE = []uint8{
 }
 
 // State Map
-var TPAQ_SM = []int{
+var TPAQ_STATE_MAP = []int{
 	-119, -120, 169, -476, -484, -386, -737, -881, -874, -712,
 	-848, -679, -559, -794, -1212, -782, -1205, -1205, -613, -753,
 	-1169, -1169, -1169, -743, -1155, -732, -720, -1131, -1131, -1131,
@@ -582,7 +582,7 @@ func NewTPAQPredictor() (*TPAQPredictor, error) {
 	this.cp = make([]int, 7)
 	this.ctx = make([]int, 7)
 	this.bpos = 0
-	this.apm, err = newTPAQAdaptiveProbMap(1024, 7)
+	this.apm, err = newTPAQAdaptiveProbMap(65536, 7)
 
 	if err == nil {
 		this.mixer, err = newTPAQMixer(TPAQ_MIXER_SIZE)
@@ -595,7 +595,7 @@ func NewTPAQPredictor() (*TPAQPredictor, error) {
 func (this *TPAQPredictor) Update(bit byte) {
 	y := int(bit)
 	this.mixer.update(y)
-	this.bpos = (this.bpos + 1) & 7
+	this.bpos++
 	this.c0 = (this.c0 << 1) | int32(bit)
 
 	if this.c0 > 255 {
@@ -607,6 +607,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 		shiftIsBinary := uint(((this.c4>>31)&1)|((this.c4>>23)&1)|
 			((this.c4>>15)&1)|((this.c4>>7)&1)) << 4
 		this.c0 = 1
+		this.bpos = 0
 
 		// Select Neural Net
 		this.mixer.setContext(this.c4 & TPAQ_MASK0)
@@ -637,7 +638,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 		}
 
 		this.cp[i] = (this.ctx[i] + int(this.c0)) & TPAQ_MASK3
-		this.mixer.addInput(TPAQ_SM[(i<<8)|int(this.states[this.cp[i]])])
+		this.mixer.addInput(TPAQ_STATE_MAP[(i<<8)|int(this.states[this.cp[i]])])
 	}
 
 	if this.matchLen > 0 {
@@ -648,7 +649,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 	p := this.mixer.get()
 
 	// Adjust with APM
-	p = this.apm.get(y, p, int(this.c0))
+	p = this.apm.get(y, p, int(this.c0|(this.c4&0xFF00)))
 	this.pr = uint(p - ((p - 2048) >> 31))
 }
 
