@@ -190,8 +190,8 @@ public class PAQPredictor implements Predictor
        140,252, 0,40, 249,135,41, 0, 250, 69,40, 1,  80,251, 1,40, // 248-251
        140,252, 0,41,   0,  0, 0, 0,   0,  0, 0, 0,   0,  0, 0, 0  // 253-255 are reserved
    };
- 
-    
+
+          
    // Removed apm11, apm12 and apm5 from original
    private int pr;                   // next predicted value (0-4095)
    private int c0;                   // bitwise context: last 0-7 bits with a leading 1 (1-255)
@@ -212,8 +212,8 @@ public class PAQPredictor implements Predictor
      this.c0 = 1;
      this.states = new int[256];
      this.apm2 = new AdaptiveProbMap(1024, 6);
-     this.apm3 = new AdaptiveProbMap(1024, 8);
-     this.apm4 = new AdaptiveProbMap(32768, 8);
+     this.apm3 = new AdaptiveProbMap(1024, 7);
+     this.apm4 = new AdaptiveProbMap(65536, 8);
      this.sm = new StateMap();
      this.bpos = 8;
    } 
@@ -256,7 +256,7 @@ public class PAQPredictor implements Predictor
      int p = this.sm.get(bit, this.states[this.c0]);
      p = this.apm2.get(bit, p, this.c0 | (c1d<<8));
      p = (3*this.apm3.get(bit, p, (this.c4&0xFF) | this.runCtx) + p + 2) >> 2;    
-     p = (3*this.apm4.get(bit, p, this.c0 | (this.c4&0x7F00)) + p + 2) >> 2;
+     p = (3*this.apm4.get(bit, p, this.c0 | (this.c4&0xFF00)) + p + 2) >> 2;
      this.pr = p + ((p - 2048) >>> 31);   
    }
 

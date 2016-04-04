@@ -216,11 +216,11 @@ func NewPAQPredictor() (*PAQPredictor, error) {
 	this.apm2, err = newPAQAdaptiveProbMap(1024, 6)
 
 	if err == nil {
-		this.apm3, err = newPAQAdaptiveProbMap(1024, 8)
+		this.apm3, err = newPAQAdaptiveProbMap(1024, 7)
 	}
 
 	if err == nil {
-		this.apm4, err = newPAQAdaptiveProbMap(32768, 8)
+		this.apm4, err = newPAQAdaptiveProbMap(65536, 8)
 	}
 
 	if err == nil {
@@ -268,7 +268,7 @@ func (this *PAQPredictor) Update(bit byte) {
 	p := this.sm.get(y, this.states[this.c0])
 	p = this.apm2.get(y, p, this.c0|(c1d<<8))
 	p = (3*this.apm3.get(y, p, (this.c4&0xFF)|this.runCtx) + p + 2) >> 2
-	p = (3*this.apm4.get(y, p, this.c0|(this.c4&0x7F00)) + p + 2) >> 2
+	p = (3*this.apm4.get(y, p, this.c0|(this.c4&0xFF00)) + p + 2) >> 2
 
 	if p >= 2048 {
 		this.pr = uint(p)

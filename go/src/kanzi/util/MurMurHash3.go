@@ -20,7 +20,7 @@ import "unsafe"
 // MurmurHash3 was written by Austin Appleby, and is placed in the public
 // domain. The author hereby disclaims copyright to this source code.
 // Original source code: http://code.google.com/p/smhasher/
-
+ 
 const (
 	C1 = uint32(0xcc9e2d51)
 	C2 = uint32(0x1b873593)
