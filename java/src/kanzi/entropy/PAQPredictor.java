@@ -252,8 +252,10 @@ public class PAQPredictor implements Predictor
      this.bpos--;
      c1d += ((this.c4 >> this.bpos) & 1);
      
-     // Prediction chain
+     // Get prediction from state map
      int p = this.sm.get(bit, this.states[this.c0]);
+     
+     // SSE (Secondary Symbol Estimation)     
      p = this.apm2.get(bit, p, this.c0 | (c1d<<8));
      p = (3*this.apm3.get(bit, p, (this.c4&0xFF) | this.runCtx) + p + 2) >> 2;    
      p = (3*this.apm4.get(bit, p, this.c0 | (this.c4&0xFF00)) + p + 2) >> 2;
@@ -328,9 +330,8 @@ public class PAQPredictor implements Predictor
    // its state to improve future guesses.  Methods:
    //
    // APM a(N) creates with N contexts, uses 66*N bytes memory.
-   // a.p(y, pr, cx, rate=8) returned adjusted probability in context cx (0 to
+   // a.get(y, pr, cx) returned adjusted probability in context cx (0 to
    //   N-1).  rate determines the learning rate (smaller = faster, default 8).
-   //   Probabilities are scaled 12 bits (0-4095).  Update on last bit y (0-1).
    //////////////////////////////////////////////////////////////////
    static class AdaptiveProbMap
    {
@@ -339,7 +340,6 @@ public class PAQPredictor implements Predictor
      private final int[] data; // [NbCtx][33]:  p, context -> p
 
 
-     // maps p, cxt -> p initially
      AdaptiveProbMap(int n, int rate)
      {
         this.data = new int[n*33];
@@ -355,12 +355,17 @@ public class PAQPredictor implements Predictor
 
      int get(int bit, int pr, int ctx)
      {
+        // Update probability based on error and learning rate
         final int g = (bit<<16) + (bit<<this.rate) - (bit<<1);
         this.data[this.index] += ((g-this.data[this.index]) >> this.rate);
         this.data[this.index+1] += ((g-this.data[this.index+1]) >> this.rate);
         pr = Global.STRETCH[pr];
+        
+        // Find new context
+        this.index = ((pr+2048)>>7) + (ctx<<5) + ctx;
+        
+        // Return interpolated probabibility
         final int w = pr & 127;
-        this.index = ((pr+2048) >> 7) + (ctx<<5) + ctx;
         return (this.data[this.index]*(128-w) + this.data[this.index+1]*w) >> 11;
      }
    }

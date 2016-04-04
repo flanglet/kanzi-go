@@ -648,7 +648,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 	// Get prediction from NN
 	p := this.mixer.get()
 
-	// Adjust with APM
+	// SSE (Secondary Symbol Estimation) 
 	p = this.apm.get(y, p, int(this.c0|(this.c4&0xFF00)))
 	this.pr = uint(p - ((p - 2048) >> 31))
 }

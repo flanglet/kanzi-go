@@ -264,8 +264,10 @@ func (this *PAQPredictor) Update(bit byte) {
 	this.bpos--
 	c1d += ((this.c4 >> this.bpos) & 1)
 
-	// Prediction chain
+	// Get prediction from state map
 	p := this.sm.get(y, this.states[this.c0])
+
+	// SSE (Secondary Symbol Estimation)
 	p = this.apm2.get(y, p, this.c0|(c1d<<8))
 	p = (3*this.apm3.get(y, p, (this.c4&0xFF)|this.runCtx) + p + 2) >> 2
 	p = (3*this.apm4.get(y, p, this.c0|(this.c4&0xFF00)) + p + 2) >> 2
@@ -335,9 +337,8 @@ func (this *PAQStateMap) get(bit int, nctx int) int {
 // its state to improve future guesses.  Methods:
 //
 // APM a(N) creates with N contexts, uses 66*N bytes memory.
-// a.p(y, pr, cx, rate=8) returned adjusted probability in context cx (0 to
+// a.get(y, pr, cx) returned adjusted probability in context cx (0 to
 //   N-1).  rate determines the learning rate (smaller = faster, default 8).
-//   Probabilities are scaled 12 bits (0-4095).  Update on last bit y (0-1).
 //////////////////////////////////////////////////////////////////
 type PAQAdaptiveProbMap struct {
 	index int   // last p, context
@@ -367,11 +368,16 @@ func newPAQAdaptiveProbMap(n, rate uint) (*PAQAdaptiveProbMap, error) {
 }
 
 func (this *PAQAdaptiveProbMap) get(bit int, pr int, ctx int) int {
+	// Update probability based on error and learning rate
 	g := (bit << 16) + (bit << this.rate) - (bit << 1)
 	this.data[this.index] += ((g - this.data[this.index]) >> this.rate)
 	this.data[this.index+1] += ((g - this.data[this.index+1]) >> this.rate)
 	pr = kanzi.STRETCH[pr]
-	w := pr & 127 // interpolation weight (33 points)
+
+	// Find new context
 	this.index = ((pr + 2048) >> 7) + (ctx << 5) + ctx
+
+	// Return interpolated probabibility
+	w := pr & 127
 	return (this.data[this.index]*(128-w) + this.data[this.index+1]*w) >> 11
 }
