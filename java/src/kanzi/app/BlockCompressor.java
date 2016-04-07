@@ -83,7 +83,6 @@ public class BlockCompressor implements Runnable, Callable<Integer>
       this.pool = (this.jobs == 1) ? null : 
               ((threadPool == null) ? Executors.newCachedThreadPool() : threadPool);
       this.ownPool = false;
-      this.is = (InputStream) map.get("inputStream");
       this.listeners = new ArrayList<BlockListener>(10);
       
       if (this.verbosity > 1)
@@ -176,7 +175,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
    // Return status (success = 0, error < 0)
    @Override
    public Integer call()
-   {
+   { 
       boolean printFlag = this.verbosity > 1;
       printOut("Input file name set to '" + this.inputName + "'", printFlag);
       printOut("Output file name set to '" + this.outputName + "'", printFlag);
@@ -190,13 +189,21 @@ public class BlockCompressor implements Runnable, Callable<Integer>
       printOut("Using " + ecodec + " entropy codec (stage 2)", printFlag);
       printOut("Using " + this.jobs + " job" + ((this.jobs > 1) ? "s" : ""), printFlag);
 
+      OutputStream os;
+      
       try
-      {
-         File output = null;
-         
-         if (!this.outputName.equalsIgnoreCase("NONE"))
+      {  
+         if (this.outputName.equalsIgnoreCase("NONE"))
          {
-            output = new File(this.outputName);
+            os = new NullOutputStream(); 
+         }
+         else if (this.outputName.equalsIgnoreCase("STDOUT"))
+         {
+            os = System.out;
+         }
+         else
+         {
+            File output = new File(this.outputName);
          
             if (output.exists())
             {
@@ -213,13 +220,14 @@ public class BlockCompressor implements Runnable, Callable<Integer>
                   return Error.ERR_OVERWRITE_FILE;
                }
             }
+            
+            os = new FileOutputStream(output);
          }
          
          try
          {
-            OutputStream fos = (output == null) ? new NullOutputStream() : new FileOutputStream(output);
             this.cos = new CompressedOutputStream(this.codec, this.transform,
-                 fos, this.blockSize, this.checksum,
+                 os, this.blockSize, this.checksum,
                  this.pool, this.jobs);
             
             for (BlockListener bl : this.listeners)
@@ -239,8 +247,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
 
       try
       {
-         if (this.is == null)
-           this.is = new FileInputStream(this.inputName);
+         this.is = (this.inputName.equalsIgnoreCase("STDIN")) ? System.in : new FileInputStream(this.inputName);
       }
       catch (Exception e)
       {
@@ -290,15 +297,27 @@ public class BlockCompressor implements Runnable, Callable<Integer>
           System.err.println(e.getMessage());
           return Error.ERR_UNKNOWN;
        }
-
+       finally
+       {
+          // Close streams to ensure all data are flushed
+          this.dispose(); 
+         
+          try 
+          {
+            if (os != null)
+               os.close();
+          } 
+          catch (IOException e)
+          {
+            // Ignore
+          }            
+       }
+      
        if (read == 0)
        {
           System.out.println("Empty input file ... nothing to do");
           return WARN_EMPTY_INPUT;
        }
-
-       // Close streams to ensure all data are flushed
-       this.dispose();
 
        long after = System.nanoTime();
        long delta = (after - before) / 1000000L; // convert to ms
@@ -448,7 +467,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
            }
            else
            {
-              printOut("Warning: ignoring unknown option ["+ arg + "]", true);
+              printOut("Warning: ignoring unknown option ["+ arg + "]", verbose>0);
            }
         }
 
@@ -461,6 +480,10 @@ public class BlockCompressor implements Runnable, Callable<Integer>
         if (outputName == null)
            outputName = inputName + ".knz";
 
+        // Overwrite verbosity if the output goes to stdout
+        if (outputName.equalsIgnoreCase("STDOUT"))
+           verbose = 0;
+        
         map.put("blockSize", blockSize);
         map.put("verbose", verbose);
         map.put("overwrite", overwrite);

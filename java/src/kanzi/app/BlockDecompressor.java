@@ -19,6 +19,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -75,7 +76,6 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       this.pool = (this.jobs == 1) ? null : 
               ((threadPool == null) ? Executors.newCachedThreadPool() : threadPool);
       this.ownPool = ownPool;
-      this.os = (OutputStream) map.get("outputStream");
       this.listeners = new ArrayList<BlockListener>(10);      
       
       if (this.verbosity > 1)
@@ -175,63 +175,66 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       boolean silent = this.verbosity < 1;
       printOut("Decoding ...", !silent);
 
-      if (this.os == null)
+      if (this.outputName.equalsIgnoreCase("NONE"))
       {
-         if (this.outputName.equalsIgnoreCase("NONE"))
+         this.os = new NullOutputStream();
+      }
+      else if (this.outputName.equalsIgnoreCase("STDOUT"))
+      {
+         this.os = System.out;
+      }
+      else
+      {
+         try
          {
-            this.os = new NullOutputStream();
-         }
-         else
-         {
-            try
+            File output = new File(this.outputName);
+
+            if (output.exists())
             {
-               File output = new File(this.outputName);
-
-               if (output.exists())
+               if (output.isDirectory())
                {
-                  if (output.isDirectory())
-                  {
-                     System.err.println("The output file is a directory");
-                     return Error.ERR_OUTPUT_IS_DIR;
-                  }
+                  System.err.println("The output file is a directory");
+                  return Error.ERR_OUTPUT_IS_DIR;
+               }
 
-                  if (this.overwrite == false)
-                  {
-                     System.err.println("The output file exists and the 'overwrite' command "
-                             + "line option has not been provided");
-                     return Error.ERR_OVERWRITE_FILE;
-                  }
+               if (this.overwrite == false)
+               {
+                  System.err.println("The output file exists and the 'overwrite' command "
+                          + "line option has not been provided");
+                  return Error.ERR_OVERWRITE_FILE;
                }
             }
-            catch (Exception e)
-            {
-               System.err.println("Cannot open output file '"+ this.outputName+"' for writing: " + e.getMessage());
-               return Error.ERR_CREATE_FILE;
-            }
+         }
+         catch (Exception e)
+         {
+            System.err.println("Cannot open output file '"+ this.outputName+"' for writing: " + e.getMessage());
+            return Error.ERR_CREATE_FILE;
+         }
 
-            try
-            {
-               // Create output stream (note: it creates the file yielding file.exists()
-               // to return true so it must be called after the check).
-               this.os = new FileOutputStream(this.outputName);
-            }
-            catch (IOException e)
-            {
-               System.err.println("Cannot open output file '"+ this.outputName+"' for writing: " + e.getMessage());
-               return Error.ERR_CREATE_FILE;
-            }
-         } 
-      }
+         try
+         {
+            // Create output stream (note: it creates the file yielding file.exists()
+            // to return true so it must be called after the check).
+            this.os = new FileOutputStream(this.outputName);
+         }
+         catch (IOException e)
+         {
+            System.err.println("Cannot open output file '"+ this.outputName+"' for writing: " + e.getMessage());
+            return Error.ERR_CREATE_FILE;
+         }
+      } 
 
+      InputStream is;
+      
       try
       {
-         File input = new File(this.inputName);
+         is = (this.inputName.equalsIgnoreCase("STDIN")) ? System.in :
+            new FileInputStream(new File(this.inputName));
          
          try
          {
             PrintStream ds = (printFlag == true) ? System.out : null; 
-            this.cis = new CompressedInputStream(new FileInputStream(input),
-                 ds, this.pool, this.jobs);
+            this.cis = new CompressedInputStream(is, ds, this.pool, this.jobs);
             
             for (BlockListener bl : this.listeners)
                this.cis.addListener(bl);            
@@ -246,7 +249,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       {
          System.err.println("Cannot open input file '"+ this.inputName+"': " + e.getMessage());
          return Error.ERR_OPEN_FILE;
-      }
+      }     
 
       long before = System.nanoTime();
 
@@ -294,10 +297,22 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
          System.err.println(e.getMessage());
          return Error.ERR_UNKNOWN;
       }
-
-      // Close streams to ensure all data are flushed
-      this.dispose();
-
+      finally
+      {
+         // Close streams to ensure all data are flushed
+         this.dispose();
+         
+         try 
+         {
+            if (is != null)
+               is.close();
+         } 
+         catch (IOException e)
+         {
+            // Ignore
+         }         
+      }
+      
       long after = System.nanoTime();
       long delta = (after - before) / 1000000L; // convert to ms
       printOut("", !silent);
@@ -387,7 +402,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
            }
            else
            {
-              printOut("Warning: ignoring unknown option ["+ arg + "]", true);
+              printOut("Warning: ignoring unknown option ["+ arg + "]", verbose>0);
            }
         }
 
@@ -398,7 +413,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
         }
 
         if (inputName.endsWith(".knz") == false)
-           printOut("Warning: the input file name does not end with the .KNZ extension", true);
+           printOut("Warning: the input file name does not end with the .KNZ extension", verbose>0);
 
         if (outputName == null)
         {
@@ -406,6 +421,10 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
                    : inputName + ".tmp";
         }
 
+        // Overwrite verbosity if the output goes to stdout
+        if (outputName.equalsIgnoreCase("STDOUT"))
+           verbose = 0;
+        
         map.put("verbose", verbose);
         map.put("overwrite", overwrite);
         map.put("outputName", outputName);

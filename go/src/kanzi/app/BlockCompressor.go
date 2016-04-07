@@ -84,6 +84,11 @@ func NewBlockCompressor() (*BlockCompressor, error) {
 		os.Exit(0)
 	}
 
+	if *verbose < 0 {
+		fmt.Printf("Invalid verbosity level provided on command line: %v\n", *verbose)
+		os.Exit(kio.ERR_INVALID_PARAM)
+	}
+
 	if len(*inputName) == 0 {
 		fmt.Printf("Missing input file name, exiting ...\n")
 		os.Exit(kio.ERR_MISSING_PARAM)
@@ -98,12 +103,13 @@ func NewBlockCompressor() (*BlockCompressor, error) {
 		os.Exit(kio.ERR_INVALID_PARAM)
 	}
 
-	if *verbose < 0 {
-		fmt.Printf("Invalid verbosity level provided on command line: %v\n", *verbose)
-		os.Exit(kio.ERR_INVALID_PARAM)
+	if strings.ToUpper(*outputName) == "STDOUT" {
+		// Overwrite verbosity if the output goes to stdout
+		this.verbosity = 0
+	} else {
+		this.verbosity = uint(*verbose)
 	}
 
-	this.verbosity = uint(*verbose)
 	this.overwrite = *overwrite
 	this.inputName = *inputName
 	this.outputName = *outputName
@@ -228,11 +234,14 @@ func (this *BlockCompressor) call() (int, uint64) {
 	written := uint64(0)
 	var output io.WriteCloser
 
-	if strings.ToUpper(this.outputName) != "NONE" {
+	if strings.ToUpper(this.outputName) == "NONE" {
+		output, _ = kio.NewNullOutputStream()
+	} else if strings.ToUpper(this.outputName) == "STDOUT" {
+		output = os.Stdout
+	} else {
 		var err error
-		output, err = os.OpenFile(this.outputName, os.O_RDWR, 666)
 
-		if err == nil {
+		if output, err = os.OpenFile(this.outputName, os.O_RDWR, 666); err == nil {
 			// File exists
 			output.Close()
 
@@ -254,8 +263,6 @@ func (this *BlockCompressor) call() (int, uint64) {
 			output.Close()
 		}()
 
-	} else {
-		output, _ = kio.NewNullOutputStream()
 	}
 
 	verboseWriter := os.Stdout
@@ -282,14 +289,22 @@ func (this *BlockCompressor) call() (int, uint64) {
 		cos.Close()
 	}()
 
-	input, err := os.Open(this.inputName)
+	var input io.ReadCloser
 
-	if err != nil {
-		fmt.Printf("Cannot open input file '%v': %v\n", this.inputName, err)
-		return kio.ERR_OPEN_FILE, written
+	if strings.ToUpper(this.inputName) == "STDIN" {
+		input = os.Stdin
+	} else {
+		var err error
+
+		if input, err = os.Open(this.inputName); err != nil {
+			fmt.Printf("Cannot open input file '%v': %v\n", this.inputName, err)
+			return kio.ERR_OPEN_FILE, written
+		}
+
+		defer func() {
+			input.Close()
+		}()
 	}
-
-	defer input.Close()
 
 	for _, bl := range this.listeners {
 		cos.AddListener(bl)

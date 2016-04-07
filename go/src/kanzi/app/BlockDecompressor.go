@@ -68,13 +68,18 @@ func NewBlockDecompressor() (*BlockDecompressor, error) {
 		os.Exit(0)
 	}
 
+	if *verbose < 0 {
+		fmt.Printf("Invalid verbosity level provided on command line: %v\n", *verbose)
+		os.Exit(kio.ERR_INVALID_PARAM)
+	}
+
 	if len(*inputName) == 0 {
 		fmt.Printf("Missing input file name, exiting ...\n")
 		os.Exit(kio.ERR_MISSING_PARAM)
 	}
 
 	if strings.HasSuffix(*inputName, ".knz") == false {
-		printOut("Warning: the input file name does not end with the .KNZ extension", true)
+		printOut("Warning: the input file name does not end with the .KNZ extension", *verbose > 0)
 	}
 
 	if len(*outputName) == 0 {
@@ -90,12 +95,13 @@ func NewBlockDecompressor() (*BlockDecompressor, error) {
 		os.Exit(kio.ERR_INVALID_PARAM)
 	}
 
-	if *verbose < 0 {
-		fmt.Printf("Invalid verbosity level provided on command line: %v\n", *verbose)
-		os.Exit(kio.ERR_INVALID_PARAM)
+	if strings.ToUpper(*outputName) == "STDOUT" {
+		// Overwrite verbosity if the output goes to stdout
+		this.verbosity = 0
+	} else {
+		this.verbosity = uint(*verbose)
 	}
 
-	this.verbosity = uint(*verbose)
 	this.inputName = *inputName
 	this.outputName = *outputName
 	this.overwrite = *overwrite
@@ -173,11 +179,12 @@ func (this *BlockDecompressor) call() (int, uint64) {
 
 	if strings.ToUpper(this.outputName) == "NONE" {
 		output, _ = kio.NewNullOutputStream()
+	} else if strings.ToUpper(this.outputName) == "STDOUT" {
+		output = os.Stdout
 	} else {
 		var err error
-		output, err = os.OpenFile(this.outputName, os.O_RDWR, 666)
 
-		if err == nil {
+		if output, err = os.OpenFile(this.outputName, os.O_RDWR, 666); err == nil {
 			// File exists
 			if this.overwrite == false {
 				fmt.Printf("The output file '%v' exists and the 'overwrite' command ", this.outputName)
@@ -187,9 +194,7 @@ func (this *BlockDecompressor) call() (int, uint64) {
 			}
 		} else {
 			// File does not exist, create
-			output, err = os.Create(this.outputName)
-
-			if err != nil {
+			if output, err = os.Create(this.outputName); err != nil {
 				fmt.Printf("Cannot open output file '%v' for writing: %v\n", this.outputName, err)
 				return kio.ERR_CREATE_FILE, 0
 			}
@@ -204,16 +209,22 @@ func (this *BlockDecompressor) call() (int, uint64) {
 	read := uint64(0)
 	silent := this.verbosity < 1
 	printOut("Decoding ...", !silent)
-	input, err := os.Open(this.inputName)
+	var input io.ReadCloser
 
-	if err != nil {
-		fmt.Printf("Cannot open input file '%v': %v\n", this.inputName, err)
-		return kio.ERR_OPEN_FILE, read
+	if strings.ToUpper(this.inputName) == "STDIN" {
+		input = os.Stdin
+	} else {
+		var err error
+
+		if input, err = os.Open(this.inputName); err != nil {
+			fmt.Printf("Cannot open input file '%v': %v\n", this.inputName, err)
+			return kio.ERR_OPEN_FILE, read
+		}
+
+		defer func() {
+			input.Close()
+		}()
 	}
-
-	defer func() {
-		input.Close()
-	}()
 
 	verboseWriter := os.Stdout
 
