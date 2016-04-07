@@ -47,8 +47,8 @@ func NewBlockDecompressor() (*BlockDecompressor, error) {
 	var help = flag.Bool("help", false, "display the help message")
 	var verbose = flag.Int("verbose", 1, "set the verbosity level [0..4]")
 	var overwrite = flag.Bool("overwrite", false, "overwrite the output file if it already exists")
-	var inputName = flag.String("input", "", "mandatory name of the input file to decode")
-	var outputName = flag.String("output", "", "optional name of the output file or 'none' for dry-run")
+	var inputName = flag.String("input", "", "mandatory name of the input file to decode or 'stdin'")
+	var outputName = flag.String("output", "", "optional name of the output file or 'none' or 'stdout'")
 	var tasks = flag.Int("jobs", 1, "number of concurrent jobs")
 
 	// Parse
@@ -60,8 +60,8 @@ func NewBlockDecompressor() (*BlockDecompressor, error) {
 		printOut("                       0=silent, 1=default, 2=display block size (byte rounded)", true)
 		printOut("                       3=display timings, 4=display extra information", true)
 		printOut("-overwrite           : overwrite the output file if it already exists", true)
-		printOut("-input=<inputName>   : mandatory name of the input file to decode", true)
-		printOut("-output=<outputName> : optional name of the output file or 'none' for dry-run", true)
+		printOut("-input=<inputName>   : mandatory name of the input file to decode or 'stdin'", true)
+		printOut("-output=<outputName> : optional name of the output file or 'none' or 'stdout'", true)
 		printOut("-jobs=<jobs>         : number of concurrent jobs", true)
 		printOut("", true)
 		printOut("EG. go run BlockDecompressor -input=foo.knz -overwrite -verbose=2 -jobs=2", true)

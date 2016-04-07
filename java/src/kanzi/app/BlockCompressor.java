@@ -359,8 +359,8 @@ public class BlockCompressor implements Runnable, Callable<Integer>
                printOut("                       0=silent, 1=default, 2=display block size (byte rounded)", true);
                printOut("                       3=display timings, 4=display extra information", true);
                printOut("-overwrite           : overwrite the output file if it already exists", true);
-               printOut("-input=<inputName>   : mandatory name of the input file to encode", true);
-               printOut("-output=<outputName> : optional name of the output file (defaults to <input.knz>) or 'none' for dry-run", true);
+               printOut("-input=<inputName>   : mandatory name of the input file to encode or 'stdin'", true);
+               printOut("-output=<outputName> : optional name of the output file (defaults to <input.knz>) or 'none' or 'stdout'", true);
                printOut("-block=<size>        : size of the input blocks, multiple of 16, max 1 GB (transform dependent), min 1 KB, default 1 MB", true);
                printOut("-entropy=<codec>     : entropy codec to use [None|Huffman*|ANS|Range|PAQ|FPAQ|TPAQ|CM]", true);
                printOut("-transform=<codec>   : transform to use [None|BWT*|BWTS|Snappy|LZ4|RLT]", true);
