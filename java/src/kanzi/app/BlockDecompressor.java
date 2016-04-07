@@ -340,21 +340,8 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
         {
            arg = arg.trim();
 
-           if (arg.equals("-help"))
-           {
-              printOut("-help                : display this message", true);
-              printOut("-verbose=<level>     : set the verbosity level [0..4]", true);
-              printOut("                       0=silent, 1=default, 2=display block size (byte rounded)", true);
-              printOut("                       3=display timings, 4=display extra information", true);
-              printOut("-overwrite           : overwrite the output file if it already exists", true);
-              printOut("-input=<inputName>   : mandatory name of the input file to decode or 'stdin'", true);
-              printOut("-output=<outputName> : optional name of the output file or 'none' or 'stdout'", true);
-              printOut("-jobs=<jobs>         : number of concurrent jobs", true);
-              printOut("", true);
-              printOut("EG. java -cp kanzi.jar kanzi.app.BlockDecompressor -input=foo.knz -overwrite -verbose=2 -jobs=2", true);
-              System.exit(0);
-           }
-           else if (arg.startsWith("-verbose="))
+           // Extract verbosity and output first
+           if (arg.startsWith("-verbose="))
            {
                String verboseLevel = arg.substring(9).trim();
                
@@ -369,7 +356,35 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
                {
                   System.err.println("Invalid verbosity level provided on command line: "+arg);
                   System.exit(Error.ERR_INVALID_PARAM);
-               }               
+               }    
+           }
+           else if (arg.startsWith("-output="))
+           {
+              outputName = arg.substring(8).trim();
+           }           
+        }
+        
+        // Overwrite verbosity if the output goes to stdout
+        if ("STDOUT".equalsIgnoreCase(outputName))
+           verbose = 0;      
+        
+        for (String arg : args)
+        {
+           arg = arg.trim();
+
+           if (arg.equals("-help"))
+           {
+              printOut("-help                : display this message", true);
+              printOut("-verbose=<level>     : set the verbosity level [0..4]", true);
+              printOut("                       0=silent, 1=default, 2=display block size (byte rounded)", true);
+              printOut("                       3=display timings, 4=display extra information", true);
+              printOut("-overwrite           : overwrite the output file if it already exists", true);
+              printOut("-input=<inputName>   : mandatory name of the input file to decode or 'stdin'", true);
+              printOut("-output=<outputName> : optional name of the output file or 'none' or 'stdout'", true);
+              printOut("-jobs=<jobs>         : number of concurrent jobs", true);
+              printOut("", true);
+              printOut("EG. java -cp kanzi.jar kanzi.app.BlockDecompressor -input=foo.knz -overwrite -verbose=2 -jobs=2", true);
+              System.exit(0);
            }
            else if (arg.equals("-overwrite"))
            {
@@ -378,10 +393,6 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
            else if (arg.startsWith("-input="))
            {
               inputName = arg.substring(7).trim();
-           }
-           else if (arg.startsWith("-output="))
-           {
-              outputName = arg.substring(8).trim();
            }
            else if (arg.startsWith("-jobs="))
            {
@@ -420,10 +431,6 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
            outputName = (inputName.endsWith(".knz")) ? inputName.substring(0, inputName.length()-4)
                    : inputName + ".tmp";
         }
-
-        // Overwrite verbosity if the output goes to stdout
-        if (outputName.equalsIgnoreCase("STDOUT"))
-           verbose = 0;
         
         map.put("verbose", verbose);
         map.put("overwrite", overwrite);

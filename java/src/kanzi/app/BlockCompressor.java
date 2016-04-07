@@ -352,6 +352,38 @@ public class BlockCompressor implements Runnable, Callable<Integer>
         {
            arg = arg.trim();
 
+           // Extract verbosity and output first
+           if (arg.startsWith("-verbose="))
+           {
+               String verboseLevel = arg.substring(9).trim();
+               
+               try
+               {
+                   verbose = Integer.parseInt(verboseLevel);
+                   
+                   if (verbose < 0)
+                      throw new NumberFormatException();
+               }
+               catch (NumberFormatException e)
+               {
+                  System.err.println("Invalid verbosity level provided on command line: "+arg);
+                  System.exit(Error.ERR_INVALID_PARAM);
+               }    
+           }
+           else if (arg.startsWith("-output="))
+           {
+              outputName = arg.substring(8).trim();
+           }             
+        }
+
+        // Overwrite verbosity if the output goes to stdout
+        if ("STDOUT".equalsIgnoreCase(outputName))
+           verbose = 0;      
+
+        for (String arg : args)
+        {
+           arg = arg.trim();
+           
            if (arg.equals("-help"))
            {
                printOut("-help                : display this message", true);
@@ -372,23 +404,6 @@ public class BlockCompressor implements Runnable, Callable<Integer>
                printOut("EG. java -cp kanzi.jar kanzi.app.BlockCompressor -input=foo.txt -output=foo.knz -overwrite "
                        + "-transform=BWT+MTF -block=4m -entropy=FPAQ -verbose=3 -jobs=4", true);
                System.exit(0);
-           }
-           else if (arg.startsWith("-verbose="))
-           {
-               String verboseLevel = arg.substring(9).trim();
-               
-               try
-               {
-                   verbose = Integer.parseInt(verboseLevel);
-                   
-                   if (verbose < 0)
-                      throw new NumberFormatException();
-               }
-               catch (NumberFormatException e)
-               {
-                  System.err.println("Invalid verbosity level provided on command line: "+arg);
-                  System.exit(Error.ERR_INVALID_PARAM);
-               }               
            }
            else if (arg.equals("-overwrite"))
            {
@@ -479,10 +494,6 @@ public class BlockCompressor implements Runnable, Callable<Integer>
 
         if (outputName == null)
            outputName = inputName + ".knz";
-
-        // Overwrite verbosity if the output goes to stdout
-        if (outputName.equalsIgnoreCase("STDOUT"))
-           verbose = 0;
         
         map.put("blockSize", blockSize);
         map.put("verbose", verbose);
