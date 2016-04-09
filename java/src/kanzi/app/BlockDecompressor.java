@@ -411,7 +411,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
                  System.exit(Error.ERR_INVALID_PARAM);
               }
            }
-           else
+           else if ((!arg.startsWith("-verbose=")) && (!arg.startsWith("-output=")))
            {
               printOut("Warning: ignoring unknown option ["+ arg + "]", verbose>0);
            }
