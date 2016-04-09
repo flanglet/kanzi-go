@@ -38,6 +38,7 @@ import kanzi.util.sampling.DWTUpSampler;
 import kanzi.util.sampling.DecimateDownSampler;
 import kanzi.util.sampling.DownSampler;
 import kanzi.util.sampling.EdgeDirectedUpSampler;
+import kanzi.util.sampling.GuidedBilinearUpSampler;
 import kanzi.util.sampling.UpSampler;
 
 
@@ -49,8 +50,8 @@ public class TestResampler
         {
            String fileName = (args.length > 0) ? args[0] : "c:\\temp\\lena.jpg";
            Image image1 = ImageIO.read(new File(fileName));
-           int w = image1.getWidth(null);
-           int h = image1.getHeight(null);
+           int w = image1.getWidth(null) & -16;
+           int h = image1.getHeight(null) & -16;
            GraphicsDevice gs = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
            GraphicsConfiguration gc = gs.getDefaultConfiguration();
            BufferedImage bi = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
@@ -77,8 +78,8 @@ public class TestResampler
 
     public static void roundtrip(Image image, int iter) throws Exception 
     {
-        int w = image.getWidth(null) & -15;
-        int h = image.getHeight(null) & -15;
+        int w = image.getWidth(null) & -16;
+        int h = image.getHeight(null) & -16;
         GraphicsDevice gs = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
         GraphicsConfiguration gc = gs.getDefaultConfiguration();
         BufferedImage img = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
@@ -104,15 +105,16 @@ public class TestResampler
         UpSampler uBilinear = new BilinearUpSampler(w/2, h/2, 2);
         DownSampler dDecimate = new DecimateDownSampler(w, h, 2);
         UpSampler oriented = new EdgeDirectedUpSampler(w/2, h/2);
-        DownSampler dDWT = new DWTDownSampler(w, h, w, 1, false);
-        UpSampler uDWT = new DWTUpSampler(w/2, h/2, w, 1, false);
+        UpSampler guided = new GuidedBilinearUpSampler(w/2, h/2);
+        DownSampler dDWT = new DWTDownSampler(w, h, w, 1);
+        UpSampler uDWT = new DWTUpSampler(w/2, h/2, w, 1);
         UpSampler uBicubic = new BicubicUpSampler(w/2, h/2, w/2, w, 0);
-        DownSampler[] subSamplers = new DownSampler[]  { dDecimate, dDecimate, dDecimate, dDWT };
-        UpSampler[] superSamplers = new UpSampler[]  { uBilinear, uBicubic, oriented, uDWT };
-        String[] titles = new String[] { "Bilinear", "Bicubic", "Oriented", "DWT" };
+        DownSampler[] subSamplers = new DownSampler[]  { dDecimate, dDecimate, dDecimate, dDecimate, dDWT };
+        UpSampler[] superSamplers = new UpSampler[]  { uBilinear, uBicubic, oriented, guided, uDWT };
+        String[] titles = new String[] { "Bilinear", "Bicubic", "Oriented", "Guided", "DWT" };
         System.out.println(w + "x" + h);
         System.out.println();
-
+ 
         // Round trip down / up
         for (int s=0; s<subSamplers.length; s++)
         {
@@ -123,9 +125,16 @@ public class TestResampler
            ColorModelConverter cvt = new YCbCrColorModelConverter(w, h);
            cvt.convertRGBtoYUV(rgb, y, u, v, ColorModelType.YUV444);
 
+           if (superSamplers[s] instanceof GuidedBilinearUpSampler)
+           {
+              int[] buf = new int[y.length];
+              System.arraycopy(y, 0, buf, 0, buf.length);
+              ((GuidedBilinearUpSampler) superSamplers[s]).setGuide(buf);
+           }
+
            for (int ii=0; ii<iter; ii++)
            {
-               long before = System.nanoTime();
+               long before = System.nanoTime();                              
                subSamplers[s].subSample(y, output);
                Arrays.fill(y, 0);
                superSamplers[s].superSample(output, y);
@@ -143,7 +152,7 @@ public class TestResampler
            cvt.convertYUVtoRGB(y, u, v, output, ColorModelType.YUV444);
            int psnr1024, ssim1024;
            psnr1024 = new ImageQualityMonitor(w, h).computePSNR(input, output);
-           String res =  "PSNR: "+(float) psnr1024 /1024;
+           String res = "PSNR: "+(float) psnr1024 /1024;
            ssim1024 = new ImageQualityMonitor(w, h).computeSSIM(input, output);
            res += " SSIM: "+(float) ssim1024 /1024;
            System.out.println(res);
