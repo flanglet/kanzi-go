@@ -22,7 +22,7 @@ import (
 )
 
 // Implementation of Asymetric Numeral System codec.
-// See "Asymetric Numeral System" by Jarek Duda at http://arxiv.org/abs/0902.0271
+// See "Asymmetric Numeral System" by Jarek Duda at http://arxiv.org/abs/0902.0271
 // For alternate C implementation examples, see https://github.com/Cyan4973/FiniteStateEntropy
 // and https://github.com/rygorous/ryg_rans
 

@@ -16,13 +16,13 @@ limitations under the License.
 package entropy
 
 const (
-	SLOW_RATE   = 2
+	FAST_RATE   = 2
 	MEDIUM_RATE = 4
-	FAST_RATE   = 6
+	SLOW_RATE   = 6
 )
 
 // Context model predictor based on BCM by Ilya Muravyov.
-// See http://sourceforge.net/projects/bcm
+// See https://github.com/encode84/bcm
 type CMPredictor struct {
 	c1       byte
 	c2       byte
@@ -72,15 +72,15 @@ func (this *CMPredictor) Update(bit byte) {
 	counter1_ := this.counter1[this.ctx]
 
 	if bit == 0 {
-		counter1_[256] -= (counter1_[256] >> SLOW_RATE)
+		counter1_[256] -= (counter1_[256] >> FAST_RATE)
 		counter1_[this.c1] -= (counter1_[this.c1] >> MEDIUM_RATE)
-		counter2_[this.idx] -= (counter2_[this.idx] >> FAST_RATE)
-		counter2_[this.idx+1] -= (counter2_[this.idx+1] >> FAST_RATE)
+		counter2_[this.idx] -= (counter2_[this.idx] >> SLOW_RATE)
+		counter2_[this.idx+1] -= (counter2_[this.idx+1] >> SLOW_RATE)
 	} else {
-		counter1_[256] += ((counter1_[256] ^ 0xFFFF) >> SLOW_RATE)
+		counter1_[256] += ((counter1_[256] ^ 0xFFFF) >> FAST_RATE)
 		counter1_[this.c1] += ((counter1_[this.c1] ^ 0xFFFF) >> MEDIUM_RATE)
-		counter2_[this.idx] += ((counter2_[this.idx] ^ 0xFFFF) >> FAST_RATE)
-		counter2_[this.idx+1] += ((counter2_[this.idx+1] ^ 0xFFFF) >> FAST_RATE)
+		counter2_[this.idx] += ((counter2_[this.idx] ^ 0xFFFF) >> SLOW_RATE)
+		counter2_[this.idx+1] += ((counter2_[this.idx+1] ^ 0xFFFF) >> SLOW_RATE)
 	}
 
 	this.ctx = (this.ctx << 1) | int(bit)

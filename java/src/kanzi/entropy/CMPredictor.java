@@ -17,12 +17,12 @@ package kanzi.entropy;
 
 
 // Context model predictor based on BCM by Ilya Muravyov. 
-// See http://sourceforge.net/projects/bcm
+// See https://github.com/encode84/bcm
 public class CMPredictor implements Predictor
 {
-   private static final int SLOW_RATE   = 2;
+   private static final int FAST_RATE   = 2;
    private static final int MEDIUM_RATE = 4;
-   private static final int FAST_RATE   = 6;
+   private static final int SLOW_RATE   = 6;
    
    private int c1;
    private int c2;
@@ -70,17 +70,17 @@ public class CMPredictor implements Predictor
            
       if (bit == 0)
       {
-         counter1_[256]        -= (counter1_[256]        >> SLOW_RATE);
+         counter1_[256]        -= (counter1_[256]        >> FAST_RATE);
          counter1_[this.c1]    -= (counter1_[this.c1]    >> MEDIUM_RATE);
-         counter2_[this.idx]   -= (counter2_[this.idx]   >> FAST_RATE);
-         counter2_[this.idx+1] -= (counter2_[this.idx+1] >> FAST_RATE);         
+         counter2_[this.idx]   -= (counter2_[this.idx]   >> SLOW_RATE);
+         counter2_[this.idx+1] -= (counter2_[this.idx+1] >> SLOW_RATE);         
       }
       else
       {
-         counter1_[256]        += ((counter1_[256]^0xFFFF)        >> SLOW_RATE);
+         counter1_[256]        += ((counter1_[256]^0xFFFF)        >> FAST_RATE);
          counter1_[this.c1]    += ((counter1_[this.c1]^0xFFFF)    >> MEDIUM_RATE);
-         counter2_[this.idx]   += ((counter2_[this.idx]^0xFFFF)   >> FAST_RATE);
-         counter2_[this.idx+1] += ((counter2_[this.idx+1]^0xFFFF) >> FAST_RATE);
+         counter2_[this.idx]   += ((counter2_[this.idx]^0xFFFF)   >> SLOW_RATE);
+         counter2_[this.idx+1] += ((counter2_[this.idx+1]^0xFFFF) >> SLOW_RATE);
       } 
       
       this.ctx = (this.ctx << 1) | bit;
