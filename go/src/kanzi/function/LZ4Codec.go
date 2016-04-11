@@ -173,10 +173,11 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 	srcIdx := 0
 	dstIdx := 0
 	anchor := 0
-	table := this.buffer // aliasing
 
 	if count > MIN_LENGTH {
-		for i := (1 << hashLog) - 1; i >= 0; i-- {
+		table := this.buffer[0 : 1<<hashLog]
+
+		for i := range table {
 			table[i] = 0
 		}
 
@@ -209,7 +210,7 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 				table[h32] = srcIdx
 				h32 = (readInt(src[fwdIdx:]) * HASH_SEED) >> hashShift
 
-				if differentInts(src, match, srcIdx) == false && match > srcIdx-MAX_DISTANCE {
+				if sameInts(src[srcIdx:srcIdx+4], src[match:match+4]) == true && match > srcIdx-MAX_DISTANCE {
 					break
 				}
 			}
@@ -279,7 +280,7 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 				match = table[h32]
 				table[h32] = srcIdx
 
-				if differentInts(src, match, srcIdx) == true || match <= srcIdx-MAX_DISTANCE {
+				if sameInts(src[srcIdx:srcIdx+4], src[match:match+4]) == false || match <= srcIdx-MAX_DISTANCE {
 					break
 				}
 
@@ -299,11 +300,11 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 	return uint(srcEnd), uint(dstIdx), error(nil)
 }
 
-func differentInts(array []byte, srcIdx, dstIdx int) bool {
-	return (array[srcIdx] != array[dstIdx]) ||
-		(array[srcIdx+1] != array[dstIdx+1]) ||
-		(array[srcIdx+2] != array[dstIdx+2]) ||
-		(array[srcIdx+3] != array[dstIdx+3])
+func sameInts(src, dst []byte) bool {
+	return src[0] == dst[0] &&
+		src[1] == dst[1] &&
+		src[2] == dst[2] &&
+		src[3] == dst[3]
 }
 
 func readInt(array []byte) uint32 {
