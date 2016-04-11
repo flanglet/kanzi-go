@@ -105,7 +105,7 @@ func generateCanonicalCodes(sizes []byte, codes []uint, ranks []byte) int {
 	code := uint(0)
 	length := sizes[ranks[0]]
 
-	for i := 0; i < count; i++ {
+	for i := range ranks {
 		r := ranks[i]
 
 		if sizes[r] > length {
@@ -215,10 +215,11 @@ func (this *HuffmanEncoder) UpdateFrequencies(frequencies []uint) error {
 		}
 	}
 
-	EncodeAlphabet(this.bitstream, this.ranks[0:count])
+	rr := this.ranks[0:count]
+	EncodeAlphabet(this.bitstream, rr)
 
 	// Transmit code lengths only, frequencies and codes do not matter
-	// Unary encode the length difference
+	// Unary encode the length differences
 	egenc, err := NewExpGolombEncoder(this.bitstream, true)
 
 	if err != nil {
@@ -227,8 +228,8 @@ func (this *HuffmanEncoder) UpdateFrequencies(frequencies []uint) error {
 
 	prevSize := byte(2)
 
-	for i := 0; i < count; i++ {
-		currSize := this.sizes[this.ranks[i]]
+	for i := range rr {
+		currSize := this.sizes[rr[i]]
 		egenc.EncodeByte(currSize - prevSize)
 		prevSize = currSize
 	}
@@ -239,8 +240,8 @@ func (this *HuffmanEncoder) UpdateFrequencies(frequencies []uint) error {
 	}
 
 	// Pack size and code (size <= MAX_SYMBOL_SIZE bits)
-	for i := 0; i < count; i++ {
-		r := this.ranks[i]
+	for i := range rr {
+		r := rr[i]
 		this.codes[r] |= (uint(this.sizes[r]) << 24)
 	}
 
@@ -256,17 +257,18 @@ func (this *HuffmanEncoder) computeCodeLengths(frequencies []uint, count int) er
 
 	// Sort by increasing frequencies (first key) and increasing value (second key)
 	sort.Sort(ByIncreasingFrequency(this.sranks[0:count], frequencies))
+	buf := this.buffer[0:count]
 
-	for i := 0; i < count; i++ {
-		this.buffer[i] = frequencies[this.sranks[i]]
+	for i := range buf {
+		buf[i] = frequencies[this.sranks[i]]
 	}
 
-	computeInPlaceSizesPhase1(this.buffer, count)
-	computeInPlaceSizesPhase2(this.buffer, count)
+	computeInPlaceSizesPhase1(buf)
+	computeInPlaceSizesPhase2(buf)
 	var err error
 
-	for i := 0; i < count; i++ {
-		codeLen := byte(this.buffer[i])
+	for i := range buf {
+		codeLen := byte(buf[i])
 
 		if codeLen == 0 || codeLen > MAX_SYMBOL_SIZE {
 			err = fmt.Errorf("Could not generate codes: max code length (%v bits) exceeded", MAX_SYMBOL_SIZE)
@@ -279,7 +281,9 @@ func (this *HuffmanEncoder) computeCodeLengths(frequencies []uint, count int) er
 	return err
 }
 
-func computeInPlaceSizesPhase1(data []uint, n int) {
+func computeInPlaceSizesPhase1(data []uint) {
+	n := len(data)
+
 	for s, r, t := 0, 0, 0; t < n-1; t++ {
 		sum := uint(0)
 
@@ -303,7 +307,8 @@ func computeInPlaceSizesPhase1(data []uint, n int) {
 	}
 }
 
-func computeInPlaceSizesPhase2(data []uint, n int) {
+func computeInPlaceSizesPhase2(data []uint) {
+	n := len(data)
 	level_top := uint(n - 2) //root
 	depth := uint(1)
 	i := n
@@ -499,10 +504,11 @@ func (this *HuffmanDecoder) ReadLengths() (int, error) {
 	var currSize int8
 	this.minCodeLen = MAX_SYMBOL_SIZE // max code length
 	prevSize := int8(2)
+	rr := this.ranks[0:count]
 
 	// Read lengths
-	for i := 0; i < count; i++ {
-		r := this.ranks[i]
+	for i := range rr {
+		r := rr[i]
 
 		if int(r) > len(this.codes) {
 			return 0, fmt.Errorf("Invalid bitstream: incorrect Huffman symbol %v", r)
