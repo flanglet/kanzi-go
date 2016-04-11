@@ -28,7 +28,7 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
 {
     private final int height;
     private final int width;
-    private final int rgbOffset;
+    private final int offset;
     private final int stride;
     private final DownSampler downSampler;
     private final UpSampler upSampler;
@@ -96,7 +96,7 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
 
         this.height = height;
         this.width = width;
-        this.rgbOffset = rgbOffset;
+        this.offset = rgbOffset;
         this.stride = stride;
         this.upSampler = upSampler;
         this.downSampler = downSampler;
@@ -143,7 +143,7 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
     // -0.3220 1.0000 -0.6780
     private boolean convertRGBtoYUV444(int[] rgb, int[] y, int[] u, int[] v)
     {
-        int startLine  = this.rgbOffset;
+        int startLine  = this.offset;
         int startLine2 = 0;
 
         for (int j=0; j<this.height; j++)
@@ -179,7 +179,7 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
     private boolean convertYUV444toRGB(int[] y, int[] u, int[] v, int[] rgb)
     {
         int startLine = 0;
-        int startLine2 = this.rgbOffset;
+        int startLine2 = this.offset;
 
         for (int j=0; j<this.height; j++)
         {
@@ -216,289 +216,46 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
     }
 
 
-    // In YUV422 format the U and V color components are supersampled 2:1 horizontally
-    private boolean convertYUV422toYUV444(int[] y, int[] u, int[] v)
-    {
-        if (this.upSampler != null)
-        {
-           this.upSampler.superSampleHorizontal(u, u);
-           this.upSampler.superSampleHorizontal(v, v);
-           return true;
-        }
-
-        // In place super-sampling
-        // Must scan Y backwards to avoid overwriting the data array
-        int half = this.width >> 1;
-        int oOffs = this.width * (this.height - 1);
-        int iOffs = half * (this.height - 1);
-
-        for (int j=0; j<this.height; j++)
-        {
-            // Use 2 loops to support in place interpolation ... a bit slower
-            // Odd columns
-            for (int i=half-1; i>=0; i--)
-            {
-                u[oOffs+i+i] = u[iOffs+i];
-                v[oOffs+i+i] = v[iOffs+i];
-            }
-
-            int uPrev = u[oOffs];
-            int vPrev = v[oOffs];
-
-            // Even columns
-            for (int i=2; i<this.width; i+=2)
-            {
-                int idx = oOffs + i;
-                int bVal = u[idx];
-                int rVal = v[idx];
-                u[idx-1] = (bVal + uPrev) >> 1;
-                v[idx-1] = (rVal + vPrev) >> 1;
-                uPrev = bVal;
-                vPrev = rVal;
-            }
-
-            u[oOffs+this.width-1] = uPrev;
-            v[oOffs+this.width-1] = vPrev;
-            oOffs -= this.stride;
-            iOffs -= half;
-        }
-
-        return true;
-    }
-
-
-    // In YUV422 format the U and V color components are subsampled 1:2 horizontally
-    private boolean convertYUV444toYUV422(int[] y, int[] u, int[] v)
-    {
-        if (this.downSampler != null)
-        {
-           this.downSampler.subSampleHorizontal(u, u);
-           this.downSampler.subSampleHorizontal(v, v);
-           return true;
-        }
-
-        int iOffs = 0;
-        int oOffs = 0;
-
-        for (int j=0; j<this.height; j++)
-        {
-            int end = iOffs + this.width;
-
-            // Simply decimate
-            for (int i=iOffs; i<end; i+=8)
-            {
-                u[oOffs] = u[i];
-                v[oOffs] = v[i];
-                oOffs++;
-                u[oOffs] = u[i+2];
-                v[oOffs] = v[i+2];
-                oOffs++;
-                u[oOffs] = u[i+4];
-                v[oOffs] = v[i+4];
-                oOffs++;
-                u[oOffs] = u[i+6];
-                v[oOffs] = v[i+6];
-                oOffs++;
-            }
-
-            iOffs += this.stride;
-        }
-
-        return true;
-    }
-
-
-    // In YUV420 format the U and V color components are supersampled 2:1 horizontally
-    // and 2:1 vertically
-    private boolean convertYUV420toYUV444(int[] y, int[] u, int[] v)
-    {
-       if (this.upSampler != null)
-       {
-          this.upSampler.superSample(u, u);
-          this.upSampler.superSample(v, v);
-          return true;
-       }
-
-        // In-place super sampling
-       final int st = this.stride;
-       final int sw  = this.width;
-       final int halfH = this.height >> 1;
-       final int halfW = sw >> 1;
-       final int decY = st + st - sw;
-       int oOffs = ((st * (this.height - 2)) + this.width - 1);
-       int iOffs = (halfW * halfH) - 1;
-       int uPrev = u[iOffs];
-       int vPrev = v[iOffs];
-       iOffs--;
-       int uVal = uPrev;
-       int vVal = vPrev;
-       u[oOffs] = uPrev;
-       v[oOffs] = vPrev;
-       oOffs--;
-
-       // Last 2 lines
-       for (int i=halfW-2; i>=0; i--)
-       {
-          uVal = u[iOffs];
-          vVal = v[iOffs];
-          iOffs--;
-          final int uAvg = (uVal + uPrev) >> 1;
-          final int vAvg = (vVal + vPrev) >> 1;
-          u[oOffs+st] = uAvg;
-          u[oOffs]    = uAvg;
-          v[oOffs+st] = vAvg;
-          v[oOffs]    = vAvg;
-          oOffs--;
-          u[oOffs+st] = uVal;
-          u[oOffs]    = uVal;
-          v[oOffs+st] = vVal;
-          v[oOffs]    = vVal;
-          oOffs--;
-          uPrev = uVal;
-          vPrev = vVal;
-       }
-
-       u[oOffs+st] = uVal;
-       u[oOffs  ]  = uVal;
-       v[oOffs+st] = vVal;
-       v[oOffs]    = vVal;
-       oOffs--;
-       oOffs -= decY;
-
-       // Process 2 lines at once (odd + even)
-       //              A   AB    B   BC     C
-       // A B C  ===> AD  ABDE  BE  BCEF   CF
-       // D E F        D   DE    E   EF     F
-       for (int j=halfH-2; j>=0; j--)
-       {
-          // Last pixel of lines
-          int uVal2 = u[iOffs+halfW]; // F
-          int uVal1 = u[iOffs]; // C
-          int vVal2 = v[iOffs+halfW]; // F
-          int vVal1 = v[iOffs]; // C
-          iOffs--;
-          u[oOffs+st] = (uVal1 + uVal2) >> 1; // CF
-          u[oOffs]    = uVal1; // C
-          v[oOffs+st] = (vVal1 + vVal2) >> 1; // CF
-          v[oOffs]    = vVal1; // C
-          iOffs--;
-          int uPrev1 = uVal1; // C
-          int uPrev2 = uVal2; // F
-          int vPrev1 = vVal1; // C
-          int vPrev2 = vVal2; // F
-          int val;
-
-          // All columns
-          for (int i=halfW-2; i>=0; i--)
-          {
-              uVal2 = u[iOffs+halfW]; // E
-              uVal1 = u[iOffs]; // B
-              vVal2 = v[iOffs+halfW]; // E
-              vVal1 = v[iOffs]; // B
-              iOffs--;
-              val = uVal1 + uVal2 + uPrev1 + uPrev2;
-              u[oOffs+st] = (val + 2 + ((val>>31)<<2)) >> 2; // BCEF
-              u[oOffs]    = (uVal1 + uPrev1) >> 1; // BC
-              val = vVal1 + vVal2 + vPrev1 + vPrev2;
-              v[oOffs+st] = (val + 2 + ((val>>31)<<2)) >> 2; // BCEF
-              v[oOffs]    = (vVal1 + vPrev1) >> 1; // BC
-              oOffs--;
-              u[oOffs+st] = (uVal1 + uVal2) >> 1; // BE
-              u[oOffs]    = uVal1; // B
-              v[oOffs+st] = (vVal1 + vVal2) >> 1; // BE
-              v[oOffs]    = vVal1; // B
-              oOffs--;
-              uPrev1 = uVal1; // B
-              uPrev2 = uVal2; // E
-              vPrev1 = vVal1; // B
-              vPrev2 = vVal2; // E
-          }
-
-          // First pixel of lines
-          u[oOffs+st] = (uVal1 + uVal2) >> 1;
-          u[oOffs]    = uVal1;
-          v[oOffs+st] = (vVal1 + vVal2) >> 1;
-          v[oOffs]    = vVal1;
-          oOffs--;
-          oOffs -= decY;
-       }
-
-        return true;
-    }
-
-
-    // In YUV420 format the U and V color components are subsampled 1:2 horizontally
-    // and 1:2 vertically
-    private boolean convertYUV444toYUV420(int[] y, int[] u, int[] v)
-    {
-        if (this.downSampler != null)
-        {
-           this.downSampler.subSample(u, u);
-           this.downSampler.subSample(v, v);
-           return true;
-        }
-
-        int startLine = 0;
-        int offset = 0;
-
-        for (int j=this.height-1; j>=0; j-=2)
-        {
-            final int nextLine = startLine + this.stride;
-            final int end = startLine + this.width;
-
-            // Simply decimate
-            for (int i=startLine; i<end; i+=2)
-            {
-                u[offset] = u[i];
-                v[offset] = v[i];
-                offset++;
-            }
-
-            startLine = nextLine + this.stride;
-        }
-
-        return true;
-    }
-
     // In YUV420 format the U and V color components are subsampled 1:2 horizontally
     // and 1:2 vertically
     private boolean convertYUV420toRGB(int[] y, int[] u, int[] v, int[] rgb)
     {
         if (this.upSampler != null)
         {
-           this.convertYUV420toYUV444(y, u, v);
-           this.convertYUV444toRGB(y, u, v, rgb);
-           return true;
+           // Requires u & v of same size as y  
+           this.upSampler.superSample(u, u);
+           this.upSampler.superSample(v, v);
+           return this.convertYUV444toRGB(y, u, v, rgb);
         }
 
         // In-place one-loop super sample and color conversion
         final int sw = this.width >> 1;
         final int sh = this.height >> 1;
         final int stride2 = this.stride << 1;
-        final int rgbOffs = this.rgbOffset;
-        int dLine = this.stride;
-        int sLine = sw;
+        final int rgbOffs = this.offset;
+        int oOffs = this.stride;
+        int iOffs = sw;
         int r, g, b;
         int yVal, bVal, rVal;
 
-        for (int j=0; j<sh; j++)
+        for (int j=sh-1; j>=0; j--)
         {
             // The last iteration (j==sh-1) must repeat the source line
             // EG: src lines 254 & 255 => dest lines 508 & 509
             //     src lines 255 & 255 => dest lines 510 & 511
-            if (j == sh-1)
-               sLine -= sw;
+            if (j == 0)
+               iOffs -= sw;
 
-            int offs = dLine;
-            final int end = sLine + sw;
+            int offs = oOffs;
+            final int end = iOffs + sw;
             int bVal0, bVal1, bVal2, bVal3;
             int rVal0, rVal1, rVal2, rVal3;
-            bVal0 = u[sLine-sw];
-            rVal0 = v[sLine-sw];
-            bVal2 = u[sLine];
-            rVal2 = v[sLine];
+            bVal0 = u[iOffs-sw];
+            rVal0 = v[iOffs-sw];
+            bVal2 = u[iOffs];
+            rVal2 = v[iOffs];
 
-            for (int i=sLine+1; i<end; i++)
+            for (int i=iOffs+1; i<end; i++)
             {
                 bVal1 = u[i-sw];
                 rVal1 = v[i-sw];
@@ -646,8 +403,8 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
 
             rgb[offs+rgbOffs]   =  r | g | b;
             rgb[offs+rgbOffs+1] =  r | g | b;
-            sLine += sw;
-            dLine += stride2;
+            iOffs += sw;
+            oOffs += stride2;
         }
 
         return true;
@@ -660,14 +417,16 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
     {
         if (this.downSampler != null)
         {
-           this.convertRGBtoYUV444(rgb, y, u, v);
-           this.convertYUV444toYUV420(y, u, v);
-           return true;
+           // Requires u & v of same size as y
+           boolean res = this.convertRGBtoYUV444(rgb, y, u, v);
+           this.downSampler.subSample(u, u);
+           this.downSampler.subSample(v, v);
+           return res;
         }
 
-        final int rgbOffs = this.rgbOffset;
         int startLine = 0;
         int offs = 0;
+        final int rgbOffs = this.offset;
 
         for (int j=this.height-1; j>=0; j-=2)
         {
@@ -723,13 +482,14 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
     {
         if (this.upSampler != null)
         {
-           this.convertYUV422toYUV444(y, u, v);
-           this.convertYUV444toRGB(y, u, v, rgb);
-           return true;
+           // Requires u & v of same size as y
+           this.upSampler.superSampleHorizontal(u, u);
+           this.upSampler.superSampleHorizontal(v, v);
+           return this.convertYUV444toRGB(y, u, v, rgb);
         }
 
         final int half = this.width >> 1;
-        final int rgbOffs = this.rgbOffset;
+        final int rgbOffs = this.offset;
         int oOffs = 0;
         int iOffs = 0;
         int k = 0;
@@ -793,12 +553,14 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
     {
         if (this.downSampler != null)
         {
-           this.convertRGBtoYUV444(rgb, y, u, v);
-           this.convertYUV444toYUV422(y, u, v);
-           return true;
+           // Requires u & v of same size as y
+           boolean res = this.convertRGBtoYUV444(rgb, y, u, v);
+           this.downSampler.subSampleHorizontal(u, u);
+           this.downSampler.subSampleHorizontal(v, v);
+           return res;
         }
 
-        int iOffs = this.rgbOffset;
+        int iOffs = this.offset;
         int oOffs = 0;
         final int half = this.width >> 1;
 
