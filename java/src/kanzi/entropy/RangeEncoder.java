@@ -38,7 +38,7 @@ public final class RangeEncoder implements EntropyEncoder
     private long range;
     private final int[] alphabet;
     private final int[] freqs;
-    private final int[] cumFreqs;
+    private final long[] cumFreqs;
     private final EntropyUtils eu;
     private final OutputBitStream bitstream;
     private final int chunkSize;
@@ -73,7 +73,7 @@ public final class RangeEncoder implements EntropyEncoder
       this.bitstream = bs;
       this.alphabet = new int[256];
       this.freqs = new int[256];
-      this.cumFreqs = new int[257];
+      this.cumFreqs = new long[257];
       this.logRange = logRange;
       this.chunkSize = chunkSize;
       this.eu = new EntropyUtils();
@@ -195,8 +195,8 @@ public final class RangeEncoder implements EntropyEncoder
     protected void encodeByte(byte b)
     {
         final int value = b & 0xFF;
-        final int symbolLow = this.cumFreqs[value];
-        final int symbolHigh = this.cumFreqs[value+1];
+        final long symbolLow = this.cumFreqs[value];
+        final long symbolHigh = this.cumFreqs[value+1];
 
         // Compute next low and range
         this.range = (this.range >>> 24) * this.invSum;

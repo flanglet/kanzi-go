@@ -39,7 +39,7 @@ public final class RangeDecoder implements EntropyDecoder
     private long range;
     private final int[] alphabet;
     private final int[] freqs;
-    private final int[] cumFreqs;
+    private final long[] cumFreqs;
     private short[] f2s; // mapping frequency -> symbol
     private final InputBitStream bitstream;
     private final int chunkSize;
@@ -70,7 +70,7 @@ public final class RangeDecoder implements EntropyDecoder
         this.range = TOP_RANGE;
         this.bitstream = bitstream;
         this.chunkSize = chunkSize;
-        this.cumFreqs = new int[257];
+        this.cumFreqs = new long[257];
         this.freqs = new int[256];
         this.alphabet = new int[256];
         this.f2s = new short[0];
@@ -140,7 +140,7 @@ public final class RangeDecoder implements EntropyDecoder
       for (int i=0; i<256; i++)
       {
          this.cumFreqs[i+1] = this.cumFreqs[i] + frequencies[i];
-         final int base = this.cumFreqs[i];
+         final int base = (int) this.cumFreqs[i];
 
          for (int j=frequencies[i]-1; j>=0; j--)
             this.f2s[base+j] = (short) i;
@@ -193,8 +193,8 @@ public final class RangeDecoder implements EntropyDecoder
        final int value = this.f2s[count];
 
        // Compute next low and range
-       final int symbolLow = this.cumFreqs[value];
-       final int symbolHigh = this.cumFreqs[value+1];
+       final long symbolLow = this.cumFreqs[value];
+       final long symbolHigh = this.cumFreqs[value+1];
        this.low += (symbolLow * this.range);
        this.range *= (symbolHigh - symbolLow);
 
