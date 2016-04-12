@@ -992,7 +992,7 @@ public class LossyIntraPredictor
              for (int i=j; i<endi; i+=4)
              {
                 // HORIZONTAL_L: xi-bi
-                final int val0 = (input[i]  & mask_)  - b;
+                final int val0 = (input[i]   & mask_) - b;
                 final int val1 = (input[i+1] & mask_) - b;
                 final int val2 = (input[i+2] & mask_) - b;
                 final int val3 = (input[i+3] & mask_) - b;
@@ -1011,7 +1011,7 @@ public class LossyIntraPredictor
        else if ((direction & DIR_RIGHT) != 0)
        {
           for (int j=start; j<endj; j+=st)
-          {try {
+          {
              final int xMax = this.width - blockDim;             
              final int endi = j + blockDim;
              final int c = (x < xMax) ? input[endi] & mask_ : this.defaultPixVal;
@@ -1032,10 +1032,7 @@ public class LossyIntraPredictor
                 residue[k+2] = val2;
                 residue[k+3] = val3;
                 k += 4;
-             }
-          } catch (Exception e) {
-             e.printStackTrace();
-          }
+             }         
           }
        }
 

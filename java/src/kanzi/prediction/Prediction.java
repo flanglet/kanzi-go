@@ -32,8 +32,8 @@ public class Prediction
       if ((maxBlockDim < 4) || (maxBlockDim > 64))
          throw new IllegalArgumentException("The maximum block dimension must be in the [4..64] range"); // for now
 
-      if ((maxBlockDim & 7) != 0)
-         throw new IllegalArgumentException("The maximum block dimension must be a multiple of 8");
+      if ((maxBlockDim & 3) != 0)
+         throw new IllegalArgumentException("The maximum block dimension must be a multiple of 4");
 
       this.residue = new int[maxBlockDim*maxBlockDim];
       this.blockDim = maxBlockDim;

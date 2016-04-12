@@ -105,7 +105,7 @@ public class BinaryEntropyDecoder implements EntropyDecoder
    {
       // Calculate interval split
       // Written in a way to maximize accuracy of multiplication/division
-      final long xmid = ((((this.high - this.low) >> 7) * this.predictor.get()) >> 5) + this.low;
+      final long xmid = ((((this.high - this.low) >>> 7) * this.predictor.get()) >>> 5) + this.low;
       final int bit;
 
       if (this.current <= xmid)

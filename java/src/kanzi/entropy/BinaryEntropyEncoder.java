@@ -82,7 +82,7 @@ public class BinaryEntropyEncoder implements EntropyEncoder
    {
       // Calculate interval split
       // Written in a way to maximize accuracy of multiplication/division
-      final long split = (((this.high - this.low) >> 7) * this.predictor.get()) >> 5;
+      final long split = (((this.high - this.low) >>> 7) * this.predictor.get()) >>> 5;
 
       // Update fields with new interval bounds
       final long bitmask = bit - 1;
