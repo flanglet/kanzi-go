@@ -123,15 +123,14 @@ public final class RangeDecoder implements EntropyDecoder
       }
 
       // Infer first frequency
-      frequencies[this.alphabet[0]] = scale - sum;
-
-      if ((frequencies[this.alphabet[0]] <= 0) || (frequencies[this.alphabet[0]] > scale))
+      if (scale <= sum)
       {
          throw new BitStreamException("Invalid bitstream: incorrect frequency " +
                  frequencies[this.alphabet[0]] + " for symbol '" + this.alphabet[0] +
                  "' in range decoder", BitStreamException.INVALID_STREAM);
       }
 
+      frequencies[this.alphabet[0]] = scale - sum;
       this.cumFreqs[0] = 0;
 
       if (this.f2s.length < scale)
@@ -141,9 +140,10 @@ public final class RangeDecoder implements EntropyDecoder
       for (int i=0; i<256; i++)
       {
          this.cumFreqs[i+1] = this.cumFreqs[i] + frequencies[i];
+         final int base = this.cumFreqs[i];
 
          for (int j=frequencies[i]-1; j>=0; j--)
-            this.f2s[this.cumFreqs[i]+j] = (short) i;
+            this.f2s[base+j] = (short) i;
       }
       
       this.invSum = (1L<<24) / this.cumFreqs[256];
