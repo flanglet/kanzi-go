@@ -54,13 +54,13 @@ func NewCMPredictor() (*CMPredictor, error) {
 			this.counter1[i][j] = 32768
 		}
 
-		for j := 0; j < 16; j++ {
+		for j := 0; j <= 16; j++ {
 			this.counter2[i+i][j] = j << 12
 			this.counter2[i+i+1][j] = j << 12
 		}
 
-		this.counter2[i+i][16] = 15 << 12
-		this.counter2[i+i+1][16] = 15 << 12
+		this.counter2[i+i][16]  -= 16
+		this.counter2[i+i+1][16] -= 16
 	}
 
 	return this, nil

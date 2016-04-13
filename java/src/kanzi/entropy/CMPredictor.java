@@ -49,14 +49,14 @@ public class CMPredictor implements Predictor
          for (int j=0; j<=256; j++)
             this.counter1[i][j] = 32768;
             
-         for (int j=0; j<16; j++)
+         for (int j=0; j<=16; j++)
          {
             this.counter2[i+i][j]   = j << 12;
             this.counter2[i+i+1][j] = j << 12;
          }
 
-         this.counter2[i+i][16]   = 15 << 12;
-         this.counter2[i+i+1][16] = 15 << 12;
+         this.counter2[i+i][16]   -= 16;
+         this.counter2[i+i+1][16] -= 16;
       }			
    }
    
