@@ -28,16 +28,14 @@ type CMPredictor struct {
 	c2       byte
 	ctx      int
 	run      uint32
-	runMask  int
-	bpos     int
 	idx      int
+	runMask  int
 	counter1 [][]int
 	counter2 [][]int
 }
 
 func NewCMPredictor() (*CMPredictor, error) {
 	this := new(CMPredictor)
-	this.bpos = 7
 	this.ctx = 1
 	this.run = 1
 	this.runMask = 0
@@ -68,25 +66,24 @@ func NewCMPredictor() (*CMPredictor, error) {
 
 // Update the probability model
 func (this *CMPredictor) Update(bit byte) {
-	counter2_ := this.counter2[(this.ctx<<1)|this.runMask]
 	counter1_ := this.counter1[this.ctx]
+	this.ctx <<= 1
+	counter2_ := this.counter2[this.ctx|this.runMask]
 
 	if bit == 0 {
 		counter1_[256] -= (counter1_[256] >> FAST_RATE)
 		counter1_[this.c1] -= (counter1_[this.c1] >> MEDIUM_RATE)
-		counter2_[this.idx] -= (counter2_[this.idx] >> SLOW_RATE)
 		counter2_[this.idx+1] -= (counter2_[this.idx+1] >> SLOW_RATE)
+		counter2_[this.idx] -= (counter2_[this.idx] >> SLOW_RATE)
 	} else {
 		counter1_[256] += ((counter1_[256] ^ 0xFFFF) >> FAST_RATE)
 		counter1_[this.c1] += ((counter1_[this.c1] ^ 0xFFFF) >> MEDIUM_RATE)
-		counter2_[this.idx] += ((counter2_[this.idx] ^ 0xFFFF) >> SLOW_RATE)
 		counter2_[this.idx+1] += ((counter2_[this.idx+1] ^ 0xFFFF) >> SLOW_RATE)
+		counter2_[this.idx] += ((counter2_[this.idx] ^ 0xFFFF) >> SLOW_RATE)
+		this.ctx++
 	}
 
-	this.ctx = (this.ctx << 1) | int(bit)
-
-	if this.bpos == 0 {
-		this.bpos = 7
+	if this.ctx > 255 {
 		this.c2 = this.c1
 		this.c1 = byte(this.ctx)
 		this.ctx = 1
@@ -98,22 +95,20 @@ func (this *CMPredictor) Update(bit byte) {
 			this.run = 0
 			this.runMask = 0
 		}
-	} else {
-		this.bpos--
-	}
+	} 
 }
 
 // Return the split value representing the probability of 1 in the [0..4095] range.
 func (this *CMPredictor) Get() uint {
-	c := this.counter1[this.ctx]
-	p0 := c[256]
-	p1 := c[this.c1]
-	p2 := c[this.c2]
-	p := ((p0 << 2) + p1 + p1 + p1 + p2 + 4) >> 3
+	pc1 := this.counter1[this.ctx]
+	p0 := pc1[256]
+	p1 := pc1[this.c1]
+	p2 := pc1[this.c2]
+	p := ((p0 << 2) + (p1 << 1) + p1 + p2 + 4) >> 3
 	this.idx = p >> 12
-	counter2_ := this.counter2[(this.ctx<<1)|this.runMask]
-	x1 := counter2_[this.idx]
-	x2 := counter2_[this.idx+1]
+	pc2 := this.counter2[(this.ctx<<1)|this.runMask]
+	x1 := pc2[this.idx]
+	x2 := pc2[this.idx+1]
 	ssep := x1 + (((x2 - x1) * (p & 4095)) >> 12)
 	return uint(p+ssep+ssep+ssep+32) >> 6 // rescale to [0..4095]
 }
