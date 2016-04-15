@@ -34,7 +34,7 @@ public final class DivSufSort
 
     private final static int[] SQQ_TABLE =
     {
-        0, 16, 22, 27, 32, 35, 39, 42, 45, 48, 50, 53, 55, 57, 59, 61, 64, 65, 67, 69,
+         0, 16, 22, 27, 32, 35, 39, 42, 45, 48, 50, 53, 55, 57, 59, 61, 64, 65, 67, 69,
         71, 73, 75, 76, 78, 80, 81, 83, 84, 86, 87, 89, 90, 91, 93, 94, 96, 97, 98, 99,
         101, 102, 103, 104, 106, 107, 108, 109, 110, 112, 113, 114, 115, 116, 117, 118,
         119, 120, 121, 122, 123, 124, 125, 126, 128, 128, 129, 130, 131, 132, 133, 134,
@@ -194,7 +194,7 @@ public final class DivSufSort
     }
 
 
-    private int sortTypeBstar(int[] bucket_A, int[] bucket_B, int n)
+    private int sortTypeBstar(int[] bucket_A, int[] bucket_B, final int n)
     {
         int c1 = 0;
         int m = n;
@@ -403,25 +403,32 @@ public final class DivSufSort
                bufSize = limit;
            }
            else
+           {
               limit = 0;
+           }
         }
 
         int a;
         int i = 0;
 
-        for (a=first ; middle-a > SS_BLOCKSIZE; a+=SS_BLOCKSIZE, i++)
+        for (a=first; middle-a>SS_BLOCKSIZE; a+=SS_BLOCKSIZE, i++)
         {
             this.ssMultiKeyIntroSort(pa, a, a+SS_BLOCKSIZE, depth);
             int curBufSize = last - (a + SS_BLOCKSIZE);
-            int curBuf = a + SS_BLOCKSIZE;
-            int k = SS_BLOCKSIZE;
-            int b = a;
+            final int curBuf;
 
-            if (curBufSize <= bufSize)
+            if (curBufSize > bufSize)
+            {
+               curBuf = a + SS_BLOCKSIZE;
+            }
+            else
             {
                 curBufSize = bufSize;
                 curBuf = buf;
             }
+            
+            int k = SS_BLOCKSIZE;
+            int b = a;
 
             for (int j=i; (j&1) != 0; j>>=1)
             {
@@ -433,7 +440,7 @@ public final class DivSufSort
 
         this.ssMultiKeyIntroSort(pa, a, middle, depth);
 
-        for (int k=SS_BLOCKSIZE; i != 0; k<<=1, i>>=1)
+        for (int k=SS_BLOCKSIZE; i!=0; k<<=1, i>>=1)
         {
             if ((i & 1) == 0)
                continue;
@@ -1421,8 +1428,10 @@ public final class DivSufSort
                     limit = ssIlg(last-first);
                 }
                 else
+                {
                     limit++;
-
+                }
+                
                 depth++;
             }
         }
@@ -1450,21 +1459,26 @@ public final class DivSufSort
 
     private int ssMedian5(final int idx, int pa, int v1, int v2, int v3, int v4, int v5)
     {
-        if (this.buffer[idx+this.sa[pa+this.sa[v2]]] > this.buffer[idx+this.sa[pa+this.sa[v3]]])
+        final int b1 = this.buffer[idx+this.sa[pa+this.sa[v1]]];
+        final int b2 = this.buffer[idx+this.sa[pa+this.sa[v2]]];
+        final int b3 = this.buffer[idx+this.sa[pa+this.sa[v3]]];
+        final int b4 = this.buffer[idx+this.sa[pa+this.sa[v4]]];
+        
+        if (b2 > b3)
         {
             final int t = v2;
             v2 = v3;
             v3 = t;
         }
 
-        if (this.buffer[idx+this.sa[pa+this.sa[v4]]] > this.buffer[idx+this.sa[pa+this.sa[v5]]])
+        if (b4 > this.buffer[idx+this.sa[pa+this.sa[v5]]])
         {
             final int t = v4;
             v4 = v5;
             v5 = t;
         }
 
-        if (this.buffer[idx+this.sa[pa+this.sa[v2]]] > this.buffer[idx+this.sa[pa+this.sa[v4]]])
+        if (b2 > b4)
         {
             final int t1 = v2;
             v2 = v4;
@@ -1474,14 +1488,14 @@ public final class DivSufSort
             v5 = t2;
         }
 
-        if (this.buffer[idx+this.sa[pa+this.sa[v1]]] > this.buffer[idx+this.sa[pa+this.sa[v3]]])
+        if (b1 > b3)
         {
             final int t = v1;
             v1 = v3;
             v3 = t;
         }
 
-        if (this.buffer[idx+this.sa[pa+this.sa[v1]]] > this.buffer[idx+this.sa[pa+this.sa[v4]]])
+        if (b1 > b4)
         {
             final int t1 = v1;
             v1 = v4;
@@ -1491,27 +1505,29 @@ public final class DivSufSort
             v5 = t2;
         }
 
-        if (this.buffer[idx+this.sa[pa+this.sa[v3]]] > this.buffer[idx+this.sa[pa+this.sa[v4]]])
+        if (b3 > b4)
             return v4;
 
         return v3;
     }
 
 
-    private int ssMedian3(int Td, int pa, int v1, int v2, int v3)
+    private int ssMedian3(int idx, int pa, int v1, int v2, int v3)
     {
-        final int idx = Td;
+        final int b1 = this.buffer[idx+this.sa[pa+this.sa[v1]]];
+        final int b2 = this.buffer[idx+this.sa[pa+this.sa[v2]]];
+        final int b3 = this.buffer[idx+this.sa[pa+this.sa[v3]]];
 
-        if (this.buffer[idx+this.sa[pa+this.sa[v1]]] > this.buffer[idx+this.sa[pa+this.sa[v2]]])
+        if (b1 > b2)
         {
             final int t = v1;
             v1 = v2;
             v2 = t;
         }
 
-        if (this.buffer[idx+this.sa[pa+this.sa[v2]]] > this.buffer[idx+this.sa[pa+this.sa[v3]]])
+        if (b2 > b3)
         {
-            if (this.buffer[idx+this.sa[pa+this.sa[v1]]] > this.buffer[idx+this.sa[pa+this.sa[v3]]])
+            if (b1 > b3)
                 return v1;
 
             return v3;
