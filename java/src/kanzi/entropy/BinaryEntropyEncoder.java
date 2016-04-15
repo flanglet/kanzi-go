@@ -78,16 +78,15 @@ public class BinaryEntropyEncoder implements EntropyEncoder
    }
 
 
-   protected void encodeBit(int bit)
+   private void encodeBit(int bit)
    {
       // Calculate interval split
       // Written in a way to maximize accuracy of multiplication/division
-      final long split = (((this.high - this.low) >>> 7) * this.predictor.get()) >>> 5;
+      final long split = (((this.high - this.low) >>> 4) * this.predictor.get()) >>> 8;
 
       // Update fields with new interval bounds
-      final long bitmask = bit - 1;
-      this.high -= (~bitmask & (this.high - this.low - split));
-      this.low += (bitmask & (split + 1));
+      this.high -= (-bit & (this.high - this.low - split));
+      this.low += (~-bit & (split + 1));
          
       // Update predictor
       this.predictor.update(bit);
