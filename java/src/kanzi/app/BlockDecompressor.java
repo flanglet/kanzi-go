@@ -304,8 +304,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
          
          try 
          {
-            if (is != null)
-               is.close();
+            is.close();
          } 
          catch (IOException e)
          {

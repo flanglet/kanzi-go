@@ -19,8 +19,6 @@ import kanzi.util.color.YCbCrColorModelConverter;
 import kanzi.util.color.ColorModelConverter;
 import kanzi.Global;
 import kanzi.ColorModelType;
-import kanzi.IndexedIntArray;
-import kanzi.transform.DCT8;
 import kanzi.util.sampling.DecimateDownSampler;
 
 

@@ -304,12 +304,11 @@ public class BlockCompressor implements Runnable, Callable<Integer>
          
           try 
           {
-            if (os != null)
-               os.close();
+             os.close();
           } 
           catch (IOException e)
           {
-            // Ignore
+             // Ignore
           }            
        }
       
