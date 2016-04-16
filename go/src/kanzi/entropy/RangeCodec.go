@@ -24,7 +24,7 @@ import (
 const (
 	TOP_RANGE                = uint64(0x0FFFFFFFFFFFFFFF)
 	BOTTOM_RANGE             = uint64(0x0000000000FFFFFF)
-	MASK                     = uint64(0x0FFFFF0000000000)
+	RANGE_MASK               = uint64(0x0FFFFF0000000000)
 	DEFAULT_RANGE_CHUNK_SIZE = uint(1 << 16) // 64 KB by default
 	DEFAULT_RANGE_LOG_RANGE  = uint(13)
 )
@@ -32,7 +32,6 @@ const (
 type RangeEncoder struct {
 	low       uint64
 	range_    uint64
-	invSum    uint64
 	bitstream kanzi.OutputBitStream
 	freqs     []int
 	cumFreqs  []uint64
@@ -108,10 +107,14 @@ func (this *RangeEncoder) updateFrequencies(frequencies []int, size int, lr uint
 			this.cumFreqs[i+1] = this.cumFreqs[i] + uint64(frequencies[i])
 		}
 
-		this.invSum = uint64(1<<24) / this.cumFreqs[256]
-		this.encodeHeader(alphabetSize, this.alphabet, frequencies, lr)
+		invSum := uint64(1<<24) / this.cumFreqs[256]
+
+		for i := range this.cumFreqs {
+			this.cumFreqs[i] *= invSum
+		}
 	}
 
+	this.encodeHeader(alphabetSize, this.alphabet, frequencies, lr)
 	return alphabetSize, nil
 }
 
@@ -228,18 +231,18 @@ func (this *RangeEncoder) Encode(block []byte) (int, error) {
 }
 
 func (this *RangeEncoder) encodeByte(b byte) {
-	value := int(b)
-	symbolLow := this.cumFreqs[value]
-	symbolHigh := this.cumFreqs[value+1]
+	symbol := int(b)
+	cumFreq := this.cumFreqs[symbol]
+	freq := this.cumFreqs[symbol+1] - cumFreq
 
 	// Compute next low and range
-	this.range_ = (this.range_ >> 24) * this.invSum
-	this.low += (symbolLow * this.range_)
-	this.range_ *= (symbolHigh - symbolLow)
+	this.range_ >>= 24
+	this.low += (cumFreq * this.range_)
+	this.range_ *= freq
 
 	// If the left-most digits are the same throughout the range, write bits to bitstream
 	for {
-		if (this.low^(this.low+this.range_))&MASK != 0 {
+		if (this.low^(this.low+this.range_))&RANGE_MASK != 0 {
 			if this.range_ > BOTTOM_RANGE {
 				break
 			}
@@ -328,6 +331,7 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, uint, error) {
 
 	// Decode frequencies
 	logRange := uint(8 + this.bitstream.ReadBits(3))
+	scale := 1 << logRange
 	sum := 0
 	inc := 16
 	llr := uint(3)
@@ -353,7 +357,7 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, uint, error) {
 		for j := i; j < endj; j++ {
 			val := int(this.bitstream.ReadBits(logMax))
 
-			if val <= 0 || val >= 1<<logRange {
+			if val <= 0 || val >= scale {
 				error := fmt.Errorf("Invalid bitstream: incorrect frequency %v  for symbol '%v' in ANS range decoder", val, this.alphabet[j])
 				return alphabetSize, logRange, error
 			}
@@ -364,15 +368,15 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, uint, error) {
 	}
 
 	// Infer first frequency
-	if 1<<logRange <= sum {
+	if scale <= sum {
 		error := fmt.Errorf("Invalid bitstream: incorrect frequency %v  for symbol '%v' in ANS range decoder", frequencies[this.alphabet[0]], this.alphabet[0])
 		return alphabetSize, logRange, error
 	}
 
-	frequencies[this.alphabet[0]] = (1 << logRange) - sum
+	frequencies[this.alphabet[0]] = scale - sum
 	this.cumFreqs[0] = 0
 
-	if len(this.f2s) < 1<<logRange {
+	if len(this.f2s) < scale {
 		this.f2s = make([]byte, 1<<logRange)
 	}
 
@@ -432,18 +436,18 @@ func (this *RangeDecoder) Decode(block []byte) (int, error) {
 }
 
 func (this *RangeDecoder) decodeByte() byte {
+	// Compute next low and range
 	this.range_ = (this.range_ >> 24) * this.invSum
 	count := int((this.code - this.low) / this.range_)
-	value := int(this.f2s[count])
+	symbol := this.f2s[count]
+	cumFreq := this.cumFreqs[symbol]
+	freq := this.cumFreqs[symbol+1] - cumFreq
+	this.low += (cumFreq * this.range_)
+	this.range_ *= freq
 
-	// Compute next low and range
-	symbolLow := this.cumFreqs[value]
-	symbolHigh := this.cumFreqs[value+1]
-	this.low += (symbolLow * this.range_)
-	this.range_ *= (symbolHigh - symbolLow)
-
+	// If the left-most digits are the same throughout the range, read bits from bitstream
 	for {
-		if (this.low^(this.low+this.range_))&MASK != 0 {
+		if (this.low^(this.low+this.range_))&RANGE_MASK != 0 {
 			if this.range_ > BOTTOM_RANGE {
 				break
 			}
@@ -457,7 +461,7 @@ func (this *RangeDecoder) decodeByte() byte {
 		this.low <<= 20
 	}
 
-	return byte(value)
+	return byte(symbol)
 }
 
 func (this *RangeDecoder) BitStream() kanzi.InputBitStream {

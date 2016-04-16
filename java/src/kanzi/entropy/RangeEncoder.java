@@ -29,7 +29,7 @@ public final class RangeEncoder implements EntropyEncoder
 {
     private static final long TOP_RANGE    = 0x0FFFFFFFFFFFFFFFL;
     private static final long BOTTOM_RANGE = 0x0000000000FFFFFFL;
-    private static final long MASK         = 0x0FFFFF0000000000L;
+    private static final long RANGE_MASK   = 0x0FFFFF0000000000L;
     private static final int DEFAULT_CHUNK_SIZE = 1 << 16; // 64 KB by default
     private static final int DEFAULT_LOG_RANGE = 13;
 
@@ -43,7 +43,6 @@ public final class RangeEncoder implements EntropyEncoder
     private final OutputBitStream bitstream;
     private final int chunkSize;
     private int logRange;
-    private long invSum;
     
     
     public RangeEncoder(OutputBitStream bitstream)
@@ -95,7 +94,10 @@ public final class RangeEncoder implements EntropyEncoder
          for (int i=0; i<256; i++)
             this.cumFreqs[i+1] = this.cumFreqs[i] + frequencies[i];
 
-         this.invSum = (1L<<24) / this.cumFreqs[256];
+         long invSum = (1L<<24) / this.cumFreqs[256];
+
+         for (int i=0; i<=256; i++)
+            this.cumFreqs[i] *= invSum;
       }
       
       this.encodeHeader(alphabetSize, this.alphabet, frequencies, lr);
@@ -182,7 +184,7 @@ public final class RangeEncoder implements EntropyEncoder
         
            for (int i=startChunk; i<endChunk; i++)
               this.encodeByte(array[i]);
-         
+           
            // Flush 'low'
            this.bitstream.writeBits(this.low, 60);
            startChunk = endChunk;
@@ -194,19 +196,19 @@ public final class RangeEncoder implements EntropyEncoder
 
     protected void encodeByte(byte b)
     {
-        final int value = b & 0xFF;
-        final long symbolLow = this.cumFreqs[value];
-        final long symbolHigh = this.cumFreqs[value+1];
+        final int symbol = b & 0xFF;
+        final long cumFreq = this.cumFreqs[symbol];
+        final long freq = this.cumFreqs[symbol+1] - cumFreq;
 
         // Compute next low and range
-        this.range = (this.range >>> 24) * this.invSum;
-        this.low += (symbolLow * this.range);
-        this.range *= (symbolHigh - symbolLow);
+        this.range >>>= 24;
+        this.low += (cumFreq * this.range);
+        this.range *= freq;
  
         // If the left-most digits are the same throughout the range, write bits to bitstream
         while (true)
         {
-            if (((this.low ^ (this.low + this.range)) & MASK) != 0)
+            if (((this.low ^ (this.low + this.range)) & RANGE_MASK) != 0)
             {
                if (this.range > BOTTOM_RANGE)
                   break;

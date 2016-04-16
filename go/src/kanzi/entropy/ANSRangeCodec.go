@@ -102,11 +102,13 @@ func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, size int, lr u
 		return alphabetSize, err
 	}
 
-	this.cumFreqs[0] = 0
+	if alphabetSize > 0 {
+		this.cumFreqs[0] = 0
 
-	// Create histogram of frequencies scaled to 'range'
-	for i := 0; i < 256; i++ {
-		this.cumFreqs[i+1] = this.cumFreqs[i] + frequencies[i]
+		// Create histogram of frequencies scaled to 'range'
+		for i := 0; i < 256; i++ {
+			this.cumFreqs[i+1] = this.cumFreqs[i] + frequencies[i]
+		}
 	}
 
 	this.encodeHeader(alphabetSize, this.alphabet, frequencies, lr)
@@ -226,7 +228,7 @@ func (this *ANSRangeEncoder) Encode(block []byte) (int, error) {
 			freq := uint64(frequencies[symbol])
 
 			// Normalize
-			if st >= top * freq {
+			if st >= top*freq {
 				this.buffer[n] = int32(st)
 				n++
 				st >>= 32
@@ -358,13 +360,12 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, uint, error) 
 	}
 
 	// Infer first frequency
-	frequencies[this.alphabet[0]] = scale - sum
-
-	if frequencies[this.alphabet[0]] <= 0 || frequencies[this.alphabet[0]] > 1<<logRange {
+	if scale <= sum {
 		error := fmt.Errorf("Invalid bitstream: incorrect frequency %v  for symbol '%v' in ANS range decoder", frequencies[this.alphabet[0]], this.alphabet[0])
 		return alphabetSize, logRange, error
 	}
 
+	frequencies[this.alphabet[0]] = scale - sum
 	this.cumFreqs[0] = 0
 
 	if len(this.f2s) < scale {
@@ -374,9 +375,10 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, uint, error) 
 	// Create histogram of frequencies scaled to 'range' and reverse mapping
 	for i := 0; i < 256; i++ {
 		this.cumFreqs[i+1] = this.cumFreqs[i] + frequencies[i]
+		base := int(this.cumFreqs[i])
 
 		for j := frequencies[i] - 1; j >= 0; j-- {
-			this.f2s[this.cumFreqs[i]+j] = byte(i)
+			this.f2s[base+j] = byte(i)
 		}
 	}
 

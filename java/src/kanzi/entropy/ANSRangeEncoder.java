@@ -76,12 +76,16 @@ public class ANSRangeEncoder implements EntropyEncoder
          return -1;
 
       int alphabetSize = this.eu.normalizeFrequencies(frequencies, this.alphabet, size, 1<<lr);
-      this.cumFreqs[0] = 0;
+      
+      if (alphabetSize > 0)
+      {
+         this.cumFreqs[0] = 0;
 
-      // Create histogram of frequencies scaled to 'range'
-      for (int i=0; i<256; i++)
-         this.cumFreqs[i+1] = this.cumFreqs[i] + frequencies[i];
-
+         // Create histogram of frequencies scaled to 'range'
+         for (int i=0; i<256; i++)
+            this.cumFreqs[i+1] = this.cumFreqs[i] + frequencies[i];
+      }
+      
       this.encodeHeader(alphabetSize, this.alphabet, frequencies, lr);
       return alphabetSize;
    }

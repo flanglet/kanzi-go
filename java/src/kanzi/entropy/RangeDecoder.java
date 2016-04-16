@@ -30,7 +30,7 @@ public final class RangeDecoder implements EntropyDecoder
 {
     private static final long TOP_RANGE    = 0x0FFFFFFFFFFFFFFFL;
     private static final long BOTTOM_RANGE = 0x0000000000FFFFFFL;
-    private static final long MASK         = 0x0FFFFF0000000000L;
+    private static final long RANGE_MASK   = 0x0FFFFF0000000000L;
     private static final int DEFAULT_CHUNK_SIZE = 1 << 16; // 64 KB by default
 
 
@@ -188,19 +188,19 @@ public final class RangeDecoder implements EntropyDecoder
 
     protected byte decodeByte()
     {
+       // Compute next low and range
        this.range = (this.range >>> 24) * this.invSum;
        final int count = (int) ((this.code - this.low) / this.range);
-       final int value = this.f2s[count];
+       final int symbol = this.f2s[count];
+       final long cumFreq = this.cumFreqs[symbol];
+       final long freq = this.cumFreqs[symbol+1] - cumFreq;
+       this.low += (cumFreq * this.range);
+       this.range *= freq;
 
-       // Compute next low and range
-       final long symbolLow = this.cumFreqs[value];
-       final long symbolHigh = this.cumFreqs[value+1];
-       this.low += (symbolLow * this.range);
-       this.range *= (symbolHigh - symbolLow);
-
+       // If the left-most digits are the same throughout the range, read bits from bitstream
        while (true)
        {
-          if (((this.low ^ (this.low + this.range)) & MASK) != 0)
+          if (((this.low ^ (this.low + this.range)) & RANGE_MASK) != 0)
           {
              if (this.range > BOTTOM_RANGE)
                 break;
@@ -214,7 +214,7 @@ public final class RangeDecoder implements EntropyDecoder
           this.low <<= 20;
        }
 
-       return (byte) value;
+       return (byte) symbol;
     }
 
 
