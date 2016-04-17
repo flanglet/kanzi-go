@@ -32,13 +32,14 @@ const (
 type RangeEncoder struct {
 	low       uint64
 	range_    uint64
-	bitstream kanzi.OutputBitStream
+	alphabet  []byte
 	freqs     []int
 	cumFreqs  []uint64
-	alphabet  []byte
 	eu        *EntropyUtils
+	bitstream kanzi.OutputBitStream
 	chunkSize int
 	logRange  uint
+	shift     uint
 }
 
 // The chunk size indicates how many bytes are encoded (per block) before
@@ -105,12 +106,6 @@ func (this *RangeEncoder) updateFrequencies(frequencies []int, size int, lr uint
 		// Create histogram of frequencies scaled to 'range'
 		for i := range frequencies {
 			this.cumFreqs[i+1] = this.cumFreqs[i] + uint64(frequencies[i])
-		}
-
-		invSum := uint64(1<<24) / this.cumFreqs[256]
-
-		for i := range this.cumFreqs {
-			this.cumFreqs[i] *= invSum
 		}
 	}
 
@@ -218,6 +213,8 @@ func (this *RangeEncoder) Encode(block []byte) (int, error) {
 			return startChunk, err
 		}
 
+		this.shift = lr
+
 		for i := startChunk; i < endChunk; i++ {
 			this.encodeByte(block[i])
 		}
@@ -231,12 +228,11 @@ func (this *RangeEncoder) Encode(block []byte) (int, error) {
 }
 
 func (this *RangeEncoder) encodeByte(b byte) {
+	// Compute next low and range
 	symbol := int(b)
 	cumFreq := this.cumFreqs[symbol]
 	freq := this.cumFreqs[symbol+1] - cumFreq
-
-	// Compute next low and range
-	this.range_ >>= 24
+	this.range_ >>= this.shift
 	this.low += (cumFreq * this.range_)
 	this.range_ *= freq
 
@@ -268,13 +264,13 @@ type RangeDecoder struct {
 	code      uint64
 	low       uint64
 	range_    uint64
-	invSum    uint64
-	bitstream kanzi.InputBitStream
+	alphabet  []byte
 	freqs     []int
 	cumFreqs  []uint64
-	f2s       []byte // mapping frequency -> symbol
-	alphabet  []byte
+	f2s       []uint16 // mapping frequency -> symbol
+	bitstream kanzi.InputBitStream
 	chunkSize int
+	shift     uint
 }
 
 // The chunk size indicates how many bytes are encoded (per block) before
@@ -311,16 +307,16 @@ func NewRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*RangeDecoder, erro
 	this.alphabet = make([]byte, 256)
 	this.freqs = make([]int, 256)
 	this.cumFreqs = make([]uint64, 257)
-	this.f2s = make([]byte, 0)
+	this.f2s = make([]uint16, 0)
 	this.chunkSize = int(chkSize)
 	return this, nil
 }
 
-func (this *RangeDecoder) decodeHeader(frequencies []int) (int, uint, error) {
+func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
 	alphabetSize, err := DecodeAlphabet(this.bitstream, this.alphabet)
 
 	if err != nil || alphabetSize == 0 {
-		return alphabetSize, 0, nil
+		return alphabetSize, nil
 	}
 
 	if alphabetSize != 256 {
@@ -332,6 +328,7 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, uint, error) {
 	// Decode frequencies
 	logRange := uint(8 + this.bitstream.ReadBits(3))
 	scale := 1 << logRange
+	this.shift = logRange
 	sum := 0
 	inc := 16
 	llr := uint(3)
@@ -359,7 +356,7 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, uint, error) {
 
 			if val <= 0 || val >= scale {
 				error := fmt.Errorf("Invalid bitstream: incorrect frequency %v  for symbol '%v' in ANS range decoder", val, this.alphabet[j])
-				return alphabetSize, logRange, error
+				return alphabetSize, error
 			}
 
 			frequencies[this.alphabet[j]] = val
@@ -370,14 +367,14 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, uint, error) {
 	// Infer first frequency
 	if scale <= sum {
 		error := fmt.Errorf("Invalid bitstream: incorrect frequency %v  for symbol '%v' in ANS range decoder", frequencies[this.alphabet[0]], this.alphabet[0])
-		return alphabetSize, logRange, error
+		return alphabetSize, error
 	}
 
 	frequencies[this.alphabet[0]] = scale - sum
 	this.cumFreqs[0] = 0
 
 	if len(this.f2s) < scale {
-		this.f2s = make([]byte, 1<<logRange)
+		this.f2s = make([]uint16, scale)
 	}
 
 	// Create histogram of frequencies scaled to 'range' and reverse mapping
@@ -386,12 +383,11 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, uint, error) {
 		base := int(this.cumFreqs[i])
 
 		for j := frequencies[i] - 1; j >= 0; j-- {
-			this.f2s[base+j] = byte(i)
+			this.f2s[base+j] = uint16(i)
 		}
 	}
 
-	this.invSum = uint64(1<<24) / this.cumFreqs[256]
-	return alphabetSize, logRange, nil
+	return alphabetSize, nil
 }
 
 // Initialize once (if necessary) at the beginning, the use the faster decodeByte_()
@@ -410,7 +406,7 @@ func (this *RangeDecoder) Decode(block []byte) (int, error) {
 	}
 
 	for startChunk < end {
-		alphabetSize, _, err := this.decodeHeader(this.freqs)
+		alphabetSize, err := this.decodeHeader(this.freqs)
 
 		if err != nil || alphabetSize == 0 {
 			return startChunk, err
@@ -437,7 +433,7 @@ func (this *RangeDecoder) Decode(block []byte) (int, error) {
 
 func (this *RangeDecoder) decodeByte() byte {
 	// Compute next low and range
-	this.range_ = (this.range_ >> 24) * this.invSum
+	this.range_ >>= this.shift
 	count := int((this.code - this.low) / this.range_)
 	symbol := this.f2s[count]
 	cumFreq := this.cumFreqs[symbol]

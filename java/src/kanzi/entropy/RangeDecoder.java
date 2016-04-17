@@ -43,7 +43,7 @@ public final class RangeDecoder implements EntropyDecoder
     private short[] f2s; // mapping frequency -> symbol
     private final InputBitStream bitstream;
     private final int chunkSize;
-    private long invSum;
+    private int shift;
 
     
     public RangeDecoder(InputBitStream bitstream)
@@ -92,6 +92,7 @@ public final class RangeDecoder implements EntropyDecoder
 
       final int logRange = (int) (8 + this.bitstream.readBits(3));
       final int scale = 1 << logRange;
+      this.shift = logRange;
       int sum = 0;
       int inc = (alphabetSize > 64) ? 16 : 8;
       int llr = 3;
@@ -146,7 +147,6 @@ public final class RangeDecoder implements EntropyDecoder
             this.f2s[base+j] = (short) i;
       }
       
-      this.invSum = (1L<<24) / this.cumFreqs[256];
       return alphabetSize;
     }
    
@@ -154,9 +154,9 @@ public final class RangeDecoder implements EntropyDecoder
     // Initialize once (if necessary) at the beginning, the use the faster decodeByte_()
     // Reset frequency stats for each chunk of data in the block
     @Override
-    public int decode(byte[] array, int blkptr, int len)
+    public int decode(byte[] block, int blkptr, int len)
     {
-      if ((array == null) || (blkptr + len > array.length) || (blkptr < 0) || (len < 0))
+      if ((block == null) || (blkptr + len > block.length) || (blkptr < 0) || (len < 0))
          return -1;
 
       if (len == 0)
@@ -177,7 +177,7 @@ public final class RangeDecoder implements EntropyDecoder
          final int endChunk = (startChunk + sz < end) ? startChunk + sz : end;
 
          for (int i=startChunk; i<endChunk; i++)
-            array[i] = this.decodeByte();
+            block[i] = this.decodeByte();
 
          startChunk = endChunk;
       }
@@ -189,7 +189,7 @@ public final class RangeDecoder implements EntropyDecoder
     protected byte decodeByte()
     {
        // Compute next low and range
-       this.range = (this.range >>> 24) * this.invSum;
+       this.range >>>= this.shift;
        final int count = (int) ((this.code - this.low) / this.range);
        final int symbol = this.f2s[count];
        final long cumFreq = this.cumFreqs[symbol];

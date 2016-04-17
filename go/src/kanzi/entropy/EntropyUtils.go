@@ -352,6 +352,7 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []byte, cou
 	ranks := this.ranks
 	errors := this.errors
 	sum := -scale
+
 	// Scale frequencies by stretching distribution over complete range
 	for i := 0; i < 256; i++ {
 		alphabet[i] = 0

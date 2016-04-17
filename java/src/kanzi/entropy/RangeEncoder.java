@@ -42,7 +42,8 @@ public final class RangeEncoder implements EntropyEncoder
     private final EntropyUtils eu;
     private final OutputBitStream bitstream;
     private final int chunkSize;
-    private int logRange;
+    private final int logRange;
+    private int shift;
     
     
     public RangeEncoder(OutputBitStream bitstream)
@@ -93,11 +94,6 @@ public final class RangeEncoder implements EntropyEncoder
          // Create histogram of frequencies scaled to 'range'
          for (int i=0; i<256; i++)
             this.cumFreqs[i+1] = this.cumFreqs[i] + frequencies[i];
-
-         long invSum = (1L<<24) / this.cumFreqs[256];
-
-         for (int i=0; i<=256; i++)
-            this.cumFreqs[i] *= invSum;
       }
       
       this.encodeHeader(alphabetSize, this.alphabet, frequencies, lr);
@@ -181,10 +177,11 @@ public final class RangeEncoder implements EntropyEncoder
           
            // Rebuild statistics
            this.updateFrequencies(frequencies, endChunk-startChunk, lr);
-        
+           this.shift = lr;
+           
            for (int i=startChunk; i<endChunk; i++)
               this.encodeByte(array[i]);
-           
+          
            // Flush 'low'
            this.bitstream.writeBits(this.low, 60);
            startChunk = endChunk;
@@ -196,12 +193,11 @@ public final class RangeEncoder implements EntropyEncoder
 
     protected void encodeByte(byte b)
     {
+        // Compute next low and range
         final int symbol = b & 0xFF;
         final long cumFreq = this.cumFreqs[symbol];
         final long freq = this.cumFreqs[symbol+1] - cumFreq;
-
-        // Compute next low and range
-        this.range >>>= 24;
+        this.range >>>= this.shift;
         this.low += (cumFreq * this.range);
         this.range *= freq;
  
