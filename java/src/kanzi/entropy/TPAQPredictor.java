@@ -18,7 +18,8 @@ import kanzi.Global;
 
 
 // Tangelo PAQ predictor
-// Derived from a modified version of Tangelo 2.4
+// Derived from a modified version of Tangelo 2.4 (by Jan Ondrus).
+// PAQ8 is written by Matt Mahoney.
 // See http://encode.ru/threads/1738-TANGELO-new-compressor-(derived-from-PAQ8-FP8)
 
 public class TPAQPredictor implements Predictor
@@ -581,8 +582,8 @@ public class TPAQPredictor implements Predictor
      this.states = new byte[MASK3+1];
      this.hashes = new int[HASH_SIZE];
      this.buffer = new byte[MASK2+1]; 
-     this.cp = new int[7];
-     this.ctx = new int[7];   
+     this.cp = new int[8];
+     this.ctx = new int[8];   
      this.apm = new AdaptiveProbMap(65536, 7);
      this.mixer = new Mixer(MIXER_SIZE);
      this.bpos = 0;
@@ -795,18 +796,18 @@ public class TPAQPredictor implements Predictor
          if (err == 0)
             return;        
 
-         err = (err << 3) - err;
+         err = (err << 4) - err;
 
          // Train Neural Network: update weights
-         this.buffer[this.ctx+8]  += ((this.buffer[this.ctx]  *err + 0) >> 16);  
-         this.buffer[this.ctx+9]  += ((this.buffer[this.ctx+1]*err + 0) >> 16);  
-         this.buffer[this.ctx+10] += ((this.buffer[this.ctx+2]*err + 0) >> 16);  
-         this.buffer[this.ctx+11] += ((this.buffer[this.ctx+3]*err + 0) >> 16);  
-         this.buffer[this.ctx+12] += ((this.buffer[this.ctx+4]*err + 0) >> 16);  
-         this.buffer[this.ctx+13] += ((this.buffer[this.ctx+5]*err + 0) >> 16);  
-         this.buffer[this.ctx+14] += ((this.buffer[this.ctx+6]*err + 0) >> 16);  
-         this.buffer[this.ctx+15] += ((this.buffer[this.ctx+7]*err + 0) >> 16);                    
-     }
+         this.buffer[this.ctx+8]  += ((this.buffer[this.ctx]  *err + 0) >> 15);  
+         this.buffer[this.ctx+9]  += ((this.buffer[this.ctx+1]*err + 0) >> 15);  
+         this.buffer[this.ctx+10] += ((this.buffer[this.ctx+2]*err + 0) >> 15);  
+         this.buffer[this.ctx+11] += ((this.buffer[this.ctx+3]*err + 0) >> 15);  
+         this.buffer[this.ctx+12] += ((this.buffer[this.ctx+4]*err + 0) >> 15);  
+         this.buffer[this.ctx+13] += ((this.buffer[this.ctx+5]*err + 0) >> 15);  
+         this.buffer[this.ctx+14] += ((this.buffer[this.ctx+6]*err + 0) >> 15);  
+         this.buffer[this.ctx+15] += ((this.buffer[this.ctx+7]*err + 0) >> 15);                    
+      }
            
       void setContext(int ctx)
       {
@@ -831,7 +832,7 @@ public class TPAQPredictor implements Predictor
                   + (this.buffer[this.ctx+6]*this.buffer[this.ctx+14])
                   + (this.buffer[this.ctx+7]*this.buffer[this.ctx+15]);
 
-         this.pr = Global.squash(p>>15);
+         this.pr = Global.squash(p>>17);
          return this.pr;
       }
 

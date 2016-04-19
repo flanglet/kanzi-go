@@ -20,7 +20,8 @@ import (
 )
 
 // Tangelo PAQ predictor
-// Derived from a modified version of Tangelo 2.4
+// Derived from a modified version of Tangelo 2.4 (by Jan Ondrus).
+// PAQ8 is written by Matt Mahoney.
 // See http://encode.ru/threads/1738-TANGELO-new-compressor-(derived-from-PAQ8-FP8)
 
 const (
@@ -579,8 +580,8 @@ func NewTPAQPredictor() (*TPAQPredictor, error) {
 	this.states = make([]uint8, TPAQ_MASK3+1)
 	this.hashes = make([]int, TPAQ_HASH_SIZE)
 	this.buffer = make([]int8, TPAQ_MASK2+1)
-	this.cp = make([]int, 7)
-	this.ctx = make([]int, 7)
+	this.cp = make([]int, 8)
+	this.ctx = make([]int, 8)
 	this.bpos = 0
 	this.apm, err = newTPAQAdaptiveProbMap(65536, 7)
 
@@ -798,17 +799,17 @@ func (this *TPAQMixer) update(bit int) {
 		return
 	}
 
-	err = (err << 3) - err
+	err = (err << 4) - err
 
 	// Train Neural Network: update weights
-	this.buffer[this.ctx+8] += ((this.buffer[this.ctx]*err + 0) >> 16)
-	this.buffer[this.ctx+9] += ((this.buffer[this.ctx+1]*err + 0) >> 16)
-	this.buffer[this.ctx+10] += ((this.buffer[this.ctx+2]*err + 0) >> 16)
-	this.buffer[this.ctx+11] += ((this.buffer[this.ctx+3]*err + 0) >> 16)
-	this.buffer[this.ctx+12] += ((this.buffer[this.ctx+4]*err + 0) >> 16)
-	this.buffer[this.ctx+13] += ((this.buffer[this.ctx+5]*err + 0) >> 16)
-	this.buffer[this.ctx+14] += ((this.buffer[this.ctx+6]*err + 0) >> 16)
-	this.buffer[this.ctx+15] += ((this.buffer[this.ctx+7]*err + 0) >> 16)
+	this.buffer[this.ctx+8] += ((this.buffer[this.ctx]*err + 0) >> 15)
+	this.buffer[this.ctx+9] += ((this.buffer[this.ctx+1]*err + 0) >> 15)
+	this.buffer[this.ctx+10] += ((this.buffer[this.ctx+2]*err + 0) >> 15)
+	this.buffer[this.ctx+11] += ((this.buffer[this.ctx+3]*err + 0) >> 15)
+	this.buffer[this.ctx+12] += ((this.buffer[this.ctx+4]*err + 0) >> 15)
+	this.buffer[this.ctx+13] += ((this.buffer[this.ctx+5]*err + 0) >> 15)
+	this.buffer[this.ctx+14] += ((this.buffer[this.ctx+6]*err + 0) >> 15)
+	this.buffer[this.ctx+15] += ((this.buffer[this.ctx+7]*err + 0) >> 15)
 }
 
 func (this *TPAQMixer) setContext(ctx int32) {
@@ -831,7 +832,7 @@ func (this *TPAQMixer) get() int {
 		(this.buffer[this.ctx+6] * this.buffer[this.ctx+14]) +
 		(this.buffer[this.ctx+7] * this.buffer[this.ctx+15])
 
-	this.pr = kanzi.Squash(p >> 15)
+	this.pr = kanzi.Squash(p >> 17)
 	return this.pr
 }
 
