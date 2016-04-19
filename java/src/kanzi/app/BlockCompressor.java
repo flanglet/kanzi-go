@@ -155,7 +155,8 @@ public class BlockCompressor implements Runnable, Callable<Integer>
       }
       catch (IOException ioe)
       {
-         /* ignore */
+         System.err.println("Compression failed "+ioe.getMessage());
+         System.exit(Error.ERR_CREATE_COMPRESSOR);
       }
       
       if ((this.pool != null) && (this.ownPool == true))
