@@ -649,7 +649,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 	// Get prediction from NN
 	p := this.mixer.get()
 
-	// SSE (Secondary Symbol Estimation) 
+	// SSE (Secondary Symbol Estimation)
 	p = this.apm.get(y, p, int(this.c0|(this.c4&0xFF00)))
 	this.pr = uint(p - ((p - 2048) >> 31))
 }
@@ -776,7 +776,8 @@ func (this *TPAQAdaptiveProbMap) get(bit int, pr int, ctx int) int {
 // - m.get() called once to predict the next bit, returns 0..4095
 // - m.update(y) called once for actual bit y=(0..1).
 type TPAQMixer struct {
-	buffer []int // packed buffer: 8 inputs + 8 weights per ctx
+	data   []int // packed buffer: 8 inputs + 8 weights per ctx
+	buffer []int //alias of the data buffer
 	ctx    int   // context
 	idx    int   // input index
 	pr     int   // squashed prediction
@@ -785,7 +786,8 @@ type TPAQMixer struct {
 func newTPAQMixer(size int) (*TPAQMixer, error) {
 	var err error
 	this := new(TPAQMixer)
-	this.buffer = make([]int, size*16) // context index << 4
+	this.data = make([]int, size*16) // context index << 4
+	this.buffer = this.data[0:16]
 	this.pr = 2048
 	return this, err
 }
@@ -802,41 +804,42 @@ func (this *TPAQMixer) update(bit int) {
 	err = (err << 4) - err
 
 	// Train Neural Network: update weights
-	this.buffer[this.ctx+8] += ((this.buffer[this.ctx]*err + 0) >> 15)
-	this.buffer[this.ctx+9] += ((this.buffer[this.ctx+1]*err + 0) >> 15)
-	this.buffer[this.ctx+10] += ((this.buffer[this.ctx+2]*err + 0) >> 15)
-	this.buffer[this.ctx+11] += ((this.buffer[this.ctx+3]*err + 0) >> 15)
-	this.buffer[this.ctx+12] += ((this.buffer[this.ctx+4]*err + 0) >> 15)
-	this.buffer[this.ctx+13] += ((this.buffer[this.ctx+5]*err + 0) >> 15)
-	this.buffer[this.ctx+14] += ((this.buffer[this.ctx+6]*err + 0) >> 15)
-	this.buffer[this.ctx+15] += ((this.buffer[this.ctx+7]*err + 0) >> 15)
+	this.buffer[8] += ((this.buffer[0]*err + 0) >> 15)
+	this.buffer[9] += ((this.buffer[1]*err + 0) >> 15)
+	this.buffer[10] += ((this.buffer[2]*err + 0) >> 15)
+	this.buffer[11] += ((this.buffer[3]*err + 0) >> 15)
+	this.buffer[12] += ((this.buffer[4]*err + 0) >> 15)
+	this.buffer[13] += ((this.buffer[5]*err + 0) >> 15)
+	this.buffer[14] += ((this.buffer[6]*err + 0) >> 15)
+	this.buffer[15] += ((this.buffer[7]*err + 0) >> 15)
 }
 
 func (this *TPAQMixer) setContext(ctx int32) {
-	this.ctx = int(ctx << 4)
+	cx := int(ctx << 4)
+	this.buffer = this.data[cx : cx+16]
 }
 
 func (this *TPAQMixer) get() int {
 	for this.idx&7 != 0 {
-		this.buffer[this.ctx+this.idx] = 64
+		this.buffer[this.idx] = 64
 		this.idx++
 	}
 
 	// Neural Network dot product (sum weights*inputs)
-	p := (this.buffer[this.ctx] * this.buffer[this.ctx+8]) +
-		(this.buffer[this.ctx+1] * this.buffer[this.ctx+9]) +
-		(this.buffer[this.ctx+2] * this.buffer[this.ctx+10]) +
-		(this.buffer[this.ctx+3] * this.buffer[this.ctx+11]) +
-		(this.buffer[this.ctx+4] * this.buffer[this.ctx+12]) +
-		(this.buffer[this.ctx+5] * this.buffer[this.ctx+13]) +
-		(this.buffer[this.ctx+6] * this.buffer[this.ctx+14]) +
-		(this.buffer[this.ctx+7] * this.buffer[this.ctx+15])
+	p := (this.buffer[0] * this.buffer[8]) +
+		(this.buffer[1] * this.buffer[9]) +
+		(this.buffer[2] * this.buffer[10]) +
+		(this.buffer[3] * this.buffer[11]) +
+		(this.buffer[4] * this.buffer[12]) +
+		(this.buffer[5] * this.buffer[13]) +
+		(this.buffer[6] * this.buffer[14]) +
+		(this.buffer[7] * this.buffer[15])
 
 	this.pr = kanzi.Squash(p >> 17)
 	return this.pr
 }
 
 func (this *TPAQMixer) addInput(pred int) {
-	this.buffer[this.ctx+this.idx] = pred
+	this.buffer[this.idx] = pred
 	this.idx++
 }
