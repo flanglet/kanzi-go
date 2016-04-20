@@ -16,59 +16,44 @@ limitations under the License.
 package entropy
 
 const (
-	THRESHOLD = 96
+	PSCALE = 4096
 )
 
-var INVERSE = initInverse()
-
-func initInverse() []uint {
-	res := make([]uint, 2*THRESHOLD+4)
-
-	for i := 1; i < len(res); i++ {
-		res[i] = (1 << 16) / uint(i)
-	}
-
-	return res
-}
-
-// Based on fpaq1 by Matt Mahoney
+// Derived from fpaq0r by Matt Mahoney & Alexander Ratushnyak.
+// See http://mattmahoney.net/dc/#fpaq0.
 // Simple (and fast) adaptive order 0 entropy coder predictor
 type FPAQPredictor struct {
-	states     []uint // 256 frequency contexts for each bit
-	ctxIdx     int    // previous bits
-	prediction uint
+	probs  []int // probability of bit=1
+	ctxIdx int    // previous bits
 }
 
 func NewFPAQPredictor() (*FPAQPredictor, error) {
 	this := new(FPAQPredictor)
-	this.ctxIdx = 2
-	this.states = make([]uint, 512)
-	this.prediction = 2048
+	this.ctxIdx = 1
+	this.probs = make([]int, 256)
+
+	for i := range this.probs {
+		this.probs[i] = PSCALE >> 1
+	}
+
 	return this, nil
 }
 
 // Update the probability model
+// bit == 1 -> prob += (3*((PSCALE-(prob+16))) >> 7);
+// bit == 0 -> prob -= (3*(prob+16)) >> 7);
 func (this *FPAQPredictor) Update(bit byte) {
-	// Find the number of registered 0 & 1 given the previous bits (in this.ctxIdx)
-	idx := this.ctxIdx | int(bit&1)
-	this.states[idx]++
-
-	if this.states[idx] >= THRESHOLD {
-		this.states[idx&-2] >>= 1
-		this.states[(idx&-2)+1] >>= 1
-	}
+	this.probs[this.ctxIdx] -= ((3 * ((this.probs[this.ctxIdx] + 16) - (PSCALE & -int(bit)))) >> 7)
 
 	// Update context by registering the current bit (or wrapping after 8 bits)
-	if idx < 256 {
-		this.ctxIdx = idx << 1
-		this.prediction = ((this.states[this.ctxIdx+1]+1)*INVERSE[this.states[this.ctxIdx]+this.states[this.ctxIdx+1]+3] + 8) >> 4
+	if this.ctxIdx < 128 {
+		this.ctxIdx = (this.ctxIdx << 1) | int(bit)
 	} else {
-		this.ctxIdx = 2
-		this.prediction = ((this.states[3]+1)*INVERSE[this.states[2]+this.states[3]+3] + 8) >> 4
+		this.ctxIdx = 1
 	}
 }
 
 // Return the split value representing the probability of 1 in the [0..4095] range.
 func (this *FPAQPredictor) Get() uint {
-	return this.prediction
+	return uint(this.probs[this.ctxIdx])
 }

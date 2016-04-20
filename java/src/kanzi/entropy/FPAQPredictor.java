@@ -15,62 +15,38 @@ limitations under the License.
 package kanzi.entropy;
 
 
-// Based on fpaq1 by Matt Mahoney
+// Derived from fpaq0r by Matt Mahoney & Alexander Ratushnyak.
 // Simple (and fast) adaptive order 0 entropy coder predictor
 public class FPAQPredictor implements Predictor
-{
-   private static final int THRESHOLD = 96;   
-   private static final int[] INVERSE = initInverse();
-   
-   private static int[] initInverse()
-   {
-      final int[] res = new int[2*THRESHOLD+4];
-      
-      for (int i=1; i<res.length; i++)
-         res[i] = (1<<16) / i;
-         
-      return res;
-   }
-      
-   
-   private final short[] states; // 256 frequency contexts for each bit
+{ 
+   private static final int PSCALE = 4096;
+   private final short[] probs; // probability of bit=1
    private int ctxIdx; // previous bits
-   private int prediction;
-   
+
    
    public FPAQPredictor()
    {
-      this.ctxIdx = 2;
-      this.states = new short[512];    
-      this.prediction = 2048;
+      this.ctxIdx = 1;
+      this.probs = new short[256];  
+ 
+      for (int i=0; i<256; i++)
+         this.probs[i] = PSCALE >> 1;
    }
    
    
    // Update the probability model
+   // bit == 1 -> prob += (3*((PSCALE-(prob+16))) >> 7);
+   // bit == 0 -> prob -= (3*(prob+16)) >> 7);
    @Override
    public void update(int bit)
    {
-      final int idx = this.ctxIdx | (bit & 1);
-      this.states[idx]++;
-      
-      // Find the number of registered 0 & 1 given the previous bits (in this.ctxIdx)
-      if (this.states[idx] >= THRESHOLD) 
-      {
-         this.states[idx&-2] >>= 1;
-         this.states[(idx&-2)+1] >>= 1;
-      }
-      
+      this.probs[this.ctxIdx] -= ((3*((this.probs[this.ctxIdx]+16) - (PSCALE & -bit))) >> 7);
+
       // Update context by registering the current bit (or wrapping after 8 bits)
-      if (idx < 256)
-      {
-         this.ctxIdx = idx << 1;
-         this.prediction = ((this.states[this.ctxIdx+1]+1) * INVERSE[this.states[this.ctxIdx]+this.states[this.ctxIdx+1]+3] + 8) >> 4;
-      }
+      if (this.ctxIdx < 128)
+         this.ctxIdx = (this.ctxIdx << 1) | bit;      
       else
-      {
-         this.ctxIdx = 2;
-         this.prediction = ((this.states[3]+1) * INVERSE[this.states[2]+this.states[3]+3] + 8) >> 4;            
-      }
+         this.ctxIdx = 1;
    }
 
    
@@ -78,6 +54,6 @@ public class FPAQPredictor implements Predictor
    @Override
    public int get()
    {
-      return this.prediction;
+      return this.probs[this.ctxIdx];
    }
 }   
