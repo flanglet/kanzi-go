@@ -16,6 +16,7 @@ package kanzi.entropy;
 
 
 // Derived from fpaq0r by Matt Mahoney & Alexander Ratushnyak.
+// See http://mattmahoney.net/dc/#fpaq0.
 // Simple (and fast) adaptive order 0 entropy coder predictor
 public class FPAQPredictor implements Predictor
 { 

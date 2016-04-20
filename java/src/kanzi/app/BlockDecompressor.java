@@ -111,7 +111,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       }
       catch (IOException ioe)
       {
-         System.err.println("Decompression failed "+ioe.getMessage());
+         System.err.println("Decompression failed. " + ioe.getMessage());
          System.exit(Error.ERR_CREATE_COMPRESSOR);
       }
 
