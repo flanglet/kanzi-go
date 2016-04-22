@@ -501,15 +501,6 @@ func (this *EncodingTask) encode() {
 		return
 	}
 
-	// Each block is encoded separately
-	// Rebuild the entropy encoder to reset block statistics
-	ee, err := entropy.NewEntropyEncoder(this.obs, this.typeOfEntropy)
-
-	if err != nil {
-		this.output <- NewIOError(err.Error(), ERR_CREATE_CODEC)
-		return
-	}
-
 	// Write block 'header' (mode + compressed length)
 	written := this.obs.Written()
 	this.obs.WriteBits(uint64(mode), 8)
@@ -529,6 +520,15 @@ func (this *EncodingTask) encode() {
 			blockSize: int(postTransformLength), time_: time.Now(),
 			hash: checksum, hashing: this.hasher != nil}
 		notifyListeners(this.listeners, evt)
+	}
+
+	// Each block is encoded separately
+	// Rebuild the entropy encoder to reset block statistics
+	ee, err := entropy.NewEntropyEncoder(this.obs, this.typeOfEntropy)
+
+	if err != nil {
+		this.output <- NewIOError(err.Error(), ERR_CREATE_CODEC)
+		return
 	}
 
 	// Entropy encode block

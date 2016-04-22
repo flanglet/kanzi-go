@@ -581,10 +581,6 @@ public class CompressedOutputStream extends OutputStream
                LockSupport.parkNanos(10);
             }
 
-            // Each block is encoded separately
-            // Rebuild the entropy encoder to reset block statistics
-            ee = new EntropyCodecFactory().newEncoder(this.obs, typeOfEntropy);
-
             // Write block 'header' (mode + compressed length);
             final long written = this.obs.written();
             this.obs.writeBits(mode, 8);
@@ -605,6 +601,10 @@ public class CompressedOutputStream extends OutputStream
                notifyListeners(this.listeners, evt);
             }
    
+            // Each block is encoded separately
+            // Rebuild the entropy encoder to reset block statistics
+            ee = new EntropyCodecFactory().newEncoder(this.obs, typeOfEntropy);
+
             // Entropy encode block
             if (ee.encode(buffer.array, 0, postTransformLength) != postTransformLength)
                return new Status(currentBlockId, Error.ERR_PROCESS_BLOCK, "Entropy coding failed");
