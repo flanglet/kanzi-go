@@ -618,7 +618,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.addContext(hashTPAQ(TPAQ_C1, this.c4<<24)) // hash with random primes
 		this.addContext(hashTPAQ(TPAQ_C2, this.c4<<16))
 		this.addContext(hashTPAQ(TPAQ_C3, this.c4<<8))
-		this.addContext(hashTPAQ(TPAQ_C4, this.c4&0xF0F0F0F0))
+		this.addContext(hashTPAQ(TPAQ_C4, this.c4&-252645136)) // 0xF0F0F0F0
 		this.addContext(hashTPAQ(TPAQ_C5, this.c4))
 		this.addContext(hashTPAQ(this.c4>>shiftIsBinary,
 			(int32(this.buffer[(this.pos-8)&TPAQ_MASK2])<<16)|
