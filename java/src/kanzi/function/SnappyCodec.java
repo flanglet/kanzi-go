@@ -71,7 +71,7 @@ public final class SnappyCodec implements ByteFunction, Sizeable
    @Override
    public boolean setSize(int sz)
    {
-      if (size < 0)
+      if (sz < 0)
          return false;
       
       this.size = sz;
