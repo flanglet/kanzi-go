@@ -33,14 +33,14 @@ public class EntropyUtils
    private static final int ABSENT_SYMBOLS_MASK = 1;
 
 
-   private int[] buf1;
-   private int[] buf2;
+   private int[] ranks;
+   private int[] errors;
 
 
    public EntropyUtils()
    {
-      this.buf1 = new int[0];
-      this.buf2 = new int[0];
+      this.ranks = new int[0];
+      this.errors = new int[0];
    }
 
 
@@ -271,7 +271,7 @@ public class EntropyUtils
       // range == count shortcut
       if (count == scale)
       {
-         for (int i=0; i<256; i++)
+         for (int i=0; i<freqs.length; i++)
          {
             if (freqs[i] != 0)
                alphabet[alphabetSize++] = i;
@@ -280,22 +280,20 @@ public class EntropyUtils
          return alphabetSize;
       }
 
-      if (this.buf1.length < 256)
-         this.buf1 = new int[256];
+      if (this.ranks.length < alphabet.length)
+         this.ranks = new int[alphabet.length];
 
-      if (this.buf2.length < 256)
-         this.buf2 = new int[256];
+      if (this.errors.length < alphabet.length)
+         this.errors = new int[alphabet.length];
 
-      final int[] ranks = this.buf1;
-      final int[] errors = this.buf2;
       int sum = -scale;
 
       // Scale frequencies by stretching distribution over complete range
-      for (int i=0; i<256; i++)
+      for (int i=0; i<alphabet.length; i++)
       {
          alphabet[i] = 0;
-         errors[i] = -1;
-         ranks[i] = i;
+         this.errors[i] = -1;
+         this.ranks[i] = i;
 
          if (freqs[i] == 0)
             continue;
@@ -317,11 +315,11 @@ public class EntropyUtils
             if (errCeiling < errFloor)
             {
                scaledFreq++;
-               errors[i] = (int) errCeiling;
+               this.errors[i] = (int) errCeiling;
             }
             else
             {
-               errors[i] = (int) errFloor;
+               this.errors[i] = (int) errFloor;
             }
          }
 
@@ -348,8 +346,8 @@ public class EntropyUtils
          // Create sorted queue of present symbols (except those with 'quantum frequency')
          for (int i=0; i<alphabetSize; i++)
          {
-            if (errors[alphabet[i]] >= 0)
-               queue.add(new FreqSortData(errors, freqs, alphabet[i]));
+            if (this.errors[alphabet[i]] >= 0)
+               queue.add(new FreqSortData(this.errors, freqs, alphabet[i]));
          }
 
          while ((sum != 0) && (queue.size() > 0))
@@ -363,7 +361,7 @@ public class EntropyUtils
 
              // Distort frequency and error
              freqs[fsd.symbol] += inc;
-             errors[fsd.symbol] -= scale;
+             this.errors[fsd.symbol] -= scale;
              sum += inc;
              queue.add(fsd);
          }

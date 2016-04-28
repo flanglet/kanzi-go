@@ -336,7 +336,7 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []byte, cou
 
 	// range == count shortcut
 	if count == scale {
-		for i := 0; i < 256; i++ {
+		for i := range freqs {
 			if freqs[i] != 0 {
 				alphabet[alphabetSize] = byte(i)
 				alphabetSize++
@@ -346,23 +346,21 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []byte, cou
 		return alphabetSize, nil
 	}
 
-	if len(this.ranks) < 256 {
-		this.ranks = make([]byte, 256)
+	if len(this.ranks) < len(alphabet) {
+		this.ranks = make([]byte, len(alphabet))
 	}
 
-	if len(this.errors) < 256 {
-		this.errors = make([]int, 256)
+	if len(this.errors) < len(alphabet) {
+		this.errors = make([]int, len(alphabet))
 	}
 
-	ranks := this.ranks
-	errors := this.errors
 	sum := -scale
 
 	// Scale frequencies by stretching distribution over complete range
-	for i := 0; i < 256; i++ {
+	for i := range alphabet {
 		alphabet[i] = 0
-		errors[i] = -1
-		ranks[i] = byte(i)
+		this.errors[i] = -1
+		this.ranks[i] = byte(i)
 
 		if freqs[i] == 0 {
 			continue
@@ -381,9 +379,9 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []byte, cou
 
 			if errCeiling < errFloor {
 				scaledFreq++
-				errors[i] = int(errCeiling)
+				this.errors[i] = int(errCeiling)
 			} else {
-				errors[i] = int(errFloor)
+				this.errors[i] = int(errFloor)
 			}
 		}
 
@@ -416,8 +414,8 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []byte, cou
 
 		// Create sorted queue of present symbols (except those with 'quantum frequency')
 		for i := 0; i < alphabetSize; i++ {
-			if errors[alphabet[i]] >= 0 {
-				heap.Push(&queue, &FreqSortData{errors: errors, frequencies: freqs, symbol: alphabet[i]})
+			if this.errors[alphabet[i]] >= 0 {
+				heap.Push(&queue, &FreqSortData{errors: this.errors, frequencies: freqs, symbol: alphabet[i]})
 			}
 		}
 
@@ -432,7 +430,7 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []byte, cou
 
 			// Distort frequency and error
 			freqs[fsd.symbol] += inc
-			errors[fsd.symbol] -= scale
+			this.errors[fsd.symbol] -= scale
 			sum += inc
 			heap.Push(&queue, fsd)
 		}
