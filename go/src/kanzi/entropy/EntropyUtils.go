@@ -121,8 +121,13 @@ func NewEntropyUtils() (*EntropyUtils, error) {
 }
 
 // alphabet must be sorted in increasing order
+// alphabetSize <= 256
 func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []byte) int {
 	alphabetSize := len(alphabet)
+
+	if alphabetSize > 256 {
+		return -1
+	}
 
 	// First, push alphabet encoding mode
 	if alphabetSize == 256 {

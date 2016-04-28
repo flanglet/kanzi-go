@@ -113,7 +113,7 @@ public class ANSRangeDecoder implements EntropyDecoder
 
    protected int decodeHeader(int[] frequencies)
    {
-      int alphabetSize = EntropyUtils.decodeAlphabet(this.bitstream, this.alphabet);
+      int alphabetSize = EntropyUtils.decodeAlphabet(this.bitstream, this.alphabet, 0);
 
       if (alphabetSize == 0)
          return 0;

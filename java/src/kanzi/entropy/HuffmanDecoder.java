@@ -85,7 +85,7 @@ public class HuffmanDecoder implements EntropyDecoder
 
     public int readLengths() throws BitStreamException
     {
-        int count = EntropyUtils.decodeAlphabet(this.bitstream, this.ranks);
+        int count = EntropyUtils.decodeAlphabet(this.bitstream, this.ranks, 0);
         ExpGolombDecoder egdec = new ExpGolombDecoder(this.bitstream, true);
         int currSize ;
         this.minCodeLen = MAX_SYMBOL_SIZE; // max code length

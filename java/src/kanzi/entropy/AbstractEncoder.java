@@ -38,7 +38,7 @@ public abstract class AbstractEncoder implements EntropyEncoder
 
         final int end = blkptr + len;
 
-        for (int i = blkptr; i<end; i++)
+        for (int i=blkptr; i<end; i++)
            this.encodeByte(array[i]);
 
         return len;

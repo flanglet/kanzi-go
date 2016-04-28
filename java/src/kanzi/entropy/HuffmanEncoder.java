@@ -114,7 +114,7 @@ public class HuffmanEncoder implements EntropyEncoder
            throw new BitStreamException(e.getMessage(), BitStreamException.INVALID_STREAM);
         }
 
-        EntropyUtils.encodeAlphabet(this.bitstream, count, this.ranks);
+        EntropyUtils.encodeAlphabet(this.bitstream, this.ranks, 0, count);
 
         // Transmit code lengths only, frequencies and codes do not matter
         // Unary encode the length difference

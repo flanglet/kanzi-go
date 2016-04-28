@@ -45,8 +45,12 @@ public class EntropyUtils
 
 
    // alphabet must be sorted in increasing order
-   public static int encodeAlphabet(OutputBitStream obs, int alphabetSize, int[] alphabet)
+   // alphabetSize <= 256
+   public static int encodeAlphabet(OutputBitStream obs, int[] alphabet, int offset, int alphabetSize)
    {
+      if (alphabetSize > 256)
+         return -1;
+      
       // First, push alphabet encoding mode
       if (alphabetSize == 256)
       {
@@ -61,7 +65,7 @@ public class EntropyUtils
          boolean flag = true;
 
          for (int i=0; ((flag) && (i<128)); i++)
-            flag &= (alphabet[i] == i);
+            flag &= (alphabet[offset+i] == i);
 
          if (flag == true)
          {
@@ -91,7 +95,7 @@ public class EntropyUtils
 
             for (int n=0, i=0; n<alphabetSize; )
             {
-               if (symbol == alphabet[i])
+               if (symbol == alphabet[offset+i])
                {
                   if (i < 255 - alphabetSize)
                      i++;
@@ -119,8 +123,8 @@ public class EntropyUtils
 
             for (int i=0; i<alphabetSize; i++)
             {
-               diffs[i] = alphabet[i] - previous;
-               previous = alphabet[i] + 1;
+               diffs[i] = alphabet[offset+i] - previous;
+               previous = alphabet[offset+i] + 1;
 
                if (diffs[i] > maxSymbolDiff)
                   maxSymbolDiff = diffs[i];
@@ -146,7 +150,7 @@ public class EntropyUtils
          long[] masks = new long[4];
 
          for (int i=0; i<alphabetSize; i++)
-            masks[alphabet[i]>>6] |= (1L << (alphabet[i] & 63));
+            masks[alphabet[offset+i]>>6] |= (1L << (alphabet[offset+i] & 63));
 
          for (int i=0; i<masks.length; i++)
             obs.writeBits(masks[i], 64);
@@ -168,7 +172,7 @@ public class EntropyUtils
    }
    
    
-   public static int decodeAlphabet(InputBitStream ibs, int[] alphabet) throws BitStreamException
+   public static int decodeAlphabet(InputBitStream ibs, int[] alphabet, int offset) throws BitStreamException
    {
       // Read encoding mode from bitstream
       final int aphabetType = ibs.readBit();
@@ -179,7 +183,7 @@ public class EntropyUtils
 
          // Full alphabet
          for (int i=0; i<alphabetSize; i++)
-            alphabet[i] = i;
+            alphabet[offset+i] = i;
 
          return alphabetSize;
       }
@@ -197,7 +201,10 @@ public class EntropyUtils
             for (int j=0; j<64; j++)
             {
                if ((val & (1L << j)) != 0)
-                  alphabet[alphabetSize++] = i + j;
+               {
+                  alphabet[offset+alphabetSize] = i + j;
+                  alphabetSize++;
+               }
             }
          }
       }
@@ -216,7 +223,10 @@ public class EntropyUtils
                final int next = symbol + (int) decodeSize(ibs, log);
 
                while (symbol < next)
-                  alphabet[n++] = symbol++;
+               {
+                  alphabet[offset+n] = symbol++;
+                  n++;
+               }
 
                symbol++;
             }
@@ -224,14 +234,17 @@ public class EntropyUtils
             alphabetSize = 256 - alphabetSize;
 
             while (n < alphabetSize)
-               alphabet[n++] = symbol++;
+            {
+               alphabet[offset+n] = symbol++;
+               n++;
+            }
          }
          else
          {
             for (int i=0; i<alphabetSize; i++)
             {
                symbol += (int) decodeSize(ibs, log);
-               alphabet[i] = symbol;
+               alphabet[offset+i] = symbol;
                symbol++;
             }
          }

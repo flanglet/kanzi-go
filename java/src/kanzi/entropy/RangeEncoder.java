@@ -103,7 +103,7 @@ public final class RangeEncoder implements EntropyEncoder
    
    protected boolean encodeHeader(int alphabetSize, int[] alphabet, int[] frequencies, int lr)
    {
-      EntropyUtils.encodeAlphabet(this.bitstream, alphabetSize, alphabet);
+      EntropyUtils.encodeAlphabet(this.bitstream, alphabet, 0, alphabetSize);
 
       if (alphabetSize == 0)
          return true;
