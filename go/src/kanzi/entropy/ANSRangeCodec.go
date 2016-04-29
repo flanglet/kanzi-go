@@ -21,7 +21,7 @@ import (
 	"kanzi"
 )
 
-// Implementation of Asymetric Numeral System codec.
+// Implementation of an Asymmetric Numeral System codec.
 // See "Asymmetric Numeral System" by Jarek Duda at http://arxiv.org/abs/0902.0271
 // For alternate C implementation examples, see https://github.com/Cyan4973/FiniteStateEntropy
 // and https://github.com/rygorous/ryg_rans
@@ -36,7 +36,7 @@ type ANSRangeEncoder struct {
 	bitstream kanzi.OutputBitStream
 	freqs     []int
 	cumFreqs  []int
-	alphabet  []byte
+	alphabet  []int
 	buffer    []int32
 	eu        *EntropyUtils
 	chunkSize int
@@ -80,7 +80,7 @@ func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncode
 
 	this := new(ANSRangeEncoder)
 	this.bitstream = bs
-	this.alphabet = make([]byte, 256)
+	this.alphabet = make([]int, 256)
 	this.freqs = make([]int, 256)
 	this.cumFreqs = make([]int, 257)
 	this.buffer = make([]int32, 0)
@@ -115,7 +115,7 @@ func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, size int, lr u
 	return alphabetSize, nil
 }
 
-func (this *ANSRangeEncoder) encodeHeader(alphabetSize int, alphabet []byte, frequencies []int, lr uint) bool {
+func (this *ANSRangeEncoder) encodeHeader(alphabetSize int, alphabet []int, frequencies []int, lr uint) bool {
 	EncodeAlphabet(this.bitstream, alphabet[0:alphabetSize])
 
 	if alphabetSize == 0 {
@@ -265,7 +265,7 @@ type ANSRangeDecoder struct {
 	freqs     []int
 	cumFreqs  []int
 	f2s       []byte // mapping frequency -> symbol
-	alphabet  []byte
+	alphabet  []int
 	chunkSize int
 }
 
@@ -300,7 +300,7 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 
 	this := new(ANSRangeDecoder)
 	this.bitstream = bs
-	this.alphabet = make([]byte, 256)
+	this.alphabet = make([]int, 256)
 	this.freqs = make([]int, 256)
 	this.cumFreqs = make([]int, 257)
 	this.f2s = make([]byte, 0)
@@ -347,21 +347,21 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, uint, error) 
 
 		// Read frequencies
 		for j := i; j < endj; j++ {
-			val := int(this.bitstream.ReadBits(logMax))
+			freq := int(this.bitstream.ReadBits(logMax))
 
-			if val <= 0 || val >= scale {
-				error := fmt.Errorf("Invalid bitstream: incorrect frequency %v  for symbol '%v' in ANS range decoder", val, this.alphabet[j])
+			if freq <= 0 || freq >= scale {
+				error := fmt.Errorf("Invalid bitstream: incorrect frequency %v for symbol '%v' in ANS range decoder", freq, this.alphabet[j])
 				return alphabetSize, logRange, error
 			}
 
-			frequencies[this.alphabet[j]] = val
-			sum += val
+			frequencies[this.alphabet[j]] = freq
+			sum += freq
 		}
 	}
 
 	// Infer first frequency
 	if scale <= sum {
-		error := fmt.Errorf("Invalid bitstream: incorrect frequency %v  for symbol '%v' in ANS range decoder", frequencies[this.alphabet[0]], this.alphabet[0])
+		error := fmt.Errorf("Invalid bitstream: incorrect frequency %v for symbol '%v' in ANS range decoder", frequencies[this.alphabet[0]], this.alphabet[0])
 		return alphabetSize, logRange, error
 	}
 

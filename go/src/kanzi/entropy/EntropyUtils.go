@@ -22,22 +22,22 @@ import (
 )
 
 const (
-	FULL_ALPHABET          = 0
-	PARTIAL_ALPHABET       = 1
-	SEVEN_BIT_ALPHABET     = 0
-	EIGHT_BIT_ALPHABET     = 1
-	DELTA_ENCODED_ALPHABET = 0
-	BIT_ENCODED_ALPHABET   = 1
-	PRESENT_SYMBOLS_MASK   = 0
-	ABSENT_SYMBOLS_MASK    = 1
+	FULL_ALPHABET            = 0
+	PARTIAL_ALPHABET         = 1
+	ALPHABET_256             = 0
+	ALPHABET_NOT_256         = 1
+	DELTA_ENCODED_ALPHABET   = 0
+	BIT_ENCODED_ALPHABET_256 = 1
+	PRESENT_SYMBOLS_MASK     = 0
+	ABSENT_SYMBOLS_MASK      = 1
 )
 
 type ErrorComparator struct {
-	symbols []byte
+	symbols []int
 	errors  []int
 }
 
-func ByIncreasingError(symbols []byte, errors []int) ErrorComparator {
+func ByIncreasingError(symbols []int, errors []int) ErrorComparator {
 	return ErrorComparator{symbols: symbols, errors: errors}
 }
 
@@ -65,7 +65,7 @@ func (this ErrorComparator) Swap(i, j int) {
 type FreqSortData struct {
 	frequencies []int
 	errors      []int
-	symbol      byte
+	symbol      int
 }
 
 type FreqSortPriorityQueue []*FreqSortData
@@ -109,127 +109,172 @@ func (this *FreqSortPriorityQueue) Pop() interface{} {
 }
 
 type EntropyUtils struct {
-	ranks  []byte
+	ranks  []int
 	errors []int
 }
 
 func NewEntropyUtils() (*EntropyUtils, error) {
 	this := new(EntropyUtils)
-	this.ranks = make([]byte, 0)
+	this.ranks = make([]int, 0)
 	this.errors = make([]int, 0)
 	return this, nil
 }
 
 // alphabet must be sorted in increasing order
-// alphabetSize <= 256
-func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []byte) int {
-	alphabetSize := len(alphabet)
+// alphabet length must be a power of 2
+func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) int {
+	alphabetSize := cap(alphabet)
+        count := len(alphabet)
 
-	if alphabetSize > 256 {
+	// Alphabet length must be a power of 2
+	if alphabetSize&(alphabetSize-1) != 0 {
 		return -1
 	}
 
 	// First, push alphabet encoding mode
-	if alphabetSize == 256 {
+	if alphabetSize > 0 && count == alphabetSize {
 		// Full alphabet
 		obs.WriteBit(FULL_ALPHABET)
-		obs.WriteBit(EIGHT_BIT_ALPHABET)
-		return 256
-	}
 
-	if alphabetSize == 128 {
-		flag := true
+		if count == 256 {
+			obs.WriteBit(ALPHABET_256) // shortcut
+		} else {
+			log := uint(1)
 
-		for i := byte(0); i < 128; i++ {
-			if alphabet[i] != i {
-				flag = false
-				break
+			for 1<<log <= count {
+				log++
 			}
+
+			// Write alphabet size
+			obs.WriteBit(ALPHABET_NOT_256)
+			obs.WriteBits(uint64(log-1), 5)
+			obs.WriteBits(uint64(count), log)
 		}
 
-		if flag == true {
-			obs.WriteBit(FULL_ALPHABET)
-			obs.WriteBit(SEVEN_BIT_ALPHABET)
-			return 128
-		}
+		return count
 	}
 
 	obs.WriteBit(PARTIAL_ALPHABET)
 
-	diffs := make([]int, 32)
-	maxSymbolDiff := 1
-
-	if (alphabetSize != 0) && ((alphabetSize < 32) || (alphabetSize > 224)) {
-		obs.WriteBit(DELTA_ENCODED_ALPHABET)
-
-		if alphabetSize >= 224 {
-			// Big alphabet, encode all missing symbols
-			alphabetSize = 256 - alphabetSize
-			obs.WriteBits(uint64(alphabetSize), 5)
-			obs.WriteBit(ABSENT_SYMBOLS_MASK)
-			symbol := uint8(0)
-			previous := uint8(0)
-
-			for i, n := 0, 0; n < alphabetSize; {
-				if symbol == alphabet[i] {
-					if i < len(alphabet)-1 {
-						i++
-					}
-
-					symbol++
-					continue
-				}
-
-				diffs[n] = int(symbol) - int(previous)
-				symbol++
-				previous = symbol
-
-				if diffs[n] > maxSymbolDiff {
-					maxSymbolDiff = diffs[n]
-				}
-
-				n++
-			}
-		} else {
-			// Small alphabet, encode all present symbols
-			obs.WriteBits(uint64(alphabetSize), 5)
-			obs.WriteBit(PRESENT_SYMBOLS_MASK)
-			previous := uint8(0)
-
-			for i := 0; i < alphabetSize; i++ {
-				diffs[i] = int(alphabet[i]) - int(previous)
-				previous = alphabet[i] + 1
-
-				if diffs[i] > maxSymbolDiff {
-					maxSymbolDiff = diffs[i]
-				}
-			}
-		}
-
-		// Write log(max(diff)) to bitstream
-		log := uint(1)
-
-		for 1<<log <= maxSymbolDiff {
-			log++
-		}
-
-		obs.WriteBits(uint64(log-1), 3) // delta size
-
-		// Write all symbols with delta encoding
-		for i := 0; i < alphabetSize; i++ {
-			encodeSize(obs, log, uint64(diffs[i]))
-		}
-	} else {
-		// Regular (or empty) alphabet
-		obs.WriteBit(BIT_ENCODED_ALPHABET)
+	if alphabetSize == 256 && count >= 32 && count <= 224 {
+		// Regular alphabet of symbols less than 256
+		obs.WriteBit(BIT_ENCODED_ALPHABET_256)
 		masks := make([]uint64, 4)
 
-		for i := 0; i < alphabetSize; i++ {
+		for i := 0; i < count; i++ {
 			masks[alphabet[i]>>6] |= (1 << uint(alphabet[i]&63))
 		}
 
 		for i := range masks {
 			obs.WriteBits(masks[i], 64)
+		}
+
+		return count
+	}
+
+	obs.WriteBit(DELTA_ENCODED_ALPHABET)
+	diffs := make([]int, 32)
+	ckSize := 16
+
+	if count <= 64 {
+		ckSize = 8
+	}
+
+	if alphabetSize-count < count {
+		// Encode all missing symbols
+		count = alphabetSize - count
+
+		log := uint(1)
+
+		for 1<<log <= count {
+			log++
+		}
+
+		// Write length
+		obs.WriteBits(uint64(log-1), 4)
+		obs.WriteBits(uint64(count), log)
+
+		if count == 0 {
+			return 0
+		}
+
+		obs.WriteBit(ABSENT_SYMBOLS_MASK)
+
+		log = 1
+
+		for 1<<log <= alphabetSize {
+			log++
+		}
+
+		// Write log(alphabet size)
+		obs.WriteBits(uint64(log-1), 5)
+		symbol := 0
+		previous := 0
+
+		// Create deltas of missing symbols
+		for i, n := 0, 0; n < alphabetSize; {
+			if symbol == alphabet[i] {
+				if i < len(alphabet)-1-count {
+					i++
+				}
+
+				symbol++
+				continue
+			}
+
+			diffs[n] = int(symbol) - int(previous)
+			symbol++
+			previous = symbol
+			n++
+		}
+	} else {
+		// Encode all present symbols
+		log := uint(1)
+
+		for 1<<log <= count {
+			log++
+		}
+
+		// Write length
+		obs.WriteBits(uint64(log-1), 4)
+		obs.WriteBits(uint64(count), log)
+
+		if count == 0 {
+			return 0
+		}
+
+		obs.WriteBit(PRESENT_SYMBOLS_MASK)
+		previous := 0
+
+		// Create deltas of present symbols
+		for i := 0; i < count; i++ {
+			diffs[i] = int(alphabet[i]) - int(previous)
+			previous = alphabet[i] + 1
+		}
+	}
+
+	// Encode all deltas by chunks
+	for i := 0; i < count; i += ckSize {
+		max := 0
+
+		// Find log(max(deltas)) for this chunk
+		for j := i; j < count && j < i+ckSize; j++ {
+			if max < diffs[j] {
+				max = diffs[j]
+			}
+		}
+
+		log := uint(1)
+
+		for 1<<log <= max {
+			log++
+		}
+
+		obs.WriteBits(uint64(log-1), 4)
+
+		// Write deltas for this chunk
+		for j := i; j < count && j < i+ckSize; j++ {
+			encodeSize(obs, log, uint64(diffs[j]))
 		}
 	}
 
@@ -244,53 +289,73 @@ func decodeSize(ibs kanzi.InputBitStream, log uint) uint64 {
 	return ibs.ReadBits(log)
 }
 
-func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []byte) (int, error) {
+func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 	// Read encoding mode from bitstream
 	aphabetType := ibs.ReadBit()
 
 	if aphabetType == FULL_ALPHABET {
-		mode := ibs.ReadBit()
 		var alphabetSize int
 
-		if mode == EIGHT_BIT_ALPHABET {
+		if ibs.ReadBit() == ALPHABET_256 {
 			alphabetSize = 256
 		} else {
-			alphabetSize = 128
+			log := uint(1 + ibs.ReadBits(5))
+			alphabetSize = int(ibs.ReadBits(log))
 		}
 
 		// Full alphabet
 		for i := 0; i < alphabetSize; i++ {
-			alphabet[i] = byte(i)
+			alphabet[i] = int(i)
 		}
 
 		return alphabetSize, nil
 	}
 
-	alphabetSize := 0
+	count := 0
 	mode := ibs.ReadBit()
 
-	if mode == BIT_ENCODED_ALPHABET {
+	if mode == BIT_ENCODED_ALPHABET_256 {
 		// Decode presence flags
 		for i := 0; i < 256; i += 64 {
 			val := ibs.ReadBits(64)
 
 			for j := 0; j < 64; j++ {
 				if val&(uint64(1)<<uint(j)) != 0 {
-					alphabet[alphabetSize] = byte(i + j)
-					alphabetSize++
+					alphabet[count] = int(i + j)
+					count++
 				}
 			}
 		}
-	} else { // DELTA_ENCODED_ALPHABET
-		val := int(ibs.ReadBits(6))
-		log := uint(1 + ibs.ReadBits(3)) // log(max(diff))
-		alphabetSize = val >> 1
-		n := 0
-		symbol := uint8(0)
 
-		if val&1 == ABSENT_SYMBOLS_MASK {
-			for i := 0; i < alphabetSize; i++ {
-				next := symbol + byte(decodeSize(ibs, log))
+		return count, nil
+	}
+	// DELTA_ENCODED_ALPHABET
+	log := uint(1 + ibs.ReadBits(4))
+	count = int(ibs.ReadBits(log))
+
+	if count == 0 {
+		return 0, nil
+	}
+
+	ckSize := 16
+
+	if count <= 64 {
+		ckSize = 8
+	}
+
+	n := 0
+	symbol := 0
+
+	if ibs.ReadBit() == ABSENT_SYMBOLS_MASK {
+		alphabetSize := 1 << uint(ibs.ReadBits(5))
+
+		// Read missing symbols
+		for i := 0; i < count; i += ckSize {
+			log = uint(1 + ibs.ReadBits(4))
+
+			// Read deltas for this chunk
+			for j := i; j < count && j < i+ckSize; j++ {
+				next := symbol + int(decodeSize(ibs, log))
 
 				for symbol < next {
 					alphabet[n] = symbol
@@ -300,30 +365,36 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []byte) (int, error) {
 
 				symbol++
 			}
+		}
 
-			alphabetSize = 256 - alphabetSize
+		count = alphabetSize - count
 
-			for n < alphabetSize {
-				alphabet[n] = symbol
-				n++
-				symbol++
-			}
+		for n < count {
+			alphabet[n] = symbol
+			n++
+			symbol++
+		}
 
-		} else {
-			for i := 0; i < alphabetSize; i++ {
-				symbol += uint8(decodeSize(ibs, log))
-				alphabet[i] = symbol
+	} else {
+		// Read present symbols
+		for i := 0; i < count; i += ckSize {
+			log = uint(1 + ibs.ReadBits(4))
+
+			// Read deltas for this chunk
+			for j := i; j < count && j < i+ckSize; j++ {
+				symbol += int(decodeSize(ibs, log))
+				alphabet[j] = symbol
 				symbol++
 			}
 		}
 	}
 
-	return alphabetSize, nil
+	return count, nil
 }
 
 // Returns the size of the alphabet
 // The alphabet and freqs parameters are updated
-func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []byte, count int, scale int) (int, error) {
+func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, count int, scale int) (int, error) {
 	if count == 0 {
 		return 0, nil
 	}
@@ -334,11 +405,11 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []byte, cou
 
 	alphabetSize := 0
 
-	// range == count shortcut
+	// range == count intcut
 	if count == scale {
 		for i := range freqs {
 			if freqs[i] != 0 {
-				alphabet[alphabetSize] = byte(i)
+				alphabet[alphabetSize] = int(i)
 				alphabetSize++
 			}
 		}
@@ -347,7 +418,7 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []byte, cou
 	}
 
 	if len(this.ranks) < len(alphabet) {
-		this.ranks = make([]byte, len(alphabet))
+		this.ranks = make([]int, len(alphabet))
 	}
 
 	if len(this.errors) < len(alphabet) {
@@ -360,7 +431,7 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []byte, cou
 	for i := range alphabet {
 		alphabet[i] = 0
 		this.errors[i] = -1
-		this.ranks[i] = byte(i)
+		this.ranks[i] = int(i)
 
 		if freqs[i] == 0 {
 			continue
@@ -385,7 +456,7 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []byte, cou
 			}
 		}
 
-		alphabet[alphabetSize] = byte(i)
+		alphabet[alphabetSize] = int(i)
 		alphabetSize++
 		sum += scaledFreq
 		freqs[i] = scaledFreq

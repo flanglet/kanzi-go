@@ -19,7 +19,7 @@ import kanzi.BitStreamException;
 import kanzi.EntropyDecoder;
 import kanzi.InputBitStream;
 
-// Implementation of Asymetric Numeral System decoder.
+// Implementation of Asymmetric Numeral System decoder.
 // See "Asymmetric Numeral System" by Jarek Duda at http://arxiv.org/abs/0902.0271
 // For alternate C implementation examples, see https://github.com/Cyan4973/FiniteStateEntropy
 // and https://github.com/rygorous/ryg_rans
@@ -113,7 +113,7 @@ public class ANSRangeDecoder implements EntropyDecoder
 
    protected int decodeHeader(int[] frequencies)
    {
-      int alphabetSize = EntropyUtils.decodeAlphabet(this.bitstream, this.alphabet, 0);
+      int alphabetSize = EntropyUtils.decodeAlphabet(this.bitstream, this.alphabet);
 
       if (alphabetSize == 0)
          return 0;

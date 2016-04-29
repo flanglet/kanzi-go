@@ -18,7 +18,7 @@ package kanzi.entropy;
 import kanzi.EntropyEncoder;
 import kanzi.OutputBitStream;
 
-// Implementation of Asymetric Numeral System encoder.
+// Implementation of Asymmetric Numeral System encoder.
 // See "Asymmetric Numeral System" by Jarek Duda at http://arxiv.org/abs/0902.0271
 // For alternate C implementation examples, see https://github.com/Cyan4973/FiniteStateEntropy
 // and https://github.com/rygorous/ryg_rans
@@ -93,7 +93,7 @@ public class ANSRangeEncoder implements EntropyEncoder
 
    protected boolean encodeHeader(int alphabetSize, int[] alphabet, int[] frequencies, int lr)
    {
-      EntropyUtils.encodeAlphabet(this.bitstream, alphabet, 0, alphabetSize);
+      EntropyUtils.encodeAlphabet(this.bitstream, alphabet, alphabetSize);
 
       if (alphabetSize == 0)
          return true;

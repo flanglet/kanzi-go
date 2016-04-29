@@ -79,7 +79,7 @@ public final class RangeDecoder implements EntropyDecoder
 
     protected int decodeHeader(int[] frequencies)
     {
-      int alphabetSize = EntropyUtils.decodeAlphabet(this.bitstream, this.alphabet, 0);
+      int alphabetSize = EntropyUtils.decodeAlphabet(this.bitstream, this.alphabet);
 
       if (alphabetSize == 0)
          return 0;

@@ -32,7 +32,7 @@ const (
 type RangeEncoder struct {
 	low       uint64
 	range_    uint64
-	alphabet  []byte
+	alphabet  []int
 	freqs     []int
 	cumFreqs  []uint64
 	eu        *EntropyUtils
@@ -79,7 +79,7 @@ func NewRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*RangeEncoder, err
 
 	this := new(RangeEncoder)
 	this.bitstream = bs
-	this.alphabet = make([]byte, 256)
+	this.alphabet = make([]int, 256)
 	this.freqs = make([]int, 256)
 	this.cumFreqs = make([]uint64, 257)
 	this.logRange = logRange
@@ -113,7 +113,7 @@ func (this *RangeEncoder) updateFrequencies(frequencies []int, size int, lr uint
 	return alphabetSize, nil
 }
 
-func (this *RangeEncoder) encodeHeader(alphabetSize int, alphabet []byte, frequencies []int, lr uint) bool {
+func (this *RangeEncoder) encodeHeader(alphabetSize int, alphabet []int, frequencies []int, lr uint) bool {
 	EncodeAlphabet(this.bitstream, alphabet[0:alphabetSize])
 
 	if alphabetSize == 0 {
@@ -264,7 +264,7 @@ type RangeDecoder struct {
 	code      uint64
 	low       uint64
 	range_    uint64
-	alphabet  []byte
+	alphabet  []int
 	freqs     []int
 	cumFreqs  []uint64
 	f2s       []uint16 // mapping frequency -> symbol
@@ -304,7 +304,7 @@ func NewRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*RangeDecoder, erro
 
 	this := new(RangeDecoder)
 	this.bitstream = bs
-	this.alphabet = make([]byte, 256)
+	this.alphabet = make([]int, 256)
 	this.freqs = make([]int, 256)
 	this.cumFreqs = make([]uint64, 257)
 	this.f2s = make([]uint16, 0)

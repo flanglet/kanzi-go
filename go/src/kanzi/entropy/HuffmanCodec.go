@@ -34,11 +34,11 @@ const (
 // ---- Utilities
 
 type CodeLengthComparator struct {
-	ranks []byte
+	ranks []int
 	sizes []byte
 }
 
-func ByIncreasingCodeLength(ranks, sizes []byte) CodeLengthComparator {
+func ByIncreasingCodeLength(ranks []int, sizes []byte) CodeLengthComparator {
 	return CodeLengthComparator{ranks: ranks, sizes: sizes}
 }
 
@@ -63,12 +63,12 @@ func (this CodeLengthComparator) Swap(i, j int) {
 	this.ranks[i], this.ranks[j] = this.ranks[j], this.ranks[i]
 }
 
-func ByIncreasingFrequency(ranks []byte, frequencies []uint) FrequencyComparator {
+func ByIncreasingFrequency(ranks []int, frequencies []uint) FrequencyComparator {
 	return FrequencyComparator{ranks: ranks, frequencies: frequencies}
 }
 
 type FrequencyComparator struct {
-	ranks       []byte
+	ranks       []int
 	frequencies []uint
 }
 
@@ -94,7 +94,7 @@ func (this FrequencyComparator) Swap(i, j int) {
 }
 
 // Return the number of codes generated
-func generateCanonicalCodes(sizes []byte, codes []uint, ranks []byte) int {
+func generateCanonicalCodes(sizes []byte, codes []uint, ranks []int) int {
 	count := len(ranks)
 
 	// Sort by increasing size (first key) and increasing value (second key)
@@ -133,8 +133,8 @@ type HuffmanEncoder struct {
 	freqs     []uint
 	codes     []uint
 	sizes     []byte
-	ranks     []byte
-	sranks    []byte
+	ranks     []int
+	sranks    []int
 	buffer    []uint
 	chunkSize int
 }
@@ -173,8 +173,8 @@ func NewHuffmanEncoder(bs kanzi.OutputBitStream, args ...uint) (*HuffmanEncoder,
 	this.freqs = make([]uint, 256)
 	this.codes = make([]uint, 256)
 	this.sizes = make([]byte, 256)
-	this.ranks = make([]byte, 256)
-	this.sranks = make([]byte, 256)
+	this.ranks = make([]int, 256)
+	this.sranks = make([]int, 256)
 	this.buffer = make([]uint, 256)
 	this.chunkSize = int(chkSize)
 
@@ -201,7 +201,7 @@ func (this *HuffmanEncoder) UpdateFrequencies(frequencies []uint) error {
 		this.codes[i] = 0
 
 		if frequencies[i] > 0 {
-			this.ranks[count] = byte(i)
+			this.ranks[count] = i
 			count++
 		}
 	}
@@ -428,7 +428,7 @@ func (this *HuffmanEncoder) BitStream() kanzi.OutputBitStream {
 type HuffmanDecoder struct {
 	bitstream  kanzi.InputBitStream
 	codes      []uint
-	ranks      []byte
+	ranks      []int
 	sizes      []byte
 	fdTable    []uint // Fast decoding table
 	sdTable    []uint // Slow decoding table
@@ -472,7 +472,7 @@ func NewHuffmanDecoder(bs kanzi.InputBitStream, args ...uint) (*HuffmanDecoder, 
 	this.bitstream = bs
 	this.sizes = make([]byte, 256)
 	this.codes = make([]uint, 256)
-	this.ranks = make([]byte, 256)
+	this.ranks = make([]int, 256)
 	this.fdTable = make([]uint, 1<<DECODING_BATCH_SIZE)
 	this.sdTable = make([]uint, 256)
 	this.sdtIndexes = make([]int, MAX_SYMBOL_SIZE+1)
