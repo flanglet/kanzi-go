@@ -67,7 +67,7 @@ public class CompressedInputStream extends InputStream
    private final int jobs;
    private final ExecutorService pool;
    private final List<BlockListener> listeners;
-
+   
 
    public CompressedInputStream(InputStream is)
    {

@@ -68,7 +68,7 @@ public class CompressedOutputStream extends OutputStream
    private final ExecutorService pool;
    private final List<BlockListener> listeners;
 
-
+   
    public CompressedOutputStream(String entropyCodec, String functionType, OutputStream os)
    {
       this(entropyCodec, functionType, os, DEFAULT_BLOCK_SIZE, false);
@@ -84,14 +84,14 @@ public class CompressedOutputStream extends OutputStream
 
 
    // debug print stream is optional (may be null)
-   public CompressedOutputStream(String entropyCodec, String functionType,
+   public CompressedOutputStream(String entropyCodec, String transform,
                OutputStream os, int blockSize, boolean checksum, 
                ExecutorService pool, int jobs)
    {
       if (entropyCodec == null)
          throw new NullPointerException("Invalid null entropy encoder type parameter");
 
-      if (functionType == null)
+      if (transform == null)
          throw new NullPointerException("Invalid null transform type parameter");
 
       if (os == null)
@@ -115,7 +115,7 @@ public class CompressedOutputStream extends OutputStream
       final int bufferSize = (blockSize <= 65536) ? blockSize : 65536;
       this.obs = new DefaultOutputBitStream(os, bufferSize);
       this.entropyType = new EntropyCodecFactory().getType(entropyCodec);
-      this.transformType = new FunctionFactory().getType(functionType);
+      this.transformType = new FunctionFactory().getType(transform);
       this.blockSize = blockSize;
       this.hasher = (checksum == true) ? new XXHash(BITSTREAM_TYPE) : null;
       this.jobs = jobs;

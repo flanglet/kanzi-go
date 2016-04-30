@@ -127,10 +127,10 @@ type EncodingTask struct {
 	obs             kanzi.OutputBitStream
 }
 
-func NewCompressedOutputStream(entropyCodec string, functionType string, os io.WriteCloser, blockSize uint,
+func NewCompressedOutputStream(entropyCodec string, transform string, os io.WriteCloser, blockSize uint,
 	checksum bool, debugWriter io.Writer, jobs uint) (*CompressedOutputStream, error) {
 	if os == nil {
-		return nil, NewIOError("Invalid null output stream parameter", ERR_CREATE_STREAM)
+		return nil, NewIOError("Invalid null writer parameter", ERR_CREATE_STREAM)
 	}
 
 	if blockSize > MAX_BITSTREAM_BLOCK_SIZE {
@@ -168,7 +168,7 @@ func NewCompressedOutputStream(entropyCodec string, functionType string, os io.W
 	this.entropyType = entropy.GetEntropyCodecType(entropyCodec)
 
 	// Check transform type validity (panic on error)
-	this.transformType = function.GetByteFunctionType(functionType)
+	this.transformType = function.GetByteFunctionType(transform)
 
 	this.blockSize = blockSize
 
@@ -615,7 +615,7 @@ type DecodingTask struct {
 func NewCompressedInputStream(is io.ReadCloser,
 	debugWriter io.Writer, jobs uint) (*CompressedInputStream, error) {
 	if is == nil {
-		return nil, NewIOError("Invalid null input stream parameter", ERR_CREATE_STREAM)
+		return nil, NewIOError("Invalid null reader parameter", ERR_CREATE_STREAM)
 	}
 
 	if jobs < 1 || jobs > 16 {
