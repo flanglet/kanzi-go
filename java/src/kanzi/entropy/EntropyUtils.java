@@ -98,7 +98,6 @@ public class EntropyUtils
 
       obs.writeBit(DELTA_ENCODED_ALPHABET);
       final int[] diffs = new int[count];
-      final int ckSize = (count <= 64) ? 8 : 16;
 
       if (alphabet.length - count < count)
       {
@@ -117,7 +116,6 @@ public class EntropyUtils
             return 0;
          
          obs.writeBit(ABSENT_SYMBOLS_MASK);
-
          log = 1;
 
          while (1<<log <= alphabet.length)
@@ -171,6 +169,8 @@ public class EntropyUtils
             previous = alphabet[i] + 1;                  
          }         
       }
+
+      final int ckSize = (count <= 64) ? 8 : 16;
 
       // Encode all deltas by chunks 
       for (int i=0; i<count; i+=ckSize)
@@ -284,7 +284,7 @@ public class EntropyUtils
             {
                final int next = symbol + (int) decodeSize(ibs, log);
 
-               while (symbol < next)
+               while ((symbol < next) && (n < alphabetSize))
                {
                   alphabet[n] = symbol++;
                   n++;
@@ -448,7 +448,7 @@ public class EntropyUtils
       {
          this.errors = errors;
          this.frequencies = frequencies;
-         this.symbol = symbol & 0xFF;
+         this.symbol = symbol & 0xFFFF;
       }
 
 
