@@ -139,7 +139,7 @@ public class CompressedInputStream extends InputStream
       this.entropyType = (byte) this.ibs.readBits(5);
 
       // Read transform
-      this.transformType = (byte) this.ibs.readBits(5);
+      this.transformType = (byte) this.ibs.readBits(6);
 
       // Read block size
       this.blockSize = (int) this.ibs.readBits(26) << 4;
@@ -149,7 +149,7 @@ public class CompressedInputStream extends InputStream
                  Error.ERR_BLOCK_SIZE);
 
       // Read reserved bits
-      this.ibs.readBits(4);
+      this.ibs.readBits(3);
 
       if (this.ds != null)
       {

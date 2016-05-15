@@ -147,13 +147,13 @@ public class CompressedOutputStream extends OutputStream
       if (this.obs.writeBits(this.entropyType & 0x1F, 5) != 5)
          throw new kanzi.io.IOException("Cannot write entropy type to header", Error.ERR_WRITE_FILE);
 
-      if (this.obs.writeBits(this.transformType & 0x1F, 5) != 5)
+      if (this.obs.writeBits(this.transformType & 0x3F, 6) != 6)
          throw new kanzi.io.IOException("Cannot write transform type to header", Error.ERR_WRITE_FILE);
 
       if (this.obs.writeBits(this.blockSize >> 4, 26) != 26)
          throw new kanzi.io.IOException("Cannot write block size to header", Error.ERR_WRITE_FILE);
 
-      if (this.obs.writeBits(0L, 4) != 4)
+      if (this.obs.writeBits(0L, 3) != 3)
          throw new kanzi.io.IOException("Cannot write reserved bits to header", Error.ERR_WRITE_FILE);
    }
 

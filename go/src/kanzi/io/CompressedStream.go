@@ -247,7 +247,7 @@ func (this *CompressedOutputStream) writeHeader() *IOError {
 		return NewIOError("Cannot write entropy type to header", ERR_WRITE_FILE)
 	}
 
-	if this.obs.WriteBits(uint64(this.transformType&0x1F), 5) != 5 {
+	if this.obs.WriteBits(uint64(this.transformType&0x3F), 6) != 6 {
 		return NewIOError("Cannot write transform type to header", ERR_WRITE_FILE)
 	}
 
@@ -255,7 +255,7 @@ func (this *CompressedOutputStream) writeHeader() *IOError {
 		return NewIOError("Cannot write block size to header", ERR_WRITE_FILE)
 	}
 
-	if this.obs.WriteBits(0, 4) != 4 {
+	if this.obs.WriteBits(0, 3) != 3 {
 		return NewIOError("Cannot write reserved bits to header", ERR_WRITE_FILE)
 	}
 
@@ -717,7 +717,7 @@ func (this *CompressedInputStream) readHeader() error {
 	this.entropyType = byte(this.ibs.ReadBits(5))
 
 	// Read transform
-	this.transformType = byte(this.ibs.ReadBits(5))
+	this.transformType = byte(this.ibs.ReadBits(6))
 
 	// Read block size
 	this.blockSize = uint(this.ibs.ReadBits(26)) << 4
@@ -728,7 +728,7 @@ func (this *CompressedInputStream) readHeader() error {
 	}
 
 	// Read reserved bits
-	this.ibs.ReadBits(4)
+	this.ibs.ReadBits(3)
 
 	if this.debugWriter != nil {
 		fmt.Fprintf(this.debugWriter, "Checksum set to %v\n", (this.hasher != nil))
