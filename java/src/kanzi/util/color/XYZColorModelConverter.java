@@ -25,6 +25,7 @@ public final class XYZColorModelConverter implements ColorModelConverter
     private final int width;
     private final int rgbOffset;
     private final int stride;
+    private final int shift;
 
     // 4096 * { ((x+0.055)/1.055) ^ 2.4 if (x>0.04045) else x/12.92 }
     // Range 256, Increment 1 => 256 values
@@ -89,15 +90,31 @@ public final class XYZColorModelConverter implements ColorModelConverter
     };
     
     
+    // default YUV precision: [0..4096]
     public XYZColorModelConverter(int width, int height)
     {
         this(width, height, 0, width);
     }
 
 
+    // shift is used to scale the YUV values: 0 -> [0..4096], 4 -> [0..256], 12 -> [0..1]
+    public XYZColorModelConverter(int width, int height, int shift)
+    {
+        this(width, height, 0, width, 0);
+    }
+
+
+    // default YUV precision: [0..4096]
+    public XYZColorModelConverter(int width, int height, int rgbOffset, int stride)
+    {
+       this(width, height, rgbOffset, stride, 0);
+    }
+    
+
     // rgbOffset is the offset in the RGB frame while stride is the width of the RGB frame
     // width and height are the dimension of the XYZ frame
-    public XYZColorModelConverter(int width, int height, int rgbOffset, int stride)
+    // shift is used to scale the YUV values: 0 -> [0..4096], 4 -> [0..256], 12 -> [0..1]
+    public XYZColorModelConverter(int width, int height, int rgbOffset, int stride, int shift)
     {
         if (height < 8)
             throw new IllegalArgumentException("The height must be at least 8");
@@ -117,10 +134,14 @@ public final class XYZColorModelConverter implements ColorModelConverter
         if ((stride & 7) != 0)
             throw new IllegalArgumentException("The stride must be a multiple of 8");
 
+        if ((shift < 0) || (shift > 12))
+            throw new IllegalArgumentException("The shift parameter must be in [0..12]");
+
         this.height = height;
         this.width = width;
         this.rgbOffset = rgbOffset;
         this.stride = stride;
+        this.shift = shift;
     }
 
 
@@ -129,13 +150,15 @@ public final class XYZColorModelConverter implements ColorModelConverter
     // 0.2126729  0.7151522  0.0721750
     // 0.0193339  0.1191920  0.9503041
     @Override
-    public boolean convertRGBtoYUV(int[] rgb, int[] x4096, int[] y4096, int[] z4096, ColorModelType type)
+    public boolean convertRGBtoYUV(int[] rgb, int[] xval, int[] yval, int[] zval, ColorModelType type)
     {
         if (type != ColorModelType.XYZ)
            return false;
        
         int startLine  = this.rgbOffset;
         int startLine2 = 0;
+        final int shift_ = this.shift + 12;
+        final int adjust_ = 1 << (shift_ - 1);        
 
         for (int j=0; j<this.height; j++)
         {
@@ -154,9 +177,9 @@ public final class XYZColorModelConverter implements ColorModelConverter
                 g = RGB_XYZ[g];               
                 b = RGB_XYZ[b];               
 
-                x4096[i] = (1689*r + 1465*g +  739*b + 2048) >> 12;
-                y4096[i] = ( 871*r + 2929*g +  296*b + 2048) >> 12;
-                z4096[i] = (  79*r +  488*g + 3892*b + 2048) >> 12;
+                xval[i] = (1689*r + 1465*g +  739*b + adjust_) >> shift_;
+                yval[i] = ( 871*r + 2929*g +  296*b + adjust_) >> shift_;
+                zval[i] = (  79*r +  488*g + 3892*b + adjust_) >> shift_;
                 // ------- fromRGB 'Macro'  END
             }
 
@@ -173,13 +196,14 @@ public final class XYZColorModelConverter implements ColorModelConverter
     // -0.9692660  1.8760108  0.0415560
     //  0.0556434 -0.2040259  1.0572252
     @Override
-    public boolean convertYUVtoRGB(int[] x4096, int[] y4096, int[] z4096, int[] rgb, ColorModelType type)
+    public boolean convertYUVtoRGB(int[] xval, int[] yval, int[] zval, int[] rgb, ColorModelType type)
     {
         if (type != ColorModelType.XYZ)
            return false;
 
         int startLine = 0;
         int startLine2 = this.rgbOffset;
+        final int shift_ = this.shift;
 
         for (int j=0; j<this.height; j++)
         {
@@ -189,21 +213,41 @@ public final class XYZColorModelConverter implements ColorModelConverter
             {
                 // ------- toRGB 'Macro'
                 // Scaled by 4096
-                final int xVal = x4096[i];
-                final int yVal = y4096[i];
-                final int zVal = z4096[i];
+                final int xVal = xval[i] << shift_;
+                final int yVal = yval[i] << shift_;
+                final int zVal = zval[i] << shift_;
 
-                int r =  (13273*xVal - 6296*yVal - 2042*zVal + 2048) >> 12;
-                int g =  (-3970*xVal + 7684*yVal +  170*zVal + 2048) >> 12;
-                int b =    (228*xVal -  836*yVal + 4330*zVal + 2048) >> 12;
-                r &= ~(r >> 31);
-                g &= ~(g >> 31);
-                b &= ~(b >> 31);
-                r = (XYZ_RGB[r>>3] + XYZ_RGB[(r>>3)+1]) >> 1;
-                g = (XYZ_RGB[g>>3] + XYZ_RGB[(g>>3)+1]) >> 1;
-                b = (XYZ_RGB[b>>3] + XYZ_RGB[(b>>3)+1]) >> 1;
+                int r = (13273*xVal - 6296*yVal - 2042*zVal + 2048) >> 12;
+                int g = (-3970*xVal + 7684*yVal +  170*zVal + 2048) >> 12;
+                int b =   (228*xVal -  836*yVal + 4330*zVal + 2048) >> 12;
+                
+                if (r >= 4096)
+                   r = 0xFF0000;
+                else
+                {
+                   r &= ~(r >> 31);
+                   r = (XYZ_RGB[r>>3] + XYZ_RGB[(r>>3)+1]) >> 1;
+                   r <<= 16;
+                }
+                
+                if (g >= 4096)
+                   g = 0x00FF00;
+                else
+                {
+                   g &= ~(g >> 31);
+                   g = (XYZ_RGB[g>>3] + XYZ_RGB[(g>>3)+1]) >> 1;
+                   g <<= 8;
+                }
 
-                rgb[k++] = (r << 16) | (g << 8) | b;
+                if (b >= 4096)
+                   b = 0x0000FF;
+                else
+                {
+                   b &= ~(b >> 31);
+                   b = (XYZ_RGB[b>>3] + XYZ_RGB[(b>>3)+1]) >> 1;
+                }
+
+                rgb[k++] = r | g | b;
             }
 
             startLine  += this.width;
