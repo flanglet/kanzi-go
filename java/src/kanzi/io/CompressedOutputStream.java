@@ -45,7 +45,7 @@ public class CompressedOutputStream extends OutputStream
 {
    private static final int DEFAULT_BLOCK_SIZE       = 1024*1024; // Default block size
    private static final int BITSTREAM_TYPE           = 0x4B414E5A; // "KANZ"
-   private static final int BITSTREAM_FORMAT_VERSION = 1;
+   private static final int BITSTREAM_FORMAT_VERSION = 2;
    private static final int COPY_LENGTH_MASK         = 0x0F;
    private static final int SMALL_BLOCK_MASK         = 0x80;
    private static final int SKIP_FUNCTION_MASK       = 0x40;
@@ -58,8 +58,8 @@ public class CompressedOutputStream extends OutputStream
    private final XXHash hasher;
    private final IndexedByteArray iba;
    private final IndexedByteArray[] buffers;
-   private final byte entropyType;
-   private final byte transformType;
+   private final short entropyType;
+   private final short transformType;
    private final OutputBitStream obs;
    private final AtomicBoolean initialized;
    private final AtomicBoolean closed;
@@ -144,16 +144,16 @@ public class CompressedOutputStream extends OutputStream
       if (this.obs.writeBits((this.hasher != null) ? 1 : 0, 1) != 1)
          throw new kanzi.io.IOException("Cannot write checksum to header", Error.ERR_WRITE_FILE);
       
-      if (this.obs.writeBits(this.entropyType & 0x1F, 5) != 5)
+      if (this.obs.writeBits(this.entropyType & 0x001F, 5) != 5)
          throw new kanzi.io.IOException("Cannot write entropy type to header", Error.ERR_WRITE_FILE);
 
-      if (this.obs.writeBits(this.transformType & 0x3F, 6) != 6)
-         throw new kanzi.io.IOException("Cannot write transform type to header", Error.ERR_WRITE_FILE);
+      if (this.obs.writeBits(this.transformType & 0xFFFF, 16) != 16)
+         throw new kanzi.io.IOException("Cannot write transform types to header", Error.ERR_WRITE_FILE);
 
       if (this.obs.writeBits(this.blockSize >> 4, 26) != 26)
          throw new kanzi.io.IOException("Cannot write block size to header", Error.ERR_WRITE_FILE);
 
-      if (this.obs.writeBits(0L, 3) != 3)
+      if (this.obs.writeBits(0L, 9) != 9)
          throw new kanzi.io.IOException("Cannot write reserved bits to header", Error.ERR_WRITE_FILE);
    }
 
@@ -446,8 +446,8 @@ public class CompressedOutputStream extends OutputStream
       private final IndexedByteArray data;
       private final IndexedByteArray buffer;
       private final int length;
-      private final byte transformType;
-      private final byte entropyType;
+      private final short transformType;
+      private final short entropyType;
       private final int blockId;
       private final OutputBitStream obs;
       private final XXHash hasher;
@@ -482,8 +482,8 @@ public class CompressedOutputStream extends OutputStream
 
 
       private Status encodeBlock(IndexedByteArray data, IndexedByteArray buffer,
-           int blockLength, byte typeOfTransform,
-           byte typeOfEntropy, int currentBlockId)
+           int blockLength, short typeOfTransform,
+           short typeOfEntropy, int currentBlockId)
       {
          EntropyEncoder ee = null;
 

@@ -42,7 +42,7 @@ import kanzi.util.XXHash;
 public class CompressedInputStream extends InputStream
 {
    private static final int BITSTREAM_TYPE           = 0x4B414E5A; // "KANZ"
-   private static final int BITSTREAM_FORMAT_VERSION = 1;
+   private static final int BITSTREAM_FORMAT_VERSION = 2;
    private static final int DEFAULT_BUFFER_SIZE      = 1024*1024;
    private static final int COPY_LENGTH_MASK         = 0x0F;
    private static final int SMALL_BLOCK_MASK         = 0x80;
@@ -56,8 +56,8 @@ public class CompressedInputStream extends InputStream
    private XXHash hasher;
    private final IndexedByteArray iba;
    private final IndexedByteArray[] buffers;
-   private byte entropyType;
-   private byte transformType;
+   private short entropyType;
+   private short transformType;
    private final InputBitStream ibs;
    private final PrintStream ds;
    private final AtomicBoolean initialized;
@@ -136,10 +136,10 @@ public class CompressedInputStream extends InputStream
          this.hasher = new XXHash(BITSTREAM_TYPE);
 
       // Read entropy codec
-      this.entropyType = (byte) this.ibs.readBits(5);
+      this.entropyType = (short) this.ibs.readBits(5);
 
       // Read transform
-      this.transformType = (byte) this.ibs.readBits(6);
+      this.transformType = (short) this.ibs.readBits(16);
 
       // Read block size
       this.blockSize = (int) this.ibs.readBits(26) << 4;
@@ -149,7 +149,7 @@ public class CompressedInputStream extends InputStream
                  Error.ERR_BLOCK_SIZE);
 
       // Read reserved bits
-      this.ibs.readBits(3);
+      this.ibs.readBits(9);
 
       if (this.ds != null)
       {
@@ -158,7 +158,7 @@ public class CompressedInputStream extends InputStream
 
          try
          {
-            String w1 = new FunctionFactory().getName((byte) this.transformType);
+            String w1 = new FunctionFactory().getName(this.transformType);
 
             if ("NONE".equals(w1))
                w1 = "no";
@@ -173,7 +173,7 @@ public class CompressedInputStream extends InputStream
 
         try
          {
-            String w2 = new EntropyCodecFactory().getName((byte) this.entropyType);
+            String w2 = new EntropyCodecFactory().getName(this.entropyType);
 
             if ("NONE".equals(w2))
                w2 = "no";
@@ -189,16 +189,16 @@ public class CompressedInputStream extends InputStream
    }
 
 
-    public boolean addListener(BlockListener bl)
-    {
-       return (bl != null) ? this.listeners.add(bl) : false;
-    }
+   public boolean addListener(BlockListener bl)
+   {
+      return (bl != null) ? this.listeners.add(bl) : false;
+   }
 
 
-    public boolean removeListener(BlockListener bl)
-    {
-       return (bl != null) ? this.listeners.remove(bl) : false;
-    }
+   public boolean removeListener(BlockListener bl)
+   {
+      return (bl != null) ? this.listeners.remove(bl) : false;
+   }
 
 
    /**
@@ -468,8 +468,8 @@ public class CompressedInputStream extends InputStream
       private final IndexedByteArray data;
       private final IndexedByteArray buffer;
       private final int blockSize;
-      private final byte transformType;
-      private final byte entropyType;
+      private final short transformType;
+      private final short entropyType;
       private final int blockId;
       private final InputBitStream ibs;
       private final XXHash hasher;
@@ -504,8 +504,8 @@ public class CompressedInputStream extends InputStream
 
 
       // Return -1 if error, otherwise the number of bytes read from the encoder
-      private Status decodeBlock(IndexedByteArray data, IndexedByteArray buffer, byte typeOfTransform,
-              byte typeOfEntropy, int currentBlockId)
+      private Status decodeBlock(IndexedByteArray data, IndexedByteArray buffer, 
+         short typeOfTransform, short typeOfEntropy, int currentBlockId)
       {
          int taskId = this.processedBlockId.get();
 

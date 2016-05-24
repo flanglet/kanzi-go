@@ -23,19 +23,16 @@ import (
 )
 
 const (
-	// Transform: 4 lsb
-	NULL_TRANSFORM_TYPE = byte(0)
-	BWT_TYPE            = byte(1)
-	BWTS_TYPE           = byte(2)
-	LZ4_TYPE            = byte(3)
-	SNAPPY_TYPE         = byte(4)
-	RLT_TYPE            = byte(5)
-
-	// GST: 3 msb
+	NULL_TRANSFORM_TYPE = uint16(0)
+	BWT_TYPE            = uint16(1)
+	BWTS_TYPE           = uint16(2)
+	LZ4_TYPE            = uint16(3)
+	SNAPPY_TYPE         = uint16(4)
+	RLT_TYPE            = uint16(5)
 )
 
-func NewByteFunction(size uint, functionType byte) (kanzi.ByteFunction, error) {
-	switch functionType & 0x0F {
+func NewByteFunction(size uint, functionType uint16) (kanzi.ByteFunction, error) {
+	switch uint16(functionType & 0x0F) {
 
 	case SNAPPY_TYPE:
 		return NewSnappyCodec(size)
@@ -72,7 +69,7 @@ func NewByteFunction(size uint, functionType byte) (kanzi.ByteFunction, error) {
 	}
 }
 
-func getGSTType(args string) byte {
+func getGSTType(args string) uint16 {
 	switch strings.ToUpper(args) {
 	case "MTF":
 		return GST_MODE_MTF
@@ -113,8 +110,8 @@ func getGSTName(gstType int) string {
 	}
 }
 
-func GetByteFunctionName(functionType byte) string {
-	switch byte(functionType & 0x0F) {
+func GetByteFunctionName(functionType uint16) string {
+	switch uint16(functionType & 0x0F) {
 
 	case SNAPPY_TYPE:
 		return "SNAPPY"
@@ -151,7 +148,7 @@ func GetByteFunctionName(functionType byte) string {
 	}
 }
 
-func GetByteFunctionType(functionName string) byte {
+func GetByteFunctionType(functionName string) uint16 {
 	args := ""
 	functionName = strings.ToUpper(functionName)
 
@@ -177,11 +174,11 @@ func GetByteFunctionType(functionName string) byte {
 
 	case "BWT":
 		gst := getGSTType(args)
-		return byte((gst << 4) | BWT_TYPE)
+		return uint16((gst << 4) | BWT_TYPE)
 
 	case "BWTS":
 		gst := getGSTType(args)
-		return byte((gst << 4) | BWTS_TYPE)
+		return uint16((gst << 4) | BWTS_TYPE)
 
 	case "NONE":
 		return NULL_TRANSFORM_TYPE

@@ -22,18 +22,15 @@ import kanzi.transform.BWTS;
 
 public class FunctionFactory
 {
-   // Transform: 4 lsb
-   public static final byte NULL_TRANSFORM_TYPE = 0; 
-   public static final byte BWT_TYPE            = 1; 
-   public static final byte BWTS_TYPE           = 2; 
-   public static final byte LZ4_TYPE            = 3; 
-   public static final byte SNAPPY_TYPE         = 4; 
-   public static final byte RLT_TYPE            = 5; 
- 
-   // GST: 3 msb
+   public static final short NULL_TRANSFORM_TYPE = 0; 
+   public static final short BWT_TYPE            = 1; 
+   public static final short BWTS_TYPE           = 2; 
+   public static final short LZ4_TYPE            = 3; 
+   public static final short SNAPPY_TYPE         = 4; 
+   public static final short RLT_TYPE            = 5; 
  
 
-   public byte getType(String name)
+   public short getType(String name)
    {
       String args = "";
       name = name.toUpperCase();
@@ -71,7 +68,7 @@ public class FunctionFactory
    }
 
 
-   private static byte getGSTType(String args)
+   private static short getGSTType(String args)
    {
       if (args == null)
          throw new IllegalArgumentException("Missing GST type");
@@ -92,7 +89,7 @@ public class FunctionFactory
    }
    
    
-   public ByteFunction newFunction(int size, byte type)
+   public ByteFunction newFunction(int size, short type)
    {
       switch (type & 0x0F)
       {
@@ -142,7 +139,7 @@ public class FunctionFactory
    }
 
    
-   public String getName(byte type)
+   public String getName(short type)
    {
       switch (type & 0x0F)
       {

@@ -22,17 +22,17 @@ import (
 )
 
 const (
-	NONE_TYPE    = byte(0) // No compression
-	HUFFMAN_TYPE = byte(1) // Huffman
-	FPAQ_TYPE    = byte(2) // Fast PAQ (order 0)
-	PAQ_TYPE     = byte(3) // PAQ (stripped from many models for speed)
-	RANGE_TYPE   = byte(4) // Range
-	ANS_TYPE     = byte(5) // Asymmetric Numerical System
-	CM_TYPE      = byte(6) // Context Model
-	TPAQ_TYPE    = byte(7) // Tangelo PAQ
+	NONE_TYPE    = uint16(0) // No compression
+	HUFFMAN_TYPE = uint16(1) // Huffman
+	FPAQ_TYPE    = uint16(2) // Fast PAQ (order 0)
+	PAQ_TYPE     = uint16(3) // PAQ (stripped from many models for speed)
+	RANGE_TYPE   = uint16(4) // Range
+	ANS_TYPE     = uint16(5) // Asymmetric Numerical System
+	CM_TYPE      = uint16(6) // Context Model
+	TPAQ_TYPE    = uint16(7) // Tangelo PAQ
 )
 
-func NewEntropyDecoder(ibs kanzi.InputBitStream, entropyType byte) (kanzi.EntropyDecoder, error) {
+func NewEntropyDecoder(ibs kanzi.InputBitStream, entropyType uint16) (kanzi.EntropyDecoder, error) {
 	switch entropyType {
 
 	case HUFFMAN_TYPE:
@@ -68,8 +68,8 @@ func NewEntropyDecoder(ibs kanzi.InputBitStream, entropyType byte) (kanzi.Entrop
 	}
 }
 
-func NewEntropyEncoder(obs kanzi.OutputBitStream, entropyType byte) (kanzi.EntropyEncoder, error) {
-	switch byte(entropyType) {
+func NewEntropyEncoder(obs kanzi.OutputBitStream, entropyType uint16) (kanzi.EntropyEncoder, error) {
+	switch uint16(entropyType) {
 
 	case HUFFMAN_TYPE:
 		return NewHuffmanEncoder(obs)
@@ -104,8 +104,8 @@ func NewEntropyEncoder(obs kanzi.OutputBitStream, entropyType byte) (kanzi.Entro
 	}
 }
 
-func GetEntropyCodecName(entropyType byte) string {
-	switch byte(entropyType) {
+func GetEntropyCodecName(entropyType uint16) string {
+	switch uint16(entropyType) {
 
 	case HUFFMAN_TYPE:
 		return "HUFFMAN"
@@ -136,7 +136,7 @@ func GetEntropyCodecName(entropyType byte) string {
 	}
 }
 
-func GetEntropyCodecType(entropyName string) byte {
+func GetEntropyCodecType(entropyName string) uint16 {
 	switch strings.ToUpper(entropyName) {
 
 	case "HUFFMAN":

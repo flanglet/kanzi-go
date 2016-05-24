@@ -36,7 +36,7 @@ import (
 
 const (
 	BITSTREAM_TYPE             = 0x4B414E5A // "KANZ"
-	BITSTREAM_FORMAT_VERSION   = 1
+	BITSTREAM_FORMAT_VERSION   = 2
 	STREAM_DEFAULT_BUFFER_SIZE = 1024 * 1024
 	COPY_LENGTH_MASK           = 0x0F
 	SMALL_BLOCK_MASK           = 0x80
@@ -100,8 +100,8 @@ type CompressedOutputStream struct {
 	hasher        *util.XXHash
 	data          []byte
 	buffers       [][]byte
-	entropyType   byte
-	transformType byte
+	entropyType   uint16
+	transformType uint16
 	obs           kanzi.OutputBitStream
 	debugWriter   io.Writer
 	initialized   int32
@@ -118,8 +118,8 @@ type EncodingTask struct {
 	buf             []byte
 	hasher          *util.XXHash
 	blockLength     uint
-	typeOfTransform byte
-	typeOfEntropy   byte
+	typeOfTransform uint16
+	typeOfEntropy   uint16
 	currentBlockId  int
 	input           chan error
 	output          chan error
@@ -243,19 +243,19 @@ func (this *CompressedOutputStream) writeHeader() *IOError {
 		return NewIOError("Cannot write checksum to header", ERR_WRITE_FILE)
 	}
 
-	if this.obs.WriteBits(uint64(this.entropyType&0x1F), 5) != 5 {
+	if this.obs.WriteBits(uint64(this.entropyType&0x001F), 5) != 5 {
 		return NewIOError("Cannot write entropy type to header", ERR_WRITE_FILE)
 	}
 
-	if this.obs.WriteBits(uint64(this.transformType&0x3F), 6) != 6 {
-		return NewIOError("Cannot write transform type to header", ERR_WRITE_FILE)
+	if this.obs.WriteBits(uint64(this.transformType&0xFFFF), 16) != 16 {
+		return NewIOError("Cannot write transform types to header", ERR_WRITE_FILE)
 	}
 
 	if this.obs.WriteBits(uint64(this.blockSize>>4), 26) != 26 {
 		return NewIOError("Cannot write block size to header", ERR_WRITE_FILE)
 	}
 
-	if this.obs.WriteBits(0, 3) != 3 {
+	if this.obs.WriteBits(0, 9) != 9 {
 		return NewIOError("Cannot write reserved bits to header", ERR_WRITE_FILE)
 	}
 
@@ -581,8 +581,8 @@ type CompressedInputStream struct {
 	hasher        *util.XXHash
 	data          []byte
 	buffers       [][]byte
-	entropyType   byte
-	transformType byte
+	entropyType   uint16
+	transformType uint16
 	ibs           kanzi.InputBitStream
 	debugWriter   io.Writer
 	initialized   int32
@@ -602,8 +602,8 @@ type DecodingTask struct {
 	buf             []byte
 	hasher          *util.XXHash
 	blockLength     uint
-	typeOfTransform byte
-	typeOfEntropy   byte
+	typeOfTransform uint16
+	typeOfEntropy   uint16
 	currentBlockId  int
 	input           chan bool
 	output          chan bool
@@ -714,10 +714,10 @@ func (this *CompressedInputStream) readHeader() error {
 	}
 
 	// Read entropy codec
-	this.entropyType = byte(this.ibs.ReadBits(5))
+	this.entropyType = uint16(this.ibs.ReadBits(5))
 
 	// Read transform
-	this.transformType = byte(this.ibs.ReadBits(6))
+	this.transformType = uint16(this.ibs.ReadBits(16))
 
 	// Read block size
 	this.blockSize = uint(this.ibs.ReadBits(26)) << 4
@@ -728,7 +728,7 @@ func (this *CompressedInputStream) readHeader() error {
 	}
 
 	// Read reserved bits
-	this.ibs.ReadBits(3)
+	this.ibs.ReadBits(9)
 
 	if this.debugWriter != nil {
 		fmt.Fprintf(this.debugWriter, "Checksum set to %v\n", (this.hasher != nil))

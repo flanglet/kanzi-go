@@ -33,7 +33,7 @@ public class EntropyCodecFactory
    public static final byte TPAQ_TYPE    = 7; // Tangelo PAQ
    
    
-   public EntropyDecoder newDecoder(InputBitStream ibs, byte entropyType)
+   public EntropyDecoder newDecoder(InputBitStream ibs, short entropyType)
    {
       if (ibs == null)
          throw new NullPointerException("Invalid null input bitstream parameter");
@@ -64,7 +64,7 @@ public class EntropyCodecFactory
    } 
    
    
-   public EntropyEncoder newEncoder(OutputBitStream obs, byte entropyType)
+   public EntropyEncoder newEncoder(OutputBitStream obs, short entropyType)
    {
       if (obs == null)
          throw new NullPointerException("Invalid null output bitstream parameter");
@@ -93,7 +93,7 @@ public class EntropyCodecFactory
    }
    
    
-   public String getName(byte entropyType)
+   public String getName(short entropyType)
    {
       switch (entropyType)
       {
@@ -119,7 +119,7 @@ public class EntropyCodecFactory
    }
    
    // Do not use switch on String because some versions of Java do not support it
-   public byte getType(String name)
+   public short getType(String name)
    {
       name = String.valueOf(name).toUpperCase();
       
