@@ -107,10 +107,8 @@ public class CMPredictor implements Predictor
    @Override
    public int get()
    {
-      final int p0 = this.counter1[this.ctx][256];
-      final int p1 = this.counter1[this.ctx][this.c1];
-      final int p2 = this.counter1[this.ctx][this.c2];
-      final int p = ((p0<<2)+(p1<<1)+p1+p2+4) >>> 3;
+      final int[] pc1 = this.counter1[this.ctx];
+      final int p = (7*(pc1[256]+pc1[this.c1]) + (pc1[this.c2]<<1)) >> 4;
       this.idx = p >>> 12;
       final int[] pc2 = this.counter2[(this.ctx<<1)|this.runMask];            
       final int x1 = pc2[this.idx];
