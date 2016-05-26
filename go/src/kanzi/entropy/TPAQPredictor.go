@@ -529,12 +529,12 @@ func newTPAQAdaptiveProbMap(n, rate uint) (*TPAQAdaptiveProbMap, error) {
 	return this, nil
 }
 
-func (this *TPAQAdaptiveProbMap) get(bit int, pr int, ctx int) int {
+func (this *TPAQAdaptiveProbMap) get(bit, pr, ctx int) int {
 	g := (bit << 16) + (bit << this.rate) - (bit << 1)
 	this.data[this.index] += ((g - this.data[this.index]) >> this.rate)
 	this.data[this.index+1] += ((g - this.data[this.index+1]) >> this.rate)
 	pr = kanzi.STRETCH[pr]
-	w := pr & 127 // interpolation weight (33 points)
+	w := pr & 127
 	this.index = ((pr + 2048) >> 7) + (ctx << 5) + ctx
 	return (this.data[this.index]*(128-w) + this.data[this.index+1]*w) >> 11
 }

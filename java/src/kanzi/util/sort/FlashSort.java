@@ -86,18 +86,9 @@ public class FlashSort implements IntSorter
         final long delta1 = delta + 1;
 
         // Reset buckets buffer
-        for (int i=0; i<len8; i+=8)
-        {
-           buf[i]   = 0;
-           buf[i+1] = 0;
-           buf[i+2] = 0;
-           buf[i+3] = 0;
-           buf[i+4] = 0;
-           buf[i+5] = 0;
-           buf[i+6] = 0;
-           buf[i+7] = 0;
-        }
-
+        for (int i=0; i<len; i++)
+           buf[i] = 0;
+          
         int shiftL = SHIFT;
         final int threshold = Integer.MAX_VALUE >> 1;
         long c1 = 0;
@@ -115,7 +106,7 @@ public class FlashSort implements IntSorter
 
         while (c1 == 0)
         {
-           final long denum = delta >> (shiftR - shiftL);
+           final long denum = delta >>> (shiftR - shiftL);
            c1 = num / denum;
            shiftR++;
         }
@@ -123,7 +114,7 @@ public class FlashSort implements IntSorter
         // Create the buckets
         for (int i=blkptr; i<end; i++)
         {
-           final long k = (c1 * (input[i] - min)) >> shiftR;
+           final long k = (c1 * (input[i] - min)) >>> shiftR;
            buf[(int) k]++;
         }
 
@@ -136,13 +127,14 @@ public class FlashSort implements IntSorter
         int j = 0;
         int k = len8 - 1;
         int nmove = 1;
+        final int offs = blkptr - 1;
 
         while (nmove < len)
         {
             while (j >= buf[k])
             {
                 j++;
-                final long kl = (c1 * (input[blkptr+j] - min)) >> shiftR;
+                final long kl = (c1 * (input[blkptr+j] - min)) >>> shiftR;
                 k = (int) kl;
             }
 
@@ -151,9 +143,9 @@ public class FlashSort implements IntSorter
             // Speed critical section
             while (buf[k] != j)
             {
-                final long kl = (c1 * (flash - min)) >> shiftR;
+                final long kl = (c1 * (flash - min)) >>> shiftR;
                 k = (int) kl;
-                final int idx = blkptr + buf[k] - 1;
+                final int idx = offs + buf[k];
                 final int hold = input[idx];
                 input[idx] = flash;
                 flash = hold;
