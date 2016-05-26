@@ -401,15 +401,15 @@ public class TPAQPredictor implements Predictor
         this.addContext(hash(C3, this.c4 << 8));
         this.addContext(hash(C4, this.c4 & 0xF0F0F0F0));
         this.addContext(hash(C5, this.c4));
-        this.addContext(hash(this.c4>>shiftIsBinary, 
-           (this.buffer[(this.pos-8)&MASK2]<<16) | (this.buffer[(this.pos-7)&MASK2]<<8) |(this.buffer[(this.pos-6)&MASK2])));                
+        this.addContext(hash(this.c4>>shiftIsBinary, (this.buffer[(this.pos-8)&MASK2]<<16) | 
+              (this.buffer[(this.pos-7)&MASK2]<<8) | (this.buffer[(this.pos-6)&MASK2])));                
         
         // Find match
         this.findMatch();    
 
         // Keep track of new match position
         this.hashes[this.hash] = this.pos;
-     }
+      }
 
       // Add inputs to NN
       for (int i=this.ctxId-1; i>=0; i--)

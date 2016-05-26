@@ -387,7 +387,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.pos++
 		this.ctxId = 0
 		this.c4 = (this.c4 << 8) | (this.c0 & 0xFF)
-		this.hash = (((this.hash * 43707) << 4) + int32(this.c4)) & TPAQ_MASK1
+		this.hash = (((this.hash * 43707) << 4) + this.c4) & TPAQ_MASK1
 		shiftIsBinary := uint(((this.c4>>31)&1)|((this.c4>>23)&1)|
 			((this.c4>>15)&1)|((this.c4>>7)&1)) << 4
 		this.c0 = 1
@@ -397,7 +397,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.mixer.setContext(this.c4 & TPAQ_MASK0)
 
 		// Add contexts NN
-		this.addContext(int32(this.c4 ^ (this.c4 & 0xFFFF)))
+		this.addContext(this.c4 ^ (this.c4 & 0xFFFF))
 		this.addContext(hashTPAQ(TPAQ_C1, this.c4<<24)) // hash with random primes
 		this.addContext(hashTPAQ(TPAQ_C2, this.c4<<16))
 		this.addContext(hashTPAQ(TPAQ_C3, this.c4<<8))
