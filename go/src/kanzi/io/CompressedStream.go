@@ -399,28 +399,7 @@ func (this *CompressedOutputStream) GetWritten() uint64 {
 }
 
 func (this *EncodingTask) encode() {
-	transform, err := function.NewByteFunction(this.blockLength, this.typeOfTransform)
-
-	if err != nil {
-		<-this.input
-		this.output <- NewIOError(err.Error(), ERR_CREATE_CODEC)
-		return
-	}
-
 	buffer := this.buf
-	requiredSize := transform.MaxEncodedLen(int(this.blockLength))
-
-	if requiredSize == -1 {
-		// Max size unknown => guess
-		requiredSize = int(this.blockLength*5) >> 2
-	}
-
-	if this.typeOfTransform == function.NULL_TRANSFORM_TYPE {
-		buffer = this.data // share buffers if no transform
-	} else if len(buffer) < requiredSize {
-		buffer = make([]byte, requiredSize)
-	}
-
 	mode := byte(0)
 	dataSize := uint(0)
 	postTransformLength := this.blockLength
@@ -451,6 +430,26 @@ func (this *EncodingTask) encode() {
 		oIdx += this.blockLength
 		mode = byte(SMALL_BLOCK_SIZE | (this.blockLength & COPY_LENGTH_MASK))
 	} else {
+		transform, err := function.NewByteFunction(this.blockLength, this.typeOfTransform)
+
+		if err != nil {
+			<-this.input
+			this.output <- NewIOError(err.Error(), ERR_CREATE_CODEC)
+			return
+		}
+
+		requiredSize := transform.MaxEncodedLen(int(this.blockLength))
+
+		if requiredSize == -1 {
+			// Max size unknown => guess
+			requiredSize = int(this.blockLength*5) >> 2
+		}
+
+		if this.typeOfTransform == function.NULL_TRANSFORM_TYPE {
+			buffer = this.data // share buffers if no transform
+		} else if len(buffer) < requiredSize {
+			buffer = make([]byte, requiredSize)
+		}
 
 		// Forward transform
 		iIdx, oIdx, err = transform.Forward(this.data, buffer)

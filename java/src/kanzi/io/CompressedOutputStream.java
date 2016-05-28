@@ -489,18 +489,6 @@ public class CompressedOutputStream extends OutputStream
 
          try
          {
-            ByteFunction transform = new FunctionFactory().newFunction(blockLength, typeOfTransform);
-            int requiredSize = transform.getMaxEncodedLength(blockLength);
-            
-            if (requiredSize == -1) // Max size unknown => guess
-               requiredSize = (blockLength * 5) >> 2;
-
-            if (typeOfTransform == FunctionFactory.NULL_TRANSFORM_TYPE)
-               buffer.array = data.array; // share buffers if no transform
-            else if (buffer.array.length < requiredSize)
-               buffer.array = new byte[requiredSize];
-
-            buffer.index = 0;
             byte mode = 0;
             int dataSize = 0;
             int postTransformLength = blockLength;
@@ -532,6 +520,18 @@ public class CompressedOutputStream extends OutputStream
             else
             {
                final int savedIdx = data.index;
+               ByteFunction transform = new FunctionFactory().newFunction(blockLength, typeOfTransform);               
+               int requiredSize = transform.getMaxEncodedLength(blockLength);
+
+               if (requiredSize == -1) // Max size unknown => guess
+                  requiredSize = (blockLength * 5) >> 2;
+
+               if (typeOfTransform == FunctionFactory.NULL_TRANSFORM_TYPE)
+                  buffer.array = data.array; // share buffers if no transform
+               else if (buffer.array.length < requiredSize)
+                  buffer.array = new byte[requiredSize];
+               
+               buffer.index = 0;
 
                // Forward transform
                if (transform.forward(data, buffer) == false)

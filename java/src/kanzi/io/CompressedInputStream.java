@@ -633,10 +633,10 @@ public class CompressedInputStream extends InputStream
             else
             {
                ByteFunction transform = new FunctionFactory().newFunction(preTransformLength,
-                       (byte) this.transformType);
+                       this.transformType);
 
                buffer.index = 0;
-
+                         
                // Inverse transform
                if (transform.inverse(buffer, data) == false)
                   return new Status(currentBlockId, 0, checksum1, Error.ERR_PROCESS_BLOCK, 
