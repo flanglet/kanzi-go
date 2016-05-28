@@ -17,7 +17,6 @@ package kanzi.transform;
 
 import kanzi.ByteTransform;
 import kanzi.IndexedByteArray;
-import kanzi.Sizeable;
 import kanzi.util.DivSufSort;
 
 
@@ -57,7 +56,7 @@ import kanzi.util.DivSufSort;
 // See https://code.google.com/p/libdivsufsort/source/browse/wiki/SACA_Benchmarks.wiki
 // for respective performance of different suffix sorting algorithms.
 
-public class BWT implements ByteTransform, Sizeable
+public class BWT implements ByteTransform
 {
     private int size;
     private int[] buffer1;   // Only used in inverse
@@ -67,19 +66,9 @@ public class BWT implements ByteTransform, Sizeable
     private DivSufSort saAlgo;
 
     
+    // Static allocation of memory
     public BWT()
     {
-       this(0);
-    }
-
-
-    // Static allocation of memory
-    public BWT(int size)
-    {
-       if (size < 0)
-          throw new IllegalArgumentException("Invalid size parameter (must be at least 0)");
-
-       this.size = size;
        this.buffer1 = new int[0];  // Allocate empty: only used in inverse
        this.buffer2 = new byte[0]; // Allocate empty: only used for big blocks (size >= 1<<24)
        this.buckets = new int[256];
@@ -103,33 +92,14 @@ public class BWT implements ByteTransform, Sizeable
     }
 
 
-    @Override
-    public int size()
-    {
-       return this.size;
-    }
-
-
-    @Override
-    public boolean setSize(int size)
-    {
-       if (size < 0)
-           return false;
-
-       this.size = size;
-       return true;
-    }
-
-
     // Not thread safe
     @Override
-    public boolean forward(IndexedByteArray src, IndexedByteArray dst)
+    public boolean forward(IndexedByteArray src, IndexedByteArray dst, final int count)
     {
         final byte[] input = src.array;
         final byte[] output = dst.array;
         final int srcIdx = src.index;
         final int dstIdx = dst.index;
-        final int count = (this.size == 0) ? input.length - srcIdx :  this.size;
 
         if (count < 2)
         {
@@ -172,10 +142,8 @@ public class BWT implements ByteTransform, Sizeable
 
     // Not thread safe
     @Override
-    public boolean inverse(IndexedByteArray src, IndexedByteArray dst)
+    public boolean inverse(IndexedByteArray src, IndexedByteArray dst, final int count)
     {
-       final int count = (this.size == 0) ? src.array.length - src.index :  this.size;
-
        if (count < 2)
        {
           if (count == 1)
@@ -192,7 +160,7 @@ public class BWT implements ByteTransform, Sizeable
     
     
     // When count < 1<<24
-    private boolean inverseRegularBlock(IndexedByteArray src, IndexedByteArray dst, int count)
+    private boolean inverseRegularBlock(IndexedByteArray src, IndexedByteArray dst, final int count)
     {
        final byte[] input = src.array;
        final byte[] output = dst.array;

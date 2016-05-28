@@ -638,7 +638,7 @@ public class CompressedInputStream extends InputStream
                buffer.index = 0;
                          
                // Inverse transform
-               if (transform.inverse(buffer, data) == false)
+               if (transform.inverse(buffer, data, preTransformLength) == false)
                   return new Status(currentBlockId, 0, checksum1, Error.ERR_PROCESS_BLOCK, 
                      "Transform inverse failed");
             }

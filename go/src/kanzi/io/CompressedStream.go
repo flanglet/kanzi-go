@@ -452,7 +452,7 @@ func (this *EncodingTask) encode() {
 		}
 
 		// Forward transform
-		iIdx, oIdx, err = transform.Forward(this.data, buffer)
+		iIdx, oIdx, err = transform.Forward(this.data, buffer, blockLength)
 
 		if err != nil {
 			// Transform failed (probably due to lack of space in output buffer)
@@ -1087,7 +1087,7 @@ func (this *DecodingTask) decode() {
 		var oIdx uint
 
 		// Inverse transform
-		if _, oIdx, err = transform.Inverse(buffer, this.data); err != nil {
+		if _, oIdx, err = transform.Inverse(buffer, this.data, preTransformLength); err != nil {
 			// Error => return
 			res.err = NewIOError(err.Error(), ERR_PROCESS_BLOCK)
 			notify(nil, this.result, false, res)

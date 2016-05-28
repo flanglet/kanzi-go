@@ -94,16 +94,16 @@ public class FunctionFactory
       switch (type & 0x0F)
       {
          case SNAPPY_TYPE:
-            return new SnappyCodec(size);
+            return new SnappyCodec();
             
          case LZ4_TYPE:
-            return new LZ4Codec(size);
+            return new LZ4Codec();
             
          case RLT_TYPE:
-            return new RLT(size);
+            return new RLT();
             
          case NULL_TRANSFORM_TYPE:
-            return new NullFunction(size);
+            return new NullFunction();
             
          case BWT_TYPE:
             return new BWTBlockCodec(new BWT(), type >>> 4, size); 

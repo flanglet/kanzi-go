@@ -89,7 +89,7 @@ public class TestLZ4Codec
               }
 
                int size = arr.length;
-               LZ4Codec lz4 = new LZ4Codec(size);
+               LZ4Codec lz4 = new LZ4Codec();
                input = new byte[size];
                output = new byte[lz4.getMaxEncodedLength(size)];
                reverse = new byte[size];
@@ -108,12 +108,12 @@ public class TestLZ4Codec
 
                System.out.println("\nOriginal: ");
 
-               for (int i = 0; i < input.length; i++)
+               for (int i=0; i<size; i++)
                {
                   System.out.print((input[i] & 255) + " ");
                }
 
-               if (lz4.forward(iba1, iba2) == false)
+               if (lz4.forward(iba1, iba2, size) == false)
                {
                   System.out.println("\nEncoding error");
                   System.exit(1);
@@ -128,17 +128,18 @@ public class TestLZ4Codec
                System.out.println("\nCoded: ");
                //java.util.Arrays.fill(input, (byte) 0);
 
-               for (int i = 0; i < iba2.index; i++)
+               for (int i=0; i<iba2.index; i++)
                {
                   System.out.print((output[i] & 255) + " "); //+"("+Integer.toBinaryString(output[i] & 255)+") ");
                }
 
-               lz4 = new LZ4Codec(iba2.index);
+               lz4 = new LZ4Codec();
+               int count = iba2.index;
                iba1.index = 0;
                iba2.index = 0;
                iba3.index = 0;
                
-               if (lz4.inverse(iba2, iba3) == false)
+               if (lz4.inverse(iba2, iba3, count) == false)
                {
                   System.out.println("\nDecoding error");
                   System.exit(1);
@@ -146,14 +147,14 @@ public class TestLZ4Codec
 
                System.out.println("\nDecoded: ");
 
-               for (int i = 0; i < reverse.length; i++)
+               for (int i=0; i<reverse.length; i++)
                {
                   System.out.print((reverse[i] & 255) + " ");
                }
 
                System.out.println();
 
-               for (int i = 0; i < input.length; i++)
+               for (int i=0; i<input.length; i++)
                {
                   if (input[i] != reverse[i])
                   {
@@ -215,7 +216,7 @@ public class TestLZ4Codec
             iba2.index = 0;
             before = System.nanoTime();
             
-            if (lz4.forward(iba1, iba2) == false)
+            if (lz4.forward(iba1, iba2, size) == false)
             {
                System.out.println("Encoding error");
                System.exit(1);
@@ -223,12 +224,13 @@ public class TestLZ4Codec
             
             after = System.nanoTime();
             delta1 += (after - before);
-            lz4 = new LZ4Codec(iba2.index); 
+            lz4 = new LZ4Codec(); 
+            int count = iba2.index;
             iba3.index = 0;
             iba2.index = 0;
             before = System.nanoTime();
             
-            if (lz4.inverse(iba2, iba3) == false)
+            if (lz4.inverse(iba2, iba3, count) == false)
             {
                System.out.println("Decoding error");
                System.exit(1);

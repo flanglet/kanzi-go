@@ -31,20 +31,14 @@ const (
 )
 
 type ZRLT struct {
-	size uint
 }
 
-func NewZRLT(sz uint) (*ZRLT, error) {
+func NewZRLT() (*ZRLT, error) {
 	this := new(ZRLT)
-	this.size = sz
 	return this, nil
 }
 
-func (this *ZRLT) Size() uint {
-	return this.size
-}
-
-func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
+func (this *ZRLT) Forward(src, dst []byte, length uint) (uint, uint, error) {
 	if src == nil {
 		return uint(0), uint(0), errors.New("Invalid null source buffer")
 	}
@@ -57,12 +51,7 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	srcEnd := this.size
-
-	if this.size == 0 {
-		srcEnd = uint(len(src))
-	}
-
+	srcEnd := length
 	dstEnd := uint(len(dst))
 	dstEnd2 := dstEnd - 2
 	runLength := 1
@@ -128,7 +117,7 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 	return srcIdx, dstIdx, nil
 }
 
-func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
+func (this *ZRLT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
 	if src == nil {
 		return uint(0), uint(0), errors.New("Invalid null source buffer")
 	}
@@ -141,12 +130,7 @@ func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	srcEnd := this.size
-
-	if this.size == 0 {
-		srcEnd = uint(len(src))
-	}
-
+	srcEnd := length
 	dstEnd := uint(len(dst))
 	runLength := 1
 	srcIdx := uint(0)

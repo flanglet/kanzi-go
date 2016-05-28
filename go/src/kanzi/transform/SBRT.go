@@ -34,7 +34,6 @@ const (
 )
 
 type SBRT struct {
-	size    uint
 	prev    []int // size 256
 	curr    []int // size 256
 	symbols []int // size 256
@@ -42,13 +41,12 @@ type SBRT struct {
 	mode    int
 }
 
-func NewSBRT(mode int, sz uint) (*SBRT, error) {
+func NewSBRT(mode int) (*SBRT, error) {
 	if mode != MODE_MTF && mode != MODE_RANK && mode != MODE_TIMESTAMP {
 		return nil, errors.New("Invalid mode parameter")
 	}
 
 	this := new(SBRT)
-	this.size = sz
 	this.mode = mode
 	this.prev = make([]int, 256)
 	this.curr = make([]int, 256)
@@ -57,17 +55,8 @@ func NewSBRT(mode int, sz uint) (*SBRT, error) {
 	return this, nil
 }
 
-func (this *SBRT) Size() uint {
-	return this.size
-}
-
-func (this *SBRT) SetSize(sz uint) bool {
-	this.size = sz
-	return true
-}
-
-func (this *SBRT) Forward(src, dst []byte) (uint, uint, error) {
-	count := int(this.size)
+func (this *SBRT) Forward(src, dst []byte, length uint) (uint, uint, error) {
+	count := int(length)
 
 	if count == 0 {
 		count = len(src)
@@ -129,8 +118,8 @@ func (this *SBRT) Forward(src, dst []byte) (uint, uint, error) {
 	return uint(count), uint(count), nil
 }
 
-func (this *SBRT) Inverse(src, dst []byte) (uint, uint, error) {
-	count := int(this.size)
+func (this *SBRT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
+	count := int(length)
 
 	if count == 0 {
 		count = len(src)

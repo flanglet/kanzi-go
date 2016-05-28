@@ -75,12 +75,12 @@ public class TestZRLT
          ZRLT zrlt = new ZRLT();
          System.out.println("\nOriginal: ");
 
-         for (int i = 0; i < input.length; i++)
+         for (int i=0; i<input.length; i++)
          {
             System.out.print((input[i] & 255) + " ");
          }
 
-         if (zrlt.forward(iba1, iba2) == false)
+         if (zrlt.forward(iba1, iba2, size) == false)
          {
             System.out.println("\nEncoding error");
             System.exit(1);
@@ -94,18 +94,19 @@ public class TestZRLT
          
          System.out.println("\nCoded: ");
 
-         for (int i = 0; i < iba2.index; i++)
+         for (int i=0; i<iba2.index; i++)
          {
             System.out.print((output[i] & 255) + " "); //+"("+Integer.toBinaryString(output[i] & 255)+") ");
          }
 
          System.out.print(" (Compression ratio: " + (iba2.index * 100 / input.length)+ "%)");
-         zrlt = new ZRLT(iba2.index); 
+         zrlt = new ZRLT();
+         int count = iba2.index;
          iba1.index = 0;
          iba2.index = 0;
          iba3.index = 0;
          
-         if (zrlt.inverse(iba2, iba3) == false)
+         if (zrlt.inverse(iba2, iba3, count) == false)
          {
             System.out.println("\nDecoding error");
             System.exit(1);
@@ -114,7 +115,7 @@ public class TestZRLT
          System.out.println("\nDecoded: ");
          boolean ok = true;
 
-         for (int i = 0; i < input.length; i++)
+         for (int i=0; i<input.length; i++)
          {
             System.out.print((res[i] & 255) + " ");
 
@@ -154,7 +155,7 @@ public class TestZRLT
          long delta1 = 0;
          long delta2 = 0;
          
-         for (int ii = 0; ii < iter; ii++)
+         for (int ii=0; ii<iter; ii++)
          {
             // Generate random data with runs
              int n = 0;
@@ -175,7 +176,7 @@ public class TestZRLT
             iba2.index = 0;
             before = System.nanoTime();
 
-            if (zrlt.forward(iba1, iba2) == false)
+            if (zrlt.forward(iba1, iba2, size) == false)
             {
                System.out.println("Encoding error");
                System.exit(1);
@@ -183,12 +184,13 @@ public class TestZRLT
                
             after = System.nanoTime();
             delta1 += (after - before);
-            zrlt = new ZRLT(iba2.index); 
+            zrlt = new ZRLT();
+            int count = iba2.index;
             iba2.index = 0;
             iba3.index = 0;
             before = System.nanoTime();
             
-            if (zrlt.inverse(iba2, iba3) == false)
+            if (zrlt.inverse(iba2, iba3, count) == false)
             {
                System.out.println("Decoding error");
                System.exit(1);

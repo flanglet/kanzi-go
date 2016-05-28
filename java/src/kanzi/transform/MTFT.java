@@ -18,19 +18,17 @@ package kanzi.transform;
 
 import kanzi.ByteTransform;
 import kanzi.IndexedByteArray;
-import kanzi.Sizeable;
 
 // The Move-To-Front Transform is a simple reversible transform based on
 // permutation of the data in the original message to reduce the entropy.
 // See http://en.wikipedia.org/wiki/Move-to-front_transform
 // Fast implementation using double linked lists to minimize the number of lookups
 
-public final class MTFT implements ByteTransform, Sizeable
+public final class MTFT implements ByteTransform
 {
     private static final int RESET_THRESHOLD = 64;
     private static final int LIST_LENGTH = 17;
 
-    private int size;
     private final Payload[] heads; // linked lists
     private final int[] lengths;   // length of linked list
     private final byte[] buckets;  // index of list
@@ -39,16 +37,6 @@ public final class MTFT implements ByteTransform, Sizeable
 
     public MTFT()
     {
-        this(0);
-    }
-
-
-    public MTFT(int size)
-    {
-        if (size < 0)
-            throw new IllegalArgumentException("Invalid size parameter (must be at least 0)");
-
-        this.size = size;
         this.heads = new Payload[16];
         this.lengths = new int[16];
         this.buckets = new byte[256];
@@ -56,7 +44,7 @@ public final class MTFT implements ByteTransform, Sizeable
 
 
     @Override
-    public boolean inverse(IndexedByteArray src, IndexedByteArray dst)
+    public boolean inverse(IndexedByteArray src, IndexedByteArray dst, final int count)
     {
         final byte[] indexes = this.buckets;
 
@@ -67,7 +55,6 @@ public final class MTFT implements ByteTransform, Sizeable
         final byte[] output = dst.array;
         final int srcIdx = src.index;
         final int dstIdx = dst.index;
-        final int count = (this.size == 0) ? input.length - srcIdx : this.size;
 
         for (int i=0; i<count; i++)
         {
@@ -100,25 +87,6 @@ public final class MTFT implements ByteTransform, Sizeable
         src.index += count;
         dst.index += count;
         return true;
-    }
-
-
-    @Override
-    public boolean setSize(int size)
-    {
-        if (size < 0) // 0 is valid
-            return false;
-
-        this.size = size;
-        return true;
-    }
-
-
-    // Not thread safe
-    @Override
-    public int size()
-    {
-       return this.size;
     }
 
 
@@ -190,7 +158,7 @@ public final class MTFT implements ByteTransform, Sizeable
           
 
     @Override
-    public boolean forward(IndexedByteArray src, IndexedByteArray dst)
+    public boolean forward(IndexedByteArray src, IndexedByteArray dst, final int count)
     {
         if (this.anchor == null)
            this.initLists();
@@ -201,7 +169,6 @@ public final class MTFT implements ByteTransform, Sizeable
        final byte[] output = dst.array;
        final int srcIdx = src.index;
        final int dstIdx = dst.index;
-       final int count = (this.size == 0) ? input.length - srcIdx :  this.size;
        byte previous = this.heads[0].value;
 
        for (int i=0; i<count; i++)

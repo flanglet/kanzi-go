@@ -18,7 +18,6 @@ package kanzi.function;
 import java.nio.ByteOrder;
 import kanzi.ByteFunction;
 import kanzi.IndexedByteArray;
-import kanzi.Sizeable;
 
 
 // Pure Java implementation of a LZ4 codec.
@@ -27,7 +26,7 @@ import kanzi.Sizeable;
 // More details on the algorithm are available here:
 // http://fastcompression.blogspot.com/2011/05/lz4-explained.html
 
-public final class LZ4Codec implements ByteFunction, Sizeable
+public final class LZ4Codec implements ByteFunction
 {
    private static final int HASH_SEED          = 0x9E3779B1;
    private static final int HASH_LOG           = 12;
@@ -53,41 +52,12 @@ public final class LZ4Codec implements ByteFunction, Sizeable
    private static final int SKIP_TRIGGER       = 6;
    private static final int SEARCH_MATCH_NB    = ACCELERATION << SKIP_TRIGGER;
 
-   private int size;
    private final int[] buffer;
 
 
    public LZ4Codec()
    {
-      this(0);
-   }
-
-
-   public LZ4Codec(int size)
-   {
-      if (size < 0)
-         throw new IllegalArgumentException("Invalid size parameter (must be at least 0)");
-
-      this.size = size;
       this.buffer = new int[1<<HASH_LOG_64K];
-   }
-
-
-   @Override
-   public int size()
-   {
-      return this.size;
-   }
-
-
-   @Override
-   public boolean setSize(int sz)
-   {
-      if (sz < 0)
-         return false;
-
-      this.size = sz;
-      return true;
    }
 
 
@@ -132,7 +102,7 @@ public final class LZ4Codec implements ByteFunction, Sizeable
    // Generates same byte output as LZ4_compress_generic in LZ4 r131 (7/15) 
    // for a 32 bit architecture.
    @Override
-   public boolean forward(IndexedByteArray source, IndexedByteArray destination)
+   public boolean forward(IndexedByteArray source, IndexedByteArray destination, final int count)
    {
       if ((source == null) || (destination == null) || (source.array == destination.array))
          return false;
@@ -141,7 +111,6 @@ public final class LZ4Codec implements ByteFunction, Sizeable
       final int dstIdx0 = destination.index;
       final byte[] src = source.array;
       final byte[] dst = destination.array;
-      final int count = (this.size > 0) ? this.size : src.length - srcIdx0;
 
       if (dst.length - dstIdx0 < this.getMaxEncodedLength(count))
          return false;
@@ -298,7 +267,7 @@ public final class LZ4Codec implements ByteFunction, Sizeable
    // Reads same byte input as LZ4_decompress_generic in LZ4 r131 (7/15) 
    // for a 32 bit architecture.
    @Override
-   public boolean inverse(IndexedByteArray source, IndexedByteArray destination)
+   public boolean inverse(IndexedByteArray source, IndexedByteArray destination, final int count)
    {
       if ((source == null) || (destination == null) || (source.array == destination.array))
          return false;
@@ -307,7 +276,6 @@ public final class LZ4Codec implements ByteFunction, Sizeable
       final int dstIdx0 = destination.index;
       final byte[] src = source.array;
       final byte[] dst = destination.array;
-      final int count = (this.size > 0) ? this.size : src.length - srcIdx0;
       final int srcEnd = srcIdx0 + count;
       final int dstEnd = dst.length;
       final int srcEnd2 = srcEnd - COPY_LENGTH;

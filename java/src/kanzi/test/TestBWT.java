@@ -33,13 +33,13 @@ public class TestBWT
            IndexedByteArray iba1 = new IndexedByteArray(buf1, 0);
            IndexedByteArray iba2 = new IndexedByteArray(buf2, 0);
            BWT bwt = new BWT();
-           bwt.forward(iba1, iba2);
+           bwt.forward(iba1, iba2, buf1.length);
            System.out.print("BWT:  " + new String(buf2));
            System.out.println(" (" + bwt.getPrimaryIndex() + ")");
            iba1.index = 0;
            iba2.index = 0;
            BWTS bwts = new BWTS();
-           bwts.forward(iba1, iba2);
+           bwts.forward(iba1, iba2, buf1.length);
            System.out.println("BWTS: " + new String(buf2));
            System.exit(0);
         }
@@ -93,12 +93,12 @@ public class TestBWT
             IndexedByteArray iba1 = new IndexedByteArray(buf1, 0);
             IndexedByteArray iba2 = new IndexedByteArray(buf2, 0);
             IndexedByteArray iba3 = new IndexedByteArray(buf3, 0);
-            ByteTransform bwt = (isBWT) ? new BWT(size) : new BWTS(size);
+            ByteTransform bwt = (isBWT) ? new BWT() : new BWTS();
             String str1 = new String(buf1, start, buf1.length-start);
             System.out.println("Input:   "+str1);
             iba1.index = start;
             iba2.index = 0;
-            bwt.forward(iba1, iba2);
+            bwt.forward(iba1, iba2, buf1.length);
             String str2 = new String(buf2);
             System.out.print("Encoded: "+str2);
             
@@ -116,7 +116,7 @@ public class TestBWT
             iba2.index = 0;
             iba3.index = start;
             
-            bwt.inverse(iba2, iba3);
+            bwt.inverse(iba2, iba3, buf1.length);
             String str3 = new String(buf3, start, buf3.length-start);
             System.out.println("Output:  "+str3);
 
@@ -149,7 +149,7 @@ public class TestBWT
          {
              long delta1 = 0;
              long delta2 = 0;
-             ByteTransform bwt = (isBWT) ? new BWT(size) : new BWTS(size);
+             ByteTransform bwt = (isBWT) ? new BWT() : new BWTS();
              java.util.Random random = new java.util.Random();
              long before, after;
 
@@ -161,13 +161,13 @@ public class TestBWT
                  before = System.nanoTime();
                  iba1.index = 0;
                  iba2.index = 0;
-                 bwt.forward(iba1, iba2);
+                 bwt.forward(iba1, iba2, size);
                  after = System.nanoTime();
                  delta1 += (after - before);
                  before = System.nanoTime();
                  iba2.index = 0;
                  iba3.index = 0;
-                 bwt.inverse(iba2, iba3);
+                 bwt.inverse(iba2, iba3, size);
                  after = System.nanoTime();
                  delta2 += (after - before);
              

@@ -18,7 +18,7 @@ package kanzi.transform;
 import kanzi.util.DivSufSort;
 import kanzi.ByteTransform;
 import kanzi.IndexedByteArray;
-import kanzi.Sizeable;
+
 
 
 // Bijective version of the Burrows-Wheeler Transform
@@ -27,59 +27,28 @@ import kanzi.Sizeable;
 // Forward transform based on the code at https://code.google.com/p/mk-bwts/ 
 // by Neal Burns and DivSufSort (port of libDivSufSort by Yuta Mori)
 
-public class BWTS implements ByteTransform, Sizeable
+public class BWTS implements ByteTransform
 {
-    private int size;
     private int[] buffer;
-    private int[] buckets;
+    private final int[] buckets;
     private DivSufSort saAlgo;
 
     
     public BWTS()
     {
-       this(0);
-    }
-
-
-    // Static allocation of memory
-    public BWTS(int size)
-    {
-       if (size < 0)
-          throw new IllegalArgumentException("Invalid size parameter (must be at least 0)");
-
-       this.size = size;
-       this.buffer = new int[size];  
+       this.buffer = new int[0];  
        this.buckets = new int[256];
-    }
-
-
-    @Override
-    public int size()
-    {
-       return this.size;
-    }
-
-
-    @Override
-    public boolean setSize(int size)
-    {
-       if (size < 0)
-           return false;
-
-       this.size = size;
-       return true;
     }
 
 
     // Not thread safe
     @Override
-    public boolean forward(IndexedByteArray src, IndexedByteArray dst)
+    public boolean forward(IndexedByteArray src, IndexedByteArray dst, final int count)
     {
         final byte[] input = src.array;
         final byte[] output = dst.array;
         final int srcIdx = src.index;
         final int dstIdx = dst.index;
-        final int count = (this.size == 0) ? input.length - srcIdx :  this.size;
 
         if (count < 2)
         {
@@ -214,10 +183,8 @@ public class BWTS implements ByteTransform, Sizeable
 
     // Not thread safe
     @Override
-    public boolean inverse(IndexedByteArray src, IndexedByteArray dst)
+    public boolean inverse(IndexedByteArray src, IndexedByteArray dst, final int count)
     {
-       final int count = (this.size == 0) ? src.array.length - src.index :  this.size;
-
        if (count < 2)
        {
           if (count == 1)

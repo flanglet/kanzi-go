@@ -55,7 +55,6 @@ import (
 // for respective performance of different suffix sorting algorithms.
 
 type BWT struct {
-	size         uint
 	buffer1      []int
 	buffer2      []byte // Only used for big blocks (size >= 1<<24)
 	buckets      []int
@@ -63,9 +62,8 @@ type BWT struct {
 	saAlgo       *util.DivSufSort
 }
 
-func NewBWT(sz uint) (*BWT, error) {
+func NewBWT() (*BWT, error) {
 	this := new(BWT)
-	this.size = sz
 	this.buffer1 = make([]int, 0)  // Allocate empty: only used in inverse
 	this.buffer2 = make([]byte, 0) // Allocate empty: only used for big blocks (size >= 1<<24)
 	this.buckets = make([]int, 256)
@@ -85,21 +83,8 @@ func (this *BWT) SetPrimaryIndex(primaryIndex uint) bool {
 	return true
 }
 
-func (this *BWT) Size() uint {
-	return this.size
-}
-
-func (this *BWT) SetSize(sz uint) bool {
-	this.size = sz
-	return true
-}
-
-func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
-	count := int(this.size)
-
-	if this.size == 0 {
-		count = len(src)
-	}
+func (this *BWT) Forward(src, dst []byte, length uint) (uint, uint, error) {
+	count := int(length)
 
 	if count < 2 {
 		if count == 1 {
@@ -145,12 +130,8 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 	return uint(count), uint(count), nil
 }
 
-func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
-	count := int(this.size)
-
-	if this.size == 0 {
-		count = len(src)
-	}
+func (this *BWT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
+	count := int(length)
 
 	if count < 2 {
 		if count == 1 {

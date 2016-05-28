@@ -31,19 +31,19 @@ func main() {
 	// Parse
 	flag.Parse()
 
-    if len(*input) > 0 {
-    	buf1 := []byte(*input)
-    	size := uint(len(buf1))
-    	buf2 := make([]byte, size)
-    	bwt, _ := transform.NewBWT(size)
-    	bwt.Forward(buf1, buf2)
+	if len(*input) > 0 {
+		buf1 := []byte(*input)
+		size := uint(len(buf1))
+		buf2 := make([]byte, size)
+		bwt, _ := transform.NewBWT()
+		bwt.Forward(buf1, buf2, uint(size))
 		fmt.Printf("BWT:  %s (%v)\n", buf2, bwt.PrimaryIndex())
-    	bwts, _ := transform.NewBWTS(size)
-    	bwts.Forward(buf1, buf2)
+		bwts, _ := transform.NewBWTS()
+		bwts.Forward(buf1, buf2, uint(size))
 		fmt.Printf("BWTS: %s\n", buf2)
 		os.Exit(0)
-    }
-        
+	}
+
 	fmt.Printf("TestBWT and TestBWTS")
 	TestCorrectness(true)
 	TestCorrectness(false)
@@ -88,14 +88,14 @@ func TestCorrectness(isBWT bool) {
 		var bwt kanzi.ByteTransform
 
 		if isBWT {
-			bwt, _ = transform.NewBWT(size)
+			bwt, _ = transform.NewBWT()
 		} else {
-			bwt, _ = transform.NewBWTS(size)
+			bwt, _ = transform.NewBWTS()
 		}
 
 		str1 := string(buf1)
 		fmt.Printf("Input:   %s\n", str1)
-		_, _, err1 := bwt.Forward(buf1, buf2)
+		_, _, err1 := bwt.Forward(buf1, buf2, uint(len(buf1)))
 
 		if err1 != nil {
 			fmt.Printf("Error: %v\n", err1)
@@ -112,8 +112,8 @@ func TestCorrectness(isBWT bool) {
 		} else {
 			println()
 		}
-		
-		_, _, err2 := bwt.Inverse(buf2, buf3)
+
+		_, _, err2 := bwt.Inverse(buf2, buf3, uint(len(buf1)))
 
 		if err2 != nil {
 			fmt.Printf("Error: %v\n", err2)
@@ -153,9 +153,9 @@ func TestSpeed(isBWT bool) {
 		var bwt kanzi.ByteTransform
 
 		if isBWT {
-			bwt, _ = transform.NewBWT(0)
+			bwt, _ = transform.NewBWT()
 		} else {
-			bwt, _ = transform.NewBWTS(0)
+			bwt, _ = transform.NewBWTS()
 		}
 
 		rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -166,11 +166,11 @@ func TestSpeed(isBWT bool) {
 			}
 
 			before := time.Now()
-			bwt.Forward(buf1, buf2)
+			bwt.Forward(buf1, buf2, uint(size))
 			after := time.Now()
 			delta1 += after.Sub(before).Nanoseconds()
 			before = time.Now()
-			bwt.Inverse(buf2, buf3)
+			bwt.Inverse(buf2, buf3, uint(size))
 			after = time.Now()
 			delta2 += after.Sub(before).Nanoseconds()
 

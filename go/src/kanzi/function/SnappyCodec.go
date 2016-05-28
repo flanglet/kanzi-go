@@ -27,25 +27,14 @@ import (
 )
 
 type SnappyCodec struct {
-	size uint
 }
 
-func NewSnappyCodec(sz uint) (*SnappyCodec, error) {
+func NewSnappyCodec() (*SnappyCodec, error) {
 	this := new(SnappyCodec)
-	this.size = sz
 	return this, nil
 }
 
-func (this *SnappyCodec) Size() uint {
-	return this.size
-}
-
-func (this *SnappyCodec) SetSize(sz uint) bool {
-	this.size = sz
-	return true
-}
-
-func (this *SnappyCodec) Forward(src, dst []byte) (uint, uint, error) {
+func (this *SnappyCodec) Forward(src, dst []byte, length uint) (uint, uint, error) {
 	if src == nil {
 		return uint(0), uint(0), errors.New("Invalid null source buffer")
 	}
@@ -58,11 +47,7 @@ func (this *SnappyCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	count := this.size
-
-	if this.size == 0 {
-		count = uint(len(src))
-	}
+	count := length
 
 	if n := snappy.MaxEncodedLen(int(count)); len(dst) < n {
 		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
@@ -77,7 +62,7 @@ func (this *SnappyCodec) Forward(src, dst []byte) (uint, uint, error) {
 	return count, uint(len(res)), nil
 }
 
-func (this *SnappyCodec) Inverse(src, dst []byte) (uint, uint, error) {
+func (this *SnappyCodec) Inverse(src, dst []byte, length uint) (uint, uint, error) {
 	if src == nil {
 		return uint(0), uint(0), errors.New("Invalid null source buffer")
 	}
@@ -90,12 +75,7 @@ func (this *SnappyCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	count := this.size
-
-	if this.size == 0 {
-		count = uint(len(src))
-	}
-
+	count := length
 	res, err := snappy.Decode(dst, src[0:count])
 
 	if err != nil {

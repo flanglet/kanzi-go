@@ -534,7 +534,7 @@ public class CompressedOutputStream extends OutputStream
                buffer.index = 0;
 
                // Forward transform
-               if (transform.forward(data, buffer) == false)
+               if (transform.forward(data, buffer, blockLength) == false)
                {
                   // Transform failed (probably due to lack of space in output buffer)
                   if (data.array != buffer.array)

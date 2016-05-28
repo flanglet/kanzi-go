@@ -21,17 +21,11 @@ import (
 )
 
 type NullFunction struct {
-	size uint
 }
 
-func NewNullFunction(sz uint) (*NullFunction, error) {
+func NewNullFunction() (*NullFunction, error) {
 	this := new(NullFunction)
-	this.size = sz
 	return this, nil
-}
-
-func (this *NullFunction) Size() uint {
-	return this.size
 }
 
 func doCopy(src, dst []byte, sz uint) (uint, uint, error) {
@@ -64,12 +58,12 @@ func doCopy(src, dst []byte, sz uint) (uint, uint, error) {
 	return uint(length), uint(length), nil
 }
 
-func (this *NullFunction) Forward(src, dst []byte) (uint, uint, error) {
-	return doCopy(src, dst, this.size)
+func (this *NullFunction) Forward(src, dst []byte, length uint) (uint, uint, error) {
+	return doCopy(src, dst, length)
 }
 
-func (this *NullFunction) Inverse(src, dst []byte) (uint, uint, error) {
-	return doCopy(src, dst, this.size)
+func (this *NullFunction) Inverse(src, dst []byte, length uint) (uint, uint, error) {
+	return doCopy(src, dst, length)
 }
 
 func (this NullFunction) MaxEncodedLen(srcLen int) int {

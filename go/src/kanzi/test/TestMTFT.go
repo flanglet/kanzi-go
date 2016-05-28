@@ -40,7 +40,7 @@ func main() {
 		}
 
 		size := len(input)
-		mtft, _ := transform.NewMTFT(uint(size))
+		mtft, _ := transform.NewMTFT()
 		transform := make([]byte, size+20)
 		reverse := make([]byte, size)
 
@@ -52,14 +52,14 @@ func main() {
 		}
 
 		start := (ii & 1) * ii
-		mtft.Forward(input, transform[start:])
+		mtft.Forward(input, transform[start:], uint(size))
 		fmt.Printf("\nTransform : ")
 
 		for i := start; i < start+len(input); i++ {
 			fmt.Printf("%d ", transform[i])
 		}
 
-		mtft.Inverse(transform[start:], reverse)
+		mtft.Inverse(transform[start:], reverse, uint(size))
 		fmt.Printf("\nReverse   : ")
 
 		for i := 0; i < len(input); i++ {
@@ -93,7 +93,7 @@ func main() {
 		input := make([]byte, size)
 		output := make([]byte, size)
 		reverse := make([]byte, size)
-		mtft, _ := transform.NewMTFT(uint(size))
+		mtft, _ := transform.NewMTFT()
 		delta1 := int64(0)
 		delta2 := int64(0)
 
@@ -127,11 +127,11 @@ func main() {
 			}
 
 			before := time.Now()
-			mtft.Forward(input, output)
+			mtft.Forward(input, output, uint(size))
 			after := time.Now()
 			delta1 += after.Sub(before).Nanoseconds()
 			before = time.Now()
-			mtft.Inverse(output, reverse)
+			mtft.Inverse(output, reverse, uint(size))
 			after = time.Now()
 			delta2 += after.Sub(before).Nanoseconds()
 		}

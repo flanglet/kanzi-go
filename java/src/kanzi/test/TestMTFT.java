@@ -50,7 +50,7 @@ public class TestMTFT
                 }
 
                 int size = input.length;
-                MTFT mtft = new MTFT(size);
+                MTFT mtft = new MTFT();
                 byte[] transform = new byte[size+20];
                 byte[] reverse = new byte[size];
                 IndexedByteArray iba1 = new IndexedByteArray(input, 0);
@@ -67,7 +67,7 @@ public class TestMTFT
 
                 int start = (ii & 1) * ii;
                 iba2.index = start;
-                mtft.forward(iba1, iba2);
+                mtft.forward(iba1, iba2, size);
                 System.out.println();
                 System.out.print("Transform : ");
 
@@ -77,7 +77,7 @@ public class TestMTFT
                 }
 
                 iba2.index = start;
-                mtft.inverse(iba2, iba3);
+                mtft.inverse(iba2, iba3, size);
                 System.out.println();
                 System.out.print("Reverse   : ");
 
@@ -154,13 +154,13 @@ public class TestMTFT
                 before = System.nanoTime();
                 iba1.index = 0;
                 iba2.index = 0;
-                mtft.forward(iba1, iba2);
+                mtft.forward(iba1, iba2, size);
                 after = System.nanoTime();
                 delta1 += (after - before);
                 before = System.nanoTime();
                 iba2.index = 0;
                 iba3.index = 0;
-                mtft.inverse(iba2, iba3);
+                mtft.inverse(iba2, iba3, size);
                 after = System.nanoTime();
                 delta2 += (after - before);
 

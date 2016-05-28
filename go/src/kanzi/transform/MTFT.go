@@ -27,39 +27,28 @@ type Payload struct {
 }
 
 type MTFT struct {
-	size    uint
 	lengths []int      // size 16
 	buckets []byte     // size 256
 	heads   []*Payload // size 16
 	anchor  *Payload
 }
 
-func NewMTFT(sz uint) (*MTFT, error) {
+func NewMTFT() (*MTFT, error) {
 	this := new(MTFT)
-	this.size = sz
 	this.heads = make([]*Payload, 16)
 	this.lengths = make([]int, 16)
 	this.buckets = make([]byte, 256)
 	return this, nil
 }
 
-func (this *MTFT) Size() uint {
-	return this.size
-}
-
-func (this *MTFT) SetSize(sz uint) bool {
-	this.size = sz
-	return true
-}
-
-func (this *MTFT) Inverse(src, dst []byte) (uint, uint, error) {
+func (this *MTFT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
 	indexes := this.buckets
 
 	for i := range indexes {
 		indexes[i] = byte(i)
 	}
 
-	count := int(this.size)
+	count := int(length)
 
 	if count == 0 {
 		count = len(src)
@@ -151,14 +140,14 @@ func (this *MTFT) balanceLists(resetValues bool) {
 	}
 }
 
-func (this *MTFT) Forward(src, dst []byte) (uint, uint, error) {
+func (this *MTFT) Forward(src, dst []byte, length uint) (uint, uint, error) {
 	if this.anchor == nil {
 		this.initLists()
 	} else {
 		this.balanceLists(true)
 	}
 
-	count := int(this.size)
+	count := int(length)
 
 	if count == 0 {
 		count = len(src)

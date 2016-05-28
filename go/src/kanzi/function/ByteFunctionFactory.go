@@ -35,16 +35,16 @@ func NewByteFunction(size uint, functionType uint16) (kanzi.ByteFunction, error)
 	switch uint16(functionType & 0x0F) {
 
 	case SNAPPY_TYPE:
-		return NewSnappyCodec(size)
+		return NewSnappyCodec()
 
 	case LZ4_TYPE:
-		return NewLZ4Codec(size)
+		return NewLZ4Codec()
 
 	case RLT_TYPE:
-		return NewRLT(size, 3)
+		return NewRLT(3)
 
 	case BWT_TYPE:
-		bwt, err := transform.NewBWT(size)
+		bwt, err := transform.NewBWT()
 
 		if err != nil {
 			return nil, err
@@ -53,7 +53,7 @@ func NewByteFunction(size uint, functionType uint16) (kanzi.ByteFunction, error)
 		return NewBWTBlockCodec(bwt, int(functionType)>>4, size) // raw BWT
 
 	case BWTS_TYPE:
-		bwts, err := transform.NewBWTS(size)
+		bwts, err := transform.NewBWTS()
 
 		if err != nil {
 			return nil, err
@@ -62,7 +62,7 @@ func NewByteFunction(size uint, functionType uint16) (kanzi.ByteFunction, error)
 		return NewBWTBlockCodec(bwts, int(functionType)>>4, size) // raw BWTS
 
 	case NULL_TRANSFORM_TYPE:
-		return NewNullFunction(size)
+		return NewNullFunction()
 
 	default:
 		return nil, fmt.Errorf("Unsupported function type: '%c'", functionType)

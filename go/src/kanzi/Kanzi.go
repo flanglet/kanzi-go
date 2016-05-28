@@ -34,9 +34,9 @@ type IntTransform interface {
 // known in advance (by the caller).
 // Return index in src, index in dst and error
 type ByteTransform interface {
-	Forward(src, dst []byte) (uint, uint, error)
+	Forward(src, dst []byte, length uint) (uint, uint, error)
 
-	Inverse(src, dst []byte) (uint, uint, error)
+	Inverse(src, dst []byte, length uint) (uint, uint, error)
 }
 
 // An integer function is an operation that transforms the input int array and writes
@@ -59,9 +59,9 @@ type IntFunction interface {
 // The function may fail if input and output array are the same array.
 // Return index in src, index in dst and error
 type ByteFunction interface {
-	Forward(src, dst []byte) (uint, uint, error)
+	Forward(src, dst []byte, length uint) (uint, uint, error)
 
-	Inverse(src, dst []byte) (uint, uint, error)
+	Inverse(src, dst []byte, length uint) (uint, uint, error)
 
 	// Return the max size required for the encoding output buffer
 	// If the max size of the output buffer is not known, return -1

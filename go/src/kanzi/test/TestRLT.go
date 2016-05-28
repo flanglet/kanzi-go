@@ -91,7 +91,7 @@ func TestCorrectness() {
 			input[i] = byte(arr[i])
 		}
 
-		rlt, _ := function.NewRLT(uint(size), 3)
+		rlt, _ := function.NewRLT(3)
 		fmt.Printf("\nOriginal: ")
 
 		for i := range arr {
@@ -99,7 +99,7 @@ func TestCorrectness() {
 		}
 
 		fmt.Printf("\nCoded: ")
-		srcIdx, dstIdx, err := rlt.Forward(input, output)
+		srcIdx, dstIdx, err := rlt.Forward(input, output, uint(size))
 
 		if err != nil {
 			fmt.Printf("\nEncoding error")
@@ -116,9 +116,9 @@ func TestCorrectness() {
 		}
 
 		// Required to reset internal attributes
-		rlt, _ = function.NewRLT(dstIdx, 3)
+		rlt, _ = function.NewRLT(3)
 
-		srcIdx, _, err = rlt.Inverse(output, reverse)
+		srcIdx, _, err = rlt.Inverse(output, reverse, dstIdx)
 
 		if err != nil {
 			fmt.Printf("\nDecoding error")
@@ -158,6 +158,8 @@ func TestSpeed() {
 
 		// Generate random data with runs
 		n := 0
+		var compressed uint
+		var err error
 		delta1 := int64(0)
 		delta2 := int64(0)
 
@@ -176,10 +178,10 @@ func TestSpeed() {
 		}
 
 		for ii := 0; ii < iter; ii++ {
-			rlt, _ := function.NewRLT(0, 3)
+			rlt, _ := function.NewRLT(3)
 			before := time.Now()
 
-			if _, _, err := rlt.Forward(input, output); err != nil {
+			if _, compressed, err = rlt.Forward(input, output, uint(size)); err != nil {
 				fmt.Printf("Encoding error%v\n", err)
 				os.Exit(1)
 			}
@@ -189,10 +191,10 @@ func TestSpeed() {
 		}
 
 		for ii := 0; ii < iter; ii++ {
-			rlt, _ := function.NewRLT(0, 3)
+			rlt, _ := function.NewRLT(3)
 			before := time.Now()
 
-			if _, _, err := rlt.Inverse(output, reverse); err != nil {
+			if _, _, err = rlt.Inverse(output, reverse, compressed); err != nil {
 				fmt.Printf("Decoding error%v\n", err)
 				os.Exit(1)
 			}

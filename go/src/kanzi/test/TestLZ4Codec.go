@@ -91,14 +91,14 @@ func TestCorrectness() {
 			input[i] = byte(arr[i])
 		}
 
-		lz4, _ := function.NewLZ4Codec(0)
+		lz4, _ := function.NewLZ4Codec()
 		fmt.Printf("\nOriginal: \n")
 
 		for i := range arr {
 			fmt.Printf("%v ", input[i])
 		}
 
-		srcIdx, dstIdx, err := lz4.Forward(input, output)
+		srcIdx, dstIdx, err := lz4.Forward(input, output, uint(size))
 
 		if err != nil {
 			fmt.Printf("\n===Encoding error===\n%v\n", err)
@@ -117,9 +117,9 @@ func TestCorrectness() {
 		}
 
 		// Required to reset internal attributes
-		lz4, _ = function.NewLZ4Codec(dstIdx)
+		lz4, _ = function.NewLZ4Codec()
 
-		_, _, err = lz4.Inverse(output, reverse)
+		_, _, err = lz4.Inverse(output, reverse, dstIdx)
 
 		if err != nil {
 			fmt.Printf("\n===Decoding error===\n%v\n", err)
@@ -181,10 +181,10 @@ func TestSpeed() {
 		var err error
 
 		for ii := 0; ii < iter; ii++ {
-			lz4, _ := function.NewLZ4Codec(0)
+			lz4, _ := function.NewLZ4Codec()
 			before := time.Now()
 
-			_, dstIdx, err = lz4.Forward(input, output)
+			_, dstIdx, err = lz4.Forward(input, output, uint(size))
 
 			if err != nil {
 				fmt.Printf("Encoding error%v\n", err)
@@ -196,10 +196,10 @@ func TestSpeed() {
 		}
 
 		for ii := 0; ii < iter; ii++ {
-			lz4, _ := function.NewLZ4Codec(dstIdx)
+			lz4, _ := function.NewLZ4Codec()
 			before := time.Now()
 
-			if _, _, err = lz4.Inverse(output, reverse); err != nil {
+			if _, _, err = lz4.Inverse(output, reverse, dstIdx); err != nil {
 				fmt.Printf("Decoding error%v\n", err)
 				os.Exit(1)
 			}

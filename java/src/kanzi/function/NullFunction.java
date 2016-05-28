@@ -21,41 +21,22 @@ import kanzi.IndexedByteArray;
 
 public class NullFunction implements ByteFunction
 {
-   private final int size;
-
-
    public NullFunction()
    {
-      this(0);
-   }
-
-
-   public NullFunction(int size)
-   {
-      if (size < 0)
-         throw new IllegalArgumentException("Invalid size parameter (must be at least 0)");
-
-      this.size = size;
-   }
-
-
-   public int size()
-   {
-      return this.size;
    }
 
    
    @Override
-   public boolean forward(IndexedByteArray source, IndexedByteArray destination)
+   public boolean forward(IndexedByteArray source, IndexedByteArray destination, int length)
    {
-      return doCopy(source, destination, this.size);
+      return doCopy(source, destination, length);
    }
   
 
    @Override
-   public boolean inverse(IndexedByteArray source, IndexedByteArray destination)
+   public boolean inverse(IndexedByteArray source, IndexedByteArray destination, int length)
    {    
-      return doCopy(source, destination, this.size);
+      return doCopy(source, destination, length);
    }
 
    

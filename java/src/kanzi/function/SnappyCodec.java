@@ -17,13 +17,12 @@ package kanzi.function;
 
 import kanzi.ByteFunction;
 import kanzi.IndexedByteArray;
-import kanzi.Sizeable;
 
 
 // Snappy is a fast compression codec aiming for very high speed and
 // reasonable compression ratios.
 // This implementation is a port of the Go source at http://code.google.com/p/snappy-go/
-public final class SnappyCodec implements ByteFunction, Sizeable
+public final class SnappyCodec implements ByteFunction
 {
    private static final int MAX_OFFSET     = 32768;
    private static final int MAX_TABLE_SIZE = 16384;
@@ -41,41 +40,12 @@ public final class SnappyCodec implements ByteFunction, Sizeable
    private static final byte B0            = (byte) (TAG_DEC_LEN4 | TAG_COPY2);
    private static final int HASH_SEED      = 0x1e35a7bd;
 
-   private int size;
    private final int[] buffer;
 
 
    public SnappyCodec()
    {
-      this(0);
-   }
-
-
-   public SnappyCodec(int size)
-   {
-      if (size < 0)
-         throw new IllegalArgumentException("Invalid size parameter (must be at least 0)");
-
-      this.size = size;
       this.buffer = new int[MAX_TABLE_SIZE];
-   }
-
-
-   @Override
-   public int size()
-   {
-      return this.size;
-   }
-
-   
-   @Override
-   public boolean setSize(int sz)
-   {
-      if (sz < 0)
-         return false;
-      
-      this.size = sz;
-      return true;
    }
 
    
@@ -198,14 +168,13 @@ public final class SnappyCodec implements ByteFunction, Sizeable
 
 
   @Override
-  public boolean forward(IndexedByteArray source, IndexedByteArray destination)
+  public boolean forward(IndexedByteArray source, IndexedByteArray destination, final int count)
   {
      if ((source == null) || (destination == null) || (source.array == destination.array))
         return false;
 
      final byte[] src = source.array;
      final byte[] dst = destination.array;
-     final int count = (this.size > 0) ? this.size : src.length - source.index;
 
      if (dst.length - destination.index < getMaxEncodedLength(count))
         return false;
@@ -408,7 +377,7 @@ public final class SnappyCodec implements ByteFunction, Sizeable
   
 
   @Override
-  public boolean inverse(IndexedByteArray source, IndexedByteArray destination)
+  public boolean inverse(IndexedByteArray source, IndexedByteArray destination, final int count)
   {
      if ((source == null) || (destination == null) || (source.array == destination.array))
         return false;
@@ -424,7 +393,7 @@ public final class SnappyCodec implements ByteFunction, Sizeable
      if ((dLen < 0) || (dst.length - dstIdx < dLen)) 
         return false;
 
-     final int ends = (this.size > 0) ? srcIdx + this.size : src.length;
+     final int ends = srcIdx + count;
      int s = source.index;
      int d = dstIdx;
     

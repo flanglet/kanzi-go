@@ -105,15 +105,15 @@ public class TestRLT
                       input[j] = (byte) (0);
                }
 
-               RLT rlt = new RLT(arr.length);
+               RLT rlt = new RLT();
                System.out.println("\nOriginal: ");
 
-               for (int i = 0; i < input.length; i++)
+               for (int i=0; i<size; i++)
                {
                   System.out.print((input[i] & 255) + " ");
                }
 
-               if (rlt.forward(iba1, iba2) == false)
+               if (rlt.forward(iba1, iba2, size) == false)
                {
                   System.out.println("\nEncoding error or compression ratio > 1.0");
                   continue;
@@ -127,12 +127,13 @@ public class TestRLT
                   System.out.print((output[i] & 255) + " "); //+"("+Integer.toBinaryString(output[i] & 255)+") ");
                }
 
-               rlt = new RLT(iba2.index); // Required to reset internal attributes
+               rlt = new RLT(); 
+               int count = iba2.index;
                iba1.index = 0;
                iba2.index = 0;
                iba3.index = 0;
                
-               if (rlt.inverse(iba2, iba3) == false)
+               if (rlt.inverse(iba2, iba3, count) == false)
                {
                   System.out.println("\nDecoding error");
                   continue;
@@ -140,14 +141,14 @@ public class TestRLT
 
                System.out.println("\nDecoded: ");
 
-               for (int i = 0; i < reverse.length; i++)
+               for (int i=0; i<reverse.length; i++)
                {
                   System.out.print((reverse[i] & 255) + " ");
                }
 
                System.out.println();
 
-               for (int i = 0; i < input.length; i++)
+               for (int i=0; i<input.length; i++)
                {
                   if (input[i] != reverse[i])
                   {
@@ -188,7 +189,7 @@ public class TestRLT
          long delta1 = 0;
          long delta2 = 0;
 
-         for (int ii = 0; ii < iter; ii++)
+         for (int ii=0; ii<iter; ii++)
          { 
             // Generate random data with runs
             int n = 0;
@@ -204,12 +205,12 @@ public class TestRLT
                   input[n++] = val;
             }
           
-            RLT rlt = new RLT(); // Required to reset internal attributes
+            RLT rlt = new RLT(); 
             iba1.index = 0;
             iba2.index = 0;
             before = System.nanoTime();
             
-            if (rlt.forward(iba1, iba2) == false)
+            if (rlt.forward(iba1, iba2, size) == false)
             {
                System.out.println("Encoding error");
                System.exit(1);
@@ -218,12 +219,13 @@ public class TestRLT
             after = System.nanoTime();
             delta1 += (after - before);
 
-            rlt = new RLT(iba2.index); // Required to reset internal attributes
+            rlt = new RLT(); 
+            int count = iba2.index;
             iba3.index = 0;
             iba2.index = 0;
             before = System.nanoTime();
             
-            if (rlt.inverse(iba2, iba3) == false)
+            if (rlt.inverse(iba2, iba3, count) == false)
             {
                System.out.println("Decoding error");
                System.exit(1);

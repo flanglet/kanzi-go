@@ -88,7 +88,7 @@ public class TestSnappyCodec
               }
 
                int size = arr.length;
-               SnappyCodec snappy = new SnappyCodec(size);
+               SnappyCodec snappy = new SnappyCodec();
                input = new byte[size];
                output = new byte[snappy.getMaxEncodedLength(size)];
                reverse = new byte[size];
@@ -97,7 +97,7 @@ public class TestSnappyCodec
                IndexedByteArray iba3 = new IndexedByteArray(reverse, 0);
                Arrays.fill(output, (byte) 0xAA);
 
-               for (int i = 0; i < arr.length; i++)
+               for (int i=0; i<arr.length; i++)
                {
                   input[i] = (byte) (arr[i] & 255);
 
@@ -107,12 +107,12 @@ public class TestSnappyCodec
 
                System.out.println("\nOriginal: ");
 
-               for (int i = 0; i < input.length; i++)
+               for (int i=0; i<input.length; i++)
                {
                   System.out.print((input[i] & 255) + " ");
                }
 
-               if (snappy.forward(iba1, iba2) == false)
+               if (snappy.forward(iba1, iba2, size) == false)
                {
                   System.out.println("\nEncoding error");
                   System.exit(1);
@@ -127,17 +127,18 @@ public class TestSnappyCodec
                System.out.println("\nCoded: ");
                //java.util.Arrays.fill(input, (byte) 0);
 
-               for (int i = 0; i < iba2.index; i++)
+               for (int i=0; i<iba2.index; i++)
                {
                   System.out.print((output[i] & 255) + " "); //+"("+Integer.toBinaryString(output[i] & 255)+") ");
                }
 
-               snappy = new SnappyCodec(iba2.index);
+               snappy = new SnappyCodec();
+               int count = iba2.index;
                iba1.index = 0;
                iba2.index = 0;
                iba3.index = 0;
                
-               if (snappy.inverse(iba2, iba3) == false)
+               if (snappy.inverse(iba2, iba3, count) == false)
                {
                   System.out.println("\nDecoding error");
                   System.exit(1);
@@ -145,14 +146,14 @@ public class TestSnappyCodec
 
                System.out.println("\nDecoded: ");
 
-               for (int i = 0; i < reverse.length; i++)
+               for (int i=0; i<reverse.length; i++)
                {
                   System.out.print((reverse[i] & 255) + " ");
                }
 
                System.out.println();
 
-               for (int i = 0; i < input.length; i++)
+               for (int i=0; i<input.length; i++)
                {
                   if (input[i] != reverse[i])
                   {
@@ -214,7 +215,7 @@ public class TestSnappyCodec
                iba2.index = 0;
                before = System.nanoTime();
 
-               if (snappy.forward(iba1, iba2) == false)
+               if (snappy.forward(iba1, iba2, size) == false)
                {
                   System.out.println("Encoding error");
                   System.exit(1);
@@ -226,12 +227,13 @@ public class TestSnappyCodec
 
             for (int ii = 0; ii < iter; ii++)
             {
-               SnappyCodec snappy = new SnappyCodec(iba2.index); 
+               SnappyCodec snappy = new SnappyCodec(); 
+               int count = iba2.index;
                iba3.index = 0;
                iba2.index = 0;
                before = System.nanoTime();
 
-               if (snappy.inverse(iba2, iba3) == false)
+               if (snappy.inverse(iba2, iba3, count) == false)
                {
                   System.out.println("Decoding error");
                   System.exit(1);

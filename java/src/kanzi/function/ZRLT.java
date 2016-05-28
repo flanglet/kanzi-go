@@ -26,34 +26,16 @@ import kanzi.IndexedByteArray;
 
 public final class ZRLT implements ByteFunction
 {
-   private static int ZRLT_MAX_RUN = Integer.MAX_VALUE;
+   private static final int ZRLT_MAX_RUN = Integer.MAX_VALUE;
 
-   private final int size;
-
-
+   
    public ZRLT()
    {
-      this(0);
-   }
-
-
-   public ZRLT(int size)
-   {
-      if (size < 0)
-         throw new IllegalArgumentException("Invalid size parameter (must be at least 0)");
-
-      this.size = size;
-   }
-
-
-   public int size()
-   {
-      return this.size;
    }
 
 
    @Override
-   public boolean forward(IndexedByteArray source, IndexedByteArray destination)
+   public boolean forward(IndexedByteArray source, IndexedByteArray destination, int length)
    {
       if ((source == null) || (destination == null) || (source.array == destination.array))
          return false;
@@ -62,7 +44,7 @@ public final class ZRLT implements ByteFunction
       int dstIdx = destination.index;
       final byte[] src = source.array;
       final byte[] dst = destination.array;
-      final int srcEnd = (this.size == 0) ? src.length : srcIdx + this.size;
+      final int srcEnd = srcIdx + length;
       final int dstEnd = dst.length;
       final int dstEnd2 = dstEnd - 2;
       int runLength = 1;
@@ -127,7 +109,7 @@ public final class ZRLT implements ByteFunction
 
 
    @Override
-   public boolean inverse(IndexedByteArray source, IndexedByteArray destination)
+   public boolean inverse(IndexedByteArray source, IndexedByteArray destination, int length)
    {
       if ((source == null) || (destination == null) || (source.array == destination.array))
          return false;
@@ -136,7 +118,7 @@ public final class ZRLT implements ByteFunction
       int dstIdx = destination.index;
       final byte[] src = source.array;
       final byte[] dst = destination.array;
-      final int srcEnd = (this.size == 0) ? src.length : srcIdx + this.size;
+      final int srcEnd = srcIdx + length;
       final int dstEnd = dst.length;
       int runLength = 1;
 

@@ -34,11 +34,10 @@ const (
 )
 
 type RLT struct {
-	size         uint
 	runThreshold uint
 }
 
-func NewRLT(sz, threshold uint) (*RLT, error) {
+func NewRLT(threshold uint) (*RLT, error) {
 	if threshold < 2 {
 		return nil, errors.New("Invalid run threshold parameter (must be at least 2)")
 	}
@@ -48,20 +47,15 @@ func NewRLT(sz, threshold uint) (*RLT, error) {
 	}
 
 	this := new(RLT)
-	this.size = sz
 	this.runThreshold = threshold
 	return this, nil
-}
-
-func (this *RLT) Size() uint {
-	return this.size
 }
 
 func (this *RLT) RunTheshold() uint {
 	return this.runThreshold
 }
 
-func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
+func (this *RLT) Forward(src, dst []byte, length uint) (uint, uint, error) {
 	if src == nil {
 		return uint(0), uint(0), errors.New("Invalid null source buffer")
 	}
@@ -74,12 +68,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	srcEnd := this.size
-
-	if this.size == 0 {
-		srcEnd = uint(len(src))
-	}
-
+	srcEnd := length
 	dstEnd := uint(len(dst))
 	run := 1
 	threshold := int(this.runThreshold)
@@ -150,7 +139,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 	return srcIdx, dstIdx, nil
 }
 
-func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
+func (this *RLT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
 	if src == nil {
 		return uint(0), uint(0), errors.New("Invalid null source buffer")
 	}
@@ -163,12 +152,7 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	srcEnd := this.size
-
-	if this.size == 0 {
-		srcEnd = uint(len(src))
-	}
-
+	srcEnd := length
 	dstEnd := uint(len(dst))
 	run := 0
 	threshold := int(this.runThreshold)

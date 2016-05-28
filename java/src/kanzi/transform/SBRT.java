@@ -17,7 +17,6 @@ package kanzi.transform;
 
 import kanzi.ByteTransform;
 import kanzi.IndexedByteArray;
-import kanzi.Sizeable;
 
 
 // Sort by Rank Transform is a family of transforms typically used after
@@ -29,13 +28,12 @@ import kanzi.Sizeable;
 // It turns out that SBR(0)= Move to Front Transform
 // It turns out that SBR(1)= Time Stamp Transform
 // This code implements SBR(0), SBR(1/2) and SBR(1). Code derived from openBWT
-public class SBRT implements ByteTransform, Sizeable
+public class SBRT implements ByteTransform
 {
    public static final int MODE_MTF = 1;       // alpha = 0
    public static final int MODE_RANK = 2;      // alpha = 1/2
    public static final int MODE_TIMESTAMP = 3; // alpha = 1
 
-   private int size;
    private final int[] prev;
    private final int[] curr;
    private final int[] symbols;
@@ -45,22 +43,15 @@ public class SBRT implements ByteTransform, Sizeable
    
    public SBRT()
    {
-     this(MODE_RANK, 0); 
-   }
-
-   
-   public SBRT(int size)
-   {
-     this(MODE_RANK, size); 
+     this(MODE_RANK); 
    }
    
    
-   public SBRT(int mode, int size)
+   public SBRT(int mode)
    {
      if ((mode != MODE_MTF) && (mode != MODE_RANK) && (mode != MODE_TIMESTAMP))
         throw new IllegalArgumentException("Invalid mode parameter");
     
-     this.size = size;
      this.prev = new int[256];
      this.curr = new int[256];
      this.symbols = new int[256];
@@ -70,7 +61,7 @@ public class SBRT implements ByteTransform, Sizeable
    
 
    @Override
-   public boolean forward(IndexedByteArray input, IndexedByteArray output) 
+   public boolean forward(IndexedByteArray input, IndexedByteArray output, final int count) 
    {
       // Aliasing
       final byte[] src = input.array;
@@ -82,7 +73,6 @@ public class SBRT implements ByteTransform, Sizeable
       final int[] s2r = this.symbols;
       final int[] r2s = this.ranks;
 
-      final int count = (this.size == 0) ? src.length - srcIdx : this.size;
       final int mask1 = (this.mode == MODE_TIMESTAMP) ? 0 : -1;
       final int mask2 = (this.mode == MODE_MTF) ? 0 : -1;
       final int shift = (this.mode == MODE_RANK) ? 1 : 0;
@@ -95,7 +85,7 @@ public class SBRT implements ByteTransform, Sizeable
          r2s[i] = i; 
       }
   
-      for (int i=0; i < count; i++)
+      for (int i=0; i<count; i++)
       {
          final int c = src[srcIdx+i] & 0xFF;
          int r = s2r[c];
@@ -123,7 +113,7 @@ public class SBRT implements ByteTransform, Sizeable
 
 
    @Override
-   public boolean inverse(IndexedByteArray input, IndexedByteArray output) 
+   public boolean inverse(IndexedByteArray input, IndexedByteArray output, final int count) 
    {
       // Aliasing
       final byte[] src = input.array;
@@ -134,12 +124,11 @@ public class SBRT implements ByteTransform, Sizeable
       final int[] q = this.curr;
       final int[] r2s = this.ranks;
 
-      final int count = (this.size == 0) ? src.length - srcIdx : this.size;
       final int mask1 = (this.mode == MODE_TIMESTAMP) ? 0 : -1;
       final int mask2 = (this.mode == MODE_MTF) ? 0 : -1;
       final int shift = (this.mode == MODE_RANK) ? 1 : 0;
 
-      for (int i=0; i < 256; i++) 
+      for (int i=0; i<256; i++) 
       {
          p[i] = 0;
          q[i] = 0;
@@ -169,24 +158,4 @@ public class SBRT implements ByteTransform, Sizeable
       output.index += count;
       return true;
    }
-
-   
-   // Not thread safe
-   @Override
-   public boolean setSize(int size)
-   {
-      if (size < 0) // 0 is valid
-         return false;
-
-      this.size = size;
-      return true;
-   }
-
-
-   @Override
-   public int size()
-   {
-      return this.size;
-   }
-
 }

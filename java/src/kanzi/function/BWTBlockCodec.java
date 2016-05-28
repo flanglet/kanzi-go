@@ -18,7 +18,6 @@ package kanzi.function;
 import kanzi.ByteFunction;
 import kanzi.ByteTransform;
 import kanzi.IndexedByteArray;
-import kanzi.Sizeable;
 import kanzi.transform.BWT;
 import kanzi.transform.BWTS;
 import kanzi.transform.MTFT;
@@ -42,7 +41,7 @@ import kanzi.transform.SBRT;
 // primary index: remaining bits (up to 3 bytes)
 // Bijective BWT stream format: Data (n bytes)
 
-public class BWTBlockCodec implements ByteFunction, Sizeable
+public class BWTBlockCodec implements ByteFunction
 {
    public static final int MODE_RAW = 0;
    public static final int MODE_MTF = 1;
@@ -55,7 +54,6 @@ public class BWTBlockCodec implements ByteFunction, Sizeable
    private final int mode;
    private final boolean isBijectiveBWT;
    private final ByteTransform transform;
-   private int size;
 
    
    public BWTBlockCodec()
@@ -77,9 +75,6 @@ public class BWTBlockCodec implements ByteFunction, Sizeable
       if (transform == null)
         throw new NullPointerException("Invalid null transform parameter");
 
-      if ((transform instanceof Sizeable) == false)
-        throw new IllegalArgumentException("The transform must implement the Sizeable interface");
-
       if ((mode != MODE_RAW) && (mode != MODE_MTF) && (mode != MODE_RANK) && (mode != MODE_TIMESTAMP))
         throw new IllegalArgumentException("Invalid GST mode parameter");
      
@@ -87,8 +82,7 @@ public class BWTBlockCodec implements ByteFunction, Sizeable
          throw new IllegalArgumentException("The block size cannot be negative");
         
       this.mode = mode;
-      this.transform = transform;
-      this.size = blockSize;      
+      this.transform = transform;   
       this.isBijectiveBWT = (transform instanceof BWTS);  
 
       if (blockSize > this.maxBlockSize())
@@ -104,9 +98,9 @@ public class BWTBlockCodec implements ByteFunction, Sizeable
          return null;
       
       if (this.mode == MODE_MTF) 
-         return new MTFT(blockSize);      
+         return new MTFT();      
       
-      return new SBRT(this.mode, blockSize);            
+      return new SBRT(this.mode);            
    }
    
    
@@ -115,34 +109,16 @@ public class BWTBlockCodec implements ByteFunction, Sizeable
       return (this.isBijectiveBWT == true) ? MAX_BLOCK_SIZE : MAX_BLOCK_SIZE - BWT_MAX_HEADER_SIZE;      
    }
    
-   
-   @Override
-   public int size()
-   {
-       return this.size;
-   }
-
-
-   @Override
-   public boolean setSize(int size)
-   {
-       if ((size < 0) || (size > this.maxBlockSize()))
-          return false;
-
-       this.size = size;
-       return true;
-   }
-
 
    // Return true if the compression chain succeeded. In this case, the input data 
    // may be modified. If the compression failed, the input data is returned unmodified.
    @Override
-   public boolean forward(IndexedByteArray input, IndexedByteArray output)
+   public boolean forward(IndexedByteArray input, IndexedByteArray output, int length)
    {
       if ((input == null) || (output == null) || (input.array == output.array))
          return false;
 
-      final int blockSize = (this.size == 0) ? input.array.length - input.index : this.size;
+      final int blockSize = length;
 
       if ((blockSize < 0) || (blockSize > this.maxBlockSize()))
          return false;
@@ -153,10 +129,8 @@ public class BWTBlockCodec implements ByteFunction, Sizeable
       final int savedIIdx = input.index; 
       final int savedOIdx = output.index;
       
-      ((Sizeable) this.transform).setSize(blockSize);
-
       // Apply forward transform
-      this.transform.forward(input, output);
+      this.transform.forward(input, output, blockSize);
       
       int headerSizeBytes = 0;
       int pIndexSizeBits = 0;
@@ -180,22 +154,22 @@ public class BWTBlockCodec implements ByteFunction, Sizeable
 
          // Apply Post Transform
          ByteTransform gst = this.createGST(blockSize);         
-         gst.forward(output, input);
+         gst.forward(output, input, blockSize);
 
          input.index = savedIIdx;
          output.index = savedOIdx + headerSizeBytes;
-         ZRLT zrlt = new ZRLT(blockSize);
+         ZRLT zrlt = new ZRLT();
 
          // Apply Zero Run Length Encoding (changes the index of input & output)
-         if (zrlt.forward(input, output) == false)
+         if (zrlt.forward(input, output, blockSize) == false)
          {
             // Compression failed, recover source data
             input.index = savedIIdx;
             output.index = savedOIdx;
-            gst.inverse(input, output);
+            gst.inverse(input, output, blockSize);
             input.index = savedIIdx;
             output.index = savedOIdx;
-            this.transform.inverse(output, input);
+            this.transform.inverse(output, input, blockSize);
             return false;
          }
       }      
@@ -226,9 +200,9 @@ public class BWTBlockCodec implements ByteFunction, Sizeable
 
 
    @Override
-   public boolean inverse(IndexedByteArray input, IndexedByteArray output)
+   public boolean inverse(IndexedByteArray input, IndexedByteArray output, int length)
    {
-      int compressedLength = this.size;
+      int compressedLength = length;
 
       if (compressedLength == 0)
          return true;
@@ -268,10 +242,10 @@ public class BWTBlockCodec implements ByteFunction, Sizeable
       if (this.mode != MODE_RAW)
       {
          final int savedOIdx = output.index;
-         ZRLT zrlt = new ZRLT(compressedLength);
+         ZRLT zrlt = new ZRLT();
 
          // Apply Zero Run Length Decoding (changes the index of input & output)
-         if (zrlt.inverse(input, output) == false)
+         if (zrlt.inverse(input, output, compressedLength) == false)
             return false;
 
          blockSize = output.index - savedOIdx;
@@ -280,7 +254,7 @@ public class BWTBlockCodec implements ByteFunction, Sizeable
 
          // Apply inverse Pre Transform
          ByteTransform gst = this.createGST(blockSize);
-         gst.inverse(output, input);
+         gst.inverse(output, input, blockSize);
 
          input.index = savedIIdx;
          output.index = savedOIdx;
@@ -288,11 +262,9 @@ public class BWTBlockCodec implements ByteFunction, Sizeable
       
       if (this.isBijectiveBWT == false)
          ((BWT) this.transform).setPrimaryIndex(primaryIndex);
-      
-      ((Sizeable) this.transform).setSize(blockSize);     
 
       // Apply inverse Transform            
-      return this.transform.inverse(input, output);
+      return this.transform.inverse(input, output, blockSize);
    }
    
      

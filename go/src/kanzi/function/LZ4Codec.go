@@ -78,24 +78,13 @@ func getShiftValue(index uint) uint {
 }
 
 type LZ4Codec struct {
-	size   uint
 	buffer []int
 }
 
-func NewLZ4Codec(sz uint) (*LZ4Codec, error) {
+func NewLZ4Codec() (*LZ4Codec, error) {
 	this := new(LZ4Codec)
-	this.size = sz
 	this.buffer = make([]int, 1<<HASH_LOG_64K)
 	return this, nil
-}
-
-func (this *LZ4Codec) Size() uint {
-	return this.size
-}
-
-func (this *LZ4Codec) SetSize(sz uint) bool {
-	this.size = sz
-	return true
 }
 
 func writeLength(array []byte, length int) int {
@@ -135,7 +124,7 @@ func writeLastLiterals(src []byte, dst []byte, runLength int) int {
 
 // Generates same byte output as LZ4_compress_generic in LZ4 r131 (7/15)
 // for a 32 bit architecture.
-func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
+func (this *LZ4Codec) Forward(src, dst []byte, length uint) (uint, uint, error) {
 	if src == nil {
 		return uint(0), uint(0), errors.New("Invalid null source buffer")
 	}
@@ -148,11 +137,7 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	count := int(this.size)
-
-	if this.size == 0 {
-		count = len(src)
-	}
+	count := int(length)
 
 	if n := this.MaxEncodedLen(count); len(dst) < n {
 		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
@@ -316,7 +301,7 @@ func readInt(array []byte) uint32 {
 
 // Reads same byte input as LZ4_decompress_generic in LZ4 r131 (7/15)
 // for a 32 bit architecture.
-func (this *LZ4Codec) Inverse(src, dst []byte) (uint, uint, error) {
+func (this *LZ4Codec) Inverse(src, dst []byte, length uint) (uint, uint, error) {
 	if src == nil {
 		return uint(0), uint(0), errors.New("Invalid null source buffer")
 	}
@@ -329,12 +314,7 @@ func (this *LZ4Codec) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	count := int(this.size)
-
-	if this.size == 0 {
-		count = len(src)
-	}
-
+	count := int(length)
 	srcEnd := count - COPY_LENGTH
 	dstEnd := len(dst) - COPY_LENGTH
 	srcIdx := 0

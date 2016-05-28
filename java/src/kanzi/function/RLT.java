@@ -30,38 +30,21 @@ public class RLT implements ByteFunction
    private static final int TWO_BYTE_RLE_MASK = 0x80;
    private static final int MAX_RUN_VALUE = 0x7FFF;
 
-   private final int size;
    private final int runThreshold;
 
 
    public RLT()
    {
-      this(0);
+      this(3);
    }
 
 
-   public RLT(int size)
+   public RLT(int runThreshold)
    {
-      this(size, 3);
-   }
-
-
-   public RLT(int size, int runThreshold)
-   {
-      if (size < 0)
-         throw new IllegalArgumentException("Invalid size parameter (must be at least 0)");
-
       if (runThreshold < 2)
          throw new IllegalArgumentException("Invalid run threshold parameter (must be at least 2)");
 
-      this.size = size;
       this.runThreshold = runThreshold;
-   }
-
-
-   public int size()
-   {
-      return this.size;
    }
 
 
@@ -72,7 +55,7 @@ public class RLT implements ByteFunction
 
 
    @Override
-   public boolean forward(IndexedByteArray source, IndexedByteArray destination)
+   public boolean forward(IndexedByteArray source, IndexedByteArray destination, int length)
    {
       if ((source == null) || (destination == null) || (source.array == destination.array))
          return false;
@@ -81,7 +64,7 @@ public class RLT implements ByteFunction
       int dstIdx = destination.index;
       final byte[] src = source.array;
       final byte[] dst = destination.array;
-      final int srcEnd = (this.size == 0) ? src.length : srcIdx + this.size;
+      final int srcEnd = srcIdx + length;
       final int dstEnd = dst.length;
       boolean res;
       int run = 0;
@@ -141,7 +124,7 @@ public class RLT implements ByteFunction
             dst[dstIdx++] = (byte) run;
          }
          
-         res = (srcIdx == srcEnd) ? true : false;
+         res = (srcIdx == srcEnd);
       }
       catch (ArrayIndexOutOfBoundsException e)
       {
@@ -155,7 +138,7 @@ public class RLT implements ByteFunction
 
 
    @Override
-   public boolean inverse(IndexedByteArray source, IndexedByteArray destination)
+   public boolean inverse(IndexedByteArray source, IndexedByteArray destination, int length)
    {
       if ((source == null) || (destination == null) || (source.array == destination.array))
          return false;
@@ -164,7 +147,7 @@ public class RLT implements ByteFunction
       int dstIdx = destination.index;
       final byte[] src = source.array;
       final byte[] dst = destination.array;
-      final int srcEnd = (this.size == 0) ? src.length : srcIdx + this.size;
+      final int srcEnd = srcIdx + length;
       final int dstEnd = dst.length;
       int run = 0;
       final int threshold = this.runThreshold;
@@ -208,7 +191,7 @@ public class RLT implements ByteFunction
             dst[dstIdx++] = val;
          }
          
-         res = (srcIdx == srcEnd) ? true : false;         
+         res = (srcIdx == srcEnd);         
       }
       catch (ArrayIndexOutOfBoundsException e)
       {

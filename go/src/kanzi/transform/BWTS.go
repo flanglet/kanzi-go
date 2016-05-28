@@ -26,35 +26,20 @@ import (
 // by Neal Burns and DivSufSort (port of libDivSufSort by Yuta Mori)
 
 type BWTS struct {
-	size    uint
-	buffer []int
+	buffer  []int
 	buckets []int
 	saAlgo  *util.DivSufSort
 }
 
-func NewBWTS(sz uint) (*BWTS, error) {
+func NewBWTS() (*BWTS, error) {
 	this := new(BWTS)
-	this.size = sz
-	this.buffer = make([]int, sz)
+	this.buffer = make([]int, 0)
 	this.buckets = make([]int, 256)
 	return this, nil
 }
 
-func (this *BWTS) Size() uint {
-	return this.size
-}
-
-func (this *BWTS) SetSize(sz uint) bool {
-	this.size = sz
-	return true
-}
-
-func (this *BWTS) Forward(src, dst []byte) (uint, uint, error) {
-	count := int(this.size)
-
-	if this.size == 0 {
-		count = len(src)
-	}
+func (this *BWTS) Forward(src, dst []byte, length uint) (uint, uint, error) {
+	count := int(length)
 
 	if count < 2 {
 		if count == 1 {
@@ -186,12 +171,8 @@ func (this *BWTS) moveLyndonWordHead(sa []int, data []byte, count, start, size, 
 	return rank
 }
 
-func (this *BWTS) Inverse(src, dst []byte) (uint, uint, error) {
-	count := int(this.size)
-
-	if this.size == 0 {
-		count = len(src)
-	}
+func (this *BWTS) Inverse(src, dst []byte, length uint) (uint, uint, error) {
+	count := int(length)
 
 	if count < 2 {
 		if count == 1 {

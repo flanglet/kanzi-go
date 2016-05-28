@@ -25,7 +25,7 @@ public interface ByteTransform
    // the arrays may not be big enough and the number of processed bytes may
    // vary. The indexes in the indexed array instance can be updated to reflect
    // this fact.
-   public boolean forward(IndexedByteArray src, IndexedByteArray dst);
+   public boolean forward(IndexedByteArray src, IndexedByteArray dst, int length);
 
 
    // Indexed arrays are required rather than just arrays and indexes
@@ -33,6 +33,6 @@ public interface ByteTransform
    // the arrays may not be big enough and the number of processed bytes may
    // vary. The indexes in the indexed array instance can be updated to reflect
    // this fact.
-   public boolean inverse(IndexedByteArray src, IndexedByteArray dst);
+   public boolean inverse(IndexedByteArray src, IndexedByteArray dst, int length);
 }
 
