@@ -29,6 +29,8 @@ import kanzi.IndexedByteArray;
 
 public class BWTS implements ByteTransform
 {
+    private static final int MAX_BLOCK_SIZE = 1024*1024*1024; // 1 GB (30 bits)
+ 
     private int[] buffer;
     private final int[] buckets;
     private DivSufSort saAlgo;
@@ -45,6 +47,15 @@ public class BWTS implements ByteTransform
     @Override
     public boolean forward(IndexedByteArray src, IndexedByteArray dst, final int count)
     {
+        if ((src == null) || (dst == null) || (src.array == dst.array))
+           return false;
+
+        if ((count < 0) || (count > maxBlockSize()))
+           return false;
+
+        if (count+src.index > src.array.length)
+          return false;
+
         final byte[] input = src.array;
         final byte[] output = dst.array;
         final int srcIdx = src.index;
@@ -185,6 +196,12 @@ public class BWTS implements ByteTransform
     @Override
     public boolean inverse(IndexedByteArray src, IndexedByteArray dst, final int count)
     {
+       if ((src == null) || (dst == null) || (src.array == dst.array))
+          return false;
+
+       if ((count < 0) || (count > maxBlockSize()))
+          return false;
+
        if (count < 2)
        {
           if (count == 1)
@@ -247,4 +264,10 @@ public class BWTS implements ByteTransform
        dst.index += count;
        return true;
     }
+    
+    
+    private static int maxBlockSize() 
+    {
+       return MAX_BLOCK_SIZE;      
+    }       
 }

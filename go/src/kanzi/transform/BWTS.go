@@ -16,6 +16,9 @@ limitations under the License.
 package transform
 
 import (
+	"errors"
+	"fmt"
+	"kanzi"
 	"kanzi/util"
 )
 
@@ -24,6 +27,10 @@ import (
 // index (hence the bijectivity). BWTS is about 10% slower than BWT.
 // Forward transform based on the code at https://code.google.com/p/mk-bwts/
 // by Neal Burns and DivSufSort (port of libDivSufSort by Yuta Mori)
+
+const (
+	BWTS_MAX_BLOCK_SIZE = 1024 * 1024 * 1024 // 1 GB (30 bits)
+)
 
 type BWTS struct {
 	buffer  []int
@@ -39,7 +46,29 @@ func NewBWTS() (*BWTS, error) {
 }
 
 func (this *BWTS) Forward(src, dst []byte, length uint) (uint, uint, error) {
+	if src == nil {
+		return 0, 0, errors.New("Input buffer cannot be null")
+	}
+
+	if dst == nil {
+		return 0, 0, errors.New("Output buffer cannot be null")
+	}
+
+	if kanzi.SameByteSlices(src, dst, false) {
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
+	}
+
 	count := int(length)
+
+	if count > maxBWTSBlockSize() {
+		errMsg := fmt.Sprintf("Block size is %v, max value is %v", count, maxBWTSBlockSize())
+		return 0, 0, errors.New(errMsg)
+	}
+
+	if count > len(src) {
+		errMsg := fmt.Sprintf("Block size is %v, input buffer length is %v", count, len(src))
+		return 0, 0, errors.New(errMsg)
+	}
 
 	if count < 2 {
 		if count == 1 {
@@ -172,7 +201,24 @@ func (this *BWTS) moveLyndonWordHead(sa []int, data []byte, count, start, size, 
 }
 
 func (this *BWTS) Inverse(src, dst []byte, length uint) (uint, uint, error) {
+	if src == nil {
+		return 0, 0, errors.New("Input buffer cannot be null")
+	}
+
+	if dst == nil {
+		return 0, 0, errors.New("Output buffer cannot be null")
+	}
+
+	if kanzi.SameByteSlices(src, dst, false) {
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
+	}
+
 	count := int(length)
+
+	if count > maxBWTSBlockSize() {
+		errMsg := fmt.Sprintf("Block size is %v, max value is %v", length, maxBWTSBlockSize())
+		return 0, 0, errors.New(errMsg)
+	}
 
 	if count < 2 {
 		if count == 1 {
@@ -234,4 +280,8 @@ func (this *BWTS) Inverse(src, dst []byte, length uint) (uint, uint, error) {
 	}
 
 	return uint(count), uint(count), nil
+}
+
+func maxBWTSBlockSize() int {
+	return BWTS_MAX_BLOCK_SIZE
 }

@@ -16,7 +16,15 @@ limitations under the License.
 package transform
 
 import (
+	"errors"
+	"fmt"
+	"kanzi"
 	"kanzi/util"
+)
+
+const (
+	BWT_MAX_BLOCK_SIZE  = 1024 * 1024 * 1024 // 1 GB (30 bits)
+	BWT_MAX_HEADER_SIZE = 4
 )
 
 // The Burrows-Wheeler Transform is a reversible transform based on
@@ -84,7 +92,29 @@ func (this *BWT) SetPrimaryIndex(primaryIndex uint) bool {
 }
 
 func (this *BWT) Forward(src, dst []byte, length uint) (uint, uint, error) {
+	if src == nil {
+		return 0, 0, errors.New("Input buffer cannot be null")
+	}
+
+	if dst == nil {
+		return 0, 0, errors.New("Output buffer cannot be null")
+	}
+
+	if kanzi.SameByteSlices(src, dst, false) {
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
+	}
+
 	count := int(length)
+
+	if count > maxBWTBlockSize() {
+		errMsg := fmt.Sprintf("Block size is %v, max value is %v", count, maxBWTBlockSize())
+		return 0, 0, errors.New(errMsg)
+	}
+
+	if count > len(src) {
+		errMsg := fmt.Sprintf("Block size is %v, input buffer length is %v", count, len(src))
+		return 0, 0, errors.New(errMsg)
+	}
 
 	if count < 2 {
 		if count == 1 {
@@ -131,7 +161,24 @@ func (this *BWT) Forward(src, dst []byte, length uint) (uint, uint, error) {
 }
 
 func (this *BWT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
+	if src == nil {
+		return 0, 0, errors.New("Input buffer cannot be null")
+	}
+
+	if dst == nil {
+		return 0, 0, errors.New("Output buffer cannot be null")
+	}
+
+	if kanzi.SameByteSlices(src, dst, false) {
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
+	}
+
 	count := int(length)
+
+	if count > maxBWTBlockSize() {
+		errMsg := fmt.Sprintf("Block size is %v, max value is %v", length, maxBWTBlockSize())
+		return 0, 0, errors.New(errMsg)
+	}
 
 	if count < 2 {
 		if count == 1 {
@@ -269,4 +316,8 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 	}
 
 	return uint(count), uint(count), nil
+}
+
+func maxBWTBlockSize() int {
+	return BWT_MAX_BLOCK_SIZE - BWT_MAX_HEADER_SIZE
 }

@@ -58,10 +58,12 @@ import kanzi.util.DivSufSort;
 
 public class BWT implements ByteTransform
 {
-    private int size;
-    private int[] buffer1;   // Only used in inverse
+   private static final int MAX_BLOCK_SIZE = 1024*1024*1024; // 1 GB (30 bits)
+   private static final int BWT_MAX_HEADER_SIZE  = 4;
+
+   private int[] buffer1;   // Only used in inverse
     private byte[] buffer2;  // Only used for big blocks (size >= 1<<24)
-    private int[] buckets;
+    private final int[] buckets;
     private int primaryIndex;
     private DivSufSort saAlgo;
 
@@ -96,6 +98,15 @@ public class BWT implements ByteTransform
     @Override
     public boolean forward(IndexedByteArray src, IndexedByteArray dst, final int count)
     {
+        if ((src == null) || (dst == null) || (src.array == dst.array))
+           return false;
+
+        if ((count < 0) || (count > maxBlockSize()))
+           return false;
+
+        if (count+src.index > src.array.length)
+          return false;
+
         final byte[] input = src.array;
         final byte[] output = dst.array;
         final int srcIdx = src.index;
@@ -144,6 +155,12 @@ public class BWT implements ByteTransform
     @Override
     public boolean inverse(IndexedByteArray src, IndexedByteArray dst, final int count)
     {
+       if ((src == null) || (dst == null) || (src.array == dst.array))
+          return false;
+
+       if ((count < 0) || (count > maxBlockSize()))
+           return false;
+
        if (count < 2)
        {
           if (count == 1)
@@ -298,4 +315,9 @@ public class BWT implements ByteTransform
        return true;
     }
 
+    
+    private static int maxBlockSize() 
+    {
+       return MAX_BLOCK_SIZE - BWT_MAX_HEADER_SIZE;      
+    }    
 }
