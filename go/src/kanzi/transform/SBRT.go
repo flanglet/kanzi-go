@@ -28,9 +28,9 @@ import "errors"
 // This code implements SBR(0), SBR(1/2) and SBR(1). Code derived from openBWT
 
 const (
-	MODE_MTF       = 1 // alpha = 0
-	MODE_RANK      = 2 // alpha = 1/2
-	MODE_TIMESTAMP = 3 // alpha = 1
+	SBRT_MODE_MTF       = 1 // alpha = 0
+	SBRT_MODE_RANK      = 2 // alpha = 1/2
+	SBRT_MODE_TIMESTAMP = 3 // alpha = 1
 )
 
 type SBRT struct {
@@ -42,7 +42,7 @@ type SBRT struct {
 }
 
 func NewSBRT(mode int) (*SBRT, error) {
-	if mode != MODE_MTF && mode != MODE_RANK && mode != MODE_TIMESTAMP {
+	if mode != SBRT_MODE_MTF && mode != SBRT_MODE_RANK && mode != SBRT_MODE_TIMESTAMP {
 		return nil, errors.New("Invalid mode parameter")
 	}
 
@@ -71,19 +71,19 @@ func (this *SBRT) Forward(src, dst []byte, length uint) (uint, uint, error) {
 	var mask1, mask2 int
 	var shift uint
 
-	if this.mode == MODE_TIMESTAMP {
+	if this.mode == SBRT_MODE_TIMESTAMP {
 		mask1 = 0
 	} else {
 		mask1 = -1
 	}
 
-	if this.mode == MODE_MTF {
+	if this.mode == SBRT_MODE_MTF {
 		mask2 = 0
 	} else {
 		mask2 = -1
 	}
 
-	if this.mode == MODE_RANK {
+	if this.mode == SBRT_MODE_RANK {
 		shift = 1
 	} else {
 		shift = 0
@@ -115,7 +115,7 @@ func (this *SBRT) Forward(src, dst []byte, length uint) (uint, uint, error) {
 		s2r[c] = r
 	}
 
-	return uint(count), uint(count), nil
+	return length, length, nil
 }
 
 func (this *SBRT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
@@ -133,19 +133,19 @@ func (this *SBRT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
 	var mask1, mask2 int
 	var shift uint
 
-	if this.mode == MODE_TIMESTAMP {
+	if this.mode == SBRT_MODE_TIMESTAMP {
 		mask1 = 0
 	} else {
 		mask1 = -1
 	}
 
-	if this.mode == MODE_MTF {
+	if this.mode == SBRT_MODE_MTF {
 		mask2 = 0
 	} else {
 		mask2 = -1
 	}
 
-	if this.mode == MODE_RANK {
+	if this.mode == SBRT_MODE_RANK {
 		shift = 1
 	} else {
 		shift = 0
@@ -174,5 +174,5 @@ func (this *SBRT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
 		r2s[r] = c
 	}
 
-	return uint(count), uint(count), nil
+	return length, length, nil
 }

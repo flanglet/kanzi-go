@@ -36,8 +36,9 @@ import (
 
 const (
 	BITSTREAM_TYPE             = 0x4B414E5A // "KANZ"
-	BITSTREAM_FORMAT_VERSION   = 2
+	BITSTREAM_FORMAT_VERSION   = 3
 	STREAM_DEFAULT_BUFFER_SIZE = 1024 * 1024
+	EXTRA_BUFFER_SIZE          = 256
 	COPY_LENGTH_MASK           = 0x0F
 	SMALL_BLOCK_MASK           = 0x80
 	SKIP_FUNCTION_MASK         = 0x40
@@ -168,7 +169,7 @@ func NewCompressedOutputStream(entropyCodec string, transform string, os io.Writ
 	this.entropyType = entropy.GetEntropyCodecType(entropyCodec)
 
 	// Check transform type validity (panic on error)
-	this.transformType = function.GetByteFunctionType(transform)
+	this.transformType = GetByteFunctionType(transform)
 
 	this.blockSize = blockSize
 
@@ -398,6 +399,11 @@ func (this *CompressedOutputStream) GetWritten() uint64 {
 	return (this.obs.Written() + 7) >> 3
 }
 
+// Encode mode + transformed entropy coded data
+// mode: 0b1000xxxx => small block (written as is) + 4 LSB for block size (0-15)
+//       0x01000000 => skip transform
+//       0x00xxxx00 => if transform sequence, xxxx=skipped flags
+//       0x000000xx => size(size(block))-1
 func (this *EncodingTask) encode() {
 	buffer := this.buf
 	mode := byte(0)
@@ -430,7 +436,7 @@ func (this *EncodingTask) encode() {
 		oIdx += this.blockLength
 		mode = byte(SMALL_BLOCK_SIZE | (this.blockLength & COPY_LENGTH_MASK))
 	} else {
-		transform, err := function.NewByteFunction(this.blockLength, this.typeOfTransform)
+		transform, err := NewByteFunction(this.blockLength, this.typeOfTransform)
 
 		if err != nil {
 			<-this.input
@@ -438,31 +444,41 @@ func (this *EncodingTask) encode() {
 			return
 		}
 
-		requiredSize := transform.MaxEncodedLen(int(this.blockLength))
+		requiredSize := int(this.blockLength)
 
-		if requiredSize == -1 {
-			// Max size unknown => guess
-			requiredSize = int(this.blockLength*5) >> 2
+		if f, isFunction := transform.(kanzi.ByteFunction); isFunction == true {
+			requiredSize = f.MaxEncodedLen(int(this.blockLength))
+
+			if requiredSize == -1 {
+				// Max size unknown => guess
+				requiredSize = int(this.blockLength*5) >> 2
+			}
 		}
 
-		if this.typeOfTransform == function.NULL_TRANSFORM_TYPE {
+		if this.typeOfTransform == NULL_TRANSFORM_TYPE {
 			buffer = this.data // share buffers if no transform
 		} else if len(buffer) < requiredSize {
 			buffer = make([]byte, requiredSize)
 		}
 
 		// Forward transform
-		iIdx, oIdx, err = transform.Forward(this.data, buffer, blockLength)
+		iIdx, oIdx, err = transform.Forward(this.data, buffer, this.blockLength)
 
 		if err != nil {
 			// Transform failed (probably due to lack of space in output buffer)
 			if !kanzi.SameByteSlices(buffer, this.data, false) {
-				copy(buffer, this.data)
+				copy(buffer, this.data[0:this.blockLength])
 			}
 
 			iIdx = this.blockLength
 			oIdx = this.blockLength
+
+			// Set transform skip flag
 			mode |= SKIP_FUNCTION_MASK
+		} else if seq, isSequence := transform.(function.ByteTransformSequence); isSequence == true {
+			// Special case: set sequence skip flags
+			skipFlags := seq.SkipFlags()
+			mode |= ((skipFlags & 0x1F) << 2)
 		}
 
 		postTransformLength = oIdx
@@ -732,7 +748,7 @@ func (this *CompressedInputStream) readHeader() error {
 	if this.debugWriter != nil {
 		fmt.Fprintf(this.debugWriter, "Checksum set to %v\n", (this.hasher != nil))
 		fmt.Fprintf(this.debugWriter, "Block size set to %d bytes\n", this.blockSize)
-		w1 := function.GetByteFunctionName(this.transformType)
+		w1 := GetByteFunctionName(this.transformType)
 
 		if w1 == "NONE" {
 			w1 = "no"
@@ -842,11 +858,14 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 		return 0, nil
 	}
 
-	if len(this.data) < int(this.blockSize)*this.jobs {
-		this.data = make([]byte, this.jobs*int(this.blockSize))
+	// Add a padding area to manage any block with header (of size <= EXTRA_BUFFER_SIZE)
+	blkSize := int(this.blockSize) + EXTRA_BUFFER_SIZE
+
+	if len(this.data) < this.jobs*blkSize {
+		this.data = make([]byte, this.jobs*blkSize)
 	}
 
-	offset := uint(0)
+	offset := 0
 
 	// Protect against future concurrent modification of the list of block listeners
 	blockListeners := make([]BlockListener, len(this.listeners))
@@ -858,10 +877,10 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 		nextChan := this.syncChan[(jobId+1)%this.jobs]
 
 		task := DecodingTask{
-			data:            this.data[offset : offset+this.blockSize],
+			data:            this.data[offset : offset+blkSize],
 			buf:             this.buffers[jobId],
 			hasher:          this.hasher,
-			blockLength:     this.blockSize,
+			blockLength:     uint(blkSize),
 			typeOfTransform: this.transformType,
 			typeOfEntropy:   this.entropyType,
 			currentBlockId:  this.blockId + jobId + 1,
@@ -880,7 +899,7 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 		// is nil for the first task.
 		go task.decode()
 
-		offset += this.blockSize
+		offset += blkSize
 	}
 
 	var err error
@@ -942,6 +961,11 @@ func notify(chan1 chan bool, chan2 chan Message, run bool, msg Message) {
 	}
 }
 
+// Decode mode + transformed entropy coded data
+// mode: 0b1000xxxx => small block (written as is) + 4 LSB for block size (0-15)
+//       0x01000000 => skip transform
+//       0x00xxxx00 => if transform sequence, xxxx=skipped flags
+//       0x000000xx => size(size(block))-1
 func (this *DecodingTask) decode() {
 	buffer := this.buf
 	res := Message{blockId: this.currentBlockId}
@@ -965,7 +989,7 @@ func (this *DecodingTask) decode() {
 		}
 	}()
 
-	// Extract header directly from bitstream
+	// Extract block header directly from bitstream
 	read := this.ibs.Read()
 	mode := byte(this.ibs.ReadBits(8))
 	var preTransformLength uint
@@ -1011,13 +1035,13 @@ func (this *DecodingTask) decode() {
 
 	res.checksum = checksum1
 
-	if this.typeOfTransform == function.NULL_TRANSFORM_TYPE {
+	if this.typeOfTransform == NULL_TRANSFORM_TYPE {
 		buffer = this.data // share buffers if no transform
 	} else {
 		bufferSize := this.blockLength
 
-		if bufferSize < preTransformLength {
-			bufferSize = preTransformLength
+		if bufferSize < preTransformLength+EXTRA_BUFFER_SIZE {
+			bufferSize = preTransformLength + EXTRA_BUFFER_SIZE
 		}
 
 		if len(buffer) < int(bufferSize) {
@@ -1075,7 +1099,7 @@ func (this *DecodingTask) decode() {
 
 		res.decoded = int(preTransformLength)
 	} else {
-		transform, err := function.NewByteFunction(preTransformLength, this.typeOfTransform)
+		transform, err := NewByteFunction(preTransformLength, this.typeOfTransform)
 
 		if err != nil {
 			// Error => return
@@ -1085,6 +1109,10 @@ func (this *DecodingTask) decode() {
 		}
 
 		var oIdx uint
+
+		if seq, isSequence := transform.(function.ByteTransformSequence); isSequence == true {
+			seq.SetSkipFlags(((mode >> 2) & 0x1F))
+		}
 
 		// Inverse transform
 		if _, oIdx, err = transform.Inverse(buffer, this.data, preTransformLength); err != nil {

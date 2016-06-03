@@ -207,7 +207,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) int {
 		// Create deltas of missing symbols
 		for i, n := 0, 0; n < count; {
 			if symbol == alphabet[i] {
-				if i < len(alphabet)-1-count {
+				if i < alphabetSize-1-count {
 					i++
 				}
 

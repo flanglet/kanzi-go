@@ -27,12 +27,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 import kanzi.BitStreamException;
 import kanzi.ByteFunction;
+import kanzi.ByteTransform;
 import kanzi.EntropyEncoder;
 import kanzi.IndexedByteArray;
 import kanzi.OutputBitStream;
 import kanzi.bitstream.DefaultOutputBitStream;
 import kanzi.entropy.EntropyCodecFactory;
-import kanzi.function.FunctionFactory;
+import kanzi.function.ByteTransformSequence;
 import kanzi.util.XXHash;
 
 
@@ -45,7 +46,7 @@ public class CompressedOutputStream extends OutputStream
 {
    private static final int DEFAULT_BLOCK_SIZE       = 1024*1024; // Default block size
    private static final int BITSTREAM_TYPE           = 0x4B414E5A; // "KANZ"
-   private static final int BITSTREAM_FORMAT_VERSION = 2;
+   private static final int BITSTREAM_FORMAT_VERSION = 3;
    private static final int COPY_LENGTH_MASK         = 0x0F;
    private static final int SMALL_BLOCK_MASK         = 0x80;
    private static final int SKIP_FUNCTION_MASK       = 0x40;
@@ -57,7 +58,7 @@ public class CompressedOutputStream extends OutputStream
    private final int blockSize;
    private final XXHash hasher;
    private final IndexedByteArray iba;
-   private final IndexedByteArray[] buffers;
+   private final byte[][] buffers;
    private final short entropyType;
    private final short transformType;
    private final OutputBitStream obs;
@@ -115,18 +116,18 @@ public class CompressedOutputStream extends OutputStream
       final int bufferSize = (blockSize <= 65536) ? blockSize : 65536;
       this.obs = new DefaultOutputBitStream(os, bufferSize);
       this.entropyType = new EntropyCodecFactory().getType(entropyCodec);
-      this.transformType = new FunctionFactory().getType(transform);
+      this.transformType = new ByteFunctionFactory().getType(transform);
       this.blockSize = blockSize;
       this.hasher = (checksum == true) ? new XXHash(BITSTREAM_TYPE) : null;
       this.jobs = jobs;
       this.pool = pool;
       this.iba = new IndexedByteArray(new byte[blockSize*this.jobs], 0);
-      this.buffers = new IndexedByteArray[this.jobs];
+      this.buffers = new byte[this.jobs][];
       this.closed = new AtomicBoolean(false);
       this.initialized = new AtomicBoolean(false);
 
       for (int i=0; i<this.jobs; i++)
-         this.buffers[i] = new IndexedByteArray(EMPTY_BYTE_ARRAY, 0);
+         this.buffers[i] = EMPTY_BYTE_ARRAY;
 
       this.blockId = new AtomicInteger(0);
       this.listeners = new ArrayList<BlockListener>(10);
@@ -341,7 +342,7 @@ public class CompressedOutputStream extends OutputStream
       this.iba.index = -1;
 
       for (int i=0; i<this.jobs; i++)
-         this.buffers[i] = new IndexedByteArray(EMPTY_BYTE_ARRAY, -1);
+         this.buffers[i] = EMPTY_BYTE_ARRAY;
    }
 
    
@@ -368,8 +369,8 @@ public class CompressedOutputStream extends OutputStream
             final int sz = (this.iba.index + this.blockSize > dataLength) ?
                     dataLength - this.iba.index : this.blockSize;
             Callable<Status> task = new EncodingTask(this.iba.array, this.iba.index,
-                    this.buffers[jobId].array, sz, (byte) this.transformType,
-                    (byte) this.entropyType, firstBlockId+jobId+1,
+                    this.buffers[jobId], sz, this.transformType,
+                    this.entropyType, firstBlockId+jobId+1,
                     this.obs, this.hasher, this.blockId,
                     blockListeners);
             tasks.add(task);
@@ -456,7 +457,7 @@ public class CompressedOutputStream extends OutputStream
 
 
       EncodingTask(byte[] data, int offset, byte[] buffer, int length,
-              byte transformType, byte entropyType, int blockId,
+              short transformType, short entropyType, int blockId,
               OutputBitStream obs, XXHash hasher,
               AtomicInteger processedBlockId, BlockListener[] listeners)
       {
@@ -481,6 +482,11 @@ public class CompressedOutputStream extends OutputStream
       }
 
 
+      // Encode mode + transformed entropy coded data
+      // mode: 0b1000xxxx => small block (written as is) + 4 LSB for block size (0-15)
+      //       0x01000000 => skip transform
+      //       0x00xxxx00 => if transform sequence, xxxx=skipped flags
+      //       0x000000xx => size(size(block))-1
       private Status encodeBlock(IndexedByteArray data, IndexedByteArray buffer,
            int blockLength, short typeOfTransform,
            short typeOfEntropy, int currentBlockId)
@@ -520,13 +526,14 @@ public class CompressedOutputStream extends OutputStream
             else
             {
                final int savedIdx = data.index;
-               ByteFunction transform = new FunctionFactory().newFunction(blockLength, typeOfTransform);               
-               int requiredSize = transform.getMaxEncodedLength(blockLength);
+               ByteTransform transform = new ByteFunctionFactory().newFunction(blockLength, typeOfTransform);               
+               int requiredSize = (transform instanceof ByteFunction) ?
+                   ((ByteFunction) transform).getMaxEncodedLength(blockLength) : blockLength;
 
                if (requiredSize == -1) // Max size unknown => guess
                   requiredSize = (blockLength * 5) >> 2;
 
-               if (typeOfTransform == FunctionFactory.NULL_TRANSFORM_TYPE)
+               if (typeOfTransform == ByteFunctionFactory.NULL_TRANSFORM_TYPE)
                   buffer.array = data.array; // share buffers if no transform
                else if (buffer.array.length < requiredSize)
                   buffer.array = new byte[requiredSize];
@@ -542,9 +549,17 @@ public class CompressedOutputStream extends OutputStream
 
                   data.index = savedIdx + blockLength;
                   buffer.index = blockLength;
+                  
+                  // Set transform skip flag
                   mode |= SKIP_FUNCTION_MASK;
                }
-
+               else if (transform instanceof ByteTransformSequence)
+               {
+                  // Special case: set sequence skip flags
+                  byte skipFlags = ((ByteTransformSequence) transform).getSkipFlags();
+                  mode |= ((skipFlags & 0x1F) << 2);
+               }
+                                    
                postTransformLength = buffer.index;
 
                if (postTransformLength < 0)
@@ -639,7 +654,7 @@ public class CompressedOutputStream extends OutputStream
          finally
          {
             // Reset buffer in case another block uses a different transform
-            if (typeOfTransform == FunctionFactory.NULL_TRANSFORM_TYPE)
+            if (typeOfTransform == ByteFunctionFactory.NULL_TRANSFORM_TYPE)
                buffer.array = EMPTY_BYTE_ARRAY;
 
             // Make sure to unfreeze next block

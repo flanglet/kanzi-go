@@ -77,7 +77,7 @@ func (this *MTFT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
 		indexes[0] = value
 	}
 
-	return uint(count), uint(count), nil
+	return length, length, nil
 }
 
 // Initialize the linked lists: 1 item in bucket 0 and LIST_LENGTH in each other
@@ -208,5 +208,5 @@ func (this *MTFT) Forward(src, dst []byte, length uint) (uint, uint, error) {
 		previous = current
 	}
 
-	return uint(count), uint(count), nil
+	return length, length, nil
 }

@@ -174,6 +174,8 @@ public final class ZRLT implements ByteFunction
 
       // If runLength is not 1, add trailing 0s
       final int end = dstIdx + runLength - 1;
+      source.index = srcIdx;
+      destination.index = dstIdx;
 
       if (end > dstEnd)
          return false;
@@ -181,7 +183,6 @@ public final class ZRLT implements ByteFunction
       while (dstIdx < end)
          dst[dstIdx++] = 0;
 
-      source.index = srcIdx;
       destination.index = dstIdx;
       return srcIdx == srcEnd;
    }

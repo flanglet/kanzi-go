@@ -55,9 +55,9 @@ func NewBlockCompressor() (*BlockCompressor, error) {
 	var overwrite = flag.Bool("overwrite", false, "overwrite the output file if it already exists")
 	var inputName = flag.String("input", "", "mandatory name of the input file to encode or 'stdin'")
 	var outputName = flag.String("output", "", "optional name of the output file (defaults to <input.knz>), or 'none' or 'stdout'")
-	var blockSize = flag.String("block", "1048576", "size of the input blocks, multiple of 16, max 512 MB (depends on transform), min 1KB, default 1MB")
+	var blockSize = flag.String("block", "1048576", "size of the input blocks, multiple of 16, max 1 GB (transform dependent), min 1 KB, default 1 MB")
 	var entropy = flag.String("entropy", "Huffman", "entropy codec to use [None|Huffman*|ANS|Range|PAQ|FPAQ|CM]")
-	var function = flag.String("transform", "BWT+MTF", "transform to use [None|BWT|BWTS|Snappy|LZ4|RLT]")
+	var function = flag.String("transform", "BWT+MTFT+ZRLT", "transform to use [None|BWT*|BWTS|Snappy|LZ4|RLT|ZRLT|MTFT|RANK|TIMESTAMP]")
 	var cksum = flag.Bool("checksum", false, "enable block checksum")
 	var tasks = flag.Int("jobs", 1, "number of concurrent jobs")
 
@@ -74,13 +74,12 @@ func NewBlockCompressor() (*BlockCompressor, error) {
 		printOut("-output=<outputName> : optional name of the output file (defaults to <input.knz>) or 'none' or 'stdout'", true)
 		printOut("-block=<size>        : size of the input blocks, multiple of 16, max 1 GB (transform dependent), min 1 KB, default 1 MB", true)
 		printOut("-entropy=<codec>     : entropy codec to use [None|Huffman*|ANS|Range|PAQ|FPAQ|TPAQ|CM]", true)
-		printOut("-transform=<codec>   : transform to use [None|BWT*|BWTS|Snappy|LZ4|RLT]", true)
-		printOut("                       for BWT(S), an optional GST can be provided: [MTF|RANK|TIMESTAMP]", true)
-		printOut("                       EG: BWT+RANK or BWTS+MTF (default is BWT+MTF)", true)
+		printOut("-transform=<codec>   : transform to use [None|BWT*|BWTS|Snappy|LZ4|RLT|ZRLT|MTFT|RANK|TIMESTAMP]", true)
+		printOut("                       EG: BWT+RANK or RLT+BWTS+MTFT+ZRLT (default is BWT+MTFT+ZRLT)", true)
 		printOut("-checksum            : enable block checksum", true)
 		printOut("-jobs=<jobs>         : number of concurrent jobs", true)
 		printOut("", true)
-		printOut("EG. go run BlockCompressor -input=foo.txt -output=foo.knz -overwrite -transform=BWT+MTF -block=4m -entropy=FPAQ -verbose=2 -jobs=4", true)
+		printOut("EG. go run BlockCompressor -input=foo.txt -output=foo.knz -overwrite -transform=BWT+MTFT+ZRLT -block=4m -entropy=FPAQ -verbose=2 -jobs=4", true)
 		os.Exit(0)
 	}
 
