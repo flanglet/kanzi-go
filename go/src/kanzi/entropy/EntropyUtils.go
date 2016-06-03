@@ -173,12 +173,11 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) int {
 	}
 
 	obs.WriteBit(DELTA_ENCODED_ALPHABET)
-	diffs := make([]int, 32)
+	diffs := make([]int, count)
 
 	if alphabetSize-count < count {
 		// Encode all missing symbols
 		count = alphabetSize - count
-
 		log := uint(1)
 
 		for 1<<log <= count {
@@ -194,7 +193,6 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) int {
 		}
 
 		obs.WriteBit(ABSENT_SYMBOLS_MASK)
-
 		log = 1
 
 		for 1<<log <= alphabetSize {
@@ -207,7 +205,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) int {
 		previous := 0
 
 		// Create deltas of missing symbols
-		for i, n := 0, 0; n < alphabetSize; {
+		for i, n := 0, 0; n < count; {
 			if symbol == alphabet[i] {
 				if i < len(alphabet)-1-count {
 					i++
@@ -217,7 +215,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) int {
 				continue
 			}
 
-			diffs[n] = int(symbol) - int(previous)
+			diffs[n] = symbol - previous
 			symbol++
 			previous = symbol
 			n++
