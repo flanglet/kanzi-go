@@ -28,7 +28,8 @@ import (
 )
 
 const (
-	TWO_BYTE_RLE_MASK     = 0x80
+	TWO_BYTE_RLE_MASK1     = 0x80
+	TWO_BYTE_RLE_MASK2     = 0x7F
 	RLT_MAX_RUN           = 0x7FFF
 	DEFAULT_RLE_THRESHOLD = 3
 )
@@ -70,11 +71,13 @@ func (this *RLT) Forward(src, dst []byte, length uint) (uint, uint, error) {
 
 	srcEnd := length
 	dstEnd := uint(len(dst))
+	dstEnd3 := dstEnd - 3
 	run := 1
 	threshold := int(this.runThreshold)
 	maxThreshold := RLT_MAX_RUN + int(this.runThreshold)
 	srcIdx := uint(0)
 	dstIdx := uint(0)
+	var err error
 
 	// Initialize with a value different from the first data
 	prev := ^src[srcIdx]
@@ -96,13 +99,18 @@ func (this *RLT) Forward(src, dst []byte, length uint) (uint, uint, error) {
 		}
 
 		if run >= threshold {
+			if dstIdx >= dstEnd3 {
+				err = errors.New("Not enough space in destination buffer")
+				break
+			}
+
 			dst[dstIdx] = prev
 			dstIdx++
 			run -= threshold
 
 			// Force MSB to indicate a 2 byte encoding of the length
-			if run >= TWO_BYTE_RLE_MASK {
-				dst[dstIdx] = byte((run >> 8) | TWO_BYTE_RLE_MASK)
+			if run >= TWO_BYTE_RLE_MASK1 {
+				dst[dstIdx] = byte((run >> 8) | TWO_BYTE_RLE_MASK1)
 				dstIdx++
 			}
 
@@ -122,21 +130,25 @@ func (this *RLT) Forward(src, dst []byte, length uint) (uint, uint, error) {
 
 	// Fill up the destination array
 	if run >= threshold {
-		dst[dstIdx] = prev
-		dstIdx++
-		run -= threshold
+		if dstIdx >= dstEnd3 {
+			err = errors.New("Not enough space in destination buffer")
+		} else {
+			dst[dstIdx] = prev
+			dstIdx++
+			run -= threshold
 
-		// Force MSB to indicate a 2 byte encoding of the length
-		if run >= TWO_BYTE_RLE_MASK {
-			dst[dstIdx] = byte((run >> 8) | TWO_BYTE_RLE_MASK)
+			// Force MSB to indicate a 2 byte encoding of the length
+			if run >= TWO_BYTE_RLE_MASK1 {
+				dst[dstIdx] = byte((run >> 8) | TWO_BYTE_RLE_MASK1)
+				dstIdx++
+			}
+
+			dst[dstIdx] = byte(run)
 			dstIdx++
 		}
-
-		dst[dstIdx] = byte(run & 0xFF)
-		dstIdx++
 	}
 
-	return srcIdx, dstIdx, nil
+	return srcIdx, dstIdx, err
 }
 
 func (this *RLT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
@@ -154,10 +166,11 @@ func (this *RLT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
 
 	srcEnd := length
 	dstEnd := uint(len(dst))
-	run := 0
-	threshold := int(this.runThreshold)
+	run := uint(0)
+	threshold := this.runThreshold
 	srcIdx := uint(0)
 	dstIdx := uint(0)
+	var err error
 
 	// Initialize with a value different from the first data
 	prev := ^src[srcIdx]
@@ -171,15 +184,19 @@ func (this *RLT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
 
 			if run >= threshold {
 				// Read the length
-				run = int(src[srcIdx])
+				run = uint(src[srcIdx])
 				srcIdx++
 
 				// If the length is encoded in 2 bytes, process next byte
-				if run&TWO_BYTE_RLE_MASK != 0 {
-					run = ((run & (^TWO_BYTE_RLE_MASK)) << 8) | int(src[srcIdx])
+				if run&TWO_BYTE_RLE_MASK1 != 0 {
+					run = ((run & TWO_BYTE_RLE_MASK2) << 8) | uint(src[srcIdx])
 					srcIdx++
 				}
 
+				if dstIdx >= dstEnd+run {
+					err = errors.New("Not enough space in destination buffer")
+					break
+				}
 				// Emit length times the previous byte
 				for run > 0 {
 					dst[dstIdx] = prev
@@ -196,7 +213,11 @@ func (this *RLT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
 		dstIdx++
 	}
 
-	return srcIdx, dstIdx, nil
+	if run != 1 {
+		err = errors.New("Not enough space in destination buffer")
+	}
+
+	return srcIdx, dstIdx, err
 }
 
 // Required encoding output buffer size unknown

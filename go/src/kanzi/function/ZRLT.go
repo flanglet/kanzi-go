@@ -57,6 +57,7 @@ func (this *ZRLT) Forward(src, dst []byte, length uint) (uint, uint, error) {
 	runLength := 1
 	srcIdx := uint(0)
 	dstIdx := uint(0)
+	var err error
 
 	for srcIdx < srcEnd && dstIdx < dstEnd {
 		val := src[srcIdx]
@@ -111,10 +112,10 @@ func (this *ZRLT) Forward(src, dst []byte, length uint) (uint, uint, error) {
 	}
 
 	if srcIdx != srcEnd || runLength != 1 {
-		return srcIdx, dstIdx, errors.New("Output buffer is too small")
+		err = errors.New("Output buffer is too small")
 	}
 
-	return srcIdx, dstIdx, nil
+	return srcIdx, dstIdx, err
 }
 
 func (this *ZRLT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
@@ -135,6 +136,7 @@ func (this *ZRLT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
 	runLength := 1
 	srcIdx := uint(0)
 	dstIdx := uint(0)
+	var err error
 
 	for srcIdx < srcEnd && dstIdx < dstEnd {
 		if runLength > 1 {
@@ -198,10 +200,10 @@ func (this *ZRLT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
 	}
 
 	if srcIdx < srcEnd {
-		return srcIdx, dstIdx, errors.New("Output buffer is too small")
+		err = errors.New("Output buffer is too small")
 	}
 
-	return srcIdx, dstIdx, nil
+	return srcIdx, dstIdx, err
 }
 
 // Required encoding output buffer size unknown

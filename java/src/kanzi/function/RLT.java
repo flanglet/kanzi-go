@@ -27,7 +27,8 @@ import kanzi.IndexedByteArray;
 
 public class RLT implements ByteFunction
 {
-   private static final int TWO_BYTE_RLE_MASK = 0x80;
+   private static final int TWO_BYTE_RLE_MASK1 = 0x80;
+   private static final int TWO_BYTE_RLE_MASK2 = 0x7F;
    private static final int MAX_RUN_VALUE = 0x7FFF;
 
    private final int runThreshold;
@@ -66,71 +67,77 @@ public class RLT implements ByteFunction
       final byte[] dst = destination.array;
       final int srcEnd = srcIdx + length;
       final int dstEnd = dst.length;
-      boolean res;
+      final int dstEnd3 = dstEnd - 3;
+      boolean res = true;
       int run = 0;
       final int threshold = this.runThreshold;
       final int maxThreshold = MAX_RUN_VALUE + this.runThreshold;
       
       // Initialize with a value different from the first data
       byte prev = (byte) ~src[srcIdx];
+      
+      while ((srcIdx < srcEnd) && (dstIdx < dstEnd))
+      {
+         final byte val = src[srcIdx++];
 
-      try
-      {        
-         while ((srcIdx < srcEnd) && (dstIdx < dstEnd))
+         // Encode up to 0x7FFF repetitions in the 'length' information
+         if ((prev == val) && (run < maxThreshold))
          {
-            final byte val = src[srcIdx++];
-
-            // Encode up to 0x7FFF repetitions in the 'length' information
-            if ((prev == val) && (run < maxThreshold))
-            {
-               if (++run < threshold)
-                  dst[dstIdx++] = prev;
-
-               continue;
-            }
-
-            if (run >= threshold)
-            {
+            if (++run < threshold)
                dst[dstIdx++] = prev;
-               run -= threshold;
 
-               // Force MSB to indicate a 2 byte encoding of the length
-               if (run >= TWO_BYTE_RLE_MASK)
-                  dst[dstIdx++] = (byte) ((run >> 8) | TWO_BYTE_RLE_MASK);
-
-               dst[dstIdx++] = (byte) run;
-               run = 1;
-            }
-
-            dst[dstIdx++] = val;
-
-            if (prev != val)
-            {
-               prev = val;
-               run = 1;
-            }
+            continue;
          }
 
-         // Fill up the destination array
          if (run >= threshold)
+         {
+            if (dstIdx >= dstEnd3)
+            {
+               res = false;
+               break;
+            }
+            
+            dst[dstIdx++] = prev;
+            run -= threshold;
+
+            // Force MSB to indicate a 2 byte encoding of the length
+            if (run >= TWO_BYTE_RLE_MASK1)
+               dst[dstIdx++] = (byte) ((run >> 8) | TWO_BYTE_RLE_MASK1);
+
+            dst[dstIdx++] = (byte) run;
+            run = 1;
+         }
+
+         dst[dstIdx++] = val;
+
+         if (prev != val)
+         {
+            prev = val;
+            run = 1;
+         }
+      }
+
+      // Fill up the destination array
+      if (run >= threshold)
+      {
+         if (dstIdx >= dstEnd3)
+         {
+            res = false;
+         }
+         else
          {
             dst[dstIdx++] = prev;
             run -= threshold;
 
             // Force MSB to indicate a 2 byte encoding of the length
-            if (run >= TWO_BYTE_RLE_MASK)
-               dst[dstIdx++] = (byte) ((run >> 8) | TWO_BYTE_RLE_MASK);
+            if (run >= TWO_BYTE_RLE_MASK1)
+               dst[dstIdx++] = (byte) ((run >>> 8) | TWO_BYTE_RLE_MASK1);
 
             dst[dstIdx++] = (byte) run;
          }
-         
-         res = (srcIdx == srcEnd);
-      }
-      catch (ArrayIndexOutOfBoundsException e)
-      {
-         res = false;
       }
 
+      res &= (srcIdx == srcEnd);
       source.index = srcIdx;
       destination.index = dstIdx;
       return res;
@@ -151,53 +158,51 @@ public class RLT implements ByteFunction
       final int dstEnd = dst.length;
       int run = 0;
       final int threshold = this.runThreshold;
-      boolean res;
+      boolean res = true;
 
       // Initialize with a value different from the first data
       byte prev = (byte) ~src[srcIdx];
 
-      try
-      {
-         while ((srcIdx < srcEnd) && (dstIdx < dstEnd))
-         { 
-            final byte val = src[srcIdx++];
-            
-            if (prev == val)
+      while ((srcIdx < srcEnd) && (dstIdx < dstEnd))
+      { 
+         final byte val = src[srcIdx++];
+
+         if (prev == val)
+         {
+            if (++run >= threshold)
             {
-               if (++run >= threshold)
+               // Read the length
+               run = src[srcIdx++] & 0xFF;
+
+               // If the length is encoded in 2 bytes, process next byte
+               if ((run & TWO_BYTE_RLE_MASK1) != 0)
                {
-                  // Read the length
-                  run = src[srcIdx++] & 0xFF;
-
-                  // If the length is encoded in 2 bytes, process next byte
-                  if ((run & TWO_BYTE_RLE_MASK) != 0)
-                  {
-                     run = ((run & ~TWO_BYTE_RLE_MASK) << 8) | (src[srcIdx++] & 0xFF);
-                  }
-
-                  // Emit length times the previous byte
-                  while (--run >= 0)
-                     dst[dstIdx++] = prev;
-                  
-                  run = 0;
+                  run = ((run & TWO_BYTE_RLE_MASK2) << 8) | (src[srcIdx++] & 0xFF);
                }
-            }
-            else
-            {
-               prev = val;
-               run = 1;
-            }
 
-            dst[dstIdx++] = val;
+               if (dstIdx >= dstEnd + run)
+               {
+                  res = false;
+                  break;
+               }
+               
+               // Emit length times the previous byte
+               while (--run >= 0)
+                  dst[dstIdx++] = prev;
+
+               run = 0;
+            }
          }
-         
-         res = (srcIdx == srcEnd);         
-      }
-      catch (ArrayIndexOutOfBoundsException e)
-      {
-         res = false;
+         else
+         {
+            prev = val;
+            run = 1;
+         }
+
+         dst[dstIdx++] = val;
       }
 
+      res &= (srcIdx == srcEnd) && (run == 1);         
       source.index = srcIdx;
       destination.index = dstIdx;
       return res;
