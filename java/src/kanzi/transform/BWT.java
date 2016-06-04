@@ -62,10 +62,10 @@ public class BWT implements ByteTransform
    private static final int BWT_MAX_HEADER_SIZE  = 4;
 
    private int[] buffer1;   // Only used in inverse
-    private byte[] buffer2;  // Only used for big blocks (size >= 1<<24)
-    private final int[] buckets;
-    private int primaryIndex;
-    private DivSufSort saAlgo;
+   private byte[] buffer2;  // Only used for big blocks (size >= 1<<24)
+   private final int[] buckets;
+   private int primaryIndex;
+   private DivSufSort saAlgo;
 
     
     // Static allocation of memory

@@ -46,6 +46,9 @@ public final class MTFT implements ByteTransform
     @Override
     public boolean inverse(IndexedByteArray src, IndexedByteArray dst, final int count)
     {
+        if ((count < 0) || (count+src.index > src.array.length))
+          return false;
+
         final byte[] indexes = this.buckets;
 
         for (int i=0; i<indexes.length; i++)
@@ -160,6 +163,12 @@ public final class MTFT implements ByteTransform
     @Override
     public boolean forward(IndexedByteArray src, IndexedByteArray dst, final int count)
     {
+        if ((src == null) || (dst == null) || (src.array == dst.array))
+           return false;
+
+        if ((count < 0) || (count+src.index > src.array.length))
+          return false;
+
         if (this.anchor == null)
            this.initLists();
         else

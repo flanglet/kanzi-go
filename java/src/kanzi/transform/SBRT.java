@@ -63,7 +63,13 @@ public class SBRT implements ByteTransform
    @Override
    public boolean forward(IndexedByteArray input, IndexedByteArray output, final int count) 
    {
-      // Aliasing
+      if ((input == null) || (output == null) || (input.array == output.array))
+         return false;
+
+      if ((count < 0) || (count+input.index > input.array.length))
+        return false;
+
+        // Aliasing
       final byte[] src = input.array;
       final byte[] dst = output.array;
       final int srcIdx = input.index;
@@ -115,6 +121,12 @@ public class SBRT implements ByteTransform
    @Override
    public boolean inverse(IndexedByteArray input, IndexedByteArray output, final int count) 
    {
+      if ((input == null) || (output == null) || (input.array == output.array))
+         return false;
+
+      if ((count < 0) || (count+input.index > input.array.length))
+        return false;
+
       // Aliasing
       final byte[] src = input.array;
       final byte[] dst = output.array;
