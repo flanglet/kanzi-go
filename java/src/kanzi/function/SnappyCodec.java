@@ -21,7 +21,7 @@ import kanzi.IndexedByteArray;
 
 // Snappy is a fast compression codec aiming for very high speed and
 // reasonable compression ratios.
-// This implementation is a port of the Go source at http://code.google.com/p/snappy-go/
+// This implementation is a port of the Go source at https://github.com/golang/snappy
 public final class SnappyCodec implements ByteFunction
 {
    private static final int MAX_OFFSET     = 32768;
@@ -67,23 +67,22 @@ public final class SnappyCodec implements ByteFunction
         
         if (len <= 16)
         {
-           if (len >= 4) 
+           int i0 = 0;
+           
+           if (len >= 8) 
            {
               dst[dstIdx]   = src[srcIdx];
               dst[dstIdx+1] = src[srcIdx+1];
               dst[dstIdx+2] = src[srcIdx+2];
-              dst[dstIdx+3] = src[srcIdx+3];             
-           }
-
-           if (len >= 8) 
-           {
+              dst[dstIdx+3] = src[srcIdx+3];
               dst[dstIdx+4] = src[srcIdx+4];
               dst[dstIdx+5] = src[srcIdx+5];
               dst[dstIdx+6] = src[srcIdx+6];
-              dst[dstIdx+7] = src[srcIdx+7];             
+              dst[dstIdx+7] = src[srcIdx+7];  
+              i0 = 8;
            }
            
-           for (int i=0; i<len; i++)
+           for (int i=i0; i<len; i++)
               dst[dstIdx+i] = src[srcIdx+i];
            
            return res;
@@ -137,30 +136,30 @@ public final class SnappyCodec implements ByteFunction
      final byte b1 = (byte) offset;
      final byte b2 = (byte) (offset >> 8);
 
-     while (len > 0)
+     while (len >= 64)
+     {
+        dst[idx] = B0;
+        dst[idx+1] = b1;
+        dst[idx+2] = b2;
+        idx += 3;        
+        len -= 64;
+     }
+     
+     if (len > 0)
      {
         if ((offset < 2048) && (len < 12) && (len >= 4))
         {
            dst[idx]   = (byte) (((b2&0x07) << 5) | ((len-4) << 2) | TAG_COPY1);
            dst[idx+1] = b1;
            idx += 2;
-           break;
-        }
-
-        if (len < 64)
-        {
-           dst[idx] = (byte) (((len-1) << 2) | TAG_COPY2);
-           len = 0;
         }
         else
         {
-           dst[idx] = B0;
-           len -= 64;
+           dst[idx] = (byte) (((len-1) << 2) | TAG_COPY2);       
+           dst[idx+1] = b1;
+           dst[idx+2] = b2;
+           idx += 3;
         }
-        
-        dst[idx+1] = b1;
-        dst[idx+2] = b2;
-        idx += 3;
      }
 
      return idx - destination.index;
@@ -226,13 +225,7 @@ public final class SnappyCodec implements ByteFunction
         table[h] = srcIdx;
 
         // If t is invalid or src[srcIdx:srcIdx+4] differs from src[t:t+4], accumulate a literal byte
-        if ((t < srcIdx0) || (srcIdx-t >= MAX_OFFSET))
-        {
-           srcIdx++;
-           continue;
-        }
-        
-        if (differentInts(src, srcIdx, t) == true)
+        if ((t < srcIdx0) || (srcIdx-t >= MAX_OFFSET) || (differentInts(src, srcIdx, t)))
         {
            srcIdx++;
            continue;
