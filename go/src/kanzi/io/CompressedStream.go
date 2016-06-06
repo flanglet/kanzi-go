@@ -244,11 +244,11 @@ func (this *CompressedOutputStream) writeHeader() *IOError {
 		return NewIOError("Cannot write checksum to header", ERR_WRITE_FILE)
 	}
 
-	if this.obs.WriteBits(uint64(this.entropyType&0x001F), 5) != 5 {
+	if this.obs.WriteBits(uint64(this.entropyType), 5) != 5 {
 		return NewIOError("Cannot write entropy type to header", ERR_WRITE_FILE)
 	}
 
-	if this.obs.WriteBits(uint64(this.transformType&0xFFFF), 16) != 16 {
+	if this.obs.WriteBits(uint64(this.transformType), 16) != 16 {
 		return NewIOError("Cannot write transform types to header", ERR_WRITE_FILE)
 	}
 
@@ -401,8 +401,7 @@ func (this *CompressedOutputStream) GetWritten() uint64 {
 
 // Encode mode + transformed entropy coded data
 // mode: 0b1000xxxx => small block (written as is) + 4 LSB for block size (0-15)
-//       0x01000000 => skip transform
-//       0x00xxxx00 => if transform sequence, xxxx=skipped flags
+//       0x00xxxx00 => transform sequence skip flags (1 means skip)
 //       0x000000xx => size(size(block))-1
 func (this *EncodingTask) encode() {
 	buffer := this.buf
@@ -436,7 +435,7 @@ func (this *EncodingTask) encode() {
 		oIdx += this.blockLength
 		mode = byte(SMALL_BLOCK_SIZE | (this.blockLength & COPY_LENGTH_MASK))
 	} else {
-		transform, err := NewByteFunction(this.blockLength, this.typeOfTransform)
+		t, err := NewByteFunction(this.blockLength, this.typeOfTransform)
 
 		if err != nil {
 			<-this.input
@@ -444,43 +443,24 @@ func (this *EncodingTask) encode() {
 			return
 		}
 
-		requiredSize := int(this.blockLength)
+		requiredSize := t.MaxEncodedLen(int(this.blockLength))
 
-		if f, isFunction := transform.(kanzi.ByteFunction); isFunction == true {
-			requiredSize = f.MaxEncodedLen(int(this.blockLength))
-
-			if requiredSize == -1 {
-				// Max size unknown => guess
-				requiredSize = int(this.blockLength*5) >> 2
-			}
+		if requiredSize == -1 {
+			// Max size unknown => guess
+			requiredSize = int(this.blockLength*5) >> 2
 		}
 
+		// share buffers if no transform.
+		// (no transform = 0x00 0x00 = NULL_TRANSFORM_TYPE)
 		if this.typeOfTransform == NULL_TRANSFORM_TYPE {
-			buffer = this.data // share buffers if no transform
+			buffer = this.data
 		} else if len(buffer) < requiredSize {
 			buffer = make([]byte, requiredSize)
 		}
 
-		// Forward transform
-		iIdx, oIdx, err = transform.Forward(this.data, buffer, this.blockLength)
-
-		if err != nil {
-			// Transform failed (probably due to lack of space in output buffer)
-			if !kanzi.SameByteSlices(buffer, this.data, false) {
-				copy(buffer, this.data[0:this.blockLength])
-			}
-
-			iIdx = this.blockLength
-			oIdx = this.blockLength
-
-			// Set transform skip flag
-			mode |= SKIP_FUNCTION_MASK
-		} else if seq, isSequence := transform.(function.ByteTransformSequence); isSequence == true {
-			// Special case: set sequence skip flags
-			skipFlags := seq.SkipFlags()
-			mode |= ((skipFlags & 0x1F) << 2)
-		}
-
+		// Forward transform (ignore error, encode skipFlags)
+		iIdx, oIdx, _ = t.Forward(this.data, buffer, this.blockLength)
+		mode |= ((t.SkipFlags() & function.TRANSFORM_SKIP_MASK) << 2)
 		postTransformLength = oIdx
 
 		for i := uint64(0xFF); i < uint64(postTransformLength); i <<= 8 {
@@ -963,8 +943,7 @@ func notify(chan1 chan bool, chan2 chan Message, run bool, msg Message) {
 
 // Decode mode + transformed entropy coded data
 // mode: 0b1000xxxx => small block (written as is) + 4 LSB for block size (0-15)
-//       0x01000000 => skip transform
-//       0x00xxxx00 => if transform sequence, xxxx=skipped flags
+//       0x00xxxx00 => transform sequence skip flags (1 means skip)
 //       0x000000xx => size(size(block))-1
 func (this *DecodingTask) decode() {
 	buffer := this.buf
@@ -1092,7 +1071,7 @@ func (this *DecodingTask) decode() {
 
 	read = this.ibs.Read() - read
 
-	if ((mode & SMALL_BLOCK_MASK) != 0) || ((mode & SKIP_FUNCTION_MASK) != 0) {
+	if mode & SMALL_BLOCK_MASK != 0 {
 		if !bytes.Equal(buffer, this.data) {
 			copy(this.data, buffer[0:preTransformLength])
 		}
@@ -1108,11 +1087,8 @@ func (this *DecodingTask) decode() {
 			return
 		}
 
+		transform.SetSkipFlags(((mode >> 2) & function.TRANSFORM_SKIP_MASK))
 		var oIdx uint
-
-		if seq, isSequence := transform.(function.ByteTransformSequence); isSequence == true {
-			seq.SetSkipFlags(((mode >> 2) & 0x1F))
-		}
 
 		// Inverse transform
 		if _, oIdx, err = transform.Inverse(buffer, this.data, preTransformLength); err != nil {

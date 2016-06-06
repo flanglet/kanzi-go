@@ -36,31 +36,29 @@ const (
 	TIMESTAMP_TYPE      = uint16(9) // TimeStamp
 )
 
-func NewByteFunction(size uint, functionType uint16) (kanzi.ByteTransform, error) {
-	// Only 1 transform ?
-	if (functionType>>12)&0x0F == NULL_TRANSFORM_TYPE {
-		return newByteFunctionToken(size, (functionType>>12)&0x0F)
-	}
-
+func NewByteFunction(size uint, functionType uint16) (*function.ByteTransformSequence, error) {
 	nbtr := 0
-	var err error
 
 	// Several transforms
 	for i := uint(0); i < 4; i++ {
-		t := (functionType >> (12 - 4*i)) & 0x0F
-
-		if t != NULL_TRANSFORM_TYPE {
+		if (functionType>>(12-4*i))&0x0F != NULL_TRANSFORM_TYPE {
 			nbtr++
 		}
 	}
 
+	// Only null transforms ? Keep first.
+	if nbtr == 0 {
+		nbtr = 1
+	}
+
 	transforms := make([]kanzi.ByteTransform, nbtr)
 	nbtr = 0
+	var err error
 
-	for i := uint(0); i < 4; i++ {
-		t := (functionType >> (12 - 4*i)) & 0x0F
+	for i := range transforms {
+		t := (functionType >> (12 - uint(4*i))) & 0x0F
 
-		if t != NULL_TRANSFORM_TYPE {
+		if t != NULL_TRANSFORM_TYPE || i == 0 {
 			if transforms[nbtr], err = newByteFunctionToken(size, t); err != nil {
 				return nil, err
 			}

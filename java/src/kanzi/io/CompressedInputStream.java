@@ -27,7 +27,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 import kanzi.BitStreamException;
-import kanzi.ByteTransform;
 import kanzi.EntropyDecoder;
 import kanzi.IndexedByteArray;
 import kanzi.InputBitStream;
@@ -47,7 +46,6 @@ public class CompressedInputStream extends InputStream
    private static final int EXTRA_BUFFER_SIZE        = 256;
    private static final int COPY_LENGTH_MASK         = 0x0F;
    private static final int SMALL_BLOCK_MASK         = 0x80;
-   private static final int SKIP_FUNCTION_MASK       = 0x40;
    private static final int MIN_BITSTREAM_BLOCK_SIZE = 1024;
    private static final int MAX_BITSTREAM_BLOCK_SIZE = 1024*1024*1024;
    private static final byte[] EMPTY_BYTE_ARRAY      = new byte[0];
@@ -509,8 +507,7 @@ public class CompressedInputStream extends InputStream
 
       // Decode mode + transformed entropy coded data
       // mode: 0b1000xxxx => small block (written as is) + 4 LSB for block size (0-15)
-      //       0x01000000 => skip transform
-      //       0x00xxxx00 => if transform sequence, xxxx=skipped flags
+      //       0x00xxxx00 => transform sequence skip flags (1 means skip)
       //       0x000000xx => size(size(block))-1
       // Return -1 if error, otherwise the number of bytes read from the encoder
       private Status decodeBlock(IndexedByteArray data, IndexedByteArray buffer, 
@@ -632,7 +629,7 @@ public class CompressedInputStream extends InputStream
                notifyListeners(this.listeners, evt);
             }
 
-            if (((mode & SMALL_BLOCK_MASK) != 0) || ((mode & SKIP_FUNCTION_MASK) != 0))
+            if ((mode & SMALL_BLOCK_MASK) != 0)
             {
                if (buffer.array != data.array)
                   System.arraycopy(buffer.array, 0, data.array, savedIdx, preTransformLength);
@@ -642,13 +639,11 @@ public class CompressedInputStream extends InputStream
             }
             else
             {
-               ByteTransform transform = new ByteFunctionFactory().newFunction(preTransformLength,
+               ByteTransformSequence transform = new ByteFunctionFactory().newFunction(preTransformLength,
                        this.transformType);
-               buffer.index = 0;
-                  
-               if (transform instanceof ByteTransformSequence)
-                  ((ByteTransformSequence) transform).setSkipFlags((byte) ((mode>>2)&0x1F));
-               
+               transform.setSkipFlags((byte) ((mode>>2) & ByteTransformSequence.SKIP_MASK));
+               buffer.index = 0;                  
+            
                // Inverse transform
                if (transform.inverse(buffer, data, preTransformLength) == false)
                   return new Status(currentBlockId, 0, checksum1, Error.ERR_PROCESS_BLOCK, 

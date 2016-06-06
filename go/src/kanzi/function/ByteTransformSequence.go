@@ -16,9 +16,14 @@ limitations under the License.
 package function
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"kanzi"
+)
+
+const (
+	TRANSFORM_SKIP_MASK = 0x0F
 )
 
 // Encapsulates a sequence of transforms or functions in a function
@@ -42,7 +47,7 @@ func NewByteTransformSequence(transforms []kanzi.ByteTransform) (*ByteTransformS
 	return this, nil
 }
 
-func (this ByteTransformSequence) Forward(src, dst []byte, length uint) (uint, uint, error) {
+func (this *ByteTransformSequence) Forward(src, dst []byte, length uint) (uint, uint, error) {
 	if src == nil {
 		return 0, 0, errors.New("Input buffer cannot be null")
 	}
@@ -68,7 +73,8 @@ func (this ByteTransformSequence) Forward(src, dst []byte, length uint) (uint, u
 	input := &dst
 	output := &src
 	requiredSize := this.MaxEncodedLen(int(blockSize))
-	var res error
+	this.skipFlags = 0
+	var err error
 
 	for i, t := range this.transforms {
 		if input == &src {
@@ -91,34 +97,54 @@ func (this ByteTransformSequence) Forward(src, dst []byte, length uint) (uint, u
 			output = &dst
 		}
 
-		var err error
+		var err1 error
+		var oIdx uint
 
 		// Apply forward transform
-		if _, length, err = t.Forward(*input, *output, length); err != nil {
+		if _, oIdx, err1 = t.Forward(*input, *output, length); err1 != nil {
 			// Transform failed (probably due to lack of space in output). Revert
 			if input != output {
 				in := *input
 				copy(*output, in[0:length])
 			}
 
+			oIdx = length
 			this.skipFlags |= (1 << (3 - uint(i)))
 
-			if res == nil {
-				res = err
+			if err == nil {
+				err = err1
 			}
 		}
+
+		length = oIdx
+	}
+
+	for i := len(this.transforms); i < 4; i++ {
+		this.skipFlags |= (1 << (3 - uint(i)))
 	}
 
 	if output != &dst {
 		copy(dst, src[0:length])
 	}
 
-	return blockSize, length, res
+	if this.skipFlags != TRANSFORM_SKIP_MASK {
+		err = nil
+	}
+
+	return blockSize, length, err
 }
 
-func (this ByteTransformSequence) Inverse(src, dst []byte, length uint) (uint, uint, error) {
+func (this *ByteTransformSequence) Inverse(src, dst []byte, length uint) (uint, uint, error) {
 	if length == 0 {
 		return 0, 0, nil
+	}
+
+	if this.skipFlags == TRANSFORM_SKIP_MASK {
+		if !bytes.Equal(src, dst) {
+			copy(dst, src[0:length])
+		}
+
+		return length, length, nil
 	}
 
 	if length > uint(len(src)) {
@@ -181,7 +207,7 @@ func (this ByteTransformSequence) MaxEncodedLen(srcLen int) int {
 	return requiredSize
 }
 
-func (this ByteTransformSequence) SkipFlags() byte {
+func (this *ByteTransformSequence) SkipFlags() byte {
 	return this.skipFlags
 }
 

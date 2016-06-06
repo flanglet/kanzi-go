@@ -119,31 +119,29 @@ public class ByteFunctionFactory
    }
    
    
-   public ByteTransform newFunction(int size, short functionType)
-   {
-      // Only 1 transform ?
-      if (((functionType>>>12) & 0x0F) == NULL_TRANSFORM_TYPE)
-         return newFunctionToken(size, (short) ((functionType>>>12) & 0x0F));
-      
+   public ByteTransformSequence newFunction(int size, short functionType)
+   {      
       int nbtr = 0;
       
       // Several transforms
       for (int i=0; i<4; i++)
       {
-          int t = (functionType >>> (12-4*i)) & 0x0F;
-          
-          if (t != NULL_TRANSFORM_TYPE)
+          if (((functionType >>> (12-4*i)) & 0x0F) != NULL_TRANSFORM_TYPE)
              nbtr++;
       }
+    
+      // Only null transforms ? Keep first.
+      if (nbtr == 0)
+         nbtr = 1;
       
       ByteTransform[] transforms = new ByteTransform[nbtr];
       nbtr = 0;
       
-      for (int i=0; i<4; i++)
+      for (int i=0; i<transforms.length; i++)
       {
           int t = (functionType >>> (12-4*i)) & 0x0F;
           
-          if (t != NULL_TRANSFORM_TYPE)
+          if ((t != NULL_TRANSFORM_TYPE) || (i == 0))
              transforms[nbtr++] = newFunctionToken(size, (short) t);
       }
     

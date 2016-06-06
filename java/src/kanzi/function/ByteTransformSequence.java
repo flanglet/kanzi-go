@@ -23,6 +23,8 @@ import kanzi.IndexedByteArray;
 // Encapsulates a sequence of transforms or functions in a function 
 public class ByteTransformSequence implements ByteFunction
 {
+   public static final int SKIP_MASK = 0x0F;
+   
    private final ByteTransform[] transforms; // transforms or functions
    private byte skipFlags; // skip transforms: 0b0000yyyy with yyyy=flags
   
@@ -52,12 +54,12 @@ public class ByteTransformSequence implements ByteFunction
          return false;
 
       final int blockSize = length;
-      boolean res = false;
       final int savedIIdx0 = src.index; 
       final int savedOIdx0 = dst.index;
       IndexedByteArray input = dst;
       IndexedByteArray output = src;
       final int requiredSize = this.getMaxEncodedLength(length);
+      this.skipFlags = 0;
       
       // Process transforms sequentially
       for (int i=0; i<this.transforms.length; i++)
@@ -85,13 +87,8 @@ public class ByteTransformSequence implements ByteFunction
          final int savedOIdx = output.index;
          ByteTransform transform = this.transforms[i];                 
 
-         // Apply forward transform
-         boolean fres = transform.forward(input, output, length);
-         
-         // Return false only if all forward transforms fail (all skipped)         
-         res |= fres;
-         
-         if (fres == false)
+         // Apply forward transform                 
+         if (transform.forward(input, output, length) == false)
          {
             // Transform failed (probably due to lack of space in output). Revert
             if (input.array != output.array)
@@ -104,12 +101,15 @@ public class ByteTransformSequence implements ByteFunction
          length = output.index - savedOIdx;
       } 
       
+      for (int i=this.transforms.length; i<4; i++)
+          this.skipFlags |= (1<<(3-i));
+      
       if (output != dst)
          System.arraycopy(src.array, savedIIdx0, dst.array, savedOIdx0, length);
-      
+            
       src.index = savedIIdx0 + blockSize;
-      dst.index = savedOIdx0 + length;
-      return res;
+      dst.index = savedOIdx0 + length;     
+      return this.skipFlags != SKIP_MASK;
    }
 
 
@@ -118,10 +118,20 @@ public class ByteTransformSequence implements ByteFunction
    {      
       if (length == 0)
          return true;
+
+      if (this.skipFlags == SKIP_MASK)
+      {
+         if (src.array != dst.array)
+            System.arraycopy(src.array, 0, dst.array, src.index, length);
+
+         src.index += length;
+         dst.index += length;
+         return true;         
+      }
       
       if ((length < 0) || (length+src.index > src.array.length))
          return false;
-
+      
       final int blockSize = length;
       boolean res = true;
       final int savedIIdx0 = src.index; 
@@ -176,7 +186,7 @@ public class ByteTransformSequence implements ByteFunction
    {
       int requiredSize = srcLength;
 
-         for (ByteTransform transform : this.transforms)
+      for (ByteTransform transform : this.transforms)
       {
          if (transform instanceof ByteFunction)
          {

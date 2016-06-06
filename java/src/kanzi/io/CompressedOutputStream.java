@@ -26,8 +26,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 import kanzi.BitStreamException;
-import kanzi.ByteFunction;
-import kanzi.ByteTransform;
 import kanzi.EntropyEncoder;
 import kanzi.IndexedByteArray;
 import kanzi.OutputBitStream;
@@ -49,7 +47,6 @@ public class CompressedOutputStream extends OutputStream
    private static final int BITSTREAM_FORMAT_VERSION = 3;
    private static final int COPY_LENGTH_MASK         = 0x0F;
    private static final int SMALL_BLOCK_MASK         = 0x80;
-   private static final int SKIP_FUNCTION_MASK       = 0x40;
    private static final int MIN_BITSTREAM_BLOCK_SIZE = 1024;
    private static final int MAX_BITSTREAM_BLOCK_SIZE = 1024*1024*1024;
    private static final int SMALL_BLOCK_SIZE         = 15;
@@ -145,13 +142,13 @@ public class CompressedOutputStream extends OutputStream
       if (this.obs.writeBits((this.hasher != null) ? 1 : 0, 1) != 1)
          throw new kanzi.io.IOException("Cannot write checksum to header", Error.ERR_WRITE_FILE);
       
-      if (this.obs.writeBits(this.entropyType & 0x001F, 5) != 5)
+      if (this.obs.writeBits(this.entropyType, 5) != 5)
          throw new kanzi.io.IOException("Cannot write entropy type to header", Error.ERR_WRITE_FILE);
 
-      if (this.obs.writeBits(this.transformType & 0xFFFF, 16) != 16)
+      if (this.obs.writeBits(this.transformType, 16) != 16)
          throw new kanzi.io.IOException("Cannot write transform types to header", Error.ERR_WRITE_FILE);
 
-      if (this.obs.writeBits(this.blockSize >> 4, 26) != 26)
+      if (this.obs.writeBits(this.blockSize >>> 4, 26) != 26)
          throw new kanzi.io.IOException("Cannot write block size to header", Error.ERR_WRITE_FILE);
 
       if (this.obs.writeBits(0L, 9) != 9)
@@ -484,8 +481,7 @@ public class CompressedOutputStream extends OutputStream
 
       // Encode mode + transformed entropy coded data
       // mode: 0b1000xxxx => small block (written as is) + 4 LSB for block size (0-15)
-      //       0x01000000 => skip transform
-      //       0x00xxxx00 => if transform sequence, xxxx=skipped flags
+      //       0x00xxxx00 => transform sequence skip flags (1 means skip)
       //       0x000000xx => size(size(block))-1
       private Status encodeBlock(IndexedByteArray data, IndexedByteArray buffer,
            int blockLength, short typeOfTransform,
@@ -526,40 +522,24 @@ public class CompressedOutputStream extends OutputStream
             else
             {
                final int savedIdx = data.index;
-               ByteTransform transform = new ByteFunctionFactory().newFunction(blockLength, typeOfTransform);               
-               int requiredSize = (transform instanceof ByteFunction) ?
-                   ((ByteFunction) transform).getMaxEncodedLength(blockLength) : blockLength;
+               ByteTransformSequence transform = new ByteFunctionFactory().newFunction(blockLength, typeOfTransform);               
+               int requiredSize = transform.getMaxEncodedLength(blockLength);
 
                if (requiredSize == -1) // Max size unknown => guess
                   requiredSize = (blockLength * 5) >> 2;
 
+               // share buffers if no transform.
+               // (no transform = 0x00 0x00 = NULL_TRANSFORM_TYPE)
                if (typeOfTransform == ByteFunctionFactory.NULL_TRANSFORM_TYPE)
-                  buffer.array = data.array; // share buffers if no transform
+                  buffer.array = data.array; 
                else if (buffer.array.length < requiredSize)
                   buffer.array = new byte[requiredSize];
                
                buffer.index = 0;
 
-               // Forward transform
-               if (transform.forward(data, buffer, blockLength) == false)
-               {
-                  // Transform failed (probably due to lack of space in output buffer)
-                  if (data.array != buffer.array)
-                     System.arraycopy(data.array, savedIdx, buffer.array, 0, blockLength);
-
-                  data.index = savedIdx + blockLength;
-                  buffer.index = blockLength;
-                  
-                  // Set transform skip flag
-                  mode |= SKIP_FUNCTION_MASK;
-               }
-               else if (transform instanceof ByteTransformSequence)
-               {
-                  // Special case: set sequence skip flags
-                  byte skipFlags = ((ByteTransformSequence) transform).getSkipFlags();
-                  mode |= ((skipFlags & 0x1F) << 2);
-               }
-                                    
+		// Forward transform (ignore error, encode skipFlags)
+               transform.forward(data, buffer, blockLength);
+               mode |= ((transform.getSkipFlags() & ByteTransformSequence.SKIP_MASK) << 2);                                   
                postTransformLength = buffer.index;
 
                if (postTransformLength < 0)
@@ -572,8 +552,7 @@ public class CompressedOutputStream extends OutputStream
                   return new Status(currentBlockId, Error.ERR_WRITE_FILE, "Invalid block data length");
                
                // Record size of 'block size' - 1 in bytes
-               mode |= (dataSize & 0x03);
-               
+               mode |= (dataSize & 0x03);               
                dataSize++;
             }
 
