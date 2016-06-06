@@ -202,7 +202,7 @@ public class RLT implements ByteFunction
          dst[dstIdx++] = val;
       }
 
-      res &= (srcIdx == srcEnd) && (run == 1);         
+      res &= (srcIdx == srcEnd);         
       source.index = srcIdx;
       destination.index = dstIdx;
       return res;

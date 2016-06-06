@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	TWO_BYTE_RLE_MASK1     = 0x80
-	TWO_BYTE_RLE_MASK2     = 0x7F
+	TWO_BYTE_RLE_MASK1    = 0x80
+	TWO_BYTE_RLE_MASK2    = 0x7F
 	RLT_MAX_RUN           = 0x7FFF
 	DEFAULT_RLE_THRESHOLD = 3
 )
@@ -148,6 +148,10 @@ func (this *RLT) Forward(src, dst []byte, length uint) (uint, uint, error) {
 		}
 	}
 
+	if srcIdx != srcEnd {
+		err = errors.New("Not enough space in destination buffer")
+	}
+
 	return srcIdx, dstIdx, err
 }
 
@@ -213,7 +217,7 @@ func (this *RLT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
 		dstIdx++
 	}
 
-	if run != 1 {
+	if srcIdx != srcEnd {
 		err = errors.New("Not enough space in destination buffer")
 	}
 
