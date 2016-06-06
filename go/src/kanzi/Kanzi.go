@@ -121,7 +121,7 @@ type Sizeable interface {
 	SetSize(sz uint) bool
 }
 
-func SameIntSlices(slice1, slice2 []int, checkLengths bool) bool {
+func SameIntSlices(slice1, slice2 []int, deepCheck bool) bool {
 	if slice2 == nil {
 		return slice1 == nil
 	}
@@ -134,15 +134,7 @@ func SameIntSlices(slice1, slice2 []int, checkLengths bool) bool {
 		return true
 	}
 
-	if len(slice2) == 0 {
-		return len(slice1) == 0
-	}
-
-	if len(slice1) == 0 {
-		return false
-	}
-
-	if checkLengths == true && len(slice1) != len(slice2) {
+	if len(slice1) != len(slice2) {
 		return false
 	}
 
@@ -158,10 +150,21 @@ func SameIntSlices(slice1, slice2 []int, checkLengths bool) bool {
 	}
 
 	slice2[0] = ^slice2[0]
-	return true
+
+	if deepCheck == true {
+		for i := range slice1 {
+			if slice2[i] != slice1[i] {
+				return false
+			}
+		}
+
+		return true
+	}
+
+	return false
 }
 
-func SameByteSlices(slice1, slice2 []byte, checkLengths bool) bool {
+func SameByteSlices(slice1, slice2 []byte, deepCheck bool) bool {
 	if slice2 == nil {
 		return slice1 == nil
 	}
@@ -174,5 +177,13 @@ func SameByteSlices(slice1, slice2 []byte, checkLengths bool) bool {
 		return true
 	}
 
-	return bytes.Equal(slice1, slice2)
+	if len(slice1) != len(slice2) {
+		return false
+	}
+
+	if deepCheck == true {
+		return bytes.Equal(slice1, slice2)
+	} else {
+		return false
+	}
 }
