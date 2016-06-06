@@ -521,7 +521,6 @@ public class CompressedOutputStream extends OutputStream
             }
             else
             {
-               final int savedIdx = data.index;
                ByteTransformSequence transform = new ByteFunctionFactory().newFunction(blockLength, typeOfTransform);               
                int requiredSize = transform.getMaxEncodedLength(blockLength);
 

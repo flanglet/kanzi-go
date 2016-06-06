@@ -57,7 +57,7 @@ func NewBlockCompressor() (*BlockCompressor, error) {
 	var outputName = flag.String("output", "", "optional name of the output file (defaults to <input.knz>), or 'none' or 'stdout'")
 	var blockSize = flag.String("block", "1048576", "size of the input blocks, multiple of 16, max 1 GB (transform dependent), min 1 KB, default 1 MB")
 	var entropy = flag.String("entropy", "Huffman", "entropy codec to use [None|Huffman*|ANS|Range|PAQ|FPAQ|CM]")
-	var function = flag.String("transform", "BWT+MTFT+ZRLT", "transform to use [None|BWT*|BWTS|Snappy|LZ4|RLT|ZRLT|MTFT|RANK|TIMESTAMP]")
+	var transforms = flag.String("transform", "BWT+MTFT+ZRLT", "transform to use [None|BWT*|BWTS|Snappy|LZ4|RLT|ZRLT|MTFT|RANK|TIMESTAMP]")
 	var cksum = flag.Bool("checksum", false, "enable block checksum")
 	var tasks = flag.Int("jobs", 1, "number of concurrent jobs")
 
@@ -136,9 +136,11 @@ func NewBlockCompressor() (*BlockCompressor, error) {
 		os.Exit(kio.ERR_BLOCK_SIZE)
 	}
 
+	// Extract transform names. Curate input (EG. NONE+NONE+xxxx => xxxx)
+	tName := strings.ToUpper(*transforms)
+	this.transform = kio.GetByteFunctionName(kio.GetByteFunctionType(tName))
 	this.blockSize = uint(scale * bSize)
 	this.entropyCodec = strings.ToUpper(*entropy)
-	this.transform = strings.ToUpper(*function)
 	this.checksum = *cksum
 	this.jobs = uint(*tasks)
 	this.listeners = make([]kio.BlockListener, 0)

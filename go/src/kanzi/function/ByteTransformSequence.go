@@ -48,16 +48,13 @@ func NewByteTransformSequence(transforms []kanzi.ByteTransform) (*ByteTransformS
 }
 
 func (this *ByteTransformSequence) Forward(src, dst []byte, length uint) (uint, uint, error) {
+	// Check for null buffers. Let individual transforms decide on buffer equality
 	if src == nil {
 		return 0, 0, errors.New("Input buffer cannot be null")
 	}
 
 	if dst == nil {
 		return 0, 0, errors.New("Output buffer cannot be null")
-	}
-
-	if kanzi.SameByteSlices(src, dst, false) {
-		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
 	if length == 0 {

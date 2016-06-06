@@ -30,6 +30,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import kanzi.IndexedByteArray;
 import kanzi.io.BlockListener;
+import kanzi.io.ByteFunctionFactory;
 import kanzi.io.CompressedOutputStream;
 import kanzi.io.Error;
 import kanzi.io.InfoPrinter;
@@ -94,13 +95,17 @@ public class BlockCompressor implements Runnable, Callable<Integer>
    {
       Map<String, Object> map = new HashMap<String, Object>();
       processCommandLine(args, map);
+      
+      // Extract transform names. Curate input (EG. NONE+NONE+xxxx => xxxx)      
+      String tName = (String) map.get("transform");
+      ByteFunctionFactory bff = new ByteFunctionFactory();      
+      this.transform = bff.getName(bff.getType(tName));
       this.verbosity = (Integer) map.get("verbose");
       this.overwrite = (Boolean) map.get("overwrite");
       this.inputName = (String) map.get("inputName");
       this.outputName = (String) map.get("outputName");
       this.codec = (String) map.get("codec");
-      this.blockSize = (Integer) map.get("blockSize");
-      this.transform = (String) map.get("transform");
+      this.blockSize = (Integer) map.get("blockSize");      
       this.checksum = (Boolean) map.get("checksum");
       this.jobs = (Integer) map.get("jobs");
       this.pool = (this.jobs == 1) ? null : 

@@ -44,7 +44,8 @@ public class ByteTransformSequence implements ByteFunction
    @Override
    public boolean forward(IndexedByteArray src, IndexedByteArray dst, int length)
    {  
-      if ((src == null) || (dst == null) || (src.array == dst.array))
+      // Check for null buffers. Let individual transforms decide on buffer equality
+      if ((src == null) || (dst == null))
          return false;
 
       if (length == 0)
