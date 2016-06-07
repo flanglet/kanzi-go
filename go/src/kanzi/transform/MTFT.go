@@ -15,6 +15,11 @@ limitations under the License.
 
 package transform
 
+import (
+	"errors"
+	"kanzi"
+)
+
 const (
 	RESET_THRESHOLD = 64
 	LIST_LENGTH     = 17
@@ -41,19 +46,30 @@ func NewMTFT() (*MTFT, error) {
 	return this, nil
 }
 
-func (this *MTFT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
+func (this *MTFT) Inverse(src, dst []byte) (uint, uint, error) {
+	if src == nil {
+		return 0, 0, errors.New("Input buffer cannot be null")
+	}
+
+	if dst == nil {
+		return 0, 0, errors.New("Output buffer cannot be null")
+	}
+
+	if len(src) == 0 {
+		return 0, 0, nil
+	}
+
+	if kanzi.SameByteSlices(src, dst, false) {
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
+	}
+
 	indexes := this.buckets
 
 	for i := range indexes {
 		indexes[i] = byte(i)
 	}
 
-	count := int(length)
-
-	if count == 0 {
-		count = len(src)
-	}
-
+	count := len(src)
 	value := byte(0)
 
 	for i := 0; i < count; i++ {
@@ -77,7 +93,7 @@ func (this *MTFT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
 		indexes[0] = value
 	}
 
-	return length, length, nil
+	return uint(count), uint(count), nil
 }
 
 // Initialize the linked lists: 1 item in bucket 0 and LIST_LENGTH in each other
@@ -140,19 +156,30 @@ func (this *MTFT) balanceLists(resetValues bool) {
 	}
 }
 
-func (this *MTFT) Forward(src, dst []byte, length uint) (uint, uint, error) {
+func (this *MTFT) Forward(src, dst []byte) (uint, uint, error) {
+	if src == nil {
+		return 0, 0, errors.New("Input buffer cannot be null")
+	}
+
+	if dst == nil {
+		return 0, 0, errors.New("Output buffer cannot be null")
+	}
+
+	if len(src) == 0 {
+		return 0, 0, nil
+	}
+
+	if kanzi.SameByteSlices(src, dst, false) {
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
+	}
+
 	if this.anchor == nil {
 		this.initLists()
 	} else {
 		this.balanceLists(true)
 	}
 
-	count := int(length)
-
-	if count == 0 {
-		count = len(src)
-	}
-
+	count := len(src)
 	previous := this.heads[0].value
 
 	for ii := 0; ii < count; ii++ {
@@ -208,5 +235,5 @@ func (this *MTFT) Forward(src, dst []byte, length uint) (uint, uint, error) {
 		previous = current
 	}
 
-	return length, length, nil
+	return uint(count), uint(count), nil
 }

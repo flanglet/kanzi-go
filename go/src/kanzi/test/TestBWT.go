@@ -36,10 +36,10 @@ func main() {
 		size := uint(len(buf1))
 		buf2 := make([]byte, size)
 		bwt, _ := transform.NewBWT()
-		bwt.Forward(buf1, buf2, uint(size))
+		bwt.Forward(buf1, buf2)
 		fmt.Printf("BWT:  %s (%v)\n", buf2, bwt.PrimaryIndex())
 		bwts, _ := transform.NewBWTS()
-		bwts.Forward(buf1, buf2, uint(size))
+		bwts.Forward(buf1, buf2)
 		fmt.Printf("BWTS: %s\n", buf2)
 		os.Exit(0)
 	}
@@ -95,7 +95,7 @@ func TestCorrectness(isBWT bool) {
 
 		str1 := string(buf1)
 		fmt.Printf("Input:   %s\n", str1)
-		_, _, err1 := bwt.Forward(buf1, buf2, uint(len(buf1)))
+		_, _, err1 := bwt.Forward(buf1, buf2)
 
 		if err1 != nil {
 			fmt.Printf("Error: %v\n", err1)
@@ -113,7 +113,7 @@ func TestCorrectness(isBWT bool) {
 			println()
 		}
 
-		_, _, err2 := bwt.Inverse(buf2, buf3, uint(len(buf1)))
+		_, _, err2 := bwt.Inverse(buf2, buf3)
 
 		if err2 != nil {
 			fmt.Printf("Error: %v\n", err2)
@@ -166,11 +166,11 @@ func TestSpeed(isBWT bool) {
 			}
 
 			before := time.Now()
-			bwt.Forward(buf1, buf2, uint(size))
+			bwt.Forward(buf1, buf2)
 			after := time.Now()
 			delta1 += after.Sub(before).Nanoseconds()
 			before = time.Now()
-			bwt.Inverse(buf2, buf3, uint(size))
+			bwt.Inverse(buf2, buf3)
 			after = time.Now()
 			delta2 += after.Sub(before).Nanoseconds()
 

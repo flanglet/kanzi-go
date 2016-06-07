@@ -16,9 +16,7 @@ limitations under the License.
 package function
 
 import (
-	"bytes"
 	"errors"
-	"fmt"
 	"kanzi"
 )
 
@@ -47,7 +45,7 @@ func NewByteTransformSequence(transforms []kanzi.ByteTransform) (*ByteTransformS
 	return this, nil
 }
 
-func (this *ByteTransformSequence) Forward(src, dst []byte, length uint) (uint, uint, error) {
+func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) {
 	// Check for null buffers. Let individual transforms decide on buffer equality
 	if src == nil {
 		return 0, 0, errors.New("Input buffer cannot be null")
@@ -57,19 +55,15 @@ func (this *ByteTransformSequence) Forward(src, dst []byte, length uint) (uint, 
 		return 0, 0, errors.New("Output buffer cannot be null")
 	}
 
-	if length == 0 {
+	if len(src) == 0 {
 		return 0, 0, nil
 	}
 
-	if length > uint(len(src)) {
-		errMsg := fmt.Sprintf("Block size is %v, input buffer length is %v", length, len(src))
-		return 0, 0, errors.New(errMsg)
-	}
-
-	blockSize := length
+	blockSize := len(src)
+	length := uint(len(src))
 	input := &dst
 	output := &src
-	requiredSize := this.MaxEncodedLen(int(blockSize))
+	requiredSize := this.MaxEncodedLen(blockSize)
 	this.skipFlags = 0
 	var err error
 
@@ -96,12 +90,12 @@ func (this *ByteTransformSequence) Forward(src, dst []byte, length uint) (uint, 
 
 		var err1 error
 		var oIdx uint
+		in := *input
 
 		// Apply forward transform
-		if _, oIdx, err1 = t.Forward(*input, *output, length); err1 != nil {
+		if _, oIdx, err1 = t.Forward(in[0:length], *output); err1 != nil {
 			// Transform failed (probably due to lack of space in output). Revert
 			if input != output {
-				in := *input
 				copy(*output, in[0:length])
 			}
 
@@ -128,31 +122,35 @@ func (this *ByteTransformSequence) Forward(src, dst []byte, length uint) (uint, 
 		err = nil
 	}
 
-	return blockSize, length, err
+	return uint(blockSize), length, err
 }
 
-func (this *ByteTransformSequence) Inverse(src, dst []byte, length uint) (uint, uint, error) {
-	if length == 0 {
+func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) {
+	if src == nil {
+		return 0, 0, errors.New("Input buffer cannot be null")
+	}
+
+	if dst == nil {
+		return 0, 0, errors.New("Output buffer cannot be null")
+	}
+
+	if len(src) == 0 {
 		return 0, 0, nil
 	}
 
+	blockSize := len(src)
+	length := uint(blockSize)
+
 	if this.skipFlags == TRANSFORM_SKIP_MASK {
-		if !bytes.Equal(src, dst) {
-			copy(dst, src[0:length])
+		if !kanzi.SameByteSlices(src, dst, false) {
+			copy(dst, src)
 		}
 
 		return length, length, nil
 	}
 
-	if length > uint(len(src)) {
-		errMsg := fmt.Sprintf("Block size is %v, input buffer length is %v", length, len(src))
-		return 0, 0, errors.New(errMsg)
-	}
-
-	blockSize := length
 	input := &dst
 	output := &src
-	oIdx := uint(0)
 	var res error
 
 	// Process transforms sequentially in reverse order
@@ -169,12 +167,12 @@ func (this *ByteTransformSequence) Inverse(src, dst []byte, length uint) (uint, 
 			output = &dst
 		}
 
-		savedOIdx := oIdx
 		t := this.transforms[i]
+		in := *input
+		out := *output
 
 		// Apply inverse transform
-		_, oIdx, res = t.Inverse(*input, *output, length)
-		length = oIdx - savedOIdx
+		_, length, res = t.Inverse(in[0:length], out[0:cap(out)])
 
 		if res != nil {
 			break
@@ -182,10 +180,10 @@ func (this *ByteTransformSequence) Inverse(src, dst []byte, length uint) (uint, 
 	}
 
 	if output != &dst {
-		copy(dst, src[0:length])
+		copy(dst[0:cap(dst)], src[0:length])
 	}
 
-	return blockSize, length, res
+	return uint(blockSize), length, res
 }
 
 func (this ByteTransformSequence) MaxEncodedLen(srcLen int) int {

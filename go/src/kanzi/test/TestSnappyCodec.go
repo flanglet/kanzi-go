@@ -98,7 +98,7 @@ func TestCorrectness() {
 			fmt.Printf("%v ", input[i])
 		}
 
-		srcIdx, dstIdx, err := snappy.Forward(input, output, uint(size))
+		srcIdx, dstIdx, err := snappy.Forward(input, output)
 
 		if err != nil {
 			fmt.Printf("\n===Encoding error===\n%v\n", err)
@@ -119,7 +119,7 @@ func TestCorrectness() {
 		// Required to reset internal attributes
 		snappy, _ = function.NewSnappyCodec()
 
-		_, _, err = snappy.Inverse(output, reverse, dstIdx)
+		_, _, err = snappy.Inverse(output[0:dstIdx], reverse)
 
 		if err != nil {
 			fmt.Printf("\n===Decoding error===\n%v\n", err)
@@ -184,7 +184,7 @@ func TestSpeed() {
 			snappy, _ := function.NewSnappyCodec()
 			before := time.Now()
 
-			_, dstIdx, err = snappy.Forward(input, output, uint(size))
+			_, dstIdx, err = snappy.Forward(input, output)
 
 			if err != nil {
 				fmt.Printf("Encoding error%v\n", err)
@@ -199,7 +199,7 @@ func TestSpeed() {
 			snappy, _ := function.NewSnappyCodec()
 			before := time.Now()
 
-			if _, _, err = snappy.Inverse(output, reverse, dstIdx); err != nil {
+			if _, _, err = snappy.Inverse(output[0:dstIdx], reverse); err != nil {
 				fmt.Printf("Decoding error%v\n", err)
 				os.Exit(1)
 			}

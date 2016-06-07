@@ -38,7 +38,7 @@ func NewZRLT() (*ZRLT, error) {
 	return this, nil
 }
 
-func (this *ZRLT) Forward(src, dst []byte, length uint) (uint, uint, error) {
+func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 	if src == nil {
 		return uint(0), uint(0), errors.New("Invalid null source buffer")
 	}
@@ -51,7 +51,7 @@ func (this *ZRLT) Forward(src, dst []byte, length uint) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	srcEnd := length
+	srcEnd := uint(len(src))
 	dstEnd := uint(len(dst))
 	dstEnd2 := dstEnd - 2
 	runLength := 1
@@ -118,7 +118,7 @@ func (this *ZRLT) Forward(src, dst []byte, length uint) (uint, uint, error) {
 	return srcIdx, dstIdx, err
 }
 
-func (this *ZRLT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
+func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 	if src == nil {
 		return uint(0), uint(0), errors.New("Invalid null source buffer")
 	}
@@ -131,7 +131,7 @@ func (this *ZRLT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	srcEnd := length
+	srcEnd := uint(len(src))
 	dstEnd := uint(len(dst))
 	runLength := 1
 	srcIdx := uint(0)

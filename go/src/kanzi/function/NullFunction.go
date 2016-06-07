@@ -28,7 +28,7 @@ func NewNullFunction() (*NullFunction, error) {
 	return this, nil
 }
 
-func doCopy(src, dst []byte, sz uint) (uint, uint, error) {
+func doCopy(src, dst []byte) (uint, uint, error) {
 	if src == nil {
 		return uint(0), uint(0), errors.New("Invalid null source buffer")
 	}
@@ -37,33 +37,27 @@ func doCopy(src, dst []byte, sz uint) (uint, uint, error) {
 		return uint(0), uint(0), errors.New("Invalid null destination buffer")
 	}
 
-	length := len(src)
-
-	if sz > 0 {
-		length = int(sz)
-
-		if length > len(src) {
-			return uint(0), uint(0), errors.New("Source buffer too small")
-		}
+	if len(src) == 0 {
+		return uint(0), uint(0), nil
 	}
 
-	if length > len(dst) {
+	if len(src) > len(dst) {
 		return uint(0), uint(0), errors.New("Destination buffer too small")
 	}
 
 	if kanzi.SameByteSlices(src, dst, false) == false {
-		copy(dst, src[0:length])
+		copy(dst, src)
 	}
 
-	return uint(length), uint(length), nil
+	return uint(len(src)), uint(len(src)), nil
 }
 
-func (this *NullFunction) Forward(src, dst []byte, length uint) (uint, uint, error) {
-	return doCopy(src, dst, length)
+func (this *NullFunction) Forward(src, dst []byte) (uint, uint, error) {
+	return doCopy(src, dst)
 }
 
-func (this *NullFunction) Inverse(src, dst []byte, length uint) (uint, uint, error) {
-	return doCopy(src, dst, length)
+func (this *NullFunction) Inverse(src, dst []byte) (uint, uint, error) {
+	return doCopy(src, dst)
 }
 
 func (this NullFunction) MaxEncodedLen(srcLen int) int {

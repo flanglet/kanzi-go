@@ -44,9 +44,9 @@ func NewBWTBlockCodec() (*BWTBlockCodec, error) {
 	return this, err
 }
 
-func (this *BWTBlockCodec) Forward(src, dst []byte, blockSize uint) (uint, uint, error) {
+func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 	// Apply forward Transform
-	iIdx, oIdx, _ := this.bwt.Forward(src, dst, blockSize)
+	iIdx, oIdx, _ := this.bwt.Forward(src, dst)
 
 	primaryIndex := this.bwt.PrimaryIndex()
 	pIndexSizeBits := uint(6)
@@ -62,7 +62,7 @@ func (this *BWTBlockCodec) Forward(src, dst []byte, blockSize uint) (uint, uint,
 
 	//copy(dst[int(headerSizeBytes):], dst) !!!
 
-	for i := int(blockSize - 1); i >= 0; i-- {
+	for i := len(src) - 1; i >= 0; i-- {
 		dst[i+hs] = dst[i]
 	}
 
@@ -82,8 +82,17 @@ func (this *BWTBlockCodec) Forward(src, dst []byte, blockSize uint) (uint, uint,
 	return iIdx, oIdx, nil
 }
 
-func (this *BWTBlockCodec) Inverse(src, dst []byte, blockSize uint) (uint, uint, error) {
+func (this *BWTBlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
+	if src == nil {
+		return 0, 0, errors.New("Input buffer cannot be null")
+	}
+
+	if dst == nil {
+		return 0, 0, errors.New("Output buffer cannot be null")
+	}
+
 	srcIdx := uint(0)
+	blockSize := uint(len(src))
 
 	// Read block header (mode + primary index). See top of file for format
 	blockMode := uint(src[0])
@@ -111,7 +120,7 @@ func (this *BWTBlockCodec) Inverse(src, dst []byte, blockSize uint) (uint, uint,
 	this.bwt.SetPrimaryIndex(primaryIndex)
 
 	// Apply inverse Transform
-	return this.bwt.Inverse(src[srcIdx:], dst, blockSize)
+	return this.bwt.Inverse(src[srcIdx:], dst)
 }
 
 func (this BWTBlockCodec) MaxEncodedLen(srcLen int) int {

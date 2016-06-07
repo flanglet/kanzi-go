@@ -99,7 +99,7 @@ func TestCorrectness() {
 		}
 
 		fmt.Printf("\nCoded: ")
-		srcIdx, dstIdx, err := rlt.Forward(input, output, uint(size))
+		srcIdx, dstIdx, err := rlt.Forward(input, output)
 
 		if err != nil {
 			fmt.Printf("\nEncoding error")
@@ -118,7 +118,7 @@ func TestCorrectness() {
 		// Required to reset internal attributes
 		rlt, _ = function.NewRLT(3)
 
-		srcIdx, _, err = rlt.Inverse(output, reverse, dstIdx)
+		srcIdx, _, err = rlt.Inverse(output[0:dstIdx], reverse)
 
 		if err != nil {
 			fmt.Printf("\nDecoding error")
@@ -181,7 +181,7 @@ func TestSpeed() {
 			rlt, _ := function.NewRLT(3)
 			before := time.Now()
 
-			if _, compressed, err = rlt.Forward(input, output, uint(size)); err != nil {
+			if _, compressed, err = rlt.Forward(input, output); err != nil {
 				fmt.Printf("Encoding error%v\n", err)
 				os.Exit(1)
 			}
@@ -194,7 +194,7 @@ func TestSpeed() {
 			rlt, _ := function.NewRLT(3)
 			before := time.Now()
 
-			if _, _, err = rlt.Inverse(output, reverse, compressed); err != nil {
+			if _, _, err = rlt.Inverse(output[0:compressed], reverse); err != nil {
 				fmt.Printf("Decoding error%v\n", err)
 				os.Exit(1)
 			}

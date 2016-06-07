@@ -91,7 +91,7 @@ func (this *BWT) SetPrimaryIndex(primaryIndex uint) bool {
 	return true
 }
 
-func (this *BWT) Forward(src, dst []byte, length uint) (uint, uint, error) {
+func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 	if src == nil {
 		return 0, 0, errors.New("Input buffer cannot be null")
 	}
@@ -104,7 +104,7 @@ func (this *BWT) Forward(src, dst []byte, length uint) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	count := int(length)
+	count := len(src)
 
 	if count > maxBWTBlockSize() {
 		errMsg := fmt.Sprintf("Block size is %v, max value is %v", count, maxBWTBlockSize())
@@ -160,7 +160,7 @@ func (this *BWT) Forward(src, dst []byte, length uint) (uint, uint, error) {
 	return uint(count), uint(count), nil
 }
 
-func (this *BWT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
+func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 	if src == nil {
 		return 0, 0, errors.New("Input buffer cannot be null")
 	}
@@ -173,10 +173,10 @@ func (this *BWT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	count := int(length)
+	count := len(src)
 
 	if count > maxBWTBlockSize() {
-		errMsg := fmt.Sprintf("Block size is %v, max value is %v", length, maxBWTBlockSize())
+		errMsg := fmt.Sprintf("Block size is %v, max value is %v", count, maxBWTBlockSize())
 		return 0, 0, errors.New(errMsg)
 	}
 

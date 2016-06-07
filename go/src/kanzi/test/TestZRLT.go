@@ -77,7 +77,7 @@ func TestCorrectness() {
 		}
 
 		fmt.Printf("\nCoded: ")
-		srcIdx, dstIdx, _ := ZRLT.Forward(input, output, uint(size))
+		srcIdx, dstIdx, _ := ZRLT.Forward(input, output)
 
 		for i := uint(0); i < dstIdx; i++ {
 			if i%100 == 0 {
@@ -89,7 +89,7 @@ func TestCorrectness() {
 
 		fmt.Printf(" (Compression ratio: %v%%)", dstIdx*100/srcIdx)
 		ZRLT, _ = function.NewZRLT()
-		ZRLT.Inverse(output, reverse, dstIdx)
+		ZRLT.Inverse(output[0:dstIdx], reverse)
 		fmt.Printf("\nDecoded: ")
 		ok := true
 
@@ -150,7 +150,7 @@ func TestSpeed() {
 			zrlt, _ := function.NewZRLT()
 			before := time.Now()
 
-			if _, compressed, err = zrlt.Forward(input, output, uint(size)); err != nil {
+			if _, compressed, err = zrlt.Forward(input, output); err != nil {
 				fmt.Printf("Encoding error: %v\n", err)
 				os.Exit(1)
 			}
@@ -163,7 +163,7 @@ func TestSpeed() {
 			zrlt, _ := function.NewZRLT()
 			before := time.Now()
 
-			if _, _, err = zrlt.Inverse(output, reverse, compressed); err != nil {
+			if _, _, err = zrlt.Inverse(output[0:compressed], reverse); err != nil {
 				fmt.Printf("Decoding error: %v\n", err)
 				os.Exit(1)
 			}

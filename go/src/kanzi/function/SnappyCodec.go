@@ -34,7 +34,7 @@ func NewSnappyCodec() (*SnappyCodec, error) {
 	return this, nil
 }
 
-func (this *SnappyCodec) Forward(src, dst []byte, length uint) (uint, uint, error) {
+func (this *SnappyCodec) Forward(src, dst []byte) (uint, uint, error) {
 	if src == nil {
 		return uint(0), uint(0), errors.New("Invalid null source buffer")
 	}
@@ -47,7 +47,7 @@ func (this *SnappyCodec) Forward(src, dst []byte, length uint) (uint, uint, erro
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	count := length
+	count := uint(len(src))
 
 	if n := snappy.MaxEncodedLen(int(count)); len(dst) < n {
 		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
@@ -62,7 +62,7 @@ func (this *SnappyCodec) Forward(src, dst []byte, length uint) (uint, uint, erro
 	return count, uint(len(res)), nil
 }
 
-func (this *SnappyCodec) Inverse(src, dst []byte, length uint) (uint, uint, error) {
+func (this *SnappyCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	if src == nil {
 		return uint(0), uint(0), errors.New("Invalid null source buffer")
 	}
@@ -75,7 +75,7 @@ func (this *SnappyCodec) Inverse(src, dst []byte, length uint) (uint, uint, erro
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	count := length
+	count := uint(len(src))
 	res, err := snappy.Decode(dst, src[0:count])
 
 	if err != nil {

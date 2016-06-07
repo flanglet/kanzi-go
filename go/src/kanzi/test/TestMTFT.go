@@ -52,14 +52,14 @@ func main() {
 		}
 
 		start := (ii & 1) * ii
-		mtft.Forward(input, transform[start:], uint(size))
+		mtft.Forward(input, transform[start:start+size])
 		fmt.Printf("\nTransform : ")
 
 		for i := start; i < start+len(input); i++ {
 			fmt.Printf("%d ", transform[i])
 		}
 
-		mtft.Inverse(transform[start:], reverse, uint(size))
+		mtft.Inverse(transform[start:start+size], reverse)
 		fmt.Printf("\nReverse   : ")
 
 		for i := 0; i < len(input); i++ {
@@ -127,11 +127,11 @@ func main() {
 			}
 
 			before := time.Now()
-			mtft.Forward(input, output, uint(size))
+			mtft.Forward(input, output)
 			after := time.Now()
 			delta1 += after.Sub(before).Nanoseconds()
 			before = time.Now()
-			mtft.Inverse(output, reverse, uint(size))
+			mtft.Inverse(output, reverse)
 			after = time.Now()
 			delta2 += after.Sub(before).Nanoseconds()
 		}

@@ -45,7 +45,7 @@ func NewBWTS() (*BWTS, error) {
 	return this, nil
 }
 
-func (this *BWTS) Forward(src, dst []byte, length uint) (uint, uint, error) {
+func (this *BWTS) Forward(src, dst []byte) (uint, uint, error) {
 	if src == nil {
 		return 0, 0, errors.New("Input buffer cannot be null")
 	}
@@ -58,7 +58,7 @@ func (this *BWTS) Forward(src, dst []byte, length uint) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	count := int(length)
+	count := len(src)
 
 	if count > maxBWTSBlockSize() {
 		errMsg := fmt.Sprintf("Block size is %v, max value is %v", count, maxBWTSBlockSize())
@@ -200,7 +200,7 @@ func (this *BWTS) moveLyndonWordHead(sa []int, data []byte, count, start, size, 
 	return rank
 }
 
-func (this *BWTS) Inverse(src, dst []byte, length uint) (uint, uint, error) {
+func (this *BWTS) Inverse(src, dst []byte) (uint, uint, error) {
 	if src == nil {
 		return 0, 0, errors.New("Input buffer cannot be null")
 	}
@@ -213,10 +213,10 @@ func (this *BWTS) Inverse(src, dst []byte, length uint) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	count := int(length)
+	count := len(src)
 
 	if count > maxBWTSBlockSize() {
-		errMsg := fmt.Sprintf("Block size is %v, max value is %v", length, maxBWTSBlockSize())
+		errMsg := fmt.Sprintf("Block size is %v, max value is %v", count, maxBWTSBlockSize())
 		return 0, 0, errors.New(errMsg)
 	}
 

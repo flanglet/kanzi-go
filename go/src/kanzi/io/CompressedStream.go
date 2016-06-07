@@ -409,8 +409,6 @@ func (this *EncodingTask) encode() {
 	dataSize := uint(0)
 	postTransformLength := this.blockLength
 	checksum := uint32(0)
-	iIdx := uint(0)
-	oIdx := uint(0)
 
 	// Compute block checksum
 	if this.hasher != nil {
@@ -431,8 +429,6 @@ func (this *EncodingTask) encode() {
 			copy(buffer, this.data[0:this.blockLength])
 		}
 
-		iIdx += this.blockLength
-		oIdx += this.blockLength
 		mode = byte(SMALL_BLOCK_SIZE | (this.blockLength & COPY_LENGTH_MASK))
 	} else {
 		t, err := NewByteFunction(this.blockLength, this.typeOfTransform)
@@ -443,25 +439,21 @@ func (this *EncodingTask) encode() {
 			return
 		}
 
-		requiredSize := t.MaxEncodedLen(int(this.blockLength))
-
-		if requiredSize == -1 {
-			// Max size unknown => guess
-			requiredSize = int(this.blockLength*5) >> 2
-		}
-
 		// share buffers if no transform.
 		// (no transform = 0x00 0x00 = NULL_TRANSFORM_TYPE)
 		if this.typeOfTransform == NULL_TRANSFORM_TYPE {
 			buffer = this.data
-		} else if len(buffer) < requiredSize {
-			buffer = make([]byte, requiredSize)
+		} else {
+			requiredSize := t.MaxEncodedLen(int(this.blockLength))
+
+			if len(buffer) < requiredSize {
+				buffer = make([]byte, requiredSize)
+			}
 		}
 
 		// Forward transform (ignore error, encode skipFlags)
-		iIdx, oIdx, _ = t.Forward(this.data, buffer, this.blockLength)
+		_, postTransformLength, _ = t.Forward(this.data[0:this.blockLength], buffer)
 		mode |= ((t.SkipFlags() & function.TRANSFORM_SKIP_MASK) << 2)
-		postTransformLength = oIdx
 
 		for i := uint64(0xFF); i < uint64(postTransformLength); i <<= 8 {
 			dataSize++
@@ -1071,7 +1063,7 @@ func (this *DecodingTask) decode() {
 
 	read = this.ibs.Read() - read
 
-	if mode & SMALL_BLOCK_MASK != 0 {
+	if mode&SMALL_BLOCK_MASK != 0 {
 		if !bytes.Equal(buffer, this.data) {
 			copy(this.data, buffer[0:preTransformLength])
 		}
@@ -1091,7 +1083,7 @@ func (this *DecodingTask) decode() {
 		var oIdx uint
 
 		// Inverse transform
-		if _, oIdx, err = transform.Inverse(buffer, this.data, preTransformLength); err != nil {
+		if _, oIdx, err = transform.Inverse(buffer[0:preTransformLength], this.data); err != nil {
 			// Error => return
 			res.err = NewIOError(err.Error(), ERR_PROCESS_BLOCK)
 			notify(nil, this.result, false, res)

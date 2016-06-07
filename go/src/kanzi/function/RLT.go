@@ -56,7 +56,7 @@ func (this *RLT) RunTheshold() uint {
 	return this.runThreshold
 }
 
-func (this *RLT) Forward(src, dst []byte, length uint) (uint, uint, error) {
+func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 	if src == nil {
 		return uint(0), uint(0), errors.New("Invalid null source buffer")
 	}
@@ -69,7 +69,7 @@ func (this *RLT) Forward(src, dst []byte, length uint) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	srcEnd := length
+	srcEnd := uint(len(src))
 	dstEnd := uint(len(dst))
 	dstEnd3 := dstEnd - 3
 	run := 1
@@ -155,7 +155,7 @@ func (this *RLT) Forward(src, dst []byte, length uint) (uint, uint, error) {
 	return srcIdx, dstIdx, err
 }
 
-func (this *RLT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
+func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 	if src == nil {
 		return uint(0), uint(0), errors.New("Invalid null source buffer")
 	}
@@ -168,7 +168,7 @@ func (this *RLT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	srcEnd := length
+	srcEnd := uint(len(src))
 	dstEnd := uint(len(dst))
 	run := uint(0)
 	threshold := this.runThreshold
@@ -201,6 +201,7 @@ func (this *RLT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
 					err = errors.New("Not enough space in destination buffer")
 					break
 				}
+
 				// Emit length times the previous byte
 				for run > 0 {
 					dst[dstIdx] = prev

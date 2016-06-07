@@ -522,17 +522,18 @@ public class CompressedOutputStream extends OutputStream
             else
             {
                ByteTransformSequence transform = new ByteFunctionFactory().newFunction(blockLength, typeOfTransform);               
-               int requiredSize = transform.getMaxEncodedLength(blockLength);
-
-               if (requiredSize == -1) // Max size unknown => guess
-                  requiredSize = (blockLength * 5) >> 2;
 
                // share buffers if no transform.
                // (no transform = 0x00 0x00 = NULL_TRANSFORM_TYPE)
                if (typeOfTransform == ByteFunctionFactory.NULL_TRANSFORM_TYPE)
                   buffer.array = data.array; 
-               else if (buffer.array.length < requiredSize)
-                  buffer.array = new byte[requiredSize];
+               else 
+               {
+                  int requiredSize = transform.getMaxEncodedLength(blockLength);
+   
+                  if (buffer.array.length < requiredSize)
+                     buffer.array = new byte[requiredSize];
+               }
                
                buffer.index = 0;
 

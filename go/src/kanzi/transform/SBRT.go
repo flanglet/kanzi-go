@@ -15,7 +15,10 @@ limitations under the License.
 
 package transform
 
-import "errors"
+import (
+	"errors"
+	"kanzi"
+)
 
 // Sort by Rank Transform is a family of transforms typically used after
 // a BWT to reduce the variance of the data prior to entropy coding.
@@ -55,12 +58,24 @@ func NewSBRT(mode int) (*SBRT, error) {
 	return this, nil
 }
 
-func (this *SBRT) Forward(src, dst []byte, length uint) (uint, uint, error) {
-	count := int(length)
-
-	if count == 0 {
-		count = len(src)
+func (this *SBRT) Forward(src, dst []byte) (uint, uint, error) {
+	if src == nil {
+		return 0, 0, errors.New("Input buffer cannot be null")
 	}
+
+	if dst == nil {
+		return 0, 0, errors.New("Output buffer cannot be null")
+	}
+
+	if len(src) == 0 {
+		return 0, 0, nil
+	}
+
+	if kanzi.SameByteSlices(src, dst, false) {
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
+	}
+
+	count := len(src)
 
 	// Aliasing
 	p := this.prev
@@ -115,15 +130,27 @@ func (this *SBRT) Forward(src, dst []byte, length uint) (uint, uint, error) {
 		s2r[c] = r
 	}
 
-	return length, length, nil
+	return uint(count), uint(count), nil
 }
 
-func (this *SBRT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
-	count := int(length)
-
-	if count == 0 {
-		count = len(src)
+func (this *SBRT) Inverse(src, dst []byte) (uint, uint, error) {
+	if src == nil {
+		return 0, 0, errors.New("Input buffer cannot be null")
 	}
+
+	if dst == nil {
+		return 0, 0, errors.New("Output buffer cannot be null")
+	}
+
+	if len(src) == 0 {
+		return 0, 0, nil
+	}
+
+	if kanzi.SameByteSlices(src, dst, false) {
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
+	}
+
+	count := len(src)
 
 	// Aliasing
 	p := this.prev
@@ -174,5 +201,5 @@ func (this *SBRT) Inverse(src, dst []byte, length uint) (uint, uint, error) {
 		r2s[r] = c
 	}
 
-	return length, length, nil
+	return uint(count), uint(count), nil
 }
