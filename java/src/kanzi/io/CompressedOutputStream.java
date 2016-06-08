@@ -522,22 +522,13 @@ public class CompressedOutputStream extends OutputStream
             else
             {
                ByteTransformSequence transform = new ByteFunctionFactory().newFunction(blockLength, typeOfTransform);               
+               int requiredSize = transform.getMaxEncodedLength(blockLength);
 
-               // share buffers if no transform.
-               // (no transform = 0x00 0x00 = NULL_TRANSFORM_TYPE)
-               if (typeOfTransform == ByteFunctionFactory.NULL_TRANSFORM_TYPE)
-                  buffer.array = data.array; 
-               else 
-               {
-                  int requiredSize = transform.getMaxEncodedLength(blockLength);
-   
-                  if (buffer.array.length < requiredSize)
-                     buffer.array = new byte[requiredSize];
-               }
-               
-               buffer.index = 0;
+               if (buffer.array.length < requiredSize)
+                  buffer.array = new byte[requiredSize];
 
 		// Forward transform (ignore error, encode skipFlags)
+               buffer.index = 0;
                transform.forward(data, buffer, blockLength);
                mode |= ((transform.getSkipFlags() & ByteTransformSequence.SKIP_MASK) << 2);                                   
                postTransformLength = buffer.index;
@@ -632,10 +623,6 @@ public class CompressedOutputStream extends OutputStream
          }
          finally
          {
-            // Reset buffer in case another block uses a different transform
-            if (typeOfTransform == ByteFunctionFactory.NULL_TRANSFORM_TYPE)
-               buffer.array = EMPTY_BYTE_ARRAY;
-
             // Make sure to unfreeze next block
             if (this.processedBlockId.get() == this.blockId-1)
                this.processedBlockId.incrementAndGet();

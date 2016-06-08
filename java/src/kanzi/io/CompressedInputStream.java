@@ -581,16 +581,11 @@ public class CompressedInputStream extends InputStream
                notifyListeners(this.listeners, evt);
             }
 
-            if (typeOfTransform == ByteFunctionFactory.NULL_TRANSFORM_TYPE)
-               buffer.array = data.array; // share buffers if no transform
-            else
-            {
-               final int bufferSize = (this.blockSize >= preTransformLength + EXTRA_BUFFER_SIZE) ? 
-                  this.blockSize : preTransformLength + EXTRA_BUFFER_SIZE;
+            final int bufferSize = (this.blockSize >= preTransformLength + EXTRA_BUFFER_SIZE) ? 
+               this.blockSize : preTransformLength + EXTRA_BUFFER_SIZE;
 
-               if (buffer.array.length < bufferSize)
-                  buffer.array = new byte[bufferSize];
-            }
+            if (buffer.array.length < bufferSize)
+               buffer.array = new byte[bufferSize];
 
             final int savedIdx = data.index;
 
@@ -671,10 +666,6 @@ public class CompressedInputStream extends InputStream
          }         
          finally
          {
-            // Reset buffer in case another block uses a different transform
-            if (typeOfTransform == ByteFunctionFactory.NULL_TRANSFORM_TYPE)
-               buffer.array = EMPTY_BYTE_ARRAY;
-
             // Make sure to unfreeze next block
             if (this.processedBlockId.get() == this.blockId-1)
                this.processedBlockId.incrementAndGet();

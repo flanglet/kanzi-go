@@ -50,43 +50,17 @@ public class NullFunction implements ByteFunction
       if (destination.index + len > destination.array.length)
          return false;
 
-      if ((source.array == destination.array) && (source.index == destination.index))
-      {
-         source.index += len;
-         destination.index += len;
-         return true;
-      }
-
       if (source.array == destination.array)
       {
-         final int len8 = len & - 8;
-         final byte[] srcArray = source.array;
-         final byte[] dstArray = destination.array;
-         int srcIdx = source.index;
-         int dstIdx = destination.index;
-         
-         for (int i=0; i<len8; i+=8)   
+         if (source.index == destination.index)
          {
-            dstArray[dstIdx]   = srcArray[srcIdx];
-            dstArray[dstIdx+1] = srcArray[srcIdx+1];
-            dstArray[dstIdx+2] = srcArray[srcIdx+2];
-            dstArray[dstIdx+3] = srcArray[srcIdx+3];
-            dstArray[dstIdx+4] = srcArray[srcIdx+4];
-            dstArray[dstIdx+5] = srcArray[srcIdx+5];
-            dstArray[dstIdx+6] = srcArray[srcIdx+6];
-            dstArray[dstIdx+7] = srcArray[srcIdx+7]; 
-            srcIdx += 8;
-            dstIdx += 8;
+            source.index += len;
+            destination.index += len;
+            return true; 
          }
-         
-         for (int i=len8; i<len; i++)
-            dstArray[destination.index+i] = srcArray[source.index+i];
-      }
-      else
-      {
-         System.arraycopy(source.array, source.index, destination.array, destination.index, len);
       }
       
+      System.arraycopy(source.array, source.index, destination.array, destination.index, len);     
       source.index += len;
       destination.index += len;
       return true;

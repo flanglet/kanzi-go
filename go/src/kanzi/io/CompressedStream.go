@@ -439,16 +439,10 @@ func (this *EncodingTask) encode() {
 			return
 		}
 
-		// share buffers if no transform.
-		// (no transform = 0x00 0x00 = NULL_TRANSFORM_TYPE)
-		if this.typeOfTransform == NULL_TRANSFORM_TYPE {
-			buffer = this.data
-		} else {
-			requiredSize := t.MaxEncodedLen(int(this.blockLength))
+		requiredSize := t.MaxEncodedLen(int(this.blockLength))
 
-			if len(buffer) < requiredSize {
-				buffer = make([]byte, requiredSize)
-			}
+		if len(buffer) < requiredSize {
+			buffer = make([]byte, requiredSize)
 		}
 
 		// Forward transform (ignore error, encode skipFlags)
@@ -1005,19 +999,14 @@ func (this *DecodingTask) decode() {
 	}
 
 	res.checksum = checksum1
+	bufferSize := this.blockLength
 
-	if this.typeOfTransform == NULL_TRANSFORM_TYPE {
-		buffer = this.data // share buffers if no transform
-	} else {
-		bufferSize := this.blockLength
+	if bufferSize < preTransformLength+EXTRA_BUFFER_SIZE {
+		bufferSize = preTransformLength + EXTRA_BUFFER_SIZE
+	}
 
-		if bufferSize < preTransformLength+EXTRA_BUFFER_SIZE {
-			bufferSize = preTransformLength + EXTRA_BUFFER_SIZE
-		}
-
-		if len(buffer) < int(bufferSize) {
-			buffer = make([]byte, bufferSize)
-		}
+	if len(buffer) < int(bufferSize) {
+		buffer = make([]byte, bufferSize)
 	}
 
 	// Each block is decoded separately
