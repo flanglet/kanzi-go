@@ -365,6 +365,10 @@ public class CompressedOutputStream extends OutputStream
          {
             final int sz = (this.iba.index + this.blockSize > dataLength) ?
                     dataLength - this.iba.index : this.blockSize;
+            
+            if (sz == 0)
+               break;
+            
             Callable<Status> task = new EncodingTask(this.iba.array, this.iba.index,
                     this.buffers[jobId], sz, this.transformType,
                     this.entropyType, firstBlockId+jobId+1,
@@ -372,9 +376,6 @@ public class CompressedOutputStream extends OutputStream
                     blockListeners);
             tasks.add(task);
             this.iba.index += sz;
-
-            if (this.iba.index >= this.iba.array.length) 
-               break;
          }
 
          if (this.jobs == 1)

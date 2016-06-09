@@ -351,6 +351,10 @@ func (this *CompressedOutputStream) processBlock() error {
 
 	// Invoke as many go routines as required
 	for jobId := 0; jobId < this.jobs; jobId++ {
+		if this.curIdx == 0 {
+			break
+		}
+
 		sz := uint(this.curIdx)
 		nbJobs = jobId + 1
 
@@ -378,10 +382,6 @@ func (this *CompressedOutputStream) processBlock() error {
 
 		offset += sz
 		this.curIdx -= int(sz)
-
-		if this.curIdx == 0 {
-			break
-		}
 	}
 
 	// Allow start of entropy coding for first block
