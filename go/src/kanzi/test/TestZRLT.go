@@ -35,22 +35,28 @@ func TestCorrectness() {
 	for ii := 0; ii < 20; ii++ {
 		rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 		fmt.Printf("\nTest %v\n", ii)
+		var arr []int
 
-		arr := make([]int, 64)
+		if ii == 0 {
+			arr2 := [64]int{30, 0, 4, 0, 30, 17, 240, 0, 0, 0, 12, 2, 23, 17, 254, 0, 254, 24, 0, 24, 20, 0, 17, 0, 254, 0, 254, 32, 0, 0, 13, 32, 255, 31, 15, 25, 0, 29, 8, 24, 20, 0, 0, 0, 245, 253, 0, 32, 19, 0, 243, 0, 0, 0, 13, 244, 24, 4, 0, 7, 25, 2, 0, 15}
+			arr = arr2[0:len(arr2)]
+		} else {
+			arr = make([]int, 64)
 
-		for i := range arr {
-			val := rnd.Intn(100) - 16
+			for i := range arr {
+				val := rnd.Intn(100) - 16
 
-			if val >= 33 {
-				val = 0
+				if val >= 33 {
+					val = 0
+				}
+
+				arr[i] = val
 			}
-
-			arr[i] = val
 		}
 
 		size := len(arr)
 		input := make([]byte, size)
-		output := make([]byte, size)
+		output := make([]byte, size*3/2)
 		reverse := make([]byte, size)
 
 		for i := range output {
@@ -65,7 +71,13 @@ func TestCorrectness() {
 			}
 		}
 
-		ZRLT, _ := function.NewZRLT()
+		ZRLT, err := function.NewZRLT()
+
+		if err != nil {
+			fmt.Printf("\nError: %v\n", err)
+			continue
+		}
+
 		fmt.Printf("\nOriginal: ")
 
 		for i := range input {
@@ -77,7 +89,12 @@ func TestCorrectness() {
 		}
 
 		fmt.Printf("\nCoded: ")
-		srcIdx, dstIdx, _ := ZRLT.Forward(input, output)
+		srcIdx, dstIdx, err2 := ZRLT.Forward(input, output)
+
+		if err2 != nil {
+			fmt.Printf("\nEncoding error: %v\n", err2)
+			continue
+		}
 
 		for i := uint(0); i < dstIdx; i++ {
 			if i%100 == 0 {
@@ -88,8 +105,20 @@ func TestCorrectness() {
 		}
 
 		fmt.Printf(" (Compression ratio: %v%%)", dstIdx*100/srcIdx)
-		ZRLT, _ = function.NewZRLT()
-		ZRLT.Inverse(output[0:dstIdx], reverse)
+		ZRLT, err2 = function.NewZRLT()
+
+		if err2 != nil {
+			fmt.Printf("\nError: %v\n", err2)
+			continue
+		}
+
+		_, _, err2 = ZRLT.Inverse(output[0:dstIdx], reverse)
+
+		if err2 != nil {
+			fmt.Printf("\nDecoding error: %v\n", err2)
+			continue
+		}
+
 		fmt.Printf("\nDecoded: ")
 		ok := true
 

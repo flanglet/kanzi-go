@@ -64,7 +64,6 @@ type ByteFunction interface {
 	Inverse(src, dst []byte) (uint, uint, error)
 
 	// Return the max size required for the encoding output buffer
-	// If the max size of the output buffer is not known, return -1
 	MaxEncodedLen(srcLen int) int
 }
 

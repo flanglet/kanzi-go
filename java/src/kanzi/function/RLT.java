@@ -61,10 +61,14 @@ public class RLT implements ByteFunction
       if ((source == null) || (destination == null) || (source.array == destination.array))
          return false;
 
-      int srcIdx = source.index;
-      int dstIdx = destination.index;
       final byte[] src = source.array;
       final byte[] dst = destination.array;
+      
+      if (dst.length - destination.index < getMaxEncodedLength(length))
+         return false;
+     
+      int srcIdx = source.index;
+      int dstIdx = destination.index;
       final int srcEnd = srcIdx + length;
       final int dstEnd = dst.length;
       final int dstEnd3 = dstEnd - 3;
@@ -209,10 +213,10 @@ public class RLT implements ByteFunction
    }
    
    
-   // Required encoding output buffer size unknown
+   // Required encoding output buffer size unknown => guess
    @Override
    public int getMaxEncodedLength(int srcLen)
    {
-      return -1;
+      return (srcLen*5) >> 2;
    }
 }

@@ -80,7 +80,7 @@ func TestCorrectness() {
 
 		size := len(arr)
 		input := make([]byte, size)
-		output := make([]byte, size)
+		output := make([]byte, size*3/2)
 		reverse := make([]byte, size)
 
 		for i := range output {
@@ -91,7 +91,13 @@ func TestCorrectness() {
 			input[i] = byte(arr[i])
 		}
 
-		rlt, _ := function.NewRLT(3)
+		rlt, err := function.NewRLT(3)
+
+		if err != nil {
+			fmt.Printf("\nError: %v\n", err)
+			break
+		}
+
 		fmt.Printf("\nOriginal: ")
 
 		for i := range arr {
@@ -99,10 +105,10 @@ func TestCorrectness() {
 		}
 
 		fmt.Printf("\nCoded: ")
-		srcIdx, dstIdx, err := rlt.Forward(input, output)
+		srcIdx, dstIdx, err2 := rlt.Forward(input, output)
 
-		if err != nil {
-			fmt.Printf("\nEncoding error")
+		if err2 != nil {
+			fmt.Printf("\nEncoding error: %v\n", err2)
 			continue
 		}
 
@@ -116,12 +122,17 @@ func TestCorrectness() {
 		}
 
 		// Required to reset internal attributes
-		rlt, _ = function.NewRLT(3)
+		rlt, err2 = function.NewRLT(3)
 
-		srcIdx, _, err = rlt.Inverse(output[0:dstIdx], reverse)
+		if err2 != nil {
+			fmt.Printf("\nError: %v\n", err2)
+			continue
+		}
 
-		if err != nil {
-			fmt.Printf("\nDecoding error")
+		_, _, err2 = rlt.Inverse(output[0:dstIdx], reverse)
+
+		if err2 != nil {
+			fmt.Printf("\nDecoding error: %v\n", err2)
 			continue
 		}
 
@@ -131,17 +142,26 @@ func TestCorrectness() {
 			fmt.Printf("%v ", reverse[i])
 		}
 
-		fmt.Printf("\n")
+		ok := true
 
-		// Check
-		for i := range reverse {
-			if input[i] != reverse[i] {
-				fmt.Printf("Different (index %v - %v)\n", input[i], reverse[i])
-				os.Exit(1)
+		for i := range input {
+			if i%100 == 0 {
+				fmt.Printf("\n")
+			}
+
+			fmt.Printf("%v ", reverse[i])
+
+			if reverse[i] != input[i] {
+				ok = false
 			}
 		}
 
-		fmt.Printf("Identical\n")
+		if ok == true {
+			fmt.Printf("\nIdentical\n")
+		} else {
+			fmt.Printf("\nDifferent\n")
+			os.Exit(1)
+		}
 	}
 }
 

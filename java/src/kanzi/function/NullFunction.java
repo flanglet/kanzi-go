@@ -40,10 +40,8 @@ public class NullFunction implements ByteFunction
    }
 
    
-   private static boolean doCopy(IndexedByteArray source, IndexedByteArray destination, int sz)
+   private static boolean doCopy(IndexedByteArray source, IndexedByteArray destination, final int len)
    {      
-      final int len = (sz == 0) ? source.array.length : sz;
-
       if (source.index + len > source.array.length)
          return false;
       

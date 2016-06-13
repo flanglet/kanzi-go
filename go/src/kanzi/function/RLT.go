@@ -24,6 +24,7 @@ package function
 
 import (
 	"errors"
+	"fmt"
 	"kanzi"
 )
 
@@ -67,6 +68,10 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 
 	if kanzi.SameByteSlices(src, dst, false) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
+	}
+
+	if n := this.MaxEncodedLen(len(src)); len(dst) < n {
+		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
 	}
 
 	srcEnd := uint(len(src))
@@ -227,5 +232,5 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 
 // Required encoding output buffer size unknown
 func (this RLT) MaxEncodedLen(srcLen int) int {
-	return -1
+	return (srcLen * 5) >> 2
 }

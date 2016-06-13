@@ -43,33 +43,39 @@ public class TestZRLT
 
       for (int ii=0; ii<=20; ii++)
       {
-         int[] arr = new int[64];
+         int[] arr;
 
-         for (int i=0; i<arr.length; i++)
+         if (ii == 0) 
          {
-             int val = rnd.nextInt(100);
+            arr = new int[] { 30, 0, 4, 0, 30, 17, 240, 0, 0, 0, 12, 2, 23, 17, 254, 0, 254, 24, 0, 24, 20, 0, 17, 0, 254, 0, 254, 32, 0, 0, 13, 32, 255, 31, 15, 25, 0, 29, 8, 24, 20, 0, 0, 0, 245, 253, 0, 32, 19, 0, 243, 0, 0, 0, 13, 244, 24, 4, 0, 7, 25, 2, 0, 15 };
+         }
+         else
+         {
+            arr = new int[64];
+            
+            for (int i=0; i<arr.length; i++)
+            {
+                int val = rnd.nextInt(100);
 
-             if (val >= 33)
-                 val = 0;
+                if (val >= 33)
+                    val = 0;
 
-             arr[i] = val;
+                arr[i] = val;
+            }
          }
 
          int size = arr.length; // Must be a multiple of 8 (to make decoding easier)
          input = new byte[size];
-         output = new byte[size];
+         output = new byte[size*2];
          res = new byte[size];
          IndexedByteArray iba1 = new IndexedByteArray(input, 0);
          IndexedByteArray iba2 = new IndexedByteArray(output, 0);
          IndexedByteArray iba3 = new IndexedByteArray(res, 0);
          Arrays.fill(output, (byte) 0xAA);
-
+         
          for (int i = 0; i < arr.length; i++)
          {
-            if (i == arr.length / 2)
-               input[i] = (byte) 255;
-            else
-               input[i] = (byte) (arr[i] & 255);
+            input[i] = (byte) arr[i];
          }
 
          ZRLT zrlt = new ZRLT();
@@ -124,8 +130,10 @@ public class TestZRLT
          }
 
          System.out.print((ok == true) ? "\nIdentical" : "\nDifferent");
-
          System.out.println();
+         
+         if (ok == false)
+            System.exit(1);
       }
    }
     

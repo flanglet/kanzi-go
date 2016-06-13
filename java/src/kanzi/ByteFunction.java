@@ -23,6 +23,5 @@ package kanzi;
 public interface ByteFunction extends ByteTransform
 {
    // Return the max size required for the encoding output buffer
-   // If the max size of the output buffer is not known, return -1
    public int getMaxEncodedLength(int srcLength);
 }
