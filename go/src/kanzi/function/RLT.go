@@ -232,5 +232,5 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 
 // Required encoding output buffer size unknown
 func (this RLT) MaxEncodedLen(srcLen int) int {
-	return (srcLen * 5) >> 2
+	return srcLen
 }

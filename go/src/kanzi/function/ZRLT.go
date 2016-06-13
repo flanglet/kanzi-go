@@ -213,5 +213,5 @@ func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 
 // Required encoding output buffer size unknown
 func (this ZRLT) MaxEncodedLen(srcLen int) int {
-	return (srcLen * 5) >> 2
+	return srcLen
 }

@@ -217,6 +217,6 @@ public class RLT implements ByteFunction
    @Override
    public int getMaxEncodedLength(int srcLen)
    {
-      return (srcLen*5) >> 2;
+      return srcLen;
    }
 }
