@@ -22,6 +22,7 @@ import (
 	kio "kanzi/io"
 	"os"
 	"runtime"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"time"
@@ -44,6 +45,7 @@ type BlockCompressor struct {
 	blockSize    uint
 	jobs         uint
 	listeners    []kio.BlockListener
+	cpuProf      string
 }
 
 func NewBlockCompressor() (*BlockCompressor, error) {
@@ -60,6 +62,7 @@ func NewBlockCompressor() (*BlockCompressor, error) {
 	var transforms = flag.String("transform", "BWT+MTFT+ZRLT", "transform to use [None|BWT*|BWTS|Snappy|LZ4|RLT|ZRLT|MTFT|RANK|TIMESTAMP]")
 	var cksum = flag.Bool("checksum", false, "enable block checksum")
 	var tasks = flag.Int("jobs", 1, "number of concurrent jobs")
+	var cpuprofile = flag.String("cpuprof", "", "write cpu profile to file")
 
 	// Parse
 	flag.Parse()
@@ -144,6 +147,7 @@ func NewBlockCompressor() (*BlockCompressor, error) {
 	this.checksum = *cksum
 	this.jobs = uint(*tasks)
 	this.listeners = make([]kio.BlockListener, 0)
+	this.cpuProf = *cpuprofile
 
 	if this.verbosity > 1 {
 		if listener, err := kio.NewInfoPrinter(this.verbosity, kio.ENCODING, os.Stdout); err == nil {
@@ -176,6 +180,7 @@ func (this *BlockCompressor) RemoveListener(bl kio.BlockListener) bool {
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
+	code := 0
 	bc, err := NewBlockCompressor()
 
 	if err != nil {
@@ -186,12 +191,26 @@ func main() {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Printf("An unexpected error occured during compression: %v\n", r.(error))
-			os.Exit(kio.ERR_UNKNOWN)
+			code = kio.ERR_UNKNOWN
 		}
+
+		os.Exit(code)
 	}()
 
-	code, _ := bc.call()
-	os.Exit(code)
+	if len(bc.cpuProf) != 0 {
+		if f, err := os.Create(bc.cpuProf); err != nil {
+			fmt.Printf("Warning: cpu profile unavailable: %v\n", err)
+		} else {
+			pprof.StartCPUProfile(f)
+
+			defer func() {
+				pprof.StopCPUProfile()
+				f.Close()
+			}()
+		}
+	}
+
+	code, _ = bc.call()
 }
 
 // Return exit code, number of bits written

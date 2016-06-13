@@ -22,6 +22,7 @@ import (
 	kio "kanzi/io"
 	"os"
 	"runtime"
+	"runtime/pprof"
 	"strings"
 	"time"
 )
@@ -38,6 +39,7 @@ type BlockDecompressor struct {
 	outputName string
 	jobs       uint
 	listeners  []kio.BlockListener
+	cpuProf    string
 }
 
 func NewBlockDecompressor() (*BlockDecompressor, error) {
@@ -50,6 +52,7 @@ func NewBlockDecompressor() (*BlockDecompressor, error) {
 	var inputName = flag.String("input", "", "mandatory name of the input file to decode or 'stdin'")
 	var outputName = flag.String("output", "", "optional name of the output file or 'none' or 'stdout'")
 	var tasks = flag.Int("jobs", 1, "number of concurrent jobs")
+	var cpuprofile = flag.String("cpuprof", "", "write cpu profile to file")
 
 	// Parse
 	flag.Parse()
@@ -107,6 +110,7 @@ func NewBlockDecompressor() (*BlockDecompressor, error) {
 	this.overwrite = *overwrite
 	this.jobs = uint(*tasks)
 	this.listeners = make([]kio.BlockListener, 0)
+	this.cpuProf = *cpuprofile
 
 	if this.verbosity > 1 {
 		if listener, err := kio.NewInfoPrinter(this.verbosity, kio.DECODING, os.Stdout); err == nil {
@@ -139,6 +143,7 @@ func (this *BlockDecompressor) RemoveListener(bl kio.BlockListener) bool {
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
+	code := 0
 	bd, err := NewBlockDecompressor()
 
 	if err != nil {
@@ -149,12 +154,26 @@ func main() {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Printf("An unexpected error occured during decompression: %v\n", r.(error))
-			os.Exit(kio.ERR_UNKNOWN)
+			code = kio.ERR_UNKNOWN
 		}
+
+		os.Exit(code)
 	}()
 
-	code, _ := bd.call()
-	os.Exit(code)
+	if len(bd.cpuProf) != 0 {
+		if f, err := os.Create(bd.cpuProf); err != nil {
+			fmt.Printf("Warning: cpu profile unavailable: %v\n", err)
+		} else {
+			pprof.StartCPUProfile(f)
+
+			defer func() {
+				pprof.StopCPUProfile()
+				f.Close()
+			}()
+		}
+	}
+
+	code, _ = bd.call()
 }
 
 // Return exit code, number of bits written
