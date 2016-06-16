@@ -55,12 +55,12 @@ public class FlashSort implements IntSorter
     }
 
 
-    private void partialFlashSort(int[] input, int blkptr, int len)
+    private void partialFlashSort(int[] input, int blkptr, int count)
     {
         int min = input[blkptr];
         int max = min;
         int idxMax = blkptr;
-        final int end = blkptr + len;
+        final int end = blkptr + count;
 
         for (int i=blkptr+1; i<end; i++)
         {
@@ -86,9 +86,18 @@ public class FlashSort implements IntSorter
         final long delta1 = delta + 1;
 
         // Reset buckets buffer
-        for (int i=0; i<len; i++)
-           buf[i] = 0;
-          
+        for (int i=0; i<len8; i+=8)
+        {
+           buf[i]   = 0;
+           buf[i+1] = 0;
+           buf[i+2] = 0;
+           buf[i+3] = 0;
+           buf[i+4] = 0;
+           buf[i+5] = 0;
+           buf[i+6] = 0;
+           buf[i+7] = 0;
+        }
+
         int shiftL = SHIFT;
         final int threshold = Integer.MAX_VALUE >> 1;
         long c1 = 0;
@@ -129,7 +138,7 @@ public class FlashSort implements IntSorter
         int nmove = 1;
         final int offs = blkptr - 1;
 
-        while (nmove < len)
+        while (nmove < count)
         {
             while (j >= buf[k])
             {
