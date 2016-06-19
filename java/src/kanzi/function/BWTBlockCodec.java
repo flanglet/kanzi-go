@@ -49,36 +49,59 @@ public class BWTBlockCodec implements ByteFunction
    @Override
    public boolean forward(IndexedByteArray input, IndexedByteArray output, int blockSize)
    {
+      if ((input == null) || (output == null))
+         return false;
+        
+      if (output.array.length - output.index < getMaxEncodedLength(blockSize))
+         return false;
+      
       final int savedOIdx = output.index;
+      int log = 1;
+
+      while (1<<log <= blockSize)
+         log++; 
+           
+      log--;
+      
+      // Estimate header size based on block size
+      final int headerSizeBytes1 = (2+log+7) >> 3;
+      output.index += headerSizeBytes1;
      
       // Apply forward transform
-      boolean res = this.bwt.forward(input, output, blockSize);
-      
-      int primaryIndex = ((BWT) this.bwt).getPrimaryIndex();
+      if (this.bwt.forward(input, output, blockSize) == false)
+         return false;
+
+      int primaryIndex = this.bwt.getPrimaryIndex();
       int pIndexSizeBits = 6;
 
       while ((1<<pIndexSizeBits) <= primaryIndex)
          pIndexSizeBits++;          
 
-      final int headerSizeBytes = (2+pIndexSizeBits+7) >> 3;
+      // Compute block size based on primary index
+      final int headerSizeBytes2 = (2+pIndexSizeBits+7) >> 3;
 
-      // Shift output data to leave space for header
-      System.arraycopy(output.array, savedOIdx, output.array, savedOIdx+headerSizeBytes, blockSize);
-      output.index += headerSizeBytes;
+      if (headerSizeBytes2 != headerSizeBytes1)
+      {
+         // Adjust space for header
+         System.arraycopy(output.array, savedOIdx+headerSizeBytes1, 
+            output.array, savedOIdx+headerSizeBytes2, blockSize);
 
+         output.index = output.index - headerSizeBytes1 + headerSizeBytes2;
+      }
+      
       // Write block header (mode + primary index). See top of file for format 
-      int shift = (headerSizeBytes - 1) << 3;
+      int shift = (headerSizeBytes2 - 1) << 3;
       int blockMode = (pIndexSizeBits + 1) >> 3;
       blockMode = (blockMode << 6) | ((primaryIndex >> shift) & 0x3F);
       output.array[savedOIdx] = (byte) blockMode;
 
-      for (int i=1; i<headerSizeBytes; i++)
+      for (int i=1; i<headerSizeBytes2; i++)
       {
          shift -= 8;
          output.array[savedOIdx+i] = (byte) (primaryIndex >> shift);
       }
       
-      return res;
+      return true;
    }
 
 
@@ -86,8 +109,8 @@ public class BWTBlockCodec implements ByteFunction
    public boolean inverse(IndexedByteArray input, IndexedByteArray output, int blockSize)
    {
       // Read block header (mode + primary index). See top of file for format
-      int blockMode = input.array[input.index++] & 0xFF;
-      int headerSizeBytes = 1 + ((blockMode >> 6) & 0x03);
+      final int blockMode = input.array[input.index++] & 0xFF;
+      final int headerSizeBytes = 1 + ((blockMode >> 6) & 0x03);
 
       if (blockSize < headerSizeBytes)
           return false;

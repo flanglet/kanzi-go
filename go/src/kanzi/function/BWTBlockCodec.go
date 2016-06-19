@@ -17,6 +17,7 @@ package function
 
 import (
 	"errors"
+	"fmt"
 	"kanzi/transform"
 )
 
@@ -45,8 +46,35 @@ func NewBWTBlockCodec() (*BWTBlockCodec, error) {
 }
 
 func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
+	if src == nil {
+		return 0, 0, errors.New("Input buffer cannot be null")
+	}
+
+	if dst == nil {
+		return 0, 0, errors.New("Output buffer cannot be null")
+	}
+
+	if n := this.MaxEncodedLen(len(src)); len(dst) < n {
+		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
+	}
+
+	log := uint(1)
+
+	for 1<<log <= len(src) {
+		log++
+	}
+
+	log--
+
+	// Estimate header size based on block size
+	headerSizeBytes1 := (2 + log + 7) >> 3
+
 	// Apply forward Transform
-	iIdx, oIdx, _ := this.bwt.Forward(src, dst)
+	iIdx, oIdx, err := this.bwt.Forward(src, dst[headerSizeBytes1:])
+
+	if err != nil {
+		return iIdx, oIdx, err
+	}
 
 	primaryIndex := this.bwt.PrimaryIndex()
 	pIndexSizeBits := uint(6)
@@ -55,26 +83,22 @@ func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 		pIndexSizeBits++
 	}
 
-	headerSizeBytes := (2 + pIndexSizeBits + 7) >> 3
+	// Compute block size based on primary index
+	headerSizeBytes2 := (2 + pIndexSizeBits + 7) >> 3
 
-	// Shift output data to leave space for header
-	hs := int(headerSizeBytes)
-
-	//copy(dst[int(headerSizeBytes):], dst) !!!
-
-	for i := len(src) - 1; i >= 0; i-- {
-		dst[i+hs] = dst[i]
+	if headerSizeBytes2 != headerSizeBytes1 {
+		// Adjust space for header
+		copy(dst[headerSizeBytes2:], dst[headerSizeBytes1:headerSizeBytes1+oIdx])
 	}
 
-	oIdx += headerSizeBytes
-
 	// Write block header (mode + primary index). See top of file for format
-	shift := (headerSizeBytes - 1) << 3
+	shift := (headerSizeBytes2 - 1) << 3
 	blockMode := (pIndexSizeBits + 1) >> 3
 	blockMode = (blockMode << 6) | ((primaryIndex >> shift) & 0x3F)
 	dst[0] = byte(blockMode)
+	oIdx += headerSizeBytes2
 
-	for i := uint(1); i < headerSizeBytes; i++ {
+	for i := uint(1); i < headerSizeBytes2; i++ {
 		shift -= 8
 		dst[i] = byte(primaryIndex >> shift)
 	}
