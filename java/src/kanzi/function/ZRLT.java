@@ -22,7 +22,7 @@ import kanzi.IndexedByteArray;
 // closely related to Run Length Encoding. The main difference is
 // that only runs of 0 values are processed. Also, the length is
 // encoded in a different way (each digit in a different byte)
-// This little algorithm is well adapted to process post BWT/MTFT data
+// This algorithm is well adapted to process post BWT/MTFT data
 
 public final class ZRLT implements ByteFunction
 {

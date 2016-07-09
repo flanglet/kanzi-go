@@ -153,7 +153,7 @@ func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 			// Generate the run length bit by bit (but force MSB)
 			runLength = 1
 
-			for val&1 == val {
+			for val <= 1 {
 				runLength = (runLength << 1) | int(val)
 				srcIdx++
 
