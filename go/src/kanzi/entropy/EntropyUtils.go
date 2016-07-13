@@ -455,7 +455,7 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, coun
 			}
 		}
 
-		alphabet[alphabetSize] = int(i)
+		alphabet[alphabetSize] = i
 		alphabetSize++
 		sum += scaledFreq
 		freqs[i] = scaledFreq
@@ -484,7 +484,7 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, coun
 
 		// Create sorted queue of present symbols (except those with 'quantum frequency')
 		for i := 0; i < alphabetSize; i++ {
-			if this.errors[alphabet[i]] >= 0 {
+			if this.errors[alphabet[i]] >= 0 && freqs[alphabet[i]] != -inc {
 				heap.Push(&queue, &FreqSortData{errors: this.errors, frequencies: freqs, symbol: alphabet[i]})
 			}
 		}

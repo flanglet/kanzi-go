@@ -350,8 +350,8 @@ public class EntropyUtils
          this.ranks = new int[alphabet.length];
 
       if (this.errors.length < alphabet.length)
-         this.errors = new int[alphabet.length];
-
+         this.errors = new int[alphabet.length];   
+      
       int sum = -scale;
 
       // Scale frequencies by stretching distribution over complete range
@@ -412,7 +412,7 @@ public class EntropyUtils
          // Create sorted queue of present symbols (except those with 'quantum frequency')
          for (int i=0; i<alphabetSize; i++)
          {
-            if (this.errors[alphabet[i]] >= 0)
+            if ((this.errors[alphabet[i]] >= 0) && (freqs[alphabet[i]] != -inc))
                queue.add(new FreqSortData(this.errors, freqs, alphabet[i]));
          }
 
@@ -422,9 +422,9 @@ public class EntropyUtils
              FreqSortData fsd = queue.poll();
 
              // Do not zero out any frequency
-             if (freqs[fsd.symbol] == -inc)
+             if (freqs[fsd.symbol] == -inc) 
                 continue;
-
+             
              // Distort frequency and error
              freqs[fsd.symbol] += inc;
              this.errors[fsd.symbol] -= scale;

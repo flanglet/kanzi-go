@@ -181,13 +181,6 @@ func (this *BlockCompressor) RemoveListener(bl kio.BlockListener) bool {
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	code := 0
-	bc, err := NewBlockCompressor()
-
-	if err != nil {
-		fmt.Printf("Failed to create block compressor: %v\n", err)
-		os.Exit(kio.ERR_CREATE_COMPRESSOR)
-	}
-
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Printf("An unexpected error occured during compression: %v\n", r.(error))
@@ -196,6 +189,13 @@ func main() {
 
 		os.Exit(code)
 	}()
+
+	bc, err := NewBlockCompressor()
+
+	if err != nil {
+		fmt.Printf("Failed to create block compressor: %v\n", err)
+		os.Exit(kio.ERR_CREATE_COMPRESSOR)
+	}
 
 	if len(bc.cpuProf) != 0 {
 		if f, err := os.Create(bc.cpuProf); err != nil {
