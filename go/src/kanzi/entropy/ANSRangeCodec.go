@@ -99,17 +99,17 @@ func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, size int, lr u
 	alphabetSize, err := this.eu.NormalizeFrequencies(frequencies, this.alphabet, size, 1<<lr)
 
 	if err == nil {
-	if alphabetSize > 0 {
-		this.cumFreqs[0] = 0
+		if alphabetSize > 0 {
+			this.cumFreqs[0] = 0
 
-		// Create histogram of frequencies scaled to 'range'
-		for i := range frequencies {
-			this.cumFreqs[i+1] = this.cumFreqs[i] + frequencies[i]
+			// Create histogram of frequencies scaled to 'range'
+			for i := range frequencies {
+				this.cumFreqs[i+1] = this.cumFreqs[i] + frequencies[i]
+			}
 		}
-	}
 
-	this.encodeHeader(alphabetSize, this.alphabet, frequencies, lr)
-}
+		this.encodeHeader(alphabetSize, this.alphabet, frequencies, lr)
+	}
 
 	return alphabetSize, err
 }
