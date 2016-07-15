@@ -21,11 +21,11 @@ import "unsafe"
 // Port to Go from the original source code: https://code.google.com/p/xxhash/
 
 const (
-	PRIME1 = uint32(2654435761)
-	PRIME2 = uint32(2246822519)
-	PRIME3 = uint32(3266489917)
-	PRIME4 = uint32(668265263)
-	PRIME5 = uint32(374761393)
+	XXHASH_PRIME1 = uint32(2654435761)
+	XXHASH_PRIME2 = uint32(2246822519)
+	XXHASH_PRIME3 = uint32(3266489917)
+	XXHASH_PRIME4 = uint32(668265263)
+	XXHASH_PRIME5 = uint32(374761393)
 )
 
 type XXHash struct {
@@ -50,20 +50,20 @@ func (this *XXHash) Hash(data []byte) uint32 {
 
 	if length >= 16 {
 		limit := end - 16
-		v1 := this.seed + PRIME1 + PRIME2
-		v2 := this.seed + PRIME2
+		v1 := this.seed + XXHASH_PRIME1 + XXHASH_PRIME2
+		v2 := this.seed + XXHASH_PRIME2
 		v3 := this.seed
-		v4 := this.seed - PRIME1
+		v4 := this.seed - XXHASH_PRIME1
 
 		for p <= limit {
-			v1 += ((*(*uint32)(unsafe.Pointer(p))) * PRIME2)
-			v1 = ((v1 << 13) | (v1 >> 19)) * PRIME1
-			v2 += ((*(*uint32)(unsafe.Pointer(p + 4))) * PRIME2)
-			v2 = ((v2 << 13) | (v2 >> 19)) * PRIME1
-			v3 += ((*(*uint32)(unsafe.Pointer(p + 8))) * PRIME2)
-			v3 = ((v3 << 13) | (v3 >> 19)) * PRIME1
-			v4 += ((*(*uint32)(unsafe.Pointer(p + 12))) * PRIME2)
-			v4 = ((v4 << 13) | (v4 >> 19)) * PRIME1
+			v1 += ((*(*uint32)(unsafe.Pointer(p))) * XXHASH_PRIME2)
+			v1 = ((v1 << 13) | (v1 >> 19)) * XXHASH_PRIME1
+			v2 += ((*(*uint32)(unsafe.Pointer(p + 4))) * XXHASH_PRIME2)
+			v2 = ((v2 << 13) | (v2 >> 19)) * XXHASH_PRIME1
+			v3 += ((*(*uint32)(unsafe.Pointer(p + 8))) * XXHASH_PRIME2)
+			v3 = ((v3 << 13) | (v3 >> 19)) * XXHASH_PRIME1
+			v4 += ((*(*uint32)(unsafe.Pointer(p + 12))) * XXHASH_PRIME2)
+			v4 = ((v4 << 13) | (v4 >> 19)) * XXHASH_PRIME1
 			p += 16
 		}
 
@@ -72,26 +72,26 @@ func (this *XXHash) Hash(data []byte) uint32 {
 		h32 += ((v3 << 12) | (v3 >> 20))
 		h32 += ((v4 << 18) | (v4 >> 14))
 	} else {
-		h32 = this.seed + PRIME5
+		h32 = this.seed + XXHASH_PRIME5
 	}
 
 	h32 += length
 
 	for p <= end-4 {
-		h32 += ((*(*uint32)(unsafe.Pointer(p))) * PRIME3)
-		h32 = ((h32 << 17) | (h32 >> 15)) * PRIME4
+		h32 += ((*(*uint32)(unsafe.Pointer(p))) * XXHASH_PRIME3)
+		h32 = ((h32 << 17) | (h32 >> 15)) * XXHASH_PRIME4
 		p += 4
 	}
 
 	for p < end {
-		h32 += (uint32(*(*byte)(unsafe.Pointer(p))) * PRIME5)
-		h32 = ((h32 << 11) | (h32 >> 21)) * PRIME1
+		h32 += (uint32(*(*byte)(unsafe.Pointer(p))) * XXHASH_PRIME5)
+		h32 = ((h32 << 11) | (h32 >> 21)) * XXHASH_PRIME1
 		p++
 	}
 
 	h32 ^= (h32 >> 15)
-	h32 *= PRIME2
+	h32 *= XXHASH_PRIME2
 	h32 ^= (h32 >> 13)
-	h32 *= PRIME3
+	h32 *= XXHASH_PRIME3
 	return h32 ^ (h32 >> 16)
 }

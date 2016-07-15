@@ -42,7 +42,6 @@ func main() {
 
 		defer file.Close()
 		buffer := make([]byte, 16384)
-		before := time.Now()
 		hash, err := util.NewXXHash(uint32(0))
 
 		if err != nil {
@@ -53,6 +52,7 @@ func main() {
 		length, err := file.Read(buffer)
 		size := int64(0)
 		res := uint32(0)
+		sum := int64(0)
 
 		for length > 0 {
 			if err != nil {
@@ -60,19 +60,23 @@ func main() {
 				return
 			}
 
+			before := time.Now()
+
 			for i := 0; i < iter; i++ {
+				hash.SetSeed(0)
 				res += hash.Hash(buffer[0:length])
 			}
 
+			after := time.Now()
+			sum += after.Sub(before).Nanoseconds()
 			size += int64(length * iter)
 			length, err = file.Read(buffer)
 		}
 
-		after := time.Now()
-		delta := after.Sub(before).Nanoseconds() / 1000000 // convert to ms
+		sum /= 1000000 // convert to ms
 		fmt.Printf("XXHash res=%x\n", res)
-		fmt.Printf("Elapsed [ms]: %v\n", delta)
-		fmt.Printf("Throughput [MB/s]: %v\n", (size/1024*1000/1024)/delta)
+		fmt.Printf("Elapsed [ms]: %v\n", sum)
+		fmt.Printf("Throughput [MB/s]: %v\n", (size/1024*1000/1024)/sum)
 	}
 
 	fmt.Printf("\n")
@@ -89,7 +93,6 @@ func main() {
 
 		defer file.Close()
 		buffer := make([]byte, 16384)
-		before := time.Now()
 		hash, err := util.NewMurMurHash3(uint32(0))
 
 		if err != nil {
@@ -100,6 +103,7 @@ func main() {
 		length, err := file.Read(buffer)
 		size := int64(0)
 		res := uint32(0)
+		sum := int64(0)
 
 		for length > 0 {
 			if err != nil {
@@ -107,18 +111,73 @@ func main() {
 				return
 			}
 
+			before := time.Now()
+
 			for i := 0; i < iter; i++ {
+				hash.SetSeed(0)
 				res += hash.Hash(buffer[0:length])
 			}
 
+			after := time.Now()
+			sum += after.Sub(before).Nanoseconds()
 			size += int64(length * iter)
 			length, err = file.Read(buffer)
 		}
 
-		after := time.Now()
-		delta := after.Sub(before).Nanoseconds() / 1000000 // convert to ms
+		sum /= 1000000 // convert to ms
 		fmt.Printf("MurmurHash3 res=%x\n", res)
-		fmt.Printf("Elapsed [ms]: %v\n", delta)
-		fmt.Printf("Throughput [MB/s]: %v\n", (size/1024*1000/1024)/delta)
+		fmt.Printf("Elapsed [ms]: %v\n", sum)
+		fmt.Printf("Throughput [MB/s]: %v\n", (size/1024*1000/1024)/sum)
+	}
+
+	fmt.Printf("\n")
+
+	{
+		fmt.Printf("SipHash_2_4 speed test\n")
+		file, err := os.Open(*filename)
+
+		if err != nil {
+			fmt.Printf("Cannot open %s", *filename)
+
+			return
+		}
+
+		defer file.Close()
+		buffer := make([]byte, 16384)
+		hash, err := util.NewSipHash()
+
+		if err != nil {
+			fmt.Printf("Failed to create hash: %v\n", err)
+			return
+		}
+
+		length, err := file.Read(buffer)
+		size := int64(0)
+		res := uint64(0)
+		sum := int64(0)
+
+		for length > 0 {
+			if err != nil {
+				fmt.Printf("Failed to read the next chunk of input file '%v': %v\n", *filename, err)
+				return
+			}
+
+			before := time.Now()
+
+			for i := 0; i < iter; i++ {
+				hash.SetSeedFromLongs(0, 0)
+				res += hash.Hash(buffer[0:length])
+			}
+
+			after := time.Now()
+			sum += after.Sub(before).Nanoseconds()
+			size += int64(length * iter)
+			length, err = file.Read(buffer)
+		}
+
+		sum /= 1000000 // convert to ms
+		fmt.Printf("SipHash_2_4 res=%x\n", res)
+		fmt.Printf("Elapsed [ms]: %v\n", sum)
+		fmt.Printf("Throughput [MB/s]: %v\n", (size/1024*1000/1024)/sum)
 	}
 }
