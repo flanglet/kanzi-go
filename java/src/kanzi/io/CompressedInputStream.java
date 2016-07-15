@@ -33,7 +33,7 @@ import kanzi.InputBitStream;
 import kanzi.bitstream.DefaultInputBitStream;
 import kanzi.entropy.EntropyCodecFactory;
 import kanzi.function.ByteTransformSequence;
-import kanzi.util.XXHash;
+import kanzi.util.hash.XXHash;
 
 
 // Implementation of a java.io.InputStream that can decode a stream

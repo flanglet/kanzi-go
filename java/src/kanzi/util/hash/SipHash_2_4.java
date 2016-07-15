@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kanzi.util;
+package kanzi.util.hash;
 
 // Port of SipHash (64 bits) to Java. Implemented with CROUNDS=2, dROUNDS=4.
 // SipHash was designed by Jean-Philippe Aumasson and Daniel J. Bernstein.

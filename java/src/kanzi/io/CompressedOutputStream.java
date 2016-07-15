@@ -32,7 +32,7 @@ import kanzi.OutputBitStream;
 import kanzi.bitstream.DefaultOutputBitStream;
 import kanzi.entropy.EntropyCodecFactory;
 import kanzi.function.ByteTransformSequence;
-import kanzi.util.XXHash;
+import kanzi.util.hash.XXHash;
 
 
 

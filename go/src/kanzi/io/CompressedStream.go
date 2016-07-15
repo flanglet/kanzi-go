@@ -23,7 +23,7 @@ import (
 	"kanzi/bitstream"
 	"kanzi/entropy"
 	"kanzi/function"
-	"kanzi/util"
+	"kanzi/util/hash"
 	"sync/atomic"
 	"time"
 )
@@ -98,7 +98,7 @@ func (this IOError) ErrorCode() int {
 
 type CompressedOutputStream struct {
 	blockSize     uint
-	hasher        *util.XXHash
+	hasher        *hash.XXHash
 	data          []byte
 	buffers       [][]byte
 	entropyType   uint16
@@ -117,7 +117,7 @@ type CompressedOutputStream struct {
 type EncodingTask struct {
 	data            []byte
 	buf             []byte
-	hasher          *util.XXHash
+	hasher          *hash.XXHash
 	blockLength     uint
 	typeOfTransform uint16
 	typeOfEntropy   uint16
@@ -174,7 +174,7 @@ func NewCompressedOutputStream(entropyCodec string, transform string, os io.Writ
 	this.blockSize = blockSize
 
 	if checksum == true {
-		this.hasher, err = util.NewXXHash(BITSTREAM_TYPE)
+		this.hasher, err = hash.NewXXHash(BITSTREAM_TYPE)
 
 		if err != nil {
 			return nil, err
@@ -559,7 +559,7 @@ type semaphore chan bool
 
 type CompressedInputStream struct {
 	blockSize     uint
-	hasher        *util.XXHash
+	hasher        *hash.XXHash
 	data          []byte
 	buffers       [][]byte
 	entropyType   uint16
@@ -581,7 +581,7 @@ type CompressedInputStream struct {
 type DecodingTask struct {
 	data            []byte
 	buf             []byte
-	hasher          *util.XXHash
+	hasher          *hash.XXHash
 	blockLength     uint
 	typeOfTransform uint16
 	typeOfEntropy   uint16
@@ -687,7 +687,7 @@ func (this *CompressedInputStream) readHeader() error {
 	// Read block checksum
 	if this.ibs.ReadBit() == 1 {
 		var err error
-		this.hasher, err = util.NewXXHash(BITSTREAM_TYPE)
+		this.hasher, err = hash.NewXXHash(BITSTREAM_TYPE)
 
 		if err != nil {
 			return err

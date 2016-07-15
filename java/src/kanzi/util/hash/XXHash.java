@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kanzi.util;
+package kanzi.util.hash;
 
 // XXHash is an extremely fast hash algorithm. It was written by Yann Collet.
 // Port to Java of the original source code: https://code.google.com/p/xxhash/

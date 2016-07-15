@@ -17,9 +17,9 @@ package kanzi.test;
 
 import java.io.File;
 import java.io.FileInputStream;
-import kanzi.util.MurMurHash3;
-import kanzi.util.SipHash_2_4;
-import kanzi.util.XXHash;
+import kanzi.util.hash.MurMurHash3;
+import kanzi.util.hash.SipHash_2_4;
+import kanzi.util.hash.XXHash;
 
 
 public class TestHash

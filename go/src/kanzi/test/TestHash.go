@@ -18,7 +18,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"kanzi/util"
+	"kanzi/util/hash"
 	"os"
 	"time"
 )
@@ -42,7 +42,7 @@ func main() {
 
 		defer file.Close()
 		buffer := make([]byte, 16384)
-		hash, err := util.NewXXHash(uint32(0))
+		hash, err := hash.NewXXHash(uint32(0))
 
 		if err != nil {
 			fmt.Printf("Failed to create hash: %v\n", err)
@@ -93,7 +93,7 @@ func main() {
 
 		defer file.Close()
 		buffer := make([]byte, 16384)
-		hash, err := util.NewMurMurHash3(uint32(0))
+		hash, err := hash.NewMurMurHash3(uint32(0))
 
 		if err != nil {
 			fmt.Printf("Failed to create hash: %v\n", err)
@@ -144,7 +144,7 @@ func main() {
 
 		defer file.Close()
 		buffer := make([]byte, 16384)
-		hash, err := util.NewSipHash()
+		hash, err := hash.NewSipHash()
 
 		if err != nil {
 			fmt.Printf("Failed to create hash: %v\n", err)
