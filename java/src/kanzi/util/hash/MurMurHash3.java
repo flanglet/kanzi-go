@@ -32,7 +32,7 @@ public class MurMurHash3
   
   public MurMurHash3()
   {
-     this((int) (System.nanoTime() & 0xFFFFFFFFL));
+     this((int) System.nanoTime());
   }
 
 
