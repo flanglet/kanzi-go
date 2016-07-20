@@ -17,6 +17,7 @@ package kanzi.function;
 
 import java.nio.ByteOrder;
 import kanzi.ByteFunction;
+import kanzi.Global;
 import kanzi.IndexedByteArray;
 
 
@@ -41,10 +42,6 @@ public final class LZ4Codec implements ByteFunction
    private static final int ML_MASK            = (1 << ML_BITS) - 1;
    private static final int RUN_BITS           = 8 - ML_BITS;
    private static final int RUN_MASK           = (1 << RUN_BITS) - 1;
-   private static final int SHIFT1             = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN) ?  24 : 0;
-   private static final int SHIFT2             = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN) ?  16 : 8;
-   private static final int SHIFT3             = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN) ?  8  : 16;
-   private static final int SHIFT4             = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN) ?  0  : 24;
    private static final int COPY_LENGTH        = 8;
    private static final int MIN_LENGTH         = 14;
    private static final int MAX_LENGTH         = (32*1024*1024) - 4 - MIN_MATCH;
@@ -132,10 +129,10 @@ public final class LZ4Codec implements ByteFunction
             table[i] = 0;
 
          // First byte
-         int h = (readInt(src, srcIdx) * HASH_SEED) >>> hashShift;
+         int h = (Global.readInt32(src, srcIdx) * HASH_SEED) >>> hashShift;
          table[h] = srcIdx - base;         
          srcIdx++;
-         h = (readInt(src, srcIdx) * HASH_SEED) >>> hashShift;
+         h = (Global.readInt32(src, srcIdx) * HASH_SEED) >>> hashShift;
 
          while (true)
          {
@@ -162,7 +159,7 @@ public final class LZ4Codec implements ByteFunction
                searchMatchNb++;
                match = table[h] + base;            
                table[h] = srcIdx - base;
-               h = (readInt(src, fwdIdx) * HASH_SEED) >>> hashShift;
+               h = (Global.readInt32(src, fwdIdx) * HASH_SEED) >>> hashShift;
             }
             while ((differentInts(src, match, srcIdx) == true) || (match <= srcIdx - MAX_DISTANCE));
 
@@ -234,11 +231,11 @@ public final class LZ4Codec implements ByteFunction
                }
 
                // Fill table
-               h = (readInt(src, srcIdx-2) * HASH_SEED) >>> hashShift;
+               h = (Global.readInt32(src, srcIdx-2) * HASH_SEED) >>> hashShift;
                table[h] = srcIdx - 2 - base;
 
                // Test next position
-               h = (readInt(src, srcIdx) * HASH_SEED) >>> hashShift;
+               h = (Global.readInt32(src, srcIdx) * HASH_SEED) >>> hashShift;
                match = table[h] + base;
                table[h] = srcIdx - base;
 
@@ -253,7 +250,7 @@ public final class LZ4Codec implements ByteFunction
             
             // Prepare next loop
             srcIdx++;
-            h = (readInt(src, srcIdx) * HASH_SEED) >>> hashShift;
+            h = (Global.readInt32(src, srcIdx) * HASH_SEED) >>> hashShift;
          }
       }
 
@@ -403,14 +400,5 @@ public final class LZ4Codec implements ByteFunction
               (array[srcIdx+1] != array[dstIdx+1]) ||
               (array[srcIdx+2] != array[dstIdx+2]) ||
               (array[srcIdx+3] != array[dstIdx+3]));
-   }
-
-
-   private static int readInt(byte[] array, int srcIdx)
-   {
-      return ((array[srcIdx]   & 0xFF) << SHIFT1) |
-             ((array[srcIdx+1] & 0xFF) << SHIFT2) |
-             ((array[srcIdx+2] & 0xFF) << SHIFT3) |
-             ((array[srcIdx+3] & 0xFF) << SHIFT4);
    }
 }

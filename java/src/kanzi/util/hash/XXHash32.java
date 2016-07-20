@@ -15,28 +15,31 @@ limitations under the License.
 
 package kanzi.util.hash;
 
-// XXHash is an extremely fast hash algorithm. It was written by Yann Collet.
-// Port to Java of the original source code: https://code.google.com/p/xxhash/
 
-public class XXHash
+import kanzi.Global;
+
+// XXHash is an extremely fast hash algorithm. It was written by Yann Collet.
+// Port to Java of the original source code: https://github.com/Cyan4973/xxHash
+
+public class XXHash32
 {
-  private static final int PRIME1 = -1640531535;
-  private static final int PRIME2 = -2048144777;
-  private static final int PRIME3 = -1028477379;
-  private static final int PRIME4 = 668265263;
-  private static final int PRIME5 = 374761393;
+  private static final int PRIME32_1 = -1640531535;
+  private static final int PRIME32_2 = -2048144777;
+  private static final int PRIME32_3 = -1028477379;
+  private static final int PRIME32_4 = 668265263;
+  private static final int PRIME32_5 = 374761393;
 
   
   private int seed;
 
   
-  public XXHash()
+  public XXHash32()
   {
      this((int) (System.nanoTime()));
   }
 
 
-  public XXHash(int seed)
+  public XXHash32(int seed)
   {
      this.seed = seed;
   }
@@ -54,29 +57,29 @@ public class XXHash
   }
   
   
-  public int hash(byte[] data, int offset, int len)
+  public int hash(byte[] data, int offset, int length)
   { 
-     final int end = offset + len;
+     final int end = offset + length;
      int h32;
      int idx = offset;
  
-     if (len >= 16) 
+     if (length >= 16) 
      {
-        final int limit = end - 16;
-        int v1 = this.seed + PRIME1 + PRIME2;
-        int v2 = this.seed + PRIME2;
+        final int end16 = end - 16;
+        int v1 = this.seed + PRIME32_1 + PRIME32_2;
+        int v2 = this.seed + PRIME32_2;
         int v3 = this.seed;
-        int v4 = this.seed - PRIME1;
+        int v4 = this.seed - PRIME32_1;
       
         do
         {
-           v1 = pack(v1, data, idx);
-           v2 = pack(v2, data, idx+4);
-           v3 = pack(v3, data, idx+8);
-           v4 = pack(v4, data, idx+12);
+           v1 = round(v1, Global.readInt32(data, idx));
+           v2 = round(v2, Global.readInt32(data, idx+4));
+           v3 = round(v3, Global.readInt32(data, idx+8));
+           v4 = round(v4, Global.readInt32(data, idx+12));
            idx += 16;
         } 
-        while (idx <= limit);
+        while (idx <= end16);
 
         h32  = ((v1 << 1)  | (v1 >>> 31));
         h32 += ((v2 << 7)  | (v2 >>> 25));
@@ -85,38 +88,36 @@ public class XXHash
       } 
       else 
       {
-         h32 = this.seed + PRIME5;
+         h32 = this.seed + PRIME32_5;
       }
 
-      h32 += len;
+      h32 += length;
 
       while (idx <= end - 4) 
       {
-         h32 += (((data[idx] & 0xFF) | ((data[idx+1] & 0xFF) << 8) | ((data[idx+2] & 0xFF) << 16) | 
-                   ((data[idx+3] & 0xFF) << 24)) * PRIME3);
-         h32 = ((h32 << 17) | (h32 >>> 15)) * PRIME4;
+         h32 += ((Global.readInt32(data, idx)) * PRIME32_3);
+         h32 = ((h32 << 17) | (h32 >>> 15)) * PRIME32_4;
          idx += 4;
       }
 
       while (idx < end) 
       {
-         h32 += ((data[idx] & 0xFF) * PRIME5);
-         h32 = ((h32 << 11) | (h32 >>> 21)) * PRIME1;
+         h32 += ((data[idx] & 0xFF) * PRIME32_5);
+         h32 = ((h32 << 11) | (h32 >>> 21)) * PRIME32_1;
          idx++;
       }
 
       h32 ^= (h32 >>> 15);
-      h32 *= PRIME2;
+      h32 *= PRIME32_2;
       h32 ^= (h32 >>> 13);
-      h32 *= PRIME3;
+      h32 *= PRIME32_3;
       return h32 ^ (h32 >>> 16);
    }
+ 
   
-  
-  private static int pack(int v, byte[] data, int idx)
-  {
-     v += (((data[idx] & 0xFF) | ((data[idx+1] & 0xFF) << 8) | ((data[idx+2] & 0xFF) << 16) | 
-                  ((data[idx+3] & 0xFF) << 24)) * PRIME2);
-     return ((v << 13) | (v >>> 19)) * PRIME1;
-  }
+   private static int round(int acc, int val)
+   {
+      acc += (val*PRIME32_2);
+      return ((acc << 13) | (acc >>> 19)) * PRIME32_1;
+   }  
 }

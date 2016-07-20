@@ -33,7 +33,7 @@ import kanzi.InputBitStream;
 import kanzi.bitstream.DefaultInputBitStream;
 import kanzi.entropy.EntropyCodecFactory;
 import kanzi.function.ByteTransformSequence;
-import kanzi.util.hash.XXHash;
+import kanzi.util.hash.XXHash32;
 
 
 // Implementation of a java.io.InputStream that can decode a stream
@@ -52,7 +52,7 @@ public class CompressedInputStream extends InputStream
    private static final int CANCEL_TASKS_ID          = -1;
 
    private int blockSize;
-   private XXHash hasher;
+   private XXHash32 hasher;
    private final IndexedByteArray iba;
    private final byte[][] buffers;
    private short entropyType;
@@ -132,7 +132,7 @@ public class CompressedInputStream extends InputStream
 
       // Read block checksum
       if (this.ibs.readBit() == 1)
-         this.hasher = new XXHash(BITSTREAM_TYPE);
+         this.hasher = new XXHash32(BITSTREAM_TYPE);
 
       // Read entropy codec
       this.entropyType = (short) this.ibs.readBits(5);
@@ -474,14 +474,14 @@ public class CompressedInputStream extends InputStream
       private final short entropyType;
       private final int blockId;
       private final InputBitStream ibs;
-      private final XXHash hasher;
+      private final XXHash32 hasher;
       private final AtomicInteger processedBlockId;
       private final BlockListener[] listeners;
 
 
       DecodingTask(byte[] data, int offset, byte[] buffer, int blockSize,
               short transformType, short entropyType, int blockId,
-              InputBitStream ibs, XXHash hasher,
+              InputBitStream ibs, XXHash32 hasher,
               AtomicInteger processedBlockId, BlockListener[] listeners)
       {
          this.data = new IndexedByteArray(data, offset);

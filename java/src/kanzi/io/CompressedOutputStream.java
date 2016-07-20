@@ -32,7 +32,7 @@ import kanzi.OutputBitStream;
 import kanzi.bitstream.DefaultOutputBitStream;
 import kanzi.entropy.EntropyCodecFactory;
 import kanzi.function.ByteTransformSequence;
-import kanzi.util.hash.XXHash;
+import kanzi.util.hash.XXHash32;
 
 
 
@@ -53,7 +53,7 @@ public class CompressedOutputStream extends OutputStream
    private static final byte[] EMPTY_BYTE_ARRAY      = new byte[0];
 
    private final int blockSize;
-   private final XXHash hasher;
+   private final XXHash32 hasher;
    private final IndexedByteArray iba;
    private final byte[][] buffers;
    private final short entropyType;
@@ -115,7 +115,7 @@ public class CompressedOutputStream extends OutputStream
       this.entropyType = new EntropyCodecFactory().getType(entropyCodec);
       this.transformType = new ByteFunctionFactory().getType(transform);
       this.blockSize = blockSize;
-      this.hasher = (checksum == true) ? new XXHash(BITSTREAM_TYPE) : null;
+      this.hasher = (checksum == true) ? new XXHash32(BITSTREAM_TYPE) : null;
       this.jobs = jobs;
       this.pool = pool;
       this.iba = new IndexedByteArray(new byte[blockSize*this.jobs], 0);
@@ -449,14 +449,14 @@ public class CompressedOutputStream extends OutputStream
       private final short entropyType;
       private final int blockId;
       private final OutputBitStream obs;
-      private final XXHash hasher;
+      private final XXHash32 hasher;
       private final AtomicInteger processedBlockId;
       private final BlockListener[] listeners;
 
 
       EncodingTask(byte[] data, int offset, byte[] buffer, int length,
               short transformType, short entropyType, int blockId,
-              OutputBitStream obs, XXHash hasher,
+              OutputBitStream obs, XXHash32 hasher,
               AtomicInteger processedBlockId, BlockListener[] listeners)
       {
          this.data = new IndexedByteArray(data, offset);

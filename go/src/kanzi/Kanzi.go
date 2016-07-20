@@ -17,6 +17,7 @@ package kanzi
 
 import (
 	"bytes"
+	"unsafe"
 )
 
 // An integer function is an operation that takes an array of integers as input and
@@ -185,4 +186,53 @@ func SameByteSlices(slice1, slice2 []byte, deepCheck bool) bool {
 	} else {
 		return false
 	}
+}
+
+func IsBigEndian() bool {
+	x := uint64(0x0102030405060708)
+
+	if *(*byte)(unsafe.Pointer(&x)) == 0x01 {
+		return true
+	}
+
+	return false
+}
+
+type ByteOrder interface {
+	Uint32(p uintptr) uint32
+	Uint64(p uintptr) uint64
+}
+
+type LittleEndian struct {
+}
+
+func (LittleEndian) Uint64(p uintptr) uint64 {
+	return *(*uint64)(unsafe.Pointer(p))
+}
+
+func (LittleEndian) Uint32(p uintptr) uint32 {
+	return *(*uint32)(unsafe.Pointer(p))
+}
+
+type BigEndian struct {
+}
+
+func (BigEndian) Uint64(p uintptr) uint64 {
+	v := *(*uint64)(unsafe.Pointer(p))
+	return ((v << 56) & 0xFF00000000000000) |
+		((v << 40) & 0x00FF000000000000) |
+		((v << 24) & 0x0000FF0000000000) |
+		((v << 8) & 0x000000FF00000000) |
+		((v >> 8) & 0x00000000FF000000) |
+		((v >> 24) & 0x0000000000FF0000) |
+		((v >> 40) & 0x000000000000FF00) |
+		((v >> 56) & 0x00000000000000FF)
+}
+
+func (BigEndian) Uint32(p uintptr) uint32 {
+	v := *(*uint32)(unsafe.Pointer(p))
+	return ((v << 24) & 0xFF000000) |
+		((v << 8) & 0x00FF0000) |
+		((v >> 8) & 0x0000FF00) |
+		((v >> 24) & 0x000000FF)
 }

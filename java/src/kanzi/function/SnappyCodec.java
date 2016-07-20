@@ -16,6 +16,7 @@ limitations under the License.
 package kanzi.function;
 
 import kanzi.ByteFunction;
+import kanzi.Global;
 import kanzi.IndexedByteArray;
 
 
@@ -220,7 +221,7 @@ public final class SnappyCodec implements ByteFunction
      while (srcIdx < ends2)
      {
         // Update the hash table
-        final int h = (readInt(src, srcIdx) * HASH_SEED) >>> shift;
+        final int h = (Global.readInt32(src, srcIdx) * HASH_SEED) >>> shift;
         int t = table[h]; // The last position with the same hash as srcIdx
         table[h] = srcIdx;
 
@@ -500,13 +501,4 @@ public final class SnappyCodec implements ByteFunction
              (array[srcIdx+3] != array[dstIdx+3]));
   }
 
-   
-  private static int readInt(byte[] array, int srcIdx)
-  {
-     return ((array[srcIdx]   & 0xFF))       | 
-            ((array[srcIdx+1] & 0xFF) <<  8) |
-            ((array[srcIdx+2] & 0xFF) << 16) | 
-            ((array[srcIdx+3])        << 24);
-  }
-  
 }

@@ -15,9 +15,47 @@ limitations under the License.
 
 package kanzi;
 
+import java.nio.ByteOrder;
+
 
 public class Global
 {
+   private static final int SHIFT64_0  = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN) ?  56 : 0;
+   private static final int SHIFT64_1  = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN) ?  48 : 8;
+   private static final int SHIFT64_2  = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN) ?  40 : 16;
+   private static final int SHIFT64_3  = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN) ?  32 : 24;
+   private static final int SHIFT64_4  = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN) ?  24 : 32;
+   private static final int SHIFT64_5  = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN) ?  16 : 40;
+   private static final int SHIFT64_6  = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN) ?  8  : 48;
+   private static final int SHIFT64_7  = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN) ?  0  : 56;
+   private static final int SHIFT32_0  = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN) ?  24 : 0;
+   private static final int SHIFT32_1  = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN) ?  16 : 8;
+   private static final int SHIFT32_2  = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN) ?  8  : 16;
+   private static final int SHIFT32_3  = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN) ?  0  : 24;
+
+   
+   public static long readLong64(byte[] buf, int offset)
+   {
+      return ((((long) buf[offset+7]) & 0xFF) << SHIFT64_7) |
+             ((((long) buf[offset+6]) & 0xFF) << SHIFT64_6) |
+             ((((long) buf[offset+5]) & 0xFF) << SHIFT64_5) |
+             ((((long) buf[offset+4]) & 0xFF) << SHIFT64_4) |
+             ((((long) buf[offset+3]) & 0xFF) << SHIFT64_3) |
+             ((((long) buf[offset+2]) & 0xFF) << SHIFT64_2) |
+             ((((long) buf[offset+1]) & 0xFF) << SHIFT64_1) |
+             ((((long) buf[offset])   & 0xFF) << SHIFT64_0);         
+   }
+   
+    
+   public static int readInt32(byte[] buf, int offset)
+   {
+      return (((buf[offset+3]) & 0xFF) << SHIFT32_3) |
+             (((buf[offset+2]) & 0xFF) << SHIFT32_2) |
+             (((buf[offset+1]) & 0xFF) << SHIFT32_1) |
+             (((buf[offset])   & 0xFF) << SHIFT32_0);       
+   }
+   
+     
    public final static int INFINITE_VALUE = 0;
   
    // array with 256 elements: 4096*Math.log2(x)

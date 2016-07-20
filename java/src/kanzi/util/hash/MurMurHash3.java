@@ -16,8 +16,11 @@ limitations under the License.
 package kanzi.util.hash;
 
 // MurmurHash3 was written by Austin Appleby, and is placed in the public
+
+import kanzi.Global;
+
 // domain. The author hereby disclaims copyright to this source code.
-// Original source code: https://code.google.com/p/smhasher/
+// Original source code: https://github.com/aappleby/smhasher
 
 public class MurMurHash3
 {
@@ -54,40 +57,43 @@ public class MurMurHash3
   }
   
   
-  public int hash(byte[] data, int offset, int len)
+  public int hash(byte[] data, int offset, int length)
   {
      int h1 = this.seed; // aliasing
-     final int end4 = offset + (len & -4);
+     int n = offset;
 
      // Body
-     for (int i=offset; i<end4; i+=4)
+     if (length >= 4)
      {
-        int k1 = (data[i] & 0xFF) | ((data[i+1] & 0xFF) << 8) | 
-                 ((data[i+2] & 0xFF) << 16) | ((data[i+3] & 0xFF) << 24);
-
-        k1 *= C1;
-        k1 = (k1 << 15) | (k1 >>> 17);
-        k1 *= C2; 
-        h1 ^= k1;
-        h1 = (h1 << 13) | (h1 >>> 19); 
-        h1 = (h1*5) + C3;
+         final int end = offset + length - 4;
+         
+         for ( ; n<end; n+=4)
+         {
+            int k1 = Global.readInt32(data, n);
+            k1 *= C1;
+            k1 = (k1 << 15) | (k1 >>> 17);
+            k1 *= C2; 
+            h1 ^= k1;
+            h1 = (h1 << 13) | (h1 >>> 19); 
+            h1 = (h1*5) + C3;
+         }
      }
 
      // Tail
      int k1 = 0;
 
-     switch(len & 3)
+     switch(length & 3)
      {
         case 3: 
-           k1 = ((data[end4+2] & 0xFF) << 16);
+           k1 ^= ((data[n+2] & 0xFF) << 16);
            // Fallthrough
 
         case 2: 
-           k1 |= ((data[end4+1] & 0xFF) << 8);
+           k1 ^= ((data[n+1] & 0xFF) << 8);
            // Fallthrough
 
         case 1: 
-           k1 |= (data[end4] & 0xFF);
+           k1 ^= (data[n] & 0xFF);
            k1 *= C1;
            k1 = (k1 << 15) | (k1 >>> 17);
            k1 *= C2;
@@ -99,7 +105,7 @@ public class MurMurHash3
       }
 
       // Finalization
-      h1 ^= len;
+      h1 ^= length;
       h1 ^= (h1 >>> 16);
       h1 *= C4;
       h1 ^= (h1 >>> 13);

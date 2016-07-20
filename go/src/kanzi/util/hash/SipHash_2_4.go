@@ -15,7 +15,10 @@ limitations under the License.
 
 package hash
 
-import "unsafe"
+import (
+	"kanzi"
+	"unsafe"
+)
 
 // Port of SipHash (64 bits) to Go. Implemented with CROUNDS=2, dROUNDS=4.
 // SipHash was designed by Jean-Philippe Aumasson and Daniel J. Bernstein.
@@ -29,14 +32,22 @@ const (
 )
 
 type SipHash_2_4 struct {
-	v0 uint64
-	v1 uint64
-	v2 uint64
-	v3 uint64
+	v0         uint64
+	v1         uint64
+	v2         uint64
+	v3         uint64
+	endianHash kanzi.ByteOrder // uses unsafe package
 }
 
 func NewSipHash() (*SipHash_2_4, error) {
 	this := new(SipHash_2_4)
+
+	if kanzi.IsBigEndian() {
+		this.endianHash = &kanzi.BigEndian{}
+	} else {
+		this.endianHash = &kanzi.LittleEndian{}
+	}
+
 	return this, nil
 }
 
@@ -57,7 +68,8 @@ func (this *SipHash_2_4) SetSeedFromBuf(seed []byte) {
 		panic("Seed length must be exactly 16")
 	}
 
-	this.SetSeedFromLongs(bytesToLong(seed[0:8]), bytesToLong(seed[8:16]))
+	p := uintptr(unsafe.Pointer(&seed[0]))
+	this.SetSeedFromLongs(this.endianHash.Uint64(p), this.endianHash.Uint64(p+8))
 }
 
 func (this *SipHash_2_4) SetSeedFromLongs(k0, k1 uint64) {
@@ -69,22 +81,28 @@ func (this *SipHash_2_4) SetSeedFromLongs(k0, k1 uint64) {
 
 func (this *SipHash_2_4) Hash(data []byte) uint64 {
 	length := len(data)
-	end8 := length & -8
-	var n int
+	p := uintptr(unsafe.Pointer(&data[0]))
+	end := p + uintptr(length)
 
-	for n = 0; n < end8; n += 8 {
-		m := bytesToLong(data[n : n+8])
-		this.v3 ^= m
-		this.sipRound()
-		this.sipRound()
-		this.v0 ^= m
+	if length >= 8 {
+		end8 := end - 8
+
+		for p < end8 {
+			m := this.endianHash.Uint64(p)
+			this.v3 ^= m
+			this.sipRound()
+			this.sipRound()
+			this.v0 ^= m
+			p += 8
+		}
 	}
 
-	last := (uint64(length) & 0xFF) << 56
+	last := uint64(length&0xFF) << 56
+	
 
-	for i := uint(0); n < length; i += 8 {
-		last |= ((uint64(data[n])) << i)
-		n++
+	for shift := uint(0); p < end; shift+=8 {
+		last |= (uint64(*(*byte)(unsafe.Pointer(p))) << shift)
+		p++
 	}
 
 	this.v3 ^= last
@@ -98,21 +116,6 @@ func (this *SipHash_2_4) Hash(data []byte) uint64 {
 	this.sipRound()
 	this.v0 = this.v0 ^ this.v1 ^ this.v2 ^ this.v3
 	return this.v0
-}
-
-func bytesToLong(buf []byte) uint64 {
-	p := uintptr(unsafe.Pointer(&buf[0]))
-	return *(*uint64)(unsafe.Pointer(p))
-	/*
-		return ((uint64(buf[7])) << 56) |
-			((uint64(buf[6])) << 48) |
-			((uint64(buf[5])) << 40) |
-			((uint64(buf[4])) << 32) |
-			((uint64(buf[3])) << 24) |
-			((uint64(buf[2])) << 16) |
-			((uint64(buf[1])) << 8) |
-			(uint64(buf[0]))
-	*/
 }
 
 func (this *SipHash_2_4) sipRound() {

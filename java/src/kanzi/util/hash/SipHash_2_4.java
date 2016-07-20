@@ -15,6 +15,9 @@ limitations under the License.
 
 package kanzi.util.hash;
 
+
+import kanzi.Global;
+
 // Port of SipHash (64 bits) to Java. Implemented with CROUNDS=2, dROUNDS=4.
 // SipHash was designed by Jean-Philippe Aumasson and Daniel J. Bernstein.
 // See https://131002.net/siphash/
@@ -57,7 +60,7 @@ public class SipHash_2_4
       if (seed.length != 16) 
          throw new IllegalArgumentException("Seed length must be exactly 16");
 
-      this.setSeed(bytesToLong(seed, 0), bytesToLong(seed, 8));
+      this.setSeed(Global.readLong64(seed, 0), Global.readLong64(seed, 8));
    }
 
    
@@ -78,23 +81,26 @@ public class SipHash_2_4
    
    public long hash(byte[] data, int offset, int length)
    { 
-      final int len8 = length & -8;
-      final int end8 = offset + len8;
-      int n;
-      
-      for (n=offset; n<end8; n+=8)
+      int n = offset;
+     
+      if (length >= 8)
       {
-         final long m = bytesToLong(data, n);
-         this.v3 ^= m;
-         this.sipRound();
-         this.sipRound();
-         this.v0 ^= m;         
-      }       
+         final int end8 = offset + length - 8;
+   
+         for ( ; n<end8; n+=8)
+         {
+            final long m = Global.readLong64(data, n);
+            this.v3 ^= m;
+            this.sipRound();
+            this.sipRound();
+            this.v0 ^= m;         
+         } 
+      }
 
-      long last = (((long) length) & 0xFF) << 56;
+      long last = ((long) (length & 0xFF)) << 56;
       
-      for (int i=0; n<length; n++, i+=8)
-         last |= (((long) data[n]) << i);
+      for (int shift=0; n<length; n++, shift+=8)
+         last |= (((long) (data[n] & 0xFF)) << shift);
   
       this.v3 ^= last;
       this.sipRound();
@@ -109,20 +115,6 @@ public class SipHash_2_4
       return this.v0;     
   }
   
-  
-   private static long bytesToLong(byte[] buf, int offset)
-   {
-      return ((((long) buf[offset+7]) & 0xFF) << 56) |
-             ((((long) buf[offset+6]) & 0xFF) << 48) |
-             ((((long) buf[offset+5]) & 0xFF) << 40) |
-             ((((long) buf[offset+4]) & 0xFF) << 32) |
-             ((((long) buf[offset+3]) & 0xFF) << 24) |
-             ((((long) buf[offset+2]) & 0xFF) << 16) |
-             ((((long) buf[offset+1]) & 0xFF) << 8)  |
-             ((((long) buf[offset])   & 0xFF));
-         
-   }
-
 
    private void sipRound()
    {

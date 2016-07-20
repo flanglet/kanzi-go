@@ -16,10 +16,10 @@ limitations under the License.
 package function
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"kanzi"
-	"unsafe"
 )
 
 // Go implementation of a LZ4 codec.
@@ -50,40 +50,21 @@ const (
 	SEARCH_MATCH_NB = ACCELERATION << SKIP_TRIGGER
 )
 
-var (
-	SHIFT1 = getShiftValue(0)
-	SHIFT2 = getShiftValue(1)
-	SHIFT3 = getShiftValue(2)
-	SHIFT4 = getShiftValue(3)
-)
-
-func isBigEndian() bool {
-	x := uint32(0x01020304)
-
-	if *(*byte)(unsafe.Pointer(&x)) == 0x01 {
-		return true
-	}
-
-	return false
-}
-
-func getShiftValue(index uint) uint {
-	index &= 3
-
-	if isBigEndian() {
-		return 24 - (index << 3)
-	}
-
-	return index << 3
-}
-
 type LZ4Codec struct {
 	buffer []int
+	order  binary.ByteOrder
 }
 
 func NewLZ4Codec() (*LZ4Codec, error) {
 	this := new(LZ4Codec)
 	this.buffer = make([]int, 1<<HASH_LOG_64K)
+
+	if kanzi.IsBigEndian() {
+		this.order = binary.BigEndian
+	} else {
+		this.order = binary.LittleEndian
+	}
+
 	return this, nil
 }
 
@@ -167,10 +148,10 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		// First byte
-		h32 := (readInt(src[srcIdx:]) * HASH_SEED) >> hashShift
+		h32 := (this.order.Uint32(src[srcIdx:]) * HASH_SEED) >> hashShift
 		table[h32] = srcIdx
 		srcIdx++
-		h32 = (readInt(src[srcIdx:]) * HASH_SEED) >> hashShift
+		h32 = (this.order.Uint32(src[srcIdx:]) * HASH_SEED) >> hashShift
 
 		for {
 			fwdIdx := srcIdx
@@ -193,9 +174,9 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 				searchMatchNb++
 				match = table[h32]
 				table[h32] = srcIdx
-				h32 = (readInt(src[fwdIdx:]) * HASH_SEED) >> hashShift
+				h32 = (this.order.Uint32(src[fwdIdx:]) * HASH_SEED) >> hashShift
 
-				if sameInts(src[srcIdx:srcIdx+4], src[match:match+4]) == true && match > srcIdx-MAX_DISTANCE {
+				if differentInts(src[srcIdx:srcIdx+4], src[match:match+4]) == false && match > srcIdx-MAX_DISTANCE {
 					break
 				}
 			}
@@ -257,15 +238,15 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 				}
 
 				// Fill table
-				h32 = (readInt(src[srcIdx-2:]) * HASH_SEED) >> hashShift
+				h32 = (this.order.Uint32(src[srcIdx-2:]) * HASH_SEED) >> hashShift
 				table[h32] = srcIdx - 2
 
 				// Test next position
-				h32 = (readInt(src[srcIdx:]) * HASH_SEED) >> hashShift
+				h32 = (this.order.Uint32(src[srcIdx:]) * HASH_SEED) >> hashShift
 				match = table[h32]
 				table[h32] = srcIdx
 
-				if sameInts(src[srcIdx:srcIdx+4], src[match:match+4]) == false || match <= srcIdx-MAX_DISTANCE {
+				if differentInts(src[srcIdx:srcIdx+4], src[match:match+4]) == true || match <= srcIdx-MAX_DISTANCE {
 					break
 				}
 
@@ -276,7 +257,7 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 
 			// Prepare next loop
 			srcIdx++
-			h32 = (readInt(src[srcIdx:]) * HASH_SEED) >> hashShift
+			h32 = (this.order.Uint32(src[srcIdx:]) * HASH_SEED) >> hashShift
 		}
 	}
 
@@ -285,18 +266,11 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 	return uint(srcEnd), uint(dstIdx), error(nil)
 }
 
-func sameInts(src, dst []byte) bool {
-	return src[0] == dst[0] &&
-		src[1] == dst[1] &&
-		src[2] == dst[2] &&
-		src[3] == dst[3]
-}
-
-func readInt(array []byte) uint32 {
-	return (uint32(array[0]) << SHIFT1) |
-		(uint32(array[1]) << SHIFT2) |
-		(uint32(array[2]) << SHIFT3) |
-		(uint32(array[3]) << SHIFT4)
+func differentInts(src, dst []byte) bool {
+	return src[0] != dst[0] ||
+		src[1] != dst[1] ||
+		src[2] != dst[2] ||
+		src[3] != dst[3]
 }
 
 // Reads same byte input as LZ4_decompress_generic in LZ4 r131 (7/15)
