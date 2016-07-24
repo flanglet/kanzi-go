@@ -95,8 +95,7 @@ public class BWTS implements ByteTransform
             if (isa[i] >= min) 
                continue;
             
-            int headRank = this.moveLyndonWordHead(sa, input, count, srcIdx, idxMin, i-idxMin, min);
-            int refRank = headRank;
+            int refRank = this.moveLyndonWordHead(sa, input, count, srcIdx, idxMin, i-idxMin, min);
 
             for (int j=i-1; j>idxMin; j--) 
             { 

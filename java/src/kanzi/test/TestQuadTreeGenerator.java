@@ -45,7 +45,7 @@ public class TestQuadTreeGenerator
         try
         {
             String fileName = (args.length > 0) ? args[0] : "c:\\temp\\lena.jpg";
-            String strNbNodes = (args.length > 1) ? args[1] : "5000";
+            String strVar = (args.length > 1) ? args[1] : "250";
             Image image = ImageIO.read(new File(fileName));            
             int w = image.getWidth(null) & -8;
             int h = image.getHeight(null) & -8;
@@ -64,13 +64,13 @@ public class TestQuadTreeGenerator
             img.getRaster().getDataElements(0, 0, w, h, source);
             System.arraycopy(source, 0, dest, 0, w*h);
 
-            int nbNodes = Integer.parseInt(strNbNodes);
+            int variance = Integer.parseInt(strVar);
             int minNodeDim = 4;
             nodes.clear();
             QuadTreeGenerator.Node node = QuadTreeGenerator.getNode(null, 0, 0, w, h, true);
             node.computeVariance(source, w);
             nodes.add(node);            
-            new QuadTreeGenerator(minNodeDim, true).decomposeNodes(nodes, source, nbNodes, w);
+            new QuadTreeGenerator(minNodeDim, true).decomposeVariance(nodes, source, variance, w);
             img2.getRaster().setDataElements(0, 0, w, h, dest);
 
             for (QuadTreeGenerator.Node n : nodes)
@@ -115,14 +115,14 @@ public class TestQuadTreeGenerator
             {
                try
                {
-                  while (nodes.size() < 10000)
+                  //while (nodes.size() < 10000)
                   {
                      nodes.clear();
-                     nbNodes++;
+                     //nbNodes++;
                      node = QuadTreeGenerator.getNode(null, 0, 0, w, h, true);
                      node.computeVariance(source, w);
                      nodes.add(node);  
-                     new QuadTreeGenerator(minNodeDim, true).decomposeNodes(nodes, source, nbNodes, w);
+                     new QuadTreeGenerator(minNodeDim, true).decomposeVariance(nodes, source, variance, w);
                      img2.getRaster().setDataElements(0, 0, w, h, source);
 
                      for (QuadTreeGenerator.Node n : nodes)

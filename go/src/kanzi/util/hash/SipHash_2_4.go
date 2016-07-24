@@ -97,8 +97,7 @@ func (this *SipHash_2_4) Hash(data []byte) uint64 {
 		}
 	}
 
-	last := uint64(length&0xFF) << 56
-	
+	last := uint64(length&0xFF) << 56	
 
 	for shift := uint(0); p < end; shift+=8 {
 		last |= (uint64(*(*byte)(unsafe.Pointer(p))) << shift)

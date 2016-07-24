@@ -254,7 +254,6 @@ func (this *DivSufSort) sortTypeBstar(bucket_A, bucket_B []int, n int) int {
 	if m > 0 {
 		// Sort the type B* suffixes by their first two characters.
 		pab := n - m
-		isab := m
 
 		for i := m - 2; i >= 0; i-- {
 			t := arr[pab+i]
@@ -292,7 +291,7 @@ func (this *DivSufSort) sortTypeBstar(bucket_A, bucket_B []int, n int) int {
 				i0 := i
 
 				for {
-					arr[isab+arr[i]] = i
+					arr[m+arr[i]] = i
 					i--
 
 					if i < 0 || arr[i] < 0 {
@@ -311,7 +310,7 @@ func (this *DivSufSort) sortTypeBstar(bucket_A, bucket_B []int, n int) int {
 
 			for {
 				arr[i] = ^arr[i]
-				arr[isab+arr[i]] = i0
+				arr[m+arr[i]] = i0
 				i--
 
 				if arr[i] >= 0 {
@@ -319,11 +318,11 @@ func (this *DivSufSort) sortTypeBstar(bucket_A, bucket_B []int, n int) int {
 				}
 			}
 
-			arr[isab+arr[i]] = i0
+			arr[m+arr[i]] = i0
 		}
 
 		// Construct the inverse suffix array of type B* suffixes using trsort.
-		this.trSort(isab, m, 1)
+		this.trSort(m, 1)
 
 		// Set the sorted order of type B* suffixes.
 		c0 = this.buffer[n-1]
@@ -362,9 +361,9 @@ func (this *DivSufSort) sortTypeBstar(bucket_A, bucket_B []int, n int) int {
 				j--
 
 				if tt == 0 || tt-i > 1 {
-					arr[arr[isab+j]] = tt
+					arr[arr[m+j]] = tt
 				} else {
-					arr[arr[isab+j]] = ^tt
+					arr[arr[m+j]] = ^tt
 				}
 			}
 		}
@@ -432,8 +431,8 @@ func (this *DivSufSort) ssSort(pa, first, last, buf, bufSize, depth, n int, last
 		var curBuf int
 
 		if curBufSize > bufSize {
-                        curBuf = a + SS_BLOCKSIZE
-                } else {
+			curBuf = a + SS_BLOCKSIZE
+		} else {
 			curBufSize = bufSize
 			curBuf = buf
 		}
@@ -684,9 +683,7 @@ func (this *DivSufSort) ssRotate(first, middle, last int) {
 
 func (this *DivSufSort) ssBlockSwap(a, b, n int) {
 	for n > 0 {
-		t := this.sa[a]
-		this.sa[a] = this.sa[b]
-		this.sa[b] = t
+		this.sa[a], this.sa[b] = this.sa[b], this.sa[a]
 		n--
 		a++
 		b++
@@ -1293,7 +1290,7 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 		// choose pivot
 		a = this.ssPivot(idx, pa, first, last)
 		v := buf1[buf2[this.sa[a]]]
-		this.swapInSA(first, a)
+		this.sa[a], this.sa[first] = this.sa[first], this.sa[a]
 		b := first + 1
 
 		// partition
@@ -1320,7 +1317,7 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 				}
 
 				if x == v {
-					this.swapInSA(b, a)
+					this.sa[a], this.sa[b] = this.sa[b], this.sa[a]
 					a++
 				}
 
@@ -1353,7 +1350,7 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 				}
 
 				if x == v {
-					this.swapInSA(c, d)
+					this.sa[c], this.sa[d] = this.sa[d], this.sa[c]
 					d--
 				}
 
@@ -1362,7 +1359,7 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 		}
 
 		for b < c {
-			this.swapInSA(b, c)
+			this.sa[b], this.sa[c] = this.sa[c], this.sa[b]
 			b++
 
 			for b < c {
@@ -1373,7 +1370,7 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 				}
 
 				if x == v {
-					this.swapInSA(b, a)
+					this.sa[a], this.sa[b] = this.sa[b], this.sa[a]
 					a++
 				}
 
@@ -1390,7 +1387,7 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 				}
 
 				if x == v {
-					this.swapInSA(c, d)
+					this.sa[c], this.sa[d] = this.sa[d], this.sa[c]
 					d--
 				}
 
@@ -1408,7 +1405,7 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 			}
 
 			for e, f := first, b-s; s > 0; s-- {
-				this.swapInSA(e, f)
+				this.sa[e], this.sa[f] = this.sa[f], this.sa[e]
 				e++
 				f++
 			}
@@ -1421,7 +1418,7 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 			}
 
 			for e, f := b, last-s; s > 0; s-- {
-				this.swapInSA(e, f)
+				this.sa[e], this.sa[f] = this.sa[f], this.sa[e]
 				e++
 				f++
 			}
@@ -1486,62 +1483,50 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 func (this *DivSufSort) ssPivot(td, pa, first, last int) int {
 	t := last - first
 	middle := first + (t >> 1)
+	buf0 := this.buffer[td:]
+	buf1 := this.sa[pa:]
 
 	if t <= 512 {
 		if t <= 32 {
-			return this.ssMedian3(td, pa, first, middle, last-1)
+			return this.ssMedian3(buf0, buf1, first, middle, last-1)
 		}
 
-		return this.ssMedian5(td, pa, first, first+(t>>2), middle, last-1-(t>>2), last-1)
+		return this.ssMedian5(buf0, buf1, first, first+(t>>2), middle, last-1-(t>>2), last-1)
 	}
 
 	t >>= 3
-	first = this.ssMedian3(td, pa, first, first+t, first+(t<<1))
-	middle = this.ssMedian3(td, pa, middle-t, middle, middle+t)
-	last = this.ssMedian3(td, pa, last-1-(t<<1), last-1-t, last-1)
-	return this.ssMedian3(td, pa, first, middle, last)
+	first = this.ssMedian3(buf0, buf1, first, first+t, first+(t<<1))
+	middle = this.ssMedian3(buf0, buf1, middle-t, middle, middle+t)
+	last = this.ssMedian3(buf0, buf1, last-1-(t<<1), last-1-t, last-1)
+	return this.ssMedian3(buf0, buf1, first, middle, last)
 }
 
-func (this *DivSufSort) ssMedian5(idx, pa, v1, v2, v3, v4, v5 int) int {
-        b1 := this.buffer[idx+this.sa[pa+this.sa[v1]]]
-        b2 := this.buffer[idx+this.sa[pa+this.sa[v2]]]
-        b3 := this.buffer[idx+this.sa[pa+this.sa[v3]]]
-        b4 := this.buffer[idx+this.sa[pa+this.sa[v4]]]
+func (this *DivSufSort) ssMedian5(buf0, buf1 []int, v1, v2, v3, v4, v5 int) int {
+	b1 := buf0[buf1[this.sa[v1]]]
+	b2 := buf0[buf1[this.sa[v2]]]
+	b3 := buf0[buf1[this.sa[v3]]]
+	b4 := buf0[buf1[this.sa[v4]]]
 
 	if b2 > b3 {
-		t := v2
-		v2 = v3
-		v3 = t
+		v2, v3 = v3, v2
 	}
 
-	if b4 > this.buffer[idx+this.sa[pa+this.sa[v5]]] {
-		t := v4
-		v4 = v5
-		v5 = t
+	if b4 > buf0[buf1[this.sa[v5]]] {
+		v4, v5 = v5, v4
 	}
 
 	if b2 > b4 {
-		t1 := v2
-		v2 = v4
-		v4 = t1
-		t2 := v3
-		v3 = v5
-		v5 = t2
+		v2, v4 = v4, v2
+		v3, v5 = v5, v3
 	}
 
 	if b1 > b3 {
-		t := v1
-		v1 = v3
-		v3 = t
+		v1, v3 = v3, v1
 	}
 
 	if b1 > b4 {
-		t1 := v1
-		v1 = v4
-		v4 = t1
-		t2 := v3
-		v3 = v5
-		v5 = t2
+		v1, v4 = v4, v1
+		v3, v5 = v5, v3
 	}
 
 	if b3 > b4 {
@@ -1551,10 +1536,10 @@ func (this *DivSufSort) ssMedian5(idx, pa, v1, v2, v3, v4, v5 int) int {
 	return v3
 }
 
-func (this *DivSufSort) ssMedian3(idx, pa, v1, v2, v3 int) int {
-        b1 := this.buffer[idx+this.sa[pa+this.sa[v1]]]
-        b2 := this.buffer[idx+this.sa[pa+this.sa[v2]]]
-        b3 := this.buffer[idx+this.sa[pa+this.sa[v3]]]
+func (this *DivSufSort) ssMedian3(buf0, buf1 []int, v1, v2, v3 int) int {
+	b1 := buf0[buf1[this.sa[v1]]]
+	b2 := buf0[buf1[this.sa[v2]]]
+	b3 := buf0[buf1[this.sa[v3]]]
 
 	if b1 > b2 {
 		t := v1
@@ -1597,9 +1582,7 @@ func (this *DivSufSort) ssPartition(pa, first, last, depth int) int {
 			break
 		}
 
-		t := ^sa_[b]
-		sa_[b] = sa_[a]
-		sa_[a] = t
+		sa_[a], sa_[b] = ^sa_[b], sa_[a]
 	}
 
 	if first < a {
@@ -1616,40 +1599,41 @@ func (this *DivSufSort) ssHeapSort(idx, pa, saIdx, size int) {
 		m--
 
 		if this.buffer[idx+this.sa[pa+this.sa[saIdx+(m>>1)]]] < this.buffer[idx+this.sa[pa+this.sa[saIdx+m]]] {
-			this.swapInSA(saIdx+m, saIdx+(m>>1))
+			this.sa[saIdx+(m>>1)], this.sa[saIdx+m] = this.sa[saIdx+m], this.sa[saIdx+(m>>1)]
 		}
 	}
 
+	buf1 := this.buffer[idx:]
+	buf2 := this.sa[pa:]
+	buf3 := this.sa[saIdx:]
+
 	for i := (m >> 1) - 1; i >= 0; i-- {
-		this.ssFixDown(idx, pa, saIdx, i, m)
+		this.ssFixDown(buf1, buf2, buf3, i, m)
 	}
 
 	if size&1 == 0 {
-		this.swapInSA(saIdx, saIdx+m)
-		this.ssFixDown(idx, pa, saIdx, 0, m)
+		this.sa[saIdx], this.sa[saIdx+m] = this.sa[saIdx+m], this.sa[saIdx]
+		this.ssFixDown(buf1, buf2, buf3, 0, m)
 	}
 
 	for i := m - 1; i > 0; i-- {
 		t := this.sa[saIdx]
 		this.sa[saIdx] = this.sa[saIdx+i]
-		this.ssFixDown(idx, pa, saIdx, 0, i)
+		this.ssFixDown(buf1, buf2, buf3, 0, i)
 		this.sa[saIdx+i] = t
 	}
 }
 
-func (this *DivSufSort) ssFixDown(idx, pa, saIdx, i, size int) {
-	sa_ := this.sa
-	buf1 := this.buffer[idx:]
-	buf2 := this.sa[pa:]
-	v := sa_[saIdx+i]
-	c := buf1[sa_[pa+v]]
+func (this *DivSufSort) ssFixDown(buf1, buf2, buf3 []int, i, size int) {
+	v := buf3[i]
+	c := buf1[buf2[v]]
 	j := (i << 1) + 1
 
 	for j < size {
 		k := j
 		j++
-		d := buf1[buf2[sa_[saIdx+k]]]
-		e := buf1[buf2[sa_[saIdx+j]]]
+		d := buf1[buf2[buf3[k]]]
+		e := buf1[buf2[buf3[j]]]
 
 		if d < e {
 			k = j
@@ -1660,12 +1644,12 @@ func (this *DivSufSort) ssFixDown(idx, pa, saIdx, i, size int) {
 			break
 		}
 
-		sa_[saIdx+i] = sa_[saIdx+k]
+		buf3[i] = buf3[k]
 		i = k
 		j = (i << 1) + 1
 	}
 
-	sa_[i+saIdx] = v
+	buf3[i] = v
 }
 
 func ssIlg(n int) int {
@@ -1676,17 +1660,11 @@ func ssIlg(n int) int {
 	return LOG_TABLE[n&0xFF]
 }
 
-func (this *DivSufSort) swapInSA(a, b int) {
-	tmp := this.sa[a]
-	this.sa[a] = this.sa[b]
-	this.sa[b] = tmp
-}
-
-func (this *DivSufSort) trSort(isa, n, depth int) {	
+func (this *DivSufSort) trSort(n, depth int) {
 	arr := this.sa
 	budget := newTRBudget(trIlg(n)*2/3, n)
 
-	for isad := isa + depth; arr[0] > -n; isad += (isad - isa) {
+	for isad := n + depth; arr[0] > -n; isad += (isad - n) {
 		first := 0
 		skip := 0
 		unsorted := 0
@@ -1703,11 +1681,11 @@ func (this *DivSufSort) trSort(isa, n, depth int) {
 					skip = 0
 				}
 
-				last := arr[isa+t] + 1
+				last := arr[n+t] + 1
 
 				if last-first > 1 {
 					budget.count = 0
-					this.trIntroSort(isa, isad, first, last, budget)
+					this.trIntroSort(n, isad, first, last, budget)
 
 					if budget.count != 0 {
 						unsorted += budget.count
@@ -1736,7 +1714,7 @@ func (this *DivSufSort) trSort(isa, n, depth int) {
 	}
 }
 
-func (this *DivSufSort) trPartition(isad, first, middle, last, v int) uint64 {
+func (this *DivSufSort) trPartition(isad, first, middle, last, v int) (int, int) {
 	x := 0
 	b := middle
 
@@ -1763,7 +1741,7 @@ func (this *DivSufSort) trPartition(isad, first, middle, last, v int) uint64 {
 			}
 
 			if x == v {
-				this.swapInSA(a, b)
+				this.sa[a], this.sa[b] = this.sa[b], this.sa[a]
 				a++
 			}
 
@@ -1796,7 +1774,7 @@ func (this *DivSufSort) trPartition(isad, first, middle, last, v int) uint64 {
 			}
 
 			if x == v {
-				this.swapInSA(c, d)
+				this.sa[c], this.sa[d] = this.sa[d], this.sa[c]
 				d--
 			}
 
@@ -1805,7 +1783,7 @@ func (this *DivSufSort) trPartition(isad, first, middle, last, v int) uint64 {
 	}
 
 	for b < c {
-		this.swapInSA(c, b)
+		this.sa[b], this.sa[c] = this.sa[c], this.sa[b]
 		b++
 
 		for b < c {
@@ -1816,7 +1794,7 @@ func (this *DivSufSort) trPartition(isad, first, middle, last, v int) uint64 {
 			}
 
 			if x == v {
-				this.swapInSA(a, b)
+				this.sa[a], this.sa[b] = this.sa[b], this.sa[a]
 				a++
 			}
 
@@ -1833,7 +1811,7 @@ func (this *DivSufSort) trPartition(isad, first, middle, last, v int) uint64 {
 			}
 
 			if x == v {
-				this.swapInSA(c, d)
+				this.sa[c], this.sa[d] = this.sa[d], this.sa[c]
 				d--
 			}
 
@@ -1850,7 +1828,7 @@ func (this *DivSufSort) trPartition(isad, first, middle, last, v int) uint64 {
 		}
 
 		for e, f := first, b-s; s > 0; s-- {
-			this.swapInSA(e, f)
+			this.sa[e], this.sa[f] = this.sa[f], this.sa[e]
 			e++
 			f++
 		}
@@ -1862,7 +1840,7 @@ func (this *DivSufSort) trPartition(isad, first, middle, last, v int) uint64 {
 		}
 
 		for e, f := b, last-s; s > 0; s-- {
-			this.swapInSA(e, f)
+			this.sa[e], this.sa[f] = this.sa[f], this.sa[e]
 			e++
 			f++
 		}
@@ -1871,7 +1849,7 @@ func (this *DivSufSort) trPartition(isad, first, middle, last, v int) uint64 {
 		last -= (d - c)
 	}
 
-	return (uint64(first) << 32) | (uint64(last) & 0xFFFFFFFF)
+	return first, last
 }
 
 func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *TRBudget) {
@@ -1884,9 +1862,7 @@ func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *TRBudget
 		if limit < 0 {
 			if limit == -1 {
 				// tandem repeat partition
-				res := this.trPartition(isad-incr, first, first, last, last-1)
-				a := int(res >> 32)
-				b := int(res & 0xFFFFFFFF)
+				a, b := this.trPartition(isad-incr, first, first, last, last-1)
 
 				// update ranks
 				if a < last {
@@ -2108,13 +2084,13 @@ func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *TRBudget
 		limit--
 
 		// choose pivot
-		this.swapInSA(first, trPivot(this.sa, isad, first, last))
+		pvt := trPivot(this.sa, isad, first, last)
+		this.sa[first], this.sa[pvt] = this.sa[pvt], this.sa[first]
+
 		v := arr[isad+arr[first]]
 
 		// partition
-		res := this.trPartition(isad, first, first+1, last, v)
-		a := int(res >> 32)
-		b := int(res & 0xFFFFFFFF)
+		a, b := this.trPartition(isad, first, first+1, last, v)
 
 		if last-first != b-a {
 			next := -1
@@ -2281,79 +2257,64 @@ func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *TRBudget
 	}
 }
 
-func trPivot(arr []int, isad, first, last int) int {
+func trPivot(buf1 []int, isad, first, last int) int {
 	t := last - first
 	middle := first + (t >> 1)
+	buf2 := buf1[isad:]
 
 	if t <= 512 {
 		if t <= 32 {
-			return trMedian3(arr, isad, first, middle, last-1)
+			return trMedian3(buf1, buf2, first, middle, last-1)
 		}
 
 		t >>= 2
-		return trMedian5(arr, isad, first, first+t, middle, last-1-t, last-1)
+		return trMedian5(buf1, buf2, first, first+t, middle, last-1-t, last-1)
 	}
 
 	t >>= 3
-	first = trMedian3(arr, isad, first, first+t, first+(t<<1))
-	middle = trMedian3(arr, isad, middle-t, middle, middle+t)
-	last = trMedian3(arr, isad, last-1-(t<<1), last-1-t, last-1)
-	return trMedian3(arr, isad, first, middle, last)
+	first = trMedian3(buf1, buf2, first, first+t, first+(t<<1))
+	middle = trMedian3(buf1, buf2, middle-t, middle, middle+t)
+	last = trMedian3(buf1, buf2, last-1-(t<<1), last-1-t, last-1)
+	return trMedian3(buf1, buf2, first, middle, last)
 }
 
-func trMedian5(arr []int, isad, v1, v2, v3, v4, v5 int) int {
-	if arr[isad+arr[v2]] > arr[isad+arr[v3]] {
-		t := v2
-		v2 = v3
-		v3 = t
+func trMedian5(buf1, buf2 []int, v1, v2, v3, v4, v5 int) int {
+	if buf2[buf1[v2]] > buf2[buf1[v3]] {
+		v2, v3 = v3, v2
 	}
 
-	if arr[isad+arr[v4]] > arr[isad+arr[v5]] {
-		t := v4
-		v4 = v5
-		v5 = t
+	if buf2[buf1[v4]] > buf2[buf1[v5]] {
+		v4, v5 = v5, v4
 	}
 
-	if arr[isad+arr[v2]] > arr[isad+arr[v4]] {
-		t1 := v2
-		v2 = v4
-		v4 = t1
-		t2 := v3
-		v3 = v5
-		v5 = t2
+	if buf2[buf1[v2]] > buf2[buf1[v4]] {
+		v2, v4 = v4, v2
+		v3, v5 = v5, v3
 	}
 
-	if arr[isad+arr[v1]] > arr[isad+arr[v3]] {
-		t := v1
-		v1 = v3
-		v3 = t
+	if buf2[buf1[v1]] > buf2[buf1[v3]] {
+		v1, v3 = v3, v1
 	}
 
-	if arr[isad+arr[v1]] > arr[isad+arr[v4]] {
-		t1 := v1
-		v1 = v4
-		v4 = t1
-		t2 := v3
-		v3 = v5
-		v5 = t2
+	if buf2[buf1[v1]] > buf2[buf1[v4]] {
+		v1, v4 = v4, v1
+		v3, v5 = v5, v3
 	}
 
-	if arr[isad+arr[v3]] > arr[isad+arr[v4]] {
+	if buf2[buf1[v3]] > buf2[buf1[v4]] {
 		return v4
 	}
 
 	return v3
 }
 
-func trMedian3(arr []int, isad, v1, v2, v3 int) int {
-	if arr[isad+arr[v1]] > arr[isad+arr[v2]] {
-		t := v1
-		v1 = v2
-		v2 = t
+func trMedian3(buf1, buf2 []int, v1, v2, v3 int) int {
+	if buf2[buf1[v1]] > buf2[buf1[v2]] {
+		v1, v2 = v2, v1
 	}
 
-	if arr[isad+arr[v2]] > arr[isad+arr[v3]] {
-		if arr[isad+arr[v1]] > arr[isad+arr[v3]] {
+	if buf2[buf1[v2]] > buf2[buf1[v3]] {
+		if buf2[buf1[v1]] > buf2[buf1[v3]] {
 			return v1
 		}
 
@@ -2371,38 +2332,40 @@ func (this *DivSufSort) trHeapSort(isad, saIdx, size int) {
 		m--
 
 		if arr[isad+arr[saIdx+(m>>1)]] < arr[isad+arr[saIdx+m]] {
-			this.swapInSA(saIdx+m, saIdx+(m>>1))
+			this.sa[saIdx+(m>>1)], this.sa[saIdx+m] = this.sa[saIdx+m], this.sa[saIdx+(m>>1)]
 		}
 	}
 
+	buf1 := this.sa[isad:]
+	buf2 := this.sa[saIdx:]
+
 	for i := (m >> 1) - 1; i >= 0; i-- {
-		this.trFixDown(isad, saIdx, i, m)
+		this.trFixDown(buf1, buf2, i, m)
 	}
 
 	if size&1 == 0 {
-		this.swapInSA(saIdx, saIdx+m)
-		this.trFixDown(isad, saIdx, 0, m)
+		this.sa[saIdx], this.sa[saIdx+m] = this.sa[saIdx+m], this.sa[saIdx]
+		this.trFixDown(buf1, buf2, 0, m)
 	}
 
 	for i := m - 1; i > 0; i-- {
 		t := arr[saIdx]
 		arr[saIdx] = arr[saIdx+i]
-		this.trFixDown(isad, saIdx, 0, i)
+		this.trFixDown(buf1, buf2, 0, i)
 		arr[saIdx+i] = t
 	}
 }
 
-func (this *DivSufSort) trFixDown(isad, saIdx, i, size int) {
-	arr := this.sa
-	v := arr[saIdx+i]
-	c := arr[isad+v]
+func (this *DivSufSort) trFixDown(buf1, buf2 []int, i, size int) {
+	v := buf2[i]
+	c := buf1[v]
 	j := (i << 1) + 1
 
 	for j < size {
 		k := j
 		j++
-		d := arr[isad+arr[saIdx+k]]
-		e := arr[isad+arr[saIdx+j]]
+		d := buf1[buf2[k]]
+		e := buf1[buf2[j]]
 
 		if d < e {
 			k = j
@@ -2413,28 +2376,29 @@ func (this *DivSufSort) trFixDown(isad, saIdx, i, size int) {
 			break
 		}
 
-		arr[saIdx+i] = arr[saIdx+k]
+		buf2[i] = buf2[k]
 		i = k
 		j = (i << 1) + 1
 	}
 
-	arr[saIdx+i] = v
+	buf2[i] = v
 }
 
 func (this *DivSufSort) trInsertionSort(isad, first, last int) {
-	arr := this.sa
+	buf1 := this.sa
+	buf2 := this.sa[isad:]
 
 	for a := first + 1; a < last; a++ {
 		b := a - 1
-		t := arr[a]
-		r := arr[isad+t] - arr[isad+arr[b]]
+		t := buf1[a]
+		r := buf2[t] - buf2[buf1[b]]
 
 		for r < 0 {
 			for true {
-				arr[b+1] = arr[b]
+				buf1[b+1] = buf1[b]
 				b--
 
-				if b < first || arr[b] >= 0 {
+				if b < first || buf1[b] >= 0 {
 					break
 				}
 			}
@@ -2443,45 +2407,46 @@ func (this *DivSufSort) trInsertionSort(isad, first, last int) {
 				break
 			}
 
-			r = arr[isad+t] - arr[isad+arr[b]]
+			r = buf2[t] - buf2[buf1[b]]
 		}
 
 		if r == 0 {
-			arr[b] = ^arr[b]
+			buf1[b] = ^buf1[b]
 		}
 
-		arr[b+1] = t
+		buf1[b+1] = t
 	}
 }
 
 func (this *DivSufSort) trPartialCopy(isa, first, a, b, last, depth int) {
-	arr := this.sa
+	buf1 := this.sa
+	buf2 := this.sa[isa:]
 	v := b - 1
 	lastRank := -1
 	newRank := -1
 	d := a - 1
 
 	for c := first; c <= d; c++ {
-		s := arr[c] - depth
+		s := buf1[c] - depth
 
-		if s >= 0 && arr[isa+s] == v {
+		if s >= 0 && buf2[s] == v {
 			d++
-			arr[d] = s
-			rank := arr[isa+s+depth]
+			buf1[d] = s
+			rank := buf2[s+depth]
 
 			if lastRank != rank {
 				lastRank = rank
 				newRank = d
 			}
 
-			arr[isa+s] = newRank
+			buf2[s] = newRank
 		}
 	}
 
 	lastRank = -1
 
 	for e := d; first <= e; e-- {
-		rank := arr[isa+arr[e]]
+		rank := buf2[buf1[e]]
 
 		if lastRank != rank {
 			lastRank = rank
@@ -2489,7 +2454,7 @@ func (this *DivSufSort) trPartialCopy(isa, first, a, b, last, depth int) {
 		}
 
 		if newRank != rank {
-			arr[isa+arr[e]] = newRank
+			buf2[buf1[e]] = newRank
 		}
 	}
 
@@ -2497,35 +2462,36 @@ func (this *DivSufSort) trPartialCopy(isa, first, a, b, last, depth int) {
 	d = b
 
 	for c, e := last-1, d+1; e < d; c-- {
-		s := arr[c] - depth
+		s := buf1[c] - depth
 
-		if s >= 0 && arr[isa+s] == v {
+		if s >= 0 && buf2[s] == v {
 			d--
-			arr[d] = s
-			rank := arr[isa+s+depth]
+			buf1[d] = s
+			rank := buf2[s+depth]
 
 			if lastRank != rank {
 				lastRank = rank
 				newRank = d
 			}
 
-			arr[isa+s] = newRank
+			buf2[s] = newRank
 		}
 	}
 }
 
 func (this *DivSufSort) trCopy(isa, first, a, b, last, depth int) {
-	arr := this.sa
+	buf1 := this.sa
+	buf2 := this.sa[isa:]
 	v := b - 1
 	d := a - 1
 
 	for c := first; c <= d; c++ {
-		s := arr[c] - depth
+		s := buf1[c] - depth
 
-		if s >= 0 && arr[isa+s] == v {
+		if s >= 0 && buf2[s] == v {
 			d++
-			arr[d] = s
-			arr[isa+s] = d
+			buf1[d] = s
+			buf2[s] = d
 		}
 	}
 
@@ -2533,12 +2499,12 @@ func (this *DivSufSort) trCopy(isa, first, a, b, last, depth int) {
 	d = b
 
 	for c := last - 1; d > e; c-- {
-		s := arr[c] - depth
+		s := buf1[c] - depth
 
-		if s >= 0 && arr[isa+s] == v {
+		if s >= 0 && buf2[s] == v {
 			d--
-			arr[d] = s
-			arr[isa+s] = d
+			buf1[d] = s
+			buf2[s] = d
 		}
 	}
 }

@@ -111,8 +111,7 @@ func (this *BWTS) Forward(src, dst []byte) (uint, uint, error) {
 			continue
 		}
 
-		headRank := this.moveLyndonWordHead(sa, src, count, idxMin, i-idxMin, min)
-		refRank := headRank
+		refRank := this.moveLyndonWordHead(sa, src, count, idxMin, i-idxMin, min)
 
 		for j := i - 1; j > idxMin; j-- {
 			// iterate through the new lyndon word from end to start

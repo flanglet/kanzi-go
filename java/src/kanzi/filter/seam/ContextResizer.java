@@ -48,7 +48,7 @@ public class ContextResizer implements IntFilter
     public static final int EXPAND = 2;
    
     private static final int USED_MASK = 0x80000000;
-    private static final int VALUE_MASK = USED_MASK - 1;
+    private static final int VALUE_MASK = 0x7FFFFFFF;
     private static final int DEFAULT_BEST_COST = 0x0FFFFFFF;
     private static final int DEFAULT_MAX_COST_PER_PIXEL = 256;
     private static final int RED_COLOR = 0xFFFF0000;

@@ -29,7 +29,7 @@ public class JNA_VideoEffect implements IntFilter
      {      
         Class<?> nativeClass = JNA_VideoEffect.class.getClassLoader().loadClass("com.sun.jna.Native");
         Method nativeInstance = nativeClass.getMethod("register", String.class);
-        nativeInstance.invoke(null, new Object[] { "jnaVideoEffect" });
+        nativeInstance.invoke(null, "jnaVideoEffect");
         //Native.register("jnaVideoEffect"); 
      }
      catch (Exception e)

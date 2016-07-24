@@ -251,7 +251,6 @@ public final class DivSufSort
         {
             // Sort the type B* suffixes by their first two characters.
             final int pab = n - m;
-            final int isab = m;
 
             for (int i=m-2; i>=0; i--)
             {
@@ -294,7 +293,7 @@ public final class DivSufSort
 
                     do
                     {
-                        arr[isab+arr[i]] = i;
+                        arr[m+arr[i]] = i;
                         i--;
                     }
                     while ((i >= 0) && (arr[i] >= 0));
@@ -310,17 +309,16 @@ public final class DivSufSort
                 do
                 {
                     arr[i] = ~arr[i];
-                    arr[isab+arr[i]] = i0;
+                    arr[m+arr[i]] = i0;
                     i--;
                 }
                 while (arr[i] < 0);
 
-                arr[isab+arr[i]] = i0;
+                arr[m+arr[i]] = i0;
             }
 
             // Construct the inverse suffix array of type B* suffixes using trsort.
-            this.trSort(isab, m, 1);
-
+            this.trSort(m, 1);
             // Set the sorted order of type B* suffixes.
             c0 = this.buffer[n-1];
 
@@ -346,7 +344,7 @@ public final class DivSufSort
                     }
 
                     j--;
-                    arr[arr[isab+j]] = ((tt == 0) || (tt-i > 1)) ? tt : ~tt;
+                    arr[arr[m+j]] = ((tt == 0) || (tt-i > 1)) ? tt : ~tt;
                 }
             }
 
@@ -1647,12 +1645,12 @@ public final class DivSufSort
     }
 
 
-    private void trSort(int isa, int n, int depth)
+    private void trSort(int n, int depth)
     {
         final int[] arr = this.sa;
         TRBudget budget = new TRBudget(trIlg(n)*2/3, n);
 
-        for (int isad=isa+depth; arr[0] > -n; isad+=(isad-isa))
+        for (int isad=n+depth; arr[0]>-n; isad+=(isad-n))
         {
             int first = 0;
             int skip = 0;
@@ -1675,12 +1673,12 @@ public final class DivSufSort
                         skip = 0;
                     }
 
-                    final int last = arr[isa+t] + 1;
+                    final int last = arr[n+t] + 1;
 
                     if (last - first > 1)
                     {
                         budget.count = 0;
-                        this.trIntroSort(isa, isad, first, last, budget);
+                        this.trIntroSort(n, isad, first, last, budget);
 
                         if (budget.count != 0)
                             unsorted += budget.count;
@@ -1805,7 +1803,7 @@ public final class DivSufSort
             last -= (d - c);
         }
 
-         return (((long) first) << 32) | (((long) last) & 0xFFFFFFFFL);
+        return (((long) first) << 32) | (((long) last) & 0xFFFFFFFFL);
     }
 
 
@@ -1825,7 +1823,7 @@ public final class DivSufSort
                     // tandem repeat partition
                     long res = this.trPartition(isad-incr, first, first, last, last-1);
                     final int a = (int) (res >> 32);
-                    final int b = (int) (res & 0xFFFFFFFFL);
+                    final int b = (int) res;
 
                     // update ranks
                     if (a < last)
