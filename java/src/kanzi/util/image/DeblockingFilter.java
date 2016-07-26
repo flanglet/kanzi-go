@@ -13,13 +13,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kanzi.util;
-
-import kanzi.prediction.LossyIntraPredictor;
+package kanzi.util.image;
 
 
 public class DeblockingFilter
 {
+   public static final int DIR_LEFT  = 1;
+   public static final int DIR_RIGHT = 2;
    private final static int DEFAULT_STEP = 8;
    private final static int DEFAULT_STRENGTH = 12;
    
@@ -97,7 +97,7 @@ public class DeblockingFilter
 
       for (int j=start; j<end; j+=st)
       {
-         if (((predictionType & LossyIntraPredictor.DIR_LEFT) != 0) && (x >= inc))
+         if (((predictionType & DIR_LEFT) != 0) && (x >= inc))
          {
             final int q0 = frame[j];
             final int p0 = frame[j-1];
@@ -144,7 +144,7 @@ public class DeblockingFilter
             }
          }
 
-         if (((predictionType & LossyIntraPredictor.DIR_RIGHT) != 0) && (x < w-blockDim-inc))
+         if (((predictionType & DIR_RIGHT) != 0) && (x < w-blockDim-inc))
          {
             final int k = j + blockDim;
             final int q0 = frame[k];

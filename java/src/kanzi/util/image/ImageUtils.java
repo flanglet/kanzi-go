@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kanzi.util;
+package kanzi.util.image;
 
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
@@ -33,6 +33,7 @@ import java.lang.reflect.Method;
 import javax.imageio.ImageIO;
 
 
+// Dependency on Java AWT package
 public class ImageUtils
 {
    public static final int NO_TRANSFORM     = 0;
@@ -96,12 +97,7 @@ public class ImageUtils
            
            int w = image.getWidth(null);
            int h = image.getHeight(null);
-           int[] data = new int[w*h];
-           GraphicsDevice gs = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
-           GraphicsConfiguration gc = gs.getDefaultConfiguration();
-           BufferedImage img = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
-           img.getGraphics().drawImage(image, 0, 0, null);           
-           img.getRaster().getDataElements(0, 0, w, h, data);
+           int[] data = createCompatibleImage(image, w, h);
            return new ImageInfo(w, h, data);
          }
          
@@ -123,12 +119,7 @@ public class ImageUtils
               Integer h = (Integer) m.invoke(ro, new Object[0]);
               m = cl3.getSuperclass().getDeclaredMethod("getAsBufferedImage", new Class[0]);
               Image image = (Image) m.invoke(ro, new Object[0]);
-              int[] data = new int[w*h];
-              GraphicsDevice gs = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
-              GraphicsConfiguration gc = gs.getDefaultConfiguration();
-              BufferedImage img = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
-              img.getGraphics().drawImage(image, 0, 0, null);           
-              img.getRaster().getDataElements(0, 0, w, h, data);
+              int[] data = createCompatibleImage(image, w, h);
               return new ImageInfo(w, h, data);
            }
            catch (ClassNotFoundException e)
@@ -145,6 +136,18 @@ public class ImageUtils
               return null;
           }
       }
+   }
+   
+   
+   private static int[] createCompatibleImage(Image image, int w, int h)
+   {
+      int[] data = new int[w*h];
+      GraphicsDevice gs = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
+      GraphicsConfiguration gc = gs.getDefaultConfiguration();
+      BufferedImage img = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
+      img.getGraphics().drawImage(image, 0, 0, null);           
+      img.getRaster().getDataElements(0, 0, w, h, data);      
+      return data;
    }
    
    

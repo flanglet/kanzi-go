@@ -28,7 +28,7 @@ import javax.swing.JLabel;
 import kanzi.ColorModelType;
 import kanzi.prediction.LossyIntraPredictor;
 import kanzi.prediction.Prediction;
-import kanzi.util.ImageQualityMonitor;
+import kanzi.util.image.ImageQualityMonitor;
 import kanzi.util.color.ColorModelConverter;
 import kanzi.util.color.YCbCrColorModelConverter;
 

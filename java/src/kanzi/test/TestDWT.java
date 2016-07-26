@@ -33,11 +33,8 @@ import kanzi.IntTransform;
 import kanzi.transform.DWT_CDF_9_7;
 import kanzi.transform.DWT_Haar;
 import kanzi.util.color.ColorModelConverter;
-import kanzi.util.ImageQualityMonitor;
+import kanzi.util.image.ImageQualityMonitor;
 import kanzi.util.color.RGBColorModelConverter;
-import kanzi.util.color.YCbCrColorModelConverter;
-import kanzi.util.color.YCoCgColorModelConverter;
-import kanzi.util.color.YSbSrColorModelConverter;
 
 
 public class TestDWT
@@ -46,10 +43,10 @@ public class TestDWT
    {
       try
       {
-         String fileName = (args.length > 0) ? args[0] : "r:\\london_bridge.jpg";
+         String fileName = (args.length > 0) ? args[0] : "r:\\lena.jpg";
          Image image = ImageIO.read(new File(fileName));
-         int w = image.getWidth(null);
-         int h = image.getHeight(null);
+         int w = image.getWidth(null) & -256;
+         int h = image.getHeight(null) & -256;
 
          if (image.getWidth(null) <= 0)
          {
@@ -80,7 +77,7 @@ public class TestDWT
          yDWT = new DWT_Haar(w, h, 4, true);
          uvDWT = new DWT_Haar(w >> shift, h >> shift, 4, true);         
          process("Haar", image, w, h, yDWT, uvDWT, 565, 100);
-
+         
          yDWT = new DWT_CDF_9_7(w, h, 6);
          uvDWT = new DWT_CDF_9_7(w >> shift, h >> shift, 6);
          process("Daubechies", image, w, h, yDWT, uvDWT, 1100, 100);

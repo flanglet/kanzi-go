@@ -29,7 +29,7 @@ import kanzi.transform.WHT16;
 import kanzi.transform.WHT32;
 import kanzi.transform.WHT4;
 import kanzi.transform.WHT8;
-import kanzi.util.ImageQualityMonitor;
+import kanzi.util.image.ImageQualityMonitor;
 
 public class TestImageTransform
 {

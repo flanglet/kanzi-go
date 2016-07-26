@@ -77,10 +77,7 @@ type IOError struct {
 }
 
 func NewIOError(msg string, code int) *IOError {
-	this := new(IOError)
-	this.msg = msg
-	this.code = code
-	return this
+	return &IOError{ msg:msg, code:code }
 }
 
 // Implement error interface

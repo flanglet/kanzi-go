@@ -30,7 +30,7 @@ import javax.swing.JLabel;
 import kanzi.ColorModelType;
 import kanzi.util.color.ColorModelConverter;
 import kanzi.util.color.YCbCrColorModelConverter;
-import kanzi.util.ImageQualityMonitor;
+import kanzi.util.image.ImageQualityMonitor;
 import kanzi.util.color.ReversibleYUVColorModelConverter;
 import kanzi.util.color.XYZColorModelConverter;
 import kanzi.util.color.YCoCgColorModelConverter;

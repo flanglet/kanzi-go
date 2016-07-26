@@ -72,8 +72,7 @@ public class CompressedOutputStream extends OutputStream
       this(entropyCodec, functionType, os, DEFAULT_BLOCK_SIZE, false);
    }
 
-
-   // debug print stream is optional (may be null)
+   
    public CompressedOutputStream(String entropyCodec, String functionType,
                OutputStream os, int blockSize, boolean checksum)
    {
@@ -81,7 +80,6 @@ public class CompressedOutputStream extends OutputStream
    }
 
 
-   // debug print stream is optional (may be null)
    public CompressedOutputStream(String entropyCodec, String transform,
                OutputStream os, int blockSize, boolean checksum, 
                ExecutorService pool, int jobs)
