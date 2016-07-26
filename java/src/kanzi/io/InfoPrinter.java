@@ -23,7 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 // of the BlockCompressor/BlockDecompressor)
 public class InfoPrinter implements BlockListener
 {
-   public enum Type { ENCODING, DECODING };
+   public enum Type { ENCODING, DECODING }
    
    private final PrintStream ps;
    private final Map<Integer, BlockInfo> map;

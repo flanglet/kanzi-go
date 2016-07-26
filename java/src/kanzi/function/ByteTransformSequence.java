@@ -165,7 +165,7 @@ public class ByteTransformSequence implements ByteFunction
          ByteTransform transform = this.transforms[i];                 
                   
          // Apply inverse transform
-         res &= transform.inverse(input, output, length);                  
+         res = transform.inverse(input, output, length);                  
          length = output.index - savedOIdx;
 
          // All inverse transforms must succeed

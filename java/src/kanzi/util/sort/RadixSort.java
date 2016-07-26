@@ -186,8 +186,8 @@ public final class RadixSort implements IntSorter, ByteSorter
 
     private static class LinkedQueue
     {
-        private static ConcurrentLinkedQueue<byte[]> POOL_B = new ConcurrentLinkedQueue<byte[]>();
-        private static ConcurrentLinkedQueue<int[]>  POOL_I = new ConcurrentLinkedQueue<int[]>();
+        private static final ConcurrentLinkedQueue<byte[]> POOL_B = new ConcurrentLinkedQueue<byte[]>();
+        private static final ConcurrentLinkedQueue<int[]>  POOL_I = new ConcurrentLinkedQueue<int[]>();
 
         private final Node head;
         private final int bufferSize;

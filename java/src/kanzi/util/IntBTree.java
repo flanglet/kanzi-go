@@ -325,7 +325,7 @@ public final class IntBTree
          if (current.left != null)
             index = scanAndCall(current.left, array, index, cb, false);
 
-         index = cb.call(current, array, index, reverse);
+         index = cb.call(current, array, index, false);
 
          if (current.right != null)
             index = scanAndCall(current.right, array, index, cb, false);
@@ -335,7 +335,7 @@ public final class IntBTree
          if (current.right != null)
             index = scanAndCall(current.right, array, index, cb, true);
 
-         index = cb.call(current, array, index, reverse);
+         index = cb.call(current, array, index, true);
 
          if (current.left != null)
             index = scanAndCall(current.left, array, index, cb, true);

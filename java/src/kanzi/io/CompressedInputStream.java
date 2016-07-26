@@ -425,7 +425,7 @@ public class CompressedInputStream extends InputStream
       }
       catch (BitStreamException e)
       {
-         throw new kanzi.io.IOException(e.getMessage(), ((BitStreamException) e).getErrorCode());
+         throw new kanzi.io.IOException(e.getMessage(), e.getErrorCode());
       }
 
       // Release resources

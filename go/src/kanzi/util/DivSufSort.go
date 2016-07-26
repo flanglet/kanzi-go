@@ -1662,7 +1662,7 @@ func ssIlg(n int) int {
 
 func (this *DivSufSort) trSort(n, depth int) {
 	arr := this.sa
-	budget := newTRBudget(trIlg(n)*2/3, n)
+	budget := &TRBudget{chance:trIlg(n)*2/3, remain:n, incVal:n}
 
 	for isad := n + depth; arr[0] > -n; isad += (isad - n) {
 		first := 0
@@ -1941,9 +1941,7 @@ func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *TRBudget
 					this.trPartialCopy(isa, first, se.b, se.c, last, isad-isa)
 				}
 
-				se = this.trStack.pop()
-
-				if se == nil {
+				if se = this.trStack.pop(); se == nil {
 					return
 				}
 
@@ -2578,14 +2576,6 @@ func (this *Stack) pop() *StackElement {
 
 	this.index--
 	return this.array[this.index]
-}
-
-func newTRBudget(chance, incVal int) *TRBudget {
-	this := new(TRBudget)
-	this.chance = chance
-	this.remain = incVal
-	this.incVal = incVal
-	return this
 }
 
 func (this *TRBudget) check(size int) bool {

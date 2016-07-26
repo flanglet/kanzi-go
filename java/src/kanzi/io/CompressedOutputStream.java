@@ -328,7 +328,7 @@ public class CompressedOutputStream extends OutputStream
       }
       catch (BitStreamException e)
       {
-         throw new kanzi.io.IOException(e.getMessage(), ((BitStreamException) e).getErrorCode());
+         throw new kanzi.io.IOException(e.getMessage(), e.getErrorCode());
       }
 
       this.listeners.clear();

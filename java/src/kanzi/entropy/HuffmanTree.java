@@ -107,5 +107,5 @@ public final class HuffmanTree
             // Check index (natural order) as second key
             return (res != 0) ? res : lidx - ridx;
         }
-    };    
+    }   
 }

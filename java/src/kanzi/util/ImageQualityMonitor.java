@@ -402,7 +402,7 @@ public final class ImageQualityMonitor
       final int ssim1024_chan3 = this.computeOneChannelSSIM(img1_chan3, img2_chan3, x, y, w, h, ds);
 
       // YUV => weight 0.8 for Y and 0.1 for U & V
-      return (int) ((102*ssim1024_chan1) + (13*ssim1024_chan2) + (13*ssim1024_chan3)) >> 7;
+      return ((102*ssim1024_chan1) + (13*ssim1024_chan2) + (13*ssim1024_chan3)) >> 7;
    }
 
 

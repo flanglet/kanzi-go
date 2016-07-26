@@ -345,7 +345,7 @@ func scanAndCall(current *IntBTNode, array []int, index int, callback IntBTreeCa
 			index = scanAndCall(current.left, array, index, callback, false)
 		}
 
-		index = callback(current, array, index, reverse)
+		index = callback(current, array, index, false)
 
 		if current.right != nil {
 			index = scanAndCall(current.right, array, index, callback, false)
@@ -355,7 +355,7 @@ func scanAndCall(current *IntBTNode, array []int, index int, callback IntBTreeCa
 			index = scanAndCall(current.right, array, index, callback, true)
 		}
 
-		index = callback(current, array, index, reverse)
+		index = callback(current, array, index, true)
 
 		if current.left != nil {
 			index = scanAndCall(current.left, array, index, callback, true)

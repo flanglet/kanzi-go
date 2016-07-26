@@ -101,7 +101,7 @@ public class BinaryEntropyDecoder implements EntropyDecoder
    }
 
 
-   protected int decodeBit()
+   private int decodeBit()
    {
       // Calculate interval split
       // Written in a way to maximize accuracy of multiplication/division

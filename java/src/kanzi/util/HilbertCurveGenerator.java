@@ -19,7 +19,7 @@ package kanzi.util;
 // Implementation based on initial code at http://www.compuphase.com/hilbert.htm
 public class HilbertCurveGenerator
 {
-    private enum Direction   { UP, LEFT, DOWN, RIGHT };
+    private enum Direction { UP, LEFT, DOWN, RIGHT }
 
     private final int dim;
 

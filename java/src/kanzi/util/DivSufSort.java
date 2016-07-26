@@ -1165,7 +1165,7 @@ public final class DivSufSort
 
         if (e >= 16)
         {
-            y = SQQ_TABLE[x >> ((e - 6) - (e & 1))] << ((e >> 1) - 7);
+            y = SQQ_TABLE[x>>((e-6)-(e&1))] << ((e>>1)-7);
 
             if (e >= 24)
             {
@@ -1176,10 +1176,10 @@ public final class DivSufSort
         }
         else
         {
-            y = (SQQ_TABLE[x >> ((e - 6) - (e & 1))] >> (7 - (e >> 1))) + 1;
+            y = (SQQ_TABLE[x>>((e-6)-(e&1))] >> (7-(e>>1))) + 1;
         }
 
-        return (x < y * y) ? y - 1 : y;
+        return (x < y*y) ? y-1 : y;
     }
 
 

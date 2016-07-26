@@ -58,4 +58,4 @@ public enum ColorModelType
              return "RGB";
        }
     }
-};
+}

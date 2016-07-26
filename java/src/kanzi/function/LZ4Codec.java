@@ -15,7 +15,6 @@ limitations under the License.
 
 package kanzi.function;
 
-import java.nio.ByteOrder;
 import kanzi.ByteFunction;
 import kanzi.Global;
 import kanzi.IndexedByteArray;
