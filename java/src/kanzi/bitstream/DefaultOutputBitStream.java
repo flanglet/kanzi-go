@@ -68,22 +68,20 @@ public final class DefaultOutputBitStream implements OutputBitStream
       }
    }
 
-
    // Write 'count' (in [1..64]) bits. Trigger exception if stream is closed
    @Override
    public int writeBits(long value, int count)
    {
-      if (((count -1) & -64) != 0)
-      {
-         if (count == 0)
-            return 0;
-
-         throw new IllegalArgumentException("Invalid length: "+count+" (must be in [1..64])");
-      }
+      if (count == 0)
+         return 0;
       
-      value &= (-1L >>> -count);
+      if (count > 64)
+         throw new IllegalArgumentException("Invalid length: "+count+" (must be in [1..64])");
+      
+      value &= ~(-1L << count);
       final int remaining = this.bitIndex + 1 - count;
 
+      // Pad the current position in buffer
       if (remaining > 0)
       {
          // Enough spots available in 'current'
@@ -95,12 +93,8 @@ public final class DefaultOutputBitStream implements OutputBitStream
          // Not enough spots available in 'current'
          this.current |= (value >>> -remaining);
          this.pushCurrent();
-         
-         if (remaining != 0) 
-         {
-            this.current |= (value << remaining);
-            this.bitIndex += remaining;
-         } 
+         this.current = (value << remaining);
+         this.bitIndex += remaining; 
       }
 
       return count;

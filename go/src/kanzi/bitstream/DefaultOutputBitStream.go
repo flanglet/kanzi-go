@@ -78,7 +78,7 @@ func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) uint {
 		panic(fmt.Errorf("Invalid length: %v (must be in [1..64])", count))
 	}
 
-	value &= (0xFFFFFFFFFFFFFFFF >> (64 - count))
+	value &= ^(0xFFFFFFFFFFFFFFFF << count)
 	bi := uint(this.bitIndex + 1)
 
 	// Pad the current position in buffer
@@ -92,11 +92,8 @@ func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) uint {
 		remaining := count - bi
 		this.current |= (value >> remaining)
 		this.pushCurrent()
-
-		if remaining != 0 {
-			this.current |= (value << (64 - remaining))
-			this.bitIndex -= int(remaining)
-		}
+		this.current = (value << (64 - remaining))
+		this.bitIndex -= int(remaining)
 	}
 
 	return count
