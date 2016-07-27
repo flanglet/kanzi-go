@@ -81,7 +81,7 @@ func NewBlockDecompressor() (*BlockDecompressor, error) {
 		os.Exit(kio.ERR_MISSING_PARAM)
 	}
 
-	if strings.HasSuffix(*inputName, ".knz") == false {
+	if strings.ToUpper(*inputName) != "STDIN" && !strings.HasSuffix(*inputName, ".knz") {
 		printOut("Warning: the input file name does not end with the .KNZ extension", *verbose > 0)
 	}
 

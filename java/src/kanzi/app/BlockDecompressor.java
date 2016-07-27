@@ -423,7 +423,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
            System.exit(Error.ERR_MISSING_PARAM);
         }
 
-        if (inputName.endsWith(".knz") == false)
+        if (("STDIN".equalsIgnoreCase(inputName) == false) && (inputName.endsWith(".knz") == false))
            printOut("Warning: the input file name does not end with the .KNZ extension", verbose>0);
 
         if (outputName == null)

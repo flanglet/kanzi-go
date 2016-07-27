@@ -68,6 +68,7 @@ public final class DefaultOutputBitStream implements OutputBitStream
       }
    }
 
+   
    // Write 'count' (in [1..64]) bits. Trigger exception if stream is closed
    @Override
    public int writeBits(long value, int count)
@@ -93,8 +94,12 @@ public final class DefaultOutputBitStream implements OutputBitStream
          // Not enough spots available in 'current'
          this.current |= (value >>> -remaining);
          this.pushCurrent();
-         this.current = (value << remaining);
-         this.bitIndex += remaining; 
+         
+         if (remaining != 0)
+         {
+            this.current = (value << remaining);
+            this.bitIndex += remaining; 
+         }
       }
 
       return count;
