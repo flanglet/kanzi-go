@@ -512,8 +512,13 @@ public class CompressedOutputStream extends OutputStream
             {
                // Just copy
                if (data.array != buffer.array)
+               {
+                  if (buffer.array.length < blockLength)
+                     buffer.array = new byte[blockLength];
+               
                   System.arraycopy(data.array, data.index, buffer.array, 0, blockLength);
-
+               }
+               
                data.index += blockLength;
                buffer.index = blockLength;
                mode = (byte) (SMALL_BLOCK_MASK | (blockLength & COPY_LENGTH_MASK));
@@ -526,7 +531,7 @@ public class CompressedOutputStream extends OutputStream
                if (buffer.array.length < requiredSize)
                   buffer.array = new byte[requiredSize];
 
-		// Forward transform (ignore error, encode skipFlags)
+               // Forward transform (ignore error, encode skipFlags)
                buffer.index = 0;
                transform.forward(data, buffer, blockLength);
                mode |= ((transform.getSkipFlags() & ByteTransformSequence.SKIP_MASK) << 2);                                   

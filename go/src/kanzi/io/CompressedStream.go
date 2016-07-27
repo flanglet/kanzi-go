@@ -77,7 +77,7 @@ type IOError struct {
 }
 
 func NewIOError(msg string, code int) *IOError {
-	return &IOError{ msg:msg, code:code }
+	return &IOError{msg: msg, code: code}
 }
 
 // Implement error interface
@@ -423,6 +423,10 @@ func (this *EncodingTask) encode() {
 	if this.blockLength <= SMALL_BLOCK_SIZE {
 		// Just copy
 		if !kanzi.SameByteSlices(buffer, this.data, false) {
+			if len(buffer) < int(this.blockLength) {
+				buffer = make([]byte, this.blockLength)
+			}
+
 			copy(buffer, this.data[0:this.blockLength])
 		}
 
