@@ -191,13 +191,12 @@ func (this *DivSufSort) constructSuffixArray(bucket_A, bucket_B []int, n, m int)
 }
 
 func (this *DivSufSort) sortTypeBstar(bucket_A, bucket_B []int, n int) int {
-	c1 := 0
 	m := n
 	c0 := this.buffer[n-1]
 	arr := this.sa
 
 	for i := n - 1; i >= 0; {
-		c1 = c0
+		c1 := c0
 
 		for c0 >= c1 {
 			c1 = c0
@@ -244,7 +243,7 @@ func (this *DivSufSort) sortTypeBstar(bucket_A, bucket_B []int, n int) int {
 		idx := c0 << 8
 		i = t + bucket_B[idx+c0]
 
-		for c1 = c0 + 1; c1 < 256; c1++ {
+		for c1 := c0 + 1; c1 < 256; c1++ {
 			j += bucket_B[idx+c1]
 			bucket_B[idx+c1] = j // end point
 			i += bucket_B[(c1<<8)+c0]
@@ -274,7 +273,7 @@ func (this *DivSufSort) sortTypeBstar(bucket_A, bucket_B []int, n int) int {
 		for j := m; j > 0; c0-- {
 			idx := c0 << 8
 
-			for c1 = 255; c1 > c0; c1-- {
+			for c1 := 255; c1 > c0; c1-- {
 				i := bucket_B[idx+c1]
 
 				if j-i > 1 {
@@ -326,6 +325,7 @@ func (this *DivSufSort) sortTypeBstar(bucket_A, bucket_B []int, n int) int {
 
 		// Set the sorted order of type B* suffixes.
 		c0 = this.buffer[n-1]
+		var c1 int
 
 		for i, j := n-1, m; i >= 0; {
 			i--
@@ -1468,7 +1468,7 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 				}
 			}
 		} else {
-			if this.buffer[idx+this.sa[pa+this.sa[first]]-1] < v {
+			if this.buffer[idx+buf2[this.sa[first]]-1] < v {
 				first = this.ssPartition(pa, first, last, depth)
 				limit = ssIlg(last - first)
 			} else {
@@ -1559,22 +1559,23 @@ func (this *DivSufSort) ssMedian3(buf0, buf1 []int, v1, v2, v3 int) int {
 }
 
 func (this *DivSufSort) ssPartition(pa, first, last, depth int) int {
-	sa_ := this.sa
-	buf := this.sa[pa:]
+	buf1 := this.sa
+	buf2 := this.sa[pa:]
 	a := first - 1
 	b := last
+	d := depth - 1
 
 	for true {
 		a++
 
-		for a < b && buf[sa_[a]]+depth >= buf[sa_[a]+1]+1 {
-			sa_[a] = ^sa_[a]
+		for a < b && buf2[buf1[a]]+d >= buf2[buf1[a]+1] {
+			buf1[a] = ^buf1[a]
 			a++
 		}
 
 		b--
 
-		for b > a && buf[sa_[b]]+depth < buf[sa_[b]+1]+1 {
+		for b > a && buf2[buf1[b]]+d < buf2[buf1[b]+1] {
 			b--
 		}
 
@@ -1582,11 +1583,11 @@ func (this *DivSufSort) ssPartition(pa, first, last, depth int) int {
 			break
 		}
 
-		sa_[a], sa_[b] = ^sa_[b], sa_[a]
+		buf1[a], buf1[b] = ^buf1[b], buf1[a]
 	}
 
 	if first < a {
-		sa_[first] = ^sa_[first]
+		buf1[first] = ^buf1[first]
 	}
 
 	return a
@@ -1662,7 +1663,7 @@ func ssIlg(n int) int {
 
 func (this *DivSufSort) trSort(n, depth int) {
 	arr := this.sa
-	budget := &TRBudget{chance:trIlg(n)*2/3, remain:n, incVal:n}
+	budget := &TRBudget{chance: trIlg(n) * 2 / 3, remain: n, incVal: n}
 
 	for isad := n + depth; arr[0] > -n; isad += (isad - n) {
 		first := 0

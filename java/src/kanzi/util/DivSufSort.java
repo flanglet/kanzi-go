@@ -196,13 +196,14 @@ public final class DivSufSort
 
     private int sortTypeBstar(int[] bucket_A, int[] bucket_B, final int n)
     {
-        int c1 = 0;
         int m = n;
         int c0 = this.buffer[n-1];
         final int[] arr = this.sa;
 
         for (int i=n-1; i>=0; )
         {
+            int c1;
+            
             do
             {
                 c1 = c0;
@@ -239,7 +240,7 @@ public final class DivSufSort
             final int idx = c0 << 8;
             i = t + bucket_B[idx+c0];
 
-            for (c1=c0+1; c1<256; c1++)
+            for (int c1=c0+1; c1<256; c1++)
             {
                 j += bucket_B[idx+c1];
                 bucket_B[idx+c1] = j; // end point
@@ -273,7 +274,7 @@ public final class DivSufSort
             {
                 final int idx = c0 << 8;
                
-                for (c1=255; c1>c0; c1--)
+                for (int c1=255; c1>c0; c1--)
                 {
                     final int i = bucket_B[idx+c1];
 
@@ -319,8 +320,10 @@ public final class DivSufSort
 
             // Construct the inverse suffix array of type B* suffixes using trsort.
             this.trSort(m, 1);
+            
             // Set the sorted order of type B* suffixes.
             c0 = this.buffer[n-1];
+            int c1;
 
             for (int i=n-1, j=m; i>=0; )
             {
@@ -1540,18 +1543,24 @@ public final class DivSufSort
         final int[] arr = this.sa;
         int a = first - 1;
         int b = last;
+        final int d = depth - 1;
+        final int pb = pa + 1;
 
         while (true)
         {
-            for (; (++a < b) && (arr[pa+arr[a]]+depth >= arr[pa+arr[a]+1]+1); )
+            a++;
+           
+            for (; (a < b) && (arr[pa+arr[a]]+d >= arr[pb+arr[a]]); )
             {
                 arr[a] = ~arr[a];
+                a++;
             }
 
-            for (; (--b > a) && (arr[pa+arr[b]]+depth < arr[pa+arr[b]+1]+1); )
-            {
-            }
-
+            b--;
+            
+            for (; (b > a) && (arr[pa+arr[b]]+d < arr[pb+arr[b]]); )
+                b--;
+            
             if (b <= a)
                 break;
 
