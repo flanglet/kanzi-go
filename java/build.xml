@@ -24,7 +24,9 @@
 		 <include name="kanzi/function/**"/>
 		 <include name="kanzi/io/**"/>
 		 <include name="kanzi/transform/**"/>
-		 <include name="kanzi/util/**"/>
+		 <include name="kanzi/util/*.java"/>
+		 <include name="kanzi/util/hash/**"/>
+		 <include name="kanzi/util/sort/**"/>
 	  </javac>
    </target>
    
