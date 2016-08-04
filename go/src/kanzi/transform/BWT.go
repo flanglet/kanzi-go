@@ -232,11 +232,9 @@ func (this *BWT) inverseRegularBlock(src, dst []byte, count int) (uint, uint, er
 
 	sum := 0
 
-	// Create cumulative histogram
 	for i := range buckets_ {
-		tmp := buckets_[i]
-		buckets_[i] = sum
-		sum += tmp
+		sum += buckets_[i]
+		buckets_[i] = sum - buckets_[i]
 	}
 
 	ptr := data[pIdx]

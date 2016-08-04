@@ -220,9 +220,8 @@ public class BWT implements ByteTransform
        // Create cumulative histogram
        for (int i=0, sum=0; i<256; i++)
        {
-          final int tmp = buckets_[i];
-          buckets_[i] = sum;
-          sum += tmp;
+          sum += buckets_[i];
+          buckets_[i] = sum - buckets_[i];
        }
 
        int ptr = data[pIdx];

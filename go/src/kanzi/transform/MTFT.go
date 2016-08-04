@@ -223,12 +223,13 @@ func (this *MTFT) Forward(src, dst []byte) (uint, uint, error) {
 				this.heads[listIdx] = p.previous.next
 			}
 
-			this.lengths[listIdx]--
-			this.lengths[0]++
 			this.buckets[int(current)] = 0
 
-			if this.lengths[0] > RESET_THRESHOLD || this.lengths[listIdx] == 0 {
+			if this.lengths[0] >= RESET_THRESHOLD {
 				this.balanceLists(false)
+			} else {
+				this.lengths[listIdx]--
+				this.lengths[0]++
 			}
 		}
 

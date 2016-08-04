@@ -75,7 +75,7 @@ public final class MTFT implements ByteTransform
            output[dstIdx+i] = value;
 
            if (idx <= 16)
-           {     
+           {                  
               for (int j=idx-1; j>=0; j--)
                  indexes[j+1] = indexes[j];
            }
@@ -223,12 +223,17 @@ public final class MTFT implements ByteTransform
              if (p == this.heads[listIdx])
                 this.heads[listIdx] = p.previous.next;
              
-             this.lengths[listIdx]--;
-             this.lengths[0]++;
              this.buckets[current & 0xFF] = 0;
 
-             if ((this.lengths[0] > RESET_THRESHOLD) || (this.lengths[listIdx] == 0))
+             if ((this.lengths[0] >= RESET_THRESHOLD))
+             {
                 this.balanceLists(false);
+             }
+             else
+             {
+                this.lengths[listIdx]--;
+                this.lengths[0]++;                
+             }
           }
 
           previous = current;
