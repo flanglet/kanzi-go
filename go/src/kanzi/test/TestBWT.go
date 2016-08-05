@@ -183,12 +183,12 @@ func TestSpeed(isBWT bool) {
 			}
 		}
 
-		println()
 		prod := int64(iter) * int64(size)
 		fmt.Printf("Forward transform [ms] : %v\n", delta1/1000000)
 		fmt.Printf("Throughput [KB/s]      : %d\n", prod*1000000/delta1*1000/1024)
 		fmt.Printf("Inverse transform [ms] : %v\n", delta2/1000000)
 		fmt.Printf("Throughput [KB/s]      : %d\n", prod*1000000/delta2*1000/1024)
-		println()
 	}
+
+	println()
 }

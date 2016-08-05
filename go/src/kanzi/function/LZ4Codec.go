@@ -148,10 +148,10 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		// First byte
-		h32 := (this.order.Uint32(src[srcIdx:]) * HASH_SEED) >> hashShift
+		h32 := (this.order.Uint32(src[srcIdx:srcIdx+4]) * HASH_SEED) >> hashShift
 		table[h32] = srcIdx
 		srcIdx++
-		h32 = (this.order.Uint32(src[srcIdx:]) * HASH_SEED) >> hashShift
+		h32 = (this.order.Uint32(src[srcIdx:srcIdx+4]) * HASH_SEED) >> hashShift
 
 		for {
 			fwdIdx := srcIdx
@@ -174,7 +174,7 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 				searchMatchNb++
 				match = table[h32]
 				table[h32] = srcIdx
-				h32 = (this.order.Uint32(src[fwdIdx:]) * HASH_SEED) >> hashShift
+				h32 = (this.order.Uint32(src[fwdIdx:fwdIdx+4]) * HASH_SEED) >> hashShift
 
 				if differentInts(src[srcIdx:srcIdx+4], src[match:match+4]) == false && match > srcIdx-MAX_DISTANCE {
 					break
@@ -238,15 +238,15 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 				}
 
 				// Fill table
-				h32 = (this.order.Uint32(src[srcIdx-2:]) * HASH_SEED) >> hashShift
+				h32 = (this.order.Uint32(src[srcIdx-2:srcIdx+2]) * HASH_SEED) >> hashShift
 				table[h32] = srcIdx - 2
 
 				// Test next position
-				h32 = (this.order.Uint32(src[srcIdx:]) * HASH_SEED) >> hashShift
+				h32 = (this.order.Uint32(src[srcIdx:srcIdx+4]) * HASH_SEED) >> hashShift
 				match = table[h32]
 				table[h32] = srcIdx
 
-				if differentInts(src[srcIdx:srcIdx+4], src[match:match+4]) == true || match <= srcIdx-MAX_DISTANCE {
+				if differentInts(src[srcIdx:srcIdx+4], src[match:match+4]) || match <= srcIdx-MAX_DISTANCE {
 					break
 				}
 
@@ -257,7 +257,7 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 
 			// Prepare next loop
 			srcIdx++
-			h32 = (this.order.Uint32(src[srcIdx:]) * HASH_SEED) >> hashShift
+			h32 = (this.order.Uint32(src[srcIdx:srcIdx+4]) * HASH_SEED) >> hashShift
 		}
 	}
 
@@ -363,14 +363,16 @@ func (this *LZ4Codec) Inverse(src, dst []byte) (uint, uint, error) {
 		} else {
 			// Unroll loop
 			for {
-				dst[dstIdx] = dst[match]
-				dst[dstIdx+1] = dst[match+1]
-				dst[dstIdx+2] = dst[match+2]
-				dst[dstIdx+3] = dst[match+3]
-				dst[dstIdx+4] = dst[match+4]
-				dst[dstIdx+5] = dst[match+5]
-				dst[dstIdx+6] = dst[match+6]
-				dst[dstIdx+7] = dst[match+7]
+				s := dst[match : match+8]
+				d := dst[dstIdx : dstIdx+8]
+				d[0] = s[0]
+				d[1] = s[1]
+				d[2] = s[2]
+				d[3] = s[3]
+				d[4] = s[4]
+				d[5] = s[5]
+				d[6] = s[6]
+				d[7] = s[7]
 				match += 8
 				dstIdx += 8
 

@@ -161,14 +161,15 @@ func (this *DefaultInputBitStream) pullCurrent() {
 		}
 	} else {
 		// Regular processing, buffer length is multiple of 8
-		val = uint64(this.buffer[this.position]) << 56
-		val |= (uint64(this.buffer[this.position+1]) << 48)
-		val |= (uint64(this.buffer[this.position+2]) << 40)
-		val |= (uint64(this.buffer[this.position+3]) << 32)
-		val |= (uint64(this.buffer[this.position+4]) << 24)
-		val |= (uint64(this.buffer[this.position+5]) << 16)
-		val |= (uint64(this.buffer[this.position+6]) << 8)
-		val |= uint64(this.buffer[this.position+7])
+		buf := this.buffer[this.position:this.position+8]
+		val = uint64(buf[0]) << 56
+		val |= (uint64(buf[1]) << 48)
+		val |= (uint64(buf[2]) << 40)
+		val |= (uint64(buf[3]) << 32)
+		val |= (uint64(buf[4]) << 24)
+		val |= (uint64(buf[5]) << 16)
+		val |= (uint64(buf[6]) << 8)
+		val |= uint64(buf[7])
 		this.bitIndex = 63
 		this.position += 8
 	}

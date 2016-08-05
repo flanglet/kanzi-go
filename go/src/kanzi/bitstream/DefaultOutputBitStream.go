@@ -104,14 +104,15 @@ func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) uint {
 
 // Push 64 bits of current value into buffer.
 func (this *DefaultOutputBitStream) pushCurrent() {
-	this.buffer[this.position] = byte(this.current >> 56)
-	this.buffer[this.position+1] = byte(this.current >> 48)
-	this.buffer[this.position+2] = byte(this.current >> 40)
-	this.buffer[this.position+3] = byte(this.current >> 32)
-	this.buffer[this.position+4] = byte(this.current >> 24)
-	this.buffer[this.position+5] = byte(this.current >> 16)
-	this.buffer[this.position+6] = byte(this.current >> 8)
-	this.buffer[this.position+7] = byte(this.current)
+	buf := this.buffer[this.position : this.position+8]
+	buf[0] = byte(this.current >> 56)
+	buf[1] = byte(this.current >> 48)
+	buf[2] = byte(this.current >> 40)
+	buf[3] = byte(this.current >> 32)
+	buf[4] = byte(this.current >> 24)
+	buf[5] = byte(this.current >> 16)
+	buf[6] = byte(this.current >> 8)
+	buf[7] = byte(this.current)
 	this.bitIndex = 63
 	this.current = 0
 	this.position += 8
