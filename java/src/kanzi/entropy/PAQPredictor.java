@@ -259,7 +259,7 @@ public class PAQPredictor implements Predictor
      p = this.apm2.get(bit, p, this.c0 | (c1d<<8));
      p = (3*this.apm3.get(bit, p, (this.c4&0xFF) | this.runCtx) + p + 2) >> 2;    
      p = (3*this.apm4.get(bit, p, this.c0 | (this.c4&0xFF00)) + p + 2) >> 2;
-     this.pr = p + ((p - 2048) >>> 31);   
+     this.pr = p + ((p-2048) >>> 31);   
    }
 
 

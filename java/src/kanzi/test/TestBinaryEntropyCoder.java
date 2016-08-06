@@ -29,31 +29,48 @@ import kanzi.entropy.CMPredictor;
 import kanzi.entropy.FPAQPredictor;
 import kanzi.entropy.PAQPredictor;
 import kanzi.entropy.Predictor;
+import kanzi.entropy.TPAQPredictor;
 
 
 public class TestBinaryEntropyCoder
 {
     public static void main(String[] args)
     {
-       if (args.length == 0)
+       if (args.length > 0)
        {
-          System.out.println("\n\nTestFPAQEntropyCoder");
-          testCorrectness("FPAQ");
-          testSpeed("FPAQ");
-          System.out.println("\n\nTestCMEntropyCoder");
-          testCorrectness("CM");
-          testSpeed("CM");
-          System.out.println("\n\nTestPAQEntropyCoder");
-          testCorrectness("PAQ");
-          testSpeed("PAQ");
-       }
-       else
-       {
-          String type = args[0].toUpperCase();
-          System.out.println("Test" + type + "EntropyCoder");
-          testCorrectness(type);
-          testSpeed(type);         
-       }
+         String type = args[0].toUpperCase();
+          
+         if (type.startsWith("-TYPE=")) 
+         {
+            type = type.substring(6);
+             
+            if (type.equals("ALL"))
+            {
+               System.out.println("\n\nTestFPAQEntropyCoder");
+               testCorrectness("FPAQ");
+               testSpeed("FPAQ");
+               System.out.println("\n\nTestCMEntropyCoder");
+               testCorrectness("CM");
+               testSpeed("CM");
+               System.out.println("\n\nTestPAQEntropyCoder");
+               testCorrectness("PAQ");
+               testSpeed("PAQ");
+               System.out.println("\n\nTestTPAQEntropyCoder");
+               testCorrectness("TPAQ");
+               testSpeed("TPAQ");
+            }
+            else
+            {
+               System.out.println("Test" + type + "EntropyCoder");
+               testCorrectness(type);
+               testSpeed(type);
+            }
+            
+            return;
+         }
+      }
+       
+      System.out.println("Usage: TestBinaryEntropyCoder -type=???");          
     }
     
     
@@ -61,6 +78,9 @@ public class TestBinaryEntropyCoder
     {
        if (type.equals("PAQ"))
           return new PAQPredictor();
+       
+       if (type.equals("TPAQ"))
+          return new TPAQPredictor();
        
        if (type.equals("FPAQ"))
           return new FPAQPredictor();
@@ -72,10 +92,10 @@ public class TestBinaryEntropyCoder
     }
     
     
-    public static void testCorrectness(String type)
+    public static void testCorrectness(String name)
     {
         // Test behavior
-        System.out.println("Correctness test");
+        System.out.println("Correctness test for " + name);
 
         for (int ii=1; ii<20; ii++)
         {
@@ -124,14 +144,14 @@ public class TestBinaryEntropyCoder
                 OutputBitStream bs = new DefaultOutputBitStream(os, 16384);
                 DebugOutputBitStream dbgbs = new DebugOutputBitStream(bs, System.out);
                 dbgbs.showByte(true);
-                BinaryEntropyEncoder bec = new BinaryEntropyEncoder(dbgbs, getPredictor(type));
+                BinaryEntropyEncoder bec = new BinaryEntropyEncoder(dbgbs, getPredictor(name));
                 bec.encode(values, 0, values.length);
                 
                 bec.dispose();
                 dbgbs.close();
                 byte[] buf = os.toByteArray();
                 InputBitStream bs2 = new DefaultInputBitStream(new ByteArrayInputStream(buf), 1024);
-                BinaryEntropyDecoder bed = new BinaryEntropyDecoder(bs2, getPredictor(type));
+                BinaryEntropyDecoder bed = new BinaryEntropyDecoder(bs2, getPredictor(name));
                 System.out.println("\nDecoded:");
                 boolean ok = true;
                 byte[] values2 = new byte[values.length];
@@ -165,13 +185,13 @@ public class TestBinaryEntropyCoder
      }
 
     
-     public static void testSpeed(String type)
+     public static void testSpeed(String name)
      {
         // Test speed
-        System.out.println("\n\nSpeed test");
+        System.out.println("\n\nSpeed test for " + name);
         int[] repeats = { 3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9, 3 };
         final int size = 500000;
-        final int iter = 200;
+        final int iter = 100;
 
         for (int jj=0; jj<3; jj++)
         {
@@ -203,7 +223,7 @@ public class TestBinaryEntropyCoder
                 // Encode
                 ByteArrayOutputStream os = new ByteArrayOutputStream(size*2);
                 OutputBitStream bs = new DefaultOutputBitStream(os, size);
-                BinaryEntropyEncoder bec = new BinaryEntropyEncoder(bs, getPredictor(type));
+                BinaryEntropyEncoder bec = new BinaryEntropyEncoder(bs, getPredictor(name));
                 long before1 = System.nanoTime();
                 
                 if (bec.encode(values1, 0, values1.length) < 0)
@@ -220,7 +240,7 @@ public class TestBinaryEntropyCoder
                 // Decode
                 byte[] buf = os.toByteArray();
                 InputBitStream bs2 = new DefaultInputBitStream(new ByteArrayInputStream(buf), size);
-                BinaryEntropyDecoder bed = new BinaryEntropyDecoder(bs2, getPredictor(type));
+                BinaryEntropyDecoder bed = new BinaryEntropyDecoder(bs2, getPredictor(name));
                 long before2 = System.nanoTime();
                 
                 if (bed.decode(values2, 0, values2.length) < 0)

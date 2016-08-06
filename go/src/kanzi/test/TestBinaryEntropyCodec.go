@@ -28,8 +28,7 @@ import (
 )
 
 func main() {
-
-	var name = flag.String("type", "all", "Type of predictor (all, CM, FPAQ or PAQ)")
+	var name = flag.String("type", "", "Type of predictor (all, CM, FPAQ or PAQ)")
 
 	// Parse
 	flag.Parse()
@@ -45,10 +44,15 @@ func main() {
 		fmt.Printf("\n\nTestPAQEntropyCoder")
 		TestCorrectness("PAQ")
 		TestSpeed("PAQ")
-	} else {
+		fmt.Printf("\n\nTestTPAQEntropyCoder")
+		TestCorrectness("TPAQ")
+		TestSpeed("TPAQ")
+	} else if name_ != "" {
 		fmt.Printf("\n\nTest%vEntropyCoder", name_)
 		TestCorrectness(name_)
 		TestSpeed(name_)
+	} else {
+		fmt.Println("Usage: TestBinaryEntropyCoder -type=???")
 	}
 
 }
@@ -63,6 +67,10 @@ func getPredictor(name string) entropy.Predictor {
 		res, _ := entropy.NewFPAQPredictor()
 		return res
 
+	case "TPAQ":
+		res, _ := entropy.NewTPAQPredictor()
+		return res
+
 	case "CM":
 		res, _ := entropy.NewCMPredictor()
 		return res
@@ -73,11 +81,11 @@ func getPredictor(name string) entropy.Predictor {
 }
 
 func TestCorrectness(name string) {
-	fmt.Printf("\n\nCorrectness test %v", name)
+	fmt.Printf("\n\nCorrectness test for %v\n", name)
 
 	// Test behavior
 	for ii := 1; ii < 20; ii++ {
-		fmt.Printf("\nTest %v", ii)
+		fmt.Printf("\n\nTest %v", ii)
 		var values []byte
 		rand.Seed(time.Now().UTC().UnixNano())
 
@@ -172,14 +180,14 @@ func TestCorrectness(name string) {
 }
 
 func TestSpeed(name string) {
-	fmt.Printf("\n\nSpeed test\n")
+	fmt.Printf("\n\nSpeed test for %v\n", name)
 	repeats := []int{3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9, 3}
 
 	for jj := 0; jj < 3; jj++ {
-		fmt.Printf("Test %v\n", jj+1)
+		fmt.Printf("\nTest %v\n", jj+1)
 		delta1 := int64(0)
 		delta2 := int64(0)
-		iter := 200
+		iter := 100
 		size := 500000
 		buffer := make([]byte, size*2)
 		values1 := make([]byte, size)
