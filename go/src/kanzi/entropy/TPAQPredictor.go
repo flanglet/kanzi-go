@@ -415,11 +415,14 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.hashes[this.hash] = this.pos
 	}
 
+	// Alias cp to eliminate bound checks
+	cp_ := this.cp[0:this.ctxId]
+
 	// Add inputs to NN
-	for i := this.ctxId - 1; i >= 0; i-- {
-		this.states[this.cp[i]] = TPAQ_STATE_TABLE[(int(this.states[this.cp[i]])<<1)|y]
-		this.cp[i] = (this.ctx[i] + int(this.c0)) & TPAQ_MASK3
-		this.mixer.addInput(TPAQ_STATE_MAP[(i<<8)|int(this.states[this.cp[i]])])
+	for i := range cp_ {
+		this.states[cp_[i]] = TPAQ_STATE_TABLE[(int(this.states[cp_[i]])<<1)|y]
+		cp_[i] = (this.ctx[i] + int(this.c0)) & TPAQ_MASK3
+		this.mixer.addInput(TPAQ_STATE_MAP[(i<<8)|int(this.states[cp_[i]])])
 	}
 
 	if this.matchLen > 0 {
