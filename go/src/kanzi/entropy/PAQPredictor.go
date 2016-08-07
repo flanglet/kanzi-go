@@ -271,12 +271,8 @@ func (this *PAQPredictor) Update(bit byte) {
 	p = this.apm2.get(y, p, this.c0|(c1d<<8))
 	p = (3*this.apm3.get(y, p, (this.c4&0xFF)|this.runCtx) + p + 2) >> 2
 	p = (3*this.apm4.get(y, p, this.c0|(this.c4&0xFF00)) + p + 2) >> 2
-
-	if p >= 2048 {
-		this.pr = uint(p)
-	} else {
-		this.pr = uint(p + 1)
-	}
+	p32 := int32(p)
+	this.pr = uint(p32 - ((p32 - 2048) >> 31))
 }
 
 // Return the split value representing the probability of 1 in the [0..4095] range.
