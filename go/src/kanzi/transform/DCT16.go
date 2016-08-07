@@ -109,8 +109,8 @@ const (
 	W16_246 = 87
 	W16_247 = -90
 
-	MAX_VAL16 = 1 << 16
-	MIN_VAL16 = -(MAX_VAL16 + 1)
+	MAX_VAL_DCT16 = 1 << 16
+	MIN_VAL_DCT16 = -(MAX_VAL_DCT16 + 1)
 )
 
 type DCT16 struct {
@@ -136,24 +136,26 @@ func (this *DCT16) Forward(src, dst []int) (uint, uint, error) {
 func computeForward16(input, output []int, shift uint) {
 	iIdx := 0
 	round := (1 << shift) >> 1
+	in := input[0:256]
+	out := output[0:256]
 
 	for i := 0; i < 16; i++ {
-		x0 := input[iIdx]
-		x1 := input[iIdx+1]
-		x2 := input[iIdx+2]
-		x3 := input[iIdx+3]
-		x4 := input[iIdx+4]
-		x5 := input[iIdx+5]
-		x6 := input[iIdx+6]
-		x7 := input[iIdx+7]
-		x8 := input[iIdx+8]
-		x9 := input[iIdx+9]
-		x10 := input[iIdx+10]
-		x11 := input[iIdx+11]
-		x12 := input[iIdx+12]
-		x13 := input[iIdx+13]
-		x14 := input[iIdx+14]
-		x15 := input[iIdx+15]
+		x0 := in[iIdx]
+		x1 := in[iIdx+1]
+		x2 := in[iIdx+2]
+		x3 := in[iIdx+3]
+		x4 := in[iIdx+4]
+		x5 := in[iIdx+5]
+		x6 := in[iIdx+6]
+		x7 := in[iIdx+7]
+		x8 := in[iIdx+8]
+		x9 := in[iIdx+9]
+		x10 := in[iIdx+10]
+		x11 := in[iIdx+11]
+		x12 := in[iIdx+12]
+		x13 := in[iIdx+13]
+		x14 := in[iIdx+14]
+		x15 := in[iIdx+15]
 
 		a0 := x0 + x15
 		a1 := x1 + x14
@@ -186,29 +188,29 @@ func computeForward16(input, output []int, shift uint) {
 		c2 := b0 - b5
 		c3 := b1 - b4
 
-		output[i] = ((W16_0 * c0) + (W16_1 * c1) + round) >> shift
-		output[i+16] = ((W16_16 * a2) + (W16_17 * a3) + (W16_18 * a6) + (W16_19 * a7) +
+		out[i] = ((W16_0 * c0) + (W16_1 * c1) + round) >> shift
+		out[i+16] = ((W16_16 * a2) + (W16_17 * a3) + (W16_18 * a6) + (W16_19 * a7) +
 			(W16_20 * a10) + (W16_21 * a11) + (W16_22 * a14) + (W16_23 * a15) + round) >> shift
-		output[i+32] = ((W16_32 * b2) + (W16_33 * b3) + (W16_34 * b6) + (W16_35 * b7) + round) >> shift
-		output[i+48] = ((W16_48 * a2) + (W16_49 * a3) + (W16_50 * a6) + (W16_51 * a7) +
+		out[i+32] = ((W16_32 * b2) + (W16_33 * b3) + (W16_34 * b6) + (W16_35 * b7) + round) >> shift
+		out[i+48] = ((W16_48 * a2) + (W16_49 * a3) + (W16_50 * a6) + (W16_51 * a7) +
 			(W16_52 * a10) + (W16_53 * a11) + (W16_54 * a14) + (W16_55 * a15) + round) >> shift
-		output[i+64] = ((W16_64 * c2) + (W16_65 * c3) + round) >> shift
-		output[i+80] = ((W16_80 * a2) + (W16_81 * a3) + (W16_82 * a6) + (W16_83 * a7) +
+		out[i+64] = ((W16_64 * c2) + (W16_65 * c3) + round) >> shift
+		out[i+80] = ((W16_80 * a2) + (W16_81 * a3) + (W16_82 * a6) + (W16_83 * a7) +
 			(W16_84 * a10) + (W16_85 * a11) + (W16_86 * a14) + (W16_87 * a15) + round) >> shift
-		output[i+96] = ((W16_96 * b2) + (W16_97 * b3) + (W16_98 * b6) + (W16_99 * b7) + round) >> shift
-		output[i+112] = ((W16_112 * a2) + (W16_113 * a3) + (W16_114 * a6) + (W16_115 * a7) +
+		out[i+96] = ((W16_96 * b2) + (W16_97 * b3) + (W16_98 * b6) + (W16_99 * b7) + round) >> shift
+		out[i+112] = ((W16_112 * a2) + (W16_113 * a3) + (W16_114 * a6) + (W16_115 * a7) +
 			(W16_116 * a10) + (W16_117 * a11) + (W16_118 * a14) + (W16_119 * a15) + round) >> shift
-		output[i+128] = ((W16_128 * c0) + (W16_129 * c1) + round) >> shift
-		output[i+144] = ((W16_144 * a2) + (W16_145 * a3) + (W16_146 * a6) + (W16_147 * a7) +
+		out[i+128] = ((W16_128 * c0) + (W16_129 * c1) + round) >> shift
+		out[i+144] = ((W16_144 * a2) + (W16_145 * a3) + (W16_146 * a6) + (W16_147 * a7) +
 			(W16_148 * a10) + (W16_149 * a11) + (W16_150 * a14) + (W16_151 * a15) + round) >> shift
-		output[i+160] = ((W16_160 * b2) + (W16_161 * b3) + (W16_162 * b6) + (W16_163 * b7) + round) >> shift
-		output[i+176] = ((W16_176 * a2) + (W16_177 * a3) + (W16_178 * a6) + (W16_179 * a7) +
+		out[i+160] = ((W16_160 * b2) + (W16_161 * b3) + (W16_162 * b6) + (W16_163 * b7) + round) >> shift
+		out[i+176] = ((W16_176 * a2) + (W16_177 * a3) + (W16_178 * a6) + (W16_179 * a7) +
 			(W16_180 * a10) + (W16_181 * a11) + (W16_182 * a14) + (W16_183 * a15) + round) >> shift
-		output[i+192] = ((W16_192 * c2) + (W16_193 * c3) + round) >> shift
-		output[i+208] = ((W16_208 * a2) + (W16_209 * a3) + (W16_210 * a6) + (W16_211 * a7) +
+		out[i+192] = ((W16_192 * c2) + (W16_193 * c3) + round) >> shift
+		out[i+208] = ((W16_208 * a2) + (W16_209 * a3) + (W16_210 * a6) + (W16_211 * a7) +
 			(W16_212 * a10) + (W16_213 * a11) + (W16_214 * a14) + (W16_215 * a15) + round) >> shift
-		output[i+224] = ((W16_224 * b2) + (W16_225 * b3) + (W16_226 * b6) + (W16_227 * b7) + round) >> shift
-		output[i+240] = ((W16_240 * a2) + (W16_241 * a3) + (W16_242 * a6) + (W16_243 * a7) +
+		out[i+224] = ((W16_224 * b2) + (W16_225 * b3) + (W16_226 * b6) + (W16_227 * b7) + round) >> shift
+		out[i+240] = ((W16_240 * a2) + (W16_241 * a3) + (W16_242 * a6) + (W16_243 * a7) +
 			(W16_244 * a10) + (W16_245 * a11) + (W16_246 * a14) + (W16_247 * a15) + round) >> shift
 
 		iIdx += 16
@@ -225,24 +227,26 @@ func (this *DCT16) Inverse(src, dst []int) (uint, uint, error) {
 func computeInverse16(input, output []int, shift uint) {
 	oIdx := 0
 	round := (1 << shift) >> 1
+	in := input[0:256]
+	out := output[0:256]
 
 	for i := 0; i < 16; i++ {
-		x0 := input[i]
-		x1 := input[i+16]
-		x2 := input[i+32]
-		x3 := input[i+48]
-		x4 := input[i+64]
-		x5 := input[i+80]
-		x6 := input[i+96]
-		x7 := input[i+112]
-		x8 := input[i+128]
-		x9 := input[i+144]
-		x10 := input[i+160]
-		x11 := input[i+176]
-		x12 := input[i+192]
-		x13 := input[i+208]
-		x14 := input[i+224]
-		x15 := input[i+240]
+		x0 := in[i]
+		x1 := in[i+16]
+		x2 := in[i+32]
+		x3 := in[i+48]
+		x4 := in[i+64]
+		x5 := in[i+80]
+		x6 := in[i+96]
+		x7 := in[i+112]
+		x8 := in[i+128]
+		x9 := in[i+144]
+		x10 := in[i+160]
+		x11 := in[i+176]
+		x12 := in[i+192]
+		x13 := in[i+208]
+		x14 := in[i+224]
+		x15 := in[i+240]
 
 		a0 := (W16_16 * x1) + (W16_48 * x3) + (W16_80 * x5) + (W16_112 * x7) +
 			(W16_144 * x9) + (W16_176 * x11) + (W16_208 * x13) + (W16_240 * x15)
@@ -296,22 +300,22 @@ func computeInverse16(input, output []int, shift uint) {
 		d14 := (c1 - a1 + round) >> shift
 		d15 := (c0 - a0 + round) >> shift
 
-		output[oIdx] = kanzi.Clamp(d0, MIN_VAL16, MAX_VAL16)
-		output[oIdx+1] = kanzi.Clamp(d1, MIN_VAL16, MAX_VAL16)
-		output[oIdx+2] = kanzi.Clamp(d2, MIN_VAL16, MAX_VAL16)
-		output[oIdx+3] = kanzi.Clamp(d3, MIN_VAL16, MAX_VAL16)
-		output[oIdx+4] = kanzi.Clamp(d4, MIN_VAL16, MAX_VAL16)
-		output[oIdx+5] = kanzi.Clamp(d5, MIN_VAL16, MAX_VAL16)
-		output[oIdx+6] = kanzi.Clamp(d6, MIN_VAL16, MAX_VAL16)
-		output[oIdx+7] = kanzi.Clamp(d7, MIN_VAL16, MAX_VAL16)
-		output[oIdx+8] = kanzi.Clamp(d8, MIN_VAL16, MAX_VAL16)
-		output[oIdx+9] = kanzi.Clamp(d9, MIN_VAL16, MAX_VAL16)
-		output[oIdx+10] = kanzi.Clamp(d10, MIN_VAL16, MAX_VAL16)
-		output[oIdx+11] = kanzi.Clamp(d11, MIN_VAL16, MAX_VAL16)
-		output[oIdx+12] = kanzi.Clamp(d12, MIN_VAL16, MAX_VAL16)
-		output[oIdx+13] = kanzi.Clamp(d13, MIN_VAL16, MAX_VAL16)
-		output[oIdx+14] = kanzi.Clamp(d14, MIN_VAL16, MAX_VAL16)
-		output[oIdx+15] = kanzi.Clamp(d15, MIN_VAL16, MAX_VAL16)
+		out[oIdx] = kanzi.Clamp(d0, MIN_VAL_DCT16, MAX_VAL_DCT16)
+		out[oIdx+1] = kanzi.Clamp(d1, MIN_VAL_DCT16, MAX_VAL_DCT16)
+		out[oIdx+2] = kanzi.Clamp(d2, MIN_VAL_DCT16, MAX_VAL_DCT16)
+		out[oIdx+3] = kanzi.Clamp(d3, MIN_VAL_DCT16, MAX_VAL_DCT16)
+		out[oIdx+4] = kanzi.Clamp(d4, MIN_VAL_DCT16, MAX_VAL_DCT16)
+		out[oIdx+5] = kanzi.Clamp(d5, MIN_VAL_DCT16, MAX_VAL_DCT16)
+		out[oIdx+6] = kanzi.Clamp(d6, MIN_VAL_DCT16, MAX_VAL_DCT16)
+		out[oIdx+7] = kanzi.Clamp(d7, MIN_VAL_DCT16, MAX_VAL_DCT16)
+		out[oIdx+8] = kanzi.Clamp(d8, MIN_VAL_DCT16, MAX_VAL_DCT16)
+		out[oIdx+9] = kanzi.Clamp(d9, MIN_VAL_DCT16, MAX_VAL_DCT16)
+		out[oIdx+10] = kanzi.Clamp(d10, MIN_VAL_DCT16, MAX_VAL_DCT16)
+		out[oIdx+11] = kanzi.Clamp(d11, MIN_VAL_DCT16, MAX_VAL_DCT16)
+		out[oIdx+12] = kanzi.Clamp(d12, MIN_VAL_DCT16, MAX_VAL_DCT16)
+		out[oIdx+13] = kanzi.Clamp(d13, MIN_VAL_DCT16, MAX_VAL_DCT16)
+		out[oIdx+14] = kanzi.Clamp(d14, MIN_VAL_DCT16, MAX_VAL_DCT16)
+		out[oIdx+15] = kanzi.Clamp(d15, MIN_VAL_DCT16, MAX_VAL_DCT16)
 
 		oIdx += 16
 	}

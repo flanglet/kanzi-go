@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	MAX_VAL32 = 1 << 16
-	MIN_VAL32 = -(MAX_VAL32 + 1)
+	MAX_VAL_DCT32 = 1 << 16
+	MIN_VAL_DCT32 = -(MAX_VAL_DCT32 + 1)
 )
 
 var w = []int{
@@ -114,40 +114,42 @@ func (this *DCT32) Forward(src, dst []int) (uint, uint, error) {
 func computeForward32(input, output []int, shift uint) {
 	iIdx := 0
 	round := (1 << shift) >> 1
+	in := input[0:1024]
+	out := output[0:1024]
 
 	for i := 0; i < 32; i++ {
-		x0 := input[iIdx]
-		x1 := input[iIdx+1]
-		x2 := input[iIdx+2]
-		x3 := input[iIdx+3]
-		x4 := input[iIdx+4]
-		x5 := input[iIdx+5]
-		x6 := input[iIdx+6]
-		x7 := input[iIdx+7]
-		x8 := input[iIdx+8]
-		x9 := input[iIdx+9]
-		x10 := input[iIdx+10]
-		x11 := input[iIdx+11]
-		x12 := input[iIdx+12]
-		x13 := input[iIdx+13]
-		x14 := input[iIdx+14]
-		x15 := input[iIdx+15]
-		x16 := input[iIdx+16]
-		x17 := input[iIdx+17]
-		x18 := input[iIdx+18]
-		x19 := input[iIdx+19]
-		x20 := input[iIdx+20]
-		x21 := input[iIdx+21]
-		x22 := input[iIdx+22]
-		x23 := input[iIdx+23]
-		x24 := input[iIdx+24]
-		x25 := input[iIdx+25]
-		x26 := input[iIdx+26]
-		x27 := input[iIdx+27]
-		x28 := input[iIdx+28]
-		x29 := input[iIdx+29]
-		x30 := input[iIdx+30]
-		x31 := input[iIdx+31]
+		x0 := in[iIdx]
+		x1 := in[iIdx+1]
+		x2 := in[iIdx+2]
+		x3 := in[iIdx+3]
+		x4 := in[iIdx+4]
+		x5 := in[iIdx+5]
+		x6 := in[iIdx+6]
+		x7 := in[iIdx+7]
+		x8 := in[iIdx+8]
+		x9 := in[iIdx+9]
+		x10 := in[iIdx+10]
+		x11 := in[iIdx+11]
+		x12 := in[iIdx+12]
+		x13 := in[iIdx+13]
+		x14 := in[iIdx+14]
+		x15 := in[iIdx+15]
+		x16 := in[iIdx+16]
+		x17 := in[iIdx+17]
+		x18 := in[iIdx+18]
+		x19 := in[iIdx+19]
+		x20 := in[iIdx+20]
+		x21 := in[iIdx+21]
+		x22 := in[iIdx+22]
+		x23 := in[iIdx+23]
+		x24 := in[iIdx+24]
+		x25 := in[iIdx+25]
+		x26 := in[iIdx+26]
+		x27 := in[iIdx+27]
+		x28 := in[iIdx+28]
+		x29 := in[iIdx+29]
+		x30 := in[iIdx+30]
+		x31 := in[iIdx+31]
 
 		a0 := x0 + x31
 		a1 := x1 + x30
@@ -183,7 +185,7 @@ func computeForward32(input, output []int, shift uint) {
 		a31 := x15 - x16
 
 		for n := 32; n < 1024; n += 64 {
-			output[i+n] = ((w[n] * a2) + (w[n+1] * a3) + (w[n+2] * a6) + (w[n+3] * a7) +
+			out[i+n] = ((w[n] * a2) + (w[n+1] * a3) + (w[n+2] * a6) + (w[n+3] * a7) +
 				(w[n+4] * a10) + (w[n+5] * a11) + (w[n+6] * a14) + (w[n+7] * a15) +
 				(w[n+8] * a18) + (w[n+9] * a19) + (w[n+10] * a22) + (w[n+11] * a23) +
 				(w[n+12] * a26) + (w[n+13] * a27) + (w[n+14] * a30) + (w[n+15] * a31) + round) >> shift
@@ -206,21 +208,21 @@ func computeForward32(input, output []int, shift uint) {
 		b14 := a12 - a17
 		b15 := a13 - a16
 
-		output[i+64] = ((w[64] * b2) + (w[65] * b3) + (w[66] * b6) + (w[67] * b7) +
+		out[i+64] = ((w[64] * b2) + (w[65] * b3) + (w[66] * b6) + (w[67] * b7) +
 			(w[68] * b10) + (w[69] * b11) + (w[70] * b14) + (w[71] * b15) + round) >> shift
-		output[i+192] = ((w[192] * b2) + (w[193] * b3) + (w[194] * b6) + (w[195] * b7) +
+		out[i+192] = ((w[192] * b2) + (w[193] * b3) + (w[194] * b6) + (w[195] * b7) +
 			(w[196] * b10) + (w[197] * b11) + (w[198] * b14) + (w[199] * b15) + round) >> shift
-		output[i+320] = ((w[320] * b2) + (w[321] * b3) + (w[322] * b6) + (w[323] * b7) +
+		out[i+320] = ((w[320] * b2) + (w[321] * b3) + (w[322] * b6) + (w[323] * b7) +
 			(w[324] * b10) + (w[325] * b11) + (w[326] * b14) + (w[327] * b15) + round) >> shift
-		output[i+448] = ((w[448] * b2) + (w[449] * b3) + (w[450] * b6) + (w[451] * b7) +
+		out[i+448] = ((w[448] * b2) + (w[449] * b3) + (w[450] * b6) + (w[451] * b7) +
 			(w[452] * b10) + (w[453] * b11) + (w[454] * b14) + (w[455] * b15) + round) >> shift
-		output[i+576] = ((w[576] * b2) + (w[577] * b3) + (w[578] * b6) + (w[579] * b7) +
+		out[i+576] = ((w[576] * b2) + (w[577] * b3) + (w[578] * b6) + (w[579] * b7) +
 			(w[580] * b10) + (w[581] * b11) + (w[582] * b14) + (w[583] * b15) + round) >> shift
-		output[i+704] = ((w[704] * b2) + (w[705] * b3) + (w[706] * b6) + (w[707] * b7) +
+		out[i+704] = ((w[704] * b2) + (w[705] * b3) + (w[706] * b6) + (w[707] * b7) +
 			(w[708] * b10) + (w[709] * b11) + (w[710] * b14) + (w[711] * b15) + round) >> shift
-		output[i+832] = ((w[832] * b2) + (w[833] * b3) + (w[834] * b6) + (w[835] * b7) +
+		out[i+832] = ((w[832] * b2) + (w[833] * b3) + (w[834] * b6) + (w[835] * b7) +
 			(w[836] * b10) + (w[837] * b11) + (w[838] * b14) + (w[839] * b15) + round) >> shift
-		output[i+960] = ((w[960] * b2) + (w[961] * b3) + (w[962] * b6) + (w[963] * b7) +
+		out[i+960] = ((w[960] * b2) + (w[961] * b3) + (w[962] * b6) + (w[963] * b7) +
 			(w[964] * b10) + (w[965] * b11) + (w[966] * b14) + (w[967] * b15) + round) >> shift
 
 		c0 := b0 + b13
@@ -232,20 +234,20 @@ func computeForward32(input, output []int, shift uint) {
 		c6 := b4 - b9
 		c7 := b5 - b8
 
-		output[i+128] = ((w[128] * c2) + (w[129] * c3) + (w[130] * c6) + (w[131] * c7) + round) >> shift
-		output[i+384] = ((w[384] * c2) + (w[385] * c3) + (w[386] * c6) + (w[387] * c7) + round) >> shift
-		output[i+640] = ((w[640] * c2) + (w[641] * c3) + (w[642] * c6) + (w[643] * c7) + round) >> shift
-		output[i+896] = ((w[896] * c2) + (w[897] * c3) + (w[898] * c6) + (w[899] * c7) + round) >> shift
+		out[i+128] = ((w[128] * c2) + (w[129] * c3) + (w[130] * c6) + (w[131] * c7) + round) >> shift
+		out[i+384] = ((w[384] * c2) + (w[385] * c3) + (w[386] * c6) + (w[387] * c7) + round) >> shift
+		out[i+640] = ((w[640] * c2) + (w[641] * c3) + (w[642] * c6) + (w[643] * c7) + round) >> shift
+		out[i+896] = ((w[896] * c2) + (w[897] * c3) + (w[898] * c6) + (w[899] * c7) + round) >> shift
 
 		d0 := c0 + c5
 		d1 := c1 + c4
 		d2 := c0 - c5
 		d3 := c1 - c4
 
-		output[i] = ((w[0] * d0) + (w[1] * d1) + round) >> shift
-		output[i+512] = ((w[512] * d0) + (w[513] * d1) + round) >> shift
-		output[i+256] = ((w[256] * d2) + (w[257] * d3) + round) >> shift
-		output[i+768] = ((w[768] * d2) + (w[769] * d3) + round) >> shift
+		out[i] = ((w[0] * d0) + (w[1] * d1) + round) >> shift
+		out[i+512] = ((w[512] * d0) + (w[513] * d1) + round) >> shift
+		out[i+256] = ((w[256] * d2) + (w[257] * d3) + round) >> shift
+		out[i+768] = ((w[768] * d2) + (w[769] * d3) + round) >> shift
 
 		iIdx += 32
 	}
@@ -261,40 +263,42 @@ func (this *DCT32) Inverse(src, dst []int) (uint, uint, error) {
 func computeInverse32(input, output []int, shift uint) {
 	oIdx := 0
 	round := (1 << shift) >> 1
+	in := input[0:1024]
+	out := output[0:1024]
 
 	for i := 0; i < 32; i++ {
-		x0 := input[i]
-		x1 := input[i+32]
-		x2 := input[i+64]
-		x3 := input[i+96]
-		x4 := input[i+128]
-		x5 := input[i+160]
-		x6 := input[i+192]
-		x7 := input[i+224]
-		x8 := input[i+256]
-		x9 := input[i+288]
-		x10 := input[i+320]
-		x11 := input[i+352]
-		x12 := input[i+384]
-		x13 := input[i+416]
-		x14 := input[i+448]
-		x15 := input[i+480]
-		x16 := input[i+512]
-		x17 := input[i+544]
-		x18 := input[i+576]
-		x19 := input[i+608]
-		x20 := input[i+640]
-		x21 := input[i+672]
-		x22 := input[i+704]
-		x23 := input[i+736]
-		x24 := input[i+768]
-		x25 := input[i+800]
-		x26 := input[i+832]
-		x27 := input[i+864]
-		x28 := input[i+896]
-		x29 := input[i+928]
-		x30 := input[i+960]
-		x31 := input[i+992]
+		x0 := in[i]
+		x1 := in[i+32]
+		x2 := in[i+64]
+		x3 := in[i+96]
+		x4 := in[i+128]
+		x5 := in[i+160]
+		x6 := in[i+192]
+		x7 := in[i+224]
+		x8 := in[i+256]
+		x9 := in[i+288]
+		x10 := in[i+320]
+		x11 := in[i+352]
+		x12 := in[i+384]
+		x13 := in[i+416]
+		x14 := in[i+448]
+		x15 := in[i+480]
+		x16 := in[i+512]
+		x17 := in[i+544]
+		x18 := in[i+576]
+		x19 := in[i+608]
+		x20 := in[i+640]
+		x21 := in[i+672]
+		x22 := in[i+704]
+		x23 := in[i+736]
+		x24 := in[i+768]
+		x25 := in[i+800]
+		x26 := in[i+832]
+		x27 := in[i+864]
+		x28 := in[i+896]
+		x29 := in[i+928]
+		x30 := in[i+960]
+		x31 := in[i+992]
 
 		a0 := (w[32] * x1) + (w[96] * x3) + (w[160] * x5) + (w[224] * x7) +
 			(w[288] * x9) + (w[352] * x11) + (w[416] * x13) + (w[480] * x15) +
@@ -450,38 +454,38 @@ func computeInverse32(input, output []int, shift uint) {
 		r30 := (e1 - a1 + round) >> shift
 		r31 := (e0 - a0 + round) >> shift
 
-		output[oIdx] = kanzi.Clamp(r0, MIN_VAL32, MAX_VAL32)
-		output[oIdx+1] = kanzi.Clamp(r1, MIN_VAL32, MAX_VAL32)
-		output[oIdx+2] = kanzi.Clamp(r2, MIN_VAL32, MAX_VAL32)
-		output[oIdx+3] = kanzi.Clamp(r3, MIN_VAL32, MAX_VAL32)
-		output[oIdx+4] = kanzi.Clamp(r4, MIN_VAL32, MAX_VAL32)
-		output[oIdx+5] = kanzi.Clamp(r5, MIN_VAL32, MAX_VAL32)
-		output[oIdx+6] = kanzi.Clamp(r6, MIN_VAL32, MAX_VAL32)
-		output[oIdx+7] = kanzi.Clamp(r7, MIN_VAL32, MAX_VAL32)
-		output[oIdx+8] = kanzi.Clamp(r8, MIN_VAL32, MAX_VAL32)
-		output[oIdx+9] = kanzi.Clamp(r9, MIN_VAL32, MAX_VAL32)
-		output[oIdx+10] = kanzi.Clamp(r10, MIN_VAL32, MAX_VAL32)
-		output[oIdx+11] = kanzi.Clamp(r11, MIN_VAL32, MAX_VAL32)
-		output[oIdx+12] = kanzi.Clamp(r12, MIN_VAL32, MAX_VAL32)
-		output[oIdx+13] = kanzi.Clamp(r13, MIN_VAL32, MAX_VAL32)
-		output[oIdx+14] = kanzi.Clamp(r14, MIN_VAL32, MAX_VAL32)
-		output[oIdx+15] = kanzi.Clamp(r15, MIN_VAL32, MAX_VAL32)
-		output[oIdx+16] = kanzi.Clamp(r16, MIN_VAL32, MAX_VAL32)
-		output[oIdx+17] = kanzi.Clamp(r17, MIN_VAL32, MAX_VAL32)
-		output[oIdx+18] = kanzi.Clamp(r18, MIN_VAL32, MAX_VAL32)
-		output[oIdx+19] = kanzi.Clamp(r19, MIN_VAL32, MAX_VAL32)
-		output[oIdx+20] = kanzi.Clamp(r20, MIN_VAL32, MAX_VAL32)
-		output[oIdx+21] = kanzi.Clamp(r21, MIN_VAL32, MAX_VAL32)
-		output[oIdx+22] = kanzi.Clamp(r22, MIN_VAL32, MAX_VAL32)
-		output[oIdx+23] = kanzi.Clamp(r23, MIN_VAL32, MAX_VAL32)
-		output[oIdx+24] = kanzi.Clamp(r24, MIN_VAL32, MAX_VAL32)
-		output[oIdx+25] = kanzi.Clamp(r25, MIN_VAL32, MAX_VAL32)
-		output[oIdx+26] = kanzi.Clamp(r26, MIN_VAL32, MAX_VAL32)
-		output[oIdx+27] = kanzi.Clamp(r27, MIN_VAL32, MAX_VAL32)
-		output[oIdx+28] = kanzi.Clamp(r28, MIN_VAL32, MAX_VAL32)
-		output[oIdx+29] = kanzi.Clamp(r29, MIN_VAL32, MAX_VAL32)
-		output[oIdx+30] = kanzi.Clamp(r30, MIN_VAL32, MAX_VAL32)
-		output[oIdx+31] = kanzi.Clamp(r31, MIN_VAL32, MAX_VAL32)
+		out[oIdx] = kanzi.Clamp(r0, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+1] = kanzi.Clamp(r1, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+2] = kanzi.Clamp(r2, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+3] = kanzi.Clamp(r3, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+4] = kanzi.Clamp(r4, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+5] = kanzi.Clamp(r5, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+6] = kanzi.Clamp(r6, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+7] = kanzi.Clamp(r7, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+8] = kanzi.Clamp(r8, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+9] = kanzi.Clamp(r9, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+10] = kanzi.Clamp(r10, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+11] = kanzi.Clamp(r11, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+12] = kanzi.Clamp(r12, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+13] = kanzi.Clamp(r13, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+14] = kanzi.Clamp(r14, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+15] = kanzi.Clamp(r15, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+16] = kanzi.Clamp(r16, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+17] = kanzi.Clamp(r17, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+18] = kanzi.Clamp(r18, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+19] = kanzi.Clamp(r19, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+20] = kanzi.Clamp(r20, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+21] = kanzi.Clamp(r21, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+22] = kanzi.Clamp(r22, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+23] = kanzi.Clamp(r23, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+24] = kanzi.Clamp(r24, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+25] = kanzi.Clamp(r25, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+26] = kanzi.Clamp(r26, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+27] = kanzi.Clamp(r27, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+28] = kanzi.Clamp(r28, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+29] = kanzi.Clamp(r29, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+30] = kanzi.Clamp(r30, MIN_VAL_DCT32, MAX_VAL_DCT32)
+		out[oIdx+31] = kanzi.Clamp(r31, MIN_VAL_DCT32, MAX_VAL_DCT32)
 
 		oIdx += 32
 	}

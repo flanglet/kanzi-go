@@ -273,14 +273,16 @@ func Log2(x int) (int, error) {
 	return int(base + int64(log<<10) + taylor), nil
 }
 
-func Clamp(val, min, max int) int {
-	if val > max {
-		return max
-	} else if val < min {
-		return min
+func Clamp(x, min, max int) int {
+	if x < max {
+		if x > min {
+			return x
+		} else {
+			return min
+		}
 	}
 
-	return val
+	return max
 }
 
 func IsIn(x, a, b int) bool {
