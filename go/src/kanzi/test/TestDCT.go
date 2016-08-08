@@ -92,15 +92,23 @@ func main() {
 		7, 2, 0, 1, 0, 6, 5, 4, 8, 5, 8, 6, 3, 2, 7, 8,
 	}
 
-	dcts := make([]kanzi.IntTransform, 4)
-	dcts[0], _ = transform.NewDCT4()
-	dcts[1], _ = transform.NewDCT8()
-	dcts[2], _ = transform.NewDCT16()
-	dcts[3], _ = transform.NewDCT32()
+	transforms := make([]kanzi.IntTransform, 5)
+	transforms[0], _ = transform.NewDCT4()
+	transforms[1], _ = transform.NewDCT8()
+	transforms[2], _ = transform.NewDCT16()
+	transforms[3], _ = transform.NewDCT32()
+	transforms[4], _ = transform.NewDST4()
 
-	for dimIdx := 0; dimIdx < len(dcts); dimIdx++ {
+	for dimIdx := range transforms {
 		dim := 4 << uint(dimIdx)
-		fmt.Printf("\n\nDimension %v", dim)
+		name := "DCT"
+
+		if dim >= 64 {
+			dim = 4
+			name = "DST"
+		}
+
+		fmt.Printf("\n%v%v correctness\n", name, dim)
 		blockSize := dim * dim
 		data1 := make([]int, blockSize+20)
 		data2 := make([]int, blockSize+20)
@@ -132,13 +140,13 @@ func main() {
 				data = data2
 			}
 
-			dcts[dimIdx].Forward(data1, data[start:])
+			transforms[dimIdx].Forward(data1, data[start:])
 
 			for i := start; i < start+blockSize; i++ {
 				fmt.Printf("%v ", data[i])
 			}
 
-			dcts[dimIdx].Inverse(data[start:], data2)
+			transforms[dimIdx].Inverse(data[start:], data2)
 			fmt.Printf("\nResult: ")
 
 			for i := 0; i < blockSize; i++ {
@@ -155,7 +163,7 @@ func main() {
 		}
 	}
 
-	fmt.Printf("\nSpeed test")
+	fmt.Printf("\nDCT8 speed")
 	delta1 := int64(0)
 	delta2 := int64(0)
 	iter := 500000
@@ -185,7 +193,7 @@ func main() {
 	}
 
 	fmt.Printf("\nIterations: %v", iter*100)
-	fmt.Printf("\nDCT8 Forward transform [ms]: %v", delta1/1000000)
-	fmt.Printf("\nDCT8 Inverse transform [ms]: %v", delta2/1000000)
+	fmt.Printf("\nForward [ms]: %v", delta1/1000000)
+	fmt.Printf("\nInverse [ms]: %v", delta2/1000000)
 	println()
 }

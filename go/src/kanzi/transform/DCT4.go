@@ -19,6 +19,8 @@ import (
 	"kanzi"
 )
 
+// Implementation of Discrete Cosine Transform of dimension 4 
+
 const (
 	W4_0  = 64
 	W4_4  = 83
@@ -48,12 +50,12 @@ func NewDCT4() (*DCT4, error) {
 }
 
 func (this *DCT4) Forward(src, dst []int) (uint, uint, error) {
-	computeForward4(src, this.data, 4)
-	computeForward4(this.data, dst, this.fShift-4)
+	computeForwardDCT4(src, this.data, 4)
+	computeForwardDCT4(this.data, dst, this.fShift-4)
 	return 16, 16, nil
 }
 
-func computeForward4(input []int, output []int, shift uint) {
+func computeForwardDCT4(input []int, output []int, shift uint) {
 	round := (1 << shift) >> 1
 	in := input[0:16]
 	out := output[0:16]
@@ -111,12 +113,12 @@ func computeForward4(input []int, output []int, shift uint) {
 }
 
 func (this *DCT4) Inverse(src, dst []int) (uint, uint, error) {
-	computeInverse4(src, this.data, 10)
-	computeInverse4(this.data, dst, this.iShift-10)
+	computeInverseDCT4(src, this.data, 10)
+	computeInverseDCT4(this.data, dst, this.iShift-10)
 	return 16, 16, nil
 }
 
-func computeInverse4(input, output []int, shift uint) {
+func computeInverseDCT4(input, output []int, shift uint) {
 	round := (1 << shift) >> 1
 
 	x0 := input[0]

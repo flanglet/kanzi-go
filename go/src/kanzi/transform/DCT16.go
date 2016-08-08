@@ -19,6 +19,9 @@ import (
 	"kanzi"
 )
 
+// Implementation of Discrete Cosine Transform of dimension 16
+// Due to rounding errors, the reconstruction may not be perfect
+
 const (
 	W16_0   = 64
 	W16_1   = 64
@@ -128,12 +131,12 @@ func NewDCT16() (*DCT16, error) {
 }
 
 func (this *DCT16) Forward(src, dst []int) (uint, uint, error) {
-	computeForward16(src, this.data, 6)
-	computeForward16(this.data, dst, this.fShift-6)
+	computeForwardDCT16(src, this.data, 6)
+	computeForwardDCT16(this.data, dst, this.fShift-6)
 	return 256, 256, nil
 }
 
-func computeForward16(input, output []int, shift uint) {
+func computeForwardDCT16(input, output []int, shift uint) {
 	iIdx := 0
 	round := (1 << shift) >> 1
 	in := input[0:256]
@@ -219,12 +222,12 @@ func computeForward16(input, output []int, shift uint) {
 }
 
 func (this *DCT16) Inverse(src, dst []int) (uint, uint, error) {
-	computeInverse16(src, this.data, 10)
-	computeInverse16(this.data, dst, this.iShift-10)
+	computeInverseDCT16(src, this.data, 10)
+	computeInverseDCT16(this.data, dst, this.iShift-10)
 	return 256, 256, nil
 }
 
-func computeInverse16(input, output []int, shift uint) {
+func computeInverseDCT16(input, output []int, shift uint) {
 	oIdx := 0
 	round := (1 << shift) >> 1
 	in := input[0:256]

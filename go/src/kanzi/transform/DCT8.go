@@ -19,6 +19,9 @@ import (
 	"kanzi"
 )
 
+// Implementation of Discrete Cosine Transform of dimension 8 
+// Due to rounding errors, the reconstruction may not be perfect
+
 const (
 	W8_0  = 64
 	W8_1  = 64
@@ -64,12 +67,12 @@ func NewDCT8() (*DCT8, error) {
 }
 
 func (this *DCT8) Forward(src, dst []int) (uint, uint, error) {
-	computeForward8(src, this.data, 5)
-	computeForward8(this.data, dst, this.fShift-5)
+	computeForwardDCT8(src, this.data, 5)
+	computeForwardDCT8(this.data, dst, this.fShift-5)
 	return 64, 64, nil
 }
 
-func computeForward8(input, output []int, shift uint) {
+func computeForwardDCT8(input, output []int, shift uint) {
 	iIdx := 0
 	round := (1 << shift) >> 1
 	in := input[0:64]
@@ -113,12 +116,12 @@ func computeForward8(input, output []int, shift uint) {
 }
 
 func (this *DCT8) Inverse(src, dst []int) (uint, uint, error) {
-	computeInverse8(src, this.data, 10)
-	computeInverse8(this.data, dst, this.iShift-10)
+	computeInverseDCT8(src, this.data, 10)
+	computeInverseDCT8(this.data, dst, this.iShift-10)
 	return 64, 64, nil
 }
 
-func computeInverse8(input []int, output []int, shift uint) {
+func computeInverseDCT8(input []int, output []int, shift uint) {
 	oIdx := 0
 	round := (1 << shift) >> 1
 	in := input[0:64]

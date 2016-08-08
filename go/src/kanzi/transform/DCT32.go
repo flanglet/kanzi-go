@@ -19,6 +19,9 @@ import (
 	"kanzi"
 )
 
+// Implementation of Discrete Cosine Transform of dimension 32
+// Due to rounding errors, the reconstruction may not be perfect
+
 const (
 	MAX_VAL_DCT32 = 1 << 16
 	MIN_VAL_DCT32 = -(MAX_VAL_DCT32 + 1)
@@ -106,12 +109,12 @@ func NewDCT32() (*DCT32, error) {
 }
 
 func (this *DCT32) Forward(src, dst []int) (uint, uint, error) {
-	computeForward32(src, this.data, 7)
-	computeForward32(this.data, dst, this.fShift-7)
+	computeForwardDCT32(src, this.data, 7)
+	computeForwardDCT32(this.data, dst, this.fShift-7)
 	return 1024, 1024, nil
 }
 
-func computeForward32(input, output []int, shift uint) {
+func computeForwardDCT32(input, output []int, shift uint) {
 	iIdx := 0
 	round := (1 << shift) >> 1
 	in := input[0:1024]
@@ -255,12 +258,12 @@ func computeForward32(input, output []int, shift uint) {
 }
 
 func (this *DCT32) Inverse(src, dst []int) (uint, uint, error) {
-	computeInverse32(src, this.data, 10)
-	computeInverse32(this.data, dst, this.iShift-10)
+	computeInverseDCT32(src, this.data, 10)
+	computeInverseDCT32(this.data, dst, this.iShift-10)
 	return 1024, 1024, nil
 }
 
-func computeInverse32(input, output []int, shift uint) {
+func computeInverseDCT32(input, output []int, shift uint) {
 	oIdx := 0
 	round := (1 << shift) >> 1
 	in := input[0:1024]
