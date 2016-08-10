@@ -56,7 +56,7 @@ public class TestResampler
            GraphicsConfiguration gc = gs.getDefaultConfiguration();
            BufferedImage bi = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
            bi.getGraphics().drawImage(image1, 0, 0, null);
-           roundtrip(image1, 1);
+           roundtrip(image1, 100);
            Image image = ImageIO.read(new File("c:\\temp\\lena256.jpg"));
            upscale(image, bi, 100, true, 2);
            image = ImageIO.read(new File("c:\\temp\\lena128.jpg"));

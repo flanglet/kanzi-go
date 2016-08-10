@@ -121,8 +121,8 @@ public final class YCoCgColorModelConverter implements ColorModelConverter
                 final int g = tmp + v[i]; 
                 final int b = tmp - (u[i]>>1);
                 final int r = b + u[i]; 
-                
-                rgb[k++] = ((r&0xFF) << 16) | ((g&0xFF) << 8) | (b&0xFF);
+
+                rgb[k++] = (r << 16) | (g << 8) | b;
                 // ------- toRGB 'Macro' END
             }
 

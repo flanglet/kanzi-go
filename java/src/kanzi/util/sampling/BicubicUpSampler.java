@@ -196,8 +196,11 @@ public class BicubicUpSampler implements UpSampler
        if (this.isRGB == false)
           return (val + 8 + ((val>>31)<<4)) >> 4;
        
-       val &= (-val >> 31);
-       return (val >= 4087) ? 255 : (val+8) >> 4;       
+       if (val >= 4072)
+          return 255;
+       
+       val &= ~(val >> 31);
+       return (val+8) >> 4;       
     }
 
     
