@@ -139,7 +139,7 @@ public class TestColorModel
             int w, int h, int iter)
     {
         long sum = 0;
-        int nn = 500;
+        int nn = 1000;
         int[] y1 = new int[rgb1.length];
         int[] u1 = new int[rgb1.length];
         int[] v1 = new int[rgb1.length];

@@ -158,6 +158,12 @@ public class QuadTreeGenerator
       @Override
       public int compareTo(Node o)
       {
+         if (o == null)
+            return -1;
+         
+         if (o == this)
+            return 0;
+         
          // compare by decreasing variance
          final int val = o.variance - this.variance;
 
