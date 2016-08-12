@@ -16,7 +16,6 @@ limitations under the License.
 package entropy
 
 import (
-	"container/heap"
 	"fmt"
 	"kanzi"
 )
@@ -62,61 +61,11 @@ func (this ErrorComparator) Swap(i, j int) {
 	this.symbols[i], this.symbols[j] = this.symbols[j], this.symbols[i]
 }
 
-type FreqSortData struct {
-	frequencies []int
-	errors      []int
-	symbol      int
-}
-
-type FreqSortPriorityQueue []*FreqSortData
-
-func (this FreqSortPriorityQueue) Len() int {
-	return len(this)
-}
-
-func (this FreqSortPriorityQueue) Less(i, j int) bool {
-	di := this[i]
-	dj := this[j]
-
-	// Decreasing error
-	if di.errors[di.symbol] != dj.errors[dj.symbol] {
-		return di.errors[di.symbol] > dj.errors[dj.symbol]
-	}
-
-	// Decreasing frequency
-	if di.frequencies[di.symbol] != dj.frequencies[dj.symbol] {
-		return di.frequencies[di.symbol] > dj.frequencies[dj.symbol]
-	}
-
-	// Decreasing symbol
-	return dj.symbol < di.symbol
-}
-
-func (this FreqSortPriorityQueue) Swap(i, j int) {
-	this[i], this[j] = this[j], this[i]
-}
-
-func (this *FreqSortPriorityQueue) Push(data interface{}) {
-	*this = append(*this, data.(*FreqSortData))
-}
-
-func (this *FreqSortPriorityQueue) Pop() interface{} {
-	old := *this
-	n := len(old)
-	data := old[n-1]
-	*this = old[0 : n-1]
-	return data
-}
-
 type EntropyUtils struct {
-	ranks  []int
-	errors []int
 }
 
 func NewEntropyUtils() (*EntropyUtils, error) {
 	this := new(EntropyUtils)
-	this.ranks = make([]int, 0)
-	this.errors = make([]int, 0)
 	return this, nil
 }
 
@@ -124,7 +73,7 @@ func NewEntropyUtils() (*EntropyUtils, error) {
 // alphabet length must be a power of 2
 func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) int {
 	alphabetSize := cap(alphabet)
-        count := len(alphabet)
+	count := len(alphabet)
 
 	// Alphabet length must be a power of 2
 	if alphabetSize&(alphabetSize-1) != 0 {
@@ -393,7 +342,7 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 
 // Returns the size of the alphabet
 // The alphabet and freqs parameters are updated
-func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, count int, scale int) (int, error) {
+func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, count int, scale int, exact bool) (int, error) {
 	if count == 0 {
 		return 0, nil
 	}
@@ -416,48 +365,43 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, coun
 		return alphabetSize, nil
 	}
 
-	if len(this.ranks) < len(alphabet) {
-		this.ranks = make([]int, len(alphabet))
-	}
-
-	if len(this.errors) < len(alphabet) {
-		this.errors = make([]int, len(alphabet))
-	}
-
-	sum := -scale
+	sumFreq := 0
+	fmax := 0
+	idx := -1
 
 	// Scale frequencies by stretching distribution over complete range
 	for i := range alphabet {
 		alphabet[i] = 0
-		this.errors[i] = -1
-		this.ranks[i] = int(i)
 
 		if freqs[i] == 0 {
 			continue
 		}
 
-		sf := int64(freqs[i]) * int64(scale)
-		scaledFreq := int(sf / int64(count))
+		if freqs[i] > fmax {
+			fmax = freqs[i]
+			idx = i
+		}
 
-		if scaledFreq == 0 {
+		sf := int64(freqs[i]) * int64(scale)
+		var scaledFreq int
+
+		if sf < int64(count) {
 			// Quantum of frequency
 			scaledFreq = 1
 		} else {
 			// Find best frequency rounding value
+			scaledFreq = int(sf / int64(count))
 			errCeiling := int64(scaledFreq+1)*int64(count) - sf
 			errFloor := sf - int64(scaledFreq)*int64(count)
 
 			if errCeiling < errFloor {
 				scaledFreq++
-				this.errors[i] = int(errCeiling)
-			} else {
-				this.errors[i] = int(errFloor)
 			}
 		}
 
 		alphabet[alphabetSize] = i
 		alphabetSize++
-		sum += scaledFreq
+		sumFreq += scaledFreq
 		freqs[i] = scaledFreq
 	}
 
@@ -470,40 +414,10 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, coun
 		return 1, nil
 	}
 
-	if sum != 0 {
-		// Need to normalize frequency sum to range
-		var inc int
-
-		if sum > 0 {
-			inc = -1
-		} else {
-			inc = 1
-		}
-
-		queue := make(FreqSortPriorityQueue, 0)
-
-		// Create sorted queue of present symbols (except those with 'quantum frequency')
-		for i := 0; i < alphabetSize; i++ {
-			if this.errors[alphabet[i]] >= 0 && freqs[alphabet[i]] != -inc {
-				heap.Push(&queue, &FreqSortData{errors: this.errors, frequencies: freqs, symbol: alphabet[i]})
-			}
-		}
-
-		for sum != 0 && len(queue) > 0 {
-			// Remove symbol with highest error
-			fsd := heap.Pop(&queue).(*FreqSortData)
-
-			// Do not zero out any frequency
-			if freqs[fsd.symbol] == -inc {
-				continue
-			}
-
-			// Distort frequency and error
-			freqs[fsd.symbol] += inc
-			this.errors[fsd.symbol] -= scale
-			sum += inc
-			heap.Push(&queue, fsd)
-		}
+	// Adjust sum of frequencies ?
+	// Usually, leaving the error abs(sumFreq-scale) is OK
+	if exact == true && sumFreq != scale {
+		freqs[idx] += (scale - sumFreq)
 	}
 
 	return alphabetSize, nil

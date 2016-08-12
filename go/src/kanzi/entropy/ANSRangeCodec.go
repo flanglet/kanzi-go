@@ -96,7 +96,7 @@ func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, size int, lr u
 		return 0, errors.New("Invalid frequencies parameter")
 	}
 
-	alphabetSize, err := this.eu.NormalizeFrequencies(frequencies, this.alphabet, size, 1<<lr)
+	alphabetSize, err := this.eu.NormalizeFrequencies(frequencies, this.alphabet, size, 1<<lr, false)
 
 	if err == nil {
 		if alphabetSize > 0 {

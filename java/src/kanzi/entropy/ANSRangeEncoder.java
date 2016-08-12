@@ -75,7 +75,7 @@ public class ANSRangeEncoder implements EntropyEncoder
       if ((frequencies == null) || (frequencies.length != 256))
          return -1;
 
-      int alphabetSize = this.eu.normalizeFrequencies(frequencies, this.alphabet, size, 1<<lr);
+      int alphabetSize = this.eu.normalizeFrequencies(frequencies, this.alphabet, 0, size, 1<<lr, false);
       
       if (alphabetSize > 0)
       {
