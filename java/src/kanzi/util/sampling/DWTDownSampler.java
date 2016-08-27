@@ -96,7 +96,7 @@ public class DWTDownSampler implements DownSampler
       final int sh = this.shift;
       final int h = this.height;
       final int w = this.width;
-      final int adjust = (1 << sh) >> 1;
+      final int adjust = (sh <= 1) ? 0 : (1 << sh) >> 1;
 
       for (int j=0; j<h; j++)
       {

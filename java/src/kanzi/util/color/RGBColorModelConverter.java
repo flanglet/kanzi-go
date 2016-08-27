@@ -60,10 +60,11 @@ public class RGBColorModelConverter implements ColorModelConverter
     }
 
 
+    // Just unpack channels
     @Override
     public boolean convertRGBtoYUV(int[] rgb, int[] y, int[] u, int[] v, ColorModelType type)
     {
-        if (type != ColorModelType.YUV444)
+        if (type != ColorModelType.RGB)
             return false;
 
         int startLine  = this.rgbOffset;
@@ -90,10 +91,11 @@ public class RGBColorModelConverter implements ColorModelConverter
     }
     
     
+    // Just pack channels
     @Override
     public boolean convertYUVtoRGB(int[] y, int[] u, int[] v, int[] rgb, ColorModelType type)
     {
-        if (type != ColorModelType.YUV444)
+        if (type != ColorModelType.RGB)
             return false;
 
         int startLine = 0;
@@ -105,28 +107,23 @@ public class RGBColorModelConverter implements ColorModelConverter
 
             for (int i=startLine, k=startLine2; i<end; i++)
             {
-               // Pack channels. Ensure that channel values are in [0.255]
-               // convertRGBtoYUV() ewnsures proper range but the values may have been
+               // Pack channels. Ensure that channel values are in [0..255]
+               // convertRGBtoYUV() ensures proper range but the values may have been
                // manipulated after the convertRGBtoYUV() call.
                int r = y[i];
-               r &= ~(r >> 31);
-              
-               if (r > 255) 
-                  r = 255;
-               
                int g = u[i];
-               g &= ~(g >> 31);
-               
-               if (g > 255)
-                  g = 255;
-               
                int b = v[i];
-               b &= ~(b >> 31);
                
-               if (b > 255) 
-                  b = 255;
+               if (r >= 255) r = 0x00FF0000;
+               else { r &= ~(r >> 31); r <<= 16; }
                
-               rgb[k++] = (r << 16) | (g << 8) | b;
+               if (g >= 255) g = 0x0000FF00;
+               else { g &= ~(g >> 31); g <<= 8; }
+               
+               if (b >= 255) b = 0x000000FF;
+               else { b &= ~(b >> 31); }  
+               
+               rgb[k++] = r | g | b;
             }
 
             startLine  += this.width;

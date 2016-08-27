@@ -25,6 +25,7 @@ public class GuidedBilinearUpSampler implements UpSampler
    private final int stride;
    private final int offset;
    private int[] guide;
+   private BilinearUpSampler delegate;
 
 
    public GuidedBilinearUpSampler(int width, int height)
@@ -92,6 +93,16 @@ public class GuidedBilinearUpSampler implements UpSampler
    // EG. u1=(k1*u0+k2*u2)/(k1+k2) with k1=abs(Y2-Y1) and k2=abs(Y1-Y0)
    public void superSampleVertical(int[] input, int[] output)
    {
+      if (this.guide == null)
+      {
+         // Fallback to unguided super sampling
+         if (this.delegate == null)
+            this.delegate = new BilinearUpSampler(this.width, this.height, this.stride, this.offset, 2);
+
+         this.delegate.superSampleVertical(input, output);
+         return;
+      }
+      
       final int sw = this.width;
       final int sh = this.height;
       final int st = this.stride;
@@ -104,7 +115,7 @@ public class GuidedBilinearUpSampler implements UpSampler
       System.arraycopy(input, iOffs, output, oOffs, sw);           
       oOffs -= dw;
       iOffs -= st;
-
+     
       for (int j=sh-2; j>0; j--)
       {
          // Interpolate odd lines
@@ -140,6 +151,16 @@ public class GuidedBilinearUpSampler implements UpSampler
    // EG. u1=(k1*u0+k2*u2)/(k1+k2) with k1=abs(Y2-Y1) and k2=abs(Y1-Y0)
    public void superSampleHorizontal(int[] input, int[] output)
    {
+      if (this.guide == null)
+      {
+         // Fallback to unguided super sampling
+         if (this.delegate == null)
+            this.delegate = new BilinearUpSampler(this.width, this.height, this.stride, this.offset, 2);
+
+         this.delegate.superSampleHorizontal(input, output);
+         return;
+      }
+      
       final int sw = this.width;
       final int sh = this.height;
       final int st = this.stride;
@@ -180,6 +201,16 @@ public class GuidedBilinearUpSampler implements UpSampler
    // Supports in place resampling
    public void superSample(int[] input, int[] output)
    {
+      if (this.guide == null)
+      {
+         // Fallback to unguided super sampling
+         if (this.delegate == null)
+            this.delegate = new BilinearUpSampler(this.width, this.height, this.stride, this.offset, 2);
+
+         this.delegate.superSample(input, output);
+         return;
+      }
+      
       final int st = this.stride;
       final int dw = this.width << 1;
       final int dw2 = dw + dw;
