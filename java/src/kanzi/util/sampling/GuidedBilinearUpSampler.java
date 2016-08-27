@@ -93,7 +93,7 @@ public class GuidedBilinearUpSampler implements UpSampler
    // EG. u1=(k1*u0+k2*u2)/(k1+k2) with k1=abs(Y2-Y1) and k2=abs(Y1-Y0)
    public void superSampleVertical(int[] input, int[] output)
    {
-      if (this.guide == null)
+      if (this.guide.length == 0)
       {
          // Fallback to unguided super sampling
          if (this.delegate == null)
@@ -151,7 +151,7 @@ public class GuidedBilinearUpSampler implements UpSampler
    // EG. u1=(k1*u0+k2*u2)/(k1+k2) with k1=abs(Y2-Y1) and k2=abs(Y1-Y0)
    public void superSampleHorizontal(int[] input, int[] output)
    {
-      if (this.guide == null)
+      if (this.guide.length == 0)
       {
          // Fallback to unguided super sampling
          if (this.delegate == null)
@@ -201,7 +201,7 @@ public class GuidedBilinearUpSampler implements UpSampler
    // Supports in place resampling
    public void superSample(int[] input, int[] output)
    {
-      if (this.guide == null)
+      if (this.guide.length == 0)
       {
          // Fallback to unguided super sampling
          if (this.delegate == null)
