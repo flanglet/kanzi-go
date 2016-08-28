@@ -53,7 +53,7 @@ public class TestColorModel
     {
        try
        {
-         String fileName = (args.length > 0) ? args[0] : "c:\\temp\\lena.jpg";
+         String fileName = (args.length > 0) ? args[0] : "r:\\kodim24.png";
          String type = fileName.substring(fileName.lastIndexOf(".")+1);
          ImageInfo ii = ImageUtils.loadImage(new FileInputStream(fileName), type);
          int w = ii.width & -15;

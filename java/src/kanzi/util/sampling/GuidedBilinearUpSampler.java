@@ -15,6 +15,8 @@ limitations under the License.
 
 package kanzi.util.sampling;
 
+import kanzi.Global;
+
 
 // Bilinear upsampling guided by a full resolution frame.
 // Typical use: upsampling of U and V channels in YUV_20 with Y channel as guide.
@@ -124,8 +126,8 @@ public class GuidedBilinearUpSampler implements UpSampler
             final int idx  = oOffs + i;
             final int idx1 = iOffs + i;
             final int idx2 = idx1  + st;
-            final int k2 = Math.abs(this.guide[idx-st]-this.guide[idx]);
-            final int k1 = Math.abs(this.guide[idx+st]-this.guide[idx]);            
+            final int k2 = Global.abs(this.guide[idx-st]-this.guide[idx]);
+            final int k1 = Global.abs(this.guide[idx+st]-this.guide[idx]);            
             output[idx] = (k1+k2 == 0) ? input[idx1] : (k1*input[idx1] + k2*input[idx2]) / (k1+k2);
          } 
 
@@ -185,8 +187,8 @@ public class GuidedBilinearUpSampler implements UpSampler
             output[idx] = val;
 
             // Using guide to interpolate odd columns:
-            final int k2 = Math.abs(this.guide[idx+1]-this.guide[idx]);
-            final int k1 = Math.abs(this.guide[idx+2]-this.guide[idx+1]);
+            final int k2 = Global.abs(this.guide[idx+1]-this.guide[idx]);
+            final int k1 = Global.abs(this.guide[idx+2]-this.guide[idx+1]);
             output[idx+1] = (k1+k2 == 0) ? prv : (k1*prv + k2*val) / (k1+k2);
             prv = val;
          }
@@ -226,8 +228,8 @@ public class GuidedBilinearUpSampler implements UpSampler
          int k = oOffs + (i<<1);
          final int valA = input[iOffs+i];
          final int valB = (i == sw-1) ? valA : input[iOffs+i+1];
-         final int k2 = Math.abs(this.guide[k+1]-this.guide[k]);
-         final int k1 = Math.abs(this.guide[k+2]-this.guide[k+1]);
+         final int k2 = Global.abs(this.guide[k+1]-this.guide[k]);
+         final int k1 = Global.abs(this.guide[k+2]-this.guide[k+1]);
          final int valAB = (k1+k2 == 0) ? valA : (k1*valA + k2*valB) / (k1+k2);
          output[k]    = valA;
          output[k+1]  = valAB;
@@ -262,20 +264,27 @@ public class GuidedBilinearUpSampler implements UpSampler
             k = oOffs + (i<<1);
             output[k] = valA;
             int k1, k2, k3, k4;
-            k2 = Math.abs(this.guide[k+1]-this.guide[k]);
-            k1 = Math.abs(this.guide[k+2]-this.guide[k+1]);
+            k2 = Global.abs(this.guide[k+1]-this.guide[k]);
+            k1 = Global.abs(this.guide[k+2]-this.guide[k+1]);
             output[k+1] = (k1+k2 == 0) ? valA : (k1*valA + k2*valB) / (k1+k2); // a              
             k += dw;
-            k2 = Math.abs(this.guide[k-dw]-this.guide[k]);
-            k1 = Math.abs(this.guide[k+dw]-this.guide[k]);
+            final int guide_A = this.guide[k-dw];
+            final int guide_C = this.guide[k+dw];
+            final int guide_b = this.guide[k];
+            k2 = Global.abs(guide_A-guide_b);
+            k1 = Global.abs(guide_C-guide_b);
             output[k] = (k1+k2 == 0) ? valA : (k1*valA + k2*valC) / (k1+k2); // b;              
-            final int guideC = this.guide[k+1];
-            k2 = Math.abs(this.guide[k-dw]-guideC);   // A-Yc
-            k1 = Math.abs(this.guide[k-dw+2]-guideC); // B-Yc
-            k4 = Math.abs(this.guide[k+dw]-guideC);   // C-Yc        
-            k3 = Math.abs(this.guide[k+dw+2]-guideC); // D-Yc
+            final int guide_c = this.guide[k+1];
+            k2 = Global.abs(guide_A-guide_c);            // YA-Yc
+            k1 = Global.abs(this.guide[k-dw+2]-guide_c); // YB-Yc
+            k4 = Global.abs(guide_C-guide_c);            // YC-Yc        
+            k3 = Global.abs(this.guide[k+dw+2]-guide_c); // YD-Yc
+            
+            // Horizontal and vertical mix
+            // H: A-B and C-D (k1*valA + k2*valB + k3*valC + k4*valD)
+            // V: A-C and B-D (k4*valA + k3*valB + k2*valC + k1*valD)
             output[k+1] = (k1+k2+k3+k4 == 0) ? valA : 
-               (k1*valA + k2*valB + k3*valC + k4*valD) / (k1+k2+k3+k4); // c
+               ((k1+k4)*valA + (k2+k3)*valB + (k3+k2)*valC + (k4+k1)*valD) / ((k1+k2+k3+k4)<<1); // c
             valB = valA;
             valD = valC;
         }
