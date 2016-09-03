@@ -80,19 +80,19 @@ public class TestColorModel
             new YSbSrColorModelConverter(w, h),
             new YIQColorModelConverter(w, h),
             new YCbCrColorModelConverter(w, h, downSampler, uBicubic),
-            new YSbSrColorModelConverter(w, h, downSampler, uBicubic),
+            new YSbSrColorModelConverter(w, h, true, downSampler, uBicubic),
             new YIQColorModelConverter(w, h, downSampler, uBicubic),
             new YCbCrColorModelConverter(w, h),
-            new YSbSrColorModelConverter(w, h),
+            new YSbSrColorModelConverter(w, h, true),
             new YIQColorModelConverter(w, h),
             new YCbCrColorModelConverter(w, h, downSampler, uBilinear),
-            new YSbSrColorModelConverter(w, h, downSampler, uBilinear),
+            new YSbSrColorModelConverter(w, h, true, downSampler, uBilinear),
             new YIQColorModelConverter(w, h, downSampler, uBilinear),
             new YCbCrColorModelConverter(w, h, downSampler, ugBilinear),
-            new YSbSrColorModelConverter(w, h, downSampler, ugBilinear),
+            new YSbSrColorModelConverter(w, h, true, downSampler, ugBilinear),
             new YIQColorModelConverter(w, h, downSampler, ugBilinear),
             new YCbCrColorModelConverter(w, h, dDWT, uDWT),
-            new YSbSrColorModelConverter(w, h, dDWT, uDWT),
+            new YSbSrColorModelConverter(w, h, true, dDWT, uDWT),
             new YIQColorModelConverter(w, h, dDWT, uDWT),         
          };
          
@@ -203,7 +203,7 @@ public class TestColorModel
             BufferedImage img2 = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
             img2.getRaster().setDataElements(0, 0, w, h, rgb2);
             JFrame frame2 = new JFrame(title);
-            frame2.setBounds(20+(testIdx)*100, 30+(testIdx*30), w, h);
+            frame2.setBounds(20+(testIdx)*60, 30+(testIdx*30), w, h);
             ImageIcon newIcon = new ImageIcon(img2);
             frame2.add(new JLabel(newIcon));
             frame2.setVisible(true);
