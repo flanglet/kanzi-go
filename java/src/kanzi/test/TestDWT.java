@@ -22,9 +22,8 @@ import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.Transparency;
 import java.awt.image.BufferedImage;
-import java.io.File;
+import java.io.FileInputStream;
 import java.util.Arrays;
-import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -35,6 +34,7 @@ import kanzi.transform.DWT_Haar;
 import kanzi.util.color.ColorModelConverter;
 import kanzi.util.image.ImageQualityMonitor;
 import kanzi.util.color.RGBColorModelConverter;
+import kanzi.util.image.ImageUtils;
 
 
 public class TestDWT
@@ -43,26 +43,18 @@ public class TestDWT
    {
       try
       {
-         String fileName = (args.length > 0) ? args[0] : "r:\\lena.jpg";
-         Image image = ImageIO.read(new File(fileName));
-         int w = image.getWidth(null) & -256;
-         int h = image.getHeight(null) & -256;
+         String fileName = (args.length > 0) ? args[0] : "r:\\lena.jpg";         
 
-         if (image.getWidth(null) <= 0)
-         {
-            System.out.println("Cannot find file "+fileName);
-            System.exit(1);
-         }
+         // Load image (PPM/PGM supported)
+         String type = fileName.substring(fileName.lastIndexOf(".")+1);
+         ImageUtils.ImageInfo ii = ImageUtils.loadImage(new FileInputStream(fileName), type);
 
-
+         final int w = ii.width;
+         final int h = ii.height;
          GraphicsDevice gs = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
          GraphicsConfiguration gc = gs.getDefaultConfiguration();
-         BufferedImage img  = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
-         img.getGraphics().drawImage(image, 0, 0, null);
-         int[] source = new int[w*h];
-         img.getRaster().getDataElements(0, 0, w, h, source);
-
-         img.getRaster().setDataElements(0, 0, w, h, source);
+         BufferedImage img = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
+         img.getRaster().setDataElements(0, 0, w, h, ii.data);
          JFrame frame = new JFrame("Original");
          frame.setBounds(30, 100, w, h);
          ImageIcon newIcon = new ImageIcon(img);
@@ -76,11 +68,11 @@ public class TestDWT
          
          yDWT = new DWT_Haar(w, h, 4, true);
          uvDWT = new DWT_Haar(w >> shift, h >> shift, 4, true);         
-         process("Haar", image, w, h, yDWT, uvDWT, 565, 100);
+         process("Haar", img, w, h, yDWT, uvDWT, 565, 100);
          
          yDWT = new DWT_CDF_9_7(w, h, 6);
          uvDWT = new DWT_CDF_9_7(w >> shift, h >> shift, 6);
-         process("Daubechies", image, w, h, yDWT, uvDWT, 1100, 100);
+         process("Daubechies", img, w, h, yDWT, uvDWT, 1100, 100);
 
          Thread.sleep(40000);
       }
@@ -112,7 +104,7 @@ public class TestDWT
 //         cvt = new YCoCgColorModelConverter(w, h);
          cvt = new RGBColorModelConverter(w, h);
 
-         ColorModelType cmType = ColorModelType.YUV444;
+         ColorModelType cmType = ColorModelType.RGB;
          int shift = (cmType == ColorModelType.YUV420) ? 1 : 0;
          ImageQualityMonitor monitor = new ImageQualityMonitor(w, h);
          
