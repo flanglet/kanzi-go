@@ -19,7 +19,9 @@ import kanzi.util.color.YCbCrColorModelConverter;
 import kanzi.util.color.ColorModelConverter;
 import kanzi.Global;
 import kanzi.ColorModelType;
-import kanzi.util.sampling.DecimateDownSampler;
+import kanzi.IndexedIntArray;
+import kanzi.transform.DCT8;
+import kanzi.util.color.RGBColorModelConverter;
 
 
 // PSNR: peak signal noise ratio
@@ -223,34 +225,42 @@ public final class ImageQualityMonitor
 
 
    // return psnr * 1024 or INFINITE_PSNR (=0)
-   // channels 1,2,3 can be RGB or YUV in each image
+   // channels 1,2,3 can be RGB, GREY or YUV in each image
    public int computePSNR(int[] img1_chan1, int[] img1_chan2, int[] img1_chan3,
                           int[] img2_chan1, int[] img2_chan2, int[] img2_chan3,
                           int x, int y, int w, int h, ColorModelType type)
    {
-      final int scaleX = ((type == ColorModelType.YUV420) || (type == ColorModelType.YUV422)) ? 1 : 0;
-      final int scaleY = (type == ColorModelType.YUV420) ? 1 : 0;
-      final int psnr1024_chan1 = this.computePSNR(img1_chan1, img2_chan1, x, y, w, h, type);
-       
-      if (psnr1024_chan1 == Global.INFINITE_VALUE)
-         return Global.INFINITE_VALUE;
-       
-      final int psnr1024_chan2 = this.computePSNR(img2_chan1, img2_chan2, x>>scaleX, 
-              y>>scaleX, w>>scaleX, h>>scaleX, type);
-       
-      if (psnr1024_chan2 == Global.INFINITE_VALUE)
-         return Global.INFINITE_VALUE;
-       
-      final int psnr1024_chan3 = this.computePSNR(img1_chan3, img2_chan3, x>>scaleY, 
-              y>>scaleY, w>>scaleY, h>>scaleY, type);
+      if ((type != ColorModelType.YUV444) && (type != ColorModelType.YUV420) &&
+        (type != ColorModelType.RGB) && (type != ColorModelType.GREY))
+         throw new IllegalArgumentException("Invalid color model");
 
-      if (psnr1024_chan3 == Global.INFINITE_VALUE)
+      int ds1 = this.downSampling;
+      long sum1 = this.computeOneChannelDeltaSum(img1_chan1, img2_chan1, x, y, w, h, ds1);
+      int pixels1 = ((w-x) >> ds1) * ((h-y) >> ds1);
+      
+      if (type == ColorModelType.GREY)
+         return computePSNRfromMSE(sum1, pixels1);
+     
+      int ds23 = (type == ColorModelType.YUV420) ? this.downSampling+1 : this.downSampling;
+      int pixels23 = ((w-x) >> ds23) * ((h-y) >> ds23);
+      long sum2 = this.computeOneChannelDeltaSum(img1_chan2, img2_chan2, x, y, w, h, ds23);
+      long sum3 = this.computeOneChannelDeltaSum(img1_chan3, img2_chan3, x, y, w, h, ds23);      
+
+      if (sum1+sum2+sum3 == 0)
          return Global.INFINITE_VALUE;
-       
-      if (type == ColorModelType.RGB) // RGB => weight 1/3 for R, G & B
-         return (psnr1024_chan1 + psnr1024_chan2 + psnr1024_chan3) / 3;
-      else // YUV => weight 0.8 for Y and 0.1 for U & V
-         return ((102*psnr1024_chan1) + (13*psnr1024_chan2) + (13*psnr1024_chan3)) >> 7;
+      
+      // Use perceived brightness for mixing coefficients 
+      // L = 0.30*r + 0.59*g + 0.11*b
+      if (type == ColorModelType.RGB)
+         return computePSNRfromMSE((230*sum1+453*sum2+85*sum3)>>8, pixels1+pixels23+pixels23);      
+
+      // See [A new color image quality measure based on YUV transformation and PSNR for
+      // human vision system] by Yildiray YALMAN & Ismail ERTURK
+      // Sensitivity of cones: Cw = 0.0551
+      // Sensitivity of rods:  Rw = 0.9449
+      // CQM (Color Quality Measure) computation: Rw*PSNR(Y) + Cw*(PSNR(U)+PSNR(V))/2
+      // Apply same mixing coefficients, but to MSE instead of PSNR
+      return computePSNRfromMSE((726*sum1+21*sum2+21*sum3)>>8, pixels1+pixels23+pixels23);
    }
 
 
@@ -268,163 +278,11 @@ public final class ImageQualityMonitor
    }
 
 
-   // return psnr * 1024 or INFINITE_PSNR (=0)
    public int computePSNR(int[] data1, int[] data2, int x, int y, int w, int h, ColorModelType type)
    {
-      long lsum = this.computeDeltaSum(data1, data2, x, y, w, h, type);
-
-      if (lsum <= 0)
-         return Global.INFINITE_VALUE;
-
-      int scale = 0;
-      
-      while (lsum >= (1<<24))
-      {
-         lsum >>= 2;
-         scale += 2;
-      }      
-      
-      final int logScale = Global.ten_log10(1<<scale);
-      
-      // Formula:  double mse = (double) (sum) / size
-      //           double psnr = 10 * Math.log10(255d*255d/mse);
-      // or        double psnr = 10 * (Math.log10(65025) + (Math.log10(size) - Math.log10(sum))
-      // Calculate PSNR << 10 with 1024 * 10 * (log10(65025L) = 49286
-      // 1024*10*log10(100) = 20480
-      final int iterations = ((w - x) >> this.downSampling) * ((h - y) >> this.downSampling);
-      return 49286 + (Global.ten_log10(iterations) - Global.ten_log10((int) lsum)) - logScale;
-   }
-
-
-   // return sum of squared differences between data
-   private long computeDeltaSum(int[] data1, int[] data2, int x, int y, int w, int h, ColorModelType type)
-   {
-      if ((x < 0) || (y < 0))
-          throw new IllegalArgumentException("Illegal argument: x and y must be positive or null");
-   
-      if ((w <= 0) || (h <= 0))
-          throw new IllegalArgumentException("Illegal argument: w and h must be positive");
-   
-      if (data1 == data2)
-         return 0;
-         
-      long sum = 0, sum1 = 0, sum2 = 0, sum3 = 0;
-      final int st = this.stride << this.downSampling;
-      final int inc = 1 << this.downSampling;
-      int startOffs = (y * st) + x;
-
-      // Check for packed rgb type
-      if (type == ColorModelType.RGB)
-      {
-         for (int j=0; j<h; j+=inc)
-         {
-            for (int i=0; i<w; i+=inc)
-            {
-               final int idx = startOffs + i;
-               final int p1 = data1[idx];
-               final int p2 = data2[idx];
-               final int r1 = (p1 >> 16) & 0xFF;
-               final int r2 = (p2 >> 16) & 0xFF;
-               final int g1 = (p1 >>  8) & 0xFF;
-               final int g2 = (p2 >>  8) & 0xFF;
-               final int b1 =  p1 & 0xFF;
-               final int b2 =  p2 & 0xFF;
-               sum1 += ((r1-r2)*(r1-r2));
-               sum2 += ((g1-g2)*(g1-g2));
-               sum3 += ((b1-b2)*(b1-b2));
-            }
-
-            startOffs += st;
-         }
-
-         sum = (sum1 + sum2 + sum3) / 3;
-      }
-      else
-      {
-         for (int j=0; j<h; j+=inc)
-         {
-           for (int i=0; i<w; i+=inc)
-           {
-              final int idx = startOffs + i;
-              final int p1 = data1[idx];
-              final int p2 = data2[idx];
-              sum += ((p1-p2)*(p1-p2));
-           }
-
-           startOffs += st;
-         }
-      }
-
-      return sum;
-   }
-  
-   
-   // return SSIM * 1024
-   public int computeSSIM(int[] img1_chan1, int[] img1_chan2, int[] img1_chan3,
-                          int[] img2_chan1, int[] img2_chan2, int[] img2_chan3,
-                          ColorModelType type)
-   {
-      return this.computeSSIM(img1_chan1, img1_chan2, img1_chan3,
-                              img2_chan1, img2_chan2, img2_chan3,
-                              0, 0, this.width, this.height, type, this.downSampling);
-   }
-
-
-   // Calculate SSIM for the subimages at x,y of width w and height h
-   // return SSIM * 1024
-   public int computeSSIM(int[] img1_chan1, int[] img1_chan2, int[] img1_chan3,
-                          int[] img2_chan1, int[] img2_chan2, int[] img2_chan3,
-                          int x, int y, int w, int h, ColorModelType type)
-   {
-      return this.computeSSIM(img1_chan1, img1_chan2, img1_chan3,
-                              img2_chan1, img2_chan2, img2_chan3,
-                              x, y, w, h, type, this.downSampling);
-   }
-
-
-   public int computeSSIM(int[] img1_chan1, int[] img1_chan2, int[] img1_chan3,
-                          int[] img2_chan1, int[] img2_chan2, int[] img2_chan3,
-                          int x, int y, int w, int h, ColorModelType type, int ds)
-   {
-      if ((type != ColorModelType.YUV444) && (type != ColorModelType.YUV422) &&
-        (type != ColorModelType.YUV420))
-         return -1;
-
-      final int ssim1024_chan1 = this.computeOneChannelSSIM(img1_chan1, img2_chan1, x, y, w, h, ds);
-
-      if ((type == ColorModelType.YUV420) || (type == ColorModelType.YUV422))
-         w >>= 1;
-
-      if (type == ColorModelType.YUV420)
-         h >>= 1;
-
-      final int ssim1024_chan2 = this.computeOneChannelSSIM(img1_chan2, img2_chan2, x, y, w, h, ds);
-      final int ssim1024_chan3 = this.computeOneChannelSSIM(img1_chan3, img2_chan3, x, y, w, h, ds);
-
-      // YUV => weight 0.8 for Y and 0.1 for U & V
-      return ((102*ssim1024_chan1) + (13*ssim1024_chan2) + (13*ssim1024_chan3)) >> 7;
-   }
-
-
-   // Calculate SSIM for RGB (packed) images
-   // Return ssim * 1024
-   public int computeSSIM(int[] data1, int[] data2)
-   {
-      return this.computeSSIM(data1, data2, 0, 0, this.width, this.height);
-   }
-
-
-   public int computeSSIM(int[] data1, int[] data2, int x, int y, int w, int h)
-   {
       if ((w > this.width) || (h > this.height))
-         return -1;
+         throw new IllegalArgumentException("Invalid dimensions");
 
-      x >>= this.downSampling;
-      y >>= this.downSampling;
-      w >>= this.downSampling;
-      h >>= this.downSampling;
-
-      // Turn RGB_PACKED data into Y, U, V data
       final int size = w * h;
 
       if (this.y1.length < size)
@@ -446,31 +304,182 @@ public final class ImageQualityMonitor
          this.v2 = new int[size];
 
       final int offset = (y * this.width) + x;
-      ColorModelConverter cvt = new YCbCrColorModelConverter(w, h, offset, this.width >> this.downSampling);
-      ColorModelType colorModel;
+      
+      ColorModelConverter cvt = ((type == ColorModelType.RGB) || (type == ColorModelType.GREY)) ? 
+         new RGBColorModelConverter(w, h, offset, this.width) :
+         new YCbCrColorModelConverter(w, h, offset, this.width);
 
-      if (this.downSampling > 0)
-      {
-         if (this.buffer.length < size)
-            this.buffer = new int[size];
+      cvt.convertRGBtoYUV(data1, this.y1, this.u1, this.v1, type);
+      cvt.convertRGBtoYUV(data2, this.y2, this.u2, this.v2, type);
 
-         // Downsample before color conversion
-         colorModel = ColorModelType.YUV444;
-         DecimateDownSampler ds = new DecimateDownSampler(w<<this.downSampling, h<<this.downSampling, 1<<this.downSampling);
-         ds.subSample(data1, this.buffer);
-         cvt.convertRGBtoYUV(this.buffer, this.y1, this.u1, this.v1, colorModel);
-         ds.subSample(data2, this.buffer);
-         cvt.convertRGBtoYUV(this.buffer, this.y2, this.u2, this.v2, colorModel);
-      }
-      else
+      return this.computePSNR(this.y1, this.u1, this.v1, this.y2, this.u2, this.v2,
+              x, y, w, h, type);
+   }
+
+
+   private static int computePSNRfromMSE(long sum, int pixels) 
+   {
+      if (sum <= 0)
+         return Global.INFINITE_VALUE;
+
+      int scale = 0;
+      
+      while (((sum & 1) == 0) && ((pixels & 1) == 0))
       {
-         colorModel = ColorModelType.YUV420;
-         cvt.convertRGBtoYUV(data1, this.y1, this.u1, this.v1, colorModel);
-         cvt.convertRGBtoYUV(data2, this.y2, this.u2, this.v2, colorModel);
+         sum >>= 1;
+         pixels >>= 1;
       }
+      
+      while (sum >= 1<<24)
+      {
+         sum >>= 2;
+         scale += 2;
+      }      
+      
+      final int logScale = Global.ten_log10(1<<scale);
+      
+      // Formula:  double mse = (double) (sum) / size
+      //           double psnr = 10 * Math.log10(255d*255d/mse);
+      // or        double psnr = 10 * (Math.log10(65025) + (Math.log10(size) - Math.log10(sum))
+      // Calculate PSNR << 10 with 1024 * 10 * (log10(65025L) = 49286
+      // 1024*10*log10(100) = 20480
+      return 49286 + (Global.ten_log10(pixels) - Global.ten_log10((int) sum)) - logScale;      
+   }
+
+   
+   // return sum of squared differences between data
+   private long computeOneChannelDeltaSum(int[] data1, int[] data2, int x, int y, int w, int h, int ds)
+   {
+      if ((x < 0) || (y < 0))
+          throw new IllegalArgumentException("Illegal argument: x and y must be positive or null");
+   
+      if ((w <= 0) || (h <= 0))
+          throw new IllegalArgumentException("Illegal argument: w and h must be positive");
+   
+      if (data1 == data2)
+         return 0;
+         
+      long sum = 0;
+      final int st = this.stride << ds;
+      x <<= ds;
+      y <<= ds;
+      final int inc = 1 << ds;
+      int startOffs = (y * st) + x;
+
+      for (int j=0; j<h; j+=inc)
+      {
+        for (int i=0; i<w; i+=inc)
+        {
+           final int idx = startOffs + i;
+           final int p1 = data1[idx];
+           final int p2 = data2[idx];
+           sum += ((p1-p2)*(p1-p2));
+        }
+
+        startOffs += st;
+      }
+
+      return sum;
+   }
+  
+   
+   // return SSIM * 1024
+   public int computeSSIM(int[] img1_chan1, int[] img1_chan2, int[] img1_chan3,
+                          int[] img2_chan1, int[] img2_chan2, int[] img2_chan3,
+                          ColorModelType type)
+   {
+      return this.computeSSIM(img1_chan1, img1_chan2, img1_chan3,
+                              img2_chan1, img2_chan2, img2_chan3,
+                              0, 0, this.width, this.height, type);
+   }
+
+
+   // Calculate SSIM for the subimages at x,y of width w and height h
+   // return SSIM * 1024
+   public int computeSSIM(int[] img1_chan1, int[] img1_chan2, int[] img1_chan3,
+                          int[] img2_chan1, int[] img2_chan2, int[] img2_chan3,
+                          int x, int y, int w, int h, ColorModelType type)
+   {
+      if ((type != ColorModelType.YUV444) && (type != ColorModelType.YUV420) &&
+        (type != ColorModelType.RGB) && (type != ColorModelType.GREY))
+          throw new IllegalArgumentException("Invalid color model");
+
+      int ds = this.downSampling;
+      final int ssim1024_chan1 = this.computeOneChannelSSIM(img1_chan1, img2_chan1, x, y, w, h, ds);
+
+      if (type == ColorModelType.GREY)
+         return ssim1024_chan1;
+
+      if (type == ColorModelType.YUV420)
+         ds++;
+      
+      final int ssim1024_chan2 = this.computeOneChannelSSIM(img1_chan2, img2_chan2, x, y, w, h, ds);
+      final int ssim1024_chan3 = this.computeOneChannelSSIM(img1_chan3, img2_chan3, x, y, w, h, ds);
+
+      // Use perceived brightness for mixing coefficients 
+      // L = 0.30*r + 0.59*g + 0.11*b
+      if (type == ColorModelType.RGB)
+         return (77*ssim1024_chan1 + 151*ssim1024_chan2 + 28*ssim1024_chan3) >> 8;
+
+      // See [A new color image quality measure based on YUV transformation and PSNR for
+      // human vision system] by Yildiray YALMAN & Ismail ERTURK
+      // Sensitivity of cones: Cw = 0.0551
+      // Sensitivity of rods:  Rw = 0.9449
+      // CQM (Color Quality Measure) computation: Rw*PSNR(Y) + Cw*(PSNR(U)+PSNR(V))/2
+      return ((242*ssim1024_chan1) + (7*ssim1024_chan2) + (7*ssim1024_chan3)) >> 8;
+   }
+
+
+   // Calculate SSIM for RGB (packed) images
+   // Return ssim * 1024
+   public int computeSSIM(int[] data1, int[] data2)
+   {
+      return this.computeSSIM(data1, data2, 0, 0, this.width, this.height, ColorModelType.RGB);
+   }
+
+   
+   public int computeSSIM(int[] data1, int[] data2, ColorModelType type)
+   {
+      return this.computeSSIM(data1, data2, 0, 0, this.width, this.height, type);
+   }
+   
+   
+   public int computeSSIM(int[] data1, int[] data2, int x, int y, int w, int h, ColorModelType type)
+   {
+      if ((w > this.width) || (h > this.height))
+         throw new IllegalArgumentException("Invalid dimensions");
+
+      final int size = w * h;
+
+      if (this.y1.length < size)
+         this.y1 = new int[size];
+
+      if (this.y2.length < size)
+         this.y2 = new int[size];
+
+      if (this.u1.length < size)
+         this.u1 = new int[size];
+
+      if (this.u2.length < size)
+         this.u2 = new int[size];
+
+      if (this.v1.length < size)
+         this.v1 = new int[size];
+
+      if (this.v2.length < size)
+         this.v2 = new int[size];
+
+      final int offset = (y * this.width) + x;
+      
+      ColorModelConverter cvt = ((type == ColorModelType.RGB) || (type == ColorModelType.GREY)) ? 
+         new RGBColorModelConverter(w, h, offset, this.width) :
+         new YCbCrColorModelConverter(w, h, offset, this.width);
+
+      cvt.convertRGBtoYUV(data1, this.y1, this.u1, this.v1, type);
+      cvt.convertRGBtoYUV(data2, this.y2, this.u2, this.v2, type);
 
       return this.computeSSIM(this.y1, this.u1, this.v1, this.y2, this.u2, this.v2,
-              x, y, w, h, colorModel, 0);
+              x, y, w, h, type);
    }
 
 
@@ -493,11 +502,13 @@ public final class ImageQualityMonitor
        if (y + h > this.height)
           h = this.height - y;
 
-       final Context ctx = new Context(data1, data2, x, y, w, h, ds, this.kernel32);
+       final SSIMContext ctx = new SSIMContext(data1, data2, x, y, w, h, ds, this.kernel32);
+       x <<= ds;
+       y <<= ds;
        final int inc = 1 << ds;
        final int endi = x + w;
        final int endj = y + h;
-       int iterations = 0;
+       int pixels = 0;
 
        for (int j=y; j<endj; j+=inc)
        {
@@ -507,19 +518,19 @@ public final class ImageQualityMonitor
           {
              ctx.x = i;
              computeBlockSSIM(ctx);
-             iterations++;
+             pixels++;
           }
        }
 
-       if (iterations == 0) 
+       if (pixels == 0) 
           return 0;
        
-       int res = (int) (ctx.sumSSIM + (iterations >> 1)) / iterations;       
+       int res = (int) (ctx.sumSSIM + (pixels >> 1)) / pixels;       
        return (res < 0 ) ? 0 : res;
    }
 
 
-   private static void computeBlockSSIM(Context ctx)
+   private static void computeBlockSSIM(SSIMContext ctx)
    {
      final int x0 = ctx.x;
      final int y0 = ctx.y;
@@ -595,11 +606,10 @@ public final class ImageQualityMonitor
          ctx.sumSSIM += ssim1024;
    }
 
-   
    // For SSIM computation
-   static class Context
+   static class SSIMContext
    {
-      Context(int[] data1, int[] data2, int x, int y, int w, int h, int ds, int[] kernel)
+      SSIMContext(int[] data1, int[] data2, int x, int y, int w, int h, int ds, int[] kernel)
       {
          this.data1 = data1;
          this.data2 = data2;

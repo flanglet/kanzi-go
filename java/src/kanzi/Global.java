@@ -275,7 +275,7 @@ public class Global
       // To improve accuracy (keep z in ]0, 0.25[), one can choose either (1+z) or (1-z).
       // EG: log2(257) = log2(256) + log2(1+1/256) is better approximated with Taylor 
       // series expansion than log2(512) + log2(1-255/512)
-      if (z >= 1L << (log-1))
+      if (z > 1L << (log-1))
       {         
          // z in [0.5, 0.75[ => rescale x so that z in [0, 0.25[
          if (z < 1L << (log-1) + 1L << (log-2)) 
@@ -293,7 +293,7 @@ public class Global
          if (z >= 1L << (log-2))
          {
             base = 269;
-            x = (int) ((long) x * 5 / 6);
+            x = (int) ((x * 5L) / 6L);
          }            
          
          // select 1 + x Taylor series expansion

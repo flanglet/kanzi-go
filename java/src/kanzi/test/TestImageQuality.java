@@ -24,16 +24,16 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.Random;
 import javax.imageio.ImageIO;
+import kanzi.ColorModelType;
 import kanzi.util.image.ImageQualityMonitor;
 
 
 public class TestImageQuality
 {
-
    public static void main(String[] args) throws Exception
    {
         String fileName1 = (args.length > 0) ? args[0] : "r:\\lena.jpg";
-        String fileName2 = (args.length > 1) ? args[1] : "r:\\lena.jpg";
+        String fileName2 = (args.length > 1) ? args[1] : "r:\\lena_blocky.jpg";
         Image image1 = ImageIO.read(new File(fileName1));
         Image image2 = ImageIO.read(new File(fileName2));
         int w = image1.getWidth(null) & -8;
@@ -73,16 +73,18 @@ public class TestImageQuality
            img2.getRaster().setDataElements(0, 0, w, h, rgb2);
            System.out.println("\nRandom noise (0.1% samples)");
            monitor = new ImageQualityMonitor(w, h, w);
-           psnr = monitor.computePSNR(rgb1, rgb2);
-           ssim = monitor.computeSSIM(rgb1, rgb2);
+           psnr = monitor.computePSNR(rgb1, rgb2, ColorModelType.RGB);
+           ssim = monitor.computeSSIM(rgb1, rgb2, ColorModelType.RGB);
            printResults("PSNR: ", psnr, "SSIM: ", ssim);
            monitor = new ImageQualityMonitor(w&-16, h&-16, w, 1);
-           psnr = monitor.computePSNR(rgb1, rgb2);
-           ssim = monitor.computeSSIM(rgb1, rgb2);
+           psnr = monitor.computePSNR(rgb1, rgb2, ColorModelType.RGB);
+           ssim = monitor.computeSSIM(rgb1, rgb2, ColorModelType.RGB);
+           printResults("PSNR: ", psnr, "SSIM: ", ssim);
            printResults("PSNR (subsampled by 2x2): ", psnr, "SSIM (subsampled by 2x2): ", ssim);
            monitor = new ImageQualityMonitor(w&-32, h&-32, w, 2);
-           psnr = monitor.computePSNR(rgb1, rgb2);
-           ssim = monitor.computeSSIM(rgb1, rgb2);
+           psnr = monitor.computePSNR(rgb1, rgb2, ColorModelType.RGB);
+           ssim = monitor.computeSSIM(rgb1, rgb2, ColorModelType.RGB);
+           printResults("PSNR: ", psnr, "SSIM: ", ssim);
            printResults("PSNR (subsampled by 4x4): ", psnr, "SSIM (subsampled by 4x4): ", ssim);
         }
 
