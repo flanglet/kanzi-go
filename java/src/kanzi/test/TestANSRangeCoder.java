@@ -64,8 +64,6 @@ public class TestANSRangeCoder
 
                      for (int i=0; i<values.length; i++)
                           values[i] = 2; // all identical
-
-                     values="mississippi".getBytes();
                 }
                 else if (ii == 5)
                 {
@@ -193,7 +191,7 @@ public class TestANSRangeCoder
                 delta1 += (after1 - before1);
                 rc.dispose();
                 bs.close();
-               ww += bs.written();
+                ww += bs.written();
 
                 // Decode
                 byte[] buf = os.toByteArray();

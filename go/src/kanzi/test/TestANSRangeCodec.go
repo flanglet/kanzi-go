@@ -35,7 +35,7 @@ func TestCorrectness() {
 
 	// Test behavior
 	for ii := 1; ii < 20; ii++ {
-		fmt.Printf("\nTest %v", ii)
+		fmt.Printf("\n\nTest %v\n", ii)
 		var values []byte
 		rand.Seed(time.Now().UTC().UnixNano())
 
@@ -65,13 +65,13 @@ func TestCorrectness() {
 			}
 		}
 
-		fmt.Printf("\nOriginal: ")
+		fmt.Println("Original:")
 
 		for i := range values {
 			fmt.Printf("%d ", values[i])
 		}
 
-		fmt.Printf("\nEncoded: ")
+		fmt.Println("\nEncoded:")
 		buffer := make([]byte, 16384)
 		oFile, _ := util.NewByteArrayOutputStream(buffer, true)
 		defer oFile.Close()
@@ -106,7 +106,7 @@ func TestCorrectness() {
 			os.Exit(1)
 		}
 
-		fmt.Printf("\nDecoded: ")
+		fmt.Println("\nDecoded: ")
 
 		for i := range values2 {
 			fmt.Printf("%v ", values2[i])
@@ -117,9 +117,9 @@ func TestCorrectness() {
 		}
 
 		if ok == true {
-			fmt.Printf("\nIdentical")
+			fmt.Println("\nIdentical")
 		} else {
-			fmt.Printf("\n! *** Different *** !")
+			fmt.Println("\n! *** Different *** !")
 			os.Exit(1)
 		}
 

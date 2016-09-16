@@ -19,14 +19,14 @@ import kanzi.BitStreamException;
 import kanzi.EntropyDecoder;
 import kanzi.InputBitStream;
 
-// Implementation of Asymmetric Numeral System decoder.
+// Implementation of an Asymmetric Numeral System decoder.
 // See "Asymmetric Numeral System" by Jarek Duda at http://arxiv.org/abs/0902.0271
 // For alternate C implementation examples, see https://github.com/Cyan4973/FiniteStateEntropy
 // and https://github.com/rygorous/ryg_rans
 
 public class ANSRangeDecoder implements EntropyDecoder
 {
-   private static final long TOP = 1L << 24;
+   private static final long ANS_TOP = 1L << 24;
    private static final int DEFAULT_CHUNK_SIZE = 1 << 16; // 64 KB by default
 
    private final InputBitStream bitstream;
@@ -65,9 +65,9 @@ public class ANSRangeDecoder implements EntropyDecoder
 
 
    @Override
-   public int decode(byte[] array, int blkptr, int len)
+   public int decode(byte[] block, int blkptr, int len)
    {
-      if ((array == null) || (blkptr + len > array.length) || (blkptr < 0) || (len < 0))
+      if ((block == null) || (blkptr + len > block.length) || (blkptr < 0) || (len < 0))
          return -1;
 
       if (len == 0)
@@ -82,32 +82,35 @@ public class ANSRangeDecoder implements EntropyDecoder
          if (this.decodeHeader(this.freqs) == 0)
             return startChunk - blkptr;
 
-         // logRange field set after decoding header !
-         final long mask = (1L << this.logRange) - 1;
          final int endChunk = (startChunk + sz < end) ? startChunk + sz : end;
-
-         // Read initial ANS state
-         long st = this.bitstream.readBits(64);
-
-         for (int i=startChunk; i<endChunk; i++)
-         {
-            final int idx = (int) (st & mask);
-            final int symbol = this.f2s[idx];
-            array[i] = (byte) symbol;
-
-            // Compute next ANS state
-            // D(x) = (s, q_s (x/M) + mod(x,M) - b_s) where s is such b_s <= x mod M < b_{s+1}
-            st = (this.freqs[symbol] * (st >>> this.logRange)) + idx - this.cumFreqs[symbol];
-
-            // Normalize
-            while (st < TOP)
-               st = (st << 32) | this.bitstream.readBits(32);
-         }
-
+         this.decodeChunk(block, startChunk, endChunk);        
          startChunk = endChunk;
       }
 
       return len;
+   }
+
+   
+   protected void decodeChunk(byte[] block, int start, final int end)
+   {
+      // Read initial ANS state
+      long st = this.bitstream.readBits(64);
+      final long mask = (1L << this.logRange) - 1;
+
+      for (int i=start; i<end; i++)
+      {
+         final int idx = (int) (st & mask);
+         final int symbol = this.f2s[idx];
+         block[i] = (byte) symbol;
+
+         // Compute next ANS state
+         // D(x) = (s, q_s (x/M) + mod(x,M) - b_s) where s is such b_s <= x mod M < b_{s+1}
+         st = (this.freqs[symbol] * (st >>> this.logRange)) + idx - this.cumFreqs[symbol];
+
+         // Normalize
+         while (st < ANS_TOP)
+            st = (st << 32) | this.bitstream.readBits(32);
+      }
    }
 
 

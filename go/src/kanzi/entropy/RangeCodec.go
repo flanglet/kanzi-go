@@ -94,7 +94,7 @@ func (this *RangeEncoder) updateFrequencies(frequencies []int, size int, lr uint
 		return 0, errors.New("Invalid frequencies parameter")
 	}
 
-	alphabetSize, err := this.eu.NormalizeFrequencies(frequencies, this.alphabet, size, 1<<lr, false)
+	alphabetSize, err := this.eu.NormalizeFrequencies(frequencies, this.alphabet, size, 1<<lr)
 
 	if err != nil {
 		return alphabetSize, err
@@ -180,7 +180,6 @@ func (this *RangeEncoder) Encode(block []byte) (int, error) {
 		sizeChunk = len(block)
 	}
 
-	frequencies := this.freqs // aliasing
 	startChunk := 0
 	end := len(block)
 
@@ -200,20 +199,11 @@ func (this *RangeEncoder) Encode(block []byte) (int, error) {
 			lr--
 		}
 
-		for i := range frequencies {
-			frequencies[i] = 0
-		}
+		this.shift = lr
 
-		for i := startChunk; i < endChunk; i++ {
-			frequencies[block[i]]++
-		}
-
-		// Rebuild statistics
-		if _, err := this.updateFrequencies(frequencies, endChunk-startChunk, lr); err != nil {
+		if err := this.rebuildStatistics(block[startChunk:endChunk], lr); err != nil {
 			return startChunk, err
 		}
-
-		this.shift = lr
 
 		for i := startChunk; i < endChunk; i++ {
 			this.encodeByte(block[i])
@@ -225,6 +215,24 @@ func (this *RangeEncoder) Encode(block []byte) (int, error) {
 	}
 
 	return len(block), nil
+}
+
+// Compute chunk frequencies, cumulated frequencies and encode chunk header
+func (this *RangeEncoder) rebuildStatistics(block []byte, lr uint) error {
+	for i := range this.freqs {
+		this.freqs[i] = 0
+	}
+
+	for i := range block {
+		this.freqs[block[i]]++
+	}
+
+	// Rebuild statistics
+	if _, err := this.updateFrequencies(this.freqs, len(block), lr); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (this *RangeEncoder) encodeByte(b byte) {
@@ -355,7 +363,7 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
 			val := int(this.bitstream.ReadBits(logMax))
 
 			if val <= 0 || val >= scale {
-				error := fmt.Errorf("Invalid bitstream: incorrect frequency %v  for symbol '%v' in ANS range decoder", val, this.alphabet[j])
+				error := fmt.Errorf("Invalid bitstream: incorrect frequency %v  for symbol '%v' in range decoder", val, this.alphabet[j])
 				return alphabetSize, error
 			}
 
@@ -366,7 +374,7 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
 
 	// Infer first frequency
 	if scale <= sum {
-		error := fmt.Errorf("Invalid bitstream: incorrect frequency %v  for symbol '%v' in ANS range decoder", frequencies[this.alphabet[0]], this.alphabet[0])
+		error := fmt.Errorf("Invalid bitstream: incorrect frequency %v  for symbol '%v' in range decoder", frequencies[this.alphabet[0]], this.alphabet[0])
 		return alphabetSize, error
 	}
 

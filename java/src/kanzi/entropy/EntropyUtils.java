@@ -181,7 +181,7 @@ public class EntropyUtils
          int log = 1;
 
          while (1<<log <= max)
-               log++;
+             log++;
 
          obs.writeBits(log-1, 4);
 
@@ -316,24 +316,25 @@ public class EntropyUtils
 
    // Not thread safe
    // Returns the size of the alphabet
+   // 'totalFreq 'is the sum of frequencies. 
+   // 'scale' is the target new total of frequencies
    // The alphabet and freqs parameters are updated
-   public int normalizeFrequencies(int[] freqs, int[] alphabet, int start, int count, int scale, boolean exact)
+   public int normalizeFrequencies(int[] freqs, int[] alphabet, int totalFreq, int scale)
    {
-      if (count == 0)
+      if (totalFreq == 0)
          return 0;
 
       if ((scale < 1<<8) || (scale > 1<<16))
          throw new IllegalArgumentException("Invalid scale parameter: "+ scale +
                  " (must be in [256..65536])");
 
+      // Number of present symbols
       int alphabetSize = 0;
 
-      // range == count shortcut
-      if (count == scale)
-      {
-         final int end = start + count;
-         
-         for (int i=start; i<end; i++)
+      // shortcut
+      if (totalFreq == scale)
+      {        
+         for (int i=0; i<256; i++)
          {
             if (freqs[i] != 0)
                alphabet[alphabetSize++] = i;
@@ -342,28 +343,31 @@ public class EntropyUtils
          return alphabetSize;
       }
       
+      int sumScaledFreq = 0;
       int sumFreq = 0;
-      int fmax = 0;
-      int idx = -1;
+      int freqMax = 0;
+      int idxMax = -1;
 
       // Scale frequencies by stretching distribution over complete range
-      for (int i=0, j=start; i<alphabet.length; i++, j++)
+      for (int i=0; (i<alphabet.length) && (sumFreq<totalFreq); i++)
       {
          alphabet[i] = 0;
+         final int f = freqs[i];
 
-         if (freqs[j] == 0)
+         if (f == 0)
             continue;
 
-         if (freqs[j] > fmax)
+         if (f > freqMax)
          {
-            fmax = freqs[j];
-            idx = j;
+            freqMax = f;
+            idxMax = i;
          }
          
-         long sf = (long) freqs[j] * scale;
+         sumFreq += f;
+         long sf = (long) f * scale;
          int scaledFreq;
 
-         if (sf < count)
+         if (sf <= totalFreq)
          {
             // Quantum of frequency
             scaledFreq = 1;
@@ -371,17 +375,17 @@ public class EntropyUtils
          else
          {
             // Find best frequency rounding value
-            scaledFreq = (int) (sf / count);
-            long errCeiling = ((scaledFreq+1) * (long) count) - sf;
-            long errFloor = sf - (scaledFreq * (long) count);
+            scaledFreq = (int) (sf / totalFreq);
+            long errCeiling = ((scaledFreq+1) * (long) totalFreq) - sf;
+            long errFloor = sf - (scaledFreq * (long) totalFreq);
 
             if (errCeiling < errFloor)
                scaledFreq++;
          }
 
          alphabet[alphabetSize++] = i;
-         sumFreq += scaledFreq;
-         freqs[j] = scaledFreq;
+         sumScaledFreq += scaledFreq;
+         freqs[i] = scaledFreq;
       }
 
       if (alphabetSize == 0)
@@ -389,14 +393,12 @@ public class EntropyUtils
 
       if (alphabetSize == 1)
       {
-         freqs[start+alphabet[0]] = scale;
+         freqs[alphabet[0]] = scale;
          return 1;
       }
       
-      // Adjust sum of frequencies ?
-      // Usually, leaving the error abs(sumFreq-scale) is OK
-      if ((exact == true) && (sumFreq != scale))
-         freqs[idx] += (scale - sumFreq);          
+      if (sumScaledFreq != scale)
+         freqs[idxMax] += (scale - sumScaledFreq);          
 
       return alphabetSize;
    }

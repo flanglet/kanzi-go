@@ -342,8 +342,8 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 
 // Returns the size of the alphabet
 // The alphabet and freqs parameters are updated
-func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, count int, scale int, exact bool) (int, error) {
-	if count == 0 {
+func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (int, error) {
+	if totalFreq == 0 {
 		return 0, nil
 	}
 
@@ -351,13 +351,14 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, coun
 		return 0, fmt.Errorf("Invalid range parameter: %v (must be in [256..65536])", scale)
 	}
 
+	// Number of present symbols
 	alphabetSize := 0
 
-	// range == count intcut
-	if count == scale {
+	// shortcut
+	if totalFreq == scale {
 		for i := range freqs {
 			if freqs[i] != 0 {
-				alphabet[alphabetSize] = int(i)
+				alphabet[alphabetSize] = i
 				alphabetSize++
 			}
 		}
@@ -365,34 +366,41 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, coun
 		return alphabetSize, nil
 	}
 
+	sumScaledFreq := 0
 	sumFreq := 0
-	fmax := 0
-	idx := -1
+	freqMax := 0
+	idxMax := -1
 
 	// Scale frequencies by stretching distribution over complete range
 	for i := range alphabet {
-		alphabet[i] = 0
+		if sumFreq >= totalFreq {
+			break
+		}
 
-		if freqs[i] == 0 {
+		alphabet[i] = 0
+		f := freqs[i]
+
+		if f == 0 {
 			continue
 		}
 
-		if freqs[i] > fmax {
-			fmax = freqs[i]
-			idx = i
+		if f > freqMax {
+			freqMax = f
+			idxMax = i
 		}
 
+		sumFreq += f
 		sf := int64(freqs[i]) * int64(scale)
 		var scaledFreq int
 
-		if sf < int64(count) {
+		if sf <= int64(totalFreq) {
 			// Quantum of frequency
 			scaledFreq = 1
 		} else {
 			// Find best frequency rounding value
-			scaledFreq = int(sf / int64(count))
-			errCeiling := int64(scaledFreq+1)*int64(count) - sf
-			errFloor := sf - int64(scaledFreq)*int64(count)
+			scaledFreq = int(sf / int64(totalFreq))
+			errCeiling := int64(scaledFreq+1)*int64(totalFreq) - sf
+			errFloor := sf - int64(scaledFreq)*int64(totalFreq)
 
 			if errCeiling < errFloor {
 				scaledFreq++
@@ -401,7 +409,7 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, coun
 
 		alphabet[alphabetSize] = i
 		alphabetSize++
-		sumFreq += scaledFreq
+		sumScaledFreq += scaledFreq
 		freqs[i] = scaledFreq
 	}
 
@@ -414,10 +422,8 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, coun
 		return 1, nil
 	}
 
-	// Adjust sum of frequencies ?
-	// Usually, leaving the error abs(sumFreq-scale) is OK
-	if exact == true && sumFreq != scale {
-		freqs[idx] += (scale - sumFreq)
+	if sumScaledFreq != scale {
+		freqs[idxMax] += (scale - sumScaledFreq)
 	}
 
 	return alphabetSize, nil

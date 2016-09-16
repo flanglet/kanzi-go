@@ -70,7 +70,7 @@ public class BinaryEntropyDecoder implements EntropyDecoder
    }
    
 
-   protected byte decodeByte()
+   public final byte decodeByte()
    {
       return (byte) ((this.decodeBit() << 7)
             | (this.decodeBit() << 6)
@@ -101,7 +101,7 @@ public class BinaryEntropyDecoder implements EntropyDecoder
    }
 
 
-   private int decodeBit()
+   public final int decodeBit()
    {
       // Calculate interval split
       // Written in a way to maximize accuracy of multiplication/division

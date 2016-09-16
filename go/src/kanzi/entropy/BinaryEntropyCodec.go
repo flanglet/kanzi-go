@@ -61,18 +61,18 @@ func NewBinaryEntropyEncoder(bs kanzi.OutputBitStream, predictor Predictor) (*Bi
 	return this, nil
 }
 
-func (this *BinaryEntropyEncoder) encodeByte(val byte) {
-	this.encodeBit((val >> 7) & 1)
-	this.encodeBit((val >> 6) & 1)
-	this.encodeBit((val >> 5) & 1)
-	this.encodeBit((val >> 4) & 1)
-	this.encodeBit((val >> 3) & 1)
-	this.encodeBit((val >> 2) & 1)
-	this.encodeBit((val >> 1) & 1)
-	this.encodeBit(val & 1)
+func (this *BinaryEntropyEncoder) EncodeByte(val byte) {
+	this.EncodeBit((val >> 7) & 1)
+	this.EncodeBit((val >> 6) & 1)
+	this.EncodeBit((val >> 5) & 1)
+	this.EncodeBit((val >> 4) & 1)
+	this.EncodeBit((val >> 3) & 1)
+	this.EncodeBit((val >> 2) & 1)
+	this.EncodeBit((val >> 1) & 1)
+	this.EncodeBit(val & 1)
 }
 
-func (this *BinaryEntropyEncoder) encodeBit(bit byte) {
+func (this *BinaryEntropyEncoder) EncodeBit(bit byte) {
 	// Calculate interval split
 	// Written in a way to maximize accuracy of multiplication/division
 	split := (((this.high - this.low) >> 4) * uint64(this.predictor.Get())) >> 8
@@ -93,7 +93,7 @@ func (this *BinaryEntropyEncoder) encodeBit(bit byte) {
 
 func (this *BinaryEntropyEncoder) Encode(block []byte) (int, error) {
 	for i := range block {
-		this.encodeByte(block[i])
+		this.EncodeByte(block[i])
 	}
 
 	return len(block), nil
@@ -145,15 +145,15 @@ func NewBinaryEntropyDecoder(bs kanzi.InputBitStream, predictor Predictor) (*Bin
 	return this, nil
 }
 
-func (this *BinaryEntropyDecoder) decodeByte() byte {
-	return byte((this.decodeBit() << 7) |
-		(this.decodeBit() << 6) |
-		(this.decodeBit() << 5) |
-		(this.decodeBit() << 4) |
-		(this.decodeBit() << 3) |
-		(this.decodeBit() << 2) |
-		(this.decodeBit() << 1) |
-		this.decodeBit())
+func (this *BinaryEntropyDecoder) DecodeByte() byte {
+	return byte((this.DecodeBit() << 7) |
+		(this.DecodeBit() << 6) |
+		(this.DecodeBit() << 5) |
+		(this.DecodeBit() << 4) |
+		(this.DecodeBit() << 3) |
+		(this.DecodeBit() << 2) |
+		(this.DecodeBit() << 1) |
+		this.DecodeBit())
 }
 
 func (this *BinaryEntropyDecoder) Initialized() bool {
@@ -169,7 +169,7 @@ func (this *BinaryEntropyDecoder) Initialize() {
 	this.initialized = true
 }
 
-func (this *BinaryEntropyDecoder) decodeBit() byte {
+func (this *BinaryEntropyDecoder) DecodeBit() byte {
 	// Calculate interval split
 	// Written in a way to maximize accuracy of multiplication/division
 	split := ((((this.high - this.low) >> 4) * uint64(this.predictor.Get())) >> 8) + this.low
@@ -208,7 +208,7 @@ func (this *BinaryEntropyDecoder) Decode(block []byte) (int, error) {
 	}
 
 	for i := range block {
-		block[i] = this.decodeByte()
+		block[i] = this.DecodeByte()
 	}
 
 	return len(block), err

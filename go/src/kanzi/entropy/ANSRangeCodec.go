@@ -96,7 +96,7 @@ func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, size int, lr u
 		return 0, errors.New("Invalid frequencies parameter")
 	}
 
-	alphabetSize, err := this.eu.NormalizeFrequencies(frequencies, this.alphabet, size, 1<<lr, false)
+	alphabetSize, err := this.eu.NormalizeFrequencies(frequencies, this.alphabet, size, 1<<lr)
 
 	if err == nil {
 		if alphabetSize > 0 {
@@ -182,19 +182,16 @@ func (this *ANSRangeEncoder) Encode(block []byte) (int, error) {
 		sizeChunk = len(block)
 	}
 
-	frequencies := this.freqs // aliasing
-	startChunk := 0
 	end := len(block)
+	startChunk := 0
 
-	if len(this.buffer) < sizeChunk {
-		this.buffer = make([]int32, sizeChunk)
+	if 4*len(this.buffer) < sizeChunk+3 {
+		this.buffer = make([]int32, (sizeChunk+3)>>2)
 	}
 
 	for startChunk < end {
-		st := ANS_TOP
-		lr := this.logRange
-
 		endChunk := startChunk + sizeChunk
+		lr := this.logRange
 
 		if endChunk > end {
 			endChunk = end
@@ -205,51 +202,64 @@ func (this *ANSRangeEncoder) Encode(block []byte) (int, error) {
 			lr--
 		}
 
-		for i := range frequencies {
-			frequencies[i] = 0
-		}
-
-		for i := startChunk; i < endChunk; i++ {
-			frequencies[block[i]]++
-		}
-
-		// Rebuild statistics
-		if _, err := this.updateFrequencies(frequencies, endChunk-startChunk, lr); err != nil {
+		if err := this.rebuildStatistics(block[startChunk:endChunk], lr); err != nil {
 			return startChunk, err
 		}
 
-		top := (ANS_TOP >> lr) << 32
-		n := 0
-
-		// Encoding works in reverse
-		for i := endChunk - 1; i >= startChunk; i-- {
-			symbol := block[i]
-			freq := uint64(frequencies[symbol])
-
-			// Normalize
-			if st >= top*freq {
-				this.buffer[n] = int32(st)
-				n++
-				st >>= 32
-			}
-
-			// Compute next ANS state
-			// C(s,x) = M floor(x/q_s) + mod(x,q_s) + b_s where b_s = q_0 + ... + q_{s-1}
-			st = ((st / freq) << lr) + (st % freq) + uint64(this.cumFreqs[symbol])
-		}
-
+		this.encodeChunk(block[startChunk:endChunk], lr)
 		startChunk = endChunk
-
-		// Write final ANS state
-		this.bitstream.WriteBits(st, 64)
-
-		// Write encoded data to bitstream
-		for n--; n >= 0; n-- {
-			this.bitstream.WriteBits(uint64(this.buffer[n]), 32)
-		}
 	}
 
-	return len(block), nil
+	return end, nil
+}
+
+func (this *ANSRangeEncoder) encodeChunk(block []byte, lr uint) {
+	top := (ANS_TOP >> lr) << 32
+	st := ANS_TOP
+	n := 0
+
+	// Encoding works in reverse
+	for i := len(block) - 1; i >= 0; i-- {
+		symbol := block[i]
+		freq := uint64(this.freqs[symbol])
+
+		// Normalize
+		if st >= top*freq {
+			this.buffer[n] = int32(st)
+			n++
+			st >>= 32
+		}
+
+		// Compute next ANS state
+		// C(s,x) = M floor(x/q_s) + mod(x,q_s) + b_s where b_s = q_0 + ... + q_{s-1}
+		st = ((st / freq) << lr) + (st % freq) + uint64(this.cumFreqs[symbol])
+	}
+
+	// Write final ANS state
+	this.bitstream.WriteBits(st, 64)
+
+	// Write encoded data to bitstream
+	for n--; n >= 0; n-- {
+		this.bitstream.WriteBits(uint64(this.buffer[n]), 32)
+	}
+}
+
+// Compute chunk frequencies, cumulated frequencies and encode chunk header
+func (this *ANSRangeEncoder) rebuildStatistics(block []byte, lr uint) error {
+	for i := range this.freqs {
+		this.freqs[i] = 0
+	}
+
+	for i := range block {
+		this.freqs[block[i]]++
+	}
+
+	// Rebuild statistics
+	if _, err := this.updateFrequencies(this.freqs, len(block), lr); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (this *ANSRangeEncoder) Dispose() {
@@ -266,6 +276,7 @@ type ANSRangeDecoder struct {
 	f2s       []byte // mapping frequency -> symbol
 	alphabet  []int
 	chunkSize int
+	logRange  uint
 }
 
 // The chunk size indicates how many bytes are encoded (per block) before
@@ -307,11 +318,11 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 	return this, nil
 }
 
-func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, uint, error) {
+func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, error) {
 	alphabetSize, err := DecodeAlphabet(this.bitstream, this.alphabet)
 
 	if err != nil || alphabetSize == 0 {
-		return alphabetSize, 0, nil
+		return alphabetSize, nil
 	}
 
 	if alphabetSize != 256 {
@@ -321,8 +332,8 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, uint, error) 
 	}
 
 	// Decode frequencies
-	logRange := uint(8 + this.bitstream.ReadBits(3))
-	scale := 1 << logRange
+	this.logRange = uint(8 + this.bitstream.ReadBits(3))
+	scale := 1 << this.logRange
 	sum := 0
 	inc := 16
 	llr := uint(3)
@@ -331,7 +342,7 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, uint, error) 
 		inc = 8
 	}
 
-	for 1<<llr <= logRange {
+	for 1<<llr <= this.logRange {
 		llr++
 	}
 
@@ -350,7 +361,7 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, uint, error) 
 
 			if freq <= 0 || freq >= scale {
 				error := fmt.Errorf("Invalid bitstream: incorrect frequency %v for symbol '%v' in ANS range decoder", freq, this.alphabet[j])
-				return alphabetSize, logRange, error
+				return alphabetSize, error
 			}
 
 			frequencies[this.alphabet[j]] = freq
@@ -361,7 +372,7 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, uint, error) 
 	// Infer first frequency
 	if scale <= sum {
 		error := fmt.Errorf("Invalid bitstream: incorrect frequency %v for symbol '%v' in ANS range decoder", frequencies[this.alphabet[0]], this.alphabet[0])
-		return alphabetSize, logRange, error
+		return alphabetSize, error
 	}
 
 	frequencies[this.alphabet[0]] = scale - sum
@@ -381,7 +392,7 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, uint, error) 
 		}
 	}
 
-	return alphabetSize, logRange, nil
+	return alphabetSize, nil
 }
 
 func (this *ANSRangeDecoder) Decode(block []byte) (int, error) {
@@ -402,41 +413,44 @@ func (this *ANSRangeDecoder) Decode(block []byte) (int, error) {
 	}
 
 	for startChunk < end {
-		alphabetSize, logRange, err := this.decodeHeader(this.freqs)
+		alphabetSize, err := this.decodeHeader(this.freqs)
 
 		if err != nil || alphabetSize == 0 {
 			return startChunk, err
 		}
 
-		mask := (uint64(1) << logRange) - 1
 		endChunk := startChunk + sizeChunk
 
 		if endChunk > end {
 			endChunk = end
 		}
 
-		// Read initial ANS state
-		st := this.bitstream.ReadBits(64)
-
-		for i := startChunk; i < endChunk; i++ {
-			idx := int(st & mask)
-			symbol := this.f2s[idx]
-			block[i] = symbol
-
-			// Compute next ANS state
-			// D(x) = (s, q_s (x/M) + mod(x,M) - b_s) where s is such b_s <= x mod M < b_{s+1}
-			st = uint64(this.freqs[symbol])*(st>>logRange) + uint64(idx-this.cumFreqs[symbol])
-
-			// Normalize
-			for st < ANS_TOP {
-				st = (st << 32) | this.bitstream.ReadBits(32)
-			}
-		}
-
+		this.decodeChunk(block[startChunk:endChunk])
 		startChunk = endChunk
 	}
 
 	return len(block), nil
+}
+
+func (this *ANSRangeDecoder) decodeChunk(block []byte) {
+	// Read initial ANS state
+	st := this.bitstream.ReadBits(64)
+	mask := (uint64(1) << this.logRange) - 1
+
+	for i := range block {
+		idx := int(st & mask)
+		symbol := this.f2s[idx]
+		block[i] = symbol
+
+		// Compute next ANS state
+		// D(x) = (s, q_s (x/M) + mod(x,M) - b_s) where s is such b_s <= x mod M < b_{s+1}
+		st = uint64(this.freqs[symbol])*(st>>this.logRange) + uint64(idx-this.cumFreqs[symbol])
+
+		// Normalize
+		for st < ANS_TOP {
+			st = (st << 32) | this.bitstream.ReadBits(32)
+		}
+	}
 }
 
 func (this *ANSRangeDecoder) BitStream() kanzi.InputBitStream {

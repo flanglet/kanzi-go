@@ -65,7 +65,7 @@ public class BinaryEntropyEncoder implements EntropyEncoder
    }
 
 
-   protected void encodeByte(byte val)
+   public final void encodeByte(byte val)
    {
       this.encodeBit((val >> 7) & 1);
       this.encodeBit((val >> 6) & 1);
@@ -78,7 +78,7 @@ public class BinaryEntropyEncoder implements EntropyEncoder
    }
 
 
-   private void encodeBit(int bit)
+   public final void encodeBit(int bit)
    {
       // Calculate interval split
       // Written in a way to maximize accuracy of multiplication/division
