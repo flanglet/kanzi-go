@@ -137,12 +137,12 @@ public class QuadTreeGenerator
    public static class Node implements Comparable<Node>
    {
       public final Node parent;
-      public final int x;
-      public final int y;
-      public final int w;
-      public final int h;
-      public final boolean isRGB;
+      public int x;
+      public int y;
+      public int w;
+      public int h;
       public int variance;
+      public final boolean isRGB;
 
       private Node(Node parent, int x, int y, int w, int h, boolean isRGB)
       {
