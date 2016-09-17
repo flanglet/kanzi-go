@@ -29,38 +29,37 @@ public class TestAbstractSort
         for (int ii=1; ii<=iters; ii++)
         {
             System.out.println("\n\nCorrectness test "+ii);
-            int idx = ii;
             final int[] array = new int[64];
             Random random = new Random();
 
-            for (int i=idx; i<array.length; i++)
+            for (int i=ii; i<array.length; i++)
                 array[i] = 64 + (random.nextInt(ii*8));
 
             byte[] b = new byte[array.length];
 
-            for (int i=idx; i<b.length; i++)
+            for (int i=ii; i<b.length; i++)
                 b[i] = (byte) array[i];
 
             System.out.println(new String(b));
 
-            for (int i=idx; i<array.length; i++)
+            for (int i=ii; i<array.length; i++)
                 System.out.print(array[i]+" ");
 
             System.out.println();
-            sorter.sort(array, idx, array.length-idx);
+            sorter.sort(array, ii, array.length-ii);
 
-            for (int i=idx; i<b.length; i++)
+            for (int i=ii; i<b.length; i++)
                 b[i] = (byte) (array[i] & 255);
 
             System.out.println(new String(b));
 
-            for (int i=idx; i<array.length; i++)
+            for (int i=ii; i<array.length; i++)
             {
                 System.out.print(array[i]+" ");
                 
                 if ((i > 0) && (array[i] < array[i-1]))
                 {
-                   System.err.println("Error at position "+(i-idx));
+                   System.err.println("Error at position "+(i-ii));
                    System.exit(1);
                 }
             }

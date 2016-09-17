@@ -216,7 +216,7 @@ public class DWT_CDF_9_7 implements IntTransform
                 block[i] = this.data[i];
         }
     }
-
+    
 
     // Calculate the reverse discrete wavelet transform of the 2D input signal
     // Not thread safe because this.data is modified

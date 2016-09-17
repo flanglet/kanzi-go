@@ -69,7 +69,7 @@ public class ContextResizer implements IntFilter
     private final ExecutorService pool;
 
 
-    public ContextResizer(int width, int height, int direction, int action)
+    public ContextResizer(int width, int height, int direction)
     {
         this(width, height, width, direction, 1, false, false, null);
     }

@@ -61,7 +61,6 @@ public class TestBWT
         {
             System.out.println("\nTest "+ii);
             int start = 0;
-            int size = 0;
             byte[] buf1;
             Random rnd = new Random();
 
@@ -79,8 +78,7 @@ public class TestBWT
             }
             else
             {
-               size = 128;
-               buf1 = new byte[size];
+               buf1 = new byte[128];
 
                for (int i=0; i<buf1.length; i++)
                {

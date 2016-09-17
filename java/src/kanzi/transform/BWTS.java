@@ -231,10 +231,9 @@ public class BWTS implements ByteTransform
 
        // Histogram
        for (int i=0, sum=0; i<256; i++)
-       { 
-          final int tmp = buckets_[i]; 
-          buckets_[i] = sum; 
-          sum += tmp; 
+       {
+          sum += buckets_[i];
+          buckets_[i] = sum - buckets_[i];
        }
        
        for (int i=0; i<count; i++)

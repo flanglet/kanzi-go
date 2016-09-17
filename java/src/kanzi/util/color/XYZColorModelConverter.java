@@ -129,7 +129,7 @@ public final class XYZColorModelConverter implements ColorModelConverter
     // shift is used to scale the YUV values: 0 -> [0..4096], 4 -> [0..256], 12 -> [0..1]
     public XYZColorModelConverter(int width, int height, int shift)
     {
-        this(width, height, 0, width, 0);
+        this(width, height, 0, width, shift);
     }
 
 

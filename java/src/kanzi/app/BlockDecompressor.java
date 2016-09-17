@@ -48,8 +48,8 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
    private final String outputName;   
    private CompressedInputStream cis;
    private OutputStream os;
-   private int jobs;
-   private boolean ownPool;
+   private final int jobs;
+   private final boolean ownPool;
    private final ExecutorService pool;
    private final List<BlockListener> listeners;
    

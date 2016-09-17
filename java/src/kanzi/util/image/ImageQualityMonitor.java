@@ -19,8 +19,6 @@ import kanzi.util.color.YCbCrColorModelConverter;
 import kanzi.util.color.ColorModelConverter;
 import kanzi.Global;
 import kanzi.ColorModelType;
-import kanzi.IndexedIntArray;
-import kanzi.transform.DCT8;
 import kanzi.util.color.RGBColorModelConverter;
 
 
@@ -151,7 +149,6 @@ public final class ImageQualityMonitor
    private final int stride;
    private final int[] kernel32;
    private final int downSampling;
-   private int[] buffer;
    private int[] y1;
    private int[] y2;
    private int[] u1;
@@ -204,7 +201,6 @@ public final class ImageQualityMonitor
        this.stride = stride;
        this.kernel32 = (ssim_gauss_kernel == null) ? DEFAULT_GAUSSIAN_KERNEL : ssim_gauss_kernel;
        this.downSampling = downSampling;
-       this.buffer = new int[0];
        this.y1 = new int[0];
        this.y2 = new int[0];
        this.u1 = new int[0];

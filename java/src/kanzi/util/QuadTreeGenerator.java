@@ -137,12 +137,12 @@ public class QuadTreeGenerator
    public static class Node implements Comparable<Node>
    {
       public final Node parent;
-      public int x;
-      public int y;
-      public int w;
-      public int h;
-      public int variance;
+      public final int x;
+      public final int y;
+      public final int w;
+      public final int h;
       public final boolean isRGB;
+      public int variance;
 
       private Node(Node parent, int x, int y, int w, int h, boolean isRGB)
       {
@@ -180,6 +180,9 @@ public class QuadTreeGenerator
       {
          try
          {
+            if (o == null)
+               return false;
+            
            if (o == this)
               return true;
 
@@ -195,10 +198,6 @@ public class QuadTreeGenerator
               return false;
 
            return (this.h == n.h);
-         }
-         catch (NullPointerException e)
-         {
-            return false;
          }
          catch (ClassCastException e)
          {

@@ -478,8 +478,8 @@ public final class IntBTree
    // A node containing a range of integers
    public static class IntBTNode
    {
-      protected int base;  // range base
-      protected int[] counts;
+      protected final int base;  // range base
+      protected final int[] counts;
       protected IntBTNode left;
       protected IntBTNode right;
 

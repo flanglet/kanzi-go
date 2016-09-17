@@ -90,7 +90,7 @@ public class TestBlockCoder
        else
           set.add("-input="+input+".knz");
        
-       args = (String[]) set.toArray(new String[set.size()]);
+       args = set.toArray(new String[set.size()]);
        BlockDecompressor dec = new BlockDecompressor(args, pool);
 
        if (addListeners == true)

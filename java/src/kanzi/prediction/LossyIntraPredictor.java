@@ -86,7 +86,7 @@ public class LossyIntraPredictor
 
          return null;
       }
-   };
+   }
 
    private static final int ACTION_POPULATE  = 1;
    private static final int ACTION_GET_INDEX = 2;
@@ -427,7 +427,7 @@ public class LossyIntraPredictor
 
    // Add residue to other block located at prediction.x, prediction.y
    // Return output
-   private int[] computeBlockReference(Prediction prediction, int[] output,  int x, int y,
+   private int[] computeBlockReference(Prediction prediction, int[] output, int x, int y,
          int direction)
    {
       final int st = this.stride;

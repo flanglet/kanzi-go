@@ -49,7 +49,6 @@ public class TestANSRangeCoder
             try
             {
                 byte[] values;
-                int size = 0;
                 java.util.Random random = new java.util.Random();
 
                 if (ii == 3)
@@ -80,9 +79,7 @@ public class TestANSRangeCoder
                           values[i] = (byte) (random.nextInt() & 31);
                 }
 
-                if (size == 0)
-                   size = values.length;
-                
+                int size = values.length;
                 System.out.println("Original:");
 
                 for (int i=0; i<size; i++)

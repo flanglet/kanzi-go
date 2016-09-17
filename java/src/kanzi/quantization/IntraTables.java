@@ -185,13 +185,13 @@ public static final int[] ZIGZAG_SCAN_16x16 = new int[]
    
    // TODO: instead of horizontal
    
-   public static final int[] QUADRANT_RASTER_SCAN_4x4 = new int[]
+   public static final int[] RASTER_SCAN_4x4 = new int[]
    {
       0, 1, 4, 5, 2, 3, 6, 7, 8, 9, 12, 13, 10, 11, 14, 15
    };
    
 
-   public static final int[] QUADRANT_RASTER_SCAN_8x8 = new int[]
+   public static final int[] RASTER_SCAN_8x8 = new int[]
    {
       0,  1,  2,  3,  8,  9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27,
       4,  5,  6,  7, 12, 13, 14, 15, 20, 21, 22, 23, 28, 29, 30, 31,
@@ -200,7 +200,7 @@ public static final int[] ZIGZAG_SCAN_16x16 = new int[]
    };
 
 
-   public static final int[] QUADRANT_RASTER_SCAN_16x16 = new int[]
+   public static final int[] RASTER_SCAN_16x16 = new int[]
    {
       0,   1,   2,   3,   4,   5,   6,   7,  16,  17,  18,  19,  20,  21,  22,  23,
      32,  33,  34,  35,  36,  37,  38,  39,  48,  49,  50,  51,  52,  53,  54,  55,
@@ -221,7 +221,7 @@ public static final int[] ZIGZAG_SCAN_16x16 = new int[]
    };
    
    
-   public static final int[] QUADRANT_RASTER_SCAN_32x32 = new int[]
+   public static final int[] RASTER_SCAN_32x32 = new int[]
    {
       0,    1,    2,    3,    4,    5,    6,    7,    8,    9,   10,   11,   12,   13,   14,   15,
      32,   33,   34,   35,   36,   37,   38,   39,   40,   41,   42,   43,   44,   45,   46,   47,
@@ -290,13 +290,13 @@ public static final int[] ZIGZAG_SCAN_16x16 = new int[]
    };
       
    
-   public static final int[] QUADRANT_MORTON_SCAN_4x4 = new int[]
+   public static final int[] MORTON_SCAN_4x4 = new int[]
    {
       0, 1, 4, 5, 2, 3, 6, 7, 8, 9, 12, 13, 10, 11, 14, 15
    };
    
 
-   public static final int[] QUADRANT_MORTON_SCAN_8x8 = new int[]
+   public static final int[] MORTON_SCAN_8x8 = new int[]
    {
       0,  1,  8,  9,  2,  3, 10, 11, 16, 17, 24, 25, 18, 19, 26, 27,
       4,  5, 12, 13,  6,  7, 14, 15, 20, 21, 28, 29, 22, 23, 30, 31,
@@ -305,7 +305,7 @@ public static final int[] ZIGZAG_SCAN_16x16 = new int[]
    };
 
 
-   public static final int[] QUADRANT_MORTON_SCAN_16x16 = new int[]
+   public static final int[] MORTON_SCAN_16x16 = new int[]
    {
       0,   1,  16,  17,   2,   3,  18,  19,  32,  33,  48,  49,  34,  35,  50,  51,
       4,   5,  20,  21,   6,   7,  22,  23,  36,  37,  52,  53,  38,  39,  54,  55,
@@ -326,7 +326,7 @@ public static final int[] ZIGZAG_SCAN_16x16 = new int[]
    };
    
    
-   public static final int[] QUADRANT_MORTON_SCAN_32x32 = new int[]
+   public static final int[] MORTON_SCAN_32x32 = new int[]
    {
       0,    1,   32,   33,    2,    3,   34,   35,   64,   65,   96,   97,   66,   67,   98,   99,
       4,    5,   36,   37,    6,    7,   38,   39,   68,   69,  100,  101,   70,   71,  102,  103,
@@ -394,21 +394,21 @@ public static final int[] ZIGZAG_SCAN_16x16 = new int[]
     924,  925,  956,  957,  926,  927,  958,  959,  988,  989, 1020, 1021,  990,  991, 1022, 1023
    };
 
-   public static final int[] getScanTable(int dim, boolean zigzag)
+   public static int[] getScanTable(int dim, boolean zigzag)
    {
       switch (dim) 
       {
          case 4 :
-            return (zigzag == true) ? ZIGZAG_SCAN_4x4 : QUADRANT_MORTON_SCAN_4x4;
+            return (zigzag == true) ? ZIGZAG_SCAN_4x4 : MORTON_SCAN_4x4;
 
          case 8 :
-            return (zigzag == true) ? ZIGZAG_SCAN_8x8 : QUADRANT_MORTON_SCAN_8x8;
+            return (zigzag == true) ? ZIGZAG_SCAN_8x8 : MORTON_SCAN_8x8;
 
          case 16 :
-            return (zigzag == true) ? ZIGZAG_SCAN_16x16 : QUADRANT_MORTON_SCAN_16x16;
+            return (zigzag == true) ? ZIGZAG_SCAN_16x16 : MORTON_SCAN_16x16;
 
          case 32 :
-            return (zigzag == true) ? ZIGZAG_SCAN_32x32 : QUADRANT_MORTON_SCAN_32x32;
+            return (zigzag == true) ? ZIGZAG_SCAN_32x32 : MORTON_SCAN_32x32;
 
          default :
             return null;      

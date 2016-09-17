@@ -42,18 +42,18 @@ public class BlockCompressor implements Runnable, Callable<Integer>
    private static final int DEFAULT_BUFFER_SIZE = 32768;
    public static final int WARN_EMPTY_INPUT = -128;
 
-   private int verbosity;
-   private boolean overwrite;
-   private boolean checksum;
-   private String inputName;
-   private String outputName;
-   private String codec;
-   private String transform;
-   private int blockSize;
-   private int jobs;
+   private final int verbosity;
+   private final boolean overwrite;
+   private final boolean checksum;
+   private final String inputName;
+   private final String outputName;
+   private final String codec;
+   private final String transform;
+   private final int blockSize;
+   private final int jobs;
    private InputStream is;
    private CompressedOutputStream cos;
-   private boolean ownPool;
+   private final boolean ownPool;
    private final ExecutorService pool;
    private final List<BlockListener> listeners;
 

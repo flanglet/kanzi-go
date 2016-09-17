@@ -635,7 +635,7 @@ public class CompressedInputStream extends InputStream
             else
             {
                ByteTransformSequence transform = new ByteFunctionFactory().newFunction(preTransformLength,
-                       this.transformType);
+                       typeOfTransform);
                transform.setSkipFlags((byte) ((mode>>2) & ByteTransformSequence.SKIP_MASK));
                buffer.index = 0;                  
             

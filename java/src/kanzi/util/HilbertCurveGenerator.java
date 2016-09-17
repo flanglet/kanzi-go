@@ -163,7 +163,7 @@ public class HilbertCurveGenerator
 
     private static class Context
     {
-        int[] data;
+        final int[] data;
         int idx;
         int offset;
 

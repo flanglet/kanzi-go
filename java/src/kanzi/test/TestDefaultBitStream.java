@@ -225,7 +225,7 @@ public class TestDefaultBitStream
             final int iter = 150;
             long written = 0;
             long read = 0;
-            long before = 0, after = 0;
+            long before, after;
             long delta1 = 0, delta2 = 0;
             int nn = 100000 * values.length;           
             
