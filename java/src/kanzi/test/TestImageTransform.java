@@ -25,6 +25,7 @@ import kanzi.transform.DCT16;
 import kanzi.transform.DCT32;
 import kanzi.transform.DCT4;
 import kanzi.transform.DWT_CDF_9_7;
+import kanzi.transform.DWT_DCT;
 import kanzi.transform.WHT16;
 import kanzi.transform.WHT32;
 import kanzi.transform.WHT4;
@@ -59,39 +60,60 @@ public class TestImageTransform
         img.getRaster().setDataElements(0, 0, w, h, rgb);
 
         javax.swing.JFrame frame = new javax.swing.JFrame("Original");
-        frame.setBounds(100, 100, w, h);
+        frame.setBounds(50, 50, w, h);
         frame.add(new javax.swing.JLabel(new javax.swing.ImageIcon(img)));
         frame.setVisible(true);
 
+        DWT_DCT dwtdct8 = new DWT_DCT(8);
+        transform(dwtdct8, w, h, rgb, 8, "Wavelet Transform DWT/DCT 8x8", 80, 80);
+        
+        DWT_DCT dwtdct16 = new DWT_DCT(16);
+        transform(dwtdct16, w, h, rgb, 16, "Wavelet Transform DWT/DCT 16x16", 110, 110);
+        
+        DWT_DCT dwtdct32 = new DWT_DCT(32);
+        transform(dwtdct32, w, h, rgb, 32, "Wavelet Transform DWT/DCT 32x32", 140, 140);
+        
+        DWT_DCT dwtdct64 = new DWT_DCT(64);
+        transform(dwtdct64, w, h, rgb, 64, "Wavelet Transform DWT/DCT 64x64", 170, 170);
+
         DCT4 dct4 = new DCT4();
-        transform(dct4, w, h, rgb, 4, "Discrete Cosine Transform 4x4", 150, 150);
+        transform(dct4, w, h, rgb, 4, "Discrete Cosine Transform 4x4", 200, 200);
 
         DCT8 dct8 = new DCT8();
-        transform(dct8, w, h, rgb, 8, "Discrete Cosine Transform 8x8", 200, 200);
+        transform(dct8, w, h, rgb, 8, "Discrete Cosine Transform 8x8", 230, 230);
 
         DCT16 dct16 = new DCT16();
-        transform(dct16, w, h, rgb, 16, "Discrete Cosine Transform 16x16", 250, 250);
+        transform(dct16, w, h, rgb, 16, "Discrete Cosine Transform 16x16", 260, 260);
 
         DCT32 dct32 = new DCT32();
-        transform(dct32, w, h, rgb, 32, "Discrete Cosine Transform 32x32", 300, 300);
+        transform(dct32, w, h, rgb, 32, "Discrete Cosine Transform 32x32", 290, 290);
 
         WHT4 wht4 = new WHT4();
-        transform(wht4, w, h, rgb, 4, "Walsh-Hadamard Transform 4x4", 350, 350);
+        transform(wht4, w, h, rgb, 4, "Walsh-Hadamard Transform 4x4", 320, 320);
         
         WHT8 wht8 = new WHT8();
-        transform(wht8, w, h, rgb, 8, "Walsh-Hadamard Transform 8x8", 400, 400);
+        transform(wht8, w, h, rgb, 8, "Walsh-Hadamard Transform 8x8", 350, 350);
 
         WHT16 wht16 = new WHT16();
-        transform(wht16, w, h, rgb, 16, "Walsh-Hadamard Transform 16x16", 450, 450);
+        transform(wht16, w, h, rgb, 16, "Walsh-Hadamard Transform 16x16", 380, 380);
 
         WHT32 wht32 = new WHT32();
-        transform(wht32, w, h, rgb, 32, "Walsh-Hadamard Transform 32x32", 500, 500);
+        transform(wht32, w, h, rgb, 32, "Walsh-Hadamard Transform 32x32", 410, 410);
 
-        DWT_CDF_9_7 dwt1 = new DWT_CDF_9_7(w, h, 4);
-        transform(dwt1, w, h, rgb, Math.min(w, h), "Wavelet Transform CDF 9/7 "+w+"x"+h, 550, 550);
+        DWT_CDF_9_7 dwt8 = new DWT_CDF_9_7(8, 8, 1);
+        transform(dwt8, w, h, rgb, 8, "Wavelet Transform CDF 9/7 8x8", 440, 440);
 
-        DWT_CDF_9_7 dwt2 = new DWT_CDF_9_7(32, 32, 2);
-        transform(dwt2,  w, h, rgb, 32, "Wavelet Transform CDF 9/7 32x32", 600, 600);
+        DWT_CDF_9_7 dwt16 = new DWT_CDF_9_7(16, 16, 1);
+        transform(dwt16, w, h, rgb, 16, "Wavelet Transform CDF 9/7 16x16", 470, 470);
+
+        DWT_CDF_9_7 dwt32 = new DWT_CDF_9_7(32, 32, 1);
+        transform(dwt32, w, h, rgb, 32, "Wavelet Transform CDF 9/7 32x32", 500, 500);
+
+        DWT_CDF_9_7 dwt64 = new DWT_CDF_9_7(64, 64, 1);
+        transform(dwt64, w, h, rgb, 64, "Wavelet Transform CDF 9/7 64x64", 530, 530);
+
+        DWT_CDF_9_7 dwt = new DWT_CDF_9_7(w, h, 1);
+        transform(dwt, w, h, rgb, Math.min(w, h), "Wavelet Transform CDF 9/7 "+w+"x"+h, 560, 560);
 
         try
         {
@@ -110,7 +132,7 @@ public class TestImageTransform
   {
     int len = w * h;
     int[] rgb2 = new int[len];
-    int[] data = new int[w*h];
+    int[] data = new int[dim*dim];
     long sum = 0L;
     int iter = 1000;
     IndexedIntArray iia = new IndexedIntArray(data, 0);
@@ -147,7 +169,8 @@ public class TestImageTransform
 
                  for (int i=x; i<x+dim; i++)
                  {
-                     rgb2[offs+i] = (data[idx] << 16) | (data[idx] << 8) | (data[idx] & 0xFF);
+                     int val = data[idx] & 0xFF;
+                     rgb2[offs+i] = (val << 16) | (val << 8) | val;
                      idx++;
                  }
               }

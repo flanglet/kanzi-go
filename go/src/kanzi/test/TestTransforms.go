@@ -19,12 +19,12 @@ import (
 	"fmt"
 	"kanzi"
 	"kanzi/transform"
+	"math"
 	"math/rand"
 	"time"
 )
 
 func main() {
-	fmt.Printf("\nCorrectness test")
 	block := []int{
 		3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9, 3,
 		2, 3, 8, 4, 6, 2, 6, 4, 3, 3, 8, 3, 2, 7, 9, 5,
@@ -92,23 +92,29 @@ func main() {
 		7, 2, 0, 1, 0, 6, 5, 4, 8, 5, 8, 6, 3, 2, 7, 8,
 	}
 
-	transforms := make([]kanzi.IntTransform, 5)
+	transforms := make([]kanzi.IntTransform, 11)
 	transforms[0], _ = transform.NewDCT4()
 	transforms[1], _ = transform.NewDCT8()
 	transforms[2], _ = transform.NewDCT16()
 	transforms[3], _ = transform.NewDCT32()
-	transforms[4], _ = transform.NewDST4()
+	transforms[4], _ = transform.NewDWT_DCT(8)
+	transforms[5], _ = transform.NewDWT_DCT(16)
+	transforms[6], _ = transform.NewDWT_DCT(32)
+	transforms[7], _ = transform.NewDWT(8, 8, 1)
+	transforms[8], _ = transform.NewDWT(16, 16, 1)
+	transforms[9], _ = transform.NewDWT(32, 32, 1)
+	transforms[10], _ = transform.NewDST4()
 
-	for dimIdx := range transforms {
-		dim := 4 << uint(dimIdx)
-		name := "DCT"
+	dims := [11]int{4, 8, 16, 32, 8, 16, 32, 8, 16, 32, 4}
+	names := [11]string{"DCT", "DCT", "DCT", "DCT", "DWT_DCT",
+		"DWT_DCT", "DWT_DCT", "DWT", "DWT", "DWT", "DST"}
 
-		if dim >= 64 {
-			dim = 4
-			name = "DST"
-		}
+	for idx := range transforms {
+		dim := dims[idx]
+		name := names[idx]
+		transform := fmt.Sprintf("%v %v", name, dim)
 
-		fmt.Printf("\n%v%v correctness\n", name, dim)
+		fmt.Printf("\n%v correctness\n", transform)
 		blockSize := dim * dim
 		data1 := make([]int, blockSize+20)
 		data2 := make([]int, blockSize+20)
@@ -116,7 +122,7 @@ func main() {
 		var data []int
 
 		for nn := 0; nn < 20; nn++ {
-			fmt.Printf("\nInput %v: ", nn)
+			fmt.Printf("\n%v - input %v:\n", transform, nn)
 
 			for i := 0; i < blockSize; i++ {
 				if nn == 0 {
@@ -131,8 +137,8 @@ func main() {
 			}
 
 			copy(data3, data1)
-			fmt.Printf("\nOutput: ")
-			start := (nn & 1) * nn
+			fmt.Println("Output:")
+			start := 0 //(nn & 1) * nn
 
 			if nn <= 10 {
 				data = data1
@@ -140,17 +146,19 @@ func main() {
 				data = data2
 			}
 
-			transforms[dimIdx].Forward(data1, data[start:])
+			transforms[idx].Forward(data1, data[start:])
 
 			for i := start; i < start+blockSize; i++ {
 				fmt.Printf("%v ", data[i])
 			}
 
-			transforms[dimIdx].Inverse(data[start:], data2)
-			fmt.Printf("\nResult: ")
+			transforms[idx].Inverse(data[start:], data2)
+			fmt.Println("Result:")
+			sad := 0
 
 			for i := 0; i < blockSize; i++ {
 				fmt.Printf("%v ", data2[i])
+				sad += int(math.Abs(float64(data2[i] - data3[i])))
 
 				if data3[i] != data2[i] {
 					fmt.Printf("! ")
@@ -159,7 +167,7 @@ func main() {
 				}
 			}
 
-			fmt.Printf("\n")
+			fmt.Printf("\nSAD: %v\n", sad)
 		}
 	}
 

@@ -23,8 +23,10 @@ import kanzi.transform.DCT32;
 import kanzi.transform.DCT4;
 import kanzi.transform.DCT8;
 import kanzi.transform.DST4;
+import kanzi.transform.DWT_CDF_9_7;
+import kanzi.transform.DWT_DCT;
 
-public class TestDCT
+public class TestTransforms
 {
 
   public static void main(String[] args)
@@ -102,12 +104,19 @@ public class TestDCT
             public void run()
             {            
               IntTransform[] transforms = new IntTransform[] 
-                      { new DCT4(), new DCT8(), new DCT16(), new DCT32(), new DST4() };
+                      { new DCT4(), new DCT8(), new DCT16(), new DCT32(), 
+                        new DWT_DCT(8), new DWT_DCT(16), new DWT_DCT(32), 
+                        new DWT_CDF_9_7(8, 8, 1), new DWT_CDF_9_7(16, 16, 1), new DWT_CDF_9_7(32, 32, 1),
+                        new DST4() };
+              int[] dims = new int[] { 4, 8, 16, 32, 8, 16, 32, 8, 16, 32, 4 };
+              String[] names = new String[] {"DCT", "DCT", "DCT", "DCT", "DWT_DCT", 
+                 "DWT_DCT", "DWT_DCT", "DWT", "DWT", "DWT", "DST" };
               
-              for (int dimIdx=0; dimIdx<transforms.length; dimIdx++)
+              for (int idx=0; idx<transforms.length; idx++)
               {   
-                  int dim = ((4<<dimIdx) >= 64) ? 4 : 4<<dimIdx;
-                  System.out.println("\n"+((dimIdx<4) ?"DCT" : "DST")+dim+" correctness");
+                  int dim = dims[idx];
+                  String transform = names[idx] + " " + dim;
+                  System.out.println("\n"+transform+" correctness\n");
                   final int blockSize = dim * dim;
                   int[] data1 = new int[blockSize+20]; // source
                   int[] data2 = new int[blockSize+20]; // destination
@@ -115,12 +124,11 @@ public class TestDCT
                   int[] data;
                   IndexedIntArray iia1 = new IndexedIntArray(data1, 0);
                   IndexedIntArray iia2 = new IndexedIntArray(data2, 0);
-
                   Random rnd = new Random();
 
                   for (int nn=0; nn<20; nn++)
                   {
-                     System.out.println("Input "+nn+" :");
+                     System.out.println(transform + " - input "+nn+":");
 
                      for (int i=0; i<blockSize; i++)
                      {
@@ -134,7 +142,7 @@ public class TestDCT
                         System.out.print("  ");
                      }
 
-                     int start = (nn & 1) * nn;
+                     int start = 0;//(nn & 1) * nn;
 
                      if (nn <= 10) 
                         data = data1;
@@ -145,9 +153,9 @@ public class TestDCT
                      iia1.index = 0;
                      iia2.array = data;
                      iia2.index = start;
-                     transforms[dimIdx].forward(iia1, iia2);
+                     transforms[idx].forward(iia1, iia2);
                      System.out.println();
-                     System.out.println("Output");
+                     System.out.println("Output:");
 
                      for (int i=0; i<blockSize; i++)
                      {
@@ -158,17 +166,19 @@ public class TestDCT
                      iia1.array = data2;
                      iia1.index = 0;
                      iia2.index = start;
-                     transforms[dimIdx].inverse(iia2, iia1);
+                     transforms[idx].inverse(iia2, iia1);
                      System.out.println();
-                     System.out.println("Result");
+                     System.out.println("Result:");
+                     int sad = 0;
 
                      for (int i=0; i<blockSize; i++)
                      {
                         System.out.print(data2[i]);
+                        sad += Math.abs(data2[i] - data3[i]);
                         System.out.print((data3[i] != data2[i]) ? "! " : "= ");
                      }
 
-                     System.out.println("\n");
+                     System.out.println("\nSAD: " + sad + "\n");
                    }
                }
             }

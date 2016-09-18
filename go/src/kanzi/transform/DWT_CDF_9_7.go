@@ -36,12 +36,10 @@ const (
 )
 
 type DWT_CDF_9_7 struct {
-	width  uint // at least 8
-	height uint // at least 8
-	steps  uint // at least 1
-	// ensure (width >> steps) << steps == width
-	// ensure (height >> steps) << steps == height
-	data []int // width * height
+	width  uint  // at least 8
+	height uint  // at least 8
+	steps  uint  // at least 1
+	data   []int // width * height
 }
 
 func NewDWT(width, height, steps uint) (*DWT_CDF_9_7, error) {
@@ -55,6 +53,14 @@ func NewDWT(width, height, steps uint) (*DWT_CDF_9_7, error) {
 
 	if steps < 1 {
 		return nil, errors.New("Invalid number of iterations (must be at least 1)")
+	}
+
+	if (width >> steps) < 4 {
+		return nil, errors.New("Invalid width for band L0 (must) be at least 4)")
+	}
+
+	if (height >> steps) < 4 {
+		return nil, errors.New("Invalid height for band L0 (must) be at least 4)")
 	}
 
 	if (width>>steps)<<steps != width {
@@ -77,11 +83,11 @@ func (this *DWT_CDF_9_7) Forward(src, dst []int) (uint, uint, error) {
 	if len(src) < int(this.width*this.height) {
 		return 0, 0, errors.New("The input buffer is too small")
 	}
-	
+
 	if len(dst) < int(this.width*this.height) {
 		return 0, 0, errors.New("The output buffer is too small")
 	}
-	
+
 	if kanzi.SameIntSlices(src, dst, false) == false {
 		copy(dst, src)
 	}
@@ -178,11 +184,11 @@ func (this *DWT_CDF_9_7) Inverse(src, dst []int) (uint, uint, error) {
 	if len(src) < int(this.width*this.height) {
 		return 0, 0, errors.New("The input buffer is too small")
 	}
-	
+
 	if len(dst) < int(this.width*this.height) {
 		return 0, 0, errors.New("The output buffer is too small")
 	}
-	
+
 	if kanzi.SameIntSlices(src, dst, false) == false {
 		copy(dst, src)
 	}
