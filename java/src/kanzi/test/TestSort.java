@@ -235,7 +235,7 @@ public class TestSort
                 sum6 += (after - before);
                 
                 if (ii == 0)
-                   check("Araays Sort", array);
+                   check("Arrays Sort", array);
                                    
                 System.arraycopy(copy, 0, array, 0, array.length);
                 before = System.nanoTime();
@@ -301,4 +301,4 @@ public class TestSort
 
      return res;
    }
-}
+   }
