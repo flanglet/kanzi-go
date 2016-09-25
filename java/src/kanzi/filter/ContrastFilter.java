@@ -25,7 +25,7 @@ public class ContrastFilter implements IntFilter
     private final int height;
     private final int stride;
     private final int[] intensities;
-    private int contrast256;
+    private int contrast;
 
     
     // contrast in percent
@@ -54,8 +54,8 @@ public class ContrastFilter implements IntFilter
         this.width = width;
         this.stride = stride;
         this.intensities = new int[256];
-        this.contrast256 = contrast << 8;
-        this.initBuffer(contrast);
+        this.contrast = contrast;
+        this.initBuffer();
     }
     
     
@@ -99,36 +99,29 @@ public class ContrastFilter implements IntFilter
     // in percent
     public int getContrast()
     {
-       return this.contrast256 >> 8;
+       return this.contrast;
     }
     
-    
+    // contrast in percent
     public boolean setContrast(int contrast)
     {
-       if ((contrast < 0) || (contrast > 1000))
+       if ((contrast < 0) || (contrast > 100))
           return false;
         
-       this.contrast256 = contrast << 8;
-       this.initBuffer(contrast);
+       this.contrast = contrast;
+       this.initBuffer();
        return true;
     }
     
     
-    private void initBuffer(int contrast)
+    private void initBuffer()
     {
-       int ratio = (contrast << 8) / 100;
-       ratio *= ratio;
+       final int ratio = (this.contrast << 16) / 100;
 
        for (int i=0; i<256; i++)
        {
-          int val = (ratio * i) >> 16;
-           
-          if (val > 255)
-             val = 255;
-          else if (val < 0)
-             val = 0;
-           
-          this.intensities[i] = val;
+          final int val = (ratio * i) >> 16;        
+          this.intensities[i] = (val >= 255) ? 255 : val & ~(val>>31);
        }
    }    
 }

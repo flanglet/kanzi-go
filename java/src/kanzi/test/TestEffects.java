@@ -43,11 +43,19 @@ import kanzi.filter.seam.ContextResizer;
 public class TestEffects
 {
     public static void main(String[] args)
-    {
+    {        
         try
         {
-            String fileName = "c:\\temp\\lena.jpg";
+           if (args.length == 0)
+           {
+              System.out.println("Invalid command: type TestEffects -help");
+              System.exit(1);
+           }
+              
+            String fileName = "r:\\lena.jpg";
             String filterName = "";
+            Integer param1 = null;
+            Integer param2 = null;
             
             for (String arg : args)
             {
@@ -60,11 +68,21 @@ public class TestEffects
                    System.out.println("-filter=<filtername> : apply named filter ");
                    System.out.println("                       [Bilateral|Blur|Contrast|ColorCluster|FastBilateral|");
                    System.out.println("                        Gaussian|Lighting|Sobel|ContextResizer]");
+                   System.out.println("-arg1=<param>        : paramter used by the filter (EG. contract in percent)");
+                   System.out.println("-arg2=<param>        : paramter used by the filter (EG. contract in percent)");
                    System.exit(0);
                }
                else if (arg.startsWith("-file="))
                {
                   fileName = arg.substring(6);
+               }
+               else if (arg.startsWith("-arg1="))
+               {
+                  param1 = Integer.parseInt(arg.substring(6));
+               }
+               else if (arg.startsWith("-arg2="))
+               {
+                  param2 = Integer.parseInt(arg.substring(6));
                }
                else if (arg.startsWith("-filter="))
                {
@@ -104,7 +122,8 @@ public class TestEffects
                   frame.setVisible(true);            
                   int vertical = ContextResizer.VERTICAL;
                   int horizontal = ContextResizer.HORIZONTAL;
-                  boolean debug = true;
+                  boolean debug = (param1 == null) ? false : (param1 == 1);
+                  System.out.println("Debug: " + debug);
                   int scaling = 25000/w;  // unit is .01%
                   boolean fastMode = false;
                   effect = new ContextResizer(w/2, h, w, vertical, -scaling, fastMode, debug, null);
@@ -127,8 +146,10 @@ public class TestEffects
                {
                   // Color Cluster
                   frame.setVisible(true);            
-                  int clusters = 20;
-                  int iterations = 5;
+                  int clusters = (param1 == null) ? 20 : param1;
+                  int iterations = (param2 == null) ? 5 : param1;
+                  System.out.println("Clusters: " + clusters);
+                  System.out.println("Iterations: " + iterations);
                   effect = new ColorClusterFilter(w/2, h, w, clusters, iterations);
                   test(effect, icon, "Filter - left half - "+clusters+" clusters", 0, 200, 150, 0, 0);
                   effect = new ColorClusterFilter(w/2, h, w, clusters, iterations);
@@ -151,8 +172,9 @@ public class TestEffects
                   // Lighting
                   frame.setVisible(true);            
                   int radius = Math.min(w, h) / 4;
-                  int power = 120; //per cent
-                  boolean bumpMapping = false;
+                  int power = (param1 == null) ? 120 : param1;
+                  System.out.println("Power: " + power + "%");
+                  boolean bumpMapping = (param2 == null) ? false : param2 == 1;
                   effect = new LightingEffect(w/2, h, w, w/4, h/2, radius, power, bumpMapping);
                   test(effect, icon, "Filter - left half - radius "+radius, 0, 200, 150, 0, 0);
                   effect = new LightingEffect(w/2, h, w, w/4, h/2, radius, power, bumpMapping);
@@ -173,7 +195,8 @@ public class TestEffects
                {
                   // Blur
                   frame.setVisible(true);            
-                  int radius = 8;
+                  int radius = (param1 == null) ? 8 : param1;
+                  System.out.println("Radius: " + radius);
                   effect = new BlurFilter(w/2, h, w, radius);
                   test(effect, icon, "Filter - left half", 0, 200, 150, 0, 0);
                   effect = new BlurFilter(w/2, h, w, radius);
@@ -193,8 +216,10 @@ public class TestEffects
                {
                   // Fast Bilateral
                   frame.setVisible(true);            
-                  float sigmaR = 30.0f;
-                  float sigmaD = 0.03f;
+                  float sigmaR = (param1 == null) ? 30.0f : (float) param1;
+                  float sigmaD = (param2 == null) ? 0.03f : (float) param2;
+                  System.out.println("SigmaR: " + sigmaR);
+                  System.out.println("SigmaD: " + sigmaD);
                   effect = new FastBilateralFilter(w/2, h, w, sigmaR, sigmaD);
                   test(effect, icon, "Filter - left half", 0, 200, 150, 0, 0);
                   effect = new FastBilateralFilter(w/2, h, w, sigmaR, sigmaD);
@@ -214,8 +239,10 @@ public class TestEffects
                {
                   // Bilateral
                   frame.setVisible(true);            
-                  int sigmaR = 4;
-                  int sigmaD = 10;
+                  int sigmaR = (param1 == null) ? 4 : param1;
+                  int sigmaD = (param2 == null) ? 10 : param2;
+                  System.out.println("SigmaR: " + sigmaR);
+                  System.out.println("SigmaD: " + sigmaD);
                   effect = new BilateralFilter(w/2, h, w, sigmaR, sigmaD);
                   test(effect, icon, "Filter - left half", 0, 200, 150, 0, 0);
                   effect = new BilateralFilter(w/2, h, w, sigmaR, sigmaD);
@@ -235,8 +262,10 @@ public class TestEffects
                {
                   // Gaussian
                   frame.setVisible(true);            
-                  int channels = 3;
-                  int sigma16 = 192;
+                  int channels = (param1 == null) ? 3 : param1;
+                  int sigma16 = (param2 == null) ? 192 : param2;
+                  System.out.println("Channels: " + channels);
+                  System.out.println("Sigma16: " + sigma16);
                   effect = new GaussianFilter(w/2, h, w, sigma16, channels);
                   test(effect, icon, "Filter - left half", 0, 200, 150, 0, 0);
                   effect = new GaussianFilter(w/2, h, w, sigma16, channels);
@@ -256,7 +285,8 @@ public class TestEffects
                {
                   // Contrast
                   frame.setVisible(true);            
-                  int contrast = 75; // per cent
+                  int contrast = (param1 == null) ? 75 : param1; //per cent
+                  System.out.println("Contrast: " + contrast + "%");
                   effect = new ContrastFilter(w/2, h, w, contrast);
                   test(effect, icon, "Filter - left half", 0, 200, 150, 0, 0);
                   effect = new ContrastFilter(w/2, h, w, contrast);
