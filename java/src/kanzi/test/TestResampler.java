@@ -33,6 +33,8 @@ import kanzi.util.color.ColorModelConverter;
 import kanzi.util.color.YCbCrColorModelConverter;
 import kanzi.util.sampling.BicubicUpSampler;
 import kanzi.util.sampling.BilinearUpSampler;
+import kanzi.util.sampling.DCTDownSampler;
+import kanzi.util.sampling.DCTUpSampler;
 import kanzi.util.sampling.DWTDownSampler;
 import kanzi.util.sampling.DWTUpSampler;
 import kanzi.util.sampling.DecimateDownSampler;
@@ -48,7 +50,7 @@ public class TestResampler
    {
         try
         {
-           String fileName = (args.length > 0) ? args[0] : "c:\\temp\\lena.jpg";
+           String fileName = (args.length > 0) ? args[0] : "r:\\lena.jpg";
            Image image1 = ImageIO.read(new File(fileName));
            int w = image1.getWidth(null) & -16;
            int h = image1.getHeight(null) & -16;
@@ -56,14 +58,21 @@ public class TestResampler
            GraphicsConfiguration gc = gs.getDefaultConfiguration();
            BufferedImage bi = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
            bi.getGraphics().drawImage(image1, 0, 0, null);
-           roundtrip(image1, 100);
-           Image image = ImageIO.read(new File("c:\\temp\\lena256.jpg"));
-           upscale(image, bi, 100, true, 2);
-           image = ImageIO.read(new File("c:\\temp\\lena128.jpg"));
-           image = upscale(image, null, 100, false, 2);
-           upscale(image, bi, 100, true, 2);
-           image = ImageIO.read(new File("c:\\temp\\lena128.jpg"));
-           upscale(image, bi, 100, true, 4);
+           int iters = (w*h) < (1500*1500) ? 100 : 10;
+           roundtrip(image1, iters);
+           boolean upscale = false;
+           
+           if (upscale == true)
+           {
+               Image image = ImageIO.read(new File("c:\\temp\\lena256.jpg"));
+               upscale(image, bi, 100, true, 2);
+               image = ImageIO.read(new File("c:\\temp\\lena128.jpg"));
+               image = upscale(image, null, 100, false, 2);
+               upscale(image, bi, 100, true, 2);
+               image = ImageIO.read(new File("c:\\temp\\lena128.jpg"));
+               upscale(image, bi, 100, true, 4);
+           }
+           
            Thread.sleep(60000);
         }
         catch (Exception e)
@@ -94,6 +103,9 @@ public class TestResampler
         int[] y = new int[rgb.length];
         int[] u = new int[rgb.length];
         int[] v = new int[rgb.length];
+        int[] y0 = new int[rgb.length];
+        int[] u0 = new int[rgb.length];
+        int[] v0 = new int[rgb.length];
         int[] input = rgb;
         int[] output = new int[rgb.length];
 
@@ -108,10 +120,12 @@ public class TestResampler
         UpSampler guided = new GuidedBilinearUpSampler(w/2, h/2);
         DownSampler dDWT = new DWTDownSampler(w, h, w, 1);
         UpSampler uDWT = new DWTUpSampler(w/2, h/2, w, 1);
+        DownSampler dDCT = new DCTDownSampler(w, h, w, 0, 32);
+        UpSampler uDCT = new DCTUpSampler(w/2, h/2, w/2, 0, 32);
         UpSampler uBicubic = new BicubicUpSampler(w/2, h/2, w/2, w, 0);
-        DownSampler[] subSamplers = new DownSampler[]  { dDecimate, dDecimate, dDecimate, dDecimate, dDWT };
-        UpSampler[] superSamplers = new UpSampler[]  { uBilinear, uBicubic, oriented, guided, uDWT };
-        String[] titles = new String[] { "Bilinear", "Bicubic", "Oriented", "Guided", "DWT" };
+        DownSampler[] subSamplers = new DownSampler[]  { dDecimate, dDecimate, dDecimate, dDecimate, dDCT, dDWT };
+        UpSampler[] superSamplers = new UpSampler[]  { uBilinear, uBicubic, oriented, guided, uDCT, uDWT };
+        String[] titles = new String[] { "Bilinear", "Bicubic", "Oriented", "Guided", "DCT", "DWT" };
         System.out.println(w + "x" + h);
         System.out.println();
  
@@ -124,6 +138,9 @@ public class TestResampler
            long delta = 0;
            ColorModelConverter cvt = new YCbCrColorModelConverter(w, h);
            cvt.convertRGBtoYUV(rgb, y, u, v, ColorModelType.YUV444);
+           System.arraycopy(y, 0, y0, 0, y.length);
+           System.arraycopy(u, 0, u0, 0, u.length);
+           System.arraycopy(v, 0, v0, 0, v.length);
 
            if (superSamplers[s] instanceof GuidedBilinearUpSampler)
            {
@@ -134,6 +151,9 @@ public class TestResampler
 
            for (int ii=0; ii<iter; ii++)
            {
+               System.arraycopy(y0, 0, y, 0, y.length);
+               System.arraycopy(u0, 0, u, 0, u.length);
+               System.arraycopy(v0, 0, v, 0, v.length);
                long before = System.nanoTime();                              
                subSamplers[s].subSample(y, output);
                Arrays.fill(y, 0);
