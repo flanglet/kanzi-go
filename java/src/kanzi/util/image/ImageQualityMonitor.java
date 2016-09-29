@@ -246,7 +246,7 @@ public final class ImageQualityMonitor
          return Global.INFINITE_VALUE;
       
       // Use perceived brightness for mixing coefficients 
-      // L = 0.30*r + 0.59*g + 0.11*b
+      // Luminance from rec601 Y = 0.299*r + 0.587*g + 0.114*b
       if (type == ColorModelType.RGB)
          return computePSNRfromMSE((230*sum1+453*sum2+85*sum3)>>8, pixels1+pixels23+pixels23);      
 

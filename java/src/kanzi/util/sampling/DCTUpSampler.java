@@ -141,7 +141,7 @@ public class DCTUpSampler implements UpSampler
             int iOffs = offs;
             int n = 0;
             
-            // Fill output from buf
+            // Fill buf from input
             for (int j=0; j<step; j++)
             {
                for (int i=0; i<step; i+=4)
@@ -176,7 +176,7 @@ public class DCTUpSampler implements UpSampler
             
             // Fill output at x,y from buf(dim x dim)
             for (int j=0; j<this.dim; j++)
-            {                    
+            {              
                for (int i=0; i<this.dim; i++, n++)
                {
                   final int val = buf2[n];

@@ -39,7 +39,7 @@ public class TestImageTransform
   public static void main(String[] args) throws Exception
   {
         String fileName = (args.length > 0) ? args[0] : "r:\\kodim24.png";
-        int iters = (args.length > 0) ? Integer.valueOf(args[1]) : 500;
+        int iters = (args.length > 1) ? Integer.valueOf(args[1]) : 500;
         Image image = ImageIO.read(new File(fileName));        
         int w = image.getWidth(null) & -64;
         int h = image.getHeight(null) & -64;

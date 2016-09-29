@@ -183,8 +183,10 @@ public class ImageUtils
       
       for (int i=0; i<length; i++)
       {
-         final int val = rgb[i];
-         final int grey = (((val>>16) & 0xFF) + ((val>>8) & 0xFF) + (val & 0xFF)) / 3;
+         // Luminance from rec601 Y = 0.299*r + 0.587*g + 0.114*b
+         // Use fast approximation Y = (2*r + 5*g + 1*b) / 8
+         final int val = rgb[i];         
+         final int grey = (((val>>15)&0x1FE) + 5*((val>>8)&0xFF) + (val&0xFF) + 4) >> 3;
          rgb[i] = (grey<<16) | (grey<<8) | grey;
       }
       
@@ -296,10 +298,9 @@ public class ImageUtils
       
       for (int i=0; i<length; i+=3)
       {
-         final int val1 = rgb[i] & 0xFF;
-         final int val2 = rgb[2] & 0xFF;
-         final int val3 = rgb[3] & 0xFF;
-         final int grey = (val1 + val2 + val3) / 3;
+         // Luminance from rec601 Y = 0.299*r + 0.587*g + 0.114*b
+         // Use fast approximation Y = (2*r + 5*g + 1*b) / 8        
+         final int grey = (((rgb[i]&0xFF)<<1) + 5*(rgb[i+1]&0xFF) + (rgb[i+2]&0xFF) + 4) >> 3;
          rgb[i]   = (byte) grey;
          rgb[i+1] = (byte) grey;
          rgb[i+2] = (byte) grey;

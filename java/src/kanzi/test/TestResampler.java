@@ -52,8 +52,8 @@ public class TestResampler
         {
            String fileName = (args.length > 0) ? args[0] : "r:\\lena.jpg";
            Image image1 = ImageIO.read(new File(fileName));
-           int w = image1.getWidth(null) & -16;
-           int h = image1.getHeight(null) & -16;
+           int w = image1.getWidth(null) & -32;
+           int h = image1.getHeight(null) & -32;
            GraphicsDevice gs = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
            GraphicsConfiguration gc = gs.getDefaultConfiguration();
            BufferedImage bi = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
