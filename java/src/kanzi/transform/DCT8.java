@@ -119,8 +119,7 @@ public final class DCT8 implements IntTransform
           output[di+32] = ((W32*b0) + (W33*b1) + round) >> shift;
           output[di+40] = ((W40*a2) + (W41*a3) + (W42*a6) + (W43*a7) + round) >> shift;
           output[di+48] = ((W48*b2) + (W49*b3) + round) >> shift;
-          output[di+56] = ((W56*a2) + (W57*a3) + (W58*a6) + (W59*a7) + round) >> shift;
-          
+          output[di+56] = ((W56*a2) + (W57*a3) + (W58*a6) + (W59*a7) + round) >> shift;          
        }
     }
 

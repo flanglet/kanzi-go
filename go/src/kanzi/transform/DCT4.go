@@ -120,23 +120,25 @@ func (this *DCT4) Inverse(src, dst []int) (uint, uint, error) {
 
 func computeInverseDCT4(input, output []int, shift uint) {
 	round := (1 << shift) >> 1
+	in := input[0:16]
+	out := output[0:16]
 
-	x0 := input[0]
-	x1 := input[1]
-	x2 := input[2]
-	x3 := input[3]
-	x4 := input[4]
-	x5 := input[5]
-	x6 := input[6]
-	x7 := input[7]
-	x8 := input[8]
-	x9 := input[9]
-	x10 := input[10]
-	x11 := input[11]
-	x12 := input[12]
-	x13 := input[13]
-	x14 := input[14]
-	x15 := input[15]
+	x0 := in[0]
+	x1 := in[1]
+	x2 := in[2]
+	x3 := in[3]
+	x4 := in[4]
+	x5 := in[5]
+	x6 := in[6]
+	x7 := in[7]
+	x8 := in[8]
+	x9 := in[9]
+	x10 := in[10]
+	x11 := in[11]
+	x12 := in[12]
+	x13 := in[13]
+	x14 := in[14]
+	x15 := in[15]
 
 	a0 := (W4_4 * x4) + (W4_12 * x12)
 	a1 := (W4_5 * x4) + (W4_13 * x12)
@@ -172,20 +174,20 @@ func computeInverseDCT4(input, output []int, shift uint) {
 	b14 := (a15 - a13 + round) >> shift
 	b15 := (a14 - a12 + round) >> shift
 
-	output[0] = kanzi.Clamp(b0, MIN_VAL_DCT4, MAX_VAL_DCT4)
-	output[1] = kanzi.Clamp(b1, MIN_VAL_DCT4, MAX_VAL_DCT4)
-	output[2] = kanzi.Clamp(b2, MIN_VAL_DCT4, MAX_VAL_DCT4)
-	output[3] = kanzi.Clamp(b3, MIN_VAL_DCT4, MAX_VAL_DCT4)
-	output[4] = kanzi.Clamp(b4, MIN_VAL_DCT4, MAX_VAL_DCT4)
-	output[5] = kanzi.Clamp(b5, MIN_VAL_DCT4, MAX_VAL_DCT4)
-	output[6] = kanzi.Clamp(b6, MIN_VAL_DCT4, MAX_VAL_DCT4)
-	output[7] = kanzi.Clamp(b7, MIN_VAL_DCT4, MAX_VAL_DCT4)
-	output[8] = kanzi.Clamp(b8, MIN_VAL_DCT4, MAX_VAL_DCT4)
-	output[9] = kanzi.Clamp(b9, MIN_VAL_DCT4, MAX_VAL_DCT4)
-	output[10] = kanzi.Clamp(b10, MIN_VAL_DCT4, MAX_VAL_DCT4)
-	output[11] = kanzi.Clamp(b11, MIN_VAL_DCT4, MAX_VAL_DCT4)
-	output[12] = kanzi.Clamp(b12, MIN_VAL_DCT4, MAX_VAL_DCT4)
-	output[13] = kanzi.Clamp(b13, MIN_VAL_DCT4, MAX_VAL_DCT4)
-	output[14] = kanzi.Clamp(b14, MIN_VAL_DCT4, MAX_VAL_DCT4)
-	output[15] = kanzi.Clamp(b15, MIN_VAL_DCT4, MAX_VAL_DCT4)
+	out[0] = kanzi.Clamp(b0, MIN_VAL_DCT4, MAX_VAL_DCT4)
+	out[1] = kanzi.Clamp(b1, MIN_VAL_DCT4, MAX_VAL_DCT4)
+	out[2] = kanzi.Clamp(b2, MIN_VAL_DCT4, MAX_VAL_DCT4)
+	out[3] = kanzi.Clamp(b3, MIN_VAL_DCT4, MAX_VAL_DCT4)
+	out[4] = kanzi.Clamp(b4, MIN_VAL_DCT4, MAX_VAL_DCT4)
+	out[5] = kanzi.Clamp(b5, MIN_VAL_DCT4, MAX_VAL_DCT4)
+	out[6] = kanzi.Clamp(b6, MIN_VAL_DCT4, MAX_VAL_DCT4)
+	out[7] = kanzi.Clamp(b7, MIN_VAL_DCT4, MAX_VAL_DCT4)
+	out[8] = kanzi.Clamp(b8, MIN_VAL_DCT4, MAX_VAL_DCT4)
+	out[9] = kanzi.Clamp(b9, MIN_VAL_DCT4, MAX_VAL_DCT4)
+	out[10] = kanzi.Clamp(b10, MIN_VAL_DCT4, MAX_VAL_DCT4)
+	out[11] = kanzi.Clamp(b11, MIN_VAL_DCT4, MAX_VAL_DCT4)
+	out[12] = kanzi.Clamp(b12, MIN_VAL_DCT4, MAX_VAL_DCT4)
+	out[13] = kanzi.Clamp(b13, MIN_VAL_DCT4, MAX_VAL_DCT4)
+	out[14] = kanzi.Clamp(b14, MIN_VAL_DCT4, MAX_VAL_DCT4)
+	out[15] = kanzi.Clamp(b15, MIN_VAL_DCT4, MAX_VAL_DCT4)
 }
