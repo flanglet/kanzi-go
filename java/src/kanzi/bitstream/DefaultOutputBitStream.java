@@ -178,7 +178,6 @@ public final class DefaultOutputBitStream implements OutputBitStream
       try
       {
          this.os.flush();
-         this.os.close();
       }
       catch (IOException e)
       {

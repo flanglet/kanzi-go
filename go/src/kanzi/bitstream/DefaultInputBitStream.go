@@ -189,7 +189,7 @@ func (this *DefaultInputBitStream) Close() (bool, error) {
 	// on ReadBit() or ReadBits()
 	this.bitIndex = 63
 	this.maxPosition = -1
-	return true, this.is.Close()
+	return true, nil
 }
 
 // Return number of bits read so far

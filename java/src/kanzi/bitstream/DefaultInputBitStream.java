@@ -188,15 +188,6 @@ public final class DefaultInputBitStream implements InputBitStream
       // on readBit() or readBits()
       this.bitIndex = 63;
       this.maxPosition = -1;
-
-      try
-      {
-         this.is.close();
-      }
-      catch (IOException e)
-      {
-         throw new BitStreamException(e, BitStreamException.INPUT_OUTPUT);
-      }
    }
 
 

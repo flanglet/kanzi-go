@@ -164,10 +164,6 @@ func (this *DefaultOutputBitStream) Close() (bool, error) {
 		return false, err
 	}
 
-	if err := this.os.Close(); err != nil {
-		return false, err
-	}
-
 	this.closed = true
 	this.position = 0
 
