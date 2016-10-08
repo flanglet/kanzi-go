@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"kanzi/bitstream"
 	"kanzi/entropy"
-	"kanzi/util"
+	"kanzi/io"
 	"math/rand"
 	"os"
 	"time"
@@ -73,7 +73,7 @@ func TestCorrectness() {
 
 		println()
 		fmt.Printf("\nEncoded: \n")
-		var bs util.BufferStream
+		var bs io.BufferStream
 		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
 		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
 		dbgbs.ShowByte(true)
@@ -139,7 +139,7 @@ func TestSpeed() {
 		size := 50000
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
-		var bs util.BufferStream
+		var bs io.BufferStream
 
 		for ii := 0; ii < iter; ii++ {
 			idx := jj

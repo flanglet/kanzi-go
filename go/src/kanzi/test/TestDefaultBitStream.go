@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"kanzi"
 	"kanzi/bitstream"
-	"kanzi/util"
+	"kanzi/io"
 	"math/rand"
 	"os"
 	"time"
@@ -38,7 +38,7 @@ func testCorrectnessAligned() {
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	for test := 0; test < 10; test++ {
-		var bs util.BufferStream
+		var bs io.BufferStream
 		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
 		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
 		dbgbs.ShowByte(true)
@@ -113,7 +113,7 @@ func testCorrectnessMisaligned() {
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	for test := 0; test < 10; test++ {
-		var bs util.BufferStream
+		var bs io.BufferStream
 		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
 		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
 		dbgbs.ShowByte(true)
