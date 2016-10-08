@@ -28,7 +28,7 @@ import (
 )
 
 func main() {
-	var name = flag.String("type", "", "Type of predictor (all, CM, FPAQ or PAQ)")
+	var name = flag.String("type", "ALL", "Type of predictor (all, CM, FPAQ or PAQ)")
 
 	// Parse
 	flag.Parse()
@@ -121,6 +121,7 @@ func TestCorrectness(name string) {
 			fmt.Printf("%d ", values[i])
 		}
 
+		println()
 		fmt.Printf("\nEncoded: \n")
 		buffer := make([]byte, 16384)
 		oFile, _ := util.NewByteArrayOutputStream(buffer, true)
@@ -128,7 +129,7 @@ func TestCorrectness(name string) {
 		obs, _ := bitstream.NewDefaultOutputBitStream(oFile, 16384)
 		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
 		dbgbs.ShowByte(true)
-		dbgbs.Mark(true)
+		//dbgbs.Mark(true)
 		fc, _ := entropy.NewBinaryEntropyEncoder(dbgbs, getPredictor(name))
 
 		if _, err := fc.Encode(values); err != nil {
@@ -144,11 +145,7 @@ func TestCorrectness(name string) {
 		iFile, _ := util.NewByteArrayInputStream(buffer, true)
 		defer iFile.Close()
 		ibs, _ := bitstream.NewDefaultInputBitStream(iFile, 16384)
-		dbgbs2, _ := bitstream.NewDebugInputBitStream(ibs, os.Stdout)
-		//dbgbs2.ShowByte(true)
-		dbgbs2.Mark(true)
-
-		fd, _ := entropy.NewBinaryEntropyDecoder(dbgbs2, getPredictor(name))
+		fd, _ := entropy.NewBinaryEntropyDecoder(ibs, getPredictor(name))
 
 		ok := true
 		values2 := make([]byte, len(values))
@@ -157,7 +154,7 @@ func TestCorrectness(name string) {
 			os.Exit(1)
 		}
 
-		println()
+		fd.Dispose()
 
 		for i := range values2 {
 			fmt.Printf("%v ", values2[i])
@@ -174,7 +171,7 @@ func TestCorrectness(name string) {
 			os.Exit(1)
 		}
 
-		fd.Dispose()
+		ibs.Close()
 		println()
 	}
 }
@@ -196,17 +193,16 @@ func TestSpeed(name string) {
 		for ii := 0; ii < iter; ii++ {
 			idx := jj
 
-			for i := 0; i < len(values1); i++ {
+			for i := 0; i < size; i++ {
 				i0 := i
 
 				length := repeats[idx]
 				idx = (idx + 1) & 0x0F
-
-				if i0+length >= len(values1) {
-					length = 1
-				}
-
 				b := byte(rand.Intn(256))
+
+				if i0+length >= size {
+					length = size - i0 - 1
+				}
 
 				for j := i0; j < i0+length; j++ {
 					values1[j] = b
@@ -229,13 +225,13 @@ func TestSpeed(name string) {
 
 			fc.Dispose()
 
+			after := time.Now()
+			delta1 += after.Sub(before).Nanoseconds()
+
 			if _, err := obs.Close(); err != nil {
 				fmt.Printf("Error during close: %v\n", err)
 				os.Exit(1)
 			}
-
-			after := time.Now()
-			delta1 += after.Sub(before).Nanoseconds()
 		}
 
 		for ii := 0; ii < iter; ii++ {
@@ -254,13 +250,21 @@ func TestSpeed(name string) {
 
 			fd.Dispose()
 
+			after := time.Now()
+			delta2 += after.Sub(before).Nanoseconds()
+
 			if _, err := ibs.Close(); err != nil {
 				fmt.Printf("Error during close: %v\n", err)
 				os.Exit(1)
 			}
 
-			after := time.Now()
-			delta2 += after.Sub(before).Nanoseconds()
+			// Sanity check
+			for i := 0; i < size; i++ {
+				if values1[i] != values2[i] {
+					fmt.Printf("Error at index %v (%v<->%v)\n", i, values1[i], values2[i])
+					break
+				}
+			}
 		}
 
 		fmt.Printf("Encode [ms]      : %d\n", delta1/1000000)
