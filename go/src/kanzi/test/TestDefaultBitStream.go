@@ -38,11 +38,11 @@ func testCorrectnessAligned() {
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	for test := 0; test < 10; test++ {
-		buffer := make([]byte, 16384)
-		os_, _ := util.NewByteArrayOutputStream(buffer, true)
-		obs, _ := bitstream.NewDefaultOutputBitStream(os_, 16384)
-		dbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
-		dbs.ShowByte(true)
+		var bs util.BufferStream
+		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
+		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
+		dbgbs.ShowByte(true)
+		dbgbs.Mark(true)
 
 		for i := range values {
 			if test < 5 {
@@ -62,14 +62,13 @@ func testCorrectnessAligned() {
 		println()
 
 		for i := range values {
-			dbs.WriteBits(uint64(values[i]), 32)
+			dbgbs.WriteBits(uint64(values[i]), 32)
 		}
 
 		// Close first to force flush()
-		dbs.Close()
+		dbgbs.Close()
 
-		is_, _ := util.NewByteArrayInputStream(buffer, true)
-		ibs, _ := bitstream.NewDefaultInputBitStream(is_, 16384)
+		ibs, _ := bitstream.NewDefaultInputBitStream(&bs, 16384)
 		fmt.Printf("\nRead:\n")
 		ok := true
 
@@ -90,9 +89,10 @@ func testCorrectnessAligned() {
 		}
 
 		ibs.Close()
+		bs.Close()
 		println()
 		println()
-		fmt.Printf("Bits written: %v\n", dbs.Written())
+		fmt.Printf("Bits written: %v\n", dbgbs.Written())
 		fmt.Printf("Bits read: %v\n", ibs.Read())
 
 		if ok {
@@ -113,11 +113,11 @@ func testCorrectnessMisaligned() {
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	for test := 0; test < 10; test++ {
-		buffer := make([]byte, 16384)
-		os_, _ := util.NewByteArrayOutputStream(buffer, false)
-		obs, _ := bitstream.NewDefaultOutputBitStream(os_, 16384)
-		dbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
-		dbs.ShowByte(true)
+		var bs util.BufferStream
+		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
+		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
+		dbgbs.ShowByte(true)
+		dbgbs.Mark(true)
 
 		for i := range values {
 			if test < 5 {
@@ -139,15 +139,14 @@ func testCorrectnessMisaligned() {
 		println()
 
 		for i := range values {
-			dbs.WriteBits(uint64(values[i]), 1+uint(i&63))
+			dbgbs.WriteBits(uint64(values[i]), 1+uint(i&63))
 		}
 
 		// Close first to force flush()
-		dbs.Close()
-		testWritePostClose(dbs)
+		dbgbs.Close()
+		testWritePostClose(dbgbs)
 
-		is_, _ := util.NewByteArrayInputStream(buffer, false)
-		ibs, _ := bitstream.NewDefaultInputBitStream(is_, 16384)
+		ibs, _ := bitstream.NewDefaultInputBitStream(&bs, 16384)
 		fmt.Printf("\nRead:\n")
 		ok := true
 
@@ -169,10 +168,11 @@ func testCorrectnessMisaligned() {
 
 		ibs.Close()
 		testReadPostClose(ibs)
+		bs.Close()
 
 		println()
 		println()
-		fmt.Printf("Bits written: %v\n", dbs.Written())
+		fmt.Printf("Bits written: %v\n", dbgbs.Written())
 		fmt.Printf("Bits read: %v\n", ibs.Read())
 
 		if ok {

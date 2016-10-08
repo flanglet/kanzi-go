@@ -123,10 +123,8 @@ func TestCorrectness(name string) {
 
 		println()
 		fmt.Printf("\nEncoded: \n")
-		buffer := make([]byte, 16384)
-		oFile, _ := util.NewByteArrayOutputStream(buffer, true)
-		defer oFile.Close()
-		obs, _ := bitstream.NewDefaultOutputBitStream(oFile, 16384)
+		var bs util.BufferStream
+		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
 		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
 		dbgbs.ShowByte(true)
 		//dbgbs.Mark(true)
@@ -142,9 +140,7 @@ func TestCorrectness(name string) {
 		println()
 		fmt.Printf("\nDecoded: \n")
 
-		iFile, _ := util.NewByteArrayInputStream(buffer, true)
-		defer iFile.Close()
-		ibs, _ := bitstream.NewDefaultInputBitStream(iFile, 16384)
+		ibs, _ := bitstream.NewDefaultInputBitStream(&bs, 16384)
 		fd, _ := entropy.NewBinaryEntropyDecoder(ibs, getPredictor(name))
 
 		ok := true
@@ -172,6 +168,7 @@ func TestCorrectness(name string) {
 		}
 
 		ibs.Close()
+		bs.Close()
 		println()
 	}
 }
@@ -186,9 +183,9 @@ func TestSpeed(name string) {
 		delta2 := int64(0)
 		iter := 100
 		size := 500000
-		buffer := make([]byte, size*2)
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
+		var bs util.BufferStream
 
 		for ii := 0; ii < iter; ii++ {
 			idx := jj
@@ -210,13 +207,11 @@ func TestSpeed(name string) {
 				}
 			}
 
-			oFile, _ := util.NewByteArrayOutputStream(buffer, false)
-			defer oFile.Close()
-			obs, _ := bitstream.NewDefaultOutputBitStream(oFile, uint(size))
+			obs, _ := bitstream.NewDefaultOutputBitStream(&bs, uint(size))
 			fc, _ := entropy.NewBinaryEntropyEncoder(obs, getPredictor(name))
 
 			// Encode
-			before := time.Now()
+			before1 := time.Now()
 
 			if _, err := fc.Encode(values1); err != nil {
 				fmt.Printf("An error occured during encoding: %v\n", err)
@@ -225,23 +220,19 @@ func TestSpeed(name string) {
 
 			fc.Dispose()
 
-			after := time.Now()
-			delta1 += after.Sub(before).Nanoseconds()
+			after1 := time.Now()
+			delta1 += after1.Sub(before1).Nanoseconds()
 
 			if _, err := obs.Close(); err != nil {
 				fmt.Printf("Error during close: %v\n", err)
 				os.Exit(1)
 			}
-		}
 
-		for ii := 0; ii < iter; ii++ {
-			iFile, _ := util.NewByteArrayInputStream(buffer, false)
-			defer iFile.Close()
-			ibs, _ := bitstream.NewDefaultInputBitStream(iFile, uint(size))
+			ibs, _ := bitstream.NewDefaultInputBitStream(&bs, uint(size))
 			fd, _ := entropy.NewBinaryEntropyDecoder(ibs, getPredictor(name))
 
 			// Decode
-			before := time.Now()
+			before2 := time.Now()
 
 			if _, err := fd.Decode(values2); err != nil {
 				fmt.Printf("An error occured during decoding: %v\n", err)
@@ -250,8 +241,8 @@ func TestSpeed(name string) {
 
 			fd.Dispose()
 
-			after := time.Now()
-			delta2 += after.Sub(before).Nanoseconds()
+			after2 := time.Now()
+			delta2 += after2.Sub(before2).Nanoseconds()
 
 			if _, err := ibs.Close(); err != nil {
 				fmt.Printf("Error during close: %v\n", err)
@@ -266,6 +257,8 @@ func TestSpeed(name string) {
 				}
 			}
 		}
+
+		bs.Close()
 
 		fmt.Printf("Encode [ms]      : %d\n", delta1/1000000)
 		fmt.Printf("Throughput [KB/s]: %d\n", (int64(iter*size))*1000000/delta1*1000/1024)
