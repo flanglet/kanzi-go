@@ -371,6 +371,7 @@ public class TPAQPredictor implements Predictor
      this.bpos = 0;
    } 
 
+   
    // Update the probability model
    @Override
    public void update(int bit)

@@ -20,7 +20,7 @@ import kanzi.util.sort.QuickSort;
 
 
 // Utility class for a canonical implementation of Huffman codec
-public final class HuffmanTree
+public final class HuffmanCommon
 {
     // Return the number of codes generated
     public static int generateCanonicalCodes(short[] sizes, int[] codes, int[] ranks, int count)

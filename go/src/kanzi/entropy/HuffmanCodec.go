@@ -435,7 +435,7 @@ type HuffmanDecoder struct {
 	sdtIndexes []int  // Indexes for slow decoding table (can be negative)
 	chunkSize  int
 	state      uint64 // holds bits read from bitstream
-	bits       uint   // hold number of unused bits in 'state'
+	bits       uint   // holds number of unused bits in 'state'
 	minCodeLen int8
 }
 

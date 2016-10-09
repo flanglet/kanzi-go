@@ -39,7 +39,7 @@ public class HuffmanDecoder implements EntropyDecoder
     private final int[] sdtIndexes; // Indexes for slow decoding table
     private final int chunkSize;
     private long state; // holds bits read from bitstream
-    private int bits; // hold number of unused bits in 'state'
+    private int bits; // holds number of unused bits in 'state'
     private int minCodeLen;
 
 
@@ -128,7 +128,7 @@ public class HuffmanDecoder implements EntropyDecoder
            return 0;
 
         // Create canonical codes
-        if (HuffmanTree.generateCanonicalCodes(this.sizes, this.codes, this.ranks, count) < 0)
+        if (HuffmanCommon.generateCanonicalCodes(this.sizes, this.codes, this.ranks, count) < 0)
         {
            throw new BitStreamException("Could not generate codes: max code length " +
                 "(" + MAX_SYMBOL_SIZE + " bits) exceeded", BitStreamException.INVALID_STREAM);

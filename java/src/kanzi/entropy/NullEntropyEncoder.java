@@ -60,7 +60,6 @@ public final class NullEntropyEncoder implements EntropyEncoder
            while (i < blkptr + len)
            {            
               this.bitstream.writeBits(array[i], 8);
-
               i++;
            }
         }
@@ -76,7 +75,7 @@ public final class NullEntropyEncoder implements EntropyEncoder
     private boolean encodeLong(byte[] array, int offset)
     {
         long val;
-        val  = ((long) (array[offset]   & 0xFF)) << 56;
+        val  =  (long) (array[offset]   & 0xFF) << 56;
         val |= ((long) (array[offset+1] & 0xFF) << 48);
         val |= ((long) (array[offset+2] & 0xFF) << 40);
         val |= ((long) (array[offset+3] & 0xFF) << 32);

@@ -18,7 +18,7 @@ package kanzi.entropy;
 import kanzi.OutputBitStream;
 import kanzi.BitStreamException;
 import kanzi.EntropyEncoder;
-import kanzi.entropy.HuffmanTree.FrequencyArrayComparator;
+import kanzi.entropy.HuffmanCommon.FrequencyArrayComparator;
 import kanzi.util.sort.QuickSort;
 
 
@@ -129,7 +129,7 @@ public class HuffmanEncoder implements EntropyEncoder
         }
 
         // Create canonical codes 
-        if (HuffmanTree.generateCanonicalCodes(this.sizes, this.codes, this.sranks, count) < 0)
+        if (HuffmanCommon.generateCanonicalCodes(this.sizes, this.codes, this.sranks, count) < 0)
            throw new BitStreamException("Could not generate codes: max code length (24 bits) exceeded",
                                         BitStreamException.INVALID_STREAM);
 
