@@ -145,8 +145,7 @@ public class TestBinaryEntropyCoder
                 DebugOutputBitStream dbgbs = new DebugOutputBitStream(obs, System.out);
                 dbgbs.showByte(true);
                 BinaryEntropyEncoder bec = new BinaryEntropyEncoder(dbgbs, getPredictor(name));
-                bec.encode(values, 0, values.length);
-                
+                bec.encode(values, 0, values.length);                
                 bec.dispose();
                 dbgbs.close();
                 byte[] buf = os.toByteArray();
@@ -225,8 +224,8 @@ public class TestBinaryEntropyCoder
 
                 // Encode
                 ByteArrayOutputStream os = new ByteArrayOutputStream(size*2);
-                OutputBitStream bs = new DefaultOutputBitStream(os, size);
-                BinaryEntropyEncoder bec = new BinaryEntropyEncoder(bs, getPredictor(name));
+                OutputBitStream obs = new DefaultOutputBitStream(os, size);
+                BinaryEntropyEncoder bec = new BinaryEntropyEncoder(obs, getPredictor(name));
                 long before1 = System.nanoTime();
                 
                 if (bec.encode(values1, 0, values1.length) < 0)
@@ -238,12 +237,12 @@ public class TestBinaryEntropyCoder
                 bec.dispose();
                 long after1 = System.nanoTime();
                 delta1 += (after1 - before1);
-                bs.close();
+                obs.close();
 
                 // Decode
                 byte[] buf = os.toByteArray();
-                InputBitStream bs2 = new DefaultInputBitStream(new ByteArrayInputStream(buf), size);
-                BinaryEntropyDecoder bed = new BinaryEntropyDecoder(bs2, getPredictor(name));
+                InputBitStream ibs = new DefaultInputBitStream(new ByteArrayInputStream(buf), size);
+                BinaryEntropyDecoder bed = new BinaryEntropyDecoder(ibs, getPredictor(name));
                 long before2 = System.nanoTime();
                 
                 if (bed.decode(values2, 0, size) < 0)
@@ -255,7 +254,7 @@ public class TestBinaryEntropyCoder
                 bed.dispose();
                 long after2 = System.nanoTime();
                 delta2 += (after2 - before2);
-                bs2.close();
+                ibs.close();
 
                 // Sanity check
                 for (int i=0; i<size; i++)
@@ -270,9 +269,9 @@ public class TestBinaryEntropyCoder
             }
 
             final long prod = (long) iter * (long) size;
-            System.out.println("Encode [ms]       : " + delta1/1000000);
+            System.out.println("Encode [ms]       : " + delta1/1000000L);
             System.out.println("Throughput [KB/s] : " + prod * 1000000L / delta1 * 1000L / 1024L);
-            System.out.println("Decode [ms]       : " + delta2/1000000);
+            System.out.println("Decode [ms]       : " + delta2/1000000L);
             System.out.println("Throughput [KB/s] : " + prod * 1000000L / delta2 * 1000L / 1024L);
         }
     }

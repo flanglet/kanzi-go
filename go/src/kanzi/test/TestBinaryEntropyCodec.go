@@ -145,6 +145,7 @@ func TestCorrectness(name string) {
 
 		ok := true
 		values2 := make([]byte, len(values))
+		
 		if _, err := fd.Decode(values2); err != nil {
 			fmt.Printf("Error during decoding: %s", err)
 			os.Exit(1)

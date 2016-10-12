@@ -87,8 +87,8 @@ public class TestHuffmanCoder
 
                 System.out.println("\nEncoded:");
                 ByteArrayOutputStream os = new ByteArrayOutputStream(16384);
-                OutputBitStream bs = new DefaultOutputBitStream(os, 16384);
-                DebugOutputBitStream dbgbs = new DebugOutputBitStream(bs, System.out);
+                OutputBitStream obs = new DefaultOutputBitStream(os, 16384);
+                DebugOutputBitStream dbgbs = new DebugOutputBitStream(obs, System.out);
                 dbgbs.showByte(true);
                 dbgbs.setMark(true);
                 int[] freq = new int[256];
@@ -102,15 +102,15 @@ public class TestHuffmanCoder
                 dbgbs.close();
                 System.out.println();
                 byte[] buf = os.toByteArray();
-                InputBitStream bs2 = new DefaultInputBitStream(new ByteArrayInputStream(buf), 16384);
-                DebugInputBitStream dbgbs2 = new DebugInputBitStream(bs2, System.out);
-                dbgbs2.setMark(true);
-                HuffmanDecoder rd = new HuffmanDecoder(dbgbs2);
+                InputBitStream ibs = new DefaultInputBitStream(new ByteArrayInputStream(buf), 16384);
+                HuffmanDecoder rd = new HuffmanDecoder(ibs);
                 System.out.println("\nDecoded:");
                 int len = values.length; // buf.length >> 3;
                 boolean ok = true;
                 byte[] values2 = new byte[values.length];
                 rd.decode(values2, 0, values.length);
+                rd.dispose();
+                ibs.close();
 
                 for (int j=0; j<len; j++)
                 {
@@ -127,7 +127,6 @@ public class TestHuffmanCoder
                     System.out.print(values2[i]+" ");
 
                 System.out.println("\n"+((ok == true) ? "Identical" : "! *** Different *** !"));
-                rd.dispose();
             }
             catch (Exception e)
             {
@@ -177,8 +176,8 @@ public class TestHuffmanCoder
 
                 // Encode
                 ByteArrayOutputStream os = new ByteArrayOutputStream(size*2);
-                OutputBitStream bs = new DefaultOutputBitStream(os, size);
-                HuffmanEncoder rc = new HuffmanEncoder(bs);
+                OutputBitStream obs = new DefaultOutputBitStream(os, size);
+                HuffmanEncoder rc = new HuffmanEncoder(obs);
                 long before1 = System.nanoTime();
                 
                 if (rc.encode(values1, 0, values1.length) < 0)
@@ -187,15 +186,15 @@ public class TestHuffmanCoder
                    System.exit(1);
                 }
 
+                rc.dispose();
                 long after1 = System.nanoTime();
                 delta1 += (after1 - before1);
-                rc.dispose();
-                bs.close();
+                obs.close();
 
                 // Decode
                 byte[] buf = os.toByteArray();
-                InputBitStream bs2 = new DefaultInputBitStream(new ByteArrayInputStream(buf), size);
-                HuffmanDecoder rd = new HuffmanDecoder(bs2);
+                InputBitStream ibs = new DefaultInputBitStream(new ByteArrayInputStream(buf), size);
+                HuffmanDecoder rd = new HuffmanDecoder(ibs);
                 long before2 = System.nanoTime();
                 
                 if (rd.decode(values2, 0, values2.length) < 0)
@@ -204,9 +203,9 @@ public class TestHuffmanCoder
                    System.exit(1);
                 }
                    
+                rd.dispose();
                 long after2 = System.nanoTime();
                 delta2 += (after2 - before2);
-                rd.dispose();
 
                 // Sanity check
                 for (int i=0; i<values1.length; i++)
@@ -218,12 +217,14 @@ public class TestHuffmanCoder
                       break;
                    }
                 }
+                
+                ibs.close();
             }
 
             final long prod = (long) iter * (long) size;
-            System.out.println("Encode [ms]       : " + delta1/1000000);
+            System.out.println("Encode [ms]       : " + delta1/1000000L);
             System.out.println("Throughput [KB/s] : " + prod * 1000000L / delta1 * 1000L / 1024L);
-            System.out.println("Decode [ms]       : " + delta2/1000000);
+            System.out.println("Decode [ms]       : " + delta2/1000000L);
             System.out.println("Throughput [KB/s] : " + prod * 1000000L / delta2 * 1000L / 1024L);
         }
     }

@@ -99,14 +99,14 @@ public class TestANSRangeCoder
                 dbgbs.close();
                 System.out.println();
                 byte[] buf = os.toByteArray();
-                InputBitStream bs2 = new DefaultInputBitStream(new ByteArrayInputStream(buf), 16384);
-                DebugInputBitStream dbgbs2 = new DebugInputBitStream(bs2, System.out);
-                dbgbs2.setMark(true);
-                ANSRangeDecoder rd = new ANSRangeDecoder(dbgbs2);
+                InputBitStream ibs = new DefaultInputBitStream(new ByteArrayInputStream(buf), 16384);
+                ANSRangeDecoder rd = new ANSRangeDecoder(ibs);
                 System.out.println("\nDecoded:");
                 boolean ok = true;
                 byte[] values2 = new byte[size];
                 rd.decode(values2, 0, size);
+                rd.dispose();
+                ibs.close();
                 System.out.println("");
 
                 for (int i=0; i<size; i++)
@@ -123,7 +123,6 @@ public class TestANSRangeCoder
 
                 System.out.println();
                 System.out.println("\n"+((ok == true) ? "Identical" : "! *** Different *** !"));
-                rd.dispose();
             }
             catch (Exception e)
             {
@@ -174,8 +173,8 @@ public class TestANSRangeCoder
 
                 // Encode
                 ByteArrayOutputStream os = new ByteArrayOutputStream(size*2);
-                OutputBitStream bs = new DefaultOutputBitStream(os, size);
-                ANSRangeEncoder rc = new ANSRangeEncoder(bs);
+                OutputBitStream obs = new DefaultOutputBitStream(os, size);
+                ANSRangeEncoder rc = new ANSRangeEncoder(obs);
                 long before1 = System.nanoTime();
                 
                 if (rc.encode(values1, 0, values1.length) < 0)
@@ -184,16 +183,16 @@ public class TestANSRangeCoder
                    System.exit(1);
                 }
 
+                rc.dispose();
                 long after1 = System.nanoTime();
                 delta1 += (after1 - before1);
-                rc.dispose();
-                bs.close();
-                ww += bs.written();
+                obs.close();
+                ww += obs.written();
 
                 // Decode
                 byte[] buf = os.toByteArray();
-                InputBitStream bs2 = new DefaultInputBitStream(new ByteArrayInputStream(buf), size);
-                ANSRangeDecoder rd = new ANSRangeDecoder(bs2);
+                InputBitStream ibs = new DefaultInputBitStream(new ByteArrayInputStream(buf), size);
+                ANSRangeDecoder rd = new ANSRangeDecoder(ibs);
                 long before2 = System.nanoTime();
                 
                 if (rd.decode(values2, 0, values2.length) < 0)
@@ -202,9 +201,9 @@ public class TestANSRangeCoder
                    System.exit(1);
                 }
                    
+                rd.dispose();
                 long after2 = System.nanoTime();
                 delta2 += (after2 - before2);
-                rd.dispose();
 
                 // Sanity check
                 for (int i=0; i<values1.length; i++)
@@ -216,13 +215,15 @@ public class TestANSRangeCoder
                       break;
                    }
                 }
+                
+                ibs.close();
             }
 
             final long prod = (long) iter * (long) size;
            
-            System.out.println("Encode [ms]       : " + delta1/1000000);
+            System.out.println("Encode [ms]       : " + delta1/1000000L);
             System.out.println("Throughput [KB/s] : " + prod * 1000000L / delta1 * 1000L / 1024L);
-            System.out.println("Decode [ms]       : " + delta2/1000000);
+            System.out.println("Decode [ms]       : " + delta2/1000000L);
             System.out.println("Throughput [KB/s] : " + prod * 1000000L / delta2 * 1000L / 1024L);
         }
     }

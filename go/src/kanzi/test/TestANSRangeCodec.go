@@ -102,6 +102,7 @@ func TestCorrectness() {
 			os.Exit(1)
 		}
 
+		hd.Dispose()
 		fmt.Println("\nDecoded: ")
 
 		for i := range values2 {
@@ -119,7 +120,6 @@ func TestCorrectness() {
 			os.Exit(1)
 		}
 
-		hd.Dispose()
 		ibs.Close()
 		bs.Close()
 		println()
