@@ -312,7 +312,8 @@ public final class LZ4Codec implements ByteFunction
          dstIdx += length;
 
          // Get offset
-         final int delta = (src[srcIdx++] & 0xFF) | ((src[srcIdx++] & 0xFF) << 8);
+         final int delta = (src[srcIdx] & 0xFF) | ((src[srcIdx+1] & 0xFF) << 8);
+         srcIdx += 2;
          int match = dstIdx - delta;
                   
          if (match < dstIdx0)
@@ -374,8 +375,14 @@ public final class LZ4Codec implements ByteFunction
 
    private static void arrayChunkCopy(byte[] src, int srcIdx, byte[] dst, int dstIdx)
    {
-      for (int j=0; j<8; j++)
-         dst[dstIdx+j] = src[srcIdx+j];
+      dst[dstIdx]   = src[srcIdx];
+      dst[dstIdx+1] = src[srcIdx+1];
+      dst[dstIdx+2] = src[srcIdx+2];
+      dst[dstIdx+3] = src[srcIdx+3];
+      dst[dstIdx+4] = src[srcIdx+4];
+      dst[dstIdx+5] = src[srcIdx+5];
+      dst[dstIdx+6] = src[srcIdx+6];
+      dst[dstIdx+7] = src[srcIdx+7];  
    }
 
 

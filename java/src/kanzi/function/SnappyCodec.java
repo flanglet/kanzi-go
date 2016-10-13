@@ -39,7 +39,7 @@ public final class SnappyCodec implements ByteFunction
    private static final byte TAG_ENC_LEN3  = (byte) (TAG_DEC_LEN3 | TAG_LITERAL);
    private static final byte TAG_ENG_LEN4  = (byte) (TAG_DEC_LEN4 | TAG_LITERAL);
    private static final byte B0            = (byte) (TAG_DEC_LEN4 | TAG_COPY2);
-   private static final int HASH_SEED      = 0x1e35a7bd;
+   private static final int HASH_SEED      = 0x1E35A7BD;
 
    private final int[] buffer;
 
@@ -280,7 +280,7 @@ public final class SnappyCodec implements ByteFunction
         array[idx++] = (byte) (x | 0x80);
 
      array[idx++] = (byte) x;
-     return idx;
+     return idx - iba.index;
   }
 
   
@@ -353,11 +353,7 @@ public final class SnappyCodec implements ByteFunction
      try
      {
         final long v = getUvarint(source);
-        
-        if (v > 0x7FFFFFFFL)
-           return -1;
-        
-        return (int) v;
+        return (v > 0x7FFFFFFF) ? -1 : (int) v;
      }
      catch (NumberFormatException e)
      {

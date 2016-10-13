@@ -315,6 +315,13 @@ func (this *LZ4Codec) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 
 		// Copy literals
+		if dstIdx+length > dstEnd || srcIdx+length > srcEnd {
+			copy(dst[dstIdx:], src[srcIdx:srcIdx+length])
+			srcIdx += length
+			dstIdx += length
+			break
+		}
+
 		for i := 0; i < length; i++ {
 			dst[dstIdx+i] = src[srcIdx+i]
 		}
