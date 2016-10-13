@@ -18,6 +18,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"kanzi"
 	"kanzi/bitstream"
 	"kanzi/entropy"
 	"kanzi/io"
@@ -35,6 +36,15 @@ func main() {
 	name_ := strings.ToUpper(*name)
 
 	if name_ == "ALL" {
+		fmt.Printf("\n\nTestHuffmanCodec")
+		TestCorrectness("HUFFMAN")
+		TestSpeed("HUFFMAN")
+		fmt.Printf("\n\nTestANSCodec")
+		TestCorrectness("ANS")
+		TestSpeed("ANS")
+		fmt.Printf("\n\nTestRangeCodec")
+		TestCorrectness("RANGE")
+		TestSpeed("RANGE")
 		fmt.Printf("\n\nTestFPAQEntropyCoder")
 		TestCorrectness("FPAQ")
 		TestSpeed("FPAQ")
@@ -47,14 +57,17 @@ func main() {
 		fmt.Printf("\n\nTestTPAQEntropyCoder")
 		TestCorrectness("TPAQ")
 		TestSpeed("TPAQ")
+		fmt.Printf("\n\nTestExpGolombCodec")
+		TestCorrectness("EXPGOLOMB")
+		TestSpeed("EXPGOLOMB")
+		fmt.Printf("\n\nTestRiceGolombCodec")
+		TestCorrectness("RICEGOLOMB")
+		TestSpeed("RICEGOLOMB")
 	} else if name_ != "" {
-		fmt.Printf("\n\nTest%vEntropyCoder", name_)
+		fmt.Printf("\n\nTest%vCodec", name_)
 		TestCorrectness(name_)
 		TestSpeed(name_)
-	} else {
-		fmt.Println("Usage: TestBinaryEntropyCoder -type=???")
 	}
-
 }
 
 func getPredictor(name string) entropy.Predictor {
@@ -78,6 +91,96 @@ func getPredictor(name string) entropy.Predictor {
 	default:
 		panic(fmt.Errorf("Unsupported type: '%s'", name))
 	}
+}
+
+func getEncoder(name string, obs kanzi.OutputBitStream) kanzi.EntropyEncoder {
+	switch name {
+	case "PAQ":
+		res, _ := entropy.NewBinaryEntropyEncoder(obs, getPredictor(name))
+		return res
+
+	case "FPAQ":
+		res, _ := entropy.NewBinaryEntropyEncoder(obs, getPredictor(name))
+		return res
+
+	case "TPAQ":
+		res, _ := entropy.NewBinaryEntropyEncoder(obs, getPredictor(name))
+		return res
+
+	case "CM":
+		res, _ := entropy.NewBinaryEntropyEncoder(obs, getPredictor(name))
+		return res
+
+	case "HUFFMAN":
+		res, _ := entropy.NewHuffmanEncoder(obs)
+		return res
+
+	case "ANS":
+		res, _ := entropy.NewANSRangeEncoder(obs)
+		return res
+
+	case "RANGE":
+		res, _ := entropy.NewRangeEncoder(obs)
+		return res
+
+	case "EXPGOLOMB":
+		res, _ := entropy.NewExpGolombEncoder(obs, true)
+		return res
+
+	case "RICEGOLOMB":
+		res, _ := entropy.NewRiceGolombEncoder(obs, true, 4)
+		return res
+
+	default:
+		panic(fmt.Errorf("No such entropy encoder: '%s'", name))
+	}
+	
+	return nil
+}
+
+func getDecoder(name string, ibs kanzi.InputBitStream) kanzi.EntropyDecoder {
+	switch name {
+	case "PAQ":
+		res, _ := entropy.NewBinaryEntropyDecoder(ibs, getPredictor(name))
+		return res
+
+	case "FPAQ":
+		res, _ := entropy.NewBinaryEntropyDecoder(ibs, getPredictor(name))
+		return res
+
+	case "TPAQ":
+		res, _ := entropy.NewBinaryEntropyDecoder(ibs, getPredictor(name))
+		return res
+
+	case "CM":
+		res, _ := entropy.NewBinaryEntropyDecoder(ibs, getPredictor(name))
+		return res
+
+	case "HUFFMAN":
+		res, _ := entropy.NewHuffmanDecoder(ibs)
+		return res
+
+	case "ANS":
+		res, _ := entropy.NewANSRangeDecoder(ibs)
+		return res
+
+	case "RANGE":
+		res, _ := entropy.NewRangeDecoder(ibs)
+		return res
+
+	case "EXPGOLOMB":
+		res, _ := entropy.NewExpGolombDecoder(ibs, true)
+		return res
+
+	case "RICEGOLOMB":
+		res, _ := entropy.NewRiceGolombDecoder(ibs, true, 4)
+		return res
+
+	default:
+		panic(fmt.Errorf("No such entropy decoder: '%s'", name))
+	}
+	
+	return nil
 }
 
 func TestCorrectness(name string) {
@@ -128,30 +231,30 @@ func TestCorrectness(name string) {
 		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
 		dbgbs.ShowByte(true)
 		//dbgbs.Mark(true)
-		fc, _ := entropy.NewBinaryEntropyEncoder(dbgbs, getPredictor(name))
+		ec := getEncoder(name, dbgbs)
 
-		if _, err := fc.Encode(values); err != nil {
+		if _, err := ec.Encode(values); err != nil {
 			fmt.Printf("Error during encoding: %s", err)
 			os.Exit(1)
 		}
 
-		fc.Dispose()
+		ec.Dispose()
 		dbgbs.Close()
 		println()
 		fmt.Printf("\nDecoded: \n")
 
 		ibs, _ := bitstream.NewDefaultInputBitStream(&bs, 16384)
-		fd, _ := entropy.NewBinaryEntropyDecoder(ibs, getPredictor(name))
+		ed := getDecoder(name, ibs)
 
 		ok := true
 		values2 := make([]byte, len(values))
-		
-		if _, err := fd.Decode(values2); err != nil {
+
+		if _, err := ed.Decode(values2); err != nil {
 			fmt.Printf("Error during decoding: %s", err)
 			os.Exit(1)
 		}
 
-		fd.Dispose()
+		ed.Dispose()
 
 		for i := range values2 {
 			fmt.Printf("%v ", values2[i])
@@ -209,17 +312,17 @@ func TestSpeed(name string) {
 			}
 
 			obs, _ := bitstream.NewDefaultOutputBitStream(&bs, uint(size))
-			fc, _ := entropy.NewBinaryEntropyEncoder(obs, getPredictor(name))
+			ec := getEncoder(name, obs)
 
 			// Encode
 			before1 := time.Now()
 
-			if _, err := fc.Encode(values1); err != nil {
+			if _, err := ec.Encode(values1); err != nil {
 				fmt.Printf("An error occured during encoding: %v\n", err)
 				os.Exit(1)
 			}
 
-			fc.Dispose()
+			ec.Dispose()
 
 			after1 := time.Now()
 			delta1 += after1.Sub(before1).Nanoseconds()
@@ -230,17 +333,17 @@ func TestSpeed(name string) {
 			}
 
 			ibs, _ := bitstream.NewDefaultInputBitStream(&bs, uint(size))
-			fd, _ := entropy.NewBinaryEntropyDecoder(ibs, getPredictor(name))
+			ed := getDecoder(name, ibs)
 
 			// Decode
 			before2 := time.Now()
 
-			if _, err := fd.Decode(values2); err != nil {
+			if _, err := ed.Decode(values2); err != nil {
 				fmt.Printf("An error occured during decoding: %v\n", err)
 				os.Exit(1)
 			}
 
-			fd.Dispose()
+			ed.Dispose()
 
 			after2 := time.Now()
 			delta2 += after2.Sub(before2).Nanoseconds()

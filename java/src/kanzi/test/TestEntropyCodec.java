@@ -21,19 +21,31 @@ import kanzi.entropy.BinaryEntropyEncoder;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.Random;
+import kanzi.EntropyDecoder;
+import kanzi.EntropyEncoder;
 import kanzi.InputBitStream;
 import kanzi.OutputBitStream;
 import kanzi.bitstream.DebugOutputBitStream;
 import kanzi.bitstream.DefaultInputBitStream;
 import kanzi.bitstream.DefaultOutputBitStream;
+import kanzi.entropy.ANSRangeDecoder;
+import kanzi.entropy.ANSRangeEncoder;
 import kanzi.entropy.CMPredictor;
+import kanzi.entropy.ExpGolombDecoder;
+import kanzi.entropy.ExpGolombEncoder;
 import kanzi.entropy.FPAQPredictor;
+import kanzi.entropy.HuffmanDecoder;
+import kanzi.entropy.HuffmanEncoder;
 import kanzi.entropy.PAQPredictor;
 import kanzi.entropy.Predictor;
+import kanzi.entropy.RangeDecoder;
+import kanzi.entropy.RangeEncoder;
+import kanzi.entropy.RiceGolombDecoder;
+import kanzi.entropy.RiceGolombEncoder;
 import kanzi.entropy.TPAQPredictor;
 
 
-public class TestBinaryEntropyCoder
+public class TestEntropyCodec
 {
     public static void main(String[] args)
     {
@@ -47,25 +59,40 @@ public class TestBinaryEntropyCoder
        if (type.startsWith("-TYPE=")) 
        {
            type = type.substring(6);
+           System.out.println("Codec: " + type);
 
            if (type.equals("ALL"))
            {
-              System.out.println("\n\nTestFPAQEntropyCoder");
+              System.out.println("\n\nTestHuffmanCodec");
+              testCorrectness("HUFFMAN");
+              testSpeed("HUFFMAN");
+              System.out.println("\n\nTestANSCodec");
+              testCorrectness("ANS");
+              testSpeed("ANS");
+              System.out.println("\n\nTestRangeCodec");
+              testCorrectness("RANGE");
+              testSpeed("RANGE");
+              System.out.println("\n\nTestFPAQCodec");
               testCorrectness("FPAQ");
               testSpeed("FPAQ");
-              System.out.println("\n\nTestCMEntropyCoder");
+              System.out.println("\n\nTestCMCodec");
               testCorrectness("CM");
               testSpeed("CM");
-              System.out.println("\n\nTestPAQEntropyCoder");
+              System.out.println("\n\nTestPAQCodec");
               testCorrectness("PAQ");
               testSpeed("PAQ");
-              System.out.println("\n\nTestTPAQEntropyCoder");
+              System.out.println("\n\nTestTPAQCodec");
               testCorrectness("TPAQ");
               testSpeed("TPAQ");
-           }
+              System.out.println("\n\nTestExpGolombCodec");
+              testCorrectness("EXPGOLOMB");
+              testSpeed("EXPGOLOMB");
+              System.out.println("\n\nTestRiceGolombCodec");
+              testCorrectness("RICEGOLOMB");
+              testSpeed("RICEGOLOMB");           }
            else
            {
-              System.out.println("Test" + type + "EntropyCoder");
+              System.out.println("Test" + type + "Codec");
               testCorrectness(type);
               testSpeed(type);
            }
@@ -88,6 +115,70 @@ public class TestBinaryEntropyCoder
           return new CMPredictor();
        
        return null;
+    }
+    
+    
+    private static EntropyEncoder getEncoder(String name, OutputBitStream obs)
+    {
+       switch(name) 
+       {
+          case "FPAQ":
+          case "CM":
+          case "PAQ":
+          case "TPAQ":
+             return new BinaryEntropyEncoder(obs, getPredictor(name));
+             
+          case "HUFFMAN":
+             return new HuffmanEncoder(obs);
+             
+          case "ANS":
+             return new ANSRangeEncoder(obs);
+             
+          case "RANGE":
+             return new RangeEncoder(obs);
+          
+          case "EXPGOLOMB":
+             return new ExpGolombEncoder(obs, true);
+          
+          case "RICEGOLOMB":
+             return new RiceGolombEncoder(obs, true, 4);
+          
+          default:
+             System.out.println("No such entropy encoder: "+name);
+             return null;
+       }
+    }
+
+    
+    private static EntropyDecoder getDecoder(String name, InputBitStream ibs)
+    {
+       switch(name) 
+       {
+          case "FPAQ":
+          case "CM":
+          case "PAQ":
+          case "TPAQ":
+             return new BinaryEntropyDecoder(ibs, getPredictor(name));
+             
+          case "HUFFMAN":
+             return new HuffmanDecoder(ibs);
+             
+          case "ANS":
+             return new ANSRangeDecoder(ibs);
+             
+          case "RANGE":
+             return new RangeDecoder(ibs);
+          
+          case "EXPGOLOMB":
+             return new ExpGolombDecoder(ibs, true);
+          
+          case "RICEGOLOMB":
+             return new RiceGolombDecoder(ibs, true, 4);
+          
+          default:
+             System.out.println("No such entropy decoder: "+name);
+             return null;
+       }       
     }
     
     
@@ -144,19 +235,19 @@ public class TestBinaryEntropyCoder
                 OutputBitStream obs = new DefaultOutputBitStream(os, 16384);
                 DebugOutputBitStream dbgbs = new DebugOutputBitStream(obs, System.out);
                 dbgbs.showByte(true);
-                BinaryEntropyEncoder bec = new BinaryEntropyEncoder(dbgbs, getPredictor(name));
-                bec.encode(values, 0, values.length);                
-                bec.dispose();
+                EntropyEncoder ec = getEncoder(name, dbgbs);
+                ec.encode(values, 0, values.length);                
+                ec.dispose();
                 dbgbs.close();
                 byte[] buf = os.toByteArray();
                 InputBitStream ibs = new DefaultInputBitStream(new ByteArrayInputStream(buf), 1024);
-                BinaryEntropyDecoder bed = new BinaryEntropyDecoder(ibs, getPredictor(name));
+                EntropyDecoder ed = getDecoder(name, ibs);
                 System.out.println();
                 System.out.println("\nDecoded:");
                 boolean ok = true;
                 byte[] values2 = new byte[values.length];
-                bed.decode(values2, 0, values2.length);
-                bed.dispose();
+                ed.decode(values2, 0, values2.length);
+                ed.dispose();
                 ibs.close();
 
                 try
@@ -225,16 +316,16 @@ public class TestBinaryEntropyCoder
                 // Encode
                 ByteArrayOutputStream os = new ByteArrayOutputStream(size*2);
                 OutputBitStream obs = new DefaultOutputBitStream(os, size);
-                BinaryEntropyEncoder bec = new BinaryEntropyEncoder(obs, getPredictor(name));
+                EntropyEncoder ec = getEncoder(name, obs);
                 long before1 = System.nanoTime();
                 
-                if (bec.encode(values1, 0, values1.length) < 0)
+                if (ec.encode(values1, 0, values1.length) < 0)
                 {
                    System.out.println("Encoding error");
                    System.exit(1);
                 }
 
-                bec.dispose();
+                ec.dispose();
                 long after1 = System.nanoTime();
                 delta1 += (after1 - before1);
                 obs.close();
@@ -242,16 +333,16 @@ public class TestBinaryEntropyCoder
                 // Decode
                 byte[] buf = os.toByteArray();
                 InputBitStream ibs = new DefaultInputBitStream(new ByteArrayInputStream(buf), size);
-                BinaryEntropyDecoder bed = new BinaryEntropyDecoder(ibs, getPredictor(name));
+                EntropyDecoder ed = getDecoder(name, ibs);
                 long before2 = System.nanoTime();
                 
-                if (bed.decode(values2, 0, size) < 0)
+                if (ed.decode(values2, 0, size) < 0)
                 {
                    System.out.println("Decoding error");
                    System.exit(1);
                 }
 
-                bed.dispose();
+                ed.dispose();
                 long after2 = System.nanoTime();
                 delta2 += (after2 - before2);
                 ibs.close();
