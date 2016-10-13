@@ -114,6 +114,12 @@ public class DWT_CDF_9_7 implements IntTransform
     @Override
     public boolean forward(IndexedIntArray src, IndexedIntArray dst)
     {
+        if ((src == null) || (dst == null))
+           return false;
+        
+        if ((src.array == null) || (dst.array == null))
+           return false;
+        
         if (src.array.length < this.width*this.height)
            return false;
 
@@ -223,6 +229,12 @@ public class DWT_CDF_9_7 implements IntTransform
     @Override
     public boolean inverse(IndexedIntArray src, IndexedIntArray dst)
     {
+        if ((src == null) || (dst == null))
+           return false;
+        
+        if ((src.array == null) || (dst.array == null))
+           return false;
+        
         if (src.array.length < this.width*this.height)
            return false;
 
