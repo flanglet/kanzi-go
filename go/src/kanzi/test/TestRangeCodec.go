@@ -176,6 +176,7 @@ func TestSpeed() {
 			rc.Dispose()
 			after1 := time.Now()
 			delta1 += after1.Sub(before1).Nanoseconds()
+			obs.Close()
 
 			if _, err := obs.Close(); err != nil {
 				fmt.Printf("Error during close: %v\n", err)

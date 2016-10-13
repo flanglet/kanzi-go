@@ -90,7 +90,6 @@ public class TestRangeCoder
                 OutputBitStream bs = new DefaultOutputBitStream(os, 16384);
                 DebugOutputBitStream dbgbs = new DebugOutputBitStream(bs, System.out);
                 dbgbs.showByte(true);
-                dbgbs.setMark(true);
                 int[] freq = new int[256];
 
                 for (int i=0; i<values.length; i++)
@@ -102,15 +101,14 @@ public class TestRangeCoder
                 dbgbs.close();
                 System.out.println();
                 byte[] buf = os.toByteArray();
-                InputBitStream bs2 = new DefaultInputBitStream(new ByteArrayInputStream(buf), 16384);
-                DebugInputBitStream dbgbs2 = new DebugInputBitStream(bs2, System.out);
-                dbgbs2.setMark(true);
-                RangeDecoder rd = new RangeDecoder(dbgbs2);
+                InputBitStream ibs = new DefaultInputBitStream(new ByteArrayInputStream(buf), 16384);
+                RangeDecoder rd = new RangeDecoder(ibs);
                 System.out.println("\nDecoded:");
                 int len = values.length; // buf.length >> 3;
                 boolean ok = true;
                 byte[] values2 = new byte[values.length];
                 rd.decode(values2, 0, values.length);
+                rd.dispose();
 
                 for (int j=0; j<len; j++)
                 {
@@ -127,7 +125,7 @@ public class TestRangeCoder
                     System.out.print(values2[i]+" ");
 
                 System.out.println("\n"+((ok == true) ? "Identical" : "! *** Different *** !"));
-                rd.dispose();
+                ibs.close();
             }
             catch (Exception e)
             {
@@ -177,8 +175,8 @@ public class TestRangeCoder
 
                 // Encode
                 ByteArrayOutputStream os = new ByteArrayOutputStream(size*2);
-                OutputBitStream bs = new DefaultOutputBitStream(os, size);
-                RangeEncoder rc = new RangeEncoder(bs);
+                OutputBitStream obs = new DefaultOutputBitStream(os, size);
+                RangeEncoder rc = new RangeEncoder(obs);
                 long before1 = System.nanoTime();
 
                 if (rc.encode(values1, 0, values1.length) < 0)
@@ -187,15 +185,15 @@ public class TestRangeCoder
                    System.exit(1);
                 }
 
+                rc.dispose();
                 long after1 = System.nanoTime();
                 delta1 += (after1 - before1);
-                rc.dispose();
-                bs.close();
+                obs.close();
 
                 // Decode
                 byte[] buf = os.toByteArray();
-                InputBitStream bs2 = new DefaultInputBitStream(new ByteArrayInputStream(buf), size);
-                RangeDecoder rd = new RangeDecoder(bs2);
+                InputBitStream ibs = new DefaultInputBitStream(new ByteArrayInputStream(buf), size);
+                RangeDecoder rd = new RangeDecoder(ibs);
                 long before2 = System.nanoTime();
 
                 if (rd.decode(values2, 0, values2.length) < 0)
@@ -204,9 +202,9 @@ public class TestRangeCoder
                    System.exit(1);
                 }
 
+                rd.dispose();
                 long after2 = System.nanoTime();
                 delta2 += (after2 - before2);
-                rd.dispose();
 
                 // Sanity check
                 for (int i=0; i<values1.length; i++)
@@ -218,6 +216,8 @@ public class TestRangeCoder
                       break;
                    }
                 }
+                
+                ibs.close();
             }
 
             final long prod = (long) iter * (long) size;
