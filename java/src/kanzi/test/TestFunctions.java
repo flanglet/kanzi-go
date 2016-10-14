@@ -17,28 +17,87 @@ package kanzi.test;
 
 import java.util.Arrays;
 import java.util.Random;
+import kanzi.ByteFunction;
 import kanzi.IndexedByteArray;
+import kanzi.function.LZ4Codec;
+import kanzi.function.RLT;
 import kanzi.function.SnappyCodec;
+import kanzi.function.ZRLT;
 
 
-public class TestSnappyCodec
+public class TestFunctions
 {
     public static void main(String[] args)
     {
-        System.out.println("TestSnappy");
-        testCorrectness();
-        testSpeed();
+       if (args.length == 0)
+       {
+          args = new String[] { "-TYPE=ALL" };
+       }
+
+       String type = args[0].toUpperCase();
+
+       if (type.startsWith("-TYPE=")) 
+       {
+           type = type.substring(6);
+           System.out.println("Transform: " + type);
+
+           if (type.equals("ALL"))
+           {
+              System.out.println("\n\nTestLZ4");
+              testCorrectness("LZ4");
+              testSpeed("LZ4");
+              System.out.println("\n\nTestSnappy");
+              testCorrectness("SNAPPY");
+              testSpeed("SNAPPY");
+              System.out.println("\n\nTestZRLT");
+              testCorrectness("ZRLT");
+              testSpeed("ZRLT");
+              System.out.println("\n\nTestRLT");
+              testCorrectness("RLT");
+              testSpeed("RLT");         
+           }
+           else
+           {
+              System.out.println("Test" + type);
+              testCorrectness(type);
+              testSpeed(type);
+           }
+       }        
     }
+
     
+    private static ByteFunction getByteFunction(String name)
+    {
+       switch(name) 
+       {
+          case "LZ4":
+             return new LZ4Codec();
+             
+          case "SNAPPY":
+             return new SnappyCodec();
+             
+          case "ZRLT":
+             return new ZRLT();
+          
+          case "RLT":
+             return new RLT();
+
+          default:
+             System.out.println("No such byte function: "+name);
+             return null;
+       }
+    }
+
     
-    public static void testCorrectness()
-    {        byte[] input;
+    private static void testCorrectness(String name)
+    {        
+        byte[] input;
         byte[] output;
         byte[] reverse;
         Random rnd = new Random();
 
         // Test behavior
-        System.out.println("Correctness test");
+        System.out.println("Correctness test for " + name);
         {
            for (int ii=0; ii<20; ii++)
            {
@@ -64,6 +123,29 @@ public class TestSnappyCodec
               {
                  arr = new int[] { 0, 0, 1, 1, 2, 2, 3, 3 };
               }
+              else if (ii < 6)
+              {
+                  // Lots of zeros
+                  arr = new int[1<<(ii+6)];
+
+                  for (int i=0; i<arr.length; i++)
+                  {
+                      int val = rnd.nextInt(100);
+
+                      if (val >= 33)
+                          val = 0;
+
+                      arr[i] = val;
+                  }                 
+              }
+              else if (ii == 6)
+              {
+                 // Totally random
+                 arr = new int[512];
+                 
+                 for (int j=0; j<arr.length; j++)
+                     arr[j] = rnd.nextInt(256);
+              }
               else
               {
                  arr = new int[1024];
@@ -71,7 +153,7 @@ public class TestSnappyCodec
 
                  while (idx < arr.length)
                  {
-                    int len = rnd.nextInt(270);
+                    int len = rnd.nextInt(40);
 
                     if (len % 3 == 0)
                       len = 1;
@@ -88,9 +170,9 @@ public class TestSnappyCodec
               }
 
                int size = arr.length;
-               SnappyCodec snappy = new SnappyCodec();
+               ByteFunction f = getByteFunction(name);
                input = new byte[size];
-               output = new byte[snappy.getMaxEncodedLength(size)];
+               output = new byte[f.getMaxEncodedLength(size)];
                reverse = new byte[size];
                IndexedByteArray iba1 = new IndexedByteArray(input, 0);
                IndexedByteArray iba2 = new IndexedByteArray(output, 0);
@@ -112,8 +194,14 @@ public class TestSnappyCodec
                   System.out.print((input[i] & 255) + " ");
                }
 
-               if (snappy.forward(iba1, iba2, size) == false)
+               if (f.forward(iba1, iba2, size) == false)
                {
+                  if (iba1.index != input.length)
+                  {
+                     System.out.println("\nNo compression (ratio > 1.0), skip reverse");
+                     continue;
+                  }
+
                   System.out.println("\nEncoding error");
                   System.exit(1);
                }
@@ -132,13 +220,14 @@ public class TestSnappyCodec
                   System.out.print((output[i] & 255) + " "); //+"("+Integer.toBinaryString(output[i] & 255)+") ");
                }
 
-               snappy = new SnappyCodec();
+               System.out.print(" (Compression ratio: " + (iba2.index * 100 / input.length)+ "%)");
+               f = getByteFunction(name);
                int count = iba2.index;
                iba1.index = 0;
                iba2.index = 0;
                iba3.index = 0;
                
-               if (snappy.inverse(iba2, iba3, count) == false)
+               if (f.inverse(iba2, iba3, count) == false)
                {
                   System.out.println("\nDecoding error");
                   System.exit(1);
@@ -169,7 +258,7 @@ public class TestSnappyCodec
       }
 
     
-      public static void testSpeed()
+      public static void testSpeed(String name)
       {
         // Test speed
          byte[] input;
@@ -178,13 +267,13 @@ public class TestSnappyCodec
          Random rnd = new Random();
          final int iter = 50000;
          final int size = 30000;
-         System.out.println("\n\nSpeed test");
-         System.out.println("Iterations: "+iter);
+         System.out.println("\n\nSpeed test for " + name);
+         System.out.println("Iterations: " + iter);
 
          for (int jj=0; jj<3; jj++)
          {
             input = new byte[size];
-            output = new byte[new SnappyCodec().getMaxEncodedLength(size)];
+            output = new byte[size];
             reverse = new byte[size];
             IndexedByteArray iba1 = new IndexedByteArray(input, 0);
             IndexedByteArray iba2 = new IndexedByteArray(output, 0);
@@ -196,10 +285,14 @@ public class TestSnappyCodec
             while (n < input.length)        
             {
                byte val = (byte) (rnd.nextInt() & 255);
+
+               if (val > 240)
+                  val = 0;
+
                input[n++] = val;
                int run = rnd.nextInt() & 255;
                run -= 200;
-
+               
                while ((--run > 0) && (n < input.length))       
                   input[n++] = val;
             }
@@ -210,12 +303,16 @@ public class TestSnappyCodec
 
             for (int ii = 0; ii < iter; ii++)
             {
-               SnappyCodec snappy = new SnappyCodec(); 
+               ByteFunction f = getByteFunction(name);
+               
+               if (output.length < f.getMaxEncodedLength(size))
+                  output = new byte[f.getMaxEncodedLength(size)];
+
                iba1.index = 0;
                iba2.index = 0;
                before = System.nanoTime();
 
-               if (snappy.forward(iba1, iba2, size) == false)
+               if (f.forward(iba1, iba2, size) == false)
                {
                   System.out.println("Encoding error");
                   System.exit(1);
@@ -227,13 +324,13 @@ public class TestSnappyCodec
 
             for (int ii = 0; ii < iter; ii++)
             {
-               SnappyCodec snappy = new SnappyCodec(); 
+               ByteFunction f = getByteFunction(name);
                int count = iba2.index;
                iba3.index = 0;
                iba2.index = 0;
                before = System.nanoTime();
 
-               if (snappy.inverse(iba2, iba3, count) == false)
+               if (f.inverse(iba2, iba3, count) == false)
                {
                   System.out.println("Decoding error");
                   System.exit(1);
@@ -259,9 +356,9 @@ public class TestSnappyCodec
                System.out.println("Failure at index "+idx+" ("+iba1.array[idx]+"<->"+iba3.array[idx]+")");
 
             final long prod = (long) iter * (long) size;
-            System.out.println("Snappy encoding [ms]: " + delta1 / 1000000);
+            System.out.println(name + " encoding [ms]: " + delta1 / 1000000);
             System.out.println("Throughput [MB/s]   : " + prod * 1000000L / delta1 * 1000L / (1024*1024));
-            System.out.println("Snappy decoding [ms]: " + delta2 / 1000000);
+            System.out.println(name + " decoding [ms]: " + delta2 / 1000000);
             System.out.println("Throughput [MB/s]   : " + prod * 1000000L / delta2 * 1000L / (1024*1024));
          }
      }

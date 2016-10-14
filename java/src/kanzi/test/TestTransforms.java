@@ -25,6 +25,10 @@ import kanzi.transform.DCT8;
 import kanzi.transform.DST4;
 import kanzi.transform.DWT_CDF_9_7;
 import kanzi.transform.DWT_DCT;
+import kanzi.transform.WHT16;
+import kanzi.transform.WHT32;
+import kanzi.transform.WHT4;
+import kanzi.transform.WHT8;
 
 public class TestTransforms
 {
@@ -107,10 +111,11 @@ public class TestTransforms
                       { new DCT4(), new DCT8(), new DCT16(), new DCT32(), 
                         new DWT_DCT(8), new DWT_DCT(16), new DWT_DCT(32), 
                         new DWT_CDF_9_7(8, 8, 1), new DWT_CDF_9_7(16, 16, 1), new DWT_CDF_9_7(32, 32, 1),
-                        new DST4() };
-              int[] dims = new int[] { 4, 8, 16, 32, 8, 16, 32, 8, 16, 32, 4 };
+                        new DST4(), new WHT4(), new WHT8(), new WHT16(), new WHT32() };
+              int[] dims = new int[] { 4, 8, 16, 32, 8, 16, 32, 8, 16, 32, 4, 4, 8, 16, 32 };
               String[] names = new String[] {"DCT", "DCT", "DCT", "DCT", "DWT_DCT", 
-                 "DWT_DCT", "DWT_DCT", "DWT", "DWT", "DWT", "DST" };
+                 "DWT_DCT", "DWT_DCT", "DWT", "DWT", "DWT", "DST",
+              "WHT", "WHT", "WHT", "WHT"};
               
               for (int idx=0; idx<transforms.length; idx++)
               {   

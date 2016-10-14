@@ -92,7 +92,7 @@ func main() {
 		7, 2, 0, 1, 0, 6, 5, 4, 8, 5, 8, 6, 3, 2, 7, 8,
 	}
 
-	transforms := make([]kanzi.IntTransform, 11)
+	transforms := make([]kanzi.IntTransform, 15)
 	transforms[0], _ = transform.NewDCT4()
 	transforms[1], _ = transform.NewDCT8()
 	transforms[2], _ = transform.NewDCT16()
@@ -104,10 +104,15 @@ func main() {
 	transforms[8], _ = transform.NewDWT(16, 16, 1)
 	transforms[9], _ = transform.NewDWT(32, 32, 1)
 	transforms[10], _ = transform.NewDST4()
+	transforms[11], _ = transform.NewWHT4(true)
+	transforms[12], _ = transform.NewWHT8(true)
+	transforms[13], _ = transform.NewWHT16(true)
+	transforms[14], _ = transform.NewWHT32(true)
 
-	dims := [11]int{4, 8, 16, 32, 8, 16, 32, 8, 16, 32, 4}
-	names := [11]string{"DCT", "DCT", "DCT", "DCT", "DWT_DCT",
-		"DWT_DCT", "DWT_DCT", "DWT", "DWT", "DWT", "DST"}
+	dims := [15]int{4, 8, 16, 32, 8, 16, 32, 8, 16, 32, 4, 4, 8, 16, 32}
+	names := [15]string{"DCT", "DCT", "DCT", "DCT", "DWT_DCT",
+		"DWT_DCT", "DWT_DCT", "DWT", "DWT", "DWT", "DST",
+		"WHT", "WHT", "WHT", "WHT"}
 
 	for idx := range transforms {
 		dim := dims[idx]
@@ -137,7 +142,7 @@ func main() {
 			}
 
 			copy(data3, data1)
-			fmt.Println("Output:")
+			fmt.Println("\nOutput:")
 			start := 0 //(nn & 1) * nn
 
 			if nn <= 10 {
@@ -153,7 +158,7 @@ func main() {
 			}
 
 			transforms[idx].Inverse(data[start:], data2)
-			fmt.Println("Result:")
+			fmt.Println("\nResult:")
 			sad := 0
 
 			for i := 0; i < blockSize; i++ {

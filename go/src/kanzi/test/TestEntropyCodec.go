@@ -29,7 +29,7 @@ import (
 )
 
 func main() {
-	var name = flag.String("type", "ALL", "Type of predictor (all, CM, FPAQ or PAQ)")
+	var name = flag.String("type", "ALL", "Type of codec (all, Huffman, ANS, Range, FPAQ, CM, PAQ, TPAQ, ExpGolomg or RiceGolomb)")
 
 	// Parse
 	flag.Parse()
