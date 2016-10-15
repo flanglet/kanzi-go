@@ -289,18 +289,20 @@ public final class SnappyCodec implements ByteFunction
   // The index of the indexed byte array is incremented by the number of bytes read
   private static long getUvarint(IndexedByteArray iba) 
   {
-     final int idx = iba.index;
-     final byte[] array = iba.array;
-     final int len = array.length;
+     final byte[] buf = iba.array;
+     final int len = buf.length;
      long res = 0;
      int s = 0;
  
-     for (int i=idx; i<len; i++)
+     for (int i=iba.index; i<len; i++)
      {
-        final long b = array[i] & 0xFF;
+        final long b = buf[i] & 0xFF;
         
-        if (((s == 63) && (b > 1)) || (s > 63))
-           throw new NumberFormatException("Overflow: value is larger than 64 bits");
+        if (s >= 63)
+        {
+            if (((s == 63) && (b > 1)) || (s > 63))
+               throw new NumberFormatException("Overflow: value is larger than 64 bits");
+        }
         
         if ((b & 0x80) == 0)
         {        
@@ -419,7 +421,7 @@ public final class SnappyCodec implements ByteFunction
                 {
                    s += 4; 
                    x = (src[s-3] & 0xFF) | ((src[s-2] & 0xFF) << 8) | 
-                      ((src[s-1]) & 0xFF) << 16;
+                      ((src[s-1] & 0xFF) << 16);
                 }
                 else if (x == TAG_DEC_LEN4)
                 {

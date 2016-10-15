@@ -167,7 +167,6 @@ public class TestFunctions
                    arr[j] = val;
 
                idx += len;
-               System.out.print(val+" ("+len+") ");
             }
          }
 

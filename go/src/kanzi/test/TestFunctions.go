@@ -143,7 +143,6 @@ func TestCorrectness(name string) {
 				}
 
 				idx += length
-				fmt.Printf("%v (%v) ", val, length)
 
 			}
 		}
@@ -173,7 +172,7 @@ func TestCorrectness(name string) {
 
 		if err != nil {
 			// ZRLT may fail if the input data has too few 0s
-			if srcIdx != uint(len(input)) {
+			if srcIdx != uint(size) {
 				fmt.Printf("\nNo compression (ratio > 1.0), skip reverse")
 				continue
 			}
