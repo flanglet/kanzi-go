@@ -29,7 +29,7 @@ import (
 // http://fastcompression.blogspot.com/2011/05/lz4-explained.html
 
 const (
-	HASH_SEED       = 0x9E3779B1
+	LZ4_HASH_SEED   = 0x9E3779B1
 	HASH_LOG        = 12
 	HASH_LOG_64K    = 13
 	MAX_DISTANCE    = (1 << 16) - 1
@@ -68,30 +68,30 @@ func NewLZ4Codec() (*LZ4Codec, error) {
 	return this, nil
 }
 
-func writeLength(array []byte, length int) int {
+func writeLength(buf []byte, length int) int {
 	idx := 0
 
 	for length >= 0x1FE {
-		array[idx] = 0xFF
-		array[idx+1] = 0xFF
+		buf[idx] = 0xFF
+		buf[idx+1] = 0xFF
 		idx += 2
 		length -= 0x1FE
 	}
 
 	if length >= 0xFF {
-		array[idx] = 0xFF
-		length -= 0xFF
+		buf[idx] = 0xFF
 		idx++
+		length -= 0xFF
 	}
 
-	array[idx] = byte(length)
+	buf[idx] = byte(length)
 	return idx + 1
 }
 
-func writeLastLiterals(src []byte, dst []byte, runLength int) int {
+func writeLastLiterals(src []byte, dst []byte) int {
 	dstIdx := 1
+	runLength := len(src)
 
-	// Emit literal lengths
 	if runLength >= RUN_MASK {
 		dst[0] = byte(RUN_MASK << ML_BITS)
 		dstIdx += writeLength(dst[1:], runLength-RUN_MASK)
@@ -148,10 +148,10 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		// First byte
-		h32 := (this.order.Uint32(src[srcIdx:srcIdx+4]) * HASH_SEED) >> hashShift
+		h32 := (this.order.Uint32(src[srcIdx:srcIdx+4]) * LZ4_HASH_SEED) >> hashShift
 		table[h32] = srcIdx
 		srcIdx++
-		h32 = (this.order.Uint32(src[srcIdx:srcIdx+4]) * HASH_SEED) >> hashShift
+		h32 = (this.order.Uint32(src[srcIdx:srcIdx+4]) * LZ4_HASH_SEED) >> hashShift
 
 		for {
 			fwdIdx := srcIdx
@@ -166,7 +166,7 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 
 				if fwdIdx > mfLimit {
 					// Encode last literals
-					dstIdx += writeLastLiterals(src[anchor:], dst[dstIdx:], srcEnd-anchor)
+					dstIdx += writeLastLiterals(src[anchor:srcEnd], dst[dstIdx:])
 					return uint(srcEnd), uint(dstIdx), error(nil)
 				}
 
@@ -174,9 +174,9 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 				searchMatchNb++
 				match = table[h32]
 				table[h32] = srcIdx
-				h32 = (this.order.Uint32(src[fwdIdx:fwdIdx+4]) * HASH_SEED) >> hashShift
+				h32 = (this.order.Uint32(src[fwdIdx:fwdIdx+4]) * LZ4_HASH_SEED) >> hashShift
 
-				if differentInts(src[srcIdx:srcIdx+4], src[match:match+4]) == false && match > srcIdx-MAX_DISTANCE {
+				if kanzi.DifferentInts(src[srcIdx:srcIdx+4], src[match:match+4]) == false && match > srcIdx-MAX_DISTANCE {
 					break
 				}
 			}
@@ -233,20 +233,20 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 				anchor = srcIdx
 
 				if srcIdx > mfLimit {
-					dstIdx += writeLastLiterals(src[anchor:], dst[dstIdx:], srcEnd-anchor)
+					dstIdx += writeLastLiterals(src[anchor:srcEnd], dst[dstIdx:])
 					return uint(srcEnd), uint(dstIdx), error(nil)
 				}
 
 				// Fill table
-				h32 = (this.order.Uint32(src[srcIdx-2:srcIdx+2]) * HASH_SEED) >> hashShift
+				h32 = (this.order.Uint32(src[srcIdx-2:srcIdx+2]) * LZ4_HASH_SEED) >> hashShift
 				table[h32] = srcIdx - 2
 
 				// Test next position
-				h32 = (this.order.Uint32(src[srcIdx:srcIdx+4]) * HASH_SEED) >> hashShift
+				h32 = (this.order.Uint32(src[srcIdx:srcIdx+4]) * LZ4_HASH_SEED) >> hashShift
 				match = table[h32]
 				table[h32] = srcIdx
 
-				if differentInts(src[srcIdx:srcIdx+4], src[match:match+4]) || match <= srcIdx-MAX_DISTANCE {
+				if kanzi.DifferentInts(src[srcIdx:srcIdx+4], src[match:match+4]) || match <= srcIdx-MAX_DISTANCE {
 					break
 				}
 
@@ -257,20 +257,13 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 
 			// Prepare next loop
 			srcIdx++
-			h32 = (this.order.Uint32(src[srcIdx:srcIdx+4]) * HASH_SEED) >> hashShift
+			h32 = (this.order.Uint32(src[srcIdx:srcIdx+4]) * LZ4_HASH_SEED) >> hashShift
 		}
 	}
 
 	// Encode last literals
-	dstIdx += writeLastLiterals(src[anchor:], dst[dstIdx:], srcEnd-anchor)
+	dstIdx += writeLastLiterals(src[anchor:srcEnd], dst[dstIdx:])
 	return uint(srcEnd), uint(dstIdx), error(nil)
-}
-
-func differentInts(src, dst []byte) bool {
-	return src[0] != dst[0] ||
-		src[1] != dst[1] ||
-		src[2] != dst[2] ||
-		src[3] != dst[3]
 }
 
 // Reads same byte input as LZ4_decompress_generic in LZ4 r131 (7/15)

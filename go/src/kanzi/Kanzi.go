@@ -236,3 +236,10 @@ func (BigEndian) Uint32(p uintptr) uint32 {
 		((v >> 8) & 0x0000FF00) |
 		((v >> 24) & 0x000000FF)
 }
+
+func DifferentInts(src, dst []byte) bool {
+	return src[0] != dst[0] ||
+		src[1] != dst[1] ||
+		src[2] != dst[2] ||
+		src[3] != dst[3]
+}

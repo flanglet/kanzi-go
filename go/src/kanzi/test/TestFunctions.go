@@ -48,7 +48,7 @@ func main() {
 		TestCorrectness("RLT")
 		TestSpeed("RLT")
 	} else if name_ != "" {
-		fmt.Printf("Test %v", name_)
+		fmt.Printf("Test%v", name_)
 		TestCorrectness(name_)
 		TestSpeed(name_)
 	}
@@ -115,12 +115,14 @@ func TestCorrectness(name string) {
 			// Totally random
 			arr = make([]int, 512)
 
-			for i := range arr {
+			// Leave zeros at the beginning for ZRLT to succeed
+			for i := 20; i < len(arr); i++ {
 				arr[i] = rand.Intn(256)
 			}
 		} else {
 			arr = make([]int, 1024)
-			idx := 0
+			// Leave zeros at the beginning for ZRLT to succeed
+			idx := 20
 
 			for idx < len(arr) {
 				length := rnd.Intn(40)
@@ -147,8 +149,9 @@ func TestCorrectness(name string) {
 		}
 
 		size := len(arr)
+		f := getByteFunction(name)
 		input := make([]byte, size)
-		output := make([]byte, 32+size*4/3)
+		output := make([]byte, f.MaxEncodedLen(size))
 		reverse := make([]byte, size)
 
 		for i := range output {
@@ -159,7 +162,7 @@ func TestCorrectness(name string) {
 			input[i] = byte(arr[i])
 		}
 
-		f := getByteFunction(name)
+		f = getByteFunction(name)
 		fmt.Printf("\nOriginal: \n")
 
 		for i := range arr {
@@ -169,16 +172,17 @@ func TestCorrectness(name string) {
 		srcIdx, dstIdx, err := f.Forward(input, output)
 
 		if err != nil {
+			// ZRLT may fail if the input data has too few 0s
 			if srcIdx != uint(len(input)) {
 				fmt.Printf("\nNo compression (ratio > 1.0), skip reverse")
 				continue
 			}
 
-			fmt.Printf("\n===Encoding error===\n%v\n", err)
+			fmt.Printf("\nEncoding error : %v\n", err)
 			os.Exit(1)
 		}
 
-		if srcIdx != uint(len(input)) {
+		if srcIdx != uint(size) {
 			fmt.Printf("\nNo compression (ratio > 1.0), skip reverse")
 			continue
 		}
@@ -189,17 +193,17 @@ func TestCorrectness(name string) {
 			fmt.Printf("%v ", output[i])
 		}
 
-		// Required to reset internal attributes
+		fmt.Printf(" (Compression ratio: %v%%)\n", int(dstIdx)*100/size)
 		f = getByteFunction(name)
 
 		_, _, err = f.Inverse(output[0:dstIdx], reverse)
 
 		if err != nil {
-			fmt.Printf("\n===Decoding error===\n%v\n", err)
+			fmt.Printf("Decoding error : %v\n", err)
 			os.Exit(1)
 		}
 
-		fmt.Printf("\nDecoded: \n")
+		fmt.Printf("Decoded: \n")
 
 		for i := range reverse {
 			fmt.Printf("%v ", reverse[i])
@@ -226,26 +230,23 @@ func TestSpeed(name string) {
 	fmt.Printf("Iterations: %v\n", iter)
 
 	for jj := 0; jj < 3; jj++ {
+		bf := getByteFunction(name)
 		input := make([]byte, size)
-		output := make([]byte, size)
+		output := make([]byte, bf.MaxEncodedLen(size))
 		reverse := make([]byte, size)
 
 		// Generate random data with runs
-		n := 0
+		// Leave zeros at the beginning for ZRLT to succeed
+		n := iter / 20
 		delta1 := int64(0)
 		delta2 := int64(0)
 
 		for n < len(input) {
-			val := byte(rand.Intn(3))
-
-			if val > 240 {
-				val = 0
-			}
-
+			val := byte(rand.Intn(255))
 			input[n] = val
 			n++
 			run := rand.Intn(255)
-			run -= 200
+			run -= 220
 			run--
 
 			for run > 0 && n < len(input) {
@@ -260,18 +261,13 @@ func TestSpeed(name string) {
 
 		for ii := 0; ii < iter; ii++ {
 			f := getByteFunction(name)
-
-			if len(output) < f.MaxEncodedLen(size) {
-				output = make([]byte, f.MaxEncodedLen(size))
-			}
-
 			before := time.Now()
 
 			_, dstIdx, err = f.Forward(input, output)
 
 			if err != nil {
-				fmt.Printf("Encoding error%v\n", err)
-				os.Exit(1)
+				fmt.Printf("Encoding error : %v\n", err)
+				continue
 			}
 
 			after := time.Now()
@@ -283,7 +279,7 @@ func TestSpeed(name string) {
 			before := time.Now()
 
 			if _, _, err = f.Inverse(output[0:dstIdx], reverse); err != nil {
-				fmt.Printf("Decoding error%v\n", err)
+				fmt.Printf("Decoding error : %v\n", err)
 				os.Exit(1)
 			}
 

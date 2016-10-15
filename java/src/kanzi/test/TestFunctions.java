@@ -27,339 +27,333 @@ import kanzi.function.ZRLT;
 
 public class TestFunctions
 {
-    public static void main(String[] args)
-    {
-       if (args.length == 0)
-       {
+   public static void main(String[] args)
+   {
+      if (args.length == 0)
+      {
           args = new String[] { "-TYPE=ALL" };
-       }
-
-       String type = args[0].toUpperCase();
-
-       if (type.startsWith("-TYPE=")) 
-       {
-           type = type.substring(6);
-           System.out.println("Transform: " + type);
-
-           if (type.equals("ALL"))
-           {
-              System.out.println("\n\nTestLZ4");
-              testCorrectness("LZ4");
-              testSpeed("LZ4");
-              System.out.println("\n\nTestSnappy");
-              testCorrectness("SNAPPY");
-              testSpeed("SNAPPY");
-              System.out.println("\n\nTestZRLT");
-              testCorrectness("ZRLT");
-              testSpeed("ZRLT");
-              System.out.println("\n\nTestRLT");
-              testCorrectness("RLT");
-              testSpeed("RLT");         
-           }
-           else
-           {
-              System.out.println("Test" + type);
-              testCorrectness(type);
-              testSpeed(type);
-           }
-       }        
-    }
-
-    
-    private static ByteFunction getByteFunction(String name)
-    {
-       switch(name) 
-       {
-          case "LZ4":
-             return new LZ4Codec();
-             
-          case "SNAPPY":
-             return new SnappyCodec();
-             
-          case "ZRLT":
-             return new ZRLT();
-          
-          case "RLT":
-             return new RLT();
-
-          default:
-             System.out.println("No such byte function: "+name);
-             return null;
-       }
-    }
-
-    
-    private static void testCorrectness(String name)
-    {        
-        byte[] input;
-        byte[] output;
-        byte[] reverse;
-        Random rnd = new Random();
-
-        // Test behavior
-        System.out.println("Correctness test for " + name);
-        {
-           for (int ii=0; ii<20; ii++)
-           {
-              System.out.println("\nTest "+ii);
-              int[] arr;
-
-              if (ii == 0)
-              {
-                 arr = new int[] {
-                    0, 1, 2, 2, 2, 2, 7, 9,  9, 16, 16, 16, 1, 3,
-                   3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
-                 };
-              }
-              else if (ii == 1)
-              {
-                 arr = new int[500];
-                 arr[0] = 1;
-                 
-                 for (int i=1; i<500; i++)
-                    arr[i] = 8;
-              }
-              else if (ii == 2)
-              {
-                 arr = new int[] { 0, 0, 1, 1, 2, 2, 3, 3 };
-              }
-              else if (ii < 6)
-              {
-                  // Lots of zeros
-                  arr = new int[1<<(ii+6)];
-
-                  for (int i=0; i<arr.length; i++)
-                  {
-                      int val = rnd.nextInt(100);
-
-                      if (val >= 33)
-                          val = 0;
-
-                      arr[i] = val;
-                  }                 
-              }
-              else if (ii == 6)
-              {
-                 // Totally random
-                 arr = new int[512];
-                 
-                 for (int j=0; j<arr.length; j++)
-                     arr[j] = rnd.nextInt(256);
-              }
-              else
-              {
-                 arr = new int[1024];
-                 int idx = 0;
-
-                 while (idx < arr.length)
-                 {
-                    int len = rnd.nextInt(40);
-
-                    if (len % 3 == 0)
-                      len = 1;
-
-                     int val = rnd.nextInt(256);
-                     int end = (idx+len) < arr.length ? idx+len : arr.length;
-
-                     for (int j=idx; j<end; j++)
-                        arr[j] = val;
-
-                    idx += len;
-                    System.out.print(val+" ("+len+") ");
-                 }
-              }
-
-               int size = arr.length;
-               ByteFunction f = getByteFunction(name);
-               input = new byte[size];
-               output = new byte[f.getMaxEncodedLength(size)];
-               reverse = new byte[size];
-               IndexedByteArray iba1 = new IndexedByteArray(input, 0);
-               IndexedByteArray iba2 = new IndexedByteArray(output, 0);
-               IndexedByteArray iba3 = new IndexedByteArray(reverse, 0);
-               Arrays.fill(output, (byte) 0xAA);
-
-               for (int i=0; i<arr.length; i++)
-               {
-                  input[i] = (byte) (arr[i] & 255);
-
-                  for (int j=arr.length; j<size; j++)
-                      input[j] = (byte) (0);
-               }
-
-               System.out.println("\nOriginal: ");
-
-               for (int i=0; i<input.length; i++)
-               {
-                  System.out.print((input[i] & 255) + " ");
-               }
-
-               if (f.forward(iba1, iba2, size) == false)
-               {
-                  if (iba1.index != input.length)
-                  {
-                     System.out.println("\nNo compression (ratio > 1.0), skip reverse");
-                     continue;
-                  }
-
-                  System.out.println("\nEncoding error");
-                  System.exit(1);
-               }
-
-               if (iba1.index != input.length)
-               {
-                  System.out.println("\nNo compression (ratio > 1.0), skip reverse");
-                  continue;
-               }
-
-               System.out.println("\nCoded: ");
-               //java.util.Arrays.fill(input, (byte) 0);
-
-               for (int i=0; i<iba2.index; i++)
-               {
-                  System.out.print((output[i] & 255) + " "); //+"("+Integer.toBinaryString(output[i] & 255)+") ");
-               }
-
-               System.out.print(" (Compression ratio: " + (iba2.index * 100 / input.length)+ "%)");
-               f = getByteFunction(name);
-               int count = iba2.index;
-               iba1.index = 0;
-               iba2.index = 0;
-               iba3.index = 0;
-               
-               if (f.inverse(iba2, iba3, count) == false)
-               {
-                  System.out.println("\nDecoding error");
-                  System.exit(1);
-               }
-
-               System.out.println("\nDecoded: ");
-
-               for (int i=0; i<reverse.length; i++)
-               {
-                  System.out.print((reverse[i] & 255) + " ");
-               }
-
-               System.out.println();
-
-               for (int i=0; i<input.length; i++)
-               {
-                  if (input[i] != reverse[i])
-                  {
-                     System.out.println("Different (index "+i+": "+input[i]+" - "+reverse[i]+")");
-                     System.exit(1);
-                  }
-               }
-
-               System.out.println("Identical");
-               System.out.println();
-            }
-         }
       }
 
-    
-      public static void testSpeed(String name)
+      String type = args[0].toUpperCase();
+
+      if (type.startsWith("-TYPE=")) 
       {
-        // Test speed
-         byte[] input;
-         byte[] output;
-         byte[] reverse;
-         Random rnd = new Random();
-         final int iter = 50000;
-         final int size = 30000;
-         System.out.println("\n\nSpeed test for " + name);
-         System.out.println("Iterations: " + iter);
+          type = type.substring(6);
+          System.out.println("Transform: " + type);
 
-         for (int jj=0; jj<3; jj++)
+          if (type.equals("ALL"))
+          {
+             System.out.println("\n\nTestLZ4");
+             testCorrectness("LZ4");
+             testSpeed("LZ4");
+             System.out.println("\n\nTestSnappy");
+             testCorrectness("SNAPPY");
+             testSpeed("SNAPPY");
+             System.out.println("\n\nTestZRLT");
+             testCorrectness("ZRLT");
+             testSpeed("ZRLT");
+             System.out.println("\n\nTestRLT");
+             testCorrectness("RLT");
+             testSpeed("RLT");         
+           }
+          else
+          {
+             System.out.println("Test" + type);
+             testCorrectness(type);
+             testSpeed(type);
+          }
+      }        
+   }
+
+    
+   private static ByteFunction getByteFunction(String name)
+   {
+      switch(name) 
+      {
+         case "LZ4":
+            return new LZ4Codec();
+
+         case "SNAPPY":
+            return new SnappyCodec();
+
+         case "ZRLT":
+            return new ZRLT();
+
+         case "RLT":
+            return new RLT();
+
+         default:
+            System.out.println("No such byte function: "+name);
+            return null;
+      }
+   }
+
+    
+   private static void testCorrectness(String name)
+   {        
+      byte[] input;
+      byte[] output;
+      byte[] reverse;
+      Random rnd = new Random();
+
+      // Test behavior
+      System.out.println("Correctness test for " + name);
+
+      for (int ii=0; ii<20; ii++)
+      {
+         System.out.println("\nTest "+ii);
+         int[] arr;
+
+         if (ii == 0)
          {
-            input = new byte[size];
-            output = new byte[size];
-            reverse = new byte[size];
-            IndexedByteArray iba1 = new IndexedByteArray(input, 0);
-            IndexedByteArray iba2 = new IndexedByteArray(output, 0);
-            IndexedByteArray iba3 = new IndexedByteArray(reverse, 0);
-
-            // Generate random data with runs
-            int n = 0;
-
-            while (n < input.length)        
-            {
-               byte val = (byte) (rnd.nextInt() & 255);
-
-               if (val > 240)
-                  val = 0;
-
-               input[n++] = val;
-               int run = rnd.nextInt() & 255;
-               run -= 200;
-               
-               while ((--run > 0) && (n < input.length))       
-                  input[n++] = val;
-            }
-
-            long before, after;
-            long delta1 = 0;
-            long delta2 = 0;
-
-            for (int ii = 0; ii < iter; ii++)
-            {
-               ByteFunction f = getByteFunction(name);
-               
-               if (output.length < f.getMaxEncodedLength(size))
-                  output = new byte[f.getMaxEncodedLength(size)];
-
-               iba1.index = 0;
-               iba2.index = 0;
-               before = System.nanoTime();
-
-               if (f.forward(iba1, iba2, size) == false)
-               {
-                  System.out.println("Encoding error");
-                  System.exit(1);
-               }
-
-               after = System.nanoTime();
-               delta1 += (after - before);
-            }
-
-            for (int ii = 0; ii < iter; ii++)
-            {
-               ByteFunction f = getByteFunction(name);
-               int count = iba2.index;
-               iba3.index = 0;
-               iba2.index = 0;
-               before = System.nanoTime();
-
-               if (f.inverse(iba2, iba3, count) == false)
-               {
-                  System.out.println("Decoding error");
-                  System.exit(1);
-               }
-
-               after = System.nanoTime();
-               delta2 += (after - before);
-            }
-
-            int idx = -1;
-
-            // Sanity check
-            for (int i=0; i<iba1.index; i++)
-            {
-               if (iba1.array[i] != iba3.array[i])
-               {
-                  idx = i;
-                  break;
-               }
-            }
-
-            if (idx >= 0)
-               System.out.println("Failure at index "+idx+" ("+iba1.array[idx]+"<->"+iba3.array[idx]+")");
-
-            final long prod = (long) iter * (long) size;
-            System.out.println(name + " encoding [ms]: " + delta1 / 1000000);
-            System.out.println("Throughput [MB/s]   : " + prod * 1000000L / delta1 * 1000L / (1024*1024));
-            System.out.println(name + " decoding [ms]: " + delta2 / 1000000);
-            System.out.println("Throughput [MB/s]   : " + prod * 1000000L / delta2 * 1000L / (1024*1024));
+            arr = new int[] {
+               0, 1, 2, 2, 2, 2, 7, 9,  9, 16, 16, 16, 1, 3,
+              3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
+            };
          }
-     }
+         else if (ii == 1)
+         {
+            arr = new int[500];
+            arr[0] = 1;
+
+            for (int i=1; i<500; i++)
+               arr[i] = 8;
+         }
+         else if (ii == 2)
+         {
+            arr = new int[] { 0, 0, 1, 1, 2, 2, 3, 3 };
+         }
+         else if (ii < 6)
+         {
+             // Lots of zeros
+             arr = new int[1<<(ii+6)];
+
+             for (int i=0; i<arr.length; i++)
+             {
+                 int val = rnd.nextInt(100);
+
+                 if (val >= 33)
+                     val = 0;
+
+                 arr[i] = val;
+             }                 
+         }
+         else if (ii == 6)
+         {
+            // Totally random
+            arr = new int[512];
+
+            // Leave zeros at the beginning for ZRLT to succeed
+            for (int j=20; j<arr.length; j++)
+                arr[j] = rnd.nextInt(256);
+         }
+         else
+         {
+            arr = new int[1024];
+            // Leave zeros at the beginning for ZRLT to succeed
+            int idx = 20;
+
+            while (idx < arr.length)
+            {
+               int len = rnd.nextInt(40);
+
+               if (len % 3 == 0)
+                 len = 1;
+
+                int val = rnd.nextInt(256);
+                int end = (idx+len) < arr.length ? idx+len : arr.length;
+
+                for (int j=idx; j<end; j++)
+                   arr[j] = val;
+
+               idx += len;
+               System.out.print(val+" ("+len+") ");
+            }
+         }
+
+          int size = arr.length;
+          ByteFunction f = getByteFunction(name);
+          input = new byte[size];
+          output = new byte[f.getMaxEncodedLength(size)];
+          reverse = new byte[size];
+          IndexedByteArray iba1 = new IndexedByteArray(input, 0);
+          IndexedByteArray iba2 = new IndexedByteArray(output, 0);
+          IndexedByteArray iba3 = new IndexedByteArray(reverse, 0);
+          Arrays.fill(output, (byte) 0xAA);
+
+          for (int i=0; i<arr.length; i++)
+          {
+             input[i] = (byte) (arr[i] & 255);
+          }
+
+          System.out.println("\nOriginal: ");
+
+          for (int i=0; i<input.length; i++)
+          {
+             System.out.print((input[i] & 255) + " ");
+          }
+
+          if (f.forward(iba1, iba2, size) == false)
+          {
+             // ZRLT may fail if the input data has too few 0s
+             if (iba1.index != input.length)
+             {
+                System.out.println("\nNo compression (ratio > 1.0), skip reverse");
+                continue;
+             }
+
+             System.out.println("\nEncoding error");
+             System.exit(1);
+          }
+
+          if (iba1.index != input.length)
+          {
+             System.out.println("\nNo compression (ratio > 1.0), skip reverse");
+             continue;
+          }
+
+          System.out.println("\nCoded: ");
+          //java.util.Arrays.fill(input, (byte) 0);
+
+          for (int i=0; i<iba2.index; i++)
+          {
+             System.out.print((output[i] & 255) + " "); //+"("+Integer.toBinaryString(output[i] & 255)+") ");
+          }
+
+          System.out.println(" (Compression ratio: " + (iba2.index * 100 / input.length)+ "%)");
+          f = getByteFunction(name);
+          int count = iba2.index;
+          iba1.index = 0;
+          iba2.index = 0;
+          iba3.index = 0;
+
+          if (f.inverse(iba2, iba3, count) == false)
+          {
+             System.out.println("Decoding error");
+             System.exit(1);
+          }
+
+          System.out.println("Decoded: ");
+
+          for (int i=0; i<reverse.length; i++)
+          {
+             System.out.print((reverse[i] & 255) + " ");
+          }
+
+          System.out.println();
+
+          for (int i=0; i<input.length; i++)
+          {
+             if (input[i] != reverse[i])
+             {
+                System.out.println("Different (index "+i+": "+input[i]+" - "+reverse[i]+")");
+                System.exit(1);
+             }
+          }
+
+          System.out.println("Identical");
+          System.out.println();
+      }
+   }
+
+    
+   public static void testSpeed(String name)
+   {
+      // Test speed
+      byte[] input;
+      byte[] output;
+      byte[] reverse;
+      Random rnd = new Random();
+      final int iter = 50000;
+      final int size = 30000;
+      System.out.println("\n\nSpeed test for " + name);
+      System.out.println("Iterations: " + iter);
+
+      for (int jj=0; jj<3; jj++)
+      {
+         ByteFunction f = getByteFunction(name);
+         input = new byte[size];
+         output = new byte[f.getMaxEncodedLength(size)];
+         reverse = new byte[size];
+         IndexedByteArray iba1 = new IndexedByteArray(input, 0);
+         IndexedByteArray iba2 = new IndexedByteArray(output, 0);
+         IndexedByteArray iba3 = new IndexedByteArray(reverse, 0);
+
+         // Generate random data with runs
+         // Leave zeros at the beginning for ZRLT to succeed
+         int n = iter/20;
+
+         while (n < input.length)        
+         {
+            byte val = (byte) (rnd.nextInt() & 255);
+            input[n++] = val;
+            int run = rnd.nextInt() & 255;
+            run -= 220;
+
+            while ((--run > 0) && (n < input.length))       
+               input[n++] = val;
+         }
+
+         long before, after;
+         long delta1 = 0;
+         long delta2 = 0;
+
+         for (int ii = 0; ii < iter; ii++)
+         {
+            f = getByteFunction(name);
+            iba1.index = 0;
+            iba2.index = 0;
+            before = System.nanoTime();
+
+            if (f.forward(iba1, iba2, size) == false)
+            {
+               // ZRLT may fail if the input data has too few 0s
+               System.out.println("Encoding error");
+               continue;
+            }
+
+            after = System.nanoTime();
+            delta1 += (after - before);
+         }
+
+         for (int ii = 0; ii < iter; ii++)
+         {
+            f = getByteFunction(name);
+            int count = iba2.index;
+            iba3.index = 0;
+            iba2.index = 0;
+            before = System.nanoTime();
+
+            if (f.inverse(iba2, iba3, count) == false)
+            {
+               System.out.println("Decoding error");
+               System.exit(1);
+            }
+
+            after = System.nanoTime();
+            delta2 += (after - before);
+         }
+
+         int idx = -1;
+
+         // Sanity check
+         for (int i=0; i<iba1.index; i++)
+         {
+            if (iba1.array[i] != iba3.array[i])
+            {
+               idx = i;
+               break;
+            }
+         }
+
+         if (idx >= 0)
+            System.out.println("Failure at index "+idx+" ("+iba1.array[idx]+"<->"+iba3.array[idx]+")");
+
+         final long prod = (long) iter * (long) size;
+         System.out.println(name + " encoding [ms]: " + delta1 / 1000000);
+         System.out.println("Throughput [MB/s]: " + prod * 1000000L / delta1 * 1000L / (1024*1024));
+         System.out.println(name + " decoding [ms]: " + delta2 / 1000000);
+         System.out.println("Throughput [MB/s]: " + prod * 1000000L / delta2 * 1000L / (1024*1024));
+      }
+   }
 }
