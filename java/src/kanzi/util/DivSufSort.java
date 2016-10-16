@@ -24,12 +24,12 @@ package kanzi.util;
 
 public final class DivSufSort
 {
-    private final static int SS_INSERTIONSORT_THRESHOLD = 8;
-    private final static int SS_BLOCKSIZE = 1024;
-    private final static int SS_MISORT_STACKSIZE = 16;
-    private final static int SS_SMERGE_STACKSIZE = 32;
-    private final static int TR_STACKSIZE = 64;
-    private final static int TR_INSERTIONSORT_THRESHOLD = 8;
+    private static final int SS_INSERTIONSORT_THRESHOLD = 8;
+    private static final int SS_BLOCKSIZE = 1024;
+    private static final int SS_MISORT_STACKSIZE = 16;
+    private static final int SS_SMERGE_STACKSIZE = 32;
+    private static final int TR_STACKSIZE = 64;
+    private static final int TR_INSERTIONSORT_THRESHOLD = 8;
 
 
     private final static int[] SQQ_TABLE =

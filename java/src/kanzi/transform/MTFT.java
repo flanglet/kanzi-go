@@ -46,6 +46,9 @@ public final class MTFT implements ByteTransform
     @Override
     public boolean inverse(IndexedByteArray src, IndexedByteArray dst, final int count)
     {
+        if ((src == null) || (dst == null) || (src.array == dst.array))
+           return false;
+
         if ((count < 0) || (count+src.index > src.array.length))
           return false;
 
@@ -97,9 +100,9 @@ public final class MTFT implements ByteTransform
     // Used by forward() only
     private void initLists()
     {
-        Payload[] array = new Payload[256];
-        array[0] = new Payload((byte) 0);
-        Payload previous = array[0];
+        Payload[] buf = new Payload[257];
+        buf[0] = new Payload((byte) 0);
+        Payload previous = buf[0];
         this.heads[0] = previous;
         this.lengths[0] = 1;
         this.buckets[0] = 0;
@@ -107,23 +110,24 @@ public final class MTFT implements ByteTransform
                 
         for (int i=1; i<256; i++)
         {
-           array[i] = new Payload((byte) i);
+           buf[i] = new Payload((byte) i);
 
            if ((i-1) % LIST_LENGTH == 0)
            {
               listIdx++;
-              this.heads[listIdx] = array[i];
+              this.heads[listIdx] = buf[i];
               this.lengths[listIdx] = LIST_LENGTH;
            }
 
            this.buckets[i] = listIdx;
-           previous.next = array[i];
-           array[i].previous = previous;
-           previous = array[i];
+           previous.next = buf[i];
+           buf[i].previous = previous;
+           previous = buf[i];
         }
  
         // Create a fake end payload so that every payload in every list has a successor
-        this.anchor = new Payload((byte) 0);
+        buf[256] = new Payload((byte) 0);
+        this.anchor = buf[256];
         previous.next = this.anchor;   
     }
     

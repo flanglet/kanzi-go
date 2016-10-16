@@ -311,9 +311,9 @@ public final class LZ4Codec implements ByteFunction
          srcIdx += length;
          dstIdx += length;
 
-	 if ((dstIdx > dstEnd2) || (srcIdx > srcEnd2))
-	    break;
-		
+         if ((dstIdx > dstEnd2) || (srcIdx > srcEnd2))
+            break;
+
          // Get offset
          final int delta = (src[srcIdx] & 0xFF) | ((src[srcIdx+1] & 0xFF) << 8);
          srcIdx += 2;
