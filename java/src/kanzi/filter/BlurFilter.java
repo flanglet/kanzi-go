@@ -54,9 +54,9 @@ public final class BlurFilter implements IntFilter
         if (stride < 8)
             throw new IllegalArgumentException("The stride must be at least 8");
         
-        if (radius < 1)
-            throw new IllegalArgumentException("The radius must be at least 1");
-        
+        if ((radius < 1) || (radius > 32))
+            throw new IllegalArgumentException("The radius must be int [1..32]");
+
         if (iterations < 1)
             throw new IllegalArgumentException("The iterations must be at least 1");
         
@@ -101,7 +101,8 @@ public final class BlurFilter implements IntFilter
         final int h = this.height;
         final int st = this.stride;
         
-        int boxSize = (2 * rd) + 1;
+        final int boxSize = (2 * rd) + 1;
+        final int invBoxSize = (1<<16) / boxSize;
         int srcStart = srcIdx;
         int dstStart = dstIdx;
         
@@ -130,9 +131,9 @@ public final class BlurFilter implements IntFilter
             for (int i=0; i<w; i++)
             {
                 int val;
-                val  = (totalR / boxSize) << 16;
-                val |= (totalG / boxSize) <<  8;
-                val |= (totalB / boxSize);
+                val  = ((totalR*invBoxSize) >>> 16) << 16;
+                val |= ((totalG*invBoxSize) >>> 16) << 8;
+                val |= (totalB*invBoxSize) >>> 16;
                 this.line[i] = val;
                 
                 // Limit lastIdx to positive or null values

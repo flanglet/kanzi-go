@@ -159,7 +159,7 @@ public class GaussianFilter implements IntFilter
        for (int y=0; y<h; y++)
        {
           // forward pass
-	  float xp = input[offs];
+          float xp = input[offs];
           float yb = coefp*xp;
           float yp = yb;
 
@@ -205,20 +205,20 @@ public class GaussianFilter implements IntFilter
        {
           // forward pass
           int offs = 0;
-	  float xp = input[x];
+          float xp = input[x];
           float yb = coefp*xp;
           float yp = yb;
 
           for (int y=0; y<h; y++)
-	  {
-	     float xc = input[offs+x];
-	     float yc = a0*xc + a1*xp - b1*yp - b2*yb;
-	     output[offs+x] = (int) (yc + .5);
-	     xp = xc;
-             yb = yp;
-             yp = yc;
-             offs += w;
-	  }
+          {
+            float xc = input[offs+x];
+            float yc = a0*xc + a1*xp - b1*yp - b2*yb;
+            output[offs+x] = (int) (yc + .5);
+            xp = xc;
+                 yb = yp;
+                 yp = yc;
+                 offs += w;
+          }
 
           // reverse pass: ensure response is symmetrical
           offs = (h-1) * w;
@@ -228,16 +228,16 @@ public class GaussianFilter implements IntFilter
           float ya = yn;
 
           for (int y=h-1; y>=0; y--)
- 	  {
-	     float xc = input[offs+x];
-	     float yc = a2*xn + a3*xa - b1*yn - b2*ya;
-	     output[offs+x] += yc;
-	     xa = xn;
-             xn = xc;
-             ya = yn;
-             yn = yc;
-             offs -= w;
-	  }
+          {
+            float xc = input[offs+x];
+            float yc = a2*xn + a3*xa - b1*yn - b2*ya;
+            output[offs+x] += yc;
+            xa = xn;
+                 xn = xc;
+                 ya = yn;
+                 yn = yc;
+                 offs -= w;
+          }
        }
     }
 
