@@ -123,7 +123,7 @@ public class BicubicUpSampler implements UpSampler
             final int val = (p1<<4) + (p2<<2) - (p1<<3) - (p1<<1) + (p2<<3) - (p3<<1) + 
                ((p1<<1) + p1 - (p2<<1) - p2 + p3 - p0);
             output[oOffs+i] = this.getValue(val); 
-         } 
+         }
 
          oOffs -= dw;        
       }    
@@ -172,7 +172,7 @@ public class BicubicUpSampler implements UpSampler
 
             // Copy
             output[idx+2] = p2;
-
+            
             // Interpolate
             //output[idx+1] = (int) (p1 + 0.5 * x*(p2 - p0 + x*(2.0*p0 - 5.0*p1 + 4.0*p2 - p3 + x*(3.0*(p1 - p2) + p3 - p0))));
             val = (p1<<4) + (p2<<2) - (p1<<3) - (p1<<1) + (p2<<3) - (p3<<1) + 
