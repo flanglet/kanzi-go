@@ -99,7 +99,7 @@ func (this *MTFT) Inverse(src, dst []byte) (uint, uint, error) {
 // Initialize the linked lists: 1 item in bucket 0 and LIST_LENGTH in each other
 // Used by forward() only
 func (this *MTFT) initLists() {
-	array := make([]*Payload, 256)
+	array := make([]*Payload, 257)
 	array[0] = &Payload{value: 0}
 	previous := array[0]
 	this.heads[0] = previous
@@ -123,7 +123,8 @@ func (this *MTFT) initLists() {
 	}
 
 	// Create a fake end payload so that every payload in every list has a successor
-	this.anchor = &Payload{value: 0}
+	array[256] = &Payload{value: 0}
+	this.anchor = array[256]
 	previous.next = this.anchor
 }
 
