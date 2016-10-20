@@ -24,7 +24,7 @@ import (
 )
 
 func main() {
-	fmt.Printf("\nCorrectness test")
+	fmt.Printf("\nMTFT Correctness test")
 
 	for ii := 0; ii < 20; ii++ {
 		rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -86,8 +86,8 @@ func main() {
 	// Speed Test
 	iter := 20000
 	size := 10000
-	fmt.Printf("\n\nSpeed test")
-	fmt.Printf("\nIterations: %v", iter)
+	fmt.Printf("\n\nMTFT Speed test\n")
+	fmt.Printf("Iterations: %v\n", iter)
 
 	for jj := 0; jj < 4; jj++ {
 		input := make([]byte, size)
@@ -98,11 +98,11 @@ func main() {
 		delta2 := int64(0)
 
 		if jj == 0 {
-			fmt.Printf("\n\nPurely random input")
+			println("\n\nPurely random input")
 		}
 
 		if jj == 2 {
-			fmt.Printf("\n\nSemi random input")
+			println("\n\nSemi random input")
 		}
 
 		for ii := 0; ii < iter; ii++ {
@@ -134,27 +134,27 @@ func main() {
 			mtft.Inverse(output, reverse)
 			after = time.Now()
 			delta2 += after.Sub(before).Nanoseconds()
-		}
 
-		idx := -1
+			idx := -1
 
-		// Sanity check
-		for i := range input {
-			if input[i] != reverse[i] {
-				idx = i
-				break
+			// Sanity check
+			for i := range input {
+				if input[i] != reverse[i] {
+					idx = i
+					break
+				}
+			}
+
+			if idx >= 0 {
+				fmt.Printf("Failure at index %v (%v <-> %v)\n", idx, input[idx], reverse[idx])
+				os.Exit(1)
 			}
 		}
 
-		if idx >= 0 {
-			fmt.Printf("Failure at index %v (%v <-> %v)\n", idx, input[idx], reverse[idx])
-			os.Exit(1)
-		}
-
-		fmt.Printf("\nMTFT Forward transform [ms]: %v", delta1/1000000)
-		fmt.Printf("\nThroughput [KB/s]          : %d", (int64(iter*size))*1000000/delta1*1000/1024)
-		fmt.Printf("\nMTFT Reverse transform [ms]: %v", delta2/1000000)
-		fmt.Printf("\nThroughput [KB/s]          : %d", (int64(iter*size))*1000000/delta2*1000/1024)
+		fmt.Printf("MTFT Forward transform [ms]: %v\n", delta1/1000000)
+		fmt.Printf("Throughput [KB/s]          : %d\n", (int64(iter*size))*1000000/delta1*1000/1024)
+		fmt.Printf("MTFT Reverse transform [ms]: %v\n", delta2/1000000)
+		fmt.Printf("Throughput [KB/s]          : %d\n", (int64(iter*size))*1000000/delta2*1000/1024)
 		println()
 	}
 }

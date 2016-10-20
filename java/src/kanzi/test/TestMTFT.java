@@ -24,11 +24,9 @@ public class TestMTFT
 {
     public static void main(String[] args)
     {
-        System.out.println("TestMTFT");
-
         // Behavior Test
         {
-            System.out.println("\nCorrectness test");
+            System.out.println("\nMTFT Correctness test");
 
             for (int ii=1; ii<=20; ii++)
             {
@@ -108,7 +106,7 @@ public class TestMTFT
       // Speed Test
       final int iter = 20000;
       final int size = 10000;
-      System.out.println("\n\nSpeed test");
+      System.out.println("\n\nMTFT Speed test");
       System.out.println("Iterations: "+iter);
      
       for (int jj=0; jj<4; jj++)
@@ -144,7 +142,7 @@ public class TestMTFT
                     else
                     {
                        // Semi random (a bit more realistic input)
-                       int rng = ((i & 7) == 0) ? 256 : 5;
+                       int rng = ((i & 7) == 0) ? 128 : 5;
                        int p = (rnd.nextInt(rng) - rng/2 + n) & 0xFF;
                        input[i] = (byte) p;
                        n = p;
@@ -176,8 +174,11 @@ public class TestMTFT
                    } 
                 }
 
-                if (idx >= 0)
+                if (idx >= 0) 
+                {
                    System.out.println("Failure at index "+idx+" ("+input[idx]+"<->"+reverse[idx]+")");
+                   System.exit(1);
+                }
             }
 
             final long prod = (long) iter * (long) size;

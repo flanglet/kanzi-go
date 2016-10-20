@@ -78,9 +78,9 @@ public final class MTFT implements ByteTransform
            output[dstIdx+i] = value;
 
            if (idx <= 16)
-           {                  
-              for (int j=idx-1; j>=0; j--)
-                 indexes[j+1] = indexes[j];
+           {                
+               for (int j=idx-1; j>=0; j--)
+                 indexes[j+1] = indexes[j];                 
            }
            else
            {
