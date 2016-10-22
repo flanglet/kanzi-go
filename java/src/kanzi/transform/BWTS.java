@@ -15,7 +15,6 @@ limitations under the License.
 
 package kanzi.transform;
 
-import kanzi.util.DivSufSort;
 import kanzi.ByteTransform;
 import kanzi.IndexedByteArray;
 

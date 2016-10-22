@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"kanzi"
-	"kanzi/util"
 )
 
 // Bijective version of the Burrows-Wheeler Transform
@@ -35,7 +34,7 @@ const (
 type BWTS struct {
 	buffer  []int
 	buckets []int
-	saAlgo  *util.DivSufSort
+	saAlgo  *DivSufSort
 }
 
 func NewBWTS() (*BWTS, error) {
@@ -86,7 +85,7 @@ func (this *BWTS) Forward(src, dst []byte) (uint, uint, error) {
 	if this.saAlgo == nil {
 		var err error
 
-		if this.saAlgo, err = util.NewDivSufSort(); err != nil {
+		if this.saAlgo, err = NewDivSufSort(); err != nil {
 			return 0, 0, err
 		}
 	} else {
@@ -245,7 +244,7 @@ func (this *BWTS) Inverse(src, dst []byte) (uint, uint, error) {
 		buckets_[src[i]]++
 	}
 
-sum := 0
+	sum := 0
 
 	// Histogram
 	for i := range buckets_ {

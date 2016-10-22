@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kanzi.util;
+package kanzi.transform;
 
 // Port to (proper) Java of the DivSufSort algorithm by Yuta Mori.
 // DivSufSort is a fast two-stage suffix sorting algorithm.

@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"kanzi"
-	"kanzi/util"
 )
 
 const (
@@ -67,7 +66,7 @@ type BWT struct {
 	buffer2      []byte // Only used for big blocks (size >= 1<<24)
 	buckets      []int
 	primaryIndex uint
-	saAlgo       *util.DivSufSort
+	saAlgo       *DivSufSort
 }
 
 func NewBWT() (*BWT, error) {
@@ -127,7 +126,7 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 	if this.saAlgo == nil {
 		var err error
 
-		if this.saAlgo, err = util.NewDivSufSort(); err != nil {
+		if this.saAlgo, err = NewDivSufSort(); err != nil {
 			return 0, 0, err
 		}
 	} else {

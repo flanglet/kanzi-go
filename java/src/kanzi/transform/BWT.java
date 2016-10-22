@@ -17,7 +17,6 @@ package kanzi.transform;
 
 import kanzi.ByteTransform;
 import kanzi.IndexedByteArray;
-import kanzi.util.DivSufSort;
 
 
 // The Burrows-Wheeler Transform is a reversible transform based on
