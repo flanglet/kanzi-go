@@ -33,7 +33,7 @@ type Predictor interface {
 
 	// Return the split value representing the probability of 1 in the [0..4095] range.
 	// E.G. 410 represents roughly a probability of 10% for 1
-	Get() uint
+	Get() int
 }
 
 type BinaryEntropyEncoder struct {

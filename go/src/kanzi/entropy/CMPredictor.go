@@ -99,7 +99,7 @@ func (this *CMPredictor) Update(bit byte) {
 }
 
 // Return the split value representing the probability of 1 in the [0..4095] range.
-func (this *CMPredictor) Get() uint {
+func (this *CMPredictor) Get() int {
 	pc1 := this.counter1[this.ctx]
 	p := (7*(pc1[256]+pc1[this.c1]) + (pc1[this.c2]<<1)) >> 4
 	this.idx = p >> 12
@@ -107,5 +107,5 @@ func (this *CMPredictor) Get() uint {
 	x1 := pc2[this.idx]
 	x2 := pc2[this.idx+1]
 	ssep := x1 + (((x2 - x1) * (p & 4095)) >> 12)
-	return uint(p+ssep+ssep+ssep+32) >> 6 // rescale to [0..4095]
+	return (p+ssep+ssep+ssep+32) >> 6 // rescale to [0..4095]
 }

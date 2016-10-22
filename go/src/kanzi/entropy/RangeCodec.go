@@ -21,6 +21,11 @@ import (
 	"kanzi"
 )
 
+// Based on Order 0 range coder by Dmitry Subbotin itself derived from the algorithm
+// described by G.N.N Martin in his seminal article in 1979.
+// [G.N.N. Martin on the Data Recording Conference, Southampton, 1979]
+// Optimized for speed.
+
 const (
 	TOP_RANGE                = uint64(0x0FFFFFFFFFFFFFFF)
 	BOTTOM_RANGE             = uint64(0x0000000000FFFFFF)
@@ -37,7 +42,7 @@ type RangeEncoder struct {
 	cumFreqs  []uint64
 	eu        *EntropyUtils
 	bitstream kanzi.OutputBitStream
-	chunkSize int
+	chunkSize uint
 	logRange  uint
 	shift     uint
 }
@@ -83,7 +88,7 @@ func NewRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*RangeEncoder, err
 	this.freqs = make([]int, 256)
 	this.cumFreqs = make([]uint64, 257)
 	this.logRange = logRange
-	this.chunkSize = int(chkSize)
+	this.chunkSize = chkSize
 	var err error
 	this.eu, err = NewEntropyUtils()
 	return this, err
@@ -174,7 +179,7 @@ func (this *RangeEncoder) Encode(block []byte) (int, error) {
 		return 0, nil
 	}
 
-	sizeChunk := this.chunkSize
+	sizeChunk := int(this.chunkSize)
 
 	if sizeChunk == 0 {
 		sizeChunk = len(block)
@@ -277,7 +282,7 @@ type RangeDecoder struct {
 	cumFreqs  []uint64
 	f2s       []uint16 // mapping frequency -> symbol
 	bitstream kanzi.InputBitStream
-	chunkSize int
+	chunkSize uint
 	shift     uint
 }
 
@@ -316,7 +321,7 @@ func NewRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*RangeDecoder, erro
 	this.freqs = make([]int, 256)
 	this.cumFreqs = make([]uint64, 257)
 	this.f2s = make([]uint16, 0)
-	this.chunkSize = int(chkSize)
+	this.chunkSize = chkSize
 	return this, nil
 }
 
@@ -407,7 +412,7 @@ func (this *RangeDecoder) Decode(block []byte) (int, error) {
 
 	end := len(block)
 	startChunk := 0
-	sizeChunk := this.chunkSize
+	sizeChunk := int(this.chunkSize)
 
 	if sizeChunk == 0 {
 		sizeChunk = len(block)

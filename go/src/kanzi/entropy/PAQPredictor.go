@@ -15,9 +15,6 @@ limitations under the License.
 
 package entropy
 
-import (
-	"kanzi"
-)
 
 // This file is a port from the code of the dcs-bwt-compressor project
 // http://code.google.com/p/dcs-bwt-compressor/(itself based on PAQ coders)
@@ -193,7 +190,7 @@ var PAQ_STATE_TABLE = []int{
 
 type PAQPredictor struct {
 	// Removed apm11, apm12 and apm5 from original
-	pr     uint         // next predicted value (0-4095)
+	pr     int          // next predicted value (0-4095)
 	c0     int          // bitwise context: last 0-7 bits with a leading 1 (1-255)
 	c4     int          // last 4 whole bytes, last is in low 8 bits
 	bpos   uint         // number of bits in c0 (0-7)
@@ -201,9 +198,9 @@ type PAQPredictor struct {
 	sm     *PAQStateMap // state -> pr
 	run    uint         // count of consecutive identical bytes (0-65535)
 	runCtx int          // (0-3) if run is 0, 1, 2-3, 4+
-	apm2   *PAQAdaptiveProbMap
-	apm3   *PAQAdaptiveProbMap
-	apm4   *PAQAdaptiveProbMap
+	apm2   *AdaptiveProbMap
+	apm3   *AdaptiveProbMap
+	apm4   *AdaptiveProbMap
 }
 
 func NewPAQPredictor() (*PAQPredictor, error) {
@@ -213,14 +210,14 @@ func NewPAQPredictor() (*PAQPredictor, error) {
 	this.c0 = 1
 	this.states = make([]int, 256)
 	this.bpos = 8
-	this.apm2, err = newPAQAdaptiveProbMap(1024, 6)
+	this.apm2, err = newAdaptiveProbMap(1024, 6)
 
 	if err == nil {
-		this.apm3, err = newPAQAdaptiveProbMap(1024, 7)
+		this.apm3, err = newAdaptiveProbMap(1024, 7)
 	}
 
 	if err == nil {
-		this.apm4, err = newPAQAdaptiveProbMap(65536, 8)
+		this.apm4, err = newAdaptiveProbMap(65536, 8)
 	}
 
 	if err == nil {
@@ -272,11 +269,11 @@ func (this *PAQPredictor) Update(bit byte) {
 	p = (3*this.apm3.get(y, p, (this.c4&0xFF)|this.runCtx) + p + 2) >> 2
 	p = (3*this.apm4.get(y, p, this.c0|(this.c4&0xFF00)) + p + 2) >> 2
 	p32 := int32(p)
-	this.pr = uint(p32 - ((p32 - 2048) >> 31))
+	this.pr = int(p32 - ((p32 - 2048) >> 31))
 }
 
 // Return the split value representing the probability of 1 in the [0..4095] range.
-func (this *PAQPredictor) Get() uint {
+func (this *PAQPredictor) Get() int {
 	return this.pr
 }
 
@@ -325,55 +322,4 @@ func (this *PAQStateMap) get(bit int, nctx int) int {
 	this.data[this.ctx] += (((bit << 16) - this.data[this.ctx] + 256) >> 9)
 	this.ctx = nctx
 	return this.data[nctx] >> 4
-}
-
-/////////////////////////////////////////////////////////////////
-// APM maps a probability and a context into a new probability
-// that bit y will next be 1.  After each guess it updates
-// its state to improve future guesses.  Methods:
-//
-// APM a(N) creates with N contexts, uses 66*N bytes memory.
-// a.get(y, pr, cx) returned adjusted probability in context cx (0 to
-//   N-1).  rate determines the learning rate (smaller = faster, default 8).
-//////////////////////////////////////////////////////////////////
-type PAQAdaptiveProbMap struct {
-	index int   // last p, context
-	rate  uint  // update rate
-	data  []int // [NbCtx][33]:  p, context -> p
-}
-
-func newPAQAdaptiveProbMap(n, rate uint) (*PAQAdaptiveProbMap, error) {
-	this := new(PAQAdaptiveProbMap)
-	this.data = make([]int, n*33)
-	this.rate = rate
-	k := 0
-
-	for i := uint(0); i < n; i++ {
-		for j := 0; j < 33; j++ {
-			if i == 0 {
-				this.data[k+j] = kanzi.Squash((j-16)<<7) << 4
-			} else {
-				this.data[k+j] = this.data[j]
-			}
-		}
-
-		k += 33
-	}
-
-	return this, nil
-}
-
-func (this *PAQAdaptiveProbMap) get(bit int, pr int, ctx int) int {
-	// Update probability based on error and learning rate
-	g := (bit << 16) + (bit << this.rate) - (bit << 1)
-	this.data[this.index] += ((g - this.data[this.index]) >> this.rate)
-	this.data[this.index+1] += ((g - this.data[this.index+1]) >> this.rate)
-	pr = kanzi.STRETCH[pr]
-
-	// Find new context
-	this.index = ((pr + 2048) >> 7) + (ctx << 5) + ctx
-
-	// Return interpolated probabibility
-	w := pr & 127
-	return (this.data[this.index]*(128-w) + this.data[this.index+1]*w) >> 11
 }

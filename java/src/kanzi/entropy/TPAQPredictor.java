@@ -493,51 +493,6 @@ public class TPAQPredictor implements Predictor
    }
    
    
-   
-   /////////////////////////////////////////////////////////////////
-   // APM maps a probability and a context into a new probability
-   // that bit y will next be 1.  After each guess it updates
-   // its state to improve future guesses.  Methods:
-   //
-   // APM a(N) creates with N contexts, uses 66*N bytes memory.
-   // a.p(y, pr, cx, rate=8) returned adjusted probability in context cx (0 to
-   //   N-1).  rate determines the learning rate (smaller = faster, default 8).
-   //   Probabilities are scaled 12 bits (0-4095).  Update on last bit (0-1).
-   //////////////////////////////////////////////////////////////////
-   static class AdaptiveProbMap
-   {
-     private int index;        // last p, context
-     private final int[] data; // [NbCtx][33]:  p, context -> p
-     private final int rate;       
-
-
-     // maps p, cxt -> p initially
-     AdaptiveProbMap(int n, int rate)     
-     {
-        this.rate = rate;
-        this.data = new int[n*33];
-
-        for (int i=0, k=0; i<n; i++, k+=33)
-        {
-           for (int j=0; j<33; j++)
-              this.data[k+j] = (i == 0) ? Global.squash((j-16)<<7) << 4 : this.data[j];
-        }
-     }
-
-
-     int get(int bit, int pr, int ctx)
-     {
-        final int g = (bit<<16) + (bit<<this.rate) - (bit<<1);
-        this.data[this.index] += ((g-this.data[this.index]) >> this.rate);
-        this.data[this.index+1] += ((g-this.data[this.index+1]) >> this.rate);
-        pr = Global.STRETCH[pr];
-        final int w = pr & 127;
-        this.index = ((pr+2048) >> 7) + (ctx<<5) + ctx;
-        return (this.data[this.index]*(128-w) + this.data[this.index+1]*w) >> 11;
-     }
-   }
-
-   
    //////////////////////////// Mixer /////////////////////////////
 
    // Mixer combines models using 4096 neural networks with 8 inputs.  

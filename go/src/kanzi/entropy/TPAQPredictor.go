@@ -337,7 +337,7 @@ func hashTPAQ(x, y int32) int32 {
 }
 
 type TPAQPredictor struct {
-	pr       uint  // next predicted value (0-4095)
+	pr       int   // next predicted value (0-4095)
 	c0       int32 // bitwise context: last 0-7 bits with a leading 1 (1-255)
 	c4       int32 // last 4 whole bytes, last is in low 8 bits
 	bpos     uint  // number of bits in c0 (0-7)
@@ -345,7 +345,7 @@ type TPAQPredictor struct {
 	matchLen int
 	matchPos int
 	hash     int32
-	apm      *TPAQAdaptiveProbMap
+	apm      *AdaptiveProbMap
 	mixer    *TPAQMixer
 	buffer   []int8
 	hashes   []int   // hash table(context, buffer position)
@@ -366,7 +366,7 @@ func NewTPAQPredictor() (*TPAQPredictor, error) {
 	this.cp = make([]int, 8)
 	this.ctx = make([]int, 8)
 	this.bpos = 0
-	this.apm, err = newTPAQAdaptiveProbMap(65536, 7)
+	this.apm, err = newAdaptiveProbMap(65536, 7)
 
 	if err == nil {
 		this.mixer, err = newTPAQMixer(TPAQ_MIXER_SIZE)
@@ -435,11 +435,11 @@ func (this *TPAQPredictor) Update(bit byte) {
 	// SSE (Secondary Symbol Estimation)
 	p = this.apm.get(y, p, int(this.c0|(this.c4&0xFF00)))
 	p32 := int32(p)
-	this.pr = uint(p32 - ((p32 - 2048) >> 31))
+	this.pr = int(p32 - ((p32 - 2048) >> 31))
 }
 
 // Return the split value representing the probability of 1 in the [0..4095] range.
-func (this *TPAQPredictor) Get() uint {
+func (this *TPAQPredictor) Get() int {
 	return this.pr
 }
 
@@ -494,53 +494,6 @@ func (this *TPAQPredictor) addContext(cx int32) {
 	cx = cx<<16 | int32(uint32(cx)>>16)
 	this.ctx[this.ctxId] = int(cx*123456791) + this.ctxId
 	this.ctxId++
-}
-
-/////////////////////////////////////////////////////////////////
-// APM maps a probability and a context into a new probability
-// that bit y will next be 1.  After each guess it updates
-// its state to improve future guesses.  Methods:
-//
-// APM a(N) creates with N contexts, uses 66*N bytes memory.
-// a.p(y, pr, cx, rate=8) returned adjusted probability in context cx (0 to
-//   N-1).  rate determines the learning rate (smaller = faster, default 8).
-//   Probabilities are scaled 12 bits (0-4095).  Update on last bit (0-1).
-//////////////////////////////////////////////////////////////////
-type TPAQAdaptiveProbMap struct {
-	index int   // last p, context
-	rate  uint  // update rate
-	data  []int // [NbCtx][33]:  p, context -> p
-}
-
-func newTPAQAdaptiveProbMap(n, rate uint) (*TPAQAdaptiveProbMap, error) {
-	this := new(TPAQAdaptiveProbMap)
-	this.data = make([]int, n*33)
-	this.rate = rate
-	k := 0
-
-	for i := uint(0); i < n; i++ {
-		for j := 0; j < 33; j++ {
-			if i == 0 {
-				this.data[k+j] = kanzi.Squash((j-16)<<7) << 4
-			} else {
-				this.data[k+j] = this.data[j]
-			}
-		}
-
-		k += 33
-	}
-
-	return this, nil
-}
-
-func (this *TPAQAdaptiveProbMap) get(bit, pr, ctx int) int {
-	g := (bit << 16) + (bit << this.rate) - (bit << 1)
-	this.data[this.index] += ((g - this.data[this.index]) >> this.rate)
-	this.data[this.index+1] += ((g - this.data[this.index+1]) >> this.rate)
-	pr = kanzi.STRETCH[pr]
-	w := pr & 127
-	this.index = ((pr + 2048) >> 7) + (ctx << 5) + ctx
-	return (this.data[this.index]*(128-w) + this.data[this.index+1]*w) >> 11
 }
 
 //////////////////////////// Mixer /////////////////////////////

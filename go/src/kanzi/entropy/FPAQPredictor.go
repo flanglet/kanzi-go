@@ -25,7 +25,7 @@ const (
 type FPAQPredictor struct {
 	probs  []int // probability of bit=1
 	ctxIdx byte  // previous bits
-	p      uint
+	p      int
 }
 
 func NewFPAQPredictor() (*FPAQPredictor, error) {
@@ -54,10 +54,10 @@ func (this *FPAQPredictor) Update(bit byte) {
 		this.ctxIdx = 1
 	}
 
-	this.p = uint(this.probs[this.ctxIdx])
+	this.p = this.probs[this.ctxIdx]
 }
 
 // Return the split value representing the probability of 1 in the [0..4095] range.
-func (this *FPAQPredictor) Get() uint {
+func (this *FPAQPredictor) Get() int {
 	return this.p
 }
