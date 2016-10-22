@@ -27,40 +27,32 @@ public class NullFunction implements ByteFunction
 
    
    @Override
-   public boolean forward(IndexedByteArray source, IndexedByteArray destination, int length)
+   public boolean forward(IndexedByteArray input, IndexedByteArray output, int length)
    {
-      return doCopy(source, destination, length);
+      return doCopy(input, output, length);
    }
   
 
    @Override
-   public boolean inverse(IndexedByteArray source, IndexedByteArray destination, int length)
+   public boolean inverse(IndexedByteArray input, IndexedByteArray output, int length)
    {    
-      return doCopy(source, destination, length);
+      return doCopy(input, output, length);
    }
 
    
-   private static boolean doCopy(IndexedByteArray source, IndexedByteArray destination, final int len)
+   private static boolean doCopy(IndexedByteArray input, IndexedByteArray output, final int len)
    {      
-      if (source.index + len > source.array.length)
+      if (input.index + len > input.array.length)
          return false;
       
-      if (destination.index + len > destination.array.length)
+      if (output.index + len > output.array.length)
          return false;
 
-      if (source.array == destination.array)
-      {
-         if (source.index == destination.index)
-         {
-            source.index += len;
-            destination.index += len;
-            return true; 
-         }
-      }
+      if ((input.array != output.array) || (input.index != output.index))
+         System.arraycopy(input.array, input.index, output.array, output.index, len);     
       
-      System.arraycopy(source.array, source.index, destination.array, destination.index, len);     
-      source.index += len;
-      destination.index += len;
+      input.index += len;
+      output.index += len;
       return true;
    }
    
