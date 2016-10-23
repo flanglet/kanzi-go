@@ -15,7 +15,7 @@ limitations under the License.
 
 package kanzi.filter;
 
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntFilter;
 
 
@@ -60,7 +60,7 @@ public class ContrastFilter implements IntFilter
     
     
     @Override
-    public boolean apply(IndexedIntArray source, IndexedIntArray destination)
+    public boolean apply(SliceIntArray source, SliceIntArray destination)
     {
         // Aliasing
         final int[] src = source.array;

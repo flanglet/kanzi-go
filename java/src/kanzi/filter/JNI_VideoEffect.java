@@ -15,7 +15,7 @@ limitations under the License.
 
 package kanzi.filter;
 
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntFilter;
 
 
@@ -51,7 +51,7 @@ public class JNI_VideoEffect implements IntFilter
 
 
     @Override
-    public boolean apply(IndexedIntArray source, IndexedIntArray destination)
+    public boolean apply(SliceIntArray source, SliceIntArray destination)
     {
        return native_apply(this.width, this.height, this.stride, source.array, source.index,
                 destination.array, destination.index);

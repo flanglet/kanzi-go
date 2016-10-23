@@ -15,7 +15,7 @@ limitations under the License.
 
 package kanzi.test;
 
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
@@ -95,8 +95,8 @@ public class TestDWT
          int[] src = new int[w*h];
          int[] dest = new int[w*h];
          imgs.getRaster().getDataElements(0, 0, w, h, src);
-         IndexedIntArray iias  = new IndexedIntArray(src, 0);
-         IndexedIntArray iiad = new IndexedIntArray(dest, 0);
+         SliceIntArray iias  = new SliceIntArray(src, 0);
+         SliceIntArray iiad = new SliceIntArray(dest, 0);
 
          ColorModelConverter cvt;
 //         cvt = new YCbCrColorModelConverter(w, h);
@@ -123,7 +123,7 @@ public class TestDWT
    
    
    private static void process(int w, int h, ColorModelConverter cvt, 
-           IndexedIntArray iia1, IndexedIntArray iia2, ColorModelType cmType,
+           SliceIntArray iia1, SliceIntArray iia2, ColorModelType cmType,
            IntTransform yDWT, IntTransform uvDWT)
    {
       int shift = (cmType == ColorModelType.YUV420) ? 1 : 0;

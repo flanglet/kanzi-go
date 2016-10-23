@@ -15,7 +15,7 @@ limitations under the License.
 
 package kanzi.transform;
 
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 
 // Compute suffix array using the SA_IS algorithm.
 // This implementation is based on the SA_IS (Suffix Array Induction Sorting) algorithm.
@@ -34,7 +34,7 @@ import kanzi.IndexedIntArray;
 public class SA_IS 
 {
       // find the start or end of each bucket
-      private static void getCounts(IndexedIntArray src, IndexedIntArray dst, int n, int k)
+      private static void getCounts(SliceIntArray src, SliceIntArray dst, int n, int k)
       {
         final int[] dstArray = dst.array;
         final int[] srcArray = src.array;
@@ -49,7 +49,7 @@ public class SA_IS
       }
 
 
-      private static void getBuckets(IndexedIntArray src, IndexedIntArray dst, int k, boolean end)
+      private static void getBuckets(SliceIntArray src, SliceIntArray dst, int k, boolean end)
       {
         int sum = 0;
         final int[] dstArray = dst.array;
@@ -79,8 +79,8 @@ public class SA_IS
 
 
       // sort all type LMS suffixes
-      private static void sortLMSSuffixes(IndexedIntArray src, int[] sa, IndexedIntArray C,
-              IndexedIntArray B, int n, int k)
+      private static void sortLMSSuffixes(SliceIntArray src, int[] sa, SliceIntArray C,
+              SliceIntArray B, int n, int k)
       {
         // compute sal
         if (C == B)
@@ -155,7 +155,7 @@ public class SA_IS
       }
 
 
-      private static int postProcessLMS(IndexedIntArray src, int[] sa, int n, int m)
+      private static int postProcessLMS(SliceIntArray src, int[] sa, int n, int m)
       {
         int i = 0;
         int j;
@@ -259,8 +259,8 @@ public class SA_IS
       }
 
 
-      private static void induceSuffixArray(IndexedIntArray src, int[] sa, IndexedIntArray buf1,
-              IndexedIntArray buf2, int n, int k)
+      private static void induceSuffixArray(SliceIntArray src, int[] sa, SliceIntArray buf1,
+              SliceIntArray buf2, int n, int k)
       {
         // compute sal
         if (buf1 == buf2)
@@ -334,8 +334,8 @@ public class SA_IS
       }
 
 
-      private static int computeBWT(IndexedIntArray data, int[] sa, IndexedIntArray iia1,
-              IndexedIntArray iia2, int n, int k)
+      private static int computeBWT(SliceIntArray data, int[] sa, SliceIntArray iia1,
+              SliceIntArray iia2, int n, int k)
       {
         // compute sal
         if (iia1 == iia2)
@@ -417,39 +417,40 @@ public class SA_IS
 
       // Find the suffix array sa of data[0..n-1] in {0..k-1}^n
       // Return the primary index if isbwt is true (0 otherwise)
-      public static int computeSuffixArray(IndexedIntArray data, int[] sa, int fs, 
+      public static int computeSuffixArray(SliceIntArray data, int[] sa, int fs, 
               int n, int k, boolean isBWT)
       {
-        IndexedIntArray C, B;
+        SliceIntArray C;
+        SliceIntArray B;
         int flags;
 
         if (k <= 256)
         {
-          C = new IndexedIntArray(new int[k], 0);
+          C = new SliceIntArray(new int[k], 0);
 
           if (k <= fs)
           {
-             B = new IndexedIntArray(sa, n+fs-k);
+             B = new SliceIntArray(sa, n+fs-k);
              flags = 1;
           }
           else
           {
-             B = new IndexedIntArray(new int[k], 0);
+             B = new SliceIntArray(new int[k], 0);
              flags = 3;
           }
         }
         else if (k <= fs)
         {
-          C = new IndexedIntArray(sa, n+fs-k);
+          C = new SliceIntArray(sa, n+fs-k);
 
           if (k <= (fs-k))
           {
-             B = new IndexedIntArray(sa, n+fs-(k+k));
+             B = new SliceIntArray(sa, n+fs-(k+k));
              flags = 0;
           }
           else if (k <= 1024)
           {
-             B = new IndexedIntArray(new int[k], 0);
+             B = new SliceIntArray(new int[k], 0);
              flags = 2;
           }
           else
@@ -460,7 +461,7 @@ public class SA_IS
         }
         else
         {
-           B = new IndexedIntArray(new int[k], 0);
+           B = new SliceIntArray(new int[k], 0);
            C = B;
            flags = 12;
         }
@@ -554,7 +555,7 @@ public class SA_IS
               sa[j--] = sa[ii] - 1;
           }
 
-          computeSuffixArray(new IndexedIntArray(sa, m + newfs), sa, newfs, m, name, false);
+          computeSuffixArray(new SliceIntArray(sa, m + newfs), sa, newfs, m, name, false);
 
           i = arrayIdx + n - 1;
           j = m + m - 1;
@@ -594,11 +595,11 @@ public class SA_IS
 
           if ((flags & 4) != 0)
           {
-             B = new IndexedIntArray(new int[k], 0);
+             B = new SliceIntArray(new int[k], 0);
              C = B;
           }
           else if ((flags & 2) != 0)
-             B = new IndexedIntArray(new int[k], 0);
+             B = new SliceIntArray(new int[k], 0);
         }
 
         // stage 3: induce the result for the original problem

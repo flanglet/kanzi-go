@@ -15,7 +15,7 @@ limitations under the License.
 
 package kanzi.filter;
 
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntFilter;
 
 
@@ -74,7 +74,7 @@ public final class BlurFilter implements IntFilter
     
 
     @Override
-    public boolean apply(IndexedIntArray src, IndexedIntArray dst)
+    public boolean apply(SliceIntArray src, SliceIntArray dst)
     {
         this.blurHorizontal(src, dst);
         this.blurVertical(dst, dst);
@@ -90,7 +90,7 @@ public final class BlurFilter implements IntFilter
     
     
     // Implementation using a sliding box to reduce the number of operations
-    private boolean blurHorizontal(IndexedIntArray source, IndexedIntArray destination)
+    private boolean blurHorizontal(SliceIntArray source, SliceIntArray destination)
     {
         final int[] src = source.array;
         final int[] dst = destination.array;
@@ -170,7 +170,7 @@ public final class BlurFilter implements IntFilter
     
     
     // Implementation using a sliding box to reduce the number of operations
-    private boolean blurVertical(IndexedIntArray source, IndexedIntArray destination)
+    private boolean blurVertical(SliceIntArray source, SliceIntArray destination)
     {
         final int[] src = source.array;
         final int[] dst = destination.array;

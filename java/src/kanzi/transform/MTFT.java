@@ -17,7 +17,7 @@ package kanzi.transform;
 
 
 import kanzi.ByteTransform;
-import kanzi.IndexedByteArray;
+import kanzi.SliceByteArray;
 
 // The Move-To-Front Transform is a simple reversible transform based on
 // permutation of the data in the original message to reduce the entropy.
@@ -44,13 +44,27 @@ public final class MTFT implements ByteTransform
 
 
     @Override
-    public boolean inverse(IndexedByteArray src, IndexedByteArray dst, final int count)
+    public boolean inverse(SliceByteArray src, SliceByteArray dst)
     {
         if ((src == null) || (dst == null) || (src.array == dst.array))
            return false;
 
-        if ((count < 0) || (count+src.index > src.array.length))
+        if ((src.array == null) || (dst.array == null))
+           return false;
+                
+        final int count = src.length;
+           
+        if (count < 0)
           return false;
+
+        if (dst.length < count)
+           return false;
+        
+        if (src.index + count > src.array.length)
+           return false;
+       
+        if (dst.index + count > dst.array.length)
+           return false;
 
         final byte[] indexes = this.buckets;
 
@@ -88,8 +102,8 @@ public final class MTFT implements ByteTransform
            }
 
            indexes[0] = value;
-        }
-
+        }   
+       
         src.index += count;
         dst.index += count;
         return true;
@@ -165,14 +179,28 @@ public final class MTFT implements ByteTransform
           
 
     @Override
-    public boolean forward(IndexedByteArray src, IndexedByteArray dst, final int count)
+    public boolean forward(SliceByteArray src, SliceByteArray dst)
     {
         if ((src == null) || (dst == null) || (src.array == dst.array))
            return false;
 
-        if ((count < 0) || (count+src.index > src.array.length))
+        if ((src.array == null) || (dst.array == null))
+           return false;
+                
+        final int count = src.length;
+           
+        if (count < 0)
           return false;
 
+        if (dst.length < count)
+           return false;
+        
+        if (src.index + count > src.array.length)
+           return false;
+       
+        if (dst.index + count > dst.array.length)
+           return false;
+        
         if (this.anchor == null)
            this.initLists();
         else

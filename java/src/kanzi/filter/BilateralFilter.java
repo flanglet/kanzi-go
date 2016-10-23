@@ -15,7 +15,7 @@ limitations under the License.
 
 package kanzi.filter;
 
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntFilter;
 
 
@@ -179,7 +179,7 @@ public final class BilateralFilter implements IntFilter
     // plan (no conversion is made from RGB to YUV and back). However, RGB works
     // fine (with a small distorsion).
     @Override
-    public boolean apply(IndexedIntArray source, IndexedIntArray destination)
+    public boolean apply(SliceIntArray source, SliceIntArray destination)
     {
         // Aliasing
         final int[] src = source.array;

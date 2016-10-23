@@ -17,7 +17,7 @@ package kanzi.test;
 
 import java.util.Random;
 import kanzi.ByteTransform;
-import kanzi.IndexedByteArray;
+import kanzi.SliceByteArray;
 import kanzi.transform.BWT;
 import kanzi.transform.BWTS;
 
@@ -30,16 +30,16 @@ public class TestBWT
         {
            byte[] buf1 = args[0].getBytes();
            byte[] buf2 = new byte[buf1.length];           
-           IndexedByteArray iba1 = new IndexedByteArray(buf1, 0);
-           IndexedByteArray iba2 = new IndexedByteArray(buf2, 0);
+           SliceByteArray sa1 = new SliceByteArray(buf1, 0);
+           SliceByteArray sa2 = new SliceByteArray(buf2, 0);
            BWT bwt = new BWT();
-           bwt.forward(iba1, iba2, buf1.length);
+           bwt.forward(sa1, sa2);
            System.out.print("BWT:  " + new String(buf2));
            System.out.println(" (" + bwt.getPrimaryIndex() + ")");
-           iba1.index = 0;
-           iba2.index = 0;
+           sa1.index = 0;
+           sa2.index = 0;
            BWTS bwts = new BWTS();
-           bwts.forward(iba1, iba2, buf1.length);
+           bwts.forward(sa1, sa2);
            System.out.println("BWTS: " + new String(buf2));
            System.exit(0);
         }
@@ -88,15 +88,15 @@ public class TestBWT
 
             byte[] buf2 = new byte[buf1.length];
             byte[] buf3 = new byte[buf1.length];
-            IndexedByteArray iba1 = new IndexedByteArray(buf1, 0);
-            IndexedByteArray iba2 = new IndexedByteArray(buf2, 0);
-            IndexedByteArray iba3 = new IndexedByteArray(buf3, 0);
+            SliceByteArray sa1 = new SliceByteArray(buf1, 0);
+            SliceByteArray sa2 = new SliceByteArray(buf2, 0);
+            SliceByteArray sa3 = new SliceByteArray(buf3, 0);
             ByteTransform bwt = (isBWT) ? new BWT() : new BWTS();
             String str1 = new String(buf1, start, buf1.length-start);
             System.out.println("Input:   "+str1);
-            iba1.index = start;
-            iba2.index = 0;
-            bwt.forward(iba1, iba2, buf1.length);
+            sa1.index = start;
+            sa2.index = 0;
+            bwt.forward(sa1, sa2);
             String str2 = new String(buf2);
             System.out.print("Encoded: "+str2);
             
@@ -111,10 +111,10 @@ public class TestBWT
                System.out.println("");
             }
             
-            iba2.index = 0;
-            iba3.index = start;
+            sa2.index = 0;
+            sa3.index = start;
             
-            bwt.inverse(iba2, iba3, buf1.length);
+            bwt.inverse(sa2, sa3);
             String str3 = new String(buf3, start, buf3.length-start);
             System.out.println("Output:  "+str3);
 
@@ -137,9 +137,9 @@ public class TestBWT
          byte[] buf1 = new byte[size];
          byte[] buf2 = new byte[size];
          byte[] buf3 = new byte[size];
-         IndexedByteArray iba1 = new IndexedByteArray(buf1, 0);
-         IndexedByteArray iba2 = new IndexedByteArray(buf2, 0);
-         IndexedByteArray iba3 = new IndexedByteArray(buf3, 0);
+         SliceByteArray sa1 = new SliceByteArray(buf1, 0);
+         SliceByteArray sa2 = new SliceByteArray(buf2, 0);
+         SliceByteArray sa3 = new SliceByteArray(buf3, 0);
          System.out.println("Iterations: "+iter);
          System.out.println("Transform size: "+size);
 
@@ -157,15 +157,15 @@ public class TestBWT
                      buf1[i] = (byte) (random.nextInt(255) + 1);
 
                  before = System.nanoTime();
-                 iba1.index = 0;
-                 iba2.index = 0;
-                 bwt.forward(iba1, iba2, size);
+                 sa1.index = 0;
+                 sa2.index = 0;
+                 bwt.forward(sa1, sa2);
                  after = System.nanoTime();
                  delta1 += (after - before);
                  before = System.nanoTime();
-                 iba2.index = 0;
-                 iba3.index = 0;
-                 bwt.inverse(iba2, iba3, size);
+                 sa2.index = 0;
+                 sa3.index = 0;
+                 bwt.inverse(sa2, sa3);
                  after = System.nanoTime();
                  delta2 += (after - before);
              

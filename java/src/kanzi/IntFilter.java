@@ -21,5 +21,5 @@ public interface IntFilter
     // Apply filter on src and put result in dst
     // The dst array must have enough space
     // If the filter fails, it returns false.
-    public boolean apply(IndexedIntArray src, IndexedIntArray dst);
+    public boolean apply(SliceIntArray src, SliceIntArray dst);
 }

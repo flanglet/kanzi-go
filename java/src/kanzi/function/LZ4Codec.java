@@ -17,7 +17,7 @@ package kanzi.function;
 
 import kanzi.ByteFunction;
 import kanzi.Global;
-import kanzi.IndexedByteArray;
+import kanzi.SliceByteArray;
 
 
 // Pure Java implementation of a LZ4 codec.
@@ -98,19 +98,29 @@ public final class LZ4Codec implements ByteFunction
    // Generates same byte output as LZ4_compress_generic in LZ4 r131 (7/15) 
    // for a 32 bit architecture.
    @Override
-   public boolean forward(IndexedByteArray source, IndexedByteArray destination, final int count)
+   public boolean forward(SliceByteArray input, SliceByteArray output)
    {
-      if ((source == null) || (destination == null) || (source.array == destination.array))
+      if ((input == null) || (output == null) || (input.array == output.array))
          return false;
 
-      final int srcIdx0 = source.index;
-      final int dstIdx0 = destination.index;
-      final byte[] src = source.array;
-      final byte[] dst = destination.array;
-
-      if (dst.length - dstIdx0 < this.getMaxEncodedLength(count))
+      if ((input.array == null) || (output.array == null))
          return false;
 
+      final int count = input.length;
+      
+      if (count < 0)
+         return false;
+
+      if (input.index + count > input.array.length)
+          return false;
+      
+      if (output.length - output.index < this.getMaxEncodedLength(count))
+         return false;
+
+      final int srcIdx0 = input.index;
+      final int dstIdx0 = output.index;
+      final byte[] src = input.array;
+      final byte[] dst = output.array;
       final int base = srcIdx0;
       final int hashLog = (count < LZ4_64K_LIMIT) ? HASH_LOG_64K : HASH_LOG;
       final int hashShift = 32 - hashLog;
@@ -149,8 +159,8 @@ public final class LZ4Codec implements ByteFunction
                if (fwdIdx > mfLimit)
                {
                   // Encode last literals
-                  destination.index = writeLastLiterals(src, anchor, dst, dstIdx, srcEnd-anchor);                                    
-                  source.index = srcEnd;
+                  output.index = writeLastLiterals(src, anchor, dst, dstIdx, srcEnd-anchor);                                    
+                  input.index = srcEnd;
                   return true;
                }
 
@@ -224,8 +234,8 @@ public final class LZ4Codec implements ByteFunction
                if (srcIdx > mfLimit)
                {
                   // Encode last literals
-                  destination.index = writeLastLiterals(src, anchor, dst, dstIdx, srcEnd-anchor);
-                  source.index = srcEnd;
+                  output.index = writeLastLiterals(src, anchor, dst, dstIdx, srcEnd-anchor);
+                  input.index = srcEnd;
                   return true;
                }
 
@@ -253,9 +263,14 @@ public final class LZ4Codec implements ByteFunction
          }
       }
 
+      dstIdx = writeLastLiterals(src, anchor, dst, dstIdx, srcEnd-anchor);
+      
+      if (dstIdx > output.length)
+         return false;
+      
       // Encode last literals
-      destination.index = writeLastLiterals(src, anchor, dst, dstIdx, srcEnd-anchor);
-      source.index = srcEnd;
+      output.index = dstIdx;
+      input.index = srcEnd;
       return true;
    }
 
@@ -263,15 +278,26 @@ public final class LZ4Codec implements ByteFunction
    // Reads same byte input as LZ4_decompress_generic in LZ4 r131 (7/15) 
    // for a 32 bit architecture.
    @Override
-   public boolean inverse(IndexedByteArray source, IndexedByteArray destination, final int count)
+   public boolean inverse(SliceByteArray input, SliceByteArray output)
    {
-      if ((source == null) || (destination == null) || (source.array == destination.array))
+      if ((input == null) || (output == null) || (input.array == output.array))
          return false;
 
-      final int srcIdx0 = source.index;
-      final int dstIdx0 = destination.index;
-      final byte[] src = source.array;
-      final byte[] dst = destination.array;
+      if ((input.array == null) || (output.array == null))
+         return false;
+
+      final int count = input.length;
+      
+      if (count < 0)
+         return false;
+
+      if (input.index + count > input.array.length)
+          return false;
+      
+      final int srcIdx0 = input.index;
+      final int dstIdx0 = output.index;
+      final byte[] src = input.array;
+      final byte[] dst = output.array;
       final int srcEnd = srcIdx0 + count;
       final int dstEnd = dst.length;
       final int srcEnd2 = srcEnd - COPY_LENGTH;
@@ -370,8 +396,11 @@ public final class LZ4Codec implements ByteFunction
          dstIdx = cpy;
       }
 
-      destination.index = dstIdx;
-      source.index = srcIdx;
+      if (dstIdx > output.length)
+         return false;
+     
+      output.index = dstIdx;
+      input.index = srcIdx;
       return srcIdx == srcEnd;
    }
 

@@ -15,7 +15,7 @@ limitations under the License.
 
 package kanzi.test;
 
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.transform.DWT_CDF_9_7;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
@@ -60,8 +60,8 @@ public class TestDWT2
          int[] source = new int[w * h];
          int[] destination = new int[w * h];
          img.getRaster().getDataElements(0, 0, w, h, source);
-         IndexedIntArray iia1 = new IndexedIntArray(source, 0);
-         IndexedIntArray iia2 = new IndexedIntArray(destination, 0);
+         SliceIntArray iia1 = new SliceIntArray(source, 0);
+         SliceIntArray iia2 = new SliceIntArray(destination, 0);
          long before = System.nanoTime();
 
          ColorModelConverter cvt = new YCbCrColorModelConverter(w, h);//, (y*w)+x, ww);
@@ -128,8 +128,8 @@ public class TestDWT2
          int[] source = new int[w * h];
          int[] destination = new int[w * h];
          img.getRaster().getDataElements(0, 0, w, h, source);
-         IndexedIntArray iia2 = new IndexedIntArray(source, 0);
-         IndexedIntArray iia3 = new IndexedIntArray(destination, 0);
+         SliceIntArray iia2 = new SliceIntArray(source, 0);
+         SliceIntArray iia3 = new SliceIntArray(destination, 0);
          long before = System.nanoTime();
 
          ColorModelConverter cvt = new YCbCrColorModelConverter(w, h);//, (y*w)+x, ww);
@@ -196,7 +196,7 @@ public class TestDWT2
    }
 
 
-   private static void process(int scale, int w, int h, ColorModelConverter cvt, IndexedIntArray iia1, IndexedIntArray iia2)
+   private static void process(int scale, int w, int h, ColorModelConverter cvt, SliceIntArray iia1, SliceIntArray iia2)
    {
       int[] y = new int[w * h];
       int[] u = new int[w * h];

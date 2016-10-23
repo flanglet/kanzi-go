@@ -16,7 +16,7 @@ limitations under the License.
 
 package kanzi.transform;
 
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntTransform;
 
 
@@ -106,18 +106,30 @@ public class DWT_Haar implements IntTransform
     // Not thread safe because this.data is modified
     // Is scale is true, the results are scaled by 2
     @Override
-    public boolean forward(IndexedIntArray src, IndexedIntArray dst)
+    public boolean forward(SliceIntArray src, SliceIntArray dst)
     {
-        if (src.array.length < this.width*this.height)
+        if ((src == null) || (dst == null))
            return false;
-
-        if (dst.array.length < this.width*this.height)
+        
+        if ((src.array == null) || (dst.array == null))
            return false;
-
+        
+        final int count = this.width * this.height;
+        
+        if (src.length != count)
+           return false;
+       
+        if (dst.length < count)
+           return false;
+        
+        if (src.index + count > src.array.length)
+           return false;
+       
+        if (dst.index + count > dst.array.length)
+           return false;   
+        
         if ((src.array != dst.array) || (src.index != dst.index))
-        {
-           System.arraycopy(src.array, src.index, dst.array, dst.index, this.width*this.height);
-        }
+           System.arraycopy(src.array, src.index, dst.array, dst.index, count);
 
         final int fScale = (this.scale == true) ? 0 : 1;
         
@@ -130,8 +142,14 @@ public class DWT_Haar implements IntTransform
            this.forward(dst.array, dst.index, 1, this.width, this.height>>i, this.width>>i, fScale);
         }
 
-        src.index += (this.width*this.height);
-        dst.index += (this.width*this.height);
+        if (src.index + count > src.length)
+           return false;
+       
+        if (dst.index + count > dst.length)
+           return false;   
+        
+        src.index += count;
+        dst.index += count;
         return true;
     }
 
@@ -166,18 +184,30 @@ public class DWT_Haar implements IntTransform
     // Calculate the reverse discrete wavelet transform of the 2D input signal
     // Not thread safe because this.data is modified
     @Override
-    public boolean inverse(IndexedIntArray src, IndexedIntArray dst)
+    public boolean inverse(SliceIntArray src, SliceIntArray dst)
     {
-        if (src.array.length < this.width*this.height)
+        if ((src == null) || (dst == null))
            return false;
-
-        if (dst.array.length < this.width*this.height)
+        
+        if ((src.array == null) || (dst.array == null))
            return false;
-
+        
+        final int count = this.width * this.height;      
+        
+        if (src.length != count)
+           return false;
+       
+        if (dst.length < count)
+           return false;
+        
+        if (src.index + count > src.array.length)
+           return false;
+       
+        if (dst.index + count > dst.array.length)
+           return false;   
+               
         if ((src.array != dst.array) || (src.index != dst.index))
-        {
-           System.arraycopy(src.array, src.index, dst.array, dst.index, this.width*this.height);
-        }
+           System.arraycopy(src.array, src.index, dst.array, dst.index, count);
 
         final int iScale = (this.scale == true) ? 1 : 0;
 
@@ -189,9 +219,9 @@ public class DWT_Haar implements IntTransform
            // Then vertical transform on the updated signal
            this.inverse(dst.array, dst.index, this.width, 1, this.width>>i, this.height>>i, 1);
         }
-
-        src.index += (this.width*this.height);
-        dst.index += (this.width*this.height);
+        
+        src.index += count;
+        dst.index += count;
         return true;
     }
 

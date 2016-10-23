@@ -15,19 +15,50 @@ limitations under the License.
 
 package kanzi;
 
+import java.util.Objects;
 
-public final class IndexedIntArray
+
+// A lightweight slice implementation for int[]
+public final class SliceIntArray
 {
-    public int[] array;
+    public int[] array; // array.length is the slice capacity
     public int index;
+    public int length;  
     
     
-    public IndexedIntArray(int[] array, int idx)
+    public SliceIntArray()
+    {
+       this(new int[0], 0, 0);
+    }
+  
+    
+    public SliceIntArray(int[] array, int idx)
     {
         if (array == null)
            throw new NullPointerException("The array cannot be null");
         
+        if (idx < 0)
+           throw new NullPointerException("The index cannot be negative");
+        
         this.array = array;
+        this.length = array.length;
+        this.index = idx;       
+    }    
+    
+    
+    public SliceIntArray(int[] array, int length, int idx)
+    {
+        if (array == null)
+           throw new NullPointerException("The array cannot be null");
+        
+        if (length < 0)
+           throw new IllegalArgumentException("The length cannot be negative");
+        
+        if (idx < 0)
+           throw new NullPointerException("The index cannot be negative");
+        
+        this.array = array;
+        this.length = length;
         this.index = idx;
     }
     
@@ -43,8 +74,10 @@ public final class IndexedIntArray
             if (this == o)
                return true;
 
-            IndexedIntArray iba = (IndexedIntArray) o;
-            return ((this.array == iba.array) && (this.index == iba.index));
+            SliceIntArray sa = (SliceIntArray) o;
+            return ((this.array == sa.array)   && 
+                    (this.length == sa.length) && 
+                    (this.index == sa.index));
         }
         catch (ClassCastException e)
         {
@@ -56,8 +89,7 @@ public final class IndexedIntArray
     @Override
     public int hashCode()
     {
-       // Non constant !
-       return this.index + ((this.array == null) ? 0 : (17 * this.array.hashCode()));
+       return Objects.hashCode(this.array);
     }
 
 
@@ -67,6 +99,8 @@ public final class IndexedIntArray
         StringBuilder builder = new StringBuilder(100);
         builder.append("[");
         builder.append(String.valueOf(this.array));
+        builder.append(","); 
+        builder.append(this.length); 
         builder.append(","); 
         builder.append(this.index); 
         builder.append("]"); 

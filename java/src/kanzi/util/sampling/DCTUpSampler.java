@@ -15,7 +15,7 @@ limitations under the License.
 
 package kanzi.util.sampling;
 
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntTransform;
 import kanzi.quantization.IntraTables;
 import kanzi.transform.DCT16;
@@ -128,11 +128,12 @@ public class DCTUpSampler implements UpSampler
       final int st = this.stride;
       final int[] buf1 = this.buffer1;
       final int[] buf2 = this.buffer2;
-      final IndexedIntArray src = new IndexedIntArray(buf1, 0);
-      final IndexedIntArray dst = new IndexedIntArray(buf2, 0);
+      final SliceIntArray src = new SliceIntArray(buf1, 0);
+      final SliceIntArray dst = new SliceIntArray(buf2, 0);
       final int step = this.dim >> 1;
       final int stStep = st * step;
-      final int len4 = (this.dim * this.dim) >> 2;
+      final int len = this.dim * this.dim;
+      final int len4 = len >> 2;
       
       for (int y=0; y<h; y+=step)
       {
@@ -161,8 +162,8 @@ public class DCTUpSampler implements UpSampler
             dst.index = 0;
             this.fdct.forward(src, dst);
                                 
-            // Unpack and clear high frequency bands (3/4 coefficients)
-            for (int i=0; i<4*len4; i++)
+            // Unpack and clear DCT high frequency bands
+            for (int i=0; i<len; i++)
                buf1[i] = 0;
 
             for (int i=0; i<len4; i++)
@@ -171,9 +172,9 @@ public class DCTUpSampler implements UpSampler
             src.index = 0;
             dst.index = 0;
             this.idct.inverse(src, dst);
-            int oOffs = (offs << 2) + (x << 1);
-            n = 0;
-            
+            int oOffs = (offs<<2) + (x<<1);
+             n = 0;
+
             // Fill output at x,y from buf(dim x dim)
             for (int j=0; j<this.dim; j++)
             {              
@@ -183,7 +184,7 @@ public class DCTUpSampler implements UpSampler
                   output[oOffs+i] = (val >= 255) ? 255 : val & ~(val>>31);
                }
                
-               oOffs += (st << 1);
+               oOffs += (st<<1);
             }                       
          }
          

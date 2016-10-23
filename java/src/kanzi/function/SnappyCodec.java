@@ -17,12 +17,12 @@ package kanzi.function;
 
 import kanzi.ByteFunction;
 import kanzi.Global;
-import kanzi.IndexedByteArray;
+import kanzi.SliceByteArray;
 
 
 // Snappy is a fast compression codec aiming for very high speed and
 // reasonable compression ratios.
-// This implementation is a port of the Go source at https://github.com/golang/snappy
+// This implementation is a port of the Go input at https://github.com/golang/snappy
 public final class SnappyCodec implements ByteFunction
 {
    private static final int MAX_OFFSET     = 32768;
@@ -51,12 +51,12 @@ public final class SnappyCodec implements ByteFunction
 
    
    // emitLiteral writes a literal chunk and returns the number of bytes written.
-   private static int emitLiteral(IndexedByteArray source, IndexedByteArray destination, int len)
+   private static int emitLiteral(SliceByteArray input, SliceByteArray output, int len)
    {
-     final int srcIdx = source.index;
-     int dstIdx = destination.index;
-     final byte[] src = source.array;
-     final byte[] dst = destination.array;
+     final int srcIdx = input.index;
+     int dstIdx = output.index;
+     final byte[] src = input.array;
+     final byte[] dst = output.array;
      final int n = len - 1;
      final int res;
 
@@ -130,10 +130,10 @@ public final class SnappyCodec implements ByteFunction
 
 
   // emitCopy writes a copy chunk and returns the number of bytes written.
-  private static int emitCopy(IndexedByteArray destination, int offset, int len)
+  private static int emitCopy(SliceByteArray output, int offset, int len)
   {
-     final byte[] dst = destination.array;
-     int idx = destination.index;
+     final byte[] dst = output.array;
+     int idx = output.index;
      final byte b1 = (byte) offset;
      final byte b2 = (byte) (offset >> 8);
 
@@ -163,36 +163,46 @@ public final class SnappyCodec implements ByteFunction
         }
      }
 
-     return idx - destination.index;
+     return idx - output.index;
   }
 
 
   @Override
-  public boolean forward(IndexedByteArray source, IndexedByteArray destination, final int count)
+  public boolean forward(SliceByteArray input, SliceByteArray output)
   {
-     if ((source == null) || (destination == null) || (source.array == destination.array))
+     if ((input == null) || (output == null) || (input.array == output.array))
         return false;
 
-     final byte[] src = source.array;
-     final byte[] dst = destination.array;
-
-     if (dst.length - destination.index < getMaxEncodedLength(count))
+      if ((input.array == null) || (output.array == null))
+         return false;
+      
+     final int count = input.length;
+      
+     if (count < 0)
         return false;
 
+     if (input.index + count > input.array.length)
+         return false;
+      
+     if (output.length - output.index < getMaxEncodedLength(count))
+        return false;
+
+     final byte[] src = input.array;
+     
      // The block starts with the varint-encoded length of the decompressed bytes.
-     int dstIdx = destination.index + putUvarint(destination, (long) count);
+     int dstIdx = output.index + putUvarint(output, (long) count);
 
      // Return early if src is short
      if (count <= 4)
      {
         if (count > 0)
         {
-           destination.index = dstIdx;
-           dstIdx += emitLiteral(source, destination, count);
+           output.index = dstIdx;
+           dstIdx += emitLiteral(input, output, count);
         }
 
-        source.index += count;
-        destination.index = dstIdx;
+        input.index += count;
+        output.index = dstIdx;
         return true;
      }
 
@@ -211,8 +221,8 @@ public final class SnappyCodec implements ByteFunction
      for (int i=0; i<tableSize; i++)
         table[i] = -1;
 
-     // Iterate over the source bytes
-     final int srcIdx0 = source.index;
+     // Iterate over the input bytes
+     final int srcIdx0 = input.index;
      int srcIdx = srcIdx0; // The iterator position
      int lit = srcIdx0; // The start position of any pending literal bytes
      final int ends1 = srcIdx0 + count;
@@ -235,9 +245,9 @@ public final class SnappyCodec implements ByteFunction
         // We have a match. First, emit any pending literal bytes
         if (lit != srcIdx)
         {
-           source.index = lit;
-           destination.index = dstIdx;
-           dstIdx += emitLiteral(source, destination, srcIdx-lit);
+           input.index = lit;
+           output.index = dstIdx;
+           dstIdx += emitLiteral(input, output, srcIdx-lit);
         }
 
         // Extend the match to be as long as possible
@@ -252,26 +262,29 @@ public final class SnappyCodec implements ByteFunction
         }
 
         // Emit the copied bytes
-        destination.index = dstIdx;
-        dstIdx += emitCopy(destination, srcIdx-t, srcIdx-s0);
+        output.index = dstIdx;
+        dstIdx += emitCopy(output, srcIdx-t, srcIdx-s0);
         lit = srcIdx;
      }
 
      // Emit any final pending literal bytes and return
      if (lit != ends1)
      {
-        source.index = lit;
-        destination.index = dstIdx;
-        dstIdx += emitLiteral(source, destination, ends1-lit);       
+        input.index = lit;
+        output.index = dstIdx;
+        dstIdx += emitLiteral(input, output, ends1-lit);       
      }
 
-     source.index = ends1;
-     destination.index = dstIdx;
+     if (dstIdx > output.length)
+        return false;
+
+     input.index = ends1;
+     output.index = dstIdx;
      return true;
   }
 
 
-  private static int putUvarint(IndexedByteArray iba, long x)
+  private static int putUvarint(SliceByteArray iba, long x)
   {
      int idx = iba.index;
      final byte[] array = iba.array;
@@ -287,7 +300,7 @@ public final class SnappyCodec implements ByteFunction
   // Uvarint decodes a long from the input array and returns that value.
   // If an error occurred, an exception is raised.
   // The index of the indexed byte array is incremented by the number of bytes read
-  private static long getUvarint(IndexedByteArray iba) 
+  private static long getUvarint(SliceByteArray iba) 
   {
      final byte[] buf = iba.array;
      final int len = buf.length;
@@ -350,11 +363,11 @@ public final class SnappyCodec implements ByteFunction
   // getDecodedLength returns the length of the decoded block or -1 if error
   // The index of the indexed byte array is incremented by the number
   // of bytes read
-  private static int getDecodedLength(IndexedByteArray source) 
+  private static int getDecodedLength(SliceByteArray input) 
   {
      try
      {
-        final long v = getUvarint(source);
+        final long v = getUvarint(input);
         return (v > 0x7FFFFFFF) ? -1 : (int) v;
      }
      catch (NumberFormatException e)
@@ -369,24 +382,35 @@ public final class SnappyCodec implements ByteFunction
   
 
   @Override
-  public boolean inverse(IndexedByteArray source, IndexedByteArray destination, final int count)
+  public boolean inverse(SliceByteArray input, SliceByteArray output)
   {
-     if ((source == null) || (destination == null) || (source.array == destination.array))
+     if ((input == null) || (output == null) || (input.array == output.array))
         return false;
 
-     final int srcIdx = source.index;
-     final int dstIdx = destination.index;
-     final byte[] src = source.array;
-     final byte[] dst = destination.array;
-     
-     // Get decoded length (modifies source index)
-     final int dLen = getDecodedLength(source);
+     if ((input.array == null) || (output.array == null))
+        return false;
+            
+     final int count = input.length;
+      
+     if (count < 0)
+        return false;
+
+     if (input.index + count > input.array.length)
+         return false;
+          
+     final int srcIdx = input.index;
+     final int dstIdx = output.index;
+     final byte[] src = input.array;
+     final byte[] dst = output.array;
+
+     // Get decoded length (modifies input index)
+     final int dLen = getDecodedLength(input);
     
      if ((dLen < 0) || (dst.length - dstIdx < dLen)) 
         return false;
 
      final int ends = srcIdx + count;
-     int s = source.index;
+     int s = input.index;
      int d = dstIdx;
     
      try
@@ -484,9 +508,12 @@ public final class SnappyCodec implements ByteFunction
         // Catch incorrectly formatted input
         // Fall through
      }
-          
-     source.index = ends;
-     destination.index = d;
+      
+     if (d > output.length)
+         return false;
+     
+     input.index = ends;
+     output.index = d;
      return (d - dstIdx == dLen);
   }
   

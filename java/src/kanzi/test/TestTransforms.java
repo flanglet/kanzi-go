@@ -16,7 +16,7 @@ limitations under the License.
 package kanzi.test;
 
 import java.util.Random;
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntTransform;
 import kanzi.transform.DCT16;
 import kanzi.transform.DCT32;
@@ -127,8 +127,8 @@ public class TestTransforms
                   int[] data2 = new int[blockSize+20]; // destination
                   int[] data3 = new int[blockSize+20]; // source copy
                   int[] data;
-                  IndexedIntArray iia1 = new IndexedIntArray(data1, 0);
-                  IndexedIntArray iia2 = new IndexedIntArray(data2, 0);
+                  SliceIntArray iia1 = new SliceIntArray(data1, 0);
+                  SliceIntArray iia2 = new SliceIntArray(data2, 0);
                   Random rnd = new Random();
 
                   for (int nn=0; nn<20; nn++)
@@ -158,6 +158,7 @@ public class TestTransforms
                      iia1.index = 0;
                      iia2.array = data;
                      iia2.index = start;
+                     iia1.length = dim*dim;
                      transforms[idx].forward(iia1, iia2);
                      System.out.println();
                      System.out.println("Output:");
@@ -171,6 +172,7 @@ public class TestTransforms
                      iia1.array = data2;
                      iia1.index = 0;
                      iia2.index = start;
+                     iia2.length = dim*dim;
                      transforms[idx].inverse(iia2, iia1);
                      System.out.println();
                      System.out.println("Result:");
@@ -215,7 +217,7 @@ public class TestTransforms
                             data[i][j] = rnd.nextInt(10+i+j*10);
                     }
 
-                    IndexedIntArray iia = new IndexedIntArray(data[0], 0);
+                    SliceIntArray iia = new SliceIntArray(data[0], 0);
                     long before, after;
 
                     for (int i=0; i<iter; i++)

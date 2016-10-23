@@ -16,7 +16,7 @@ limitations under the License.
 package kanzi.function;
 
 import kanzi.ByteFunction;
-import kanzi.IndexedByteArray;
+import kanzi.SliceByteArray;
 
 
 public class NullFunction implements ByteFunction
@@ -27,32 +27,43 @@ public class NullFunction implements ByteFunction
 
    
    @Override
-   public boolean forward(IndexedByteArray input, IndexedByteArray output, int length)
+   public boolean forward(SliceByteArray input, SliceByteArray output)
    {
-      return doCopy(input, output, length);
+      return doCopy(input, output);
    }
   
 
    @Override
-   public boolean inverse(IndexedByteArray input, IndexedByteArray output, int length)
+   public boolean inverse(SliceByteArray input, SliceByteArray output)
    {    
-      return doCopy(input, output, length);
+      return doCopy(input, output);
    }
 
    
-   private static boolean doCopy(IndexedByteArray input, IndexedByteArray output, final int len)
+   private static boolean doCopy(SliceByteArray input, SliceByteArray output)
    {      
-      if (input.index + len > input.array.length)
+      if ((input == null) || (output == null))
+         return false;
+
+      if ((input.array == null) || (output.array == null))
          return false;
       
-      if (output.index + len > output.array.length)
+      final int count = input.length;
+      
+      if (count < 0)
+         return false;
+      
+      if (input.index + count > input.array.length)
+         return false;
+      
+      if (output.length - output.index < count)
          return false;
 
       if ((input.array != output.array) || (input.index != output.index))
-         System.arraycopy(input.array, input.index, output.array, output.index, len);     
+         System.arraycopy(input.array, input.index, output.array, output.index, count);     
       
-      input.index += len;
-      output.index += len;
+      input.index += count;
+      output.index += count;
       return true;
    }
    

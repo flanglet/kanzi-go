@@ -16,7 +16,7 @@ limitations under the License.
 package kanzi.transform;
 
 import kanzi.ByteTransform;
-import kanzi.IndexedByteArray;
+import kanzi.SliceByteArray;
 
 
 
@@ -44,17 +44,25 @@ public class BWTS implements ByteTransform
 
     // Not thread safe
     @Override
-    public boolean forward(IndexedByteArray src, IndexedByteArray dst, final int count)
+    public boolean forward(SliceByteArray src, SliceByteArray dst)
     {
         if ((src == null) || (dst == null) || (src.array == dst.array))
            return false;
-
+        
+        final int count = src.length;
+        
         if ((count < 0) || (count > maxBlockSize()))
            return false;
 
-        if (count+src.index > src.array.length)
-          return false;
-
+        if (dst.index + count > dst.length)
+           return false;
+       
+        if (src.index + count > src.array.length)
+           return false;
+       
+        if (dst.index + count > dst.array.length)
+           return false;
+              
         final byte[] input = src.array;
         final byte[] output = dst.array;
         final int srcIdx = src.index;
@@ -144,7 +152,7 @@ public class BWTS implements ByteTransform
            min = isa[i];
         }
    
-        output[dstIdx] = input[srcIdx2+count];
+        output[dstIdx] = input[srcIdx2+count];       
         src.index += count;
         dst.index += count; 
         return true;
@@ -192,14 +200,25 @@ public class BWTS implements ByteTransform
 
     // Not thread safe
     @Override
-    public boolean inverse(IndexedByteArray src, IndexedByteArray dst, final int count)
+    public boolean inverse(SliceByteArray src, SliceByteArray dst)
     {
        if ((src == null) || (dst == null) || (src.array == dst.array))
           return false;
 
+       final int count = src.length;
+       
        if ((count < 0) || (count > maxBlockSize()))
           return false;
-
+       
+       if (dst.index + count > dst.length)
+          return false;
+       
+       if (src.index + count > src.array.length)
+          return false;
+       
+       if (dst.index + count > dst.array.length)
+          return false;
+              
        if (count < 2)
        {
           if (count == 1)
@@ -256,7 +275,7 @@ public class BWTS implements ByteTransform
           } 
           while (lf[p] >= 0);
        }
-       
+
        src.index += count;
        dst.index += count;
        return true;

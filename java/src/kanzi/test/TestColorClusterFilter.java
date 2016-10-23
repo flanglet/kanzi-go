@@ -24,7 +24,7 @@ import java.awt.image.BufferedImage;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.filter.ColorClusterFilter;
 import kanzi.filter.FastBilateralFilter;
 import kanzi.filter.SobelFilter;
@@ -47,9 +47,9 @@ public class TestColorClusterFilter
             BufferedImage img = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
             img.getGraphics().drawImage(image, 0, 0, null);
             BufferedImage img2 = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
-            IndexedIntArray source = new IndexedIntArray(new int[w*h], 0);
-            IndexedIntArray temp = new IndexedIntArray(new int[w*h], 0);
-            IndexedIntArray dest = new IndexedIntArray(new int[w*h], 0);
+            SliceIntArray source = new SliceIntArray(new int[w*h], 0);
+            SliceIntArray temp = new SliceIntArray(new int[w*h], 0);
+            SliceIntArray dest = new SliceIntArray(new int[w*h], 0);
             boolean applySobel = false;
             boolean applyBilateral = false;
 
@@ -119,7 +119,7 @@ public class TestColorClusterFilter
 
             // Speed test
             {
-                IndexedIntArray tmp = new IndexedIntArray(new int[w*h], 0);
+                SliceIntArray tmp = new SliceIntArray(new int[w*h], 0);
                 System.arraycopy(source.array, 0, tmp.array, 0, w * h);
                 System.out.println("Speed test");
                 int iters = 1000;

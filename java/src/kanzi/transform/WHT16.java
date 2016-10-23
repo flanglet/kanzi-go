@@ -15,7 +15,7 @@ limitations under the License.
 
 package kanzi.transform;
 
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntTransform;
 
 
@@ -49,15 +49,27 @@ public final class WHT16 implements IntTransform
 
     // Not thread safe
     @Override
-    public boolean forward(IndexedIntArray src, IndexedIntArray dst)
+    public boolean forward(SliceIntArray src, SliceIntArray dst)
     {
-        return compute(src, dst, this.data, this.fScale);
+       if (src.length != 256)
+          return false;
+       
+       if (dst.index + 256 > dst.length)
+          return false;  
+
+       if (src.index + 256 > src.array.length)
+          return false;
+       
+       if (dst.index + 256 > dst.array.length)
+          return false;   
+       
+       return compute(src, dst, this.data, this.fScale);
     }
 
 
     // Not thread safe
     // Result multiplied by 16 if 'scale' is set to false
-    private static boolean compute(IndexedIntArray src, IndexedIntArray dst, int[] buffer, int shift)
+    private static boolean compute(SliceIntArray src, SliceIntArray dst, int[] buffer, int shift)
     {
         final int[] input = src.array;
         final int[] output = dst.array;
@@ -261,9 +273,21 @@ public final class WHT16 implements IntTransform
 
 
     @Override
-    public boolean inverse(IndexedIntArray src, IndexedIntArray dst)
+    public boolean inverse(SliceIntArray src, SliceIntArray dst)
     {
-        return compute(src, dst, this.data, this.iScale);
+       if (src.length != 256)
+          return false;
+       
+       if (dst.index + 256 > dst.length)
+          return false;  
+
+       if (src.index + 256 > src.array.length)
+          return false;
+       
+       if (dst.index + 256 > dst.array.length)
+          return false;   
+       
+       return compute(src, dst, this.data, this.iScale);
     }
 
 }

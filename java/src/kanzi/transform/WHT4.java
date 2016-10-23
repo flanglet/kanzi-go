@@ -15,7 +15,7 @@ limitations under the License.
 
 package kanzi.transform;
 
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntTransform;
 
 
@@ -45,14 +45,26 @@ public final class WHT4 implements IntTransform
 
 
     @Override
-    public boolean forward(IndexedIntArray src, IndexedIntArray dst)
+    public boolean forward(SliceIntArray src, SliceIntArray dst)
     {
+       if (src.length != 16)
+          return false;
+       
+       if (dst.index + 16 > dst.length)
+          return false;  
+
+       if (src.index + 16 > src.array.length)
+          return false;
+       
+       if (dst.index + 16 > dst.array.length)
+          return false;
+       
        return compute(src, dst, this.fScale);       
     }
 
 
     // Result multiplied by 4 if 'scale' is set to false
-    private static boolean compute(IndexedIntArray src, IndexedIntArray dst, int shift)
+    private static boolean compute(SliceIntArray src, SliceIntArray dst, int shift)
     {
        int b0, b1, b2, b3, b4, b5, b6, b7;
        int b8, b9, b10, b11, b12, b13, b14, b15;
@@ -162,9 +174,21 @@ public final class WHT4 implements IntTransform
 
 
     @Override
-    public boolean inverse(IndexedIntArray src, IndexedIntArray dst)
+    public boolean inverse(SliceIntArray src, SliceIntArray dst)
     {
-        return compute(src, dst, this.iScale);
+       if (src.length != 16)
+          return false;
+       
+       if (dst.index + 16 > dst.length)
+          return false;  
+
+       if (src.index + 16 > src.array.length)
+          return false;
+       
+       if (dst.index + 16 > dst.array.length)
+          return false;
+       
+       return compute(src, dst, this.iScale);
     }
 
 }

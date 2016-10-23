@@ -30,7 +30,7 @@ import java.util.Random;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntFilter;
 import kanzi.filter.ContrastFilter;
 import kanzi.filter.FastBilateralFilter;
@@ -96,9 +96,9 @@ public class TestMovingEffects
             BufferedImage img = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
             img.getGraphics().drawImage(image, 0, 0, null);
             BufferedImage img2 = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
-            IndexedIntArray source = new IndexedIntArray(new int[w*h], 0);
-            IndexedIntArray tmp = new IndexedIntArray(new int[w*h], 0);
-            IndexedIntArray dest = new IndexedIntArray(new int[w*h], 0);
+            SliceIntArray source = new SliceIntArray(new int[w*h], 0);
+            SliceIntArray tmp = new SliceIntArray(new int[w*h], 0);
+            SliceIntArray dest = new SliceIntArray(new int[w*h], 0);
 
             // Sanity check, prefill the destination image
             for (int i=0; i<dest.array.length; i++)
@@ -134,7 +134,7 @@ public class TestMovingEffects
                     x, y, -1, -1, ((bump==false)?"Lighting":"Lighting+Bump"));
             x = 128 + rnd.nextInt(10);
             y =  64 + rnd.nextInt(60);
-            effects[4] = new MovingEffect(new ContrastFilter(dw, dh, w, 115),
+            effects[4] = new MovingEffect(new ContrastFilter(dw, dh, w, 130),
                     x, y, 2, 1, "Contrast");
 
             for (MovingEffect e : effects)

@@ -18,18 +18,14 @@ package kanzi;
 
 public interface IntTransform
 {
-   // Indexed arrays are required rather than just arrays and indexes
-   // Since the number of integers in input and output of the transform may differ
-   // the arrays may not be big enough and the number of processed integers may
-   // vary. The indexes in the indexed array instance can be updated to reflect
-   // this fact.
-   public boolean forward(IndexedIntArray src, IndexedIntArray dst);
+   // Read src.length ints from src.array[src.index], process them and
+   // write them to dst.array[dst.index]. The index of each slice is updated
+   // with the number of ints respectively read from and written to.  
+   public boolean forward(SliceIntArray src, SliceIntArray dst);
 
 
-   // Indexed arrays are required rather than just arrays and indexes
-   // Since the number of integers in input and output of the transform may differ
-   // the arrays may not be big enough and the number of processed integers may
-   // vary. The indexes in the indexed array instance can be updated to reflect
-   // this fact.
-   public boolean inverse(IndexedIntArray src, IndexedIntArray dst);
+   // Read src.length ints from src.array[src.index], process them and
+   // write them to dst.array[dst.index]. The index of each slice is updated
+   // with the number of ints respectively read from and written to.  
+   public boolean inverse(SliceIntArray src, SliceIntArray dst);
 }

@@ -15,7 +15,7 @@ limitations under the License.
 
 package kanzi.transform;
 
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntTransform;
 
 
@@ -31,7 +31,7 @@ public class DWT_DCT implements IntTransform
    
    public DWT_DCT(int dim) 
    {               
-      IntTransform transform;
+      IntTransform transform;;
       
       switch (dim)
       {
@@ -60,19 +60,30 @@ public class DWT_DCT implements IntTransform
 
    // Perform a DWT on the input then a DCT of the LL band.
    @Override
-   public boolean forward(IndexedIntArray src, IndexedIntArray dst)
+   public boolean forward(SliceIntArray src, SliceIntArray dst)
    {
       if ((src == null) || (dst == null))
          return false;
       
-      if (src.array.length < this.dim*this.dim)
+      final int count = this.dim * this.dim;
+      
+      if (src.array.length < count)
          return false;
 
-      if (dst.array.length < this.dim*this.dim)
+      if (dst.array.length < count)
          return false;
 
+      if (src.length != count)
+         return false;
+      
+      if (src.index + count > src.array.length)
+         return false;
+
+      if (dst.index + count > dst.array.length)
+         return false;   
+      
       final int d2 = this.dim >> 1;
-      IndexedIntArray iia = new IndexedIntArray(this.buffer, 0);
+      SliceIntArray sa = new SliceIntArray(this.buffer, d2*d2, 0);
 
       // Forward DWT
       if (this.dwt.forward(src, dst) == false)
@@ -80,47 +91,67 @@ public class DWT_DCT implements IntTransform
       
       // Copy and compact DWT results for LL band
       for (int j=0; j<d2; j++)
-         System.arraycopy(dst.array, j*this.dim, iia.array, j*d2, d2);
-
-      // Forward DCT of LL band
-      if (this.dct.forward(iia, iia) == false)
+         System.arraycopy(dst.array, j*this.dim, this.buffer, j*d2, d2);
+ 
+      // Forward DCT of LL band      
+      if (this.dct.forward(sa, sa) == false)
          return false;
       
       // Copy back DCT results
       for (int j=0; j<d2; j++)
-         System.arraycopy(iia.array, j*d2, dst.array, j*this.dim, d2);
+         System.arraycopy(this.buffer, j*d2, dst.array, j*this.dim, d2);
       
+      if (src.index + count > src.length)
+         return false;
+
+      if (dst.index + count > dst.length)
+         return false;   
+        
       return true;
    }
 
 
    // Perform a DWT on the input then a DCT of the LL band.
    @Override
-   public boolean inverse(IndexedIntArray src, IndexedIntArray dst)
+   public boolean inverse(SliceIntArray src, SliceIntArray dst)
    {
       if ((src == null) || (dst == null))
          return false;
       
-      if (src.array.length < this.dim*this.dim)
+      if ((src.array == null) || (dst.array == null))
+          return false;
+
+      final int count = this.dim * this.dim;
+      
+      if (src.array.length < count)
          return false;
 
-      if (dst.array.length < this.dim*this.dim)
+      if (dst.array.length < count)
          return false;
 
+      if (src.length != count)
+         return false;
+      
+      if (src.index + count > src.array.length)
+         return false;
+
+      if (dst.index + count > dst.array.length)
+         return false;         
+      
       final int d2 = this.dim >> 1;
-      IndexedIntArray iia = new IndexedIntArray(this.buffer, 0);
+      SliceIntArray sa = new SliceIntArray(this.buffer, d2*d2, 0);
       
       // Copy and compact LL band
       for (int j=0; j<d2; j++)
-         System.arraycopy(src.array, j*this.dim, iia.array, j*d2, d2);
+         System.arraycopy(src.array, j*this.dim, this.buffer, j*d2, d2);
     
       // Reverse DCT of LL band
-      if (this.dct.inverse(iia, iia) == false)
+      if (this.dct.inverse(sa, sa) == false)
          return false;
 
       // Copy and expand DCT results for LL band
       for (int j=0; j<d2; j++)
-         System.arraycopy(iia.array, j*d2, src.array, j*this.dim, d2);
+         System.arraycopy(this.buffer, j*d2, src.array, j*this.dim, d2);
      
       return this.dwt.inverse(src, dst);
    }

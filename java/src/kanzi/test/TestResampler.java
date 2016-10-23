@@ -50,7 +50,7 @@ public class TestResampler
    {
         try
         {
-           String fileName = (args.length > 0) ? args[0] : "r:\\lena.jpg";
+           String fileName = (args.length > 0) ? args[0] : "r:\\salon.png";
            Image image1 = ImageIO.read(new File(fileName));
            int w = image1.getWidth(null) & -32;
            int h = image1.getHeight(null) & -32;
@@ -148,6 +148,13 @@ public class TestResampler
               System.arraycopy(y, 0, buf, 0, buf.length);
               ((GuidedBilinearUpSampler) superSamplers[s]).setGuide(buf);
            }
+
+//           if (superSamplers[s] instanceof DCTUpSampler)
+//           {
+//              int[] buf = new int[y.length];
+//              System.arraycopy(y, 0, buf, 0, buf.length);
+//              ((DCTUpSampler) superSamplers[s]).setGuide(buf);
+//           }
 
            for (int ii=0; ii<iter; ii++)
            {

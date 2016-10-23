@@ -18,7 +18,7 @@ package kanzi.test;
 import java.util.Arrays;
 import java.util.Random;
 import kanzi.ByteFunction;
-import kanzi.IndexedByteArray;
+import kanzi.SliceByteArray;
 import kanzi.function.LZ4Codec;
 import kanzi.function.RLT;
 import kanzi.function.SnappyCodec;
@@ -175,9 +175,9 @@ public class TestFunctions
           input = new byte[size];
           output = new byte[f.getMaxEncodedLength(size)];
           reverse = new byte[size];
-          IndexedByteArray iba1 = new IndexedByteArray(input, 0);
-          IndexedByteArray iba2 = new IndexedByteArray(output, 0);
-          IndexedByteArray iba3 = new IndexedByteArray(reverse, 0);
+          SliceByteArray sa1 = new SliceByteArray(input, 0);
+          SliceByteArray sa2 = new SliceByteArray(output, 0);
+          SliceByteArray sa3 = new SliceByteArray(reverse, 0);
           Arrays.fill(output, (byte) 0xAA);
 
           for (int i=0; i<arr.length; i++)
@@ -192,10 +192,10 @@ public class TestFunctions
              System.out.print((input[i] & 255) + " ");
           }
 
-          if (f.forward(iba1, iba2, size) == false)
+          if (f.forward(sa1, sa2) == false)
           {
              // ZRLT may fail if the input data has too few 0s
-             if (iba1.index != input.length)
+             if (sa1.index != input.length)
              {
                 System.out.println("\nNo compression (ratio > 1.0), skip reverse");
                 continue;
@@ -205,7 +205,7 @@ public class TestFunctions
              System.exit(1);
           }
 
-          if (iba1.index != input.length)
+          if (sa1.index != input.length)
           {
              System.out.println("\nNo compression (ratio > 1.0), skip reverse");
              continue;
@@ -214,19 +214,19 @@ public class TestFunctions
           System.out.println("\nCoded: ");
           //java.util.Arrays.fill(input, (byte) 0);
 
-          for (int i=0; i<iba2.index; i++)
+          for (int i=0; i<sa2.index; i++)
           {
              System.out.print((output[i] & 255) + " "); //+"("+Integer.toBinaryString(output[i] & 255)+") ");
           }
 
-          System.out.println(" (Compression ratio: " + (iba2.index * 100 / input.length)+ "%)");
+          System.out.println(" (Compression ratio: " + (sa2.index * 100 / input.length)+ "%)");
           f = getByteFunction(name);
-          int count = iba2.index;
-          iba1.index = 0;
-          iba2.index = 0;
-          iba3.index = 0;
+          sa2.length = sa2.index;
+          sa1.index = 0;
+          sa2.index = 0;
+          sa3.index = 0;
 
-          if (f.inverse(iba2, iba3, count) == false)
+          if (f.inverse(sa2, sa3) == false)
           {
              System.out.println("Decoding error");
              System.exit(1);
@@ -274,9 +274,9 @@ public class TestFunctions
          input = new byte[size];
          output = new byte[f.getMaxEncodedLength(size)];
          reverse = new byte[size];
-         IndexedByteArray iba1 = new IndexedByteArray(input, 0);
-         IndexedByteArray iba2 = new IndexedByteArray(output, 0);
-         IndexedByteArray iba3 = new IndexedByteArray(reverse, 0);
+         SliceByteArray sa1 = new SliceByteArray(input, 0);
+         SliceByteArray sa2 = new SliceByteArray(output, 0);
+         SliceByteArray sa3 = new SliceByteArray(reverse, 0);
 
          // Generate random data with runs
          // Leave zeros at the beginning for ZRLT to succeed
@@ -300,11 +300,11 @@ public class TestFunctions
          for (int ii = 0; ii < iter; ii++)
          {
             f = getByteFunction(name);
-            iba1.index = 0;
-            iba2.index = 0;
+            sa1.index = 0;
+            sa2.index = 0;
             before = System.nanoTime();
 
-            if (f.forward(iba1, iba2, size) == false)
+            if (f.forward(sa1, sa2) == false)
             {
                // ZRLT may fail if the input data has too few 0s
                System.out.println("Encoding error");
@@ -318,12 +318,12 @@ public class TestFunctions
          for (int ii = 0; ii < iter; ii++)
          {
             f = getByteFunction(name);
-            int count = iba2.index;
-            iba3.index = 0;
-            iba2.index = 0;
+            sa2.length = sa2.index;
+            sa3.index = 0;
+            sa2.index = 0;
             before = System.nanoTime();
 
-            if (f.inverse(iba2, iba3, count) == false)
+            if (f.inverse(sa2, sa3) == false)
             {
                System.out.println("Decoding error");
                System.exit(1);
@@ -336,9 +336,9 @@ public class TestFunctions
          int idx = -1;
 
          // Sanity check
-         for (int i=0; i<iba1.index; i++)
+         for (int i=0; i<sa1.index; i++)
          {
-            if (iba1.array[i] != iba3.array[i])
+            if (sa1.array[i] != sa3.array[i])
             {
                idx = i;
                break;
@@ -346,7 +346,7 @@ public class TestFunctions
          }
 
          if (idx >= 0)
-            System.out.println("Failure at index "+idx+" ("+iba1.array[idx]+"<->"+iba3.array[idx]+")");
+            System.out.println("Failure at index "+idx+" ("+sa1.array[idx]+"<->"+sa3.array[idx]+")");
 
          final long prod = (long) iter * (long) size;
          System.out.println(name + " encoding [ms]: " + delta1 / 1000000);

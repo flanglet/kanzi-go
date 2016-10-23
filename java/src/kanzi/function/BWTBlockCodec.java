@@ -16,7 +16,7 @@ limitations under the License.
 package kanzi.function;
 
 import kanzi.ByteFunction;
-import kanzi.IndexedByteArray;
+import kanzi.SliceByteArray;
 import kanzi.transform.BWT;
 
 
@@ -47,12 +47,23 @@ public class BWTBlockCodec implements ByteFunction
    // Return true if the compression chain succeeded. In this case, the input data 
    // may be modified. If the compression failed, the input data is returned unmodified.
    @Override
-   public boolean forward(IndexedByteArray input, IndexedByteArray output, int blockSize)
+   public boolean forward(SliceByteArray input, SliceByteArray output)
    {
-      if ((input == null) || (output == null))
+      if ((input == null) || (output == null) || (input.array == output.array))
          return false;
-        
-      if (output.array.length - output.index < getMaxEncodedLength(blockSize))
+
+      if ((input.array == null) || (output.array == null))
+         return false;
+      
+      final int blockSize = input.length;
+      
+      if (blockSize < 0)
+         return false;
+
+      if (input.index + blockSize > input.array.length)
+          return false;
+
+      if (output.length - output.index < getMaxEncodedLength(blockSize))
          return false;
       
       final int savedOIdx = output.index;
@@ -60,15 +71,13 @@ public class BWTBlockCodec implements ByteFunction
 
       while (1<<log <= blockSize)
          log++; 
-           
-      log--;
-      
+               
       // Estimate header size based on block size
-      final int headerSizeBytes1 = (2+log+7) >> 3;
+      final int headerSizeBytes1 = (1+log+7) >> 3;
       output.index += headerSizeBytes1;
      
       // Apply forward transform
-      if (this.bwt.forward(input, output, blockSize) == false)
+      if (this.bwt.forward(input, output) == false)
          return false;
 
       int primaryIndex = this.bwt.getPrimaryIndex();
@@ -101,17 +110,30 @@ public class BWTBlockCodec implements ByteFunction
          output.array[savedOIdx+i] = (byte) (primaryIndex >> shift);
       }
       
-      return true;
+      return (output.index <= output.length);
    }
 
 
    @Override
-   public boolean inverse(IndexedByteArray input, IndexedByteArray output, int blockSize)
+   public boolean inverse(SliceByteArray input, SliceByteArray output)
    {
+      if ((input == null) || (output == null) || (input.array == output.array))
+         return false;
+
+      if ((input.array == null) || (output.array == null))
+         return false;
+      
       // Read block header (mode + primary index). See top of file for format
       final int blockMode = input.array[input.index++] & 0xFF;
       final int headerSizeBytes = 1 + ((blockMode >> 6) & 0x03);
+      int blockSize = input.length;
+      
+      if (blockSize < 0)
+         return false;
 
+      if (input.index + blockSize > input.array.length)
+          return false;
+      
       if (blockSize < headerSizeBytes)
           return false;
 
@@ -132,7 +154,8 @@ public class BWTBlockCodec implements ByteFunction
       this.bwt.setPrimaryIndex(primaryIndex);
 
       // Apply inverse Transform            
-      return this.bwt.inverse(input, output, blockSize);
+      boolean res = this.bwt.inverse(input, output);      
+      return res & (output.index <= output.length);
    }
    
      

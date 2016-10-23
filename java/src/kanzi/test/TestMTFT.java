@@ -16,7 +16,7 @@ limitations under the License.
 package kanzi.test;
 
 import java.util.Random;
-import kanzi.IndexedByteArray;
+import kanzi.SliceByteArray;
 import kanzi.transform.MTFT;
 
 
@@ -51,9 +51,9 @@ public class TestMTFT
                 MTFT mtft = new MTFT();
                 byte[] transform = new byte[size+20];
                 byte[] reverse = new byte[size];
-                IndexedByteArray iba1 = new IndexedByteArray(input, 0);
-                IndexedByteArray iba2 = new IndexedByteArray(transform, 0);
-                IndexedByteArray iba3 = new IndexedByteArray(reverse, 0);
+                SliceByteArray sa1 = new SliceByteArray(input, 0);
+                SliceByteArray sa2 = new SliceByteArray(transform, size, 0);
+                SliceByteArray sa3 = new SliceByteArray(reverse, 0);
 
                 System.out.println("\nTest "+ii);
                 System.out.print("Input     : ");
@@ -64,8 +64,8 @@ public class TestMTFT
                 }
 
                 int start = (ii & 1) * ii;
-                iba2.index = start;
-                mtft.forward(iba1, iba2, size);
+                sa2.index = start;
+                mtft.forward(sa1, sa2);
                 System.out.println();
                 System.out.print("Transform : ");
 
@@ -74,8 +74,8 @@ public class TestMTFT
                     System.out.print((transform[i] & 0xFF) + " ");
                 }
 
-                iba2.index = start;
-                mtft.inverse(iba2, iba3, size);
+                sa2.index = start;
+                mtft.inverse(sa2, sa3);
                 System.out.println();
                 System.out.print("Reverse   : ");
 
@@ -114,9 +114,9 @@ public class TestMTFT
             byte[] input = new byte[size];
             byte[] transform = new byte[size];
             byte[] reverse = new byte[size];
-            IndexedByteArray iba1 = new IndexedByteArray(input, 0);
-            IndexedByteArray iba2 = new IndexedByteArray(transform, 0);
-            IndexedByteArray iba3 = new IndexedByteArray(reverse, 0);
+            SliceByteArray sa1 = new SliceByteArray(input, 0);
+            SliceByteArray sa2 = new SliceByteArray(transform, 0);
+            SliceByteArray sa3 = new SliceByteArray(reverse, 0);
             MTFT mtft = new MTFT();
             long delta1 = 0, delta2 = 0;
             long before, after;
@@ -150,15 +150,15 @@ public class TestMTFT
                 }
 
                 before = System.nanoTime();
-                iba1.index = 0;
-                iba2.index = 0;
-                mtft.forward(iba1, iba2, size);
+                sa1.index = 0;
+                sa2.index = 0;
+                mtft.forward(sa1, sa2);
                 after = System.nanoTime();
                 delta1 += (after - before);
                 before = System.nanoTime();
-                iba2.index = 0;
-                iba3.index = 0;
-                mtft.inverse(iba2, iba3, size);
+                sa2.index = 0;
+                sa3.index = 0;
+                mtft.inverse(sa2, sa3);
                 after = System.nanoTime();
                 delta2 += (after - before);
 

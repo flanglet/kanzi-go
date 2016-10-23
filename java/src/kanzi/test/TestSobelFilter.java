@@ -29,7 +29,7 @@ import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntFilter;
 import kanzi.filter.ParallelFilter;
 import kanzi.filter.SobelFilter;
@@ -109,8 +109,8 @@ public class TestSobelFilter
          BufferedImage img = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
          img.getGraphics().drawImage(image, 0, 0, null);
          BufferedImage img2 = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
-         IndexedIntArray source = new IndexedIntArray(new int[w*h], offset);
-         IndexedIntArray dest = new IndexedIntArray(new int[w*h], offset);
+         SliceIntArray source = new SliceIntArray(new int[w*h], offset);
+         SliceIntArray dest = new SliceIntArray(new int[w*h], offset);
 
          // Do NOT use img.getRGB(): it is more than 10 times slower than
          // img.getRaster().getDataElements()

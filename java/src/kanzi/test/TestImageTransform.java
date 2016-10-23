@@ -18,7 +18,7 @@ package kanzi.test;
 import java.awt.Image;
 import java.io.File;
 import javax.imageio.ImageIO;
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.transform.DCT8;
 import kanzi.IntTransform;
 import kanzi.transform.DCT16;
@@ -193,7 +193,7 @@ public class TestImageTransform
     int[] rgb2 = new int[len];
     int[] data = new int[dimW*dimH];
     long sum = 0L;
-    IndexedIntArray iia = new IndexedIntArray(data, 0);
+    SliceIntArray iia = new SliceIntArray(data, 0);
 
     for (int ii=0; ii<iter; ii++)
     {

@@ -30,7 +30,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import kanzi.io.Error;
-import kanzi.IndexedByteArray;
+import kanzi.SliceByteArray;
 import kanzi.io.BlockListener;
 import kanzi.io.CompressedInputStream;
 import kanzi.io.InfoPrinter;
@@ -256,13 +256,13 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
 
       try
       {
-         IndexedByteArray iba = new IndexedByteArray(new byte[DEFAULT_BUFFER_SIZE], 0);
+         SliceByteArray sa = new SliceByteArray(new byte[DEFAULT_BUFFER_SIZE], 0);
          int decoded;
 
          // Decode next block
          do
          {
-            decoded = this.cis.read(iba.array, 0, iba.array.length);
+            decoded = this.cis.read(sa.array, 0, sa.length);
 
             if (decoded < 0)
             {
@@ -274,7 +274,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
             {
                if (decoded > 0)
                {
-                  this.os.write(iba.array, 0, decoded);
+                  this.os.write(sa.array, 0, decoded);
                   read += decoded;
                }
             }
@@ -285,7 +285,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
                return Error.ERR_READ_FILE;
             }
          }
-         while (decoded == iba.array.length);
+         while (decoded == sa.array.length);
       }
       catch (kanzi.io.IOException e)
       {

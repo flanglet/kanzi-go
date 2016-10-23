@@ -28,7 +28,7 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import kanzi.IndexedByteArray;
+import kanzi.SliceByteArray;
 import kanzi.io.BlockListener;
 import kanzi.io.ByteFunctionFactory;
 import kanzi.io.CompressedOutputStream;
@@ -265,7 +265,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
       boolean silent = this.verbosity < 1;
       printOut("Encoding ...", !silent);
       int read = 0;
-      IndexedByteArray iba = new IndexedByteArray(new byte[DEFAULT_BUFFER_SIZE], 0);
+      SliceByteArray sa = new SliceByteArray(new byte[DEFAULT_BUFFER_SIZE], 0);
       int len;
       long before = System.nanoTime();
 
@@ -275,7 +275,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
           {
              try
              {
-                len = this.is.read(iba.array, 0, iba.array.length);
+                len = this.is.read(sa.array, 0, sa.length);
              }
              catch (Exception e)
              {
@@ -289,7 +289,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
              
              // Just write block to the compressed output stream !
              read += len;
-             this.cos.write(iba.array, 0, len);
+             this.cos.write(sa.array, 0, len);
           }
        }
        catch (kanzi.io.IOException e)

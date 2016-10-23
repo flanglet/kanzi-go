@@ -26,7 +26,7 @@ import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntFilter;
 import kanzi.filter.BilateralFilter;
 import kanzi.filter.FastBilateralFilter;
@@ -48,9 +48,9 @@ public class TestBilateralFilter
         img.getGraphics().drawImage(image, 0, 0, null);
         BufferedImage img2 = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
         BufferedImage img3 = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
-        IndexedIntArray src = new IndexedIntArray(new int[w*h], 0);
-        IndexedIntArray dst1 = new IndexedIntArray(new int[w*h], 0);
-        IndexedIntArray dst2 = new IndexedIntArray(new int[w*h], 0);
+        SliceIntArray src = new SliceIntArray(new int[w*h], 0);
+        SliceIntArray dst1 = new SliceIntArray(new int[w*h], 0);
+        SliceIntArray dst2 = new SliceIntArray(new int[w*h], 0);
 
         // Do NOT use img.getRGB(): it is more than 10 times slower than
         // img.getRaster().getDataElements()

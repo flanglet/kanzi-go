@@ -27,7 +27,7 @@ import java.util.concurrent.Executors;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.filter.seam.ContextResizer;
 
 
@@ -146,9 +146,9 @@ public class TestContextResizer
             frame.setBounds(50, 50, w, h);
             frame.add(new JLabel(icon));
             frame.setVisible(true);
-            IndexedIntArray src = new IndexedIntArray(new int[w*h], 0);
-            IndexedIntArray tmp = new IndexedIntArray(new int[w*h], 0);
-            IndexedIntArray dst = new IndexedIntArray(new int[w*h], 0);
+            SliceIntArray src = new SliceIntArray(new int[w*h], 0);
+            SliceIntArray tmp = new SliceIntArray(new int[w*h], 0);
+            SliceIntArray dst = new SliceIntArray(new int[w*h], 0);
 
             // Do NOT use img.getRGB(): it is more than 10 times slower than
             // img.getRaster().getDataElements()

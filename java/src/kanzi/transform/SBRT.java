@@ -16,7 +16,7 @@ limitations under the License.
 package kanzi.transform;
 
 import kanzi.ByteTransform;
-import kanzi.IndexedByteArray;
+import kanzi.SliceByteArray;
 
 
 // Sort by Rank Transform is a family of transforms typically used after
@@ -61,15 +61,29 @@ public class SBRT implements ByteTransform
    
 
    @Override
-   public boolean forward(IndexedByteArray input, IndexedByteArray output, final int count) 
+   public boolean forward(SliceByteArray input, SliceByteArray output) 
    {
       if ((input == null) || (output == null) || (input.array == output.array))
          return false;
-
-      if ((count < 0) || (count+input.index > input.array.length))
+ 
+      if ((input.array == null) || (output.array == null))
+           return false;
+ 
+      final int count = input.length;
+ 
+      if (count < 0)
         return false;
 
-        // Aliasing
+      if (output.length < count)
+         return false;
+
+      if (input.index + count > input.array.length)
+         return false;
+
+      if (output.index + count > output.array.length)
+         return false;
+      
+      // Aliasing
       final byte[] src = input.array;
       final byte[] dst = output.array;
       final int srcIdx = input.index;
@@ -111,7 +125,7 @@ public class SBRT implements ByteTransform
          r2s[r] = c;
          s2r[c] = r;
       }
-
+      
       input.index += count;
       output.index += count;  
       return true;
@@ -119,13 +133,27 @@ public class SBRT implements ByteTransform
 
 
    @Override
-   public boolean inverse(IndexedByteArray input, IndexedByteArray output, final int count) 
+   public boolean inverse(SliceByteArray input, SliceByteArray output) 
    {
       if ((input == null) || (output == null) || (input.array == output.array))
          return false;
-
-      if ((count < 0) || (count+input.index > input.array.length))
+ 
+      if ((input.array == null) || (output.array == null))
+           return false;
+ 
+      final int count = input.length;
+ 
+      if (count < 0)
         return false;
+      
+      if (output.length < count)
+         return false;
+
+      if (input.index + count > input.array.length)
+         return false;
+
+      if (output.index + count > output.array.length)
+         return false;
 
       // Aliasing
       final byte[] src = input.array;
@@ -165,7 +193,7 @@ public class SBRT implements ByteTransform
 
          r2s[r] = c;
       }
-
+      
       input.index += count;
       output.index += count;
       return true;

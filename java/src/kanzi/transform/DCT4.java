@@ -15,7 +15,7 @@ limitations under the License.
 
 package kanzi.transform;
 
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntTransform;
 
 
@@ -37,20 +37,32 @@ public final class DCT4 implements IntTransform
             
     private final int fShift;
     private final int iShift;
-    private final IndexedIntArray data;
+    private final SliceIntArray data;
  
 
     public DCT4()
     {
        this.fShift = 8;
        this.iShift = 20;
-       this.data = new IndexedIntArray(new int[16], 0);
+       this.data = new SliceIntArray(new int[16], 0);
     }
 
 
     @Override
-    public boolean forward(IndexedIntArray src, IndexedIntArray dst)
+    public boolean forward(SliceIntArray src, SliceIntArray dst)
     {
+       if (src.length != 16)
+          return false;
+       
+       if (dst.index + 16 > dst.length)
+          return false;  
+
+       if (src.index + 16 > src.array.length)
+          return false;
+       
+       if (dst.index + 16 > dst.array.length)
+          return false;   
+       
        this.data.index = 0;
        computeForward(src, this.data, 4);
        computeForward(this.data, dst, this.fShift-4);
@@ -60,7 +72,7 @@ public final class DCT4 implements IntTransform
     }
     
     
-    private static void computeForward(IndexedIntArray src, IndexedIntArray dst, int shift)
+    private static void computeForward(SliceIntArray src, SliceIntArray dst, int shift)
     {
        final int[] input = src.array;
        final int[] output = dst.array;
@@ -122,8 +134,20 @@ public final class DCT4 implements IntTransform
 
 
     @Override
-    public boolean inverse(IndexedIntArray src, IndexedIntArray dst)
+    public boolean inverse(SliceIntArray src, SliceIntArray dst)
     {
+       if (src.length != 16)
+          return false;
+       
+       if (dst.index + 16 > dst.length)
+          return false;  
+
+       if (src.index + 16 > src.array.length)
+          return false;
+       
+       if (dst.index + 16 > dst.array.length)
+          return false;   
+       
        this.data.index = 0;
        computeInverse(src, this.data, 10);
        computeInverse(this.data, dst, this.iShift-10);
@@ -133,7 +157,7 @@ public final class DCT4 implements IntTransform
     }
     
     
-    private static void computeInverse(IndexedIntArray src, IndexedIntArray dst, int shift)
+    private static void computeInverse(SliceIntArray src, SliceIntArray dst, int shift)
     {
        final int[] input = src.array;
        final int[] output = dst.array;

@@ -17,7 +17,7 @@ package kanzi.filter;
 
 
 import java.lang.reflect.Method;
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntFilter;
 
 
@@ -66,7 +66,7 @@ public class JNA_VideoEffect implements IntFilter
 
 
     @Override
-    public boolean apply(IndexedIntArray source, IndexedIntArray destination)
+    public boolean apply(SliceIntArray source, SliceIntArray destination)
     {
         return native_apply(this.width, this.height, this.stride, source.array, source.index,
                 destination.array, destination.index);

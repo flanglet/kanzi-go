@@ -16,7 +16,7 @@ limitations under the License.
 package kanzi.function;
 
 import kanzi.ByteFunction;
-import kanzi.IndexedByteArray;
+import kanzi.SliceByteArray;
 
 // Zero Run Length Encoding is a simple encoding algorithm by Wheeler
 // closely related to Run Length Encoding. The main difference is
@@ -35,20 +35,30 @@ public final class ZRLT implements ByteFunction
 
 
    @Override
-   public boolean forward(IndexedByteArray source, IndexedByteArray destination, int length)
+   public boolean forward(SliceByteArray input, SliceByteArray output)
    {
-      if ((source == null) || (destination == null) || (source.array == destination.array))
+      if ((input == null) || (output == null) || (input.array == output.array))
          return false;
 
-      final byte[] src = source.array;
-      final byte[] dst = destination.array;
+      if ((input.array == null) || (output.array == null))
+         return false;
       
-      if (dst.length - destination.index < getMaxEncodedLength(length))
+      final byte[] src = input.array;
+      final byte[] dst = output.array;
+      final int count = input.length;      
+      
+      if (count < 0)
+        return false;
+
+      if (input.index + count > input.array.length)
+         return false;
+      
+      if (output.length - output.index < getMaxEncodedLength(count))
          return false;
      
-      int srcIdx = source.index;
-      int dstIdx = destination.index;
-      final int srcEnd = srcIdx + length;
+      int srcIdx = input.index;
+      int dstIdx = output.index;
+      final int srcEnd = srcIdx + count;
       final int dstEnd = dst.length;
       final int dstEnd2 = dstEnd - 2;
       int runLength = 1;
@@ -106,23 +116,37 @@ public final class ZRLT implements ByteFunction
          srcIdx++;
       }
 
-      source.index = srcIdx;
-      destination.index = dstIdx;
+      if (dstIdx > output.length)
+         return false;
+
+      input.index = srcIdx;
+      output.index = dstIdx;           
       return (srcIdx == srcEnd) && (runLength == 1);
    }
 
 
    @Override
-   public boolean inverse(IndexedByteArray source, IndexedByteArray destination, int length)
+   public boolean inverse(SliceByteArray input, SliceByteArray output)
    {
-      if ((source == null) || (destination == null) || (source.array == destination.array))
+      if ((input == null) || (output == null) || (input.array == output.array))
+        return false;
+
+      if ((input.array == null) || (output.array == null))
          return false;
 
-      int srcIdx = source.index;
-      int dstIdx = destination.index;
-      final byte[] src = source.array;
-      final byte[] dst = destination.array;
-      final int srcEnd = srcIdx + length;
+      final int count = input.length;
+      
+      if (count < 0)
+        return false;
+
+      if (input.index + count > input.array.length)
+         return false;   
+      
+      int srcIdx = input.index;
+      int dstIdx = output.index;
+      final byte[] src = input.array;
+      final byte[] dst = output.array;
+      final int srcEnd = srcIdx + count;
       final int dstEnd = dst.length;
       int runLength = 1;
 
@@ -178,8 +202,8 @@ public final class ZRLT implements ByteFunction
 
       // If runLength is not 1, add trailing 0s
       final int end = dstIdx + runLength - 1;
-      source.index = srcIdx;
-      destination.index = dstIdx;
+      input.index = srcIdx;
+      output.index = dstIdx;
 
       if (end > dstEnd)
          return false;
@@ -187,7 +211,10 @@ public final class ZRLT implements ByteFunction
       while (dstIdx < end)
          dst[dstIdx++] = 0;
 
-      destination.index = dstIdx;
+      if (dstIdx > output.length)
+         return false;
+      
+      output.index = dstIdx;          
       return srcIdx == srcEnd;
    }
 

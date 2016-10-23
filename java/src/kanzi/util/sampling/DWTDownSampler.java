@@ -15,7 +15,7 @@ limitations under the License.
 
 package kanzi.util.sampling;
 
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntTransform;
 import kanzi.transform.DWT_CDF_9_7;
 import kanzi.transform.DWT_Haar;
@@ -89,8 +89,8 @@ public class DWTDownSampler implements DownSampler
    @Override
    public void subSample(int[] input, int[] output) 
    {
-      IndexedIntArray src = new IndexedIntArray(input, 0);
-      IndexedIntArray dst = new IndexedIntArray(output, 0);
+      SliceIntArray src = new SliceIntArray(input, 0);
+      SliceIntArray dst = new SliceIntArray(output, 0);
       this.dwt.forward(src, dst);
       int offs = 0;
       final int sh = this.shift;

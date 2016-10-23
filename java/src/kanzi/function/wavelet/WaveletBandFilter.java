@@ -15,7 +15,7 @@ limitations under the License.
 
 package kanzi.function.wavelet;
 
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntFunction;
 
 
@@ -127,7 +127,7 @@ public class WaveletBandFilter implements IntFunction
 
 
     @Override
-    public boolean forward(IndexedIntArray source, IndexedIntArray destination)
+    public boolean forward(SliceIntArray source, SliceIntArray destination)
     {
         int srcIdx = source.index;
         int dstIdx = destination.index;
@@ -522,7 +522,7 @@ public class WaveletBandFilter implements IntFunction
 
     // The filter MUST know the levels and quantizers !!!
     @Override
-    public boolean inverse(IndexedIntArray source, IndexedIntArray destination)
+    public boolean inverse(SliceIntArray source, SliceIntArray destination)
     {
         int srcIdx = source.index;
         int dstIdx = destination.index;

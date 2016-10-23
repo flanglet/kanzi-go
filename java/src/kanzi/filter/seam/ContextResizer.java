@@ -17,7 +17,7 @@ package kanzi.filter.seam;
 
 
 import java.util.concurrent.ExecutorService;
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntSorter;
 import kanzi.IntFilter;
 import kanzi.filter.ParallelFilter;
@@ -46,7 +46,7 @@ public class ContextResizer implements IntFilter
     // Actions
     public static final int SHRINK = 1;
     public static final int EXPAND = 2;
-   
+
     private static final int USED_MASK = 0x80000000;
     private static final int VALUE_MASK = 0x7FFFFFFF;
     private static final int DEFAULT_BEST_COST = 0x0FFFFFFF;
@@ -64,7 +64,7 @@ public class ContextResizer implements IntFilter
     private int scalingFactor;
     private boolean debug;
     private final IntSorter sorter;
-    private IndexedIntArray buffer;
+    private SliceIntArray buffer;
     private final boolean fastMode;
     private final ExecutorService pool;
 
@@ -75,7 +75,7 @@ public class ContextResizer implements IntFilter
     }
 
 
-    public ContextResizer(int width, int height, int stride, int direction, 
+    public ContextResizer(int width, int height, int stride, int direction,
             int scalingFactor)
     {
         this(width, height, stride, direction, scalingFactor, false, false, null);
@@ -84,13 +84,13 @@ public class ContextResizer implements IntFilter
 
     // width, height, offset and stride allow to apply the filter on a subset of an image
     // For packed RGB images, use 3 channels mode for more accurate results (fastMode=false)
-    // and one channel mode (fastMode=true) for faster results.  
+    // and one channel mode (fastMode=true) for faster results.
     // For unpacked images, use one channel mode (fastMode=true).
     public ContextResizer(int width, int height, int stride,
             int direction, int scalingFactor,
             boolean fastMode, boolean debug, ExecutorService pool)
     {
-        this(width, height, stride, direction, scalingFactor, 
+        this(width, height, stride, direction, scalingFactor,
                 Math.max(width, height), fastMode, debug, pool, DEFAULT_MAX_COST_PER_PIXEL);
     }
 
@@ -100,11 +100,11 @@ public class ContextResizer implements IntFilter
     // average cost per pixel less than maxAvgGeoPixCost are allowed (it may be
     // less than nbGeodesics).
     // For packed RGB images, use 3 channels mode for more accurate results (fastMode=false)
-    // and one channel mode (fastMode=true) for faster results.  
+    // and one channel mode (fastMode=true) for faster results.
     // For unpacked images, use one channel mode (fastMode=true).
     // Scaling factor (unit is 0.1% or per mil), negative for shrink and positive for expand.
     public ContextResizer(int width, int height, int stride, int direction,
-            int scalingFactor, int maxSearches, boolean fastMode, 
+            int scalingFactor, int maxSearches, boolean fastMode,
             boolean debug, ExecutorService pool, int maxAvgGeoPixCost)
     {
         if (height < 8)
@@ -133,24 +133,24 @@ public class ContextResizer implements IntFilter
             throw new IllegalArgumentException("Invalid direction parameter (must be VERTICAL or HORIZONTAL)");
 
         int absScalingFactor = Math.abs(scalingFactor);
-        
+
         if ((direction & VERTICAL) != 0)
         {
            if ((absScalingFactor * width / 1000) == 0)
               throw new IllegalArgumentException("The number of vertical geodesics is 0, increase scaling factor");
 
            if ((absScalingFactor * width / 1000) == width)
-              throw new IllegalArgumentException("The number of vertical geodesics is " + 
+              throw new IllegalArgumentException("The number of vertical geodesics is " +
                       width + ", decrease scaling factor");
         }
-        
+
         if ((direction & HORIZONTAL) != 0)
         {
            if ((absScalingFactor * height / 1000) == 0)
               throw new IllegalArgumentException("The number of horizontal geodesics is 0, increase scaling factor");
 
            if ((absScalingFactor * height / 1000) == height)
-              throw new IllegalArgumentException("The number of horizontal geodesics is " + 
+              throw new IllegalArgumentException("The number of horizontal geodesics is " +
                       height + ", decrease scaling factor");
         }
 
@@ -162,7 +162,7 @@ public class ContextResizer implements IntFilter
         this.costs = new int[stride*height];
         this.scalingFactor = scalingFactor;
         this.maxAvgGeoPixCost = maxAvgGeoPixCost;
-        this.buffer = new IndexedIntArray(new int[0], 0);
+        this.buffer = new SliceIntArray();
         this.fastMode = fastMode;
         this.debug = debug;
         this.pool = pool;
@@ -171,7 +171,7 @@ public class ContextResizer implements IntFilter
 
         while (1<<log < dim)
            log++;
-        
+
         // Used to sort coordinates of geodesics
         this.sorter = new BucketSort(log);
     }
@@ -221,14 +221,14 @@ public class ContextResizer implements IntFilter
     }
 
 
-    public boolean shrink(IndexedIntArray src, IndexedIntArray dst)
+    public boolean shrink(SliceIntArray src, SliceIntArray dst)
     {
         this.setAction(SHRINK);
         return this.shrink_(src, dst);
     }
 
 
-    public boolean expand(IndexedIntArray src, IndexedIntArray dst)
+    public boolean expand(SliceIntArray src, SliceIntArray dst)
     {
         this.setAction(EXPAND);
         return this.expand_(src, dst);
@@ -238,19 +238,19 @@ public class ContextResizer implements IntFilter
     // Modifies the width and/or height attributes
     // The src image is modified if both directions are selected
     @Override
-    public boolean apply(IndexedIntArray src, IndexedIntArray dst)
+    public boolean apply(SliceIntArray src, SliceIntArray dst)
     {
-       return (this.scalingFactor < 0) ? this.shrink_(src, dst) : 
+       return (this.scalingFactor < 0) ? this.shrink_(src, dst) :
                this.expand_(src, dst);
     }
 
 
     // Increases the width and/or height attributes. Result must fit in width*height
-    private boolean expand_(IndexedIntArray src, IndexedIntArray dst)
+    private boolean expand_(SliceIntArray src, SliceIntArray dst)
     {
         int processed = 0;
-        IndexedIntArray input = src;
-        IndexedIntArray output = dst;
+        SliceIntArray input = src;
+        SliceIntArray output = dst;
 
         if ((this.direction & VERTICAL) != 0)
         {
@@ -258,24 +258,29 @@ public class ContextResizer implements IntFilter
             {
                // Lazy dynamic memory allocation
                if (this.buffer.array.length < this.stride * this.height)
-                  this.buffer.array = new int[this.stride*this.height];
-               
-               output = this.buffer;              
+               {
+				  this.buffer.length = this.stride*this.height;
+
+				  if (this.buffer.array.length < this.buffer.length)
+                     this.buffer.array = new int[this.buffer.length];
+			   }
+
+               output = this.buffer;
             }
-            
+
             Geodesic[] geodesics = this.computeGeodesics(input, VERTICAL);
- 
+
             if (geodesics.length > 0)
             {
                 processed += geodesics.length;
                 this.addGeodesics(geodesics, input, output, VERTICAL);
             }
-           
+
             if ((this.direction & HORIZONTAL) != 0)
             {
                input = this.buffer;
                output = dst;
-            }        
+            }
         }
 
         if ((this.direction & HORIZONTAL) != 0)
@@ -299,11 +304,11 @@ public class ContextResizer implements IntFilter
 
 
     // Decreases the width and/or height attributes
-    private boolean shrink_(IndexedIntArray src, IndexedIntArray dst)
+    private boolean shrink_(SliceIntArray src, SliceIntArray dst)
     {
         int processed = 0;
-        IndexedIntArray input = src;
-        IndexedIntArray output = dst;
+        SliceIntArray input = src;
+        SliceIntArray output = dst;
 
         if ((this.direction & VERTICAL) != 0)
         {
@@ -311,11 +316,16 @@ public class ContextResizer implements IntFilter
             {
                // Lazy dynamic memory allocation
                if (this.buffer.array.length < this.stride * this.height)
-                  this.buffer.array = new int[this.stride*this.height];
-               
-               output = this.buffer;              
+               {
+				  this.buffer.length = this.stride*this.height;
+
+				  if (this.buffer.array.length < this.buffer.length)
+                     this.buffer.array = new int[this.buffer.length];
+			   }
+
+               output = this.buffer;
             }
-            
+
             Geodesic[] geodesics = this.computeGeodesics(input, VERTICAL);
 
             if (geodesics.length > 0)
@@ -323,7 +333,7 @@ public class ContextResizer implements IntFilter
                processed += geodesics.length;
                this.removeGeodesics(geodesics, input, output, VERTICAL);
             }
-            
+
             if ((this.direction & HORIZONTAL) != 0)
             {
                input = this.buffer;
@@ -339,7 +349,7 @@ public class ContextResizer implements IntFilter
             {
                processed += geodesics.length;
                this.removeGeodesics(geodesics, input, output, HORIZONTAL);
-            }   
+            }
         }
 
         if ((processed == 0) && (src.array != dst.array))
@@ -352,20 +362,20 @@ public class ContextResizer implements IntFilter
 
 
     // dir must be either VERTICAL or HORIZONTAL
-    public boolean addGeodesics(Geodesic[] geodesics, IndexedIntArray source, 
-            IndexedIntArray destination, int dir)
+    public boolean addGeodesics(Geodesic[] geodesics, SliceIntArray source,
+            SliceIntArray destination, int dir)
     {
         if (((dir & VERTICAL) == 0) && ((dir & HORIZONTAL) == 0))
            return false;
-               
+
         if (((dir & VERTICAL) != 0) && ((dir & HORIZONTAL) != 0))
            return false;
-        
+
         if (geodesics.length == 0)
            return true ;
 
         final int[] src = source.array;
-        final int[] dst = destination.array;    
+        final int[] dst = destination.array;
         int srcStart = source.index;
         int dstStart = destination.index;
         final int[] linePositions = new int[geodesics.length];
@@ -389,7 +399,7 @@ public class ContextResizer implements IntFilter
             endi = this.width;
             incStart = this.stride;
             incIdx = 1;
-            color = RED_COLOR;           
+            color = RED_COLOR;
         }
 
         for (int j=endj-1; j>=0; j--)
@@ -408,15 +418,15 @@ public class ContextResizer implements IntFilter
             int srcIdx = srcStart;
             int dstIdx = dstStart;
             int pos = 0;
-            
+
             while (posIdx < endPosIdx)
             {
                 final int newPos = linePositions[posIdx];
-                
+
                 if (newPos > pos)
-                {     
+                {
                    final int len = newPos - pos;
-                   
+
                    if ((dir == VERTICAL) && (len >= 32))
                    {
                        // Speed up copy
@@ -430,7 +440,7 @@ public class ContextResizer implements IntFilter
                        srcIdx += (len * incIdx);
                        dstIdx += (len * incIdx);
                     }
-                
+
                     pos = newPos;
                 }
 
@@ -450,7 +460,7 @@ public class ContextResizer implements IntFilter
             }
 
             final int len = endi - pos;
-            
+
             // Finish the line, no more test for geodesic pixels required
             if ((dir == VERTICAL) && (len >= 32))
             {
@@ -470,26 +480,26 @@ public class ContextResizer implements IntFilter
             srcStart += incStart;
             dstStart += incStart;
         }
-        
+
         return true;
     }
-    
-    
+
+
     // dir must be either VERTICAL or HORIZONTAL
-    public boolean removeGeodesics(Geodesic[] geodesics, IndexedIntArray source, 
-            IndexedIntArray destination, int dir)
+    public boolean removeGeodesics(Geodesic[] geodesics, SliceIntArray source,
+            SliceIntArray destination, int dir)
     {
         if (((dir & VERTICAL) == 0) && ((dir & HORIZONTAL) == 0))
            return false;
-               
+
         if (((dir & VERTICAL) != 0) && ((dir & HORIZONTAL) != 0))
            return false;
-        
+
         if (geodesics.length == 0)
            return true ;
 
         final int[] src = source.array;
-        final int[] dst = destination.array;    
+        final int[] dst = destination.array;
         int srcStart = source.index;
         int dstStart = destination.index;
 
@@ -542,7 +552,7 @@ public class ContextResizer implements IntFilter
                 if (newPos > pos)
                 {
                     final int len = newPos - pos;
-                    
+
                     if ((dir == VERTICAL) && (len >= 32))
                     {
                        // Speed up copy
@@ -552,7 +562,7 @@ public class ContextResizer implements IntFilter
                     }
                     else
                     {
-                       // Either incIdx != 1 or not enough pixels for arraycopy to be worth it                       
+                       // Either incIdx != 1 or not enough pixels for arraycopy to be worth it
                        copy(src, srcIdx, dst, dstIdx, len, incIdx);
                        srcIdx += (len * incIdx);
                        dstIdx += (len * incIdx);
@@ -600,11 +610,11 @@ public class ContextResizer implements IntFilter
 
 
     // dir must be either VERTICAL or HORIZONTAL
-    public Geodesic[] computeGeodesics(IndexedIntArray source, int dir)
-    {          
+    public Geodesic[] computeGeodesics(SliceIntArray source, int dir)
+    {
         if (((dir & VERTICAL) == 0) && ((dir & HORIZONTAL) == 0))
            return new Geodesic[0];
-               
+
         if (((dir & VERTICAL) != 0) && ((dir & HORIZONTAL) != 0))
            return new Geodesic[0];
 
@@ -619,7 +629,7 @@ public class ContextResizer implements IntFilter
         // It will improve quality by spreading the search over the whole image
         // if maxSearches is small.
         for (int i=0; ((n<searches) && (i<24)); i+=3)
-        { 
+        {
             // i & 7 shuffles the start position : 0, 3, 6, 1, 4, 7, 2, 5
             for (int j=(i & 7); ((n<searches) && (j<dim)); j+=8)
                 firstPositions[n++] = j;
@@ -632,11 +642,11 @@ public class ContextResizer implements IntFilter
     // Compute the geodesics but give a constraint on where to start from
     // All first position values must be different
     // dir must be either VERTICAL or HORIZONTAL
-    public Geodesic[] computeGeodesics(IndexedIntArray source, int dir, int[] firstPositions)
+    public Geodesic[] computeGeodesics(SliceIntArray source, int dir, int[] firstPositions)
     {
         if (((dir & VERTICAL) == 0) && ((dir & HORIZONTAL) == 0))
            return new Geodesic[0];
-               
+
         if (((dir & VERTICAL) != 0) && ((dir & HORIZONTAL) != 0))
            return new Geodesic[0];
 
@@ -646,7 +656,7 @@ public class ContextResizer implements IntFilter
     }
 
 
-    private Geodesic[] computeGeodesics_(IndexedIntArray source, int dir, int[] firstPositions, int searches)
+    private Geodesic[] computeGeodesics_(SliceIntArray source, int dir, int[] firstPositions, int searches)
     {
         if ((searches == 0) || (source == null) || (source.array == null) || (firstPositions == null))
             return new Geodesic[0];
@@ -766,13 +776,13 @@ public class ContextResizer implements IntFilter
 
             if (geodesic.cost < maxCost)
             {
-                 // Add geodesic (in increasing cost order). 
+                 // Add geodesic (in increasing cost order).
                  Geodesic newLast = queue.add(geodesic);
 
                  // Prevent geodesics from sharing pixels by marking the used pixels
                  // Only the pixels of the geodesics in the queue are marked as used
                  if (nbGeodesics > 1)
-                 {                     
+                 {
                      // If the previous last element has been expelled from the queue,
                      // the corresponding pixels can be reused by other geodesics
                      final int geoLength4 = geoLength & -4;
@@ -874,14 +884,14 @@ public class ContextResizer implements IntFilter
         }
     }
 
- 
-    private int[] calculateCosts(IndexedIntArray source, int[] costs_)
+
+    private int[] calculateCosts(SliceIntArray source, int[] costs_)
     {
-        // For packed RGB images, use 3 channels mode for more accurate results and 
-        // one channel mode (green) for faster results.  
+        // For packed RGB images, use 3 channels mode for more accurate results and
+        // one channel mode (green) for faster results.
         // For unpacked images, use one channel mode (Y for YUV or any for RGB).
         int sobelMode = (this.fastMode == true) ? SobelFilter.G_CHANNEL : SobelFilter.THREE_CHANNELS;
-        
+
         if (this.pool != null)
         {
            // Use 4 threads
@@ -890,28 +900,28 @@ public class ContextResizer implements IntFilter
            for (int i=0; i<gradientFilters.length; i++)
            {
               // Do not process the boundaries and overlap the filters (dim + 2)
-              // to avoid boundary artefacts. 
+              // to avoid boundary artefacts.
               gradientFilters[i] = new SobelFilter(this.width+2, this.height/gradientFilters.length+2,
                    this.stride, SobelFilter.HORIZONTAL | SobelFilter.VERTICAL,
                    sobelMode, SobelFilter.COST, false);
            }
-           
+
            // Apply the parallel filter
-           IntFilter pf = new ParallelFilter(this.width, this.height, this.stride, 
-                   this.pool, gradientFilters, ParallelFilter.HORIZONTAL);  
-           pf.apply(source, new IndexedIntArray(costs_, 0));
+           IntFilter pf = new ParallelFilter(this.width, this.height, this.stride,
+                   this.pool, gradientFilters, ParallelFilter.HORIZONTAL);
+           pf.apply(source, new SliceIntArray(costs_, 0));
 
            // Fix missing first and last rows of costs (due to non boundary processing filters)
            System.arraycopy(costs_, this.width, costs_, 0, this.width);
-           System.arraycopy(costs_, (this.height-2)*this.stride, 
+           System.arraycopy(costs_, (this.height-2)*this.stride,
                             costs_, (this.height-1)*this.stride, this.width);
-           
+
            // Fix missing first column of costs
            final int area = this.stride * this.height;
-           
+
            for (int j=0; j<area; j+=this.stride)
               costs_[j] = costs_[j+1];
-        } 
+        }
         else
         {
            // Mono threaded
@@ -919,17 +929,17 @@ public class ContextResizer implements IntFilter
                             this.stride, SobelFilter.HORIZONTAL | SobelFilter.VERTICAL,
                             sobelMode, SobelFilter.COST, true);
 
-           gradientFilter.apply(source, new IndexedIntArray(costs_, 0));
+           gradientFilter.apply(source, new SliceIntArray(costs_, 0));
         }
-        
+
         // Add a quadratic contribution to the cost to favor straight lines
         // if costs of neighbors are all low
         for (int i=0; i<costs_.length; i++)
         {
-           final int c = costs_[i];           
-           costs_[i] = (c < 5) ? 0 :  c + ((c * c) >> 8); 
+           final int c = costs_[i];
+           costs_[i] = (c < 5) ? 0 :  c + ((c * c) >> 8);
         }
-        
+
         return costs_;
     }
 

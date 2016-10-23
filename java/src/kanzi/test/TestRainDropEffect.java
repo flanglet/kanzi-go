@@ -27,7 +27,7 @@ import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import kanzi.Global;
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.filter.RainDropEffect;
 
 
@@ -48,8 +48,8 @@ public class TestRainDropEffect
             BufferedImage img = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
             img.getGraphics().drawImage(image, 0, 0, null);
             BufferedImage img2 = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
-            IndexedIntArray source = new IndexedIntArray(new int[w*h], 0);
-            IndexedIntArray dest = new IndexedIntArray(new int[w*h], 0);
+            SliceIntArray source = new SliceIntArray(new int[w*h], 0);
+            SliceIntArray dest = new SliceIntArray(new int[w*h], 0);
 
             // Do NOT use img.getRGB(): it is more than 10 times slower than
             // img.getRaster().getDataElements()
@@ -83,7 +83,7 @@ public class TestRainDropEffect
             
             // Speed test
             {
-                IndexedIntArray tmp = new IndexedIntArray(new int[w*h], 0);
+                SliceIntArray tmp = new SliceIntArray(new int[w*h], 0);
                 System.arraycopy(source.array, 0, tmp.array, 0, w * h);
                 System.out.println("Speed test");
                 int iters = 1000;

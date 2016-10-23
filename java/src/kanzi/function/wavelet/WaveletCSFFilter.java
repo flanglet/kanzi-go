@@ -15,7 +15,7 @@ limitations under the License.
 
 package kanzi.function.wavelet;
 
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntTransform;
 
 
@@ -162,7 +162,7 @@ public class WaveletCSFFilter implements IntTransform
 
     // Apply Contrast Sensitivy Function weights to wavelet coefficients
     @Override
-    public boolean forward(IndexedIntArray source, IndexedIntArray destination)
+    public boolean forward(SliceIntArray source, SliceIntArray destination)
     {
         final int srcIdx = source.index;
         final int dstIdx = destination.index;
@@ -261,7 +261,7 @@ public class WaveletCSFFilter implements IntTransform
 
     // Revert Contrast Sensitivy Function weights on wavelet coefficients
     @Override
-    public boolean inverse(IndexedIntArray source, IndexedIntArray destination)
+    public boolean inverse(SliceIntArray source, SliceIntArray destination)
     {
         final int srcIdx = source.index;
         final int dstIdx = destination.index;

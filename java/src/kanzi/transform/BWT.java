@@ -16,7 +16,7 @@ limitations under the License.
 package kanzi.transform;
 
 import kanzi.ByteTransform;
-import kanzi.IndexedByteArray;
+import kanzi.SliceByteArray;
 
 
 // The Burrows-Wheeler Transform is a reversible transform based on
@@ -95,17 +95,25 @@ public class BWT implements ByteTransform
 
     // Not thread safe
     @Override
-    public boolean forward(IndexedByteArray src, IndexedByteArray dst, final int count)
+    public boolean forward(SliceByteArray src, SliceByteArray dst)
     {
         if ((src == null) || (dst == null) || (src.array == dst.array))
            return false;
 
+        final int count = src.length;
+        
         if ((count < 0) || (count > maxBlockSize()))
            return false;
 
-        if (count+src.index > src.array.length)
-          return false;
-
+        if (dst.index + count > dst.length)
+           return false;
+       
+        if (src.index + count > src.array.length)
+           return false;
+       
+        if (dst.index + count > dst.array.length)
+           return false;
+       
         final byte[] input = src.array;
         final byte[] output = dst.array;
         final int srcIdx = src.index;
@@ -152,14 +160,25 @@ public class BWT implements ByteTransform
 
     // Not thread safe
     @Override
-    public boolean inverse(IndexedByteArray src, IndexedByteArray dst, final int count)
+    public boolean inverse(SliceByteArray src, SliceByteArray dst)
     {
        if ((src == null) || (dst == null) || (src.array == dst.array))
           return false;
 
+       final int count = src.length;
+        
        if ((count < 0) || (count > maxBlockSize()))
            return false;
 
+       if (dst.index + count > dst.length)
+          return false;
+       
+       if (src.index + count > src.array.length)
+          return false;
+       
+       if (dst.index + count > dst.array.length)
+          return false;      
+       
        if (count < 2)
        {
           if (count == 1)
@@ -176,7 +195,7 @@ public class BWT implements ByteTransform
     
     
     // When count < 1<<24
-    private boolean inverseRegularBlock(IndexedByteArray src, IndexedByteArray dst, final int count)
+    private boolean inverseRegularBlock(SliceByteArray src, SliceByteArray dst, final int count)
     {
        final byte[] input = src.array;
        final byte[] output = dst.array;
@@ -232,7 +251,7 @@ public class BWT implements ByteTransform
           ptr = data[(ptr>>>8) + buckets_[ptr&0xFF]];
           output[i] = (byte) ptr;
        }
-       
+
        src.index += count;
        dst.index += count;
        return true;
@@ -240,7 +259,7 @@ public class BWT implements ByteTransform
 
     
     // When count >= 1<<24
-    private boolean inverseBigBlock(IndexedByteArray src, IndexedByteArray dst, int count)
+    private boolean inverseBigBlock(SliceByteArray src, SliceByteArray dst, int count)
     {
        final byte[] input = src.array;
        final byte[] output = dst.array;

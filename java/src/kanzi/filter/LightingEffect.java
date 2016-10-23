@@ -16,7 +16,7 @@ limitations under the License.
 package kanzi.filter;
 
 import kanzi.Global;
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntFilter;
 
 
@@ -164,7 +164,7 @@ public class LightingEffect implements IntFilter
 
 
     @Override
-    public boolean apply(IndexedIntArray source, IndexedIntArray destination)
+    public boolean apply(SliceIntArray source, SliceIntArray destination)
     {
         final int[] src = source.array;
         final int[] dst = destination.array;

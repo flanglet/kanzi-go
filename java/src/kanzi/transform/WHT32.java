@@ -15,7 +15,7 @@ limitations under the License.
 
 package kanzi.transform;
 
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntTransform;
 
 
@@ -50,15 +50,27 @@ public final class WHT32 implements IntTransform
 
     // Not thread safe
     @Override
-    public boolean forward(IndexedIntArray src, IndexedIntArray dst)
+    public boolean forward(SliceIntArray src, SliceIntArray dst)
     {
-        return this.compute(src, dst, this.fScale);
+       if (src.length != 1024)
+          return false;
+       
+       if (dst.index + 1024 > dst.length)
+          return false;  
+
+       if (src.index + 1024 > src.array.length)
+          return false;
+       
+       if (dst.index + 1024 > dst.array.length)
+          return false;
+       
+       return this.compute(src, dst, this.fScale);
     }
 
 
     // Not thread safe
     // Result multiplied by sqrt(2) or 16*sqrt(2) if 'scale' is set to false
-    private boolean compute(IndexedIntArray src, IndexedIntArray dst, int shift)
+    private boolean compute(SliceIntArray src, SliceIntArray dst, int shift)
     {
        processRows(src.array, src.index, this.data);
        processColumns(this.data, dst.array, dst.index, shift);
@@ -494,9 +506,21 @@ public final class WHT32 implements IntTransform
 
 
     @Override
-    public boolean inverse(IndexedIntArray src, IndexedIntArray dst)
+    public boolean inverse(SliceIntArray src, SliceIntArray dst)
     {
-        return compute(src, dst, this.iScale);
+       if (src.length != 1024)
+          return false;
+       
+       if (dst.index + 1024 > dst.length)
+          return false;  
+
+       if (src.index + 1024 > src.array.length)
+          return false;
+       
+       if (dst.index + 1024 > dst.array.length)
+          return false;   
+       
+       return compute(src, dst, this.iScale);
     }
 
 }

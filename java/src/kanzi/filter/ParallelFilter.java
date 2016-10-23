@@ -21,7 +21,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntFilter;
 
 
@@ -85,7 +85,7 @@ public class ParallelFilter implements IntFilter
 
    
    @Override
-   public boolean apply(final IndexedIntArray source, final IndexedIntArray destination)
+   public boolean apply(final SliceIntArray input, final SliceIntArray output)
    {
       final int nbThreads = this.delegates.length;
       ArrayList<Callable<Boolean>> filterTasks = new ArrayList<Callable<Boolean>>(nbThreads);
@@ -94,12 +94,12 @@ public class ParallelFilter implements IntFilter
       
       for (int i=0; i<this.delegates.length; i++)
       { 
-         int srcIdx = (this.direction == HORIZONTAL) ? source.index + (area * i) / nbThreads
-                 : source.index + (this.width * i) / nbThreads;
-         IndexedIntArray src = new IndexedIntArray(source.array, srcIdx); 
-         int dstIdx  = (this.direction == HORIZONTAL) ? destination.index + (area * i) / nbThreads
-                 : destination.index + (this.width * i) / nbThreads;
-         IndexedIntArray dst = new IndexedIntArray(destination.array, dstIdx); 
+         int srcIdx = (this.direction == HORIZONTAL) ? input.index + (area * i) / nbThreads
+                 : input.index + (this.width * i) / nbThreads;
+         SliceIntArray src = new SliceIntArray(input.array, srcIdx); 
+         int dstIdx  = (this.direction == HORIZONTAL) ? output.index + (area * i) / nbThreads
+                 : output.index + (this.width * i) / nbThreads;
+         SliceIntArray dst = new SliceIntArray(output.array, dstIdx); 
          filterTasks.add(new FilterTask(this.delegates[i], src, dst));
       } 
       
@@ -125,12 +125,12 @@ public class ParallelFilter implements IntFilter
    
    static class FilterTask implements Callable<Boolean>
    {
-      final IndexedIntArray src;
-      final IndexedIntArray dst;
+      final SliceIntArray src;
+      final SliceIntArray dst;
       final IntFilter filter;
       
       
-      public FilterTask(IntFilter filter, IndexedIntArray src, IndexedIntArray dst) 
+      public FilterTask(IntFilter filter, SliceIntArray src, SliceIntArray dst) 
       {
          this.filter = filter;
          this.src = src;

@@ -16,7 +16,7 @@ limitations under the License.
 package kanzi.function;
 
 import kanzi.ByteFunction;
-import kanzi.IndexedByteArray;
+import kanzi.SliceByteArray;
 
 // Simple implementation of a Run Length Codec
 // Length is transmitted as 1 or 2 bytes (minus 1 bit for the mask that indicates
@@ -56,20 +56,30 @@ public class RLT implements ByteFunction
 
 
    @Override
-   public boolean forward(IndexedByteArray source, IndexedByteArray destination, int length)
+   public boolean forward(SliceByteArray input, SliceByteArray output)
    {
-      if ((source == null) || (destination == null) || (source.array == destination.array))
+      if ((input == null) || (output == null) || (input.array == output.array))
          return false;
 
-      final byte[] src = source.array;
-      final byte[] dst = destination.array;
+      if ((input.array == null) || (output.array == null))
+         return false;
       
-      if (dst.length - destination.index < getMaxEncodedLength(length))
+      final int count = input.length;
+
+      if (count < 0)
+         return false;
+
+      if (input.index + count > input.array.length)
+          return false;
+      
+      if (output.length - output.index < getMaxEncodedLength(count))
          return false;
      
-      int srcIdx = source.index;
-      int dstIdx = destination.index;
-      final int srcEnd = srcIdx + length;
+      final byte[] src = input.array;
+      final byte[] dst = output.array;     
+      int srcIdx = input.index;
+      int dstIdx = output.index;
+      final int srcEnd = srcIdx + count;
       final int dstEnd = dst.length;
       final int dstEnd3 = dstEnd - 3;
       boolean res = true;
@@ -141,24 +151,34 @@ public class RLT implements ByteFunction
          }
       }
 
-      res &= (srcIdx == srcEnd);
-      source.index = srcIdx;
-      destination.index = dstIdx;
-      return res;
+      if (dstIdx > output.length)
+         return false;
+      
+      input.index = srcIdx;
+      output.index = dstIdx;
+      return res & (srcIdx == srcEnd);
    }
 
 
    @Override
-   public boolean inverse(IndexedByteArray source, IndexedByteArray destination, int length)
+   public boolean inverse(SliceByteArray input, SliceByteArray output)
    {
-      if ((source == null) || (destination == null) || (source.array == destination.array))
+      if ((input == null) || (output == null) || (input.array == output.array))
          return false;
 
-      int srcIdx = source.index;
-      int dstIdx = destination.index;
-      final byte[] src = source.array;
-      final byte[] dst = destination.array;
-      final int srcEnd = srcIdx + length;
+      final int count = input.length;
+      
+      if (count < 0)
+         return false;
+
+      if (input.index + count > input.array.length)
+          return false;
+      
+      int srcIdx = input.index;
+      int dstIdx = output.index;
+      final byte[] src = input.array;
+      final byte[] dst = output.array;
+      final int srcEnd = srcIdx + count;
       final int dstEnd = dst.length;
       int run = 0;
       final int threshold = this.runThreshold;
@@ -206,10 +226,12 @@ public class RLT implements ByteFunction
          dst[dstIdx++] = val;
       }
 
-      res &= (srcIdx == srcEnd);         
-      source.index = srcIdx;
-      destination.index = dstIdx;
-      return res;
+      if (dstIdx > output.length)
+         return false;
+       
+      input.index = srcIdx;
+      output.index = dstIdx;
+      return res & (srcIdx == srcEnd);
    }
    
    

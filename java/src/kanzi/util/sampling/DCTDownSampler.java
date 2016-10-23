@@ -15,7 +15,7 @@ limitations under the License.
 
 package kanzi.util.sampling;
 
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntTransform;
 import kanzi.quantization.IntraTables;
 import kanzi.transform.DCT16;
@@ -128,8 +128,8 @@ public class DCTDownSampler implements DownSampler
       final int st = this.stride;
       final int[] buf1 = this.buffer1;
       final int[] buf2 = this.buffer2;
-      final IndexedIntArray src = new IndexedIntArray(buf1, 0);
-      final IndexedIntArray dst = new IndexedIntArray(buf2, 0);
+      final SliceIntArray src = new SliceIntArray(buf1, 0);
+      final SliceIntArray dst = new SliceIntArray(buf2, 0);
       final int step = this.dim;
       final int stStep = st * step;
       final int len4 = (this.dim * this.dim) >> 2;

@@ -17,7 +17,7 @@ package kanzi.filter;
 
 import java.util.LinkedList;
 import java.util.Random;
-import kanzi.IndexedIntArray;
+import kanzi.SliceIntArray;
 import kanzi.IntFilter;
 import kanzi.util.QuadTreeGenerator;
 
@@ -120,7 +120,7 @@ public class ColorClusterFilter implements IntFilter
 
     // Use K-Means algorithm to create clusters of pixels with similar colors
     @Override
-    public boolean apply(IndexedIntArray src, IndexedIntArray dst)
+    public boolean apply(SliceIntArray src, SliceIntArray dst)
     {
        int scale = 1; // for now
        int scaledW = this.width >> scale;
@@ -299,7 +299,7 @@ public class ColorClusterFilter implements IntFilter
 
 
    // Up-sample and set all points in the cluster to the color of the centroid pixel
-   private boolean createFinalImage(IndexedIntArray source, IndexedIntArray destination)
+   private boolean createFinalImage(SliceIntArray source, SliceIntArray destination)
    {
       final int[] src = source.array;
       final int[] dst = destination.array;
