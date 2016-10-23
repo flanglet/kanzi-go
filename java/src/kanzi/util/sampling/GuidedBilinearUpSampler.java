@@ -79,10 +79,13 @@ public class GuidedBilinearUpSampler implements UpSampler
       if (guide == null)
          return false;
        
-      if (guide.length != 4*this.width*this.height)
+      if (guide.length < 4*this.width*this.height)
          return false;
        
-      this.guide = guide;
+      if (this.guide.length < 4*this.width*this.height)
+         this.guide = new int[4*this.width*this.height];
+      
+      System.arraycopy(guide, 0, this.guide, 0, 4*this.width*this.height);
       return true;
    }
     
