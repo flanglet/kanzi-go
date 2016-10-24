@@ -110,8 +110,8 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New(errMsg)
 	}
 
-	if count > len(src) {
-		errMsg := fmt.Sprintf("Block size is %v, input buffer length is %v", count, len(src))
+	if count > len(dst) {
+		errMsg := fmt.Sprintf("Block size is %v, output buffer length is %v", count, len(src))
 		return 0, 0, errors.New(errMsg)
 	}
 
@@ -176,6 +176,11 @@ func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 
 	if count > maxBWTBlockSize() {
 		errMsg := fmt.Sprintf("Block size is %v, max value is %v", count, maxBWTBlockSize())
+		return 0, 0, errors.New(errMsg)
+	}
+
+	if count > len(dst) {
+		errMsg := fmt.Sprintf("Block size is %v, output buffer length is %v", count, len(src))
 		return 0, 0, errors.New(errMsg)
 	}
 

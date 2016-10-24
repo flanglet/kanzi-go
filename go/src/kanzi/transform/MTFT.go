@@ -17,6 +17,7 @@ package transform
 
 import (
 	"errors"
+	"fmt"
 	"kanzi"
 )
 
@@ -63,13 +64,19 @@ func (this *MTFT) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
+	count := len(src)
+
+	if count > len(dst) {
+		errMsg := fmt.Sprintf("Block size is %v, output buffer length is %v", count, len(src))
+		return 0, 0, errors.New(errMsg)
+	}
+
 	indexes := this.buckets
 
 	for i := range indexes {
 		indexes[i] = byte(i)
 	}
 
-	count := len(src)
 	value := byte(0)
 
 	for i := 0; i < count; i++ {
@@ -174,13 +181,19 @@ func (this *MTFT) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
+	count := len(src)
+
+	if count > len(dst) {
+		errMsg := fmt.Sprintf("Block size is %v, output buffer length is %v", count, len(src))
+		return 0, 0, errors.New(errMsg)
+	}
+
 	if this.anchor == nil {
 		this.initLists()
 	} else {
 		this.balanceLists(true)
 	}
 
-	count := len(src)
 	previous := this.heads[0].value
 
 	for ii := 0; ii < count; ii++ {

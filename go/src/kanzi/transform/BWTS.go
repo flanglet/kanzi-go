@@ -59,13 +59,13 @@ func (this *BWTS) Forward(src, dst []byte) (uint, uint, error) {
 
 	count := len(src)
 
-	if count > maxBWTSBlockSize() {
-		errMsg := fmt.Sprintf("Block size is %v, max value is %v", count, maxBWTSBlockSize())
+	if count > maxBWTBlockSize() {
+		errMsg := fmt.Sprintf("Block size is %v, max value is %v", count, maxBWTBlockSize())
 		return 0, 0, errors.New(errMsg)
 	}
 
-	if count > len(src) {
-		errMsg := fmt.Sprintf("Block size is %v, input buffer length is %v", count, len(src))
+	if count > len(dst) {
+		errMsg := fmt.Sprintf("Block size is %v, output buffer length is %v", count, len(src))
 		return 0, 0, errors.New(errMsg)
 	}
 
@@ -213,8 +213,13 @@ func (this *BWTS) Inverse(src, dst []byte) (uint, uint, error) {
 
 	count := len(src)
 
-	if count > maxBWTSBlockSize() {
-		errMsg := fmt.Sprintf("Block size is %v, max value is %v", count, maxBWTSBlockSize())
+	if count > maxBWTBlockSize() {
+		errMsg := fmt.Sprintf("Block size is %v, max value is %v", count, maxBWTBlockSize())
+		return 0, 0, errors.New(errMsg)
+	}
+
+	if count > len(dst) {
+		errMsg := fmt.Sprintf("Block size is %v, output buffer length is %v", count, len(src))
 		return 0, 0, errors.New(errMsg)
 	}
 

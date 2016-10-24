@@ -16,6 +16,7 @@ limitations under the License.
 package transform
 
 import (
+	"errors"
 	"kanzi"
 )
 
@@ -109,6 +110,14 @@ func NewDCT32() (*DCT32, error) {
 }
 
 func (this *DCT32) Forward(src, dst []int) (uint, uint, error) {
+	if len(src) != 1024 {
+		return 0, 0, errors.New("Input size must be 1024")
+	}
+
+	if len(dst) < 1024 {
+		return 0, 0, errors.New("Output size must be at least 1024")
+	}
+
 	computeForwardDCT32(src, this.data, 7)
 	computeForwardDCT32(this.data, dst, this.fShift-7)
 	return 1024, 1024, nil
@@ -258,6 +267,14 @@ func computeForwardDCT32(input, output []int, shift uint) {
 }
 
 func (this *DCT32) Inverse(src, dst []int) (uint, uint, error) {
+	if len(src) != 1024 {
+		return 0, 0, errors.New("Input size must be 1024")
+	}
+
+	if len(dst) < 1024 {
+		return 0, 0, errors.New("Output size must be at least 1024")
+	}
+
 	computeInverseDCT32(src, this.data, 10)
 	computeInverseDCT32(this.data, dst, this.iShift-10)
 	return 1024, 1024, nil

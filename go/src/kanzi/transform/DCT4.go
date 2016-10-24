@@ -16,10 +16,11 @@ limitations under the License.
 package transform
 
 import (
+	"errors"
 	"kanzi"
 )
 
-// Implementation of Discrete Cosine Transform of dimension 4 
+// Implementation of Discrete Cosine Transform of dimension 4
 
 const (
 	W4_0  = 64
@@ -50,6 +51,14 @@ func NewDCT4() (*DCT4, error) {
 }
 
 func (this *DCT4) Forward(src, dst []int) (uint, uint, error) {
+	if len(src) != 16 {
+		return 0, 0, errors.New("Input size must be 16")
+	}
+
+	if len(dst) < 16 {
+		return 0, 0, errors.New("Output size must be at least 16")
+	}
+
 	computeForwardDCT4(src, this.data, 4)
 	computeForwardDCT4(this.data, dst, this.fShift-4)
 	return 16, 16, nil
@@ -113,6 +122,14 @@ func computeForwardDCT4(input []int, output []int, shift uint) {
 }
 
 func (this *DCT4) Inverse(src, dst []int) (uint, uint, error) {
+	if len(src) != 16 {
+		return 0, 0, errors.New("Input size must be 16")
+	}
+
+	if len(dst) < 16 {
+		return 0, 0, errors.New("Output size must be at least 16")
+	}
+
 	computeInverseDCT4(src, this.data, 10)
 	computeInverseDCT4(this.data, dst, this.iShift-10)
 	return 16, 16, nil

@@ -15,6 +15,10 @@ limitations under the License.
 
 package transform
 
+import (
+	"errors"
+)
+
 type WHT32 struct {
 	fScale uint
 	iScale uint
@@ -43,6 +47,14 @@ func NewWHT32(scale bool) (*WHT32, error) {
 // the parameter is set to false (scaled by sqrt(2), in which case rounding
 // may introduce errors)
 func (this *WHT32) Forward(src, dst []int) (uint, uint, error) {
+	if len(src) != 1024 {
+		return 0, 0, errors.New("Input size must be 1024")
+	}
+
+	if len(dst) < 1024 {
+		return 0, 0, errors.New("Output size must be at least 1024")
+	}
+
 	return this.compute(src, dst, this.fScale)
 }
 
@@ -471,5 +483,13 @@ func processColumns(buffer, output []int, shift uint) {
 
 // The transform is symmetric (except, potentially, for scaling)
 func (this *WHT32) Inverse(src, dst []int) (uint, uint, error) {
+	if len(src) != 1024 {
+		return 0, 0, errors.New("Input size must be 1024")
+	}
+
+	if len(dst) < 1024 {
+		return 0, 0, errors.New("Output size must be at least 1024")
+	}
+
 	return this.compute(src, dst, this.iScale)
 }

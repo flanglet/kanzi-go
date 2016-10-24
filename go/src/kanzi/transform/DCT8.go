@@ -16,10 +16,11 @@ limitations under the License.
 package transform
 
 import (
+	"errors"
 	"kanzi"
 )
 
-// Implementation of Discrete Cosine Transform of dimension 8 
+// Implementation of Discrete Cosine Transform of dimension 8
 // Due to rounding errors, the reconstruction may not be perfect
 
 const (
@@ -67,6 +68,14 @@ func NewDCT8() (*DCT8, error) {
 }
 
 func (this *DCT8) Forward(src, dst []int) (uint, uint, error) {
+	if len(src) != 64 {
+		return 0, 0, errors.New("Input size must be 64")
+	}
+
+	if len(dst) < 64 {
+		return 0, 0, errors.New("Output size must be at least 64")
+	}
+
 	computeForwardDCT8(src, this.data, 5)
 	computeForwardDCT8(this.data, dst, this.fShift-5)
 	return 64, 64, nil
@@ -116,6 +125,14 @@ func computeForwardDCT8(input, output []int, shift uint) {
 }
 
 func (this *DCT8) Inverse(src, dst []int) (uint, uint, error) {
+	if len(src) != 64 {
+		return 0, 0, errors.New("Input size must be 64")
+	}
+
+	if len(dst) < 64 {
+		return 0, 0, errors.New("Output size must be at least 64")
+	}
+
 	computeInverseDCT8(src, this.data, 10)
 	computeInverseDCT8(this.data, dst, this.iShift-10)
 	return 64, 64, nil
@@ -126,7 +143,7 @@ func computeInverseDCT8(input []int, output []int, shift uint) {
 	round := (1 << shift) >> 1
 	in := input[0:64]
 	out := output[0:64]
-	
+
 	for i := 0; i < 8; i++ {
 		x0 := in[i]
 		x1 := in[i+8]

@@ -15,6 +15,10 @@ limitations under the License.
 
 package transform
 
+import (
+	"errors"
+)
+
 type WHT8 struct {
 	fScale uint
 	iScale uint
@@ -42,6 +46,14 @@ func NewWHT8(scale bool) (*WHT8, error) {
 // the parameter is set to false (scaled by sqrt(2), in which case rounding
 // may introduce errors)
 func (this *WHT8) Forward(src, dst []int) (uint, uint, error) {
+	if len(src) != 64 {
+		return 0, 0, errors.New("Input size must be 64")
+	}
+
+	if len(dst) < 64 {
+		return 0, 0, errors.New("Output size must be at least 64")
+	}
+
 	return this.compute(src, dst, this.fScale)
 }
 
@@ -141,5 +153,13 @@ func (this *WHT8) compute(input, output []int, shift uint) (uint, uint, error) {
 
 // The transform is symmetric (except, potentially, for scaling)
 func (this *WHT8) Inverse(src, dst []int) (uint, uint, error) {
+	if len(src) != 64 {
+		return 0, 0, errors.New("Input size must be 64")
+	}
+
+	if len(dst) < 64 {
+		return 0, 0, errors.New("Output size must be at least 64")
+	}
+
 	return this.compute(src, dst, this.iScale)
 }

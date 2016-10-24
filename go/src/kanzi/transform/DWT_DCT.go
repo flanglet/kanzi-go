@@ -17,6 +17,7 @@ package transform
 
 import (
 	"errors"
+	"fmt"
 	"kanzi"
 )
 
@@ -64,11 +65,26 @@ func NewDWT_DCT(dim uint) (*DWT_DCT, error) {
 }
 
 func (this *DWT_DCT) Forward(src, dst []int) (uint, uint, error) {
-	if len(src) < int(this.dim*this.dim) {
-		return 0, 0, errors.New("The input buffer is too small")
+	if src == nil {
+		return 0, 0, errors.New("Input buffer cannot be null")
 	}
 
-	if len(dst) < int(this.dim*this.dim) {
+	if dst == nil {
+		return 0, 0, errors.New("Output buffer cannot be null")
+	}
+
+	if kanzi.SameIntSlices(src, dst, false) {
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
+	}
+
+	count := len(src)
+
+	if count != int(this.dim*this.dim) {
+		errMsg := fmt.Sprintf("Input buffer size must be %v", this.dim*this.dim)
+		return 0, 0, errors.New(errMsg)
+	}
+
+	if len(dst) < count {
 		return 0, 0, errors.New("The output buffer is too small")
 	}
 
@@ -98,11 +114,26 @@ func (this *DWT_DCT) Forward(src, dst []int) (uint, uint, error) {
 }
 
 func (this *DWT_DCT) Inverse(src, dst []int) (uint, uint, error) {
-	if len(src) < int(this.dim*this.dim) {
-		return 0, 0, errors.New("The input buffer is too small")
+	if src == nil {
+		return 0, 0, errors.New("Input buffer cannot be null")
 	}
 
-	if len(dst) < int(this.dim*this.dim) {
+	if dst == nil {
+		return 0, 0, errors.New("Output buffer cannot be null")
+	}
+
+	if kanzi.SameIntSlices(src, dst, false) {
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
+	}
+
+	count := len(src)
+
+	if count != int(this.dim*this.dim) {
+		errMsg := fmt.Sprintf("Input buffer size must be %v", this.dim*this.dim)
+		return 0, 0, errors.New(errMsg)
+	}
+
+	if len(dst) < count {
 		return 0, 0, errors.New("The output buffer is too small")
 	}
 

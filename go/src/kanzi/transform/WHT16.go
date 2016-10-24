@@ -15,6 +15,10 @@ limitations under the License.
 
 package transform
 
+import (
+	"errors"
+)
+
 type WHT16 struct {
 	fScale uint
 	iScale uint
@@ -41,6 +45,14 @@ func NewWHT16(scale bool) (*WHT16, error) {
 // For perfect reconstruction, forward results are scaled by 16 unless
 // parameter is set to false (in which case rounding may introduce errors)
 func (this *WHT16) Forward(src, dst []int) (uint, uint, error) {
+	if len(src) != 256 {
+		return 0, 0, errors.New("Input size must be 256")
+	}
+
+	if len(dst) < 256 {
+		return 0, 0, errors.New("Output size must be at least 256")
+	}
+
 	return this.compute(src, dst, this.fScale)
 }
 
@@ -238,5 +250,13 @@ func (this *WHT16) compute(input, output []int, shift uint) (uint, uint, error) 
 
 // The transform is symmetric (except, potentially, for scaling)
 func (this *WHT16) Inverse(src, dst []int) (uint, uint, error) {
+	if len(src) != 256 {
+		return 0, 0, errors.New("Input size must be 256")
+	}
+
+	if len(dst) < 256 {
+		return 0, 0, errors.New("Output size must be at least 256")
+	}
+
 	return this.compute(src, dst, this.iScale)
 }

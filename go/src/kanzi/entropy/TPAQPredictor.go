@@ -434,8 +434,8 @@ func (this *TPAQPredictor) Update(bit byte) {
 
 	// SSE (Secondary Symbol Estimation)
 	p = this.apm.get(y, p, int(this.c0|(this.c4&0xFF00)))
-	p32 := int32(p)
-	this.pr = int(p32 - ((p32 - 2048) >> 31))
+	p32 := uint32(p)
+	this.pr = p + int((p32 - 2048) >> 31)
 }
 
 // Return the split value representing the probability of 1 in the [0..4095] range.

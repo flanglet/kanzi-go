@@ -16,6 +16,7 @@ limitations under the License.
 package transform
 
 import (
+	"errors"
 	"kanzi"
 )
 
@@ -131,6 +132,14 @@ func NewDCT16() (*DCT16, error) {
 }
 
 func (this *DCT16) Forward(src, dst []int) (uint, uint, error) {
+	if len(src) != 256 {
+		return 0, 0, errors.New("Input size must be 256")
+	}
+
+	if len(dst) < 256 {
+		return 0, 0, errors.New("Output size must be at least 256")
+	}
+
 	computeForwardDCT16(src, this.data, 6)
 	computeForwardDCT16(this.data, dst, this.fShift-6)
 	return 256, 256, nil
@@ -222,6 +231,14 @@ func computeForwardDCT16(input, output []int, shift uint) {
 }
 
 func (this *DCT16) Inverse(src, dst []int) (uint, uint, error) {
+	if len(src) != 256 {
+		return 0, 0, errors.New("Input size must be 256")
+	}
+
+	if len(dst) < 256 {
+		return 0, 0, errors.New("Output size must be at least 256")
+	}
+
 	computeInverseDCT16(src, this.data, 10)
 	computeInverseDCT16(this.data, dst, this.iShift-10)
 	return 256, 256, nil

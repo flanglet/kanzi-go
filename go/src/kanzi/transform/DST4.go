@@ -16,6 +16,7 @@ limitations under the License.
 package transform
 
 import (
+	"errors"
 	"kanzi"
 )
 
@@ -45,6 +46,14 @@ func NewDST4() (*DST4, error) {
 }
 
 func (this *DST4) Forward(src, dst []int) (uint, uint, error) {
+	if len(src) != 16 {
+		return 0, 0, errors.New("Input size must be 16")
+	}
+
+	if len(dst) < 16 {
+		return 0, 0, errors.New("Output size must be at least 16")
+	}
+
 	computeForwardDST4(src, this.data, 4)
 	computeForwardDST4(this.data, dst, this.fShift-4)
 	return 16, 16, nil
@@ -108,6 +117,14 @@ func computeForwardDST4(input []int, output []int, shift uint) {
 }
 
 func (this *DST4) Inverse(src, dst []int) (uint, uint, error) {
+	if len(src) != 16 {
+		return 0, 0, errors.New("Input size must be 16")
+	}
+
+	if len(dst) < 16 {
+		return 0, 0, errors.New("Output size must be at least 16")
+	}
+
 	computeInverseDST4(src, this.data, 10)
 	computeInverseDST4(this.data, dst, this.iShift-10)
 	return 16, 16, nil

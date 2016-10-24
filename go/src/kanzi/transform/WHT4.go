@@ -15,6 +15,10 @@ limitations under the License.
 
 package transform
 
+import (
+	"errors"
+)
+
 type WHT4 struct {
 	fScale uint
 	iScale uint
@@ -37,6 +41,14 @@ func NewWHT4(scale bool) (*WHT4, error) {
 }
 
 func (this *WHT4) Forward(src, dst []int) (uint, uint, error) {
+	if len(src) != 16 {
+		return 0, 0, errors.New("Input size must be 16")
+	}
+
+	if len(dst) < 16 {
+		return 0, 0, errors.New("Output size must be at least 16")
+	}
+
 	return this.compute(src, dst, this.fScale)
 }
 
@@ -136,5 +148,13 @@ func (this *WHT4) compute(input, output []int, shift uint) (uint, uint, error) {
 
 // The transform is symmetric (except, potentially, for scaling)
 func (this *WHT4) Inverse(src, dst []int) (uint, uint, error) {
+	if len(src) != 16 {
+		return 0, 0, errors.New("Input size must be 16")
+	}
+
+	if len(dst) < 16 {
+		return 0, 0, errors.New("Output size must be at least 16")
+	}
+
 	return this.compute(src, dst, this.iScale)
 }

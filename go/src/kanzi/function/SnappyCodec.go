@@ -165,7 +165,7 @@ func (this *SnappyCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	count := len(src)
 
-	if n := this.MaxEncodedLen(int(count)); len(dst) < n {
+	if n := this.MaxEncodedLen(count); len(dst) < n {
 		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
 	}
 

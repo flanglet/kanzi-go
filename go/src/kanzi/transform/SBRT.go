@@ -17,6 +17,7 @@ package transform
 
 import (
 	"errors"
+	"fmt"
 	"kanzi"
 )
 
@@ -76,6 +77,11 @@ func (this *SBRT) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	count := len(src)
+
+	if count > len(dst) {
+		errMsg := fmt.Sprintf("Block size is %v, output buffer length is %v", count, len(src))
+		return 0, 0, errors.New(errMsg)
+	}
 
 	// Aliasing
 	p := this.prev
@@ -151,6 +157,11 @@ func (this *SBRT) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	count := len(src)
+
+	if count > len(dst) {
+		errMsg := fmt.Sprintf("Block size is %v, output buffer length is %v", count, len(src))
+		return 0, 0, errors.New(errMsg)
+	}
 
 	// Aliasing
 	p := this.prev

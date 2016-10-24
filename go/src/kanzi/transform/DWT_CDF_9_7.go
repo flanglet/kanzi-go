@@ -17,6 +17,7 @@ package transform
 
 import (
 	"errors"
+	"fmt"
 	"kanzi"
 )
 
@@ -81,18 +82,21 @@ func NewDWT(width, height, steps uint) (*DWT_CDF_9_7, error) {
 
 func (this *DWT_CDF_9_7) Forward(src, dst []int) (uint, uint, error) {
 	if src == nil {
-		return 0, 0, errors.New("The input buffer is null")
+		return 0, 0, errors.New("Input buffer cannot be null")
 	}
 
 	if dst == nil {
-		return 0, 0, errors.New("The output buffer is null")
+		return 0, 0, errors.New("Output buffer cannot be null")
 	}
 
-	if len(src) < int(this.width*this.height) {
-		return 0, 0, errors.New("The input buffer is too small")
+	count := len(src)
+
+	if count != int(this.width*this.height) {
+		errMsg := fmt.Sprintf("Input buffer size must be %v", this.width*this.height)
+		return 0, 0, errors.New(errMsg)
 	}
 
-	if len(dst) < int(this.width*this.height) {
+	if len(dst) < count {
 		return 0, 0, errors.New("The output buffer is too small")
 	}
 
@@ -190,18 +194,21 @@ func (this *DWT_CDF_9_7) computeForward(block []int, stride, inc, dim1, dim2 uin
 
 func (this *DWT_CDF_9_7) Inverse(src, dst []int) (uint, uint, error) {
 	if src == nil {
-		return 0, 0, errors.New("The input buffer is null")
+		return 0, 0, errors.New("Input buffer cannot be null")
 	}
 
 	if dst == nil {
-		return 0, 0, errors.New("The output buffer is null")
+		return 0, 0, errors.New("Output buffer cannot be null")
 	}
 
-	if len(src) < int(this.width*this.height) {
-		return 0, 0, errors.New("The input buffer is too small")
+	count := len(src)
+
+	if count != int(this.width*this.height) {
+		errMsg := fmt.Sprintf("Input buffer size must be %v", this.width*this.height)
+		return 0, 0, errors.New(errMsg)
 	}
 
-	if len(dst) < int(this.width*this.height) {
+	if len(dst) < count {
 		return 0, 0, errors.New("The output buffer is too small")
 	}
 
