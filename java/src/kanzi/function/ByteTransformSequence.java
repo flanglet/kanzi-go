@@ -114,9 +114,6 @@ public class ByteTransformSequence implements ByteFunction
       if (saIdx != 1)
          System.arraycopy(sa[0].array, sa[0].index, sa[1].array, sa[1].index, count);
             
-      if (count > dst.length)
-         return false;
-           
       src.index += blockSize;
       dst.index += count;     
       return this.skipFlags != SKIP_MASK;

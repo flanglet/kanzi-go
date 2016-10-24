@@ -63,21 +63,15 @@ public class SBRT implements ByteTransform
    @Override
    public boolean forward(SliceByteArray input, SliceByteArray output) 
    {
-      if ((input == null) || (output == null) || (input.array == output.array))
-         return false;
- 
-      if ((input.array == null) || (output.array == null))
-           return false;
- 
+      if ((!SliceByteArray.isValid(input)) || (!SliceByteArray.isValid(output)))
+          return false;
+
+      if (input.array == output.array)
+          return false;
+        
       final int count = input.length;
- 
-      if (count < 0)
-        return false;
 
       if (output.length < count)
-         return false;
-
-      if (input.index + count > input.array.length)
          return false;
 
       if (output.index + count > output.array.length)
@@ -135,21 +129,15 @@ public class SBRT implements ByteTransform
    @Override
    public boolean inverse(SliceByteArray input, SliceByteArray output) 
    {
-      if ((input == null) || (output == null) || (input.array == output.array))
-         return false;
- 
-      if ((input.array == null) || (output.array == null))
-           return false;
- 
+      if ((!SliceByteArray.isValid(input)) || (!SliceByteArray.isValid(output)))
+          return false;
+
+      if (input.array == output.array)
+          return false;
+        
       final int count = input.length;
- 
-      if (count < 0)
-        return false;
       
       if (output.length < count)
-         return false;
-
-      if (input.index + count > input.array.length)
          return false;
 
       if (output.index + count > output.array.length)

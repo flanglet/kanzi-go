@@ -170,19 +170,13 @@ public final class SnappyCodec implements ByteFunction
   @Override
   public boolean forward(SliceByteArray input, SliceByteArray output)
   {
-     if ((input == null) || (output == null) || (input.array == output.array))
+     if ((!SliceByteArray.isValid(input)) || (!SliceByteArray.isValid(output)))
         return false;
 
-      if ((input.array == null) || (output.array == null))
-         return false;
-      
-     final int count = input.length;
-      
-     if (count < 0)
+     if (input.array == output.array)
         return false;
-
-     if (input.index + count > input.array.length)
-         return false;
+   
+     final int count = input.length;      
       
      if (output.length - output.index < getMaxEncodedLength(count))
         return false;
@@ -274,9 +268,6 @@ public final class SnappyCodec implements ByteFunction
         output.index = dstIdx;
         dstIdx += emitLiteral(input, output, ends1-lit);       
      }
-
-     if (dstIdx > output.length)
-        return false;
 
      input.index = ends1;
      output.index = dstIdx;
@@ -384,20 +375,13 @@ public final class SnappyCodec implements ByteFunction
   @Override
   public boolean inverse(SliceByteArray input, SliceByteArray output)
   {
-     if ((input == null) || (output == null) || (input.array == output.array))
+     if ((!SliceByteArray.isValid(input)) || (!SliceByteArray.isValid(output)))
         return false;
 
-     if ((input.array == null) || (output.array == null))
+     if (input.array == output.array)
         return false;
-            
-     final int count = input.length;
-      
-     if (count < 0)
-        return false;
-
-     if (input.index + count > input.array.length)
-         return false;
-          
+   
+     final int count = input.length;  
      final int srcIdx = input.index;
      final int dstIdx = output.index;
      final byte[] src = input.array;
@@ -509,9 +493,6 @@ public final class SnappyCodec implements ByteFunction
         // Fall through
      }
       
-     if (d > output.length)
-         return false;
-     
      input.index = ends;
      output.index = d;
      return (d - dstIdx == dLen);

@@ -58,19 +58,13 @@ public class RLT implements ByteFunction
    @Override
    public boolean forward(SliceByteArray input, SliceByteArray output)
    {
-      if ((input == null) || (output == null) || (input.array == output.array))
+      if ((!SliceByteArray.isValid(input)) || (!SliceByteArray.isValid(output)))
          return false;
 
-      if ((input.array == null) || (output.array == null))
+      if (input.array == output.array)
          return false;
       
       final int count = input.length;
-
-      if (count < 0)
-         return false;
-
-      if (input.index + count > input.array.length)
-          return false;
       
       if (output.length - output.index < getMaxEncodedLength(count))
          return false;
@@ -151,9 +145,6 @@ public class RLT implements ByteFunction
          }
       }
 
-      if (dstIdx > output.length)
-         return false;
-      
       input.index = srcIdx;
       output.index = dstIdx;
       return res & (srcIdx == srcEnd);
@@ -163,17 +154,13 @@ public class RLT implements ByteFunction
    @Override
    public boolean inverse(SliceByteArray input, SliceByteArray output)
    {
-      if ((input == null) || (output == null) || (input.array == output.array))
+      if ((!SliceByteArray.isValid(input)) || (!SliceByteArray.isValid(output)))
          return false;
 
+      if (input.array == output.array)
+         return false;
+   
       final int count = input.length;
-      
-      if (count < 0)
-         return false;
-
-      if (input.index + count > input.array.length)
-          return false;
-      
       int srcIdx = input.index;
       int dstIdx = output.index;
       final byte[] src = input.array;
@@ -226,9 +213,6 @@ public class RLT implements ByteFunction
          dst[dstIdx++] = val;
       }
 
-      if (dstIdx > output.length)
-         return false;
-       
       input.index = srcIdx;
       output.index = dstIdx;
       return res & (srcIdx == srcEnd);

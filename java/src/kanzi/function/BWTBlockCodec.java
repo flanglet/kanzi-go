@@ -49,19 +49,13 @@ public class BWTBlockCodec implements ByteFunction
    @Override
    public boolean forward(SliceByteArray input, SliceByteArray output)
    {
-      if ((input == null) || (output == null) || (input.array == output.array))
+      if ((!SliceByteArray.isValid(input)) || (!SliceByteArray.isValid(output)))
          return false;
 
-      if ((input.array == null) || (output.array == null))
+      if (input.array == output.array)
          return false;
       
       final int blockSize = input.length;
-      
-      if (blockSize < 0)
-         return false;
-
-      if (input.index + blockSize > input.array.length)
-          return false;
 
       if (output.length - output.index < getMaxEncodedLength(blockSize))
          return false;
@@ -75,6 +69,7 @@ public class BWTBlockCodec implements ByteFunction
       // Estimate header size based on block size
       final int headerSizeBytes1 = (1+log+7) >> 3;
       output.index += headerSizeBytes1;
+      output.length -= headerSizeBytes1;
      
       // Apply forward transform
       if (this.bwt.forward(input, output) == false)
@@ -87,7 +82,7 @@ public class BWTBlockCodec implements ByteFunction
          pIndexSizeBits++;          
 
       // Compute block size based on primary index
-      final int headerSizeBytes2 = (2+pIndexSizeBits+7) >> 3;
+      final int headerSizeBytes2 = (2+pIndexSizeBits+7) >>> 3;
 
       if (headerSizeBytes2 != headerSizeBytes1)
       {
@@ -100,8 +95,8 @@ public class BWTBlockCodec implements ByteFunction
       
       // Write block header (mode + primary index). See top of file for format 
       int shift = (headerSizeBytes2 - 1) << 3;
-      int blockMode = (pIndexSizeBits + 1) >> 3;
-      blockMode = (blockMode << 6) | ((primaryIndex >> shift) & 0x3F);
+      int blockMode = (pIndexSizeBits + 1) >>> 3;
+      blockMode = (blockMode << 6) | ((primaryIndex >>> shift) & 0x3F);
       output.array[savedOIdx] = (byte) blockMode;
 
       for (int i=1; i<headerSizeBytes2; i++)
@@ -110,30 +105,24 @@ public class BWTBlockCodec implements ByteFunction
          output.array[savedOIdx+i] = (byte) (primaryIndex >> shift);
       }
       
-      return (output.index <= output.length);
+      return true;
    }
 
 
    @Override
    public boolean inverse(SliceByteArray input, SliceByteArray output)
    {
-      if ((input == null) || (output == null) || (input.array == output.array))
+      if ((!SliceByteArray.isValid(input)) || (!SliceByteArray.isValid(output)))
          return false;
 
-      if ((input.array == null) || (output.array == null))
+      if (input.array == output.array)
          return false;
       
       // Read block header (mode + primary index). See top of file for format
       final int blockMode = input.array[input.index++] & 0xFF;
-      final int headerSizeBytes = 1 + ((blockMode >> 6) & 0x03);
+      final int headerSizeBytes = 1 + ((blockMode >>> 6) & 0x03);
       int blockSize = input.length;
-      
-      if (blockSize < 0)
-         return false;
 
-      if (input.index + blockSize > input.array.length)
-          return false;
-      
       if (blockSize < headerSizeBytes)
           return false;
 
@@ -154,8 +143,7 @@ public class BWTBlockCodec implements ByteFunction
       this.bwt.setPrimaryIndex(primaryIndex);
 
       // Apply inverse Transform            
-      boolean res = this.bwt.inverse(input, output);      
-      return res & (output.index <= output.length);
+      return this.bwt.inverse(input, output);      
    }
    
      

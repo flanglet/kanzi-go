@@ -100,19 +100,13 @@ public final class LZ4Codec implements ByteFunction
    @Override
    public boolean forward(SliceByteArray input, SliceByteArray output)
    {
-      if ((input == null) || (output == null) || (input.array == output.array))
+      if ((!SliceByteArray.isValid(input)) || (!SliceByteArray.isValid(output)))
          return false;
 
-      if ((input.array == null) || (output.array == null))
+      if (input.array == output.array)
          return false;
-
+   
       final int count = input.length;
-      
-      if (count < 0)
-         return false;
-
-      if (input.index + count > input.array.length)
-          return false;
       
       if (output.length - output.index < this.getMaxEncodedLength(count))
          return false;
@@ -265,9 +259,6 @@ public final class LZ4Codec implements ByteFunction
 
       dstIdx = writeLastLiterals(src, anchor, dst, dstIdx, srcEnd-anchor);
       
-      if (dstIdx > output.length)
-         return false;
-      
       // Encode last literals
       output.index = dstIdx;
       input.index = srcEnd;
@@ -280,20 +271,13 @@ public final class LZ4Codec implements ByteFunction
    @Override
    public boolean inverse(SliceByteArray input, SliceByteArray output)
    {
-      if ((input == null) || (output == null) || (input.array == output.array))
+      if ((!SliceByteArray.isValid(input)) || (!SliceByteArray.isValid(output)))
          return false;
 
-      if ((input.array == null) || (output.array == null))
+      if (input.array == output.array)
          return false;
 
-      final int count = input.length;
-      
-      if (count < 0)
-         return false;
-
-      if (input.index + count > input.array.length)
-          return false;
-      
+      final int count = input.length;     
       final int srcIdx0 = input.index;
       final int dstIdx0 = output.index;
       final byte[] src = input.array;
@@ -396,9 +380,6 @@ public final class LZ4Codec implements ByteFunction
          dstIdx = cpy;
       }
 
-      if (dstIdx > output.length)
-         return false;
-     
       output.index = dstIdx;
       input.index = srcIdx;
       return srcIdx == srcEnd;

@@ -51,17 +51,20 @@ public final class DCT4 implements IntTransform
     @Override
     public boolean forward(SliceIntArray src, SliceIntArray dst)
     {
+       if (!SliceIntArray.isValid(src))
+          return false;
+
        if (src.length != 16)
           return false;
        
-       if (dst.index + 16 > dst.length)
-          return false;  
+       if (src != dst)
+       {
+          if (!SliceIntArray.isValid(dst))
+            return false;
 
-       if (src.index + 16 > src.array.length)
-          return false;
-       
-       if (dst.index + 16 > dst.array.length)
-          return false;   
+          if (dst.index + 16 > dst.array.length)
+            return false;   
+       }
        
        this.data.index = 0;
        computeForward(src, this.data, 4);
@@ -136,17 +139,20 @@ public final class DCT4 implements IntTransform
     @Override
     public boolean inverse(SliceIntArray src, SliceIntArray dst)
     {
+       if (!SliceIntArray.isValid(src))
+          return false;
+
        if (src.length != 16)
           return false;
        
-       if (dst.index + 16 > dst.length)
-          return false;  
+       if (src != dst)
+       {
+          if (!SliceIntArray.isValid(dst))
+            return false;
 
-       if (src.index + 16 > src.array.length)
-          return false;
-       
-       if (dst.index + 16 > dst.array.length)
-          return false;   
+          if (dst.index + 16 > dst.array.length)
+            return false;   
+       }
        
        this.data.index = 0;
        computeInverse(src, this.data, 10);

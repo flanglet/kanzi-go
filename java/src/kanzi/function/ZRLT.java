@@ -37,25 +37,19 @@ public final class ZRLT implements ByteFunction
    @Override
    public boolean forward(SliceByteArray input, SliceByteArray output)
    {
-      if ((input == null) || (output == null) || (input.array == output.array))
+      if ((!SliceByteArray.isValid(input)) || (!SliceByteArray.isValid(output)))
          return false;
 
-      if ((input.array == null) || (output.array == null))
+      if (input.array == output.array)
          return false;
-      
-      final byte[] src = input.array;
-      final byte[] dst = output.array;
+   
       final int count = input.length;      
-      
-      if (count < 0)
-        return false;
 
-      if (input.index + count > input.array.length)
-         return false;
-      
       if (output.length - output.index < getMaxEncodedLength(count))
          return false;
      
+      final byte[] src = input.array;
+      final byte[] dst = output.array;
       int srcIdx = input.index;
       int dstIdx = output.index;
       final int srcEnd = srcIdx + count;
@@ -116,9 +110,6 @@ public final class ZRLT implements ByteFunction
          srcIdx++;
       }
 
-      if (dstIdx > output.length)
-         return false;
-
       input.index = srcIdx;
       output.index = dstIdx;           
       return (srcIdx == srcEnd) && (runLength == 1);
@@ -128,20 +119,13 @@ public final class ZRLT implements ByteFunction
    @Override
    public boolean inverse(SliceByteArray input, SliceByteArray output)
    {
-      if ((input == null) || (output == null) || (input.array == output.array))
-        return false;
-
-      if ((input.array == null) || (output.array == null))
+      if ((!SliceByteArray.isValid(input)) || (!SliceByteArray.isValid(output)))
          return false;
 
-      final int count = input.length;
-      
-      if (count < 0)
-        return false;
-
-      if (input.index + count > input.array.length)
-         return false;   
-      
+      if (input.array == output.array)
+         return false;
+   
+      final int count = input.length;     
       int srcIdx = input.index;
       int dstIdx = output.index;
       final byte[] src = input.array;
@@ -211,9 +195,6 @@ public final class ZRLT implements ByteFunction
       while (dstIdx < end)
          dst[dstIdx++] = 0;
 
-      if (dstIdx > output.length)
-         return false;
-      
       output.index = dstIdx;          
       return srcIdx == srcEnd;
    }

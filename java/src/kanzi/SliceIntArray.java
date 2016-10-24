@@ -106,4 +106,22 @@ public final class SliceIntArray
         builder.append("]"); 
         return builder.toString();
     }
+    
+    
+    public static boolean isValid(SliceIntArray sa)
+    {
+       if (sa == null)
+          return false;
+       
+       if (sa.array == null)
+          return false;
+       
+       if (sa.index < 0)
+          return false;
+       
+       if (sa.length < 0)
+          return false;
+      
+       return (sa.index + sa.length <= sa.array.length);
+    }
 }

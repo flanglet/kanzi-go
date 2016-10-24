@@ -42,19 +42,10 @@ public class NullFunction implements ByteFunction
    
    private static boolean doCopy(SliceByteArray input, SliceByteArray output)
    {      
-      if ((input == null) || (output == null))
+      if ((!SliceByteArray.isValid(input)) || (!SliceByteArray.isValid(output)))
          return false;
-
-      if ((input.array == null) || (output.array == null))
-         return false;
-      
+ 
       final int count = input.length;
-      
-      if (count < 0)
-         return false;
-      
-      if (input.index + count > input.array.length)
-         return false;
       
       if (output.length - output.index < count)
          return false;

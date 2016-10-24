@@ -52,17 +52,20 @@ public final class WHT32 implements IntTransform
     @Override
     public boolean forward(SliceIntArray src, SliceIntArray dst)
     {
+       if (!SliceIntArray.isValid(src))
+          return false;
+
        if (src.length != 1024)
           return false;
        
-       if (dst.index + 1024 > dst.length)
-          return false;  
+       if (src != dst)
+       {
+          if (!SliceIntArray.isValid(dst))
+            return false; 
 
-       if (src.index + 1024 > src.array.length)
-          return false;
-       
-       if (dst.index + 1024 > dst.array.length)
-          return false;
+          if (dst.index + 1024 > dst.array.length)
+            return false;   
+       }
        
        return this.compute(src, dst, this.fScale);
     }
@@ -508,17 +511,20 @@ public final class WHT32 implements IntTransform
     @Override
     public boolean inverse(SliceIntArray src, SliceIntArray dst)
     {
+       if (!SliceIntArray.isValid(src))
+          return false;
+
        if (src.length != 1024)
           return false;
        
-       if (dst.index + 1024 > dst.length)
-          return false;  
+       if (src != dst)
+       {
+          if (!SliceIntArray.isValid(dst))
+            return false;
 
-       if (src.index + 1024 > src.array.length)
-          return false;
-       
-       if (dst.index + 1024 > dst.array.length)
-          return false;   
+          if (dst.index + 1024 > dst.array.length)
+            return false;   
+       }  
        
        return compute(src, dst, this.iScale);
     }

@@ -97,20 +97,17 @@ public class BWT implements ByteTransform
     @Override
     public boolean forward(SliceByteArray src, SliceByteArray dst)
     {
-        if ((src == null) || (dst == null) || (src.array == dst.array))
+        if ((!SliceByteArray.isValid(src)) || (!SliceByteArray.isValid(dst)))
            return false;
 
+        if (src.array == dst.array)
+           return false;
+        
         final int count = src.length;
         
-        if ((count < 0) || (count > maxBlockSize()))
+        if (count > maxBlockSize())
            return false;
 
-        if (dst.index + count > dst.length)
-           return false;
-       
-        if (src.index + count > src.array.length)
-           return false;
-       
         if (dst.index + count > dst.array.length)
            return false;
        
@@ -162,19 +159,16 @@ public class BWT implements ByteTransform
     @Override
     public boolean inverse(SliceByteArray src, SliceByteArray dst)
     {
-       if ((src == null) || (dst == null) || (src.array == dst.array))
-          return false;
-
-       final int count = src.length;
-        
-       if ((count < 0) || (count > maxBlockSize()))
+       if ((!SliceByteArray.isValid(src)) || (!SliceByteArray.isValid(dst)))
            return false;
 
-       if (dst.index + count > dst.length)
-          return false;
-       
-       if (src.index + count > src.array.length)
-          return false;
+       if (src.array == dst.array)
+           return false;
+        
+       final int count = src.length;
+        
+       if (count > maxBlockSize())
+           return false;
        
        if (dst.index + count > dst.array.length)
           return false;      

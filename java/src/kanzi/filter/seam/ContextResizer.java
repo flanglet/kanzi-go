@@ -259,11 +259,11 @@ public class ContextResizer implements IntFilter
                // Lazy dynamic memory allocation
                if (this.buffer.array.length < this.stride * this.height)
                {
-				  this.buffer.length = this.stride*this.height;
+                  this.buffer.length = this.stride * this.height;
 
-				  if (this.buffer.array.length < this.buffer.length)
+                  if (this.buffer.array.length < this.buffer.length)
                      this.buffer.array = new int[this.buffer.length];
-			   }
+               }
 
                output = this.buffer;
             }
@@ -317,11 +317,11 @@ public class ContextResizer implements IntFilter
                // Lazy dynamic memory allocation
                if (this.buffer.array.length < this.stride * this.height)
                {
-				  this.buffer.length = this.stride*this.height;
+                  this.buffer.length = this.stride * this.height;
 
-				  if (this.buffer.array.length < this.buffer.length)
+                  if (this.buffer.array.length < this.buffer.length)
                      this.buffer.array = new int[this.buffer.length];
-			   }
+               }
 
                output = this.buffer;
             }

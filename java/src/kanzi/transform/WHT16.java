@@ -51,17 +51,20 @@ public final class WHT16 implements IntTransform
     @Override
     public boolean forward(SliceIntArray src, SliceIntArray dst)
     {
+       if (!SliceIntArray.isValid(src))
+          return false;
+
        if (src.length != 256)
           return false;
        
-       if (dst.index + 256 > dst.length)
-          return false;  
+       if (src != dst)
+       {
+          if (!SliceIntArray.isValid(dst))
+            return false;
 
-       if (src.index + 256 > src.array.length)
-          return false;
-       
-       if (dst.index + 256 > dst.array.length)
-          return false;   
+          if (dst.index + 256 > dst.array.length)
+            return false;   
+       } 
        
        return compute(src, dst, this.data, this.fScale);
     }
@@ -275,18 +278,20 @@ public final class WHT16 implements IntTransform
     @Override
     public boolean inverse(SliceIntArray src, SliceIntArray dst)
     {
+       if (!SliceIntArray.isValid(src))
+          return false;
+
        if (src.length != 256)
           return false;
        
-       if (dst.index + 256 > dst.length)
-          return false;  
+       if (src != dst)
+       {
+          if (!SliceIntArray.isValid(dst))
+            return false;
 
-       if (src.index + 256 > src.array.length)
-          return false;
-       
-       if (dst.index + 256 > dst.array.length)
-          return false;   
-       
+          if (dst.index + 256 > dst.array.length)
+            return false;   
+       }       
        return compute(src, dst, this.data, this.iScale);
     }
 

@@ -108,12 +108,9 @@ public class DWT_Haar implements IntTransform
     @Override
     public boolean forward(SliceIntArray src, SliceIntArray dst)
     {
-        if ((src == null) || (dst == null))
+        if ((!SliceIntArray.isValid(src)) || (!SliceIntArray.isValid(dst)))
            return false;
-        
-        if ((src.array == null) || (dst.array == null))
-           return false;
-        
+
         final int count = this.width * this.height;
         
         if (src.length != count)
@@ -122,9 +119,6 @@ public class DWT_Haar implements IntTransform
         if (dst.length < count)
            return false;
         
-        if (src.index + count > src.array.length)
-           return false;
-       
         if (dst.index + count > dst.array.length)
            return false;   
         
@@ -186,12 +180,9 @@ public class DWT_Haar implements IntTransform
     @Override
     public boolean inverse(SliceIntArray src, SliceIntArray dst)
     {
-        if ((src == null) || (dst == null))
+        if ((!SliceIntArray.isValid(src)) || (!SliceIntArray.isValid(dst)))
            return false;
-        
-        if ((src.array == null) || (dst.array == null))
-           return false;
-        
+
         final int count = this.width * this.height;      
         
         if (src.length != count)
@@ -200,9 +191,6 @@ public class DWT_Haar implements IntTransform
         if (dst.length < count)
            return false;
         
-        if (src.index + count > src.array.length)
-           return false;
-       
         if (dst.index + count > dst.array.length)
            return false;   
                
