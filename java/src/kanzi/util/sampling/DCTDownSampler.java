@@ -46,26 +46,20 @@ public class DCTDownSampler implements DownSampler
    
    public DCTDownSampler(int width, int height, int stride, int offset, int step)
    {
-      if (height < 8)
-          throw new IllegalArgumentException("The height must be at least 8");
-
-      if (width < 8)
-          throw new IllegalArgumentException("The width must be at least 8");
-
       if (offset < 0)
          throw new IllegalArgumentException("The offset must be at least 0");
 
       if (stride < width)
           throw new IllegalArgumentException("The stride must be at least as big as the width");
       
-      if ((height & 7) != 0)
-         throw new IllegalArgumentException("The height must be a multiple of 8");
-
-      if ((width & 7) != 0)
-         throw new IllegalArgumentException("The width must be a multiple of 8");
-
       if ((step != 8) && (step != 16) && (step != 32))
           throw new IllegalArgumentException("The transform dimension must be 8, 16 or 32");
+
+      if ((height & (step-1)) != 0)
+         throw new IllegalArgumentException("The height must be a multiple of " + step);
+
+      if ((width & (step-1)) != 0)
+         throw new IllegalArgumentException("The width must be a multiple of " + step);
 
       IntTransform fdct_;
       IntTransform idct_;
@@ -128,11 +122,12 @@ public class DCTDownSampler implements DownSampler
       final int st = this.stride;
       final int[] buf1 = this.buffer1;
       final int[] buf2 = this.buffer2;
+      final int count = this.dim * this.dim;
       final SliceIntArray src = new SliceIntArray(buf1, 0);
       final SliceIntArray dst = new SliceIntArray(buf2, 0);
       final int step = this.dim;
       final int stStep = st * step;
-      final int len4 = (this.dim * this.dim) >> 2;
+      final int count4 = count >> 2;
 
       for (int y=0; y<h; y+=step)
       {
@@ -163,17 +158,19 @@ public class DCTDownSampler implements DownSampler
             
             src.index = 0;
             dst.index = 0;
+            src.length = count;
             this.fdct.forward(src, dst);
            
-            // Pack and clear high frequency bands (3/4 coefficients)
-            for (int i=len4; i<4*len4; i++)
+            // Pack and clear DCT high frequency bands (3/4 coefficients)
+            for (int i=count4; i<count; i++)
                buf1[i] = 0;
 
-            for (int i=0; i<len4; i++)
+            for (int i=0; i<count4; i++)
                buf1[i] = buf2[this.scan[i]];
             
             src.index = 0;
             dst.index = 0;
+            src.length = count4;
             this.idct.inverse(src, dst);
             int oOffs = (offs >> 2) + (x >> 1);
             n = 0;

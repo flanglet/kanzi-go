@@ -50,7 +50,7 @@ public class TestResampler
    {
         try
         {
-           String fileName = (args.length > 0) ? args[0] : "r:\\salon.png";
+           String fileName = (args.length > 0) ? args[0] : "r:\\baby.jpg";
            Image image1 = ImageIO.read(new File(fileName));
            int w = image1.getWidth(null) & -32;
            int h = image1.getHeight(null) & -32;
@@ -59,7 +59,7 @@ public class TestResampler
            BufferedImage bi = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
            bi.getGraphics().drawImage(image1, 0, 0, null);
            int iters = (w*h) < (1500*1500) ? 100 : 10;
-           roundtrip(image1, iters);
+           roundtrip(image1, w, h, iters);
            boolean upscale = false;
            
            if (upscale == true)
@@ -85,10 +85,8 @@ public class TestResampler
    }
 
 
-    public static void roundtrip(Image image, int iter) throws Exception 
+    public static void roundtrip(Image image, int w, int h, int iter) throws Exception 
     {
-        int w = image.getWidth(null) & -16;
-        int h = image.getHeight(null) & -16;
         GraphicsDevice gs = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
         GraphicsConfiguration gc = gs.getDefaultConfiguration();
         BufferedImage img = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
