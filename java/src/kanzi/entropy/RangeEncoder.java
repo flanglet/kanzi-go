@@ -95,7 +95,7 @@ public final class RangeEncoder implements EntropyEncoder
          for (int i=0; i<256; i++)
             this.cumFreqs[i+1] = this.cumFreqs[i] + frequencies[i];
       }
-      
+          
       this.encodeHeader(alphabetSize, this.alphabet, frequencies, lr);
       return alphabetSize;
    }

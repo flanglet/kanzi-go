@@ -16,6 +16,7 @@ limitations under the License.
 package entropy
 
 import (
+	"container/heap"
 	"fmt"
 	"kanzi"
 )
@@ -61,11 +62,59 @@ func (this ErrorComparator) Swap(i, j int) {
 	this.symbols[i], this.symbols[j] = this.symbols[j], this.symbols[i]
 }
 
+type FreqSortData struct {
+	frequencies []int
+	errors      []int
+	symbol      int
+}
+
+type FreqSortPriorityQueue []*FreqSortData
+
+func (this FreqSortPriorityQueue) Len() int {
+	return len(this)
+}
+
+func (this FreqSortPriorityQueue) Less(i, j int) bool {
+	di := this[i]
+	dj := this[j]
+
+	// Decreasing error
+	if di.errors[di.symbol] != dj.errors[dj.symbol] {
+		return di.errors[di.symbol] > dj.errors[dj.symbol]
+	}
+
+	// Decreasing frequency
+	if di.frequencies[di.symbol] != dj.frequencies[dj.symbol] {
+		return di.frequencies[di.symbol] > dj.frequencies[dj.symbol]
+	}
+
+	// Decreasing symbol
+	return dj.symbol < di.symbol
+}
+
+func (this FreqSortPriorityQueue) Swap(i, j int) {
+	this[i], this[j] = this[j], this[i]
+}
+
+func (this *FreqSortPriorityQueue) Push(data interface{}) {
+	*this = append(*this, data.(*FreqSortData))
+}
+
+func (this *FreqSortPriorityQueue) Pop() interface{} {
+	old := *this
+	n := len(old)
+	data := old[n-1]
+	*this = old[0 : n-1]
+	return data
+}
+
 type EntropyUtils struct {
+	errors []int
 }
 
 func NewEntropyUtils() (*EntropyUtils, error) {
 	this := new(EntropyUtils)
+	this.errors = make([]int, 0)
 	return this, nil
 }
 
@@ -351,14 +400,13 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, tota
 		return 0, fmt.Errorf("Invalid range parameter: %v (must be in [256..65536])", scale)
 	}
 
-	// Number of present symbols
 	alphabetSize := 0
 
 	// shortcut
 	if totalFreq == scale {
 		for i := range freqs {
 			if freqs[i] != 0 {
-				alphabet[alphabetSize] = i
+				alphabet[alphabetSize] = int(i)
 				alphabetSize++
 			}
 		}
@@ -366,18 +414,18 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, tota
 		return alphabetSize, nil
 	}
 
+	if len(this.errors) < len(alphabet) {
+		this.errors = make([]int, len(alphabet))
+	}
+
 	sumScaledFreq := 0
-	sumFreq := 0
 	freqMax := 0
 	idxMax := -1
 
 	// Scale frequencies by stretching distribution over complete range
 	for i := range alphabet {
-		if sumFreq >= totalFreq {
-			break
-		}
-
 		alphabet[i] = 0
+		this.errors[i] = -1
 		f := freqs[i]
 
 		if f == 0 {
@@ -389,7 +437,6 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, tota
 			idxMax = i
 		}
 
-		sumFreq += f
 		sf := int64(freqs[i]) * int64(scale)
 		var scaledFreq int
 
@@ -404,6 +451,9 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, tota
 
 			if errCeiling < errFloor {
 				scaledFreq++
+				this.errors[i] = int(errCeiling)
+			} else {
+				this.errors[i] = int(errFloor)
 			}
 		}
 
@@ -423,7 +473,44 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, tota
 	}
 
 	if sumScaledFreq != scale {
-		freqs[idxMax] += (scale - sumScaledFreq)
+		if freqs[idxMax] > sumScaledFreq-scale {
+			// Fast path: just adjust the max frequency
+			freqs[idxMax] += (scale - sumScaledFreq)
+		} else {
+			// Slow path: spread error across frequencies
+			var inc int
+
+			if sumScaledFreq > scale {
+				inc = -1
+			} else {
+				inc = 1
+			}
+
+			queue := make(FreqSortPriorityQueue, 0)
+
+			// Create sorted queue of present symbols (except those with 'quantum frequency')
+			for i := 0; i < alphabetSize; i++ {
+				if this.errors[alphabet[i]] >= 0 && freqs[alphabet[i]] != -inc {
+					heap.Push(&queue, &FreqSortData{errors: this.errors, frequencies: freqs, symbol: alphabet[i]})
+				}
+			}
+
+			for sumScaledFreq != scale && len(queue) > 0 {
+				// Remove symbol with highest error
+				fsd := heap.Pop(&queue).(*FreqSortData)
+
+				// Do not zero out any frequency
+				if freqs[fsd.symbol] == -inc {
+					continue
+				}
+
+				// Distort frequency and error
+				freqs[fsd.symbol] += inc
+				this.errors[fsd.symbol] -= scale
+				sumScaledFreq += inc
+				heap.Push(&queue, fsd)
+			}
+		}
 	}
 
 	return alphabetSize, nil

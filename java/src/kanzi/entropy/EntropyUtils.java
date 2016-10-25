@@ -15,6 +15,7 @@ limitations under the License.
 
 package kanzi.entropy;
 
+import java.util.PriorityQueue;
 import kanzi.BitStreamException;
 import kanzi.InputBitStream;
 import kanzi.OutputBitStream;
@@ -32,12 +33,15 @@ public class EntropyUtils
    private static final int ABSENT_SYMBOLS_MASK = 1;
 
 
+   private int[] errors;
+
 
    public EntropyUtils()
    {
+      this.errors = new int[0];
    }
 
-
+   
    // alphabet must be sorted in increasing order
    // alphabet length must be a power of 2
    public static int encodeAlphabet(OutputBitStream obs, int[] alphabet, int count)
@@ -313,11 +317,9 @@ public class EntropyUtils
       return count;
    }
 
-
+   
    // Not thread safe
    // Returns the size of the alphabet
-   // 'totalFreq 'is the sum of frequencies. 
-   // 'scale' is the target new total of frequencies
    // The alphabet and freqs parameters are updated
    public int normalizeFrequencies(int[] freqs, int[] alphabet, int totalFreq, int scale)
    {
@@ -328,13 +330,12 @@ public class EntropyUtils
          throw new IllegalArgumentException("Invalid scale parameter: "+ scale +
                  " (must be in [256..65536])");
 
-      // Number of present symbols
       int alphabetSize = 0;
 
       // shortcut
       if (totalFreq == scale)
-      {        
-         for (int i=0; i<256; i++)
+      {
+         for (int i=0; i<freqs.length; i++)
          {
             if (freqs[i] != 0)
                alphabet[alphabetSize++] = i;
@@ -342,16 +343,19 @@ public class EntropyUtils
 
          return alphabetSize;
       }
+
+      if (this.errors.length < alphabet.length)
+         this.errors = new int[alphabet.length];   
       
       int sumScaledFreq = 0;
-      int sumFreq = 0;
       int freqMax = 0;
       int idxMax = -1;
 
       // Scale frequencies by stretching distribution over complete range
-      for (int i=0; (i<alphabet.length) && (sumFreq<totalFreq); i++)
+      for (int i=0; i<alphabet.length; i++)
       {
          alphabet[i] = 0;
+         this.errors[i] = -1;
          final int f = freqs[i];
 
          if (f == 0)
@@ -362,9 +366,8 @@ public class EntropyUtils
             freqMax = f;
             idxMax = i;
          }
-         
-         sumFreq += f;
-         long sf = (long) f * scale;
+
+         long sf = (long) freqs[i] * scale;
          int scaledFreq;
 
          if (sf <= totalFreq)
@@ -380,7 +383,14 @@ public class EntropyUtils
             long errFloor = sf - (scaledFreq * (long) totalFreq);
 
             if (errCeiling < errFloor)
+            {
                scaledFreq++;
+               this.errors[i] = (int) errCeiling;
+            }
+            else
+            {
+               this.errors[i] = (int) errFloor;
+            }
          }
 
          alphabet[alphabetSize++] = i;
@@ -396,10 +406,101 @@ public class EntropyUtils
          freqs[alphabet[0]] = scale;
          return 1;
       }
-      
+
       if (sumScaledFreq != scale)
-         freqs[idxMax] += (scale - sumScaledFreq);          
+      {
+         if (freqs[idxMax] > sumScaledFreq - scale)
+         {
+            // Fast path: just adjust the max frequency
+            freqs[idxMax] += (scale - sumScaledFreq);  
+         }
+         else
+         {
+            // Slow path: spread error across frequencies            
+            final int inc = (sumScaledFreq > scale) ? -1 : 1;
+            PriorityQueue<FreqSortData> queue = new PriorityQueue<FreqSortData>();
+
+            // Create sorted queue of present symbols (except those with 'quantum frequency')
+            for (int i=0; i<alphabetSize; i++)
+            {
+               if ((this.errors[alphabet[i]] >= 0) && (freqs[alphabet[i]] != -inc))
+                     queue.add(new FreqSortData(this.errors, freqs, alphabet[i]));
+               }
+
+            while ((sumScaledFreq != scale) && (queue.size() > 0))
+            {
+                // Remove symbol with highest error
+                FreqSortData fsd = queue.poll();
+
+                // Do not zero out any frequency
+                if (freqs[fsd.symbol] == -inc) 
+                   continue;
+
+                // Distort frequency and error
+                freqs[fsd.symbol] += inc;
+                this.errors[fsd.symbol] -= scale;
+                sumScaledFreq += inc;
+                queue.add(fsd);
+            }
+         }
+      }
 
       return alphabetSize;
    }
+
+
+   private static class FreqSortData implements Comparable<FreqSortData>
+   {
+      final int symbol;
+      final int[] errors;
+      final int[] frequencies;
+
+
+      public FreqSortData(int[] errors, int[] frequencies, int symbol)
+      {
+         this.errors = errors;
+         this.frequencies = frequencies;
+         this.symbol = symbol & 0xFFFF;
+      }
+
+
+      @Override
+      public boolean equals(Object o)
+      {
+         if (o == null)
+            return false;
+         
+         if (this == o)
+            return true;
+         
+         return ((FreqSortData) o).symbol == this.symbol;
+      }
+
+      
+      @Override
+      public int hashCode() 
+      {
+         return this.symbol;
+      }
+      
+      
+      @Override
+      public int compareTo(FreqSortData sd)
+      {
+         // Decreasing error
+         int res = sd.errors[sd.symbol] - this.errors[this.symbol];
+
+         // Decreasing frequency
+         if (res == 0) 
+         {
+            res = sd.frequencies[sd.symbol] - this.frequencies[this.symbol];
+         
+            // Decreasing symbol
+            if (res == 0)
+               return sd.symbol - this.symbol;
+         }
+
+         return res;
+      }
+   }  
 }
