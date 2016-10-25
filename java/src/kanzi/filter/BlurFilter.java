@@ -74,15 +74,18 @@ public final class BlurFilter implements IntFilter
     
 
     @Override
-    public boolean apply(SliceIntArray src, SliceIntArray dst)
+    public boolean apply(SliceIntArray input, SliceIntArray output)
     {
-        this.blurHorizontal(src, dst);
-        this.blurVertical(dst, dst);
+        if ((!SliceIntArray.isValid(input)) || (!SliceIntArray.isValid(output)))
+            return false;
+      
+        this.blurHorizontal(input, output);
+        this.blurVertical(output, output);
         
         for (int i=1; i<this.iterations; i++)
         {
-           this.blurHorizontal(dst, dst);
-           this.blurVertical(dst, dst);
+           this.blurHorizontal(output, output);
+           this.blurVertical(output, output);
         }
         
         return true;

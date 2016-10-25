@@ -60,13 +60,16 @@ public class ContrastFilter implements IntFilter
     
     
     @Override
-    public boolean apply(SliceIntArray source, SliceIntArray destination)
+    public boolean apply(SliceIntArray input, SliceIntArray output)
     {
+      if ((!SliceIntArray.isValid(input)) || (!SliceIntArray.isValid(output)))
+         return false;
+      
         // Aliasing
-        final int[] src = source.array;
-        final int[] dst = destination.array;
-        int srcIdx = source.index;
-        int dstIdx = destination.index;
+        final int[] src = input.array;
+        final int[] dst = output.array;
+        int srcIdx = input.index;
+        int dstIdx = output.index;
         final int w = this.width;
         final int h = this.height;
         final int len = src.length;

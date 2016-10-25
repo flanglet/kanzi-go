@@ -66,10 +66,13 @@ public class JNA_VideoEffect implements IntFilter
 
 
     @Override
-    public boolean apply(SliceIntArray source, SliceIntArray destination)
+    public boolean apply(SliceIntArray input, SliceIntArray output)
     {
-        return native_apply(this.width, this.height, this.stride, source.array, source.index,
-                destination.array, destination.index);
+        if ((!SliceIntArray.isValid(input)) || (!SliceIntArray.isValid(output)))
+           return false;
+      
+        return native_apply(this.width, this.height, this.stride, input.array, input.index,
+                output.array, output.index);
     }
 
 }

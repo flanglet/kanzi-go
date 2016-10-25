@@ -70,12 +70,15 @@ public class GaussianFilter implements IntFilter
 
 
     @Override
-    public boolean apply(SliceIntArray source, SliceIntArray destination)
+    public boolean apply(SliceIntArray input, SliceIntArray output)
     {
-       final int[] src = source.array;
-       final int[] dst = destination.array;
-       final int srcIdx = source.index;
-       final int dstIdx = destination.index;
+       if ((!SliceIntArray.isValid(input)) || (!SliceIntArray.isValid(output)))
+         return false;
+      
+       final int[] src = input.array;
+       final int[] dst = output.array;
+       final int srcIdx = input.index;
+       final int dstIdx = output.index;
        
        if (this.sigma16 == 0)
        {

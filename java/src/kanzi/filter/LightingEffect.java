@@ -164,12 +164,15 @@ public class LightingEffect implements IntFilter
 
 
     @Override
-    public boolean apply(SliceIntArray source, SliceIntArray destination)
+    public boolean apply(SliceIntArray input, SliceIntArray output)
     {
-        final int[] src = source.array;
-        final int[] dst = destination.array;
-        int srcIdx = source.index;
-        int dstIdx = destination.index;
+        if ((!SliceIntArray.isValid(input)) || (!SliceIntArray.isValid(output)))
+           return false;
+      
+        final int[] src = input.array;
+        final int[] dst = output.array;
+        int srcIdx = input.index;
+        int dstIdx = output.index;
         final int rd = this.radius;
         final int w = this.width;
         final int h = this.height;
@@ -219,7 +222,7 @@ public class LightingEffect implements IntFilter
         // Is there a bump mapping effect ?
         if (this.bumpMapping == true)
         {
-            this.calculateNormalMap(src, source.index);
+            this.calculateNormalMap(src, input.index);
 
             for (int y=y0; y<y1; y++)
             {

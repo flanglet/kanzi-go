@@ -107,12 +107,15 @@ public final class SobelFilter implements IntFilter
     // Implementation focused on speed through reduction of array access
     // This implementation requires around 4*w*h accesses
     @Override
-    public boolean apply(SliceIntArray source, SliceIntArray destination)
+    public boolean apply(SliceIntArray input, SliceIntArray output)
     {
-        final int[] src = source.array;
-        final int[] dst = destination.array;
-        int srcStart = source.index;
-        int dstStart = destination.index;
+        if ((!SliceIntArray.isValid(input)) || (!SliceIntArray.isValid(output)))
+           return false;
+      
+        final int[] src = input.array;
+        final int[] dst = output.array;
+        int srcStart = input.index;
+        int dstStart = output.index;
         final boolean isVertical = ((this.direction & VERTICAL) != 0);
         final boolean isHorizontal = ((this.direction & HORIZONTAL) != 0);
         boolean isPacked = (this.channels == THREE_CHANNELS);
@@ -219,8 +222,8 @@ public final class SobelFilter implements IntFilter
           dstStart = dstLine;
        }
 
-       final int firstLine = destination.index;
-       final int lastLine = destination.index + st * (h - 1);
+       final int firstLine = output.index;
+       final int lastLine = output.index + st * (h - 1);
 
        if (this.processBoundaries == true)
        {

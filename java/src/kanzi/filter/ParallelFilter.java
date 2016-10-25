@@ -87,6 +87,9 @@ public class ParallelFilter implements IntFilter
    @Override
    public boolean apply(final SliceIntArray input, final SliceIntArray output)
    {
+      if ((!SliceIntArray.isValid(input)) || (!SliceIntArray.isValid(output)))
+         return false;
+      
       final int nbThreads = this.delegates.length;
       ArrayList<Callable<Boolean>> filterTasks = new ArrayList<Callable<Boolean>>(nbThreads);
       final int area = this.height * this.stride;

@@ -120,8 +120,11 @@ public class ColorClusterFilter implements IntFilter
 
     // Use K-Means algorithm to create clusters of pixels with similar colors
     @Override
-    public boolean apply(SliceIntArray src, SliceIntArray dst)
+    public boolean apply(SliceIntArray input, SliceIntArray output)
     {
+      if ((!SliceIntArray.isValid(input)) || (!SliceIntArray.isValid(output)))
+         return false;
+      
        int scale = 1; // for now
        int scaledW = this.width >> scale;
        int scaledH = this.height >> scale;
@@ -132,7 +135,7 @@ public class ColorClusterFilter implements IntFilter
        int iterations = 0;
 
        // Create a down sampled copy of the source 
-       int[] buf = this.createWorkImage(src.array, src.index, scale);
+       int[] buf = this.createWorkImage(input.array, input.index, scale);
 
        // Choose centers
        if (this.chooseCentroids == true)
@@ -225,7 +228,7 @@ public class ColorClusterFilter implements IntFilter
             scaledW <<= 1;
             scaledH <<= 1;
             scaledSt <<= 1;
-            buf = this.createWorkImage(src.array, src.index, scale);
+            buf = this.createWorkImage(input.array, input.index, scale);
 
             for (int j=0; j<nbClusters; j++)
             {
@@ -246,7 +249,7 @@ public class ColorClusterFilter implements IntFilter
          c.centroidY <<= 1;
       }
 
-      return this.createFinalImage(src, dst);
+      return this.createFinalImage(input, output);
    }
 
 

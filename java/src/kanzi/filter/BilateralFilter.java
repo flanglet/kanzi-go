@@ -179,13 +179,16 @@ public final class BilateralFilter implements IntFilter
     // plan (no conversion is made from RGB to YUV and back). However, RGB works
     // fine (with a small distorsion).
     @Override
-    public boolean apply(SliceIntArray source, SliceIntArray destination)
-    {
+   public boolean apply(SliceIntArray input, SliceIntArray output)
+   {
+      if ((!SliceIntArray.isValid(input)) || (!SliceIntArray.isValid(output)))
+         return false;
+      
         // Aliasing
-        final int[] src = source.array;
-        final int[] dst = destination.array;
-        int srcIdx = source.index;
-        int dstIdx = destination.index;
+        final int[] src = input.array;
+        final int[] dst = output.array;
+        int srcIdx = input.index;
+        int dstIdx = output.index;
         final int r = this.radius;
         final int w = this.width;
         final int h = this.height;
@@ -210,7 +213,7 @@ public final class BilateralFilter implements IntFilter
                 // For now, exclude first and last columns (within radius of border)
                 final int startX = (i >= r) ? i - r : 0;
                 final int endX = (i + r < w) ? i + r : w;
-                int offs = source.index + (startY * this.stride);
+                int offs = input.index + (startY * this.stride);
                 int kIdx = 0;
 
                 long sumR = 0;

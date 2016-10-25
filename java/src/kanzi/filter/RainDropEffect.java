@@ -92,12 +92,15 @@ public class RainDropEffect implements IntFilter
 
 
     @Override
-    public boolean apply(SliceIntArray source, SliceIntArray destination)
+    public boolean apply(SliceIntArray input, SliceIntArray output)
     {
-       final int[] src = source.array;
-       final int[] dst = destination.array;
-       int srcStart = source.index;
-       int dstStart = destination.index;
+       if ((!SliceIntArray.isValid(input)) || (!SliceIntArray.isValid(output)))
+          return false;
+      
+       final int[] src = input.array;
+       final int[] dst = output.array;
+       int srcStart = input.index;
+       int dstStart = output.index;
        final int w = this.width;
        final int h = this.height;
        final int st = this.stride;
@@ -146,7 +149,7 @@ public class RainDropEffect implements IntFilter
            {      
               final int xw256 = srcX & 0xFF; 
               final int yw256 = srcY & 0xFF;               
-              final int idx = (srcY * st) + srcX + source.index;
+              final int idx = (srcY * st) + srcX + input.index;
               dst[dstStart+x] = bilinearInterpolateRGB(xw256, yw256, src[idx], src[idx+1], 
                       src[idx+st], src[idx+st+1]);
            }
