@@ -202,9 +202,9 @@ public final class XYZColorModelConverter implements ColorModelConverter
                 int b =  rgbVal & 0xFF;
 
                 // Scaled by 4096
-                r = RGB_XYZ[r];               
-                g = RGB_XYZ[g];               
-                b = RGB_XYZ[b];               
+                r = (RGB_XYZ[r] + RGB_XYZ[r+1]) >> 1;
+                g = (RGB_XYZ[g] + RGB_XYZ[g+1]) >> 1;               
+                b = (RGB_XYZ[b] + RGB_XYZ[b+1]) >> 1;               
 
                 xval[i] = (1689*r + 1465*g +  739*b + adjust_) >> shift_;
                 yval[i] = ( 871*r + 2929*g +  296*b + adjust_) >> shift_;
