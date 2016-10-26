@@ -323,12 +323,16 @@ public class EntropyUtils
    // The alphabet and freqs parameters are updated
    public int normalizeFrequencies(int[] freqs, int[] alphabet, int totalFreq, int scale)
    {
-      if (totalFreq == 0)
-         return 0;
-
+      if (alphabet.length > 1<<16)
+         throw new IllegalArgumentException("Invalid alphabet size parameter: "+ alphabet.length +
+                 " (must be less than 65536)");
+      
       if ((scale < 1<<8) || (scale > 1<<16))
          throw new IllegalArgumentException("Invalid scale parameter: "+ scale +
                  " (must be in [256..65536])");
+
+      if ((alphabet.length == 0) || (totalFreq == 0))
+         return 0;
 
       int alphabetSize = 0;
 
@@ -355,7 +359,7 @@ public class EntropyUtils
       for (int i=0; i<alphabet.length; i++)
       {
          alphabet[i] = 0;
-         this.errors[i] = -1;
+         this.errors[i] = 0;
          final int f = freqs[i];
 
          if (f == 0)
@@ -416,7 +420,7 @@ public class EntropyUtils
          }
          else
          {
-            // Slow path: spread error across frequencies            
+            // Slow path: spread error across frequencies    
             final int inc = (sumScaledFreq > scale) ? -1 : 1;
             PriorityQueue<FreqSortData> queue = new PriorityQueue<FreqSortData>();
 
@@ -424,8 +428,8 @@ public class EntropyUtils
             for (int i=0; i<alphabetSize; i++)
             {
                if ((this.errors[alphabet[i]] >= 0) && (freqs[alphabet[i]] != -inc))
-                     queue.add(new FreqSortData(this.errors, freqs, alphabet[i]));
-               }
+                  queue.add(new FreqSortData(this.errors, freqs, alphabet[i]));
+            }
 
             while ((sumScaledFreq != scale) && (queue.size() > 0))
             {

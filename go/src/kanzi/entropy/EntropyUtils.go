@@ -392,12 +392,16 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 // Returns the size of the alphabet
 // The alphabet and freqs parameters are updated
 func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (int, error) {
-	if totalFreq == 0 {
-		return 0, nil
+	if len(alphabet) > 1<<16 {
+		return 0, fmt.Errorf("Invalid alphabet size parameter: %v (must be less than 65536)", len(alphabet))
 	}
 
 	if scale < 1<<8 || scale > 1<<16 {
 		return 0, fmt.Errorf("Invalid range parameter: %v (must be in [256..65536])", scale)
+	}
+
+	if len(alphabet) == 0 || totalFreq == 0 {
+		return 0, nil
 	}
 
 	alphabetSize := 0
@@ -425,7 +429,7 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, tota
 	// Scale frequencies by stretching distribution over complete range
 	for i := range alphabet {
 		alphabet[i] = 0
-		this.errors[i] = -1
+		this.errors[i] = 0
 		f := freqs[i]
 
 		if f == 0 {
@@ -490,7 +494,7 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, tota
 
 			// Create sorted queue of present symbols (except those with 'quantum frequency')
 			for i := 0; i < alphabetSize; i++ {
-				if this.errors[alphabet[i]] >= 0 && freqs[alphabet[i]] != -inc {
+				if this.errors[alphabet[i]] > 0 && freqs[alphabet[i]] != -inc {
 					heap.Push(&queue, &FreqSortData{errors: this.errors, frequencies: freqs, symbol: alphabet[i]})
 				}
 			}
