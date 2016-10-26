@@ -264,7 +264,7 @@ public class TestFunctions
       byte[] reverse;
       Random rnd = new Random();
       final int iter = 50000;
-      final int size = 30000;
+      final int size = 50000;
       System.out.println("\n\nSpeed test for " + name);
       System.out.println("Iterations: " + iter);
 
