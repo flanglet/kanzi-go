@@ -597,4 +597,12 @@ public final class YCbCrColorModelConverter implements ColorModelConverter
 
         return true;
     }
+    
+    
+    
+    @Override
+    public String toString() 
+    {
+       return "YCbCr";
+    }    
 }

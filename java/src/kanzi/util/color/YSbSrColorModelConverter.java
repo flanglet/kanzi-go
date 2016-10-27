@@ -38,7 +38,7 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
 
     public YSbSrColorModelConverter(int width, int height)
     {
-        this(width, height, 0, width, false, null, null);
+        this(width, height, 0, width, true, null, null);
     }
 
     
@@ -635,4 +635,11 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
 
         return true;
     }
+       
+    
+    @Override
+    public String toString() 
+    {
+       return "YSbSr";
+    }    
 }

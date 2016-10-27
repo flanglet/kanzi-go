@@ -132,5 +132,12 @@ public class RGBColorModelConverter implements ColorModelConverter
 
         return true;
     }
+    
+        
+    @Override
+    public String toString() 
+    {
+       return "RGB";
+    }    
 }
 

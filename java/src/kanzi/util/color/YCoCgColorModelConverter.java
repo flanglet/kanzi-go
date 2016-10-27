@@ -132,4 +132,11 @@ public final class YCoCgColorModelConverter implements ColorModelConverter
 
         return true;
     }
+    
+           
+    @Override
+    public String toString() 
+    {
+       return "YCoCg";
+    }
 }

@@ -133,10 +133,10 @@ public final class XYZColorModelConverter implements ColorModelConverter
     }
 
 
-    // default YUV precision: [0..4096]
+    // default YUV precision: [0..256]
     public XYZColorModelConverter(int width, int height, int rgbOffset, int stride)
     {
-       this(width, height, rgbOffset, stride, 0);
+       this(width, height, rgbOffset, stride, 4);
     }
     
 
@@ -284,5 +284,12 @@ public final class XYZColorModelConverter implements ColorModelConverter
         }
 
         return true;
+    }
+    
+    
+    @Override
+    public String toString() 
+    {
+       return "XYZ";
     }
 }

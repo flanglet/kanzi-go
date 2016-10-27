@@ -602,5 +602,12 @@ public final class YIQColorModelConverter implements ColorModelConverter
         }
 
         return true;
-    }
+    }    
+    
+    
+    @Override
+    public String toString() 
+    {
+       return "YIQ";
+    }    
 }

@@ -127,4 +127,11 @@ public final class ReversibleYUVColorModelConverter implements ColorModelConvert
         return true;
     }
 
+    
+    
+    @Override
+    public String toString() 
+    {
+       return "Reversible YUV";
+    }    
 }
