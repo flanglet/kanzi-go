@@ -50,7 +50,7 @@ public class TestResampler
    {
         try
         {
-           String fileName = (args.length > 0) ? args[0] : "r:\\baby.jpg";
+           String fileName = (args.length > 0) ? args[0] : "r:\\salon.png";
            Image image1 = ImageIO.read(new File(fileName));
            int w = image1.getWidth(null) & -32;
            int h = image1.getHeight(null) & -32;

@@ -223,7 +223,7 @@ public class GaussianFilter implements IntFilter
           {
             float xc = input[offs+x];
             float yc = this.a2*xn + this.a3*xa - this.b1*yn - this.b2*ya;
-            output[offs+x] += yc;
+            output[offs+x] += Math.round(yc);
             xa = xn;
             xn = xc;
             ya = yn;
