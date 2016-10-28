@@ -31,7 +31,15 @@ public class GaussianFilter implements IntFilter
     private final int channels;
     private int[] buffer1;
     private int[] buffer2;
-    private int sigma16;
+    private final int sigma16;
+    private final float b1;
+    private final float b2;
+    private final float a0;
+    private final float a1;
+    private final float a2;
+    private final float a3;
+    private final float coefp;
+    private final float coefn;      
 
 
     // sigma16 is the blurriness coefficient (multiplied by 16)
@@ -63,9 +71,22 @@ public class GaussianFilter implements IntFilter
         this.width = width;
         this.stride = stride;
         this.sigma16 = sigma16;
-        this.buffer1 = new int[width*height];
-        this.buffer2 = new int[width*height];
+        this.buffer1 = new int[0];
+        this.buffer2 = new int[0];
         this.channels = channels;
+        float nsigma = (this.sigma16 < 8) ? 0.5f : this.sigma16 /16.0f;
+        float alpha = 1.695f / nsigma;
+        float ema = (float) Math.exp(-alpha);
+        float ema2 = (float) Math.exp(-2*alpha);
+        this.b1 = -2*ema;
+        this.b2 = ema2;
+        float k = (1- ema)*(1-ema)/(1+2*alpha*ema-ema2);
+        this.a0 =  k;
+        this.a1 =  k*(alpha-1)*ema;
+        this.a2 =  k*(alpha+1)*ema;
+        this.a3 = -k*ema2;
+        this.coefp = (this.a0+this.a1) / (1+this.b1+this.b2);
+        this.coefn = (this.a2+this.a3) / (1+this.b1+this.b2);        
     }
 
 
@@ -79,72 +100,42 @@ public class GaussianFilter implements IntFilter
        final int[] dst = output.array;
        final int srcIdx = input.index;
        final int dstIdx = output.index;
+       final int count = this.width * this.height;;
        
        if (this.sigma16 == 0)
        {
-          System.arraycopy(src, srcIdx, dst, dstIdx, this.width*this.height);
+          if ((src != dst) || (srcIdx != dstIdx))
+             System.arraycopy(src, srcIdx, dst, dstIdx, count);
+          
           return true;
        }
 
-       final float sigma = (float) this.sigma16 / 16.0f;
-       final float nsigma = (sigma < 0.5f) ? 0.5f : sigma;
-       final float alpha = 1.695f / nsigma;
-       final float ema = (float) Math.exp(-alpha);
-       final float ema2 = (float) Math.exp(-2*alpha);
-       final float b1 = -2*ema;
-       final float b2 = ema2;
-       final float k = (1-ema)*(1-ema)/(1+2*alpha*ema-ema2);
-       final float a0 = k;
-       final float a1 = k*(alpha-1)*ema;
-       final float a2 = k*(alpha+1)*ema;
-       final float a3 = -k*ema2;
-       final float coefp = (a0+a1) / (1+b1+b2);
-       final float coefn = (a2+a3) / (1+b1+b2);
+       if (this.buffer1.length < count)
+          this.buffer1 = new int[count];
+
+       if (this.buffer2.length < count)
+          this.buffer2 = new int[count];
 
        // Aliasing
        final int[] buf1 = this.buffer1;
        final int[] buf2 = this.buffer2;
-       final int w = this.width;
-       final int h = this.height;
-       final int st = this.stride;
-       final int len = src.length;
 
        for (int channel=0; channel<this.channels; channel++)
        {
           final int shift = channel << 3;
-          int startLine = srcIdx;
-          int idx = 0;
-
+ 
           // Extract channel
-          for (int y=0; y<h; y++)
-          {
-             final int endLine = startLine + w;
-             final int endX = (startLine >= len) ? startLine : ((endLine < len) ? endLine : len);
+          for (int i=0; i<count; i++)
+             buf1[i] = (src[srcIdx+i] >> shift) & 0xFF;
 
-             for (int x=startLine; x<endX; x++)
-                buf1[idx++] = (src[x] >> shift) & 0xFF;
-
-             startLine += st;
-          }
-
-          this.gaussianRecursiveX(buf1, buf2, a0, a1, a2, a3, b1, b2, coefp, coefn);
-          this.gaussianRecursiveY(buf2, buf1, a0, a1, a2, a3, b1, b2, coefp, coefn);
-
-          startLine = dstIdx;
-          idx = 0;
+          this.gaussianRecursiveX(buf1, buf2);
+          this.gaussianRecursiveY(buf2, buf1);
 
           // Insert channel
-          for (int y=0; y<h; y++)
+          for (int i=0; i<count; i++)
           {
-             final int endX = startLine + w;
-
-             for (int x=startLine; x<endX; x++)
-             {
-                dst[x] &= ~(0xFF << shift); //src and dst can share the same array
-                dst[x] |= (buf1[idx++] & 0xFF) << shift;
-             }
-
-             startLine += st;
+             dst[dstIdx+i] &= ~(0xFF << shift); //src and dst can share the same array
+             dst[dstIdx+i] |= (buf1[i] & 0xFF) << shift;
           }
        }
 
@@ -152,8 +143,7 @@ public class GaussianFilter implements IntFilter
     }
 
 
-    private void gaussianRecursiveX(int[] input, int[] output, float a0, float a1,
-            float a2, float a3, float b1, float b2, float coefp, float coefn)
+    private void gaussianRecursiveX(int[] input, int[] output)
     {
        final int w = this.width;
        final int h = this.height;
@@ -163,14 +153,14 @@ public class GaussianFilter implements IntFilter
        {
           // forward pass
           float xp = input[offs];
-          float yb = coefp*xp;
+          float yb = this.coefp*xp;
           float yp = yb;
 
           for (int x=0; x<w; x++)
           {
              float xc = input[offs+x];
-             float yc = a0*xc + a1*xp - b1*yp - b2*yb;
-             output[offs+x] = (int) (yc + .5);
+             float yc = this.a0*xc + this.a1*xp - this.b1*yp - this.b2*yb;;             
+             output[offs+x] = Math.round(yc);
              xp = xc;
              yb = yp;
              yp = yc;
@@ -179,14 +169,14 @@ public class GaussianFilter implements IntFilter
           // reverse pass: ensure response is symmetrical
           float xn = input[offs+w-1];
           float xa = xn;
-          float yn = coefn*xn;
+          float yn = this.coefn*xn;
           float ya = yn;
 
           for (int x=w-1; x>=0; x--)
           {
              float xc = input[offs+x];
-             float yc = a2*xn + a3*xa - b1*yn - b2*ya;
-             output[offs+x] += yc;
+             float yc = this.a2*xn + this.a3*xa - this.b1*yn - this.b2*ya;
+             output[offs+x] += Math.round(yc);
              xa = xn;
              xn = xc;
              ya = yn;
@@ -198,8 +188,7 @@ public class GaussianFilter implements IntFilter
     }
 
 
-    private void gaussianRecursiveY(int[] input, int[] output, float a0, float a1,
-            float a2, float a3, float b1, float b2, float coefp, float coefn)
+    private void gaussianRecursiveY(int[] input, int[] output)
     {
        final int w = this.width;
        final int h = this.height;
@@ -209,37 +198,37 @@ public class GaussianFilter implements IntFilter
           // forward pass
           int offs = 0;
           float xp = input[x];
-          float yb = coefp*xp;
+          float yb = this.coefp*xp;
           float yp = yb;
 
           for (int y=0; y<h; y++)
           {
             float xc = input[offs+x];
-            float yc = a0*xc + a1*xp - b1*yp - b2*yb;
-            output[offs+x] = (int) (yc + .5);
+            float yc = this.a0*xc + this.a1*xp - this.b1*yp - this.b2*yb;
+            output[offs+x] = Math.round(yc);
             xp = xc;
-                 yb = yp;
-                 yp = yc;
-                 offs += w;
+            yb = yp;
+            yp = yc;
+            offs += w;
           }
 
           // reverse pass: ensure response is symmetrical
           offs = (h-1) * w;
           float xn = input[offs+x];
           float xa = xn;
-          float yn = coefn*xn;
+          float yn = this.coefn*xn;
           float ya = yn;
 
           for (int y=h-1; y>=0; y--)
           {
             float xc = input[offs+x];
-            float yc = a2*xn + a3*xa - b1*yn - b2*ya;
+            float yc = this.a2*xn + this.a3*xa - this.b1*yn - this.b2*ya;
             output[offs+x] += yc;
             xa = xn;
-                 xn = xc;
-                 ya = yn;
-                 yn = yc;
-                 offs -= w;
+            xn = xc;
+            ya = yn;
+            yn = yc;
+            offs -= w;
           }
        }
     }
@@ -248,16 +237,5 @@ public class GaussianFilter implements IntFilter
     public int getSigma()
     {
        return this.sigma16;
-    }
-
-
-    // Not thread safe
-    public boolean setSigma(int sigma16)
-    {
-       if ((sigma16 < 0) || (sigma16 > 255))
-          return false;
-
-       this.sigma16 = sigma16;
-       return true;
     }
 }
