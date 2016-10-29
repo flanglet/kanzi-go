@@ -99,7 +99,7 @@ public final class MSSSaliencyFilter implements IntFilter
       // Lazy instantiation
       if (this.buf.length < count)
       {
-         this.buf = new int[count];
+         this.buf    = new int[count];
          this.chanL1 = new int[count];
          this.chanA1 = new int[count];
          this.chanB1 = new int[count];
@@ -119,7 +119,7 @@ public final class MSSSaliencyFilter implements IntFilter
       SliceIntArray saL2 = new SliceIntArray(this.chanL2, 0);
       SliceIntArray saA2 = new SliceIntArray(this.chanA2, 0);
       SliceIntArray saB2 = new SliceIntArray(this.chanB2, 0);
-      SliceIntArray sa   = new SliceIntArray(this.buf, 0);
+      SliceIntArray sa   = new SliceIntArray(this.buf,    0);
 
       // Create Gaussian and Integral images for 1 or 3 channels.
       if (this.doColorTransform == true)
@@ -189,15 +189,14 @@ public final class MSSSaliencyFilter implements IntFilter
             final int valA = getIntegralSum(this.chanA2, x1, offset1, x2, offset2) / area;
             final int valB = getIntegralSum(this.chanB2, x1, offset1, x2, offset2) / area;
             final int idx = srcIdx + x;
-
-            int val = (valL-this.chanL1[idx]) * (valL-this.chanL1[idx]) +
-                      (valA-this.chanA1[idx]) * (valA-this.chanA1[idx]) +
-                      (valB-this.chanB1[idx]) * (valB-this.chanB1[idx]);
-
+            final int val1 = valL-this.chanL1[idx];
+            final int val2 = valA-this.chanA1[idx];
+            final int val3 = valB-this.chanB1[idx];
+            final int val = (val1*val1) + (val2*val2) + (val3*val3); // non linearity (dist. square)            
             dst[dstIdx+x] = val; 
             
             if (val < minVal)
-               minVal = (int) val; 
+               minVal = val; 
            
             if (val > maxVal) 
                maxVal = (int) val; 
@@ -210,16 +209,16 @@ public final class MSSSaliencyFilter implements IntFilter
       final int range = maxVal - minVal;
       dstIdx = output.index;
       
-      if (maxVal - minVal > 1)
+      if ((maxVal - minVal > 1) || (this.mask != -1))
       {
-         final int scale = (255<<10) / range;
+         final int scale = (255<<16) / range;
          
          for (int y=0; y<h; y++)
          {
             for (int x=0; x<w; x++)
             {
-               int val = (scale*(dst[dstIdx+x]-minVal)) >> 10;
-               dst[dstIdx+x] = (val >= 255) ? 0xFFFFFF & this.mask : ((val<<16) | (val<<8) | val) & this.mask;
+               final int val = (scale * (dst[dstIdx+x]-minVal)) >>> 16;
+               dst[dstIdx+x] = ((val<<16) | (val<<8) | val) & this.mask;
             }
 
             dstIdx += st;
