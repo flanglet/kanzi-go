@@ -38,7 +38,7 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
 
     public YSbSrColorModelConverter(int width, int height)
     {
-        this(width, height, 0, width, true, null, null);
+        this(width, height, 0, width, null, null, true);
     }
 
     
@@ -47,7 +47,7 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
     // roundtrip error).
     public YSbSrColorModelConverter(int width, int height, boolean keepRange)
     {
-        this(width, height, 0, width, keepRange, null, null);
+        this(width, height, 0, width, null, null, keepRange);
     }
 
 
@@ -55,7 +55,7 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
     // width and height are the dimension of the YUV frame
     public YSbSrColorModelConverter(int width, int height, int rgbOffset, int stride, boolean keepRange)
     {
-        this(width, height, rgbOffset, stride, keepRange, null, null);
+        this(width, height, rgbOffset, stride, null, null, keepRange);
     }
 
 
@@ -64,10 +64,10 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
     // the custom resamplers (the supersampler may not support in-place supersampling).
     // Also, specialized down/up samplers requires more than one pass: sampling and
     // color calculation.
-    public YSbSrColorModelConverter(int width, int height, boolean keepRange, 
-       DownSampler downSampler, UpSampler upSampler)
+    public YSbSrColorModelConverter(int width, int height, 
+       DownSampler downSampler, UpSampler upSampler, boolean keepRange)
     {
-       this(width, height, 0, width, keepRange, downSampler, upSampler);
+       this(width, height, 0, width, downSampler, upSampler, keepRange);
     }
 
 
@@ -80,7 +80,7 @@ public final class YSbSrColorModelConverter implements ColorModelConverter
     // rgbOffs is the offset in the RGB frame while stride is the width of the RGB frame
     // width and height are the dimension of the YUV frame
     public YSbSrColorModelConverter(int width, int height, int rgbOffset, int stride,
-                   boolean keepRange, DownSampler downSampler, UpSampler upSampler)
+                   DownSampler downSampler, UpSampler upSampler, boolean keepRange)
     {
         if (height < 8)
             throw new IllegalArgumentException("The height must be at least 8");

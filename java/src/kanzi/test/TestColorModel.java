@@ -14,7 +14,7 @@ limitations under the License.
 */
 
 package kanzi.test;
-
+ 
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
@@ -56,8 +56,8 @@ public class TestColorModel
          String fileName = (args.length > 0) ? args[0] : "r:\\kodim24.png";
          String type = fileName.substring(fileName.lastIndexOf(".")+1);
          ImageInfo ii = ImageUtils.loadImage(new FileInputStream(fileName), type);
-         int w = ii.width & -15;
-         int h = ii.height & -15;
+         int w = ii.width & -16;
+         int h = ii.height & -16;
          int[] rgb = ii.data;
          int[] rgb2 = new int[rgb.length];
          
@@ -67,8 +67,8 @@ public class TestColorModel
          UpSampler uBilinear = new BilinearUpSampler(w/2, h/2, 2);
          GuidedBilinearUpSampler ugBilinear = new GuidedBilinearUpSampler(w/2, h/2);
          DownSampler downSampler = new DecimateDownSampler(w, h, 2);
-         DownSampler dDWT = new DWTDownSampler(w, h, w, 1);
-         UpSampler uDWT = new DWTUpSampler(w/2, h/2, w, 1);
+         DownSampler dDCT = new DWTDownSampler(w, h, w, 1);
+         UpSampler uDCT = new DWTUpSampler(w/2, h/2, w, 1);
 
          ColorModelConverter[] cvts = new ColorModelConverter[]
          {
@@ -80,20 +80,20 @@ public class TestColorModel
             new YSbSrColorModelConverter(w, h),
             new YIQColorModelConverter(w, h),
             new YCbCrColorModelConverter(w, h, downSampler, uBicubic),
-            new YSbSrColorModelConverter(w, h, true, downSampler, uBicubic),
+            new YSbSrColorModelConverter(w, h, downSampler, uBicubic, true),
             new YIQColorModelConverter(w, h, downSampler, uBicubic),
             new YCbCrColorModelConverter(w, h),
             new YSbSrColorModelConverter(w, h, true),
             new YIQColorModelConverter(w, h),
             new YCbCrColorModelConverter(w, h, downSampler, uBilinear),
-            new YSbSrColorModelConverter(w, h, true, downSampler, uBilinear),
+            new YSbSrColorModelConverter(w, h, downSampler, uBilinear, true),
             new YIQColorModelConverter(w, h, downSampler, uBilinear),
             new YCbCrColorModelConverter(w, h, downSampler, ugBilinear),
-            new YSbSrColorModelConverter(w, h, true, downSampler, ugBilinear),
+            new YSbSrColorModelConverter(w, h, downSampler, ugBilinear, true),
             new YIQColorModelConverter(w, h, downSampler, ugBilinear),
-            new YCbCrColorModelConverter(w, h, dDWT, uDWT),
-            new YSbSrColorModelConverter(w, h, true, dDWT, uDWT),
-            new YIQColorModelConverter(w, h, dDWT, uDWT),         
+            new YCbCrColorModelConverter(w, h, dDCT, uDCT),
+            new YSbSrColorModelConverter(w, h,dDCT, uDCT, true),
+            new YIQColorModelConverter(w, h, dDCT, uDCT),         
          };
          
          ModelInfo[] models = new ModelInfo[]
@@ -117,9 +117,9 @@ public class TestColorModel
             new ModelInfo("YCbCr - guided bilinear", true, ugBilinear),
             new ModelInfo("YSbSr - guided bilinear", true, ugBilinear),
             new ModelInfo("YIQ - guided bilinear", true, ugBilinear),
-            new ModelInfo("YCbCr - DWT", true, uDWT),
-            new ModelInfo("YSbSr - DWT", true, uDWT),
-            new ModelInfo("YIQ - DWT", true, uDWT),         };
+            new ModelInfo("YCbCr - DCT", true, uDCT),
+            new ModelInfo("YSbSr - DCT", true, uDCT),
+            new ModelInfo("YIQ - DCT", true, uDCT),         };
 
          GraphicsDevice gs = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
          GraphicsConfiguration gc = gs.getDefaultConfiguration();
@@ -130,7 +130,7 @@ public class TestColorModel
          frame.add(new JLabel(new ImageIcon(img)));
          frame.setVisible(true);
          System.out.println("================ Test round trip RGB -> YXX -> RGB ================");
-         boolean display = false;
+         boolean display = true;
 
          for (int i=0; i<cvts.length; i++)
          {
@@ -178,7 +178,7 @@ public class TestColorModel
            {
               cvt.convertRGBtoYUV(rgb1, y1, u1, v1, ColorModelType.RGB);
               cvt.convertYUVtoRGB(y1, u1, v1, rgb2, ColorModelType.RGB);
-           } 
+           }  
            else
            {
               cvt.convertRGBtoYUV(rgb1, y1, u1, v1, ColorModelType.YUV444);

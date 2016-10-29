@@ -239,7 +239,7 @@ public final class YIQColorModelConverter implements ColorModelConverter
 
         for (int j=sh-1; j>=0; j--)
         {
-            // The last iteration (j==sh-1) must repeat the source line
+            // The last iteration repeats the source line
             // EG: src lines 254 & 255 => dest lines 508 & 509
             //     src lines 255 & 255 => dest lines 510 & 511
             if (j == 0)

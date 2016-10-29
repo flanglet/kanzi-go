@@ -138,6 +138,6 @@ public class RGBColorModelConverter implements ColorModelConverter
     public String toString() 
     {
        return "RGB";
-    }    
+    }
 }
 
