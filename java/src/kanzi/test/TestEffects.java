@@ -22,6 +22,7 @@ import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.Transparency;
 import java.awt.image.BufferedImage;
+import java.io.FileInputStream;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -35,8 +36,10 @@ import kanzi.filter.ContrastFilter;
 import kanzi.filter.FastBilateralFilter;
 import kanzi.filter.GaussianFilter;
 import kanzi.filter.LightingEffect;
+import kanzi.filter.MSSSaliencyFilter;
 import kanzi.filter.SobelFilter;
 import kanzi.filter.seam.ContextResizer;
+import kanzi.util.image.ImageUtils;
 
 
 
@@ -67,7 +70,7 @@ public class TestEffects
                    System.out.println("-file=<filename>     : load image file with provided name");
                    System.out.println("-filter=<filtername> : apply named filter ");
                    System.out.println("                       [Bilateral|Blur|Contrast|ColorCluster|FastBilateral|");
-                   System.out.println("                        Gaussian|Lighting|Sobel|ContextResizer]");
+                   System.out.println("                        Gaussian|Lighting|Sobel|Saliency|ContextResizer]");
                    System.out.println("-arg1=<param>        : paramter used by the filter (EG. contract in percent)");
                    System.out.println("-arg2=<param>        : paramter used by the filter (EG. contract in percent)");
                    System.exit(0);
@@ -87,7 +90,6 @@ public class TestEffects
                else if (arg.startsWith("-filter="))
                {
                    filterName = arg.substring(8).toUpperCase();
-                   System.out.println("Filter set to "+filterName);                     
                }            
                else
                {
@@ -95,10 +97,12 @@ public class TestEffects
                }
             }
             
-            ImageIcon icon = new ImageIcon(fileName);
-            Image image = icon.getImage();
-            int w = image.getWidth(null);
-            int h = image.getHeight(null);
+            // Load image (PPM/PGM supported)
+            String type = fileName.substring(fileName.lastIndexOf(".")+1);
+            ImageUtils.ImageInfo ii = ImageUtils.loadImage(new FileInputStream(fileName), type);
+
+            final int w = ii.width & -16;
+            final int h = ii.height & -16;
             
             if ((w < 0) || (h < 0))
             {
@@ -106,42 +110,52 @@ public class TestEffects
                System.exit(1);
             }
 
+            if (filterName.isEmpty())
+               filterName = "Filter";
+            
+            GraphicsDevice gs = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
+            GraphicsConfiguration gc = gs.getDefaultConfiguration();
+            BufferedImage img = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
+            img.getRaster().setDataElements(0, 0, w, h, ii.data);
+            ImageIcon icon = new ImageIcon(img);
             System.out.println(fileName);
+            System.out.println(filterName);
             System.out.println(w+"x"+h);
             JFrame frame = new JFrame("Original");
             frame.setBounds(100, 50, w, h);
             frame.add(new JLabel(icon));
             IntFilter effect;
             int adjust = 100 * 512 * 512 / (w * h); // adjust number of tests based on size
-     
+           
             switch (filterName)
-            { 
+            {               
                case "CONTEXTRESIZER" :
                {
                   // Context Resizer
                   frame.setVisible(true);            
                   int vertical = ContextResizer.VERTICAL;
                   int horizontal = ContextResizer.HORIZONTAL;
-                  boolean debug = (param1 == null) ? false : (param1 == 1);
+                  boolean debug = (param1 == null) ? false : (param1 == 1);                  
                   System.out.println("Debug: " + debug);
-                  int scaling = 25000/w;  // unit is .01%
+                  int scaling = 50000/w;  // unit is .01%
                   boolean fastMode = false;
                   effect = new ContextResizer(w/2, h, w, vertical, -scaling, fastMode, debug, null);
-                  test(effect, icon, "Filter - left half - "+scaling+" seams", 0, 200, 150, 0, 0);
+                  test(effect, img, filterName + " - left half - "+scaling+" seams", 0, 200, 150, 0, 0);
                   effect = new ContextResizer(w/2, h, w, vertical, -scaling, fastMode, debug, null);
-                  test(effect, icon, "Filter - right half - "+scaling+" seams", w/2, 300, 250, 0, 0);
+                  test(effect, img, filterName + " - right half - "+scaling+" seams", w/2, 300, 250, 0, 0);
                   effect = new ContextResizer(w, h/2, w, horizontal, -scaling, fastMode, debug, null);
-                  test(effect, icon, "Filter - upper half - "+scaling+" seams", 0, 400, 350, 0, 0);
+                  test(effect, img, filterName + " - upper half - "+scaling+" seams", 0, 400, 350, 0, 0);
                   effect = new ContextResizer(w, h/2, w, horizontal, -scaling, fastMode, debug, null);
-                  test(effect, icon, "Filter - lower half - "+scaling+" seams", h*w/2, 500, 450, 0, 0);
+                  test(effect, img, filterName + " - lower half - "+scaling+" seams", h*w/2, 500, 450, 0, 0);
                   effect = new ContextResizer(w/2, h/2, w, vertical|horizontal, -scaling, fastMode, debug, null);
-                  test(effect, icon, "Filter - one quarter - "+scaling+" seams", h*w/4+w/4, 600, 550, 0, 0);
+                  test(effect, img, filterName + " - one quarter - "+scaling+" seams", h*w/4+w/4, 600, 550, 0, 0);
                   scaling = 50000/w; // unit is .01%
                   effect = new ContextResizer(w, h, w, vertical|horizontal, -scaling, fastMode, debug, null);
-                  test(effect, icon, "Filter - full - "+scaling+" seams", 0, 700, 650, 2000*adjust/100, 30000);
+                  test(effect, img, filterName + " - full - "+scaling+" seams", 0, 700, 650, 2000*adjust/100, 30000);
                   break;  
                }
-            
+// TODO FIXME left               
+ 
                case "COLORCLUSTER" :
                {
                   // Color Cluster
@@ -151,19 +165,19 @@ public class TestEffects
                   System.out.println("Clusters: " + clusters);
                   System.out.println("Iterations: " + iterations);
                   effect = new ColorClusterFilter(w/2, h, w, clusters, iterations);
-                  test(effect, icon, "Filter - left half - "+clusters+" clusters", 0, 200, 150, 0, 0);
+                  test(effect, img, filterName + " - left half - "+clusters+" clusters", 0, 200, 150, 0, 0);
                   effect = new ColorClusterFilter(w/2, h, w, clusters, iterations);
-                  test(effect, icon, "Filter - right half - "+clusters+" clusters", w/2, 300, 250, 0, 0);
+                  test(effect, img, filterName + " - right half - "+clusters+" clusters", w/2, 300, 250, 0, 0);
                   effect = new ColorClusterFilter(w, h/2, w, clusters, iterations);
-                  test(effect, icon, "Filter - upper half - "+clusters+" clusters", 0, 400, 350, 0, 0);
+                  test(effect, img, filterName + " - upper half - "+clusters+" clusters", 0, 400, 350, 0, 0);
                   effect = new ColorClusterFilter(w, h/2, w, clusters, iterations);
-                  test(effect, icon, "Filter - lower half - "+clusters+" clusters", h*w/2, 500, 450, 0, 0);
+                  test(effect, img, filterName + " - lower half - "+clusters+" clusters", h*w/2, 500, 450, 0, 0);
                   effect = new ColorClusterFilter(w/2, h/2, w, clusters, iterations);
                   clusters = 10;
-                  test(effect, icon, "Filter - one quarter - "+clusters+" clusters", h*w/4+w/4, 600, 550, 0, 0);
+                  test(effect, img, filterName + " - one quarter - "+clusters+" clusters", h*w/4+w/4, 600, 550, 0, 0);
                   clusters = 5 + (Global.log2(w*h) >> 10);
                   effect = new ColorClusterFilter(w, h, w, clusters, iterations);
-                  test(effect, icon, "Filter - full - "+clusters+" clusters", 0, 700, 650, 1000*adjust/100, 30000);
+                  test(effect, img, filterName + " - full - "+clusters+" clusters", 0, 700, 650, 1000*adjust/100, 30000);
                   break;  
                }
 
@@ -176,21 +190,21 @@ public class TestEffects
                   System.out.println("Power: " + power + "%");
                   boolean bumpMapping = (param2 == null) ? false : param2 == 1;
                   effect = new LightingEffect(w/2, h, w, w/4, h/2, radius, power, bumpMapping);
-                  test(effect, icon, "Filter - left half - radius "+radius, 0, 200, 150, 0, 0);
+                  test(effect, img, filterName + " - left half - radius "+radius, 0, 200, 150, 0, 0);
                   effect = new LightingEffect(w/2, h, w, w/4, h/2, radius, power, bumpMapping);
-                  test(effect, icon, "Filter - right half - radius "+radius, w/2, 300, 250, 0, 0);
+                  test(effect, img, filterName + " - right half - radius "+radius, w/2, 300, 250, 0, 0);
                   effect = new LightingEffect(w, h/2, w, w/2, h/4, radius, power, bumpMapping);
-                  test(effect, icon, "Filter - upper half - radius "+radius, 0, 400, 350, 0, 0);
+                  test(effect, img, filterName + " - upper half - radius "+radius, 0, 400, 350, 0, 0);
                   effect = new LightingEffect(w, h/2, w, w/2, h/4, radius, power, bumpMapping);
-                  test(effect, icon, "Filter - lower half - radius "+radius, h*w/2, 500, 450, 0, 0);
+                  test(effect, img, filterName + " - lower half - radius "+radius, h*w/2, 500, 450, 0, 0);
                   effect = new LightingEffect(w/2, h/2, w, w/4, h/4, radius, power, bumpMapping);
-                  test(effect, icon, "Filter - one quarter - radius "+radius, h*w/4+w/4, 600, 550, 0, 0);
+                  test(effect, img, filterName + " - one quarter - radius "+radius, h*w/4+w/4, 600, 550, 0, 0);
                   radius *= 2;
                   effect = new LightingEffect(w, h, w, w/2, h/2, radius, power, bumpMapping);
-                  test(effect, icon, "Filter - full - radius "+radius, 0, 700, 650, 10000*adjust/100, 30000);
+                  test(effect, img, filterName + " - full - radius "+radius, 0, 700, 650, 10000*adjust/100, 30000);
                   break;  
                }
-               
+              
                case "BLUR" :
                {
                   // Blur
@@ -198,40 +212,40 @@ public class TestEffects
                   int radius = (param1 == null) ? 8 : param1;
                   System.out.println("Radius: " + radius);
                   effect = new BlurFilter(w/2, h, w, radius);
-                  test(effect, icon, "Filter - left half", 0, 200, 150, 0, 0);
+                  test(effect, img, filterName + " - left half", 0, 200, 150, 0, 0);
                   effect = new BlurFilter(w/2, h, w, radius);
-                  test(effect, icon, "Filter - right half", w/2, 300, 250, 0, 0);
+                  test(effect, img, filterName + " - right half", w/2, 300, 250, 0, 0);
                   effect = new BlurFilter(w, h/2, w, radius);
-                  test(effect, icon, "Filter - upper half", 0, 400, 350, 0, 0);
+                  test(effect, img, filterName + " - upper half", 0, 400, 350, 0, 0);
                   effect = new BlurFilter(w, h/2, w, radius);
-                  test(effect, icon, "Filter - lower half", h*w/2, 500, 450, 0, 0);
+                  test(effect, img, filterName + " - lower half", h*w/2, 500, 450, 0, 0);
                   effect = new BlurFilter(w/2, h/2, w, radius);
-                  test(effect, icon, "Filter - one quarter", h*w/4+w/4, 600, 550, 0, 0);
+                  test(effect, img, filterName + " - one quarter", h*w/4+w/4, 600, 550, 0, 0);
                   effect = new BlurFilter(w, h, w, radius);
-                  test(effect, icon, "Filter - full", 0, 700, 650, 1000*adjust/100, 30000);
+                  test(effect, img, filterName + " - full", 0, 700, 650, 1000*adjust/100, 30000);
                   break;
                }
-            
+           
                case "FASTBILATERAL" :
                {
                   // Fast Bilateral
                   frame.setVisible(true);            
-                  float sigmaR = (param1 == null) ? 30.0f : (float) param1;
+                  float sigmaR = (param1 == null) ? 20.0f : (float) param1;
                   float sigmaD = (param2 == null) ? 0.03f : (float) param2;
                   System.out.println("SigmaR: " + sigmaR);
                   System.out.println("SigmaD: " + sigmaD);
                   effect = new FastBilateralFilter(w/2, h, w, sigmaR, sigmaD);
-                  test(effect, icon, "Filter - left half", 0, 200, 150, 0, 0);
+                  test(effect, img, filterName + " - left half", 0, 200, 150, 0, 0);
                   effect = new FastBilateralFilter(w/2, h, w, sigmaR, sigmaD);
-                  test(effect, icon, "Filter - right half", w/2, 300, 250, 0, 0);
+                  test(effect, img, filterName + " - right half", w/2, 300, 250, 0, 0);
                   effect = new FastBilateralFilter(w, h/2, w, sigmaR, sigmaD);
-                  test(effect, icon, "Filter - upper half", 0, 400, 350, 0, 0);
+                  test(effect, img, filterName + " - upper half", 0, 400, 350, 0, 0);
                   effect = new FastBilateralFilter(w, h/2, w, sigmaR, sigmaD);
-                  test(effect, icon, "Filter - lower half", h*w/2, 500, 450, 0, 0);
+                  test(effect, img, filterName + " - lower half", h*w/2, 500, 450, 0, 0);
                   effect = new FastBilateralFilter(w/2, h/2, w, sigmaR, sigmaD);
-                  test(effect, icon, "Filter - one quarter", h*w/4+w/4, 600, 550, 0, 0);
+                  test(effect, img, filterName + " - one quarter", h*w/4+w/4, 600, 550, 0, 0);
                   effect = new FastBilateralFilter(w, h, w, sigmaR, sigmaD);
-                  test(effect, icon, "Filter - full", 0, 700, 650, 1000*adjust/100, 30000);
+                  test(effect, img, filterName + " - full", 0, 700, 650, 1000*adjust/100, 30000);
                   break;
                }
 
@@ -244,17 +258,17 @@ public class TestEffects
                   System.out.println("SigmaR: " + sigmaR);
                   System.out.println("SigmaD: " + sigmaD);
                   effect = new BilateralFilter(w/2, h, w, sigmaR, sigmaD);
-                  test(effect, icon, "Filter - left half", 0, 200, 150, 0, 0);
+                  test(effect, img, filterName + " - left half", 0, 200, 150, 0, 0);
                   effect = new BilateralFilter(w/2, h, w, sigmaR, sigmaD);
-                  test(effect, icon, "Filter - right half", w/2, 300, 250, 0, 0);
+                  test(effect, img, filterName + " - right half", w/2, 300, 250, 0, 0);
                   effect = new BilateralFilter(w, h/2, w, sigmaR, sigmaD);
-                  test(effect, icon, "Filter - upper half", 0, 400, 350, 0, 0);
+                  test(effect, img, filterName + " - upper half", 0, 400, 350, 0, 0);
                   effect = new BilateralFilter(w, h/2, w, sigmaR, sigmaD);
-                  test(effect, icon, "Filter - lower half", h*w/2, 500, 450, 0, 0);
+                  test(effect, img, filterName + " - lower half", h*w/2, 500, 450, 0, 0);
                   effect = new BilateralFilter(w/2, h/2, w, sigmaR, sigmaD);
-                  test(effect, icon, "Filter - one quarter", h*w/4+w/4, 600, 550, 0, 0);
+                  test(effect, img, filterName + " - one quarter", h*w/4+w/4, 600, 550, 0, 0);
                   effect = new BilateralFilter(w, h, w, sigmaR, sigmaD);
-                  test(effect, icon, "Filter - full", 0, 700, 650, 25*adjust/100, 30000);
+                  test(effect, img, filterName + " - full", 0, 700, 650, 25*adjust/100, 30000);
                   break;
                }
 
@@ -267,17 +281,17 @@ public class TestEffects
                   System.out.println("Channels: " + channels);
                   System.out.println("Sigma16: " + sigma16);
                   effect = new GaussianFilter(w/2, h, w, sigma16, channels);
-                  test(effect, icon, "Filter - left half", 0, 200, 150, 0, 0);
+                  test(effect, img, filterName + " - left half", 0, 200, 150, 0, 0);
                   effect = new GaussianFilter(w/2, h, w, sigma16, channels);
-                  test(effect, icon, "Filter - right half", w/2, 300, 250, 0, 0);
+                  test(effect, img, filterName + " - right half", w/2, 300, 250, 0, 0);
                   effect = new GaussianFilter(w, h/2, w, sigma16, channels);
-                  test(effect, icon, "Filter - upper half", 0, 400, 350, 0, 0);
+                  test(effect, img, filterName + " - upper half", 0, 400, 350, 0, 0);
                   effect = new GaussianFilter(w, h/2, w, sigma16, channels);
-                  test(effect, icon, "Filter - lower half", h*w/2, 500, 450, 0, 0);
+                  test(effect, img, filterName + " - lower half", h*w/2, 500, 450, 0, 0);
                   effect = new GaussianFilter(w/2, h/2, w, sigma16, channels);
-                  test(effect, icon, "Filter - one quarter", h*w/4+w/4, 600, 550, 0, 0);
+                  test(effect, img, filterName + " - one quarter", h*w/4+w/4, 600, 550, 0, 0);
                   effect = new GaussianFilter(w, h, w, sigma16, channels);
-                  test(effect, icon, "Filter - full", 0, 700, 650, 2000*adjust/100, 30000);
+                  test(effect, img, filterName + " - full", 0, 700, 650, 2000*adjust/100, 30000);
                   break;
                }
                   
@@ -288,17 +302,17 @@ public class TestEffects
                   int contrast = (param1 == null) ? 75 : param1; //per cent
                   System.out.println("Contrast: " + contrast + "%");
                   effect = new ContrastFilter(w/2, h, w, contrast);
-                  test(effect, icon, "Filter - left half", 0, 200, 150, 0, 0);
+                  test(effect, img, filterName + " - left half", 0, 200, 150, 0, 0);
                   effect = new ContrastFilter(w/2, h, w, contrast);
-                  test(effect, icon, "Filter - right half", w/2, 300, 250, 0, 0);
+                  test(effect, img, filterName + " - right half", w/2, 300, 250, 0, 0);
                   effect = new ContrastFilter(w, h/2, w, contrast);
-                  test(effect, icon, "Filter - upper half", 0, 400, 350, 0, 0);
+                  test(effect, img, filterName + " - upper half", 0, 400, 350, 0, 0);
                   effect = new ContrastFilter(w, h/2, w, contrast);
-                  test(effect, icon, "Filter - lower half", h*w/2, 500, 450, 0, 0);
+                  test(effect, img, filterName + " - lower half", h*w/2, 500, 450, 0, 0);
                   effect = new ContrastFilter(w/2, h/2, w, contrast);
-                  test(effect, icon, "Filter - one quarter", h*w/4+w/4, 600, 550, 0, 0);
+                  test(effect, img, filterName + " - one quarter", h*w/4+w/4, 600, 550, 0, 0);
                   effect = new ContrastFilter(w, h, w, contrast);
-                  test(effect, icon, "Filter - full", 0, 700, 650, 10000*adjust/100, 30000);
+                  test(effect, img, filterName + " - full", 0, 700, 650, 10000*adjust/100, 30000);
                   break;
                }
 
@@ -307,26 +321,45 @@ public class TestEffects
                   // Sobel
                   frame.setVisible(true);            
                   effect = new SobelFilter(w/2, h, w);
-                  test(effect, icon, "Filter - left half", 0, 200, 150, 0, 0);
+                  test(effect, img, filterName + " - left half", 0, 200, 150, 0, 0);
                   effect = new SobelFilter(w/2, h, w);
-                  test(effect, icon, "Filter - right half", w/2, 300, 250, 0, 0);
+                  test(effect, img, filterName + " - right half", w/2, 300, 250, 0, 0);
                   effect = new SobelFilter(w, h/2, w);
-                  test(effect, icon, "Filter - upper half", 0, 400, 350, 0, 0);
+                  test(effect, img, filterName + " - upper half", 0, 400, 350, 0, 0);
                   effect = new SobelFilter(w, h/2, w);
-                  test(effect, icon, "Filter - lower half", h*w/2, 500, 450, 0, 0);
+                  test(effect, img, filterName + " - lower half", h*w/2, 500, 450, 0, 0);
                   effect = new SobelFilter(w/2, h/2, w);
-                  test(effect, icon, "Filter - one quarter", h*w/4+w/4, 600, 550, 0, 0);
+                  test(effect, img, filterName + " - one quarter", h*w/4+w/4, 600, 550, 0, 0);
                   effect = new SobelFilter(w, h, w);
-                  test(effect, icon, "Filter - full", 0, 700, 650, 4000*adjust/100, 30000);
+                  test(effect, img, filterName + " - full", 0, 700, 650, 4000*adjust/100, 30000);
                   break;
                }
                
-               default:   
+               case "SALIENCY" :
+               {
+                  // Sobel
+                  frame.setVisible(true);            
+                  effect = new MSSSaliencyFilter(w/2, h, w);
+                  test(effect, img, filterName + " - left half", 0, 200, 150, 0, 0);
+                  effect = new MSSSaliencyFilter(w/2, h, w);
+                  test(effect, img, filterName + " - right half", w/2, 300, 250, 0, 0);
+                  effect = new MSSSaliencyFilter(w, h/2, w);
+                  test(effect, img, filterName + " - upper half", 0, 400, 350, 0, 0);
+                  effect = new MSSSaliencyFilter(w, h/2, w);
+                  test(effect, img, filterName + " - lower half", h*w/2, 500, 450, 0, 0);
+                  effect = new MSSSaliencyFilter(w/2, h/2, w);
+                  test(effect, img, filterName + " - one quarter", h*w/4+w/4, 600, 550, 0, 0);
+                  effect = new MSSSaliencyFilter(w, h, w);
+                  test(effect, img, filterName + " - full", 0, 700, 650, 1000*adjust/100, 30000);                 
+                  break;
+               }
+               
+               default:
                {
                   System.out.println("Unknown filter: '"+filterName+"'");
                   System.out.println("Supported filters: [Bilateral|Blur|Contrast|ColorCluster|FastBilateral|" +
-                                     "Gaussian|Lighting|Sobel|ContextResizer]");
-                  System.exit(1);
+                                     "Gaussian|Lighting|Sobel|Saliency|ContextResizer]");
+                  System.exit(1);                  
                }
             }
         }
@@ -339,10 +372,9 @@ public class TestEffects
     }
 
     
-    public static void test(IntFilter effect, ImageIcon icon, String title, 
+    public static void test(IntFilter effect, Image image, String title, 
             int offset, int xx, int yy, int iters, long sleep)
     {
-         Image image = icon.getImage();
          int w = image.getWidth(null);
          int h = image.getHeight(null);
          GraphicsDevice gs = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
@@ -350,13 +382,20 @@ public class TestEffects
          BufferedImage img = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
          img.getGraphics().drawImage(image, 0, 0, null);
          BufferedImage img2 = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
-         SliceIntArray source = new SliceIntArray(new int[w*h], offset);
-         SliceIntArray dest = new SliceIntArray(new int[w*h], offset);
+         SliceIntArray source = new SliceIntArray(new int[w*h], w*h-offset, offset);
+         SliceIntArray dest = new SliceIntArray(new int[w*h], w*h-offset, offset);
   
          // Do NOT use img.getRGB(): it is more than 10 times slower than
          // img.getRaster().getDataElements()
          img.getRaster().getDataElements(0, 0, w, h, source.array);
-         effect.apply(source, dest);
+         System.out.println("Running test '" + title + "'");
+         
+         if (effect.apply(source, dest) == false)
+         {
+            System.out.println("Test failed");   
+            return;
+         }
+         
          img2.getRaster().setDataElements(0, 0, w, h, dest.array);
 
          JFrame frame2 = new JFrame(title);
@@ -375,8 +414,10 @@ public class TestEffects
                 effect.apply(source, dest);
 
              long after = System.nanoTime();
+             float mpixsec = (float)(w*h)*(float)(iters)/(float)(1024*1024)/((float)(after-before)/1000000000.f);
              System.out.println("Elapsed [ms]: "+ (after-before)/1000000+" ("+iters+" iterations)");
              System.out.println(1000000000*(long)iters/(after-before)+" FPS");
+             System.out.println(String.format("%1.2f MPix/s", mpixsec));
          }
 
          try
