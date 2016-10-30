@@ -36,7 +36,8 @@ import kanzi.filter.ContrastFilter;
 import kanzi.filter.FastBilateralFilter;
 import kanzi.filter.GaussianFilter;
 import kanzi.filter.LightingEffect;
-import kanzi.filter.MSSSaliencyFilter;
+import kanzi.filter.MSSSaliencyFilter;import kanzi.filter.SharpenFilter;
+;
 import kanzi.filter.SobelFilter;
 import kanzi.filter.seam.ContextResizer;
 import kanzi.util.image.ImageUtils;
@@ -70,9 +71,9 @@ public class TestEffects
                    System.out.println("-file=<filename>     : load image file with provided name");
                    System.out.println("-filter=<filtername> : apply named filter ");
                    System.out.println("                       [Bilateral|Blur|Contrast|ColorCluster|FastBilateral|");
-                   System.out.println("                        Gaussian|Lighting|Sobel|Saliency|ContextResizer]");
-                   System.out.println("-arg1=<param>        : paramter used by the filter (EG. contract in percent)");
-                   System.out.println("-arg2=<param>        : paramter used by the filter (EG. contract in percent)");
+                   System.out.println("                        Gaussian|Lighting|Sobel|Saliency|ContextResizer|Sharpen]");
+                   System.out.println("-arg1=<param>        : parameter used by the filter (EG. contract in percent)");
+                   System.out.println("-arg2=<param>        : parameter used by the filter (EG. contract in percent)");
                    System.exit(0);
                }
                else if (arg.startsWith("-file="))
@@ -334,6 +335,25 @@ public class TestEffects
                   test(effect, img, filterName + " - full", 0, 700, 650, 4000*adjust/100, 30000);
                   break;
                }
+    
+               case "SHARPEN" :
+               {
+                  // Sobel
+                  frame.setVisible(true);            
+                  effect = new SharpenFilter(w/2, h, w);
+                  test(effect, img, filterName + " - left half", 0, 200, 150, 0, 0);
+                  effect = new SharpenFilter(w/2, h, w);
+                  test(effect, img, filterName + " - right half", w/2, 300, 250, 0, 0);
+                  effect = new SharpenFilter(w, h/2, w);
+                  test(effect, img, filterName + " - upper half", 0, 400, 350, 0, 0);
+                  effect = new SharpenFilter(w, h/2, w);
+                  test(effect, img, filterName + " - lower half", h*w/2, 500, 450, 0, 0);
+                  effect = new SharpenFilter(w/2, h/2, w);
+                  test(effect, img, filterName + " - one quarter", h*w/4+w/4, 600, 550, 0, 0);
+                  effect = new SharpenFilter(w, h, w);
+                  test(effect, img, filterName + " - full", 0, 700, 650, 4000*adjust/100, 30000);
+                  break;
+               }
                
                case "SALIENCY" :
                {
@@ -358,8 +378,8 @@ public class TestEffects
                {
                   System.out.println("Unknown filter: '"+filterName+"'");
                   System.out.println("Supported filters: [Bilateral|Blur|Contrast|ColorCluster|FastBilateral|" +
-                                     "Gaussian|Lighting|Sobel|Saliency|ContextResizer]");
-                  System.exit(1);                  
+                                     "Gaussian|Lighting|Sobel|Saliency|ContextResizer|Sharpen]");
+                  System.exit(1);  
                }
             }
         }
