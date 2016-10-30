@@ -100,21 +100,22 @@ public class GaussianFilter implements IntFilter
        final int[] dst = output.array;
        final int srcIdx = input.index;
        final int dstIdx = output.index;
-       final int count = this.width * this.height;;
+       final int maxIdx = Math.max(srcIdx, dstIdx);
+       final int count = this.stride * this.height;
        
        if (this.sigma16 == 0)
        {
           if ((src != dst) || (srcIdx != dstIdx))
-             System.arraycopy(src, srcIdx, dst, dstIdx, count);
+             System.arraycopy(src, srcIdx, dst, dstIdx, count+maxIdx);
           
           return true;
        }
 
-       if (this.buffer1.length < count)
-          this.buffer1 = new int[count];
+       if (this.buffer1.length < count+maxIdx)
+          this.buffer1 = new int[count+maxIdx];
 
-       if (this.buffer2.length < count)
-          this.buffer2 = new int[count];
+       if (this.buffer2.length < count+maxIdx)
+          this.buffer2 = new int[count+maxIdx];
 
        // Aliasing
        final int[] buf1 = this.buffer1;
@@ -123,20 +124,37 @@ public class GaussianFilter implements IntFilter
        for (int channel=0; channel<this.channels; channel++)
        {
           final int shift = channel << 3;
+          int offs = 0;
  
           // Extract channel
-          for (int i=0; i<count; i++)
-             buf1[i] = (src[srcIdx+i] >> shift) & 0xFF;
-
+          for (int j=this.height-1; j>=0; j--)
+          {
+             final int end = offs + this.width;
+             
+             for (int i=offs; i<end; i++)
+                buf1[i] = (src[srcIdx+i] >> shift) & 0xFF;
+             
+             offs += this.stride;
+          }
+          
           this.gaussianRecursiveX(buf1, buf2);
           this.gaussianRecursiveY(buf2, buf1);
+          offs = 0;
 
           // Insert channel
-          for (int i=0; i<count; i++)
+          for (int j=this.height-1; j>=0; j--)
           {
-             dst[dstIdx+i] &= ~(0xFF << shift); //src and dst can share the same array
-             dst[dstIdx+i] |= (buf1[i] & 0xFF) << shift;
+             final int end = offs + this.width;
+             
+             for (int i=offs; i<end; i++)
+             {
+                dst[dstIdx+i] &= ~(0xFF << shift); //src and dst can share the same array
+                dst[dstIdx+i] |= (buf1[i] & 0xFF) << shift;
+             }
+             
+             offs += this.stride;
           }
+
        }
 
        return true;
@@ -159,7 +177,7 @@ public class GaussianFilter implements IntFilter
           for (int x=0; x<w; x++)
           {
              float xc = input[offs+x];
-             float yc = this.a0*xc + this.a1*xp - this.b1*yp - this.b2*yb;;             
+             float yc = this.a0*xc + this.a1*xp - this.b1*yp - this.b2*yb;            
              output[offs+x] = Math.round(yc);
              xp = xc;
              yb = yp;
@@ -183,7 +201,7 @@ public class GaussianFilter implements IntFilter
              yn = yc;
           }
 
-          offs += w;
+          offs += this.stride;
        }
     }
 
@@ -209,11 +227,11 @@ public class GaussianFilter implements IntFilter
             xp = xc;
             yb = yp;
             yp = yc;
-            offs += w;
+            offs += this.stride;
           }
 
           // reverse pass: ensure response is symmetrical
-          offs = (h-1) * w;
+          offs = (h-1) * this.stride;
           float xn = input[offs+x];
           float xa = xn;
           float yn = this.coefn*xn;
@@ -228,7 +246,7 @@ public class GaussianFilter implements IntFilter
             xn = xc;
             ya = yn;
             yn = yc;
-            offs -= w;
+            offs -= this.stride;
           }
        }
     }

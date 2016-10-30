@@ -112,6 +112,8 @@ public final class MSSSaliencyFilter implements IntFilter
       final int[] dst = output.array;
       int srcIdx = input.index;
       int dstIdx = output.index;
+      final int h = this.height;
+      final int w = this.width;
       
       SliceIntArray saL1 = new SliceIntArray(this.chanL1, 0);
       SliceIntArray saA1 = new SliceIntArray(this.chanA1, 0);
@@ -129,26 +131,26 @@ public final class MSSSaliencyFilter implements IntFilter
          if (cvt.convertRGBtoYUV(src, this.chanL1, this.chanA1, this.chanB1, ColorModelType.YUV444) == false)
             return false;
          
-         System.arraycopy(this.chanA1, 0, this.buf, 0, count);
+         copyImage(this.chanA1, this.buf, w, h, 0, this.width, this.stride);
 
          if (this.integralFilter.apply(sa, saA2) == false)
             return false;
 
-         if (this.gaussianSmooth(saA1, saA1) == false)
+         if (this.gaussianSmooth(sa, saA1) == false)
             return false;
 
-         System.arraycopy(this.chanB1, 0, this.buf, 0, count);
+         copyImage(this.chanB1, this.buf, w, h, 0, this.width, this.stride);
 
          if (this.integralFilter.apply(sa, saB2) == false)
             return false;
 
-         if (this.gaussianSmooth(saB1, saB1) == false)
+         if (this.gaussianSmooth(sa, saB1) == false)
             return false;
       }
       else
       {
          // No color transform, use L channel as input data
-         for (int i=0; i<count; i++)
+         for (int i=0; srcIdx+i<count; i++)
          {
             this.chanL1[i] = src[srcIdx+i];
             this.chanA1[i] = 0;
@@ -156,31 +158,30 @@ public final class MSSSaliencyFilter implements IntFilter
          }
       }
           
-      System.arraycopy(this.chanL1, 0, this.buf, 0, count);
+      copyImage(this.chanL1, this.buf, w, h, 0, this.width, this.stride);
 
       if (this.integralFilter.apply(sa, saL2) == false)
          return false;
 
-      if (this.gaussianSmooth(saL1, saL1) == false)
+      if (this.gaussianSmooth(sa, saL1) == false)
          return false;
 
-      final int h = this.height;
-      final int w = this.width;
       final int st = this.stride;
       int minVal = Integer.MAX_VALUE;
       int maxVal = 0;
+      srcIdx = 0;
 
       // Compute distance of differences 
       for (int y=0; y<h; y++)
       {
          final int yoff	= Math.min(y, h-y);
-         final int y1	= Math.max(y-yoff, 0);
+         final int y1	= y - yoff;
          final int y2	= Math.min(y+yoff, h-1);
          
          for (int x=0; x<w; x++)
          {
             final int xoff	= Math.min(x, w-x);
-            final int x1	= Math.max(x-xoff, 0);
+            final int x1	= x - xoff;
             final int x2	= Math.min(x+xoff, w-1);
             final int area = (x2-x1+1) * (y2-y1+1);     
             final int offset1 = (y1-1) * st;
@@ -189,9 +190,9 @@ public final class MSSSaliencyFilter implements IntFilter
             final int valA = getIntegralSum(this.chanA2, x1, offset1, x2, offset2) / area;
             final int valB = getIntegralSum(this.chanB2, x1, offset1, x2, offset2) / area;
             final int idx = srcIdx + x;
-            final int val1 = valL-this.chanL1[idx];
-            final int val2 = valA-this.chanA1[idx];
-            final int val3 = valB-this.chanB1[idx];
+            final int val1 = valL - this.chanL1[idx];
+            final int val2 = valA - this.chanA1[idx];
+            final int val3 = valB - this.chanB1[idx];
             final int val = (val1*val1) + (val2*val2) + (val3*val3); // non linearity (dist. square)            
             dst[dstIdx+x] = val; 
             
@@ -229,6 +230,31 @@ public final class MSSSaliencyFilter implements IntFilter
    }
 
    
+   private static void copyImage(int[] input, int[] output, int w, int h, int offs, int stride1, int stride2)
+   {
+      if (input == output)
+         return;
+      
+      if (stride1 == stride2)
+      {
+         // Copy full buffer
+         System.arraycopy(input, offs, output, 0, input.length-offs);
+         return;
+      }
+      
+      int srcIdx = offs;
+      int dstIdx = 0;
+      
+      for (int j=h-1; j>=0; j--)
+      {         
+         // Copy line by line to respect different strides
+         System.arraycopy(input, srcIdx, output, dstIdx, w);
+         srcIdx += stride1;
+         dstIdx += stride2;
+      }
+   }
+   
+   
    private static int getIntegralSum(int[] data, int x1, int offset1, int x2, int offset2)
    {
       if (x1 <= 0)
@@ -257,7 +283,7 @@ public final class MSSSaliencyFilter implements IntFilter
 
       // Horizontal blur
       {
-         int idx = 0;
+         int idx = output.index;
          int srcIdx = input.index;
 
          for (int j=0; j<h; j++)
@@ -283,8 +309,11 @@ public final class MSSSaliencyFilter implements IntFilter
 
       // Vertical blur
       {
-         int idx = st;
+         int idx = 0;
          int dstIdx = output.index;
+         System.arraycopy(this.buf, idx, dst, dstIdx, w);
+         idx += st;
+         dstIdx += st;
 
          for (int j=1; j<h-1; j++)
          {
@@ -299,6 +328,8 @@ public final class MSSSaliencyFilter implements IntFilter
             dstIdx += st;
             idx += st;
          }
+         
+         System.arraycopy(this.buf, idx, dst, dstIdx, w);
       }
 
       return true;

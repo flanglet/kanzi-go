@@ -81,19 +81,19 @@ public class IntegralImageFilter implements IntFilter
       dstIdx += st;
          
       // Other rows
-      for (int y=1; y<h; y++ )
-		{
-			sumRow = 0;
-         
-			for (int x=0; x<w; x++)
-			{
-				sumRow += src[srcIdx+x];
-			   dst[dstIdx+x]= dst[dstIdx-st+x] + sumRow;
-			}
-         
+      for (int y=1; y<h; y++)
+      {
+         sumRow = 0;
+
+         for (int x=0; x<w; x++)
+         {
+            sumRow += src[srcIdx+x];
+            dst[dstIdx+x] = dst[dstIdx+x-st] + sumRow;
+         }
+
          srcIdx += st;
          dstIdx += st;
-		}   
+      }   
       
       return true;
    }   
