@@ -44,8 +44,8 @@ public class TestQuadTreeGenerator
     {
         try
         {
-            String fileName = (args.length > 0) ? args[0] : "c:\\temp\\lena.jpg";
-            String strVar = (args.length > 1) ? args[1] : "250";
+            String fileName = (args.length > 0) ? args[0] : "r:\\lena.jpg";
+            String strVar = (args.length > 1) ? args[1] : "300";
             Image image = ImageIO.read(new File(fileName));            
             int w = image.getWidth(null) & -8;
             int h = image.getHeight(null) & -8;
@@ -147,7 +147,7 @@ public class TestQuadTreeGenerator
                }
             }
 
-            Thread.sleep(60000);            
+            Thread.sleep(120000);            
         }
         catch (Exception e)
         {

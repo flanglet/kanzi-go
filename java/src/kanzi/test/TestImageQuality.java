@@ -32,8 +32,8 @@ public class TestImageQuality
 {
    public static void main(String[] args) throws Exception
    {
-        String fileName1 = (args.length > 0) ? args[0] : "r:\\lena.jpg";
-        String fileName2 = (args.length > 1) ? args[1] : "r:\\lena_blocky.jpg";
+        String fileName1 = (args.length > 0) ? args[0] : "r:\\bees.png";
+        String fileName2 = (args.length > 1) ? args[1] : "r:\\bees-webp.png";
         Image image1 = ImageIO.read(new File(fileName1));
         Image image2 = ImageIO.read(new File(fileName2));
         int w = image1.getWidth(null) & -8;
@@ -76,15 +76,13 @@ public class TestImageQuality
            psnr = monitor.computePSNR(rgb1, rgb2, ColorModelType.RGB);
            ssim = monitor.computeSSIM(rgb1, rgb2, ColorModelType.RGB);
            printResults("PSNR: ", psnr, "SSIM: ", ssim);
-           monitor = new ImageQualityMonitor(w&-16, h&-16, w, 1);
+           monitor = new ImageQualityMonitor(w&-16, h&-16, w&-16, 1);
            psnr = monitor.computePSNR(rgb1, rgb2, ColorModelType.RGB);
            ssim = monitor.computeSSIM(rgb1, rgb2, ColorModelType.RGB);
-           printResults("PSNR: ", psnr, "SSIM: ", ssim);
            printResults("PSNR (subsampled by 2x2): ", psnr, "SSIM (subsampled by 2x2): ", ssim);
-           monitor = new ImageQualityMonitor(w&-32, h&-32, w, 2);
+           monitor = new ImageQualityMonitor(w&-32, h&-32, w&-32, 2);
            psnr = monitor.computePSNR(rgb1, rgb2, ColorModelType.RGB);
            ssim = monitor.computeSSIM(rgb1, rgb2, ColorModelType.RGB);
-           printResults("PSNR: ", psnr, "SSIM: ", ssim);
            printResults("PSNR (subsampled by 4x4): ", psnr, "SSIM (subsampled by 4x4): ", ssim);
         }
 
@@ -99,11 +97,11 @@ public class TestImageQuality
            psnr = monitor.computePSNR(rgb1, rgb2);
            ssim = monitor.computeSSIM(rgb1, rgb2);
            printResults("PSNR: ", psnr, "SSIM: ", ssim);
-           monitor = new ImageQualityMonitor(w&-16, h&-16, w, 1);
+           monitor = new ImageQualityMonitor(w&-16, h&-16, w&-16, 1);
            psnr = monitor.computePSNR(rgb1, rgb2);
            ssim = monitor.computeSSIM(rgb1, rgb2);
            printResults("PSNR (subsampled by 2x2): ", psnr, "SSIM (subsampled by 2x2): ", ssim);
-           monitor = new ImageQualityMonitor(w&-32, h&-32, w, 2);
+           monitor = new ImageQualityMonitor(w&-32, h&-32, w&-32, 2);
            psnr = monitor.computePSNR(rgb1, rgb2);
            ssim = monitor.computeSSIM(rgb1, rgb2);
            printResults("PSNR (subsampled by 4x4): ", psnr, "SSIM (subsampled by 4x4): ", ssim);
@@ -120,11 +118,11 @@ public class TestImageQuality
            psnr = monitor.computePSNR(rgb1, rgb2);
            ssim = monitor.computeSSIM(rgb1, rgb2);
            printResults("PSNR: ", psnr, "SSIM: ", ssim);
-           monitor = new ImageQualityMonitor(w&-16, h&-16, w, 1);
+           monitor = new ImageQualityMonitor(w&-16, h&-16, w&-16, 1);
            psnr = monitor.computePSNR(rgb1, rgb2);
            ssim = monitor.computeSSIM(rgb1, rgb2);
            printResults("PSNR (subsampled by 2x2): ", psnr, "SSIM (subsampled by 2x2): ", ssim);
-           monitor = new ImageQualityMonitor(w&-32, h&-32, w, 2);
+           monitor = new ImageQualityMonitor(w&-32, h&-32, w&-32, 2);
            psnr = monitor.computePSNR(rgb1, rgb2);
            ssim = monitor.computeSSIM(rgb1, rgb2);
            printResults("PSNR (subsampled by 4x4): ", psnr, "SSIM (subsampled by 4x4): ", ssim);
@@ -140,11 +138,11 @@ public class TestImageQuality
            psnr = monitor.computePSNR(rgb1, rgb2);
            ssim = monitor.computeSSIM(rgb1, rgb2);
            printResults("PSNR: ", psnr, "SSIM: ", ssim);
-           monitor = new ImageQualityMonitor(w&-16, h&-16, w, 1);
+           monitor = new ImageQualityMonitor(w&-16, h&-16, w&-16, 1);
            psnr = monitor.computePSNR(rgb1, rgb2);
            ssim = monitor.computeSSIM(rgb1, rgb2);
            printResults("PSNR (subsampled by 2x2): ", psnr, "SSIM (subsampled by 2x2): ", ssim);
-           monitor = new ImageQualityMonitor(w&-32, h&-32, w, 2);
+           monitor = new ImageQualityMonitor(w&-32, h&-32, w&-32, 2);
            psnr = monitor.computePSNR(rgb1, rgb2);
            ssim = monitor.computeSSIM(rgb1, rgb2);
            printResults("PSNR (subsampled by 4x4): ", psnr, "SSIM (subsampled by 4x4): ", ssim);
@@ -158,11 +156,11 @@ public class TestImageQuality
            psnr = monitor.computePSNR(rgb1, rgb2);
            ssim = monitor.computeSSIM(rgb1, rgb2);
            printResults("PSNR: ", psnr, "SSIM: ", ssim);
-           monitor = new ImageQualityMonitor(w&-16, h&-16, w, 1);
+           monitor = new ImageQualityMonitor(w&-16, h&-16, w&-16, 1);
            psnr = monitor.computePSNR(rgb1, rgb2);
            ssim = monitor.computeSSIM(rgb1, rgb2);
            printResults("PSNR (subsampled by 2x2): ", psnr, "SSIM (subsampled by 2x2): ", ssim);
-           monitor = new ImageQualityMonitor(w&-32, h&-32, w, 2);
+           monitor = new ImageQualityMonitor(w&-32, h&-32, w&-32, 2);
            psnr = monitor.computePSNR(rgb1, rgb2);
            ssim = monitor.computeSSIM(rgb1, rgb2);
            printResults("PSNR (subsampled by 4x4): ", psnr, "SSIM (subsampled by 4x4): ", ssim);
