@@ -58,18 +58,6 @@ public class BlockCompressor implements Runnable, Callable<Integer>
    private final List<BlockListener> listeners;
 
    
-   public BlockCompressor(String[] args)
-   {
-      this(args, null, true);
-   }
-   
-   
-   public BlockCompressor(String[] args, ExecutorService threadPool)
-   {
-      this(args, threadPool, false);
-   }
-   
-   
    public BlockCompressor(Map<String, Object> map, ExecutorService threadPool)
    {
       this.verbosity = (Integer) map.get("verbose");
@@ -83,7 +71,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
       this.jobs = (Integer) map.get("jobs");
       this.pool = (this.jobs == 1) ? null : 
               ((threadPool == null) ? Executors.newCachedThreadPool() : threadPool);
-      this.ownPool = false;
+      this.ownPool = (threadPool == null) && (this.pool != null);
       this.listeners = new ArrayList<BlockListener>(10);
       
       if (this.verbosity > 1)
@@ -91,14 +79,14 @@ public class BlockCompressor implements Runnable, Callable<Integer>
    }
     
    
-   protected BlockCompressor(String[] args, ExecutorService threadPool, boolean ownPool)
+   public BlockCompressor(String[] args, ExecutorService threadPool)
    {
       Map<String, Object> map = new HashMap<String, Object>();
       processCommandLine(args, map);
       
-      // Extract transform names. Curate input (EG. NONE+NONE+xxxx => xxxx)      
       String tName = (String) map.get("transform");
       ByteFunctionFactory bff = new ByteFunctionFactory();      
+      // Extract transform names. Curate input (EG. NONE+NONE+xxxx => xxxx)      
       this.transform = bff.getName(bff.getType(tName));
       this.verbosity = (Integer) map.get("verbose");
       this.overwrite = (Boolean) map.get("overwrite");
@@ -110,7 +98,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
       this.jobs = (Integer) map.get("jobs");
       this.pool = (this.jobs == 1) ? null : 
               ((threadPool == null) ? Executors.newCachedThreadPool() : threadPool);
-      this.ownPool = ownPool;
+      this.ownPool = (threadPool == null) && (this.pool != null);
       this.listeners = new ArrayList<BlockListener>(10);
       
       if (this.verbosity > 1)
@@ -124,7 +112,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
 
       try
       {
-         bc = new BlockCompressor(args);
+         bc = new BlockCompressor(args, null);
       }
       catch (Exception e)
       {

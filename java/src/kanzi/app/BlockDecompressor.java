@@ -53,19 +53,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
    private final ExecutorService pool;
    private final List<BlockListener> listeners;
    
-   
-   public BlockDecompressor(String[] args)
-   {
-      this(args, null, true);
-   }
-   
-   
-   public BlockDecompressor(String[] args, ExecutorService threadPool)
-   {
-      this(args, threadPool, false);
-   }
-   
-   
+    
    public BlockDecompressor(Map<String, Object> map, ExecutorService threadPool, boolean ownPool)
    {
       this.verbosity = (Integer) map.get("verbose");
@@ -75,7 +63,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       this.jobs = (Integer) map.get("jobs");
       this.pool = (this.jobs == 1) ? null : 
               ((threadPool == null) ? Executors.newCachedThreadPool() : threadPool);
-      this.ownPool = ownPool;
+      this.ownPool = (threadPool == null) && (this.pool != null);
       this.listeners = new ArrayList<BlockListener>(10);      
       
       if (this.verbosity > 1)
@@ -83,7 +71,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
    }
    
    
-   protected BlockDecompressor(String[] args, ExecutorService threadPool, boolean ownPool)
+   public BlockDecompressor(String[] args, ExecutorService threadPool)
    {
       Map<String, Object> map = new HashMap<String, Object>();
       processCommandLine(args, map);
@@ -94,7 +82,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       this.jobs = (Integer) map.get("jobs");
       this.pool = (this.jobs == 1) ? null : 
               ((threadPool == null) ? Executors.newCachedThreadPool() : threadPool);
-      this.ownPool = ownPool;
+      this.ownPool = (threadPool == null) && (this.pool != null);
       this.listeners = new ArrayList<BlockListener>(10);      
       
       if (this.verbosity > 1)
@@ -138,7 +126,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
 
       try
       {
-         bd = new BlockDecompressor(args);
+         bd = new BlockDecompressor(args, null);
       }
       catch (Exception e)
       {
@@ -423,12 +411,12 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
            System.exit(Error.ERR_MISSING_PARAM);
         }
 
-        if (("STDIN".equalsIgnoreCase(inputName) == false) && (inputName.endsWith(".knz") == false))
+        if (("STDIN".equalsIgnoreCase(inputName) == false) && (inputName.toLowerCase().endsWith(".knz") == false))
            printOut("Warning: the input file name does not end with the .KNZ extension", verbose>0);
 
         if (outputName == null)
         {
-           outputName = (inputName.endsWith(".knz")) ? inputName.substring(0, inputName.length()-4)
+           outputName = (inputName.toLowerCase().endsWith(".knz")) ? inputName.substring(0, inputName.length()-4)
                    : inputName + ".tmp";
         }
         

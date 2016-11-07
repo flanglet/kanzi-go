@@ -15,6 +15,30 @@ limitations under the License.
 
 package main
 
+import (
+	"os"
+	"strings"
+)
+
 func main() {
-   BlockCompressor_main()
+	if len(os.Args) > 1 {
+		firstArg := strings.ToUpper(os.Args[1])
+
+		if firstArg == "-COMPRESS" {
+			os.Args = append(os.Args[:1], os.Args[2:]...)
+			BlockCompressor_main()
+			return
+		} else if firstArg == "-DECOMPRESS" {
+			os.Args = append(os.Args[:1], os.Args[2:]...)
+			BlockDecompressor_main()
+			return
+		} else if firstArg == "-HELP" {
+			print(os.Args[0])
+			println(" -compress | -decompress | -help")
+			return
+		}
+	}
+
+	println("Missing arguments: try '-help'")
+
 }
