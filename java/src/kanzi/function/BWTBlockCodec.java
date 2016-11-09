@@ -129,7 +129,7 @@ public class BWTBlockCodec implements ByteFunction
       if (blockSize == headerSizeBytes)
           return true;
 
-      blockSize -= headerSizeBytes;
+      input.length -= headerSizeBytes;
       int shift = (headerSizeBytes - 1) << 3;
       int primaryIndex = (blockMode & 0x3F) << shift;
 
