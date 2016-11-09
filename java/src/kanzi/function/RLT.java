@@ -147,7 +147,7 @@ public class RLT implements ByteFunction
 
       input.index = srcIdx;
       output.index = dstIdx;
-      return res & (srcIdx == srcEnd);
+      return res && (srcIdx == srcEnd);
    }
 
 
@@ -215,7 +215,7 @@ public class RLT implements ByteFunction
 
       input.index = srcIdx;
       output.index = dstIdx;
-      return res & (srcIdx == srcEnd);
+      return res && (srcIdx == srcEnd);
    }
    
    
