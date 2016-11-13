@@ -148,8 +148,8 @@ public class BlockCompressor implements Runnable, Callable<Integer>
       }
       catch (IOException ioe)
       {
-         System.err.println("Compression failed. " + ioe.getMessage());
-         System.exit(Error.ERR_CREATE_COMPRESSOR);
+         System.err.println("Compression failure: " + ioe.getMessage());
+         System.exit(Error.ERR_WRITE_FILE);
       }
       
       if ((this.pool != null) && (this.ownPool == true))
@@ -235,7 +235,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
       }
       catch (Exception e)
       {
-         System.err.println("Cannot open output file '"+ this.outputName+"' for writing: " + e.getMessage());
+         System.err.println("Cannot open output file '"+this.outputName+"' for writing: " + e.getMessage());
          return Error.ERR_CREATE_FILE;
       }
 
@@ -245,7 +245,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
       }
       catch (Exception e)
       {
-         System.err.println("Cannot open input file '"+ this.inputName+"': " + e.getMessage());
+         System.err.println("Cannot open input file '"+this.inputName+"': " + e.getMessage());
          return Error.ERR_OPEN_FILE;
       }
 

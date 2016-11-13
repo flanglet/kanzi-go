@@ -31,7 +31,6 @@ public class BlockEvent
    private final Type type;
    private final boolean hashing;
    private final long time;
-   private final long unixTime;
    
    
    public BlockEvent(Type type, int id, int size)
@@ -54,7 +53,6 @@ public class BlockEvent
       this.hashing = hashing;
       this.type = type;
       this.time = System.nanoTime();
-      this.unixTime = System.currentTimeMillis();
    }
    
    
@@ -86,13 +84,7 @@ public class BlockEvent
    {
       return this.type;
    }
-
-
-   public long getUnixTime()
-   {
-      return this.unixTime;
-   }
-   
+  
    
    @Override
    public String toString()
@@ -101,7 +93,7 @@ public class BlockEvent
       sb.append("{ \"type\":\"").append(this.getType()).append("\"");
       sb.append(", \"id\":").append(this.getId());
       sb.append(", \"size\":").append(this.getSize());
-      sb.append(", \"time\":").append(this.getUnixTime());
+      sb.append(", \"time\":").append(this.getTime());
       
       if (this.hashing == true)
          sb.append(", \"hash\":").append(Integer.toHexString(this.getHash()));

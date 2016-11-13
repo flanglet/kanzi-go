@@ -65,7 +65,7 @@ func (this *BlockEvent) String() string {
 	type_ := ""
 
 	if this.hashing == true {
-		hash = fmt.Sprintf(",%x", this.hash)
+		hash = fmt.Sprintf(", \"hash\": %x", this.hash)
 	}
 
 	if this.eventType == EVT_BEFORE_TRANSFORM {
@@ -78,7 +78,7 @@ func (this *BlockEvent) String() string {
 		type_ = "AFTER_ENTROPY"
 	}
 
-	return fmt.Sprintf("[%s,%d,%d,%d%s]", type_, this.blockId, this.blockSize,
+	return fmt.Sprintf("{ \"type\":\"%s\", \"id\":%d, \"size\":%d, \"time\":%d%s}", type_, this.blockId, this.blockSize,
 		this.time_.UnixNano()/1000000, hash)
 }
 
