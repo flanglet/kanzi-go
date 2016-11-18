@@ -54,8 +54,8 @@ public class CompressedOutputStream extends OutputStream
 
    private final int blockSize;
    private final XXHash32 hasher;
-   private final SliceByteArray sa;
-   private final byte[][] buffers;
+   private final SliceByteArray sa; // for all blocks
+   private final SliceByteArray[] buffers; // per block
    private final short entropyType;
    private final short transformType;
    private final OutputBitStream obs;
@@ -117,12 +117,12 @@ public class CompressedOutputStream extends OutputStream
       this.jobs = jobs;
       this.pool = pool;
       this.sa = new SliceByteArray(new byte[blockSize*this.jobs], 0);
-      this.buffers = new byte[this.jobs][];
+      this.buffers = new SliceByteArray[this.jobs];
       this.closed = new AtomicBoolean(false);
       this.initialized = new AtomicBoolean(false);
 
       for (int i=0; i<this.jobs; i++)
-         this.buffers[i] = EMPTY_BYTE_ARRAY;
+         this.buffers[i] = new SliceByteArray(EMPTY_BYTE_ARRAY, 0);
 
       this.blockId = new AtomicInteger(0);
       this.listeners = new ArrayList<BlockListener>(10);
@@ -338,7 +338,7 @@ public class CompressedOutputStream extends OutputStream
       this.sa.index = -1;
 
       for (int i=0; i<this.jobs; i++)
-         this.buffers[i] = EMPTY_BYTE_ARRAY;
+         this.buffers[i] = new SliceByteArray(EMPTY_BYTE_ARRAY, 0);
    }
 
    
@@ -367,6 +367,8 @@ public class CompressedOutputStream extends OutputStream
             
             if (sz == 0)
                break;
+            
+            this.buffers[jobId].index = 0;
             
             Callable<Status> task = new EncodingTask(this.sa.array, this.sa.index,
                     this.buffers[jobId], sz, this.transformType,
@@ -453,13 +455,13 @@ public class CompressedOutputStream extends OutputStream
       private final BlockListener[] listeners;
 
 
-      EncodingTask(byte[] data, int offset, byte[] buffer, int length,
+      EncodingTask(byte[] data, int offset, SliceByteArray buffer, int length,
               short transformType, short entropyType, int blockId,
               OutputBitStream obs, XXHash32 hasher,
               AtomicInteger processedBlockId, BlockListener[] listeners)
       {
          this.data = new SliceByteArray(data, offset);
-         this.buffer = new SliceByteArray(buffer, 0);
+         this.buffer = buffer;
          this.length = length;
          this.transformType = transformType;
          this.entropyType = entropyType;

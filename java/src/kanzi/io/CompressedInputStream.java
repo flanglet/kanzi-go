@@ -53,8 +53,8 @@ public class CompressedInputStream extends InputStream
 
    private int blockSize;
    private XXHash32 hasher;
-   private final SliceByteArray sa;
-   private final byte[][] buffers;
+   private final SliceByteArray sa; // for all blocks
+   private final SliceByteArray[] buffers; // per block
    private short entropyType;
    private short transformType;
    private final InputBitStream ibs;
@@ -98,12 +98,12 @@ public class CompressedInputStream extends InputStream
       this.sa = new SliceByteArray();
       this.jobs = jobs;
       this.pool = pool;
-      this.buffers = new byte[this.jobs][];
+      this.buffers = new SliceByteArray[this.jobs];
       this.closed = new AtomicBoolean(false);
       this.initialized = new AtomicBoolean(false);
 
       for (int i=0; i<this.jobs; i++)
-         this.buffers[i] = EMPTY_BYTE_ARRAY;
+         this.buffers[i] = new SliceByteArray(EMPTY_BYTE_ARRAY, 0);
 
       this.ds = debug;
       this.blockId = new AtomicInteger(0);
@@ -352,6 +352,8 @@ public class CompressedInputStream extends InputStream
          // Create as many tasks as required
          for (int jobId=0; jobId<this.jobs; jobId++)
          {
+            this.buffers[jobId].index = 0;
+            
             Callable<Status> task = new DecodingTask(this.sa.array, this.sa.index,
                     this.buffers[jobId], blkSize, this.transformType,
                     this.entropyType, firstBlockId+jobId+1,
@@ -441,7 +443,7 @@ public class CompressedInputStream extends InputStream
       this.sa.index = -1;
 
       for (int i=0; i<this.jobs; i++)
-         this.buffers[i] = EMPTY_BYTE_ARRAY;
+         this.buffers[i] = new SliceByteArray(EMPTY_BYTE_ARRAY, 0);
    }
 
 
@@ -485,13 +487,13 @@ public class CompressedInputStream extends InputStream
       private final BlockListener[] listeners;
 
 
-      DecodingTask(byte[] data, int offset, byte[] buffer, int blockSize,
+      DecodingTask(byte[] data, int offset, SliceByteArray buffer, int blockSize,
               short transformType, short entropyType, int blockId,
               InputBitStream ibs, XXHash32 hasher,
               AtomicInteger processedBlockId, BlockListener[] listeners)
       {
          this.data = new SliceByteArray(data, offset);
-         this.buffer = new SliceByteArray(buffer, 0);
+         this.buffer = buffer;
          this.blockSize = blockSize;
          this.transformType = transformType;
          this.entropyType = entropyType;
