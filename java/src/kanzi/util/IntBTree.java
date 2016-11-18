@@ -1,5 +1,5 @@
 /*
- Copyright 2011-2013 Frederic Langlet
+ Copyright 2011-2017 Frederic Langlet
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
  you may obtain a copy of the License at
@@ -310,7 +310,7 @@ public final class IntBTree
    public int[] scan(Callback cb, boolean reverse)
    {
       if ((cb == null) || (this.root == null))
-         return null;
+         return new int[0];
 
       int[] res = new int[this.size];
       scanAndCall(this.root, res, 0, cb, reverse); // visitor pattern

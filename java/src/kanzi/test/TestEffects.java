@@ -1,5 +1,5 @@
 /*
-Copyright 2011-2013 Frederic Langlet
+Copyright 2011-2017 Frederic Langlet
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 you may obtain a copy of the License at
@@ -36,8 +36,8 @@ import kanzi.filter.ContrastFilter;
 import kanzi.filter.FastBilateralFilter;
 import kanzi.filter.GaussianFilter;
 import kanzi.filter.LightingEffect;
-import kanzi.filter.MSSSaliencyFilter;import kanzi.filter.SharpenFilter;
-;
+import kanzi.filter.MSSSaliencyFilter;
+import kanzi.filter.SharpenFilter;
 import kanzi.filter.SobelFilter;
 import kanzi.filter.seam.ContextResizer;
 import kanzi.util.image.ImageUtils;

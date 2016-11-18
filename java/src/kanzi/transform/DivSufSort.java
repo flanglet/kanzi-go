@@ -1,5 +1,5 @@
 /*
-Copyright 2011-2013 Frederic Langlet
+Copyright 2011-2017 Frederic Langlet
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 you may obtain a copy of the License at
@@ -166,7 +166,7 @@ public final class DivSufSort
         this.sa[k++] = (this.buffer[n-2] < c2) ? ~(n-1) : (n-1);
 
         // Scan the suffix array from left to right.
-        for (int i=0; i < n; i++)
+        for (int i=0; i<n; i++)
         {
             int s = this.sa[i];
 
