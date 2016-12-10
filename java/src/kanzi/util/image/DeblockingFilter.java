@@ -15,12 +15,16 @@ limitations under the License.
 
 package kanzi.util.image;
 
+import kanzi.IntFilter;
+import kanzi.SliceIntArray;
 
-public class DeblockingFilter
+
+public class DeblockingFilter implements IntFilter
 {
    public static final int DIR_LEFT  = 1;
    public static final int DIR_RIGHT = 2;
    private final static int DEFAULT_STEP = 8;
+   private final static int DEFAULT_Q = 50;
    private final static int DEFAULT_STRENGTH = 12;
    
    private final int width;
@@ -71,6 +75,31 @@ public class DeblockingFilter
    }
 
 
+   // Implementation of IntFilter. Apply filter to step x step squares
+   @Override
+   public boolean apply(SliceIntArray input, SliceIntArray output)
+   {
+      if ((!SliceIntArray.isValid(input)) || (!SliceIntArray.isValid(output)))
+         return false;
+       
+      if (input.array != output.array)
+         System.arraycopy(input.array, input.index, output.array, output.index, this.stride*this.width);
+      
+      final int x0 = output.index % this.stride;
+      final int y0 = output.index / this.stride;
+
+      for (int y=0; y<this.height; y+=this.step) 
+      {         
+         for (int x=0; x<this.width; x+=this.step) 
+            this.apply(output.array, x+x0, y+y0, this.step, DIR_LEFT, DEFAULT_Q, true);
+      }
+      
+      return true;
+   }
+    
+   
+   // Apply to square block of dimension blockDim in frame at x,y
+   // Use when frame blocks have different dimension, prediction type of quantizer
    public void apply(int[] frame, int x, int y, int blockDim,
            int predictionType, int q, boolean strong)
    {
