@@ -1,5 +1,5 @@
 /*
-Copyright 2011-2013 Frederic Langlet
+Copyright 2011-2017 Frederic Langlet
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 you may obtain a copy of the License at
@@ -181,8 +181,8 @@ public final class BilateralFilter implements IntFilter
     @Override
    public boolean apply(SliceIntArray input, SliceIntArray output)
    {
-      if ((!SliceIntArray.isValid(input)) || (!SliceIntArray.isValid(output)))
-         return false;
+        if ((!SliceIntArray.isValid(input)) || (!SliceIntArray.isValid(output)))
+           return false;
       
         // Aliasing
         final int[] src = input.array;

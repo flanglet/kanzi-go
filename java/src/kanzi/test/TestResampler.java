@@ -1,5 +1,5 @@
 /*
-Copyright 2011-2013 Frederic Langlet
+Copyright 2011-2017 Frederic Langlet
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 you may obtain a copy of the License at
@@ -52,13 +52,13 @@ public class TestResampler
         {
            String fileName = (args.length > 0) ? args[0] : "r:\\salon.png";
            Image image1 = ImageIO.read(new File(fileName));
-           int w = image1.getWidth(null) & -32;
-           int h = image1.getHeight(null) & -32;
+           int w = image1.getWidth(null) & -64;
+           int h = image1.getHeight(null) & -64;
            GraphicsDevice gs = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0];
            GraphicsConfiguration gc = gs.getDefaultConfiguration();
            BufferedImage bi = gc.createCompatibleImage(w, h, Transparency.OPAQUE);
            bi.getGraphics().drawImage(image1, 0, 0, null);
-           int iters = (w*h) < (1500*1500) ? 100 : 10;
+           int iters = (w*h) < (1500*1500) ? 100 : 10;        
            roundtrip(image1, w, h, iters);
            boolean upscale = false;
            
@@ -81,7 +81,6 @@ public class TestResampler
         }
 
         System.exit(0);
-
    }
 
 
@@ -147,13 +146,6 @@ public class TestResampler
               ((GuidedBilinearUpSampler) superSamplers[s]).setGuide(buf);
            }
 
-//           if (superSamplers[s] instanceof DCTUpSampler)
-//           {
-//              int[] buf = new int[y.length];
-//              System.arraycopy(y, 0, buf, 0, buf.length);
-//              ((DCTUpSampler) superSamplers[s]).setGuide(buf);
-//           }
-
            for (int ii=0; ii<iter; ii++)
            {
                System.arraycopy(y0, 0, y, 0, y.length);
@@ -161,12 +153,35 @@ public class TestResampler
                System.arraycopy(v0, 0, v, 0, v.length);
                long before = System.nanoTime();                              
                subSamplers[s].subSample(y, output);
+           if (superSamplers[s] instanceof DWTUpSampler)
+           {
+              int[] buf = new int[y.length];
+              System.arraycopy(output, 0, buf, 0, buf.length);
+              new BicubicUpSampler(w/2, h/2, w, 0).superSample(buf, buf);
+              //((DWTUpSampler) superSamplers[s]).setGuide(buf);
+           }
                Arrays.fill(y, 0);
                superSamplers[s].superSample(output, y);
                subSamplers[s].subSample(u, output);
+           if (superSamplers[s] instanceof DWTUpSampler)
+           {
+              int[] buf = new int[u.length];
+              System.arraycopy(u, 0, buf, 0, buf.length);
+              System.arraycopy(output, 0, buf, 0, buf.length);
+              new BicubicUpSampler(w/2, h/2, w, 0).superSample(buf, buf);
+             // ((DWTUpSampler) superSamplers[s]).setGuide(buf);
+           }
                Arrays.fill(u, 0);
                superSamplers[s].superSample(output, u);
                subSamplers[s].subSample(v, output);
+           if (superSamplers[s] instanceof DWTUpSampler)
+           {
+              int[] buf = new int[v.length];
+              System.arraycopy(v, 0, buf, 0, buf.length);
+              new BicubicUpSampler(w/2, h/2, w, 0).superSample(buf, buf);
+              //((DWTUpSampler) superSamplers[s]).setGuide(buf);
+           }
+               
                Arrays.fill(v, 0);
                superSamplers[s].superSample(output, v);
                long after = System.nanoTime();

@@ -1,5 +1,5 @@
 /*
-Copyright 2011-2013 Frederic Langlet
+Copyright 2011-2017 Frederic Langlet
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 you may obtain a copy of the License at
@@ -1311,7 +1311,6 @@ public class LossyIntraPredictor
        final int shiftX = (angle == ANGLE_60) ? 1 : 0;
        final int shiftY = (angle == ANGLE_30) ? 1 : 0;
        int k = 0;
-       int val;
        int sad = 0;
 
        if ((direction & DIR_LEFT) != 0)
@@ -1332,22 +1331,20 @@ public class LossyIntraPredictor
                   // Above 'diagonal' (including it) : reference is ai (or d)
                   if (y > 0)
                      offset = (jj - ((ii<<shiftX)>>shiftY)) + start - st - 1;
-               }
-               else
-               {
-                 // Below 'diagonal' : reference is bi
-                 if (x > 0)
-                    offset = (jj - ((ii<<shiftX)>>shiftY))*st + start - st - 1;              
-              } 
+                }
+                else
+                {
+                  // Below 'diagonal' : reference is bi
+                  if (x > 0)
+                     offset = (jj - ((ii<<shiftX)>>shiftY))*st + start - st - 1;              
+               } 
 
-              if (offset >= 0)
-                 val = (input[i] & mask_) - (input[offset] & mask_);
-              else
-                 val = (input[i] & mask_) - this.defaultPixVal;
+               final int val = (offset >= 0) ? (input[i] & mask_) - (input[offset] & mask_) :
+                    (input[i] & mask_) - this.defaultPixVal;
 
-              sad += ((val + (val >> 31)) ^ (val >> 31)); //abs
-              residue[k] = val;
-              k++;
+               sad += ((val + (val >> 31)) ^ (val >> 31)); //abs
+               residue[k] = val;
+               k++;
             }         
           }
        }
@@ -1380,10 +1377,8 @@ public class LossyIntraPredictor
                       offset = (jj - ((ii<<shiftX)>>shiftY))*st + start - st - 1;                                  
                 }
 
-                if (offset >= 0)
-                   val = (input[i] & mask_) - (input[offset] & mask_);
-                else
-                   val = (input[i] & mask_) - this.defaultPixVal;
+                final int val = (offset >= 0) ? (input[i] & mask_) - (input[offset] & mask_) :
+                    (input[i] & mask_) - this.defaultPixVal;
              
                 sad += ((val + (val >> 31)) ^ (val >> 31)); //abs
                 residue[k] = val;

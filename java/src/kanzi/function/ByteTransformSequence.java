@@ -1,5 +1,5 @@
 /*
-Copyright 2011-2013 Frederic Langlet
+Copyright 2011-2017 Frederic Langlet
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 you may obtain a copy of the License at
@@ -73,10 +73,10 @@ public class ByteTransformSequence implements ByteFunction
       
       // Process transforms sequentially
       for (int i=0; i<this.transforms.length; i++)
-      {         
+      {        
          SliceByteArray sa1 = sa[saIdx];
          SliceByteArray sa2 = sa[saIdx^1];
-         
+            
          // Check that the output buffer has enough room. If not, allocate a new one.
          if (sa2.length < requiredSize)
          {
@@ -110,7 +110,7 @@ public class ByteTransformSequence implements ByteFunction
       
       for (int i=this.transforms.length; i<4; i++)
           this.skipFlags |= (1<<(3-i));
-      
+            
       if (saIdx != 1)
          System.arraycopy(sa[0].array, sa[0].index, sa[1].array, sa[1].index, count);
             

@@ -154,8 +154,7 @@ public class TestEffects
                   effect = new ContextResizer(w, h, w, vertical|horizontal, -scaling, fastMode, debug, null);
                   test(effect, img, filterName + " - full - "+scaling+" seams", 0, 700, 650, 2000*adjust/100, 30000);
                   break;  
-               }
-// TODO FIXME left               
+               }                           
  
                case "COLORCLUSTER" :
                {
