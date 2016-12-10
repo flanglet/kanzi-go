@@ -1,5 +1,5 @@
 /*
-Copyright 2011-2013 Frederic Langlet
+Copyright 2011-2017 Frederic Langlet
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 you may obtain a copy of the License at
@@ -26,26 +26,27 @@ import kanzi.transform.DCT8;
 
 public class DCTUpSampler implements UpSampler
 {
-    private final int width;
-    private final int height;
-    private final int stride;
-    private final int dim;
-    private final int offset;
-    private final IntTransform idct;
-    private final IntTransform fdct;
-    private final int[] scan;    
-    private final int[] buffer1;
-    private final int[] buffer2;
-
-    
-    public DCTUpSampler(int width, int height)
-    {
-        this(width, height, width, 0, 8);
-    }
+   private final int width;
+   private final int height;
+   private final int stride;
+   private final int dim;
+   private final int offset;
+   private final IntTransform idct;
+   private final IntTransform fdct;
+   private final int[] scan;    
+   private final int[] buffer1;
+   private final int[] buffer2;
+   private int[] guide;
+   
+   
+   public DCTUpSampler(int width, int height)
+   {
+      this(width, height, width, 0, 8);
+   }
  
     
-    public DCTUpSampler(int width, int height, int stride, int offset, int step)
-    {
+   public DCTUpSampler(int width, int height, int stride, int offset, int step)
+   {
       if (offset < 0)
          throw new IllegalArgumentException("The offset must be at least 0");
 
@@ -96,26 +97,27 @@ public class DCTUpSampler implements UpSampler
       this.dim = step;
       this.buffer1 = new int[this.dim*this.dim];
       this.buffer2 = new int[this.dim*this.dim];
-    }
+      this.guide = new int[0];
+   }
     
     
-    @Override
-    public void superSampleVertical(int[] input, int[] output)
-    {
-       throw new UnsupportedOperationException("Not supported."); 
-    }
+   @Override
+   public void superSampleVertical(int[] input, int[] output)
+   {
+      throw new UnsupportedOperationException("Not supported."); 
+   }
 
 
-    @Override
-    public void superSampleHorizontal(int[] input, int[] output)
-    {
-       throw new UnsupportedOperationException("Not supported."); 
-    }
+   @Override
+   public void superSampleHorizontal(int[] input, int[] output)
+   {
+      throw new UnsupportedOperationException("Not supported."); 
+   }
     
     
-    @Override
-    public void superSample(int[] input, int[] output)
-    {
+   @Override
+   public void superSample(int[] input, int[] output)
+   {
       int offs = this.offset;
       final int h = this.height;
       final int w = this.width;
@@ -156,14 +158,25 @@ public class DCTUpSampler implements UpSampler
             dst.index = 0;
             src.length = count4;
             this.fdct.forward(src, dst);
-                                
+               
             // Unpack and clear DCT high frequency bands
             for (int i=0; i<count; i++)
                buf1[i] = 0;
 
             for (int i=0; i<count4; i++)
                buf1[this.scan[i]] = buf2[i];
-           
+
+//            if (this.guide.length > 0)
+//            {
+//               src.index = 0;
+//               dst.index = 0;
+//               src.length = count;
+//               this.idct.forward(src, dst);
+//
+//               for (int i=count4; i<count; i++)
+//                  buf1[this.scan[i]] = buf2[this.scan[i]] >> 1;
+//            }
+         
             src.index = 0;
             dst.index = 0;
             src.length = count;
@@ -186,12 +199,28 @@ public class DCTUpSampler implements UpSampler
          
          offs += stStep;
       }    
-    }
+   }
 
 
-    @Override
-    public boolean supportsScalingFactor(int factor)
-    {
-        return (factor == 2);
-    }
+//   public boolean setGuide(int[] guide)
+//   {
+//      if (guide == null)
+//         return false;
+//       
+//      if (guide.length < 4*this.width*this.height)
+//         return false;
+//       
+//      if (this.guide.length < 4*this.width*this.height)
+//         this.guide = new int[4*this.width*this.height];
+//      
+//      System.arraycopy(guide, 0, this.guide, 0, 4*this.width*this.height);
+//      return true;
+//   }
+
+    
+   @Override
+   public boolean supportsScalingFactor(int factor)
+   {
+      return (factor == 2);
+   }
 }

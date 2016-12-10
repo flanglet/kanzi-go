@@ -1,5 +1,5 @@
 /*
-Copyright 2011-2013 Frederic Langlet
+Copyright 2011-2017 Frederic Langlet
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 you may obtain a copy of the License at
@@ -32,7 +32,8 @@ public class DWTUpSampler implements UpSampler
    private final int stride;
    private final int shift;
    private final IntTransform dwt;
-
+   private int[] guide;
+   
    
    public DWTUpSampler(int w, int h)
    {
@@ -68,20 +69,21 @@ public class DWTUpSampler implements UpSampler
       this.shift = shift;
       this.dwt = (isHaar) ? new DWT_Haar(this.width<<1, this.height<<1, 1, false) :
           new DWT_CDF_9_7(this.width<<1, this.height<<1, 1);
+      this.guide = new int[0];      
    }
 
    
    @Override
    public void superSampleHorizontal(int[] input, int[] output) 
    {
-      throw new UnsupportedOperationException("Not supported yet.");       
+      throw new UnsupportedOperationException("Not supported.");       
    }
 
    
    @Override
    public void superSampleVertical(int[] input, int[] output) 
    {
-      throw new UnsupportedOperationException("Not supported yet."); 
+      throw new UnsupportedOperationException("Not supported."); 
    }
    
 
@@ -91,25 +93,61 @@ public class DWTUpSampler implements UpSampler
    {
       SliceIntArray src = new SliceIntArray(input, 0);
       SliceIntArray dst = new SliceIntArray(output, 0);
+      final int h = this.height;
+      final int w = this.width;      
+      final int st = this.stride;      
+      
+//      if (this.guide.length > 0)
+//      {
+//         // Use guide to estimate, HL, LH and HH coefficients
+//         this.dwt.forward(new SliceIntArray(this.guide, w*h*4, 0), dst);
+//         int startLine = 0;
+//         final int h2 = h << 1;
+//         final int w2 = w << 1;
+//         
+//         for (int j=0; j<h2; j++)
+//         {
+//            final int offs = (j < h) ? w : 0;
+//            System.arraycopy(output, startLine+offs, input, startLine+offs, w2-offs);            
+//            startLine += st;
+//         }
+//      }
       
       if (this.shift > 0)
       {
-         int offs = 0;
+         // Rescale LL coefficients
+         int startLine = 0;
          final int sh = this.shift;
-         final int h = this.height;
-         final int w = this.width;
 
          for (int j=0; j<h; j++)
          {
             for (int i=0; i<w; i++) 
-               input[offs+i] <<= sh;
+               input[startLine+i] <<= sh;
 
-            offs += this.stride;
+            startLine += st;
          }         
       }
-      
+
+      src.index = 0;
+      dst.index = 0;
       this.dwt.inverse(src, dst);
    }
+   
+
+//   public boolean setGuide(int[] guide)
+//   {
+//      if (guide == null)
+//         return false;
+//       
+//      if (guide.length < 4*this.width*this.height)
+//         return false;
+//       
+//      if (this.guide.length < 4*this.width*this.height)
+//         this.guide = new int[4*this.width*this.height];
+//      
+//      System.arraycopy(guide, 0, this.guide, 0, 4*this.width*this.height);
+//      return true;
+//   }
 
    
    @Override
