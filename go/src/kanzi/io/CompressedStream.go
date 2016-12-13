@@ -119,8 +119,8 @@ type CompressedOutputStream struct {
 }
 
 type EncodingTask struct {
-	data            []byte
-	buffer          *blockBuffer
+	iBuffer         *blockBuffer
+	oBuffer         *blockBuffer
 	hasher          *hash.XXHash32
 	blockLength     uint
 	typeOfTransform uint16
@@ -186,7 +186,7 @@ func NewCompressedOutputStream(entropyCodec string, transform string, os io.Writ
 	}
 
 	this.data = make([]byte, jobs*blockSize)
-	this.buffers = make([]blockBuffer, jobs)
+	this.buffers = make([]blockBuffer, 2*jobs)
 
 	for i := range this.buffers {
 		this.buffers[i] = blockBuffer{Buf: EMPTY_BYTE_SLICE}
@@ -359,16 +359,22 @@ func (this *CompressedOutputStream) processBlock() error {
 			break
 		}
 
-		sz := uint(this.curIdx)
 		nbJobs = jobId + 1
+		sz := uint(this.curIdx)
 
 		if sz >= this.blockSize {
 			sz = this.blockSize
 		}
 
+		if len(this.buffers[2*jobId].Buf) < int(sz) {
+			this.buffers[2*jobId].Buf = make([]byte, sz)
+		}
+
+		copy(this.buffers[2*jobId].Buf, this.data[offset:offset+sz])
+
 		task := EncodingTask{
-			data:            this.data[offset : offset+sz],
-			buffer:          &this.buffers[jobId],
+			iBuffer:         &this.buffers[2*jobId],
+			oBuffer:         &this.buffers[2*jobId+1],
 			hasher:          this.hasher,
 			blockLength:     sz,
 			typeOfTransform: this.transformType,
@@ -408,7 +414,8 @@ func (this *CompressedOutputStream) GetWritten() uint64 {
 //       0x00xxxx00 => transform sequence skip flags (1 means skip)
 //       0x000000xx => size(size(block))-1
 func (this *EncodingTask) encode() {
-	buffer := this.buffer.Buf
+	data := this.iBuffer.Buf
+	buffer := this.oBuffer.Buf
 	mode := byte(0)
 	dataSize := uint(0)
 	postTransformLength := this.blockLength
@@ -416,7 +423,7 @@ func (this *EncodingTask) encode() {
 
 	// Compute block checksum
 	if this.hasher != nil {
-		checksum = this.hasher.Hash(this.data[0:this.blockLength])
+		checksum = this.hasher.Hash(data[0:this.blockLength])
 	}
 
 	if len(this.listeners) > 0 {
@@ -429,13 +436,13 @@ func (this *EncodingTask) encode() {
 
 	if this.blockLength <= SMALL_BLOCK_SIZE {
 		// Just copy
-		if !kanzi.SameByteSlices(buffer, this.data, false) {
+		if !kanzi.SameByteSlices(buffer, data, false) {
 			if len(buffer) < int(this.blockLength) {
 				buffer = make([]byte, this.blockLength)
-				this.buffer.Buf = buffer
+				this.oBuffer.Buf = buffer
 			}
 
-			copy(buffer, this.data[0:this.blockLength])
+			copy(buffer, data[0:this.blockLength])
 		}
 
 		mode = byte(SMALL_BLOCK_SIZE | (this.blockLength & COPY_LENGTH_MASK))
@@ -452,11 +459,11 @@ func (this *EncodingTask) encode() {
 
 		if len(buffer) < requiredSize {
 			buffer = make([]byte, requiredSize)
-			this.buffer.Buf = buffer
+			this.oBuffer.Buf = buffer
 		}
 
 		// Forward transform (ignore error, encode skipFlags)
-		_, postTransformLength, _ = t.Forward(this.data[0:this.blockLength], buffer)
+		_, postTransformLength, _ = t.Forward(data[0:this.blockLength], buffer)
 		mode |= ((t.SkipFlags() & function.TRANSFORM_SKIP_MASK) << 2)
 
 		for i := uint64(0xFF); i < uint64(postTransformLength); i <<= 8 {
@@ -559,6 +566,7 @@ func notifyListeners(listeners []BlockListener, evt *BlockEvent) {
 
 type Message struct {
 	err      *IOError
+	data     []byte
 	decoded  int
 	blockId  int
 	text     string
@@ -589,8 +597,8 @@ type CompressedInputStream struct {
 }
 
 type DecodingTask struct {
-	data            []byte
-	buffer          *blockBuffer
+	iBuffer         *blockBuffer
+	oBuffer         *blockBuffer
 	hasher          *hash.XXHash32
 	blockLength     uint
 	typeOfTransform uint16
@@ -618,7 +626,7 @@ func NewCompressedInputStream(is io.ReadCloser,
 	this.jobs = int(jobs)
 	this.blockId = 0
 	this.data = EMPTY_BYTE_SLICE
-	this.buffers = make([]blockBuffer, jobs)
+	this.buffers = make([]blockBuffer, 2*jobs)
 
 	for i := range this.buffers {
 		this.buffers[i] = blockBuffer{Buf: EMPTY_BYTE_SLICE}
@@ -834,14 +842,14 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 		return 0, nil
 	}
 
-	// Add a padding area to manage any block with header (of size <= EXTRA_BUFFER_SIZE)
-	blkSize := int(this.blockSize) + EXTRA_BUFFER_SIZE
+	blkSize := int(this.blockSize)
 
 	if len(this.data) < this.jobs*blkSize {
 		this.data = make([]byte, this.jobs*blkSize)
 	}
 
-	offset := 0
+	// Add a padding area to manage any block with header (of size <= EXTRA_BUFFER_SIZE)
+	blkSize += EXTRA_BUFFER_SIZE
 
 	// Protect against future concurrent modification of the list of block listeners
 	blockListeners := make([]BlockListener, len(this.listeners))
@@ -852,9 +860,13 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 		curChan := this.syncChan[jobId]
 		nextChan := this.syncChan[(jobId+1)%this.jobs]
 
+		if len(this.buffers[2*jobId].Buf) < blkSize {
+			this.buffers[2*jobId].Buf = make([]byte, blkSize)
+		}
+
 		task := DecodingTask{
-			data:            this.data[offset : offset+blkSize],
-			buffer:          &this.buffers[jobId],
+			iBuffer:         &this.buffers[2*jobId],
+			oBuffer:         &this.buffers[2*jobId+1],
 			hasher:          this.hasher,
 			blockLength:     uint(blkSize),
 			typeOfTransform: this.transformType,
@@ -874,21 +886,20 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 		// channel. The output channel is nil for the last task and the input channel
 		// is nil for the first task.
 		go task.decode()
-
-		offset += blkSize
 	}
 
 	var err error
 	decoded := 0
+	offset := 0
 	results := make([]Message, this.jobs)
 
 	// Wait for completion of all concurrent tasks
 	for _ = range results {
 		// Listen for results on the shared channel
-		msg := <-this.resChan
+		res := <-this.resChan
 
 		// Order the results based on block ID
-		results[msg.blockId-this.blockId-1] = msg
+		results[res.blockId-this.blockId-1] = res
 	}
 
 	// Process results
@@ -899,7 +910,8 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 				err = res.err
 			}
 		} else {
-			// Add the number of decoded bytes for the current block
+			copy(this.data[offset:], res.data[0:res.decoded])
+			offset += res.decoded
 			decoded += res.decoded
 
 			if len(blockListeners) > 0 {
@@ -942,8 +954,9 @@ func notify(chan1 chan bool, chan2 chan Message, run bool, msg Message) {
 //       0x00xxxx00 => transform sequence skip flags (1 means skip)
 //       0x000000xx => size(size(block))-1
 func (this *DecodingTask) decode() {
-	buffer := this.buffer.Buf
-	res := Message{blockId: this.currentBlockId}
+	data := this.iBuffer.Buf
+	buffer := this.oBuffer.Buf
+	res := Message{blockId: this.currentBlockId, data: data}
 
 	// Wait for task processing the previous block to complete
 	if this.input != nil {
@@ -1017,7 +1030,7 @@ func (this *DecodingTask) decode() {
 
 	if len(buffer) < int(bufferSize) {
 		buffer = make([]byte, bufferSize)
-		this.buffer.Buf = buffer
+		this.oBuffer.Buf = buffer
 	}
 
 	// Each block is decoded separately
@@ -1064,8 +1077,8 @@ func (this *DecodingTask) decode() {
 	read = this.ibs.Read() - read
 
 	if mode&SMALL_BLOCK_MASK != 0 {
-		if !bytes.Equal(buffer, this.data) {
-			copy(this.data, buffer[0:preTransformLength])
+		if !bytes.Equal(buffer, data) {
+			copy(data, buffer[0:preTransformLength])
 		}
 
 		res.decoded = int(preTransformLength)
@@ -1083,7 +1096,7 @@ func (this *DecodingTask) decode() {
 		var oIdx uint
 
 		// Inverse transform
-		if _, oIdx, err = transform.Inverse(buffer[0:preTransformLength], this.data); err != nil {
+		if _, oIdx, err = transform.Inverse(buffer[0:preTransformLength], data); err != nil {
 			// Error => return
 			res.err = NewIOError(err.Error(), ERR_PROCESS_BLOCK)
 			notify(nil, this.result, false, res)
@@ -1094,7 +1107,7 @@ func (this *DecodingTask) decode() {
 
 		// Verify checksum
 		if this.hasher != nil {
-			checksum2 := this.hasher.Hash(this.data[0:res.decoded])
+			checksum2 := this.hasher.Hash(data[0:res.decoded])
 
 			if checksum2 != checksum1 {
 				errMsg := fmt.Sprintf("Corrupted bitstream: expected checksum %x, found %x", checksum1, checksum2)

@@ -55,7 +55,7 @@ public class CompressedOutputStream extends OutputStream
    private final int blockSize;
    private final XXHash32 hasher;
    private final SliceByteArray sa; // for all blocks
-   private final SliceByteArray[] buffers; // per block
+   private final SliceByteArray[] buffers; // input & output per block
    private final short entropyType;
    private final short transformType;
    private final OutputBitStream obs;
@@ -117,11 +117,11 @@ public class CompressedOutputStream extends OutputStream
       this.jobs = jobs;
       this.pool = pool;
       this.sa = new SliceByteArray(new byte[blockSize*this.jobs], 0);
-      this.buffers = new SliceByteArray[this.jobs];
+      this.buffers = new SliceByteArray[2*this.jobs];
       this.closed = new AtomicBoolean(false);
       this.initialized = new AtomicBoolean(false);
 
-      for (int i=0; i<this.jobs; i++)
+      for (int i=0; i<this.buffers.length; i++)
          this.buffers[i] = new SliceByteArray(EMPTY_BYTE_ARRAY, 0);
 
       this.blockId = new AtomicInteger(0);
@@ -337,7 +337,7 @@ public class CompressedOutputStream extends OutputStream
       this.sa.length = 0;
       this.sa.index = -1;
 
-      for (int i=0; i<this.jobs; i++)
+      for (int i=0; i<this.buffers.length; i++)
          this.buffers[i] = new SliceByteArray(EMPTY_BYTE_ARRAY, 0);
    }
 
@@ -368,10 +368,19 @@ public class CompressedOutputStream extends OutputStream
             if (sz == 0)
                break;
             
-            this.buffers[jobId].index = 0;
+            this.buffers[2*jobId].index = 0;
+            this.buffers[2*jobId+1].index = 0;
             
-            Callable<Status> task = new EncodingTask(this.sa.array, this.sa.index,
-                    this.buffers[jobId], sz, this.transformType,
+            if (this.buffers[2*jobId].array.length < sz)
+            {
+               this.buffers[2*jobId].array = new byte[sz];
+               this.buffers[2*jobId].length = sz;
+            }
+            
+            System.arraycopy(this.sa.array, this.sa.index, this.buffers[2*jobId].array, 0, sz);
+            
+            Callable<Status> task = new EncodingTask(this.buffers[2*jobId],
+                    this.buffers[2*jobId+1], sz, this.transformType,
                     this.entropyType, firstBlockId+jobId+1,
                     this.obs, this.hasher, this.blockId,
                     blockListeners);
@@ -455,13 +464,13 @@ public class CompressedOutputStream extends OutputStream
       private final BlockListener[] listeners;
 
 
-      EncodingTask(byte[] data, int offset, SliceByteArray buffer, int length,
+      EncodingTask(SliceByteArray iBuffer, SliceByteArray oBuffer, int length,
               short transformType, short entropyType, int blockId,
               OutputBitStream obs, XXHash32 hasher,
               AtomicInteger processedBlockId, BlockListener[] listeners)
       {
-         this.data = new SliceByteArray(data, offset);
-         this.buffer = buffer;
+         this.data = iBuffer;
+         this.buffer = oBuffer;
          this.length = length;
          this.transformType = transformType;
          this.entropyType = entropyType;
