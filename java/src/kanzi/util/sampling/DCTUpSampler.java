@@ -17,7 +17,7 @@ package kanzi.util.sampling;
 
 import kanzi.SliceIntArray;
 import kanzi.IntTransform;
-import kanzi.quantization.IntraTables;
+import kanzi.prediction.IntraTables;
 import kanzi.transform.DCT16;
 import kanzi.transform.DCT32;
 import kanzi.transform.DCT4;
