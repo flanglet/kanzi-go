@@ -149,8 +149,8 @@ func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) 
 		return length, length, nil
 	}
 
-	input := &dst
-	output := &src
+	input := &src
+	output := &dst
 	var res error
 
 	// Process transforms sequentially in reverse order
@@ -158,15 +158,6 @@ func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) 
 		if this.skipFlags&(1<<(3-uint(i))) != 0 {
 			continue
 		}
-
-		if input == &src {
-			input = &dst
-			output = &src
-		} else {
-			input = &src
-			output = &dst
-		}
-
 		t := this.transforms[i]
 		in := *input
 		out := *output
@@ -177,6 +168,15 @@ func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) 
 		if res != nil {
 			break
 		}
+
+		if input == &src {
+			input = &dst
+			output = &src
+		} else {
+			input = &src
+			output = &dst
+		}
+
 	}
 
 	if output != &dst {

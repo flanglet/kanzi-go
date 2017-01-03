@@ -19,7 +19,7 @@ import (
 	"errors"
 )
 
-// Implements io.WriteCloser
+// Similar to io.Discard  but implements io.WriteCloser
 type NullOutputStream struct {
 	closed bool
 }

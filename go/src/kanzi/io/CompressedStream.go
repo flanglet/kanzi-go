@@ -820,7 +820,7 @@ func (this *CompressedInputStream) Read(array []byte) (int, error) {
 				// Reached end of stream
 				if len(array) == remaining {
 					// EOF and we did not read any bytes in this call
-					return -1, nil
+					return 0, nil
 				}
 
 				break

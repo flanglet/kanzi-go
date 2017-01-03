@@ -18,7 +18,6 @@ package kanzi.entropy;
 import kanzi.OutputBitStream;
 import kanzi.BitStreamException;
 import kanzi.EntropyEncoder;
-import kanzi.entropy.HuffmanCommon.FrequencyArrayComparator;
 import kanzi.util.sort.QuickSort;
 
 
@@ -153,7 +152,7 @@ public class HuffmanEncoder implements EntropyEncoder
       System.arraycopy(this.ranks, 0, this.sranks, 0, count);
       
       // Sort by increasing frequencies (first key) and increasing value (second key)
-      new QuickSort(new FrequencyArrayComparator(frequencies)).sort(this.sranks, 0, count);
+      new QuickSort(new HuffmanCommon.FrequencyArrayComparator(frequencies)).sort(this.sranks, 0, count);
     
       for (int i=0; i<count; i++)               
          this.buffer[i] = frequencies[this.sranks[i]];

@@ -186,9 +186,7 @@ func (this *IntBTree) Remove(value int) bool {
 		return false
 	}
 
-	res := this.removeNode(value)
-
-	if res == nil {
+	if this.removeNode(value) == nil {
 		return false
 	}
 
@@ -245,7 +243,7 @@ func (this *IntBTree) removeNode(value int) *IntBTNode {
 	}
 
 	if current == this.root {
-		// First, try easy substitutions of root
+		// First, try cheap substitutions of root
 		if current.right == nil {
 			this.root = current.left
 		} else if current.left == nil {
@@ -302,9 +300,9 @@ func (this *IntBTree) Rank(value int) int {
 
 	if rank == this.size {
 		return -1
-	} else {
-		return -rank
-	}
+	} 
+		
+	return -rank
 }
 
 func findRank(current *IntBTNode, value, rank int) int {
