@@ -425,7 +425,7 @@ public class TPAQPredictor implements Predictor
 
       // Get prediction from NN
       int p = this.mixer.get();
-  
+      
       // SSE (Secondary Symbol Estimation) 
       p = this.apm.get(bit, p, this.c0 | (this.c4 & 0xFF00));
       this.pr = p + ((p-2048) >>> 31);       
@@ -480,7 +480,7 @@ public class TPAQPredictor implements Predictor
    {
       cx = cx*987654323 + this.ctxId;
       cx = (cx << 16) | (cx >>> 16);
-      this.ctx[this.ctxId] = cx*123456791 + this.ctxId;
+      this.ctx[this.ctxId] = cx*123456791 + this.ctxId;     
       this.ctxId++;
    }   
      
