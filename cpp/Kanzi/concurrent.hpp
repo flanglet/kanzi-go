@@ -154,7 +154,7 @@ public:
 	void store(int n) { _n = n; }
 	atomic_int& operator++(int n)
 	{
-		_n += n;
+		_n++;
 		return *this;
 	}
 };

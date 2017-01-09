@@ -12,9 +12,9 @@ For more details, check https://github.com/flanglet/kanzi/wiki.
 
 Credits
 
-Matt Mahoney
-Yann Collet
-Jan Ondrus
-Yuta Mori
-Ilya Muravyov
+Matt Mahoney,
+Yann Collet,
+Jan Ondrus,
+Yuta Mori,
+Ilya Muravyov,
 Neal Burns
