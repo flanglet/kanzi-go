@@ -330,6 +330,9 @@ TPAQPredictor::TPAQPredictor()
     _ctxId = 0;
     memset(_cp, 0, sizeof(_cp));
     memset(_ctx, 0, sizeof(_ctx));
+    memset(_states, 0, MASK3 + 1);
+    memset(_hashes, 0, sizeof(int)*HASH_SIZE);
+    memset(_buffer, 0, MASK2 + 1);
 }
 
 TPAQPredictor::~TPAQPredictor()
@@ -376,7 +379,7 @@ void TPAQPredictor::update(int bit)
     }
 
     // Add inputs to NN
-    for (int i = _ctxId - 1; i >= 0; i--) {
+    for (int i = _ctxId - 1; i >= 0; i--) {        
         _states[_cp[i]] = (byte)STATE_TABLE[((_states[_cp[i]] & 0xFF) << 1) | bit];
         _cp[i] = (_ctx[i] + _c0) & MASK3;
         _mixer.addInput(STATE_MAP[(i << 8) | (_states[_cp[i]] & 0xFF)]);
@@ -434,7 +437,7 @@ inline void TPAQPredictor::addMatchContext()
 inline void TPAQPredictor::addContext(int cx)
 {
     cx = cx * 987654323 + _ctxId;
-    cx = (cx << 16) | (cx >> 16);
+    cx = (cx << 16) | (uint(cx) >> 16);
     _ctx[_ctxId] = cx * 123456791 + _ctxId;
     _ctxId++;
 }

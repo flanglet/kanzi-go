@@ -47,7 +47,7 @@ MSVC++ 5.0  _MSC_VER == 1100
 #if __cplusplus >= 201103L
    // C++ 11
    #include <cstdint>
-   typedef uint8_t byte;
+   typedef int8_t byte;
    typedef int32_t int32;
    typedef int64_t int64;
    typedef uint32_t uint;
