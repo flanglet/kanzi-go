@@ -25,18 +25,18 @@ InfoPrinter::InfoPrinter(int infoLevel, InfoPrinter::Type type, OutputStream& os
     _level = infoLevel;
     _type = type;
 
-	if (type == InfoPrinter::ENCODING) {
-		_thresholds[0] = BlockEvent::BEFORE_TRANSFORM;
-		_thresholds[1] = BlockEvent::AFTER_TRANSFORM;
-		_thresholds[2] = BlockEvent::BEFORE_ENTROPY;
-		_thresholds[3] = BlockEvent::AFTER_ENTROPY;
-	}
-	else {
-		_thresholds[0] = BlockEvent::BEFORE_ENTROPY;
-		_thresholds[1] = BlockEvent::AFTER_ENTROPY;
-		_thresholds[2] = BlockEvent::BEFORE_TRANSFORM;
-		_thresholds[3] = BlockEvent::AFTER_TRANSFORM;
-	}
+    if (type == InfoPrinter::ENCODING) {
+        _thresholds[0] = BlockEvent::BEFORE_TRANSFORM;
+        _thresholds[1] = BlockEvent::AFTER_TRANSFORM;
+        _thresholds[2] = BlockEvent::BEFORE_ENTROPY;
+        _thresholds[3] = BlockEvent::AFTER_ENTROPY;
+    }
+    else {
+        _thresholds[0] = BlockEvent::BEFORE_ENTROPY;
+        _thresholds[1] = BlockEvent::AFTER_ENTROPY;
+        _thresholds[2] = BlockEvent::BEFORE_TRANSFORM;
+        _thresholds[3] = BlockEvent::AFTER_TRANSFORM;
+    }
 }
 
 void InfoPrinter::processEvent(const BlockEvent& evt)
@@ -70,9 +70,9 @@ void InfoPrinter::processEvent(const BlockEvent& evt)
             bi->stage0Size = evt.getSize();
 
         if (_level >= 4) {
-			int duration_ms = int(1000 * (bi->time1 - bi->time0) / CLOCKS_PER_SEC);
+            int duration_ms = int(1000 * (bi->time1 - bi->time0) / CLOCKS_PER_SEC);
             stringstream ss;
-            ss << evt.toString() << "[" << duration_ms << " ms]";
+            ss << evt.toString() << " [" << duration_ms << " ms]";
             _os << ss.str() << endl;
         }
     }
@@ -89,7 +89,7 @@ void InfoPrinter::processEvent(const BlockEvent& evt)
         if (_level >= 4) {
             int duration_ms = int(1000 * (bi->time2 - bi->time1) / CLOCKS_PER_SEC);
             stringstream ss;
-            ss << evt.toString() << "[" << duration_ms << " ms]";
+            ss << evt.toString() << " [" << duration_ms << " ms]";
             _os << ss.str() << endl;
         }
     }
@@ -100,11 +100,11 @@ void InfoPrinter::processEvent(const BlockEvent& evt)
         if (it == _map.end())
             return;
 
-		if (_level < 2) {
-			delete it->second;
-			_map.erase(it);
-			return;
-		}
+        if (_level < 2) {
+            delete it->second;
+            _map.erase(it);
+            return;
+        }
 
         BlockInfo* bi = it->second;
         bi->time3 = evt.getTime();
@@ -113,7 +113,7 @@ void InfoPrinter::processEvent(const BlockEvent& evt)
         stringstream ss;
 
         if (_level >= 4) {
-            ss << evt.toString() << " [" << duration2_ms << " ms]";
+            ss << evt.toString() << " [" << duration2_ms << " ms]" << endl;
         }
 
         // Display block info
@@ -130,8 +130,8 @@ void InfoPrinter::processEvent(const BlockEvent& evt)
         // Add compression ratio for encoding
         if (_type == InfoPrinter::ENCODING) {
             if (bi->stage0Size != 0) {
-				char buf[32];
-				sprintf(buf, " (%d%%)", (int) (stage2Size * (double)100 / (double)bi->stage0Size));
+                char buf[32];
+                sprintf(buf, " (%d%%)", (int)(stage2Size * (double)100 / (double)bi->stage0Size));
                 ss << buf;
             }
         }
@@ -144,7 +144,7 @@ void InfoPrinter::processEvent(const BlockEvent& evt)
         }
 
         _os << ss.str() << endl;
-		delete bi;
-		_map.erase(it);
+        delete bi;
+        _map.erase(it);
     }
 }

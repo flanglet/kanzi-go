@@ -19,6 +19,8 @@ limitations under the License.
 #include <time.h>
 #include "../types.hpp"
 
+using namespace std;
+
 namespace kanzi 
 {
 
@@ -51,7 +53,7 @@ namespace kanzi
 
        int getHash() const { return (_hashing) ? _hash : 0; }
 
-       const char* toString() const;
+       string toString() const;
 
    private:
        int _id;

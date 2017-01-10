@@ -50,7 +50,7 @@ BlockEvent::BlockEvent(BlockEvent::Type type, int id, int size, int hash, bool h
     _type = type;
 }
 
-const char* BlockEvent::toString() const
+string BlockEvent::toString() const
 {
     std::stringstream ss;
     ss << "{ \"type\":\"" << getType() << "\"";
@@ -65,5 +65,5 @@ const char* BlockEvent::toString() const
     }
 
     ss << " }";
-    return ss.str().c_str();
+    return ss.str();
 }
