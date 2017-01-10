@@ -140,7 +140,7 @@ void testEntropyCodecCorrectness(string name)
         int size = 32;
 
         if (ii == 3) {
-            byte val2[] = { 0, 0, 32, 15, (byte) -4, 16, 0, 16, 0, 7, (byte) -1, (byte) -4, (byte) -32, 0, 31, (byte) -1 };
+            byte val2[] = { 0, 0, 32, 15, (byte)-4, 16, 0, 16, 0, 7, (byte)-1, (byte)-4, (byte)-32, 0, 31, (byte)-1 };
             size = 16;
             memcpy(val, &val2[0], size);
         }
@@ -271,7 +271,7 @@ int testEntropyCodecSpeed(string name)
             obs.close();
 
             if (predictor)
-               delete predictor;
+                delete predictor;
 
             // Decode
             ios.rdbuf()->pubseekpos(0);
@@ -292,7 +292,7 @@ int testEntropyCodecSpeed(string name)
             ibs.close();
 
             if (predictor)
-               delete predictor;
+                delete predictor;
 
             // Sanity check
             for (int i = 0; i < size; i++) {
@@ -323,74 +323,78 @@ int TestEntropyCodec_main(int argc, const char* argv[])
 #endif
 {
     try {
-		if (argc == 1) {
-			const char* args[] = { "", "-TYPE=tpaq" };
-			argv = args;
-		}
+        string str;
 
-		string str = argv[1];
-		transform(str.begin(), str.end(), str.begin(), ::toupper);
+        if (argc == 1) {
+            str = "-TYPE=ALL";
+        }
+        else {
+            str = argv[1];
+        }
 
-		if (str.compare(0, 6, "-TYPE=") == 0) {
-			str = str.substr(6);        
+        transform(str.begin(), str.end(), str.begin(), ::toupper);
 
-			if (str.compare("ALL") == 0) {
-				cout << endl
-					 << endl
-					 << "TestHuffmanCodec" << endl;
-				testEntropyCodecCorrectness("HUFFMAN");
-				testEntropyCodecSpeed("HUFFMAN");
-				cout << endl
-					 << endl
-					 << "TestANSCodec" << endl;
-	            testEntropyCodecCorrectness("ANS");
-	            testEntropyCodecSpeed("ANS");
-				cout << endl
-					 << endl
-					 << "TestRangCodec" << endl;
-				testEntropyCodecCorrectness("RANGE");
-				testEntropyCodecSpeed("RANGE");
-				cout << endl
-					 << endl
-					 << "TestFPAQCodec" << endl;
-				testEntropyCodecCorrectness("FPAQ");
-				testEntropyCodecSpeed("FPAQ");
-				cout << endl
-					 << endl
-					 << "TestCMCodec" << endl;
-				testEntropyCodecCorrectness("CM");
-				testEntropyCodecSpeed("CM");
-				cout << endl
-					 << endl
-					 << "TestPAQCodec" << endl;
-				testEntropyCodecCorrectness("PAQ");
-				testEntropyCodecSpeed("PAQ");
-				cout << endl
-					 << endl
-					 << "TestTPAQCodec" << endl;
-				testEntropyCodecCorrectness("TPAQ");
-				testEntropyCodecSpeed("TPAQ");
-				cout << endl
-					 << endl
-					 << "TestExpGolombCodec" << endl;
-				testEntropyCodecCorrectness("EXPGOLOMB");
-				testEntropyCodecSpeed("EXPGOLOMB");
-				cout << endl
-					 << endl
-					 << "TestRiceGolombCodec" << endl;
-				testEntropyCodecCorrectness("RICEGOLOMB");
-				testEntropyCodecSpeed("RICEGOLOMB");
-			}
-			else {
-				cout << endl
-					 << endl
-					 << "Test" << str << "EntropyCodec" << endl;
-				testEntropyCodecCorrectness(str);
-				testEntropyCodecSpeed(str);
-			}
-		} 
-    } catch(exception e) {
-       cout << e.what() << endl;
+        if (str.compare(0, 6, "-TYPE=") == 0) {
+            str = str.substr(6);
+
+            if (str.compare("ALL") == 0) {
+                cout << endl
+                     << endl
+                     << "TestHuffmanCodec" << endl;
+                testEntropyCodecCorrectness("HUFFMAN");
+                testEntropyCodecSpeed("HUFFMAN");
+                cout << endl
+                     << endl
+                     << "TestANSCodec" << endl;
+                testEntropyCodecCorrectness("ANS");
+                testEntropyCodecSpeed("ANS");
+                cout << endl
+                     << endl
+                     << "TestRangCodec" << endl;
+                testEntropyCodecCorrectness("RANGE");
+                testEntropyCodecSpeed("RANGE");
+                cout << endl
+                     << endl
+                     << "TestFPAQCodec" << endl;
+                testEntropyCodecCorrectness("FPAQ");
+                testEntropyCodecSpeed("FPAQ");
+                cout << endl
+                     << endl
+                     << "TestCMCodec" << endl;
+                testEntropyCodecCorrectness("CM");
+                testEntropyCodecSpeed("CM");
+                cout << endl
+                     << endl
+                     << "TestPAQCodec" << endl;
+                testEntropyCodecCorrectness("PAQ");
+                testEntropyCodecSpeed("PAQ");
+                cout << endl
+                     << endl
+                     << "TestTPAQCodec" << endl;
+                testEntropyCodecCorrectness("TPAQ");
+                testEntropyCodecSpeed("TPAQ");
+                cout << endl
+                     << endl
+                     << "TestExpGolombCodec" << endl;
+                testEntropyCodecCorrectness("EXPGOLOMB");
+                testEntropyCodecSpeed("EXPGOLOMB");
+                cout << endl
+                     << endl
+                     << "TestRiceGolombCodec" << endl;
+                testEntropyCodecCorrectness("RICEGOLOMB");
+                testEntropyCodecSpeed("RICEGOLOMB");
+            }
+            else {
+                cout << endl
+                     << endl
+                     << "Test" << str << "EntropyCodec" << endl;
+                testEntropyCodecCorrectness(str);
+                testEntropyCodecSpeed(str);
+            }
+        }
+    }
+    catch (exception e) {
+        cout << e.what() << endl;
     }
     return 0;
 }

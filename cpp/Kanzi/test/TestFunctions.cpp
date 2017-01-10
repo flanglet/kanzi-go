@@ -62,8 +62,8 @@ int testFunctionsCorrectness(string name)
 
         if (ii == 0) {
             byte arr[] = {
-               0, 1, 2, 2, 2, 2, 7, 9, 9, 16, 16, 16, 1, 3, 3, 3, 
-               3, 3, 3, 3, 3, 3, 3, 3, 3,  3,  3,  3, 3, 3, 3, 3
+                0, 1, 2, 2, 2, 2, 7, 9, 9, 16, 16, 16, 1, 3, 3, 3,
+                3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
             };
             memcpy(values, &arr[0], size);
         }
@@ -356,12 +356,15 @@ int main(int argc, const char* argv[])
 int TestFunctions_main(int argc, const char* argv[])
 #endif
 {
+    string str;
+
     if (argc == 1) {
-        const char* args[] = { "", "-TYPE=ALL" };
-        argv = args;
+        str = "-TYPE=ALL";
+    }
+    else {
+        str = argv[1];
     }
 
-    string str = argv[1];
     transform(str.begin(), str.end(), str.begin(), ::toupper);
 
     if (str.compare(0, 6, "-TYPE=") == 0) {
