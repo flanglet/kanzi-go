@@ -15,4 +15,5 @@ The project generates a Windows 64 binary. Multithreading is supported with vers
 
 ### Linux
 Go to the Kanzi directory and run 'make'. The Makefile contains all the necessary
-targets. g++ is required. Tested successfully on Ubuntu 14.04 and g++ 4.8.4.
+targets. g++ is required. Tested successfully on Ubuntu 14.04 and g++ 4.8.4 and
+Ununtu 16.04 with g++ 5.4.0.

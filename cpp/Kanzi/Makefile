@@ -1,7 +1,7 @@
 CC=g++
 CFLAGS=-c -static -std=c++11 -Wall -Wextra -s -O2 -msse2 
 #CFLAGS=-c -static -Wall -DNDEBUG -O3 -fomit-frame-pointer -msse2 -std=c++0x -D_FILE_OFFSET_BITS=64 
-LDFLAGS=
+LDFLAGS=-lpthread
 LIB_SOURCES=Global.cpp \
 	transform/DCT16.cpp \
 	transform/DCT32.cpp \
@@ -76,25 +76,25 @@ tests: $(TESTS)
 app: $(APP)
 
 TestBWT: $(LIB_OBJECTS) test/TestBWT.o
-	$(CC) $(LDFLAGS) $^ -o $@
+	$(CC) $^ -o $@ $(LDFLAGS)
 
 TestMTFT: $(LIB_OBJECTS) test/TestMTFT.o
-	$(CC) $(LDFLAGS) $^ -o $@
+	$(CC) $^ -o $@ $(LDFLAGS)
 
 TestEntropyCodec: $(LIB_OBJECTS) test/TestEntropyCodec.o
-	$(CC) $(LDFLAGS) $^ -o $@
+	$(CC) $^ -o $@ $(LDFLAGS)
 
 TestDefaultBitStream: $(LIB_OBJECTS) test/TestDefaultBitStream.o
-	$(CC) $(LDFLAGS) $^ -o $@
+	$(CC) $^ -o $@ $(LDFLAGS)
 
 TestFunctions: $(LIB_OBJECTS) test/TestFunctions.o
-	$(CC) $(LDFLAGS) $^ -o $@
+	$(CC) $^ -o $@ $(LDFLAGS) 
 
 TestTransforms: $(LIB_OBJECTS) test/TestTransforms.o
-	$(CC) $(LDFLAGS) $^ -o $@
+	$(CC) $^ -o $@ $(LDFLAGS)
 
 Kanzi: $(LIB_OBJECTS) $(APP_OBJECTS) app/Kanzi.o
-	$(CC) $(LDFLAGS) $^ -o $@
+	$(CC) $^ -o $@ $(LDFLAGS)
 
 clean: 
 	rm -f $(TESTS) $(OBJECTS) $(TEST_OBJECTS) $(APP)
