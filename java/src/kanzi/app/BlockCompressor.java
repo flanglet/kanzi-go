@@ -318,7 +318,8 @@ public class BlockCompressor implements Runnable, Callable<Integer>
        printOut("Encoding:          "+delta+" ms", !silent);
        printOut("Input size:        "+read, !silent);
        printOut("Output size:       "+this.cos.getWritten(), !silent);
-       printOut("Ratio:             "+this.cos.getWritten() / (float) read, !silent);
+       float f = this.cos.getWritten() / (float) read;
+       printOut("Ratio:             "+String.format("%1$.6f", f), !silent);
 
        if (delta > 0)
           printOut("Throughput (KB/s): "+(((read * 1000L) >> 10) / delta), !silent);
