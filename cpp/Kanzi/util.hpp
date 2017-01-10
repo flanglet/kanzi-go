@@ -18,6 +18,7 @@ limitations under the License.
 
 #include <string>
 #include <sstream>
+#include <sys/stat.h>
 
 using namespace std;
 
@@ -50,5 +51,54 @@ inline string& __trim(string& str, bool left, bool right)
 inline string& trim(string& str)  { return __trim(str, true, true); }
 inline string& ltrim(string& str) { return __trim(str, true, false); }
 inline string& rtrim(string& str) { return __trim(str, false, true); }
+
+inline bool samePaths(string& f1, string& f2)
+{
+   if (f1.compare(f2) == 0)
+      return true;
+
+   struct stat buf1;
+   int s1 = stat(f1.c_str(), &buf1);
+   struct stat buf2;
+   int s2 = stat(f2.c_str(), &buf2);
+
+   if (s1 != s2)   
+      return false;
+
+   if (buf1.st_dev != buf2.st_dev)
+      return false;
+
+   if (buf1.st_ino != buf2.st_ino)
+      return false;
+
+   if (buf1.st_mode != buf2.st_mode)
+      return false;
+
+   if (buf1.st_nlink != buf2.st_nlink)
+      return false;
+
+   if (buf1.st_uid != buf2.st_uid)
+      return false;
+
+   if (buf1.st_gid != buf2.st_gid)
+      return false;
+
+   if (buf1.st_rdev != buf2.st_rdev)
+      return false;
+
+   if (buf1.st_size != buf2.st_size)
+      return false;
+
+   if (buf1.st_atime != buf2.st_atime)
+      return false;
+
+   if (buf1.st_mtime != buf2.st_mtime)
+      return false;
+
+   if (buf1.st_ctime != buf2.st_ctime)
+      return false;
+
+   return true;
+}
 
 #endif

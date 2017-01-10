@@ -203,6 +203,11 @@ int BlockCompressor::call()
             os = &cout;
         }
         else {
+            if (samePaths(_inputName, _outputName)) {
+                cerr << "The input and output files must be different" << endl;
+                return Error::ERR_CREATE_FILE;
+            }
+
             ofstream* output = new ofstream(_outputName.c_str(), ofstream::binary);
 
             if (!*output) {
@@ -228,19 +233,19 @@ int BlockCompressor::call()
 
                 os = output;
             }
-         }
+        }
 
-         try {
-             _cos = new CompressedOutputStream(_codec, _transform,
-                 *os, _blockSize, _checksum, *_pool, _jobs);
+        try {
+            _cos = new CompressedOutputStream(_codec, _transform,
+                *os, _blockSize, _checksum, *_pool, _jobs);
 
-             for (uint i = 0; i < _listeners.size(); i++)
-                 _cos->addListener(*_listeners[i]);
-         }
-         catch (exception e) {
-             cerr << "Cannot create compressed stream: " << e.what();
-             return Error::ERR_CREATE_COMPRESSOR;
-         }
+            for (uint i = 0; i < _listeners.size(); i++)
+                _cos->addListener(*_listeners[i]);
+        }
+        catch (exception e) {
+            cerr << "Cannot create compressed stream: " << e.what();
+            return Error::ERR_CREATE_COMPRESSOR;
+        }
     }
     catch (exception e) {
         cerr << "Cannot open output file '" << _outputName + "' for writing: " << e.what();
@@ -281,7 +286,7 @@ int BlockCompressor::call()
     try {
         while (true) {
             try {
-                _is->read((char*) &sa._array[0], sa._length);
+                _is->read((char*)&sa._array[0], sa._length);
                 len = (*_is) ? sa._length : (int)_is->gcount();
             }
             catch (exception e) {
@@ -295,7 +300,7 @@ int BlockCompressor::call()
 
             // Just write block to the compressed output stream !
             read += len;
-            _cos->write((const char*) &sa._array[0], len);
+            _cos->write((const char*)&sa._array[0], len);
         }
     }
     catch (IOException ioe) {
@@ -312,7 +317,7 @@ int BlockCompressor::call()
     dispose();
 
     if (os != &cout) {
-        ofstream* ofs = dynamic_cast <ofstream*>(os);
+        ofstream* ofs = dynamic_cast<ofstream*>(os);
 
         if (ofs) {
             try {
@@ -324,7 +329,7 @@ int BlockCompressor::call()
         }
 
         if (os != nullptr)
-           delete os;
+            delete os;
     }
 
     if (read == 0) {

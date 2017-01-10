@@ -178,6 +178,11 @@ int BlockDecompressor::call()
     }
     else {
         try {
+            if (samePaths(_inputName, _outputName)) {
+                cerr << "The input and output files must be different" << endl;
+                return Error::ERR_CREATE_FILE;
+            }
+
             ofstream* output = new ofstream(_outputName.c_str(), ofstream::binary);
 
             if (!*output) {

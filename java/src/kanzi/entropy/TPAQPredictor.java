@@ -416,7 +416,7 @@ public class TPAQPredictor implements Predictor
       for (int i=this.ctxId-1; i>=0; i--)
       {
          this.states[this.cp[i]] = (byte) STATE_TABLE[((this.states[this.cp[i]]&0xFF)<<1)|bit];          
-         this.cp[i] = (this.ctx[i] + this.c0) & MASK3;                 
+         this.cp[i] = (this.ctx[i] + this.c0) & MASK3;  
          this.mixer.addInput(STATE_MAP[(i<<8)|(this.states[this.cp[i]]&0xFF)]); 
       }  
 
@@ -425,7 +425,7 @@ public class TPAQPredictor implements Predictor
 
       // Get prediction from NN
       int p = this.mixer.get();
-      
+
       // SSE (Secondary Symbol Estimation) 
       p = this.apm.get(bit, p, this.c0 | (this.c4 & 0xFF00));
       this.pr = p + ((p-2048) >>> 31);       

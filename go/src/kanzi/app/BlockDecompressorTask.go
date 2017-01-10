@@ -21,6 +21,7 @@ import (
 	"io"
 	kio "kanzi/io"
 	"os"
+	"path/filepath"
 	"runtime"
 	"runtime/pprof"
 	"strings"
@@ -212,6 +213,14 @@ func (this *BlockDecompressor) call() (int, uint64) {
 				fmt.Println("line option has not been provided")
 				output.Close()
 				return kio.ERR_OVERWRITE_FILE, 0
+			}
+
+			path1, _ := filepath.Abs(this.inputName)
+			path2, _ := filepath.Abs(this.outputName)
+
+			if path1 == path2 {
+				fmt.Print("The input and output files must be different")
+				return kio.Error.ERR_CREATE_FILE, written
 			}
 		} else {
 			// File does not exist, create

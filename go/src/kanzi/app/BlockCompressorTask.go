@@ -21,6 +21,7 @@ import (
 	"io"
 	kio "kanzi/io"
 	"os"
+	"path/filepath"
 	"runtime"
 	"runtime/pprof"
 	"strconv"
@@ -217,7 +218,7 @@ func BlockCompressor_main() {
 func (this *BlockCompressor) call() (int, uint64) {
 	var msg string
 	printFlag := this.verbosity > 1
-	bs_printOut("Kanzi 1.0 (C) 2017,  Frederic Langlet", this.verbosity >= 1)
+	bc_printOut("Kanzi 1.0 (C) 2017,  Frederic Langlet", this.verbosity >= 1)
 	bc_printOut("Input file name set to '"+this.inputName+"'", printFlag)
 	bc_printOut("Output file name set to '"+this.outputName+"'", printFlag)
 	msg = fmt.Sprintf("Block size set to %d bytes", this.blockSize)
@@ -270,6 +271,14 @@ func (this *BlockCompressor) call() (int, uint64) {
 				fmt.Print("The output file exists and the 'overwrite' command ")
 				fmt.Println("line option has not been provided")
 				return kio.ERR_OVERWRITE_FILE, written
+			}
+
+			path1, _ := filepath.Abs(this.inputName)
+			path2, _ := filepath.Abs(this.outputName)
+
+			if path1 == path2 {
+				fmt.Print("The input and output files must be different")
+				return kio.Error.ERR_CREATE_FILE, written
 			}
 		}
 

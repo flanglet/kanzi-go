@@ -21,6 +21,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -213,6 +215,15 @@ public class BlockCompressor implements Runnable, Callable<Integer>
                   System.err.println("The output file exists and the 'overwrite' command "
                           + "line option has not been provided");
                   return Error.ERR_OVERWRITE_FILE;
+               }
+               
+               Path path1 = FileSystems.getDefault().getPath(this.inputName).toAbsolutePath();
+               Path path2 = FileSystems.getDefault().getPath(this.outputName).toAbsolutePath();
+               
+               if (path1.equals(path2))
+               {
+                  System.err.println("The input and output files must be different");
+                  return Error.ERR_CREATE_FILE; 
                }
             }
             
