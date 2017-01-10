@@ -217,6 +217,7 @@ func BlockCompressor_main() {
 func (this *BlockCompressor) call() (int, uint64) {
 	var msg string
 	printFlag := this.verbosity > 1
+	bs_printOut("Kanzi 1.0 (C) 2017,  Frederic Langlet", this.verbosity >= 1)
 	bc_printOut("Input file name set to '"+this.inputName+"'", printFlag)
 	bc_printOut("Output file name set to '"+this.outputName+"'", printFlag)
 	msg = fmt.Sprintf("Block size set to %d bytes", this.blockSize)

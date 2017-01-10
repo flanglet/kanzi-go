@@ -33,7 +33,7 @@ using namespace kanzi;
 
 BlockDecompressor::BlockDecompressor(map<string, string>& map, ThreadPool<DecodingTaskResult>* threadPool, bool ownPool)
 {
-	_blockSize = 0;
+    _blockSize = 0;
     _verbosity = atoi(map["verbose"].c_str());
     string str = map["overwrite"];
     transform(str.begin(), str.end(), str.begin(), ::toupper);
@@ -43,8 +43,8 @@ BlockDecompressor::BlockDecompressor(map<string, string>& map, ThreadPool<Decodi
     _jobs = atoi(map["jobs"].c_str());
     _pool = (_jobs <= 1) ? nullptr : ((threadPool == nullptr) ? new ThreadPool<DecodingTaskResult>(_jobs) : threadPool);
     _ownPool = ownPool;
-	_cis = nullptr;
-	_os = nullptr;
+    _cis = nullptr;
+    _os = nullptr;
 
     if (_verbosity > 1)
         addListener(new InfoPrinter(_verbosity, InfoPrinter::DECODING, cout));
@@ -52,8 +52,8 @@ BlockDecompressor::BlockDecompressor(map<string, string>& map, ThreadPool<Decodi
 
 BlockDecompressor::BlockDecompressor(int argc, const char* argv[], ThreadPool<DecodingTaskResult>* threadPool, bool ownPool)
 {
-	_blockSize = 0;
-	map<string, string> map;
+    _blockSize = 0;
+    map<string, string> map;
     processCommandLine(argc, argv, map);
     _verbosity = atoi(map["verbose"].c_str());
     string str = map["overwrite"];
@@ -64,43 +64,42 @@ BlockDecompressor::BlockDecompressor(int argc, const char* argv[], ThreadPool<De
     _jobs = atoi(map["jobs"].c_str());
     _pool = (_jobs <= 1) ? nullptr : ((threadPool == nullptr) ? new ThreadPool<DecodingTaskResult>(_jobs) : threadPool);
     _ownPool = ownPool || ((threadPool == nullptr) && (_pool != nullptr));
-	_cis = nullptr;
-	_os = nullptr;
+    _cis = nullptr;
+    _os = nullptr;
 
     if (_verbosity > 1)
         addListener(new InfoPrinter(_verbosity, InfoPrinter::DECODING, cout));
 }
 
-
 BlockDecompressor::~BlockDecompressor()
 {
-	dispose();
+    dispose();
 
-	if (_cis != nullptr) {
-		delete _cis;
-		_cis = nullptr;
-	}
+    if (_cis != nullptr) {
+        delete _cis;
+        _cis = nullptr;
+    }
 
-	try {
-		if ((_os != nullptr) && (_os != &cout)) {
-			delete _os;
-		}
+    try {
+        if ((_os != nullptr) && (_os != &cout)) {
+            delete _os;
+        }
 
-		_os = nullptr;
-	}
-	catch (exception ioe) {
-	}
+        _os = nullptr;
+    }
+    catch (exception ioe) {
+    }
 
-	if ((_pool != nullptr) && (_ownPool == true)) {
-		delete _pool;
-		_pool = nullptr;
-	}
+    if ((_pool != nullptr) && (_ownPool == true)) {
+        delete _pool;
+        _pool = nullptr;
+    }
 
-	while (_listeners.size() > 0) {
-		vector<BlockListener*>::iterator it = _listeners.begin();
-		delete *it;
-		_listeners.erase(it);
-	}
+    while (_listeners.size() > 0) {
+        vector<BlockListener*>::iterator it = _listeners.begin();
+        delete *it;
+        _listeners.erase(it);
+    }
 }
 
 // Close and flush streams. Do not deallocate resources. Idempotent.
@@ -116,18 +115,18 @@ void BlockDecompressor::dispose()
         exit(Error::ERR_WRITE_FILE);
     }
 
-	if (_os != &cout) {
-		ofstream* ofs = dynamic_cast<ofstream*>(_os);
+    if (_os != &cout) {
+        ofstream* ofs = dynamic_cast<ofstream*>(_os);
 
-		if (ofs) {
-			try {
-				ofs->close();
-			}
-			catch (exception e) {
-				// Ignore
-			}
-		}
-	}
+        if (ofs) {
+            try {
+                ofs->close();
+            }
+            catch (exception e) {
+                // Ignore
+            }
+        }
+    }
 }
 
 int BlockDecompressor::main(int argc, const char* argv[])
@@ -147,6 +146,9 @@ int BlockDecompressor::call()
 {
     bool printFlag = _verbosity > 1;
     stringstream ss;
+    ss << "Kanzi 1.0 (C) 2017,  Frederic Langlet";
+    ss.str(string());
+    printOut(ss.str().c_str(), _verbosity >= 1);
     ss << "Input file name set to '" << _inputName << "'";
     printOut(ss.str().c_str(), printFlag);
     ss.str(string());
@@ -169,7 +171,7 @@ int BlockDecompressor::call()
     transform(str.begin(), str.end(), str.begin(), ::toupper);
 
     if (str.compare(0, 4, "NONE") == 0) {
-		_os = new NullOutputStream();
+        _os = new NullOutputStream();
     }
     else if (str.compare(0, 6, "STDOUT") == 0) {
         _os = &cout;
@@ -178,15 +180,15 @@ int BlockDecompressor::call()
         try {
             ofstream* output = new ofstream(_outputName.c_str(), ofstream::binary);
 
-			if (!*output) {
-				cerr << "Cannot open output file '" << _outputName + "' for writing: " << endl;
-				return Error::ERR_CREATE_FILE;
-			}
+            if (!*output) {
+                cerr << "Cannot open output file '" << _outputName + "' for writing: " << endl;
+                return Error::ERR_CREATE_FILE;
+            }
 
             struct stat buffer;
 
             if (stat(_outputName.c_str(), &buffer) == 0) {
-                if ((buffer.st_mode & S_IFDIR)!= 0) {
+                if ((buffer.st_mode & S_IFDIR) != 0) {
                     cerr << "The output file is a directory" << endl;
                     return Error::ERR_OUTPUT_IS_DIR;
                 }
@@ -213,24 +215,25 @@ int BlockDecompressor::call()
         transform(str.begin(), str.end(), str.begin(), ::toupper);
 
         if (str.compare(0, 5, "STDIN") == 0) {
-           is = &cin;
-        } else {
-           ifstream* ifs = new ifstream(_inputName.c_str(), ifstream::binary);
+            is = &cin;
+        }
+        else {
+            ifstream* ifs = new ifstream(_inputName.c_str(), ifstream::binary);
 
-		   if (!*ifs) {
-			   cerr << "Cannot open input file '" << _inputName << "'" << endl;
-			   return Error::ERR_OPEN_FILE;
-		   }
+            if (!*ifs) {
+                cerr << "Cannot open input file '" << _inputName << "'" << endl;
+                return Error::ERR_OPEN_FILE;
+            }
 
-           is = ifs;
+            is = ifs;
         }
 
         try {
             OutputStream* ds = (printFlag == true) ? &cout : nullptr;
             _cis = new CompressedInputStream(*is, ds, *_pool, _jobs);
 
-			for (uint i = 0; i<_listeners.size(); i++)
-				_cis->addListener(*_listeners[i]);
+            for (uint i = 0; i < _listeners.size(); i++)
+                _cis->addListener(*_listeners[i]);
         }
         catch (exception e) {
             cerr << "Cannot create compressed stream: " << e.what() << endl;
@@ -251,8 +254,8 @@ int BlockDecompressor::call()
 
         // Decode next block
         do {
-             _cis->read((char*) &sa._array[0], sa._length);
-            decoded = (int) _cis->gcount();
+            _cis->read((char*)&sa._array[0], sa._length);
+            decoded = (int)_cis->gcount();
 
             if (decoded < 0) {
                 cerr << "Reached end of stream" << endl;
@@ -261,7 +264,7 @@ int BlockDecompressor::call()
 
             try {
                 if (decoded > 0) {
-                    _os->write((const char*) &sa._array[0], decoded);
+                    _os->write((const char*)&sa._array[0], decoded);
                     read += decoded;
                 }
             }
@@ -290,18 +293,18 @@ int BlockDecompressor::call()
     dispose();
 
     if (is != &cin) {
-       ifstream* ifs = dynamic_cast<ifstream*>(is);
+        ifstream* ifs = dynamic_cast<ifstream*>(is);
 
-       if (ifs) {
-          try {
-            ifs->close();
-          }
-          catch (exception e) {
-             // Ignore
-          }
-       }
+        if (ifs) {
+            try {
+                ifs->close();
+            }
+            catch (exception e) {
+                // Ignore
+            }
+        }
 
-	   delete is;
+        delete is;
     }
 
     clock_t after = clock();
@@ -337,7 +340,6 @@ void BlockDecompressor::processCommandLine(int argc, const char* argv[], map<str
     string strVerbose = "1";
     string strTasks = "1";
     string strOverwrite = "false";
-
 
     for (int i = 1; i < argc; i++) {
         string arg = argv[i];
@@ -439,11 +441,11 @@ void BlockDecompressor::printOut(const char* msg, bool print)
 
 bool BlockDecompressor::addListener(BlockListener* bl)
 {
-	if (bl == nullptr)
-		return false;
+    if (bl == nullptr)
+        return false;
 
-	_listeners.push_back(bl);
-	return true;
+    _listeners.push_back(bl);
+    return true;
 }
 
 bool BlockDecompressor::removeListener(BlockListener* bl)

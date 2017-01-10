@@ -17,4 +17,5 @@ Yann Collet,
 Jan Ondrus,
 Yuta Mori,
 Ilya Muravyov,
-Neal Burns
+Neal Burns,
+Fabian Giesen
