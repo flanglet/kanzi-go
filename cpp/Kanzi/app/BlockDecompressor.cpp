@@ -240,7 +240,7 @@ int BlockDecompressor::call()
             for (uint i = 0; i < _listeners.size(); i++)
                 _cis->addListener(*_listeners[i]);
         }
-        catch (exception e) {
+        catch (IllegalArgumentException e) {
             cerr << "Cannot create compressed stream: " << e.what() << endl;
             return Error::ERR_CREATE_DECOMPRESSOR;
         }

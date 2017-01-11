@@ -242,7 +242,7 @@ int BlockCompressor::call()
             for (uint i = 0; i < _listeners.size(); i++)
                 _cos->addListener(*_listeners[i]);
         }
-        catch (exception e) {
+        catch (IllegalArgumentException e) {
             cerr << "Cannot create compressed stream: " << e.what();
             return Error::ERR_CREATE_COMPRESSOR;
         }

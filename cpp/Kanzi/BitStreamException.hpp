@@ -26,7 +26,8 @@ using namespace std;
 namespace kanzi 
 {
 
-   class BitStreamException : public exception {
+   class BitStreamException : public exception 
+   {
    private:
        int _code;
        string _msg;
@@ -41,7 +42,7 @@ namespace kanzi
        BitStreamException(string msg) : exception()
        {
            _code = UNDEFINED;
-            _msg = msg;
+           _msg = msg;
        }
 
        BitStreamException(string msg, int code) : exception()

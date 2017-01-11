@@ -45,9 +45,13 @@ namespace kanzi
            _msg = msg;
        }
 
-       int error() const { return _code; }
-
-       virtual const char* what() const _GLIBCXX_USE_NOEXCEPT { return _msg.c_str(); }
+       virtual const char* what() const _GLIBCXX_USE_NOEXCEPT
+       {
+           string res = _msg + ". Error code: " + to_string(_code);
+           return res.data();
+       }
+        
+        int error() const { return _code; }
 
        ~IOException() _GLIBCXX_USE_NOEXCEPT{};
    };
