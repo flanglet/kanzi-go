@@ -63,11 +63,11 @@ APP_OBJECTS=$(APP_SOURCES:.cpp=.o)
 
 SOURCES=$(LIB_SOURCES) $(APP_SOURCES)
 OBJECTS=$(SOURCES:.cpp=.o)
-TESTS=TestBWT TestMTFT \
-	TestEntropyCodec TestDefaultBitStream \
-        TestFunctions TestTransforms
+TESTS=testBWT testMTFT \
+	testEntropyCodec testDefaultBitStream \
+        testFunctions testTransforms
 
-APP=Kanzi
+APP=kanzi
 
 all: tests app
 
@@ -75,25 +75,25 @@ tests: $(TESTS)
 
 app: $(APP)
 
-TestBWT: $(LIB_OBJECTS) test/TestBWT.o
+testBWT: $(LIB_OBJECTS) test/TestBWT.o
 	$(CC) $^ -o $@ $(LDFLAGS)
 
-TestMTFT: $(LIB_OBJECTS) test/TestMTFT.o
+testMTFT: $(LIB_OBJECTS) test/TestMTFT.o
 	$(CC) $^ -o $@ $(LDFLAGS)
 
-TestEntropyCodec: $(LIB_OBJECTS) test/TestEntropyCodec.o
+testEntropyCodec: $(LIB_OBJECTS) test/TestEntropyCodec.o
 	$(CC) $^ -o $@ $(LDFLAGS)
 
-TestDefaultBitStream: $(LIB_OBJECTS) test/TestDefaultBitStream.o
+testDefaultBitStream: $(LIB_OBJECTS) test/TestDefaultBitStream.o
 	$(CC) $^ -o $@ $(LDFLAGS)
 
-TestFunctions: $(LIB_OBJECTS) test/TestFunctions.o
+testFunctions: $(LIB_OBJECTS) test/TestFunctions.o
 	$(CC) $^ -o $@ $(LDFLAGS) 
 
-TestTransforms: $(LIB_OBJECTS) test/TestTransforms.o
+testTransforms: $(LIB_OBJECTS) test/TestTransforms.o
 	$(CC) $^ -o $@ $(LDFLAGS)
 
-Kanzi: $(LIB_OBJECTS) $(APP_OBJECTS) app/Kanzi.o
+kanzi: $(LIB_OBJECTS) $(APP_OBJECTS) app/Kanzi.o
 	$(CC) $^ -o $@ $(LDFLAGS)
 
 clean: 

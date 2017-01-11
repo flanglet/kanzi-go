@@ -18,4 +18,10 @@ Jan Ondrus,
 Yuta Mori,
 Ilya Muravyov,
 Neal Burns,
-Fabian Giesen
+Fabian Giesen,
+Jarek Duda
+
+Disclaimer
+
+Use at your own risk. Always keep a backup of your files.
+
