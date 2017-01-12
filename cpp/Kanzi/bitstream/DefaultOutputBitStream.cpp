@@ -163,7 +163,7 @@ void DefaultOutputBitStream::flush() THROW
 			   if (!_os.good())
 				   throw BitStreamException("Write to bitstream failed", BitStreamException::INPUT_OUTPUT);
 
-            _written += (_position << 3);
+            _written += (uint64(_position) << 3);
             _position = 0;
         }	
     }

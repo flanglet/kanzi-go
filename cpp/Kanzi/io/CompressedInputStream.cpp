@@ -49,9 +49,9 @@ CompressedInputStream::CompressedInputStream(InputStream& is, OutputStream* debu
     _jobs = jobs;
     _sa = new SliceArray<byte>(new byte[0], 0, 0);
     _hasher = nullptr;
-    _buffers = new SliceArray<byte>*[_jobs];
+    _buffers = new SliceArray<byte>*[2 * _jobs];
 
-    for (int i = 0; i < _jobs; i++)
+    for (int i = 0; i < 2 * _jobs; i++)
         _buffers[i] = new SliceArray<byte>(new byte[0], 0, 0);
 }
 
@@ -64,10 +64,10 @@ CompressedInputStream::~CompressedInputStream()
         // Ignore and continue
     }
 
-    for (int i = 0; i < _jobs; i++)
-		 delete[] _buffers[i]->_array;
+    for (int i = 0; i < 2 * _jobs; i++)
+        delete[] _buffers[i]->_array;
 
- 	delete[] _buffers;
+    delete[] _buffers;
     delete _ibs;
     delete[] _sa->_array;
     delete _sa;
@@ -201,28 +201,27 @@ int CompressedInputStream::peek() THROW
 
 int CompressedInputStream::get() THROW
 {
-	_gcount = 0;
+    _gcount = 0;
     int res = peek();
 
-	if (res != EOF) {
-		_sa->_index++;
-		_gcount++;
-	}
+    if (res != EOF) {
+        _sa->_index++;
+        _gcount++;
+    }
 
     return res;
 }
 
 int CompressedInputStream::_get() THROW
 {
-	int res = peek();
+    int res = peek();
 
-	if (res != EOF) {
-		_sa->_index++;
-	}
+    if (res != EOF) {
+        _sa->_index++;
+    }
 
-	return res;
+    return res;
 }
-
 
 istream& CompressedInputStream::read(char* data, streamsize length) THROW
 {
@@ -257,12 +256,12 @@ istream& CompressedInputStream::read(char* data, streamsize length) THROW
 
         // Buffer empty, time to decode
         int c2 = _get();
-		
-		// EOF ?
-		if (c2 == EOF)
-			break;
-		
-		data[off++] = (byte)c2;
+
+        // EOF ?
+        if (c2 == EOF)
+            break;
+
+        data[off++] = (byte)c2;
         _gcount++;
         remaining--;
     }
@@ -306,13 +305,20 @@ int CompressedInputStream::processBlock() THROW
 
         // Create as many tasks as required
         for (int jobId = 0; jobId < _jobs; jobId++) {
-            _buffers[jobId]->_index = 0;
-            DecodingTask<DecodingTaskResult>* task = new DecodingTask<DecodingTaskResult>(_sa->_array,
-                _sa->_index, _buffers[jobId], blkSize, _transformType,
+            _buffers[2 * jobId]->_index = 0;
+            _buffers[2 * jobId + 1]->_index = 0;
+
+            if (_buffers[2 * jobId]->_length < blkSize) {
+                delete[] _buffers[2 * jobId]->_array;
+                _buffers[2 * jobId]->_array = new byte[blkSize];
+                _buffers[2 * jobId]->_length = blkSize;
+            }
+
+            DecodingTask<DecodingTaskResult>* task = new DecodingTask<DecodingTaskResult>(_buffers[2 * jobId],
+                _buffers[2 * jobId + 1], blkSize, _transformType,
                 _entropyType, firstBlockId + jobId + 1, _ibs, _hasher, &_blockId,
                 blockListeners);
             tasks.push_back(task);
-            _sa->_index += blkSize;
         }
 
         DecodingTaskResult* results[32]; // less than 32 jobs
@@ -323,8 +329,7 @@ int CompressedInputStream::processBlock() THROW
             tasks.pop_back();
             DecodingTaskResult status = task->call();
             delete task;
-            results[status._blockId - firstBlockId - 1] = &status;
-            decoded += status._decoded;
+            results[0] = &status;
 
             if (status._error != 0)
                 throw IOException(status._msg, status._error);
@@ -360,6 +365,9 @@ int CompressedInputStream::processBlock() THROW
 
         for (int i = 0; i < _jobs; i++) {
             DecodingTaskResult* res = results[i];
+            memcpy(&_sa->_array[_sa->_index], &res->_data[0], res->_decoded);
+            _sa->_index += res->_decoded;
+            decoded += res->_decoded;
 
             // Notify after transform ... in block order
             BlockEvent evt(BlockEvent::AFTER_TRANSFORM, res->_blockId,
@@ -399,10 +407,11 @@ void CompressedInputStream::close() THROW
     _sa->_length = 0;
     _sa->_index = -1;
 
-	 for (int i = 0; i < _jobs; i++) {
-	  	 delete[] _buffers[i]->_array;
-		 _buffers[i]->_array = new byte[0];
-	 }
+    for (int i = 0; i < _jobs; i++) {
+        delete[] _buffers[i]->_array;
+        _buffers[i]->_array = new byte[0];
+        _buffers[i]->_length = 0;
+    }
 }
 
 // Return the number of bytes read so far
@@ -421,14 +430,14 @@ void CompressedInputStream::notifyListeners(vector<BlockListener*>& listeners, c
 }
 
 template <class T>
-DecodingTask<T>::DecodingTask(byte data[], int offset, SliceArray<byte>* buffer, int blockSize,
+DecodingTask<T>::DecodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuffer, int blockSize,
     short transformType, short entropyType, int blockId,
     InputBitStream* ibs, XXHash32* hasher,
-	atomic_int*  processedBlockId, vector<BlockListener*>& listeners)
-    : _data(data, blockSize, offset)
+    atomic_int* processedBlockId, vector<BlockListener*>& listeners)
 {
     _blockLength = blockSize;
-    _buffer = buffer;
+    _data = iBuffer;
+    _buffer = oBuffer;
     _transformType = transformType;
     _entropyType = entropyType;
     _blockId = blockId;
@@ -476,7 +485,7 @@ T DecodingTask<T>::call() THROW
 
     // Skip, either all data have been processed or an error occured
     if (taskId == CompressedInputStream::CANCEL_TASKS_ID) {
-        _result = new DecodingTaskResult(_blockId, checksum1, 0, 0, nullptr);
+        _result = new DecodingTaskResult(*_data, _blockId, checksum1, 0, 0, nullptr);
         return result();
     }
 
@@ -501,7 +510,7 @@ T DecodingTask<T>::call() THROW
         if (preTransformLength == 0) {
             // Last block is empty, return success and cancel pending tasks
             _processedBlockId->store(CompressedInputStream::CANCEL_TASKS_ID);
-            _result = new DecodingTaskResult(_blockId, 0, checksum1, 0, "");
+            _result = new DecodingTaskResult(*_data, _blockId, 0, checksum1, 0, "");
             return result();
         }
 
@@ -510,7 +519,7 @@ T DecodingTask<T>::call() THROW
             _processedBlockId->store(CompressedInputStream::CANCEL_TASKS_ID);
             stringstream ss;
             ss << "Invalid compressed block length: " << preTransformLength;
-            _result = new DecodingTaskResult(_blockId, 0, checksum1, Error::ERR_READ_FILE, ss.str());
+            _result = new DecodingTaskResult(*_data, _blockId, 0, checksum1, Error::ERR_READ_FILE, ss.str());
             return result();
         }
 
@@ -528,11 +537,11 @@ T DecodingTask<T>::call() THROW
 
         if (_buffer->_length < bufferSize) {
             _buffer->_length = bufferSize;
-            delete _buffer->_array;
+            delete[] _buffer->_array;
             _buffer->_array = new byte[_buffer->_length];
         }
 
-        const int savedIdx = _data._index;
+        const int savedIdx = _data->_index;
 
         // Each block is decoded separately
         // Rebuild the entropy decoder to reset block statistics
@@ -542,7 +551,7 @@ T DecodingTask<T>::call() THROW
         if (ed->decode(_buffer->_array, 0, preTransformLength) != preTransformLength) {
             // Error => cancel concurrent decoding tasks
             _processedBlockId->store(CompressedInputStream::CANCEL_TASKS_ID);
-            _result = new DecodingTaskResult(_blockId, 0, checksum1, Error::ERR_PROCESS_BLOCK,
+            _result = new DecodingTaskResult(*_data, _blockId, 0, checksum1, Error::ERR_PROCESS_BLOCK,
                 "Entropy decoding failed");
             return result();
         }
@@ -571,11 +580,11 @@ T DecodingTask<T>::call() THROW
         }
 
         if ((mode & CompressedInputStream::SMALL_BLOCK_MASK) != 0) {
-            if (_buffer->_array != _data._array)
-                memcpy(&_data._array[savedIdx], &_buffer->_array[0], preTransformLength);
+            if (_buffer->_array != _data->_array)
+                memcpy(&_data->_array[savedIdx], &_buffer->_array[0], preTransformLength);
 
             _buffer->_index = preTransformLength;
-            _data._index = savedIdx + preTransformLength;
+            _data->_index = savedIdx + preTransformLength;
         }
         else {
             TransformSequence<byte>* transform = FunctionFactory<byte>::newFunction(_transformType);
@@ -584,31 +593,31 @@ T DecodingTask<T>::call() THROW
 
             // Inverse transform
             _buffer->_length = preTransformLength;
-            bool res = transform->inverse(*_buffer, _data, _buffer->_length);
+            bool res = transform->inverse(*_buffer, *_data, _buffer->_length);
             delete transform;
 
             if (res == false) {
-                _result = new DecodingTaskResult(_blockId, 0, checksum1, Error::ERR_PROCESS_BLOCK,
+                _result = new DecodingTaskResult(*_data, _blockId, 0, checksum1, Error::ERR_PROCESS_BLOCK,
                     "Transform inverse failed");
                 return result();
             }
         }
 
-        const int decoded = _data._index - savedIdx;
+        const int decoded = _data->_index - savedIdx;
 
         // Verify checksum
         if (_hasher != nullptr) {
-            const int checksum2 = _hasher->hash(&_data._array[savedIdx], decoded);
+            const int checksum2 = _hasher->hash(&_data->_array[savedIdx], decoded);
 
             if (checksum2 != checksum1) {
                 stringstream ss;
                 ss << "Corrupted bitstream: expected checksum " << hex << checksum1 << ", found " << hex << checksum2;
-                _result = new DecodingTaskResult(_blockId, decoded, checksum1, Error::ERR_PROCESS_BLOCK, ss.str());
+                _result = new DecodingTaskResult(*_data, _blockId, decoded, checksum1, Error::ERR_PROCESS_BLOCK, ss.str());
                 return result();
             }
         }
 
-        _result = new DecodingTaskResult(_blockId, decoded, checksum1, 0, "");
+        _result = new DecodingTaskResult(*_data, _blockId, decoded, checksum1, 0, "");
         return result();
     }
     catch (exception e) {
@@ -619,7 +628,7 @@ T DecodingTask<T>::call() THROW
         if (ed != nullptr)
             delete ed;
 
-        _result = new DecodingTaskResult(_blockId, 0, checksum1, Error::ERR_PROCESS_BLOCK, e.what());
+        _result = new DecodingTaskResult(*_data, _blockId, 0, checksum1, Error::ERR_PROCESS_BLOCK, e.what());
         return result();
     }
 }

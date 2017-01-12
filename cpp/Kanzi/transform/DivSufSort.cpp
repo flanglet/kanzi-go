@@ -98,7 +98,7 @@ int* DivSufSort::computeSuffixArray(byte input[], int start, int length)
     for (int i = 0; i < length; i++)
         _buffer[i] = (short)(input[start + i] & 0xFF);
 
-    _buffer[length] = input[start];
+    _buffer[length] = (short)(input[start] & 0xFF);
     int m = sortTypeBstar(_bucketA, _bucketB, length);
     constructSuffixArray(_bucketA, _bucketB, length, m);
     return _sa;
@@ -2235,7 +2235,7 @@ Stack::~Stack()
     for (int i = 0; i < _length; i++)
         delete _arr[i];
 
-    delete _arr;
+    delete[] _arr;
 }
 
 void Stack::push(int a, int b, int c, int d, int e)

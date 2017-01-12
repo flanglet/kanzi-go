@@ -50,7 +50,7 @@ namespace kanzi
    template <class T>
    class EncodingTask : public Task<T> {
    private:
-	   SliceArray<byte> _data;
+	   SliceArray<byte>* _data;
 	   SliceArray<byte>* _buffer;
 	   int _blockLength;
 	   short _transformType;
@@ -63,7 +63,7 @@ namespace kanzi
 	   T* _result;
 
    public:
-	   EncodingTask(byte data[], int offset, SliceArray<byte>* buffer, int length,
+	   EncodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuffer, int length,
 		   short transformType, short entropyType, int blockId,
 		   OutputBitStream* obs, XXHash32* hasher,
 		   atomic_int* processedBlockId, vector<BlockListener*>& listeners);
@@ -91,7 +91,7 @@ namespace kanzi
 	   int _blockSize;
 	   XXHash32* _hasher;
 	   SliceArray<byte>* _sa; // for all blocks
-	   SliceArray<byte>** _buffers; // per block
+	   SliceArray<byte>** _buffers; // input & output per block
 	   short _entropyType;
 	   short _transformType;
 	   OutputBitStream* _obs;

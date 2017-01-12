@@ -144,7 +144,7 @@ int BlockCompressor::main(int argc, const char* argv[])
     try {
         BlockCompressor bc(argc, argv, nullptr, false);
         int code = bc.call();
-        exit(code);
+        return code;
     }
     catch (exception e) {
         cerr << "Could not create the block codec: " << e.what() << endl;
@@ -219,19 +219,24 @@ int BlockCompressor::call()
 
             if (stat(_outputName.c_str(), &buffer) == 0) {
                 if ((buffer.st_mode & S_IFDIR) != 0) {
-                    {
+                        delete output;
                         cerr << "The output file is a directory" << endl;
                         return Error::ERR_OUTPUT_IS_DIR;
-                    }
+                }
 
-                    if (_overwrite == false) {
-                        cerr << "The output file exists and the 'overwrite' command "
-                             << "line option has not been provided" << endl;
-                        return Error::ERR_OVERWRITE_FILE;
-                    }
+                if (_overwrite == false) {
+                     delete output;
+                     cerr << "The output file exists and the 'overwrite' command "
+                          << "line option has not been provided" << endl;
+                     return Error::ERR_OVERWRITE_FILE;
                 }
 
                 os = output;
+            }
+            else {
+               delete output;
+               cerr << "File system error" << endl;
+               return Error::ERR_UNKNOWN;
             }
         }
 
@@ -278,7 +283,7 @@ int BlockCompressor::call()
     bool silent = _verbosity < 1;
     printOut("Encoding ...", !silent);
     int read = 0;
-    byte buf[DEFAULT_BUFFER_SIZE];
+    byte* buf = new byte[DEFAULT_BUFFER_SIZE];
     SliceArray<byte> sa(buf, DEFAULT_BUFFER_SIZE, 0);
     int len;
     clock_t before = clock();
@@ -304,10 +309,12 @@ int BlockCompressor::call()
         }
     }
     catch (IOException ioe) {
+        delete[] buf;
         cerr << ioe.what() << endl;
         return ioe.error();
     }
     catch (exception e) {
+        delete[] buf;
         cerr << "An unexpected condition happened. Exiting ..." << endl;
         cerr << e.what() << endl;
         return Error::ERR_UNKNOWN;
@@ -333,6 +340,7 @@ int BlockCompressor::call()
     }
 
     if (read == 0) {
+        delete[] buf;
         cout << "Empty input file ... nothing to do" << endl;
         return WARN_EMPTY_INPUT;
     }
@@ -362,6 +370,7 @@ int BlockCompressor::call()
     }
 
     printOut("", !silent);
+    delete[] buf;
     return 0;
 }
 

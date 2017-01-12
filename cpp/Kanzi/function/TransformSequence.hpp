@@ -83,7 +83,7 @@ namespace kanzi
    {
        // Check for null buffers. Let individual transforms decide on buffer equality
        if ((!SliceArray<byte>::isValid(input)) || (!SliceArray<byte>::isValid(output)))
-          return false;
+           return false;
 
        if (count == 0)
            return true;
@@ -92,50 +92,48 @@ namespace kanzi
            return false;
 
        const int blockSize = count;
-	   SliceArray<T> sa_1(input._array, input._length, input._index);
-	   SliceArray<T> sa_2(output._array, output._length, output._index);
-	   SliceArray<T> sa[2] = { sa_1, sa_2 };
-
-	   const int requiredSize = getMaxEncodedLength(count);
-	   int saIdx = 0;
+       SliceArray<T>* sa[2] = { &input, &output };
+       int saIdx = 0;
+       const int requiredSize = getMaxEncodedLength(count);
        _skipFlags = 0;
 
        // Process transforms sequentially
        for (int i = 0; i < _length; i++) {
-		   SliceArray<T>& sa1 = sa[saIdx];
-		   SliceArray<T>& sa2 = sa[saIdx^1];
+           SliceArray<T>* sa1 = sa[saIdx];
+           saIdx ^= 1;
+           SliceArray<T>* sa2 = sa[saIdx];
 
            // Check that the output buffer has enough room. If not, allocate a new one.
-           if (sa2._length < requiredSize) {
-               delete[] sa2._array;
-               sa2._array = new byte[requiredSize];
+           if (sa2->_length < requiredSize) {
+               delete[] sa2->_array;
+               sa2->_array = new byte[requiredSize];
+               sa2->_length = requiredSize;
            }
 
-           const int savedIIdx = sa1._index;
-           const int savedOIdx = sa2._index;
+           const int savedIIdx = sa1->_index;
+           const int savedOIdx = sa2->_index;
            Transform<T>* transform = _transforms[i];
 
            // Apply forward transform
-           if (transform->forward(sa1, sa2, count) == false) {
+           if (transform->forward(*sa1, *sa2, count) == false) {
                // Transform failed (probably due to lack of space in output). Revert
-               if (&(sa1._array) != &(sa2._array))
-                   memmove(&sa2._array[savedOIdx], &sa1._array[savedIIdx], count);
+               if (sa1->_array != sa2->_array)
+                   memmove(&sa2->_array[savedOIdx], &sa1->_array[savedIIdx], count);
 
-               sa2._index = savedOIdx + count;
+               sa2->_index = savedOIdx + count;
                _skipFlags |= (1 << (3 - i));
            }
 
-		   count = sa2._index - savedOIdx;
-		   sa1._index = savedIIdx;
-		   sa2._index = savedOIdx;
-		   saIdx ^= 1;
+           count = sa2->_index - savedOIdx;
+           sa1->_index = savedIIdx;
+           sa2->_index = savedOIdx;
        }
 
        for (int i = _length; i < 4; i++)
            _skipFlags |= (1 << (3 - i));
 
-	   if (saIdx != 1)
-           memmove(&sa[0]._array[sa[0]._index], &sa[1]._array[sa[1]._index], count);
+       if (saIdx != 1)
+           memmove(&sa[0]->_array[sa[0]->_index], &sa[1]->_array[sa[1]->_index], count);
 
        input._index += blockSize;
        output._index += count;
@@ -146,7 +144,7 @@ namespace kanzi
    bool TransformSequence<T>::inverse(SliceArray<T>& input, SliceArray<T>& output, int length)
    {
        if ((!SliceArray<byte>::isValid(input)) || (!SliceArray<byte>::isValid(output)))
-          return false;
+           return false;
 
        if (length == 0)
            return true;
@@ -165,49 +163,46 @@ namespace kanzi
 
        const int blockSize = length;
        bool res = true;
-       const int savedIIdx0 = input._index;
-       const int savedOIdx0 = output._index;
-       SliceArray<T>* ia1 = &input;
-       SliceArray<T>* ia2 = &output;
+       SliceArray<T>* sa[2] = { &input, &output };
+       int saIdx = 0;
 
        // Process transforms sequentially in reverse order
        for (int i = _length - 1; i >= 0; i--) {
            if ((_skipFlags & (1 << (3 - i))) != 0)
                continue;
 
-           const int savedOIdx = ia2->_index;
+           SliceArray<T>* sa1 = sa[saIdx];
+           saIdx ^= 1;
+           SliceArray<T>* sa2 = sa[saIdx];
+           const int savedIIdx = sa1->_index;
+           const int savedOIdx = sa2->_index;
            Transform<T>* transform = _transforms[i];
 
            // Apply inverse transform
-		   ia1->_length = length;
-		   ia2->_length = output._length;
+           if (sa2->_length < output._length) {
+              delete[] sa2->_array;
+              sa2->_array = new byte[output._length];
+           }
 
-		   res = transform->inverse(*ia1, *ia2, length);
-           length = ia2->_index - savedOIdx;
+           sa1->_length = length;
+           sa2->_length = output._length;
+
+           res = transform->inverse(*sa1, *sa2, length);
+           length = sa2->_index - savedOIdx;
+           sa1->_index = savedIIdx;
+           sa2->_index = savedOIdx;
+           saIdx ^= 1;
 
            // All inverse transforms must succeed
            if (res == false)
                break;
+       }
 
-		   if (ia1 == &input) {
-			   ia1 = &output;
-			   ia2 = &input;
-			   ia1->_index = savedOIdx0;
-			   ia2->_index = savedIIdx0;
-		   }
-		   else {
-			   ia1 = &input;
-			   ia2 = &output;
-			   ia1->_index = savedIIdx0;
-			   ia2->_index = savedOIdx0;
-		   }
-	   }
+       if (saIdx != 1)
+           memmove(&sa[0]->_array[sa[0]->_index], &sa[1]->_array[sa[1]->_index], length);
 
-       if (ia2 != &output)
-           memmove(&ia2->_array[savedOIdx0], &ia1->_array[savedIIdx0], length);
-
-       input._index = savedIIdx0 + blockSize;
-       output._index = savedOIdx0 + length;
+       input._index += blockSize;
+       output._index += length;
        return res;
    }
 
@@ -229,6 +224,5 @@ namespace kanzi
 
        return requiredSize;
    }
-
 }
 #endif

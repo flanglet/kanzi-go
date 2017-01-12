@@ -66,10 +66,9 @@ CompressedOutputStream::CompressedOutputStream(const string& entropyCodec, const
     _hasher = (checksum == true) ? new XXHash32(BITSTREAM_TYPE) : nullptr;
     _jobs = jobs;
     _sa = new SliceArray<byte>(new byte[blockSize * _jobs], blockSize * _jobs, 0);
-    _hasher = nullptr;
-    _buffers = new SliceArray<byte>*[_jobs];
+    _buffers = new SliceArray<byte>*[2*_jobs];
 
-    for (int i = 0; i < _jobs; i++)
+    for (int i = 0; i < 2*_jobs; i++)
         _buffers[i] = new SliceArray<byte>(new byte[0], 0, 0);
 }
 
@@ -82,7 +81,7 @@ CompressedOutputStream::~CompressedOutputStream()
         // Ignore and continue
     }
 
-    for (int i = 0; i < _jobs; i++)
+    for (int i = 0; i < 2*_jobs; i++)
         delete[] _buffers[i]->_array;
 
     delete[] _buffers;
@@ -217,14 +216,15 @@ void CompressedOutputStream::close() THROW
 
     // Release resources
     // Force error on any subsequent write attempt
-//    delete[] _sa->_array;
+    delete[] _sa->_array;
     _sa->_array = new byte[0];
     _sa->_length = 0;
     _sa->_index = -1;
 
-    for (int i = 0; i < _jobs; i++) {
+    for (int i = 0; i < 2*_jobs; i++) {
         delete[] _buffers[i]->_array;
         _buffers[i]->_array = new byte[0];
+        _buffers[i]->_length = 0;
     }
 }
 
@@ -264,9 +264,20 @@ void CompressedOutputStream::processBlock() THROW
             if (sz == 0)
                 break;
 
-            _buffers[jobId]->_index = 0;
-            EncodingTask<EncodingTaskResult>* task = new EncodingTask<EncodingTaskResult>(_sa->_array, _sa->_index,
-                _buffers[jobId], sz, _transformType,
+            _buffers[2*jobId]->_index = 0;
+            _buffers[2*jobId+1]->_index = 0;
+              		              
+            if (_buffers[2*jobId]->_length < sz)
+            {
+                delete[] _buffers[2*jobId]->_array;
+                _buffers[2*jobId]->_array = new byte[sz];
+                _buffers[2*jobId]->_length = sz;
+            }
+ 
+            memcpy(&_buffers[2*jobId]->_array[0], &_sa->_array[_sa->_index], sz);
+
+            EncodingTask<EncodingTaskResult>* task = new EncodingTask<EncodingTaskResult>(_buffers[2*jobId],
+                _buffers[2*jobId+1], sz, _transformType,
                 _entropyType, firstBlockId + jobId + 1,
                 _obs, _hasher, &_blockId,
                 blockListeners);
@@ -344,14 +355,14 @@ void CompressedOutputStream::notifyListeners(vector<BlockListener*>& listeners, 
 }
 
 template <class T>
-EncodingTask<T>::EncodingTask(byte data[], int offset, SliceArray<byte>* buffer, int length,
+EncodingTask<T>::EncodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuffer, int length,
     short transformType, short entropyType, int blockId,
     OutputBitStream* obs, XXHash32* hasher,
     atomic_int* processedBlockId, vector<BlockListener*>& listeners)
-    : _data(data, length, offset)
 {
+    _data = iBuffer;
+    _buffer = oBuffer;
     _blockLength = length;
-    _buffer = buffer;
     _transformType = transformType;
     _entropyType = entropyType;
     _blockId = blockId;
@@ -397,7 +408,7 @@ T EncodingTask<T>::call() THROW
 
         // Compute block checksum
         if (_hasher != nullptr)
-            checksum = _hasher->hash(&_data._array[_data._index], _blockLength);
+            checksum = _hasher->hash(&_data->_array[_data->_index], _blockLength);
 
         if (_listeners.size() > 0) {
             // Notify before transform
@@ -409,17 +420,17 @@ T EncodingTask<T>::call() THROW
 
         if (_blockLength <= CompressedOutputStream::SMALL_BLOCK_SIZE) {
             // Just copy
-            if (_data._array != _buffer->_array) {
+            if (_data->_array != _buffer->_array) {
                 if (_buffer->_length < _blockLength) {
                     _buffer->_length = _blockLength;
-                    delete _buffer->_array;
+                    delete[] _buffer->_array;
                     _buffer->_array = new byte[_buffer->_length];
                 }
 
-                memcpy(&_buffer->_array[0], &_data._array[_data._index], _blockLength);
+                memcpy(&_buffer->_array[0], &_data->_array[_data->_index], _blockLength);
             }
 
-            _data._index += _blockLength;
+            _data->_index += _blockLength;
             _buffer->_index = _blockLength;
             mode = (byte)(CompressedOutputStream::SMALL_BLOCK_MASK | (_blockLength & CompressedOutputStream::COPY_LENGTH_MASK));
         }
@@ -429,14 +440,14 @@ T EncodingTask<T>::call() THROW
 
             if (_buffer->_length < requiredSize) {
                 _buffer->_length = requiredSize;
-                delete _buffer->_array;
+                delete[] _buffer->_array;
                 _buffer->_array = new byte[_buffer->_length];
             }
 
             // Forward transform (ignore error, encode skipFlags)
             _buffer->_index = 0;
-            _data._length = _blockLength;
-            transform->forward(_data, *_buffer, _data._length);
+            _data->_length = _blockLength;
+            transform->forward(*_data, *_buffer, _data->_length);
             mode |= ((transform->getSkipFlags() & TransformSequence<byte>::SKIP_MASK) << 2);
             postTransformLength = _buffer->_index;
             delete transform;

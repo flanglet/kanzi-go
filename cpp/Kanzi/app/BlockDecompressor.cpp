@@ -134,7 +134,7 @@ int BlockDecompressor::main(int argc, const char* argv[])
     try {
         BlockDecompressor bd(argc, argv, nullptr, false);
         int code = bd.call();
-        exit(code);
+        return code;
     }
     catch (exception e) {
         cerr << "Could not create the block codec: " << e.what() << endl;
@@ -251,7 +251,7 @@ int BlockDecompressor::call()
     }
 
     clock_t before = clock();
-    byte buf[DEFAULT_BUFFER_SIZE];
+    byte* buf = new byte[DEFAULT_BUFFER_SIZE];
 
     try {
         SliceArray<byte> sa(buf, DEFAULT_BUFFER_SIZE, 0);
@@ -263,6 +263,7 @@ int BlockDecompressor::call()
             decoded = (int)_cis->gcount();
 
             if (decoded < 0) {
+                delete[] buf;
                 cerr << "Reached end of stream" << endl;
                 return Error::ERR_READ_FILE;
             }
@@ -274,6 +275,7 @@ int BlockDecompressor::call()
                 }
             }
             catch (exception e) {
+                delete[] buf;
                 cerr << "Failed to write decompressed block to file '" << _outputName << "': ";
                 cerr << e.what() << endl;
                 return Error::ERR_READ_FILE;
@@ -283,6 +285,7 @@ int BlockDecompressor::call()
     catch (exception e) {
         // Close streams to ensure all data are flushed
         dispose();
+        delete[] buf;
 
         if (_cis->eof()) {
             cerr << "Reached end of stream" << endl;
@@ -334,6 +337,7 @@ int BlockDecompressor::call()
     }
 
     printOut("", !silent);
+    delete[] buf;
     return 0;
 }
 
