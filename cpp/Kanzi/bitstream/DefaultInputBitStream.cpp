@@ -73,13 +73,13 @@ uint64 DefaultInputBitStream::readBits(uint count) THROW
             shift += (_bitIndex - 63); // adjust if bitIndex != 63 (end of stream)
         }
 
-        res = (_current >> shift) & (((uint64)-1) >> (64 - count));
+        res = (_current >> shift) & (uint64(-1) >> (64 - count));
         _bitIndex = (_bitIndex - count) & 63;
     }
     else {
         // Not enough spots available in 'current'
         uint remaining = count - _bitIndex - 1;
-        res = _current & (((uint64)-1) >> (63 - _bitIndex));
+        res = _current & (uint64(-1) >> (63 - _bitIndex));
         pullCurrent();
         res <<= remaining;
         _bitIndex -= remaining;

@@ -1,3 +1,4 @@
+
 /*
 Copyright 2011-2017 Frederic Langlet
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,7 +25,6 @@ limitations under the License.
 #include "../BitStreamException.hpp"
 #include "../IllegalArgumentException.hpp"
 
-
 using namespace kanzi;
 
 // The chunk size indicates how many bytes are encoded (per block) before
@@ -33,22 +33,22 @@ using namespace kanzi;
 // The default chunk size is 65536 bytes.
 HuffmanDecoder::HuffmanDecoder(InputBitStream& bitstream, int chunkSize) THROW : _bitstream(bitstream)
 {
-	if ((chunkSize != 0) && (chunkSize < 1024))
-		throw IllegalArgumentException("The chunk size must be at least 1024");
+    if ((chunkSize != 0) && (chunkSize < 1024))
+        throw IllegalArgumentException("The chunk size must be at least 1024");
 
-	if (chunkSize > 1 << 30)
-		throw IllegalArgumentException("The chunk size must be at most 2^30");
+    if (chunkSize > 1 << 30)
+        throw IllegalArgumentException("The chunk size must be at most 2^30");
 
-	_chunkSize = chunkSize;
-	_minCodeLen = 8;
-	_state = 0;
-	_bits = 0;
+    _chunkSize = chunkSize;
+    _minCodeLen = 8;
+    _state = 0;
+    _bits = 0;
 
-	// Default lengths & canonical codes
-	for (int i = 0; i < 256; i++) {
-		_codes[i] = i;
-		_sizes[i] = 8;
-	}
+    // Default lengths & canonical codes
+    for (int i = 0; i < 256; i++) {
+        _codes[i] = i;
+        _sizes[i] = 8;
+    }
 
     memset(_ranks, 0, sizeof(_ranks));
 }
@@ -118,8 +118,8 @@ void HuffmanDecoder::buildDecodingTables(int count)
     memset(_fdTable, 0, sizeof(_fdTable));
     memset(_sdTable, 0, sizeof(_sdTable));
 
-    for (int i=0; i<=MAX_SYMBOL_SIZE; i++)
-       _sdtIndexes[i] = SYMBOL_ABSENT;
+    for (int i = 0; i <= MAX_SYMBOL_SIZE; i++)
+        _sdtIndexes[i] = SYMBOL_ABSENT;
 
     int len = 0;
 
@@ -184,8 +184,8 @@ int HuffmanDecoder::decode(byte block[], uint blkptr, uint len)
         int i = startChunk;
 
         // Fast decoding (read DECODING_BATCH_SIZE bits at a time)
-	    for (; i < endChunk1; i++) 
-		    block[i] = fastDecodeByte();
+        for (; i < endChunk1; i++)
+            block[i] = fastDecodeByte();
 
         // Fallback to regular decoding (read one bit at a time)
         for (; i < endChunk; i++)
@@ -230,8 +230,8 @@ byte HuffmanDecoder::fastDecodeByte()
     if (_bits < DECODING_BATCH_SIZE) {
         // Fetch more bits from bitstream
         const uint64 read = _bitstream.readBits(64 - _bits);
-		const uint64 mask = (1 << _bits) - 1;
-		_state = ((_state & mask) << (64 - _bits)) | read;
+        const uint64 mask = (1 << _bits) - 1;
+        _state = ((_state & mask) << (64 - _bits)) | read;
         _bits = 64;
     }
 

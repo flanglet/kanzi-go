@@ -191,7 +191,6 @@ namespace kanzi
            length = sa2->_index - savedOIdx;
            sa1->_index = savedIIdx;
            sa2->_index = savedOIdx;
-           saIdx ^= 1;
 
            // All inverse transforms must succeed
            if (res == false)

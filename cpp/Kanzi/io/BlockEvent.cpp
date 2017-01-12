@@ -21,7 +21,7 @@ limitations under the License.
 using namespace kanzi;
 
 BlockEvent::BlockEvent(BlockEvent::Type type, int id, int size)
-    : _time(clock())
+    : _time(time(0)), _clock(clock())
 {
     _id = id;
     _size = size;
@@ -31,7 +31,7 @@ BlockEvent::BlockEvent(BlockEvent::Type type, int id, int size)
 }
 
 BlockEvent::BlockEvent(BlockEvent::Type type, int id, int size, int hash)
-    : _time(clock())
+    : _time(time(0)), _clock(clock())
 {
     _id = id;
     _size = size;
@@ -41,7 +41,7 @@ BlockEvent::BlockEvent(BlockEvent::Type type, int id, int size, int hash)
 }
 
 BlockEvent::BlockEvent(BlockEvent::Type type, int id, int size, int hash, bool hashing)
-    : _time(clock())
+    : _time(time(0)), _clock(clock())
 {
     _id = id;
     _size = size;

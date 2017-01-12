@@ -46,7 +46,7 @@ void InfoPrinter::processEvent(const BlockEvent& evt)
     if (evt.getType() == _thresholds[0]) {
         // Register initial block size
         BlockInfo* bi = new BlockInfo();
-        bi->time0 = evt.getTime();
+        bi->time0 = evt.getClock();
 
         if (_type == InfoPrinter::ENCODING)
             bi->stage0Size = evt.getSize();
@@ -64,7 +64,7 @@ void InfoPrinter::processEvent(const BlockEvent& evt)
             return;
 
         BlockInfo* bi = it->second;
-        bi->time1 = evt.getTime();
+        bi->time1 = evt.getClock();
 
         if (_type == InfoPrinter::DECODING)
             bi->stage0Size = evt.getSize();
@@ -83,7 +83,7 @@ void InfoPrinter::processEvent(const BlockEvent& evt)
             return;
 
         BlockInfo* bi = it->second;
-        bi->time2 = evt.getTime();
+        bi->time2 = evt.getClock();
         bi->stage1Size = evt.getSize();
 
         if (_level >= 4) {
@@ -107,7 +107,7 @@ void InfoPrinter::processEvent(const BlockEvent& evt)
         }
 
         BlockInfo* bi = it->second;
-        bi->time3 = evt.getTime();
+        bi->time3 = evt.getClock();
         int duration1_ms = int(1000 * (bi->time1 - bi->time0) / CLOCKS_PER_SEC);
         int duration2_ms = int(1000 * (bi->time3 - bi->time2) / CLOCKS_PER_SEC);
         stringstream ss;

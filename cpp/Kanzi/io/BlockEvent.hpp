@@ -51,6 +51,8 @@ namespace kanzi
 
        time_t getTime() const { return _time; }
 
+       clock_t getClock() const { return _clock; }
+
        int getHash() const { return (_hashing) ? _hash : 0; }
 
        string toString() const;
@@ -61,7 +63,8 @@ namespace kanzi
        int _hash;
        BlockEvent::Type _type;
        bool _hashing;
-       clock_t _time;
+       time_t _time;
+       clock_t _clock;
    };
 
 }
