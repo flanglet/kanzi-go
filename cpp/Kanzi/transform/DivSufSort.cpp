@@ -606,7 +606,7 @@ void DivSufSort::ssSwapMerge(int pa, int first, int middle, int last, int buf,
 
             StackElement* se = _mergeStack->pop();
 
-            if (se == NULL)
+            if (se == nullptr)
                 return;
 
             first = se->_a;
@@ -634,7 +634,7 @@ void DivSufSort::ssSwapMerge(int pa, int first, int middle, int last, int buf,
 
             StackElement* se = _mergeStack->pop();
 
-            if (se == NULL)
+            if (se == nullptr)
                 return;
 
             first = se->_a;
@@ -720,7 +720,7 @@ void DivSufSort::ssSwapMerge(int pa, int first, int middle, int last, int buf,
 
             StackElement* se = _mergeStack->pop();
 
-            if (se == NULL)
+            if (se == nullptr)
                 return;
 
             first = se->_a;
@@ -1020,7 +1020,7 @@ void DivSufSort::ssMultiKeyIntroSort(const int pa, int first, int last, int dept
 
             StackElement* se = _ssStack->pop();
 
-            if (se == NULL)
+            if (se == nullptr)
                 return;
 
             first = se->_a;
@@ -1596,7 +1596,7 @@ void DivSufSort::trIntroSort(int isa, int isad, int first, int last, TRBudget& b
                     else {
                         StackElement* se = _trStack->pop();
 
-                        if (se == NULL)
+                        if (se == nullptr)
                             return;
 
                         isad = se->_a;
@@ -1619,7 +1619,7 @@ void DivSufSort::trIntroSort(int isa, int isad, int first, int last, TRBudget& b
                     else {
                         StackElement* se = _trStack->pop();
 
-                        if (se == NULL)
+                        if (se == nullptr)
                             return;
 
                         isad = se->_a;
@@ -1646,7 +1646,7 @@ void DivSufSort::trIntroSort(int isa, int isad, int first, int last, TRBudget& b
 
                 se = _trStack->pop();
 
-                if (se == NULL)
+                if (se == nullptr)
                     return;
 
                 isad = se->_a;
@@ -1718,7 +1718,7 @@ void DivSufSort::trIntroSort(int isa, int isad, int first, int last, TRBudget& b
                         else {
                             StackElement* se = _trStack->pop();
 
-                            if (se == NULL)
+                            if (se == nullptr)
                                 return;
 
                             isad = se->_a;
@@ -1732,7 +1732,7 @@ void DivSufSort::trIntroSort(int isa, int isad, int first, int last, TRBudget& b
                 else {
                     StackElement* se = _trStack->pop();
 
-                    if (se == NULL)
+                    if (se == nullptr)
                         return;
 
                     isad = se->_a;
@@ -1895,7 +1895,7 @@ void DivSufSort::trIntroSort(int isa, int isad, int first, int last, TRBudget& b
                     else {
                         StackElement* se = _trStack->pop();
 
-                        if (se == NULL)
+                        if (se == nullptr)
                             return;
 
                         isad = se->_a;
@@ -1916,7 +1916,7 @@ void DivSufSort::trIntroSort(int isa, int isad, int first, int last, TRBudget& b
                     else {
                         StackElement* se = _trStack->pop();
 
-                        if (se == NULL)
+                        if (se == nullptr)
                             return;
 
                         isad = se->_a;
@@ -1939,7 +1939,7 @@ void DivSufSort::trIntroSort(int isa, int isad, int first, int last, TRBudget& b
 
                 StackElement* se = _trStack->pop();
 
-                if (se == NULL)
+                if (se == nullptr)
                     return;
 
                 isad = se->_a;
@@ -2251,7 +2251,7 @@ void Stack::push(int a, int b, int c, int d, int e)
 
 inline StackElement* Stack::pop()
 {
-    return (_index == 0) ? NULL : _arr[--_index];
+    return (_index == 0) ? nullptr : _arr[--_index];
 }
 
 TRBudget::TRBudget(int chance, int incval)

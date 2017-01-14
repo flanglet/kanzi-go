@@ -247,7 +247,7 @@ void CompressedOutputStream::processBlock() THROW
     if (!_initialized.exchange(true, memory_order_acquire))
         writeHeader();
 
-    vector<EncodingTask<EncodingTaskResult>*> tasks(_jobs);
+    vector<EncodingTask<EncodingTaskResult>*> tasks;
 
     try {
 
@@ -455,7 +455,7 @@ T EncodingTask<T>::call() THROW
             if (postTransformLength < 0)
                 return EncodingTaskResult(_blockId, Error::ERR_WRITE_FILE, "Invalid transform size");
 
-            for (long n = 0xFF; n < postTransformLength; n <<= 8)
+            for (uint64 n = 0xFF; n < postTransformLength; n <<= 8)
                 dataSize++;
 
             if (dataSize > 3)

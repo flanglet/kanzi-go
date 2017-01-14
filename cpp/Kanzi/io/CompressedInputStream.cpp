@@ -282,7 +282,7 @@ istream& CompressedInputStream::seekp(streampos) THROW
 
 int CompressedInputStream::processBlock() THROW
 {
-    vector<DecodingTask<DecodingTaskResult>*> tasks(_jobs);
+    vector<DecodingTask<DecodingTaskResult>*> tasks;
 
     if (!_initialized.exchange(true, memory_order_acquire))
         readHeader();

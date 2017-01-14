@@ -95,7 +95,7 @@ int DebugOutputBitStream::writeBits(uint64 bits, uint count) THROW
     int res = _delegate.writeBits(bits, count);
 
     for (int i = 1; i <= res; i++) {
-        long bit = (bits >> (res - i)) & 1;
+        uint64 bit = (bits >> (res - i)) & 1;
         _current <<= 1;
         _current |= bit;
         _idx++;

@@ -45,7 +45,7 @@ void ExpGolombEncoder::encodeByte(byte val)
     int32 val2 = val;
     val2 = (val2 + (val2 >> 31)) ^ (val2 >> 31); // abs(val2)
     val2++;
-    long emit = val2;
+    uint64 emit = val2;
     int n;
 
     if (val2 <= 3) // shortcut when abs(input) = 1 or 2
