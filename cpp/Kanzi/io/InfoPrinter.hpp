@@ -17,6 +17,9 @@ limitations under the License.
 #define _InfoPrinter_
 
 #include <map>
+#ifdef CONCURRENCY_ENABLED
+   #include <mutex>
+#endif
 #include <ostream>
 #include "../types.hpp"
 #include "BlockListener.hpp"
@@ -55,6 +58,9 @@ namespace kanzi
    private:
        ostream& _os;
        map<int, BlockInfo*> _map;
+#ifdef CONCURRENCY_ENABLED
+	    mutex _mutex;
+#endif
        BlockEvent::Type _thresholds[4];
        InfoPrinter::Type _type;
        int _level;

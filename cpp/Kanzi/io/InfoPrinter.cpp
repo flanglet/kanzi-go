@@ -15,9 +15,12 @@ limitations under the License.
 
 #include <sstream>
 #include <cstdio>
+//#include "../util.hpp"
 #include "InfoPrinter.hpp"
 
 using namespace kanzi;
+
+//mutex PrintStream::_mutex;
 
 InfoPrinter::InfoPrinter(int infoLevel, InfoPrinter::Type type, OutputStream& os)
     : _os(os)
@@ -44,27 +47,42 @@ void InfoPrinter::processEvent(const BlockEvent& evt)
     int currentBlockId = evt.getId();
 
     if (evt.getType() == _thresholds[0]) {
+
         // Register initial block size
         BlockInfo* bi = new BlockInfo();
-        bi->time0 = evt.getClock();
+        bi->time0 = evt.getTime();
 
         if (_type == InfoPrinter::ENCODING)
             bi->stage0Size = evt.getSize();
 
-        _map.insert(pair<int, BlockInfo*>(currentBlockId, bi));
+		{
+#ifdef CONCURRENCY_ENABLED
+			unique_lock<mutex> lock(_mutex);
+#endif
+			_map.insert(pair<int, BlockInfo*>(currentBlockId, bi));
+		}
 
         if (_level >= 4) {
-            _os << evt.toString() << endl;
-        }
+//			PrintStream(_os) << evt.toString() << endl;
+			_os << evt.toString() << endl;
+		}
     }
     else if (evt.getType() == _thresholds[1]) {
-        map<int, BlockInfo*>::iterator it = _map.find(currentBlockId);
+		BlockInfo* bi = nullptr;
 
-        if (it == _map.end())
-            return;
+		{
+#ifdef CONCURRENCY_ENABLED
+			unique_lock<mutex> lock(_mutex);
+#endif
+			map<int, BlockInfo*>::iterator it = _map.find(currentBlockId);
 
-        BlockInfo* bi = it->second;
-        bi->time1 = evt.getClock();
+			if (it == _map.end())
+				return;
+
+			bi = it->second;
+		}
+
+        bi->time1 = evt.getTime();
 
         if (_type == InfoPrinter::DECODING)
             bi->stage0Size = evt.getSize();
@@ -73,41 +91,60 @@ void InfoPrinter::processEvent(const BlockEvent& evt)
             int duration_ms = int(1000 * (bi->time1 - bi->time0) / CLOCKS_PER_SEC);
             stringstream ss;
             ss << evt.toString() << " [" << duration_ms << " ms]";
-            _os << ss.str() << endl;
-        }
+//          PrintStream(_os) << ss.str() << endl;
+			_os << ss.str() << endl;
+		}
     }
-    else if (evt.getType() == _thresholds[2]) {
-        map<int, BlockInfo*>::iterator it = _map.find(currentBlockId);
+	else if (evt.getType() == _thresholds[2]) {
+		BlockInfo* bi = nullptr;
 
-        if (it == _map.end())
-            return;
+		{
+#ifdef CONCURRENCY_ENABLED
+			unique_lock<mutex> lock(_mutex);
+#endif
+			map<int, BlockInfo*>::iterator it = _map.find(currentBlockId);
 
-        BlockInfo* bi = it->second;
-        bi->time2 = evt.getClock();
+			if (it == _map.end())
+				return;
+
+		    bi = it->second;
+		}
+
+        bi->time2 = evt.getTime();
         bi->stage1Size = evt.getSize();
 
         if (_level >= 4) {
             int duration_ms = int(1000 * (bi->time2 - bi->time1) / CLOCKS_PER_SEC);
             stringstream ss;
             ss << evt.toString() << " [" << duration_ms << " ms]";
-            _os << ss.str() << endl;
-        }
+//			PrintStream(_os) << ss.str() << endl;
+			_os << ss.str() << endl;
+		}
     }
     else if (evt.getType() == _thresholds[3]) {
-        int stage2Size = evt.getSize();
-        map<int, BlockInfo*>::iterator it = _map.find(currentBlockId);
+		BlockInfo* bi = nullptr;
+		map<int, BlockInfo*>::iterator it;
 
-        if (it == _map.end())
-            return;
+		{
+#ifdef CONCURRENCY_ENABLED
+			unique_lock<mutex> lock(_mutex);
+#endif
+		    it = _map.find(currentBlockId);
 
-        if (_level < 2) {
-            delete it->second;
-            _map.erase(it);
-            return;
-        }
+			if (it == _map.end())
+				return;
 
-        BlockInfo* bi = it->second;
-        bi->time3 = evt.getClock();
+			if (_level < 2) {
+				delete it->second;
+				_map.erase(it);
+				return;
+			}
+
+			bi = it->second;
+		}
+
+		int stage2Size = evt.getSize();
+		bi->time3 = evt.getTime();
         int duration1_ms = int(1000 * (bi->time1 - bi->time0) / CLOCKS_PER_SEC);
         int duration2_ms = int(1000 * (bi->time3 - bi->time2) / CLOCKS_PER_SEC);
         stringstream ss;
@@ -131,7 +168,7 @@ void InfoPrinter::processEvent(const BlockEvent& evt)
         if (_type == InfoPrinter::ENCODING) {
             if (bi->stage0Size != 0) {
                 char buf[32];
-                sprintf(buf, " (%d%%)", (int)(stage2Size * (double)100 / (double)bi->stage0Size));
+                sprintf(buf, " (%d%%)", int(stage2Size * (double)100 / (double)bi->stage0Size));
                 ss << buf;
             }
         }
@@ -143,8 +180,14 @@ void InfoPrinter::processEvent(const BlockEvent& evt)
             ss << buf;
         }
 
-        _os << ss.str() << endl;
-        delete bi;
-        _map.erase(it);
+//		PrintStream(_os) << ss.str() << endl;
+		_os << ss.str() << endl;
+		delete bi;
+		{
+#ifdef CONCURRENCY_ENABLED
+			unique_lock<mutex> lock(_mutex);
+#endif
+			_map.erase(it);
+		}
     }
 }

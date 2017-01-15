@@ -16,8 +16,13 @@ limitations under the License.
 #ifndef _util_
 #define _util_
 
+
+#ifdef CONCURRENCY_ENABLED
+#include <mutex>
+#endif
 #include <string>
 #include <sstream>
+#include <iostream>
 #include <sys/stat.h>
 
 using namespace std;
@@ -99,5 +104,25 @@ inline bool samePaths(string& f1, string& f2)
 
    return true;
 }
+
+
+#ifdef CONCURRENCY_ENABLED
+// Thread safe ostream
+class PrintStream : public ostringstream
+{
+private:
+	static mutex _mutex;
+
+public:
+	PrintStream() {}
+
+	~PrintStream()
+	{
+		lock_guard<std::mutex> guard(_mutex);
+		cout << this->str();
+	}
+
+};
+#endif
 
 #endif
