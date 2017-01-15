@@ -31,6 +31,7 @@ public:
 // C++ 11 (or partial)
 #define CONCURRENCY_ENABLED
 #include <atomic>
+#include <iostream>
 #include <thread>
 #include <deque>
 #include <mutex>
@@ -56,6 +57,7 @@ private:
 	bool _deallocateTasks;
 	vector<thread> _threads;
 	deque<Task<T>*> _tasks;
+	deque<Task<T>*> _activeTasks;
 	mutex _mutex;
 	condition_variable _condition;
 	atomic_bool _stop;
@@ -93,6 +95,7 @@ void ThreadPool<T>::add(Task<T>* task)
 	{
 		unique_lock<mutex> lock(_mutex);
 		_tasks.push_back(task);
+		_activeTasks.push_back(task);
 	} // release lock
 
 	_condition.notify_one();
@@ -102,7 +105,7 @@ template <class T>
 int ThreadPool<T>::active_tasks()
 {
 	unique_lock<mutex> lock(_mutex);
-	return int(_tasks.size());
+	return int(_activeTasks.size());
 }
 
 template <class T>
@@ -126,8 +129,19 @@ void ThreadPool<T>::runThread()
 			_tasks.pop_front();
 		} // release lock
 
-		  // Run task
-		task->call();
+		try {
+			// Run task
+			task->call();
+		}
+		catch (exception e) {
+			cerr << e.what() << endl;
+		}
+
+		{
+			unique_lock<mutex> lock(_mutex);
+			_activeTasks.front();
+			_activeTasks.pop_front();
+		}
 
 		if (_deallocateTasks)
 			delete task;
@@ -165,10 +179,15 @@ private:
 
 public:
 	atomic_bool() { _b = false; }
-	atomic_bool& operator=(bool b) { _b = b; return *this; }
+	atomic_bool& operator=(bool b)
+	{
+		_b = b;
+		return *this;
+	}
 	bool load() const { return _b; }
 	void store(bool b) { _b = b; }
-	bool exchange(bool expected, int memory) {
+	bool exchange(bool expected, int memory)
+	{
 		bool b = _b;
 		_b = expected;
 		return b;

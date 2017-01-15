@@ -13,7 +13,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-#include "BlockCompressor.hpp"
 #include <algorithm>
 #include <cstdlib>
 #include <ctime>
@@ -248,12 +247,12 @@ int BlockCompressor::call()
                 _cos->addListener(*_listeners[i]);
         }
         catch (IllegalArgumentException e) {
-            cerr << "Cannot create compressed stream: " << e.what();
+            cerr << "Cannot create compressed stream: " << e.what() << endl;
             return Error::ERR_CREATE_COMPRESSOR;
         }
     }
     catch (exception e) {
-        cerr << "Cannot open output file '" << _outputName + "' for writing: " << e.what();
+        cerr << "Cannot open output file '" << _outputName + "' for writing: " << e.what() << endl;
         return Error::ERR_CREATE_FILE;
     }
 
@@ -275,7 +274,7 @@ int BlockCompressor::call()
         }
     }
     catch (exception e) {
-        cerr << "Cannot open input file '" << _inputName << "': " << e.what();
+        cerr << "Cannot open input file '" << _inputName << "': " << e.what() << endl;
         return Error::ERR_OPEN_FILE;
     }
 
