@@ -13,6 +13,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+#ifdef CONCURRENCY_ENABLED
+#include <future>
+#endif
 #include <sstream>
 #include "CompressedOutputStream.hpp"
 #include "../bitstream/DefaultOutputBitStream.hpp"
@@ -25,11 +28,9 @@ limitations under the License.
 using namespace kanzi;
 
 CompressedOutputStream::CompressedOutputStream(const string& entropyCodec, const string& transform,
-    OutputStream& os, int blockSize, bool checksum, ThreadPool<EncodingTaskResult>& pool,
-    int jobs)
+    OutputStream& os, int blockSize, bool checksum, int jobs)
     : OutputStream(os.rdbuf())
     , _os(os)
-    , _pool(pool)
 {
     if (blockSize > MAX_BITSTREAM_BLOCK_SIZE) {
         std::stringstream ss;
@@ -289,40 +290,40 @@ void CompressedOutputStream::processBlock() THROW
             // Synchronous call
             EncodingTask<EncodingTaskResult>* task = tasks.back();
             tasks.pop_back();
-            EncodingTaskResult status = task->call();
-            delete task;
+            EncodingTaskResult res = task->call();
+			int err = res._error;
+			string msg = res._msg;
 
-            if (status._error != 0)
-                throw IOException(status._msg, status._error);
+            if (err != 0)
+                throw IOException(msg, err);
         }
 #ifdef CONCURRENCY_ENABLED
         else {
-            vector<EncodingTask<EncodingTaskResult>*>::iterator it;
+			vector<EncodingTask<EncodingTaskResult>*>::iterator it;
+			vector<future<EncodingTaskResult>> results;
 
-            // Add tasks to thread pool
+            // Register task futures and launch tasks in parallel
             for (it = tasks.begin(); it != tasks.end(); it++) {
-                _pool.add(*it);
-            }
+				results.push_back(async(launch::async, &EncodingTask<EncodingTaskResult>::call, *it));
+			}
 
-            // Wait for completion of all tasks
-            while (_pool.active_tasks() != 0) {
-            }
+			// Wait for tasks completion and check results
+			for (uint i = 0; i < tasks.size(); i++) {
+				EncodingTaskResult res = results[i].get();
+				int err = res._error;
+				string msg = res._msg;
 
-            // Check results
-            while (tasks.size() > 0) {
-                it = tasks.begin();
-                tasks.erase(it);
-                EncodingTask<EncodingTaskResult>* task = *it;
-                EncodingTaskResult status = task->result();
-                delete task;
-
-                if (status._error != 0)
-                    throw IOException(status._msg, status._error);
+				if (err != 0)
+					throw IOException(msg, err);
             }
         }
 #endif
 
-        _sa->_index = 0;
+		for (vector<EncodingTask<EncodingTaskResult>*>::iterator it = tasks.begin(); it != tasks.end(); it++)
+			delete *it;
+
+		tasks.clear();
+		_sa->_index = 0;
     }
     catch (BitStreamException e) {
         for (vector<EncodingTask<EncodingTaskResult>*>::iterator it = tasks.begin(); it != tasks.end(); it++)
@@ -331,7 +332,14 @@ void CompressedOutputStream::processBlock() THROW
         tasks.clear();
         throw IOException(e.what(), e.error());
     }
-    catch (exception e) {
+	catch (IOException e) {
+		for (vector<EncodingTask<EncodingTaskResult>*>::iterator it = tasks.begin(); it != tasks.end(); it++)
+			delete *it;
+
+		tasks.clear();
+		throw e;
+	}
+	catch (exception e) {
         for (vector<EncodingTask<EncodingTaskResult>*>::iterator it = tasks.begin(); it != tasks.end(); it++)
             delete *it;
 
@@ -369,27 +377,9 @@ EncodingTask<T>::EncodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuff
     _obs = obs;
     _hasher = hasher;
     _listeners = listeners;
-    _result = nullptr;
     _processedBlockId = processedBlockId;
 }
 
-template <class T>
-EncodingTask<T>::~EncodingTask()
-{
-    if (_result != nullptr)
-        delete _result;
-
-    _result = nullptr;
-}
-
-template <class T>
-T EncodingTask<T>::result()
-{
-    if (_result == nullptr)
-        throw ios_base::failure("No result available");
-
-    return *_result;
-}
 
 // Encode mode + transformed entropy coded data
 // mode: 0b1000xxxx => small block (written as is) + 4 LSB for block size (0-15)
@@ -455,7 +445,7 @@ T EncodingTask<T>::call() THROW
             if (postTransformLength < 0)
                 return EncodingTaskResult(_blockId, Error::ERR_WRITE_FILE, "Invalid transform size");
 
-            for (uint64 n = 0xFF; n < uint64(postTransformLength); n <<= 8)
+			for (uint64 n = 0xFF; n < uint64(postTransformLength); n <<= 8)
                 dataSize++;
 
             if (dataSize > 3)
@@ -524,8 +514,7 @@ T EncodingTask<T>::call() THROW
             CompressedOutputStream::notifyListeners(_listeners, evt);
         }
 
-        _result = new EncodingTaskResult(_blockId, 0, "Success");
-        return result();
+        return EncodingTaskResult(_blockId, 0, "Success");
     }
     catch (exception e) {
         // Make sure to unfreeze next block
@@ -535,7 +524,6 @@ T EncodingTask<T>::call() THROW
         if (ee != nullptr)
             delete ee;
 
-        _result = new EncodingTaskResult(_blockId, Error::ERR_PROCESS_BLOCK, e.what());
-        return result();
+        return EncodingTaskResult(_blockId, Error::ERR_PROCESS_BLOCK, e.what());
     }
 }

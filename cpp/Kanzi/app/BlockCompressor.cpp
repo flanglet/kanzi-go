@@ -33,7 +33,7 @@ limitations under the License.
 
 using namespace kanzi;
 
-BlockCompressor::BlockCompressor(map<string, string>& map, ThreadPool<EncodingTaskResult>* threadPool, bool ownPool)
+BlockCompressor::BlockCompressor(map<string, string>& map)
 {
     _verbosity = atoi(map["verbose"].c_str());
     string str = map["overwrite"];
@@ -42,8 +42,6 @@ BlockCompressor::BlockCompressor(map<string, string>& map, ThreadPool<EncodingTa
     _inputName = map["inputName"];
     _outputName = map["outputName"];
     _jobs = atoi(map["jobs"].c_str());
-    _pool = (_jobs <= 1) ? nullptr : ((threadPool == nullptr) ? new ThreadPool<EncodingTaskResult>(_jobs) : threadPool);
-    _ownPool = ownPool;
     _cos = nullptr;
     _is = nullptr;
 
@@ -51,7 +49,7 @@ BlockCompressor::BlockCompressor(map<string, string>& map, ThreadPool<EncodingTa
         addListener(new InfoPrinter(_verbosity, InfoPrinter::ENCODING, cout));
 }
 
-BlockCompressor::BlockCompressor(int argc, const char* argv[], ThreadPool<EncodingTaskResult>* threadPool, bool ownPool)
+BlockCompressor::BlockCompressor(int argc, const char* argv[])
 {
     map<string, string> map;
     processCommandLine(argc, argv, map);
@@ -71,8 +69,6 @@ BlockCompressor::BlockCompressor(int argc, const char* argv[], ThreadPool<Encodi
     transform(str.begin(), str.end(), str.begin(), ::toupper);
     _checksum = str == "TRUE";
     _jobs = atoi(map["jobs"].c_str());
-    _pool = (_jobs <= 1) ? nullptr : ((threadPool == nullptr) ? new ThreadPool<EncodingTaskResult>(_jobs) : threadPool);
-    _ownPool = ownPool || ((threadPool == nullptr) && (_pool != nullptr));
     _cos = nullptr;
     _is = nullptr;
 
@@ -97,11 +93,6 @@ BlockCompressor::~BlockCompressor()
         _is = nullptr;
     }
     catch (exception ioe) {
-    }
-
-    if ((_pool != nullptr) && (_ownPool == true)) {
-        delete _pool;
-        _pool = nullptr;
     }
 
     while (_listeners.size() > 0) {
@@ -141,7 +132,7 @@ void BlockCompressor::dispose()
 int BlockCompressor::main(int argc, const char* argv[])
 {
     try {
-        BlockCompressor bc(argc, argv, nullptr, false);
+        BlockCompressor bc(argc, argv);
         int code = bc.call();
         return code;
     }
@@ -241,7 +232,7 @@ int BlockCompressor::call()
 
         try {
             _cos = new CompressedOutputStream(_codec, _transform,
-                *os, _blockSize, _checksum, *_pool, _jobs);
+                *os, _blockSize, _checksum, _jobs);
 
             for (uint i = 0; i < _listeners.size(); i++)
                 _cos->addListener(*_listeners[i]);

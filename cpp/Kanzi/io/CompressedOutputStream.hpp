@@ -25,23 +25,36 @@ limitations under the License.
 #include "../SliceArray.hpp"
 #include "../util/XXHash32.hpp"
 
-namespace kanzi 
-{
+namespace kanzi {
 
    class EncodingTaskResult {
    public:
-	   int _blockId;
-	   int _error; // 0 = OK
-	   string _msg;
+       int _blockId;
+       int _error; // 0 = OK
+       string _msg;
 
-	   EncodingTaskResult(int blockId, int error, const string& msg)
-	   {
-		   _blockId = blockId;
-		   _error = error;
-		   _msg = msg;
-	   }
+       EncodingTaskResult()
+       {
+           _blockId = -1;
+           _error = 0;
+           _msg = "";
+       }
 
-	   ~EncodingTaskResult() {}
+       EncodingTaskResult(int blockId, int error, const string& msg)
+       {
+           _blockId = blockId;
+           _error = error;
+           _msg = msg;
+       }
+
+       EncodingTaskResult(const EncodingTaskResult& result)
+       {
+           _blockId = result._blockId;
+           _error = result._error;
+           _msg = result._msg;
+       }
+
+       ~EncodingTaskResult() {}
    };
 
    // A task used to encode a block
@@ -50,94 +63,89 @@ namespace kanzi
    template <class T>
    class EncodingTask : public Task<T> {
    private:
-	   SliceArray<byte>* _data;
-	   SliceArray<byte>* _buffer;
-	   int _blockLength;
-	   short _transformType;
-	   short _entropyType;
-	   int _blockId;
-	   OutputBitStream* _obs;
-	   XXHash32* _hasher;
-	   atomic_int* _processedBlockId;
-	   vector<BlockListener*> _listeners;
-	   T* _result;
+       SliceArray<byte>* _data;
+       SliceArray<byte>* _buffer;
+       int _blockLength;
+       short _transformType;
+       short _entropyType;
+       int _blockId;
+       OutputBitStream* _obs;
+       XXHash32* _hasher;
+       atomic_int* _processedBlockId;
+       vector<BlockListener*> _listeners;
 
    public:
-	   EncodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuffer, int length,
-		   short transformType, short entropyType, int blockId,
-		   OutputBitStream* obs, XXHash32* hasher,
-		   atomic_int* processedBlockId, vector<BlockListener*>& listeners);
+       EncodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuffer, int length,
+           short transformType, short entropyType, int blockId,
+           OutputBitStream* obs, XXHash32* hasher,
+           atomic_int* processedBlockId, vector<BlockListener*>& listeners);
 
-	   ~EncodingTask();
+       ~EncodingTask(){};
 
-	   T call() THROW;
-
-	   T result() THROW;
+       T call() THROW;
    };
 
    class CompressedOutputStream : public OutputStream {
-	   friend class EncodingTask<EncodingTaskResult>;
+       friend class EncodingTask<EncodingTaskResult>;
 
    private:
-	   static const int DEFAULT_BLOCK_SIZE = 1024 * 1024; // Default block size
-	   static const int BITSTREAM_TYPE = 0x4B414E5A; // "KANZ"
-	   static const int BITSTREAM_FORMAT_VERSION = 3;
-	   static const int COPY_LENGTH_MASK = 0x0F;
-	   static const int SMALL_BLOCK_MASK = 0x80;
-	   static const int MIN_BITSTREAM_BLOCK_SIZE = 1024;
-	   static const int MAX_BITSTREAM_BLOCK_SIZE = 1024 * 1024 * 1024;
-	   static const int SMALL_BLOCK_SIZE = 15;
+       static const int DEFAULT_BLOCK_SIZE = 1024 * 1024; // Default block size
+       static const int BITSTREAM_TYPE = 0x4B414E5A; // "KANZ"
+       static const int BITSTREAM_FORMAT_VERSION = 3;
+       static const int COPY_LENGTH_MASK = 0x0F;
+       static const int SMALL_BLOCK_MASK = 0x80;
+       static const int MIN_BITSTREAM_BLOCK_SIZE = 1024;
+       static const int MAX_BITSTREAM_BLOCK_SIZE = 1024 * 1024 * 1024;
+       static const int SMALL_BLOCK_SIZE = 15;
 
-	   int _blockSize;
-	   XXHash32* _hasher;
-	   SliceArray<byte>* _sa; // for all blocks
-	   SliceArray<byte>** _buffers; // input & output per block
-	   short _entropyType;
-	   short _transformType;
-	   OutputBitStream* _obs;
-	   OutputStream& _os;
-	   atomic_bool _initialized;
-	   atomic_bool _closed;
-	   atomic_int _blockId;
-	   int _jobs;
-	   vector<BlockListener*> _listeners;
-	   ThreadPool<EncodingTaskResult>& _pool;
+       int _blockSize;
+       XXHash32* _hasher;
+       SliceArray<byte>* _sa; // for all blocks
+       SliceArray<byte>** _buffers; // input & output per block
+       short _entropyType;
+       short _transformType;
+       OutputBitStream* _obs;
+       OutputStream& _os;
+       atomic_bool _initialized;
+       atomic_bool _closed;
+       atomic_int _blockId;
+       int _jobs;
+       vector<BlockListener*> _listeners;
 
-	   void writeHeader() THROW;
+       void writeHeader() THROW;
 
-	   void processBlock() THROW;
+       void processBlock() THROW;
 
-	   static void notifyListeners(vector<BlockListener*>& listeners, const BlockEvent& evt);
+       static void notifyListeners(vector<BlockListener*>& listeners, const BlockEvent& evt);
 
    public:
-	   // CompressedOutputStream(const string& entropyCodec, const string& functionType, OutputStream& os);
+       // CompressedOutputStream(const string& entropyCodec, const string& functionType, OutputStream& os);
 
-	   // CompressedOutputStream(const string& entropyCodec, const string& functionType,
-	   //     OutputStream& os, int blockSize, bool checksum);
+       // CompressedOutputStream(const string& entropyCodec, const string& functionType,
+       //     OutputStream& os, int blockSize, bool checksum);
 
-	   CompressedOutputStream(const string& entropyCodec, const string& transform,
-		   OutputStream& os, int blockSize, bool checksum, ThreadPool<EncodingTaskResult>& pool, int jobs);
+       CompressedOutputStream(const string& entropyCodec, const string& transform,
+           OutputStream& os, int blockSize, bool checksum, int jobs);
 
-	   ~CompressedOutputStream();
+       ~CompressedOutputStream();
 
-	   bool addListener(BlockListener& bl);
+       bool addListener(BlockListener& bl);
 
-	   bool removeListener(BlockListener& bl);
+       bool removeListener(BlockListener& bl);
 
-	   ostream& write(const char* s, streamsize n) THROW;
+       ostream& write(const char* s, streamsize n) THROW;
 
-	   ostream& put(char c) THROW;
+       ostream& put(char c) THROW;
 
-	   ostream& flush();
+       ostream& flush();
 
-	   streampos tellp();
+       streampos tellp();
 
-	   ostream& seekp(streampos pos) THROW;
+       ostream& seekp(streampos pos) THROW;
 
-	   void close() THROW;
+       void close() THROW;
 
-	   uint64 getWritten();
+       uint64 getWritten();
    };
-
 }
 #endif

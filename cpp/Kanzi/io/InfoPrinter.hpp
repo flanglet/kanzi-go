@@ -4,7 +4,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 you may obtain a copy of the License at
 
-                http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,7 +18,7 @@ limitations under the License.
 
 #include <map>
 #ifdef CONCURRENCY_ENABLED
-   #include <mutex>
+#include <mutex>
 #endif
 #include <ostream>
 #include "../types.hpp"
@@ -27,44 +27,46 @@ limitations under the License.
 
 using namespace std;
 
-namespace kanzi 
+namespace kanzi
 {
 
-   class BlockInfo 
-   {
-   public:
-       time_t time0;
-       time_t time1;
-       time_t time2;
-       time_t time3;
-       int stage0Size;
-       int stage1Size;
-   };
+	class BlockInfo
+	{
+	public:
+		time_t time0;
+		time_t time1;
+		time_t time2;
+		time_t time3;
+		int stage0Size;
+		int stage1Size;
+	};
 
-   // An implementation of BlockListener to display block information (verbose option
-   // of the BlockCompressor/BlockDecompressor)
-   class InfoPrinter : public BlockListener 
-   {
-   public:
-       enum Type { ENCODING,
-           DECODING };
+	// An implementation of BlockListener to display block information (verbose option
+	// of the BlockCompressor/BlockDecompressor)
+	class InfoPrinter : public BlockListener
+	{
+	public:
+		enum Type {
+			ENCODING,
+			DECODING
+		};
 
-       InfoPrinter(int infoLevel, InfoPrinter::Type type, OutputStream& os);
+		InfoPrinter(int infoLevel, InfoPrinter::Type type, OutputStream& os);
 
-       ~InfoPrinter() {}
+		~InfoPrinter() {}
 
-       void processEvent(const BlockEvent& evt);
+		void processEvent(const BlockEvent& evt);
 
-   private:
-       ostream& _os;
-       map<int, BlockInfo*> _map;
+	private:
+		ostream& _os;
+		map<int, BlockInfo*> _map;
 #ifdef CONCURRENCY_ENABLED
-	    mutex _mutex;
+		mutex _mutex;
 #endif
-       BlockEvent::Type _thresholds[4];
-       InfoPrinter::Type _type;
-       int _level;
-   };
+		BlockEvent::Type _thresholds[4];
+		InfoPrinter::Type _type;
+		int _level;
+	};
 
 }
 #endif

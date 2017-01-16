@@ -37,6 +37,8 @@ namespace kanzi {
        string _msg;
        int _checksum;
 
+       DecodingTaskResult(){};
+
        DecodingTaskResult(SliceArray<byte>& data, int blockId, int decoded, int checksum, int error, const string& msg)
        {
            _data = data._array;
@@ -45,6 +47,16 @@ namespace kanzi {
            _msg = msg;
            _decoded = decoded;
            _checksum = checksum;
+       }
+
+       DecodingTaskResult(const DecodingTaskResult& result)
+       {
+           _data = result._data;
+           _blockId = result._blockId;
+           _error = result._error;
+           _msg = result._msg;
+           _decoded = result._decoded;
+           _checksum = result._checksum;
        }
 
        ~DecodingTaskResult() {}
@@ -66,7 +78,6 @@ namespace kanzi {
        XXHash32* _hasher;
        atomic_int* _processedBlockId;
        vector<BlockListener*> _listeners;
-       T* _result;
 
    public:
        DecodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuffer, int blockSize,
@@ -74,11 +85,9 @@ namespace kanzi {
            InputBitStream* ibs, XXHash32* hasher,
            atomic_int* processedBlockId, vector<BlockListener*>& listeners);
 
-       ~DecodingTask();
+       ~DecodingTask(){};
 
        T call() THROW;
-
-       T result() THROW;
    };
 
    class CompressedInputStream : public InputStream {
@@ -110,7 +119,6 @@ namespace kanzi {
        int _maxIdx;
        int _jobs;
        vector<BlockListener*> _listeners;
-       ThreadPool<DecodingTaskResult>& _pool;
        streamsize _gcount;
 
        void readHeader() THROW;
@@ -122,8 +130,7 @@ namespace kanzi {
        static void notifyListeners(vector<BlockListener*>& listeners, const BlockEvent& evt);
 
    public:
-       CompressedInputStream(InputStream& is, OutputStream* debug,
-           ThreadPool<DecodingTaskResult>& pool, int jobs);
+       CompressedInputStream(InputStream& is, OutputStream* debug, int jobs);
 
        ~CompressedInputStream();
 
@@ -147,6 +154,5 @@ namespace kanzi {
 
        uint64 getRead();
    };
-
 }
 #endif

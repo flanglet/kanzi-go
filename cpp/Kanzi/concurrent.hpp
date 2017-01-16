@@ -24,184 +24,79 @@ public:
 	Task() {}
 	virtual ~Task() {}
 	virtual T call() = 0;
-	virtual T result() = 0;
 };
 
 #if __cplusplus >= 201103L || _MSC_VER >= 1700
-// C++ 11 (or partial)
-#define CONCURRENCY_ENABLED
-#include <atomic>
-#include <iostream>
-#include <thread>
-#include <deque>
-#include <mutex>
-#include <condition_variable>
-#include "IllegalArgumentException.hpp"
+	// C++ 11 (or partial)
+	#include <atomic>
 
-template <class T>
-class ThreadPool {
-public:
-	ThreadPool(int size, bool deallocateTasks = false) THROW;
+	#ifndef CONCURRENCY_ENABLED
+		#ifdef __GNUC__  
+			// Require g++ 5.0 minimum, 4.8.4 generates exceptions on futures (?)
+			#if __GNUC_PREREQ(5, 0)
+				#define CONCURRENCY_ENABLED
+			#endif
+		#else 
+			#define CONCURRENCY_ENABLED
+		#endif
+	#endif
+#endif
 
-	void add(Task<T>* task);
+#ifndef CONCURRENCY_ENABLED
+	// ! Stubs for NON CONCURRENT USAGE !
+	// Used to compile and provide a non concurrent version
+	const int memory_order_acquire = 0;
+	#include <iostream>
+	
+	class atomic_int {
+	private:
+		int _n;
 
-	int active_tasks();
-
-	~ThreadPool();
-
-private:
-	friend class Task<T>;
-
-	void runThread();
-
-	bool _deallocateTasks;
-	vector<thread> _threads;
-	deque<Task<T>*> _tasks;
-	deque<Task<T>*> _activeTasks;
-	mutex _mutex;
-	condition_variable _condition;
-	atomic_bool _stop;
-};
-
-template <class T>
-ThreadPool<T>::ThreadPool(int jobs, bool deallocateTasks) THROW : _stop(false)
-{
-	if (jobs < 1)
-		throw kanzi::IllegalArgumentException("At least 1 thread required to create a thread pool");
-
-	for (int i = 0; i < jobs; i++) {
-		_threads.push_back(thread(&ThreadPool<T>::runThread, this));
-	}
-
-	_deallocateTasks = deallocateTasks;
-}
-
-template <class T>
-ThreadPool<T>::~ThreadPool()
-{
-	_stop.store(true);
-	_condition.notify_all();
-
-	for (uint i = 0; i < _threads.size(); i++)
-		_threads[i].join();
-}
-
-template <class T>
-void ThreadPool<T>::add(Task<T>* task)
-{
-	if (task == nullptr)
-		return;
-
-	{
-		unique_lock<mutex> lock(_mutex);
-		_tasks.push_back(task);
-		_activeTasks.push_back(task);
-	} // release lock
-
-	_condition.notify_one();
-}
-
-template <class T>
-int ThreadPool<T>::active_tasks()
-{
-	unique_lock<mutex> lock(_mutex);
-	return int(_activeTasks.size());
-}
-
-template <class T>
-void ThreadPool<T>::runThread()
-{
-	while (true) {
-		Task<T>* task;
-
+	public:
+		atomic_int() { _n = 0; }
+		atomic_int& operator=(int n)
 		{
-			unique_lock<mutex> lock(_mutex);
-
-			// Busy loop, waiting for a task to run
-			while ((_stop.load() == false) && (_tasks.empty())) {
-				_condition.wait_for(lock, chrono::nanoseconds(100));
-			}
-
-			if (_stop.load() == true)
-				break;
-
-			task = _tasks.front();
-			_tasks.pop_front();
-		} // release lock
-
-		try {
-			// Run task
-			task->call();
+			_n = n;
+			return *this;
 		}
-		catch (exception e) {
-			cerr << e.what() << endl;
-		}
-
+		int load() const { return _n; }
+		void store(int n) { _n = n; }
+		atomic_int& operator++(int n)
 		{
-			unique_lock<mutex> lock(_mutex);
-			_activeTasks.front();
-			_activeTasks.pop_front();
+			_n++;
+			return *this;
 		}
+	};
 
-		if (_deallocateTasks)
-			delete task;
-	}
-}
+	class atomic_bool {
+	private:
+		bool _b;
 
-#else
-const int memory_order_acquire = 0;
-#include <iostream>
-// ! Stubs for NON CONCURRENT USAGE !
-// Used to compile and provide a non concurrent version
-class atomic_int {
-private:
-	int _n;
+	public:
+		atomic_bool() { _b = false; }
+		atomic_bool& operator=(bool b)
+		{
+			_b = b;
+			return *this;
+		}
+		bool load() const { return _b; }
+		void store(bool b) { _b = b; }
+		bool exchange(bool expected, int memory)
+		{
+			bool b = _b;
+			_b = expected;
+			return b;
+		}
+	};
 
-public:
-	atomic_int() { _n = 0; }
-	atomic_int& operator=(int n)
-	{
-		_n = n;
-		return *this;
-	}
-	int load() const { return _n; }
-	void store(int n) { _n = n; }
-	atomic_int& operator++(int n)
-	{
-		_n++;
-		return *this;
-	}
-};
-
-class atomic_bool {
-private:
-	bool _b;
-
-public:
-	atomic_bool() { _b = false; }
-	atomic_bool& operator=(bool b)
-	{
-		_b = b;
-		return *this;
-	}
-	bool load() const { return _b; }
-	void store(bool b) { _b = b; }
-	bool exchange(bool expected, int memory)
-	{
-		bool b = _b;
-		_b = expected;
-		return b;
-	}
-};
-
-// We just need to be able to instantiate a ThreadPool.
-// Calling a method on it shall fail at compilation time.
-template <class T>
-class ThreadPool {
-public:
-	ThreadPool(int size) {}
-	~ThreadPool() {}
-};
+	// We just need to be able to instantiate a ThreadPool.
+	// Calling a method on it shall fail at compilation time.
+	template <class T>
+	class ThreadPool {
+	public:
+		ThreadPool(int size) {}
+		~ThreadPool() {}
+	};
 
 #endif
 

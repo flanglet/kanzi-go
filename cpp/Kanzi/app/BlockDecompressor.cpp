@@ -31,7 +31,7 @@ limitations under the License.
 
 using namespace kanzi;
 
-BlockDecompressor::BlockDecompressor(map<string, string>& map, ThreadPool<DecodingTaskResult>* threadPool, bool ownPool)
+BlockDecompressor::BlockDecompressor(map<string, string>& map)
 {
     _blockSize = 0;
     _verbosity = atoi(map["verbose"].c_str());
@@ -41,8 +41,6 @@ BlockDecompressor::BlockDecompressor(map<string, string>& map, ThreadPool<Decodi
     _inputName = map["inputName"];
     _outputName = map["outputName"];
     _jobs = atoi(map["jobs"].c_str());
-    _pool = (_jobs <= 1) ? nullptr : ((threadPool == nullptr) ? new ThreadPool<DecodingTaskResult>(_jobs) : threadPool);
-    _ownPool = ownPool;
     _cis = nullptr;
     _os = nullptr;
 
@@ -50,7 +48,7 @@ BlockDecompressor::BlockDecompressor(map<string, string>& map, ThreadPool<Decodi
         addListener(new InfoPrinter(_verbosity, InfoPrinter::DECODING, cout));
 }
 
-BlockDecompressor::BlockDecompressor(int argc, const char* argv[], ThreadPool<DecodingTaskResult>* threadPool, bool ownPool)
+BlockDecompressor::BlockDecompressor(int argc, const char* argv[])
 {
     _blockSize = 0;
     map<string, string> map;
@@ -62,8 +60,6 @@ BlockDecompressor::BlockDecompressor(int argc, const char* argv[], ThreadPool<De
     _inputName = map["inputName"];
     _outputName = map["outputName"];
     _jobs = atoi(map["jobs"].c_str());
-    _pool = (_jobs <= 1) ? nullptr : ((threadPool == nullptr) ? new ThreadPool<DecodingTaskResult>(_jobs) : threadPool);
-    _ownPool = ownPool || ((threadPool == nullptr) && (_pool != nullptr));
     _cis = nullptr;
     _os = nullptr;
 
@@ -88,11 +84,6 @@ BlockDecompressor::~BlockDecompressor()
         _os = nullptr;
     }
     catch (exception ioe) {
-    }
-
-    if ((_pool != nullptr) && (_ownPool == true)) {
-        delete _pool;
-        _pool = nullptr;
     }
 
     while (_listeners.size() > 0) {
@@ -132,7 +123,7 @@ void BlockDecompressor::dispose()
 int BlockDecompressor::main(int argc, const char* argv[])
 {
     try {
-        BlockDecompressor bd(argc, argv, nullptr, false);
+        BlockDecompressor bd(argc, argv);
         int code = bd.call();
         return code;
     }
@@ -146,10 +137,10 @@ int BlockDecompressor::call()
 {
     bool printFlag = _verbosity > 1;
     stringstream ss;
-    ss << "Kanzi 1.0 (C) 2017,  Frederic Langlet";
+	ss << "Kanzi 1.0 (C) 2017,  Frederic Langlet";
     printOut(ss.str().c_str(), _verbosity >= 1);
-    ss.str(string());
-    ss << "Input file name set to '" << _inputName << "'";
+	ss.str(string());
+	ss << "Input file name set to '" << _inputName << "'";
     printOut(ss.str().c_str(), printFlag);
     ss.str(string());
     ss << "Output file name set to '" << _outputName << "'";
@@ -235,7 +226,7 @@ int BlockDecompressor::call()
 
         try {
             OutputStream* ds = (printFlag == true) ? &cout : nullptr;
-            _cis = new CompressedInputStream(*is, ds, *_pool, _jobs);
+            _cis = new CompressedInputStream(*is, ds, _jobs);
 
             for (uint i = 0; i < _listeners.size(); i++)
                 _cis->addListener(*_listeners[i]);

@@ -1,3 +1,4 @@
+
 /*
 Copyright 2011-2017 Frederic Langlet
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,6 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+#ifdef CONCURRENCY_ENABLED
+#include <future>
+#endif
 #include <sstream>
 #include <iomanip>
 #include "CompressedInputStream.hpp"
@@ -25,11 +29,9 @@ limitations under the License.
 
 using namespace kanzi;
 
-CompressedInputStream::CompressedInputStream(InputStream& is, OutputStream* debug,
-    ThreadPool<DecodingTaskResult>& pool, int jobs)
+CompressedInputStream::CompressedInputStream(InputStream& is, OutputStream* debug, int jobs)
     : InputStream(is.rdbuf())
     , _is(is)
-    , _pool(pool)
 {
 #ifndef CONCURRENCY_ENABLED
     if (jobs != 1)
@@ -321,63 +323,72 @@ int CompressedInputStream::processBlock() THROW
             tasks.push_back(task);
         }
 
-        DecodingTaskResult* results[32]; // less than 32 jobs
-
         if (_jobs == 1) {
             // Synchronous call
             DecodingTask<DecodingTaskResult>* task = tasks.back();
             tasks.pop_back();
-            DecodingTaskResult status = task->call();
-            delete task;
-            results[0] = &status;
+            DecodingTaskResult res = task->call();
+            int err = res._error;
+            string msg = res._msg;
 
-            if (status._error != 0)
-                throw IOException(status._msg, status._error);
+            if (err != 0)
+                throw IOException(msg, err);
+
+            memcpy(&_sa->_array[_sa->_index], &res._data[0], res._decoded);
+            _sa->_index += res._decoded;
+            decoded += res._decoded;
+
+            // Notify after transform ... in block order
+            BlockEvent evt(BlockEvent::AFTER_TRANSFORM, res._blockId,
+                res._decoded, res._checksum, _hasher != nullptr);
+
+            CompressedInputStream::notifyListeners(blockListeners, evt);
         }
 #ifdef CONCURRENCY_ENABLED
         else {
             vector<DecodingTask<DecodingTaskResult>*>::iterator it;
+            vector<future<DecodingTaskResult> > results;
 
-            // Add tasks to thread pool
+            // Register task futures and launch tasks in parallel
             for (it = tasks.begin(); it != tasks.end(); it++) {
-                _pool.add(*it);
+                results.push_back(async(&DecodingTask<DecodingTaskResult>::call, *it));
             }
 
-            // Wait for completion of all tasks
-            while (_pool.active_tasks() != 0) {
-            }
+            // Wait for tasks completion and check results
+            for (uint i = 0; i < tasks.size(); i++) {
+                DecodingTaskResult res = results[i].get();
+                int err = res._error;
+                string msg = res._msg;
 
-            // Check results
-            while (tasks.size() > 0) {
-                it = tasks.begin();
-                tasks.erase(it);
-                DecodingTask<DecodingTaskResult>* task = *it;
-                DecodingTaskResult status = task->result();
-                delete task;
-                results[status._blockId - firstBlockId - 1] = &status;
-                decoded += status._decoded;
+                if (err != 0)
+                    throw IOException(msg, err);
 
-                if (status._error != 0)
-                    throw IOException(status._msg, status._error);
+                memcpy(&_sa->_array[_sa->_index], &res._data[0], res._decoded);
+                _sa->_index += res._decoded;
+                decoded += res._decoded;
+
+                // Notify after transform ... in block order
+                BlockEvent evt(BlockEvent::AFTER_TRANSFORM, res._blockId,
+                    res._decoded, res._checksum, _hasher != nullptr);
+
+                CompressedInputStream::notifyListeners(blockListeners, evt);
             }
         }
 #endif
 
-        for (int i = 0; i < _jobs; i++) {
-            DecodingTaskResult* res = results[i];
-            memcpy(&_sa->_array[_sa->_index], &res->_data[0], res->_decoded);
-            _sa->_index += res->_decoded;
-            decoded += res->_decoded;
+        for (vector<DecodingTask<DecodingTaskResult>*>::iterator it = tasks.begin(); it != tasks.end(); it++)
+            delete *it;
 
-            // Notify after transform ... in block order
-            BlockEvent evt(BlockEvent::AFTER_TRANSFORM, res->_blockId,
-                res->_decoded, res->_checksum, _hasher != nullptr);
-
-            CompressedInputStream::notifyListeners(blockListeners, evt);
-        }
-
+        tasks.clear();
         _sa->_index = 0;
         return decoded;
+    }
+    catch (IOException e) {
+        for (vector<DecodingTask<DecodingTaskResult>*>::iterator it = tasks.begin(); it != tasks.end(); it++)
+            delete *it;
+
+        tasks.clear();
+        throw e;
     }
     catch (exception e) {
         for (vector<DecodingTask<DecodingTaskResult>*>::iterator it = tasks.begin(); it != tasks.end(); it++)
@@ -444,26 +455,7 @@ DecodingTask<T>::DecodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuff
     _ibs = ibs;
     _hasher = hasher;
     _listeners = listeners;
-    _result = nullptr;
     _processedBlockId = processedBlockId;
-}
-
-template <class T>
-DecodingTask<T>::~DecodingTask()
-{
-    if (_result != nullptr)
-        delete _result;
-
-    _result = nullptr;
-}
-
-template <class T>
-T DecodingTask<T>::result()
-{
-    if (_result == nullptr)
-        throw ios_base::failure("No result available");
-
-    return *_result;
 }
 
 // Decode mode + transformed entropy coded data
@@ -485,8 +477,7 @@ T DecodingTask<T>::call() THROW
 
     // Skip, either all data have been processed or an error occured
     if (taskId == CompressedInputStream::CANCEL_TASKS_ID) {
-        _result = new DecodingTaskResult(*_data, _blockId, checksum1, 0, 0, nullptr);
-        return result();
+        return DecodingTaskResult(*_data, _blockId, checksum1, 0, 0, nullptr);
     }
 
     EntropyDecoder* ed = nullptr;
@@ -510,8 +501,7 @@ T DecodingTask<T>::call() THROW
         if (preTransformLength == 0) {
             // Last block is empty, return success and cancel pending tasks
             _processedBlockId->store(CompressedInputStream::CANCEL_TASKS_ID);
-            _result = new DecodingTaskResult(*_data, _blockId, 0, checksum1, 0, "");
-            return result();
+            return DecodingTaskResult(*_data, _blockId, 0, checksum1, 0, "");
         }
 
         if ((preTransformLength < 0) || (preTransformLength > CompressedInputStream::MAX_BITSTREAM_BLOCK_SIZE)) {
@@ -519,8 +509,7 @@ T DecodingTask<T>::call() THROW
             _processedBlockId->store(CompressedInputStream::CANCEL_TASKS_ID);
             stringstream ss;
             ss << "Invalid compressed block length: " << preTransformLength;
-            _result = new DecodingTaskResult(*_data, _blockId, 0, checksum1, Error::ERR_READ_FILE, ss.str());
-            return result();
+            return DecodingTaskResult(*_data, _blockId, 0, checksum1, Error::ERR_READ_FILE, ss.str());
         }
 
         // Extract checksum from bit stream (if any)
@@ -551,9 +540,9 @@ T DecodingTask<T>::call() THROW
         if (ed->decode(_buffer->_array, 0, preTransformLength) != preTransformLength) {
             // Error => cancel concurrent decoding tasks
             _processedBlockId->store(CompressedInputStream::CANCEL_TASKS_ID);
-            _result = new DecodingTaskResult(*_data, _blockId, 0, checksum1, Error::ERR_PROCESS_BLOCK,
+            return DecodingTaskResult(*_data, _blockId, 0, checksum1, Error::ERR_PROCESS_BLOCK,
                 "Entropy decoding failed");
-            return result();
+            ;
         }
 
         delete ed;
@@ -597,9 +586,8 @@ T DecodingTask<T>::call() THROW
             delete transform;
 
             if (res == false) {
-                _result = new DecodingTaskResult(*_data, _blockId, 0, checksum1, Error::ERR_PROCESS_BLOCK,
+                return DecodingTaskResult(*_data, _blockId, 0, checksum1, Error::ERR_PROCESS_BLOCK,
                     "Transform inverse failed");
-                return result();
             }
         }
 
@@ -612,13 +600,11 @@ T DecodingTask<T>::call() THROW
             if (checksum2 != checksum1) {
                 stringstream ss;
                 ss << "Corrupted bitstream: expected checksum " << hex << checksum1 << ", found " << hex << checksum2;
-                _result = new DecodingTaskResult(*_data, _blockId, decoded, checksum1, Error::ERR_PROCESS_BLOCK, ss.str());
-                return result();
+                return DecodingTaskResult(*_data, _blockId, decoded, checksum1, Error::ERR_PROCESS_BLOCK, ss.str());
             }
         }
 
-        _result = new DecodingTaskResult(*_data, _blockId, decoded, checksum1, 0, "");
-        return result();
+        return DecodingTaskResult(*_data, _blockId, decoded, checksum1, 0, "");
     }
     catch (exception e) {
         // Make sure to unfreeze next block
@@ -628,7 +614,6 @@ T DecodingTask<T>::call() THROW
         if (ed != nullptr)
             delete ed;
 
-        _result = new DecodingTaskResult(*_data, _blockId, 0, checksum1, Error::ERR_PROCESS_BLOCK, e.what());
-        return result();
+        return DecodingTaskResult(*_data, _blockId, 0, checksum1, Error::ERR_PROCESS_BLOCK, e.what());
     }
 }

@@ -31,9 +31,9 @@ namespace kanzi
    public:
       static const int WARN_EMPTY_INPUT = -128;
 
-      BlockCompressor(map<string, string>& m, ThreadPool<EncodingTaskResult>* threadPool, bool ownPool);
+      BlockCompressor(map<string, string>& m);
       
-      BlockCompressor(int argc, const char* argv[], ThreadPool<EncodingTaskResult>* threadPool, bool ownPool);
+      BlockCompressor(int argc, const char* argv[]);
 
       ~BlockCompressor();
 
@@ -60,8 +60,6 @@ namespace kanzi
       int _jobs;
       InputStream* _is;
       CompressedOutputStream* _cos;
-      bool _ownPool;
-      ThreadPool<EncodingTaskResult>* _pool;
       vector<BlockListener*> _listeners;
 
       void dispose();
