@@ -13,9 +13,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-#ifdef CONCURRENCY_ENABLED
-#include <future>
-#endif
 #include <sstream>
 #include "CompressedOutputStream.hpp"
 #include "../bitstream/DefaultOutputBitStream.hpp"
@@ -24,6 +21,9 @@ limitations under the License.
 #include "FunctionFactory.hpp"
 #include "../io/IOException.hpp"
 #include "../IllegalArgumentException.hpp"
+#ifdef CONCURRENCY_ENABLED
+#include <future>
+#endif
 
 using namespace kanzi;
 

@@ -17,14 +17,14 @@ limitations under the License.
 #define _InfoPrinter_
 
 #include <map>
-#ifdef CONCURRENCY_ENABLED
-#include <mutex>
-#endif
 #include <ostream>
 #include "../concurrent.hpp"
 #include "../types.hpp"
 #include "BlockListener.hpp"
 #include "../OutputStream.hpp"
+#ifdef CONCURRENCY_ENABLED
+#include <mutex>
+#endif
 
 using namespace std;
 

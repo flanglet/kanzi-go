@@ -14,9 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-#ifdef CONCURRENCY_ENABLED
-#include <future>
-#endif
 #include <sstream>
 #include <iomanip>
 #include "CompressedInputStream.hpp"
@@ -26,6 +23,9 @@ limitations under the License.
 #include "Error.hpp"
 #include "../entropy/EntropyCodecFactory.hpp"
 #include "FunctionFactory.hpp"
+#ifdef CONCURRENCY_ENABLED
+#include <future>
+#endif
 
 using namespace kanzi;
 
