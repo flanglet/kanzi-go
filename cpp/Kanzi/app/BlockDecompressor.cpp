@@ -137,10 +137,10 @@ int BlockDecompressor::call()
 {
     bool printFlag = _verbosity > 1;
     stringstream ss;
-	ss << "Kanzi 1.0 (C) 2017,  Frederic Langlet";
+    ss << "Kanzi 1.0 (C) 2017,  Frederic Langlet";
     printOut(ss.str().c_str(), _verbosity >= 1);
-	ss.str(string());
-	ss << "Input file name set to '" << _inputName << "'";
+    ss.str(string());
+    ss << "Input file name set to '" << _inputName << "'";
     printOut(ss.str().c_str(), printFlag);
     ss.str(string());
     ss << "Output file name set to '" << _outputName << "'";
@@ -241,7 +241,7 @@ int BlockDecompressor::call()
         return Error::ERR_OPEN_FILE;
     }
 
-    clock_t before = clock();
+    Clock clock;
     byte* buf = new byte[DEFAULT_BUFFER_SIZE];
 
     try {
@@ -306,12 +306,11 @@ int BlockDecompressor::call()
         delete is;
     }
 
-    clock_t after = clock();
-    double delta = after - before;
-    double delta_sec = (double)delta / CLOCKS_PER_SEC;
+    clock.stop();
+    double delta = clock.elapsed();
     printOut("", !silent);
     ss.str(string());
-    ss << "Decoding:          " << (int)(delta_sec * 1000) << " ms";
+    ss << "Decoding:          " << uint(delta) << " ms";
     printOut(ss.str().c_str(), !silent);
     ss.str(string());
     ss << "Input size:        " << _cis->getRead();
@@ -321,9 +320,9 @@ int BlockDecompressor::call()
     printOut(ss.str().c_str(), !silent);
 
     if (delta > 0) {
-        double b2KB = (double)1 / (double)1024;
+        double b2KB = double(1000) / double(1024);
         ss.str(string());
-        ss << "Throughput (KB/s): " << (int)(read * b2KB / delta_sec);
+        ss << "Throughput (KB/s): " << uint(read * b2KB / delta);
         printOut(ss.str().c_str(), !silent);
     }
 

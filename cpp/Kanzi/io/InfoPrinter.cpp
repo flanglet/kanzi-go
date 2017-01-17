@@ -50,10 +50,10 @@ void InfoPrinter::processEvent(const BlockEvent& evt)
 
         // Register initial block size
         BlockInfo* bi = new BlockInfo();
-        bi->time0 = evt.getTime();
+        bi->_clock1.start();
 
         if (_type == InfoPrinter::ENCODING)
-            bi->stage0Size = evt.getSize();
+            bi->_stage0Size = evt.getSize();
 
         {
 #ifdef CONCURRENCY_ENABLED
@@ -82,18 +82,19 @@ void InfoPrinter::processEvent(const BlockEvent& evt)
             bi = it->second;
         }
 
-        bi->time1 = evt.getTime();
-
         if (_type == InfoPrinter::DECODING)
-            bi->stage0Size = evt.getSize();
+            bi->_stage0Size = evt.getSize();
+
+        bi->_clock1.stop();
 
         if (_level >= 4) {
-            int duration_ms = int(1000 * (bi->time1 - bi->time0) / CLOCKS_PER_SEC);
             stringstream ss;
-            ss << evt.toString() << " [" << duration_ms << " ms]";
+            ss << evt.toString() << " [" << uint(bi->_clock1.elapsed()) << " ms]";
 //          PrintStream(_os) << ss.str() << endl;
             _os << ss.str() << endl;
         }
+
+         bi->_clock2.start();
     }
     else if (evt.getType() == _thresholds[2]) {
         BlockInfo* bi = nullptr;
@@ -110,16 +111,17 @@ void InfoPrinter::processEvent(const BlockEvent& evt)
             bi = it->second;
         }
 
-        bi->time2 = evt.getTime();
-        bi->stage1Size = evt.getSize();
+        bi->_clock2.stop();
+        bi->_stage1Size = evt.getSize();
 
         if (_level >= 4) {
-            int duration_ms = int(1000 * (bi->time2 - bi->time1) / CLOCKS_PER_SEC);
             stringstream ss;
-            ss << evt.toString() << " [" << duration_ms << " ms]";
+            ss << evt.toString() << " [" << uint(bi->_clock2.elapsed())  << " ms]";
 //          PrintStream(_os) << ss.str() << endl;
             _os << ss.str() << endl;
         }
+
+        bi->_clock2.start();
     }
     else if (evt.getType() == _thresholds[3]) {
         BlockInfo* bi = nullptr;
@@ -144,31 +146,29 @@ void InfoPrinter::processEvent(const BlockEvent& evt)
         }
 
         int stage2Size = evt.getSize();
-        bi->time3 = evt.getTime();
-        int duration1_ms = int(1000 * (bi->time1 - bi->time0) / CLOCKS_PER_SEC);
-        int duration2_ms = int(1000 * (bi->time3 - bi->time2) / CLOCKS_PER_SEC);
+        bi->_clock2.stop();
         stringstream ss;
 
         if (_level >= 4) {
-            ss << evt.toString() << " [" << duration2_ms << " ms]" << endl;
+            ss << evt.toString() << " [" << uint(bi->_clock2.elapsed()) << " ms]" << endl;
         }
 
         // Display block info
         if (_level >= 3) {
-            ss << "Block " << currentBlockId << ": " << bi->stage0Size << " => ";
-            ss << bi->stage1Size << " [" << duration1_ms << " ms] => " << stage2Size;
-            ss << " [" << duration2_ms << " ms]";
+            ss << "Block " << currentBlockId << ": " << bi->_stage0Size << " => ";
+            ss << bi->_stage1Size << " [" << uint(bi->_clock1.elapsed()) << " ms] => " << stage2Size;
+            ss << " [" << uint(bi->_clock2.elapsed()) << " ms]";
         }
         else {
-            ss << "Block " << currentBlockId << ": " << bi->stage0Size << " => ";
-            ss << bi->stage1Size << " => " << stage2Size;
+            ss << "Block " << currentBlockId << ": " << bi->_stage0Size << " => ";
+            ss << bi->_stage1Size << " => " << stage2Size;
         }
 
         // Add compression ratio for encoding
         if (_type == InfoPrinter::ENCODING) {
-            if (bi->stage0Size != 0) {
+            if (bi->_stage0Size != 0) {
                 char buf[32];
-                sprintf(buf, " (%d%%)", int(stage2Size * (double)100 / (double)bi->stage0Size));
+                sprintf(buf, " (%d%%)", uint(stage2Size * (double)100 / (double)bi->_stage0Size));
                 ss << buf;
             }
         }
@@ -183,6 +183,7 @@ void InfoPrinter::processEvent(const BlockEvent& evt)
 //		  PrintStream(_os) << ss.str() << endl;
         _os << ss.str() << endl;
         delete bi;
+
         {
 #ifdef CONCURRENCY_ENABLED
             unique_lock<mutex> lock(_mutex);

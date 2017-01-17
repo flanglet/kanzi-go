@@ -18,6 +18,7 @@ limitations under the License.
 
 #include <time.h>
 #include "../types.hpp"
+#include "../concurrent.hpp"
 
 using namespace std;
 
@@ -51,7 +52,7 @@ namespace kanzi
 
        time_t getTime() const { return _time; }
 
-       clock_t getClock() const { return _clock; }
+       double getElapsed() const { return _clock.elapsed(); }
 
        int getHash() const { return (_hashing) ? _hash : 0; }
 
@@ -64,7 +65,7 @@ namespace kanzi
        BlockEvent::Type _type;
        bool _hashing;
        time_t _time;
-       clock_t _clock;
+       Clock _clock;
    };
 
 }

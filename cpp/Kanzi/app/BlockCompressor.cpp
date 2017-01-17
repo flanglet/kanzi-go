@@ -15,7 +15,6 @@ limitations under the License.
 
 #include <algorithm>
 #include <cstdlib>
-#include <ctime>
 #include <stdio.h>
 #include <stdlib.h>
 #include <fstream>
@@ -276,7 +275,7 @@ int BlockCompressor::call()
     byte* buf = new byte[DEFAULT_BUFFER_SIZE];
     SliceArray<byte> sa(buf, DEFAULT_BUFFER_SIZE, 0);
     int len;
-    clock_t before = clock();
+    Clock clock;
 
     try {
         while (true) {
@@ -335,12 +334,11 @@ int BlockCompressor::call()
         return WARN_EMPTY_INPUT;
     }
 
-    clock_t after = clock();
-    double delta = after - before;
-    double delta_sec = (double)delta / CLOCKS_PER_SEC;
+    clock.stop();
+    double delta = clock.elapsed();
     printOut("", !silent);
     ss.str(string());
-    ss << "Encoding:          " << (int)(delta_sec * 1000) << " ms";
+    ss << "Encoding:          " << uint(delta) << " ms";
     printOut(ss.str().c_str(), !silent);
     ss.str(string());
     ss << "Input size:        " << read;
@@ -349,13 +347,13 @@ int BlockCompressor::call()
     ss << "Output size:       " << _cos->getWritten();
     printOut(ss.str().c_str(), !silent);
     ss.str(string());
-    ss << "Ratio:             " << (float)_cos->getWritten() / (float)read;
+    ss << "Ratio:             " << float(_cos->getWritten()) / float(read);
     printOut(ss.str().c_str(), !silent);
 
     if (delta > 0) {
-        double b2KB = (double)1 / (double)1024;
+        double b2KB = double(1000) / double(1024);
         ss.str(string());
-        ss << "Throughput (KB/s): " << (int)(read * b2KB / delta_sec);
+        ss << "Throughput (KB/s): " << uint(read * b2KB / delta);
         printOut(ss.str().c_str(), !silent);
     }
 

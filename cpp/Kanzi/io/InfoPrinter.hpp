@@ -21,6 +21,7 @@ limitations under the License.
 #include <mutex>
 #endif
 #include <ostream>
+#include "../concurrent.hpp"
 #include "../types.hpp"
 #include "BlockListener.hpp"
 #include "../OutputStream.hpp"
@@ -33,12 +34,10 @@ namespace kanzi
 	class BlockInfo
 	{
 	public:
-		time_t time0;
-		time_t time1;
-		time_t time2;
-		time_t time3;
-		int stage0Size;
-		int stage1Size;
+		Clock _clock1;
+		Clock _clock2;
+		uint _stage0Size;
+		uint _stage1Size;
 	};
 
 	// An implementation of BlockListener to display block information (verbose option
