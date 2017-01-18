@@ -55,19 +55,19 @@ namespace kanzi
           while (i < end8)
           {
 		      uint64 val = _bitstream.readBits(64);
-		      block[blkptr]   = (byte) (val >> 56);
-		      block[blkptr+1] = (byte) (val >> 48);
-		      block[blkptr+2] = (byte) (val >> 40);
-		      block[blkptr+3] = (byte) (val >> 32);
-		      block[blkptr+4] = (byte) (val >> 24);
-		      block[blkptr+5] = (byte) (val >> 16);
-		      block[blkptr+6] = (byte) (val >> 8);
-		      block[blkptr+7] = (byte)  val;          
+		      block[i]   = byte(val >> 56);
+		      block[i+1] = byte(val >> 48);
+		      block[i+2] = byte(val >> 40);
+		      block[i+3] = byte(val >> 32);
+		      block[i+4] = byte(val >> 24);
+		      block[i+5] = byte(val >> 16);
+		      block[i+6] = byte(val >> 8);
+		      block[i+7] = byte(val);          
 		      i += 8;
           }
 
           while (i < blkptr + len)
-             block[i++] = (byte) _bitstream.readBits(8);
+             block[i++] = byte(_bitstream.readBits(8));
 
           return len;
    }

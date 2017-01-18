@@ -52,14 +52,14 @@ namespace kanzi
        try {
            while (i < end8) {
                uint64 val;
-               val = ((uint64)(block[blkptr] & 0xFF)) << 56;
-               val |= ((uint64)(block[blkptr + 1] & 0xFF) << 48);
-               val |= ((uint64)(block[blkptr + 2] & 0xFF) << 40);
-               val |= ((uint64)(block[blkptr + 3] & 0xFF) << 32);
-               val |= ((uint64)(block[blkptr + 4] & 0xFF) << 24);
-               val |= ((uint64)(block[blkptr + 5] & 0xFF) << 16);
-               val |= ((uint64)(block[blkptr + 6] & 0xFF) << 8);
-               val |= (uint64)(block[blkptr + 7] & 0xFF);
+               val = (uint64(block[i] & 0xFF)) << 56;
+               val |= (uint64(block[i + 1] & 0xFF) << 48);
+               val |= (uint64(block[i + 2] & 0xFF) << 40);
+               val |= (uint64(block[i + 3] & 0xFF) << 32);
+               val |= (uint64(block[i + 4] & 0xFF) << 24);
+               val |= (uint64(block[i + 5] & 0xFF) << 16);
+               val |= (uint64(block[i + 6] & 0xFF) << 8);
+               val |= uint64(block[i + 7] & 0xFF);
 
                if (_bitstream.writeBits(val, 64) != 64)
                    return i;
