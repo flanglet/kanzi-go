@@ -197,35 +197,26 @@ int BlockCompressor::call()
                 return Error::ERR_CREATE_FILE;
             }
 
-            ofstream* output = new ofstream(_outputName.c_str(), ofstream::binary);
-
-            if (!*output) {
-                cerr << "Cannot open output file '" << _outputName + "' for writing: " << endl;
-                return Error::ERR_CREATE_FILE;
-            }
-
             struct stat buffer;
 
             if (stat(_outputName.c_str(), &buffer) == 0) {
                 if ((buffer.st_mode & S_IFDIR) != 0) {
-                        delete output;
-                        cerr << "The output file is a directory" << endl;
-                        return Error::ERR_OUTPUT_IS_DIR;
+                    cerr << "The output file is a directory" << endl;
+                    return Error::ERR_OUTPUT_IS_DIR;
                 }
 
                 if (_overwrite == false) {
-                     delete output;
-                     cerr << "The output file exists and the 'overwrite' command "
-                          << "line option has not been provided" << endl;
-                     return Error::ERR_OVERWRITE_FILE;
+                    cerr << "The output file exists and the 'overwrite' command "
+                         << "line option has not been provided" << endl;
+                    return Error::ERR_OVERWRITE_FILE;
                 }
-
-                os = output;
             }
-            else {
-               delete output;
-               cerr << "File system error" << endl;
-               return Error::ERR_UNKNOWN;
+
+            os = new ofstream(_outputName.c_str(), ofstream::binary);
+
+            if (!*os) {
+                cerr << "Cannot open output file '" << _outputName + "' for writing: " << endl;
+                return Error::ERR_CREATE_FILE;
             }
         }
 
@@ -400,8 +391,10 @@ void BlockCompressor::processCommandLine(int argc, const char* argv[], map<strin
         string str = outputName;
         transform(str.begin(), str.end(), str.begin(), ::toupper);
 
-        if (str == "STDOUT")
+        if (str == "STDOUT") {
             verbose = 0;
+            strVerbose = "0";
+        }
     }
 
     for (int i = 1; i < argc; i++) {

@@ -174,13 +174,6 @@ int BlockDecompressor::call()
                 return Error::ERR_CREATE_FILE;
             }
 
-            ofstream* output = new ofstream(_outputName.c_str(), ofstream::binary);
-
-            if (!*output) {
-                cerr << "Cannot open output file '" << _outputName + "' for writing: " << endl;
-                return Error::ERR_CREATE_FILE;
-            }
-
             struct stat buffer;
 
             if (stat(_outputName.c_str(), &buffer) == 0) {
@@ -196,7 +189,12 @@ int BlockDecompressor::call()
                 }
             }
 
-            _os = output;
+            _os = new ofstream(_outputName.c_str(), ofstream::binary);
+
+            if (!*_os) {
+                cerr << "Cannot open output file '" << _outputName + "' for writing: " << endl;
+                return Error::ERR_CREATE_FILE;
+            }
         }
         catch (exception e) {
             cerr << "Cannot open output file '" << _outputName << "' for writing: " << e.what() << endl;
@@ -365,8 +363,10 @@ void BlockDecompressor::processCommandLine(int argc, const char* argv[], map<str
         string str = outputName;
         transform(str.begin(), str.end(), str.begin(), ::toupper);
 
-        if (str == "STDOUT")
+        if (str == "STDOUT") {
             verbose = 0;
+            strVerbose = "0";
+        }
     }
 
     for (int i = 1; i < argc; i++) {
