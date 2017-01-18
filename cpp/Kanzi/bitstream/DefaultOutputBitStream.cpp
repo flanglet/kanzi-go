@@ -47,7 +47,7 @@ inline void DefaultOutputBitStream::writeBit(int bit) THROW
         pushCurrent();
     }
     else {
-        _current |= ((uint64)(bit & 1) << _bitIndex);
+        _current |= (uint64(bit & 1) << _bitIndex);
         _bitIndex--;
     }
 }
@@ -61,7 +61,7 @@ int DefaultOutputBitStream::writeBits(uint64 value, uint count) THROW
     if (count > 64)
         throw BitStreamException("Invalid count: " + to_string(count) + " (must be in [1..64])");
 
-    value &= ((uint64)-1 >> (64 - count));
+    value &= (uint64(-1) >> (64 - count));
     uint bi = _bitIndex + 1;
 
     if (count < bi) {
