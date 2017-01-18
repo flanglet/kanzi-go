@@ -144,7 +144,9 @@ func (this *InfoPrinter) ProcessEvent(evt *BlockEvent) {
 			return
 		}
 
+		this.lock.Lock()
 		delete(this.map_, currentBlockId)
+		this.lock.Unlock()
 		bi.time3 = evt.Time()
 		duration1_ms := bi.time1.Sub(bi.time0).Nanoseconds() / 1000000
 		duration2_ms := bi.time3.Sub(bi.time2).Nanoseconds() / 1000000
