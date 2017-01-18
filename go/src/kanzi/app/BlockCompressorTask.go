@@ -278,7 +278,7 @@ func (this *BlockCompressor) call() (int, uint64) {
 
 			if path1 == path2 {
 				fmt.Print("The input and output files must be different")
-				return kio.Error.ERR_CREATE_FILE, written
+				return kio.ERR_CREATE_FILE, written
 			}
 		}
 
