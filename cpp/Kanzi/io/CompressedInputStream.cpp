@@ -126,7 +126,7 @@ void CompressedInputStream::readHeader() THROW
     _ibs->readBits(9);
 
     if (_ds != nullptr) {
-        *_ds << "Checksum set to " << (_hasher != nullptr) << endl;
+        *_ds << "Checksum set to " << (_hasher != nullptr ? "true" : "false") << endl;
         *_ds << "Block size set to " << _blockSize << " bytes" << endl;
 
         try {
