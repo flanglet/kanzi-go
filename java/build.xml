@@ -30,6 +30,39 @@
 	  </javac>
    </target>
    
+   <target name="build_all" depends="compile_all">
+     <jar destfile="${build.dir}/kanzi.jar" basedir="${build.dir}/classes" />
+   </target>
+    
+   <target name="compile_all" depends="clean">
+     <mkdir dir="${build.dir}"/>
+     <mkdir dir="${build.dir}/classes"/>
+	 <javac includeantruntime="false" 
+	        srcdir="${src.dir}" 
+	        destdir="${build.dir}/classes" 
+	        classpath="${build.dir}/classes" 
+	        debug="on">        
+		 <include name="kanzi/**/*.java"/>
+	  </javac>
+   </target>
+   
+   <target name="build_lib" depends="compile_lib">
+     <jar destfile="${build.dir}/kanzi.jar" basedir="${build.dir}/classes" />
+   </target>
+    
+   <target name="compile_lib" depends="clean">
+     <mkdir dir="${build.dir}"/>
+     <mkdir dir="${build.dir}/classes"/>
+	 <javac includeantruntime="false" 
+	        srcdir="${src.dir}" 
+	        destdir="${build.dir}/classes" 
+	        classpath="${build.dir}/classes" 
+	        debug="on">        
+		 <include name="kanzi/**/*.java"/>
+		 <exclude name="kanzi/test/**"/>
+	  </javac>
+   </target>
+
    <target name="check_target" description="Clean output top directory">
      <condition property="target.exists">
        <available file="${build.dir}" type="dir"/>
