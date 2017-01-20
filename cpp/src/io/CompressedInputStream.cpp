@@ -485,7 +485,7 @@ T DecodingTask<T>::call() THROW
     try {
         // Extract block header directly from bitstream
         uint64 read = _ibs->read();
-        byte mode = (byte)_ibs->readBits(8);
+        byte mode = byte(_ibs->readBits(8));
         int preTransformLength;
 
         if ((mode & CompressedInputStream::SMALL_BLOCK_MASK) != 0) {
@@ -495,7 +495,7 @@ T DecodingTask<T>::call() THROW
             int dataSize = 1 + (mode & 0x03);
             int length = dataSize << 3;
             uint64 mask = (uint64(1) << length) - 1;
-            preTransformLength = (int)(_ibs->readBits(length) & mask);
+            preTransformLength = int(_ibs->readBits(length) & mask);
         }
 
         if (preTransformLength == 0) {
@@ -542,7 +542,6 @@ T DecodingTask<T>::call() THROW
             _processedBlockId->store(CompressedInputStream::CANCEL_TASKS_ID);
             return DecodingTaskResult(*_data, _blockId, 0, checksum1, Error::ERR_PROCESS_BLOCK,
                 "Entropy decoding failed");
-            ;
         }
 
         delete ed;
