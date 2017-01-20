@@ -60,7 +60,7 @@ void testBWTCorrectness(bool isBWT)
         }
         else {
             for (int i = 0; i < size; i++)
-                buf1[i] = (byte)(65 + (rand() % (4 * ii)));
+                buf1[i] = byte(65 + (rand() % (4 * ii)));
         }
 
         Transform<byte>* bwt;
@@ -139,7 +139,7 @@ int testBWTSpeed(bool isBWT)
          << "BWT Speed test" << endl;
     cout << "Iterations: " << iter << endl;
     cout << "Transform size: " << size << endl;
-    srand((uint)time(nullptr));
+    srand(uint(time(nullptr)));
 
     for (int jj = 0; jj < 3; jj++) {
         byte input[256 * 1024];
@@ -186,22 +186,22 @@ int testBWTSpeed(bool isBWT)
                 }
 
                 if (idx >= 0) {
-                    cout << "Failure at index " << i << " (" << (int)input[i] << "<->" << (int)reverse[i] << ")" << endl;
+                    cout << "Failure at index " << i << " (" << int(input[i]) << "<->" << int(reverse[i]) << ")" << endl;
                     break;
                 }
             }
         }
-            
+
         delete bwt;
 
-        double prod = (double)iter * (double)size;
-        double b2KB = (double)1 / (double)1024;
-        double d1_sec = (double)delta1 / CLOCKS_PER_SEC;
-        double d2_sec = (double)delta2 / CLOCKS_PER_SEC;
-        cout << "Forward transform [ms]: " << (int)(d1_sec * 1000) << endl;
-        cout << "Throughput [KB/s]     : " << (int)(prod * b2KB / d1_sec) << endl;
-        cout << "Reverse transform [ms]: " << (int)(d2_sec * 1000) << endl;
-        cout << "Throughput [KB/s]     : " << (int)(prod * b2KB / d2_sec) << endl;
+        double prod = double(iter) * double(size);
+        double b2KB = double(1) / double(1024);
+        double d1_sec = double(delta1) / CLOCKS_PER_SEC;
+        double d2_sec = double(delta2) / CLOCKS_PER_SEC;
+        cout << "Forward transform [ms] : " << int(d1_sec * 1000) << endl;
+        cout << "Throughput [KB/s]      : " << int(prod * b2KB / d1_sec) << endl;
+        cout << "Reverse transform [ms] : " << int(d2_sec * 1000) << endl;
+        cout << "Throughput [KB/s]      : " << int(prod * b2KB / d2_sec) << endl;
         cout << endl;
     }
 

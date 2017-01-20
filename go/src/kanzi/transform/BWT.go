@@ -62,18 +62,18 @@ const (
 // for respective performance of different suffix sorting algorithms.
 
 type BWT struct {
-	buffer1      []int
+	buffer1      []int32
 	buffer2      []byte // Only used for big blocks (size >= 1<<24)
-	buckets      []int
+	buckets      []int32
 	primaryIndex uint
 	saAlgo       *DivSufSort
 }
 
 func NewBWT() (*BWT, error) {
 	this := new(BWT)
-	this.buffer1 = make([]int, 0)  // Allocate empty: only used in inverse
+	this.buffer1 = make([]int32, 0)  // Allocate empty: only used in inverse
 	this.buffer2 = make([]byte, 0) // Allocate empty: only used for big blocks (size >= 1<<24)
-	this.buckets = make([]int, 256)
+	this.buckets = make([]int32, 256)
 	return this, nil
 }
 
@@ -203,7 +203,7 @@ func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 func (this *BWT) inverseRegularBlock(src, dst []byte, count int) (uint, uint, error) {
 	// Lazy dynamic memory allocation
 	if len(this.buffer1) < count {
-		this.buffer1 = make([]int, count)
+		this.buffer1 = make([]int32, count)
 	}
 
 	// Aliasing
@@ -218,23 +218,23 @@ func (this *BWT) inverseRegularBlock(src, dst []byte, count int) (uint, uint, er
 	// Build array of packed index + value (assumes block size < 2^24)
 	// Start with the primary index position
 	pIdx := int(this.PrimaryIndex())
-	val0 := int(src[pIdx])
+	val0 := int32(src[pIdx])
 	data[pIdx] = val0
 	buckets_[val0]++
 
 	for i := 0; i < pIdx; i++ {
-		val := int(src[i])
+		val := int32(src[i])
 		data[i] = (buckets_[val] << 8) | val
 		buckets_[val]++
 	}
 
 	for i := pIdx + 1; i < count; i++ {
-		val := int(src[i])
+		val := int32(src[i])
 		data[i] = (buckets_[val] << 8) | val
 		buckets_[val]++
 	}
 
-	sum := 0
+	sum := int32(0)
 
 	for i := range buckets_ {
 		sum += buckets_[i]
@@ -257,7 +257,7 @@ func (this *BWT) inverseRegularBlock(src, dst []byte, count int) (uint, uint, er
 func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error) {
 	// Lazy dynamic memory allocations
 	if len(this.buffer1) < count {
-		this.buffer1 = make([]int, count)
+		this.buffer1 = make([]int32, count)
 	}
 
 	if len(this.buffer2) < count {
@@ -296,7 +296,7 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 		buckets_[val]++
 	}
 
-	sum := 0
+	sum := int32(0)
 
 	// Create cumulative histogram
 	for i := range buckets_ {

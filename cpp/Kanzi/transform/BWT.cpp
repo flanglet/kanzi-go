@@ -1,3 +1,4 @@
+
 /*
 Copyright 2011-2017 Frederic Langlet
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,7 +31,7 @@ bool BWT::setPrimaryIndex(int primaryIndex)
 bool BWT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int count)
 {
     if ((!SliceArray<byte>::isValid(input)) || (!SliceArray<byte>::isValid(output)))
-       return false;
+        return false;
 
     if ((count < 0) || (count + input._index > input._length))
         return false;
@@ -76,7 +77,7 @@ bool BWT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int count)
 bool BWT::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int count)
 {
     if ((!SliceArray<byte>::isValid(input)) || (!SliceArray<byte>::isValid(output)))
-       return false;
+        return false;
 
     if ((count < 0) || (count + input._index > input._length))
         return false;
@@ -138,17 +139,18 @@ bool BWT::inverseRegularBlock(SliceArray<byte>& input, SliceArray<byte>& output,
 
     // Create cumulative histogram
     for (int i = 0, sum = 0; i < 256; i++) {
-        sum += buckets_[i];
-        buckets_[i] = sum - buckets_[i];
+        const int tmp = buckets_[i];
+        buckets_[i] = sum;
+        sum += tmp;
     }
 
     uint ptr = data[pIdx];
-    dst[count - 1] = (byte)ptr;
+    dst[count - 1] = byte(ptr);
 
     // Build inverse
     for (int i = count - 2; i >= 0; i--) {
         ptr = data[(ptr >> 8) + buckets_[ptr & 0xFF]];
-        dst[i] = (byte)ptr;
+        dst[i] = byte(ptr);
     }
 
     input._index += count;
