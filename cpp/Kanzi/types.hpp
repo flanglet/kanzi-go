@@ -4,7 +4,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 you may obtain a copy of the License at
 
-                http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -37,30 +37,43 @@ MSVC++ 5.0  _MSC_VER == 1100
 #endif
 
 #ifndef THROW
-   #ifdef __GNUG__
-      #define THROW
-   #else
-      #define THROW throw(...)
-   #endif
+#ifdef __GNUG__
+#define THROW
+#else
+#define THROW throw(...)
+#endif
 #endif
 
 #if __cplusplus >= 201103L
    // C++ 11
    #include <cstdint>
-   typedef int8_t byte;
-   typedef int32_t int32;
-   typedef int64_t int64;
-   typedef uint32_t uint;
-   typedef uint32_t uint32;
-   typedef uint64_t uint64;
 #else
+   #if (_MSC_VER < 1300)
+      typedef signed char int8_t;
+      typedef signed short int16_t;
+      typedef signed int int32_t;
+      typedef unsigned char uint8_t;
+      typedef unsigned short uint16_t;
+      typedef unsigned int uint32_t;
+   #else
+      typedef signed __int8 int8_t;
+      typedef signed __int16 int16_t;
+      typedef signed __int32 int32_t;
+      typedef unsigned __int8 uint8_t;
+      typedef unsigned __int16 uint16_t;
+      typedef unsigned __int32 uint32_t;
+   #endif
+
+   typedef signed __int64 int64_t;
+   typedef unsigned __int64 uint64_t;
    #define nullptr NULL
-   typedef char byte;
-   typedef int int32;
-   typedef unsigned int uint;
-   typedef unsigned int uint32;
-   typedef long long int64;
-   typedef unsigned long long uint64;
 #endif
+
+typedef int8_t byte;
+typedef int32_t int32;
+typedef int64_t int64;
+typedef uint32_t uint;
+typedef uint32_t uint32;
+typedef uint64_t uint64;
 
 #endif
