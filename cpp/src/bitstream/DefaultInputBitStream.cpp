@@ -128,7 +128,7 @@ int DefaultInputBitStream::readFromInputStream(uint count) THROW
             }
         }
     }
-    catch (IOException e) {
+    catch (IOException& e) {
         _position = 0;
         _maxPosition = (size <= 0) ? -1 : size - 1;
         throw BitStreamException(e.what(), BitStreamException::INPUT_OUTPUT);
@@ -151,7 +151,7 @@ bool DefaultInputBitStream::hasMoreToRead()
     try {
         readFromInputStream(_bufferSize);
     }
-    catch (BitStreamException e) {
+    catch (BitStreamException&) {
         return false;
     }
 

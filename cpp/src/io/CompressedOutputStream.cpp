@@ -78,7 +78,7 @@ CompressedOutputStream::~CompressedOutputStream()
     try {
         close();
     }
-    catch (exception) {
+    catch (exception&) {
         // Ignore and continue
     }
 
@@ -183,7 +183,7 @@ ostream& CompressedOutputStream::put(char c) THROW
         _sa->_array[_sa->_index++] = (byte)c;
         return *this;
     }
-    catch (exception e) {
+    catch (exception& e) {
         setstate(ios::badbit);
         throw ios_base::failure(e.what());
     }
@@ -208,7 +208,7 @@ void CompressedOutputStream::close() THROW
         _obs->writeBits(SMALL_BLOCK_MASK, 8);
         _obs->close();
     }
-    catch (exception e) {
+    catch (exception& e) {
         setstate(ios::badbit);
         throw ios_base::failure(e.what());
     }
@@ -325,21 +325,21 @@ void CompressedOutputStream::processBlock() THROW
 		tasks.clear();
 		_sa->_index = 0;
     }
-    catch (BitStreamException e) {
+    catch (BitStreamException& e) {
         for (vector<EncodingTask<EncodingTaskResult>*>::iterator it = tasks.begin(); it != tasks.end(); it++)
             delete *it;
 
         tasks.clear();
         throw IOException(e.what(), e.error());
     }
-	catch (IOException e) {
+	catch (IOException& e) {
 		for (vector<EncodingTask<EncodingTaskResult>*>::iterator it = tasks.begin(); it != tasks.end(); it++)
 			delete *it;
 
 		tasks.clear();
 		throw e;
 	}
-	catch (exception e) {
+	catch (exception& e) {
         for (vector<EncodingTask<EncodingTaskResult>*>::iterator it = tasks.begin(); it != tasks.end(); it++)
             delete *it;
 
@@ -516,7 +516,7 @@ T EncodingTask<T>::call() THROW
 
         return EncodingTaskResult(_blockId, 0, "Success");
     }
-    catch (exception e) {
+    catch (exception& e) {
         // Make sure to unfreeze next block
         if (_processedBlockId->load() == _blockId - 1)
             (*_processedBlockId)++;

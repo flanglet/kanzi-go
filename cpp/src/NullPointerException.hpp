@@ -17,26 +17,22 @@ limitations under the License.
 #define _NullPointerException_
 
 #include <string>
-#include <exception>
+#include <stdexcept>
 #include "Kanzi.hpp"
 
 using namespace std;
 
-
-class NullPointerException : public exception
+namespace kanzi 
 {
-   private:
 
-     string _msg;
+   class NullPointerException : public runtime_error
+   {
+      public:
 
+        NullPointerException(const string& msg) : runtime_error(msg) {}
 
-   public:
+        virtual ~NullPointerException() _GLIBCXX_USE_NOEXCEPT {};
+   };
 
-     NullPointerException(string msg) { _msg = msg; }
-
-     const char* what() const _GLIBCXX_USE_NOEXCEPT { return _msg.data(); }
-
-     ~NullPointerException() _GLIBCXX_USE_NOEXCEPT {};
-};
-
+}
 #endif

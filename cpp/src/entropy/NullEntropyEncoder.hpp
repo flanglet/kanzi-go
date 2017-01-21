@@ -72,7 +72,7 @@ namespace kanzi
                i++;
            }
        }
-       catch (BitStreamException e) {
+       catch (BitStreamException&) {
            return i - blkptr;
        }
 

@@ -25,6 +25,7 @@ limitations under the License.
 #include "BlockDecompressor.hpp"
 #include "../io/InfoPrinter.hpp"
 #include "../io/Error.hpp"
+#include "../io/IOException.hpp"
 #include "../IllegalArgumentException.hpp"
 #include "../io/NullOutputStream.hpp"
 #include "../SliceArray.hpp"
@@ -101,7 +102,7 @@ void BlockDecompressor::dispose()
             _cis->close();
         }
     }
-    catch (exception e) {
+    catch (exception& e) {
         cerr << "Decompression failure: " << e.what() << endl;
         exit(Error::ERR_WRITE_FILE);
     }
@@ -113,7 +114,7 @@ void BlockDecompressor::dispose()
             try {
                 ofs->close();
             }
-            catch (exception e) {
+            catch (exception&) {
                 // Ignore
             }
         }
@@ -127,7 +128,7 @@ int BlockDecompressor::main(int argc, const char* argv[])
         int code = bd.call();
         return code;
     }
-    catch (exception e) {
+    catch (exception& e) {
         cerr << "Could not create the block codec: " << e.what() << endl;
         exit(Error::ERR_CREATE_COMPRESSOR);
     }
@@ -196,7 +197,7 @@ int BlockDecompressor::call()
                 return Error::ERR_CREATE_FILE;
             }
         }
-        catch (exception e) {
+        catch (exception& e) {
             cerr << "Cannot open output file '" << _outputName << "' for writing: " << e.what() << endl;
             return Error::ERR_CREATE_FILE;
         }
@@ -229,12 +230,12 @@ int BlockDecompressor::call()
             for (uint i = 0; i < _listeners.size(); i++)
                 _cis->addListener(*_listeners[i]);
         }
-        catch (IllegalArgumentException e) {
+        catch (IllegalArgumentException& e) {
             cerr << "Cannot create compressed stream: " << e.what() << endl;
             return Error::ERR_CREATE_DECOMPRESSOR;
         }
     }
-    catch (exception e) {
+    catch (exception& e) {
         cerr << "Cannot open input file '" << _inputName << "': " << e.what() << endl;
         return Error::ERR_OPEN_FILE;
     }
@@ -263,7 +264,7 @@ int BlockDecompressor::call()
                     read += decoded;
                 }
             }
-            catch (exception e) {
+            catch (exception& e) {
                 delete[] buf;
                 cerr << "Failed to write decompressed block to file '" << _outputName << "': ";
                 cerr << e.what() << endl;
@@ -271,7 +272,20 @@ int BlockDecompressor::call()
             }
         } while (decoded == sa._length);
     }
-    catch (exception e) {
+    catch (IOException& e) {
+        // Close streams to ensure all data are flushed
+        dispose();
+        delete[] buf;
+
+        if (_cis->eof()) {
+            cerr << "Reached end of stream" << endl;
+            return Error::ERR_READ_FILE;
+        }
+
+        cerr << e.what() << endl;
+        return e.error();
+    }
+    catch (exception& e) {
         // Close streams to ensure all data are flushed
         dispose();
         delete[] buf;
@@ -296,7 +310,7 @@ int BlockDecompressor::call()
             try {
                 ifs->close();
             }
-            catch (exception e) {
+            catch (exception&) {
                 // Ignore
             }
         }

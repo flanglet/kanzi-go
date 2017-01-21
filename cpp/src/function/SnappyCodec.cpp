@@ -255,7 +255,7 @@ inline int SnappyCodec::getDecodedLength(SliceArray<byte>& input)
         uint64 v = getUvarint(input);
         return (v > 0x7FFFFFFF) ? -1 : (int)v;
     }
-    catch (IllegalArgumentException e) {
+    catch (IllegalArgumentException&) {
         return -1;
     }
 }

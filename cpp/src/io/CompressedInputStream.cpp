@@ -138,7 +138,7 @@ void CompressedInputStream::readHeader() THROW
 
             *_ds << "Using " << w1 << " transform (stage 1)" << endl;
         }
-        catch (IllegalArgumentException e) {
+        catch (IllegalArgumentException&) {
             stringstream ss;
             ss << "Invalid bitstream, unknown transform type: " << _transformType;
             throw IOException(ss.str(), Error::ERR_INVALID_CODEC);
@@ -152,7 +152,7 @@ void CompressedInputStream::readHeader() THROW
 
             *_ds << "Using " << w2 << " entropy codec (stage 2)" << endl;
         }
-        catch (IllegalArgumentException e) {
+        catch (IllegalArgumentException&) {
             stringstream ss;
             ss << "Invalid bitstream, unknown entropy codec type: " << _entropyType;
             throw IOException(ss.str(), Error::ERR_INVALID_CODEC);
@@ -192,12 +192,13 @@ int CompressedInputStream::peek() THROW
 
         return _sa->_array[_sa->_index] & 0xFF;
     }
-    catch (ios_base::failure e) {
+    catch (IOException& e) {
+        setstate(ios::badbit);
         throw e;
     }
-    catch (exception e) {
+    catch (exception& e) {
         setstate(ios::badbit);
-        throw ios_base::failure(e.what());
+        throw e;
     }
 }
 
@@ -383,14 +384,14 @@ int CompressedInputStream::processBlock() THROW
         _sa->_index = 0;
         return decoded;
     }
-    catch (IOException e) {
+    catch (IOException& e) {
         for (vector<DecodingTask<DecodingTaskResult>*>::iterator it = tasks.begin(); it != tasks.end(); it++)
             delete *it;
 
         tasks.clear();
         throw e;
     }
-    catch (exception e) {
+    catch (exception& e) {
         for (vector<DecodingTask<DecodingTaskResult>*>::iterator it = tasks.begin(); it != tasks.end(); it++)
             delete *it;
 
@@ -407,7 +408,7 @@ void CompressedInputStream::close() THROW
     try {
         _ibs->close();
     }
-    catch (BitStreamException e) {
+    catch (BitStreamException& e) {
         throw IOException(e.what(), e.error());
     }
 
@@ -605,7 +606,7 @@ T DecodingTask<T>::call() THROW
 
         return DecodingTaskResult(*_data, _blockId, decoded, checksum1, 0, "");
     }
-    catch (exception e) {
+    catch (exception& e) {
         // Make sure to unfreeze next block
         if (_processedBlockId->load() == _blockId - 1)
             (*_processedBlockId)++;

@@ -109,7 +109,7 @@ void BlockCompressor::dispose()
             _cos->close();
         }
     }
-    catch (exception e) {
+    catch (exception& e) {
         cerr << "Compression failure: " << e.what() << endl;
         exit(Error::ERR_WRITE_FILE);
     }
@@ -121,7 +121,7 @@ void BlockCompressor::dispose()
             try {
                 ifs->close();
             }
-            catch (exception e) {
+            catch (exception&) {
                 // Ignore
             }
         }
@@ -135,7 +135,7 @@ int BlockCompressor::main(int argc, const char* argv[])
         int code = bc.call();
         return code;
     }
-    catch (exception e) {
+    catch (exception& e) {
         cerr << "Could not create the block codec: " << e.what() << endl;
         exit(Error::ERR_CREATE_COMPRESSOR);
     }
@@ -227,12 +227,12 @@ int BlockCompressor::call()
             for (uint i = 0; i < _listeners.size(); i++)
                 _cos->addListener(*_listeners[i]);
         }
-        catch (IllegalArgumentException e) {
+        catch (IllegalArgumentException& e) {
             cerr << "Cannot create compressed stream: " << e.what() << endl;
             return Error::ERR_CREATE_COMPRESSOR;
         }
     }
-    catch (exception e) {
+    catch (exception& e) {
         cerr << "Cannot open output file '" << _outputName + "' for writing: " << e.what() << endl;
         return Error::ERR_CREATE_FILE;
     }
@@ -254,7 +254,7 @@ int BlockCompressor::call()
             _is = ifs;
         }
     }
-    catch (exception e) {
+    catch (exception& e) {
         cerr << "Cannot open input file '" << _inputName << "': " << e.what() << endl;
         return Error::ERR_OPEN_FILE;
     }
@@ -274,7 +274,7 @@ int BlockCompressor::call()
                 _is->read((char*)&sa._array[0], sa._length);
                 len = (*_is) ? sa._length : (int)_is->gcount();
             }
-            catch (exception e) {
+            catch (exception& e) {
                 cerr << "Failed to read block from file '" << _inputName << "': " << endl;
                 cerr << e.what() << endl;
                 return Error::ERR_READ_FILE;
@@ -293,7 +293,7 @@ int BlockCompressor::call()
         cerr << ioe.what() << endl;
         return ioe.error();
     }
-    catch (exception e) {
+    catch (exception& e) {
         delete[] buf;
         cerr << "An unexpected condition happened. Exiting ..." << endl;
         cerr << e.what() << endl;
@@ -310,7 +310,7 @@ int BlockCompressor::call()
             try {
                 ofs->close();
             }
-            catch (exception e) {
+            catch (exception&) {
                 // Ignore
             }
         }

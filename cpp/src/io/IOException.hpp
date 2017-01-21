@@ -17,7 +17,7 @@ limitations under the License.
 #define _IOException_
 
 #include <string>
-#include <exception>
+#include <stdexcept>
 #include "Error.hpp"
 #include "../Global.hpp"
 
@@ -26,34 +26,25 @@ using namespace std;
 namespace kanzi 
 {
 
-   class IOException : public exception 
+   class IOException : public runtime_error 
    {
    private:
        int _code;
-       string _msg;
 
    public:
-       IOException(string msg) : exception()
+       IOException(const string& msg) : runtime_error(msg+". Error code: "+to_string(Error::ERR_UNKNOWN))
        {
            _code = Error::ERR_UNKNOWN;
-           _msg = msg;
        }
 
-       IOException(string msg, int error) : exception()
+       IOException(const string& msg, int error) : runtime_error(msg+". Error code: "+to_string(error))
        {
            _code = error;
-           _msg = msg;
-       }
-
-       virtual const char* what() const _GLIBCXX_USE_NOEXCEPT
-       {
-           string res = _msg + ". Error code: " + to_string(_code);
-           return res.data();
        }
         
-        int error() const { return _code; }
+       int error() const { return _code; }
 
-       ~IOException() _GLIBCXX_USE_NOEXCEPT{};
+       virtual ~IOException() _GLIBCXX_USE_NOEXCEPT{};
    };
 
 }

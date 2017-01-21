@@ -393,7 +393,7 @@ int TestEntropyCodec_main(int argc, const char* argv[])
             }
         }
     }
-    catch (exception e) {
+    catch (exception& e) {
         cout << e.what() << endl;
     }
     return 0;

@@ -17,7 +17,7 @@ limitations under the License.
 #define _BitStreamException_
 
 #include <string>
-#include <exception>
+#include <stdexcept>
 #include "types.hpp"
 #include "util.hpp"
 
@@ -26,11 +26,10 @@ using namespace std;
 namespace kanzi 
 {
 
-   class BitStreamException : public exception 
+   class BitStreamException : public runtime_error 
    {
    private:
        int _code;
-       string _msg;
 
    public:
        static const int UNDEFINED = 0;
@@ -39,27 +38,19 @@ namespace kanzi
        static const int INVALID_STREAM = 3;
        static const int STREAM_CLOSED = 4;
 
-       BitStreamException(string msg) : exception()
+       BitStreamException(const string& msg) : runtime_error(msg+". Error code: "+to_string(UNDEFINED))
        {
            _code = UNDEFINED;
-           _msg = msg;
        }
 
-       BitStreamException(string msg, int code) : exception()
+       BitStreamException(const string& msg, int code) : runtime_error(string(msg)+". Error code: "+to_string(code))
        {
            _code = code;
-           _msg = msg;
-       }
-
-       virtual const char* what() const _GLIBCXX_USE_NOEXCEPT
-       {
-           string res = _msg + ". Error code: " + to_string(_code);
-           return res.data();
        }
 
        int error() const { return _code; }
 
-       ~BitStreamException() _GLIBCXX_USE_NOEXCEPT{};
+       virtual ~BitStreamException() _GLIBCXX_USE_NOEXCEPT {};
    };
 
 }

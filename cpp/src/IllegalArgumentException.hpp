@@ -17,7 +17,7 @@ limitations under the License.
 #define _IllegalArgumentException_
 
 #include <string>
-#include <exception>
+#include <stdexcept>
 #include "Global.hpp"
 
 using namespace std;
@@ -25,17 +25,12 @@ using namespace std;
 namespace kanzi 
 {
 
-   class IllegalArgumentException : public exception 
+   class IllegalArgumentException : public runtime_error 
    {
-   private:
-       string _msg;
-
    public:
-       IllegalArgumentException(string msg) : exception() { _msg = msg; }
+       IllegalArgumentException(const string& msg) : runtime_error(msg) {}
 
-       ~IllegalArgumentException() _GLIBCXX_USE_NOEXCEPT{};
-
-       virtual const char* what() const _GLIBCXX_USE_NOEXCEPT { return _msg.c_str(); }
+       virtual ~IllegalArgumentException() _GLIBCXX_USE_NOEXCEPT {};
    };
 
 }

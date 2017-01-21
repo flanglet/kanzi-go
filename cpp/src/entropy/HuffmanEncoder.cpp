@@ -96,7 +96,7 @@ bool HuffmanEncoder::updateFrequencies(uint frequencies[]) THROW
             computeCodeLengths(frequencies, count);
         }
     }
-    catch (IllegalArgumentException e) {
+    catch (IllegalArgumentException& e) {
         // Happens when a very rare symbol cannot be coded to due code length limit
         throw BitStreamException(e.what(), BitStreamException::INVALID_STREAM);
     }
