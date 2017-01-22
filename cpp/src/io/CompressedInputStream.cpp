@@ -83,14 +83,12 @@ CompressedInputStream::~CompressedInputStream()
 void CompressedInputStream::readHeader() THROW
 {
     // Read stream type
-    const int type = (int)_ibs->readBits(32);
+    const int type = int(_ibs->readBits(32));
 
     // Sanity check
     if (type != BITSTREAM_TYPE) {
         stringstream ss;
-        ss << "Invalid stream type: expected ";
-        ss << hex << BITSTREAM_TYPE << ", got " << hex << type;
-        throw IOException(ss.str(), Error::ERR_INVALID_FILE);
+        throw IOException("Invalid stream type", Error::ERR_INVALID_FILE);
     }
 
     // Read stream version
@@ -108,13 +106,13 @@ void CompressedInputStream::readHeader() THROW
         _hasher = new XXHash32(BITSTREAM_TYPE);
 
     // Read entropy codec
-    _entropyType = (short)_ibs->readBits(5);
+    _entropyType = short(_ibs->readBits(5));
 
     // Read transform
-    _transformType = (short)_ibs->readBits(16);
+    _transformType = short(_ibs->readBits(16));
 
     // Read block size
-    _blockSize = (int)_ibs->readBits(26) << 4;
+    _blockSize = int(_ibs->readBits(26)) << 4;
 
     if ((_blockSize < MIN_BITSTREAM_BLOCK_SIZE) || (_blockSize > MAX_BITSTREAM_BLOCK_SIZE)) {
         stringstream ss;

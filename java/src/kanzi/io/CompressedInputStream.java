@@ -118,9 +118,7 @@ public class CompressedInputStream extends InputStream
 
       // Sanity check
       if (type != BITSTREAM_TYPE)
-         throw new kanzi.io.IOException("Invalid stream type: expected "
-                 + Integer.toHexString(BITSTREAM_TYPE) + ", got "
-                 + Integer.toHexString(type), Error.ERR_INVALID_FILE);
+         throw new kanzi.io.IOException("Invalid stream type", Error.ERR_INVALID_FILE);
 
       // Read stream version
       final int version = (int) this.ibs.readBits(7);

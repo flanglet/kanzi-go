@@ -690,7 +690,7 @@ func (this *CompressedInputStream) readHeader() error {
 
 	// Sanity check
 	if fileType != BITSTREAM_TYPE {
-		errMsg := fmt.Sprintf("Invalid stream type: expected %#x, got %#x", BITSTREAM_TYPE, fileType)
+		errMsg := fmt.Sprintf("Invalid stream type")
 		return NewIOError(errMsg, ERR_INVALID_FILE)
 	}
 
