@@ -179,6 +179,11 @@ func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New(errMsg)
 	}
 
+	if int(this.PrimaryIndex()) >= count {
+		errMsg := fmt.Sprintf("Primary index is %v, block size is %v", this.PrimaryIndex(), count)
+		return 0, 0, errors.New(errMsg)
+	}
+
 	if count > len(dst) {
 		errMsg := fmt.Sprintf("Block size is %v, output buffer length is %v", count, len(src))
 		return 0, 0, errors.New(errMsg)

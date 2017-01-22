@@ -170,6 +170,9 @@ public class BWT implements ByteTransform
        if (count > maxBlockSize())
            return false;
        
+       if (this.getPrimaryIndex() >= count)
+           return false;
+       
        if (dst.index + count > dst.array.length)
           return false;      
        

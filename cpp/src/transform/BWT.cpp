@@ -85,6 +85,9 @@ bool BWT::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int count)
     if (count > maxBlockSize())
         return false;
 
+    if (getPrimaryIndex() >= count)
+        return false;
+
     if (count < 2) {
         if (count == 1)
             output._array[output._index++] = input._array[input._index++];
