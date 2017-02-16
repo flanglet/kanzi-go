@@ -65,7 +65,7 @@ public class CMPredictor implements Predictor
    { 
       final int[] counter1_ = this.counter1[this.ctx];
       this.ctx <<= 1;
-      final int[] counter2_ = this.counter2[this.ctx|this.runMask];            
+      final int[] counter2_ = this.counter2[this.ctx|this.runMask];
            
       if (bit == 0)
       {
@@ -73,7 +73,7 @@ public class CMPredictor implements Predictor
          counter1_[this.c1]    -= (counter1_[this.c1]    >> MEDIUM_RATE);
          counter2_[this.idx+1] -= (counter2_[this.idx+1] >> SLOW_RATE);         
          counter2_[this.idx]   -= (counter2_[this.idx]   >> SLOW_RATE);
-      }
+      } 
       else
       {
          counter1_[256]        += ((counter1_[256]^0xFFFF)        >> FAST_RATE);

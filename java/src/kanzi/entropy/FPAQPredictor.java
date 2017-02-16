@@ -44,10 +44,7 @@ public class FPAQPredictor implements Predictor
       this.probs[this.ctxIdx] -= ((3*((this.probs[this.ctxIdx]+16) - (PSCALE & -bit))) >> 7);
 
       // Update context by registering the current bit (or wrapping after 8 bits)
-      if (this.ctxIdx < 128)
-         this.ctxIdx = (this.ctxIdx << 1) | bit;      
-      else
-         this.ctxIdx = 1;
+      this.ctxIdx = (this.ctxIdx < 128) ? (this.ctxIdx << 1) | bit : 1;
    }
 
    

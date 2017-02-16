@@ -251,7 +251,7 @@ func (this *BWT) inverseRegularBlock(src, dst []byte, count int) (uint, uint, er
 
 	// Build inverse
 	for i := count - 2; i >= 0; i-- {
-		ptr = data[uint(ptr>>8)+uint(buckets_[ptr&0xFF])]
+		ptr = data[(ptr>>8)+buckets_[ptr&0xFF]]
 		dst[i] = byte(ptr)
 	}
 
