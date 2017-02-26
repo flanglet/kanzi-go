@@ -60,43 +60,32 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 	}
 
 	blockSize := len(src)
-	length := uint(len(src))
-	input := &dst
-	output := &src
+	length := uint(blockSize)
 	requiredSize := this.MaxEncodedLen(blockSize)
 	this.skipFlags = 0
+	sa := [2]*[]byte{&src, &dst}
+	saIdx := 0
 	var err error
 
 	for i, t := range this.transforms {
-		if input == &src {
-			input = &dst
+		in := *sa[saIdx]
+		out := *sa[saIdx^1]
 
-			// Check that the output buffer has enough room. If not, allocate a new one.
-			if len(src) < requiredSize {
-				src = make([]byte, requiredSize)
-			}
-
-			output = &src
-		} else {
-			input = &src
-
-			// Check that the output buffer has enough room. If not, allocate a new one.
-			if len(dst) < requiredSize {
-				dst = make([]byte, requiredSize)
-			}
-
-			output = &dst
+		// Check that the output buffer has enough room. If not, allocate a new one.
+		if len(out) < requiredSize {
+			dst := make([]byte, requiredSize)
+			sa[saIdx] = &dst
+			out = *sa[saIdx^1]
 		}
 
 		var err1 error
 		var oIdx uint
-		in := *input
 
 		// Apply forward transform
-		if _, oIdx, err1 = t.Forward(in[0:length], *output); err1 != nil {
+		if _, oIdx, err1 = t.Forward(in[0:length], out); err1 != nil {
 			// Transform failed (probably due to lack of space in output). Revert
-			if input != output {
-				copy(*output, in[0:length])
+			if &src != &dst {
+				copy(out, in[0:length])
 			}
 
 			oIdx = length
@@ -108,13 +97,14 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 		}
 
 		length = oIdx
+		saIdx ^= 1
 	}
 
 	for i := len(this.transforms); i < 4; i++ {
 		this.skipFlags |= (1 << (3 - uint(i)))
 	}
 
-	if output != &dst {
+	if saIdx != 1 {
 		copy(dst, src[0:length])
 	}
 
@@ -149,8 +139,8 @@ func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) 
 		return length, length, nil
 	}
 
-	input := &src
-	output := &dst
+	sa := [2]*[]byte{&src, &dst}
+	saIdx := 0
 	var res error
 
 	// Process transforms sequentially in reverse order
@@ -158,28 +148,21 @@ func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) 
 		if this.skipFlags&(1<<(3-uint(i))) != 0 {
 			continue
 		}
+
 		t := this.transforms[i]
-		in := *input
-		out := *output
+		in := *sa[saIdx]
+		out := *sa[saIdx^1]
 
 		// Apply inverse transform
 		_, length, res = t.Inverse(in[0:length], out[0:cap(out)])
+		saIdx ^= 1
 
 		if res != nil {
 			break
 		}
-
-		if input == &src {
-			input = &dst
-			output = &src
-		} else {
-			input = &src
-			output = &dst
-		}
-
 	}
 
-	if output != &dst {
+	if saIdx != 1 {
 		copy(dst[0:cap(dst)], src[0:length])
 	}
 
