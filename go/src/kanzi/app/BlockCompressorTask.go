@@ -78,12 +78,13 @@ func NewBlockCompressor() (*BlockCompressor, error) {
 		bc_printOut("-output=<outputName> : optional name of the output file (defaults to <input.knz>) or 'none' or 'stdout'", true)
 		bc_printOut("-block=<size>        : size of the input blocks, multiple of 16, max 1 GB (transform dependent), min 1 KB, default 1 MB", true)
 		bc_printOut("-entropy=<codec>     : entropy codec to use [None|Huffman*|ANS|Range|PAQ|FPAQ|TPAQ|CM]", true)
-		bc_printOut("-transform=<codec>   : transform to use [None|BWT*|BWTS|Snappy|LZ4|RLT|ZRLT|MTFT|RANK|TIMESTAMP]", true)
+		bc_printOut("-transform=<codec>   : transform to use [None|BWT*|BWTS|Snappy|LZ4|RLT|ZRLT|MTFT|RANK|TEXT|TIMESTAMP]", true)
 		bc_printOut("                       EG: BWT+RANK or RLT+BWTS+MTFT+ZRLT (default is BWT+MTFT+ZRLT)", true)
 		bc_printOut("-checksum            : enable block checksum", true)
 		bc_printOut("-jobs=<jobs>         : number of concurrent jobs", true)
 		bc_printOut("", true)
 		bc_printOut("EG. BlockCompressor -input=foo.txt -output=foo.knz -overwrite -transform=BWT+MTFT+ZRLT -block=4m -entropy=FPAQ -verbose=2 -jobs=4", true)
+		bc_printOut("EG. Kanzi -compress -input=foo.txt -output=foo.knz -overwrite -transform=BWT+MTFT+ZRLT -block=4m -entropy=FPAQ -verbose=2 -jobs=4", true)
 		os.Exit(0)
 	}
 

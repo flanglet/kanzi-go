@@ -22,6 +22,7 @@ import kanzi.function.LZ4Codec;
 import kanzi.function.NullFunction;
 import kanzi.function.RLT;
 import kanzi.function.SnappyCodec;
+import kanzi.function.TextCodec;
 import kanzi.function.ZRLT;
 import kanzi.transform.BWTS;
 import kanzi.transform.MTFT;
@@ -36,11 +37,12 @@ public class ByteFunctionFactory
    public static final short BWTS_TYPE           = 2;  // Burrows Wheeler Scott
    public static final short LZ4_TYPE            = 3;  // LZ4
    public static final short SNAPPY_TYPE         = 4;  // Snappy
-   public static final short RLT_TYPE            = 5;  // Run Length
+   public static final short RLT_TYPE            = 5;  // Run Length 
    public static final short ZRLT_TYPE           = 6;  // Zero Run Length
    public static final short MTFT_TYPE           = 7;  // Move To Front
    public static final short RANK_TYPE           = 8;  // Rank
    public static final short TIMESTAMP_TYPE      = 9;  // TimeStamp
+   public static final short TEXTCODEC_TYPE      = 10; // Text codec
  
 
    // The returned type contains 4 (nibble based) transform values
@@ -110,6 +112,9 @@ public class ByteFunctionFactory
          case "TIMESTAMP":
             return TIMESTAMP_TYPE;
 
+         case "TEXT":
+            return TEXTCODEC_TYPE;
+
          case "NONE":
             return NULL_TRANSFORM_TYPE;
 
@@ -176,6 +181,9 @@ public class ByteFunctionFactory
             
          case RANK_TYPE:
             return new SBRT(SBRT.MODE_RANK);
+            
+         case TEXTCODEC_TYPE:
+            return new TextCodec();
             
          case TIMESTAMP_TYPE:
             return new SBRT(SBRT.MODE_TIMESTAMP);
@@ -245,6 +253,9 @@ public class ByteFunctionFactory
             
          case TIMESTAMP_TYPE:
             return "TIMESTAMP";
+            
+         case TEXTCODEC_TYPE:
+            return "TEXT";
             
          case NULL_TRANSFORM_TYPE:
             return "NONE";

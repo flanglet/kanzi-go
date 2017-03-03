@@ -88,7 +88,7 @@ func writeLength(buf []byte, length int) int {
 	return idx + 1
 }
 
-func writeLastLiterals(src []byte, dst []byte) int {
+func writeLastLiterals(src, dst []byte) int {
 	dstIdx := 1
 	runLength := len(src)
 
@@ -386,7 +386,7 @@ func (this *LZ4Codec) Inverse(src, dst []byte) (uint, uint, error) {
 		dstIdx = cpy
 	}
 
-	return uint(count), uint(dstIdx), nil
+	return uint(srcIdx), uint(dstIdx), nil
 }
 
 func (this LZ4Codec) MaxEncodedLen(srcLen int) int {

@@ -69,6 +69,7 @@ func NewBlockDecompressor() (*BlockDecompressor, error) {
 		bd_printOut("-jobs=<jobs>         : number of concurrent jobs", true)
 		bd_printOut("", true)
 		bd_printOut("EG. BlockDecompressor -input=foo.knz -overwrite -verbose=2 -jobs=2", true)
+		bd_printOut("EG. Kanzi -decompress -input=foo.knz -overwrite -verbose=2 -jobs=2", true)
 		os.Exit(0)
 	}
 

@@ -384,6 +384,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
               printOut("-jobs=<jobs>         : number of concurrent jobs", true);
               printOut("", true);
               printOut("EG. java -cp kanzi.jar kanzi.app.BlockDecompressor -input=foo.knz -overwrite -verbose=2 -jobs=2", true);
+              printOut("EG. java -cp kanzi.jar kanzi.app.Kanzi -decompress -input=foo.knz -overwrite -verbose=2 -jobs=2", true);
               System.exit(0);
            }
            else if (arg.equals("-overwrite"))

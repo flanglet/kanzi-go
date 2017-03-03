@@ -397,7 +397,7 @@ void BlockDecompressor::processCommandLine(int argc, const char* argv[], map<str
             printOut("-output=<outputName> : optional name of the output file or 'none' or 'stdout'", true);
             printOut("-jobs=<jobs>         : number of concurrent jobs", true);
             printOut("", true);
-            printOut("EG. BlockDecompressor -input=foo.knz -overwrite -verbose=2 -jobs=2", true);
+            printOut("EG. Kanzi -decompress -input=foo.knz -overwrite -verbose=2 -jobs=2", true);
             exit(0);
         }
         else if (arg == "-overwrite") {

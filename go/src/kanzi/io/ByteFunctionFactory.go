@@ -34,6 +34,7 @@ const (
 	MTFT_TYPE           = uint16(7) // Move To Front
 	RANK_TYPE           = uint16(8) // Rank
 	TIMESTAMP_TYPE      = uint16(9) // TimeStamp
+	TEXTCODEC_TYPE      = uint16(10) // Text codec
 )
 
 func NewByteFunction(size uint, functionType uint16) (*function.ByteTransformSequence, error) {
@@ -100,6 +101,9 @@ func newByteFunctionToken(size uint, functionType uint16) (kanzi.ByteTransform, 
 	case TIMESTAMP_TYPE:
 		return transform.NewSBRT(transform.SBRT_MODE_TIMESTAMP)
 
+	case TEXTCODEC_TYPE:
+		return function.NewTextCodec()
+
 	case NULL_TRANSFORM_TYPE:
 		return function.NewNullFunction()
 
@@ -163,6 +167,9 @@ func getByteFunctionNameToken(functionType uint16) string {
 
 	case TIMESTAMP_TYPE:
 		return "TIMESTAMP"
+
+	case TEXTCODEC_TYPE:
+		return "TEXT"
 
 	case NULL_TRANSFORM_TYPE:
 		return "NONE"
@@ -235,6 +242,9 @@ func getByteFunctionTypeToken(name string) uint16 {
 
 	case "TIMESTAMP":
 		return TIMESTAMP_TYPE
+
+	case "TEXT":
+		return TEXTCODEC_TYPE
 
 	case "NONE":
 		return NULL_TRANSFORM_TYPE

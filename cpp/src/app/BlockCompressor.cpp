@@ -411,13 +411,13 @@ void BlockCompressor::processCommandLine(int argc, const char* argv[], map<strin
             printOut("-output=<outputName> : optional name of the output file (defaults to <input.knz>) or 'none' or 'stdout'", true);
             printOut("-block=<size>        : size of the input blocks, multiple of 16, max 1 GB (transform dependent), min 1 KB, default 1 MB", true);
             printOut("-entropy=<codec>     : entropy codec to use [None|Huffman*|ANS|Range|PAQ|FPAQ|TPAQ|CM]", true);
-            printOut("-transform=<codec>   : transform to use [None|BWT*|BWTS|Snappy|LZ4|RLT|ZRLT|MTFT|RANK|TIMESTAMP]", true);
+            printOut("-transform=<codec>   : transform to use [None|BWT*|BWTS|Snappy|LZ4|RLT|ZRLT|MTFT|RANK|TEXT|TIMESTAMP]", true);
             printOut("                       EG: BWT+RANK or BWTS+MTFT (default is BWT+MTFT+ZRLT)", true);
             printOut("-checksum            : enable block checksum", true);
             printOut("-jobs=<jobs>         : number of concurrent jobs", true);
             printOut("", true);
             stringstream ss;
-            ss << "EG. BlockCompressor -input=foo.txt -output=foo.knz -overwrite ";
+            ss << "EG. Kanzi -compress -input=foo.txt -output=foo.knz -overwrite ";
             ss << "-transform=BWT+MTFT+ZRLT -block=4m -entropy=FPAQ -verbose=3 -jobs=4";
             printOut(ss.str().c_str(), true);
             exit(0);
