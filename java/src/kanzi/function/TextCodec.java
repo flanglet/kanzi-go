@@ -872,7 +872,7 @@ public final class TextCodec implements ByteFunction
    
    private int emit(byte[] src, int srcIdx, byte[] dst, int dstIdx, int srcEnd, int dstEnd)
    {
-      return (dstIdx+3*(srcEnd-srcIdx) < dstEnd) ?
+      return (3*(srcEnd-srcIdx) < (dstEnd-dstIdx)) ?
          this.emit1(src, srcIdx, dst, dstIdx, srcEnd, dstEnd) :
          this.emit2(src, srcIdx, dst, dstIdx, srcEnd, dstEnd);
    }

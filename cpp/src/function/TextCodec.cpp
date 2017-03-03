@@ -638,9 +638,10 @@ TextCodec::TextCodec(byte dict[], int size, int logHashSize, int dictSize, byte 
     _escape1 = delimiter1; // dictionary word preceded by space symbol
     _escape2 = delimiter2; // toggle upper/lower case of first word char
     _logHashSize = logHashSize;
-    _dictMap = new DictEntry*[1 << _logHashSize];
+    const int32 mapSize = 1 << _logHashSize;
+    _dictMap = new DictEntry*[mapSize];
     _dictList = new DictEntry[dictSize];
-    _hashMask = int32(1 << _logHashSize) - 1;
+    _hashMask = mapSize - 1;
     int nbWords;
 
     // Replace default dictionary ?
@@ -798,7 +799,7 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
                 // Word found in the dictionary
                 // Skip space if only delimiter between 2 word references
                 if ((endWordIdx != anchor) || (src[emitAnchor] != ' '))
-                    dstIdx += emit(&src[emitAnchor], &dst[dstIdx], anchor+1-emitAnchor, dstEnd - dstIdx);
+                    dstIdx += emit(&src[emitAnchor], &dst[dstIdx], anchor + 1 - emitAnchor, dstEnd - dstIdx);
 
                 if (dstIdx >= dstEnd2)
                     break;
@@ -847,7 +848,7 @@ int TextCodec::emit(byte src[], byte dst[], int srcEnd, int dstEnd)
     return (3 * srcEnd < dstEnd) ? emit1(src, dst, srcEnd, dstEnd) : emit2(src, dst, srcEnd, dstEnd);
 }
 
-int TextCodec::emit1(byte src[], byte dst[], int srcEnd, int dstEnd)
+int TextCodec::emit1(byte src[], byte dst[], int srcEnd, int)
 {
     // Fast path
     int dstIdx = 0;
