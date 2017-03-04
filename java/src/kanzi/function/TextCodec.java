@@ -686,7 +686,7 @@ public final class TextCodec implements ByteFunction
       this.staticDictSize = nbWords;
    }
 
-
+   
    @Override
    public boolean forward(SliceByteArray input, SliceByteArray output)
    {
@@ -777,21 +777,10 @@ public final class TextCodec implements ByteFunction
             if (e != null)
             {
                // Hash collision (full check) ?
-               final int l = e.pos + length;
-               final byte[] buf = e.buf;
-               
-               // Skip first position (same result)
-               for (int i=e.pos+1, j=anchor+2; i<l; i++, j++)
-               {
-                  if (buf[i] != src[j])
-                  {
-                     // Hash collision
-                     e = null;
-                     break;
-                  }
-               }
+               if (sameWords(e, src, anchor, length) == false)
+                  e = null;
             }
-            
+
             if (e == null)
             {
                // Word not found in the dictionary: add it if at least 3 chars
@@ -870,48 +859,50 @@ public final class TextCodec implements ByteFunction
    }
 
    
-   private int emit(byte[] src, int srcIdx, byte[] dst, int dstIdx, int srcEnd, int dstEnd)
+   private int emit(byte[] src, final int srcIdx, byte[] dst, int dstIdx, final int srcEnd, final int dstEnd)
    {
+      if (srcIdx >= srcEnd)
+         return 0;
+      
       return (3*(srcEnd-srcIdx) < (dstEnd-dstIdx)) ?
          this.emit1(src, srcIdx, dst, dstIdx, srcEnd, dstEnd) :
          this.emit2(src, srcIdx, dst, dstIdx, srcEnd, dstEnd);
    }
 
 
-   private int emit1(byte[] src, int srcIdx, byte[] dst, int dstIdx, int srcEnd, int dstEnd)
+   private int emit1(byte[] src, final int srcIdx, byte[] dst, int dstIdx, final int srcEnd, final int dstEnd)
    {
       // Fast path 
-      for (int i=srcIdx; i<srcEnd; i++)
-      {       
-         final byte cur = src[i];
-
-         if (cur == this.escape1)
-         {
-            // Emit special word
-            dst[dstIdx] = this.escape1;
-            dst[dstIdx+1] = (byte) 0xFF;
-            dst[dstIdx+2] = (byte) 0xFF;
-            dstIdx += 3;
-         }
-         else if (cur == this.escape2)
-         {
-            // Emit special word
-            dst[dstIdx] = this.escape1;
-            dst[dstIdx+1] = (byte) 0xFE;
-            dst[dstIdx+2] = (byte) 0xFF;
-            dstIdx += 3;
-         }   
-         else
-         {
-            dst[dstIdx++] = cur;
-         }
+      if (src[srcIdx] == this.escape1)
+      {
+         // Emit special word
+         dst[dstIdx] = this.escape1;
+         dst[dstIdx+1] = (byte) 0xFF;
+         dst[dstIdx+2] = (byte) 0xFF;
+         dstIdx += 3;
       }
-
+      else if (src[srcIdx] == this.escape2)
+      {          
+         // Emit special word
+         dst[dstIdx] = this.escape1;
+         dst[dstIdx+1] = (byte) 0xFE;
+         dst[dstIdx+2] = (byte) 0xFF;
+         dstIdx += 3;
+      }  
+      else
+      {
+         dst[dstIdx] = src[srcIdx];
+         dstIdx++;
+      }    
+        
+      for (int i=srcIdx+1; i<srcEnd; i++, dstIdx++)
+         dst[dstIdx] = src[i];
+    
       return dstIdx;
    }
    
    
-   private int emit2(byte[] src, int srcIdx, byte[] dst, int dstIdx, int srcEnd, int dstEnd)
+   private int emit2(byte[] src, final int srcIdx, byte[] dst, int dstIdx, final int srcEnd, final int dstEnd)
    {         
       // Slow path
       for (int i=srcIdx; i<srcEnd; i++)
@@ -953,6 +944,23 @@ public final class TextCodec implements ByteFunction
    }
 
    
+   private static boolean sameWords(DictEntry e, byte[] src, int anchor, int length)
+   {
+      // Hash collision (full check) ?
+      final int l = e.pos + length;
+      final byte[] buf = e.buf;
+
+      // Skip first position (same result)
+      for (int i=e.pos+1, j=anchor+2; i<l; i++, j++)
+      {
+         if (buf[i] != src[j])
+            return false;
+      }
+      
+      return true;
+   }
+   
+   
    @Override
    public boolean inverse(SliceByteArray input, SliceByteArray output)
    {
@@ -962,8 +970,7 @@ public final class TextCodec implements ByteFunction
       if (input.array == output.array)
          return false;
    
-      final int count = input.length;     
-      
+      final int count = input.length;          
       int srcIdx = input.index;
       int dstIdx = output.index;      
       final byte[] src = input.array;
@@ -1072,7 +1079,7 @@ public final class TextCodec implements ByteFunction
                flag = isUpperCase(e.buf[e.pos]) ? 32 : -32;
 
             dst[dstIdx++] = (byte) (e.buf[e.pos] + flag);
-
+            
             for (int n=e.pos+1, l=e.pos+e.length; n<l; n++, dstIdx++)
                dst[dstIdx] = e.buf[n];
 

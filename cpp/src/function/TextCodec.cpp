@@ -758,17 +758,8 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
 
             if (pe != nullptr) {
                 // Hash collision (full check) ?
-                const int l = pe->_pos + length;
-                const byte* buf = pe->_buf;
-
-                // Skip first position (same result)
-                for (int i = pe->_pos + 1, j = anchor + 2; i < l; i++, j++) {
-                    if (buf[i] != src[j]) {
-                        // Hash collision
-                        pe = nullptr;
-                        break;
-                    }
-                }
+                if (!sameWords(&pe->_buf[pe->_pos + 1], &src[anchor + 2], length))
+                    pe = nullptr;
             }
 
             if (pe == nullptr) {
@@ -843,41 +834,47 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
     return srcIdx == srcEnd;
 }
 
-int TextCodec::emit(byte src[], byte dst[], int srcEnd, int dstEnd)
+int TextCodec::emit(byte src[], byte dst[], const int srcEnd, const int dstEnd)
 {
+    if (srcEnd == 0)
+        return 0;
+
     return (3 * srcEnd < dstEnd) ? emit1(src, dst, srcEnd, dstEnd) : emit2(src, dst, srcEnd, dstEnd);
 }
 
-int TextCodec::emit1(byte src[], byte dst[], int srcEnd, int)
+int TextCodec::emit1(byte src[], byte dst[], const int srcEnd, const int)
 {
     // Fast path
     int dstIdx = 0;
 
-    for (int i = 0; i < srcEnd; i++) {
-        if (src[i] == _escape1) {
-            // Emit special word
-            dst[dstIdx] = _escape1;
-            dst[dstIdx + 1] = byte(0xFF);
-            dst[dstIdx + 2] = byte(0xFF);
-            dstIdx += 3;
-        }
-        else if (src[i] == _escape2) {
-            // Emit special word
-            dst[dstIdx] = _escape1;
-            dst[dstIdx + 1] = byte(0xFE);
-            dst[dstIdx + 2] = byte(0xFF);
-            dstIdx += 3;
-        }
-        else {
-            dst[dstIdx] = src[i];
-            dstIdx++;
-        }
+    if (src[0] == _escape1) {
+        // Emit special word
+        dst[dstIdx] = _escape1;
+        dst[dstIdx + 1] = byte(0xFF);
+        dst[dstIdx + 2] = byte(0xFF);
+        dstIdx += 3;
+    }
+    else if (src[0] == _escape2) {
+        // Emit special word
+        dst[dstIdx] = _escape1;
+        dst[dstIdx + 1] = byte(0xFE);
+        dst[dstIdx + 2] = byte(0xFF);
+        dstIdx += 3;
+    }
+    else {
+        dst[dstIdx] = src[0];
+        dstIdx++;
+    }
+
+    for (int i = 1; i < srcEnd; i++) {
+        dst[dstIdx] = src[i];
+        dstIdx++;
     }
 
     return dstIdx;
 }
 
-int TextCodec::emit2(byte src[], byte dst[], int srcEnd, int dstEnd)
+int TextCodec::emit2(byte src[], byte dst[], int const srcEnd, int const dstEnd)
 {
     // Slow path
     int dstIdx = 0;
@@ -913,6 +910,19 @@ int TextCodec::emit2(byte src[], byte dst[], int srcEnd, int dstEnd)
     }
 
     return dstIdx;
+}
+
+bool TextCodec::sameWords(const byte src[], byte dst[], int length)
+{
+    // Skip first position (same result)
+    for (int i = 0, j = 0; i < length; i++, j++) {
+        if (dst[i] != src[j]) {
+            // Hash collision
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int count)

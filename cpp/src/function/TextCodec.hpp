@@ -89,6 +89,8 @@ namespace kanzi {
 
        static SliceArray<byte> unpackDictionary(const byte dict[], int dictSize);
 
+       static bool sameWords(const byte src[], byte dst[], int length);
+
        // Default dictionary
        static const byte DICT_EN_1024[];
 
@@ -106,9 +108,9 @@ namespace kanzi {
        int _logHashSize;
        int32 _hashMask;
 
-       int emit(byte src[], byte dst[], int srcEnd, int dstEnd);
-       int emit1(byte src[], byte dst[], int srcEnd, int dstEnd);
-       int emit2(byte src[], byte dst[], int srcEnd, int dstEnd);
+       int emit(byte src[], byte dst[], const int srcEnd, const int dstEnd);
+       int emit1(byte src[], byte dst[], const int srcEnd, const int dstEnd);
+       int emit2(byte src[], byte dst[], const int srcEnd, const int dstEnd);
    };
 
    inline DictEntry::DictEntry()

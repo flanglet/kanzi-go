@@ -805,15 +805,8 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 			if pe != nil {
 				// Hash collision (full check) ?
-				buf := pe.buf[pe.pos+1 : pe.pos+length]
-
-				// Skip first position (same result)
-				for i := range buf {
-					if buf[i] != src[anchor+2+i] {
-						// Hash collision
-						pe = nil
-						break
-					}
+				if !sameWords(pe.buf[pe.pos+1:pe.pos+length], src[anchor+2:anchor+2+length]) {
+					pe = nil
 				}
 			}
 
@@ -903,6 +896,10 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 }
 
 func (this *TextCodec) emit(src, dst []byte) int {
+	if len(src) == 0 {
+		return 0
+	}
+
 	if 3*len(src) < len(dst) {
 		return this.emit1(src, dst)
 	} else {
@@ -914,23 +911,26 @@ func (this *TextCodec) emit1(src, dst []byte) int {
 	// Fast path
 	dstIdx := 0
 
-	for i := range src {
-		if src[i] == this.escape1 {
-			// Emit special word
-			dst[dstIdx] = this.escape1
-			dst[dstIdx+1] = byte(0xFF)
-			dst[dstIdx+2] = byte(0xFF)
-			dstIdx += 3
-		} else if src[i] == this.escape2 {
-			// Emit special word
-			dst[dstIdx] = this.escape1
-			dst[dstIdx+1] = byte(0xFE)
-			dst[dstIdx+2] = byte(0xFF)
-			dstIdx += 3
-		} else {
-			dst[dstIdx] = src[i]
-			dstIdx++
-		}
+	if src[0] == this.escape1 {
+		// Emit special word
+		dst[dstIdx] = this.escape1
+		dst[dstIdx+1] = byte(0xFF)
+		dst[dstIdx+2] = byte(0xFF)
+		dstIdx += 3
+	} else if src[0] == this.escape2 {
+		// Emit special word
+		dst[dstIdx] = this.escape1
+		dst[dstIdx+1] = byte(0xFE)
+		dst[dstIdx+2] = byte(0xFF)
+		dstIdx += 3
+	} else {
+		dst[dstIdx] = src[0]
+		dstIdx++
+	}
+
+	for i := 1; i < len(src); i++ {
+		dst[dstIdx] = src[i]
+		dstIdx++
 	}
 
 	return dstIdx
@@ -973,6 +973,18 @@ func (this *TextCodec) emit2(src, dst []byte) int {
 	}
 
 	return dstIdx
+}
+
+func sameWords(buf, src []byte) bool {
+	// Skip first position (same result)
+	for i := range buf {
+		if buf[i] != src[i] {
+			// Hash collision
+			return false
+		}
+	}
+
+	return true
 }
 
 func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
