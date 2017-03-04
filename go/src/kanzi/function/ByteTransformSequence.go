@@ -85,7 +85,7 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 		if _, oIdx, err1 = t.Forward(in[0:length], out); err1 != nil {
 			// Transform failed (probably due to lack of space in output). Revert
 			if &src != &dst {
-				copy(out, in[0:length])
+				copy(out[0:length], in[0:length])
 			}
 
 			oIdx = length
@@ -151,11 +151,11 @@ func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) 
 
 		t := this.transforms[i]
 		in := *sa[saIdx]
-		out := *sa[saIdx^1]
+		saIdx ^= 1
+		out := *sa[saIdx]
 
 		// Apply inverse transform
 		_, length, res = t.Inverse(in[0:length], out[0:cap(out)])
-		saIdx ^= 1
 
 		if res != nil {
 			break
@@ -163,7 +163,7 @@ func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) 
 	}
 
 	if saIdx != 1 {
-		copy(dst[0:cap(dst)], src[0:length])
+		copy(dst[0:length], src[0:length])
 	}
 
 	return uint(blockSize), length, res

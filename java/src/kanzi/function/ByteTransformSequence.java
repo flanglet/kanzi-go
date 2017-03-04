@@ -164,7 +164,8 @@ public class ByteTransformSequence implements ByteFunction
             continue;        
 
          SliceByteArray sa1 = sa[saIdx];
-         SliceByteArray sa2 = sa[saIdx^1];
+         saIdx ^= 1;
+         SliceByteArray sa2 = sa[saIdx];
          final int savedIIdx = sa1.index;
          final int savedOIdx = sa2.index;
          ByteTransform transform = this.transforms[i];                 
@@ -180,7 +181,6 @@ public class ByteTransformSequence implements ByteFunction
          count = sa2.index - savedOIdx;
          sa1.index = savedIIdx;
          sa2.index = savedOIdx;
-         saIdx ^= 1;
          
          // All inverse transforms must succeed
          if (res == false)

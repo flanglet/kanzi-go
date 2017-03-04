@@ -133,7 +133,7 @@ namespace kanzi
            _skipFlags |= (1 << (3 - i));
 
        if (saIdx != 1)
-           memmove(&sa[0]->_array[sa[0]->_index], &sa[1]->_array[sa[1]->_index], count);
+           memmove(&sa[1]->_array[sa[1]->_index], &sa[0]->_array[sa[0]->_index], count);
 
        input._index += blockSize;
        output._index += count;
@@ -162,6 +162,7 @@ namespace kanzi
        }
 
        const int blockSize = length;
+       const int count = output._length;
        bool res = true;
        SliceArray<T>* sa[2] = { &input, &output };
        int saIdx = 0;
@@ -185,7 +186,7 @@ namespace kanzi
            }
 
            sa1->_length = length;
-           sa2->_length = output._length;
+           sa2->_length = count;
 
            res = transform->inverse(*sa1, *sa2, length);
            length = sa2->_index - savedOIdx;
@@ -198,7 +199,7 @@ namespace kanzi
        }
 
        if (saIdx != 1)
-           memmove(&sa[0]->_array[sa[0]->_index], &sa[1]->_array[sa[1]->_index], length);
+           memmove(&sa[1]->_array[sa[1]->_index], &sa[0]->_array[sa[0]->_index], length);
 
        input._index += blockSize;
        output._index += length;
