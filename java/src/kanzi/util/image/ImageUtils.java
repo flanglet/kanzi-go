@@ -41,7 +41,25 @@ public class ImageUtils
    public static final int FLIP_TRANSFORM   = 2;
    public static final int ROTATE_TRANSFORM = 4;
 
+   // for each direction, deltaX,deltaY for even,odd positions
+   public static final int[] DIR_INC_XY = 
+   {  
+      1,0,1,0,  1,0,1,-1,  1,-1,1,-1,  1,0,1,-1,  
+      0,1,0,1,  0,1,1,1,   1,1,1,1,    1,0,1,1 
+   };
+
    
+   public enum Direction
+   {
+      HORIZONTAL, // Horizontal
+      ANGLE_30,   // Directional 30 degrees
+      ANGLE_45,   // Diagonal 45 degrees
+      ANGLE_60,   // Directional 60 degrees
+      VERTICAL,   // Vertical
+      ANGLE_120,  // Directional 120 degrees
+      ANGLE_135,  // Diagonal 135 degrees
+      ANGLE_150   // Directional 150 degrees
+   } 
    
    private int[] iBuf;
    private byte[] bBuf;
@@ -449,23 +467,23 @@ public class ImageUtils
           if (type.charAt(0) != 'P')
               throw new IOException("Invalid format: not a PBM/PGM/PPM file");
           
-	  switch (type.charAt(1))
-	  {
-	    case '1':
-	    case '2':
-	    case '3':
-	       raw = false;
-	       break;
-               
-	    case '4':
-	    case '5':
-	    case '6':
-	       raw = true;
-	       break;
-               
-	    default:
-	       throw new IOException("Invalid format " + type);
-	  }
+          switch (type.charAt(1))
+          {
+            case '1':
+            case '2':
+            case '3':
+               raw = false;
+               break;
+
+            case '4':
+            case '5':
+            case '6':
+               raw = true;
+               break;
+
+            default:
+               throw new IOException("Invalid format " + type);
+          }
 
           final int w = readInt(dis);
           final int h = readInt(dis);
@@ -651,6 +669,91 @@ public class ImageUtils
    }
    
    
+   // Compute direction of block of pixels at x,y
+   public Direction computeDirection(int[] input, int x, int y, int blockDim)
+   {
+      // Skip borders
+      if ((x < 3) || (x+blockDim+3 >= this.width)) 
+         return Direction.VERTICAL;
+
+      if ((y < 3) || (y+blockDim+3 >= this.height))
+         return Direction.HORIZONTAL;
+
+      final int st = this.stride;
+      final int start = (y*st) + x;
+      final int endj = start + (st*blockDim);
+      Direction res = Direction.HORIZONTAL;
+      int minSAD = Integer.MAX_VALUE;
+     
+      for (Direction dir : Direction.values())
+      {
+         // Compute Sum of Absolute Differences
+         int sad = 0;
+         final int dXEven = DIR_INC_XY[dir.ordinal()<<2];
+         final int dXOdd  = DIR_INC_XY[(dir.ordinal()<<2)+2];
+         final int dYEven = DIR_INC_XY[(dir.ordinal()<<2)+1] * st;
+         final int dYOdd  = DIR_INC_XY[(dir.ordinal()<<2)+3] * st;
+
+         for (int j=start; j<endj; j+=st)
+         {
+            for (int i=0; i<blockDim; )
+            { 
+               // Find which pixel is the preceding one in the scanning order 
+               // defined by the direction 
+               {
+                  final int offs = j + i;
+                  final int val = (input[offs] & 0xFF) - (input[offs-dXEven-dYEven] & 0xFF);
+                  sad += ((val + (val >> 31)) ^ (val >> 31)); //abs                                   
+                  i++;
+               } 
+               
+               {
+                  final int offs = j + i;
+                  final int val = (input[offs] & 0xFF) - (input[offs-dXOdd-dYOdd] & 0xFF);
+                  sad += ((val + (val >> 31)) ^ (val >> 31)); //abs
+                  i++;
+               }              
+            }         
+         }
+        
+         if (sad < minSAD)
+         {
+            minSAD = sad;
+            res = dir;
+            
+            if (minSAD == 0)
+               break;
+         }
+      }
+     
+      return res;
+   }
+   
+   
+   public static Direction getOrthogonal(Direction dir)
+   {
+      switch (dir)
+      {
+         case HORIZONTAL:
+            return Direction.VERTICAL;
+         case ANGLE_30:
+            return Direction.ANGLE_120;
+         case ANGLE_45:
+            return Direction.ANGLE_135;
+         case ANGLE_60:
+            return Direction.ANGLE_150;
+         case VERTICAL:
+            return Direction.HORIZONTAL;
+         case ANGLE_120:
+            return Direction.ANGLE_30;
+         case ANGLE_135:
+            return Direction.ANGLE_45;
+         case ANGLE_150:
+            return Direction.ANGLE_60;
+         default:
+            throw new IllegalArgumentException("Invalid direction");
+      }    
+   }
    
    
    public static class ImageInfo

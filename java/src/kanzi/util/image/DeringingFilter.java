@@ -27,23 +27,9 @@ public class DeringingFilter implements IntFilter
 {
    private final static int DEFAULT_STEP = 8;
    private final static int DEFAULT_STRENGTH = 3;
-   private static final int[] THRESHOLDS = { 0, 2, 4, 8, 12, 16 };
-   // for each direction, deltaX,deltaY for even,odd positions
-   private static final int[] DIR_INC_XY = { 1,0,1,0,  1,0,1,-1,  1,-1,1,-1,  1,0,1,-1,  0,1,0,1,  0,1,1,1,  1,1,1,1,  1,0,1,1 };
-      
-   private enum Direction
-   {
-      HORIZONTAL, // Horizontal
-      ANGLE_30,   // Directional 30 degrees
-      ANGLE_45,   // Diagonal 45 degrees
-      ANGLE_60,   // Directional 60 degrees
-      VERTICAL,   // Vertical
-      ANGLE_120,  // Directional 120 degrees
-      ANGLE_135,  // Diagonal 135 degrees
-      ANGLE_150   // Directional 150 degrees
-   }
+   private static final int[] THRESHOLDS = { 0, 2, 5, 8, 12, 16 };
+     
     
- 
    private final int width;
    private final int height;
    private final int stride;
@@ -128,72 +114,14 @@ public class DeringingFilter implements IntFilter
       if (strength == 0)
          return true;
 
-      Direction dir = this.computeDirection(frame, x, y, blockDim);  
-      ;
+      ImageUtils.Direction dir = new ImageUtils(this.width, this.height).computeDirection(frame, x, y, blockDim);  
       this.applyDirectional(frame, x, y, blockDim, dir, THRESHOLDS[strength]);
       this.applyAntiDirectional(frame, x, y, blockDim, dir, THRESHOLDS[strength]);
       return true;
    }
  
    
-   private Direction computeDirection(int[] input, int x, int y, int blockDim)
-   {
-      // Skip borders
-      if ((x < 3) || (x+blockDim+3 >= this.width)) 
-         return Direction.VERTICAL;
 
-      if ((y < 3) || (y+blockDim+3 >= this.height))
-         return Direction.HORIZONTAL;
-
-      final int st = this.stride;
-      final int start = (y*st) + x;
-      final int endj = start + (st*blockDim);
-      Direction res = Direction.HORIZONTAL;
-      int minSAD = Integer.MAX_VALUE;
-     
-      for (Direction dir : Direction.values())
-      {
-         // Compute Sum of Absolute Differences
-         int sad = 0;
-         final int dXEven = DIR_INC_XY[dir.ordinal()<<2];
-         final int dXOdd  = DIR_INC_XY[(dir.ordinal()<<2)+2];
-         final int dYEven = DIR_INC_XY[(dir.ordinal()<<2)+1] * st;
-         final int dYOdd  = DIR_INC_XY[(dir.ordinal()<<2)+3] * st;
-
-         for (int j=start; j<endj; j+=st)
-         {
-            for (int i=0; i<blockDim; )
-            { 
-               // Find which pixel is the preceding one in the scanning order 
-               // defined by the direction 
-               {
-                  final int offs = j + i;
-                  final int val = (input[offs] & 0xFF) - (input[offs-dXEven-dYEven] & 0xFF);
-                  sad += ((val + (val >> 31)) ^ (val >> 31)); //abs                                   
-                  i++;
-               } 
-               
-               {
-                  final int offs = j + i;
-                  final int val = (input[offs] & 0xFF) - (input[offs-dXOdd-dYOdd] & 0xFF);
-                  sad += ((val + (val >> 31)) ^ (val >> 31)); //abs
-                  i++;
-               }              
-            }         
-         }
-        
-         if (sad < minSAD)
-         {
-            minSAD = sad;
-            res = dir;
-            
-            if (minSAD == 0)
-               break;
-         }
-      }
-     
-      return res;
-   }
 
    
    // Apply filter along the detected main direction 
@@ -203,17 +131,17 @@ public class DeringingFilter implements IntFilter
    // just ringing. It uses a threshold T to decide whether a pixel value is close 
    // enough. Any value that differs by more than T is replaced (in the filter 
    // computation only) by the value of the center pixel.   
-   private void applyDirectional(int[] frame, int x, int y, int blockDim, Direction dir, int threshold)
+   private void applyDirectional(int[] frame, int x, int y, int blockDim, ImageUtils.Direction dir, int threshold)
    {
       // Skip borders
       if ((x < 3) || (x+blockDim+3 >= this.width) || (y < 3) || (y+blockDim+3 >= this.height))
          return;
       
       final int st = this.stride;
-      final int dXEven = DIR_INC_XY[dir.ordinal()<<2];
-      final int dXOdd  = DIR_INC_XY[(dir.ordinal()<<2)+2];
-      final int dYEven = DIR_INC_XY[(dir.ordinal()<<2)+1] * st;
-      final int dYOdd  = DIR_INC_XY[(dir.ordinal()<<2)+3] * st;
+      final int dXEven = ImageUtils.DIR_INC_XY[dir.ordinal()<<2];
+      final int dXOdd  = ImageUtils.DIR_INC_XY[(dir.ordinal()<<2)+2];
+      final int dYEven = ImageUtils.DIR_INC_XY[(dir.ordinal()<<2)+1] * st;
+      final int dYOdd  = ImageUtils.DIR_INC_XY[(dir.ordinal()<<2)+3] * st;
       final int delta03 = dXOdd + 2*dXEven + dYOdd + 2*dYEven;
       final int delta02 = dXOdd + dXEven + dYOdd + dYEven;
       final int delta01 = dXEven + dYEven;
@@ -278,7 +206,7 @@ public class DeringingFilter implements IntFilter
    
    
    // Apply filter (roughly) orthogonally to the detected direction using a 5-tap CRF
-   private void applyAntiDirectional(int[] frame, int x, int y, int blockDim, Direction dir, int threshold)
+   private void applyAntiDirectional(int[] frame, int x, int y, int blockDim, ImageUtils.Direction dir, int threshold)
    {
       if ((x < 2) || (x+blockDim+2 >= this.width) || (y < 2) || (y+blockDim+2 >= this.height))
          return;
@@ -288,7 +216,7 @@ public class DeringingFilter implements IntFilter
       final int endj = start + st*blockDim;
       final int endi = blockDim;
       threshold = (threshold * 3) >> 2; // reduce threshold
-      final int delta = (dir.ordinal() < Direction.VERTICAL.ordinal()) ? st : 1;
+      final int delta = (dir.ordinal() < ImageUtils.Direction.VERTICAL.ordinal()) ? st : 1;
 
       for (int j=start; j<endj; j+=st)
       {
