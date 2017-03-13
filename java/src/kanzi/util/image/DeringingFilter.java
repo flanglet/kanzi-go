@@ -234,7 +234,7 @@ public class DeringingFilter implements IntFilter
             p1 = (frame[offs-delta] & 0xFF) - pix;
             if ((p0 < threshold) && (-p0 < threshold)) sum += p0;
             if ((p1 < threshold) && (-p1 < threshold)) sum += p1;
-            frame[offs] = pix + ((sum + 0) >> 2);
+            frame[offs] = pix + ((3*sum + 8) >> 4);
          }
       }
    }
