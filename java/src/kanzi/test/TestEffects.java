@@ -37,6 +37,7 @@ import kanzi.filter.FastBilateralFilter;
 import kanzi.filter.GaussianFilter;
 import kanzi.filter.LightingEffect;
 import kanzi.filter.MSSSaliencyFilter;
+import kanzi.filter.MedianFilter;
 import kanzi.filter.SharpenFilter;
 import kanzi.filter.SobelFilter;
 import kanzi.filter.seam.ContextResizer;
@@ -70,7 +71,7 @@ public class TestEffects
                    System.out.println("-help                : display this message");
                    System.out.println("-file=<filename>     : load image file with provided name");
                    System.out.println("-filter=<filtername> : apply named filter ");
-                   System.out.println("                       [Bilateral|Blur|Contrast|ColorCluster|FastBilateral|");
+                   System.out.println("                       [Bilateral|Blur|Contrast|ColorCluster|FastBilateral|Median|");
                    System.out.println("                        Gaussian|Lighting|Sobel|Saliency|ContextResizer|Sharpen]");
                    System.out.println("-arg1=<param>        : parameter used by the filter (EG. contract in percent)");
                    System.out.println("-arg2=<param>        : parameter used by the filter (EG. contract in percent)");
@@ -337,7 +338,7 @@ public class TestEffects
     
                case "SHARPEN" :
                {
-                  // Sobel
+                  // Sharpen
                   frame.setVisible(true);            
                   effect = new SharpenFilter(w/2, h, w);
                   test(effect, img, filterName + " - left half", 0, 200, 150, 0, 0);
@@ -354,9 +355,30 @@ public class TestEffects
                   break;
                }
                
+               case "MEDIAN" :
+               {
+                  // Median
+                  frame.setVisible(true);    
+                  int radius = (param1 == null) ? MedianFilter.DEFAULT_RADIUS : param1;
+                  int threshold = (param2 == null) ? MedianFilter.DEFAULT_THRESHOLD : param1;
+                  effect = new MedianFilter(w/2, h, w, radius, threshold);
+                  test(effect, img, filterName + " - left half", 0, 200, 150, 0, 0);
+                  effect = new MedianFilter(w/2, h, w, radius, threshold);
+                  test(effect, img, filterName + " - right half", w/2, 300, 250, 0, 0);
+                  effect = new MedianFilter(w, h/2, w, radius, threshold);
+                  test(effect, img, filterName + " - upper half", 0, 400, 350, 0, 0);
+                  effect = new MedianFilter(w, h/2, w, radius, threshold);
+                  test(effect, img, filterName + " - lower half", h*w/2, 500, 450, 0, 0);
+                  effect = new MedianFilter(w/2, h/2, w, radius, threshold);
+                  test(effect, img, filterName + " - one quarter", h*w/4+w/4, 600, 550, 0, 0);
+                  effect = new MedianFilter(w, h, w, radius, threshold);
+                  test(effect, img, filterName + " - full", 0, 700, 650, 400*adjust/100, 30000);
+                  break;
+               }
+                              
                case "SALIENCY" :
                {
-                  // Sobel
+                  // Saliency
                   frame.setVisible(true);            
                   effect = new MSSSaliencyFilter(w/2, h, w);
                   test(effect, img, filterName + " - left half", 0, 200, 150, 0, 0);
@@ -435,7 +457,7 @@ public class TestEffects
              long after = System.nanoTime();
              float mpixsec = (float)(w*h)*(float)(iters)/(float)(1024*1024)/((float)(after-before)/1000000000.f);
              System.out.println("Elapsed [ms]: "+ (after-before)/1000000+" ("+iters+" iterations)");
-             System.out.println(1000000000*(long)iters/(after-before)+" FPS");
+             System.out.println(String.format("%1.2f FPS", 1000000000*(float)iters/(after-before)));
              System.out.println(String.format("%1.2f MPix/s", mpixsec));
          }
 
