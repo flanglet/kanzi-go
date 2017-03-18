@@ -650,7 +650,7 @@ TextCodec::TextCodec(byte dict[], int size, int logHashSize, int dictSize, byte 
         nbWords = TextCodec::createDictionary(SliceArray<byte>(dict, size, 0), _dictList, dictSize * 4 / 5, 0);
     }
     else {
-        const int sz = dictSize < sizeof(STATIC_DICTIONARY) ? dictSize : sizeof(STATIC_DICTIONARY);
+        size_t sz = dictSize < sizeof(STATIC_DICTIONARY) ? dictSize : sizeof(STATIC_DICTIONARY);
         memcpy(&_dictList[0], &STATIC_DICTIONARY[0], sz);
         nbWords = STATIC_DICT_WORDS;
     }
