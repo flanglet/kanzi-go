@@ -476,7 +476,7 @@ T DecodingTask<T>::call() THROW
 
     // Skip, either all data have been processed or an error occured
     if (taskId == CompressedInputStream::CANCEL_TASKS_ID) {
-        return DecodingTaskResult(*_data, _blockId, checksum1, 0, 0, nullptr);
+        return DecodingTaskResult(*_data, _blockId, checksum1, 0, 0, "");
     }
 
     EntropyDecoder* ed = nullptr;
