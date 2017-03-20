@@ -710,7 +710,7 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
     const int dstEnd = output._length;
     const int dstEnd2 = output._length - 2;
     int anchor = isText(src[srcIdx]) ? srcIdx - 1 : srcIdx; // previous delimiter
-    int endWordIdx = ~anchor;
+    int endWordRef = ~anchor;
     int emitAnchor = input._index; // never less than input._index
     int words = _staticDictSize;
     const int dynamicDictSize = DICTIONARY_SIZE - 3;
@@ -732,9 +732,9 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
                 isFirstWordChar = false;
             }
             else {
-                const int hh = int(cur) * HASH2;
-                h1 = h1 * HASH1 ^ hh;
-                h2 = h2 * HASH1 ^ hh;
+                const int h = int(cur) * HASH2;
+                h1 = h1 * HASH1 ^ h;
+                h2 = h2 * HASH1 ^ h;
             }
 
             srcIdx++;
@@ -762,7 +762,7 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
 
             if (pe != nullptr) {
                 // Hash collision (full check) ?
-                if (!sameWords(&pe->_buf[pe->_pos + 1], &src[anchor + 2], length))
+                if (!sameWords(&pe->_buf[pe->_pos + 1], &src[anchor + 2], length-1))
                     pe = nullptr;
             }
 
@@ -793,7 +793,7 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
             else {
                 // Word found in the dictionary
                 // Skip space if only delimiter between 2 word references
-                if ((endWordIdx != anchor) || (src[emitAnchor] != ' '))
+                if ((endWordRef != anchor) || (src[emitAnchor] != ' '))
                     dstIdx += emit(&src[emitAnchor], &dst[dstIdx], anchor + 1 - emitAnchor, dstEnd - dstIdx);
 
                 if (dstIdx >= dstEnd2)
@@ -811,7 +811,7 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
                     dst[dstIdx++] = byte(pe->_idx);
                 }
 
-                endWordIdx = srcIdx;
+                endWordRef = srcIdx;
                 mustEmit = false;
             }
         }
@@ -1119,7 +1119,7 @@ SliceArray<byte> TextCodec::unpackDictionary(const byte dict[], int dictSize)
 
                 // Ignore padding symbols (> 26 and <= 31)
                 if (c <= 26)
-                    buf[d++] = (byte)(c + 'a');
+                    buf[d++] = byte(c + 'a');
             }
 
             val = 0;
