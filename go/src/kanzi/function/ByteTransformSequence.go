@@ -18,6 +18,7 @@ package function
 import (
 	"errors"
 	"kanzi"
+"fmt"
 )
 
 const (
@@ -105,7 +106,9 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 	}
 
 	if saIdx != 1 {
-		copy(dst, src[0:length])
+		in := *sa[0]
+		out := *sa[1]
+		copy(out, in[0:length])
 	}
 
 	if this.skipFlags != TRANSFORM_SKIP_MASK {
@@ -163,7 +166,9 @@ func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) 
 	}
 
 	if saIdx != 1 {
-		copy(dst[0:length], src[0:length])
+		in := *sa[0]
+		out := *sa[1]
+		copy(out, in[0:length])
 	}
 
 	return uint(blockSize), length, res
