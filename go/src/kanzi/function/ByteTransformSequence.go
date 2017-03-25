@@ -18,7 +18,6 @@ package function
 import (
 	"errors"
 	"kanzi"
-"fmt"
 )
 
 const (
