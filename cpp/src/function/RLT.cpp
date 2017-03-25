@@ -29,10 +29,16 @@ RLT::RLT(int runThreshold)
 bool RLT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int length)
 {
     if ((!SliceArray<byte>::isValid(input)) || (!SliceArray<byte>::isValid(output)))
-       return false;
+        return false;
 
     if (output._length - output._index < getMaxEncodedLength(length))
-         return false;
+        return false;
+
+    for (int i = 0; i < 32; i++)
+        _flags[i] = 0;
+
+    for (int i = 0; i < 256; i++)
+        _counters[i] = 0;
 
     byte* src = input._array;
     byte* dst = output._array;
@@ -40,20 +46,59 @@ bool RLT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int length)
     int dstIdx = output._index;
     const int srcEnd = srcIdx + length;
     const int dstEnd = output._length;
-    const int dstEnd3 = length - 3;
+    const int dstEnd4 = length - 4;
     bool res = true;
     int run = 0;
     const int threshold = _runThreshold;
-    const int maxThreshold = MAX_RUN_VALUE + _runThreshold;
+    const int maxRun = MAX_RUN_VALUE + _runThreshold;
 
     // Initialize with a value different from the first data
-    byte prev = (byte)~src[srcIdx];
+    byte prev = byte(~src[srcIdx]);
 
+    // Step 1: create counters and set compression flags
+    while (srcIdx < srcEnd) {
+        const byte val = src[srcIdx++];
+
+        if (prev == val) {
+            run++;
+            continue;
+        }
+
+        if (run > threshold)
+            _counters[prev & 0xFF] += (run - threshold - 1);
+        else if (run != threshold)
+            _counters[prev & 0xFF]--;
+
+        if (prev != val) {
+            prev = val;
+            run = 1;
+        }
+    }
+
+    if (run > threshold)
+        _counters[prev & 0xFF] += (run - threshold - 1);
+
+    for (int i = 0; i < 256; i++) {
+        if (_counters[i] > 0)
+            _flags[i >> 3] |= (1 << (7 - (i & 7)));
+    }
+
+    // Write flags to output
+    for (int i = 0; i < 32; i++)
+        dst[dstIdx++] = _flags[i];
+
+    srcIdx = input._index;
+    prev = byte(~src[srcIdx]);
+    run = 0;
+
+    // Step 2: output run lengths and literals
+    // Note that it is possible to output runs over the threshold (for symbols
+    // with an unset compression flag)
     while ((srcIdx < srcEnd) && (dstIdx < dstEnd)) {
         const byte val = src[srcIdx++];
 
-        // Encode up to 0x7FFF repetitions in the 'length' information
-        if ((prev == val) && (run < maxThreshold)) {
+        // Encode repetitions in the 'length' if the flag of the symbol is set.
+        if ((prev == val) && (run < maxRun) && (_counters[prev & 0xFF] > 0)) {
             if (++run < threshold)
                 dst[dstIdx++] = prev;
 
@@ -61,19 +106,36 @@ bool RLT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int length)
         }
 
         if (run >= threshold) {
-            if (dstIdx >= dstEnd3) {
-                res = false;
-                break;
+            run -= threshold;
+
+            if (dstIdx >= dstEnd4) {
+                if (run >= RUN_LEN_ENCODE2) {
+                    res = false;
+                    break;
+                }
+
+                if ((run >= RUN_LEN_ENCODE1) && (dstIdx > dstEnd4)) {
+                    res = false;
+                    break;
+                }
             }
 
             dst[dstIdx++] = prev;
-            run -= threshold;
 
-            // Force MSB to indicate a 2 byte encoding of the length
-            if (run >= TWO_BYTE_RLE_MASK1)
-                dst[dstIdx++] = (byte)((run >> 8) | TWO_BYTE_RLE_MASK1);
+            // Encode run length
+            if (run >= RUN_LEN_ENCODE1) {
+                if (run < RUN_LEN_ENCODE2) {
+                    run -= RUN_LEN_ENCODE1;
+                    dst[dstIdx++] = byte(RUN_LEN_ENCODE1 + (run >> 8));
+                }
+                else {
+                    run -= RUN_LEN_ENCODE2;
+                    dst[dstIdx++] = byte(0xFF);
+                    dst[dstIdx++] = byte(run >> 8);
+                }
+            }
 
-            dst[dstIdx++] = (byte)run;
+            dst[dstIdx++] = byte(run);
             run = 1;
         }
 
@@ -87,30 +149,42 @@ bool RLT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int length)
 
     // Fill up the output array
     if (run >= threshold) {
-        if (dstIdx >= dstEnd3) {
-            res = false;
+        run -= threshold;
+
+        if (dstIdx >= dstEnd4 + 1) {
+            if (run >= RUN_LEN_ENCODE2)
+                res = false;
+            else if ((run >= RUN_LEN_ENCODE1) && (dstIdx > dstEnd4 + 1))
+                res = false;
         }
         else {
             dst[dstIdx++] = prev;
-            run -= threshold;
 
-            // Force MSB to indicate a 2 byte encoding of the length
-            if (run >= TWO_BYTE_RLE_MASK1)
-                dst[dstIdx++] = (byte)((run >> 8) | TWO_BYTE_RLE_MASK1);
+            // Encode run length
+            if (run >= RUN_LEN_ENCODE1) {
+                if (run < RUN_LEN_ENCODE2) {
+                    run -= RUN_LEN_ENCODE1;
+                    dst[dstIdx++] = byte(RUN_LEN_ENCODE1 + (run >> 8));
+                }
+                else {
+                    run -= RUN_LEN_ENCODE2;
+                    dst[dstIdx++] = byte(0xFF);
+                    dst[dstIdx++] = byte(run >> 8);
+                }
+            }
 
-            dst[dstIdx++] = (byte)run;
+            dst[dstIdx++] = byte(run);
         }
     }
 
-    res &= (srcIdx == length);
     input._index = srcIdx;
     output._index = dstIdx;
-    return res;
+    return res && (srcIdx == srcEnd);
 }
 
 bool RLT::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int length)
 {
-   if ((input._array == nullptr) || (output._array == nullptr) || (input._array == output._array))
+    if ((input._array == nullptr) || (output._array == nullptr) || (input._array == output._array))
         return false;
 
     int srcIdx = input._index;
@@ -121,25 +195,47 @@ bool RLT::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int length)
     const int dstEnd = output._length;
     int run = 0;
     const int threshold = _runThreshold;
+    const int maxRun = MAX_RUN_VALUE + _runThreshold;
     bool res = true;
 
-    // Initialize with a value different from the first data
+    // Read compression flags from input
+    for (int i = 0, j = 0; i < 32; i++, j += 8) {
+        const byte flag = src[srcIdx++];
+        _flags[i] = flag;
+        _counters[j] = (flag >> 7) & 1;
+        _counters[j + 1] = (flag >> 6) & 1;
+        _counters[j + 2] = (flag >> 5) & 1;
+        _counters[j + 3] = (flag >> 4) & 1;
+        _counters[j + 4] = (flag >> 3) & 1;
+        _counters[j + 5] = (flag >> 2) & 1;
+        _counters[j + 6] = (flag >> 1) & 1;
+        _counters[j + 7] = flag & 1;
+    }
+
+    // Initialize with a value different from the first symbol
     byte prev = (byte)~src[srcIdx];
 
     while ((srcIdx < srcEnd) && (dstIdx < dstEnd)) {
         const byte val = src[srcIdx++];
 
-        if (prev == val) {
-            if (++run >= threshold) {
-                // Read the length
+        if ((prev == val) && (_counters[prev & 0xFF] > 0)) {
+            run++;
+
+            if (run >= threshold) {
+                // Decode run length
                 run = src[srcIdx++] & 0xFF;
 
-                // If the length is encoded in 2 bytes, process next byte
-                if ((run & TWO_BYTE_RLE_MASK1) != 0) {
-                    run = ((run & TWO_BYTE_RLE_MASK2) << 8) | (src[srcIdx++] & 0xFF);
+                if (run == 0xFF) {
+                    run = src[srcIdx++] & 0xFF;
+                    run = (run << 8) | (src[srcIdx++] & 0xFF);
+                    run += RUN_LEN_ENCODE2;
+                }
+                else if (run >= RUN_LEN_ENCODE1) {
+                    run = ((run - RUN_LEN_ENCODE1) << 8) | (src[srcIdx++] & 0xFF);
+                    run += RUN_LEN_ENCODE1;
                 }
 
-                if (dstIdx >= dstEnd + run) {
+                if ((dstIdx >= dstEnd + run) || (run > maxRun)) {
                     res = false;
                     break;
                 }

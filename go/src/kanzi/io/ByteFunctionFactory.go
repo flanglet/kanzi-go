@@ -93,7 +93,7 @@ func newByteFunctionToken(size uint, functionType uint16) (kanzi.ByteTransform, 
 		return function.NewZRLT()
 
 	case RLT_TYPE:
-		return function.NewRLT(3)
+		return function.NewRLT(2)
 
 	case RANK_TYPE:
 		return transform.NewSBRT(transform.SBRT_MODE_RANK)

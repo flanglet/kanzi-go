@@ -21,16 +21,18 @@ limitations under the License.
 namespace kanzi 
 {
 
-   // Simple implementation of a Run Length Codec
-   // Length is transmitted as 1 or 2 bytes (minus 1 bit for the mask that indicates
-   // whether a second byte is used). The run threshold can be provided.
-   // For a run threshold of 2:
-   // EG input: 0x10 0x11 0x11 0x17 0x13 0x13 0x13 0x13 0x13 0x13 0x12 (160 times) 0x14
-   //   output: 0x10 0x11 0x11 0x17 0x13 0x13 0x13 0x05 0x12 0x12 0x80 0xA0 0x14
+   // Implementation of Mespotine RLE
+   // See [An overhead-reduced and improved Run-Length-Encoding Method] by Meo Mespotine
+   // Length is transmitted as 1 to 3 bytes. The run threshold can be provided.
+   // EG. runThreshold = 2 and RUN_LEN_ENCODE1 = 239 => RUN_LEN_ENCODE2 = 4096
+   // 2    <= runLen < 239+2      -> 1 byte
+   // 241  <= runLen < 4096+2     -> 2 bytes
+   // 4098 <= runLen < 65536+4098 -> 3 bytes
+
    class RLT : public Function<byte> 
    {
    public:
-       RLT(int runThreshold=3);
+       RLT(int runThreshold=2);
 
        ~RLT() {}
 
@@ -41,14 +43,16 @@ namespace kanzi
        int getRunThreshold() const { return _runThreshold; }
 
        // Required encoding output buffer size unknown => guess
-       int getMaxEncodedLength(int srcLen) const { return srcLen; }
+       int getMaxEncodedLength(int srcLen) const { return srcLen + 32; }
 
    private:
-       static const int TWO_BYTE_RLE_MASK1 = 0x80;
-       static const int TWO_BYTE_RLE_MASK2 = 0x7F;
-       static const int MAX_RUN_VALUE = 0x7FFF;
+       static const int RUN_LEN_ENCODE1 = 239; // used to encode run length
+       static const int RUN_LEN_ENCODE2 = (256-1-RUN_LEN_ENCODE1) << 8; // used to encode run length
+       static const int MAX_RUN_VALUE = 0xFFFF + RUN_LEN_ENCODE2; 
 
        int _runThreshold;
+       int _counters[256];
+       byte _flags[32];
    };
 
 }

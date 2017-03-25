@@ -18,25 +18,29 @@ package kanzi.function;
 import kanzi.ByteFunction;
 import kanzi.SliceByteArray;
 
-// Simple implementation of a Run Length Codec
-// Length is transmitted as 1 or 2 bytes (minus 1 bit for the mask that indicates
-// whether a second byte is used). The run threshold can be provided.
-// For a run threshold of 2:
-// EG input: 0x10 0x11 0x11 0x17 0x13 0x13 0x13 0x13 0x13 0x13 0x12 (160 times) 0x14
-//   output: 0x10 0x11 0x11 0x17 0x13 0x13 0x13 0x05 0x12 0x12 0x80 0xA0 0x14
+
+// Implementation of Mespotine RLE
+// See [An overhead-reduced and improved Run-Length-Encoding Method] by Meo Mespotine
+// Length is transmitted as 1 to 3 bytes. The run threshold can be provided.
+// EG. runThreshold = 2 and RUN_LEN_ENCODE1 = 239 => RUN_LEN_ENCODE2 = 4096
+// 2    <= runLen < 239+2      -> 1 byte
+// 241  <= runLen < 4096+2     -> 2 bytes
+// 4098 <= runLen < 65536+4098 -> 3 bytes
 
 public class RLT implements ByteFunction
 {
-   private static final int TWO_BYTE_RLE_MASK1 = 0x80;
-   private static final int TWO_BYTE_RLE_MASK2 = 0x7F;
-   private static final int MAX_RUN_VALUE = 0x7FFF;
+   private static final int RUN_LEN_ENCODE1 = 239; // used to encode run length
+   private static final int RUN_LEN_ENCODE2 = (256-1-RUN_LEN_ENCODE1) << 8; // used to encode run length
+   private static final int MAX_RUN_VALUE = 0xFFFF + RUN_LEN_ENCODE2; 
 
    private final int runThreshold;
+   private final int[] counters;
+   private final byte[] flags;
 
-
+   
    public RLT()
    {
-      this(3);
+      this(2);
    }
 
 
@@ -46,6 +50,8 @@ public class RLT implements ByteFunction
          throw new IllegalArgumentException("Invalid run threshold parameter (must be at least 2)");
 
       this.runThreshold = runThreshold;
+      this.counters = new int[256];
+      this.flags = new byte[32];
    }
 
 
@@ -69,27 +75,76 @@ public class RLT implements ByteFunction
       if (output.length - output.index < getMaxEncodedLength(count))
          return false;
      
+      for (int i=0; i<32; i++)
+         this.flags[i] = 0;
+      
+      for (int i=0; i<256; i++)
+         this.counters[i] = 0;
+      
       final byte[] src = input.array;
       final byte[] dst = output.array;     
       int srcIdx = input.index;
       int dstIdx = output.index;
       final int srcEnd = srcIdx + count;
       final int dstEnd = dst.length;
-      final int dstEnd3 = dstEnd - 3;
+      final int dstEnd4 = dstEnd - 4;
       boolean res = true;
       int run = 0;
       final int threshold = this.runThreshold;
-      final int maxThreshold = MAX_RUN_VALUE + this.runThreshold;
+      final int maxRun = MAX_RUN_VALUE + this.runThreshold;
       
       // Initialize with a value different from the first data
       byte prev = (byte) ~src[srcIdx];
       
+      // Step 1: create counters and set compression flags
+      while (srcIdx < srcEnd)
+      {
+         final byte val = src[srcIdx++];
+
+         if (prev == val)
+         {
+            run++;
+            continue;
+         }
+
+         if (run > threshold)
+            this.counters[prev&0xFF] += (run-threshold-1);
+         else if (run != threshold)
+            this.counters[prev&0xFF]--;
+
+         if (prev != val)
+         {
+            prev = val;
+            run = 1;
+         }         
+      }
+
+      if (run > threshold)
+         this.counters[prev&0xFF] += (run-threshold-1);
+
+      for (int i=0; i<256; i++)
+      {
+         if (this.counters[i] > 0)
+            this.flags[i>>3] |= (1<<(7-(i&7)));
+      }
+
+      // Write flags to output
+      for (int i=0; i<32; i++)
+         dst[dstIdx++] = this.flags[i];
+      
+      srcIdx = input.index;
+      prev = (byte) ~src[srcIdx];
+      run = 0;
+      
+      // Step 2: output run lengths and literals
+      // Note that it is possible to output runs over the threshold (for symbols
+      // with an unset compression flag)
       while ((srcIdx < srcEnd) && (dstIdx < dstEnd))
       {
          final byte val = src[srcIdx++];
 
-         // Encode up to 0x7FFF repetitions in the 'length' information
-         if ((prev == val) && (run < maxThreshold))
+         // Encode repetitions in the 'length' if the flag of the symbol is set.
+         if ((prev == val) && (run < maxRun) && (this.counters[prev&0xFF] > 0))
          {
             if (++run < threshold)
                dst[dstIdx++] = prev;
@@ -99,19 +154,41 @@ public class RLT implements ByteFunction
 
          if (run >= threshold)
          {
-            if (dstIdx >= dstEnd3)
+            run -= threshold;
+
+            if (dstIdx >= dstEnd4)
             {
-               res = false;
-               break;
+               if (run >= RUN_LEN_ENCODE2)
+               {
+                  res = false;
+                  break;
+               }
+               
+               if ((run >= RUN_LEN_ENCODE1) && (dstIdx > dstEnd4))
+               {
+                  res = false;
+                  break;
+               }
             }
             
             dst[dstIdx++] = prev;
-            run -= threshold;
-
-            // Force MSB to indicate a 2 byte encoding of the length
-            if (run >= TWO_BYTE_RLE_MASK1)
-               dst[dstIdx++] = (byte) ((run >> 8) | TWO_BYTE_RLE_MASK1);
-
+        
+            // Encode run length
+            if (run >= RUN_LEN_ENCODE1)
+            {
+               if (run < RUN_LEN_ENCODE2)
+               {
+                  run -= RUN_LEN_ENCODE1;
+                  dst[dstIdx++] = (byte) (RUN_LEN_ENCODE1 + (run>>8));                  
+               }
+               else
+               {
+                  run -= RUN_LEN_ENCODE2;
+                  dst[dstIdx++] = (byte) 0xFF;               
+                  dst[dstIdx++] = (byte) (run>>8);                              
+               }
+            }
+            
             dst[dstIdx++] = (byte) run;
             run = 1;
          }
@@ -128,19 +205,35 @@ public class RLT implements ByteFunction
       // Fill up the destination array
       if (run >= threshold)
       {
-         if (dstIdx >= dstEnd3)
+         run -= threshold;
+         
+         if (dstIdx >= dstEnd4+1)
          {
-            res = false;
+            if (run >= RUN_LEN_ENCODE2)
+               res = false;              
+            else if ((run >= RUN_LEN_ENCODE1) && (dstIdx > dstEnd4+1))
+               res = false;
          }
          else
          {
             dst[dstIdx++] = prev;
-            run -= threshold;
 
-            // Force MSB to indicate a 2 byte encoding of the length
-            if (run >= TWO_BYTE_RLE_MASK1)
-               dst[dstIdx++] = (byte) ((run >>> 8) | TWO_BYTE_RLE_MASK1);
-
+            // Encode run length
+            if (run >= RUN_LEN_ENCODE1)
+            {
+               if (run < RUN_LEN_ENCODE2)
+               {
+                  run -= RUN_LEN_ENCODE1;
+                  dst[dstIdx++] = (byte) (RUN_LEN_ENCODE1 + (run>>8));
+               }
+               else
+               {
+                  run -= RUN_LEN_ENCODE2;
+                  dst[dstIdx++] = (byte) 0xFF;               
+                  dst[dstIdx++] = (byte) (run>>>8);                             
+               }
+            }
+            
             dst[dstIdx++] = (byte) run;
          }
       }
@@ -169,29 +262,53 @@ public class RLT implements ByteFunction
       final int dstEnd = dst.length;
       int run = 0;
       final int threshold = this.runThreshold;
+      final int maxRun = MAX_RUN_VALUE + this.runThreshold;
       boolean res = true;
 
-      // Initialize with a value different from the first data
+      // Read compression flags from input
+      for (int i=0, j=0; i<32; i++, j+=8)
+      {
+         final byte flag = src[srcIdx++];
+         this.flags[i] = flag;
+         this.counters[j]   = (flag>>7) & 1;
+         this.counters[j+1] = (flag>>6) & 1;
+         this.counters[j+2] = (flag>>5) & 1;
+         this.counters[j+3] = (flag>>4) & 1;
+         this.counters[j+4] = (flag>>3) & 1;
+         this.counters[j+5] = (flag>>2) & 1;
+         this.counters[j+6] = (flag>>1) & 1;
+         this.counters[j+7] =  flag     & 1;
+      }
+      
+      // Initialize with a value different from the first symbol
       byte prev = (byte) ~src[srcIdx];
 
       while ((srcIdx < srcEnd) && (dstIdx < dstEnd))
       { 
          final byte val = src[srcIdx++];
 
-         if (prev == val)
+         if ((prev == val) && (this.counters[prev&0xFF] > 0))
          {
-            if (++run >= threshold)
+            run++;
+            
+            if (run >= threshold)
             {
-               // Read the length
+               // Decode run length
                run = src[srcIdx++] & 0xFF;
 
-               // If the length is encoded in 2 bytes, process next byte
-               if ((run & TWO_BYTE_RLE_MASK1) != 0)
+               if (run == 0xFF)
                {
-                  run = ((run & TWO_BYTE_RLE_MASK2) << 8) | (src[srcIdx++] & 0xFF);
+                  run = src[srcIdx++] & 0xFF;
+                  run = (run<<8) | (src[srcIdx++] & 0xFF);
+                  run += RUN_LEN_ENCODE2;
                }
-
-               if (dstIdx >= dstEnd + run)
+               else if (run >= RUN_LEN_ENCODE1)
+               {
+                  run = ((run-RUN_LEN_ENCODE1)<<8) | (src[srcIdx++] & 0xFF);
+                  run += RUN_LEN_ENCODE1;
+               }
+               
+               if ((dstIdx >= dstEnd + run) || (run > maxRun))
                {
                   res = false;
                   break;
@@ -223,6 +340,6 @@ public class RLT implements ByteFunction
    @Override
    public int getMaxEncodedLength(int srcLen)
    {
-      return srcLen;
+      return srcLen + 32;
    }
 }
