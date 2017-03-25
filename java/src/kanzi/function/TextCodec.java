@@ -54,6 +54,7 @@ public final class TextCodec implements ByteFunction
             switch (i)
             {
                case '\n' :
+               case '\t' :
                case '\r' :
                case '_'  :
                case '|'  :

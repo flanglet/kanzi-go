@@ -555,6 +555,7 @@ bool* TextCodec::initDelimiterChars()
             switch (i) {
             case '\n':
             case '\r':
+            case '\t':
             case '_':
             case '|':
             case '{':

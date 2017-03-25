@@ -666,6 +666,8 @@ func initDelimiterChars() []bool {
 				fallthrough
 			case '\r':
 				fallthrough
+			case '\t':
+				fallthrough
 			case '_':
 				fallthrough
 			case '|':
