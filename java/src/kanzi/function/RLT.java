@@ -29,9 +29,9 @@ import kanzi.SliceByteArray;
 
 public class RLT implements ByteFunction
 {
-   private static final int RUN_LEN_ENCODE1 = 239; // used to encode run length
+   private static final int RUN_LEN_ENCODE1 = 224; // used to encode run length
    private static final int RUN_LEN_ENCODE2 = (256-1-RUN_LEN_ENCODE1) << 8; // used to encode run length
-   private static final int MAX_RUN_VALUE = 0xFFFF + RUN_LEN_ENCODE2; 
+   private static final int MAX_RUN = 0xFFFF + RUN_LEN_ENCODE2; 
 
    private final int runThreshold;
    private final int[] counters;
@@ -91,7 +91,7 @@ public class RLT implements ByteFunction
       boolean res = true;
       int run = 0;
       final int threshold = this.runThreshold;
-      final int maxRun = MAX_RUN_VALUE + this.runThreshold;
+      final int maxRun = MAX_RUN + this.runThreshold;
       
       // Initialize with a value different from the first data
       byte prev = (byte) ~src[srcIdx];
@@ -101,16 +101,14 @@ public class RLT implements ByteFunction
       {
          final byte val = src[srcIdx++];
 
-         if (prev == val)
+         if ((prev == val) && (run < MAX_RUN))
          {
             run++;
             continue;
          }
 
-         if (run > threshold)
+         if (run >= threshold)
             this.counters[prev&0xFF] += (run-threshold-1);
-         else if (run != threshold)
-            this.counters[prev&0xFF]--;
 
          if (prev != val)
          {
@@ -119,7 +117,7 @@ public class RLT implements ByteFunction
          }         
       }
 
-      if (run > threshold)
+      if (run >= threshold)
          this.counters[prev&0xFF] += (run-threshold-1);
 
       for (int i=0; i<256; i++)
@@ -262,7 +260,7 @@ public class RLT implements ByteFunction
       final int dstEnd = dst.length;
       int run = 0;
       final int threshold = this.runThreshold;
-      final int maxRun = MAX_RUN_VALUE + this.runThreshold;
+      final int maxRun = MAX_RUN + this.runThreshold;
       boolean res = true;
 
       // Read compression flags from input

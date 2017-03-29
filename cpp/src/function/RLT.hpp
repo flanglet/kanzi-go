@@ -46,9 +46,9 @@ namespace kanzi
        int getMaxEncodedLength(int srcLen) const { return srcLen + 32; }
 
    private:
-       static const int RUN_LEN_ENCODE1 = 239; // used to encode run length
+       static const int RUN_LEN_ENCODE1 = 224; // used to encode run length
        static const int RUN_LEN_ENCODE2 = (256-1-RUN_LEN_ENCODE1) << 8; // used to encode run length
-       static const int MAX_RUN_VALUE = 0xFFFF + RUN_LEN_ENCODE2; 
+       static const int MAX_RUN = 0xFFFF + RUN_LEN_ENCODE2; 
 
        int _runThreshold;
        int _counters[256];

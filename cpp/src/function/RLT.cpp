@@ -50,7 +50,7 @@ bool RLT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int length)
     bool res = true;
     int run = 0;
     const int threshold = _runThreshold;
-    const int maxRun = MAX_RUN_VALUE + _runThreshold;
+    const int maxRun = MAX_RUN + _runThreshold;
 
     // Initialize with a value different from the first data
     byte prev = byte(~src[srcIdx]);
@@ -59,15 +59,13 @@ bool RLT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int length)
     while (srcIdx < srcEnd) {
         const byte val = src[srcIdx++];
 
-        if (prev == val) {
+        if ((prev == val) && (run < MAX_RUN)){
             run++;
             continue;
         }
 
-        if (run > threshold)
+        if (run >= threshold)
             _counters[prev & 0xFF] += (run - threshold - 1);
-        else if (run != threshold)
-            _counters[prev & 0xFF]--;
 
         if (prev != val) {
             prev = val;
@@ -75,7 +73,7 @@ bool RLT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int length)
         }
     }
 
-    if (run > threshold)
+    if (run >= threshold)
         _counters[prev & 0xFF] += (run - threshold - 1);
 
     for (int i = 0; i < 256; i++) {
@@ -195,7 +193,7 @@ bool RLT::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int length)
     const int dstEnd = output._length;
     int run = 0;
     const int threshold = _runThreshold;
-    const int maxRun = MAX_RUN_VALUE + _runThreshold;
+    const int maxRun = MAX_RUN + _runThreshold;
     bool res = true;
 
     // Read compression flags from input

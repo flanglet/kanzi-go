@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	RLT_RUN_LEN_ENCODE1 = 239                                  // used to encode run length
+	RLT_RUN_LEN_ENCODE1 = 224                                  // used to encode run length
 	RLT_RUN_LEN_ENCODE2 = (256 - 1 - RLT_RUN_LEN_ENCODE1) << 8 // used to encode run length
 	RLT_MAX_RUN         = 0xFFFF + RLT_RUN_LEN_ENCODE2
 )
@@ -101,15 +101,13 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 		srcIdx++
 
 		// Encode up to 0x7FFF repetitions in the 'length' information
-		if prev == val {
+		if prev == val && run < RLT_MAX_RUN {
 			run++
 			continue
 		}
 
-		if run > threshold {
+		if run >= threshold {
 			this.counters[prev] += (run - threshold - 1)
-		} else if run != threshold {
-			this.counters[prev]--
 		}
 
 		if prev != val {
@@ -118,7 +116,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
-	if run > threshold {
+	if run >= threshold {
 		this.counters[prev] += (run - threshold - 1)
 	}
 
