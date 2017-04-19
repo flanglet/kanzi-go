@@ -599,7 +599,7 @@ func NewTextCodecWithArgs(dict []byte, logHashSize int, dictSize int, delimiter1
 	}
 
 	if delimiter1 == delimiter2 {
-		return nil, errors.New("The 2 TC_DELIMITERS must be different symbols")
+		return nil, errors.New("The 2 delimiters must be different symbols")
 	}
 
 	if logHashSize < 10 || logHashSize > 28 {

@@ -288,9 +288,9 @@ func decodeSize(ibs kanzi.InputBitStream, log uint) uint64 {
 
 func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 	// Read encoding mode from bitstream
-	aphabetType := ibs.ReadBit()
+	alphabetType := ibs.ReadBit()
 
-	if aphabetType == FULL_ALPHABET {
+	if alphabetType == FULL_ALPHABET {
 		var alphabetSize int
 
 		if ibs.ReadBit() == ALPHABET_256 {
@@ -298,6 +298,10 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 		} else {
 			log := uint(1 + ibs.ReadBits(5))
 			alphabetSize = int(ibs.ReadBits(log))
+		}
+
+		if alphabetSize >= len(alphabet) {
+			return alphabetSize, fmt.Errorf("Invalid bitstream: incorrect alphabet size: %v", alphabetSize)
 		}
 
 		// Full alphabet
@@ -326,6 +330,7 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 
 		return count, nil
 	}
+
 	// DELTA_ENCODED_ALPHABET
 	log := uint(1 + ibs.ReadBits(4))
 	count = int(ibs.ReadBits(log))

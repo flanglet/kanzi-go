@@ -92,7 +92,7 @@ void CompressedInputStream::readHeader() THROW
     }
 
     // Read stream version
-    int version = (int)_ibs->readBits(7);
+    int version = int(_ibs->readBits(7));
 
     // Sanity check
     if (version != BITSTREAM_FORMAT_VERSION) {

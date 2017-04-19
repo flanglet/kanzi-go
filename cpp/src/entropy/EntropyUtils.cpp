@@ -94,7 +94,7 @@ int EntropyUtils::encodeAlphabet(OutputBitStream& obs, uint alphabet[], int leng
 		uint64 masks[4] = { 0, 0, 0, 0 };
 
 		for (int i = 0; i < count; i++)
-			masks[alphabet[i] >> 6] |= (((uint64)1) << (alphabet[i] & 63));
+			masks[alphabet[i] >> 6] |= ((uint64(1)) << (alphabet[i] & 63));
 
         for (int i = 0; i < 4; i++)
             obs.writeBits(masks[i], 64);
@@ -212,19 +212,25 @@ uint64 EntropyUtils::decodeSize(InputBitStream& ibs, int log)
 int EntropyUtils::decodeAlphabet(InputBitStream& ibs, uint alphabet[]) THROW
 {
     // Read encoding mode from bitstream
-    const int aphabetType = ibs.readBit();
+    const int alphabetType = ibs.readBit();
 
-    if (aphabetType == FULL_ALPHABET) {
+    if (alphabetType == FULL_ALPHABET) {
         int alphabetSize;
 
         if (ibs.readBit() == ALPHABET_256)
             alphabetSize = 256;
         else {
-            int log = 1 + (int)ibs.readBits(5);
-            alphabetSize = (int)ibs.readBits(log);
+            int log = 1 + int(ibs.readBits(5));
+            alphabetSize = int(ibs.readBits(log));
         }
 
-        // Fuint64 alphabet
+        if (alphabetSize >= 256) {
+            stringstream ss;
+            ss << "Invalid bitstream: incorrect alphabet size: " << alphabetSize;
+            throw BitStreamException(ss.str(), BitStreamException::INVALID_STREAM);
+        }
+
+        // Full alphabet
         for (int i = 0; i < alphabetSize; i++)
             alphabet[i] = i;
 
@@ -240,7 +246,7 @@ int EntropyUtils::decodeAlphabet(InputBitStream& ibs, uint alphabet[]) THROW
             const uint64 val = ibs.readBits(64);
 
             for (int j = 0; j < 64; j++) {
-                if ((val & (((uint64)1) << j)) != 0) {
+                if ((val & ((uint64(1)) << j)) != 0) {
                     alphabet[count] = i + j;
                     count++;
                 }

@@ -110,7 +110,7 @@ public class CMPredictor implements Predictor
       final int[] pc1 = this.counter1[this.ctx];
       final int p = (7*(pc1[256]+pc1[this.c1]) + (pc1[this.c2]<<1)) >> 4;
       this.idx = p >>> 12;
-      final int[] pc2 = this.counter2[(this.ctx<<1)|this.runMask];            
+      final int[] pc2 = this.counter2[(this.ctx<<1)|this.runMask];
       final int x1 = pc2[this.idx];
       final int x2 = pc2[this.idx+1];
       final int ssep = x1 + (((x2-x1)*(p&4095)) >> 12);

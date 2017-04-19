@@ -213,9 +213,9 @@ public class EntropyUtils
    public static int decodeAlphabet(InputBitStream ibs, int[] alphabet) throws BitStreamException
    {
       // Read encoding mode from bitstream
-      final int aphabetType = ibs.readBit();
+      final int alphabetType = ibs.readBit();
 
-      if (aphabetType == FULL_ALPHABET)
+      if (alphabetType == FULL_ALPHABET)
       {
          int alphabetSize;
          
@@ -226,6 +226,10 @@ public class EntropyUtils
             int log = 1 + (int) ibs.readBits(5);
             alphabetSize = (int) ibs.readBits(log);
          }
+
+         if (alphabetSize >= alphabet.length)
+            throw new BitStreamException("Invalid bitstream: incorrect alphabet size: " + alphabetSize,
+               BitStreamException.INVALID_STREAM);
 
          // Full alphabet
          for (int i=0; i<alphabetSize; i++)
