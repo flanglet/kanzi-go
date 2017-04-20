@@ -95,7 +95,13 @@ public class LyndonWords
    public int[] getPositions(String s, Charset cs)
    {      
       byte[] buf = (cs == null) ? s.getBytes() : s.getBytes(cs);
-      this.chenFoxLyndonBreakpoints(buf, s.length());
+      return this.getPositions(buf, buf.length);   // relies on default encoding
+   }
+   
+   
+   public int[] getPositions(byte[] buf, int length)
+   {          
+      this.chenFoxLyndonBreakpoints(buf, length);
       int[] res = new int[this.breakpoints.size()];     
       int n = 0;
       
