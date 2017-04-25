@@ -224,7 +224,7 @@ int EntropyUtils::decodeAlphabet(InputBitStream& ibs, uint alphabet[]) THROW
             alphabetSize = int(ibs.readBits(log));
         }
 
-        if (alphabetSize >= 256) {
+        if (alphabetSize > 256) {
             stringstream ss;
             ss << "Invalid bitstream: incorrect alphabet size: " << alphabetSize;
             throw BitStreamException(ss.str(), BitStreamException::INVALID_STREAM);

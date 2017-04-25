@@ -300,7 +300,7 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 			alphabetSize = int(ibs.ReadBits(log))
 		}
 
-		if alphabetSize >= len(alphabet) {
+		if alphabetSize > len(alphabet) {
 			return alphabetSize, fmt.Errorf("Invalid bitstream: incorrect alphabet size: %v", alphabetSize)
 		}
 

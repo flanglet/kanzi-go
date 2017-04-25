@@ -227,7 +227,7 @@ public class EntropyUtils
             alphabetSize = (int) ibs.readBits(log);
          }
 
-         if (alphabetSize >= alphabet.length)
+         if (alphabetSize > alphabet.length)
             throw new BitStreamException("Invalid bitstream: incorrect alphabet size: " + alphabetSize,
                BitStreamException.INVALID_STREAM);
 
