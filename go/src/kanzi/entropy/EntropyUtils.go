@@ -397,8 +397,8 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 // Returns the size of the alphabet
 // The alphabet and freqs parameters are updated
 func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (int, error) {
-	if len(alphabet) > 1<<16 {
-		return 0, fmt.Errorf("Invalid alphabet size parameter: %v (must be less than 65536)", len(alphabet))
+	if len(alphabet) > 1<<8 {
+		return 0, fmt.Errorf("Invalid alphabet size parameter: %v (must be less than or equal to 256)", len(alphabet))
 	}
 
 	if scale < 1<<8 || scale > 1<<16 {
@@ -413,7 +413,7 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, tota
 
 	// shortcut
 	if totalFreq == scale {
-		for i := range freqs {
+		for i := 0; i < 256; i++ {
 			if freqs[i] != 0 {
 				alphabet[alphabetSize] = int(i)
 				alphabetSize++

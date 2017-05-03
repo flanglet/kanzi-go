@@ -327,9 +327,9 @@ public class EntropyUtils
    // The alphabet and freqs parameters are updated
    public int normalizeFrequencies(int[] freqs, int[] alphabet, int totalFreq, int scale)
    {
-      if (alphabet.length > 1<<16)
+      if (alphabet.length > 1<<8)
          throw new IllegalArgumentException("Invalid alphabet size parameter: "+ alphabet.length +
-                 " (must be less than 65536)");
+                 " (must be less than or equal to 256)");
       
       if ((scale < 1<<8) || (scale > 1<<16))
          throw new IllegalArgumentException("Invalid scale parameter: "+ scale +
@@ -343,7 +343,7 @@ public class EntropyUtils
       // shortcut
       if (totalFreq == scale)
       {
-         for (int i=0; i<freqs.length; i++)
+         for (int i=0; i<256; i++)
          {
             if (freqs[i] != 0)
                alphabet[alphabetSize++] = i;

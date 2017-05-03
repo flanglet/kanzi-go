@@ -31,7 +31,7 @@ public class DWT_DCT implements IntTransform
    
    public DWT_DCT(int dim) 
    {               
-      IntTransform transform;;
+      IntTransform transform;
       
       switch (dim)
       {

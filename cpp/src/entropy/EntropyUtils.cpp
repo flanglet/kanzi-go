@@ -316,9 +316,9 @@ int EntropyUtils::decodeAlphabet(InputBitStream& ibs, uint alphabet[]) THROW
 // The alphabet and freqs parameters are updated
 int EntropyUtils::normalizeFrequencies(uint freqs[], uint alphabet[], int length, uint totalFreq, uint scale) THROW
 {
-    if (length > 65536) {
+    if (length > 256) {
         stringstream ss;
-        ss << "Invalid alphabet size parameter: " << scale << " (must be less than 65536)";
+        ss << "Invalid alphabet size parameter: " << scale << " (must be less than or eqaul to 256)";
         throw IllegalArgumentException(ss.str());
     }
 

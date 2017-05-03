@@ -361,10 +361,6 @@ public final class SnappyCodec implements ByteFunction
         final long v = getUvarint(input);
         return (v > 0x7FFFFFFF) ? -1 : (int) v;
      }
-     catch (NumberFormatException e)
-     {
-        return -1;
-     }
      catch (IllegalArgumentException e)
      {
         return -1;

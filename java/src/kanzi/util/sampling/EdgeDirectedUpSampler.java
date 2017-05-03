@@ -184,7 +184,7 @@ public class EdgeDirectedUpSampler implements UpSampler
                }
                else
                {
-                  int dy  = -src[srcOffs-st+i] - 2*src[srcOffs+i] - src[srcOffs+st+i] + src[srcOffs-st+i+1] + 2*src[srcOffs+i+1] + src[srcOffs+st+i+1];
+                  int dy = -src[srcOffs-st+i] - 2*src[srcOffs+i] - src[srcOffs+st+i] + src[srcOffs-st+i+1] + 2*src[srcOffs+i+1] + src[srcOffs+st+i+1];
 
                   if (dy < 0)
                   {

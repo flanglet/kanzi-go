@@ -262,7 +262,7 @@ public class TestSort
                 sum9 += (after - before);
                 
                 if (ii == 0)
-                   check("Merge Sort", array);                                   
+                   check("Merge Sort", array);   
             }
        }
         

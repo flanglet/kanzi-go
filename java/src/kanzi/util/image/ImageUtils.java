@@ -120,39 +120,33 @@ public class ImageUtils
          }
          
          default :
-           try
-           {
-              // Use reflection to check class dependencies at runtime and avoid
-              // the requirement of having the JAI jar at build time (optional jar).
-              Class cl1 = Class.forName("com.sun.media.jai.codec.SeekableStream");
-              Method m = cl1.getDeclaredMethod("wrapInputStream", new Class[] { InputStream.class, Boolean.TYPE });
-              Object ss = m.invoke(null, new Object[] { is, true });
-              Class cl2 = Class.forName("javax.media.jai.JAI");  
-              m = cl2.getDeclaredMethod("create", new Class[] { String.class, Object.class });
-              Object ro = m.invoke(null, new Object[] { "stream" , ss});
-              Class cl3 = Class.forName("javax.media.jai.RenderedOp");
-              m = cl3.getDeclaredMethod("getWidth", new Class[0]);
-              Integer w = (Integer) m.invoke(ro, new Object[0]);
-              m = cl3.getDeclaredMethod("getHeight", new Class[0]);
-              Integer h = (Integer) m.invoke(ro, new Object[0]);
-              m = cl3.getSuperclass().getDeclaredMethod("getAsBufferedImage", new Class[0]);
-              Image image = (Image) m.invoke(ro, new Object[0]);
-              int[] data = createCompatibleImage(image, w, h);
-              return new ImageInfo(w, h, data);
-           }
-           catch (ClassNotFoundException e)
-           {
-              // JAI classes not available
-              e.printStackTrace();
-              return null;
-           }
-          catch (IllegalAccessException | NoSuchMethodException | SecurityException | 
-             IllegalArgumentException | InvocationTargetException e)
-          {
-              // Method invocation failed
-              e.printStackTrace();
-              return null;
-          }
+            try
+            {
+               // Use reflection to check class dependencies at runtime and avoid
+               // the requirement of having the JAI jar at build time (optional jar).
+               Class cl1 = Class.forName("com.sun.media.jai.codec.SeekableStream");
+               Method m = cl1.getDeclaredMethod("wrapInputStream", new Class[] { InputStream.class, Boolean.TYPE });
+               Object ss = m.invoke(null, new Object[] { is, true });
+               Class cl2 = Class.forName("javax.media.jai.JAI");
+               m = cl2.getDeclaredMethod("create", new Class[] { String.class, Object.class });
+               Object ro = m.invoke(null, new Object[] { "stream" , ss});
+               Class cl3 = Class.forName("javax.media.jai.RenderedOp");
+               m = cl3.getDeclaredMethod("getWidth", new Class[0]);
+               Integer w = (Integer) m.invoke(ro, new Object[0]);
+               m = cl3.getDeclaredMethod("getHeight", new Class[0]);
+               Integer h = (Integer) m.invoke(ro, new Object[0]);
+               m = cl3.getSuperclass().getDeclaredMethod("getAsBufferedImage", new Class[0]);
+               Image image = (Image) m.invoke(ro, new Object[0]);
+               int[] data = createCompatibleImage(image, w, h);
+               return new ImageInfo(w, h, data);
+            }
+            catch (ClassNotFoundException | IllegalAccessException | NoSuchMethodException | SecurityException |
+              IllegalArgumentException | InvocationTargetException e)
+            {
+               // JAI classes not available or method invocation failed
+               e.printStackTrace();
+               return null;
+            }
       }
    }
    
