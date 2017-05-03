@@ -69,6 +69,12 @@ public class TestAbstractSort
   
     public static void testSpeed(String sortName, IntSorter sorter, int iters)
     {
+       testSpeed(sortName, sorter, iters, -1);
+    }
+    
+    
+    public static void testSpeed(String sortName, IntSorter sorter, int iters, int mask)
+    {
         System.out.println("\n\nSpeed test");
         System.out.println(iters+" iterations");
         int[] array = new int[10000];
@@ -86,7 +92,7 @@ public class TestAbstractSort
         {
             long sum = 0;
             long sum2 = 0;
-            final int val = vals[k];
+            final int val = vals[k] & mask;
 
             for (int ii=0; ii<iters; ii++)
             {
