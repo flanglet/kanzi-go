@@ -113,10 +113,10 @@ public class TestFunctions
          }
          else if (ii == 1)
          {
-            arr = new int[500];
+            arr = new int[66000];
             arr[0] = 1;
 
-            for (int i=1; i<500; i++)
+            for (int i=1; i<arr.length; i++)
                arr[i] = 8;
          }
          else if (ii == 2)
@@ -347,7 +347,7 @@ public class TestFunctions
 
          if (idx >= 0)
             System.out.println("Failure at index "+idx+" ("+sa1.array[idx]+"<->"+sa3.array[idx]+")");
-
+            
          final long prod = (long) iter * (long) size;
          System.out.println(name + " encoding [ms]: " + delta1 / 1000000);
          System.out.println("Throughput [MB/s]: " + prod * 1000000L / delta1 * 1000L / (1024*1024));

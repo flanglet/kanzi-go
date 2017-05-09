@@ -89,7 +89,7 @@ func TestCorrectness(name string) {
 			arr = []int{0, 1, 2, 2, 2, 2, 7, 9, 9, 16, 16, 16, 1, 3,
 				3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3}
 		} else if ii == 1 {
-			arr = make([]int, 500)
+			arr = make([]int, 66000)
 
 			for i := range arr {
 				arr[i] = 8

@@ -58,7 +58,7 @@ int testFunctionsCorrectness(string name)
         cout << endl
              << "Test " << ii << endl;
         int size = 32;
-        byte values[2048];
+        byte values[66000];
 
         if (ii == 0) {
             byte arr[] = {
@@ -68,11 +68,11 @@ int testFunctionsCorrectness(string name)
             memcpy(values, &arr[0], size);
         }
         else if (ii == 1) {
-            size = 500;
-            byte arr[500];
+            size = 66000;
+            byte arr[66000];
             arr[0] = 1;
 
-            for (int i = 1; i < 500; i++)
+            for (int i = 1; i < 66000; i++)
                 arr[i] = 8;
 
             memcpy(values, &arr[0], size);

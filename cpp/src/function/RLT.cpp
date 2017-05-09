@@ -46,7 +46,7 @@ bool RLT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int length)
     int dstIdx = output._index;
     const int srcEnd = srcIdx + length;
     const int dstEnd = output._length;
-    const int dstEnd4 = length - 4;
+    const int dstEnd4 = dstEnd - 4;
     bool res = true;
     int run = 0;
     const int threshold = _runThreshold;
@@ -59,7 +59,7 @@ bool RLT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int length)
     while (srcIdx < srcEnd) {
         const byte val = src[srcIdx++];
 
-        if ((prev == val) && (run < MAX_RUN)){
+        if ((prev == val) && (run < MAX_RUN)) {
             run++;
             continue;
         }
@@ -128,8 +128,9 @@ bool RLT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int length)
                 }
                 else {
                     run -= RUN_LEN_ENCODE2;
-                    dst[dstIdx++] = byte(0xFF);
-                    dst[dstIdx++] = byte(run >> 8);
+                    dst[dstIdx] = byte(0xFF);
+                    dst[dstIdx + 1] = byte(run >> 8);
+                    dstIdx += 2;
                 }
             }
 
@@ -149,10 +150,10 @@ bool RLT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int length)
     if (run >= threshold) {
         run -= threshold;
 
-        if (dstIdx >= dstEnd4 + 1) {
+        if (dstIdx >= dstEnd4) {
             if (run >= RUN_LEN_ENCODE2)
                 res = false;
-            else if ((run >= RUN_LEN_ENCODE1) && (dstIdx > dstEnd4 + 1))
+            else if ((run >= RUN_LEN_ENCODE1) && (dstIdx > dstEnd4))
                 res = false;
         }
         else {
@@ -166,8 +167,9 @@ bool RLT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int length)
                 }
                 else {
                     run -= RUN_LEN_ENCODE2;
-                    dst[dstIdx++] = byte(0xFF);
-                    dst[dstIdx++] = byte(run >> 8);
+                    dst[dstIdx] = byte(0xFF);
+                    dst[dstIdx + 1] = byte(run >> 8);
+                    dstIdx += 2;
                 }
             }
 
@@ -224,8 +226,8 @@ bool RLT::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int length)
                 run = src[srcIdx++] & 0xFF;
 
                 if (run == 0xFF) {
-                    run = src[srcIdx++] & 0xFF;
-                    run = (run << 8) | (src[srcIdx++] & 0xFF);
+                    run = ((src[srcIdx] & 0xFF) << 8) | (src[srcIdx + 1] & 0xFF);
+                    srcIdx += 2;
                     run += RUN_LEN_ENCODE2;
                 }
                 else if (run >= RUN_LEN_ENCODE1) {

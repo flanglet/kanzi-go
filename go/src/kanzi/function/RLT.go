@@ -144,7 +144,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 		srcIdx++
 
 		// Encode up to 0x7FFF repetitions in the 'length' information
-		if prev == val && run < maxRun && this.counters[prev&0xFF] > 0 {
+		if prev == val && run < maxRun && this.counters[prev] > 0 {
 			run++
 
 			if run < threshold {
@@ -182,9 +182,8 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 				} else {
 					run -= RLT_RUN_LEN_ENCODE2
 					dst[dstIdx] = byte(0xFF)
-					dstIdx++
-					dst[dstIdx] = byte(run >> 8)
-					dstIdx++
+					dst[dstIdx+1] = byte(run >> 8)
+					dstIdx += 2
 				}
 			}
 
@@ -206,10 +205,10 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 	if run >= threshold {
 		run -= threshold
 
-		if dstIdx >= dstEnd4+1 {
+		if dstIdx >= dstEnd4 {
 			if run >= RLT_RUN_LEN_ENCODE2 {
 				err = errors.New("Not enough space in destination buffer")
-			} else if run >= RLT_RUN_LEN_ENCODE1 && dstIdx > dstEnd4+1 {
+			} else if run >= RLT_RUN_LEN_ENCODE1 && dstIdx > dstEnd4 {
 				err = errors.New("Not enough space in destination buffer")
 			}
 		} else {
@@ -225,9 +224,8 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 				} else {
 					run -= RLT_RUN_LEN_ENCODE2
 					dst[dstIdx] = byte(0xFF)
-					dstIdx++
-					dst[dstIdx] = byte(run >> 8)
-					dstIdx++
+					dst[dstIdx+1] = byte(run >> 8)
+					dstIdx += 2
 				}
 			}
 
@@ -288,7 +286,7 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 		val := src[srcIdx]
 		srcIdx++
 
-		if prev == val && this.counters[prev&0xFF] > 0 {
+		if prev == val && this.counters[prev] > 0 {
 			run++
 
 			if run >= threshold {
@@ -297,10 +295,8 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 				srcIdx++
 
 				if run == 0xFF {
-					run = uint(src[srcIdx])
-					srcIdx++
-					run = (run << 8) | uint(src[srcIdx])
-					srcIdx++
+					run = (uint(src[srcIdx]) << 8) | uint(src[srcIdx+1])
+					srcIdx += 2
 					run += RLT_RUN_LEN_ENCODE2
 				} else if run >= RLT_RUN_LEN_ENCODE1 {
 					run = ((run - RLT_RUN_LEN_ENCODE1) << 8) | uint(src[srcIdx])

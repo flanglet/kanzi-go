@@ -205,11 +205,11 @@ public class RLT implements ByteFunction
       {
          run -= threshold;
          
-         if (dstIdx >= dstEnd4+1)
+         if (dstIdx >= dstEnd4)
          {
             if (run >= RUN_LEN_ENCODE2)
                res = false;              
-            else if ((run >= RUN_LEN_ENCODE1) && (dstIdx > dstEnd4+1))
+            else if ((run >= RUN_LEN_ENCODE1) && (dstIdx > dstEnd4))
                res = false;
          }
          else
