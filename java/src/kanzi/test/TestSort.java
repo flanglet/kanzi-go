@@ -25,6 +25,7 @@ import kanzi.util.sort.HeapSort;
 import kanzi.util.sort.MergeSort;
 import kanzi.util.sort.QuickSort;
 import kanzi.util.sort.RadixSort;
+import kanzi.util.sort.SpreadSort;
 
 
 public class TestSort
@@ -41,7 +42,7 @@ public class TestSort
        HeapSort heapSort = new HeapSort();
 //       InsertionSort insertionSort = new InsertionSort();
        RadixSort radix4Sort = new RadixSort(4, 8); //radix 4
-       RadixSort radix8Sort = new RadixSort(8,  8); //radix 8
+       RadixSort radix8Sort = new RadixSort(8, 8); //radix 8
        QuickSort quickSort = new QuickSort();
        FlashSort flashSort = new FlashSort();
        MergeSort mergeSort = new MergeSort();
@@ -50,7 +51,7 @@ public class TestSort
 
        long sum0  = 0;
        long sum1  = 0;
-//       long sum2  = 0;
+       long sum2  = 0;
        long sum3  = 0;
        long sum4  = 0;
        long sum5  = 0;
@@ -171,6 +172,7 @@ public class TestSort
         System.out.println("ParallelSort    Elapsed [ms]: " + (sum8  / 1000000));
         System.out.println("");
 
+        sum2 = 0;
         sum3 = 0;
         sum5 = 0;
         sum6 = 0;
@@ -179,6 +181,7 @@ public class TestSort
         sum9 = 0;
 
         RadixSort radixSort = new RadixSort(8); // radix 8
+        SpreadSort spreadSort = new SpreadSort();
 
         for (int k=0; k<max; k++)
         {
@@ -206,6 +209,9 @@ public class TestSort
              System.arraycopy(copy, 0, array, 0, array.length);
              fjSort.sort(array, 0, array.length);
              check("Parallel Sort", array);
+             System.arraycopy(copy, 0, array, 0, array.length);
+             spreadSort.sort(array, 0, array.length);
+             check("Spread Sort", array);
 
 
             for (int ii=0; ii<iter; ii++)
@@ -262,7 +268,16 @@ public class TestSort
                 sum9 += (after - before);
                 
                 if (ii == 0)
-                   check("Merge Sort", array);   
+                   check("Merge Sort", array);  
+                
+                System.arraycopy(copy, 0, array, 0, array.length);
+                before = System.nanoTime();
+                spreadSort.sort(array, 0, array.length);
+                after = System.nanoTime();
+                sum2 += (after - before);
+                
+                if (ii == 0)
+                   check("Spread Sort", array);   
             }
        }
         
@@ -276,6 +291,7 @@ public class TestSort
        System.out.println("Arrays.sort     Elapsed [ms]: " + (sum6  / 1000000));
        System.out.println("FlashSort       Elapsed [ms]: " + (sum7  / 1000000));
        System.out.println("MergeSort       Elapsed [ms]: " + (sum9  / 1000000));
+       System.out.println("SpreadSort      Elapsed [ms]: " + (sum2  / 1000000));
        System.out.println("ParallelSort    Elapsed [ms]: " + (sum8  / 1000000));
    }
 
