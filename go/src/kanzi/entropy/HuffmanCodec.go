@@ -629,19 +629,26 @@ func (this *HuffmanDecoder) Decode(block []byte) (int, error) {
 		}
 
 		// Compute minimum number of bits requires in bitstream for fast decoding
-		endPaddingSize := int(64 / this.minCodeLen)
+		endPaddingSize := 64 / int(this.minCodeLen)
 
 		if int(this.minCodeLen)*endPaddingSize != 64 {
 			endPaddingSize++
 		}
 
-		endChunk1 := endChunk - endPaddingSize
+		endChunk1 := (endChunk - endPaddingSize) & -8
 		i := startChunk
 
 		for i < endChunk1 {
 			// Fast decoding (read DECODING_BATCH_SIZE bits at a time)
 			block[i] = this.fastDecodeByte()
-			i++
+			block[i+1] = this.fastDecodeByte()
+			block[i+2] = this.fastDecodeByte()
+			block[i+3] = this.fastDecodeByte()
+			block[i+4] = this.fastDecodeByte()
+			block[i+5] = this.fastDecodeByte()
+			block[i+6] = this.fastDecodeByte()
+			block[i+7] = this.fastDecodeByte()
+			i+=8
 		}
 
 		for i < endChunk {

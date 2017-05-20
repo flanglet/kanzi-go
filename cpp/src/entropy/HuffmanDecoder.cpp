@@ -90,7 +90,7 @@ int HuffmanDecoder::readLengths() THROW
         if (_minCodeLen > currSize)
             _minCodeLen = currSize;
 
-        _sizes[r] = (short)currSize;
+        _sizes[r] = short(currSize);
         prevSize = currSize;
     }
 
@@ -180,12 +180,21 @@ int HuffmanDecoder::decode(byte block[], uint blkptr, uint len)
             endPaddingSize++;
 
         const int endChunk = (startChunk + sz < end) ? startChunk + sz : end;
-        const int endChunk1 = endChunk - endPaddingSize;
+        const int endChunk1 = (endChunk - endPaddingSize) & -8;
         int i = startChunk;
 
         // Fast decoding (read DECODING_BATCH_SIZE bits at a time)
-        for (; i < endChunk1; i++)
-            block[i] = fastDecodeByte();
+        for (; i < endChunk1; i+=8)
+        {
+            block[i]   = fastDecodeByte();
+            block[i+1] = fastDecodeByte();
+            block[i+2] = fastDecodeByte();
+            block[i+3] = fastDecodeByte();
+            block[i+4] = fastDecodeByte();
+            block[i+5] = fastDecodeByte();
+            block[i+6] = fastDecodeByte();
+            block[i+7] = fastDecodeByte();
+        }
 
         // Fallback to regular decoding (read one bit at a time)
         for (; i < endChunk; i++)
@@ -216,8 +225,8 @@ byte HuffmanDecoder::slowDecodeByte(int code, int codeLen) THROW
         if (idx == SYMBOL_ABSENT) // No code with this length ?
             continue;
 
-        if ((_sdTable[idx + code] >> 8) == (uint)codeLen)
-            return (byte)_sdTable[idx + code];
+        if ((_sdTable[idx + code] >> 8) == uint(codeLen))
+            return byte(_sdTable[idx + code]);
     }
 
     throw BitStreamException("Invalid bitstream: incorrect Huffman code",
@@ -236,7 +245,7 @@ byte HuffmanDecoder::fastDecodeByte()
     }
 
     // Retrieve symbol from fast decoding table
-    const int idx = (int)(_state >> (_bits - DECODING_BATCH_SIZE)) & DECODING_MASK;
+    const int idx = int(_state >> (_bits - DECODING_BATCH_SIZE)) & DECODING_MASK;
     const uint val = _fdTable[idx];
 
     if (val > MAX_DECODING_INDEX) {
@@ -245,5 +254,5 @@ byte HuffmanDecoder::fastDecodeByte()
     }
 
     _bits -= (val >> 8);
-    return (byte)val;
+    return byte(val);
 }

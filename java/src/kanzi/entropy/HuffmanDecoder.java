@@ -223,13 +223,22 @@ public class HuffmanDecoder implements EntropyDecoder
              endPaddingSize++;
 
           final int endChunk = (startChunk + sz < end) ? startChunk + sz : end;
-          final int endChunk1 = endChunk - endPaddingSize;
+          final int endChunk1 = (endChunk - endPaddingSize) & -8;
           int i = startChunk;
 
           // Fast decoding (read DECODING_BATCH_SIZE bits at a time)
-          for ( ; i<endChunk1; i++)
-             array[i] = this.fastDecodeByte();
-             
+          for ( ; i<endChunk1; i+=8)
+          {
+             array[i]   = this.fastDecodeByte();
+             array[i+1] = this.fastDecodeByte();
+             array[i+2] = this.fastDecodeByte();
+             array[i+3] = this.fastDecodeByte();
+             array[i+4] = this.fastDecodeByte();
+             array[i+5] = this.fastDecodeByte();
+             array[i+6] = this.fastDecodeByte();
+             array[i+7] = this.fastDecodeByte();
+          }
+          
           // Fallback to regular decoding (read one bit at a time)
           for ( ; i<endChunk; i++)
              array[i] = this.slowDecodeByte(0, 0);
