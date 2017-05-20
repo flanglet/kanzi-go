@@ -89,7 +89,8 @@ public class TestEntropyCodec
               testSpeed("EXPGOLOMB");
               System.out.println("\n\nTestRiceGolombCodec");
               testCorrectness("RICEGOLOMB");
-              testSpeed("RICEGOLOMB");           }
+              testSpeed("RICEGOLOMB");           
+           }
            else
            {
               System.out.println("Test" + type + "Codec");
