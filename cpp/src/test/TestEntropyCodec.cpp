@@ -72,16 +72,16 @@ static EntropyEncoder* getEncoder(string name, OutputBitStream& obs, Predictor* 
         return new RangeEncoder(obs);
 
     if (name.compare("PAQ") == 0)
-        return new BinaryEntropyEncoder(obs, predictor);
+        return new BinaryEntropyEncoder(obs, predictor, false);
 
     if (name.compare("TPAQ") == 0)
-        return new BinaryEntropyEncoder(obs, predictor);
+        return new BinaryEntropyEncoder(obs, predictor, false);
 
     if (name.compare("FPAQ") == 0)
-        return new BinaryEntropyEncoder(obs, predictor);
+        return new BinaryEntropyEncoder(obs, predictor, false);
 
     if (name.compare("CM") == 0)
-        return new BinaryEntropyEncoder(obs, predictor);
+        return new BinaryEntropyEncoder(obs, predictor, false);
 
     if (name.compare("EXPGOLOMB") == 0)
         return new ExpGolombEncoder(obs);
@@ -105,16 +105,16 @@ static EntropyDecoder* getDecoder(string name, InputBitStream& ibs, Predictor* p
         return new RangeDecoder(ibs);
 
     if (name.compare("PAQ") == 0)
-        return new BinaryEntropyDecoder(ibs, predictor);
+        return new BinaryEntropyDecoder(ibs, predictor, false);
 
     if (name.compare("TPAQ") == 0)
-        return new BinaryEntropyDecoder(ibs, predictor);
+        return new BinaryEntropyDecoder(ibs, predictor, false);
 
     if (name.compare("FPAQ") == 0)
-        return new BinaryEntropyDecoder(ibs, predictor);
+        return new BinaryEntropyDecoder(ibs, predictor, false);
 
     if (name.compare("CM") == 0)
-        return new BinaryEntropyDecoder(ibs, predictor);
+        return new BinaryEntropyDecoder(ibs, predictor, false);
 
     if (name.compare("EXPGOLOMB") == 0)
         return new ExpGolombDecoder(ibs);
