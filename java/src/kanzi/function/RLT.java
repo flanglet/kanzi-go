@@ -281,7 +281,7 @@ public class RLT implements ByteFunction
       // Initialize with a value different from the first symbol
       byte prev = (byte) ~src[srcIdx];
 
-      while ((srcIdx < srcEnd) && (dstIdx < dstEnd))
+      while ((srcIdx < srcEnd))
       { 
          final byte val = src[srcIdx++];
 
@@ -325,6 +325,9 @@ public class RLT implements ByteFunction
             run = 1;
          }
 
+         if (dstIdx >= dstEnd)
+            break;
+            
          dst[dstIdx++] = val;
       }
 

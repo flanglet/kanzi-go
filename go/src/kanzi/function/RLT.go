@@ -282,7 +282,7 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 	// Initialize with a value different from the first data
 	prev := ^src[srcIdx]
 
-	for srcIdx < srcEnd && dstIdx < dstEnd {
+	for srcIdx < srcEnd {
 		val := src[srcIdx]
 		srcIdx++
 
@@ -319,6 +319,10 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 		} else {
 			prev = val
 			run = 1
+		}
+
+		if dstIdx >= dstEnd {
+			break
 		}
 
 		dst[dstIdx] = val

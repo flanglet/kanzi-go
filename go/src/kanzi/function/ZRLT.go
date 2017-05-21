@@ -115,7 +115,7 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 			}
 
 			srcIdx++
-			
+			dstIdx++
 
 			if dstIdx >= dstEnd {
 				break
