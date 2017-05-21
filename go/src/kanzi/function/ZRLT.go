@@ -62,56 +62,65 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 	srcIdx, dstIdx := uint(0), uint(0)
 	var err error
 
-	for srcIdx < srcEnd && dstIdx < dstEnd {
-		val := src[srcIdx]
+	if dstIdx < dstEnd {
+		for srcIdx < srcEnd {
+			val := src[srcIdx]
 
-		if val == 0 {
-			runLength++
-			srcIdx++
+			if val == 0 {
+				runLength++
+				srcIdx++
 
-			if srcIdx < srcEnd && runLength < ZRLT_MAX_RUN {
+				if srcIdx < srcEnd && runLength < ZRLT_MAX_RUN {
+					continue
+				}
+			}
+
+			if runLength > 1 {
+				// Encode length
+				log2 := uint(1)
+
+				for runLength>>log2 > 1 {
+					log2++
+				}
+
+				if dstIdx >= dstEnd-log2 {
+					break
+				}
+
+				// Write every bit as a byte except the most significant one
+				for log2 > 0 {
+					log2--
+					dst[dstIdx] = byte((runLength >> log2) & 1)
+					dstIdx++
+				}
+
+				runLength = 1
 				continue
 			}
-		}
 
-		if runLength > 1 {
-			// Encode length
-			log2 := uint(1)
+			if val >= 0xFE {
+				if dstIdx >= dstEnd2 {
+					break
+				}
 
-			for runLength>>log2 > 1 {
-				log2++
-			}
-
-			if dstIdx >= dstEnd-log2 {
-				break
-			}
-
-			// Write every bit as a byte except the most significant one
-			for log2 > 0 {
-				log2--
-				dst[dstIdx] = byte((runLength >> log2) & 1)
+				dst[dstIdx] = 0xFF
 				dstIdx++
+				dst[dstIdx] = val - 0xFE
+			} else {
+				if dstIdx >= dstEnd {
+					break
+				}
+
+				dst[dstIdx] = val + 1
 			}
 
-			runLength = 1
-			continue
-		}
+			srcIdx++
+			
 
-		if val >= 0xFE {
-			if dstIdx >= dstEnd2 {
+			if dstIdx >= dstEnd {
 				break
 			}
-
-			dst[dstIdx] = 0xFF
-			dstIdx++
-			dst[dstIdx] = val - 0xFE
-			dstIdx++
-		} else {
-			dst[dstIdx] = val + 1
-			dstIdx++
 		}
-
-		srcIdx++
 	}
 
 	if srcIdx != srcEnd || runLength != 1 {
@@ -139,49 +148,51 @@ func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 	srcIdx, dstIdx := 0, 0
 	var err error
 
-	for srcIdx < srcEnd && dstIdx < dstEnd {
-		if runLength > 1 {
-			runLength--
-			dst[dstIdx] = 0
-			dstIdx++
-			continue
-		}
+	if srcIdx < srcEnd {
+		for dstIdx < dstEnd {
+			if runLength > 1 {
+				runLength--
+				dst[dstIdx] = 0
+				dstIdx++
+				continue
+			}
 
-		val := src[srcIdx]
+			val := src[srcIdx]
 
-		if val <= 1 {
-			// Generate the run length bit by bit (but force MSB)
-			runLength = 1
+			if val <= 1 {
+				// Generate the run length bit by bit (but force MSB)
+				runLength = 1
 
-			for val <= 1 {
-				runLength = (runLength << 1) | int(val)
+				for val <= 1 {
+					runLength = (runLength << 1) | int(val)
+					srcIdx++
+
+					if srcIdx >= srcEnd {
+						break
+					}
+
+					val = src[srcIdx]
+				}
+
+				continue
+			}
+
+			// Regular data processing
+			if val == 0xFF {
 				srcIdx++
 
 				if srcIdx >= srcEnd {
 					break
 				}
 
-				val = src[srcIdx]
+				dst[dstIdx] = 0xFE + src[srcIdx]
+			} else {
+				dst[dstIdx] = val - 1
 			}
 
-			continue
-		}
-
-		// Regular data processing
-		if val == 0xFF {
 			srcIdx++
-
-			if srcIdx >= srcEnd {
-				break
-			}
-
-			dst[dstIdx] = 0xFE + src[srcIdx]
-		} else {
-			dst[dstIdx] = val - 1
+			dstIdx++
 		}
-
-		dstIdx++
-		srcIdx++
 	}
 
 	// If runLength is not 1, add trailing 0s

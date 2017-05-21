@@ -57,57 +57,68 @@ public final class ZRLT implements ByteFunction
       final int dstEnd2 = dstEnd - 2;
       int runLength = 1;
 
-      while ((srcIdx < srcEnd) && (dstIdx < dstEnd))
+      if (dstIdx < dstEnd)
       {
-         int val = src[srcIdx];
-
-         if (val == 0)
+         while (srcIdx < srcEnd)
          {
-            runLength++;
-            srcIdx++;
+            int val = src[srcIdx];
 
-            if ((srcIdx < srcEnd) && (runLength < ZRLT_MAX_RUN))
-                continue;
-         }
-
-         if (runLength > 1)
-         {
-            // Encode length
-            int log2 = 1;
-
-            for (int val2=runLength>>1; val2>1; val2>>=1)
-               log2++;
-
-            if (dstIdx >= dstEnd - log2)
-               break;
-
-            // Write every bit as a byte except the most significant one
-            while (log2 > 0)
+            if (val == 0)
             {
-               log2--;
-               dst[dstIdx++] = (byte) ((runLength >> log2) & 1);
+               runLength++;
+               srcIdx++;
+
+               if ((srcIdx < srcEnd) && (runLength < ZRLT_MAX_RUN))
+                   continue;
             }
 
-            runLength = 1;
-            continue;
+            if (runLength > 1)
+            {
+               // Encode length
+               int log2 = 1;
+
+               for (int val2=runLength>>1; val2>1; val2>>=1)
+                  log2++;
+               
+               if (dstIdx >= dstEnd - log2)
+                  break;
+
+               // Write every bit as a byte except the most significant one
+               while (log2 > 0)
+               {
+                  log2--;
+                  dst[dstIdx++] = (byte) ((runLength >> log2) & 1);
+               }
+
+               runLength = 1;
+               continue;
+            }
+
+            val &= 0xFF;
+
+            if (val >= 0xFE)
+            {
+               if (dstIdx >= dstEnd2)
+                  break;
+
+               dst[dstIdx] = (byte) 0xFF;
+               dstIdx++;
+               dst[dstIdx] = (byte) (val - 0xFE);
+            }
+            else
+            {
+               if (dstIdx >= dstEnd)
+                  break;
+
+               dst[dstIdx] = (byte) (val + 1);
+            }
+
+            srcIdx++;
+            dstIdx++;
+            
+            if (dstIdx >= dstEnd)
+               break;            
          }
-
-         val &= 0xFF;
-
-         if (val >= 0xFE)
-         {
-            if (dstIdx >= dstEnd2)
-               break;
-
-            dst[dstIdx++] = (byte) 0xFF;
-            dst[dstIdx++] = (byte) (val - 0xFE);
-         }
-         else
-         {
-            dst[dstIdx++] = (byte) (val + 1);
-         }
-
-         srcIdx++;
       }
 
       input.index = srcIdx;
@@ -134,54 +145,57 @@ public final class ZRLT implements ByteFunction
       final int dstEnd = dst.length;
       int runLength = 1;
 
-      while ((srcIdx < srcEnd) && (dstIdx < dstEnd))
+      if (srcIdx < srcEnd)
       {
-         if (runLength > 1)
+         while (dstIdx < dstEnd)
          {
-            runLength--;
-            dst[dstIdx++] = 0;
-            continue;
-         }
-
-         int val = src[srcIdx] & 0xFF;
-
-         if (val <= 1)
-         {
-            // Generate the run length bit by bit (but force MSB)
-            runLength = 1;
-
-            do
+            if (runLength > 1)
             {
-               runLength = (runLength << 1) | val;
+               runLength--;
+               dst[dstIdx++] = 0;
+               continue;
+            }
+
+            int val = src[srcIdx] & 0xFF;
+
+            if (val <= 1)
+            {
+               // Generate the run length bit by bit (but force MSB)
+               runLength = 1;
+
+               do
+               {
+                  runLength = (runLength << 1) | val;
+                  srcIdx++;
+
+                  if (srcIdx >= srcEnd)
+                      break;
+
+                  val = src[srcIdx] & 0xFF;
+               }
+               while (val <= 1);
+
+               continue;
+            }
+
+            // Regular data processing
+            if (val == 0xFF)
+            {
                srcIdx++;
 
                if (srcIdx >= srcEnd)
-                   break;
+                  break;
 
-               val = src[srcIdx] & 0xFF;
+               dst[dstIdx] = (byte) (0xFE + src[srcIdx]);
             }
-            while (val <= 1);
+            else
+            {
+               dst[dstIdx] = (byte) (val - 1);
+            }
 
-            continue;
-         }
-
-         // Regular data processing
-         if (val == 0xFF)
-         {
             srcIdx++;
-
-            if (srcIdx >= srcEnd)
-               break;
-
-            dst[dstIdx] = (byte) (0xFE + src[srcIdx]);
+            dstIdx++;          
          }
-         else
-         {
-            dst[dstIdx] = (byte) (val - 1);
-         }
-         
-         dstIdx++;
-         srcIdx++;
       }
 
       // If runLength is not 1, add trailing 0s
