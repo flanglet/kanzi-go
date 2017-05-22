@@ -1232,6 +1232,10 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 		}
 
 		idx := depth
+
+		// Create slice aliases
+		// NOTE: buf1 can only replace this.buffer when the index is guarenteed
+		// to be positive or zero (not in a pattern like this.buffer[...-1]) !!!
 		buf1 := this.buffer[idx:len(this.buffer)]
 		buf2 := this.sa[pa:len(this.sa)]
 
@@ -1258,7 +1262,7 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 				}
 			}
 
-			if buf1[buf2[this.sa[first]]-1] < v {
+			if this.buffer[idx+buf2[this.sa[first]]-1] < v {
 				first = this.ssPartition(pa, first, a, depth)
 			}
 
