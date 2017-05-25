@@ -766,13 +766,11 @@ func (this *DivSufSort) ssSwapMerge(pa, first, middle, last, buf, bufSize, depth
 			len = last - middle
 		}
 
-		for half := len >> 1; len > 0; len = half {
+		for half := len >> 1; len > 0; len, half = half, half>>1 {
 			if this.ssCompare3(pa+getIndex(arr[middle+m+half]), pa+getIndex(arr[middle-m-half-1]), depth) < 0 {
 				m += (half + 1)
 				half -= ((len & 1) ^ 1)
 			}
-
-			half >>= 1
 		}
 
 		if m > 0 {
@@ -1135,9 +1133,9 @@ func (this *DivSufSort) ssInsertionSort(pa, first, last, depth int) {
 	for i := last - 2; i >= first; i-- {
 		t := pa + arr[i]
 		j := i + 1
-		r := this.ssCompare3(t, pa+arr[j], depth)
+		var r int
 
-		for r > 0 {
+		for r = this.ssCompare3(t, pa+arr[j], depth); r > 0; {
 			for true {
 				arr[j-1] = arr[j]
 				j++
