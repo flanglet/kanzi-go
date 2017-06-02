@@ -157,6 +157,10 @@ func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 				continue
 			}
 
+			if srcIdx >= srcEnd {
+				break
+			}
+
 			val := src[srcIdx]
 
 			if val <= 1 {
