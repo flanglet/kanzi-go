@@ -23,7 +23,7 @@ import (
 
 type RiceGolombEncoder struct {
 	signed    bool
-	logBase   uint64
+	logBase   uint
 	base      uint64
 	bitstream kanzi.OutputBitStream
 }
@@ -43,7 +43,7 @@ func NewRiceGolombEncoder(bs kanzi.OutputBitStream, sgn bool, logBase uint) (*Ri
 	this := new(RiceGolombEncoder)
 	this.signed = sgn
 	this.bitstream = bs
-	this.logBase = uint64(logBase)
+	this.logBase = logBase
 	this.base = uint64(1 << logBase)
 	return this, nil
 }
@@ -57,7 +57,7 @@ func (this *RiceGolombEncoder) Dispose() {
 
 func (this *RiceGolombEncoder) EncodeByte(val byte) {
 	if val == 0 {
-		this.bitstream.WriteBits(this.base, uint(this.logBase+1))
+		this.bitstream.WriteBits(this.base, this.logBase+1)
 		return
 	}
 
@@ -70,7 +70,7 @@ func (this *RiceGolombEncoder) EncodeByte(val byte) {
 	}
 
 	// quotient is unary encoded, remainder is binary encoded
-	n := uint(1 + (emit >> this.logBase) + this.logBase)
+	n := uint(emit >> this.logBase) + this.logBase + 1
 	emit = this.base | (emit & (this.base - 1))
 
 	if this.signed == true {
