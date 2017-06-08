@@ -118,7 +118,7 @@ func (this *SBRT) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	for i := 0; i < count; i++ {
-		c := uint(src[i])
+		c := int(src[i])
 		r := s2r[c]
 		dst[i] = byte(r)
 		q[c] = ((i & mask1) + (p[c] & mask2)) >> shift
@@ -132,7 +132,7 @@ func (this *SBRT) Forward(src, dst []byte) (uint, uint, error) {
 			r--
 		}
 
-		r2s[r] = int(c)
+		r2s[r] = c 
 		s2r[c] = r
 	}
 
@@ -196,7 +196,7 @@ func (this *SBRT) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	for i := 0; i < count; i++ {
-		r := uint(src[i])
+		r := int(src[i])
 		c := r2s[r]
 		dst[i] = byte(c)
 		q[c] = ((i & mask1) + (p[c] & mask2)) >> shift
@@ -209,7 +209,7 @@ func (this *SBRT) Inverse(src, dst []byte) (uint, uint, error) {
 			r--
 		}
 
-		r2s[r] = c
+		r2s[r] = c 
 	}
 
 	return uint(count), uint(count), nil

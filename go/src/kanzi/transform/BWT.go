@@ -305,9 +305,8 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 
 	// Create cumulative histogram
 	for i := range buckets_ {
-		tmp := buckets_[i]
-		buckets_[i] = sum
-		sum += tmp
+		sum += buckets_[i]
+		buckets_[i] = sum - buckets_[i]
 	}
 
 	val1 := data1[pIdx]
