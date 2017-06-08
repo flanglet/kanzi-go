@@ -34,36 +34,36 @@ public final class DivSufSort
 
     private final static int[] SQQ_TABLE =
     {
-         0, 16, 22, 27, 32, 35, 39, 42, 45, 48, 50, 53, 55, 57, 59, 61, 64, 65, 67, 69,
-        71, 73, 75, 76, 78, 80, 81, 83, 84, 86, 87, 89, 90, 91, 93, 94, 96, 97, 98, 99,
-        101, 102, 103, 104, 106, 107, 108, 109, 110, 112, 113, 114, 115, 116, 117, 118,
-        119, 120, 121, 122, 123, 124, 125, 126, 128, 128, 129, 130, 131, 132, 133, 134,
-        135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 144, 145, 146, 147, 148, 149,
-        150, 150, 151, 152, 153, 154, 155, 155, 156, 157, 158, 159, 160, 160, 161, 162,
-        163, 163, 164, 165, 166, 167, 167, 168, 169, 170, 170, 171, 172, 173, 173, 174,
-        175, 176, 176, 177, 178, 178, 179, 180, 181, 181, 182, 183, 183, 184, 185, 185,
-        186, 187, 187, 188, 189, 189, 190, 191, 192, 192, 193, 193, 194, 195, 195, 196,
-        197, 197, 198, 199, 199, 200, 201, 201, 202, 203, 203, 204, 204, 205, 206, 206,
-        207, 208, 208, 209, 209, 210, 211, 211, 212, 212, 213, 214, 214, 215, 215, 216,
-        217, 217, 218, 218, 219, 219, 220, 221, 221, 222, 222, 223, 224, 224, 225, 225,
-        226, 226, 227, 227, 228, 229, 229, 230, 230, 231, 231, 232, 232, 233, 234, 234,
-        235, 235, 236, 236, 237, 237, 238, 238, 239, 240, 240, 241, 241, 242, 242, 243,
-        243, 244, 244, 245, 245, 246, 246, 247, 247, 248, 248, 249, 249, 250, 250, 251,
-        251, 252, 252, 253, 253, 254, 254, 255
+         0,   16,   22,   27,   32,   35,   39,   42,   45,   48,   50,   53,   55,   57,   59,   61,
+        64,   65,   67,   69,   71,   73,   75,   76,   78,   80,   81,   83,   84,   86,   87,   89,
+        90,   91,   93,   94,   96,   97,   98,   99,  101,  102,  103,  104,  106,  107,  108,  109,
+       110,  112,  113,  114,  115,  116,  117,  118,  119,  120,  121,  122,  123,  124,  125,  126,
+       128,  128,  129,  130,  131,  132,  133,  134,  135,  136,  137,  138,  139,  140,  141,  142,
+       143,  144,  144,  145,  146,  147,  148,  149,  150,  150,  151,  152,  153,  154,  155,  155,
+       156,  157,  158,  159,  160,  160,  161,  162,  163,  163,  164,  165,  166,  167,  167,  168,
+       169,  170,  170,  171,  172,  173,  173,  174,  175,  176,  176,  177,  178,  178,  179,  180,
+       181,  181,  182,  183,  183,  184,  185,  185,  186,  187,  187,  188,  189,  189,  190,  191,
+       192,  192,  193,  193,  194,  195,  195,  196,  197,  197,  198,  199,  199,  200,  201,  201,
+       202,  203,  203,  204,  204,  205,  206,  206,  207,  208,  208,  209,  209,  210,  211,  211,
+       212,  212,  213,  214,  214,  215,  215,  216,  217,  217,  218,  218,  219,  219,  220,  221,
+       221,  222,  222,  223,  224,  224,  225,  225,  226,  226,  227,  227,  228,  229,  229,  230,
+       230,  231,  231,  232,  232,  233,  234,  234,  235,  235,  236,  236,  237,  237,  238,  238,
+       239,  240,  240,  241,  241,  242,  242,  243,  243,  244,  244,  245,  245,  246,  246,  247,
+       247,  248,  248,  249,  249,  250,  250,  251,  251,  252,  252,  253,  253,  254,  254,  255
     };
 
     private final static int[] LOG_TABLE =
     {
         -1, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-        4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-        6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-        6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7,
-        7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-        7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-        7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-        7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-        7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
+         4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+         5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+         6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+         6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7,
+         7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+         7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+         7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+         7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+         7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
     };
 
     private int[] sa;
@@ -199,7 +199,10 @@ public final class DivSufSort
         int m = n;
         int c0 = this.buffer[n-1];
         final int[] arr = this.sa;
-
+       
+        // Count the number of occurrences of the first one or two characters of each
+        // type A, B and B* suffix. Moreover, store the beginning position of all
+        // type B* suffixes into the array SA.
         for (int i=n-1; i>=0; )
         {
             int c1;
@@ -232,6 +235,9 @@ public final class DivSufSort
         m = n - m;
         c0 = 0;
 
+        // A type B* suffix is lexicographically smaller than a type B suffix that
+        // begins with the same first two characters.
+        
         // Calculate the index of start/end point of each bucket.
         for (int i=0, j=0; c0<256; c0++)
         {
@@ -1460,26 +1466,21 @@ public final class DivSufSort
 
     private int ssMedian5(final int idx, int pa, int v1, int v2, int v3, int v4, int v5)
     {
-        final int b1 = this.buffer[idx+this.sa[pa+this.sa[v1]]];
-        final int b2 = this.buffer[idx+this.sa[pa+this.sa[v2]]];
-        final int b3 = this.buffer[idx+this.sa[pa+this.sa[v3]]];
-        final int b4 = this.buffer[idx+this.sa[pa+this.sa[v4]]];
-        
-        if (b2 > b3)
+        if (this.buffer[idx+this.sa[pa+this.sa[v2]]] > this.buffer[idx+this.sa[pa+this.sa[v3]]])
         {
             final int t = v2;
             v2 = v3;
             v3 = t;
         }
 
-        if (b4 > this.buffer[idx+this.sa[pa+this.sa[v5]]])
+        if (this.buffer[idx+this.sa[pa+this.sa[v4]]] > this.buffer[idx+this.sa[pa+this.sa[v5]]])
         {
             final int t = v4;
             v4 = v5;
             v5 = t;
         }
 
-        if (b2 > b4)
+        if (this.buffer[idx+this.sa[pa+this.sa[v2]]] > this.buffer[idx+this.sa[pa+this.sa[v4]]])
         {
             final int t1 = v2;
             v2 = v4;
@@ -1489,14 +1490,14 @@ public final class DivSufSort
             v5 = t2;
         }
 
-        if (b1 > b3)
+        if (this.buffer[idx+this.sa[pa+this.sa[v1]]] > this.buffer[idx+this.sa[pa+this.sa[v3]]])
         {
             final int t = v1;
             v1 = v3;
             v3 = t;
         }
 
-        if (b1 > b4)
+        if (this.buffer[idx+this.sa[pa+this.sa[v1]]] > this.buffer[idx+this.sa[pa+this.sa[v4]]])
         {
             final int t1 = v1;
             v1 = v4;
@@ -1506,33 +1507,21 @@ public final class DivSufSort
             v5 = t2;
         }
 
-        if (b3 > b4)
-            return v4;
-
-        return v3;
+        return (this.buffer[idx+this.sa[pa+this.sa[v3]]] > this.buffer[idx+this.sa[pa+this.sa[v4]]]) ? v4 : v3;
     }
 
 
     private int ssMedian3(int idx, int pa, int v1, int v2, int v3)
     {
-        final int b1 = this.buffer[idx+this.sa[pa+this.sa[v1]]];
-        final int b2 = this.buffer[idx+this.sa[pa+this.sa[v2]]];
-        final int b3 = this.buffer[idx+this.sa[pa+this.sa[v3]]];
-
-        if (b1 > b2)
+        if (this.buffer[idx+this.sa[pa+this.sa[v1]]] > this.buffer[idx+this.sa[pa+this.sa[v2]]])
         {
             final int t = v1;
             v1 = v2;
             v2 = t;
         }
 
-        if (b2 > b3)
-        {
-            if (b1 > b3)
-                return v1;
-
-            return v3;
-        }
+        if (this.buffer[idx+this.sa[pa+this.sa[v2]]] > this.buffer[idx+this.sa[pa+this.sa[v3]]])
+            return (this.buffer[idx+this.sa[pa+this.sa[v1]]] > this.buffer[idx+this.sa[pa+this.sa[v3]]]) ? v1 : v3;
 
         return v2;
     }
@@ -1578,7 +1567,7 @@ public final class DivSufSort
 
     private void ssHeapSort(int idx, int pa, int saIdx, int size)
     {
-	int m = size;
+        int m = size;
 
         if ((size & 1) == 0)
         {
@@ -1718,7 +1707,7 @@ public final class DivSufSort
 
         while (b < last)
         {
-           x = this.sa[isad + this.sa[b]];
+           x = this.sa[isad+this.sa[b]];
 
            if (x != v)
               break;
@@ -1768,7 +1757,7 @@ public final class DivSufSort
 
         while (b < c)
         {
-            this.swapInSA(c, b);
+            this.swapInSA(b, c);
 
             while ((++b < c) && ((x = this.sa[isad+this.sa[b]]) <= v))
             {
@@ -1824,7 +1813,7 @@ public final class DivSufSort
         int trlink = -1;
 
         while (true)
-        {
+        {         
             if (limit < 0)
             {
                 if (limit == -1)
@@ -1833,7 +1822,7 @@ public final class DivSufSort
                     long res = this.trPartition(isad-incr, first, first, last, last-1);
                     final int a = (int) (res >> 32);
                     final int b = (int) res;
-
+    
                     // update ranks
                     if (a < last)
                     {
@@ -2085,7 +2074,7 @@ public final class DivSufSort
 
             if (last - first != b - a)
             {
-                final int next = (arr[isa+arr[a]] != v) ? trIlg(b-a) : -1;
+                final int next = (arr[isa+arr[a]] != v) ? trIlg(b-a) : -1;        
                 v = a - 1;
 
                 // update ranks
@@ -2306,7 +2295,7 @@ public final class DivSufSort
         t >>= 3;
         first = trMedian3(arr, isad, first, first+t, first+(t<<1));
         middle = trMedian3(arr, isad, middle-t, middle, middle+t);
-        last = trMedian3(arr, isad, last-1-(t<<1), last-1-t, last-1);
+        last = trMedian3(arr, isad, last-1-(t<<1), last-1-t, last-1);       
         return trMedian3(arr, isad, first, middle, last);
     }
 
@@ -2315,7 +2304,7 @@ public final class DivSufSort
     {
         if (arr[isad+arr[v2]] > arr[isad+arr[v3]])
         {
-            int t = v2;
+            final int t = v2;
             v2 = v3;
             v3 = t;
         }
@@ -2354,10 +2343,7 @@ public final class DivSufSort
             v5 = t2;
         }
 
-        if (arr[isad+arr[v3]] > arr[isad+arr[v4]])
-            return v4;
-
-        return v3;
+        return (arr[isad+arr[v3]] > arr[isad+arr[v4]]) ? v4 : v3;
     }
 
 
@@ -2371,12 +2357,7 @@ public final class DivSufSort
         }
 
         if (arr[isad+arr[v2]] > arr[isad+arr[v3]])
-        {
-            if (arr[isad+arr[v1]] > arr[isad+arr[v3]])
-                return v1;
-
-            return v3;
-        }
+            return (arr[isad+arr[v1]] > arr[isad+arr[v3]]) ? v1 : v3;
 
         return v2;
     }
@@ -2482,10 +2463,10 @@ public final class DivSufSort
     private void trPartialCopy(int isa, int first, int a, int b, int last, int depth)
     {
         final int[] arr = this.sa;
-	int v = b - 1;
-	int lastRank = -1;
-	int newRank = -1;
-	int d = a - 1;
+        int v = b - 1;
+        int lastRank = -1;
+        int newRank = -1;
+        int d = a - 1;
 
         for (int c=first; c<=d; c++)
         {

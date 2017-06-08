@@ -19,22 +19,22 @@ limitations under the License.
 using namespace kanzi;
 
 const int DivSufSort::SQQ_TABLE[] = {
-    0, 16, 22, 27, 32, 35, 39, 42, 45, 48, 50, 53, 55, 57, 59, 61, 64, 65, 67, 69,
-    71, 73, 75, 76, 78, 80, 81, 83, 84, 86, 87, 89, 90, 91, 93, 94, 96, 97, 98, 99,
-    101, 102, 103, 104, 106, 107, 108, 109, 110, 112, 113, 114, 115, 116, 117, 118,
-    119, 120, 121, 122, 123, 124, 125, 126, 128, 128, 129, 130, 131, 132, 133, 134,
-    135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 144, 145, 146, 147, 148, 149,
-    150, 150, 151, 152, 153, 154, 155, 155, 156, 157, 158, 159, 160, 160, 161, 162,
-    163, 163, 164, 165, 166, 167, 167, 168, 169, 170, 170, 171, 172, 173, 173, 174,
-    175, 176, 176, 177, 178, 178, 179, 180, 181, 181, 182, 183, 183, 184, 185, 185,
-    186, 187, 187, 188, 189, 189, 190, 191, 192, 192, 193, 193, 194, 195, 195, 196,
-    197, 197, 198, 199, 199, 200, 201, 201, 202, 203, 203, 204, 204, 205, 206, 206,
-    207, 208, 208, 209, 209, 210, 211, 211, 212, 212, 213, 214, 214, 215, 215, 216,
-    217, 217, 218, 218, 219, 219, 220, 221, 221, 222, 222, 223, 224, 224, 225, 225,
-    226, 226, 227, 227, 228, 229, 229, 230, 230, 231, 231, 232, 232, 233, 234, 234,
-    235, 235, 236, 236, 237, 237, 238, 238, 239, 240, 240, 241, 241, 242, 242, 243,
-    243, 244, 244, 245, 245, 246, 246, 247, 247, 248, 248, 249, 249, 250, 250, 251,
-    251, 252, 252, 253, 253, 254, 254, 255
+    0, 16, 22, 27, 32, 35, 39, 42, 45, 48, 50, 53, 55, 57, 59, 61,
+    64, 65, 67, 69, 71, 73, 75, 76, 78, 80, 81, 83, 84, 86, 87, 89,
+    90, 91, 93, 94, 96, 97, 98, 99, 101, 102, 103, 104, 106, 107, 108, 109,
+    110, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126,
+    128, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142,
+    143, 144, 144, 145, 146, 147, 148, 149, 150, 150, 151, 152, 153, 154, 155, 155,
+    156, 157, 158, 159, 160, 160, 161, 162, 163, 163, 164, 165, 166, 167, 167, 168,
+    169, 170, 170, 171, 172, 173, 173, 174, 175, 176, 176, 177, 178, 178, 179, 180,
+    181, 181, 182, 183, 183, 184, 185, 185, 186, 187, 187, 188, 189, 189, 190, 191,
+    192, 192, 193, 193, 194, 195, 195, 196, 197, 197, 198, 199, 199, 200, 201, 201,
+    202, 203, 203, 204, 204, 205, 206, 206, 207, 208, 208, 209, 209, 210, 211, 211,
+    212, 212, 213, 214, 214, 215, 215, 216, 217, 217, 218, 218, 219, 219, 220, 221,
+    221, 222, 222, 223, 224, 224, 225, 225, 226, 226, 227, 227, 228, 229, 229, 230,
+    230, 231, 231, 232, 232, 233, 234, 234, 235, 235, 236, 236, 237, 237, 238, 238,
+    239, 240, 240, 241, 241, 242, 242, 243, 243, 244, 244, 245, 245, 246, 246, 247,
+    247, 248, 248, 249, 249, 250, 250, 251, 251, 252, 252, 253, 253, 254, 254, 255
 };
 
 const int DivSufSort::LOG_TABLE[] = {
@@ -173,6 +173,9 @@ int DivSufSort::sortTypeBstar(int bucket_A[], int bucket_B[], int n)
     int m = n;
     int c0 = _buffer[n - 1];
 
+    // Count the number of occurrences of the first one or two characters of each
+    // type A, B and B* suffix. Moreover, store the beginning position of all
+    // type B* suffixes into the array SA.
     for (int i = n - 1; i >= 0;) {
         int c1;
 
@@ -200,6 +203,9 @@ int DivSufSort::sortTypeBstar(int bucket_A[], int bucket_B[], int n)
 
     m = n - m;
     c0 = 0;
+
+    // A type B* suffix is lexicographically smaller than a type B suffix that
+    // begins with the same first two characters.
 
     // Calculate the index of start/end point of each bucket.
     for (int i = 0, j = 0; c0 < 256; c0++) {
@@ -1242,24 +1248,22 @@ int DivSufSort::ssPivot(int td, int pa, int first, int last)
 
 inline int DivSufSort::ssMedian5(const int idx, int pa, int v1, int v2, int v3, int v4, int v5)
 {
-    const int b1 = _buffer[idx + _sa[pa + _sa[v1]]];
-    const int b2 = _buffer[idx + _sa[pa + _sa[v2]]];
-    const int b3 = _buffer[idx + _sa[pa + _sa[v3]]];
-    const int b4 = _buffer[idx + _sa[pa + _sa[v4]]];
+    short* buf0 = &_buffer[idx];
+    int* buf1 = &_sa[pa];
 
-    if (b2 > b3) {
+    if (buf0[buf1[_sa[v2]]] > buf0[buf1[_sa[v3]]]) {
         const int t = v2;
         v2 = v3;
         v3 = t;
     }
 
-    if (b4 > _buffer[idx + _sa[pa + _sa[v5]]]) {
+    if (buf0[buf1[_sa[v4]]] > buf0[buf1[_sa[v5]]]) {
         const int t = v4;
         v4 = v5;
         v5 = t;
     }
 
-    if (b2 > b4) {
+    if (buf0[buf1[_sa[v2]]] > buf0[buf1[_sa[v4]]]) {
         const int t1 = v2;
         v2 = v4;
         v4 = t1;
@@ -1268,13 +1272,13 @@ inline int DivSufSort::ssMedian5(const int idx, int pa, int v1, int v2, int v3, 
         v5 = t2;
     }
 
-    if (b1 > b3) {
+    if (buf0[buf1[_sa[v1]]] > buf0[buf1[_sa[v3]]]) {
         const int t = v1;
         v1 = v3;
         v3 = t;
     }
 
-    if (b1 > b4) {
+    if (buf0[buf1[_sa[v1]]] > buf0[buf1[_sa[v4]]]) {
         const int t1 = v1;
         v1 = v4;
         v4 = t1;
@@ -1283,29 +1287,22 @@ inline int DivSufSort::ssMedian5(const int idx, int pa, int v1, int v2, int v3, 
         v5 = t2;
     }
 
-    if (b3 > b4)
-        return v4;
-
-    return v3;
+    return (buf0[buf1[_sa[v3]]] > buf0[buf1[_sa[v4]]]) ? v4 : v3;
 }
 
 inline int DivSufSort::ssMedian3(int idx, int pa, int v1, int v2, int v3)
 {
-    const int b1 = _buffer[idx + _sa[pa + _sa[v1]]];
-    const int b2 = _buffer[idx + _sa[pa + _sa[v2]]];
-    const int b3 = _buffer[idx + _sa[pa + _sa[v3]]];
+    short* buf0 = &_buffer[idx];
+    int* buf1 = &_sa[pa];
 
-    if (b1 > b2) {
+    if (buf0[buf1[_sa[v1]]] > buf0[buf1[_sa[v2]]]) {
         const int t = v1;
         v1 = v2;
         v2 = t;
     }
 
-    if (b2 > b3) {
-        if (b1 > b3)
-            return v1;
-
-        return v3;
+    if (buf0[buf1[_sa[v2]]] > buf0[buf1[_sa[v3]]]) {
+        return (buf0[buf1[_sa[v1]]] > buf0[buf1[_sa[v3]]]) ? v1 : v3;
     }
 
     return v2;

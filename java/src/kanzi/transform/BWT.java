@@ -91,8 +91,8 @@ public class BWT implements ByteTransform
        this.primaryIndex = primaryIndex;
        return true;
     }
-
-
+    
+    
     // Not thread safe
     @Override
     public boolean forward(SliceByteArray src, SliceByteArray dst)
@@ -131,15 +131,15 @@ public class BWT implements ByteTransform
 
         // Compute suffix array
         final int[] sa = this.saAlgo.computeSuffixArray(input, srcIdx, count);
-        final int srcIdx2 = srcIdx - 1;    
+        final int srcIdx2 = srcIdx - 1; 
         int i = 0;
        
         for (; i<count; i++) 
         {
-          // Found primary index
+           // Found primary index
            if (sa[i] == 0)
               break;
-
+           
            output[dstIdx+i] = input[srcIdx2+sa[i]];
         }
         
@@ -174,7 +174,7 @@ public class BWT implements ByteTransform
            return false;
        
        if (dst.index + count > dst.array.length)
-          return false;      
+           return false;      
        
        if (count < 2)
        {
@@ -224,7 +224,7 @@ public class BWT implements ByteTransform
           data[i] = (buckets_[val] << 8) | val;
           buckets_[val]++;
        }
-       
+          
        for (int i=pIdx+1; i<count; i++)
        {
           final int val = input[srcIdx+i] & 0xFF;
@@ -243,12 +243,12 @@ public class BWT implements ByteTransform
        int ptr = data[pIdx];
        output[dstIdx+count-1] = (byte) ptr;
        
-       // Build inverse
+          // Build inverse
        for (int i=dstIdx+count-2; i>=dstIdx; i--)
-       {
+          {
           ptr = data[(ptr>>>8) + buckets_[ptr&0xFF]];
           output[i] = (byte) ptr;
-       }
+          }
 
        src.index += count;
        dst.index += count;

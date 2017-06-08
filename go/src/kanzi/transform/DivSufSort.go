@@ -195,6 +195,9 @@ func (this *DivSufSort) sortTypeBstar(bucket_A, bucket_B []int, n int) int {
 	c0 := this.buffer[n-1]
 	arr := this.sa
 
+	// Count the number of occurrences of the first one or two characters of each
+	// type A, B and B* suffix. Moreover, store the beginning position of all
+	// type B* suffixes into the array SA.
 	for i := n - 1; i >= 0; {
 		c1 := c0
 
@@ -235,6 +238,9 @@ func (this *DivSufSort) sortTypeBstar(bucket_A, bucket_B []int, n int) int {
 
 	m = n - m
 	c0 = 0
+
+	// A type B* suffix is lexicographically smaller than a type B suffix that
+	// begins with the same first two characters.
 
 	// Calculate the index of start/end point of each bucket.
 	for i, j := 0, 0; c0 < 256; c0++ {
@@ -1506,34 +1512,29 @@ func (this *DivSufSort) ssPivot(td, pa, first, last int) int {
 }
 
 func (this *DivSufSort) ssMedian5(buf0, buf1 []int, v1, v2, v3, v4, v5 int) int {
-	b1 := buf0[buf1[this.sa[v1]]]
-	b2 := buf0[buf1[this.sa[v2]]]
-	b3 := buf0[buf1[this.sa[v3]]]
-	b4 := buf0[buf1[this.sa[v4]]]
-
-	if b2 > b3 {
+	if buf0[buf1[this.sa[v2]]] > buf0[buf1[this.sa[v3]]] {
 		v2, v3 = v3, v2
 	}
 
-	if b4 > buf0[buf1[this.sa[v5]]] {
+	if buf0[buf1[this.sa[v4]]] > buf0[buf1[this.sa[v5]]] {
 		v4, v5 = v5, v4
 	}
 
-	if b2 > b4 {
+	if buf0[buf1[this.sa[v2]]] > buf0[buf1[this.sa[v4]]] {
 		v2, v4 = v4, v2
 		v3, v5 = v5, v3
 	}
 
-	if b1 > b3 {
+	if buf0[buf1[this.sa[v1]]] > buf0[buf1[this.sa[v3]]] {
 		v1, v3 = v3, v1
 	}
 
-	if b1 > b4 {
+	if buf0[buf1[this.sa[v1]]] > buf0[buf1[this.sa[v4]]] {
 		v1, v4 = v4, v1
 		v3, v5 = v5, v3
 	}
 
-	if b3 > b4 {
+	if buf0[buf1[this.sa[v3]]] > buf0[buf1[this.sa[v4]]] {
 		return v4
 	}
 
@@ -1541,18 +1542,14 @@ func (this *DivSufSort) ssMedian5(buf0, buf1 []int, v1, v2, v3, v4, v5 int) int 
 }
 
 func (this *DivSufSort) ssMedian3(buf0, buf1 []int, v1, v2, v3 int) int {
-	b1 := buf0[buf1[this.sa[v1]]]
-	b2 := buf0[buf1[this.sa[v2]]]
-	b3 := buf0[buf1[this.sa[v3]]]
-
-	if b1 > b2 {
+	if buf0[buf1[this.sa[v1]]] > buf0[buf1[this.sa[v2]]] {
 		t := v1
 		v1 = v2
 		v2 = t
 	}
 
-	if b2 > b3 {
-		if b1 > b3 {
+	if buf0[buf1[this.sa[v2]]] > buf0[buf1[this.sa[v3]]] {
+		if buf0[buf1[this.sa[v1]]] > buf0[buf1[this.sa[v3]]] {
 			return v1
 		}
 
