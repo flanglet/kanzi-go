@@ -57,7 +57,7 @@ public final class ExpGolombDecoder implements EntropyDecoder
           // Decode signed: read value + sign
           long res = this.bitstream.readBits(log2+1);
           final long sgn = res & 1;
-          res = (res >> 1) + (1 << log2) - 1;
+          res = (res >>> 1) + (1 << log2) - 1;
           return (byte) ((res - sgn) ^ -sgn); // res or -res
        }
 

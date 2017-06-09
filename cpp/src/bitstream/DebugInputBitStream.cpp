@@ -75,17 +75,17 @@ int DebugInputBitStream::readBit() THROW
             _idx = 0;
         }
         else if ((_idx & 7) == 0) {
-            _out << " ";
-
             if (showByte())
                 printByte(_current);
+            else
+                _out << " ";
         }
     }
     else if ((_idx & 7) == 0) {
-        _out << " ";
-
         if (showByte())
             printByte(_current);
+        else
+            _out << " ";
     }
 
     return res;
@@ -114,17 +114,17 @@ uint64 DebugInputBitStream::readBits(uint count) THROW
                 _idx = 0;
             }
             else if ((_idx & 7) == 0) {
-                _out << " ";
-
                 if (showByte())
                     printByte(_current);
+                else
+                    _out << " ";
             }
         }
         else if ((_idx & 7) == 0) {
-            _out << " ";
-
             if (showByte())
                 printByte(_current);
+            else
+                _out << " ";
         }
     }
 

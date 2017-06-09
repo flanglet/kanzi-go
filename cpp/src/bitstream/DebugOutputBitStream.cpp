@@ -74,17 +74,17 @@ void DebugOutputBitStream::writeBit(int bit) THROW
             _idx = 0;
         }
         else if ((_idx & 7) == 0) {
-            _out << " ";
-
             if (showByte())
                 printByte(_current);
+            else
+                _out << " ";
         }
     }
     else if ((_idx & 7) == 0) {
-        _out << " ";
-
         if (showByte())
             printByte(_current);
+        else
+            _out << " ";
     }
 
     _delegate.writeBit(bit);
@@ -113,17 +113,17 @@ int DebugOutputBitStream::writeBits(uint64 bits, uint count) THROW
                 _idx = 0;
             }
             else if ((_idx & 7) == 0) {
-                _out << " ";
-
                 if (showByte())
                     printByte(_current);
+                else
+                    _out << " ";
             }
         }
         else if ((_idx & 7) == 0) {
-            _out << " ";
-
             if (showByte())
                 printByte(_current);
+            else
+                _out << " ";
         }
     }
 

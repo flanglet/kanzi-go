@@ -125,18 +125,18 @@ public final class DebugInputBitStream implements InputBitStream
              }
              else if ((this.lineIndex & 7) == 0)
              {
-                 this.out.print(" ");
-
                  if (this.showByte())
                      this.printByte(this.current);
+                else
+                    this.out.print(" "); 
              }
          }
          else if ((this.lineIndex & 7) == 0)
          {
-             this.out.print(" ");
-
              if (this.showByte())
                  this.printByte(this.current);
+                else
+                    this.out.print(" "); 
          }
         
         return res;
@@ -171,18 +171,18 @@ public final class DebugInputBitStream implements InputBitStream
                 }
                 else if ((this.lineIndex & 7) == 0)
                 {
-                    this.out.print(" ");
-                    
                     if (this.showByte())
                         this.printByte(this.current);
+                    else
+                        this.out.print(" "); 
                 }
             }
             else if ((this.lineIndex & 7) == 0)
             {
-                this.out.print(" ");
-                
                 if (this.showByte())
                     this.printByte(this.current);
+                else
+                    this.out.print(" "); 
             }
         }
         

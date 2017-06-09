@@ -306,4 +306,6 @@ func TestSpeed(name string) {
 		fmt.Printf("\n%v decoding [ms]: %v", name, delta2/1000000)
 		fmt.Printf("\nThroughput [MB/s]: %d", (int64(iter*size))*1000000/delta2*1000/(1024*1024))
 	}
+	
+	println()
 }

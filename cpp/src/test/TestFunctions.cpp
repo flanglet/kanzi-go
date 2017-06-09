@@ -258,6 +258,7 @@ int testFunctionsSpeed(string name)
          << endl
          << "Speed test for " << name << endl;
     cout << "Iterations: " << iter << endl;
+    cout << endl;
     byte input[50000];
     byte output[50000];
     byte reverse[50000];

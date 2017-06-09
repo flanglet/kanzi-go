@@ -267,6 +267,7 @@ public class TestFunctions
       final int size = 50000;
       System.out.println("\n\nSpeed test for " + name);
       System.out.println("Iterations: " + iter);
+      System.out.println();
 
       for (int jj=0; jj<3; jj++)
       {

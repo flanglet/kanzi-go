@@ -85,20 +85,20 @@ public class CMPredictor implements Predictor
 
       if (this.ctx > 255)
       {
-        this.c2 = this.c1;
-        this.c1 = this.ctx & 0xFF;
-        this.ctx = 1;
+         this.c2 = this.c1;
+         this.c1 = this.ctx & 0xFF;
+         this.ctx = 1;
 
-        if (this.c1 == this.c2)
-        {
-           this.run++;
-           this.runMask = (2-this.run) >>> 31;
-        }
-        else
-        {
-           this.run = 0; 
-           this.runMask = 0;
-        }
+         if (this.c1 == this.c2)
+         {
+            this.run++;
+            this.runMask = (2-this.run) >>> 31;
+         }
+         else
+         {
+            this.run = 0; 
+            this.runMask = 0;
+         }
       } 
    }
 

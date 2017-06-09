@@ -23,16 +23,13 @@ const (
 // See http://mattmahoney.net/dc/#fpaq0.
 // Simple (and fast) adaptive order 0 entropy coder predictor
 type FPAQPredictor struct {
-	probs  []int // probability of bit=1
+	probs  [256]int // probability of bit=1
 	ctxIdx byte  // previous bits
-	p      int
 }
 
 func NewFPAQPredictor() (*FPAQPredictor, error) {
 	this := new(FPAQPredictor)
 	this.ctxIdx = 1
-	this.probs = make([]int, 256)
-	this.p = PSCALE >> 1
 
 	for i := range this.probs {
 		this.probs[i] = PSCALE >> 1
@@ -53,11 +50,9 @@ func (this *FPAQPredictor) Update(bit byte) {
 	} else {
 		this.ctxIdx = 1
 	}
-
-	this.p = this.probs[this.ctxIdx]
 }
 
 // Return the split value representing the probability of 1 in the [0..4095] range.
 func (this *FPAQPredictor) Get() int {
-	return this.p
+	return this.probs[this.ctxIdx]
 }

@@ -219,7 +219,7 @@ public final class IntBTree
          if (current.counts[i] != 0)
             return current;
       }
-
+      
       if (current == this.root)
       {
          // First, try easy substitutions of root

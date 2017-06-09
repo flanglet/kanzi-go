@@ -62,23 +62,23 @@ func (this *DebugOutputBitStream) WriteBit(bit int) {
 	if this.width > 7 {
 		if (this.lineIndex-1)%this.width == this.width-1 {
 			if this.hexa == true {
-				fmt.Fprintf(this.out, "[%d] ", this.current)
+				this.printByte(this.current)
 			}
 
 			fmt.Fprintf(this.out, "\n")
 			this.lineIndex = 0
 		} else if this.lineIndex&7 == 0 {
-			fmt.Fprintf(this.out, " ")
-
 			if this.hexa == true {
-				fmt.Fprintf(this.out, "[%d] ", this.current)
+				this.printByte(this.current)
+			} else {
+				fmt.Fprintf(this.out, " ")
 			}
 		}
 	} else if this.lineIndex&7 == 0 {
-		fmt.Fprintf(this.out, " ")
-
 		if this.hexa == true {
-			fmt.Fprintf(this.out, "[%d] ", this.current)
+			this.printByte(this.current)
+		} else {
+			fmt.Fprintf(this.out, " ")
 		}
 	}
 
@@ -102,28 +102,38 @@ func (this *DebugOutputBitStream) WriteBits(bits uint64, length uint) uint {
 		if this.width > 7 {
 			if this.lineIndex%this.width == 0 {
 				if this.hexa == true {
-					fmt.Fprintf(this.out, "[%d] ", this.current)
+					this.printByte(this.current)
 				}
 
 				fmt.Fprintf(this.out, "\n")
 				this.lineIndex = 0
 			} else if this.lineIndex&7 == 0 {
-				fmt.Fprintf(this.out, " ")
-
 				if this.hexa == true {
-					fmt.Fprintf(this.out, "[%d] ", this.current)
+					this.printByte(this.current)
+				} else {
+					fmt.Fprintf(this.out, " ")
 				}
 			}
 		} else if this.lineIndex&7 == 0 {
-			fmt.Fprintf(this.out, " ")
-
 			if this.hexa == true {
-				fmt.Fprintf(this.out, "[%d] ", this.current)
+				this.printByte(this.current)
+			} else {
+				fmt.Fprintf(this.out, " ")
 			}
 		}
 	}
 
 	return res
+}
+
+func (this *DebugOutputBitStream) printByte(val byte) {
+	if val >= 0 && val < 10 {
+		fmt.Fprintf(this.out, " [00%1d] ", val)
+	} else if val >= 0 && val < 100 {
+		fmt.Fprintf(this.out, " [0%2d] ", val)
+	} else {
+		fmt.Fprintf(this.out, " [%3d] ", val)
+	}
 }
 
 func (this *DebugOutputBitStream) Close() (bool, error) {

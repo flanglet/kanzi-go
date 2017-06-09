@@ -243,12 +243,12 @@ public class BWT implements ByteTransform
        int ptr = data[pIdx];
        output[dstIdx+count-1] = (byte) ptr;
        
-          // Build inverse
+       // Build inverse
        for (int i=dstIdx+count-2; i>=dstIdx; i--)
-          {
+       {
           ptr = data[(ptr>>>8) + buckets_[ptr&0xFF]];
           output[i] = (byte) ptr;
-          }
+       }
 
        src.index += count;
        dst.index += count;
