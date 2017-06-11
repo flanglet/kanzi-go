@@ -350,8 +350,8 @@ type TPAQPredictor struct {
 	buffer   []int8
 	hashes   []int   // hash table(context, buffer position)
 	states   []uint8 // hash table(context, prediction)
-	cp       []int   // context pointers
-	ctx      []int   // contexts
+	cp       [8]int  // context pointers
+	ctx      [8]int  // contexts
 	ctxId    int
 }
 
@@ -363,8 +363,6 @@ func NewTPAQPredictor() (*TPAQPredictor, error) {
 	this.states = make([]uint8, TPAQ_MASK3+1)
 	this.hashes = make([]int, TPAQ_HASH_SIZE)
 	this.buffer = make([]int8, TPAQ_MASK2+1)
-	this.cp = make([]int, 8)
-	this.ctx = make([]int, 8)
 	this.bpos = 0
 	this.apm, err = newAdaptiveProbMap(65536, 7)
 
@@ -415,7 +413,6 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.hashes[this.hash] = this.pos
 	}
 
-	// Alias cp to eliminate bound checks
 	cp_ := this.cp[0:this.ctxId]
 
 	// Add inputs to NN
@@ -435,7 +432,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 	// SSE (Secondary Symbol Estimation)
 	p = this.apm.get(y, p, int(this.c0|(this.c4&0xFF00)))
 	p32 := uint32(p)
-	this.pr = p + int((p32 - 2048) >> 31)
+	this.pr = p + int((p32-2048)>>31)
 }
 
 // Return the split value representing the probability of 1 in the [0..4095] range.

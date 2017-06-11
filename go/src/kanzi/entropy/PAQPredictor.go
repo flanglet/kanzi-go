@@ -15,7 +15,6 @@ limitations under the License.
 
 package entropy
 
-
 // This file is a port from the code of the dcs-bwt-compressor project
 // http://code.google.com/p/dcs-bwt-compressor/(itself based on PAQ coders)
 
@@ -194,7 +193,7 @@ type PAQPredictor struct {
 	c0     int          // bitwise context: last 0-7 bits with a leading 1 (1-255)
 	c4     int          // last 4 whole bytes, last is in low 8 bits
 	bpos   uint         // number of bits in c0 (0-7)
-	states []int        // context -> state
+	states [256]int     // context -> state
 	sm     *PAQStateMap // state -> pr
 	run    uint         // count of consecutive identical bytes (0-65535)
 	runCtx int          // (0-3) if run is 0, 1, 2-3, 4+
@@ -208,7 +207,6 @@ func NewPAQPredictor() (*PAQPredictor, error) {
 	this := new(PAQPredictor)
 	this.pr = 2048
 	this.c0 = 1
-	this.states = make([]int, 256)
 	this.bpos = 8
 	this.apm2, err = newAdaptiveProbMap(1024, 6)
 
@@ -269,7 +267,7 @@ func (this *PAQPredictor) Update(bit byte) {
 	p = (3*this.apm3.get(y, p, (this.c4&0xFF)|this.runCtx) + p + 2) >> 2
 	p = (3*this.apm4.get(y, p, this.c0|(this.c4&0xFF00)) + p + 2) >> 2
 	p32 := uint32(p)
-	this.pr = p + int((p32 - 2048) >> 31)
+	this.pr = p + int((p32-2048)>>31)
 }
 
 // Return the split value representing the probability of 1 in the [0..4095] range.
