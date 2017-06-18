@@ -487,10 +487,10 @@ func (this *DivSufSort) ssSort(pa, first, last, buf, bufSize, depth, n int, last
 }
 
 func (this *DivSufSort) ssCompare4(pa, pb, p2, depth int) int {
-	u1 := depth + pa
-	u2 := depth + this.sa[p2]
 	u1n := pb + 2
+	u1 := pa + depth
 	u2n := this.sa[p2+1] + 2
+	u2 := this.sa[p2] + depth
 
 	if u1n-u1 > u2n-u2 {
 		for u2 < u2n && this.buffer[u1] == this.buffer[u2] {
@@ -507,23 +507,23 @@ func (this *DivSufSort) ssCompare4(pa, pb, p2, depth int) int {
 	if u1 < u1n {
 		if u2 < u2n {
 			return this.buffer[u1] - this.buffer[u2]
-		} 
-			
+		}
+
 		return 1
-	} else {
-		if u2 < u2n {
-			return -1
-		} 
-		
-		return 0
 	}
+
+	if u2 < u2n {
+		return -1
+	}
+
+	return 0
 }
 
 func (this *DivSufSort) ssCompare3(p1, p2, depth int) int {
-	u1 := depth + this.sa[p1]
-	u2 := depth + this.sa[p2]
 	u1n := this.sa[p1+1] + 2
+	u1 := this.sa[p1] + depth
 	u2n := this.sa[p2+1] + 2
+	u2 := this.sa[p2] + depth
 
 	if u1n-u1 > u2n-u2 {
 		for u2 < u2n && this.buffer[u1] == this.buffer[u2] {
@@ -540,16 +540,16 @@ func (this *DivSufSort) ssCompare3(p1, p2, depth int) int {
 	if u1 < u1n {
 		if u2 < u2n {
 			return this.buffer[u1] - this.buffer[u2]
-		} 
-			
-		return 1		
-	} else {
-		if u2 < u2n {
-			return -1
-		} 
-			
-		return 0
+		}
+
+		return 1
 	}
+
+	if u2 < u2n {
+		return -1
+	}
+
+	return 0
 }
 
 func (this *DivSufSort) ssInplaceMerge(pa, first, middle, last, depth int) {
@@ -978,7 +978,7 @@ func (this *DivSufSort) ssMergeBackward(pa, first, middle, last, buf, depth int)
 	c := middle - 1
 	t := arr[a]
 
-	for true {	
+	for true {
 		if r := this.ssCompare3(p1, p2, depth); r > 0 {
 			if x&1 != 0 {
 				for true {
@@ -1296,7 +1296,7 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 		b := first + 1
 
 		// partition
-		for b < last {			
+		for b < last {
 			if x = buf1[buf2[this.sa[b]]]; x != v {
 				break
 			}
@@ -1309,7 +1309,7 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 		if a < last && x < v {
 			b++
 
-			for b < last {				
+			for b < last {
 				if x = buf1[buf2[this.sa[b]]]; x > v {
 					break
 				}
@@ -1325,7 +1325,7 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 
 		c := last - 1
 
-		for c > b {			
+		for c > b {
 			if x = buf1[buf2[this.sa[c]]]; x != v {
 				break
 			}
@@ -1714,7 +1714,7 @@ func (this *DivSufSort) trPartition(isad, first, middle, last, v int) (int, int)
 	if a < last && x < v {
 		b++
 
-		for b < last {			
+		for b < last {
 			if x = arr[this.sa[b]]; x > v {
 				break
 			}
@@ -1730,7 +1730,7 @@ func (this *DivSufSort) trPartition(isad, first, middle, last, v int) (int, int)
 
 	c := last - 1
 
-	for c > b {		
+	for c > b {
 		if x = arr[this.sa[c]]; x != v {
 			break
 		}
@@ -1743,7 +1743,7 @@ func (this *DivSufSort) trPartition(isad, first, middle, last, v int) (int, int)
 	if b < d && x > v {
 		c--
 
-		for c > b {			
+		for c > b {
 			if x = arr[this.sa[c]]; x < v {
 				break
 			}
@@ -1761,7 +1761,7 @@ func (this *DivSufSort) trPartition(isad, first, middle, last, v int) (int, int)
 		this.sa[b], this.sa[c] = this.sa[c], this.sa[b]
 		b++
 
-		for b < c {			
+		for b < c {
 			if x = arr[this.sa[b]]; x > v {
 				break
 			}
@@ -1776,7 +1776,7 @@ func (this *DivSufSort) trPartition(isad, first, middle, last, v int) (int, int)
 
 		c--
 
-		for c > b {			
+		for c > b {
 			if x = arr[this.sa[c]]; x < v {
 				break
 			}

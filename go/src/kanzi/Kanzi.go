@@ -130,26 +130,17 @@ func SameIntSlices(slice1, slice2 []int, deepCheck bool) bool {
 		return false
 	}
 
-	if &slice1 == &slice2 {
-		return true
-	}
-
 	if len(slice1) != len(slice2) {
 		return false
+	}
+
+	if &slice1 == &slice2 {
+		return true
 	}
 
 	if slice2[0] != slice1[0] {
 		return false
 	}
-
-	slice2[0] = ^slice2[0]
-
-	if slice2[0] != ^slice1[0] {
-		slice2[0] = ^slice2[0]
-		return false
-	}
-
-	slice2[0] = ^slice2[0]
 
 	if deepCheck == true {
 		for i := range slice1 {
@@ -173,19 +164,23 @@ func SameByteSlices(slice1, slice2 []byte, deepCheck bool) bool {
 		return false
 	}
 
+	if len(slice1) != len(slice2) {
+		return false
+	}
+
 	if &slice1 == &slice2 {
 		return true
 	}
 
-	if len(slice1) != len(slice2) {
+	if slice2[0] != slice1[0] {
 		return false
 	}
 
 	if deepCheck == true {
 		return bytes.Equal(slice1, slice2)
-	} else {
-		return false
-	}
+	} 
+		
+	return false	
 }
 
 func IsBigEndian() bool {
