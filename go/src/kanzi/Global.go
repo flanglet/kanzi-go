@@ -37,6 +37,26 @@ const (
 	SQRT_THRESHOLD8 = 1 << 30
 )
 
+// array with 256 elements: int(Math.log2(x-1))
+var LOG2 = [...]int{
+	0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4,
+	4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+	5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+	5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6,
+	6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+	6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+	6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+	6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7,
+	7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+	7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+	7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+	7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+	7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+	7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+	7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+	7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8,
+}
+
 // array with 256 elements: 4096*Math.log2(x)
 var LOG2_4096 = [...]int{
 	0, 0, 4096, 6492, 8192, 9510, 10588, 11498, 12288, 12984, 13606, 14169, 14684, 15157, 15594, 16002,
@@ -159,16 +179,16 @@ func Squash(d int) int {
 }
 
 // Return 1024 * 10 * log10(x)
-func Ten_log10(x int) (int, error) {
+func Ten_log10(x int32) (int, error) {
 	if x <= 0 {
-		return x, errors.New("Cannot calculate log of a negative or null value")
+		return -1, errors.New("Cannot calculate log of a negative or null value")
 	}
 
 	if x < 100 {
 		return TEN_LOG10_100[x] >> 2, nil
 	}
 
-	log2, err := Log2(x)
+	log2, err := Log2_1024(int(x))
 	return (log2 * 6165) >> 11, err // 10 * 1/log2(10)
 }
 
@@ -184,7 +204,8 @@ func Sin(rad1024 int) int {
 		return rad1024
 	}
 
-	x := (rad1024 + (rad1024 >> 31)) ^ (rad1024 >> 31) // abs(rad1024)
+	x := int32(rad1024)
+	x = (x + (x >> 31)) ^ (x >> 31) // abs(rad1024)
 
 	if x >= PI_1024 {
 		return -(((rad1024 >> 31) ^ SIN_1024[((x-PI_1024)*CONST1)>>12]) - (rad1024 >> 31))
@@ -205,7 +226,8 @@ func Cos(rad1024 int) int {
 		return 1024 - ((rad1024 * rad1024) >> 11)
 	}
 
-	x := (rad1024 + (rad1024 >> 31)) ^ (rad1024 >> 31) // abs(rad1024)
+	x := int32(rad1024)
+	x = (x + (x >> 31)) ^ (x >> 31) // abs(rad1024)
 
 	if x >= PI_1024 {
 		return -COS_1024[((x-PI_1024)*CONST1)>>12]
@@ -214,11 +236,43 @@ func Cos(rad1024 int) int {
 	return COS_1024[(x*CONST1)>>12]
 }
 
+func Len32(x uint) int {
+	if x == 0 {
+		return 0
+	}
+
+	res := 0
+
+	if x >= 1<<16 {
+		x >>= 16
+		res = 16
+	}
+
+	if x >= 1<<8 {
+		x >>= 8
+		res += 8
+	}
+
+	return res + LOG2[x-1]
+}
+
+func Log2(x int32) (int, error) {
+	if x <= 0 {
+		return -1, errors.New("Cannot calculate log of a negative or null value")
+	}
+
+	if x <= 256 {
+		return LOG2[x-1], nil
+	}
+
+	return Len32(uint(x)), nil
+}
+
 // Return 1024 * log2(x)
 // Max error is around 0.1%
-func Log2(x int) (int, error) {
+func Log2_1024(x int) (int, error) {
 	if x <= 0 {
-		return x, errors.New("Cannot calculate log of a negative or null value")
+		return -1, errors.New("Cannot calculate log of a negative or null value")
 	}
 
 	if x < 512 {

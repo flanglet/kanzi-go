@@ -58,6 +58,27 @@ public class Global
      
    public final static int INFINITE_VALUE = 0;
   
+   // array with 256 elements: int(Math.log2(x-1))
+   public static int[] LOG2 = new int[] 
+   {
+      0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4,
+      4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+      5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+      5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6,
+      6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+      6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+      6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+      6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8  
+   };
+
    // array with 256 elements: 4096*Math.log2(x)
    private static final int[] LOG2_4096 =
    {
@@ -201,7 +222,7 @@ public class Global
       if (x < 100)
          return TEN_LOG10_100[x] >> 2;
       
-      return (log2(x) * 6165) >> 11; // 10 * 1/log2(10)
+      return (log2_1024(x) * 6165) >> 11; // 10 * 1/log2(10)
    }
 
     
@@ -244,10 +265,22 @@ public class Global
       return COS_1024[(x*CONST1)>>12];
    }
    
+
+   public static int log2(int x) throws ArithmeticException
+   {
+      if (x <= 0)
+        throw new ArithmeticException("Cannot calculate log of a negative or null value");
+
+      if (x <= 256)
+         return LOG2[x-1];
+      
+      return 31 - Integer.numberOfLeadingZeros(x);
+   }
+   
    
    // Return 1024 * log2(x)
    // Max error is around 0.1%
-   public static int log2(int x) throws ArithmeticException
+   public static int log2_1024(int x) throws ArithmeticException
    {
       if (x <= 0)
         throw new ArithmeticException("Cannot calculate log of a negative or null value");

@@ -20,14 +20,17 @@ limitations under the License.
 #include "types.hpp"
 #include "util.hpp"
 
-namespace kanzi 
-{
+namespace kanzi {
 
-   class Global
-   {
+   class Global {
    public:
-       //  1<<16* 1/(1 + exp(-alpha*x)) with alpha = 0.52631
-       static const int INV_EXP[];
+       static const int INV_EXP[]; //  1<<16* 1/(1 + exp(-alpha*x)) with alpha = 0.52631
+       static const int COS_1024[]; // array with 256 elements: 1024*Math.cos(x) x in [0..Math.PI[
+       static const int SIN_1024[]; // array with 256 elements: 1024*Math.sin(x) x in [0..Math.PI[
+       static const int TEN_LOG10_100[]; // array with 10 elements: 10 * (4096*Math.log10(x))
+       static const int LOG2_4096[]; // array with 256 elements: 4096*Math.log2(x)
+       static const int LOG2[]; // array with 256 elements: int(Math.log2(x-1))
+       static const int SQRT[]; 
 
        // Inverse of squash. d = ln(p/(1-p)), d scaled by 8 bits, p by 12 bits.
        // d has range -2047 to 2047 representing -8 to 8.  p has range 0 to 4095.
@@ -39,22 +42,52 @@ namespace kanzi
 
        static int readUInt32(const byte* p);
 
+       static int ten_log10(int32 x) THROW;
+
+       static int sin(int32 x);
+
+       static int cos(int32 x);
+
+       static int log2(int32 x) THROW;
+
+       static int log2_1024(int32 x) THROW;
+
+       static int len32(int32 x);
+
+       static int sqrt(int32 x) THROW;
+
    private:
+       static const int INFINITE_VALUE;
+       static const int PI_1024;
+       static const int PI_1024_MULT2;
+       static const int SMALL_RAD_ANGLE_1024; // arbitrarily set to 0.25 rad
+       static const int CONST1; // 326 >> 12 === 1/(4*Math.PI)
+
+       static const int SQRT_THRESHOLD0;
+       static const int SQRT_THRESHOLD1;
+       static const int SQRT_THRESHOLD2;
+       static const int SQRT_THRESHOLD3;
+       static const int SQRT_THRESHOLD4;
+       static const int SQRT_THRESHOLD5;
+       static const int SQRT_THRESHOLD6;
+       static const int SQRT_THRESHOLD7;
+       static const int SQRT_THRESHOLD8;
+
        static const int* initStretch();
    };
 
    inline int Global::readInt32(const byte* p)
    {
-      int val; 
-      memcpy(&val, p, 4); 
-      return val;
+       int val;
+       memcpy(&val, p, 4);
+       return val;
    }
 
    inline int Global::readUInt32(const byte* p)
    {
-      uint val; 
-      memcpy(&val, p, 4); 
-      return val;
+       uint val;
+       memcpy(&val, p, 4);
+       return val;
    }
 
    // return p = 1/(1 + exp(-d)), d scaled by 8 bits, p scaled by 12 bits
@@ -70,6 +103,5 @@ namespace kanzi
        d = (d >> 7) + 16;
        return (INV_EXP[d] * (128 - w) + INV_EXP[d + 1] * w) >> 11;
    }
-
 }
 #endif

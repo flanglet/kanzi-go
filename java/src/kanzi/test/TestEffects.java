@@ -176,7 +176,7 @@ public class TestEffects
                   effect = new ColorClusterFilter(w/2, h/2, w, clusters, iterations);
                   clusters = 10;
                   test(effect, img, filterName + " - one quarter - "+clusters+" clusters", h*w/4+w/4, 600, 550, 0, 0);
-                  clusters = 5 + (Global.log2(w*h) >> 10);
+                  clusters = 5 + (Global.log2_1024(w*h) >> 10);
                   effect = new ColorClusterFilter(w, h, w, clusters, iterations);
                   test(effect, img, filterName + " - full - "+clusters+" clusters", 0, 700, 650, 1000*adjust/100, 30000);
                   break;  
