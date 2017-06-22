@@ -31,18 +31,14 @@ func BenchmarkLZ4(b *testing.B) {
 		input := make([]byte, size)
 		output := make([]byte, bf.MaxEncodedLen(size))
 		reverse := make([]byte, size)
-
-		// Generate random data with runs
-		// Leave zeros at the beginning for ZRLT to succeed
-		n := iter / 20
+		n := 0
 
 		for n < len(input) {
 			val := byte(rand.Intn(255))
 			input[n] = val
 			n++
-			run := rand.Intn(255)
-			run -= 220
-			run--
+			run := rand.Intn(55)
+			run -= 20
 
 			for run > 0 && n < len(input) {
 				input[n] = val
@@ -101,18 +97,14 @@ func BenchmarkSnappy(b *testing.B) {
 		input := make([]byte, size)
 		output := make([]byte, bf.MaxEncodedLen(size))
 		reverse := make([]byte, size)
-
-		// Generate random data with runs
-		// Leave zeros at the beginning for ZRLT to succeed
-		n := iter / 20
+		n := 0
 
 		for n < len(input) {
 			val := byte(rand.Intn(255))
 			input[n] = val
 			n++
-			run := rand.Intn(255)
-			run -= 220
-			run--
+			run := rand.Intn(55)
+			run -= 20
 
 			for run > 0 && n < len(input) {
 				input[n] = val
@@ -168,7 +160,7 @@ func BenchmarkZRLT(b *testing.B) {
 
 	for jj := 0; jj < 3; jj++ {
 		input := make([]byte, size)
-		output := make([]byte, 4*size)
+		output := make([]byte, 8*size)
 		reverse := make([]byte, size)
 
 		// Generate random data with runs
@@ -177,11 +169,15 @@ func BenchmarkZRLT(b *testing.B) {
 
 		for n < len(input) {
 			val := byte(rand.Intn(255))
+
+			if val%7 == 0 {
+				val = 0
+			}
+
 			input[n] = val
 			n++
-			run := rand.Intn(255)
-			run -= 220
-			run--
+			run := rand.Intn(55)
+			run -= 20
 
 			for run > 0 && n < len(input) {
 				input[n] = val
@@ -240,18 +236,14 @@ func BenchmarkRLT(b *testing.B) {
 		input := make([]byte, size)
 		output := make([]byte, bf.MaxEncodedLen(size))
 		reverse := make([]byte, size)
-
-		// Generate random data with runs
-		// Leave zeros at the beginning for ZRLT to succeed
-		n := iter / 20
+		n := 0
 
 		for n < len(input) {
 			val := byte(rand.Intn(255))
 			input[n] = val
 			n++
-			run := rand.Intn(255)
-			run -= 220
-			run--
+			run := rand.Intn(55)
+			run -= 20
 
 			for run > 0 && n < len(input) {
 				input[n] = val

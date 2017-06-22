@@ -246,7 +246,6 @@ func TestSpeed(name string) {
 			n++
 			run := rand.Intn(255)
 			run -= 220
-			run--
 
 			for run > 0 && n < len(input) {
 				input[n] = val
@@ -306,6 +305,6 @@ func TestSpeed(name string) {
 		fmt.Printf("\n%v decoding [ms]: %v", name, delta2/1000000)
 		fmt.Printf("\nThroughput [MB/s]: %d", (int64(iter*size))*1000000/delta2*1000/(1024*1024))
 	}
-	
+
 	println()
 }
