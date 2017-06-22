@@ -289,11 +289,7 @@ public class PAQPredictor implements Predictor
          {
             int n0 = STATE_TABLE[(i<<2)+2];
             int n1 = STATE_TABLE[(i<<2)+3];
-            array[i] = ((n1+5) << 16) / (n0+n1+10);
-
-            // Boost lowest probabilities (typically under estimated by above formula)
-            if (array[i] < 128)
-               array[i] <<= 5;
+            array[i] = ((n1+1) << 16) / (n0+n1+3);
          }
 
          return array;

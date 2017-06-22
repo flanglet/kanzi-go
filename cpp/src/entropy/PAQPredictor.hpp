@@ -154,10 +154,10 @@ namespace kanzi
 
    private:
        int _pr; // next predicted value (0-4095)
-       int _c0; // bitwise context: last 0-7 bits with a leading 1 (1-255)
-       int _c4; // last 4 whole bytes, last is in low 8 bits
+       int32 _c0; // bitwise context: last 0-7 bits with a leading 1 (1-255)
+       int32 _c4; // last 4 whole bytes, last is in low 8 bits
        int _bpos; // bit in c0 (0-7)
-       int _states[256]; // context -> state
+       short _states[256]; // context -> state
        StateMap _sm; // state -> pr
        int _run; // count of consecutive identical bytes (0-65535)
        int _runCtx; // (0-3) if run is 0, 1, 2-3, 4+

@@ -34,7 +34,7 @@ using namespace kanzi;
 // pair, so another state with about the same ratio of n0/n1 is substituted.
 // Also, when a bit is observed and the count of the opposite bit is large,
 // then part of this count is discarded to favor newer data over old.
-const int PAQ_STATE_TABLE[] = {
+const short PAQ_STATE_TABLE[] = {
     1, 2, 0, 0, 3, 5, 1, 0, 4, 6, 0, 1, 7, 10, 2, 0, // 0-3
     8, 12, 1, 1, 9, 13, 1, 1, 11, 14, 0, 2, 15, 19, 3, 0, // 4-7
     16, 23, 2, 1, 17, 24, 2, 1, 18, 25, 2, 1, 20, 27, 1, 2, // 8-11
@@ -110,11 +110,7 @@ const int* StateMap::initStateMapData()
     for (int i = 0; i < 256; i++) {
         int n0 = PAQ_STATE_TABLE[(i << 2) + 2];
         int n1 = PAQ_STATE_TABLE[(i << 2) + 3];
-        arr[i] = ((n1 + 5) << 16) / (n0 + n1 + 10);
-
-        // Boost lowest probabilities (typically under estimated by above formula)
-        if (arr[i] < 128)
-            arr[i] <<= 5;
+        arr[i] = ((n1 + 1) << 16) / (n0 + n1 + 3);
     }
 
     return arr;
@@ -170,7 +166,7 @@ void PAQPredictor::update(int bit)
     p = _apm2.get(bit, p, _c0 | (c1d << 8));
     p = (3 * _apm3.get(bit, p, (_c4 & 0xFF) | _runCtx) + p + 2) >> 2;
     p = (3 * _apm4.get(bit, p, _c0 | (_c4 & 0xFF00)) + p + 2) >> 2;
-    _pr = p + (((uint32)(p - 2048)) >> 31);
+    _pr = p + ((uint32(p - 2048)) >> 31);
 }
 
 StateMap::StateMap()
