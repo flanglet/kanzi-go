@@ -319,6 +319,7 @@ TPAQPredictor::TPAQPredictor()
     _pr = 2048;
     _c0 = 1;
     _c4 = 0;
+    _c8 = 0;
     _pos = 0;
     _matchLen = 0;
     _matchPos = 0;
@@ -350,12 +351,16 @@ void TPAQPredictor::update(int bit)
     _c0 = (_c0 << 1) | bit;
 
     if (_c0 > 255) {
-        _buffer[_pos & MASK2] = (byte)_c0;
+        _buffer[_pos & MASK2] = byte(_c0);
         _pos++;
         _ctxId = 0;
+        _c8 = (_c8 << 8) | ((_c4 >> 24) & 0xFF);
         _c4 = (_c4 << 8) | (_c0 & 0xFF);
         _hash = (((_hash * 43707) << 4) + _c4) & MASK1;
-        const uint32 shiftIsBinary = ((_c4 >> 31) | ((_c4 >> 23) & 1) | ((_c4 >> 15) & 1) | ((_c4 >> 7) & 1)) << 4;
+
+        // Shift by 16 if binary data else 0
+        const uint32 shift1 = (((_c4&MASK4)>>31) | ((-(_c4&MASK4))>>31)) << 4;
+        const uint32 shift2 = (((_c8&MASK4)>>31) | ((-(_c8&MASK4))>>31)) << 4;
         _c0 = 1;
         _bpos = 0;
 
@@ -369,7 +374,7 @@ void TPAQPredictor::update(int bit)
         addContext(hash(C3, _c4 << 8));
         addContext(hash(C4, _c4 & 0xF0F0F0F0));
         addContext(hash(C5, _c4));
-        addContext(hash(_c4 >> shiftIsBinary, (_buffer[(_pos - 8) & MASK2] << 16) | (_buffer[(_pos - 7) & MASK2] << 8) | (_buffer[(_pos - 6) & MASK2])));
+        addContext(hash(_c4 >> shift1, _c8 >> shift2));
 
         // Find match
         findMatch();
@@ -379,8 +384,8 @@ void TPAQPredictor::update(int bit)
     }
 
     // Add inputs to NN
-    for (int i = _ctxId - 1; i >= 0; i--) {        
-        _states[_cp[i]] = (byte)STATE_TABLE[((_states[_cp[i]] & 0xFF) << 1) | bit];
+    for (int i = _ctxId - 1; i >= 0; i--) {
+        _states[_cp[i]] = byte(STATE_TABLE[((_states[_cp[i]] & 0xFF) << 1) | bit]);
         _cp[i] = (_ctx[i] + _c0) & MASK3;
         _mixer.addInput(STATE_MAP[(i << 8) | (_states[_cp[i]] & 0xFF)]);
     }
@@ -393,14 +398,16 @@ void TPAQPredictor::update(int bit)
 
     // SSE (Secondary Symbol Estimation)
     p = _apm.get(bit, p, _c0 | (_c4 & 0xFF00));
-    _pr = p + ((uint32)(p - 2048) >> 31);
+    _pr = p + (uint32(p - 2048) >> 31);
 }
 
 inline void TPAQPredictor::findMatch()
 {
     // Update ongoing sequence match or detect match in the buffer (LZ like)
     if (_matchLen > 0) {
-        _matchLen += ((uint32)(_matchLen - MAX_LENGTH) >> 31);
+        if (_matchLen < MAX_LENGTH)
+        	_matchLen++;
+
         _matchPos++;
     }
     else {

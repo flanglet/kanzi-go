@@ -21,7 +21,7 @@ limitations under the License.
 #include "Predictor.hpp"
 
 
-namespace kanzi 
+namespace kanzi
 {
 
    // Tangelo PAQ predictor
@@ -90,6 +90,7 @@ namespace kanzi
        static const int MASK1 = HASH_SIZE - 1;
        static const int MASK2 = 8 * HASH_SIZE - 1;
        static const int MASK3 = 32 * HASH_SIZE - 1;
+       static const int MASK4 = 0x80808080;
        static const int C1 = 0xcc9e2d51;
        static const int C2 = 0x1b873593;
        static const int C3 = 0xe6546b64;
@@ -102,6 +103,7 @@ namespace kanzi
        int _pr; // next predicted value (0-4095)
        int _c0; // bitwise context: last 0-7 bits with a leading 1 (1-255)
        int32 _c4; // last 4 whole bytes, last is in low 8 bits
+       int32 _c8; // last 8 to 4 whole bytes, last is in low 8 bits
        int _bpos; // number of bits in c0 (0-7)
        int _pos;
        int _matchLen;
@@ -123,7 +125,7 @@ namespace kanzi
        void addMatchContext();
 
        void findMatch();
-   };
+  };
 
 }
 #endif

@@ -32,6 +32,7 @@ const (
 	TPAQ_MASK1      = TPAQ_HASH_SIZE - 1
 	TPAQ_MASK2      = 8*TPAQ_HASH_SIZE - 1
 	TPAQ_MASK3      = 32*TPAQ_HASH_SIZE - 1
+	TPAQ_MASK4      = int32(-2139062144) // 0x80808080
 	TPAQ_C1         = int32(-862048943)
 	TPAQ_C2         = int32(461845907)
 	TPAQ_C3         = int32(-430675100)
@@ -340,6 +341,7 @@ type TPAQPredictor struct {
 	pr       int   // next predicted value (0-4095)
 	c0       int32 // bitwise context: last 0-7 bits with a leading 1 (1-255)
 	c4       int32 // last 4 whole bytes, last is in low 8 bits
+	c8       int32 // last 8 to 4 whole bytes, last is in low 8 bits
 	bpos     uint  // number of bits in c0 (0-7)
 	pos      int
 	matchLen int
@@ -384,10 +386,16 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.buffer[this.pos&TPAQ_MASK2] = int8(this.c0)
 		this.pos++
 		this.ctxId = 0
+		this.c8 = (this.c8 << 8) | ((this.c4 >> 24) & 0xFF)
 		this.c4 = (this.c4 << 8) | (this.c0 & 0xFF)
 		this.hash = (((this.hash * 43707) << 4) + this.c4) & TPAQ_MASK1
-		shiftIsBinary := uint(((this.c4>>31)&1)|((this.c4>>23)&1)|
+		
+		// Shift by 16 if binary data else 0
+		shift1 := uint(((this.c4>>31)&1)|((this.c4>>23)&1)|
 			((this.c4>>15)&1)|((this.c4>>7)&1)) << 4
+		shift2 := uint(((this.c8>>31)&1)|((this.c8>>23)&1)|
+			((this.c8>>15)&1)|((this.c8>>7)&1)) << 4		
+			
 		this.c0 = 1
 		this.bpos = 0
 
@@ -401,10 +409,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.addContext(hashTPAQ(TPAQ_C3, this.c4<<8))
 		this.addContext(hashTPAQ(TPAQ_C4, this.c4&-252645136)) // 0xF0F0F0F0
 		this.addContext(hashTPAQ(TPAQ_C5, this.c4))
-		this.addContext(hashTPAQ(this.c4>>shiftIsBinary,
-			(int32(this.buffer[(this.pos-8)&TPAQ_MASK2])<<16)|
-				(int32(this.buffer[(this.pos-7)&TPAQ_MASK2])<<8)|
-				(int32(this.buffer[(this.pos-6)&TPAQ_MASK2]))))
+		this.addContext(hashTPAQ(this.c4>>shift1, this.c8>>shift2))
 
 		// Find match
 		this.findMatch()

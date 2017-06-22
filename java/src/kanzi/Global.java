@@ -49,10 +49,10 @@ public class Global
     
    public static int readInt32(byte[] buf, int offset)
    {
-      return (((buf[offset+3]) & 0xFF) << SHIFT32_3) |
-             (((buf[offset+2]) & 0xFF) << SHIFT32_2) |
-             (((buf[offset+1]) & 0xFF) << SHIFT32_1) |
-             (((buf[offset])   & 0xFF) << SHIFT32_0);       
+      return ((buf[offset+3] & 0xFF) << SHIFT32_3) |
+             ((buf[offset+2] & 0xFF) << SHIFT32_2) |
+             ((buf[offset+1] & 0xFF) << SHIFT32_1) |
+             ((buf[offset]   & 0xFF) << SHIFT32_0);       
    }
    
      

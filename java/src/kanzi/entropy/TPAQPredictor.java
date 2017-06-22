@@ -31,6 +31,7 @@ public class TPAQPredictor implements Predictor
    private static final int MASK1 = HASH_SIZE - 1;
    private static final int MASK2 = 8*HASH_SIZE - 1;
    private static final int MASK3 = 32*HASH_SIZE - 1;
+   private static final int MASK4 = 0x80808080;
    private static final int C1 = 0xcc9e2d51;
    private static final int C2 = 0x1b873593;
    private static final int C3 = 0xe6546b64;
@@ -342,6 +343,7 @@ public class TPAQPredictor implements Predictor
    private int pr;                     // next predicted value (0-4095)
    private int c0;                     // bitwise context: last 0-7 bits with a leading 1 (1-255)
    private int c4;                     // last 4 whole bytes, last is in low 8 bits
+   private int c8;                     // last 8 to 4 whole bytes, last is in low 8 bits
    private int bpos;                   // number of bits in c0 (0-7)
    private int pos;
    private int matchLen;
@@ -381,32 +383,34 @@ public class TPAQPredictor implements Predictor
      this.c0 = (this.c0 << 1) | bit;
 
      if (this.c0 > 255)
-     {    
+     {
         this.buffer[this.pos&MASK2] = (byte) this.c0;
         this.pos++;
         this.ctxId = 0;
+        this.c8 = (this.c8 << 8) | (this.c4 >>> 24);
         this.c4 = (this.c4 << 8) | (this.c0 & 0xFF);
         this.hash = (((this.hash*43707) << 4) + this.c4) & MASK1;
-        final int shiftIsBinary = ((this.c4 >>> 31) | ((this.c4 >>> 23) & 1) | 
-           ((this.c4 >>> 15) & 1) | ((this.c4 >>> 7) & 1)) << 4;
+
+        // Shift by 16 if binary data else 0
+        final int shift1 = (((this.c4&MASK4)>>>31) | ((-(this.c4&MASK4))>>>31)) << 4;
+        final int shift2 = (((this.c8&MASK4)>>>31) | ((-(this.c8&MASK4))>>>31)) << 4;
         this.c0 = 1;
         this.bpos = 0;
-        
+
         // Select Neural Net
         this.mixer.setContext(this.c4 & MASK0);
-        
+
         // Add contexts to NN
         this.addContext(this.c4 ^ (this.c4 & 0xFFFF));
         this.addContext(hash(C1, this.c4 << 24)); // hash with random primes
-        this.addContext(hash(C2, this.c4 << 16)); 
+        this.addContext(hash(C2, this.c4 << 16));
         this.addContext(hash(C3, this.c4 << 8));
         this.addContext(hash(C4, this.c4 & 0xF0F0F0F0));
         this.addContext(hash(C5, this.c4));
-        this.addContext(hash(this.c4>>shiftIsBinary, (this.buffer[(this.pos-8)&MASK2]<<16) | 
-              (this.buffer[(this.pos-7)&MASK2]<<8) | (this.buffer[(this.pos-6)&MASK2])));                
-        
+        this.addContext(hash(this.c4>>shift1, this.c8>>shift2));
+
         // Find match
-        this.findMatch();    
+        this.findMatch();
 
         // Keep track of new match position
         this.hashes[this.hash] = this.pos;
@@ -450,7 +454,7 @@ public class TPAQPredictor implements Predictor
          {
             int r = this.matchLen + 1;
 
-            while ((r <= MAX_LENGTH) && (this.buffer[(this.pos-r) & MASK2] == this.buffer[(this.matchPos-r) & MASK2])) 
+            while ((r <= MAX_LENGTH) && (this.buffer[(this.pos-r)&MASK2] == this.buffer[(this.matchPos-r)&MASK2])) 
                r++;
 
             this.matchLen = r - 1;
