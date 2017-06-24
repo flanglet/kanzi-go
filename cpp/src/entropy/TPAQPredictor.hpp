@@ -101,7 +101,7 @@ namespace kanzi
        static const int HASH3 = 50004239;
 
        int _pr; // next predicted value (0-4095)
-       int _c0; // bitwise context: last 0-7 bits with a leading 1 (1-255)
+       int32 _c0; // bitwise context: last 0-7 bits with a leading 1 (1-255)
        int32 _c4; // last 4 whole bytes, last is in low 8 bits
        int32 _c8; // last 8 to 4 whole bytes, last is in low 8 bits
        int _bpos; // number of bits in c0 (0-7)

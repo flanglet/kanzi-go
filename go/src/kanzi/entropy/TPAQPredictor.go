@@ -389,13 +389,11 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.c8 = (this.c8 << 8) | ((this.c4 >> 24) & 0xFF)
 		this.c4 = (this.c4 << 8) | (this.c0 & 0xFF)
 		this.hash = (((this.hash * 43707) << 4) + this.c4) & TPAQ_MASK1
-		
+
 		// Shift by 16 if binary data else 0
-		shift1 := uint(((this.c4>>31)&1)|((this.c4>>23)&1)|
-			((this.c4>>15)&1)|((this.c4>>7)&1)) << 4
-		shift2 := uint(((this.c8>>31)&1)|((this.c8>>23)&1)|
-			((this.c8>>15)&1)|((this.c8>>7)&1)) << 4		
-			
+		shift1 := uint(-(((this.c4 & TPAQ_MASK4) >> 31) | ((-(this.c4 & TPAQ_MASK4)) >> 31))) << 4
+		shift2 := uint(-(((this.c8 & TPAQ_MASK4) >> 31) | ((-(this.c8 & TPAQ_MASK4)) >> 31))) << 4
+
 		this.c0 = 1
 		this.bpos = 0
 
@@ -517,7 +515,6 @@ func (this *TPAQPredictor) addContext(cx int32) {
 type TPAQMixer struct {
 	data   []int // packed buffer: 8 inputs + 8 weights per ctx
 	buffer []int //alias of the data buffer
-	ctx    int   // context
 	idx    int   // input index
 	pr     int   // squashed prediction
 }

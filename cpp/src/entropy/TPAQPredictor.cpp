@@ -359,8 +359,9 @@ void TPAQPredictor::update(int bit)
         _hash = (((_hash * 43707) << 4) + _c4) & MASK1;
 
         // Shift by 16 if binary data else 0
-        const uint32 shift1 = (((_c4&MASK4)>>31) | ((-(_c4&MASK4))>>31)) << 4;
-        const uint32 shift2 = (((_c8&MASK4)>>31) | ((-(_c8&MASK4))>>31)) << 4;
+        const uint32 shift1 = -(((_c4&MASK4)>>31) | ((-(_c4&MASK4))>>31)) << 4;
+        const uint32 shift2 = -(((_c8&MASK4)>>31) | ((-(_c8&MASK4))>>31)) << 4;
+        
         _c0 = 1;
         _bpos = 0;
 
@@ -384,7 +385,7 @@ void TPAQPredictor::update(int bit)
     }
 
     // Add inputs to NN
-    for (int i = _ctxId - 1; i >= 0; i--) {
+    for (int i = 0; i < _ctxId; i++) {
         _states[_cp[i]] = byte(STATE_TABLE[((_states[_cp[i]] & 0xFF) << 1) | bit]);
         _cp[i] = (_ctx[i] + _c0) & MASK3;
         _mixer.addInput(STATE_MAP[(i << 8) | (_states[_cp[i]] & 0xFF)]);
