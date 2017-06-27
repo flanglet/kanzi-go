@@ -16,7 +16,7 @@ limitations under the License.
 package entropy
 
 const (
-	PSCALE = 4096
+	PSCALE = 8 * 4096
 )
 
 // Derived from fpaq0r by Matt Mahoney & Alexander Ratushnyak.
@@ -24,7 +24,7 @@ const (
 // Simple (and fast) adaptive order 0 entropy coder predictor
 type FPAQPredictor struct {
 	probs  [256]int // probability of bit=1
-	ctxIdx byte  // previous bits
+	ctxIdx byte     // previous bits
 }
 
 func NewFPAQPredictor() (*FPAQPredictor, error) {
@@ -39,10 +39,10 @@ func NewFPAQPredictor() (*FPAQPredictor, error) {
 }
 
 // Update the probability model
-// bit == 1 -> prob += (3*((PSCALE-(prob+16))) >> 7);
-// bit == 0 -> prob -= (3*(prob+16)) >> 7);
+// bit == 1 -> prob += (3*(PSCALE+32-prob)) >> 7
+// bit == 0 -> prob -= (3*(prob-16)) >> 7
 func (this *FPAQPredictor) Update(bit byte) {
-	this.probs[this.ctxIdx] -= ((3 * ((this.probs[this.ctxIdx] + 16) - (PSCALE & -int(bit)))) >> 7)
+	this.probs[this.ctxIdx] -= ((3 * ((this.probs[this.ctxIdx] + 16) - ((PSCALE - 16) & -int(bit)))) >> 7)
 
 	// Update context by registering the current bit (or wrapping after 8 bits)
 	if this.ctxIdx < 128 {
@@ -54,5 +54,5 @@ func (this *FPAQPredictor) Update(bit byte) {
 
 // Return the split value representing the probability of 1 in the [0..4095] range.
 func (this *FPAQPredictor) Get() int {
-	return this.probs[this.ctxIdx]
+	return int(this.probs[this.ctxIdx] >> 3)
 }

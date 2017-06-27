@@ -27,7 +27,7 @@ namespace kanzi
    class FPAQPredictor : public Predictor 
    {
    private:
-       static const int PSCALE = 4096;
+       static const int PSCALE = 8 * 4096;
 
        short _probs[256]; // probability of bit=1
        int _ctxIdx; // previous bits
@@ -39,7 +39,7 @@ namespace kanzi
 
        void update(int bit);
 
-       int get() { return _probs[_ctxIdx]; }
+       int get() { return _probs[_ctxIdx] >> 3; }
    };
 
 }

@@ -20,7 +20,7 @@ package kanzi.entropy;
 // Simple (and fast) adaptive order 0 entropy coder predictor
 public class FPAQPredictor implements Predictor
 { 
-   private static final int PSCALE = 4096;
+   private static final int PSCALE = 8*4096;
    private final short[] probs; // probability of bit=1
    private int ctxIdx; // previous bits
 
@@ -36,12 +36,12 @@ public class FPAQPredictor implements Predictor
    
    
    // Update the probability model
-   // bit == 1 -> prob += (3*((PSCALE-(prob+16))) >> 7);
-   // bit == 0 -> prob -= (3*(prob+16)) >> 7);
+   // bit == 1 -> prob += (3*(PSCALE+32-prob)) >> 7;
+   // bit == 0 -> prob -= (3*(prob-16)) >> 7;
    @Override
    public void update(int bit)
    {
-      this.probs[this.ctxIdx] -= ((3*((this.probs[this.ctxIdx]+16) - (PSCALE & -bit))) >> 7);
+      this.probs[this.ctxIdx] -= ((3*((this.probs[this.ctxIdx]+16) - ((PSCALE-16) & -bit))) >> 7);
 
       // Update context by registering the current bit (or wrapping after 8 bits)
       this.ctxIdx = (this.ctxIdx < 128) ? (this.ctxIdx << 1) | bit : 1;
@@ -52,6 +52,6 @@ public class FPAQPredictor implements Predictor
    @Override
    public int get()
    {
-      return this.probs[this.ctxIdx];
+      return this.probs[this.ctxIdx] >>> 3;
    }
 }   
