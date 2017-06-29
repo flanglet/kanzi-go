@@ -145,7 +145,7 @@ int BlockCompressor::call()
 {
     bool printFlag = _verbosity > 1;
     stringstream ss;
-    ss << "Kanzi 1.0 (C) 2017,  Frederic Langlet";
+    ss << "Kanzi 1.1 (C) 2017,  Frederic Langlet";
     printOut(ss.str().c_str(), _verbosity >= 1);
     ss.str(string());
     ss << "Input file name set to '" << _inputName << "'";

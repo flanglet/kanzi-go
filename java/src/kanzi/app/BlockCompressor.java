@@ -173,7 +173,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
    public Integer call()
    { 
       boolean printFlag = this.verbosity > 1;
-      printOut("Kanzi 1.0 (C) 2017,  Frederic Langlet", this.verbosity >= 1);
+      printOut("Kanzi 1.1 (C) 2017,  Frederic Langlet", this.verbosity >= 1);
       printOut("Input file name set to '" + this.inputName + "'", printFlag);
       printOut("Output file name set to '" + this.outputName + "'", printFlag);
       printOut("Block size set to " + this.blockSize + " bytes", printFlag);

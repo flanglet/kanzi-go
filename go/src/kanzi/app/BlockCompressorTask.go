@@ -219,7 +219,7 @@ func BlockCompressor_main() {
 func (this *BlockCompressor) call() (int, uint64) {
 	var msg string
 	printFlag := this.verbosity > 1
-	bc_printOut("Kanzi 1.0 (C) 2017,  Frederic Langlet", this.verbosity >= 1)
+	bc_printOut("Kanzi 1.1 (C) 2017,  Frederic Langlet", this.verbosity >= 1)
 	bc_printOut("Input file name set to '"+this.inputName+"'", printFlag)
 	bc_printOut("Output file name set to '"+this.outputName+"'", printFlag)
 	msg = fmt.Sprintf("Block size set to %d bytes", this.blockSize)
@@ -231,7 +231,7 @@ func (this *BlockCompressor) call() (int, uint64) {
 	msg = fmt.Sprintf("Checksum set to %t", this.checksum)
 	bc_printOut(msg, printFlag)
 	w1 := "no"
-
+ 
 	if this.transform != "NONE" {
 		w1 = this.transform
 	}

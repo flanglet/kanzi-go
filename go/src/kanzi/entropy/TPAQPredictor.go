@@ -473,7 +473,7 @@ func (this *TPAQPredictor) addMatchContext() {
 		// Add match length to NN inputs. Compute input based on run length
 		var p int
 
-		if this.matchLen < 32 {
+		if this.matchLen <= 32 {
 			p = this.matchLen
 		} else {
 			p = (32 + ((this.matchLen - 32) >> 2))

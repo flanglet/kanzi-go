@@ -431,7 +431,7 @@ inline void TPAQPredictor::addMatchContext()
 {
     if (_c0 == ((_buffer[_matchPos & MASK2] & 0xFF) | 256) >> (8 - _bpos)) {
         // Add match length to NN inputs. Compute input based on run length
-        int p = (_matchLen < 32) ? _matchLen : 32 + ((_matchLen - 32) >> 2);
+        int p = (_matchLen <= 32) ? _matchLen : 32 + ((_matchLen - 32) >> 2);
 
         if (((_buffer[_matchPos & MASK2] >> (7 - _bpos)) & 1) == 0)
             p = -p;

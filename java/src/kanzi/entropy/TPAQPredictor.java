@@ -467,7 +467,7 @@ public class TPAQPredictor implements Predictor
       if (this.c0 == ((this.buffer[this.matchPos&MASK2] & 0xFF) | 256) >> (8-this.bpos))
       {
          // Add match length to NN inputs. Compute input based on run length
-         int p = (this.matchLen<32) ? this.matchLen : 32+((this.matchLen-32)>>2);
+         int p = (this.matchLen<=32) ? this.matchLen : 32+((this.matchLen-32)>>2);
 
          if (((this.buffer[this.matchPos&MASK2] >> (7-this.bpos)) & 1) == 0)
             p = -p;
