@@ -52,7 +52,7 @@ int RangeDecoder::decodeHeader(uint frequencies[])
         memset(frequencies, 0, sizeof(uint) * 256);
     }
 
-    const uint logRange = (uint)(8 + _bitstream.readBits(3));
+    const uint logRange = uint(8 + _bitstream.readBits(3));
     const int scale = 1 << logRange;
     _shift = logRange;
     int sum = 0;
@@ -64,12 +64,12 @@ int RangeDecoder::decodeHeader(uint frequencies[])
 
     // Decode all frequencies (but the first one) by chunks of size 'inc'
     for (int i = 1; i < alphabetSize; i += inc) {
-        const int logMax = (int)(1 + _bitstream.readBits(llr));
+        const int logMax = int(1 + _bitstream.readBits(llr));
         const int endj = (i + inc < alphabetSize) ? i + inc : alphabetSize;
 
         // Read frequencies
         for (int j = i; j < endj; j++) {
-            int val = (int)_bitstream.readBits(logMax);
+            int val = int(_bitstream.readBits(logMax));
 
             if ((val <= 0) || (val >= scale)) {
                 stringstream ss;
@@ -105,10 +105,10 @@ int RangeDecoder::decodeHeader(uint frequencies[])
     // Create histogram of frequencies scaled to 'range' and reverse mapping
     for (int i = 0; i < 256; i++) {
         _cumFreqs[i + 1] = _cumFreqs[i] + frequencies[i];
-        const int base = (int)_cumFreqs[i];
+        const int base = int(_cumFreqs[i]);
 
         for (int j = frequencies[i] - 1; j >= 0; j--)
-            _f2s[base + j] = (short)i;
+            _f2s[base + j] = short(i);
     }
 
     return alphabetSize;
@@ -147,26 +147,26 @@ byte RangeDecoder::decodeByte()
 {
     // Compute next low and range
     _range >>= _shift;
-    const int count = (int)((_code - _low) / _range);
+    const int count = int((_code - _low) / _range);
     const int symbol = _f2s[count];
-    const int64 cumFreq = _cumFreqs[symbol];
-    const int64 freq = _cumFreqs[symbol + 1] - cumFreq;
+    const uint64 cumFreq = _cumFreqs[symbol];
+    const uint64 freq = _cumFreqs[symbol + 1] - cumFreq;
     _low += (cumFreq * _range);
     _range *= freq;
 
     // If the left-most digits are the same throughout the range, read bits from bitstream
     while (true) {
         if (((_low ^ (_low + _range)) & RANGE_MASK) != 0) {
-            if (_range > BOTTOM_RANGE)
-                break;
-
+            if (_range >= BOTTOM_RANGE)
+                  break;
+            
             // Normalize
             _range = ~(_low-1) & BOTTOM_RANGE;
         }
 
-        _code = (_code << 20) | _bitstream.readBits(20);
-        _range <<= 20;
-        _low <<= 20;
+        _code = (_code << 24) | _bitstream.readBits(24);
+        _range <<= 24;
+        _low <<= 24;
     }
 
     return (byte)symbol;

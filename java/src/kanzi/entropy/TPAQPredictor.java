@@ -560,7 +560,7 @@ public class TPAQPredictor implements Predictor
             this.buffer[this.ctx+this.idx] = 64;
             this.idx++;
          }
-
+         
          // Neural Network dot product (sum weights*inputs)
          int p =    (this.buffer[this.ctx]  *this.buffer[this.ctx+8])
                   + (this.buffer[this.ctx+1]*this.buffer[this.ctx+9])
@@ -575,9 +575,9 @@ public class TPAQPredictor implements Predictor
          return this.pr;
       }
 
-      public void addInput(int pred)
+      public void addInput(int input)
       {
-         this.buffer[this.ctx+this.idx] = pred;
+         this.buffer[this.ctx+this.idx] = input;
          this.idx++;
       }
    }

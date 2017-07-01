@@ -361,7 +361,7 @@ void TPAQPredictor::update(int bit)
         // Shift by 16 if binary data else 0
         const uint32 shift1 = -(((_c4&MASK4)>>31) | ((-(_c4&MASK4))>>31)) << 4;
         const uint32 shift2 = -(((_c8&MASK4)>>31) | ((-(_c8&MASK4))>>31)) << 4;
-        
+
         _c0 = 1;
         _bpos = 0;
 
@@ -510,8 +510,8 @@ inline int TPAQMixer::get()
     return _pr;
 }
 
-inline void TPAQMixer::addInput(int pred)
+inline void TPAQMixer::addInput(int input)
 {
-    _buffer[_ctx + _idx] = pred;
+    _buffer[_ctx + _idx] = input;
     _idx++;
 }

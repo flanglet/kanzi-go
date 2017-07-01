@@ -45,9 +45,9 @@ namespace kanzi
        void dispose(){};
 
    private:
-       static const uint64 TOP_RANGE = 0x0FFFFFFFFFFFFFFF;
-       static const uint64 BOTTOM_RANGE = 0x0000000000FFFFFF;
-       static const uint64 RANGE_MASK = 0x0FFFFF0000000000;
+       static const uint64 TOP_RANGE    = 0x0FFFFFFFFFFFFFFF;
+       static const uint64 BOTTOM_RANGE = 0x000000000000FFFF;
+       static const uint64 RANGE_MASK   = 0x0FFFFFF000000000;
        static const int DEFAULT_CHUNK_SIZE = 1 << 16; // 64 KB by default
        static const int DEFAULT_LOG_RANGE = 13;
 

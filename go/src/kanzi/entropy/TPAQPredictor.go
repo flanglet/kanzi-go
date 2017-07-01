@@ -575,7 +575,7 @@ func (this *TPAQMixer) get() int {
 	return this.pr
 }
 
-func (this *TPAQMixer) addInput(pred int) {
-	this.buffer[this.idx] = pred
+func (this *TPAQMixer) addInput(input int) {
+	this.buffer[this.idx] = input
 	this.idx++
 }

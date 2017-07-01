@@ -84,7 +84,7 @@ bool RangeEncoder::encodeHeader(int alphabetSize, uint alphabet[], uint frequenc
                 max = frequencies[alphabet[j]];
         }
 
-        while ((uint)(1 << logMax) <= max)
+        while (uint(1 << logMax) <= max)
             logMax++;
 
         _bitstream.writeBits(logMax - 1, llr);
@@ -137,8 +137,8 @@ inline void RangeEncoder::encodeByte(byte b)
 {
     // Compute next low and range
     const int symbol = b & 0xFF;
-    const int64 cumFreq = _cumFreqs[symbol];
-    const int64 freq = _cumFreqs[symbol + 1] - cumFreq;
+    const uint64 cumFreq = _cumFreqs[symbol];
+    const uint64 freq = _cumFreqs[symbol + 1] - cumFreq;
     _range >>= _shift;
     _low += (cumFreq * _range);
     _range *= freq;
@@ -146,16 +146,16 @@ inline void RangeEncoder::encodeByte(byte b)
     // If the left-most digits are the same throughout the range, write bits to bitstream
     while (true) {
         if (((_low ^ (_low + _range)) & RANGE_MASK) != 0) {
-            if (_range > BOTTOM_RANGE)
-                break;
-
+            if (_range >= BOTTOM_RANGE)
+                  break;
+            
             // Normalize
             _range = ~(_low-1) & BOTTOM_RANGE;
         }
 
-        _bitstream.writeBits(_low >> 40, 20);
-        _range <<= 20;
-        _low <<= 20;
+        _bitstream.writeBits(_low >> 36, 24);
+        _range <<= 24;
+        _low <<= 24;
     }
 }
 
