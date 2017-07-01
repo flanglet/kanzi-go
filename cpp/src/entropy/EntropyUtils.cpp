@@ -257,8 +257,8 @@ int EntropyUtils::decodeAlphabet(InputBitStream& ibs, uint alphabet[]) THROW
     }
 
     // DELTA_ENCODED_ALPHABET
-    int log = 1 + (int)ibs.readBits(4);
-    count = (int)ibs.readBits(log);
+    int log = 1 + int(ibs.readBits(4));
+    count = int(ibs.readBits(log));
 
     if (count == 0)
         return 0;
@@ -268,15 +268,15 @@ int EntropyUtils::decodeAlphabet(InputBitStream& ibs, uint alphabet[]) THROW
     int symbol = 0;
 
     if (ibs.readBit() == ABSENT_SYMBOLS_MASK) {
-        int alphabetSize = 1 << (int)ibs.readBits(5);
+        int alphabetSize = 1 << int(ibs.readBits(5));
 
         // Read missing symbols
         for (int i = 0; i < count; i += ckSize) {
-            log = 1 + (int)ibs.readBits(4);
+            log = 1 + int(ibs.readBits(4));
 
             // Read deltas for this chunk
             for (int j = i; (j < count) && (j < i + ckSize); j++) {
-                const int next = symbol + (int)decodeSize(ibs, log);
+                const int next = symbol + int(decodeSize(ibs, log));
 
                 while ((symbol < next) && (n < alphabetSize)) {
                     alphabet[n] = symbol++;
@@ -295,11 +295,11 @@ int EntropyUtils::decodeAlphabet(InputBitStream& ibs, uint alphabet[]) THROW
     else {
         // Read present symbols
         for (int i = 0; i < count; i += ckSize) {
-            log = 1 + (int)ibs.readBits(4);
+            log = 1 + int(ibs.readBits(4));
 
             // Read deltas for this chunk
             for (int j = i; (j < count) && (j < i + ckSize); j++) {
-                symbol += (int)decodeSize(ibs, log);
+                symbol += int(decodeSize(ibs, log));
                 alphabet[j] = symbol;
                 symbol++;
             }
@@ -364,25 +364,25 @@ int EntropyUtils::normalizeFrequencies(uint freqs[], uint alphabet[], int length
         }
 
         sumFreq += f;
-        int64 sf = (int64)f * scale;
+        int64 sf = int64(f) * scale;
         uint scaledFreq;
 
-        if (sf <= (int64)totalFreq) {
+        if (sf <= int64(totalFreq)) {
             // Quantum of frequency
             scaledFreq = 1;
         }
         else {
             // Find best frequency rounding value
-            scaledFreq = (uint)(sf / totalFreq);
-            int64 errCeiling = ((scaledFreq + 1) * (int64)totalFreq) - sf;
-            int64 errFloor = sf - (scaledFreq * (int64)totalFreq);
+            scaledFreq = uint(sf / totalFreq);
+            int64 errCeiling = (scaledFreq + 1) * int64(totalFreq) - sf;
+            int64 errFloor = sf - scaledFreq * int64(totalFreq);
 
             if (errCeiling < errFloor) {
                 scaledFreq++;
-                _errors[i] = (int)errCeiling;
+                _errors[i] = int(errCeiling);
             }
             else {
-                _errors[i] = (int)errFloor;
+                _errors[i] = int(errFloor);
             }
         }
 
@@ -400,9 +400,9 @@ int EntropyUtils::normalizeFrequencies(uint freqs[], uint alphabet[], int length
     }
 
     if (sumScaledFreq != scale) {
-        if (freqs[idxMax] > sumScaledFreq - scale) {
+        if (int(freqs[idxMax]) > int(sumScaledFreq - scale)) {
             // Fast path: just adjust the max frequency
-            freqs[idxMax] += (scale - sumScaledFreq);
+            freqs[idxMax] += int(scale - sumScaledFreq);
         }
         else {
             // Slow path: spread error across frequencies
@@ -411,7 +411,7 @@ int EntropyUtils::normalizeFrequencies(uint freqs[], uint alphabet[], int length
 
             // Create sorted queue of present symbols (except those with 'quantum frequency')
             for (int i = 0; i < alphabetSize; i++) {
-                if ((_errors[alphabet[i]] > 0) && ((int)freqs[alphabet[i]] != -inc)) {
+                if ((_errors[alphabet[i]] > 0) && (int(freqs[alphabet[i]]) != -inc)) {
                     queue.push_back(new FreqSortData(_errors, freqs, alphabet[i]));
                 }
             }
@@ -425,7 +425,7 @@ int EntropyUtils::normalizeFrequencies(uint freqs[], uint alphabet[], int length
                 queue.pop_back();
 
                 // Do not zero out any frequency
-                if ((int)freqs[fsd->_symbol] == -inc) {
+                if (int(freqs[fsd->_symbol]) == -inc) {
                     delete fsd;
                     continue;
                 }
