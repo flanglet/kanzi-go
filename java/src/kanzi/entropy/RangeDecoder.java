@@ -30,7 +30,7 @@ public final class RangeDecoder implements EntropyDecoder
 {
     private static final long TOP_RANGE    = 0x0FFFFFFFFFFFFFFFL;
     private static final long BOTTOM_RANGE = 0x000000000000FFFFL;
-    private static final long RANGE_MASK   = 0x0FFFFFF000000000L;;
+    private static final long RANGE_MASK   = 0x0FFFFFFF00000000L;
     private static final int DEFAULT_CHUNK_SIZE = 1 << 16; // 64 KB by default
 
 
@@ -202,16 +202,16 @@ public final class RangeDecoder implements EntropyDecoder
        {
           if (((this.low ^ (this.low + this.range)) & RANGE_MASK) != 0)
           {
-             if (this.range >= BOTTOM_RANGE)
+             if (this.range > BOTTOM_RANGE)
                 break;
              
              // Normalize
              this.range = -this.low & BOTTOM_RANGE;
           }
 
-          this.code = (this.code << 24) | this.bitstream.readBits(24);
-          this.range <<= 24;
-          this.low <<= 24;
+          this.code = (this.code << 28) | this.bitstream.readBits(28);
+          this.range <<= 28;
+          this.low <<= 28;
        }
 
        return (byte) symbol;

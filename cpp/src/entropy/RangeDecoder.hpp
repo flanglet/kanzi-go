@@ -21,7 +21,7 @@ limitations under the License.
 
 using namespace std;
 
-namespace kanzi 
+namespace kanzi
 {
 
    // Based on Order 0 range coder by Dmitry Subbotin itself derived from the algorithm
@@ -47,7 +47,7 @@ namespace kanzi
    private:
        static const uint64 TOP_RANGE    = 0x0FFFFFFFFFFFFFFF;
        static const uint64 BOTTOM_RANGE = 0x000000000000FFFF;
-       static const uint64 RANGE_MASK   = 0x0FFFFFF000000000;
+       static const uint64 RANGE_MASK   = 0x0FFFFFFF00000000;
        static const int DEFAULT_CHUNK_SIZE = 1 << 16; // 64 KB by default
        static const int DEFAULT_LOG_RANGE = 13;
 

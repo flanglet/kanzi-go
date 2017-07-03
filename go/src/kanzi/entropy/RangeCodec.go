@@ -29,7 +29,7 @@ import (
 const (
 	TOP_RANGE                = uint64(0x0FFFFFFFFFFFFFFF)
 	BOTTOM_RANGE             = uint64(0x000000000000FFFF)
-	RANGE_MASK               = uint64(0x0FFFFFF000000000)
+	RANGE_MASK               = uint64(0x0FFFFFFF00000000)
 	DEFAULT_RANGE_CHUNK_SIZE = uint(1 << 16) // 64 KB by default
 	DEFAULT_RANGE_LOG_RANGE  = uint(13)
 )
@@ -252,7 +252,7 @@ func (this *RangeEncoder) encodeByte(b byte) {
 	// If the left-most digits are the same throughout the range, write bits to bitstream
 	for {
 		if (this.low^(this.low+this.range_))&RANGE_MASK != 0 {
-			if this.range_ >= BOTTOM_RANGE {
+			if this.range_ > BOTTOM_RANGE {
 				break
 			}
 
@@ -260,9 +260,9 @@ func (this *RangeEncoder) encodeByte(b byte) {
 			this.range_ = -this.low & BOTTOM_RANGE
 		}
 
-		this.bitstream.WriteBits(this.low>>36, 24)
-		this.range_ <<= 24
-		this.low <<= 24
+		this.bitstream.WriteBits(this.low>>32, 28)
+		this.range_ <<= 28
+		this.low <<= 28
 	}
 
 }
@@ -458,7 +458,7 @@ func (this *RangeDecoder) decodeByte() byte {
 	// If the left-most digits are the same throughout the range, read bits from bitstream
 	for {
 		if (this.low^(this.low+this.range_))&RANGE_MASK != 0 {
-			if this.range_ >= BOTTOM_RANGE {
+			if this.range_ > BOTTOM_RANGE {
 				break
 			}
 
@@ -466,9 +466,9 @@ func (this *RangeDecoder) decodeByte() byte {
 			this.range_ = -this.low & BOTTOM_RANGE
 		}
 
-		this.code = (this.code << 24) | this.bitstream.ReadBits(24)
-		this.range_ <<= 24
-		this.low <<= 24
+		this.code = (this.code << 28) | this.bitstream.ReadBits(28)
+		this.range_ <<= 28
+		this.low <<= 28
 	}
 
 	return byte(symbol)

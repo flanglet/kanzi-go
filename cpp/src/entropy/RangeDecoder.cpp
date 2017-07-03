@@ -157,16 +157,16 @@ byte RangeDecoder::decodeByte()
     // If the left-most digits are the same throughout the range, read bits from bitstream
     while (true) {
         if (((_low ^ (_low + _range)) & RANGE_MASK) != 0) {
-            if (_range >= BOTTOM_RANGE)
+            if (_range > BOTTOM_RANGE)
                   break;
-            
+
             // Normalize
             _range = ~(_low-1) & BOTTOM_RANGE;
         }
 
-        _code = (_code << 24) | _bitstream.readBits(24);
-        _range <<= 24;
-        _low <<= 24;
+        _code = (_code << 28) | _bitstream.readBits(28);
+        _range <<= 28;
+        _low <<= 28;
     }
 
     return (byte)symbol;

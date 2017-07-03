@@ -146,16 +146,16 @@ inline void RangeEncoder::encodeByte(byte b)
     // If the left-most digits are the same throughout the range, write bits to bitstream
     while (true) {
         if (((_low ^ (_low + _range)) & RANGE_MASK) != 0) {
-            if (_range >= BOTTOM_RANGE)
+            if (_range > BOTTOM_RANGE)
                   break;
-            
+
             // Normalize
             _range = ~(_low-1) & BOTTOM_RANGE;
         }
 
-        _bitstream.writeBits(_low >> 36, 24);
-        _range <<= 24;
-        _low <<= 24;
+        _bitstream.writeBits(_low >> 32, 28);
+        _range <<= 28;
+        _low <<= 28;
     }
 }
 
