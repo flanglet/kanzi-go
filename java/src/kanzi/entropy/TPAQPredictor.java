@@ -24,7 +24,7 @@ import kanzi.Global;
 
 public class TPAQPredictor implements Predictor
 {
-   private static final int MAX_LENGTH = 160;
+   private static final int MAX_LENGTH = 184;
    private static final int MIXER_SIZE = 0x1000;
    private static final int HASH_SIZE = 8*1024*1024;
    private static final int MASK0 = MIXER_SIZE - 1;
@@ -346,6 +346,7 @@ public class TPAQPredictor implements Predictor
    private int c8;                     // last 8 to 4 whole bytes, last is in low 8 bits
    private int bpos;                   // number of bits in c0 (0-7)
    private int pos;
+   private int shift4;
    private int matchLen;
    private int matchPos;
    private int hash;
@@ -391,8 +392,8 @@ public class TPAQPredictor implements Predictor
         this.hash = (((this.hash*43707) << 4) + this.c4) & MASK1;
 
         // Shift by 16 if binary data else 0
-        final int shift1 = (((this.c4&MASK4)>>>31) | ((-(this.c4&MASK4))>>>31)) << 4;
-        final int shift2 = (((this.c8&MASK4)>>>31) | ((-(this.c8&MASK4))>>>31)) << 4;
+        this.shift4 = (((this.c4&MASK4)>>>31) | ((-(this.c4&MASK4))>>>31)) << 4;
+        final int shift8 = (((this.c8&MASK4)>>>31) | ((-(this.c8&MASK4))>>>31)) << 4;
         this.c0 = 1;
         this.bpos = 0;
 
@@ -406,7 +407,7 @@ public class TPAQPredictor implements Predictor
         this.addContext(hash(C3, this.c4 << 8));
         this.addContext(hash(C4, this.c4 & 0xF0F0F0F0));
         this.addContext(hash(C5, this.c4));
-        this.addContext(hash(this.c4>>shift1, this.c8>>shift2));
+        this.addContext(hash(this.c4>>this.shift4, this.c8>>shift8));
 
         // Find match
         this.findMatch();
@@ -430,7 +431,7 @@ public class TPAQPredictor implements Predictor
       int p = this.mixer.get();
 
       // SSE (Secondary Symbol Estimation)
-      p = this.apm.get(bit, p, this.c0 | (this.c4 & 0xFF00));
+      p = this.apm.get(bit, p, this.c0 | ((this.c4&0xFF00) >> this.shift4));
       this.pr = p + ((p-2048) >>> 31);
    }
 
@@ -467,7 +468,7 @@ public class TPAQPredictor implements Predictor
       if (this.c0 == ((this.buffer[this.matchPos&MASK2] & 0xFF) | 256) >> (8-this.bpos))
       {
          // Add match length to NN inputs. Compute input based on run length
-         int p = (this.matchLen<=32) ? this.matchLen : 32+((this.matchLen-32)>>2);
+         int p = (this.matchLen<=24) ? this.matchLen : 24+((this.matchLen-24)>>2);
 
          if (((this.buffer[this.matchPos&MASK2] >> (7-this.bpos)) & 1) == 0)
             p = -p;

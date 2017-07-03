@@ -25,7 +25,7 @@ import (
 // See http://encode.ru/threads/1738-TANGELO-new-compressor-(derived-from-PAQ8-FP8)
 
 const (
-	TPAQ_MAX_LENGTH = 160
+	TPAQ_MAX_LENGTH = 184
 	TPAQ_MIXER_SIZE = 0x1000
 	TPAQ_HASH_SIZE  = 8 * 1024 * 1024
 	TPAQ_MASK0      = TPAQ_MIXER_SIZE - 1
@@ -344,6 +344,7 @@ type TPAQPredictor struct {
 	c8       int32 // last 8 to 4 whole bytes, last is in low 8 bits
 	bpos     uint  // number of bits in c0 (0-7)
 	pos      int
+	shift4   uint
 	matchLen int
 	matchPos int
 	hash     int32
@@ -391,8 +392,8 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.hash = (((this.hash * 43707) << 4) + this.c4) & TPAQ_MASK1
 
 		// Shift by 16 if binary data else 0
-		shift1 := uint(-(((this.c4 & TPAQ_MASK4) >> 31) | ((-(this.c4 & TPAQ_MASK4)) >> 31))) << 4
-		shift2 := uint(-(((this.c8 & TPAQ_MASK4) >> 31) | ((-(this.c8 & TPAQ_MASK4)) >> 31))) << 4
+		this.shift4 = uint(-(((this.c4 & TPAQ_MASK4) >> 31) | ((-(this.c4 & TPAQ_MASK4)) >> 31))) << 4
+		shift8 := uint(-(((this.c8 & TPAQ_MASK4) >> 31) | ((-(this.c8 & TPAQ_MASK4)) >> 31))) << 4
 
 		this.c0 = 1
 		this.bpos = 0
@@ -407,7 +408,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.addContext(hashTPAQ(TPAQ_C3, this.c4<<8))
 		this.addContext(hashTPAQ(TPAQ_C4, this.c4&-252645136)) // 0xF0F0F0F0
 		this.addContext(hashTPAQ(TPAQ_C5, this.c4))
-		this.addContext(hashTPAQ(this.c4>>shift1, this.c8>>shift2))
+		this.addContext(hashTPAQ(this.c4>>this.shift4, this.c8>>shift8))
 
 		// Find match
 		this.findMatch()
@@ -433,7 +434,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 	p := this.mixer.get()
 
 	// SSE (Secondary Symbol Estimation)
-	p = this.apm.get(y, p, int(this.c0|(this.c4&0xFF00)))
+	p = this.apm.get(y, p, int(this.c0|((this.c4&0xFF00)>>this.shift4)))
 	p32 := uint32(p)
 	this.pr = p + int((p32-2048)>>31)
 }
@@ -473,10 +474,10 @@ func (this *TPAQPredictor) addMatchContext() {
 		// Add match length to NN inputs. Compute input based on run length
 		var p int
 
-		if this.matchLen <= 32 {
+		if this.matchLen <= 24 {
 			p = this.matchLen
 		} else {
-			p = (32 + ((this.matchLen - 32) >> 2))
+			p = (24 + ((this.matchLen - 24) >> 2))
 		}
 
 		if ((this.buffer[this.matchPos&TPAQ_MASK2] >> (7 - this.bpos)) & 1) == 0 {

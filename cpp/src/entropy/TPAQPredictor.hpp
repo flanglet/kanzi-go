@@ -83,7 +83,7 @@ namespace kanzi
        int get() { return _pr; }
 
    private:
-       static const int MAX_LENGTH = 160;
+       static const int MAX_LENGTH = 184;
        static const int MIXER_SIZE = 0x1000;
        static const int HASH_SIZE = 8 * 1024 * 1024;
        static const int MASK0 = MIXER_SIZE - 1;
@@ -106,6 +106,7 @@ namespace kanzi
        int32 _c8; // last 8 to 4 whole bytes, last is in low 8 bits
        int _bpos; // number of bits in c0 (0-7)
        int _pos;
+       uint32 _shift4;
        int _matchLen;
        int _matchPos;
        int _hash;
