@@ -83,7 +83,7 @@ inline void CMPredictor::update(int bit)
 inline int CMPredictor::get()
 {
     const int* pc1 = _counter1[_ctx];
-    const int p = (7 * (pc1[256] + pc1[_c1]) + (pc1[_c2] << 1)) >> 4;
+    const int p = (13 * pc1[256] + 14 * pc1[_c1] + 5 * pc1[_c2]) >> 5;
     _idx = p >> 12;
     const int* pc2 = _counter2[(_ctx << 1) | _runMask];
     const int x1 = pc2[_idx];

@@ -33,7 +33,7 @@ public class CMPredictor implements Predictor
    private final int[][] counter1;
    private final int[][] counter2;
    
-   
+
    public CMPredictor()
    {   
       this.ctx = 1;
@@ -99,7 +99,7 @@ public class CMPredictor implements Predictor
             this.run = 0; 
             this.runMask = 0;
          }
-      } 
+      }
    }
 
    
@@ -108,7 +108,7 @@ public class CMPredictor implements Predictor
    public int get()
    {
       final int[] pc1 = this.counter1[this.ctx];
-      final int p = (7*(pc1[256]+pc1[this.c1]) + (pc1[this.c2]<<1)) >> 4;
+      final int p = (13*pc1[256]+14*pc1[this.c1]+5*pc1[this.c2]) >> 5;
       this.idx = p >>> 12;
       final int[] pc2 = this.counter2[(this.ctx<<1)|this.runMask];
       final int x1 = pc2[this.idx];
@@ -116,4 +116,4 @@ public class CMPredictor implements Predictor
       final int ssep = x1 + (((x2-x1)*(p&4095)) >> 12);
       return (p + ssep + ssep + ssep + 32) >>> 6; // rescale to [0..4095]
    }
-}   
+}
