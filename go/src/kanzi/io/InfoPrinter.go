@@ -43,7 +43,7 @@ type BlockInfo struct {
 type InfoPrinter struct {
 	writer     io.Writer
 	type_      uint
-	map_       map[int]BlockInfo
+	map_       map[int32]BlockInfo
 	thresholds []int
 	lock       sync.RWMutex
 	level      uint
@@ -58,7 +58,7 @@ func NewInfoPrinter(infoLevel, type_ uint, writer io.Writer) (*InfoPrinter, erro
 	this.type_ = type_ & 1
 	this.level = infoLevel
 	this.writer = writer
-	this.map_ = make(map[int]BlockInfo)
+	this.map_ = make(map[int32]BlockInfo)
 
 	if this.type_ == ENCODING {
 		this.thresholds = []int{
@@ -80,7 +80,7 @@ func NewInfoPrinter(infoLevel, type_ uint, writer io.Writer) (*InfoPrinter, erro
 }
 
 func (this *InfoPrinter) ProcessEvent(evt *BlockEvent) {
-	currentBlockId := evt.BlockId()
+	currentBlockId := int32(evt.BlockId())
 
 	if evt.EventType() == this.thresholds[0] {
 		// Register initial block size
