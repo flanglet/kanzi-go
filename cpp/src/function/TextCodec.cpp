@@ -621,7 +621,7 @@ TextCodec::TextCodec()
     _staticDictSize = nbWords;
 }
 
-TextCodec::TextCodec(byte dict[], int size, int logHashSize, int dictSize, byte delimiter1, byte delimiter2)
+TextCodec::TextCodec(byte dict[], int size, int logHashSize, int dictSize)
 {
 
     if ((logHashSize < 10) || (logHashSize > 28))

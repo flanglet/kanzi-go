@@ -52,7 +52,7 @@ namespace kanzi {
 
        TextCodec();
 
-       TextCodec(byte dict[], int size, int logHashSize, int dictSize, byte delimiter1, byte delimiter2);
+       TextCodec(byte dict[], int size, int logHashSize, int dictSize);
 
        virtual ~TextCodec()
        {
