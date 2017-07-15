@@ -23,7 +23,7 @@ namespace kanzi {
    public:
        int32 _hash; // full hash
        int _pos; // position in text
-       int16 _idx; // index in dictionary
+       int32 _idx; // index in dictionary
        int16 _length; // length in text
        const byte* _buf; // data
 
@@ -44,11 +44,11 @@ namespace kanzi {
    // emit current symbol.
    class TextCodec : public Function<byte> {
    public:
-       static const int LOG_DICT_SIZE = 15;
-       static const int DICTIONARY_SIZE = 1 << LOG_DICT_SIZE;
+       static const int THRESHOLD1 = 128;
+       static const int THRESHOLD2 = THRESHOLD1 * 128;
        static const int LOG_HASHES_SIZE = 24; // 16 MB
-       static const byte DEFAULT_ESCAPE_TOKEN1 = '@';
-       static const byte DEFAULT_ESCAPE_TOKEN2 = '^';
+       static const byte ESCAPE_TOKEN1 = byte(0x0F); // dictionary word preceded by space symbol
+       static const byte ESCAPE_TOKEN2 = byte(0x0E); // toggle upper/lower case of first word char
 
        TextCodec();
 
@@ -101,14 +101,14 @@ namespace kanzi {
 
        DictEntry** _dictMap;
        DictEntry* _dictList;
-       byte _escape1;
-       byte _escape2;
        byte _escapes[2];
        int _staticDictSize;
+       int _dictSize;
        int _logHashSize;
        int32 _hashMask;
 
-       int emit(byte src[], byte dst[], const int srcEnd, const int dstEnd);
+       int emitWordIndex(byte dst[], int val);
+       int emitSymbols(byte src[], byte dst[], const int srcEnd, const int dstEnd);
        int emit1(byte src[], byte dst[], const int srcEnd, const int dstEnd);
        int emit2(byte src[], byte dst[], const int srcEnd, const int dstEnd);
    };
@@ -118,7 +118,7 @@ namespace kanzi {
        _buf = nullptr;
        _pos = -1;
        _hash = 0;
-       _idx = int16(0);
+       _idx = int32(0);
        _length = int16(0);
    }
 
@@ -127,7 +127,7 @@ namespace kanzi {
        _buf = buf;
        _pos = pos;
        _hash = hash;
-       _idx = int16(idx);
+       _idx = int32(idx);
        _length = int16(length);
    }
 }
