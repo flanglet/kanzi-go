@@ -606,7 +606,7 @@ TextCodec::TextCodec()
     nbWords += 2;
 
     // Populate hash map
-    for (int i = nbWords; i < mapSize; i++) {
+    for (int i = 0; i < mapSize; i++) {
         _dictMap[i] = nullptr;
     }
 
@@ -665,7 +665,7 @@ TextCodec::TextCodec(byte dict[], int size, int logHashSize, int dictSize)
     nbWords += 2;
 
     // Populate hash map
-    for (int i = nbWords; i < mapSize; i++) {
+    for (int i = 0; i < mapSize; i++) {
         _dictMap[i] = nullptr;
     }
 
