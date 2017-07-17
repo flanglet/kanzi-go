@@ -372,7 +372,7 @@ func processDecoderCommandLine(args []string, argsMap map[string]interface{}) {
 			bd_printOut("-o, --output=<outputName> : optional name of the output file (defaults to <input.knz>) or 'none' or 'stdout'", true)
 			bd_printOut("-j, --jobs=<jobs>         : number of concurrent jobs", true)
 			bd_printOut("", true)
-			bd_printOut("EG. Kanzi  --decompress --input=foo.knz --force --verbose=2 --jobs=2", true)
+			bd_printOut("EG. Kanzi --decompress --input=foo.knz --force --verbose=2 --jobs=2", true)
 			bd_printOut("EG. Kanzi -d -i foo.knz -f -v 2 -j 2", true)
 			os.Exit(0)
 		}

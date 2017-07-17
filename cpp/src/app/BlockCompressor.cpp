@@ -435,7 +435,7 @@ void BlockCompressor::processCommandLine(int argc, const char* argv[], map<strin
             printOut("", true);
             stringstream ss;
             ss << "EG. Kanzi --compress --input=foo.txt --output=foo.knz --force ";
-            ss << "--transform=BWT+MTFT+ZRLT --block=4m --entropy=FPAQ --verbose=3 --jobs=4";
+            ss << "--transform=BWT+MTFT+ZRLT --block=4m --entropy=FPAQ --verbose=3 --jobs=4" << endl;
             ss << "EG. Kanzi -c -i foo.txt -o foo.knz -f ";
             ss << "-t BWT+MTFT+ZRLT -b 4m -e FPAQ -v 3 -j 4";
             printOut(ss.str().c_str(), true);
