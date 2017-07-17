@@ -32,6 +32,10 @@ limitations under the License.
 
 using namespace kanzi;
 
+const string BlockCompressor::CMD_LINE_ARGS[10] = {
+    "-i", "-o", "-b", "-t", "-e", "-j", "-v", "-x", "-f", "-h"
+};
+
 BlockCompressor::BlockCompressor(map<string, string>& map)
 {
     _verbosity = atoi(map["verbose"].c_str());
@@ -206,7 +210,7 @@ int BlockCompressor::call()
                 }
 
                 if (_overwrite == false) {
-                    cerr << "The output file exists and the 'overwrite' command "
+                    cerr << "The output file exists and the 'force' command "
                          << "line option has not been provided" << endl;
                     return Error::ERR_OVERWRITE_FILE;
                 }
@@ -365,14 +369,24 @@ void BlockCompressor::processCommandLine(int argc, const char* argv[], map<strin
     string codec = "HUFFMAN"; // default
     string transf = "BWT+MTFT+ZRLT"; // default
     int verbose = 1;
+    int ctx = -1;
 
     for (int i = 1; i < argc; i++) {
-        string arg = argv[i];
-        arg = ltrim(rtrim(arg));
+        string arg = ltrim(rtrim(argv[i]));
+
+        if (arg.compare(0, 2, "-v") == 0) {
+            ctx = ARG_IDX_VERBOSE;
+            continue;
+        }
+
+        if (arg.compare(0, 2, "-o") == 0) {
+            ctx = ARG_IDX_OUTPUT;
+            continue;
+        }
 
         // Extract verbosity and output first
-        if (arg.compare(0, 9, "-verbose=") == 0) {
-            strVerbose = arg.substr(9);
+        if ((arg.compare(0, 10, "--verbose=") == 0) || (ctx == ARG_IDX_VERBOSE)) {
+            strVerbose = (arg.compare(0, 10, "--verbose=") == 0) ? arg.substr(10) : arg;
             int verbose = atoi(strVerbose.c_str());
 
             if (verbose < 0) {
@@ -380,10 +394,12 @@ void BlockCompressor::processCommandLine(int argc, const char* argv[], map<strin
                 exit(Error::ERR_INVALID_PARAM);
             }
         }
-        else if (arg.compare(0, 8, "-output=") == 0) {
-            arg = arg.substr(8);
+        else if ((arg.compare(0, 9, "--output=") == 0) || (ctx == ARG_IDX_OUTPUT)) {
+            arg = (arg.compare(0, 9, "--output=") == 0) ? arg.substr(9) : arg;
             outputName = ltrim(rtrim(arg));
         }
+
+        ctx = -1;
     }
 
     // Overwrite verbosity if the output goes to stdout
@@ -397,58 +413,89 @@ void BlockCompressor::processCommandLine(int argc, const char* argv[], map<strin
         }
     }
 
-    for (int i = 1; i < argc; i++) {
-        string arg = argv[i];
-        arg = ltrim(rtrim(arg));
+    ctx = -1;
 
-        if (arg == "-help") {
-            printOut("-help                : display this message", true);
-            printOut("-verbose=<level>     : set the verbosity level [1..4]", true);
-            printOut("                       0=silent, 1=default, 2=display block size (byte rounded)", true);
-            printOut("                       3=display timings, 4=display extra information", true);
-            printOut("-overwrite           : overwrite the output file if it already exists", true);
-            printOut("-input=<inputName>   : mandatory name of the input file to encode or 'stdin'", true);
-            printOut("-output=<outputName> : optional name of the output file (defaults to <input.knz>) or 'none' or 'stdout'", true);
-            printOut("-block=<size>        : size of the input blocks, multiple of 16, max 1 GB (transform dependent), min 1 KB, default 1 MB", true);
-            printOut("-entropy=<codec>     : entropy codec to use [None|Huffman*|ANS|Range|PAQ|FPAQ|TPAQ|CM]", true);
-            printOut("-transform=<codec>   : transform to use [None|BWT*|BWTS|Snappy|LZ4|RLT|ZRLT|MTFT|RANK|TEXT|TIMESTAMP]", true);
-            printOut("                       EG: BWT+RANK or BWTS+MTFT (default is BWT+MTFT+ZRLT)", true);
-            printOut("-checksum            : enable block checksum", true);
-            printOut("-jobs=<jobs>         : number of concurrent jobs", true);
+    for (int i = 1; i < argc; i++) {
+        string arg = ltrim(rtrim(argv[i]));
+
+        if ((arg == "--help") || (arg == "-h")) {
+            printOut("-h, --help                : display this message", true);
+            printOut("-v, --verbose=<level>     : set the verbosity level [1..4]", true);
+            printOut("                            0=silent, 1=default, 2=display block size (byte rounded)", true);
+            printOut("                            3=display timings, 4=display extra information", true);
+            printOut("-f, --force               : overwrite the output file if it already exists", true);
+            printOut("-i, --input=<inputName>   : mandatory name of the input file to encode or 'stdin'", true);
+            printOut("-o, --output=<outputName> : optional name of the output file (defaults to <input.knz>) or 'none' or 'stdout'", true);
+            printOut("-b, --block=<size>        : size of the input blocks, multiple of 16, max 1 GB (transform dependent), min 1 KB, default 1 MB", true);
+            printOut("-e, --entropy=<codec>     : entropy codec to use [None|Huffman*|ANS|Range|PAQ|FPAQ|TPAQ|CM]", true);
+            printOut("-t, --transform=<codec>   : transform to use [None|BWT*|BWTS|Snappy|LZ4|RLT|ZRLT|MTFT|RANK|TEXT|TIMESTAMP]", true);
+            printOut("                            EG: BWT+RANK or BWTS+MTFT (default is BWT+MTFT+ZRLT)", true);
+            printOut("-x, --checksum            : enable block checksum", true);
+            printOut("-j, --jobs=<jobs>         : number of concurrent jobs", true);
             printOut("", true);
             stringstream ss;
-            ss << "EG. Kanzi -compress -input=foo.txt -output=foo.knz -overwrite ";
-            ss << "-transform=BWT+MTFT+ZRLT -block=4m -entropy=FPAQ -verbose=3 -jobs=4";
+            ss << "EG. Kanzi --compress --input=foo.txt --output=foo.knz --force ";
+            ss << "--transform=BWT+MTFT+ZRLT --block=4m --entropy=FPAQ --verbose=3 --jobs=4";
+            ss << "EG. Kanzi -c -i foo.txt -o foo.knz -f ";
+            ss << "-t BWT+MTFT+ZRLT -b 4m -e FPAQ -v 3 -j 4";
             printOut(ss.str().c_str(), true);
             exit(0);
         }
-        else if (arg == "-overwrite") {
+
+        if ((arg == "--force") || (arg == "-f")) {
             strOverwrite = "true";
+            ctx = -1;
+            continue;
         }
-        else if (arg == "-checksum") {
+
+        if ((arg == "--checksum") || (arg == "-x")) {
             strChecksum = "true";
+            ctx = -1;
+            continue;
         }
-        else if (arg.compare(0, 7, "-input=") == 0) {
-            arg = arg.substr(7);
-            inputName = ltrim(rtrim(arg));
+
+        if (ctx == -1) {
+            int idx = -1;
+
+            for (int i = 0; i < 10; i++) {
+                if (arg == CMD_LINE_ARGS[i]) {
+                    idx = i;
+                    break;
+                }
+            }
+
+            if (idx != -1) {
+                ctx = idx;
+                continue;
+            }
         }
-        else if (arg.compare(0, 8, "-output=") == 0) {
-            arg = arg.substr(8);
-            outputName = ltrim(rtrim(arg));
+
+        if ((arg.compare(0, 8, "--input=") == 0) | (ctx == ARG_IDX_INPUT)) {
+            inputName = (arg.compare(0, 8, "--input=") == 0) ? arg.substr(8) : arg;
+            inputName = ltrim(rtrim(inputName));
+            ctx = -1;
+            continue;
         }
-        else if (arg.compare(0, 9, "-entropy=") == 0) {
-            arg = arg.substr(9);
-            codec = ltrim(rtrim(arg));
+
+        if ((arg.compare(0, 10, "--entropy=") == 0) || (ctx == ARG_IDX_ENTROPY)) {
+            codec = (arg.compare(0, 10, "--entropy=") == 0) ? arg.substr(10) : arg;
+            codec = ltrim(rtrim(codec));
             transform(codec.begin(), codec.end(), codec.begin(), ::toupper);
+                           ctx = -1;
+			               continue;
         }
-        else if (arg.compare(0, 11, "-transform=") == 0) {
-            arg = arg.substr(11);
-            transf = ltrim(rtrim(arg));
+
+        if ((arg.compare(0, 12, "--transform=") == 0) || (ctx == ARG_IDX_TRANSFORM)) {
+            transf = (arg.compare(0, 12, "--transform=") == 0) ? arg.substr(12) : arg;
+            transf = ltrim(rtrim(transf));
             transform(transf.begin(), transf.end(), transf.begin(), ::toupper);
+            ctx = -1;
+            continue;
         }
-        else if (arg.compare(0, 7, "-block=") == 0) {
-            arg = arg.substr(7);
-            string str = ltrim(rtrim(arg));
+
+        if ((arg.compare(0, 8, "--block=") == 0) || (ctx == ARG_IDX_BLOCK)) {
+            string str = (arg.compare(0, 8, "--block=") == 0) ? arg.substr(8) : arg;
+            str = ltrim(rtrim(str));
             transform(str.begin(), str.end(), str.begin(), ::toupper);
             char lastChar = str[str.length() - 1];
             int scale = 1;
@@ -477,21 +524,30 @@ void BlockCompressor::processCommandLine(int argc, const char* argv[], map<strin
             stringstream ss;
             ss << scale * bk;
             strBlockSize = ss.str();
+            ctx = -1;
+            continue;
         }
-        else if (arg.compare(0, 6, "-jobs=") == 0) {
-            strTasks = arg.substr(6);
+
+        if ((arg.compare(0, 7, "--jobs=") == 0) || (ctx == ARG_IDX_JOBS)) {
+            strTasks = (arg.compare(0, 7, "--jobs=") == 0) ? arg.substr(7) : arg;
             int tasks = atoi(strTasks.c_str());
 
             if (tasks < 1) {
                 cerr << "Invalid number of jobs provided on command line: " << arg << endl;
                 exit(Error::ERR_INVALID_PARAM);
             }
+
+            ctx = -1;
+            continue;
         }
-        else if ((arg.compare(0, 9, "-verbose=") != 0) && (arg.compare(0, 8, "-output=") != 0)) {
+
+        if ((arg.compare(0, 10, "--verbose=") != 0) && (ctx == -1) && (arg.compare(0, 9, "--output=") != 0)) {
             stringstream ss;
             ss << "Warning: ignoring unknown option [" << arg << "]";
             printOut(ss.str().c_str(), verbose > 0);
         }
+
+        ctx = -1;
     }
 
     if (inputName.length() == 0) {
@@ -501,6 +557,12 @@ void BlockCompressor::processCommandLine(int argc, const char* argv[], map<strin
 
     if (outputName.length() == 0) {
         outputName = inputName + ".knz";
+    }
+
+    if (ctx != -1) {
+        stringstream ss;
+        ss << "Warning: ignoring option with missing value [" << CMD_LINE_ARGS[ctx] << "]";
+        printOut(ss.str().c_str(), verbose > 0);
     }
 
     map["blockSize"] = strBlockSize;

@@ -48,6 +48,11 @@ namespace kanzi
 
    private:
       static const int DEFAULT_BUFFER_SIZE = 32768;
+      static const string CMD_LINE_ARGS[10];
+      static const int ARG_IDX_INPUT = 0;
+      static const int ARG_IDX_OUTPUT = 1;
+      static const int ARG_IDX_JOBS = 5;
+      static const int ARG_IDX_VERBOSE = 6;
 
       int _verbosity;
       bool _overwrite;

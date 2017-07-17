@@ -29,18 +29,21 @@ public class Kanzi
          
          switch(firstArg) 
          {
-            case "-COMPRESS" :
+            case "--COMPRESS" :
+            case "-C" :
                args = Arrays.copyOfRange(args, 1, args.length);
                BlockCompressor.main(args);
                return;
                
-            case "-DECOMPRESS" :
+            case "--DECOMPRESS" :
+            case "-D" :
                args = Arrays.copyOfRange(args, 1, args.length);
                BlockDecompressor.main(args);
                return;
                
-            case "-HELP" :
-               System.out.println("java -cp kanzi.jar kanzi.app.Kanzi -compress | -decompress | -help");
+            case "--HELP" :
+            case "-H" :
+               System.out.println("java -cp kanzi.jar kanzi.app.Kanzi --compress | --decompress | --help");
                return;
                
             default:
@@ -48,6 +51,6 @@ public class Kanzi
          }
       }
       
-      System.out.println("Missing arguments: try '-help'");
+      System.out.println("Missing arguments: try '--help'");
    }
 }

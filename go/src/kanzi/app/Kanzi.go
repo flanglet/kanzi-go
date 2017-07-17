@@ -24,21 +24,21 @@ func main() {
 	if len(os.Args) > 1 {
 		firstArg := strings.ToUpper(os.Args[1])
 
-		if firstArg == "-COMPRESS" {
+		if firstArg == "--COMPRESS"  || firstArg == "-C" {
 			os.Args = append(os.Args[:1], os.Args[2:]...)
 			BlockCompressor_main()
 			return
-		} else if firstArg == "-DECOMPRESS" {
+		} else if firstArg == "--DECOMPRESS" || firstArg == "-D"{
 			os.Args = append(os.Args[:1], os.Args[2:]...)
 			BlockDecompressor_main()
 			return
-		} else if firstArg == "-HELP" {
+		} else if firstArg == "--HELP" || firstArg == "-H" {
 			print(os.Args[0])
-			println(" -compress | -decompress | -help")
+			println(" --compress | --decompress | --help")
 			return
 		}
 	}
 
-	println("Missing arguments: try '-help'")
+	println("Missing arguments: try '--help'")
 
 }

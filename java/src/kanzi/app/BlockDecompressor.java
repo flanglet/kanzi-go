@@ -43,19 +43,28 @@ import kanzi.io.NullOutputStream;
 public class BlockDecompressor implements Runnable, Callable<Integer>
 {
    private static final int DEFAULT_BUFFER_SIZE = 32768;
+   private static final String[] CMD_LINE_ARGS = new String[]
+   {
+      "-i", "-o", "-b", "-t", "-e", "-j", "-v", "-x", "-f", "-h"
+   };
+
+   private static final int ARG_IDX_INPUT = 0;
+   private static final int ARG_IDX_OUTPUT = 1;
+   private static final int ARG_IDX_JOBS = 5;
+   private static final int ARG_IDX_VERBOSE = 6;
 
    private final int verbosity;
    private final boolean overwrite;
    private final String inputName;
-   private final String outputName;   
+   private final String outputName;
    private CompressedInputStream cis;
    private OutputStream os;
    private final int jobs;
    private final boolean ownPool;
    private final ExecutorService pool;
    private final List<BlockListener> listeners;
-   
-    
+
+
    public BlockDecompressor(Map<String, Object> map, ExecutorService threadPool, boolean ownPool)
    {
       this.verbosity = (Integer) map.get("verbose");
@@ -63,16 +72,16 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       this.inputName = (String) map.get("inputName");
       this.outputName = (String) map.get("outputName");
       this.jobs = (Integer) map.get("jobs");
-      this.pool = (this.jobs == 1) ? null : 
+      this.pool = (this.jobs == 1) ? null :
               ((threadPool == null) ? Executors.newCachedThreadPool() : threadPool);
       this.ownPool = (threadPool == null) && (this.pool != null);
-      this.listeners = new ArrayList<BlockListener>(10);      
-      
+      this.listeners = new ArrayList<BlockListener>(10);
+
       if (this.verbosity > 1)
-         this.addListener(new InfoPrinter(this.verbosity, InfoPrinter.Type.DECODING, System.out));   
+         this.addListener(new InfoPrinter(this.verbosity, InfoPrinter.Type.DECODING, System.out));
    }
-   
-   
+
+
    public BlockDecompressor(String[] args, ExecutorService threadPool)
    {
       Map<String, Object> map = new HashMap<String, Object>();
@@ -82,13 +91,13 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       this.inputName = (String) map.get("inputName");
       this.outputName = (String) map.get("outputName");
       this.jobs = (Integer) map.get("jobs");
-      this.pool = (this.jobs == 1) ? null : 
+      this.pool = (this.jobs == 1) ? null :
               ((threadPool == null) ? Executors.newCachedThreadPool() : threadPool);
       this.ownPool = (threadPool == null) && (this.pool != null);
-      this.listeners = new ArrayList<BlockListener>(10);      
-      
+      this.listeners = new ArrayList<BlockListener>(10);
+
       if (this.verbosity > 1)
-         this.addListener(new InfoPrinter(this.verbosity, InfoPrinter.Type.DECODING, System.out));   
+         this.addListener(new InfoPrinter(this.verbosity, InfoPrinter.Type.DECODING, System.out));
    }
 
 
@@ -114,11 +123,11 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       {
          /* ignore */
       }
-      
+
       if ((this.pool != null) && (this.ownPool == true))
          this.pool.shutdown();
-      
-      this.listeners.clear();      
+
+      this.listeners.clear();
    }
 
 
@@ -191,19 +200,19 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
 
                if (this.overwrite == false)
                {
-                  System.err.println("The output file exists and the 'overwrite' command "
+                  System.err.println("The output file exists and the 'force' command "
                           + "line option has not been provided");
                   return Error.ERR_OVERWRITE_FILE;
                }
-               
+
                Path path1 = FileSystems.getDefault().getPath(this.inputName).toAbsolutePath();
                Path path2 = FileSystems.getDefault().getPath(this.outputName).toAbsolutePath();
-               
-               if (path1.equals(path2)) 
+
+               if (path1.equals(path2))
                {
                   System.err.println("The input and output files must be different");
-                  return Error.ERR_CREATE_FILE; 
-               }               
+                  return Error.ERR_CREATE_FILE;
+               }
             }
          }
          catch (Exception e)
@@ -223,34 +232,34 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
             System.err.println("Cannot open output file '"+ this.outputName+"' for writing: " + e.getMessage());
             return Error.ERR_CREATE_FILE;
          }
-      } 
+      }
 
       InputStream is;
-      
+
       try
       {
          is = (this.inputName.equalsIgnoreCase("STDIN")) ? System.in :
             new FileInputStream(new File(this.inputName));
-         
+
          try
          {
-            PrintStream ds = (printFlag == true) ? System.out : null; 
+            PrintStream ds = (printFlag == true) ? System.out : null;
             this.cis = new CompressedInputStream(is, ds, this.pool, this.jobs);
-            
+
             for (BlockListener bl : this.listeners)
-               this.cis.addListener(bl);            
+               this.cis.addListener(bl);
          }
          catch (Exception e)
          {
             System.err.println("Cannot create compressed stream: "+e.getMessage());
-            return Error.ERR_CREATE_DECOMPRESSOR;    
+            return Error.ERR_CREATE_DECOMPRESSOR;
          }
       }
       catch (Exception e)
       {
          System.err.println("Cannot open input file '"+ this.inputName+"': " + e.getMessage());
          return Error.ERR_OPEN_FILE;
-      }     
+      }
 
       long before = System.nanoTime();
 
@@ -269,7 +278,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
                System.err.println("Reached end of stream");
                return Error.ERR_READ_FILE;
             }
-            
+
             try
             {
                if (decoded > 0)
@@ -302,27 +311,27 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       {
          // Close streams to ensure all data are flushed
          this.dispose();
-         
-         try 
+
+         try
          {
             is.close();
-         } 
+         }
          catch (IOException e)
          {
             // Ignore
-         }         
+         }
       }
-      
+
       long after = System.nanoTime();
       long delta = (after - before) / 1000000L; // convert to ms
       printOut("", !silent);
       printOut("Decoding:          "+delta+" ms", !silent);
       printOut("Input size:        "+this.cis.getRead(), !silent);
       printOut("Output size:       "+read, !silent);
-      
+
       if (delta > 0)
          printOut("Throughput (KB/s): "+(((read * 1000L) >> 10) / delta), !silent);
-      
+
       printOut("", !silent);
       return 0;
    }
@@ -335,20 +344,33 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
         String inputName = null;
         String outputName = null;
         int tasks = 1;
+        int ctx = -1;
 
         for (String arg : args)
         {
            arg = arg.trim();
 
-           // Extract verbosity and output first
-           if (arg.startsWith("-verbose="))
+           if (arg.equals("-v"))
            {
-               String verboseLevel = arg.substring(9).trim();
-               
+              ctx = ARG_IDX_VERBOSE;
+              continue;
+           }
+
+           if (arg.equals("-o"))
+           {
+              ctx = ARG_IDX_OUTPUT;
+              continue;
+           }
+
+           // Extract verbosity and output first
+           if (arg.startsWith("--verbose=") || (ctx == ARG_IDX_VERBOSE))
+           {
+               String verboseLevel = arg.startsWith("--verbose=") ? arg.substring(10).trim() : arg;
+
                try
                {
                    verbose = Integer.parseInt(verboseLevel);
-                   
+
                    if (verbose < 0)
                       throw new NumberFormatException();
                }
@@ -356,55 +378,90 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
                {
                   System.err.println("Invalid verbosity level provided on command line: "+arg);
                   System.exit(Error.ERR_INVALID_PARAM);
-               }    
+               }
            }
-           else if (arg.startsWith("-output="))
+           else if (arg.startsWith("--output=") || (ctx == ARG_IDX_OUTPUT))
            {
-              outputName = arg.substring(8).trim();
-           }           
+               outputName = arg.startsWith("--output=") ? arg.substring(9).trim() : arg;
+           }
+
+           ctx = -1;
         }
-        
+
         // Overwrite verbosity if the output goes to stdout
         if ("STDOUT".equalsIgnoreCase(outputName))
-           verbose = 0;      
-        
+           verbose = 0;
+
+        ctx = -1;
+
         for (String arg : args)
         {
            arg = arg.trim();
 
-           if (arg.equals("-help"))
+           if (arg.equals("--help") || arg.equals("-h"))
            {
-              printOut("-help                : display this message", true);
-              printOut("-verbose=<level>     : set the verbosity level [0..4]", true);
-              printOut("                       0=silent, 1=default, 2=display block size (byte rounded)", true);
-              printOut("                       3=display timings, 4=display extra information", true);
-              printOut("-overwrite           : overwrite the output file if it already exists", true);
-              printOut("-input=<inputName>   : mandatory name of the input file to decode or 'stdin'", true);
-              printOut("-output=<outputName> : optional name of the output file or 'none' or 'stdout'", true);
-              printOut("-jobs=<jobs>         : number of concurrent jobs", true);
+              printOut("-h, --help                : display this message", true);
+              printOut("-v, --verbose=<level>     : set the verbosity level [0..4]", true);
+              printOut("                            0=silent, 1=default, 2=display block size (byte rounded)", true);
+              printOut("                            3=display timings, 4=display extra information", true);
+              printOut("-f, --force               : overwrite the output file if it already exists", true);
+              printOut("-i, --input=<inputName>   : mandatory name of the input file to decode or 'stdin'", true);
+              printOut("-o, --output=<outputName> : optional name of the output file or 'none' or 'stdout'", true);
+              printOut("-j, --jobs=<jobs>         : number of concurrent jobs", true);
               printOut("", true);
-              printOut("EG. java -cp kanzi.jar kanzi.app.BlockDecompressor -input=foo.knz -overwrite -verbose=2 -jobs=2", true);
-              printOut("EG. java -cp kanzi.jar kanzi.app.Kanzi -decompress -input=foo.knz -overwrite -verbose=2 -jobs=2", true);
+              printOut("EG. java -cp kanzi.jar kanzi.app.BlockDecompressor --input=foo.knz --force --verbose=2 --jobs=2", true);
+              printOut("EG. java -cp kanzi.jar kanzi.app.Kanzi --decompress --input=foo.knz --force --verbose=2 --jobs=2", true);
+              printOut("EG. java -cp kanzi.jar kanzi.app.Kanzi -d -i foo.knz -f -v 2 -j 2", true);
               System.exit(0);
            }
-           else if (arg.equals("-overwrite"))
+
+           if (arg.equals("--force") || arg.equals("-f"))
            {
-              overwrite = true;
+               overwrite = true;
+               ctx = -1;
+               continue;
            }
-           else if (arg.startsWith("-input="))
+
+           if (ctx == -1)
            {
-              inputName = arg.substring(7).trim();
-           }
-           else if (arg.startsWith("-jobs="))
-           {
-              arg = arg.substring(6).trim();
+               int idx = -1;
               
+               for (int i=0; i<CMD_LINE_ARGS.length; i++)
+               {
+                  if (CMD_LINE_ARGS[i].equals(arg))
+                  {
+                     idx = i;
+                     break;
+                  }
+               }
+
+               if (idx != -1)
+               {
+                  ctx = idx;
+                  continue;
+               }
+           }
+
+           if (arg.startsWith("--input=") || (ctx == ARG_IDX_INPUT))
+           {
+               inputName = arg.startsWith("--input=") ? arg.substring(8).trim() : arg;
+               ctx = -1;
+               continue;
+           }
+
+           if (arg.startsWith("--jobs=") || (ctx == ARG_IDX_JOBS))
+           {
+              arg = arg.startsWith("--jobs=") ? arg.substring(7).trim() : arg;
+
               try
               {
                  tasks = Integer.parseInt(arg);
-                   
+
                  if (tasks < 1)
                     throw new NumberFormatException();
+
+                  ctx = -1;
+                  continue;
               }
               catch (NumberFormatException e)
               {
@@ -412,10 +469,13 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
                  System.exit(Error.ERR_INVALID_PARAM);
               }
            }
-           else if ((!arg.startsWith("-verbose=")) && (!arg.startsWith("-output=")))
+
+           if (!arg.startsWith("--verbose=") && (ctx == -1) && !arg.startsWith("--output="))
            {
               printOut("Warning: ignoring unknown option ["+ arg + "]", verbose>0);
            }
+
+           ctx = -1;
         }
 
         if (inputName == null)
@@ -432,7 +492,12 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
            outputName = (inputName.toLowerCase().endsWith(".knz")) ? inputName.substring(0, inputName.length()-4)
                    : inputName + ".tmp";
         }
-        
+
+        if (ctx != -1)
+        {
+           printOut("Warning: ignoring option with missing value ["+ CMD_LINE_ARGS[ctx] + "]", verbose>0);
+        }
+
         map.put("verbose", verbose);
         map.put("overwrite", overwrite);
         map.put("outputName", outputName);
@@ -446,14 +511,14 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
        if ((print == true) && (msg != null))
           System.out.println(msg);
     }
-    
+
 
     public final boolean addListener(BlockListener bl)
     {
        return (bl != null) ? this.listeners.add(bl) : false;
     }
 
-   
+
     public final boolean removeListener(BlockListener bl)
     {
        return (bl != null) ? this.listeners.remove(bl) : false;

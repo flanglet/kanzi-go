@@ -16,5 +16,5 @@ limitations under the License.
 package main
 
 func main() {
-   BlockCompressor_main()
+	BlockCompressor_main()
 }

@@ -24,24 +24,24 @@ int main(int argc, const char* argv[]) {
        string str = argv[1];
        transform(str.begin(), str.end(), str.begin(), ::toupper);
 
-       if (str == "-COMPRESS") {
+       if ((str == "--COMPRESS") || (str == "-C")) {
 		   // Remove argv[1]
 		   for (int i=1; i<argc; i++)
 			   argv[i] = argv[i+1];
 
          return kanzi::BlockCompressor::main(argc-1, argv);
-       } else if (str == "-DECOMPRESS") {
+       } else if ((str == "--DECOMPRESS") || (str == "-D"))  {
 		   // Remove argv[1]
 		   for (int i = 1; i<argc; i++)
 			   argv[i] = argv[i + 1];
 
          return kanzi::BlockDecompressor::main(argc-1, argv);
-       } else if (str == "-HELP") {
-          cout << "kanzi -compress | -decompress | -help" << endl;
+       } else if ((str == "--HELP") || (str == "-H")) {
+          cout << "kanzi --compress | --decompress | --help" << endl;
           return 0;
        }
     }
 
-   cout << "Missing arguments: try '-help'" << endl;
+   cout << "Missing arguments: try '--help'" << endl;
    return 1;
 }

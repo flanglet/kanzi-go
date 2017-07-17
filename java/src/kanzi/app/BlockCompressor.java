@@ -43,7 +43,20 @@ public class BlockCompressor implements Runnable, Callable<Integer>
 {
    private static final int DEFAULT_BUFFER_SIZE = 32768;
    public static final int WARN_EMPTY_INPUT = -128;
+   private static final String[] CMD_LINE_ARGS = new String[] 
+   {
+      "-i", "-o", "-b", "-t", "-e", "-j", "-v", "-x", "-f", "-h" 
+   };
 
+   private static final int ARG_IDX_INPUT = 0;
+   private static final int ARG_IDX_OUTPUT = 1;
+   private static final int ARG_IDX_BLOCK = 2;
+   private static final int ARG_IDX_TRANSFORM = 3;
+   private static final int ARG_IDX_ENTROPY = 4;
+   private static final int ARG_IDX_JOBS = 5;
+   private static final int ARG_IDX_VERBOSE = 6;
+
+   
    private final int verbosity;
    private final boolean overwrite;
    private final boolean checksum;
@@ -353,15 +366,28 @@ public class BlockCompressor implements Runnable, Callable<Integer>
         String codec = "HUFFMAN"; // default
         String transform = "BWT+MTFT+ZRLT"; // default
         int tasks = 1;
+        int ctx = -1;
 
         for (String arg : args)
         {
            arg = arg.trim();
+           
+           if (arg.equals("-v"))
+           {
+              ctx = ARG_IDX_VERBOSE;
+              continue;
+           }
+
+           if (arg.equals("-o"))
+           {
+              ctx = ARG_IDX_OUTPUT;
+              continue;
+           }
 
            // Extract verbosity and output first
-           if (arg.startsWith("-verbose="))
+           if (arg.startsWith("--verbose=") || (ctx == ARG_IDX_VERBOSE))
            {
-               String verboseLevel = arg.substring(9).trim();
+               String verboseLevel = arg.startsWith("--verbose=") ? arg.substring(10).trim() : arg;
                
                try
                {
@@ -376,70 +402,110 @@ public class BlockCompressor implements Runnable, Callable<Integer>
                   System.exit(Error.ERR_INVALID_PARAM);
                }    
            }
-           else if (arg.startsWith("-output="))
+           else if (arg.startsWith("--output=") || (ctx == ARG_IDX_OUTPUT))
            {
-              outputName = arg.substring(8).trim();
-           }             
-        }
+               outputName = arg.startsWith("--output=") ? arg.substring(9).trim() : arg;
+           }    
+           
+           ctx = -1;
+        }  
 
         // Overwrite verbosity if the output goes to stdout
         if ("STDOUT".equalsIgnoreCase(outputName))
            verbose = 0;      
 
+        ctx = -1;
+        
         for (String arg : args)
         {
-           arg = arg.trim();
-           
-           if (arg.equals("-help"))
+           arg = arg.trim();  
+      
+           if (arg.equals("--help") || arg.equals("-h"))
            {
-               printOut("-help                : display this message", true);
-               printOut("-verbose=<level>     : set the verbosity level [1..4]", true);
-               printOut("                       0=silent, 1=default, 2=display block size (byte rounded)", true);
-               printOut("                       3=display timings, 4=display extra information", true);
-               printOut("-overwrite           : overwrite the output file if it already exists", true);
-               printOut("-input=<inputName>   : mandatory name of the input file to encode or 'stdin'", true);
-               printOut("-output=<outputName> : optional name of the output file (defaults to <input.knz>) or 'none' or 'stdout'", true);
-               printOut("-block=<size>        : size of the input blocks, multiple of 16, max 1 GB (transform dependent), min 1 KB, default 1 MB", true);
-               printOut("-entropy=<codec>     : entropy codec to use [None|Huffman*|ANS|Range|PAQ|FPAQ|TPAQ|CM]", true);
-               printOut("-transform=<codec>   : transform to use [None|BWT*|BWTS|SNAPPY|LZ4|RLT|ZRLT|MTFT|RANK|TEXT|TIMESTAMP]", true);
-               printOut("                       EG: BWT+RANK or BWTS+MTFT (default is BWT+MTFT+ZRLT)", true);
-               printOut("-checksum            : enable block checksum", true);
-               printOut("-jobs=<jobs>         : number of concurrent jobs", true);
+               printOut("-h, --help                : display this message", true);
+               printOut("-v, -verbose=<level>      : set the verbosity level [1..4]", true);
+               printOut("                            0=silent, 1=default, 2=display block size (byte rounded)", true);
+               printOut("                            3=display timings, 4=display extra information", true);
+               printOut("-f, --force               : overwrite the output file if it already exists", true);
+               printOut("-i, --input=<inputName>   : mandatory name of the input file to encode or 'stdin'", true);
+               printOut("-o, --output=<outputName> : optional name of the output file (defaults to <input.knz>) or 'none' or 'stdout'", true);
+               printOut("-b, --block=<size>        : size of the input blocks, multiple of 16, max 1 GB (transform dependent), min 1 KB, default 1 MB", true);
+               printOut("-e, --entropy=<codec>     : entropy codec to use [None|Huffman*|ANS|Range|PAQ|FPAQ|TPAQ|CM]", true);
+               printOut("-t, --transform=<codec>   : transform to use [None|BWT*|BWTS|SNAPPY|LZ4|RLT|ZRLT|MTFT|RANK|TEXT|TIMESTAMP]", true);
+               printOut("                            EG: BWT+RANK or BWTS+MTFT (default is BWT+MTFT+ZRLT)", true);
+               printOut("-x, --checksum            : enable block checksum", true);
+               printOut("-j, --jobs=<jobs>         : number of concurrent jobs", true);
                printOut("", true);
-               printOut("EG. java -cp kanzi.jar kanzi.app.BlockCompressor -input=foo.txt -output=foo.knz -overwrite "
-                       + "-transform=BWT+MTFT+ZRLT -block=4m -entropy=FPAQ -verbose=3 -jobs=4", true);
-               printOut("EG. java -cp kanzi.jar kanzi.app.Kanzi -compress -input=foo.txt -output=foo.knz -overwrite "
-                       + "-transform=BWT+MTFT+ZRLT -block=4m -entropy=FPAQ -verbose=3 -jobs=4", true);
+               printOut("EG. java -cp kanzi.jar kanzi.app.BlockCompressor --input=foo.txt --output=foo.knz --force "
+                       + "            --transform=BWT+MTFT+ZRLT --block=4m --entropy=FPAQ --verbose=3 --jobs=4", true);
+               printOut("EG. java -cp kanzi.jar kanzi.app.Kanzi --compress --input=foo.txt --output=foo.knz --force "
+                       + "            --transform=BWT+MTFT+ZRLT --block=4m --entropy=FPAQ --verbose=3 --jobs=4", true);
+               printOut("EG. java -cp kanzi.jar kanzi.app.Kanzi -c -i foo.txt -o foo.knz -f "
+                       + "            -t BWT+MTFT+ZRLT -b 4m -e FPAQ -v 3 -j 4", true);
                System.exit(0);
            }
-           else if (arg.equals("-overwrite"))
+           
+           if (arg.equals("--force") || arg.equals("-f"))
            {
                overwrite = true;
+               ctx = -1;
+               continue;
            }
-           else if (arg.equals("-checksum"))
+          
+           if (arg.equals("--checksum") || arg.equals("-x"))
            {
                checksum = true;
+               ctx = -1;
+               continue;
            }
-           else if (arg.startsWith("-input="))
+           
+           if (ctx == -1)
            {
-              inputName = arg.substring(7).trim();
+               int idx = -1;
+              
+               for (int i=0; i<CMD_LINE_ARGS.length; i++)
+               {
+                  if (CMD_LINE_ARGS[i].equals(arg))
+                  {
+                     idx = i;
+                     break;
+                  }
+               }
+
+               if (idx != -1)
+               {
+                  ctx = idx;
+                  continue;
+               }
            }
-           else if (arg.startsWith("-output="))
+           
+           if (arg.startsWith("--input=") || (ctx == ARG_IDX_INPUT))
            {
-              outputName = arg.substring(8).trim();
+              inputName = arg.startsWith("--input=") ? arg.substring(8).trim() : arg;
+              ctx = -1;
+              continue;
            }
-           else if (arg.startsWith("-entropy="))
+           
+           if (arg.startsWith("--entropy=") || (ctx == ARG_IDX_ENTROPY))
            {
-              codec = arg.substring(9).trim().toUpperCase();
+              codec = arg.startsWith("--entropy=") ? arg.substring(10).trim().toUpperCase() :
+                 arg.toUpperCase();
+              ctx = -1;
+              continue;
            }
-           else if (arg.startsWith("-transform="))
+          
+           if (arg.startsWith("--transform=") || (ctx == ARG_IDX_TRANSFORM))
            {
-              transform = arg.substring(11).trim().toUpperCase();
+              transform = arg.startsWith("--transform=") ? arg.substring(12).trim().toUpperCase() :
+                 arg.toUpperCase();
+               ctx = -1;
+               continue;
            }
-           else if (arg.startsWith("-block="))
+           
+           if (arg.startsWith("--block=") || (ctx == ARG_IDX_BLOCK))
            {
-              arg = arg.substring(7).trim();
-              String str = arg.toUpperCase();
+              String str = arg.startsWith("--block=") ? arg.substring(8).toUpperCase().trim() :
+                 arg.toUpperCase();
               char lastChar = str.charAt(str.length()-1);
               int scale = 1;              
 
@@ -463,6 +529,8 @@ public class BlockCompressor implements Runnable, Callable<Integer>
                  }
                  
                  blockSize = scale * Integer.parseInt(str);
+                 ctx = -1;
+                 continue;
               }
               catch (NumberFormatException e)
               {
@@ -470,9 +538,10 @@ public class BlockCompressor implements Runnable, Callable<Integer>
                  System.exit(Error.ERR_INVALID_PARAM);
               }
            }
-           else if (arg.startsWith("-jobs="))
+          
+           if (arg.startsWith("--jobs=") || (ctx == ARG_IDX_JOBS))
            {
-              arg = arg.substring(6).trim();
+              arg = arg.startsWith("--jobs=") ? arg.substring(7).trim() : arg;
               
               try
               {
@@ -480,6 +549,9 @@ public class BlockCompressor implements Runnable, Callable<Integer>
                    
                  if (tasks < 1)
                     throw new NumberFormatException();
+
+                 ctx = -1;
+                 continue;
               }
               catch (NumberFormatException e)
               {
@@ -487,10 +559,13 @@ public class BlockCompressor implements Runnable, Callable<Integer>
                  System.exit(Error.ERR_INVALID_PARAM);
               }
            }
-           else if ((!arg.startsWith("-verbose=")) && (!arg.startsWith("-output=")))
+           
+           if (!arg.startsWith("--verbose=") && (ctx == -1) && !arg.startsWith("--output="))
            {
               printOut("Warning: ignoring unknown option ["+ arg + "]", verbose>0);
            }
+
+           ctx = -1;
         }
 
         if (inputName == null)
@@ -501,6 +576,11 @@ public class BlockCompressor implements Runnable, Callable<Integer>
 
         if (outputName == null)
            outputName = inputName + ".knz";
+        
+        if (ctx != -1)
+        {
+           printOut("Warning: ignoring option with missing value ["+ CMD_LINE_ARGS[ctx] + "]", verbose>0);
+        }
         
         map.put("blockSize", blockSize);
         map.put("verbose", verbose);
