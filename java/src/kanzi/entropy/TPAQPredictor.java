@@ -24,7 +24,7 @@ import kanzi.Global;
 
 public class TPAQPredictor implements Predictor
 {
-   private static final int MAX_LENGTH = 184;
+   private static final int MAX_LENGTH = 88;
    private static final int MIXER_SIZE = 0x1000;
    private static final int HASH_SIZE = 8*1024*1024;
    private static final int MASK0 = MIXER_SIZE - 1;
@@ -357,7 +357,6 @@ public class TPAQPredictor implements Predictor
    private final byte[] states;        // hash table(context, prediction)
    private final int[] cp;             // context pointers
    private final int[] ctx;            // contexts
-   private int ctxId;
 
 
    public TPAQPredictor()
@@ -386,7 +385,6 @@ public class TPAQPredictor implements Predictor
      {
         this.buffer[this.pos&MASK2] = (byte) this.c0;
         this.pos++;
-        this.ctxId = 0;
         this.c8 = (this.c8<<8) | ((this.c4>>24)&0xFF);
         this.c4 = (this.c4<<8) | (this.c0&0xFF);
         this.hash = (((this.hash*43707) << 4) + this.c4) & MASK1;
@@ -401,14 +399,14 @@ public class TPAQPredictor implements Predictor
         this.mixer.setContext(this.c4 & MASK0);
 
         // Add contexts to NN
-        this.addContext(this.c4 ^ (this.c4 & 0xFFFF));
-        this.addContext(hash(C1, this.c4 << 24)); // hash with random primes
-        this.addContext(hash(C2, this.c4 << 16));
-        this.addContext(hash(C3, this.c4 << 8));
-        this.addContext(hash(C4, this.c4 & 0xF0F0F0F0));
-        this.addContext(hash(C5, this.c4));
-        this.addContext(hash(this.c4>>this.shift4, this.c8>>shift8));
-
+        this.addContext(0, this.c4 ^ (this.c4 & 0xFFFF));
+        this.addContext(1, hash(C1, this.c4 << 24)); // hash with random primes
+        this.addContext(2, hash(C2, this.c4 << 16));
+        this.addContext(3, hash(C3, this.c4 << 8));
+        this.addContext(4, hash(C4, this.c4 & 0xF0F0F0F0));
+        this.addContext(5, hash(C5, this.c4));
+        this.addContext(6, hash(this.c4>>this.shift4, this.c8>>shift8));
+        
         // Find match
         this.findMatch();
 
@@ -417,7 +415,7 @@ public class TPAQPredictor implements Predictor
       }
 
       // Add inputs to NN
-      for (int i=0; i<this.ctxId; i++)
+      for (int i=0; i<7; i++)
       {
          this.states[this.cp[i]] = (byte) STATE_TABLE[((this.states[this.cp[i]]&0xFF)<<1)|bit];
          this.cp[i] = (this.ctx[i] + this.c0) & MASK3;
@@ -480,12 +478,11 @@ public class TPAQPredictor implements Predictor
    }
 
 
-   private void addContext(int cx)
+   private void addContext(int ctxId, int cx)
    {
-      cx = cx*987654323 + this.ctxId;
+      cx = cx*987654323 + ctxId;
       cx = (cx << 16) | (cx >>> 16);
-      this.ctx[this.ctxId] = cx*123456791 + this.ctxId;
-      this.ctxId++;
+      this.ctx[ctxId] = cx*123456791 + ctxId;
    }
 
 
@@ -519,11 +516,15 @@ public class TPAQPredictor implements Predictor
       private int ctx;              // context
       private int idx;              // input index
       private int pr;               // squashed prediction
-
+      
       
       Mixer(int size)
       {
          this.buffer = new int[size*16]; // context index << 4
+        
+         for (int i=0; i<this.buffer.length; i++)
+            this.buffer[i] = 2048;
+         
          this.pr = 2048;
       }
 
@@ -572,7 +573,7 @@ public class TPAQPredictor implements Predictor
                   + (this.buffer[this.ctx+6]*this.buffer[this.ctx+14])
                   + (this.buffer[this.ctx+7]*this.buffer[this.ctx+15]);
 
-         this.pr = Global.squash(p>>17);
+         this.pr = Global.squash((p+65536)>>17);
          return this.pr;
       }
 

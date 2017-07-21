@@ -61,13 +61,13 @@ namespace kanzi
        int _ctx;
        int _idx;
        int _pr;
-       int* _buffer;
+       int32* _buffer;
 
        void update(int bit);
 
        void setContext(int ctx) { _ctx = ctx << 4; }
 
-       void addInput(int pred);
+       void addInput(int32 pred);
    };
 
    class TPAQPredictor : public Predictor
@@ -83,7 +83,7 @@ namespace kanzi
        int get() { return _pr; }
 
    private:
-       static const int MAX_LENGTH = 184;
+       static const int MAX_LENGTH = 88;
        static const int MIXER_SIZE = 0x1000;
        static const int HASH_SIZE = 8 * 1024 * 1024;
        static const int MASK0 = MIXER_SIZE - 1;
@@ -105,23 +105,22 @@ namespace kanzi
        int32 _c4; // last 4 whole bytes, last is in low 8 bits
        int32 _c8; // last 8 to 4 whole bytes, last is in low 8 bits
        int _bpos; // number of bits in c0 (0-7)
-       int _pos;
+       int32 _pos;
        uint32 _shift4;
-       int _matchLen;
-       int _matchPos;
-       int _hash;
+       int32 _matchLen;
+       int32 _matchPos;
+       int32 _hash;
        AdaptiveProbMap _apm;
        TPAQMixer _mixer;
        byte* _buffer;
-       int* _hashes; // hash table(context, buffer position)
+       int32* _hashes; // hash table(context, buffer position)
        byte* _states; // hash table(context, prediction)
-       int _cp[8]; // context pointers
-       int _ctx[8]; // contexts
-       int _ctxId;
+       int32 _cp[8]; // context pointers
+       int32 _ctx[8]; // contexts
 
-       static int hash(int x, int y);
+       static int32 hash(int32 x, int32 y);
 
-       void addContext(int cx);
+       void addContext(int ctxId, int32 cx);
 
        void addMatchContext();
 

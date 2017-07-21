@@ -25,7 +25,7 @@ import (
 // See http://encode.ru/threads/1738-TANGELO-new-compressor-(derived-from-PAQ8-FP8)
 
 const (
-	TPAQ_MAX_LENGTH = 184
+	TPAQ_MAX_LENGTH = 88
 	TPAQ_MIXER_SIZE = 0x1000
 	TPAQ_HASH_SIZE  = 8 * 1024 * 1024
 	TPAQ_MASK0      = TPAQ_MIXER_SIZE - 1
@@ -114,7 +114,7 @@ var TPAQ_STATE_TABLE = []uint8{
 }
 
 // State Map
-var TPAQ_STATE_MAP = []int{
+var TPAQ_STATE_MAP = []int32{
 	-119, -120, 169, -476, -484, -386, -737, -881, -874, -712,
 	-848, -679, -559, -794, -1212, -782, -1205, -1205, -613, -753,
 	-1169, -1169, -1169, -743, -1155, -732, -720, -1131, -1131, -1131,
@@ -343,19 +343,18 @@ type TPAQPredictor struct {
 	c4       int32 // last 4 whole bytes, last is in low 8 bits
 	c8       int32 // last 8 to 4 whole bytes, last is in low 8 bits
 	bpos     uint  // number of bits in c0 (0-7)
-	pos      int
+	pos      int32
 	shift4   uint
-	matchLen int
-	matchPos int
+	matchLen int32
+	matchPos int32
 	hash     int32
 	apm      *AdaptiveProbMap
 	mixer    *TPAQMixer
 	buffer   []int8
-	hashes   []int   // hash table(context, buffer position)
-	states   []uint8 // hash table(context, prediction)
-	cp       [8]int  // context pointers
-	ctx      [8]int  // contexts
-	ctxId    int
+	hashes   []int32  // hash table(context, buffer position)
+	states   []uint8  // hash table(context, prediction)
+	cp       [8]int32 // context pointers
+	ctx      [8]int32 // contexts
 }
 
 func NewTPAQPredictor() (*TPAQPredictor, error) {
@@ -364,7 +363,7 @@ func NewTPAQPredictor() (*TPAQPredictor, error) {
 	this.pr = 2048
 	this.c0 = 1
 	this.states = make([]uint8, TPAQ_MASK3+1)
-	this.hashes = make([]int, TPAQ_HASH_SIZE)
+	this.hashes = make([]int32, TPAQ_HASH_SIZE)
 	this.buffer = make([]int8, TPAQ_MASK2+1)
 	this.bpos = 0
 	this.apm, err = newAdaptiveProbMap(65536, 7)
@@ -386,7 +385,6 @@ func (this *TPAQPredictor) Update(bit byte) {
 	if this.c0 > 255 {
 		this.buffer[this.pos&TPAQ_MASK2] = int8(this.c0)
 		this.pos++
-		this.ctxId = 0
 		this.c8 = (this.c8 << 8) | ((this.c4 >> 24) & 0xFF)
 		this.c4 = (this.c4 << 8) | (this.c0 & 0xFF)
 		this.hash = (((this.hash * 43707) << 4) + this.c4) & TPAQ_MASK1
@@ -402,13 +400,13 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.mixer.setContext(this.c4 & TPAQ_MASK0)
 
 		// Add contexts NN
-		this.addContext(this.c4 ^ (this.c4 & 0xFFFF))
-		this.addContext(hashTPAQ(TPAQ_C1, this.c4<<24)) // hash with random primes
-		this.addContext(hashTPAQ(TPAQ_C2, this.c4<<16))
-		this.addContext(hashTPAQ(TPAQ_C3, this.c4<<8))
-		this.addContext(hashTPAQ(TPAQ_C4, this.c4&-252645136)) // 0xF0F0F0F0
-		this.addContext(hashTPAQ(TPAQ_C5, this.c4))
-		this.addContext(hashTPAQ(this.c4>>this.shift4, this.c8>>shift8))
+		this.addContext(0, this.c4^(this.c4&0xFFFF))
+		this.addContext(1, hashTPAQ(TPAQ_C1, this.c4<<24)) // hash with random primes
+		this.addContext(2, hashTPAQ(TPAQ_C2, this.c4<<16))
+		this.addContext(3, hashTPAQ(TPAQ_C3, this.c4<<8))
+		this.addContext(4, hashTPAQ(TPAQ_C4, this.c4&-252645136)) // 0xF0F0F0F0
+		this.addContext(5, hashTPAQ(TPAQ_C5, this.c4))
+		this.addContext(6, hashTPAQ(this.c4>>this.shift4, this.c8>>shift8))
 
 		// Find match
 		this.findMatch()
@@ -417,12 +415,12 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.hashes[this.hash] = this.pos
 	}
 
-	cp_ := this.cp[0:this.ctxId]
+	cp_ := this.cp[0:7]
 
 	// Add inputs to NN
 	for i := range cp_ {
 		this.states[cp_[i]] = TPAQ_STATE_TABLE[(int(this.states[cp_[i]])<<1)|y]
-		cp_[i] = (this.ctx[i] + int(this.c0)) & TPAQ_MASK3
+		cp_[i] = (this.ctx[i] + int32(this.c0)) & TPAQ_MASK3
 		this.mixer.addInput(TPAQ_STATE_MAP[(i<<8)|int(this.states[cp_[i]])])
 	}
 
@@ -472,7 +470,7 @@ func (this *TPAQPredictor) findMatch() {
 func (this *TPAQPredictor) addMatchContext() {
 	if this.c0 == ((int32(this.buffer[this.matchPos&TPAQ_MASK2])&0xFF)|256)>>(8-this.bpos) {
 		// Add match length to NN inputs. Compute input based on run length
-		var p int
+		var p int32
 
 		if this.matchLen <= 24 {
 			p = this.matchLen
@@ -490,11 +488,10 @@ func (this *TPAQPredictor) addMatchContext() {
 	}
 }
 
-func (this *TPAQPredictor) addContext(cx int32) {
-	cx = cx*987654323 + int32(this.ctxId)
+func (this *TPAQPredictor) addContext(ctxId int, cx int32) {
+	cx = cx*987654323 + int32(ctxId)
 	cx = cx<<16 | int32(uint32(cx)>>16)
-	this.ctx[this.ctxId] = int(cx*123456791) + this.ctxId
-	this.ctxId++
+	this.ctx[ctxId] = cx*123456791 + int32(ctxId)
 }
 
 //////////////////////////// Mixer /////////////////////////////
@@ -514,17 +511,22 @@ func (this *TPAQPredictor) addContext(cx int32) {
 // - m.get() called once to predict the next bit, returns 0..4095
 // - m.update(y) called once for actual bit y=(0..1).
 type TPAQMixer struct {
-	data   []int // packed buffer: 8 inputs + 8 weights per ctx
-	buffer []int //alias of the data buffer
-	idx    int   // input index
-	pr     int   // squashed prediction
+	data   []int32 // packed buffer: 8 inputs + 8 weights per ctx
+	buffer []int32 //alias of the data buffer
+	idx    int     // input index
+	pr     int     // squashed prediction
 }
 
 func newTPAQMixer(size int) (*TPAQMixer, error) {
 	var err error
 	this := new(TPAQMixer)
-	this.data = make([]int, size*16) // context index << 4
+	this.data = make([]int32, size*16) // context index << 4
 	this.buffer = this.data[0:16]
+
+	for i := range this.data {
+		this.data[i] = 2048
+	}
+
 	this.pr = 2048
 	return this, err
 }
@@ -532,7 +534,7 @@ func newTPAQMixer(size int) (*TPAQMixer, error) {
 // Adjust weights to minimize coding cost of last prediction
 func (this *TPAQMixer) update(bit int) {
 	this.idx = 0
-	err := (bit << 12) - this.pr
+	err := int32((bit << 12) - this.pr)
 
 	if err == 0 {
 		return
@@ -572,11 +574,11 @@ func (this *TPAQMixer) get() int {
 		(this.buffer[6] * this.buffer[14]) +
 		(this.buffer[7] * this.buffer[15])
 
-	this.pr = kanzi.Squash(p >> 17)
+	this.pr = kanzi.Squash(int((p + 65536) >> 17))
 	return this.pr
 }
 
-func (this *TPAQMixer) addInput(input int) {
+func (this *TPAQMixer) addInput(input int32) {
 	this.buffer[this.idx] = input
 	this.idx++
 }

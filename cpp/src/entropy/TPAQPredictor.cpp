@@ -306,9 +306,9 @@ const int STATE_MAP[] = {
     1, 1, 1, 1, 1, 1,
 };
 
-inline int TPAQPredictor::hash(int x, int y)
+inline int32 TPAQPredictor::hash(int32 x, int32 y)
 {
-    const int h = x * HASH1 ^ y * HASH2;
+    const int32 h = x * HASH1 ^ y * HASH2;
     return (h >> 1) ^ (h >> 9) ^ (x >> 2) ^ (y >> 3) ^ HASH3;
 }
 
@@ -325,14 +325,13 @@ TPAQPredictor::TPAQPredictor()
     _matchPos = 0;
     _hash = 0;
     _states = new byte[MASK3 + 1];
-    _hashes = new int[HASH_SIZE];
+    _hashes = new int32[HASH_SIZE];
     _buffer = new byte[MASK2 + 1];
     _bpos = 0;
-    _ctxId = 0;
     memset(_cp, 0, sizeof(_cp));
     memset(_ctx, 0, sizeof(_ctx));
     memset(_states, 0, MASK3 + 1);
-    memset(_hashes, 0, sizeof(int)*HASH_SIZE);
+    memset(_hashes, 0, sizeof(int32)*HASH_SIZE);
     memset(_buffer, 0, MASK2 + 1);
 }
 
@@ -353,7 +352,6 @@ void TPAQPredictor::update(int bit)
     if (_c0 > 255) {
         _buffer[_pos & MASK2] = byte(_c0);
         _pos++;
-        _ctxId = 0;
         _c8 = (_c8 << 8) | ((_c4 >> 24) & 0xFF);
         _c4 = (_c4 << 8) | (_c0 & 0xFF);
         _hash = (((_hash * 43707) << 4) + _c4) & MASK1;
@@ -369,13 +367,13 @@ void TPAQPredictor::update(int bit)
         _mixer.setContext(_c4 & MASK0);
 
         // Add contexts to NN
-        addContext(_c4 ^ (_c4 & 0xFFFF));
-        addContext(hash(C1, _c4 << 24)); // hash with random primes
-        addContext(hash(C2, _c4 << 16));
-        addContext(hash(C3, _c4 << 8));
-        addContext(hash(C4, _c4 & 0xF0F0F0F0));
-        addContext(hash(C5, _c4));
-        addContext(hash(_c4 >> _shift4, _c8 >> shift8));
+        addContext(0, _c4 ^ (_c4 & 0xFFFF));
+        addContext(1, hash(C1, _c4 << 24)); // hash with random primes
+        addContext(2, hash(C2, _c4 << 16));
+        addContext(3, hash(C3, _c4 << 8));
+        addContext(4, hash(C4, _c4 & 0xF0F0F0F0));
+        addContext(5, hash(C5, _c4));
+        addContext(6, hash(_c4 >> _shift4, _c8 >> shift8));
 
         // Find match
         findMatch();
@@ -385,7 +383,7 @@ void TPAQPredictor::update(int bit)
     }
 
     // Add inputs to NN
-    for (int i = 0; i < _ctxId; i++) {
+    for (int i = 0; i < 7; i++) {
         _states[_cp[i]] = byte(STATE_TABLE[((_states[_cp[i]] & 0xFF) << 1) | bit]);
         _cp[i] = (_ctx[i] + _c0) & MASK3;
         _mixer.addInput(STATE_MAP[(i << 8) | (_states[_cp[i]] & 0xFF)]);
@@ -442,18 +440,20 @@ inline void TPAQPredictor::addMatchContext()
         _matchLen = 0;
 }
 
-inline void TPAQPredictor::addContext(int cx)
+inline void TPAQPredictor::addContext(int ctxId, int32 cx)
 {
-    cx = cx * 987654323 + _ctxId;
+    cx = cx * 987654323 + ctxId;
     cx = (cx << 16) | (uint(cx) >> 16);
-    _ctx[_ctxId] = cx * 123456791 + _ctxId;
-    _ctxId++;
+    _ctx[ctxId] = cx * 123456791 + ctxId;
 }
 
 TPAQMixer::TPAQMixer(int size)
 {
-    _buffer = new int[size * 16]; // context index << 4
-    memset(_buffer, 0, sizeof(int) * size * 16);
+    _buffer = new int32[size * 16]; // context index << 4
+    
+    for (int i=0; i<size * 16; i++)
+       _buffer[i] = 2048;
+
     _pr = 2048;
     _idx = 0;
     _ctx = 0;
@@ -474,7 +474,7 @@ inline void TPAQMixer::update(int bit)
         return;
 
     err = (err << 4) - err;
-    int* buf = &_buffer[_ctx];
+    int32* buf = &_buffer[_ctx];
 
     // Train Neural Network: update weights
     buf[8] += ((buf[0] * err + 0) >> 15);
@@ -489,7 +489,7 @@ inline void TPAQMixer::update(int bit)
 
 inline int TPAQMixer::get()
 {
-    int* buf = &_buffer[_ctx];
+    int32* buf = &_buffer[_ctx];
 
     while ((_idx & 7) != 0) {
         buf[_idx] = 64;
@@ -506,11 +506,11 @@ inline int TPAQMixer::get()
         + (buf[6] * buf[14])
         + (buf[7] * buf[15]);
 
-    _pr = Global::squash(p >> 17);
+    _pr = Global::squash((p + 65536) >> 17);
     return _pr;
 }
 
-inline void TPAQMixer::addInput(int input)
+inline void TPAQMixer::addInput(int32 input)
 {
     _buffer[_ctx + _idx] = input;
     _idx++;
