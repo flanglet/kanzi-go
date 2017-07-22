@@ -418,6 +418,12 @@ void BlockDecompressor::processCommandLine(int argc, const char* argv[], map<str
         }
 
         if ((arg == "--force") || (arg == "-f")) {
+            if (ctx != -1) {         
+               stringstream ss;
+               ss << "Warning: ignoring option [" << CMD_LINE_ARGS[ctx] << "] with no value.";
+               printOut(ss.str().c_str(), verbose > 0);
+            }
+            
             strOverwrite = "true";
             ctx = -1;
             continue;

@@ -437,12 +437,20 @@ func processEncoderCommandLine(args []string, argsMap map[string]interface{}) {
 		}
 
 		if arg == "--force" || arg == "-f" {
+			if ctx != -1 {
+				bc_printOut("Warning: ignoring option ["+ENC_CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
+			}
+
 			overwrite = true
 			ctx = -1
 			continue
 		}
 
 		if arg == "--checksum" || arg == "-x" {
+			if ctx != -1 {
+				bc_printOut("Warning: ignoring option ["+ENC_CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
+			}
+
 			checksum = true
 			ctx = -1
 			continue

@@ -443,12 +443,24 @@ void BlockCompressor::processCommandLine(int argc, const char* argv[], map<strin
         }
 
         if ((arg == "--force") || (arg == "-f")) {
+            if (ctx != -1) {         
+               stringstream ss;
+               ss << "Warning: ignoring option [" << CMD_LINE_ARGS[ctx] << "] with no value.";
+               printOut(ss.str().c_str(), verbose > 0);
+            }
+
             strOverwrite = "true";
             ctx = -1;
             continue;
         }
 
         if ((arg == "--checksum") || (arg == "-x")) {
+            if (ctx != -1) {         
+                stringstream ss;
+               ss << "Warning: ignoring option [" << CMD_LINE_ARGS[ctx] << "] with no value.";
+               printOut(ss.str().c_str(), verbose > 0);
+            }
+
             strChecksum = "true";
             ctx = -1;
             continue;

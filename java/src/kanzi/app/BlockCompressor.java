@@ -447,6 +447,9 @@ public class BlockCompressor implements Runnable, Callable<Integer>
            
            if (arg.equals("--force") || arg.equals("-f"))
            {
+               if (ctx != -1)
+                  printOut("Warning: ignoring option [" + CMD_LINE_ARGS[ctx] + "] with no value.", verbose>0);
+               
                overwrite = true;
                ctx = -1;
                continue;
@@ -454,6 +457,9 @@ public class BlockCompressor implements Runnable, Callable<Integer>
           
            if (arg.equals("--checksum") || arg.equals("-x"))
            {
+               if (ctx != -1)
+                  printOut("Warning: ignoring option [" + CMD_LINE_ARGS[ctx] + "] with no value.", verbose>0);
+
                checksum = true;
                ctx = -1;
                continue;

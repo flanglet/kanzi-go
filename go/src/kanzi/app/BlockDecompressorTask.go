@@ -378,6 +378,10 @@ func processDecoderCommandLine(args []string, argsMap map[string]interface{}) {
 		}
 
 		if arg == "--force" || arg == "-f" {
+			if ctx != -1 {
+				bd_printOut("Warning: ignoring option ["+DEC_CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
+			}
+
 			overwrite = true
 			ctx = -1
 			continue
