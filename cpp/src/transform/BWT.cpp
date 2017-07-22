@@ -111,12 +111,12 @@ bool BWT::inverseRegularBlock(SliceArray<byte>& input, SliceArray<byte>& output,
     if (_bufferSize < count) {
         _bufferSize = count;
         delete[] _buffer1;
-        _buffer1 = new int[_bufferSize];
+        _buffer1 = new uint32[_bufferSize];
     }
 
     // Aliasing
-    int* buckets_ = _buckets;
-    int* data = _buffer1;
+    uint32* buckets_ = _buckets;
+    uint32* data = _buffer1;
 
     // Initialize histogram
     memset(_buckets, 0, sizeof(_buckets));
@@ -124,30 +124,31 @@ bool BWT::inverseRegularBlock(SliceArray<byte>& input, SliceArray<byte>& output,
     // Build array of packed index + value (assumes block size < 2^24)
     // Start with the primary index position
     const int pIdx = getPrimaryIndex();
-    const int val0 = src[pIdx] & 0xFF;
+    const uint32 val0 = src[pIdx] & 0xFF;
     data[pIdx] = val0;
     buckets_[val0]++;
 
     for (int i = 0; i < pIdx; i++) {
-        const int val = src[i] & 0xFF;
+        const uint32 val = src[i] & 0xFF;
         data[i] = (buckets_[val] << 8) | val;
         buckets_[val]++;
     }
 
     for (int i = pIdx + 1; i < count; i++) {
-        const int val = src[i] & 0xFF;
+        const uint32 val = src[i] & 0xFF;
         data[i] = (buckets_[val] << 8) | val;
         buckets_[val]++;
     }
 
+    uint32 sum = 0;
+
     // Create cumulative histogram
     for (int i = 0, sum = 0; i < 256; i++) {
-        const int tmp = buckets_[i];
-        buckets_[i] = sum;
-        sum += tmp;
+        sum += buckets_[i];
+        buckets_[i] = sum - buckets_[i];
     }
 
-    uint ptr = data[pIdx];
+    uint32 ptr = data[pIdx];
     dst[count - 1] = byte(ptr);
 
     // Build inverse
@@ -171,14 +172,14 @@ bool BWT::inverseBigBlock(SliceArray<byte>& input, SliceArray<byte>& output, int
     if (_bufferSize < count) {
         _bufferSize = count;
         delete[] _buffer1;
-        _buffer1 = new int[_bufferSize];
+        _buffer1 = new uint32[_bufferSize];
         delete[] _buffer2;
         _buffer2 = new byte[_bufferSize];
     }
 
     // Aliasing
-    int* buckets_ = _buckets;
-    int* data1 = _buffer1;
+    uint32* buckets_ = _buckets;
+    uint32* data1 = _buffer1;
     byte* data2 = _buffer2;
 
     // Initialize histogram
@@ -206,20 +207,21 @@ bool BWT::inverseBigBlock(SliceArray<byte>& input, SliceArray<byte>& output, int
         buckets_[val & 0xFF]++;
     }
 
+    uint32 sum = 0;
+
     // Create cumulative histogram
-    for (int i = 0, sum = 0; i < 256; i++) {
-        const int tmp = buckets_[i];
-        buckets_[i] = sum;
-        sum += tmp;
+    for (int i = 0; i < 256; i++) {
+        sum += buckets_[i];
+        buckets_[i] = sum - buckets_[i];
     }
 
-    int val1 = data1[pIdx];
+    uint32 val1 = data1[pIdx];
     byte val2 = data2[pIdx];
     dst[count - 1] = val2;
 
     // Build inverse
     for (int i = count - 2; i >= 0; i--) {
-        const int idx = val1 + buckets_[val2 & 0xFF];
+        const uint32 idx = val1 + buckets_[val2 & 0xFF];
         val1 = data1[idx];
         val2 = data2[idx];
         dst[i] = val2;

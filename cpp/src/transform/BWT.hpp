@@ -64,10 +64,10 @@ namespace kanzi
        static const int MAX_BLOCK_SIZE = 1024 * 1024 * 1024; // 1 GB (30 bits)
        static const int BWT_MAX_HEADER_SIZE = 4;
 
-       int* _buffer1;
+       uint32* _buffer1;
        byte* _buffer2;
        int _bufferSize;
-       int _buckets[256];
+       uint32 _buckets[256];
        int _primaryIndex;
        DivSufSort _saAlgo;
 
@@ -78,7 +78,7 @@ namespace kanzi
    public:
        BWT()
        {
-           _buffer1 = new int[0]; // Allocate empty: only used in inverse
+           _buffer1 = new uint32[0]; // Allocate empty: only used in inverse
            _buffer2 = new byte[0]; // Allocate empty: only used for big blocks (size >= 1<<24)
            _bufferSize = 0;
        }
