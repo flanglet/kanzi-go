@@ -21,26 +21,12 @@ import (
 	kio "kanzi/io"
 	"os"
 	"path/filepath"
-	"runtime"
-	"runtime/pprof"
-	"strconv"
 	"strings"
 	"time"
 )
 
 const (
 	DECOMP_DEFAULT_BUFFER_SIZE = 32768
-	DEC_ARG_IDX_INPUT          = 0
-	DEC_ARG_IDX_OUTPUT         = 1
-	DEC_ARG_IDX_JOBS           = 5
-	DEC_ARG_IDX_VERBOSE        = 6
-	DEC_ARG_IDX_PROFILE        = 10
-)
-
-var (
-	DEC_CMD_LINE_ARGS = []string{
-		"-i", "-o", "-b", "-t", "-e", "-j", "-v", "-x", "-f", "-h", "-p",
-	}
 )
 
 // Main block decompressor struct
@@ -54,18 +40,33 @@ type BlockDecompressor struct {
 	cpuProf    string
 }
 
-func NewBlockDecompressor() (*BlockDecompressor, error) {
+func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, error) {
 	this := new(BlockDecompressor)
-	argsMap := make(map[string]interface{})
-	processDecoderCommandLine(os.Args, argsMap)
+	this.listeners = make([]kio.BlockListener, 0)
 
 	this.verbosity = argsMap["verbose"].(uint)
-	this.overwrite = argsMap["overwrite"].(bool)
+	delete(argsMap, "verbose")
+
+	if force, prst := argsMap["overwrite"]; prst == true {
+		this.overwrite = force.(bool)
+		delete(argsMap, "overwrite")
+	} else {
+		this.overwrite = false
+	}
+
 	this.inputName = argsMap["inputName"].(string)
+	delete(argsMap, "inputName")
 	this.outputName = argsMap["outputName"].(string)
+	delete(argsMap, "outputName")
 	this.jobs = argsMap["jobs"].(uint)
-	this.cpuProf = argsMap["cpuProf"].(string)
-	this.listeners = make([]kio.BlockListener, 0)
+	delete(argsMap, "jobs")
+
+	if prof, prst := argsMap["cpuProf"]; prst == true {
+		this.cpuProf = prof.(string)
+		delete(argsMap, "cpuProf")
+	} else {
+		this.cpuProf = ""
+	}
 
 	if this.verbosity > 1 {
 		if listener, err := kio.NewInfoPrinter(this.verbosity, kio.DECODING, os.Stdout); err == nil {
@@ -73,7 +74,17 @@ func NewBlockDecompressor() (*BlockDecompressor, error) {
 		}
 	}
 
+	if this.verbosity > 0 && len(argsMap) > 0 {
+		for k, _ := range argsMap {
+			bd_printOut("Ignoring invalid option ["+k+"]", this.verbosity > 0)
+		}
+	}
+
 	return this, nil
+}
+
+func (this *BlockDecompressor) CpuProf() string {
+	return this.cpuProf
 }
 
 func (this *BlockDecompressor) AddListener(bl kio.BlockListener) bool {
@@ -96,44 +107,8 @@ func (this *BlockDecompressor) RemoveListener(bl kio.BlockListener) bool {
 	return false
 }
 
-func BlockDecompressor_main() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-	code := 0
-
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Printf("An unexpected error occured during decompression: %v\n", r.(error))
-			code = kio.ERR_UNKNOWN
-		}
-
-		os.Exit(code)
-	}()
-
-	bd, err := NewBlockDecompressor()
-
-	if err != nil {
-		fmt.Printf("Failed to create block decompressor: %v\n", err)
-		os.Exit(kio.ERR_CREATE_DECOMPRESSOR)
-	}
-
-	if len(bd.cpuProf) != 0 {
-		if f, err := os.Create(bd.cpuProf); err != nil {
-			fmt.Printf("Warning: cpu profile unavailable: %v\n", err)
-		} else {
-			pprof.StartCPUProfile(f)
-
-			defer func() {
-				pprof.StopCPUProfile()
-				f.Close()
-			}()
-		}
-	}
-
-	code, _ = bd.call()
-}
-
 // Return exit code, number of bits written
-func (this *BlockDecompressor) call() (int, uint64) {
+func (this *BlockDecompressor) Call() (int, uint64) {
 	var msg string
 	printFlag := this.verbosity > 1
 	bd_printOut("Kanzi 1.1 (C) 2017,  Frederic Langlet", this.verbosity >= 1)
@@ -285,195 +260,6 @@ func (this *BlockDecompressor) call() (int, uint64) {
 
 	bd_printOut("", !silent)
 	return 0, cis.GetRead()
-}
-
-func processDecoderCommandLine(args []string, argsMap map[string]interface{}) {
-	verbose := 1
-	overwrite := false
-	inputName := ""
-	outputName := ""
-	tasks := 1
-	cpuProf := ""
-	ctx := -1
-
-	for i, arg := range args {
-		if i == 0 {
-			continue
-		}
-
-		arg = strings.TrimSpace(arg)
-
-		if arg == "-v" {
-			ctx = DEC_ARG_IDX_VERBOSE
-			continue
-		}
-
-		if arg == "-o" {
-			ctx = DEC_ARG_IDX_OUTPUT
-			continue
-		}
-
-		// Extract verbosity and output first
-		if strings.HasPrefix(arg, "--verbose=") || ctx == DEC_ARG_IDX_VERBOSE {
-			var verboseLevel string
-			var err error
-
-			if strings.HasPrefix(arg, "--verbose=") {
-				verboseLevel = strings.TrimPrefix(arg, "--verbose=")
-			} else {
-				verboseLevel = arg
-			}
-
-			verboseLevel = strings.TrimSpace(verboseLevel)
-
-			if verbose, err = strconv.Atoi(verboseLevel); err != nil {
-				fmt.Printf("Invalid verbosity level provided on command line: %v\n", arg)
-				os.Exit(kio.ERR_INVALID_PARAM)
-			}
-
-			if verbose < 0 {
-				fmt.Printf("Invalid verbosity level provided on command line: %v\n", arg)
-				os.Exit(kio.ERR_INVALID_PARAM)
-			}
-		} else if strings.HasPrefix(arg, "--output=") || ctx == DEC_ARG_IDX_OUTPUT {
-			if strings.HasPrefix(arg, "--output") {
-				outputName = strings.TrimPrefix(arg, "--output=")
-			} else {
-				outputName = arg
-			}
-
-			outputName = strings.TrimSpace(outputName)
-		}
-
-		ctx = -1
-	}
-
-	// Overwrite verbosity if the output goes to stdout
-	if strings.ToUpper(outputName) == "STDOUT" {
-		verbose = 0
-	}
-
-	ctx = -1
-
-	for i, arg := range args {
-		if i == 0 {
-			continue
-		}
-
-		arg = strings.TrimSpace(arg)
-
-		if arg == "--help" || arg == "-h" {
-			bd_printOut("-h, --help                : display this message", true)
-			bd_printOut("-v, -verbose=<level>      : set the verbosity level [1..4]", true)
-			bd_printOut("                            0=silent, 1=default, 2=display block size (byte rounded)", true)
-			bd_printOut("                            3=display timings, 4=display extra information", true)
-			bd_printOut("-f, --force               : overwrite the output file if it already exists", true)
-			bd_printOut("-i, --input=<inputName>   : mandatory name of the input file to encode or 'stdin'", true)
-			bd_printOut("-o, --output=<outputName> : optional name of the output file (defaults to <input.knz>) or 'none' or 'stdout'", true)
-			bd_printOut("-j, --jobs=<jobs>         : number of concurrent jobs", true)
-			bd_printOut("", true)
-			bd_printOut("EG. Kanzi --decompress --input=foo.knz --force --verbose=2 --jobs=2", true)
-			bd_printOut("EG. Kanzi -d -i foo.knz -f -v 2 -j 2", true)
-			os.Exit(0)
-		}
-
-		if arg == "--force" || arg == "-f" {
-			if ctx != -1 {
-				bd_printOut("Warning: ignoring option ["+DEC_CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
-			}
-
-			overwrite = true
-			ctx = -1
-			continue
-		}
-
-		if ctx == -1 {
-			idx := -1
-
-			for i, v := range DEC_CMD_LINE_ARGS {
-				if arg == v {
-					idx = i
-					break
-				}
-			}
-
-			if idx != -1 {
-				ctx = idx
-				continue
-			}
-		}
-
-		if strings.HasPrefix(arg, "--input=") || ctx == DEC_ARG_IDX_INPUT {
-			if strings.HasPrefix(arg, "--input=") {
-				inputName = strings.TrimPrefix(arg, "--input=")
-			} else {
-				inputName = arg
-			}
-
-			ctx = -1
-			continue
-		}
-
-		if strings.HasPrefix(arg, "--cpuProf=") || ctx == DEC_ARG_IDX_PROFILE {
-			if strings.HasPrefix(arg, "--cpuProf=") {
-				cpuProf = strings.TrimPrefix(arg, "--cpuProf=")
-			} else {
-				cpuProf = arg
-			}
-
-			ctx = -1
-			continue
-		}
-
-		if strings.HasPrefix(arg, "--jobs=") || ctx == DEC_ARG_IDX_JOBS {
-			var strTasks string
-			var err error
-
-			if strings.HasPrefix(arg, "-j") {
-				strTasks = strings.TrimPrefix(arg, "-j")
-			} else {
-				strTasks = strings.TrimPrefix(arg, "--jobs=")
-			}
-
-			if tasks, err = strconv.Atoi(strTasks); err != nil || tasks < 1 {
-				fmt.Printf("Invalid number of jobs provided on command line: %v\n", strTasks)
-				os.Exit(kio.ERR_BLOCK_SIZE)
-			}
-			ctx = -1
-			continue
-		}
-
-		if !strings.HasPrefix(arg, "--verbose=") && ctx == -1 && !strings.HasPrefix(arg, "--output=") {
-			bd_printOut("Warning: ignoring unknown option ["+arg+"]", verbose > 0)
-		}
-
-		ctx = -1
-	}
-
-	if inputName == "" {
-		fmt.Printf("Missing input file name, exiting ...")
-		os.Exit(kio.ERR_MISSING_PARAM)
-	}
-
-	if strings.ToUpper(inputName) != "STDIN" && !strings.HasSuffix(inputName, ".knz") {
-		bd_printOut("Warning: the input file name does not end with the .KNZ extension", verbose > 0)
-	}
-
-	if outputName == "" {
-		outputName = inputName + ".knz"
-	}
-
-	if ctx != -1 {
-		bd_printOut("Warning: ignoring option with missing value ["+DEC_CMD_LINE_ARGS[ctx]+"]", verbose > 0)
-	}
-
-	argsMap["verbose"] = uint(verbose)
-	argsMap["overwrite"] = overwrite
-	argsMap["inputName"] = inputName
-	argsMap["outputName"] = outputName
-	argsMap["jobs"] = uint(tasks)
-	argsMap["cpuProf"] = cpuProf
-
 }
 
 func bd_printOut(msg string, print bool) {

@@ -32,51 +32,91 @@ limitations under the License.
 
 using namespace kanzi;
 
-const string BlockCompressor::CMD_LINE_ARGS[10] = {
-    "-i", "-o", "-b", "-t", "-e", "-j", "-v", "-x", "-f", "-h"
-};
-
-BlockCompressor::BlockCompressor(map<string, string>& map)
+BlockCompressor::BlockCompressor(map<string, string>& args)
 {
-    _verbosity = atoi(map["verbose"].c_str());
-    string str = map["overwrite"];
-    transform(str.begin(), str.end(), str.begin(), ::toupper);
-    _overwrite = str == "TRUE";
-    _inputName = map["inputName"];
-    _outputName = map["outputName"];
-    _jobs = atoi(map["jobs"].c_str());
+    map<string, string>::iterator it;
+    it = args.find("verbose");
+    _verbosity = atoi(it->second.c_str());
+    args.erase(it);
+    it = args.find("overwrite");
+
+    if (it == args.end()) {
+        _overwrite = false;
+    }
+    else {
+        string str = it->second;
+        transform(str.begin(), str.end(), str.begin(), ::toupper);
+        _overwrite = str == "TRUE";
+        args.erase(it);
+    }
+
+    it = args.find("inputName");
+    _inputName = it->second;
+    args.erase(it);
+    it = args.find("outputName");
+    _outputName = it->second;
+    args.erase(it);
+    it = args.find("entropy");
+
+    if (it == args.end()) {
+        _codec = "HUFFMAN";
+    }
+    else {
+        _codec = it->second;
+        args.erase(it);
+    }
+
+    it = args.find("block");
+
+    if (it == args.end()) {
+        _blockSize = 1024 * 1024;
+    }
+    else {
+        _blockSize = atoi(it->second.c_str());
+        args.erase(it);
+    }
+
+    it = args.find("transform");
+
+    if (it == args.end()) {
+        _transform = "BWT+MTFT+ZRLT";
+    }
+    else {
+        // Extract transform names. Curate input (EG. NONE+NONE+xxxx => xxxx)
+        string str = it->second;
+        FunctionFactory<byte> bff;
+        _transform = bff.getName(bff.getType(str.c_str()));
+        args.erase(it);
+    }
+
+    it = args.find("checksum");
+
+    if (it == args.end()) {
+        _checksum = false;
+    }
+    else {
+        string str = it->second;
+        transform(str.begin(), str.end(), str.begin(), ::toupper);
+        _checksum = str == "TRUE";
+        args.erase(it);
+    }
+
+    it = args.find("jobs");
+    _jobs = atoi(it->second.c_str());
+    args.erase(it);
     _cos = nullptr;
     _is = nullptr;
 
     if (_verbosity > 1)
         addListener(new InfoPrinter(_verbosity, InfoPrinter::ENCODING, cout));
-}
 
-BlockCompressor::BlockCompressor(int argc, const char* argv[])
-{
-    map<string, string> map;
-    processCommandLine(argc, argv, map);
-    _verbosity = atoi(map["verbose"].c_str());
-    string str = map["overwrite"];
-    transform(str.begin(), str.end(), str.begin(), ::toupper);
-    _overwrite = str == "TRUE";
-    _inputName = map["inputName"];
-    _outputName = map["outputName"];
-    _codec = map["codec"];
-    _blockSize = atoi(map["blockSize"].c_str());
-    // Extract transform names. Curate input (EG. NONE+NONE+xxxx => xxxx)
-    str = map["transform"];
-    FunctionFactory<byte> bff;
-    _transform = bff.getName(bff.getType(str.c_str()));
-    str = map["checksum"];
-    transform(str.begin(), str.end(), str.begin(), ::toupper);
-    _checksum = str == "TRUE";
-    _jobs = atoi(map["jobs"].c_str());
-    _cos = nullptr;
-    _is = nullptr;
-
-    if (_verbosity > 1)
-        addListener(new InfoPrinter(_verbosity, InfoPrinter::ENCODING, cout));
+    if ((_verbosity > 0) && (args.size() > 0)) {
+        for (it = args.begin(); it != args.end(); it++) {
+            stringstream ss;
+            ss << "Ignoring invalid option [" << it->first << "]";
+            printOut(ss.str().c_str(), _verbosity > 0);
+        }
+    }
 }
 
 BlockCompressor::~BlockCompressor()
@@ -129,19 +169,6 @@ void BlockCompressor::dispose()
                 // Ignore
             }
         }
-    }
-}
-
-int BlockCompressor::main(int argc, const char* argv[])
-{
-    try {
-        BlockCompressor bc(argc, argv);
-        int code = bc.call();
-        return code;
-    }
-    catch (exception& e) {
-        cerr << "Could not create the block codec: " << e.what() << endl;
-        exit(Error::ERR_CREATE_COMPRESSOR);
     }
 }
 
@@ -355,237 +382,6 @@ int BlockCompressor::call()
     printOut("", !silent);
     delete[] buf;
     return 0;
-}
-
-void BlockCompressor::processCommandLine(int argc, const char* argv[], map<string, string>& map)
-{
-    string inputName;
-    string outputName;
-    string strVerbose = "1";
-    string strTasks = "1";
-    string strBlockSize = "1048576";
-    string strOverwrite = "false";
-    string strChecksum = "false";
-    string codec = "HUFFMAN"; // default
-    string transf = "BWT+MTFT+ZRLT"; // default
-    int verbose = 1;
-    int ctx = -1;
-
-    for (int i = 1; i < argc; i++) {
-        string arg = ltrim(rtrim(argv[i]));
-
-        if (arg.compare(0, 2, "-v") == 0) {
-            ctx = ARG_IDX_VERBOSE;
-            continue;
-        }
-
-        if (arg.compare(0, 2, "-o") == 0) {
-            ctx = ARG_IDX_OUTPUT;
-            continue;
-        }
-
-        // Extract verbosity and output first
-        if ((arg.compare(0, 10, "--verbose=") == 0) || (ctx == ARG_IDX_VERBOSE)) {
-            strVerbose = (arg.compare(0, 10, "--verbose=") == 0) ? arg.substr(10) : arg;
-            int verbose = atoi(strVerbose.c_str());
-
-            if (verbose < 0) {
-                cerr << "Invalid verbosity level provided on command line: " << arg << endl;
-                exit(Error::ERR_INVALID_PARAM);
-            }
-        }
-        else if ((arg.compare(0, 9, "--output=") == 0) || (ctx == ARG_IDX_OUTPUT)) {
-            arg = (arg.compare(0, 9, "--output=") == 0) ? arg.substr(9) : arg;
-            outputName = ltrim(rtrim(arg));
-        }
-
-        ctx = -1;
-    }
-
-    // Overwrite verbosity if the output goes to stdout
-    if (outputName.length() != 0) {
-        string str = outputName;
-        transform(str.begin(), str.end(), str.begin(), ::toupper);
-
-        if (str == "STDOUT") {
-            verbose = 0;
-            strVerbose = "0";
-        }
-    }
-
-    ctx = -1;
-
-    for (int i = 1; i < argc; i++) {
-        string arg = ltrim(rtrim(argv[i]));
-
-        if ((arg == "--help") || (arg == "-h")) {
-            printOut("-h, --help                : display this message", true);
-            printOut("-v, --verbose=<level>     : set the verbosity level [1..4]", true);
-            printOut("                            0=silent, 1=default, 2=display block size (byte rounded)", true);
-            printOut("                            3=display timings, 4=display extra information", true);
-            printOut("-f, --force               : overwrite the output file if it already exists", true);
-            printOut("-i, --input=<inputName>   : mandatory name of the input file to encode or 'stdin'", true);
-            printOut("-o, --output=<outputName> : optional name of the output file (defaults to <input.knz>) or 'none' or 'stdout'", true);
-            printOut("-b, --block=<size>        : size of the input blocks, multiple of 16, max 1 GB (transform dependent), min 1 KB, default 1 MB", true);
-            printOut("-e, --entropy=<codec>     : entropy codec to use [None|Huffman*|ANS|Range|PAQ|FPAQ|TPAQ|CM]", true);
-            printOut("-t, --transform=<codec>   : transform to use [None|BWT*|BWTS|Snappy|LZ4|RLT|ZRLT|MTFT|RANK|TEXT|TIMESTAMP]", true);
-            printOut("                            EG: BWT+RANK or BWTS+MTFT (default is BWT+MTFT+ZRLT)", true);
-            printOut("-x, --checksum            : enable block checksum", true);
-            printOut("-j, --jobs=<jobs>         : number of concurrent jobs", true);
-            printOut("", true);
-            stringstream ss;
-            ss << "EG. Kanzi --compress --input=foo.txt --output=foo.knz --force ";
-            ss << "--transform=BWT+MTFT+ZRLT --block=4m --entropy=FPAQ --verbose=3 --jobs=4" << endl;
-            ss << "EG. Kanzi -c -i foo.txt -o foo.knz -f ";
-            ss << "-t BWT+MTFT+ZRLT -b 4m -e FPAQ -v 3 -j 4";
-            printOut(ss.str().c_str(), true);
-            exit(0);
-        }
-
-        if ((arg == "--force") || (arg == "-f")) {
-            if (ctx != -1) {         
-               stringstream ss;
-               ss << "Warning: ignoring option [" << CMD_LINE_ARGS[ctx] << "] with no value.";
-               printOut(ss.str().c_str(), verbose > 0);
-            }
-
-            strOverwrite = "true";
-            ctx = -1;
-            continue;
-        }
-
-        if ((arg == "--checksum") || (arg == "-x")) {
-            if (ctx != -1) {         
-                stringstream ss;
-               ss << "Warning: ignoring option [" << CMD_LINE_ARGS[ctx] << "] with no value.";
-               printOut(ss.str().c_str(), verbose > 0);
-            }
-
-            strChecksum = "true";
-            ctx = -1;
-            continue;
-        }
-
-        if (ctx == -1) {
-            int idx = -1;
-
-            for (int i = 0; i < 10; i++) {
-                if (arg == CMD_LINE_ARGS[i]) {
-                    idx = i;
-                    break;
-                }
-            }
-
-            if (idx != -1) {
-                ctx = idx;
-                continue;
-            }
-        }
-
-        if ((arg.compare(0, 8, "--input=") == 0) | (ctx == ARG_IDX_INPUT)) {
-            inputName = (arg.compare(0, 8, "--input=") == 0) ? arg.substr(8) : arg;
-            inputName = ltrim(rtrim(inputName));
-            ctx = -1;
-            continue;
-        }
-
-        if ((arg.compare(0, 10, "--entropy=") == 0) || (ctx == ARG_IDX_ENTROPY)) {
-            codec = (arg.compare(0, 10, "--entropy=") == 0) ? arg.substr(10) : arg;
-            codec = ltrim(rtrim(codec));
-            transform(codec.begin(), codec.end(), codec.begin(), ::toupper);
-                           ctx = -1;
-			               continue;
-        }
-
-        if ((arg.compare(0, 12, "--transform=") == 0) || (ctx == ARG_IDX_TRANSFORM)) {
-            transf = (arg.compare(0, 12, "--transform=") == 0) ? arg.substr(12) : arg;
-            transf = ltrim(rtrim(transf));
-            transform(transf.begin(), transf.end(), transf.begin(), ::toupper);
-            ctx = -1;
-            continue;
-        }
-
-        if ((arg.compare(0, 8, "--block=") == 0) || (ctx == ARG_IDX_BLOCK)) {
-            string str = (arg.compare(0, 8, "--block=") == 0) ? arg.substr(8) : arg;
-            str = ltrim(rtrim(str));
-            transform(str.begin(), str.end(), str.begin(), ::toupper);
-            char lastChar = str[str.length() - 1];
-            int scale = 1;
-
-            // Process K or M or G suffix
-            if ('K' == lastChar) {
-                scale = 1024;
-                str = str.substr(0, str.length() - 1);
-            }
-            else if ('M' == lastChar) {
-                scale = 1024 * 1024;
-                str = str.substr(0, str.length() - 1);
-            }
-            else if ('G' == lastChar) {
-                scale = 1024 * 1024 * 1024;
-                str = str.substr(0, str.length() - 1);
-            }
-
-            int bk = atoi(str.c_str());
-
-            if (bk <= 0) {
-                cerr << "Invalid block size provided on command line: " << arg << endl;
-                exit(Error::ERR_INVALID_PARAM);
-            }
-
-            stringstream ss;
-            ss << scale * bk;
-            strBlockSize = ss.str();
-            ctx = -1;
-            continue;
-        }
-
-        if ((arg.compare(0, 7, "--jobs=") == 0) || (ctx == ARG_IDX_JOBS)) {
-            strTasks = (arg.compare(0, 7, "--jobs=") == 0) ? arg.substr(7) : arg;
-            int tasks = atoi(strTasks.c_str());
-
-            if (tasks < 1) {
-                cerr << "Invalid number of jobs provided on command line: " << arg << endl;
-                exit(Error::ERR_INVALID_PARAM);
-            }
-
-            ctx = -1;
-            continue;
-        }
-
-        if ((arg.compare(0, 10, "--verbose=") != 0) && (ctx == -1) && (arg.compare(0, 9, "--output=") != 0)) {
-            stringstream ss;
-            ss << "Warning: ignoring unknown option [" << arg << "]";
-            printOut(ss.str().c_str(), verbose > 0);
-        }
-
-        ctx = -1;
-    }
-
-    if (inputName.length() == 0) {
-        cerr << "Missing input file name, exiting ..." << endl;
-        exit(Error::ERR_MISSING_PARAM);
-    }
-
-    if (outputName.length() == 0) {
-        outputName = inputName + ".knz";
-    }
-
-    if (ctx != -1) {
-        stringstream ss;
-        ss << "Warning: ignoring option with missing value [" << CMD_LINE_ARGS[ctx] << "]";
-        printOut(ss.str().c_str(), verbose > 0);
-    }
-
-    map["blockSize"] = strBlockSize;
-    map["verbose"] = strVerbose;
-    map["overwrite"] = strOverwrite;
-    map["inputName"] = inputName;
-    map["outputName"] = outputName;
-    map["codec"] = codec;
-    map["transform"] = transf;
-    map["checksum"] = strChecksum;
-    map["jobs"] = strTasks;
 }
 
 void BlockCompressor::printOut(const char* msg, bool print)

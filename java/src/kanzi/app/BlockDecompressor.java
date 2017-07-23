@@ -25,7 +25,6 @@ import java.io.PrintStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -43,15 +42,6 @@ import kanzi.io.NullOutputStream;
 public class BlockDecompressor implements Runnable, Callable<Integer>
 {
    private static final int DEFAULT_BUFFER_SIZE = 32768;
-   private static final String[] CMD_LINE_ARGS = new String[]
-   {
-      "-i", "-o", "-b", "-t", "-e", "-j", "-v", "-x", "-f", "-h"
-   };
-
-   private static final int ARG_IDX_INPUT = 0;
-   private static final int ARG_IDX_OUTPUT = 1;
-   private static final int ARG_IDX_JOBS = 5;
-   private static final int ARG_IDX_VERBOSE = 6;
 
    private final int verbosity;
    private final boolean overwrite;
@@ -65,13 +55,14 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
    private final List<BlockListener> listeners;
 
 
-   public BlockDecompressor(Map<String, Object> map, ExecutorService threadPool, boolean ownPool)
+   public BlockDecompressor(Map<String, Object> map, ExecutorService threadPool)
    {
-      this.verbosity = (Integer) map.get("verbose");
-      this.overwrite = (Boolean) map.get("overwrite");
-      this.inputName = (String) map.get("inputName");
-      this.outputName = (String) map.get("outputName");
-      this.jobs = (Integer) map.get("jobs");
+      this.verbosity = (Integer) map.remove("verbose");
+      Boolean bForce = (Boolean) map.remove("overwrite");
+      this.overwrite = (bForce == null) ? false : bForce;
+      this.inputName = (String) map.remove("inputName");
+      this.outputName = (String) map.remove("outputName");
+      this.jobs = (Integer) map.remove("jobs");
       this.pool = (this.jobs == 1) ? null :
               ((threadPool == null) ? Executors.newCachedThreadPool() : threadPool);
       this.ownPool = (threadPool == null) && (this.pool != null);
@@ -79,29 +70,16 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
 
       if (this.verbosity > 1)
          this.addListener(new InfoPrinter(this.verbosity, InfoPrinter.Type.DECODING, System.out));
+
+      if ((this.verbosity > 0) && (map.size() > 0))
+      {
+         for (String k : map.keySet())
+            printOut("Ignoring invalid option [" + k + "]", verbosity>0);
+      }      
    }
+   
 
-
-   public BlockDecompressor(String[] args, ExecutorService threadPool)
-   {
-      Map<String, Object> map = new HashMap<String, Object>();
-      processCommandLine(args, map);
-      this.verbosity = (Integer) map.get("verbose");
-      this.overwrite = (Boolean) map.get("overwrite");
-      this.inputName = (String) map.get("inputName");
-      this.outputName = (String) map.get("outputName");
-      this.jobs = (Integer) map.get("jobs");
-      this.pool = (this.jobs == 1) ? null :
-              ((threadPool == null) ? Executors.newCachedThreadPool() : threadPool);
-      this.ownPool = (threadPool == null) && (this.pool != null);
-      this.listeners = new ArrayList<BlockListener>(10);
-
-      if (this.verbosity > 1)
-         this.addListener(new InfoPrinter(this.verbosity, InfoPrinter.Type.DECODING, System.out));
-   }
-
-
-   protected void dispose()
+   public void dispose()
    {
       try
       {
@@ -129,30 +107,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
 
       this.listeners.clear();
    }
-
-
-   public static void main(String[] args)
-   {
-      BlockDecompressor bd = null;
-
-      try
-      {
-         bd = new BlockDecompressor(args, null);
-      }
-      catch (Exception e)
-      {
-         System.err.println("Could not create the block codec: "+e.getMessage());
-         System.exit(Error.ERR_CREATE_COMPRESSOR);
-      }
-
-      final int code = bd.call();
-
-      if (code != 0)
-         bd.dispose();
-
-      System.exit(code);
-   }
-
+   
 
    @Override
    public void run()
@@ -335,178 +290,6 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       printOut("", !silent);
       return 0;
    }
-
-
-    private static void processCommandLine(String args[], Map<String, Object> map)
-    {
-        int verbose = 1;
-        boolean overwrite = false;
-        String inputName = null;
-        String outputName = null;
-        int tasks = 1;
-        int ctx = -1;
-
-        for (String arg : args)
-        {
-           arg = arg.trim();
-
-           if (arg.equals("-v"))
-           {
-              ctx = ARG_IDX_VERBOSE;
-              continue;
-           }
-
-           if (arg.equals("-o"))
-           {
-              ctx = ARG_IDX_OUTPUT;
-              continue;
-           }
-
-           // Extract verbosity and output first
-           if (arg.startsWith("--verbose=") || (ctx == ARG_IDX_VERBOSE))
-           {
-               String verboseLevel = arg.startsWith("--verbose=") ? arg.substring(10).trim() : arg;
-
-               try
-               {
-                   verbose = Integer.parseInt(verboseLevel);
-
-                   if (verbose < 0)
-                      throw new NumberFormatException();
-               }
-               catch (NumberFormatException e)
-               {
-                  System.err.println("Invalid verbosity level provided on command line: "+arg);
-                  System.exit(Error.ERR_INVALID_PARAM);
-               }
-           }
-           else if (arg.startsWith("--output=") || (ctx == ARG_IDX_OUTPUT))
-           {
-               outputName = arg.startsWith("--output=") ? arg.substring(9).trim() : arg;
-           }
-
-           ctx = -1;
-        }
-
-        // Overwrite verbosity if the output goes to stdout
-        if ("STDOUT".equalsIgnoreCase(outputName))
-           verbose = 0;
-
-        ctx = -1;
-
-        for (String arg : args)
-        {
-           arg = arg.trim();
-
-           if (arg.equals("--help") || arg.equals("-h"))
-           {
-              printOut("-h, --help                : display this message", true);
-              printOut("-v, --verbose=<level>     : set the verbosity level [0..4]", true);
-              printOut("                            0=silent, 1=default, 2=display block size (byte rounded)", true);
-              printOut("                            3=display timings, 4=display extra information", true);
-              printOut("-f, --force               : overwrite the output file if it already exists", true);
-              printOut("-i, --input=<inputName>   : mandatory name of the input file to decode or 'stdin'", true);
-              printOut("-o, --output=<outputName> : optional name of the output file or 'none' or 'stdout'", true);
-              printOut("-j, --jobs=<jobs>         : number of concurrent jobs", true);
-              printOut("", true);
-              printOut("EG. java -cp kanzi.jar kanzi.app.BlockDecompressor --input=foo.knz --force --verbose=2 --jobs=2", true);
-              printOut("EG. java -cp kanzi.jar kanzi.app.Kanzi --decompress --input=foo.knz --force --verbose=2 --jobs=2", true);
-              printOut("EG. java -cp kanzi.jar kanzi.app.Kanzi -d -i foo.knz -f -v 2 -j 2", true);
-              System.exit(0);
-           }
-
-           if (arg.equals("--force") || arg.equals("-f"))
-           {
-               if (ctx != -1)
-                  printOut("Warning: ignoring option [" + CMD_LINE_ARGS[ctx] + "] with no value.", verbose>0);
-               
-               overwrite = true;
-               ctx = -1;
-               continue;
-           }
-
-           if (ctx == -1)
-           {
-               int idx = -1;
-              
-               for (int i=0; i<CMD_LINE_ARGS.length; i++)
-               {
-                  if (CMD_LINE_ARGS[i].equals(arg))
-                  {
-                     idx = i;
-                     break;
-                  }
-               }
-
-               if (idx != -1)
-               {
-                  ctx = idx;
-                  continue;
-               }
-           }
-
-           if (arg.startsWith("--input=") || (ctx == ARG_IDX_INPUT))
-           {
-               inputName = arg.startsWith("--input=") ? arg.substring(8).trim() : arg;
-               ctx = -1;
-               continue;
-           }
-
-           if (arg.startsWith("--jobs=") || (ctx == ARG_IDX_JOBS))
-           {
-              arg = arg.startsWith("--jobs=") ? arg.substring(7).trim() : arg;
-
-              try
-              {
-                 tasks = Integer.parseInt(arg);
-
-                 if (tasks < 1)
-                    throw new NumberFormatException();
-
-                  ctx = -1;
-                  continue;
-              }
-              catch (NumberFormatException e)
-              {
-                 System.err.println("Invalid number of jobs provided on command line: "+arg);
-                 System.exit(Error.ERR_INVALID_PARAM);
-              }
-           }
-
-           if (!arg.startsWith("--verbose=") && (ctx == -1) && !arg.startsWith("--output="))
-           {
-              printOut("Warning: ignoring unknown option ["+ arg + "]", verbose>0);
-           }
-
-           ctx = -1;
-        }
-
-        if (inputName == null)
-        {
-           System.err.println("Missing input file name, exiting ...");
-           System.exit(Error.ERR_MISSING_PARAM);
-        }
-
-        if (("STDIN".equalsIgnoreCase(inputName) == false) && (inputName.toLowerCase().endsWith(".knz") == false))
-           printOut("Warning: the input file name does not end with the .KNZ extension", verbose>0);
-
-        if (outputName == null)
-        {
-           outputName = (inputName.toLowerCase().endsWith(".knz")) ? inputName.substring(0, inputName.length()-4)
-                   : inputName + ".tmp";
-        }
-
-        if (ctx != -1)
-        {
-           printOut("Warning: ignoring option with missing value ["+ CMD_LINE_ARGS[ctx] + "]", verbose>0);
-        }
-
-        map.put("verbose", verbose);
-        map.put("overwrite", overwrite);
-        map.put("outputName", outputName);
-        map.put("inputName", inputName);
-        map.put("jobs", tasks);
-    }
 
 
     private static void printOut(String msg, boolean print)

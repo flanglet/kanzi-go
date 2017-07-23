@@ -32,45 +32,50 @@ limitations under the License.
 
 using namespace kanzi;
 
-const string BlockDecompressor::CMD_LINE_ARGS[10] = {
-    "-i", "-o", "-b", "-t", "-e", "-j", "-v", "-x", "-f", "-h"
-};
 
-BlockDecompressor::BlockDecompressor(map<string, string>& map)
+BlockDecompressor::BlockDecompressor(map<string, string>& args)
 {
     _blockSize = 0;
-    _verbosity = atoi(map["verbose"].c_str());
-    string str = map["overwrite"];
-    transform(str.begin(), str.end(), str.begin(), ::toupper);
-    _overwrite = str == "TRUE";
-    _inputName = map["inputName"];
-    _outputName = map["outputName"];
-    _jobs = atoi(map["jobs"].c_str());
+    map<string, string>::iterator it;
+    it = args.find("verbose");
+    _verbosity = atoi(it->second.c_str());
+    args.erase(it);
+    it = args.find("overwrite");
+
+    if (it == args.end()) {
+        _overwrite = false;
+    }
+    else {
+        string str = it->second;
+        transform(str.begin(), str.end(), str.begin(), ::toupper);
+        _overwrite = str == "TRUE";
+        args.erase(it);
+    }
+
+    it = args.find("inputName");
+    _inputName = it->second;
+    args.erase(it);
+    it = args.find("outputName");
+    _outputName = it->second;
+    args.erase(it);
+    it = args.find("jobs");
+    _jobs = atoi(it->second.c_str());
+    args.erase(it);
     _cis = nullptr;
     _os = nullptr;
 
     if (_verbosity > 1)
         addListener(new InfoPrinter(_verbosity, InfoPrinter::DECODING, cout));
+
+    if ((_verbosity > 0) && (args.size() > 0)) {
+       for (it = args.begin(); it != args.end(); it++) { 
+          stringstream ss;
+          ss << "Ignoring invalid option [" << it->first << "]";
+          printOut(ss.str().c_str(), _verbosity > 0);
+       }
+    }
 }
 
-BlockDecompressor::BlockDecompressor(int argc, const char* argv[])
-{
-    _blockSize = 0;
-    map<string, string> map;
-    processCommandLine(argc, argv, map);
-    _verbosity = atoi(map["verbose"].c_str());
-    string str = map["overwrite"];
-    transform(str.begin(), str.end(), str.begin(), ::toupper);
-    _overwrite = str == "TRUE";
-    _inputName = map["inputName"];
-    _outputName = map["outputName"];
-    _jobs = atoi(map["jobs"].c_str());
-    _cis = nullptr;
-    _os = nullptr;
-
-    if (_verbosity > 1)
-        addListener(new InfoPrinter(_verbosity, InfoPrinter::DECODING, cout));
-}
 
 BlockDecompressor::~BlockDecompressor()
 {
@@ -122,19 +127,6 @@ void BlockDecompressor::dispose()
                 // Ignore
             }
         }
-    }
-}
-
-int BlockDecompressor::main(int argc, const char* argv[])
-{
-    try {
-        BlockDecompressor bd(argc, argv);
-        int code = bd.call();
-        return code;
-    }
-    catch (exception& e) {
-        cerr << "Could not create the block codec: " << e.what() << endl;
-        exit(Error::ERR_CREATE_COMPRESSOR);
     }
 }
 
@@ -345,159 +337,6 @@ int BlockDecompressor::call()
     printOut("", !silent);
     delete[] buf;
     return 0;
-}
-
-void BlockDecompressor::processCommandLine(int argc, const char* argv[], map<string, string>& map)
-{
-    string inputName;
-    string outputName;
-    int verbose = 1;
-    string strVerbose = "1";
-    string strTasks = "1";
-    string strOverwrite = "false";
-    int ctx = -1;
-
-    for (int i = 1; i < argc; i++) {
-        string arg = ltrim(rtrim(argv[i]));
-
-        if (arg.compare(0, 2, "-v") == 0) {
-            ctx = ARG_IDX_VERBOSE;
-            continue;
-        }
-
-        if (arg.compare(0, 2, "-o") == 0) {
-            ctx = ARG_IDX_OUTPUT;
-            continue;
-        }
-
-        // Extract verbosity and output first
-        if ((arg.compare(0, 10, "--verbose=") == 0) || (ctx == ARG_IDX_VERBOSE)) {
-            strVerbose = (arg.compare(0, 10, "--verbose=") == 0) ? arg.substr(10) : arg;
-            int verbose = atoi(strVerbose.c_str());
-
-            if (verbose < 0) {
-                cerr << "Invalid verbosity level provided on command line: " << arg << endl;
-                exit(Error::ERR_INVALID_PARAM);
-            }
-        }
-        else if ((arg.compare(0, 9, "--output=") == 0) || (ctx == ARG_IDX_OUTPUT)) {
-            arg = (arg.compare(0, 9, "--output=") == 0) ? arg.substr(9) : arg;
-            outputName = ltrim(rtrim(arg));
-        }
-
-        ctx = -1;
-    }
-
-    // Overwrite verbosity if the output goes to stdout
-    if (outputName.length() != 0) {
-        string str = outputName;
-        transform(str.begin(), str.end(), str.begin(), ::toupper);
-
-        if (str == "STDOUT") {
-            verbose = 0;
-            strVerbose = "0";
-        }
-    }
-
-    for (int i = 1; i < argc; i++) {
-        string arg = ltrim(rtrim(argv[i]));
-
-        if ((arg == "--help") || (arg == "-h")) {
-            printOut("-h, --help                : display this message", true);
-            printOut("-v, --verbose=<level>     : set the verbosity level [1..4]", true);
-            printOut("                            0=silent, 1=default, 2=display block size (byte rounded)", true);
-            printOut("                            3=display timings, 4=display extra information", true);
-            printOut("-f, --force               : overwrite the output file if it already exists", true);
-            printOut("-i, --input=<inputName>   : mandatory name of the input file to encode or 'stdin'", true);
-            printOut("-o, --output=<outputName> : optional name of the output file or 'none' or 'stdout'", true);
-            printOut("-j, --jobs=<jobs>         : number of concurrent jobs", true);
-            printOut("", true);
-            printOut("EG. Kanzi --decompress --input=foo.knz --force --verbose=2 --jobs=2", true);
-            printOut("EG. Kanzi -d -i foo.knz -f -v 2 -j 2", true);
-            exit(0);
-        }
-
-        if ((arg == "--force") || (arg == "-f")) {
-            if (ctx != -1) {         
-               stringstream ss;
-               ss << "Warning: ignoring option [" << CMD_LINE_ARGS[ctx] << "] with no value.";
-               printOut(ss.str().c_str(), verbose > 0);
-            }
-            
-            strOverwrite = "true";
-            ctx = -1;
-            continue;
-        }
-        if (ctx == -1) {
-            int idx = -1;
-
-            for (int i = 0; i < 10; i++) {
-                if (arg == CMD_LINE_ARGS[i]) {
-                    idx = i;
-                    break;
-                }
-            }
-
-            if (idx != -1) {
-                ctx = idx;
-                continue;
-            }
-        }
-
-        if ((arg.compare(0, 8, "--input=") == 0) | (ctx == ARG_IDX_INPUT)) {
-            inputName = (arg.compare(0, 8, "--input=") == 0) ? arg.substr(8) : arg;
-            inputName = ltrim(rtrim(inputName));
-            ctx = -1;
-            continue;
-        }
-
-        if ((arg.compare(0, 7, "--jobs=") == 0) || (ctx == ARG_IDX_JOBS)) {
-            strTasks = (arg.compare(0, 7, "--jobs=") == 0) ? arg.substr(7) : arg;
-            int tasks = atoi(strTasks.c_str());
-
-            if (tasks < 1) {
-                cerr << "Invalid number of jobs provided on command line: " << arg << endl;
-                exit(Error::ERR_INVALID_PARAM);
-            }
-        }
-
-        if ((arg.compare(0, 10, "--verbose=") != 0) && (ctx == -1) && (arg.compare(0, 9, "--output=") != 0)) {
-            stringstream ss;
-            ss << "Warning: ignoring unknown option [" << arg << "]";
-            printOut(ss.str().c_str(), verbose > 0);
-        }
-
-        ctx = -1;
-    }
-
-    if (inputName.length() == 0) {
-        cerr << "Missing input file name, exiting ..." << endl;
-        exit(Error::ERR_MISSING_PARAM);
-    }
-
-    string str = inputName;
-    transform(str.begin(), str.end(), str.begin(), ::toupper);
-
-    if ((str != "STDIN") && (str.compare(str.length() - 4, 4, ".KNZ") != 0)) {
-        printOut("Warning: the input file name does not end with the .KNZ extension", verbose > 0);
-    }
-
-    if (outputName.length() == 0) {
-        outputName = (str.compare(str.length() - 4, 4, ".KNZ") == 0) ? inputName.substr(0, inputName.length() - 4)
-                                                                     : inputName + ".tmp";
-    }
-
-    if (ctx != -1) {
-        stringstream ss;
-        ss << "Warning: ignoring option with missing value [" << CMD_LINE_ARGS[ctx] << "]";
-        printOut(ss.str().c_str(), verbose > 0);
-    }
-
-    map["verbose"] = strVerbose;
-    map["overwrite"] = strOverwrite;
-    map["outputName"] = outputName;
-    map["inputName"] = inputName;
-    map["jobs"] = strTasks;
 }
 
 void BlockDecompressor::printOut(const char* msg, bool print)

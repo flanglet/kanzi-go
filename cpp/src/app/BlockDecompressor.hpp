@@ -31,13 +31,9 @@ namespace kanzi
    public:
       static const int WARN_EMPTY_INPUT = -128;
 
-      BlockDecompressor(map<string, string>& map);
-      
-      BlockDecompressor(int argc, const char* argv[]);
+      BlockDecompressor(map<string, string>& map);    
 
       ~BlockDecompressor();
-
-      static int main(int argc, const char* argv[]);
 
       int call();
 
@@ -45,14 +41,11 @@ namespace kanzi
 
       bool removeListener(BlockListener* bl);
 
+      void dispose();
+
 
    private:
       static const int DEFAULT_BUFFER_SIZE = 32768;
-      static const string CMD_LINE_ARGS[10];
-      static const int ARG_IDX_INPUT = 0;
-      static const int ARG_IDX_OUTPUT = 1;
-      static const int ARG_IDX_JOBS = 5;
-      static const int ARG_IDX_VERBOSE = 6;
 
       int _verbosity;
       bool _overwrite;
@@ -66,10 +59,6 @@ namespace kanzi
       OutputStream* _os;
       CompressedInputStream* _cis;
       vector<BlockListener*> _listeners;
-
-      void dispose();
-
-      static void processCommandLine(int argc, const char* argv[], map<string, string>& map);
 
       static void printOut(const char* msg, bool print);
    };
