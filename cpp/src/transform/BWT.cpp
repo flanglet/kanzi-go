@@ -143,7 +143,7 @@ bool BWT::inverseRegularBlock(SliceArray<byte>& input, SliceArray<byte>& output,
     uint32 sum = 0;
 
     // Create cumulative histogram
-    for (int i = 0, sum = 0; i < 256; i++) {
+    for (int i = 0; i < 256; i++) {
         sum += buckets_[i];
         buckets_[i] = sum - buckets_[i];
     }
