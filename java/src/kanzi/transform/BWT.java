@@ -124,31 +124,25 @@ public class BWT implements ByteTransform
            return true;
         }
        
+        // Lazy dynamic memory allocation 
         if (this.saAlgo == null)
-           this.saAlgo = new DivSufSort(); // lazy instantiation
-        else
-           this.saAlgo.reset();
+           this.saAlgo = new DivSufSort(); 
 
-        // Compute suffix array
-        final int[] sa = this.saAlgo.computeSuffixArray(input, srcIdx, count);
-        final int srcIdx2 = srcIdx - 1; 
-        int i = 0;
-       
-        for (; i<count; i++) 
-        {
-           // Found primary index
-           if (sa[i] == 0)
-              break;
-           
-           output[dstIdx+i] = input[srcIdx2+sa[i]];
-        }
+        if (this.buffer1.length < count)
+           this.buffer1 = new int[count];
         
-        output[dstIdx+i] = input[srcIdx2+count];
-        this.setPrimaryIndex(i);
+        final int[] buf = this.buffer1;       
+        int pIdx = this.saAlgo.computeBWT(input, buf, srcIdx, count);
 
-        for (i++; i<count; i++) 
-           output[dstIdx+i] = input[srcIdx2+sa[i]];
-                
+        for (int i=0; i<pIdx; i++) 
+           output[dstIdx+i] = (byte) buf[i];
+
+        output[dstIdx+pIdx] = input[srcIdx+count-1];
+        
+        for (int i=pIdx+1; i<count; i++) 
+           output[dstIdx+i] = (byte) buf[i];
+  
+        this.setPrimaryIndex(pIdx);         
         src.index += count;
         dst.index += count;
         return true;

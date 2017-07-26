@@ -32,14 +32,16 @@ const (
 )
 
 type BWTS struct {
-	buffer  []int
+	buffer1 []int
+	buffer2 []int
 	buckets []int
 	saAlgo  *DivSufSort
 }
 
 func NewBWTS() (*BWTS, error) {
 	this := new(BWTS)
-	this.buffer = make([]int, 0)
+	this.buffer1 = make([]int, 0)
+	this.buffer2 = make([]int, 0)
 	this.buckets = make([]int, 256)
 	return this, nil
 }
@@ -77,28 +79,30 @@ func (this *BWTS) Forward(src, dst []byte) (uint, uint, error) {
 		return uint(count), uint(count), nil
 	}
 
-	// Lazy dynamic memory allocations
-	if len(this.buffer) < count {
-		this.buffer = make([]int, count)
-	}
-
 	if this.saAlgo == nil {
 		var err error
 
 		if this.saAlgo, err = NewDivSufSort(); err != nil {
 			return 0, 0, err
 		}
-	} else {
-		this.saAlgo.Reset()
 	}
 
-	// Compute suffix array
-	sa := this.saAlgo.ComputeSuffixArray(src[0:count])
+	// Lazy dynamic memory allocations
+	if len(this.buffer1) < count {
+		this.buffer1 = make([]int, count)
+	}
+
+	if len(this.buffer2) < count {
+		this.buffer2 = make([]int, count)
+	}
 
 	// Aliasing
-	isa := this.buffer
+	sa := this.buffer1[0:count]
+	isa := this.buffer2[0:count]
 
-	for i := 0; i < count; i++ {
+	this.saAlgo.ComputeSuffixArray(src[0:count], sa)
+
+	for i := range isa {
 		isa[sa[i]] = i
 	}
 
@@ -110,7 +114,7 @@ func (this *BWTS) Forward(src, dst []byte) (uint, uint, error) {
 			continue
 		}
 
-		refRank := this.moveLyndonWordHead(sa, src, count, idxMin, i-idxMin, min)
+		refRank := this.moveLyndonWordHead(sa, isa, src, count, idxMin, i-idxMin, min)
 
 		for j := i - 1; j > idxMin; j-- {
 			// iterate through the new lyndon word from end to start
@@ -161,8 +165,7 @@ func (this *BWTS) Forward(src, dst []byte) (uint, uint, error) {
 	return uint(count), uint(count), nil
 }
 
-func (this *BWTS) moveLyndonWordHead(sa []int, data []byte, count, start, size, rank int) int {
-	isa := this.buffer
+func (this *BWTS) moveLyndonWordHead(sa, isa []int, data []byte, count, start, size, rank int) int {
 	end := start + size
 
 	for rank+1 < count {
@@ -232,13 +235,13 @@ func (this *BWTS) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	// Lazy dynamic memory allocation
-	if len(this.buffer) < count {
-		this.buffer = make([]int, count)
+	if len(this.buffer1) < count {
+		this.buffer1 = make([]int, count)
 	}
 
 	// Aliasing
 	buckets_ := this.buckets
-	lf := this.buffer
+	lf := this.buffer1
 
 	// Initialize histogram
 	for i := range this.buckets {

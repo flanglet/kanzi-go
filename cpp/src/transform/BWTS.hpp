@@ -33,21 +33,27 @@ namespace kanzi
    private:
        static const int MAX_BLOCK_SIZE = 1024 * 1024 * 1024; // 1 GB (30 bits)
 
-       int* _buffer;
+       int* _buffer1;
+       int* _buffer2;
        int _bufferSize;
        int _buckets[256];
        DivSufSort _saAlgo;
 
-       int moveLyndonWordHead(int sa[], byte data[], int count, int start, int size, int rank);
+       int moveLyndonWordHead(int sa[], int isa[], byte data[], int count, int start, int size, int rank);
 
    public:
        BWTS()
        {
-           _buffer = new int[0];
+           _buffer1 = new int[0];
+           _buffer2 = new int[0];
            _bufferSize = 0;
        }
 
-       ~BWTS() { delete[] _buffer; }
+       ~BWTS() 
+       { 
+          delete[] _buffer1; 
+          delete[] _buffer2; 
+       }
 
        bool forward(SliceArray<byte>& input, SliceArray<byte>& output, int length);
 

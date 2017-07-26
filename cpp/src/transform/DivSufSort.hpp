@@ -18,7 +18,7 @@ limitations under the License.
 
 #include "../types.hpp"
 
-namespace kanzi 
+namespace kanzi
 {
 
    // DivSufSort is a fast two-stage suffix sorting algorithm by Yuta Mori.
@@ -102,6 +102,8 @@ namespace kanzi
 
        void constructSuffixArray(int bucket_A[], int bucket_B[], int n, int m);
 
+       int constructBWT(int bucket_A[], int bucket_B[], int n, int m);
+
        int sortTypeBstar(int bucket_A[], int bucket_B[], int n);
 
        void ssSort(int pa, int first, int last, int buf, int bufSize,
@@ -172,6 +174,8 @@ namespace kanzi
 
        void trCopy(int isa, int first, int a, int b, int last, int depth);
 
+       void reset();
+
        static int trIlg(int n);
 
    public:
@@ -179,9 +183,9 @@ namespace kanzi
 
        ~DivSufSort();
 
-       void reset();
+       void computeSuffixArray(byte input[], int sa[], int start, int length);
 
-       int* computeSuffixArray(byte input[], int start, int length);
+       int computeBWT(byte input[], int sa[], int start, int length);
    };
 
 }

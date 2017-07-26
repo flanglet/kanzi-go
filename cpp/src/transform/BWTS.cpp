@@ -42,17 +42,17 @@ bool BWTS::forward(SliceArray<byte>& input, SliceArray<byte>& output, int count)
     // Lazy dynamic memory allocation
     if (_bufferSize < count) {
         _bufferSize = count;
-        delete[] _buffer;
-        _buffer = new int[_bufferSize];
+        delete[] _buffer1;
+        _buffer1 = new int[_bufferSize];
+        delete[] _buffer2;
+        _buffer2 = new int[_bufferSize];
     }
 
-    _saAlgo.reset();
-
-    // Compute suffix array
-    int* sa = _saAlgo.computeSuffixArray(src, 0, count);
-
     // Aliasing
-    int* isa = _buffer;
+    int* sa = _buffer1;
+    int* isa = _buffer2;
+
+    _saAlgo.computeSuffixArray(src, sa, 0, count);
 
     for (int i = 0; i < count; i++)
         isa[sa[i]] = i;
@@ -64,7 +64,7 @@ bool BWTS::forward(SliceArray<byte>& input, SliceArray<byte>& output, int count)
         if (isa[i] >= min)
             continue;
 
-        int refRank = moveLyndonWordHead(sa, src, count, idxMin, i - idxMin, min);
+        int refRank = moveLyndonWordHead(sa, isa, src, count, idxMin, i - idxMin, min);
 
         for (int j = i - 1; j > idxMin; j--) {
             // Iterate through the new Lyndon word from end to start
@@ -115,9 +115,8 @@ bool BWTS::forward(SliceArray<byte>& input, SliceArray<byte>& output, int count)
     return true;
 }
 
-int BWTS::moveLyndonWordHead(int sa[], byte data[], int count, int start, int size, int rank)
+int BWTS::moveLyndonWordHead(int sa[], int isa[], byte data[], int count, int start, int size, int rank)
 {
-    int* isa = _buffer;
     const int end = start + size;
 
     while (rank + 1 < count) {
@@ -174,13 +173,13 @@ bool BWTS::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int count)
     // Lazy dynamic memory allocation
     if (_bufferSize < count) {
         _bufferSize = count;
-        delete[] _buffer;
-        _buffer = new int[_bufferSize];
+        delete[] _buffer1;
+        _buffer1 = new int[_bufferSize];
     }
 
     // Aliasing
     int* buckets_ = _buckets;
-    int* lf = _buffer;
+    int* lf = _buffer1;
 
     // Initialize histogram
     memset(_buckets, 0, sizeof(_buckets));

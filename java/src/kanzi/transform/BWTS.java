@@ -30,14 +30,16 @@ public class BWTS implements ByteTransform
 {
     private static final int MAX_BLOCK_SIZE = 1024*1024*1024; // 1 GB (30 bits)
  
-    private int[] buffer;
+    private int[] buffer1;
+    private int[] buffer2;
     private final int[] buckets;
     private DivSufSort saAlgo;
 
     
     public BWTS()
     {
-       this.buffer = new int[0];  
+       this.buffer1 = new int[0];  
+       this.buffer2 = new int[0];  
        this.buckets = new int[256];
     }
 
@@ -72,22 +74,23 @@ public class BWTS implements ByteTransform
 
            return true;
         }
-
-        // Lazy dynamic memory allocation 
-        if (this.buffer.length < count)
-           this.buffer = new int[count];
-       
+        
         if (this.saAlgo == null)
            this.saAlgo = new DivSufSort();
-        else
-           this.saAlgo.reset();
 
-        // Compute suffix array
-        final int[] sa = this.saAlgo.computeSuffixArray(input, srcIdx, count);
-        
+        // Lazy dynamic memory allocations
+        if (this.buffer1.length < count)
+           this.buffer1 = new int[count];
+
+        if (this.buffer2.length < count)
+           this.buffer2 = new int[count];
+                
         // Aliasing
-        final int[] isa = this.buffer;
+        final int[] sa = this.buffer1;
+        final int[] isa = this.buffer2;
 
+        this.saAlgo.computeSuffixArray(input, sa, srcIdx, count);
+        
         for (int i=0; i<count; i++)
            isa[sa[i]] = i;
 
@@ -99,7 +102,7 @@ public class BWTS implements ByteTransform
             if (isa[i] >= min) 
                continue;
             
-            int refRank = this.moveLyndonWordHead(sa, input, count, srcIdx, idxMin, i-idxMin, min);
+            int refRank = this.moveLyndonWordHead(sa, isa, input, count, srcIdx, idxMin, i-idxMin, min);
 
             for (int j=i-1; j>idxMin; j--) 
             { 
@@ -156,9 +159,8 @@ public class BWTS implements ByteTransform
     }
 
     
-    private int moveLyndonWordHead(int[] sa, byte[] data, int count, int srcIdx, int start, int size, int rank)
+    private int moveLyndonWordHead(int[] sa, int[] isa, byte[] data, int count, int srcIdx, int start, int size, int rank)
     {
-       final int[] isa = this.buffer;
        final int end = start + size;
        final int startIdx = srcIdx + start;
 
@@ -227,12 +229,12 @@ public class BWTS implements ByteTransform
        final int dstIdx = dst.index;
        
        // Lazy dynamic memory allocation
-       if (this.buffer.length < count)
-          this.buffer = new int[count];
+       if (this.buffer1.length < count)
+          this.buffer1 = new int[count];
 
        // Aliasing
        final int[] buckets_ = this.buckets;
-       final int[] lf = this.buffer;
+       final int[] lf = this.buffer1;
        
        // Initialize histogram
        for (int i=0; i<256; i++)

@@ -64,6 +64,7 @@ const (
 type BWT struct {
 	buffer1      []uint32
 	buffer2      []byte // Only used for big blocks (size >= 1<<24)
+	buffer3      []int
 	buckets      []uint32
 	primaryIndex uint
 	saAlgo       *DivSufSort
@@ -73,6 +74,7 @@ func NewBWT() (*BWT, error) {
 	this := new(BWT)
 	this.buffer1 = make([]uint32, 0) // Allocate empty: only used in inverse
 	this.buffer2 = make([]byte, 0)   // Allocate empty: only used for big blocks (size >= 1<<24)
+	this.buffer3 = make([]int, 0) // Allocate empty: only used in forward
 	this.buckets = make([]uint32, 256)
 	return this, nil
 }
@@ -129,33 +131,27 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 		if this.saAlgo, err = NewDivSufSort(); err != nil {
 			return 0, 0, err
 		}
-	} else {
-		this.saAlgo.Reset()
 	}
 
-	// Compute suffix array
-	sa := this.saAlgo.ComputeSuffixArray(src[0:count])
-	i := 0
-
-	for i < count {
-		// Found primary index
-		if sa[i] == 0 {
-			break
-		}
-
-		dst[i] = src[sa[i]-1]
-		i++
+	// Lazy dynamic memory allocation
+	if len(this.buffer3) < count {
+		this.buffer3 = make([]int, count)
 	}
 
-	dst[i] = src[count-1]
-	this.SetPrimaryIndex(uint(i))
-	i++
+	buf := this.buffer3
+	pIdx := this.saAlgo.ComputeBWT(src[0:count], buf[0:count])
 
-	for i < count {
-		dst[i] = src[sa[i]-1]
-		i++
+	for i := 0; i < pIdx; i++ {
+		dst[i] = byte(buf[i])
 	}
 
+	dst[pIdx] = src[count-1]
+
+	for i := pIdx + 1; i < count; i++ {
+		dst[i] = byte(buf[i])
+	}
+
+	this.SetPrimaryIndex(uint(pIdx))
 	return uint(count), uint(count), nil
 }
 

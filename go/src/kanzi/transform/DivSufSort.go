@@ -78,7 +78,7 @@ func NewDivSufSort() (*DivSufSort, error) {
 	return this, nil
 }
 
-func (this *DivSufSort) Reset() {
+func (this *DivSufSort) reset() {
 	this.ssStack.index = 0
 	this.trStack.index = 0
 	this.mergeStack.index = 0
@@ -92,13 +92,10 @@ func (this *DivSufSort) Reset() {
 	}
 }
 
-func (this *DivSufSort) ComputeSuffixArray(src []byte) []int {
+func (this *DivSufSort) ComputeSuffixArray(src []byte, sa []int) {
 	length := len(src)
 
-	if len(this.sa) < length {
-		this.sa = make([]int, length)
-	}
-
+	// Lazy dynamic memory allocation
 	if len(this.buffer) < length+1 {
 		this.buffer = make([]int, length+1)
 	}
@@ -107,11 +104,10 @@ func (this *DivSufSort) ComputeSuffixArray(src []byte) []int {
 		this.buffer[i] = int(src[i])
 	}
 
-	this.buffer[length] = this.buffer[0]
-
+	this.sa = sa
+	this.reset()
 	m := this.sortTypeBstar(this.bucketA, this.bucketB, length)
 	this.constructSuffixArray(this.bucketA, this.bucketB, length, m)
-	return this.sa
 }
 
 func (this *DivSufSort) constructSuffixArray(bucket_A, bucket_B []int, n, m int) {
@@ -122,6 +118,7 @@ func (this *DivSufSort) constructSuffixArray(bucket_A, bucket_B []int, n, m int)
 			k := 0
 			c2 := -1
 
+			// Scan the suffix array from right to left.
 			for j := bucket_A[c1+1] - 1; j >= i; j-- {
 				s := this.sa[j]
 				this.sa[j] = ^s
@@ -188,6 +185,115 @@ func (this *DivSufSort) constructSuffixArray(bucket_A, bucket_B []int, n, m int)
 		this.sa[k] = s
 		k++
 	}
+}
+
+func (this *DivSufSort) ComputeBWT(src []byte, sa []int) int {
+	length := len(src)
+
+	// Lazy dynamic memory allocation
+	if len(this.buffer) < length+1 {
+		this.buffer = make([]int, length+1)
+	}
+
+	for i := 0; i < length; i++ {
+		this.buffer[i] = int(src[i])
+	}
+
+	this.sa = sa
+	this.reset()
+	m := this.sortTypeBstar(this.bucketA, this.bucketB, length)
+	return this.constructBWT(this.bucketA, this.bucketB, length, m)
+}
+
+func (this *DivSufSort) constructBWT(bucket_A, bucket_B []int, n, m int) int {
+	pIdx := -1
+
+	if m > 0 {
+		for c1 := 254; c1 >= 0; c1-- {
+			idx := c1 << 8
+			i := bucket_B[idx+c1+1]
+			k := 0
+			c2 := -1
+
+			// Scan the suffix array from right to left.
+			for j := bucket_A[c1+1] - 1; j >= i; j-- {
+				s := this.sa[j]
+
+				if s <= 0 {
+					if s != 0 {
+						this.sa[j] = ^s
+					}
+
+					continue
+				}
+
+				s--
+				c0 := this.buffer[s]
+				this.sa[j] = ^c0
+
+				if s > 0 && this.buffer[s-1] > c0 {
+					s = ^s
+				}
+
+				if c0 != c2 {
+					if c2 >= 0 {
+						bucket_B[idx+c2] = k
+					}
+
+					c2 = c0
+					k = bucket_B[idx+c2]
+				}
+
+				this.sa[k] = s
+				k--
+			}
+		}
+	}
+
+	c2 := this.buffer[n-1]
+	k := bucket_A[c2]
+
+	if this.buffer[n-2] < c2 {
+		this.sa[k] = ^this.buffer[n-2]
+	} else {
+		this.sa[k] = n - 1
+	}
+
+	k++
+
+	// Scan the suffix array from left to right.
+	for i := 0; i < n; i++ {
+		s := this.sa[i]
+
+		if s <= 0 {
+			if s != 0 {
+				this.sa[i] = ^s
+			} else {
+				pIdx = i
+			}
+
+			continue
+		}
+
+		s--
+		c0 := this.buffer[s]
+		this.sa[i] = c0
+
+		if s > 0 && this.buffer[s-1] < c0 {
+			s = ^this.buffer[s-1]
+		}
+
+		if c0 != c2 {
+			bucket_A[c2] = k
+			c2 = c0
+			k = bucket_A[c2]
+		}
+
+		this.sa[k] = s
+		k++
+	}
+
+	return pIdx
 }
 
 func (this *DivSufSort) sortTypeBstar(bucket_A, bucket_B []int, n int) int {
@@ -293,7 +399,7 @@ func (this *DivSufSort) sortTypeBstar(bucket_A, bucket_B []int, n int) int {
 		// Compute ranks of type B* substrings.
 		for i := m - 1; i >= 0; i-- {
 			if arr[i] >= 0 {
-				i0 := i
+				j := i
 
 				for {
 					arr[m+arr[i]] = i
@@ -304,18 +410,18 @@ func (this *DivSufSort) sortTypeBstar(bucket_A, bucket_B []int, n int) int {
 					}
 				}
 
-				arr[i+1] = i - i0
+				arr[i+1] = i - j
 
 				if i <= 0 {
 					break
 				}
 			}
 
-			i0 := i
+			j := i
 
 			for {
 				arr[i] = ^arr[i]
-				arr[m+arr[i]] = i0
+				arr[m+arr[i]] = j
 				i--
 
 				if arr[i] >= 0 {
@@ -323,10 +429,10 @@ func (this *DivSufSort) sortTypeBstar(bucket_A, bucket_B []int, n int) int {
 				}
 			}
 
-			arr[m+arr[i]] = i0
+			arr[m+arr[i]] = j
 		}
 
-		// Construct the inverse suffix array of type B* suffixes using trsort.
+		// Construct the inverse suffix array of type B* suffixes using trSort.
 		this.trSort(m, 1)
 
 		// Set the sorted order of type B* suffixes.
@@ -376,13 +482,13 @@ func (this *DivSufSort) sortTypeBstar(bucket_A, bucket_B []int, n int) int {
 
 		// Calculate the index of start/end point of each bucket.
 		bucket_B[len(bucket_B)-1] = n // end
-		c0 = 254
+		k := m - 1
 
-		for k := m - 1; c0 >= 0; c0-- {
+		for c0 = 254; c0 >= 0; c0-- {
 			i := bucket_A[c0+1] - 1
 			c2 := c0 << 8
 
-			for c1 = 255; c1 > c0; c1-- {
+			for c1 := 255; c1 > c0; c1-- {
 				tt := i - bucket_B[(c1<<8)+c0]
 				bucket_B[(c1<<8)+c0] = i // end point
 				i = tt
@@ -396,14 +502,15 @@ func (this *DivSufSort) sortTypeBstar(bucket_A, bucket_B []int, n int) int {
 				}
 			}
 
-			bucket_B[c2+c0+1] = i - bucket_B[c2+c0] + 1
-			bucket_B[c2+c0] = i // end point
+			bucket_B[c2+c0+1] = i - bucket_B[c2+c0] + 1 //start point
+			bucket_B[c2+c0] = i                         // end point
 		}
 	}
 
 	return m
 }
 
+// Sub String Sort
 func (this *DivSufSort) ssSort(pa, first, last, buf, bufSize, depth, n int, lastSuffix bool) {
 	if lastSuffix == true {
 		first++
@@ -1642,6 +1749,7 @@ func ssIlg(n int) int {
 	return LOG_TABLE[n&0xFF]
 }
 
+// Tandem Repeat Sort
 func (this *DivSufSort) trSort(n, depth int) {
 	arr := this.sa
 	budget := &TRBudget{chance: trIlg(n) * 2 / 3, remain: n, incVal: n}
@@ -2428,9 +2536,10 @@ func (this *DivSufSort) trPartialCopy(isa, first, a, b, last, depth int) {
 	}
 
 	lastRank = -1
+	e := d + 1
 	d = b
 
-	for c, e := last-1, d+1; e < d; c-- {
+	for c := last - 1; d > e; c-- {
 		s := buf1[c] - depth
 
 		if s >= 0 && buf2[s] == v {

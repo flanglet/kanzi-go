@@ -19,7 +19,7 @@ limitations under the License.
 #include "../Transform.hpp"
 #include "DivSufSort.hpp"
 
-namespace kanzi 
+namespace kanzi
 {
 
    // The Burrows-Wheeler Transform is a reversible transform based on
@@ -66,6 +66,7 @@ namespace kanzi
 
        uint32* _buffer1;
        byte* _buffer2;
+       int* _buffer3;
        int _bufferSize;
        uint32 _buckets[256];
        int _primaryIndex;
@@ -80,6 +81,7 @@ namespace kanzi
        {
            _buffer1 = new uint32[0]; // Allocate empty: only used in inverse
            _buffer2 = new byte[0]; // Allocate empty: only used for big blocks (size >= 1<<24)
+           _buffer3 = new int[0]; // Allocate empty: only used in forward
            _bufferSize = 0;
        }
 
@@ -87,6 +89,7 @@ namespace kanzi
        {
            delete[] _buffer1;
            delete[] _buffer2;
+           delete[] _buffer3;
        }
 
        bool forward(SliceArray<byte>& input, SliceArray<byte>& output, int length);

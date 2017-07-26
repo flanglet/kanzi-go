@@ -16,7 +16,7 @@ limitations under the License.
 
 #include <cstring>
 #include "BWT.hpp"
-
+#include <cstdio>
 using namespace kanzi;
 
 bool BWT::setPrimaryIndex(int primaryIndex)
@@ -48,26 +48,25 @@ bool BWT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int count)
 
     byte* src = &input._array[input._index];
     byte* dst = &output._array[output._index];
-    _saAlgo.reset();
 
-    // Compute suffix array
-    int* sa = _saAlgo.computeSuffixArray(src, 0, count);
-
-    int i = 0;
-
-    for (; i < count; i++) {
-        // Found primary index
-        if (sa[i] == 0)
-            break;
-
-        dst[i] = src[sa[i] - 1];
+    // Lazy dynamic memory allocation
+    if (_bufferSize < count) {
+        _bufferSize = count;
+        delete[] _buffer3;
+        _buffer3 = new int[_bufferSize];
     }
 
-    dst[i] = src[count - 1];
-    setPrimaryIndex(i);
+    int pIdx = _saAlgo.computeBWT(src, _buffer3, 0, count);
 
-    for (i++; i < count; i++)
-        dst[i] = src[sa[i] - 1];
+    for (int i = 0; i < pIdx; i++)
+        dst[i] = byte(_buffer3[i]);
+
+    dst[pIdx] = src[count - 1];
+
+    for (int i = pIdx + 1; i < count; i++)
+        dst[i] = byte(_buffer3[i]);
+
+    setPrimaryIndex(pIdx);
 
     input._index += count;
     output._index += count;
