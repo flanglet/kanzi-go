@@ -31,6 +31,8 @@ namespace kanzi {
 
        DictEntry(const byte buf[], int pos, int hash, int idx, int length);
 
+       DictEntry& operator = (const DictEntry& de);
+
        ~DictEntry() {}
    };
 
@@ -50,9 +52,9 @@ namespace kanzi {
        static const byte ESCAPE_TOKEN1 = byte(0x0F); // dictionary word preceded by space symbol
        static const byte ESCAPE_TOKEN2 = byte(0x0E); // toggle upper/lower case of first word char
 
-       TextCodec();
+       TextCodec(int dictSize=THRESHOLD2*4);
 
-       TextCodec(byte dict[], int size, int logHashSize, int dictSize);
+       TextCodec(int dictSize, byte dict[], int size, int logHashSize);
 
        virtual ~TextCodec()
        {
@@ -90,6 +92,8 @@ namespace kanzi {
        static SliceArray<byte> unpackDictionary(const byte dict[], int dictSize);
 
        static bool sameWords(const byte src[], byte dst[], int length);
+
+       bool expandDictionary();
 
        // Default dictionary
        static const byte DICT_EN_1024[];
@@ -129,6 +133,16 @@ namespace kanzi {
        _hash = hash;
        _idx = int32(idx);
        _length = int16(length);
+   }
+
+   inline DictEntry& DictEntry::operator = (const DictEntry& de)
+   {
+       _buf = de._buf;
+       _pos = de._pos;
+       _hash = de._hash;
+       _idx = de._idx;
+       _length = de._length;
+       return *this;
    }
 }
 #endif

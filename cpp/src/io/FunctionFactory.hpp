@@ -48,10 +48,10 @@ template <class T>
 
        string getName(short functionType) const THROW;
 
-       static TransformSequence<T>* newFunction(short functionType) THROW;
+       static TransformSequence<T>* newFunction(int size, short functionType) THROW;
 
    private:
-       static Transform<T>* newFunctionToken(short functionType) THROW;
+       static Transform<T>* newFunctionToken(int size, short functionType) THROW;
 
        static const char* getNameToken(int functionType) THROW;
    };
@@ -148,7 +148,7 @@ template <class T>
    }
 
    template <class T>
-   TransformSequence<T>* FunctionFactory<T>::newFunction(short functionType) THROW
+   TransformSequence<T>* FunctionFactory<T>::newFunction(int size, short functionType) THROW
    {
        int nbtr = 0;
 
@@ -170,14 +170,14 @@ template <class T>
            int t = (functionType >> (12 - 4 * i)) & 0x0F;
 
            if ((t != NULL_TRANSFORM_TYPE) || (i == 0))
-               transforms[nbtr++] = newFunctionToken((short)t);
+               transforms[nbtr++] = newFunctionToken(size, short(t));
        }
 
        return new TransformSequence<T>(transforms, true);
    }
 
    template <class T>
-   Transform<T>* FunctionFactory<T>::newFunctionToken(short functionType) THROW
+   Transform<T>* FunctionFactory<T>::newFunctionToken(int size, short functionType) THROW
    {
        switch (functionType & 0x0F) {
        case SNAPPY_TYPE:
@@ -205,7 +205,18 @@ template <class T>
            return new SBRT(SBRT::MODE_RANK);
 
        case TEXTCODEC_TYPE:
-           return new TextCodec();
+           {
+              // Select an appropriate initial dictionary size
+              int dictSize = 1<<12;
+            
+              for (int i=14; i<=24; i+=2)
+              {
+                 if (size >= 1<<i)
+                    dictSize <<= 1;
+              }
+ 
+              return new TextCodec(dictSize); 
+           }
 
        case TIMESTAMP_TYPE:
            return new SBRT(SBRT::MODE_TIMESTAMP);

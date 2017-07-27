@@ -425,7 +425,7 @@ T EncodingTask<T>::call() THROW
             mode = (byte)(CompressedOutputStream::SMALL_BLOCK_MASK | (_blockLength & CompressedOutputStream::COPY_LENGTH_MASK));
         }
         else {
-            TransformSequence<byte>* transform = FunctionFactory<byte>::newFunction(_transformType);
+            TransformSequence<byte>* transform = FunctionFactory<byte>::newFunction(_blockLength, _transformType);
             int requiredSize = transform->getMaxEncodedLength(_blockLength);
 
             if (_buffer->_length < requiredSize) {

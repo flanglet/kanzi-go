@@ -574,7 +574,7 @@ T DecodingTask<T>::call() THROW
             _data->_index = savedIdx + preTransformLength;
         }
         else {
-            TransformSequence<byte>* transform = FunctionFactory<byte>::newFunction(_transformType);
+            TransformSequence<byte>* transform = FunctionFactory<byte>::newFunction(_blockLength, _transformType);
             transform->setSkipFlags((byte)((mode >> 2) & TransformSequence<byte>::SKIP_MASK));
             _buffer->_index = 0;
 

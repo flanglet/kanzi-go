@@ -586,12 +586,13 @@ bool* TextCodec::initTextChars()
     return res;
 }
 
-TextCodec::TextCodec()
+// dictSize (in words) = number of dictionary entries
+TextCodec::TextCodec(int dictSize)
 {
     _logHashSize = LOG_HASHES_SIZE;
     const int32 mapSize = 1 << _logHashSize;
     _dictMap = new DictEntry*[mapSize];
-    _dictSize = THRESHOLD2 * 32;
+    _dictSize = dictSize;
     _dictList = new DictEntry[_dictSize];
     _hashMask = mapSize - 1;
     int nbWords = STATIC_DICT_WORDS;
@@ -621,16 +622,16 @@ TextCodec::TextCodec()
     _staticDictSize = nbWords;
 }
 
-TextCodec::TextCodec(byte dict[], int size, int logHashSize, int dictSize)
+// dictSize (in words) = number of dictionary entries
+TextCodec::TextCodec(int dictSize, byte dict[], int size, int logHashSize)
 {
-
     if ((logHashSize < 10) || (logHashSize > 28))
         throw IllegalArgumentException("The hash table size log must be in [10..28]");
 
-    if ((dictSize < STATIC_DICT_WORDS) || (dictSize > (1 << logHashSize))) {
+    if ((dictSize < STATIC_DICT_WORDS + 128) || (dictSize > (1 << logHashSize))) {
         stringstream ss;
         int hs = 1 << logHashSize;
-        ss << "The number of words in the dictionary must be in [" << STATIC_DICT_WORDS << ".." << hs << "]";
+        ss << "The number of words in the dictionary must be in [" << (STATIC_DICT_WORDS + 128) << ".." << hs << "]";
         throw IllegalArgumentException(ss.str());
     }
 
@@ -788,9 +789,11 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
                     _dictMap[h1 & _hashMask] = pe;
                     words++;
 
-                    // Dictionary full ? Reset index to end of static dictionary
-                    if (words > _dictSize)
-                        words = _staticDictSize;
+                    // Dictionary full ? Expand or reset index to end of static dictionary
+                    if (words >= _dictSize) {
+                        if (expandDictionary() == false)
+                            words = _staticDictSize;
+                    }
                 }
             }
             else {
@@ -831,14 +834,35 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
     return srcIdx == srcEnd;
 }
 
+bool TextCodec::expandDictionary()
+{
+    if (_dictSize >= THRESHOLD2 * 32)
+        return false;
+
+    DictEntry* newDict = new DictEntry[_dictSize*2];
+    memcpy(&newDict[0], &_dictList[0], sizeof(DictEntry)*_dictSize);
+
+    for (int i = _dictSize; i < _dictSize * 2; i++)
+        newDict[i] = DictEntry(nullptr, -1, 0, i, 0);
+
+    delete[] _dictList;
+    _dictList = newDict;
+
+    // Reset map (values must point to addresses of new DictEntry items)
+    for (int i = 0; i < _dictSize; i++) {
+        _dictMap[_dictList[i]._hash & _hashMask] = &_dictList[i];
+    }
+
+    _dictSize <<= 1;
+    return true;
+}
+
 int TextCodec::emitSymbols(byte src[], byte dst[], const int srcEnd, const int dstEnd)
 {
     if (srcEnd == 0)
         return 0;
 
-    return (3 * srcEnd < dstEnd) ?
-        emit1(src, dst, srcEnd, dstEnd) :
-        emit2(src, dst, srcEnd, dstEnd);
+    return (3 * srcEnd < dstEnd) ? emit1(src, dst, srcEnd, dstEnd) : emit2(src, dst, srcEnd, dstEnd);
 }
 
 int TextCodec::emit1(byte src[], byte dst[], const int srcEnd, const int)
@@ -1025,9 +1049,11 @@ bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int c
                     _dictMap[h1 & _hashMask] = &e;
                     words++;
 
-                    // Dictionary full ?
-                    if (words > _dictSize)
-                        words = _staticDictSize;
+                    // Dictionary full ? Expand or reset index to end of static dictionary
+                    if (words >= _dictSize) {
+                        if (expandDictionary() == false)
+                            words = _staticDictSize;
+                    }
                 }
             }
         }

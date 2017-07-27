@@ -585,17 +585,25 @@ var (
 	}
 )
 
-func NewTextCodec() (*TextCodec, error) {
-	return NewTextCodecWithArgs(nil, TC_LOG_HASHES_SIZE, TC_THRESHOLD2*32)
+func NewTextCodec(args ...int) (*TextCodec, error) {
+	dictSize := TC_THRESHOLD2 * 4
+
+	if len(args) == 1 {
+		dictSize = args[0]
+	}
+
+	return NewTextCodecWithArgs(dictSize, nil, TC_LOG_HASHES_SIZE)
 }
 
-func NewTextCodecWithArgs(dict []byte, logHashSize uint, dictSize int) (*TextCodec, error) {
+// dictSize (in words) = number of dictionary entries
+func NewTextCodecWithArgs(dictSize int, dict []byte, logHashSize uint) (*TextCodec, error) {
 	if logHashSize < 10 || logHashSize > 28 {
 		return nil, errors.New("The hash table size log must be in [10..28]")
 	}
 
-	if dictSize < TC_STATIC_DICT_WORDS || dictSize > 1<<logHashSize {
-		return nil, fmt.Errorf("The number of words in the dictionary must be in [%v..%v]", TC_STATIC_DICT_WORDS, 1<<logHashSize)
+	if dictSize < TC_STATIC_DICT_WORDS+128 || dictSize > 1<<logHashSize {
+		return nil, fmt.Errorf("The number of words in the dictionary must be in [%v..%v]",
+			TC_STATIC_DICT_WORDS+128, 1<<logHashSize)
 	}
 
 	this := new(TextCodec)
@@ -823,9 +831,11 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 					this.dictMap[h1&this.hashMask] = pe
 					words++
 
-					// Dictionary full ? Reset index to end of static dictionary
+					// Dictionary full ? Expand or reset index to end of static dictionary
 					if words >= this.dictSize {
-						words = this.staticDictSize
+						if this.expandDictionary() == false {
+							words = this.staticDictSize
+						}
 					}
 				}
 			} else {
@@ -876,6 +886,23 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	return uint(srcIdx), uint(dstIdx), err
+}
+
+func (this *TextCodec) expandDictionary() bool {
+	if this.dictSize >= TC_THRESHOLD2*32 {
+		return false
+	}
+
+	newDict := make([]DictEntry, this.dictSize*2)
+	copy(newDict, this.dictList)
+
+	for i := this.dictSize; i < this.dictSize*2; i++ {
+		newDict[i] = DictEntry{buf: nil, pos: -1, hash: 0, idx: int32(i), length: int16(0)}
+	}
+
+	this.dictList = newDict
+	this.dictSize <<= 1
+	return true
 }
 
 func (this *TextCodec) emitSymbols(src, dst []byte) int {
@@ -1088,9 +1115,11 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 					this.dictMap[h1&this.hashMask] = pe
 					words++
 
-					// Dictionary full ?
+					// Dictionary full ? Expand or reset index to end of static dictionary
 					if words >= this.dictSize {
-						words = this.staticDictSize
+						if this.expandDictionary() == false {
+							words = this.staticDictSize
+						}
 					}
 				}
 			}

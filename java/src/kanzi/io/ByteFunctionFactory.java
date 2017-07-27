@@ -183,7 +183,16 @@ public class ByteFunctionFactory
             return new SBRT(SBRT.MODE_RANK);
             
          case TEXTCODEC_TYPE:
-            return new TextCodec();
+            // Select an appropriate initial dictionary size
+            int dictSize = 1<<12;
+            
+            for (int i=14; i<=24; i+=2)
+            {
+               if (size >= 1<<i)
+                  dictSize <<= 1;
+            }
+ 
+            return new TextCodec(dictSize);
             
          case TIMESTAMP_TYPE:
             return new SBRT(SBRT.MODE_TIMESTAMP);

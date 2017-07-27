@@ -612,34 +612,35 @@ public final class TextCodec implements ByteFunction
 
 
    private final DictEntry[] dictMap;
-   private final DictEntry[] dictList;
+   private DictEntry[] dictList;
    private final int staticDictSize;
-   private final int dictSize;
    private final int logHashSize;
    private final int hashMask;
+   private int dictSize;
 
 
 
    public TextCodec()
    {
-      this(null, LOG_HASHES_SIZE, THRESHOLD2*32);
+      this(THRESHOLD2*4, null, LOG_HASHES_SIZE);
    }
 
 
    public TextCodec(int dictSize)
    {
-      this(null, LOG_HASHES_SIZE, dictSize);
+      this(dictSize, null, LOG_HASHES_SIZE);
    }
 
 
-   public TextCodec(byte[] dict, int logHashSize, int dictSize)
+   // dictSize (in words) = number of dictionary entries
+   public TextCodec(int dictSize, byte[] dict, int logHashSize)
    {
       if ((logHashSize < 10) || (logHashSize > 28))
          throw new IllegalArgumentException("The hash table size log must be in [10..28]");
 
-      if ((dictSize < STATIC_DICT_WORDS) || (dictSize > (1<<logHashSize)))
+      if ((dictSize < STATIC_DICT_WORDS+128) || (dictSize > (1<<logHashSize)))
          throw new IllegalArgumentException("The number of words in the dictionary must be in [" +
-            STATIC_DICT_WORDS + (1<<logHashSize));
+            (STATIC_DICT_WORDS+128) + ".." + (1<<logHashSize) + "]");
 
       this.logHashSize = logHashSize;
       this.dictMap = new DictEntry[1<<this.logHashSize];
@@ -797,9 +798,12 @@ public final class TextCodec implements ByteFunction
                   this.dictMap[h1 & this.hashMask] = e;
                   words++;
 
-                  // Dictionary full ? Reset index to end of static dictionary
+                  // Dictionary full ? Expand or reset index to end of static dictionary
                   if (words >= this.dictSize)
-                     words = this.staticDictSize;
+                  {
+                     if (this.expandDictionary() == false)                     
+                        words = this.staticDictSize;
+                  }
                }
             }
             else
@@ -840,6 +844,23 @@ public final class TextCodec implements ByteFunction
       return srcIdx == srcEnd;
    }
 
+   
+   private boolean expandDictionary()
+   {
+      if (this.dictSize >= THRESHOLD2*32)
+         return false;
+ 
+      DictEntry[] newDict = new DictEntry[this.dictSize*2];
+      System.arraycopy(this.dictList, 0, newDict, 0, this.dictSize);
+      
+      for (int i=this.dictSize; i<this.dictSize*2; i++)
+         newDict[i] = new DictEntry(null, -1, 0, i, 0);
+      
+      this.dictList = newDict;
+      this.dictSize <<= 1;
+      return true;  
+   }
+   
 
    private int emitSymbols(byte[] src, final int srcIdx, byte[] dst, int dstIdx, final int srcEnd, final int dstEnd)
    {
@@ -1038,9 +1059,12 @@ public final class TextCodec implements ByteFunction
                   this.dictMap[h1 & this.hashMask] = e;
                   words++;
 
-                  // Dictionary full ? Reset index to end of static dictionary
+                  // Dictionary full ? Expand or reset index to end of static dictionary
                   if (words >= this.dictSize)
-                     words = this.staticDictSize;
+                  {
+                     if (this.expandDictionary() == false)                     
+                        words = this.staticDictSize;
+                  }
                }
             }
          }

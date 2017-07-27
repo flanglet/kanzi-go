@@ -24,16 +24,17 @@ import (
 )
 
 const (
-	NULL_TRANSFORM_TYPE = uint16(0) // copy
-	BWT_TYPE            = uint16(1) // Burrows Wheeler
-	BWTS_TYPE           = uint16(2) // Burrows Wheeler Scott
-	LZ4_TYPE            = uint16(3) // LZ4
-	SNAPPY_TYPE         = uint16(4) // Snappy
-	RLT_TYPE            = uint16(5) // Run Length
-	ZRLT_TYPE           = uint16(6) // Zero Run Length
-	MTFT_TYPE           = uint16(7) // Move To Front
-	RANK_TYPE           = uint16(8) // Rank
-	TIMESTAMP_TYPE      = uint16(9) // TimeStamp
+	// Up to 15 transforms can be declared (4 bit index)
+	NULL_TRANSFORM_TYPE = uint16(0)  // copy
+	BWT_TYPE            = uint16(1)  // Burrows Wheeler
+	BWTS_TYPE           = uint16(2)  // Burrows Wheeler Scott
+	LZ4_TYPE            = uint16(3)  // LZ4
+	SNAPPY_TYPE         = uint16(4)  // Snappy
+	RLT_TYPE            = uint16(5)  // Run Length
+	ZRLT_TYPE           = uint16(6)  // Zero Run Length
+	MTFT_TYPE           = uint16(7)  // Move To Front
+	RANK_TYPE           = uint16(8)  // Rank
+	TIMESTAMP_TYPE      = uint16(9)  // TimeStamp
 	TEXTCODEC_TYPE      = uint16(10) // Text codec
 )
 
@@ -102,7 +103,16 @@ func newByteFunctionToken(size uint, functionType uint16) (kanzi.ByteTransform, 
 		return transform.NewSBRT(transform.SBRT_MODE_TIMESTAMP)
 
 	case TEXTCODEC_TYPE:
-		return function.NewTextCodec()
+		// Select an appropriate initial dictionary size
+		dictSize := 1 << 12
+
+		for i := uint(14); i <= 24; i += 2 {
+			if size >= 1<<i {
+				dictSize <<= 1
+			}
+		}
+
+		return function.NewTextCodec(dictSize)
 
 	case NULL_TRANSFORM_TYPE:
 		return function.NewNullFunction()
