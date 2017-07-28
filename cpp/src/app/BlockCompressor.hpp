@@ -54,12 +54,15 @@ namespace kanzi
       string _codec;
       string _transform;
       int _blockSize;
+      int _level; // command line compression level
       int _jobs;
       InputStream* _is;
       CompressedOutputStream* _cos;
       vector<BlockListener*> _listeners;
 
       static void printOut(const char* msg, bool print);
+
+      static void getTransformAndCodec(int level, string tranformAndCodec[2]);
    };
 
 }

@@ -35,6 +35,9 @@ using namespace kanzi;
 BlockCompressor::BlockCompressor(map<string, string>& args)
 {
     map<string, string>::iterator it;
+    it = args.find("level");
+    _level = atoi(it->second.c_str());
+    args.erase(it);
     it = args.find("verbose");
     _verbosity = atoi(it->second.c_str());
     args.erase(it);
@@ -56,16 +59,27 @@ BlockCompressor::BlockCompressor(map<string, string>& args)
     it = args.find("outputName");
     _outputName = it->second;
     args.erase(it);
+    string strTransf;
+    string strCodec;
+
     it = args.find("entropy");
 
     if (it == args.end()) {
-        _codec = "HUFFMAN";
+        strCodec = "HUFFMAN";
     }
     else {
-        _codec = it->second;
+        strCodec = it->second;
         args.erase(it);
     }
 
+    if (_level >= 0) {
+        string tranformAndCodec[2];
+        getTransformAndCodec(_level, tranformAndCodec);
+        strTransf = tranformAndCodec[0];
+        strCodec = tranformAndCodec[1];
+    }
+
+    _codec = strCodec;
     it = args.find("block");
 
     if (it == args.end()) {
@@ -75,20 +89,23 @@ BlockCompressor::BlockCompressor(map<string, string>& args)
         _blockSize = atoi(it->second.c_str());
         args.erase(it);
     }
+   
+     it = args.find("transform");
 
-    it = args.find("transform");
+     if (it == args.end()) {
+         if (strTransf.length() == 0)
+            strTransf = "BWT+MTFT+ZRLT";
+     }
+     else {
+         if (strTransf.length() == 0)
+             strTransf = it->second;
 
-    if (it == args.end()) {
-        _transform = "BWT+MTFT+ZRLT";
-    }
-    else {
-        // Extract transform names. Curate input (EG. NONE+NONE+xxxx => xxxx)
-        string str = it->second;
-        FunctionFactory<byte> bff;
-        _transform = bff.getName(bff.getType(str.c_str()));
-        args.erase(it);
-    }
+         args.erase(it);
+     }
 
+    // Extract transform names. Curate input (EG. NONE+NONE+xxxx => xxxx)
+    FunctionFactory<byte> bff;
+    _transform = bff.getName(bff.getType(strTransf.c_str()));
     it = args.find("checksum");
 
     if (it == args.end()) {
@@ -197,16 +214,25 @@ int BlockCompressor::call()
     ss << "Checksum set to " << (_checksum ? "true" : "false");
     printOut(ss.str().c_str(), printFlag);
     ss.str(string());
-    string etransform = _transform;
-    transform(etransform.begin(), etransform.end(), etransform.begin(), ::toupper);
-    ss << "Using " << ((etransform == "NONE") ? "no" : _transform) << " transform (stage 1)";
-    printOut(ss.str().c_str(), printFlag);
-    ss.str(string());
-    string ecodec = _codec;
-    transform(ecodec.begin(), ecodec.end(), ecodec.begin(), ::toupper);
-    ss << "Using " << ((ecodec == "NONE") ? "no" : _codec) << " entropy codec (stage 2)";
-    printOut(ss.str().c_str(), printFlag);
-    ss.str(string());
+
+    if (_level < 0) {
+        string etransform = _transform;
+        transform(etransform.begin(), etransform.end(), etransform.begin(), ::toupper);
+        ss << "Using " << ((etransform == "NONE") ? "no" : _transform) << " transform (stage 1)";
+        printOut(ss.str().c_str(), printFlag);
+        ss.str(string());
+        string ecodec = _codec;
+        transform(ecodec.begin(), ecodec.end(), ecodec.begin(), ::toupper);
+        ss << "Using " << ((ecodec == "NONE") ? "no" : _codec) << " entropy codec (stage 2)";
+        printOut(ss.str().c_str(), printFlag);
+        ss.str(string());
+    }
+    else {
+        ss << "Compression level set to " << _level;
+        printOut(ss.str().c_str(), printFlag);
+        ss.str(string());
+    }
+
     ss << "Using " << _jobs << " job" << ((_jobs > 1) ? "s" : "");
     printOut(ss.str().c_str(), printFlag);
 
@@ -408,4 +434,44 @@ bool BlockCompressor::removeListener(BlockListener* bl)
 
     _listeners.erase(it);
     return true;
+}
+
+void BlockCompressor::getTransformAndCodec(int level, string tranformAndCodec[2])
+{
+    switch (level) {
+    case 0:
+        tranformAndCodec[0] = "NONE";
+        tranformAndCodec[1] = "NONE";
+        return;
+
+    case 1:
+        tranformAndCodec[0] = "TEXT+LZ4";
+        tranformAndCodec[1] = "HUFFMAN";
+        return;
+
+    case 2:
+        tranformAndCodec[0] = "BWT+RANK+ZRLT";
+        tranformAndCodec[1] = "RANGE";
+        return;
+
+    case 3:
+        tranformAndCodec[0] = "BWT+RANK+ZRLT";
+        tranformAndCodec[1] = "FPAQ";
+        return;
+
+    case 4:
+        tranformAndCodec[0] = "BWT";
+        tranformAndCodec[1] = "CM";
+        return;
+
+    case 5:
+        tranformAndCodec[0] = "RLT+TEXT";
+        tranformAndCodec[1] = "TPAQ";
+        return;
+
+    default:
+        tranformAndCodec[0] = "Unknown";
+        tranformAndCodec[1] = "Unknown";
+        return;
+    }
 }

@@ -40,6 +40,7 @@ type BlockCompressor struct {
 	entropyCodec string
 	transform    string
 	blockSize    uint
+	level        int // command line compression level
 	jobs         uint
 	listeners    []kio.BlockListener
 	cpuProf      string
@@ -47,6 +48,9 @@ type BlockCompressor struct {
 
 func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error) {
 	this := new(BlockCompressor)
+	this.level = argsMap["level"].(int)
+	delete(argsMap, "level")
+
 	this.verbosity = argsMap["verbose"].(uint)
 	delete(argsMap, "verbose")
 
@@ -61,13 +65,24 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 	delete(argsMap, "inputName")
 	this.outputName = argsMap["outputName"].(string)
 	delete(argsMap, "outputName")
+	strTransf := ""
+	strCodec := ""
 
-	if codec, prst := argsMap["entropy"]; prst == true {
-		this.entropyCodec = codec.(string)
-		delete(argsMap, "entropy")
+	if this.level >= 0 {
+		tranformAndCodec := getTransformAndCodec(this.level)
+		tokens := strings.Split(tranformAndCodec, "&")
+		strTransf = tokens[0]
+		strCodec = tokens[1]
 	} else {
-		this.entropyCodec = "HUFFMAN"
+		if codec, prst := argsMap["entropy"]; prst == true {
+			strCodec = codec.(string)
+			delete(argsMap, "entropy")
+		} else {
+			strCodec = "HUFFMAN"
+		}
 	}
+
+	this.entropyCodec = strCodec
 
 	if block, prst := argsMap["block"]; prst == true {
 		this.blockSize = block.(uint)
@@ -76,14 +91,17 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 		this.blockSize = 1024 * 1024
 	}
 
-	if transf, prst := argsMap["transform"]; prst == true {
-		tName := transf.(string)
-		// Extract transform names. Curate input (EG. NONE+NONE+xxxx => xxxx)
-		this.transform = kio.GetByteFunctionName(kio.GetByteFunctionType(tName))
-		delete(argsMap, "transform")
-	} else {
-		this.transform = "BWT+MTFT+ZRLT"
+	if len(strTransf) == 0 {
+		if transf, prst := argsMap["transform"]; prst == true {
+			strTransf = transf.(string)
+			delete(argsMap, "transform")
+		} else {
+			strTransf = "BWT+MTFT+ZRLT"
+		}
 	}
+
+	// Extract transform names. Curate input (EG. NONE+NONE+xxxx => xxxx)
+	this.transform = kio.GetByteFunctionName(kio.GetByteFunctionType(strTransf))
 
 	if check, prst := argsMap["checksum"]; prst == true {
 		this.checksum = check.(bool)
@@ -157,22 +175,29 @@ func (this *BlockCompressor) Call() (int, uint64) {
 	bc_printOut(msg, printFlag)
 	msg = fmt.Sprintf("Checksum set to %t", this.checksum)
 	bc_printOut(msg, printFlag)
-	w1 := "no"
 
-	if this.transform != "NONE" {
-		w1 = this.transform
+	if this.level < 0 {
+		w1 := "no"
+
+		if this.transform != "NONE" {
+			w1 = this.transform
+		}
+
+		msg = fmt.Sprintf("Using %s transform (stage 1)", w1)
+		bc_printOut(msg, printFlag)
+		w2 := "no"
+
+		if this.entropyCodec != "NONE" {
+			w2 = this.entropyCodec
+		}
+
+		msg = fmt.Sprintf("Using %s entropy codec (stage 2)", w2)
+		bc_printOut(msg, printFlag)
+	} else {
+		msg = fmt.Sprintf("Compression level set to %v", this.level)
+		bc_printOut(msg, printFlag)
 	}
 
-	msg = fmt.Sprintf("Using %s transform (stage 1)", w1)
-	bc_printOut(msg, printFlag)
-	w2 := "no"
-
-	if this.entropyCodec != "NONE" {
-		w2 = this.entropyCodec
-	}
-
-	msg = fmt.Sprintf("Using %s entropy codec (stage 2)", w2)
-	bc_printOut(msg, printFlag)
 	prefix := ""
 
 	if this.jobs > 1 {
@@ -336,5 +361,30 @@ func (this *BlockCompressor) Call() (int, uint64) {
 func bc_printOut(msg string, print bool) {
 	if print == true {
 		fmt.Println(msg)
+	}
+}
+
+func getTransformAndCodec(level int) string {
+	switch level {
+	case 0:
+		return "NONE&NONE"
+
+	case 1:
+		return "TEXT+LZ4&HUFFMAN"
+
+	case 2:
+		return "BWT+RANK+ZRLT&RANGE"
+
+	case 3:
+		return "BWT+RANK+ZRLT&FPAQ"
+
+	case 4:
+		return "BWT&CM"
+
+	case 5:
+		return "RLT+TEXT&TPAQ"
+
+	default:
+		return "Unknown&Unknown"
 	}
 }

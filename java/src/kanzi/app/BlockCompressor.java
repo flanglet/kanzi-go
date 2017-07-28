@@ -51,6 +51,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
    private final String codec;
    private final String transform;
    private final int blockSize;
+   private final int level; // command line compression level
    private final int jobs;
    private InputStream is;
    private CompressedOutputStream cos;
@@ -61,19 +62,35 @@ public class BlockCompressor implements Runnable, Callable<Integer>
    
    public BlockCompressor(Map<String, Object> map, ExecutorService threadPool)
    {
+      this.level = (Integer) map.remove("level");
       this.verbosity = (Integer) map.remove("verbose");
       Boolean bForce = (Boolean) map.remove("overwrite");
       this.overwrite = (bForce == null) ? false : bForce;
       this.inputName = (String) map.remove("inputName");
       this.outputName = (String) map.remove("outputName");
-      String strCodec = (String) map.remove("entropy");
+      String strTransf;
+      String strCodec;
+      
+      if (this.level >= 0)
+      {
+         String tranformAndCodec = getTransformAndCodec(this.level);
+         String[] tokens = tranformAndCodec.split("&");
+         strTransf = tokens[0];
+         strCodec = tokens[1];
+      } 
+      else 
+      {
+         strTransf = (String) map.remove("transform");
+         strCodec = (String) map.remove("entropy");
+      }
+
       this.codec = (strCodec == null) ? "HUFFMAN" : strCodec;
       Integer iBlockSize = (Integer) map.remove("block");
       this.blockSize = (iBlockSize == null) ? 1024*1024 : iBlockSize;
+      
       // Extract transform names. Curate input (EG. NONE+NONE+xxxx => xxxx)          
-      String tName = (String) map.remove("transform");
       ByteFunctionFactory bff = new ByteFunctionFactory();      
-      this.transform = (tName == null) ? "BWT+MTFT+ZRLT" : bff.getName(bff.getType(tName));
+      this.transform = (strTransf == null) ? "BWT+MTFT+ZRLT" : bff.getName(bff.getType(strTransf));
       Boolean bChecksum = (Boolean) map.remove("checksum");
       this.checksum = (bChecksum == null) ? false : bChecksum;
       this.jobs = (Integer) map.remove("jobs");
@@ -141,11 +158,20 @@ public class BlockCompressor implements Runnable, Callable<Integer>
       printOut("Block size set to " + this.blockSize + " bytes", printFlag);
       printOut("Verbosity set to " + this.verbosity, printFlag);
       printOut("Overwrite set to " + this.overwrite, printFlag);
-      printOut("Checksum set to "+  this.checksum, printFlag);
-      String etransform = ("NONE".equals(this.transform)) ? "no" : this.transform;
-      printOut("Using " + etransform + " transform (stage 1)", printFlag);
-      String ecodec = ("NONE".equals(this.codec)) ? "no" : this.codec;
-      printOut("Using " + ecodec + " entropy codec (stage 2)", printFlag);
+      printOut("Checksum set to " +  this.checksum, printFlag);
+      
+      if (this.level < 0)
+      {
+         String etransform = ("NONE".equals(this.transform)) ? "no" : this.transform;
+         printOut("Using " + etransform + " transform (stage 1)", printFlag);
+         String ecodec = ("NONE".equals(this.codec)) ? "no" : this.codec;
+         printOut("Using " + ecodec + " entropy codec (stage 2)", printFlag);
+      }
+      else
+      {
+         printOut("Compression level set to " +  this.level, printFlag);
+      }
+      
       printOut("Using " + this.jobs + " job" + ((this.jobs > 1) ? "s" : ""), printFlag);
 
       OutputStream os;
@@ -319,5 +345,33 @@ public class BlockCompressor implements Runnable, Callable<Integer>
     public final boolean removeListener(BlockListener bl)
     {
        return (bl != null) ? this.listeners.remove(bl) : false;
+    }
+    
+    
+    private static String getTransformAndCodec(int level)
+    {
+       switch (level)
+       {
+          case 0 :
+             return "NONE&NONE";
+             
+          case 1 :
+             return "TEXT+LZ4&HUFFMAN";
+             
+          case 2 :
+             return "BWT+RANK+ZRLT&RANGE";
+             
+          case 3 :
+             return "BWT+RANK+ZRLT&FPAQ";
+             
+          case 4 :
+             return "BWT&CM";
+             
+          case 5 :
+             return "RLT+TEXT&TPAQ";
+             
+          default :
+             return "Unknown&Unknown";             
+       }
     }
 }

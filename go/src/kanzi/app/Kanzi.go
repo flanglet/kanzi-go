@@ -35,13 +35,14 @@ const (
 	ARG_IDX_ENTROPY    = 6
 	ARG_IDX_JOBS       = 7
 	ARG_IDX_VERBOSE    = 8
+	ARG_IDX_LEVEL      = 9
 	ARG_IDX_PROFILE    = 12
 )
 
 var (
 	CMD_LINE_ARGS = []string{
 		"-c", "-d", "-i", "-o", "-b", "-t", "-e", "-j",
-		"-v", "-x", "-f", "-h", "-p",
+		"-v", "-l", "-x", "-f", "-h", "-p",
 	}
 )
 
@@ -146,6 +147,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 	tasks := 1
 	cpuProf := ""
 	ctx := -1
+	level := -1
 	mode := " "
 
 	for i, arg := range args {
@@ -203,7 +205,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 				os.Exit(kio.ERR_INVALID_PARAM)
 			}
 
-			if verbose < 0 {
+			if verbose < 0 || verbose > 4 {
 				fmt.Printf("Invalid verbosity level provided on command line: %v\n", arg)
 				os.Exit(kio.ERR_INVALID_PARAM)
 			}
@@ -235,34 +237,53 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 		arg = strings.TrimSpace(arg)
 
 		if arg == "--help" || arg == "-h" {
-			printOut("-h, --help                : display this message", true)
-			printOut("-v, -verbose=<level>      : set the verbosity level [1..4]", true)
-			printOut("                            0=silent, 1=default, 2=display block size (byte rounded)", true)
-			printOut("                            3=display timings, 4=display extra information", true)
-			printOut("-f, --force               : overwrite the output file if it already exists", true)
-			printOut("-i, --input=<inputName>   : mandatory name of the input file to encode or 'stdin'", true)
-			printOut("-o, --output=<outputName> : optional name of the output file (defaults to <input.knz>) or 'none' or 'stdout'", true)
+			printOut("", true)
+			printOut("   -h, --help", true)
+			printOut("        display this message\n", true)
+			printOut("   -v, --verbose=<level>", true)
+			printOut("        set the verbosity level [0..4]", true)
+			printOut("        0=silent, 1=default, 2=display block size (byte rounded)", true)
+			printOut("        3=display timings, 4=display extra information\n", true)
+			printOut("   -f, --force", true)
+			printOut("        overwrite the output file if it already exists\n", true)
+			printOut("   -i, --input=<inputName>", true)
+			printOut("        mandatory name of the input file or 'stdin'\n", true)
+			printOut("   -o, --output=<outputName>", true)
+			printOut("        optional name of the output file (defaults to <input.knz>) or 'none'", true)
+			printOut("        or 'stdout'\n", true)
 
 			if mode != "d" {
-				printOut("-b, --block=<size>        : size of the input blocks, multiple of 16, max 1 GB (transform dependent), min 1 KB, default 1 MB", true)
-				printOut("-e, --entropy=<codec>     : entropy codec to use [None|Huffman*|ANS|Range|PAQ|FPAQ|TPAQ|CM]", true)
-				printOut("-t, --transform=<codec>   : transform to use [None|BWT*|BWTS|SNAPPY|LZ4|RLT|ZRLT|MTFT|RANK|TEXT|TIMESTAMP]", true)
-				printOut("                            EG: BWT+RANK or BWTS+MTFT (default is BWT+MTFT+ZRLT)", true)
-				printOut("-x, --checksum            : enable block checksum", true)
+				printOut("   -b, --block=<size>", true)
+				printOut("        size of blocks, multiple of 16, max 1 GB, min 1 KB, default 1 MB\n", true)
+				printOut("   -l, --level=<compression>", true)
+				printOut("        set the compression level [0..5]", true)
+				printOut("        Providing this option forces entropy and transform.", true)
+				printOut("        0=None&None (store), 1=TEXT+LZ4&HUFFMAN, 2=BWT+RANK+ZRLT&RANGE", true)
+				printOut("        3=BWT+RANK+ZRLT&FPAQ, 4=BWT&CM, 5=RLT+TEXT&TPAQ\n", true)
+				printOut("   -e, --entropy=<codec>", true)
+				printOut("        entropy codec [None|Huffman|ANS|Range|PAQ|FPAQ|TPAQ|CM]", true)
+				printOut("        (default is Huffman)\n", true)
+				printOut("   -t, --transform=<codec>", true)
+				printOut("        transform [None|BWT|BWTS|SNAPPY|LZ4|RLT|ZRLT|MTFT|RANK|TEXT|TIMESTAMP]", true)
+				printOut("        EG: BWT+RANK or BWTS+MTFT (default is BWT+MTFT+ZRLT)\n", true)
+				printOut("   -x, --checksum", true)
+				printOut("        enable block checksum\n", true)
 			}
 
-			printOut("-j, --jobs=<jobs>         : number of concurrent jobs", true)
+			printOut("   -j, --jobs=<jobs>", true)
+			printOut("        number of concurrent jobs\n", true)
 			printOut("", true)
 
 			if mode != "d" {
-				printOut(`EG. Kanzi --compress --input=foo.txt --output=foo.knz --force 
-                                      --transform=BWT+MTFT+ZRLT --block=4m --entropy=FPAQ --verbose=3 --jobs=4`, true)
-				printOut("EG. Kanzi -c -i foo.txt -o foo.knz -f -t BWT+MTFT+ZRLT -b 4m -e FPAQ -v 3 -j 4", true)
+				printOut("EG. Kanzi -c -i foo.txt -o none -b 4m -l 4 -v 3\n", true)
+				printOut("EG. Kanzi -c -i foo.txt -o foo.knz -f -t BWT+MTFT+ZRLT -b 4m -e FPAQ -v 3 -j 4\n", true)
+				printOut("EG. Kanzi --compress --input=foo.txt --output=foo.knz --block=4m --force", true)
+				printOut("          --transform=BWT+MTFT+ZRLT --entropy=FPAQ --verbose=3 --jobs=4\n", true)
 			}
 
 			if mode != "c" {
-				printOut("EG. Kanzi --decompress --input=foo.knz --force --verbose=2 --jobs=2", true)
-				printOut("EG. Kanzi -d -i foo.knz -f -v 2 -j 2", true)
+				printOut("EG. Kanzi -d -i foo.knz -f -v 2 -j 2\n", true)
+				printOut("EG. Kanzi --decompress --input=foo.knz --force --verbose=2 --jobs=2\n", true)
 			}
 
 			os.Exit(0)
@@ -344,6 +365,32 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 			}
 
 			transform = strings.ToUpper(transform)
+			ctx = -1
+			continue
+		}
+
+		if strings.HasPrefix(arg, "--level=") || ctx == ARG_IDX_LEVEL {
+			var str string
+			var err error
+
+			if strings.HasPrefix(arg, "--level=") {
+				str = strings.TrimPrefix(arg, "--level=")
+			} else {
+				str = arg
+			}
+
+			str = strings.TrimSpace(str)
+
+			if level, err = strconv.Atoi(str); err != nil {
+				fmt.Printf("Invalid compression level provided on command line: %v\n", arg)
+				os.Exit(kio.ERR_INVALID_PARAM)
+			}
+
+			if level < 0 || level > 5 {
+				fmt.Printf("Invalid compression level provided on command line: %v\n", arg)
+				os.Exit(kio.ERR_INVALID_PARAM)
+			}
+
 			ctx = -1
 			continue
 		}
@@ -439,6 +486,16 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 		printOut("Warning: ignoring option with missing value ["+CMD_LINE_ARGS[ctx]+"]", verbose > 0)
 	}
 
+	if level >= 0 {
+		if len(codec) != 0 {
+			printOut("Warning: providing the 'level' option forces the entropy codec. Ignoring ["+codec+"]", verbose > 0)
+		}
+
+		if len(transform) != 0 {
+			printOut("Warning: providing the 'level' option forces the transform. Ignoring ["+transform+"]", verbose > 0)
+		}
+	}
+
 	if blockSize != -1 {
 		argsMap["block"] = uint(blockSize)
 	}
@@ -452,6 +509,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 
 	argsMap["inputName"] = inputName
 	argsMap["outputName"] = outputName
+	argsMap["level"] = level
 
 	if len(codec) > 0 {
 		argsMap["entropy"] = codec
