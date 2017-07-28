@@ -21,8 +21,8 @@ limitations under the License.
 
 using namespace kanzi;
 
-static const string CMD_LINE_ARGS[12] = {
-    "-c", "-d", "-i", "-o", "-b", "-t", "-e", "-j", "-v", "-x", "-f", "-h"
+static const string CMD_LINE_ARGS[13] = {
+    "-c", "-d", "-i", "-o", "-b", "-t", "-e", "-j", "-v", "-l", "-x", "-f", "-h"
 };
 
 static const int ARG_IDX_COMPRESS = 0;
@@ -34,6 +34,7 @@ static const int ARG_IDX_TRANSFORM = 5;
 static const int ARG_IDX_ENTROPY = 6;
 static const int ARG_IDX_JOBS = 7;
 static const int ARG_IDX_VERBOSE = 8;
+static const int ARG_IDX_LEVEL = 9;
 
 void printOut(const char* msg, bool print)
 {
@@ -45,6 +46,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
 {
     string inputName;
     string outputName;
+    string strLevel = "";
     string strVerbose = "1";
     string strTasks = "1";
     string strBlockSize = "";
@@ -54,6 +56,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
     string transf = "";
     int verbose = 1;
     int ctx = -1;
+    int level = -1;
     string mode = " ";
 
     for (int i = 1; i < argc; i++) {
@@ -94,7 +97,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
             strVerbose = (arg.compare(0, 10, "--verbose=") == 0) ? arg.substr(10) : arg;
             int verbose = atoi(strVerbose.c_str());
 
-            if (verbose < 0) {
+            if ((verbose < 0) || (verbose > 4)) {
                 cerr << "Invalid verbosity level provided on command line: " << arg << endl;
                 exit(Error::ERR_INVALID_PARAM);
             }
@@ -124,38 +127,54 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
         string arg = ltrim(rtrim(argv[i]));
 
         if ((arg == "--help") || (arg == "-h")) {
-            printOut("-h, --help                : display this message", true);
-            printOut("-v, --verbose=<level>     : set the verbosity level [1..4]", true);
-            printOut("                            0=silent, 1=default, 2=display block size (byte rounded)", true);
-            printOut("                            3=display timings, 4=display extra information", true);
-            printOut("-f, --force               : overwrite the output file if it already exists", true);
-            printOut("-i, --input=<inputName>   : mandatory name of the input file to encode or 'stdin'", true);
-            printOut("-o, --output=<outputName> : optional name of the output file (defaults to <input.knz>) or 'none' or 'stdout'", true);
+            printOut("", true);
+            printOut("   -h, --help", true);
+            printOut("        display this message\n", true);
+            printOut("   -v, --verbose=<level>", true);
+            printOut("        set the verbosity level [0..4]", true);
+            printOut("        0=silent, 1=default, 2=display block size (byte rounded)", true);
+            printOut("        3=display timings, 4=display extra information\n", true);
+            printOut("   -f, --force", true);
+            printOut("        overwrite the output file if it already exists\n", true);
+            printOut("   -i, --input=<inputName>", true);
+            printOut("        mandatory name of the input file or 'stdin'\n", true);
+            printOut("   -o, --output=<outputName>", true);
+            printOut("        optional name of the output file (defaults to <input.knz>) or 'none'", true);
+            printOut("        or 'stdout'\n", true);
 
             if (mode.compare(0, 1, "d") != 0) {
-                printOut("-b, --block=<size>        : size of the input blocks, multiple of 16, max 1 GB (transform dependent), min 1 KB, default 1 MB", true);
-                printOut("-e, --entropy=<codec>     : entropy codec to use [None|Huffman*|ANS|Range|PAQ|FPAQ|TPAQ|CM]", true);
-                printOut("-t, --transform=<codec>   : transform to use [None|BWT*|BWTS|Snappy|LZ4|RLT|ZRLT|MTFT|RANK|TEXT|TIMESTAMP]", true);
-                printOut("                            EG: BWT+RANK or BWTS+MTFT (default is BWT+MTFT+ZRLT)", true);
-                printOut("-x, --checksum            : enable block checksum", true);
+                printOut("   -b, --block=<size>", true);
+                printOut("        size of blocks, multiple of 16, max 1 GB, min 1 KB, default 1 MB\n", true);
+                printOut("   -l, --level=<compression>", true);
+                printOut("        set the compression level [0..5]", true);
+                printOut("        Providing this option forces entropy and transform.", true);
+                printOut("        0=None&None (store), 1=TEXT+LZ4&HUFFMAN, 2=BWT+RANK+ZRLT&RANGE", true);
+                printOut("        3=BWT+RANK+ZRLT&FPAQ, 4=BWT&CM, 5=RLT+TEXT&TPAQ\n", true);
+                printOut("   -e, --entropy=<codec>", true);
+                printOut("        entropy codec [None|Huffman|ANS|Range|PAQ|FPAQ|TPAQ|CM]", true);
+                printOut("       (default is Huffman)\n", true);
+                printOut("   -t, --transform=<codec>", true);
+                printOut("        transform [None|BWT|BWTS|SNAPPY|LZ4|RLT|ZRLT|MTFT|RANK|TEXT|TIMESTAMP]", true);
+                printOut("        EG: BWT+RANK or BWTS+MTFT (default is BWT+MTFT+ZRLT)\n", true);
+                printOut("   -x, --checksum", true);
+                printOut("        enable block checksum\n", true);
             }
 
-            printOut("-j, --jobs=<jobs>         : number of concurrent jobs", true);
+            printOut("   -j, --jobs=<jobs>", true);
+            printOut("        number of concurrent jobs\n", true);
             printOut("", true);
             stringstream ss;
 
             if (mode.compare(0, 1, "d") != 0) {
-                ss << "EG. Kanzi --compress --input=foo.txt --output=foo.knz --force ";
-                ss << "--transform=BWT+MTFT+ZRLT --block=4m --entropy=FPAQ --verbose=3 --jobs=4" << endl;
-                ss << "EG. Kanzi -c -i foo.txt -o foo.knz -f ";
-                ss << "-t BWT+MTFT+ZRLT -b 4m -e FPAQ -v 3 -j 4";
-                printOut(ss.str().c_str(), true);
+                printOut("EG. Kanzi -c -i foo.txt -o none -b 4m -l 4 -v 3\n", true);
+                printOut("EG. Kanzi -c -i foo.txt -o foo.knz -f -t BWT+MTFT+ZRLT -b 4m -e FPAQ -v 3 -j 4\n", true);
+                printOut("EG. Kanzi --compress --input=foo.txt --output=foo.knz --force", true);
+                printOut("          --transform=BWT+MTFT+ZRLT --block=4m --entropy=FPAQ --verbose=3 --jobs=4\n", true);
             }
 
             if (mode.compare(0, 1, "c") != 0) {
-                ss << "EG. Kanzi --decompress --input=foo.knz --force --verbose=2 --jobs=2" << endl;
-                ss << "EG. Kanzi -d -i foo.knz -f -v 2 -j 2" << endl;
-                printOut(ss.str().c_str(), true);
+                printOut("EG. Kanzi -d -i foo.knz -f -v 2 -j 2\n", true);
+                printOut("EG. Kanzi --decompress --input=foo.knz --force --verbose=2 --jobs=2\n", true);
             }
 
             exit(0);
@@ -235,6 +254,19 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
             continue;
         }
 
+        if ((arg.compare(0, 10, "--level=") == 0) || (ctx == ARG_IDX_LEVEL)) {
+            strLevel = (arg.compare(0, 8, "--level=") == 0) ? arg.substr(8) : arg;
+            level = atoi(strLevel.c_str());
+
+            if ((level < 0) || (level > 5)) {
+                cerr << "Invalid compression level provided on command line: " << arg << endl;
+                exit(Error::ERR_INVALID_PARAM);
+            }
+
+            ctx = -1;
+            continue;
+        }
+
         if ((arg.compare(0, 8, "--block=") == 0) || (ctx == ARG_IDX_BLOCK)) {
             string str = (arg.compare(0, 8, "--block=") == 0) ? arg.substr(8) : arg;
             str = ltrim(rtrim(str));
@@ -307,11 +339,26 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
         printOut(ss.str().c_str(), verbose > 0);
     }
 
+    if (level >= 0) {
+        if (codec.length() > 0) {
+            stringstream ss;
+            ss << "Warning: providing the 'level' option forces the entropy codec. Ignoring [" << codec << "]";
+            printOut(ss.str().c_str(), verbose > 0);
+        }
+
+        if (transf.length() > 0) {
+            stringstream ss;
+            ss << "Warning: providing the 'level' option forces the transform. Ignoring [" << transf << "]";
+            printOut(ss.str().c_str(), verbose > 0);
+        }
+    }
+
     if (strBlockSize.length() > 0)
         map["block"] = strBlockSize;
 
     map["verbose"] = strVerbose;
     map["mode"] = mode;
+    map["level"] = strLevel;
 
     if (strOverwrite == "true")
         map["overwrite"] = strOverwrite;

@@ -24,7 +24,7 @@ public class Kanzi
 {
    private static final String[] CMD_LINE_ARGS = new String[]
    {
-      "-c", "-d", "-i", "-o", "-b", "-t", "-e", "-j", "-v", "-x", "-f", "-h"
+      "-c", "-d", "-i", "-o", "-b", "-t", "-e", "-j", "-v", "-l", "-x", "-f", "-h"
    };
 
    private static final int ARG_IDX_INPUT = 2;
@@ -34,6 +34,7 @@ public class Kanzi
    private static final int ARG_IDX_ENTROPY = 6;
    private static final int ARG_IDX_JOBS = 7;
    private static final int ARG_IDX_VERBOSE = 8;
+   private static final int ARG_IDX_LEVEL = 9;
 
 
    public static void main(String[] args)
@@ -109,6 +110,7 @@ public class Kanzi
         String transform = null;
         int tasks = 1;
         int ctx = -1;
+        int level = -1;
         char mode = ' ';
 
         for (String arg : args)
@@ -160,7 +162,7 @@ public class Kanzi
                {
                    verbose = Integer.parseInt(verboseLevel);
 
-                   if (verbose < 0)
+                   if ((verbose < 0) || (verbose > 4))
                       throw new NumberFormatException();
                }
                catch (NumberFormatException e)
@@ -189,38 +191,58 @@ public class Kanzi
 
            if (arg.equals("--help") || arg.equals("-h"))
            {
-               printOut("-h, --help                : display this message", true);
-               printOut("-v, -verbose=<level>      : set the verbosity level [1..4]", true);
-               printOut("                            0=silent, 1=default, 2=display block size (byte rounded)", true);
-               printOut("                            3=display timings, 4=display extra information", true);
-               printOut("-f, --force               : overwrite the output file if it already exists", true);
-               printOut("-i, --input=<inputName>   : mandatory name of the input file to encode or 'stdin'", true);
-               printOut("-o, --output=<outputName> : optional name of the output file (defaults to <input.knz>) or 'none' or 'stdout'", true);
+               printOut("", true);
+               printOut("   -h, --help", true);
+               printOut("        display this message\n", true);
+               printOut("   -v, --verbose=<level>", true);
+               printOut("        set the verbosity level [0..4]", true);
+               printOut("        0=silent, 1=default, 2=display block size (byte rounded)", true);
+               printOut("        3=display timings, 4=display extra information\n", true);
+               printOut("   -f, --force", true);
+               printOut("        overwrite the output file if it already exists\n", true);
+               printOut("   -i, --input=<inputName>", true);
+               printOut("        mandatory name of the input file or 'stdin'\n", true);
+               printOut("   -o, --output=<outputName>", true);
+               printOut("        optional name of the output file (defaults to <input.knz>) or 'none'", true);
+               printOut("        or 'stdout'\n", true);
 
                if (mode != 'd')
                {
-                  printOut("-b, --block=<size>        : size of the input blocks, multiple of 16, max 1 GB (transform dependent), min 1 KB, default 1 MB", true);
-                  printOut("-e, --entropy=<codec>     : entropy codec to use [None|Huffman*|ANS|Range|PAQ|FPAQ|TPAQ|CM]", true);
-                  printOut("-t, --transform=<codec>   : transform to use [None|BWT*|BWTS|SNAPPY|LZ4|RLT|ZRLT|MTFT|RANK|TEXT|TIMESTAMP]", true);
-                  printOut("                            EG: BWT+RANK or BWTS+MTFT (default is BWT+MTFT+ZRLT)", true);
-                  printOut("-x, --checksum            : enable block checksum", true);
+                  printOut("   -b, --block=<size>", true);
+                  printOut("        size of blocks, multiple of 16, max 1 GB, min 1 KB, default 1 MB\n", true);
+                  printOut("   -l, --level=<compression>", true);
+                  printOut("        set the compression level [0..5]", true);
+                  printOut("        Providing this option forces entropy and transform.", true);
+                  printOut("        0=None&None (store), 1=TEXT+LZ4&HUFFMAN, 2=BWT+RANK+ZRLT&RANGE", true);
+                  printOut("        3=BWT+RANK+ZRLT&FPAQ, 4=BWT&CM, 5=RLT+TEXT&TPAQ\n", true);
+                  printOut("   -e, --entropy=<codec>", true);
+                  printOut("        entropy codec [None|Huffman|ANS|Range|PAQ|FPAQ|TPAQ|CM]", true);
+                  printOut("        (default is Huffman)\n", true);
+                  printOut("   -t, --transform=<codec>", true);
+                  printOut("        transform [None|BWT|BWTS|SNAPPY|LZ4|RLT|ZRLT|MTFT|RANK|TEXT|TIMESTAMP]", true);
+                  printOut("        EG: BWT+RANK or BWTS+MTFT (default is BWT+MTFT+ZRLT)\n", true);
+                  printOut("   -x, --checksum", true);
+                  printOut("        enable block checksum\n", true);
                }
 
-               printOut("-j, --jobs=<jobs>         : number of concurrent jobs", true);
+               printOut("   -j, --jobs=<jobs>", true);
+               printOut("        number of concurrent jobs\n", true);
                printOut("", true);
 
                if (mode != 'd')
                {
-                  printOut("EG. java -cp kanzi.jar kanzi.app.Kanzi --compress --input=foo.txt --output=foo.knz --force "
-                          + "            --transform=BWT+MTFT+ZRLT --block=4m --entropy=FPAQ --verbose=3 --jobs=4", true);
-                  printOut("EG. java -cp kanzi.jar kanzi.app.Kanzi -c -i foo.txt -o foo.knz -f "
-                          + "            -t BWT+MTFT+ZRLT -b 4m -e FPAQ -v 3 -j 4", true);
+                  printOut("EG. java -cp kanzi.jar kanzi.app.Kanzi -c -i foo.txt -o none -b 4m -l 4 -v 3\n", true);
+                  printOut("EG. java -cp kanzi.jar kanzi.app.Kanzi -c -i foo.txt -o foo.knz -f ", true);
+                  printOut("    -t BWT+MTFT+ZRLT -b 4m -e FPAQ -v 3 -j 4\n", true);
+                  printOut("EG. java -cp kanzi.jar kanzi.app.Kanzi --compress --input=foo.txt --force ", true);
+                  printOut("    --output=foo.knz --transform=BWT+MTFT+ZRLT --block=4m --entropy=FPAQ ", true);
+                  printOut("    --verbose=3 --jobs=4\n", true);
                }
 
                if (mode != 'c')
                {
-                  printOut("EG. java -cp kanzi.jar kanzi.app.Kanzi --decompress --input=foo.knz --force --verbose=2 --jobs=2", true);
-                  printOut("EG. java -cp kanzi.jar kanzi.app.Kanzi -d -i foo.knz -f -v 2 -j 2", true);
+                  printOut("EG. java -cp kanzi.jar kanzi.app.Kanzi -d -i foo.knz -f -v 2 -j 2\n", true);
+                  printOut("EG. java -cp kanzi.jar kanzi.app.Kanzi --decompress --input=foo.knz --force --verbose=2 --jobs=2\n", true);
                }
 
                System.exit(0);
@@ -294,6 +316,31 @@ public class Kanzi
            {
               transform = arg.startsWith("--transform=") ? arg.substring(12).trim().toUpperCase() :
                  arg.toUpperCase();
+               ctx = -1;
+               continue;
+           }
+
+           if (arg.startsWith("--level=") || (ctx == ARG_IDX_LEVEL))
+           {
+              String str = arg.startsWith("--level=") ? arg.substring(8).trim().toUpperCase() :
+                 arg.toUpperCase();
+              
+               try
+               {
+                   level = Integer.parseInt(str);
+               }
+               catch (NumberFormatException e)
+               {
+                  System.err.println("Invalid compression level provided on command line: "+arg);
+                  System.exit(kanzi.io.Error.ERR_INVALID_PARAM);
+               }
+
+               if ((level < 0) || (level > 5))
+               {
+                  System.err.println("Invalid compression level provided on command line: "+arg);
+                  System.exit(kanzi.io.Error.ERR_INVALID_PARAM);                  
+               }
+               
                ctx = -1;
                continue;
            }
@@ -378,11 +425,21 @@ public class Kanzi
            printOut("Warning: ignoring option with missing value ["+ CMD_LINE_ARGS[ctx] + "]", verbose>0);
         }
 
+        if (level >= 0)
+        {
+           if (codec != null)
+              printOut("Warning: providing the 'level' option forces the entropy codec. Ignoring ["+ codec + "]", verbose>0);
+
+           if (transform != null)
+              printOut("Warning: providing the 'level' option forces the transform. Ignoring ["+ transform + "]", verbose>0);
+        }
+        
         if (blockSize != -1)
            map.put("block", blockSize);
 
         map.put("verbose", verbose);
         map.put("mode", mode);
+        map.put("level", level);
 
         if (overwrite == true)
            map.put("overwrite", overwrite);
