@@ -15,19 +15,21 @@ limitations under the License.
 
 package kanzi.io;
 
+import kanzi.Event;
 import java.io.PrintStream;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import kanzi.Listener;
 
-// An implementation of BlockListener to display block information (verbose option
+// An implementation of Listener to display block information (verbose option
 // of the BlockCompressor/BlockDecompressor)
-public class InfoPrinter implements BlockListener
+public class InfoPrinter implements Listener
 {
    public enum Type { ENCODING, DECODING }
    
    private final PrintStream ps;
    private final Map<Integer, BlockInfo> map;
-   private final BlockEvent.Type[] thresholds;
+   private final Event.Type[] thresholds;
    private final Type type;
    private final int level;
    
@@ -42,25 +44,25 @@ public class InfoPrinter implements BlockListener
       this.type = type;
       this.map = new ConcurrentHashMap<Integer, BlockInfo>();
       this.thresholds = (type == Type.ENCODING) ? 
-              new BlockEvent.Type[]
+              new Event.Type[]
               { 
-                 BlockEvent.Type.BEFORE_TRANSFORM,
-                 BlockEvent.Type.AFTER_TRANSFORM,
-                 BlockEvent.Type.BEFORE_ENTROPY,
-                 BlockEvent.Type.AFTER_ENTROPY
+                 Event.Type.BEFORE_TRANSFORM,
+                 Event.Type.AFTER_TRANSFORM,
+                 Event.Type.BEFORE_ENTROPY,
+                 Event.Type.AFTER_ENTROPY
               } :
-              new BlockEvent.Type[]
+              new Event.Type[]
               { 
-                 BlockEvent.Type.BEFORE_ENTROPY,
-                 BlockEvent.Type.AFTER_ENTROPY,
-                 BlockEvent.Type.BEFORE_TRANSFORM,
-                 BlockEvent.Type.AFTER_TRANSFORM
+                 Event.Type.BEFORE_ENTROPY,
+                 Event.Type.AFTER_ENTROPY,
+                 Event.Type.BEFORE_TRANSFORM,
+                 Event.Type.AFTER_TRANSFORM
               };
    }
    
    
    @Override
-   public void processEvent(BlockEvent evt) 
+   public void processEvent(Event evt) 
    {
       int currentBlockId = evt.getId();
 
@@ -116,7 +118,7 @@ public class InfoPrinter implements BlockListener
       }
       else if (evt.getType() == this.thresholds[3])
       {        
-         int stage2Size = evt.getSize();
+         long stage2Size = evt.getSize();
          BlockInfo bi = this.map.remove(currentBlockId);
          
          if ((bi == null) || (this.level < 2))
@@ -166,7 +168,7 @@ public class InfoPrinter implements BlockListener
       long time1;
       long time2;
       long time3;
-      int stage0Size;
-      int stage1Size;
+      long stage0Size;
+      long stage1Size;
    }
 }

@@ -30,12 +30,13 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import kanzi.Event;
 import kanzi.io.Error;
 import kanzi.SliceByteArray;
-import kanzi.io.BlockListener;
 import kanzi.io.CompressedInputStream;
 import kanzi.io.InfoPrinter;
 import kanzi.io.NullOutputStream;
+import kanzi.Listener;
 
 
 
@@ -52,7 +53,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
    private final int jobs;
    private final boolean ownPool;
    private final ExecutorService pool;
-   private final List<BlockListener> listeners;
+   private final List<Listener> listeners;
 
 
    public BlockDecompressor(Map<String, Object> map, ExecutorService threadPool)
@@ -66,7 +67,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       this.pool = (this.jobs == 1) ? null :
               ((threadPool == null) ? Executors.newCachedThreadPool() : threadPool);
       this.ownPool = (threadPool == null) && (this.pool != null);
-      this.listeners = new ArrayList<BlockListener>(10);
+      this.listeners = new ArrayList<Listener>(10);
 
       if (this.verbosity > 1)
          this.addListener(new InfoPrinter(this.verbosity, InfoPrinter.Type.DECODING, System.out));
@@ -104,8 +105,6 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
 
       if ((this.pool != null) && (this.ownPool == true))
          this.pool.shutdown();
-
-      this.listeners.clear();
    }
    
 
@@ -130,7 +129,14 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       long read = 0;
       boolean silent = this.verbosity < 1;
       printOut("Decoding ...", !silent);
-
+      
+      if (this.listeners.size() > 0)
+      {
+         Event evt = new Event(Event.Type.DECOMPRESSION_START, -1, 0);
+         Listener[] array = this.listeners.toArray(new Listener[this.listeners.size()]);
+         notifyListeners(array, evt);
+      }
+      
       if (this.outputName.equalsIgnoreCase("NONE"))
       {
          this.os = new NullOutputStream();
@@ -201,7 +207,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
             PrintStream ds = (printFlag == true) ? System.out : null;
             this.cis = new CompressedInputStream(is, ds, this.pool, this.jobs);
 
-            for (BlockListener bl : this.listeners)
+            for (Listener bl : this.listeners)
                this.cis.addListener(bl);
          }
          catch (Exception e)
@@ -274,7 +280,14 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
          catch (IOException e)
          {
             // Ignore
-         }
+         }         
+
+         if (this.listeners.size() > 0)
+         {
+            Event evt = new Event(Event.Type.DECOMPRESSION_END, -1, this.cis.getRead());
+            Listener[] array = this.listeners.toArray(new Listener[this.listeners.size()]);
+            notifyListeners(array, evt);
+         }          
       }
 
       long after = System.nanoTime();
@@ -299,14 +312,30 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
     }
 
 
-    public final boolean addListener(BlockListener bl)
+    public final boolean addListener(Listener bl)
     {
        return (bl != null) ? this.listeners.add(bl) : false;
     }
 
 
-    public final boolean removeListener(BlockListener bl)
+    public final boolean removeListener(Listener bl)
     {
        return (bl != null) ? this.listeners.remove(bl) : false;
     }
+    
+    
+    static void notifyListeners(Listener[] listeners, Event evt)
+    {
+       for (Listener bl : listeners)
+       {
+          try 
+          {
+             bl.processEvent(evt);
+          }
+          catch (Exception e)
+          {
+            // Ignore exceptions in listeners
+          }
+       }
+    }    
 }

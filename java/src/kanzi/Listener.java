@@ -13,9 +13,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kanzi.io;
+package kanzi;
 
-public interface BlockListener 
+public interface Listener 
 {
-   public void processEvent(BlockEvent evt);
+   public void processEvent(Event evt);
 }

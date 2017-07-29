@@ -120,15 +120,15 @@ void CompressedOutputStream::writeHeader() THROW
         throw IOException("Cannot write reserved bits to header", Error::ERR_WRITE_FILE);
 }
 
-bool CompressedOutputStream::addListener(BlockListener& bl)
+bool CompressedOutputStream::addListener(Listener& bl)
 {
     _listeners.push_back(&bl);
     return true;
 }
 
-bool CompressedOutputStream::removeListener(BlockListener& bl)
+bool CompressedOutputStream::removeListener(Listener& bl)
 {
-    std::vector<BlockListener*>::iterator it = find(_listeners.begin(), _listeners.end(), &bl);
+    std::vector<Listener*>::iterator it = find(_listeners.begin(), _listeners.end(), &bl);
 
     if (it == _listeners.end())
         return false;
@@ -253,7 +253,7 @@ void CompressedOutputStream::processBlock() THROW
     try {
 
         // Protect against future concurrent modification of the list of block listeners
-        vector<BlockListener*> blockListeners(_listeners);
+        vector<Listener*> blockListeners(_listeners);
         const int dataLength = _sa->_index;
         _sa->_index = 0;
         int firstBlockId = _blockId.load();
@@ -354,9 +354,9 @@ uint64 CompressedOutputStream::getWritten()
     return (_obs->written() + 7) >> 3;
 }
 
-void CompressedOutputStream::notifyListeners(vector<BlockListener*>& listeners, const BlockEvent& evt)
+void CompressedOutputStream::notifyListeners(vector<Listener*>& listeners, const Event& evt)
 {
-    vector<BlockListener*>::iterator it;
+    vector<Listener*>::iterator it;
 
     for (it = listeners.begin(); it != listeners.end(); it++)
         (*it)->processEvent(evt);
@@ -366,7 +366,7 @@ template <class T>
 EncodingTask<T>::EncodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuffer, int length,
     short transformType, short entropyType, int blockId,
     OutputBitStream* obs, XXHash32* hasher,
-    atomic_int* processedBlockId, vector<BlockListener*>& listeners)
+    atomic_int* processedBlockId, vector<Listener*>& listeners)
 {
     _data = iBuffer;
     _buffer = oBuffer;
@@ -402,8 +402,8 @@ T EncodingTask<T>::call() THROW
 
         if (_listeners.size() > 0) {
             // Notify before transform
-            BlockEvent evt(BlockEvent::BEFORE_TRANSFORM, _blockId,
-                _blockLength, checksum, _hasher != nullptr);
+            Event evt(Event::BEFORE_TRANSFORM, _blockId,
+                int64(_blockLength), checksum, _hasher != nullptr);
 
             CompressedOutputStream::notifyListeners(_listeners, evt);
         }
@@ -458,8 +458,8 @@ T EncodingTask<T>::call() THROW
 
         if (_listeners.size() > 0) {
             // Notify after transform
-            BlockEvent evt(BlockEvent::AFTER_TRANSFORM, _blockId,
-                postTransformLength, checksum, _hasher != nullptr);
+            Event evt(Event::AFTER_TRANSFORM, _blockId,
+                int64(postTransformLength), checksum, _hasher != nullptr);
 
             CompressedOutputStream::notifyListeners(_listeners, evt);
         }
@@ -482,8 +482,8 @@ T EncodingTask<T>::call() THROW
 
         if (_listeners.size() > 0) {
             // Notify before entropy
-            BlockEvent evt(BlockEvent::BEFORE_ENTROPY, _blockId,
-                postTransformLength, checksum, _hasher != nullptr);
+            Event evt(Event::BEFORE_ENTROPY, _blockId,
+                int64(postTransformLength), checksum, _hasher != nullptr);
 
             CompressedOutputStream::notifyListeners(_listeners, evt);
         }
@@ -508,8 +508,8 @@ T EncodingTask<T>::call() THROW
 
         if (_listeners.size() > 0) {
             // Notify after entropy
-            BlockEvent evt(BlockEvent::AFTER_ENTROPY,
-                _blockId, w, checksum, _hasher != nullptr);
+            Event evt(Event::AFTER_ENTROPY,
+                int64(_blockId), w, checksum, _hasher != nullptr);
 
             CompressedOutputStream::notifyListeners(_listeners, evt);
         }

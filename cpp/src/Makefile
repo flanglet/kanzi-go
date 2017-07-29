@@ -3,6 +3,7 @@ CFLAGS=-c -static -std=c++11 -Wall -Wextra -s -O2 -msse2
 #CFLAGS=-c -static -Wall -DNDEBUG -O3 -fomit-frame-pointer -msse2 -std=c++0x -D_FILE_OFFSET_BITS=64 
 LDFLAGS=-lpthread
 LIB_SOURCES=Global.cpp \
+	BlockEvent.cpp \
 	transform/DCT16.cpp \
 	transform/DCT32.cpp \
 	transform/DCT4.cpp \
@@ -20,7 +21,6 @@ LIB_SOURCES=Global.cpp \
 	bitstream/DefaultOutputBitStream.cpp \
 	io/CompressedInputStream.cpp \
 	io/CompressedOutputStream.cpp \
-	io/BlockEvent.cpp \
 	io/InfoPrinter.cpp \
 	entropy/ANSRangeDecoder.cpp \
 	entropy/ANSRangeEncoder.cpp \

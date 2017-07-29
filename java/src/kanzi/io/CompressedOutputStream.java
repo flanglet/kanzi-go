@@ -15,6 +15,7 @@ limitations under the License.
 
 package kanzi.io;
 
+import kanzi.Event;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -33,6 +34,7 @@ import kanzi.bitstream.DefaultOutputBitStream;
 import kanzi.entropy.EntropyCodecFactory;
 import kanzi.function.ByteTransformSequence;
 import kanzi.util.hash.XXHash32;
+import kanzi.Listener;
 
 
 
@@ -64,7 +66,7 @@ public class CompressedOutputStream extends OutputStream
    private final AtomicInteger blockId;
    private final int jobs;
    private final ExecutorService pool;
-   private final List<BlockListener> listeners;
+   private final List<Listener> listeners;
 
    
    public CompressedOutputStream(String entropyCodec, String functionType, OutputStream os)
@@ -125,7 +127,7 @@ public class CompressedOutputStream extends OutputStream
          this.buffers[i] = new SliceByteArray(EMPTY_BYTE_ARRAY, 0);
 
       this.blockId = new AtomicInteger(0);
-      this.listeners = new ArrayList<BlockListener>(10);
+      this.listeners = new ArrayList<Listener>(10);
    }
 
 
@@ -154,13 +156,13 @@ public class CompressedOutputStream extends OutputStream
    }
 
 
-    public boolean addListener(BlockListener bl)
+    public boolean addListener(Listener bl)
     {
        return (bl != null) ? this.listeners.add(bl) : false;
     }
 
    
-    public boolean removeListener(BlockListener bl)
+    public boolean removeListener(Listener bl)
     {
        return (bl != null) ? this.listeners.remove(bl) : false;
     }
@@ -353,7 +355,7 @@ public class CompressedOutputStream extends OutputStream
       try
       {
          // Protect against future concurrent modification of the list of block listeners         
-         BlockListener[] blockListeners = this.listeners.toArray(new BlockListener[this.listeners.size()]);
+         Listener[] blockListeners = this.listeners.toArray(new Listener[this.listeners.size()]);
          final int dataLength = this.sa.index;
          this.sa.index = 0;
          List<Callable<Status>> tasks = new ArrayList<Callable<Status>>(this.jobs);
@@ -431,9 +433,9 @@ public class CompressedOutputStream extends OutputStream
    }
 
    
-   static void notifyListeners(BlockListener[] listeners, BlockEvent evt)
+   static void notifyListeners(Listener[] listeners, Event evt)
    {
-      for (BlockListener bl : listeners)
+      for (Listener bl : listeners)
       {
          try 
          {
@@ -461,13 +463,13 @@ public class CompressedOutputStream extends OutputStream
       private final OutputBitStream obs;
       private final XXHash32 hasher;
       private final AtomicInteger processedBlockId;
-      private final BlockListener[] listeners;
+      private final Listener[] listeners;
 
 
       EncodingTask(SliceByteArray iBuffer, SliceByteArray oBuffer, int length,
               short transformType, short entropyType, int blockId,
               OutputBitStream obs, XXHash32 hasher,
-              AtomicInteger processedBlockId, BlockListener[] listeners)
+              AtomicInteger processedBlockId, Listener[] listeners)
       {
          this.data = iBuffer;
          this.buffer = oBuffer;
@@ -514,7 +516,7 @@ public class CompressedOutputStream extends OutputStream
             if (this.listeners.length > 0)
             {
                // Notify before transform               
-               BlockEvent evt = new BlockEvent(BlockEvent.Type.BEFORE_TRANSFORM, currentBlockId,
+               Event evt = new Event(Event.Type.BEFORE_TRANSFORM, currentBlockId,
                        blockLength, checksum, this.hasher != null);
                
                notifyListeners(this.listeners, evt);
@@ -577,7 +579,7 @@ public class CompressedOutputStream extends OutputStream
             if (this.listeners.length > 0)
             {
                // Notify after transform
-               BlockEvent evt = new BlockEvent(BlockEvent.Type.AFTER_TRANSFORM, currentBlockId,
+               Event evt = new Event(Event.Type.AFTER_TRANSFORM, currentBlockId,
                        postTransformLength, checksum, this.hasher != null);
                
                notifyListeners(this.listeners, evt);
@@ -607,7 +609,7 @@ public class CompressedOutputStream extends OutputStream
             if (this.listeners.length > 0)
             {
                // Notify before entropy
-               BlockEvent evt = new BlockEvent(BlockEvent.Type.BEFORE_ENTROPY, currentBlockId,
+               Event evt = new Event(Event.Type.BEFORE_ENTROPY, currentBlockId,
                        postTransformLength, checksum, this.hasher != null);
                
                notifyListeners(this.listeners, evt);
@@ -636,7 +638,7 @@ public class CompressedOutputStream extends OutputStream
             if (this.listeners.length > 0)
             {
                // Notify after entropy
-               BlockEvent evt = new BlockEvent(BlockEvent.Type.AFTER_ENTROPY, 
+               Event evt = new Event(Event.Type.AFTER_ENTROPY, 
                        currentBlockId, w, checksum, this.hasher != null);
                
                notifyListeners(this.listeners, evt);

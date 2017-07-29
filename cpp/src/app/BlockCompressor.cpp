@@ -89,19 +89,19 @@ BlockCompressor::BlockCompressor(map<string, string>& args)
         _blockSize = atoi(it->second.c_str());
         args.erase(it);
     }
-   
-     it = args.find("transform");
 
-     if (it == args.end()) {
-         if (strTransf.length() == 0)
+    it = args.find("transform");
+
+    if (it == args.end()) {
+        if (strTransf.length() == 0)
             strTransf = "BWT+MTFT+ZRLT";
-     }
-     else {
-         if (strTransf.length() == 0)
-             strTransf = it->second;
+    }
+    else {
+        if (strTransf.length() == 0)
+            strTransf = it->second;
 
-         args.erase(it);
-     }
+        args.erase(it);
+    }
 
     // Extract transform names. Curate input (EG. NONE+NONE+xxxx => xxxx)
     FunctionFactory<byte> bff;
@@ -156,7 +156,7 @@ BlockCompressor::~BlockCompressor()
     }
 
     while (_listeners.size() > 0) {
-        vector<BlockListener*>::iterator it = _listeners.begin();
+        vector<Listener*>::iterator it = _listeners.begin();
         delete *it;
         _listeners.erase(it);
     }
@@ -323,6 +323,12 @@ int BlockCompressor::call()
     byte* buf = new byte[DEFAULT_BUFFER_SIZE];
     SliceArray<byte> sa(buf, DEFAULT_BUFFER_SIZE, 0);
     int len;
+
+    if (_listeners.size() > 0) {
+        Event evt(Event::COMPRESSION_START, -1, int64(0));
+        BlockCompressor::notifyListeners(_listeners, evt);
+    }
+
     Clock clock;
 
     try {
@@ -406,6 +412,12 @@ int BlockCompressor::call()
     }
 
     printOut("", !silent);
+
+    if (_listeners.size() > 0) {
+        Event evt(Event::COMPRESSION_END, -1, int64(_cos->getWritten()));
+        BlockCompressor::notifyListeners(_listeners, evt);
+    }
+
     delete[] buf;
     return 0;
 }
@@ -416,7 +428,7 @@ void BlockCompressor::printOut(const char* msg, bool print)
         cout << msg << endl;
 }
 
-bool BlockCompressor::addListener(BlockListener* bl)
+bool BlockCompressor::addListener(Listener* bl)
 {
     if (bl == nullptr)
         return false;
@@ -425,15 +437,23 @@ bool BlockCompressor::addListener(BlockListener* bl)
     return true;
 }
 
-bool BlockCompressor::removeListener(BlockListener* bl)
+bool BlockCompressor::removeListener(Listener* bl)
 {
-    std::vector<BlockListener*>::iterator it = find(_listeners.begin(), _listeners.end(), bl);
+    std::vector<Listener*>::iterator it = find(_listeners.begin(), _listeners.end(), bl);
 
     if (it == _listeners.end())
         return false;
 
     _listeners.erase(it);
     return true;
+}
+
+void BlockCompressor::notifyListeners(vector<Listener*>& listeners, const Event& evt)
+{
+    vector<Listener*>::iterator it;
+
+    for (it = listeners.begin(); it != listeners.end(); it++)
+        (*it)->processEvent(evt);
 }
 
 void BlockCompressor::getTransformAndCodec(int level, string tranformAndCodec[2])

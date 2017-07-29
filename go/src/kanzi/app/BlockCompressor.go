@@ -18,6 +18,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"kanzi"
 	kio "kanzi/io"
 	"os"
 	"path/filepath"
@@ -42,12 +43,13 @@ type BlockCompressor struct {
 	blockSize    uint
 	level        int // command line compression level
 	jobs         uint
-	listeners    []kio.BlockListener
+	listeners    []kanzi.Listener
 	cpuProf      string
 }
 
 func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error) {
 	this := new(BlockCompressor)
+	this.listeners = make([]kanzi.Listener, 0)
 	this.level = argsMap["level"].(int)
 	delete(argsMap, "level")
 
@@ -120,8 +122,6 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 		this.cpuProf = ""
 	}
 
-	this.listeners = make([]kio.BlockListener, 0)
-
 	if this.verbosity > 1 {
 		if listener, err := kio.NewInfoPrinter(this.verbosity, kio.ENCODING, os.Stdout); err == nil {
 			this.AddListener(listener)
@@ -133,10 +133,11 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 			bc_printOut("Ignoring invalid option ["+k+"]", this.verbosity > 0)
 		}
 	}
+
 	return this, nil
 }
 
-func (this *BlockCompressor) AddListener(bl kio.BlockListener) bool {
+func (this *BlockCompressor) AddListener(bl kanzi.Listener) bool {
 	if bl == nil {
 		return false
 	}
@@ -145,7 +146,7 @@ func (this *BlockCompressor) AddListener(bl kio.BlockListener) bool {
 	return true
 }
 
-func (this *BlockCompressor) RemoveListener(bl kio.BlockListener) bool {
+func (this *BlockCompressor) RemoveListener(bl kanzi.Listener) bool {
 	for i, e := range this.listeners {
 		if e == bl {
 			this.listeners = append(this.listeners[:i-1], this.listeners[i+1:]...)
@@ -294,24 +295,31 @@ func (this *BlockCompressor) Call() (int, uint64) {
 	}
 
 	// Encode
-	len := 0
+	length := 0
 	read := int64(0)
 	silent := this.verbosity < 1
 	bc_printOut("Encoding ...", !silent)
 	written = cos.GetWritten()
-	buffer := make([]byte, COMP_DEFAULT_BUFFER_SIZE)
-	before := time.Now()
-	len, err = input.Read(buffer)
 
-	for len > 0 {
+	buffer := make([]byte, COMP_DEFAULT_BUFFER_SIZE)
+
+	if len(this.listeners) > 0 {
+		evt := kanzi.NewEvent(kanzi.EVT_COMPRESSION_START, -1, 0, 0, false)
+		bc_notifyListeners(this.listeners, evt)
+	}
+
+	before := time.Now()
+	length, err = input.Read(buffer)
+
+	for length > 0 {
 		if err != nil {
 			fmt.Printf("Failed to read block from file '%v': %v\n", this.inputName, err)
 			return kio.ERR_READ_FILE, written
 		}
 
-		read += int64(len)
+		read += int64(length)
 
-		if _, err = cos.Write(buffer[0:len]); err != nil {
+		if _, err = cos.Write(buffer[0:length]); err != nil {
 			if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
 				fmt.Printf("%s\n", ioerr.Error())
 				return ioerr.ErrorCode(), written
@@ -321,7 +329,7 @@ func (this *BlockCompressor) Call() (int, uint64) {
 			return kio.ERR_PROCESS_BLOCK, written
 		}
 
-		len, err = input.Read(buffer)
+		length, err = input.Read(buffer)
 	}
 
 	if read == 0 {
@@ -355,12 +363,30 @@ func (this *BlockCompressor) Call() (int, uint64) {
 	}
 
 	bc_printOut("", !silent)
+
+	if len(this.listeners) > 0 {
+		evt := kanzi.NewEvent(kanzi.EVT_COMPRESSION_END, -1, int64(cos.GetWritten()), 0, false)
+		bc_notifyListeners(this.listeners, evt)
+	}
+
 	return 0, cos.GetWritten()
 }
 
 func bc_printOut(msg string, print bool) {
 	if print == true {
 		fmt.Println(msg)
+	}
+}
+
+func bc_notifyListeners(listeners []kanzi.Listener, evt *kanzi.Event) {
+	defer func() {
+		if r := recover(); r != nil {
+			// Ignore exceptions in listeners
+		}
+	}()
+
+	for _, bl := range listeners {
+		bl.ProcessEvent(evt)
 	}
 }
 

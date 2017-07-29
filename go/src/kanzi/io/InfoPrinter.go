@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"kanzi"
 	"sync"
 	"time"
 )
@@ -36,8 +37,8 @@ type BlockInfo struct {
 	time1      time.Time
 	time2      time.Time
 	time3      time.Time
-	stage0Size int
-	stage1Size int
+	stage0Size int64
+	stage1Size int64
 }
 
 type InfoPrinter struct {
@@ -62,32 +63,32 @@ func NewInfoPrinter(infoLevel, type_ uint, writer io.Writer) (*InfoPrinter, erro
 
 	if this.type_ == ENCODING {
 		this.thresholds = []int{
-			EVT_BEFORE_TRANSFORM,
-			EVT_AFTER_TRANSFORM,
-			EVT_BEFORE_ENTROPY,
-			EVT_AFTER_ENTROPY,
+			kanzi.EVT_BEFORE_TRANSFORM,
+			kanzi.EVT_AFTER_TRANSFORM,
+			kanzi.EVT_BEFORE_ENTROPY,
+			kanzi.EVT_AFTER_ENTROPY,
 		}
 	} else {
 		this.thresholds = []int{
-			EVT_BEFORE_ENTROPY,
-			EVT_AFTER_ENTROPY,
-			EVT_BEFORE_TRANSFORM,
-			EVT_AFTER_TRANSFORM,
+			kanzi.EVT_BEFORE_ENTROPY,
+			kanzi.EVT_AFTER_ENTROPY,
+			kanzi.EVT_BEFORE_TRANSFORM,
+			kanzi.EVT_AFTER_TRANSFORM,
 		}
 	}
 
 	return this, nil
 }
 
-func (this *InfoPrinter) ProcessEvent(evt *BlockEvent) {
-	currentBlockId := int32(evt.BlockId())
+func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
+	currentBlockId := int32(evt.Id())
 
 	if evt.EventType() == this.thresholds[0] {
 		// Register initial block size
 		bi := BlockInfo{time0: evt.Time()}
 
 		if this.type_ == ENCODING {
-			bi.stage0Size = evt.BlockSize()
+			bi.stage0Size = evt.Size()
 		}
 
 		this.lock.Lock()
@@ -106,7 +107,7 @@ func (this *InfoPrinter) ProcessEvent(evt *BlockEvent) {
 			bi.time1 = evt.Time()
 
 			if this.type_ == DECODING {
-				bi.stage0Size = evt.BlockSize()
+				bi.stage0Size = evt.Size()
 			}
 
 			this.lock.Lock()
@@ -125,7 +126,7 @@ func (this *InfoPrinter) ProcessEvent(evt *BlockEvent) {
 
 		if exists == true {
 			bi.time2 = evt.Time()
-			bi.stage1Size = evt.BlockSize()
+			bi.stage1Size = evt.Size()
 			this.lock.Lock()
 			this.map_[currentBlockId] = bi
 			this.lock.Unlock()
@@ -152,7 +153,7 @@ func (this *InfoPrinter) ProcessEvent(evt *BlockEvent) {
 		duration2_ms := bi.time3.Sub(bi.time2).Nanoseconds() / 1000000
 
 		// Get block size after stage 2
-		stage2Size := evt.BlockSize()
+		stage2Size := evt.Size()
 
 		// Display block info
 		var msg string

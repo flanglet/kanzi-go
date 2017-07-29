@@ -15,7 +15,6 @@ limitations under the License.
 
 #include <sstream>
 #include <cstdio>
-//#include "../util.hpp"
 #include "InfoPrinter.hpp"
 
 using namespace kanzi;
@@ -29,20 +28,20 @@ InfoPrinter::InfoPrinter(int infoLevel, InfoPrinter::Type type, OutputStream& os
     _type = type;
 
     if (type == InfoPrinter::ENCODING) {
-        _thresholds[0] = BlockEvent::BEFORE_TRANSFORM;
-        _thresholds[1] = BlockEvent::AFTER_TRANSFORM;
-        _thresholds[2] = BlockEvent::BEFORE_ENTROPY;
-        _thresholds[3] = BlockEvent::AFTER_ENTROPY;
+        _thresholds[0] = Event::BEFORE_TRANSFORM;
+        _thresholds[1] = Event::AFTER_TRANSFORM;
+        _thresholds[2] = Event::BEFORE_ENTROPY;
+        _thresholds[3] = Event::AFTER_ENTROPY;
     }
     else {
-        _thresholds[0] = BlockEvent::BEFORE_ENTROPY;
-        _thresholds[1] = BlockEvent::AFTER_ENTROPY;
-        _thresholds[2] = BlockEvent::BEFORE_TRANSFORM;
-        _thresholds[3] = BlockEvent::AFTER_TRANSFORM;
+        _thresholds[0] = Event::BEFORE_ENTROPY;
+        _thresholds[1] = Event::AFTER_ENTROPY;
+        _thresholds[2] = Event::BEFORE_TRANSFORM;
+        _thresholds[3] = Event::AFTER_TRANSFORM;
     }
 }
 
-void InfoPrinter::processEvent(const BlockEvent& evt)
+void InfoPrinter::processEvent(const Event& evt)
 {
     int currentBlockId = evt.getId();
 
@@ -145,7 +144,7 @@ void InfoPrinter::processEvent(const BlockEvent& evt)
             bi = it->second;
         }
 
-        int stage2Size = evt.getSize();
+        int64 stage2Size = evt.getSize();
         bi->_clock2.stop();
         stringstream ss;
 

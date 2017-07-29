@@ -13,39 +13,37 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kanzi.io;
+package kanzi;
 
-public class BlockEvent 
+public class Event 
 {
    public enum Type
    {
+      COMPRESSION_START,
+      DECOMPRESSION_START,
       BEFORE_TRANSFORM,
       AFTER_TRANSFORM,
       BEFORE_ENTROPY,
-      AFTER_ENTROPY
+      AFTER_ENTROPY,
+      COMPRESSION_END,
+      DECOMPRESSION_END
    }
 
    private final int id;
-   private final int size;
+   private final long size;
    private final int hash;
    private final Type type;
    private final boolean hashing;
    private final long time;
-   
-   
-   public BlockEvent(Type type, int id, int size)
+      
+
+   public Event(Type type, int id, long size)
    {
       this(type, id, size, 0, false);
    }
-
-   
-   public BlockEvent(Type type, int id, int size, int hash)
-   {
-      this(type, id, size, hash, true);
-   }
    
    
-   protected BlockEvent(Type type, int id, int size, int hash, boolean hashing)
+   public Event(Type type, int id, long size, int hash, boolean hashing)
    {
       this.id = id;
       this.size = size;
@@ -62,7 +60,7 @@ public class BlockEvent
    }
 
    
-   public int getSize() 
+   public long getSize() 
    {
       return this.size;
    }
@@ -91,7 +89,10 @@ public class BlockEvent
    {
       StringBuilder sb = new StringBuilder(200);
       sb.append("{ \"type\":\"").append(this.getType()).append("\"");
-      sb.append(", \"id\":").append(this.getId());
+      
+      if (this.id >= 0)
+         sb.append(", \"id\":").append(this.getId());
+      
       sb.append(", \"size\":").append(this.getSize());
       sb.append(", \"time\":").append(this.getTime());
       

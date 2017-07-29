@@ -18,6 +18,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"kanzi"
 	kio "kanzi/io"
 	"os"
 	"path/filepath"
@@ -36,13 +37,13 @@ type BlockDecompressor struct {
 	inputName  string
 	outputName string
 	jobs       uint
-	listeners  []kio.BlockListener
+	listeners  []kanzi.Listener
 	cpuProf    string
 }
 
 func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, error) {
 	this := new(BlockDecompressor)
-	this.listeners = make([]kio.BlockListener, 0)
+	this.listeners = make([]kanzi.Listener, 0)
 
 	this.verbosity = argsMap["verbose"].(uint)
 	delete(argsMap, "verbose")
@@ -87,7 +88,7 @@ func (this *BlockDecompressor) CpuProf() string {
 	return this.cpuProf
 }
 
-func (this *BlockDecompressor) AddListener(bl kio.BlockListener) bool {
+func (this *BlockDecompressor) AddListener(bl kanzi.Listener) bool {
 	if bl == nil {
 		return false
 	}
@@ -96,7 +97,7 @@ func (this *BlockDecompressor) AddListener(bl kio.BlockListener) bool {
 	return true
 }
 
-func (this *BlockDecompressor) RemoveListener(bl kio.BlockListener) bool {
+func (this *BlockDecompressor) RemoveListener(bl kanzi.Listener) bool {
 	for i, e := range this.listeners {
 		if e == bl {
 			this.listeners = append(this.listeners[:i-1], this.listeners[i+1:]...)
@@ -169,6 +170,11 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 	silent := this.verbosity < 1
 	bd_printOut("Decoding ...", !silent)
 	var input io.ReadCloser
+
+	if len(this.listeners) > 0 {
+		evt := kanzi.NewEvent(kanzi.EVT_DECOMPRESSION_START, -1, 0, 0, false)
+		bd_notifyListeners(this.listeners, evt)
+	}
 
 	if strings.ToUpper(this.inputName) == "STDIN" {
 		input = os.Stdin
@@ -259,11 +265,29 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 	}
 
 	bd_printOut("", !silent)
+
+	if len(this.listeners) > 0 {
+		evt := kanzi.NewEvent(kanzi.EVT_DECOMPRESSION_END, -1, int64(cis.GetRead()), 0, false)
+		bd_notifyListeners(this.listeners, evt)
+	}
+
 	return 0, cis.GetRead()
 }
 
 func bd_printOut(msg string, print bool) {
 	if print == true {
 		fmt.Println(msg)
+	}
+}
+
+func bd_notifyListeners(listeners []kanzi.Listener, evt *kanzi.Event) {
+	defer func() {
+		if r := recover(); r != nil {
+			// Ignore exceptions in listeners
+		}
+	}()
+
+	for _, bl := range listeners {
+		bl.ProcessEvent(evt)
 	}
 }

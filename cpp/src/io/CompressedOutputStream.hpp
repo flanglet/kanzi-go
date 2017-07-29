@@ -19,7 +19,7 @@ limitations under the License.
 #include <string>
 #include <vector>
 #include "../concurrent.hpp"
-#include "BlockListener.hpp"
+#include "../Listener.hpp"
 #include "../OutputStream.hpp"
 #include "../OutputBitStream.hpp"
 #include "../SliceArray.hpp"
@@ -72,13 +72,13 @@ namespace kanzi {
        OutputBitStream* _obs;
        XXHash32* _hasher;
        atomic_int* _processedBlockId;
-       vector<BlockListener*> _listeners;
+       vector<Listener*> _listeners;
 
    public:
        EncodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuffer, int length,
            short transformType, short entropyType, int blockId,
            OutputBitStream* obs, XXHash32* hasher,
-           atomic_int* processedBlockId, vector<BlockListener*>& listeners);
+           atomic_int* processedBlockId, vector<Listener*>& listeners);
 
        ~EncodingTask(){};
 
@@ -110,13 +110,13 @@ namespace kanzi {
        atomic_bool _closed;
        atomic_int _blockId;
        int _jobs;
-       vector<BlockListener*> _listeners;
+       vector<Listener*> _listeners;
 
        void writeHeader() THROW;
 
        void processBlock() THROW;
 
-       static void notifyListeners(vector<BlockListener*>& listeners, const BlockEvent& evt);
+       static void notifyListeners(vector<Listener*>& listeners, const Event& evt);
 
    public:
        // CompressedOutputStream(const string& entropyCodec, const string& functionType, OutputStream& os);
@@ -129,9 +129,9 @@ namespace kanzi {
 
        ~CompressedOutputStream();
 
-       bool addListener(BlockListener& bl);
+       bool addListener(Listener& bl);
 
-       bool removeListener(BlockListener& bl);
+       bool removeListener(Listener& bl);
 
        ostream& write(const char* s, streamsize n) THROW;
 

@@ -29,13 +29,14 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import kanzi.Event;
 import kanzi.SliceByteArray;
-import kanzi.io.BlockListener;
 import kanzi.io.ByteFunctionFactory;
 import kanzi.io.CompressedOutputStream;
 import kanzi.io.Error;
 import kanzi.io.InfoPrinter;
 import kanzi.io.NullOutputStream;
+import kanzi.Listener;
 
 
 public class BlockCompressor implements Runnable, Callable<Integer>
@@ -57,7 +58,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
    private CompressedOutputStream cos;
    private final boolean ownPool;
    private final ExecutorService pool;
-   private final List<BlockListener> listeners;
+   private final List<Listener> listeners;
 
    
    public BlockCompressor(Map<String, Object> map, ExecutorService threadPool)
@@ -135,8 +136,6 @@ public class BlockCompressor implements Runnable, Callable<Integer>
       
       if ((this.pool != null) && (this.ownPool == true))
          this.pool.shutdown();
-      
-      this.listeners.clear();
    }
 
 
@@ -172,7 +171,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
          printOut("Compression level set to " +  this.level, printFlag);
       }
       
-      printOut("Using " + this.jobs + " job" + ((this.jobs > 1) ? "s" : ""), printFlag);
+      printOut("Using " + this.jobs + " job" + ((this.jobs > 1) ? "s" : ""), printFlag);      
 
       OutputStream os;
       
@@ -224,7 +223,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
                  os, this.blockSize, this.checksum,
                  this.pool, this.jobs);
             
-            for (BlockListener bl : this.listeners)
+            for (Listener bl : this.listeners)
                this.cos.addListener(bl);
          }
          catch (Exception e)
@@ -255,6 +254,14 @@ public class BlockCompressor implements Runnable, Callable<Integer>
       int read = 0;
       SliceByteArray sa = new SliceByteArray(new byte[DEFAULT_BUFFER_SIZE], 0);
       int len;
+      
+      if (this.listeners.size() > 0)
+      {
+         Event evt = new Event(Event.Type.COMPRESSION_START, -1, 0);
+         Listener[] array = this.listeners.toArray(new Listener[this.listeners.size()]);
+         notifyListeners(array, evt);
+      }
+      
       long before = System.nanoTime();
 
       try
@@ -303,7 +310,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
           catch (IOException e)
           {
              // Ignore
-          }            
+          }              
        }
       
        if (read == 0)
@@ -325,6 +332,14 @@ public class BlockCompressor implements Runnable, Callable<Integer>
           printOut("Throughput (KB/s): "+(((read * 1000L) >> 10) / delta), !silent);
 
        printOut("", !silent);
+ 
+       if (this.listeners.size() > 0)
+       {
+          Event evt = new Event(Event.Type.COMPRESSION_END, -1, this.cos.getWritten());
+          Listener[] array = this.listeners.toArray(new Listener[this.listeners.size()]);
+          notifyListeners(array, evt);
+       }          
+
        return 0;
     }
 
@@ -336,18 +351,33 @@ public class BlockCompressor implements Runnable, Callable<Integer>
     }
     
 
-    public final boolean addListener(BlockListener bl)
+    public final boolean addListener(Listener bl)
     {
        return (bl != null) ? this.listeners.add(bl) : false;
     }
 
    
-    public final boolean removeListener(BlockListener bl)
+    public final boolean removeListener(Listener bl)
     {
        return (bl != null) ? this.listeners.remove(bl) : false;
     }
     
     
+    static void notifyListeners(Listener[] listeners, Event evt)
+    {
+       for (Listener bl : listeners)
+       {
+          try 
+          {
+             bl.processEvent(evt);
+          }
+          catch (Exception e)
+          {
+            // Ignore exceptions in listeners
+          }
+       }
+    }
+   
     private static String getTransformAndCodec(int level)
     {
        switch (level)

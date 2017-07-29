@@ -13,20 +13,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-#ifndef _BlockListener_
-#define _BlockListener_
+#ifndef _Listener_
+#define _Listener_
 
-#include "BlockEvent.hpp"
+#include "Event.hpp"
 
 namespace kanzi 
 {
 
-   class BlockListener 
+   class Listener 
    {
    public:
-       virtual void processEvent(const BlockEvent& evt) = 0;
+       virtual void processEvent(const Event& evt) = 0;
 
-       virtual ~BlockListener(){};
+       virtual ~Listener(){};
    };
 
 }

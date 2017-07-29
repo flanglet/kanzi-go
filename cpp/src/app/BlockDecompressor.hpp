@@ -20,7 +20,7 @@ limitations under the License.
 #include <vector>
 #include "../concurrent.hpp"
 #include "../OutputStream.hpp"
-#include "../io/BlockListener.hpp"
+#include "../Listener.hpp"
 #include "../io/CompressedInputStream.hpp"
 
 namespace kanzi 
@@ -37,9 +37,9 @@ namespace kanzi
 
       int call();
 
-      bool addListener(BlockListener* bl);
+      bool addListener(Listener* bl);
 
-      bool removeListener(BlockListener* bl);
+      bool removeListener(Listener* bl);
 
       void dispose();
 
@@ -58,9 +58,11 @@ namespace kanzi
       int _jobs;
       OutputStream* _os;
       CompressedInputStream* _cis;
-      vector<BlockListener*> _listeners;
+      vector<Listener*> _listeners;
 
       static void printOut(const char* msg, bool print);
+
+      static void notifyListeners(vector<Listener*>& listeners, const Event& evt);
    };
 
 }

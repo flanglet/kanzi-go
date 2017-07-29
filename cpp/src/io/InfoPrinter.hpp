@@ -20,7 +20,7 @@ limitations under the License.
 #include <ostream>
 #include "../concurrent.hpp"
 #include "../types.hpp"
-#include "BlockListener.hpp"
+#include "../Listener.hpp"
 #include "../OutputStream.hpp"
 #ifdef CONCURRENCY_ENABLED
 #include <mutex>
@@ -36,13 +36,13 @@ namespace kanzi
 	public:
 		Clock _clock1;
 		Clock _clock2;
-		uint _stage0Size;
-		uint _stage1Size;
+		int64 _stage0Size;
+		int64 _stage1Size;
 	};
 
-	// An implementation of BlockListener to display block information (verbose option
+	// An implementation of Listener to display block information (verbose option
 	// of the BlockCompressor/BlockDecompressor)
-	class InfoPrinter : public BlockListener
+	class InfoPrinter : public Listener
 	{
 	public:
 		enum Type {
@@ -54,7 +54,7 @@ namespace kanzi
 
 		~InfoPrinter() {}
 
-		void processEvent(const BlockEvent& evt);
+		void processEvent(const Event& evt);
 
 	private:
 		ostream& _os;
@@ -62,7 +62,7 @@ namespace kanzi
 #ifdef CONCURRENCY_ENABLED
 		mutex _mutex;
 #endif
-		BlockEvent::Type _thresholds[4];
+		Event::Type _thresholds[4];
 		InfoPrinter::Type _type;
 		int _level;
 	};

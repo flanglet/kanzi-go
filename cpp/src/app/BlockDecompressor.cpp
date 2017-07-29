@@ -32,7 +32,6 @@ limitations under the License.
 
 using namespace kanzi;
 
-
 BlockDecompressor::BlockDecompressor(map<string, string>& args)
 {
     _blockSize = 0;
@@ -68,14 +67,13 @@ BlockDecompressor::BlockDecompressor(map<string, string>& args)
         addListener(new InfoPrinter(_verbosity, InfoPrinter::DECODING, cout));
 
     if ((_verbosity > 0) && (args.size() > 0)) {
-       for (it = args.begin(); it != args.end(); it++) { 
-          stringstream ss;
-          ss << "Ignoring invalid option [" << it->first << "]";
-          printOut(ss.str().c_str(), _verbosity > 0);
-       }
+        for (it = args.begin(); it != args.end(); it++) {
+            stringstream ss;
+            ss << "Ignoring invalid option [" << it->first << "]";
+            printOut(ss.str().c_str(), _verbosity > 0);
+        }
     }
 }
-
 
 BlockDecompressor::~BlockDecompressor()
 {
@@ -97,7 +95,7 @@ BlockDecompressor::~BlockDecompressor()
     }
 
     while (_listeners.size() > 0) {
-        vector<BlockListener*>::iterator it = _listeners.begin();
+        vector<Listener*>::iterator it = _listeners.begin();
         delete *it;
         _listeners.erase(it);
     }
@@ -155,6 +153,12 @@ int BlockDecompressor::call()
     uint64 read = 0;
     bool silent = _verbosity < 1;
     printOut("Decoding ...", !silent);
+
+    if (_listeners.size() > 0) {
+        Event evt(Event::DECOMPRESSION_START, -1, int64(0));
+        BlockDecompressor::notifyListeners(_listeners, evt);
+    }
+
     string str = _outputName;
     transform(str.begin(), str.end(), str.begin(), ::toupper);
 
@@ -335,6 +339,12 @@ int BlockDecompressor::call()
     }
 
     printOut("", !silent);
+
+    if (_listeners.size() > 0) {
+        Event evt(Event::DECOMPRESSION_END, -1, int64(_cis->getRead()));
+        BlockDecompressor::notifyListeners(_listeners, evt);
+    }
+
     delete[] buf;
     return 0;
 }
@@ -345,7 +355,7 @@ void BlockDecompressor::printOut(const char* msg, bool print)
         cout << msg << endl;
 }
 
-bool BlockDecompressor::addListener(BlockListener* bl)
+bool BlockDecompressor::addListener(Listener* bl)
 {
     if (bl == nullptr)
         return false;
@@ -354,13 +364,21 @@ bool BlockDecompressor::addListener(BlockListener* bl)
     return true;
 }
 
-bool BlockDecompressor::removeListener(BlockListener* bl)
+bool BlockDecompressor::removeListener(Listener* bl)
 {
-    std::vector<BlockListener*>::iterator it = find(_listeners.begin(), _listeners.end(), bl);
+    std::vector<Listener*>::iterator it = find(_listeners.begin(), _listeners.end(), bl);
 
     if (it == _listeners.end())
         return false;
 
     _listeners.erase(it);
     return true;
+}
+
+void BlockDecompressor::notifyListeners(vector<Listener*>& listeners, const Event& evt)
+{
+    vector<Listener*>::iterator it;
+
+    for (it = listeners.begin(); it != listeners.end(); it++)
+        (*it)->processEvent(evt);
 }

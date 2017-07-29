@@ -16,11 +16,11 @@ limitations under the License.
 #include <sstream>
 #include <ctime>
 #include <cstdio>
-#include "BlockEvent.hpp"
+#include "Event.hpp"
 
 using namespace kanzi;
 
-BlockEvent::BlockEvent(BlockEvent::Type type, int id, int size)
+Event::Event(Event::Type type, int id, int64 size)
     : _time(time(nullptr))
 {
     _id = id;
@@ -30,17 +30,8 @@ BlockEvent::BlockEvent(BlockEvent::Type type, int id, int size)
     _type = type;
 }
 
-BlockEvent::BlockEvent(BlockEvent::Type type, int id, int size, int hash)
-    : _time(time(nullptr))
-{
-    _id = id;
-    _size = size;
-    _hash = hash;
-    _hashing = true;
-    _type = type;
-}
 
-BlockEvent::BlockEvent(BlockEvent::Type type, int id, int size, int hash, bool hashing)
+Event::Event(Event::Type type, int id, int64 size, int hash, bool hashing)
     : _time(time(nullptr))
 {
     _id = id;
@@ -50,11 +41,14 @@ BlockEvent::BlockEvent(BlockEvent::Type type, int id, int size, int hash, bool h
     _type = type;
 }
 
-string BlockEvent::toString() const
+string Event::toString() const
 {
     std::stringstream ss;
     ss << "{ \"type\":\"" << getTypeAsString() << "\"";
-    ss << ", \"id\":" << getId();
+
+    if (_id >= 0)
+        ss << ", \"id\":" << getId();
+    
     ss << ", \"size\":" << getSize();
     ss << ", \"time\":" << getTime();
 
@@ -68,9 +62,15 @@ string BlockEvent::toString() const
     return ss.str();
 }
 
-string BlockEvent::getTypeAsString() const
+string Event::getTypeAsString() const
 {
     switch (_type) {
+    case COMPRESSION_START:
+        return "COMPRESSION_START";
+
+    case COMPRESSION_END:
+        return "COMPRESSION_END";
+
     case BEFORE_TRANSFORM:
         return "BEFORE_TRANSFORM";
 
@@ -82,6 +82,12 @@ string BlockEvent::getTypeAsString() const
 
     case AFTER_ENTROPY:
         return "AFTER_ENTROPY";
+
+    case DECOMPRESSION_START:
+        return "DECOMPRESSION_START";
+
+    case DECOMPRESSION_END:
+        return "DECOMPRESSION_END";
 
     default:
         return "Unknown Type";

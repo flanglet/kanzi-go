@@ -13,42 +13,44 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-#ifndef _BlockEvent_
-#define _BlockEvent_
+#ifndef _Event_
+#define _Event_
 
 #include <time.h>
-#include "../types.hpp"
-#include "../concurrent.hpp"
+#include "types.hpp"
+#include "concurrent.hpp"
 
 using namespace std;
 
 namespace kanzi 
 {
 
-   class BlockEvent
+   class Event
    {
    public:
        enum Type 
        {
+           COMPRESSION_START,
+           COMPRESSION_END,
            BEFORE_TRANSFORM,
            AFTER_TRANSFORM,
            BEFORE_ENTROPY,
-           AFTER_ENTROPY
+           AFTER_ENTROPY,
+           DECOMPRESSION_START,
+           DECOMPRESSION_END
        };
 
-       BlockEvent(BlockEvent::Type type, int id, int size);
+       Event(Event::Type type, int id, int64 size);
 
-       BlockEvent(BlockEvent::Type type, int id, int size, int hash);
+       Event(Event::Type type, int id, int64 size, int hash, bool hashing);
 
-       BlockEvent(BlockEvent::Type type, int id, int size, int hash, bool hashing);
-
-       ~BlockEvent() {}
+       ~Event() {}
 
        int getId() const { return _id; }
 
-       int getSize() const { return _size; }
+       int64 getSize() const { return _size; }
 
-       BlockEvent::Type getType() const { return _type; }
+       Event::Type getType() const { return _type; }
 
        string getTypeAsString() const;
 
@@ -62,9 +64,9 @@ namespace kanzi
 
    private:
        int _id;
-       int _size;
+       int64 _size;
        int _hash;
-       BlockEvent::Type _type;
+       Event::Type _type;
        bool _hashing;
        time_t _time;
        Clock _clock;
