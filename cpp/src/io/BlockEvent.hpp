@@ -50,6 +50,8 @@ namespace kanzi
 
        BlockEvent::Type getType() const { return _type; }
 
+       string getTypeAsString() const;
+
        time_t getTime() const { return _time; }
 
        double getElapsed() const { return _clock.elapsed(); }

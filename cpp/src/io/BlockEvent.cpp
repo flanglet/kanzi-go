@@ -28,7 +28,6 @@ BlockEvent::BlockEvent(BlockEvent::Type type, int id, int size)
     _hash = 0;
     _hashing = false;
     _type = type;
-
 }
 
 BlockEvent::BlockEvent(BlockEvent::Type type, int id, int size, int hash)
@@ -54,7 +53,7 @@ BlockEvent::BlockEvent(BlockEvent::Type type, int id, int size, int hash, bool h
 string BlockEvent::toString() const
 {
     std::stringstream ss;
-    ss << "{ \"type\":\"" << getType() << "\"";
+    ss << "{ \"type\":\"" << getTypeAsString() << "\"";
     ss << ", \"id\":" << getId();
     ss << ", \"size\":" << getSize();
     ss << ", \"time\":" << getTime();
@@ -67,4 +66,24 @@ string BlockEvent::toString() const
 
     ss << " }";
     return ss.str();
+}
+
+string BlockEvent::getTypeAsString() const
+{
+    switch (_type) {
+    case BEFORE_TRANSFORM:
+        return "BEFORE_TRANSFORM";
+
+    case AFTER_TRANSFORM:
+        return "AFTER_TRANSFORM";
+
+    case BEFORE_ENTROPY:
+        return "BEFORE_ENTROPY";
+
+    case AFTER_ENTROPY:
+        return "AFTER_ENTROPY";
+
+    default:
+        return "Unknown Type";
+    }
 }
