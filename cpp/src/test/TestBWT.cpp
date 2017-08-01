@@ -94,9 +94,9 @@ void testBWTCorrectness(bool isBWT)
             cout << transform[i];
 
         if (isBWT) {
-            int primaryIndex = ((BWT*)bwt)->getPrimaryIndex();
+            int primaryIndex = ((BWT*)bwt)->getPrimaryIndex(0);
             cout << "  (Primary index=" << primaryIndex << ")" << endl;
-            ((BWT*)bwt)->setPrimaryIndex(primaryIndex);
+            ((BWT*)bwt)->setPrimaryIndex(0, primaryIndex);
         }
         else {
             cout << endl;

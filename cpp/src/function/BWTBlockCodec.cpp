@@ -23,7 +23,7 @@ using namespace kanzi;
 bool BWTBlockCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int blockSize)
 {
     if ((!SliceArray<byte>::isValid(input)) || (!SliceArray<byte>::isValid(output)))
-       return false;
+        return false;
 
     if (input._array == output._array)
         return false;
@@ -32,6 +32,7 @@ bool BWTBlockCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, i
         return false;
 
     byte* p0 = &output._array[output._index];
+    const int chunks = BWT::getBWTChunks(blockSize);
     int log = 1;
 
     while (1 << log <= blockSize)
@@ -40,21 +41,27 @@ bool BWTBlockCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, i
     log--;
 
     // Estimate header size based on block size
-    const int headerSizeBytes1 = (2 + log + 7) >> 3;
+    const int headerSizeBytes1 = (chunks * (2 + log) + 7) >> 3;
     output._index += headerSizeBytes1;
 
     // Apply forward transform
     if (_bwt.forward(input, output, blockSize) == false)
         return false;
 
-    int primaryIndex = _bwt.getPrimaryIndex();
-    int pIndexSizeBits = 6;
+    int headerSizeBytes2 = 0;
 
-    while ((1 << pIndexSizeBits) <= primaryIndex)
-        pIndexSizeBits++;
+    for (int i = 0; i < chunks; i++) {
+        int primaryIndex = _bwt.getPrimaryIndex(i);
+        int pIndexSizeBits = 6;
 
-    // Compute block size based on primary index
-    const int headerSizeBytes2 = (2 + pIndexSizeBits + 7) >> 3;
+        while ((1 << pIndexSizeBits) <= primaryIndex)
+            pIndexSizeBits++;
+
+        // Compute block size based on primary index
+        headerSizeBytes2 += (2 + pIndexSizeBits);
+    }
+
+    headerSizeBytes2 = (headerSizeBytes2 + 7) >> 3;
 
     if (headerSizeBytes2 != headerSizeBytes1) {
         // Adjust space for header
@@ -62,15 +69,28 @@ bool BWTBlockCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, i
         output._index = output._index - headerSizeBytes1 + headerSizeBytes2;
     }
 
-    // Write block header (mode + primary index). See top of file for format
-    int shift = (headerSizeBytes2 - 1) << 3;
-    int blockMode = (pIndexSizeBits + 1) >> 3;
-    blockMode = (blockMode << 6) | ((primaryIndex >> shift) & 0x3F);
-    p0[0] = (byte)blockMode;
+    int idx = 0;
 
-    for (int i = 1; i < headerSizeBytes2; i++) {
-        shift -= 8;
-        p0[i] = (byte)(primaryIndex >> shift);
+    for (int i = 0; i < chunks; i++) {
+        int primaryIndex = _bwt.getPrimaryIndex(i);
+        int pIndexSizeBits = 6;
+
+        while ((1 << pIndexSizeBits) <= primaryIndex)
+            pIndexSizeBits++;
+
+        // Compute primary index size
+        const int pIndexSizeBytes = (2 + pIndexSizeBits + 7) >> 3;
+
+        // Write block header (mode + primary index). See top of file for format
+        int shift = (pIndexSizeBytes - 1) << 3;
+        int blockMode = (pIndexSizeBits + 1) >> 3;
+        blockMode = (blockMode << 6) | ((primaryIndex >> shift) & 0x3F);
+        p0[idx++] = byte(blockMode);
+
+        for (int n = 1; n < pIndexSizeBytes; n++) {
+            shift -= 8;
+            p0[idx++] = byte(primaryIndex >> shift);
+        }
     }
 
     return true;
@@ -79,32 +99,33 @@ bool BWTBlockCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, i
 bool BWTBlockCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int blockSize)
 {
     if ((!SliceArray<byte>::isValid(input)) || (!SliceArray<byte>::isValid(output)))
-       return false;
+        return false;
 
     if (input._array == output._array)
         return false;
 
-    // Read block header (mode + primary index). See top of file for format
-    const int blockMode = input._array[input._index++] & 0xFF;
-    const int headerSizeBytes = 1 + ((blockMode >> 6) & 0x03);
+    const int chunks = BWT::getBWTChunks(blockSize);
 
-    if (blockSize < headerSizeBytes)
-        return false;
+    for (int i = 0; i < chunks; i++) {
+        // Read block header (mode + primary index). See top of file for format
+        const int blockMode = input._array[input._index++] & 0xFF;
+        const int pIndexSizeBytes = 1 + ((blockMode >> 6) & 0x03);
 
-    if (blockSize == headerSizeBytes)
-        return true;
+        if (blockSize < pIndexSizeBytes)
+            return false;
 
-    blockSize -= headerSizeBytes;
-    int shift = (headerSizeBytes - 1) << 3;
-    int primaryIndex = (blockMode & 0x3F) << shift;
+        blockSize -= pIndexSizeBytes;
+        int shift = (pIndexSizeBytes - 1) << 3;
+        int primaryIndex = (blockMode & 0x3F) << shift;
 
-    // Extract BWT primary index
-    for (int i = 1; i < headerSizeBytes; i++) {
-        shift -= 8;
-        primaryIndex |= ((input._array[input._index++] & 0xFF) << shift);
+        // Extract BWT primary index
+        for (int n = 1; n < pIndexSizeBytes; n++) {
+            shift -= 8;
+            primaryIndex |= ((input._array[input._index++] & 0xFF) << shift);
+        }
+
+        _bwt.setPrimaryIndex(i, primaryIndex);
     }
-
-    _bwt.setPrimaryIndex(primaryIndex);
 
     // Apply inverse Transform
     return _bwt.inverse(input, output, blockSize);

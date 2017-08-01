@@ -35,7 +35,7 @@ public class TestBWT
            BWT bwt = new BWT();
            bwt.forward(sa1, sa2);
            System.out.print("BWT:  " + new String(buf2));
-           System.out.println(" (" + bwt.getPrimaryIndex() + ")");
+           System.out.println(" (" + bwt.getPrimaryIndex(0) + ")");
            sa1.index = 0;
            sa2.index = 0;
            BWTS bwts = new BWTS();
@@ -102,9 +102,8 @@ public class TestBWT
             
             if (isBWT)
             {
-               int primaryIndex = ((BWT) bwt).getPrimaryIndex();
+               int primaryIndex = ((BWT) bwt).getPrimaryIndex(0);
                System.out.println("  (Primary index="+primaryIndex+")");
-               ((BWT) bwt).setPrimaryIndex(primaryIndex);
             }
             else
             {

@@ -39,6 +39,9 @@ const (
 // This implementation replaces the 'slow' sorting of permutation strings
 // with the construction of a suffix array (faster but more complex).
 // The suffix array contains the indexes of the sorted suffixes.
+// The BWT may be split in chunks (depending of block size). In this case,
+// several 'primary indexes' (one for each chunk) is kept and the inverse
+// can be processed in parallel; each chunk being inverted concurrently.
 //
 // E.G.    0123456789A
 // Source: mississippi\0
@@ -62,33 +65,34 @@ const (
 // for respective performance of different suffix sorting algorithms.
 
 type BWT struct {
-	buffer1      []uint32
-	buffer2      []byte // Only used for big blocks (size >= 1<<24)
-	buffer3      []int
-	buckets      []uint32
-	primaryIndex uint
-	saAlgo       *DivSufSort
+	buffer1        []uint32
+	buffer2        []byte // Only used for big blocks (size >= 1<<24)
+	buffer3        []int
+	buckets        []uint32
+	primaryIndexes []uint
+	saAlgo         *DivSufSort
 }
 
 func NewBWT() (*BWT, error) {
 	this := new(BWT)
 	this.buffer1 = make([]uint32, 0) // Allocate empty: only used in inverse
 	this.buffer2 = make([]byte, 0)   // Allocate empty: only used for big blocks (size >= 1<<24)
-	this.buffer3 = make([]int, 0) // Allocate empty: only used in forward
+	this.buffer3 = make([]int, 0)    // Allocate empty: only used in forward
 	this.buckets = make([]uint32, 256)
+	this.primaryIndexes = make([]uint, 9)
 	return this, nil
 }
 
-func (this *BWT) PrimaryIndex() uint {
-	return this.primaryIndex
+func (this *BWT) PrimaryIndex(n int) uint {
+	return this.primaryIndexes[n]
 }
 
-func (this *BWT) SetPrimaryIndex(primaryIndex uint) bool {
-	if primaryIndex < 0 {
+func (this *BWT) SetPrimaryIndex(n int, primaryIndex uint) bool {
+	if n < 0 || n >= len(this.primaryIndexes) {
 		return false
 	}
 
-	this.primaryIndex = primaryIndex
+	this.primaryIndexes[n] = primaryIndex
 	return true
 }
 
@@ -138,20 +142,58 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 		this.buffer3 = make([]int, count)
 	}
 
-	buf := this.buffer3
-	pIdx := this.saAlgo.ComputeBWT(src[0:count], buf[0:count])
+	sa := this.buffer3
+	this.saAlgo.ComputeSuffixArray(src[0:count], sa[0:count])
+	n := 0
+	chunks := GetBWTChunks(count)
 
-	for i := 0; i < pIdx; i++ {
-		dst[i] = byte(buf[i])
+	if chunks == 1 {
+		for n < count {
+			if sa[n] == 0 {
+				this.SetPrimaryIndex(0, uint(n))
+				break
+			}
+
+			dst[n] = src[sa[n]-1]
+			n++
+		}
+
+		dst[n] = src[count-1]
+		n++
+
+		for n < count {
+			dst[n] = src[sa[n]-1]
+			n++
+		}
+	} else {
+		step := count / chunks
+
+		for n < count {
+			if sa[n]%step == 0 {
+				this.SetPrimaryIndex(sa[n]/step, uint(n))
+
+				if sa[n] == 0 {
+					break
+				}
+			}
+
+			dst[n] = src[sa[n]-1]
+			n++
+		}
+
+		dst[n] = src[count-1]
+		n++
+
+		for n < count {
+			if sa[n]%step == 0 {
+				this.SetPrimaryIndex(sa[n]/step, uint(n))
+			}
+
+			dst[n] = src[sa[n]-1]
+			n++
+		}
 	}
 
-	dst[pIdx] = src[count-1]
-
-	for i := pIdx + 1; i < count; i++ {
-		dst[i] = byte(buf[i])
-	}
-
-	this.SetPrimaryIndex(uint(pIdx))
 	return uint(count), uint(count), nil
 }
 
@@ -172,11 +214,6 @@ func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 
 	if count > maxBWTBlockSize() {
 		errMsg := fmt.Sprintf("Block size is %v, max value is %v", count, maxBWTBlockSize())
-		return 0, 0, errors.New(errMsg)
-	}
-
-	if int(this.PrimaryIndex()) >= count {
-		errMsg := fmt.Sprintf("Primary index is %v, block size is %v", this.PrimaryIndex(), count)
 		return 0, 0, errors.New(errMsg)
 	}
 
@@ -216,9 +253,11 @@ func (this *BWT) inverseRegularBlock(src, dst []byte, count int) (uint, uint, er
 		buckets_[i] = 0
 	}
 
+	chunks := GetBWTChunks(count)
+
 	// Build array of packed index + value (assumes block size < 2^24)
 	// Start with the primary index position
-	pIdx := int(this.PrimaryIndex())
+	pIdx := int(this.PrimaryIndex(0))
 	val0 := uint32(src[pIdx])
 	data[pIdx] = val0
 	buckets_[val0]++
@@ -242,13 +281,37 @@ func (this *BWT) inverseRegularBlock(src, dst []byte, count int) (uint, uint, er
 		buckets_[i] = sum - buckets_[i]
 	}
 
-	ptr := data[pIdx]
-	dst[count-1] = byte(ptr)
+	idx := count - 1
 
 	// Build inverse
-	for i := count - 2; i >= 0; i-- {
-		ptr = data[(ptr>>8)+buckets_[ptr&0xFF]]
-		dst[i] = byte(ptr)
+	if chunks == 1 {
+		ptr := data[pIdx]
+		dst[idx] = byte(ptr)
+		idx--
+
+		for idx >= 0 {
+			ptr = data[(ptr>>8)+buckets_[ptr&0xFF]]
+			dst[idx] = byte(ptr)
+			idx--
+		}
+	} else {
+		step := count / chunks
+
+		for i := chunks - 1; i >= 0; i-- {
+			ptr := data[pIdx]
+			dst[idx] = byte(ptr)
+			idx--
+			endChunk := i * step
+
+			for idx >= endChunk {
+				ptr = data[(ptr>>8)+buckets_[ptr&0xFF]]
+				dst[idx] = byte(ptr)
+				idx--
+			}
+
+			pIdx = int(this.PrimaryIndex(i))
+			idx = endChunk - 1
+		}
 	}
 
 	return uint(count), uint(count), nil
@@ -275,9 +338,11 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 		buckets_[i] = 0
 	}
 
+	chunks := GetBWTChunks(count)
+
 	// Build arrays
 	// Start with the primary index position
-	pIdx := int(this.PrimaryIndex())
+	pIdx := int(this.PrimaryIndex(0))
 	val0 := src[pIdx]
 	data1[pIdx] = buckets_[val0]
 	data2[pIdx] = val0
@@ -305,16 +370,43 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 		buckets_[i] = sum - buckets_[i]
 	}
 
-	val1 := data1[pIdx]
-	val2 := data2[pIdx]
-	dst[count-1] = val2
+	idx := count - 1
 
 	// Build inverse
-	for i := count - 2; i >= 0; i-- {
-		idx := val1 + buckets_[val2]
-		val1 = data1[idx]
-		val2 = data2[idx]
-		dst[i] = val2
+	if chunks == 1 {
+		val1 := data1[pIdx]
+		val2 := data2[pIdx]
+		dst[idx] = val2
+		idx--
+
+		for idx >= 0 {
+			n := val1 + buckets_[val2]
+			val1 = data1[n]
+			val2 = data2[n]
+			dst[idx] = val2
+			idx--
+		}
+	} else {
+		step := count / chunks
+
+		for i := chunks - 1; i >= 0; i-- {
+			val1 := data1[pIdx]
+			val2 := data2[pIdx]
+			dst[idx] = val2
+			idx--
+			endChunk := i * step
+
+			for idx >= endChunk {
+				n := val1 + buckets_[val2]
+				val1 = data1[n]
+				val2 = data2[n]
+				dst[idx] = val2
+				idx--
+			}
+
+			pIdx = int(this.PrimaryIndex(i))
+			idx = endChunk - 1
+		}
 	}
 
 	return uint(count), uint(count), nil
@@ -322,4 +414,18 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 
 func maxBWTBlockSize() int {
 	return BWT_MAX_BLOCK_SIZE - BWT_MAX_HEADER_SIZE
+}
+
+func GetBWTChunks(size int) int {
+	// For now, return 1 always !!!!
+	return 1
+	//       log := 0
+	//       size >>= 10
+	//
+	//       for size>0 && log<3 {
+	//          size >>= 2
+	//          log++
+	//       }
+	//
+	//       return 1<<log
 }

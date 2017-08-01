@@ -20,18 +20,18 @@ import kanzi.SliceByteArray;
 import kanzi.transform.BWT;
 
 
-// Utility class to en/de-code a BWT data block and its associated primary index
+// Utility class to en/de-code a BWT data block and its associated primary index(es)
 
 // BWT stream format: Header (m bytes) Data (n bytes)
-// Header: mode (8 bits) + BWT primary index (8, 16 or 24 bits)
-// mode: bits 7-6 contain the size in bits of the primary index :
-//           00: primary index size <=  6 bits (fits in mode byte)
-//           01: primary index size <= 14 bits (1 extra byte)
-//           10: primary index size <= 22 bits (2 extra bytes)
-//           11: primary index size  > 22 bits (3 extra bytes)
-//       bits 5-0 contain 6 most significant bits of primary index
-// primary index: remaining bits (up to 3 bytes)
-
+// Header: For each primary index,
+//   mode (8 bits) + primary index (8,16 or 24 bits)
+//   mode: bits 7-6 contain the size in bits of the primary index :
+//             00: primary index size <=  6 bits (fits in mode byte)
+//             01: primary index size <= 14 bits (1 extra byte)
+//             10: primary index size <= 22 bits (2 extra bytes)
+//             11: primary index size  > 22 bits (3 extra bytes)
+//         bits 5-0 contain 6 most significant bits of primary index
+//   primary index: remaining bits (up to 3 bytes)
 
 public class BWTBlockCodec implements ByteFunction
 {
@@ -61,13 +61,16 @@ public class BWTBlockCodec implements ByteFunction
          return false;
       
       final int savedOIdx = output.index;
+      final int chunks = BWT.getBWTChunks(blockSize);
       int log = 1;
 
       while (1<<log <= blockSize)
          log++; 
-               
+              
+      log--;
+      
       // Estimate header size based on block size
-      final int headerSizeBytes1 = (1+log+7) >> 3;
+      final int headerSizeBytes1 = (chunks*(2+log)+7) >>> 3;
       output.index += headerSizeBytes1;
       output.length -= headerSizeBytes1;
      
@@ -75,15 +78,22 @@ public class BWTBlockCodec implements ByteFunction
       if (this.bwt.forward(input, output) == false)
          return false;
 
-      int primaryIndex = this.bwt.getPrimaryIndex();
-      int pIndexSizeBits = 6;
+      int headerSizeBytes2 = 0;
+      
+      for (int i=0; i<chunks; i++)
+      {
+         int primaryIndex = this.bwt.getPrimaryIndex(i);
+         int pIndexSizeBits = 6;
 
-      while ((1<<pIndexSizeBits) <= primaryIndex)
-         pIndexSizeBits++;          
+         while ((1<<pIndexSizeBits) <= primaryIndex)
+            pIndexSizeBits++;          
 
-      // Compute block size based on primary index
-      final int headerSizeBytes2 = (2+pIndexSizeBits+7) >>> 3;
-
+         // Compute block size based on primary index
+         headerSizeBytes2 += (2+pIndexSizeBits);
+      }
+      
+      headerSizeBytes2 = (headerSizeBytes2+7) >>> 3;
+      
       if (headerSizeBytes2 != headerSizeBytes1)
       {
          // Adjust space for header
@@ -91,18 +101,32 @@ public class BWTBlockCodec implements ByteFunction
             output.array, savedOIdx+headerSizeBytes2, blockSize);
 
          output.index = output.index - headerSizeBytes1 + headerSizeBytes2;
-      }
+      }     
       
-      // Write block header (mode + primary index). See top of file for format 
-      int shift = (headerSizeBytes2 - 1) << 3;
-      int blockMode = (pIndexSizeBits + 1) >>> 3;
-      blockMode = (blockMode << 6) | ((primaryIndex >>> shift) & 0x3F);
-      output.array[savedOIdx] = (byte) blockMode;
-
-      for (int i=1; i<headerSizeBytes2; i++)
+      int idx = savedOIdx;
+      
+      for (int i=0; i<chunks; i++)
       {
-         shift -= 8;
-         output.array[savedOIdx+i] = (byte) (primaryIndex >> shift);
+         int primaryIndex = this.bwt.getPrimaryIndex(i);
+         int pIndexSizeBits = 6;
+
+         while ((1<<pIndexSizeBits) <= primaryIndex)
+            pIndexSizeBits++;          
+
+         // Compute primary index size
+         final int pIndexSizeBytes = (2+pIndexSizeBits+7) >>> 3;
+   
+         // Write block header (mode + primary index). See top of file for format 
+         int shift = (pIndexSizeBytes - 1) << 3;
+         int blockMode = (pIndexSizeBits + 1) >>> 3;
+         blockMode = (blockMode << 6) | ((primaryIndex >>> shift) & 0x3F);
+         output.array[idx++] = (byte) blockMode;
+
+         for (int n=1; n<pIndexSizeBytes; n++)
+         {
+            shift -= 8;
+            output.array[idx++] = (byte) (primaryIndex >> shift);
+         }
       }
       
       return true;
@@ -118,30 +142,32 @@ public class BWTBlockCodec implements ByteFunction
       if (input.array == output.array)
          return false;
       
-      // Read block header (mode + primary index). See top of file for format
-      final int blockMode = input.array[input.index++] & 0xFF;
-      final int headerSizeBytes = 1 + ((blockMode >>> 6) & 0x03);
       int blockSize = input.length;
+      final int chunks = BWT.getBWTChunks(blockSize);
 
-      if (blockSize < headerSizeBytes)
-          return false;
-
-      if (blockSize == headerSizeBytes)
-          return true;
-
-      input.length -= headerSizeBytes;
-      int shift = (headerSizeBytes - 1) << 3;
-      int primaryIndex = (blockMode & 0x3F) << shift;
-
-      // Extract BWT primary index
-      for (int i=1; i<headerSizeBytes; i++)
+      for (int i=0; i<chunks; i++)
       {
-         shift -= 8;
-         primaryIndex |= ((input.array[input.index++] & 0xFF) << shift);
+         // Read block header (mode + primary index). See top of file for format
+         final int blockMode = input.array[input.index++] & 0xFF;
+         final int pIndexSizeBytes = 1 + ((blockMode >>> 6) & 0x03);
+
+         if (input.length < pIndexSizeBytes)
+             return false;
+        
+         input.length -= pIndexSizeBytes;
+         int shift = (pIndexSizeBytes - 1) << 3;
+         int primaryIndex = (blockMode & 0x3F) << shift;
+
+         // Extract BWT primary index
+         for (int n=1; n<pIndexSizeBytes; n++)
+         {
+            shift -= 8;
+            primaryIndex |= ((input.array[input.index++] & 0xFF) << shift);
+         }
+
+         this.bwt.setPrimaryIndex(i, primaryIndex);
       }
-
-      this.bwt.setPrimaryIndex(primaryIndex);
-
+      
       // Apply inverse Transform            
       return this.bwt.inverse(input, output);      
    }
@@ -151,6 +177,6 @@ public class BWTBlockCodec implements ByteFunction
    public int getMaxEncodedLength(int srcLen)
    {
       // Return input buffer size + max header size
-      return srcLen +  4; 
+      return srcLen + 4*8; 
    }
 }

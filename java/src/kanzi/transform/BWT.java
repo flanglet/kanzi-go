@@ -32,6 +32,9 @@ import kanzi.SliceByteArray;
 // This implementation replaces the 'slow' sorting of permutation strings
 // with the construction of a suffix array (faster but more complex).
 // The suffix array contains the indexes of the sorted suffixes.
+// The BWT may be split in chunks (depending of block size). In this case, 
+// several 'primary indexes' (one for each chunk) is kept and the inverse
+// can be processed in parallel; each chunk being inverted concurrently.
 //
 // E.G.    0123456789A
 // Source: mississippi\0
@@ -63,7 +66,7 @@ public class BWT implements ByteTransform
    private int[] buffer1;   // Only used in inverse
    private byte[] buffer2;  // Only used for big blocks (size >= 1<<24)
    private final int[] buckets;
-   private int primaryIndex;
+   private final int[] primaryIndexes;
    private DivSufSort saAlgo;
 
     
@@ -73,22 +76,23 @@ public class BWT implements ByteTransform
        this.buffer1 = new int[0];  // Allocate empty: only used in inverse
        this.buffer2 = new byte[0]; // Allocate empty: only used for big blocks (size >= 1<<24)
        this.buckets = new int[256];
+       this.primaryIndexes = new int[9];
     }
 
 
-    public int getPrimaryIndex()
+    public int getPrimaryIndex(int n)
     {
-       return this.primaryIndex;
+       return this.primaryIndexes[n];
     }
 
 
     // Not thread safe
-    public boolean setPrimaryIndex(int primaryIndex)
+    public boolean setPrimaryIndex(int n, int primaryIndex)
     {
-       if (primaryIndex < 0)
+       if ((primaryIndex < 0) || (n < 0) || (n >= this.primaryIndexes.length))
           return false;
 
-       this.primaryIndex = primaryIndex;
+       this.primaryIndexes[n] = primaryIndex;
        return true;
     }
     
@@ -131,21 +135,64 @@ public class BWT implements ByteTransform
         if (this.buffer1.length < count)
            this.buffer1 = new int[count];
         
-        final int[] buf = this.buffer1;       
-        int pIdx = this.saAlgo.computeBWT(input, buf, srcIdx, count);
-
-        for (int i=0; i<pIdx; i++) 
-           output[dstIdx+i] = (byte) buf[i];
-
-        output[dstIdx+pIdx] = input[srcIdx+count-1];
-        
-        for (int i=pIdx+1; i<count; i++) 
-           output[dstIdx+i] = (byte) buf[i];
+        final int[] sa = this.buffer1;       
+        this.saAlgo.computeSuffixArray(input, sa, srcIdx, count);
+        final int srcIdx2 = srcIdx - 1; 
+        int n = 0;
+        final int chunks = getBWTChunks(count);
+        boolean res = true;  
   
-        this.setPrimaryIndex(pIdx);         
+        if (chunks == 1)
+        {
+            for (; n<count; n++) 
+            {                     
+               if (sa[n] == 0)
+               {
+                  res &= this.setPrimaryIndex(0, n); 
+                  break;
+               }
+               
+               output[dstIdx+n] = input[srcIdx2+sa[n]];
+            }
+
+            output[dstIdx+n] = input[srcIdx2+count];
+            n++;
+
+            for (; n<count; n++) 
+               output[dstIdx+n] = input[srcIdx2+sa[n]];
+        }
+        else
+        {
+            final int step = count / chunks;
+
+            for (; n<count; n++) 
+            {      
+               if ((sa[n]%step) == 0) 
+               {
+                   res &= this.setPrimaryIndex(sa[n]/step, n);
+
+                   if (sa[n] == 0)
+                      break;
+               }
+
+               output[dstIdx+n] = input[srcIdx2+sa[n]];
+            }
+
+            output[dstIdx+n] = input[srcIdx2+count];
+            n++;
+
+            for (; n<count; n++) 
+            {
+               if ((sa[n]%step) == 0)
+                   res &= this.setPrimaryIndex(sa[n]/step, n);
+
+               output[dstIdx+n] = input[srcIdx2+sa[n]];
+            }
+        }
+        
         src.index += count;
         dst.index += count;
-        return true;
+        return res;
     }
 
 
@@ -163,10 +210,7 @@ public class BWT implements ByteTransform
         
        if (count > maxBlockSize())
            return false;
-       
-       if (this.getPrimaryIndex() >= count)
-           return false;
-       
+              
        if (dst.index + count > dst.array.length)
            return false;      
        
@@ -205,9 +249,11 @@ public class BWT implements ByteTransform
        for (int i=0; i<256; i++)
           buckets_[i] = 0;
        
+       final int chunks = getBWTChunks(count);
+    
        // Build array of packed index + value (assumes block size < 2^24)
        // Start with the primary index position
-       final int pIdx = this.getPrimaryIndex();
+       int pIdx = this.getPrimaryIndex(0);
        final int val0 = input[srcIdx+pIdx] & 0xFF;
        data[pIdx] = val0;
        buckets_[val0]++;
@@ -234,16 +280,41 @@ public class BWT implements ByteTransform
           sum += tmp;
        }
 
-       int ptr = data[pIdx];
-       output[dstIdx+count-1] = (byte) ptr;
+       int idx = dstIdx + count - 1;
        
        // Build inverse
-       for (int i=dstIdx+count-2; i>=dstIdx; i--)
+       if (chunks == 1)
        {
-          ptr = data[(ptr>>>8) + buckets_[ptr&0xFF]];
-          output[i] = (byte) ptr;
-       }
+          int ptr = data[pIdx];
+          output[idx--] = (byte) ptr;      
 
+          for (; idx>=dstIdx; idx--)
+          {
+             ptr = data[(ptr>>>8) + buckets_[ptr&0xFF]];
+             output[idx] = (byte) ptr;
+          }
+       }
+       else
+       {
+           final int step = count / chunks;
+           
+           for (int i=chunks-1; i>=0; i--)
+           {
+              int ptr = data[pIdx];
+              output[idx--] = (byte) ptr;
+              final int endChunk = dstIdx + i*step;
+              
+              for (; idx>=endChunk; idx--)
+              {
+                 ptr = data[(ptr>>>8) + buckets_[ptr&0xFF]];
+                 output[idx] = (byte) ptr;
+              }   
+              
+              pIdx = this.getPrimaryIndex(i);
+              idx = endChunk - 1;
+           }
+       }
+       
        src.index += count;
        dst.index += count;
        return true;
@@ -274,9 +345,11 @@ public class BWT implements ByteTransform
        for (int i=0; i<256; i++)
           buckets_[i] = 0;
 
+       final int chunks = getBWTChunks(count);
+
        // Build arrays
        // Start with the primary index position
-       final int pIdx = this.getPrimaryIndex();
+       int pIdx = this.getPrimaryIndex(0);
        final byte val0 = input[srcIdx+pIdx];
        data1[pIdx] = buckets_[val0&0xFF];
        data2[pIdx] = val0;
@@ -306,19 +379,47 @@ public class BWT implements ByteTransform
           sum += tmp;
        }
 
-       int val1 = data1[pIdx];
-       byte val2 = data2[pIdx];
-       output[dstIdx+count-1] = val2;
+       int idx = dstIdx + count - 1;
        
        // Build inverse
-       for (int i=dstIdx+count-2; i>=dstIdx; i--)
+       if (chunks == 1)
        {
-          final int idx = val1 + buckets_[val2&0xFF];
-          val1 = data1[idx];
-          val2 = data2[idx];
-          output[i] = val2;
-       }      
-       
+          int val1 = data1[pIdx];
+          byte val2 = data2[pIdx];
+          output[idx--] = val2;
+
+          for (; idx>=dstIdx; idx--)
+          {
+             final int n = val1 + buckets_[val2&0xFF];
+             val1 = data1[n];
+             val2 = data2[n];
+             output[idx] = val2;
+          }      
+       }
+       else
+       {
+           final int step = count / chunks;
+           
+           for (int i=chunks-1; i>=0; i--)
+           {
+              int val1 = data1[pIdx];
+              byte val2 = data2[pIdx];
+              output[idx--] = val2;
+              final int endChunk = dstIdx + i*step;
+              
+              for (; idx>=endChunk; idx--)
+              {
+                 final int n = val1 + buckets_[val2&0xFF];
+                 val1 = data1[n];
+                 val2 = data2[n];
+                 output[idx] = val2;
+              }   
+              
+              pIdx = this.getPrimaryIndex(i);
+              idx = endChunk - 1;
+           }          
+       }
+            
        src.index += count;
        dst.index += count;
        return true;
@@ -328,5 +429,23 @@ public class BWT implements ByteTransform
     private static int maxBlockSize() 
     {
        return MAX_BLOCK_SIZE - BWT_MAX_HEADER_SIZE;      
-    }    
+    } 
+    
+    
+    public static int getBWTChunks(int size)
+    {
+       // For now, return 1 always !!!!
+       return 1;
+//       int log = 0;
+//       size >>= 10;
+//       
+//       while ((size>0) && (log<3))
+//       {
+//          size >>= 2;
+//          log++;
+//       }
+//       
+//       return 1<<log;
+    }
+ 
 }

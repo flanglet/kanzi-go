@@ -21,17 +21,18 @@ import (
 	"kanzi/transform"
 )
 
-// Utility class to en/de-code a BWT data block and its associated primary index
+// Utility class to en/de-code a BWT data block and its associated primary index(es)
 
 // BWT stream format: Header (m bytes) Data (n bytes)
-// Header: mode (8 bits) + BWT primary index (8, 16 or 24 bits)
-// mode: bits 7-6 contain the size in bits of the primary index :
-//           00: primary index size <=  6 bits (fits in mode byte)
-//           01: primary index size <= 14 bits (1 extra byte)
-//           10: primary index size <= 22 bits (2 extra bytes)
-//           11: primary index size  > 22 bits (3 extra bytes)
-//       bits 5-0 contain 6 most significant bits of primary index
-// primary index: remaining bits (up to 3 bytes)
+// Header: For each primary index,
+//   mode (8 bits) + primary index (8,16 or 24 bits)
+//   mode: bits 7-6 contain the size in bits of the primary index :
+//             00: primary index size <=  6 bits (fits in mode byte)
+//             01: primary index size <= 14 bits (1 extra byte)
+//             10: primary index size <= 22 bits (2 extra bytes)
+//             11: primary index size  > 22 bits (3 extra bytes)
+//         bits 5-0 contain 6 most significant bits of primary index
+//   primary index: remaining bits (up to 3 bytes)
 
 type BWTBlockCodec struct {
 	bwt *transform.BWT
@@ -54,10 +55,14 @@ func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Output buffer cannot be null")
 	}
 
-	if n := this.MaxEncodedLen(len(src)); len(dst) < n {
-		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
+	blockSize := len(src)
+
+	if len(dst) < this.MaxEncodedLen(blockSize) {
+		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d",
+			len(dst), this.MaxEncodedLen(blockSize))
 	}
 
+	chunks := transform.GetBWTChunks(blockSize)
 	log := uint(1)
 
 	for 1<<log <= len(src) {
@@ -67,7 +72,7 @@ func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 	log--
 
 	// Estimate header size based on block size
-	headerSizeBytes1 := (2 + log + 7) >> 3
+	headerSizeBytes1 := (uint(chunks)*(2+log) + 7) >> 3
 
 	// Apply forward Transform
 	iIdx, oIdx, err := this.bwt.Forward(src, dst[headerSizeBytes1:])
@@ -76,31 +81,53 @@ func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return iIdx, oIdx, err
 	}
 
-	primaryIndex := this.bwt.PrimaryIndex()
-	pIndexSizeBits := uint(6)
+	headerSizeBytes2 := uint(0)
 
-	for 1<<pIndexSizeBits <= primaryIndex {
-		pIndexSizeBits++
+	for i := 0; i < chunks; i++ {
+		primaryIndex := this.bwt.PrimaryIndex(i)
+		pIndexSizeBits := uint(6)
+
+		for 1<<pIndexSizeBits <= primaryIndex {
+			pIndexSizeBits++
+		}
+
+		// Compute block size based on primary index
+		headerSizeBytes2 += (2 + pIndexSizeBits)
 	}
 
-	// Compute block size based on primary index
-	headerSizeBytes2 := (2 + pIndexSizeBits + 7) >> 3
+	headerSizeBytes2 = (headerSizeBytes2 + 7) >> 3
 
 	if headerSizeBytes2 != headerSizeBytes1 {
 		// Adjust space for header
 		copy(dst[headerSizeBytes2:], dst[headerSizeBytes1:headerSizeBytes1+oIdx])
 	}
 
-	// Write block header (mode + primary index). See top of file for format
-	shift := (headerSizeBytes2 - 1) << 3
-	blockMode := (pIndexSizeBits + 1) >> 3
-	blockMode = (blockMode << 6) | ((primaryIndex >> shift) & 0x3F)
-	dst[0] = byte(blockMode)
-	oIdx += headerSizeBytes2
+	idx := 0
 
-	for i := uint(1); i < headerSizeBytes2; i++ {
-		shift -= 8
-		dst[i] = byte(primaryIndex >> shift)
+	for i := 0; i < chunks; i++ {
+		primaryIndex := this.bwt.PrimaryIndex(i)
+		pIndexSizeBits := uint(6)
+
+		for 1<<pIndexSizeBits <= primaryIndex {
+			pIndexSizeBits++
+		}
+
+		// Compute primary index size
+		pIndexSizeBytes := (2 + pIndexSizeBits + 7) >> 3
+
+		// Write block header (mode + primary index). See top of file for format
+		shift := (pIndexSizeBytes - 1) << 3
+		blockMode := (pIndexSizeBits + 1) >> 3
+		blockMode = (blockMode << 6) | ((primaryIndex >> shift) & 0x3F)
+		dst[idx] = byte(blockMode)
+		idx++
+		oIdx += headerSizeBytes2
+
+		for i := uint(1); i < pIndexSizeBytes; i++ {
+			shift -= 8
+			dst[idx] = byte(primaryIndex >> shift)
+			idx++
+		}
 	}
 
 	return iIdx, oIdx, nil
@@ -117,37 +144,37 @@ func (this *BWTBlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 	srcIdx := uint(0)
 	blockSize := uint(len(src))
+	chunks := transform.GetBWTChunks(len(src))
 
-	// Read block header (mode + primary index). See top of file for format
-	blockMode := uint(src[0])
-	headerSizeBytes := 1 + ((blockMode >> 6) & 0x03)
+	for i := 0; i < chunks; i++ {
+		// Read block header (mode + primary index). See top of file for format
+		blockMode := uint(src[srcIdx])
+		srcIdx++
+		pIndexSizeBytes := 1 + ((blockMode >> 6) & 0x03)
 
-	if blockSize < headerSizeBytes {
-		return 0, 0, errors.New("Invalid compressed length in stream")
+		if blockSize < pIndexSizeBytes {
+			return 0, 0, errors.New("Invalid compressed length in stream")
+		}
+
+		blockSize -= pIndexSizeBytes
+		shift := (pIndexSizeBytes - 1) << 3
+		primaryIndex := (blockMode & 0x3F) << shift
+
+		// Extract BWT primary index
+		for i := uint(1); i < pIndexSizeBytes; i++ {
+			shift -= 8
+			primaryIndex |= uint(src[srcIdx]) << shift
+			srcIdx++
+		}
+
+		this.bwt.SetPrimaryIndex(i, primaryIndex)
 	}
-
-	if blockSize == 0 {
-		return 0, 0, nil
-	}
-
-	blockSize -= headerSizeBytes
-	shift := (headerSizeBytes - 1) << 3
-	primaryIndex := (blockMode & 0x3F) << shift
-	srcIdx = headerSizeBytes
-
-	// Extract BWT primary index
-	for i := uint(1); i < headerSizeBytes; i++ {
-		shift -= 8
-		primaryIndex |= uint(src[i]) << shift
-	}
-
-	this.bwt.SetPrimaryIndex(primaryIndex)
 
 	// Apply inverse Transform
-	return this.bwt.Inverse(src[srcIdx:], dst)
+	return this.bwt.Inverse(src[srcIdx:srcIdx+blockSize], dst)
 }
 
 func (this BWTBlockCodec) MaxEncodedLen(srcLen int) int {
 	// Return input buffer size + max header size
-	return srcLen + 4
+	return srcLen + 4*8
 }

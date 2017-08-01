@@ -35,6 +35,9 @@ namespace kanzi
    // This implementation replaces the 'slow' sorting of permutation strings
    // with the construction of a suffix array (faster but more complex).
    // The suffix array contains the indexes of the sorted suffixes.
+   // The BWT may be split in chunks (depending of block size). In this case, 
+   // several 'primary indexes' (one for each chunk) is kept and the inverse
+   // can be processed in parallel; each chunk being inverted concurrently.
    //
    // E.G.    0123456789A
    // Source: mississippi\0
@@ -69,7 +72,7 @@ namespace kanzi
        int* _buffer3;
        int _bufferSize;
        uint32 _buckets[256];
-       int _primaryIndex;
+       int _primaryIndexes[9];
        DivSufSort _saAlgo;
 
        bool inverseBigBlock(SliceArray<byte>& input, SliceArray<byte>& output, int count);
@@ -96,11 +99,13 @@ namespace kanzi
 
        bool inverse(SliceArray<byte>& input, SliceArray<byte>& output, int length);
 
-       int getPrimaryIndex() const { return _primaryIndex; }
+       int getPrimaryIndex(int n) const { return _primaryIndexes[n]; }
 
-       bool setPrimaryIndex(int primaryIndex);
+       bool setPrimaryIndex(int n, int primaryIndex);
 
        static int maxBlockSize() { return MAX_BLOCK_SIZE - BWT_MAX_HEADER_SIZE; }
+
+       static int getBWTChunks(int size);
    };
 
 }

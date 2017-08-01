@@ -19,12 +19,12 @@ limitations under the License.
 #include <cstdio>
 using namespace kanzi;
 
-bool BWT::setPrimaryIndex(int primaryIndex)
+bool BWT::setPrimaryIndex(int n, int primaryIndex)
 {
-    if (primaryIndex < 0)
+    if ((primaryIndex < 0) || (n < 0) || (n >= 9))
         return false;
 
-    _primaryIndex = primaryIndex;
+    _primaryIndexes[n] = primaryIndex;
     return true;
 }
 
@@ -56,21 +56,56 @@ bool BWT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int count)
         _buffer3 = new int[_bufferSize];
     }
 
-    int pIdx = _saAlgo.computeBWT(src, _buffer3, 0, count);
+    int* sa = _buffer3;
+    _saAlgo.computeSuffixArray(src, sa, 0, count);
+    int n = 0;
+    const int chunks = getBWTChunks(count);
+    bool res = true;
 
-    for (int i = 0; i < pIdx; i++)
-        dst[i] = byte(_buffer3[i]);
+    if (chunks == 1) {
+        for (; n < count; n++) {
+           if (sa[n] == 0) {
+                res &= setPrimaryIndex(0, n);
+                break;
+            }
 
-    dst[pIdx] = src[count - 1];
+            dst[n] = src[sa[n] - 1];
+        }
 
-    for (int i = pIdx + 1; i < count; i++)
-        dst[i] = byte(_buffer3[i]);
+        dst[n] = src[count - 1];
+        n++;
 
-    setPrimaryIndex(pIdx);
+        for (; n < count; n++)
+            dst[n] = src[sa[n] - 1];
+    }
+    else {
+        const int step = count / chunks;
+
+        for (; n < count; n++) {
+            if ((sa[n] % step) == 0) {
+                res &= setPrimaryIndex(sa[n] / step, n);
+
+                if (sa[n] == 0)
+                    break;
+            }
+
+            dst[n] = src[sa[n] - 1];
+        }
+
+        dst[n] = src[count - 1];
+        n++;
+
+        for (; n < count; n++) {
+            if ((sa[n] % step) == 0)
+                res &= setPrimaryIndex(sa[n] / step, n);
+
+            dst[n] = src[sa[n] - 1];
+        }
+    }
 
     input._index += count;
     output._index += count;
-    return true;
+    return res;
 }
 
 bool BWT::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int count)
@@ -82,9 +117,6 @@ bool BWT::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int count)
         return false;
 
     if (count > maxBlockSize())
-        return false;
-
-    if (getPrimaryIndex() >= count)
         return false;
 
     if (count < 2) {
@@ -117,12 +149,14 @@ bool BWT::inverseRegularBlock(SliceArray<byte>& input, SliceArray<byte>& output,
     uint32* buckets_ = _buckets;
     uint32* data = _buffer1;
 
+    int chunks = getBWTChunks(count);
+
     // Initialize histogram
     memset(_buckets, 0, sizeof(_buckets));
 
     // Build array of packed index + value (assumes block size < 2^24)
     // Start with the primary index position
-    const int pIdx = getPrimaryIndex();
+    int pIdx = getPrimaryIndex(0);
     const uint32 val0 = src[pIdx] & 0xFF;
     data[pIdx] = val0;
     buckets_[val0]++;
@@ -147,13 +181,34 @@ bool BWT::inverseRegularBlock(SliceArray<byte>& input, SliceArray<byte>& output,
         buckets_[i] = sum - buckets_[i];
     }
 
-    uint32 ptr = data[pIdx];
-    dst[count - 1] = byte(ptr);
+    int idx = +count - 1;
 
     // Build inverse
-    for (int i = count - 2; i >= 0; i--) {
-        ptr = data[(ptr >> 8) + buckets_[ptr & 0xFF]];
-        dst[i] = byte(ptr);
+    if (chunks == 1) {
+        uint32 ptr = data[pIdx];
+        dst[idx--] = byte(ptr);
+
+        for (; idx >= 0; idx--) {
+            ptr = data[(ptr >> 8) + buckets_[ptr & 0xFF]];
+            dst[idx] = byte(ptr);
+        }
+    }
+    else {
+        const int step = count / chunks;
+
+        for (int i = chunks - 1; i >= 0; i--) {
+            uint32 ptr = data[pIdx];
+            dst[idx--] = byte(ptr);
+            const int endChunk = i * step;
+
+            for (; idx >= endChunk; idx--) {
+                ptr = data[(ptr >> 8) + buckets_[ptr & 0xFF]];
+                dst[idx] = byte(ptr);
+            }
+
+            pIdx = getPrimaryIndex(i);
+            idx = endChunk - 1;
+        }
     }
 
     input._index += count;
@@ -181,12 +236,14 @@ bool BWT::inverseBigBlock(SliceArray<byte>& input, SliceArray<byte>& output, int
     uint32* data1 = _buffer1;
     byte* data2 = _buffer2;
 
+    int chunks = getBWTChunks(count);
+
     // Initialize histogram
     memset(_buckets, 0, sizeof(_buckets));
 
     // Build arrays
     // Start with the primary index position
-    const int pIdx = getPrimaryIndex();
+    int pIdx = getPrimaryIndex(0);
     const byte val0 = src[pIdx];
     data1[pIdx] = buckets_[val0 & 0xFF];
     data2[pIdx] = val0;
@@ -214,19 +271,59 @@ bool BWT::inverseBigBlock(SliceArray<byte>& input, SliceArray<byte>& output, int
         buckets_[i] = sum - buckets_[i];
     }
 
-    uint32 val1 = data1[pIdx];
-    byte val2 = data2[pIdx];
-    dst[count - 1] = val2;
+    int idx = count - 1;
 
     // Build inverse
-    for (int i = count - 2; i >= 0; i--) {
-        const uint32 idx = val1 + buckets_[val2 & 0xFF];
-        val1 = data1[idx];
-        val2 = data2[idx];
-        dst[i] = val2;
+    if (chunks == 1) {
+        uint32 val1 = data1[pIdx];
+        byte val2 = data2[pIdx];
+        dst[idx--] = val2;
+
+        for (; idx >= 0; idx--) {
+            const int n = val1 + buckets_[val2 & 0xFF];
+            val1 = data1[n];
+            val2 = data2[n];
+            dst[idx] = val2;
+        }
+    }
+    else {
+        const int step = count / chunks;
+
+        for (int i = chunks - 1; i >= 0; i--) {
+            uint32 val1 = data1[pIdx];
+            byte val2 = data2[pIdx];
+            dst[idx--] = val2;
+            const int endChunk = i * step;
+
+            for (; idx >= endChunk; idx--) {
+                const int n = val1 + buckets_[val2 & 0xFF];
+                val1 = data1[n];
+                val2 = data2[n];
+                dst[idx] = val2;
+            }
+
+            pIdx = getPrimaryIndex(i);
+            idx = endChunk - 1;
+        }
     }
 
     input._index += count;
     output._index += count;
     return true;
+}
+
+int BWT::getBWTChunks(int size)
+{
+    // For now, return 1 always !!!!
+    return 1;
+    //       int log = 0;
+    //       size >>= 10;
+    //
+    //       while ((size>0) && (log<3))
+    //       {
+    //          size >>= 2;
+    //          log++;
+    //       }
+    //
+    //       return 1<<log;
 }
