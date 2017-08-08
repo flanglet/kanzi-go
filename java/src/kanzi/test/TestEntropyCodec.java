@@ -66,9 +66,12 @@ public class TestEntropyCodec
               System.out.println("\n\nTestHuffmanCodec");
               testCorrectness("HUFFMAN");
               testSpeed("HUFFMAN");
-              System.out.println("\n\nTestANSCodec");
-              testCorrectness("ANS");
-              testSpeed("ANS");
+              System.out.println("\n\nTestANS0Codec");
+              testCorrectness("ANS0");
+              testSpeed("ANS0");
+              System.out.println("\n\nTestANS1Codec");
+              testCorrectness("ANS1");
+              testSpeed("ANS1");
               System.out.println("\n\nTestRangeCodec");
               testCorrectness("RANGE");
               testSpeed("RANGE");
@@ -132,8 +135,11 @@ public class TestEntropyCodec
           case "HUFFMAN":
              return new HuffmanEncoder(obs);
              
-          case "ANS":
-             return new ANSRangeEncoder(obs);
+          case "ANS0":
+             return new ANSRangeEncoder(obs, 0);
+             
+          case "ANS1":
+             return new ANSRangeEncoder(obs, 1);
              
           case "RANGE":
              return new RangeEncoder(obs);
@@ -164,8 +170,11 @@ public class TestEntropyCodec
           case "HUFFMAN":
              return new HuffmanDecoder(ibs);
              
-          case "ANS":
-             return new ANSRangeDecoder(ibs);
+          case "ANS0":
+             return new ANSRangeDecoder(ibs, 0);
+             
+          case "ANS1":
+             return new ANSRangeDecoder(ibs, 1);
              
           case "RANGE":
              return new RangeDecoder(ibs);

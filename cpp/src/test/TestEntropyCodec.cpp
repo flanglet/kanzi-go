@@ -65,8 +65,11 @@ static EntropyEncoder* getEncoder(string name, OutputBitStream& obs, Predictor* 
     if (name.compare("HUFFMAN") == 0)
         return new HuffmanEncoder(obs);
 
-    if (name.compare("ANS") == 0)
-        return new ANSRangeEncoder(obs);
+    if (name.compare("ANS0") == 0)
+        return new ANSRangeEncoder(obs, 0);
+
+    if (name.compare("ANS1") == 0)
+        return new ANSRangeEncoder(obs, 1);
 
     if (name.compare("RANGE") == 0)
         return new RangeEncoder(obs);
@@ -98,8 +101,11 @@ static EntropyDecoder* getDecoder(string name, InputBitStream& ibs, Predictor* p
     if (name.compare("HUFFMAN") == 0)
         return new HuffmanDecoder(ibs);
 
-    if (name.compare("ANS") == 0)
-        return new ANSRangeDecoder(ibs);
+    if (name.compare("ANS0") == 0)
+        return new ANSRangeDecoder(ibs, 0);
+
+    if (name.compare("ANS1") == 0)
+        return new ANSRangeDecoder(ibs, 1);
 
     if (name.compare("RANGE") == 0)
         return new RangeDecoder(ibs);
@@ -345,9 +351,14 @@ int TestEntropyCodec_main(int argc, const char* argv[])
                 testEntropyCodecSpeed("HUFFMAN");
                 cout << endl
                      << endl
-                     << "TestANSCodec" << endl;
-                testEntropyCodecCorrectness("ANS");
-                testEntropyCodecSpeed("ANS");
+                     << "TestANS0Codec" << endl;
+                testEntropyCodecCorrectness("ANS0");
+                testEntropyCodecSpeed("ANS0");
+                cout << endl
+                     << endl
+                     << "TestANS1Codec" << endl;
+                testEntropyCodecCorrectness("ANS1");
+                testEntropyCodecSpeed("ANS1");
                 cout << endl
                      << endl
                      << "TestRangCodec" << endl;

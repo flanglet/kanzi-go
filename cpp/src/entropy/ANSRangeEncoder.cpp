@@ -28,7 +28,7 @@ ANSRangeEncoder::ANSRangeEncoder(OutputBitStream& bitstream, int order, int chun
     if ((order != 0) && (order != 1))
         throw IllegalArgumentException("The order must be 0 or 1");
 
-    if ((chunkSize != 0) && (chunkSize < 1024))
+    if ((chunkSize != 0) && (chunkSize != -1) && (chunkSize < 1024))
         throw IllegalArgumentException("The chunk size must be at least 1024");
 
     if (chunkSize > 1 << 30)

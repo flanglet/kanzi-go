@@ -39,9 +39,12 @@ func main() {
 		fmt.Printf("\n\nTestHuffmanCodec")
 		TestCorrectness("HUFFMAN")
 		TestSpeed("HUFFMAN")
-		fmt.Printf("\n\nTestANSCodec")
-		TestCorrectness("ANS")
-		TestSpeed("ANS")
+		fmt.Printf("\n\nTestANS0Codec")
+		TestCorrectness("ANS0")
+		TestSpeed("ANS0")
+		fmt.Printf("\n\nTestANS1Codec")
+		TestCorrectness("ANS1")
+		TestSpeed("ANS1")
 		fmt.Printf("\n\nTestRangeCodec")
 		TestCorrectness("RANGE")
 		TestSpeed("RANGE")
@@ -115,8 +118,12 @@ func getEncoder(name string, obs kanzi.OutputBitStream) kanzi.EntropyEncoder {
 		res, _ := entropy.NewHuffmanEncoder(obs)
 		return res
 
-	case "ANS":
-		res, _ := entropy.NewANSRangeEncoder(obs)
+	case "ANS0":
+		res, _ := entropy.NewANSRangeEncoder(obs, 0)
+		return res
+
+	case "ANS1":
+		res, _ := entropy.NewANSRangeEncoder(obs, 1)
 		return res
 
 	case "RANGE":
@@ -160,8 +167,12 @@ func getDecoder(name string, ibs kanzi.InputBitStream) kanzi.EntropyDecoder {
 		res, _ := entropy.NewHuffmanDecoder(ibs)
 		return res
 
-	case "ANS":
-		res, _ := entropy.NewANSRangeDecoder(ibs)
+	case "ANS0":
+		res, _ := entropy.NewANSRangeDecoder(ibs, 0)
+		return res
+
+	case "ANS1":
+		res, _ := entropy.NewANSRangeDecoder(ibs, 1)
 		return res
 
 	case "RANGE":
