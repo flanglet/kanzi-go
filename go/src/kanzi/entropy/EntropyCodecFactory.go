@@ -27,9 +27,10 @@ const (
 	FPAQ_TYPE    = uint16(2) // Fast PAQ (order 0)
 	PAQ_TYPE     = uint16(3) // PAQ (stripped from many models for speed)
 	RANGE_TYPE   = uint16(4) // Range
-	ANS_TYPE     = uint16(5) // Asymmetric Numerical System
+	ANS0_TYPE    = uint16(5) // Asymmetric Numerical System order 0
 	CM_TYPE      = uint16(6) // Context Model
 	TPAQ_TYPE    = uint16(7) // Tangelo PAQ
+	ANS1_TYPE    = uint16(8) // Asymmetric Numerical System order 1
 )
 
 func NewEntropyDecoder(ibs kanzi.InputBitStream, entropyType uint16) (kanzi.EntropyDecoder, error) {
@@ -38,8 +39,11 @@ func NewEntropyDecoder(ibs kanzi.InputBitStream, entropyType uint16) (kanzi.Entr
 	case HUFFMAN_TYPE:
 		return NewHuffmanDecoder(ibs)
 
-	case ANS_TYPE:
-		return NewANSRangeDecoder(ibs)
+	case ANS0_TYPE:
+		return NewANSRangeDecoder(ibs, 0)
+
+	case ANS1_TYPE:
+		return NewANSRangeDecoder(ibs, 1)
 
 	case RANGE_TYPE:
 		return NewRangeDecoder(ibs)
@@ -74,8 +78,11 @@ func NewEntropyEncoder(obs kanzi.OutputBitStream, entropyType uint16) (kanzi.Ent
 	case HUFFMAN_TYPE:
 		return NewHuffmanEncoder(obs)
 
-	case ANS_TYPE:
-		return NewANSRangeEncoder(obs)
+	case ANS0_TYPE:
+		return NewANSRangeEncoder(obs, 0)
+
+	case ANS1_TYPE:
+		return NewANSRangeEncoder(obs, 1)
 
 	case RANGE_TYPE:
 		return NewRangeEncoder(obs)
@@ -110,8 +117,11 @@ func GetEntropyCodecName(entropyType uint16) string {
 	case HUFFMAN_TYPE:
 		return "HUFFMAN"
 
-	case ANS_TYPE:
-		return "ANS"
+	case ANS0_TYPE:
+		return "ANS0"
+
+	case ANS1_TYPE:
+		return "ANS1"
 
 	case RANGE_TYPE:
 		return "RANGE"
@@ -142,8 +152,11 @@ func GetEntropyCodecType(entropyName string) uint16 {
 	case "HUFFMAN":
 		return HUFFMAN_TYPE
 
-	case "ANS":
-		return ANS_TYPE
+	case "ANS0":
+		return ANS0_TYPE
+
+	case "ANS1":
+		return ANS1_TYPE
 
 	case "RANGE":
 		return RANGE_TYPE

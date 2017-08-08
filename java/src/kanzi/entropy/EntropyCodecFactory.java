@@ -28,9 +28,11 @@ public class EntropyCodecFactory
    public static final byte FPAQ_TYPE    = 2; // Fast PAQ (order 0)
    public static final byte PAQ_TYPE     = 3; // PAQ (stripped from many models for speed)
    public static final byte RANGE_TYPE   = 4; // Range
-   public static final byte ANS_TYPE     = 5; // Asymmetric Numerical System
+   public static final byte ANS0_TYPE    = 5; // Asymmetric Numerical System order 0
    public static final byte CM_TYPE      = 6; // Context Model
    public static final byte TPAQ_TYPE    = 7; // Tangelo PAQ
+   public static final byte ANS1_TYPE    = 8; // Asymmetric Numerical System order 1
+   public static final byte GZIP_TYPE    = 9; // GZIP
    
    
    public EntropyDecoder newDecoder(InputBitStream ibs, short entropyType)
@@ -44,8 +46,10 @@ public class EntropyCodecFactory
          // Rebuild the entropy decoder to reset block statistics
          case HUFFMAN_TYPE:
             return new HuffmanDecoder(ibs);
-         case ANS_TYPE:
-            return new ANSRangeDecoder(ibs);
+         case ANS0_TYPE:
+            return new ANSRangeDecoder(ibs, 0);
+         case ANS1_TYPE:
+            return new ANSRangeDecoder(ibs, 1);
          case RANGE_TYPE:
             return new RangeDecoder(ibs);
          case PAQ_TYPE:
@@ -56,6 +60,8 @@ public class EntropyCodecFactory
             return new BinaryEntropyDecoder(ibs, new CMPredictor());
          case TPAQ_TYPE:
             return new BinaryEntropyDecoder(ibs, new TPAQPredictor());
+         case GZIP_TYPE:
+            return new GZipDecoder(ibs);
          case NONE_TYPE:
             return new NullEntropyDecoder(ibs);
          default:
@@ -73,8 +79,10 @@ public class EntropyCodecFactory
       {
          case HUFFMAN_TYPE:
             return new HuffmanEncoder(obs);
-         case ANS_TYPE:
-            return new ANSRangeEncoder(obs);
+         case ANS0_TYPE:
+            return new ANSRangeEncoder(obs, 0);
+         case ANS1_TYPE:
+            return new ANSRangeEncoder(obs, 1);
          case RANGE_TYPE:
             return new RangeEncoder(obs);
          case PAQ_TYPE:
@@ -85,6 +93,8 @@ public class EntropyCodecFactory
             return new BinaryEntropyEncoder(obs, new CMPredictor());
          case TPAQ_TYPE:
             return new BinaryEntropyEncoder(obs, new TPAQPredictor());
+         case GZIP_TYPE:
+            return new GZipEncoder(obs);
          case NONE_TYPE:
             return new NullEntropyEncoder(obs);
          default :
@@ -99,8 +109,10 @@ public class EntropyCodecFactory
       {
          case HUFFMAN_TYPE:
             return "HUFFMAN";
-         case ANS_TYPE:
-            return "ANS";
+         case ANS0_TYPE:
+            return "ANS0";
+         case ANS1_TYPE:
+            return "ANS1";
          case RANGE_TYPE:
             return "RANGE";
          case PAQ_TYPE:
@@ -111,6 +123,8 @@ public class EntropyCodecFactory
             return "CM";
          case TPAQ_TYPE:
             return "TPAQ";
+         case GZIP_TYPE:
+            return "GZIP";
          case NONE_TYPE:
             return "NONE";
          default :
@@ -126,8 +140,11 @@ public class EntropyCodecFactory
       if (name.equals("HUFFMAN"))
          return HUFFMAN_TYPE; 
       
-      if (name.equals("ANS"))
-         return ANS_TYPE; 
+      if (name.equals("ANS0"))
+         return ANS0_TYPE; 
+      
+      if (name.equals("ANS1"))
+         return ANS1_TYPE; 
       
       if (name.equals("FPAQ"))
          return FPAQ_TYPE;
@@ -146,6 +163,9 @@ public class EntropyCodecFactory
 
       if (name.equals("TPAQ"))
          return TPAQ_TYPE;
+      
+      if (name.equals("GZIP"))
+         return GZIP_TYPE;
       
       throw new IllegalArgumentException("Unsupported entropy codec type: " + name); 
    } 

@@ -318,7 +318,7 @@ int EntropyUtils::normalizeFrequencies(uint freqs[], uint alphabet[], int length
 {
     if (length > 256) {
         stringstream ss;
-        ss << "Invalid alphabet size parameter: " << scale << " (must be less than or eqaul to 256)";
+        ss << "Invalid alphabet size parameter: " << scale << " (must be less than or equal to 256)";
         throw IllegalArgumentException(ss.str());
     }
 

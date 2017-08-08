@@ -48,9 +48,10 @@ namespace kanzi
        static const byte FPAQ_TYPE = 2; // Fast PAQ (order 0)
        static const byte PAQ_TYPE = 3; // PAQ (stripped from many models for speed)
        static const byte RANGE_TYPE = 4; // Range
-       static const byte ANS_TYPE = 5; // Asymmetric Numerical System order 0
+       static const byte ANS0_TYPE = 5; // Asymmetric Numerical System order 0
        static const byte CM_TYPE = 6; // Context Model
        static const byte TPAQ_TYPE = 7; // Tangelo PAQ
+       static const byte ANS1_TYPE    = 8; // Asymmetric Numerical System order 1
 
    public:
        static EntropyDecoder* newDecoder(InputBitStream& ibs, short entropyType) THROW;
@@ -70,8 +71,11 @@ namespace kanzi
        case HUFFMAN_TYPE:
            return new HuffmanDecoder(ibs);
 
-         case ANS_TYPE:
-            return new ANSRangeDecoder(ibs);
+       case ANS0_TYPE:
+           return new ANSRangeDecoder(ibs, 0);
+
+       case ANS1_TYPE:
+           return new ANSRangeDecoder(ibs, 1);
 
        case RANGE_TYPE:
            return new RangeDecoder(ibs);
@@ -102,8 +106,11 @@ namespace kanzi
        case HUFFMAN_TYPE:
            return new HuffmanEncoder(obs);
 
-       case ANS_TYPE:
-           return new ANSRangeEncoder(obs);
+       case ANS0_TYPE:
+           return new ANSRangeEncoder(obs, 0);
+
+       case ANS1_TYPE:
+           return new ANSRangeEncoder(obs, 1);
 
        case RANGE_TYPE:
            return new RangeEncoder(obs);
@@ -134,8 +141,11 @@ namespace kanzi
        case HUFFMAN_TYPE:
            return "HUFFMAN";
 
-       case ANS_TYPE:
-           return "ANS";
+       case ANS0_TYPE:
+           return "ANS0";
+
+       case ANS1_TYPE:
+           return "ANS1";
 
        case RANGE_TYPE:
            return "RANGE";
@@ -168,8 +178,11 @@ namespace kanzi
        if (name == "HUFFMAN")
            return HUFFMAN_TYPE;
 
-       if (name == "ANS")
-           return ANS_TYPE;
+       if (name == "ANS0")
+           return ANS0_TYPE;
+
+       if (name == "ANS1")
+           return ANS1_TYPE;
 
        if (name == "FPAQ")
            return FPAQ_TYPE;

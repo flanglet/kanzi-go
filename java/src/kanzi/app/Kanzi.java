@@ -216,7 +216,7 @@ public class Kanzi
                   printOut("        0=None&None (store), 1=TEXT+LZ4&HUFFMAN, 2=BWT+RANK+ZRLT&RANGE", true);
                   printOut("        3=BWT+RANK+ZRLT&FPAQ, 4=BWT&CM, 5=RLT+TEXT&TPAQ\n", true);
                   printOut("   -e, --entropy=<codec>", true);
-                  printOut("        entropy codec [None|Huffman|ANS|Range|PAQ|FPAQ|TPAQ|CM]", true);
+                  printOut("        entropy codec [None|Huffman|ANS0|ANS1|Range|PAQ|FPAQ|TPAQ|CM]", true);
                   printOut("        (default is Huffman)\n", true);
                   printOut("   -t, --transform=<codec>", true);
                   printOut("        transform [None|BWT|BWTS|SNAPPY|LZ4|RLT|ZRLT|MTFT|RANK|TEXT|TIMESTAMP]", true);

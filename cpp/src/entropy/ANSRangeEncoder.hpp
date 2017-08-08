@@ -21,20 +21,41 @@ limitations under the License.
 
 using namespace std;
 
+// Implementation of an Asymmetric Numeral System encoder.
+// See "Asymmetric Numeral System" by Jarek Duda at http://arxiv.org/abs/0902.0271
+// Some code has been ported from https://github.com/rygorous/ryg_rans
+// For an alternate C implementation example, see https://github.com/Cyan4973/FiniteStateEntropy
+
 namespace kanzi 
 {
 
-   // Implementation of an Asymmetric Numeral System encoder.
-   // See "Asymmetric Numeral System" by Jarek Duda at http://arxiv.org/abs/0902.0271
-   // For alternate C implementation examples, see https://github.com/Cyan4973/FiniteStateEntropy
-   // and https://github.com/rygorous/ryg_rans
+   class ANSEncSymbol 
+   {
+   public:
+      ANSEncSymbol() { }
+      ~ANSEncSymbol() { }
+      void reset(int cumFreq, int freq, int logRange);
+
+      int _xMax; // (Exclusive) upper bound of pre-normalization interval
+      int _bias; // Bias
+      int _cmplFreq; // Complement of frequency: (1 << scale_bits) - freq
+      int _invShift; // Reciprocal shift
+      uint64 _invFreq; // Fixed-point reciprocal frequency
+      int _freq;
+   };
+
 
    class ANSRangeEncoder : public EntropyEncoder
    {
    public:
-	   ANSRangeEncoder(OutputBitStream& bitstream, int chunkSize = DEFAULT_CHUNK_SIZE, int logRange = DEFAULT_LOG_RANGE) THROW;
+	   static const uint ANS_TOP = 1 << 22;
 
-	   ~ANSRangeEncoder() { delete[] _buffer;  dispose(); };
+      ANSRangeEncoder(OutputBitStream& bitstream, 
+                      int order = 0, 
+                      int chunkSize = -1, 
+                      int logRange = DEFAULT_LOG_RANGE) THROW;
+
+	   ~ANSRangeEncoder();
 
 	   int updateFrequencies(uint frequencies[], int size, int lr);
 
@@ -43,22 +64,23 @@ namespace kanzi
 	   OutputBitStream& getBitStream() const { return _bitstream; }
 
 	   void dispose() {};
+   
 
    private:
-	   static const uint64 ANS_TOP = 1 << 24;
-	   static const int DEFAULT_CHUNK_SIZE = 1 << 16; // 64 KB by default
-	   static const int DEFAULT_LOG_RANGE = 13;
+	   static const int DEFAULT_ANS0_CHUNK_SIZE = 1 << 16; // 64 KB by default
+	   static const int DEFAULT_LOG_RANGE = 12; // max possible for ANS_TOP=1<22
 
 
-	   uint _alphabet[256];
-	   uint _freqs[256];
-	   uint _cumFreqs[257];
-	   int* _buffer;
+	   uint* _alphabet;
+	   uint* _freqs;
+	   ANSEncSymbol* _symbols;
+	   byte* _buffer;
 	   uint _bufferSize;
 	   EntropyUtils _eu;
 	   OutputBitStream& _bitstream;
 	   uint _chunkSize;
 	   uint _logRange;
+	   uint _order;
 
 
 	   int rebuildStatistics(byte block[], int start, int end, int lr);

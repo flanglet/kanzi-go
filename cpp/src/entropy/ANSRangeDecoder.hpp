@@ -21,19 +21,32 @@ limitations under the License.
 
 using namespace std;
 
+// Implementation of an Asymmetric Numeral System decoder.
+// See "Asymmetric Numeral System" by Jarek Duda at http://arxiv.org/abs/0902.0271
+// Some code has been ported from https://github.com/rygorous/ryg_rans
+// For an alternate C implementation example, see https://github.com/Cyan4973/FiniteStateEntropy
+
 namespace kanzi 
 {
+   class ANSDecSymbol 
+   {
+   public:
+      ANSDecSymbol() { }
+      ~ANSDecSymbol() { }
+      void reset(int cumFreq, int freq);
 
-   // Implementation of an Asymmetric Numeral System decoder.
-   // See "Asymmetric Numeral System" by Jarek Duda at http://arxiv.org/abs/0902.0271
-   // For alternate C implementation examples, see https://github.com/Cyan4973/FiniteStateEntropy
-   // and https://github.com/rygorous/ryg_rans
+      int _cumFreq;
+      int _freq;
+   };
+
 
    class ANSRangeDecoder : public EntropyDecoder {
    public:
-	   ANSRangeDecoder(InputBitStream& bitstream, int chunkSize = DEFAULT_CHUNK_SIZE) THROW;
+	   static const uint ANS_TOP = 1 << 22;
 
-	   ~ANSRangeDecoder() { delete[] _f2s; dispose(); }
+      ANSRangeDecoder(InputBitStream& bitstream, int order = 0, int chunkSize = -1) THROW;
+
+	   ~ANSRangeDecoder();
 
 	   int decode(byte block[], uint blkptr, uint len);
 
@@ -42,17 +55,17 @@ namespace kanzi
 	   void dispose() {};
 
    private:
-	   static const uint64 ANS_TOP = 1 << 24;
-	   static const int DEFAULT_CHUNK_SIZE = 1 << 16; // 64 KB by default
+	   static const int DEFAULT_ANS0_CHUNK_SIZE = 1 << 16; // 64 KB by default
 	   static const int DEFAULT_LOG_RANGE = 13;
 
-	   uint _alphabet[256];
-	   uint _freqs[256];
-	   uint _cumFreqs[257];
-	   short* _f2s;
-	   int _f2sSize;
 	   InputBitStream& _bitstream;
+	   uint* _alphabet;
+	   uint* _freqs;
+	   byte* _f2s;
+	   int _f2sSize;
+	   ANSDecSymbol* _symbols;
 	   uint _chunkSize;
+	   uint _order;
 	   uint _logRange;
 
 	   void decodeChunk(byte block[], int start, int end);
