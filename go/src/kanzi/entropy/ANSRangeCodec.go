@@ -111,7 +111,7 @@ func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncode
 }
 
 // Compute cumulated frequencies and encode header
-func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, size int, lr uint) (int, error) {
+func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, lr uint) (int, error) {
 	res := 0
 	endk := int(255*this.order + 1)
 	this.bitstream.WriteBits(uint64(lr-8), 3) // logRange
@@ -239,14 +239,14 @@ func (this *ANSRangeEncoder) Encode(block []byte) (int, error) {
 		}
 
 		this.rebuildStatistics(block[startChunk:endChunk], lr)
-		this.encodeChunk(block[startChunk:endChunk], lr)
+		this.encodeChunk(block[startChunk:endChunk])
 		startChunk = endChunk
 	}
 
 	return end, nil
 }
 
-func (this *ANSRangeEncoder) encodeChunk(block []byte, lr uint) {
+func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 	st := ANS_TOP
 	n := 0
 
@@ -345,7 +345,7 @@ func (this *ANSRangeEncoder) rebuildStatistics(block []byte, lr uint) (int, erro
 		}
 	}
 
-	return this.updateFrequencies(this.freqs, len(block), lr)
+	return this.updateFrequencies(this.freqs, lr)
 }
 
 func (this *ANSRangeEncoder) Dispose() {

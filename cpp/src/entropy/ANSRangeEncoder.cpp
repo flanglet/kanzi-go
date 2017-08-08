@@ -64,7 +64,7 @@ ANSRangeEncoder::~ANSRangeEncoder()
 };
 
 // Compute cumulated frequencies and encode header
-int ANSRangeEncoder::updateFrequencies(uint frequencies[], int size, int lr)
+int ANSRangeEncoder::updateFrequencies(uint frequencies[], int lr)
 {
     int res = 0;
     const int endk = 255 * _order + 1;
@@ -159,14 +159,14 @@ int ANSRangeEncoder::encode(byte block[], uint blkptr, uint len)
             lr--;
 
         rebuildStatistics(block, startChunk, endChunk, lr);
-        encodeChunk(block, startChunk, endChunk, lr);
+        encodeChunk(block, startChunk, endChunk);
         startChunk = endChunk;
     }
 
     return len;
 }
 
-void ANSRangeEncoder::encodeChunk(byte block[], int start, int end, int lr)
+void ANSRangeEncoder::encodeChunk(byte block[], int start, int end)
 {
     uint st = ANS_TOP;
     int n = 0;
@@ -257,7 +257,7 @@ int ANSRangeEncoder::rebuildStatistics(byte block[], int start, int end, int lr)
         }
     }
 
-    return updateFrequencies(_freqs, end - start, lr);
+    return updateFrequencies(_freqs, lr);
 }
 
 void ANSEncSymbol::reset(int cumFreq, int freq, int logRange)

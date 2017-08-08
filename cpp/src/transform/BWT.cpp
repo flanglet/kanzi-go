@@ -312,7 +312,7 @@ bool BWT::inverseBigBlock(SliceArray<byte>& input, SliceArray<byte>& output, int
     return true;
 }
 
-int BWT::getBWTChunks(int size)
+int BWT::getBWTChunks(int)
 {
     // For now, return 1 always !!!!
     return 1;

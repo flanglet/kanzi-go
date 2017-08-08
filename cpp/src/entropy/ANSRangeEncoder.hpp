@@ -57,7 +57,7 @@ namespace kanzi
 
 	   ~ANSRangeEncoder();
 
-	   int updateFrequencies(uint frequencies[], int size, int lr);
+	   int updateFrequencies(uint frequencies[], int lr);
 
 	   int encode(byte block[], uint blkptr, uint len);
 
@@ -85,7 +85,7 @@ namespace kanzi
 
 	   int rebuildStatistics(byte block[], int start, int end, int lr);
 
-	   void encodeChunk(byte block[], int start, int end, int lr);
+	   void encodeChunk(byte block[], int start, int end);
 
 	   bool encodeHeader(int alphabetSize, uint alphabet[], uint frequencies[], int lr);
    };

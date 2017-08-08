@@ -32,7 +32,6 @@ public class EntropyCodecFactory
    public static final byte CM_TYPE      = 6; // Context Model
    public static final byte TPAQ_TYPE    = 7; // Tangelo PAQ
    public static final byte ANS1_TYPE    = 8; // Asymmetric Numerical System order 1
-   public static final byte GZIP_TYPE    = 9; // GZIP
    
    
    public EntropyDecoder newDecoder(InputBitStream ibs, short entropyType)
@@ -60,8 +59,6 @@ public class EntropyCodecFactory
             return new BinaryEntropyDecoder(ibs, new CMPredictor());
          case TPAQ_TYPE:
             return new BinaryEntropyDecoder(ibs, new TPAQPredictor());
-         case GZIP_TYPE:
-            return new GZipDecoder(ibs);
          case NONE_TYPE:
             return new NullEntropyDecoder(ibs);
          default:
@@ -93,8 +90,6 @@ public class EntropyCodecFactory
             return new BinaryEntropyEncoder(obs, new CMPredictor());
          case TPAQ_TYPE:
             return new BinaryEntropyEncoder(obs, new TPAQPredictor());
-         case GZIP_TYPE:
-            return new GZipEncoder(obs);
          case NONE_TYPE:
             return new NullEntropyEncoder(obs);
          default :
@@ -123,8 +118,6 @@ public class EntropyCodecFactory
             return "CM";
          case TPAQ_TYPE:
             return "TPAQ";
-         case GZIP_TYPE:
-            return "GZIP";
          case NONE_TYPE:
             return "NONE";
          default :
@@ -163,9 +156,6 @@ public class EntropyCodecFactory
 
       if (name.equals("TPAQ"))
          return TPAQ_TYPE;
-      
-      if (name.equals("GZIP"))
-         return GZIP_TYPE;
       
       throw new IllegalArgumentException("Unsupported entropy codec type: " + name); 
    } 
