@@ -110,11 +110,8 @@ public class RLT implements ByteFunction
          if (run >= threshold)
             this.counters[prev&0xFF] += (run-threshold-1);
 
-         if (prev != val)
-         {
-            prev = val;
-            run = 1;
-         }         
+         prev = val;
+         run = 1;        
       }
 
       if (run >= threshold)
@@ -188,18 +185,13 @@ public class RLT implements ByteFunction
             }
             
             dst[dstIdx++] = (byte) run;
-            run = 1;
          }
 
          dst[dstIdx++] = val;
-
-         if (prev != val)
-         {
-            prev = val;
-            run = 1;
-         }
+         prev = val;
+         run = 1;
       }
-
+      
       // Fill up the destination array
       if (run >= threshold)
       {

@@ -67,10 +67,8 @@ bool RLT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int length)
         if (run >= threshold)
             _counters[prev & 0xFF] += (run - threshold - 1);
 
-        if (prev != val) {
-            prev = val;
-            run = 1;
-        }
+        prev = val;
+        run = 1;
     }
 
     if (run >= threshold)
@@ -135,15 +133,11 @@ bool RLT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int length)
             }
 
             dst[dstIdx++] = byte(run);
-            run = 1;
         }
 
         dst[dstIdx++] = val;
-
-        if (prev != val) {
-            prev = val;
-            run = 1;
-        }
+        prev = val;
+        run = 1;
     }
 
     // Fill up the output array

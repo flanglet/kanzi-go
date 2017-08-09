@@ -110,10 +110,8 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 			this.counters[prev] += (run - threshold - 1)
 		}
 
-		if prev != val {
-			prev = val
-			run = 1
-		}
+		prev = val
+		run = 1
 	}
 
 	if run >= threshold {
@@ -189,16 +187,12 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 
 			dst[dstIdx] = byte(run)
 			dstIdx++
-			run = 1
 		}
 
 		dst[dstIdx] = val
 		dstIdx++
-
-		if prev != val {
-			prev = val
-			run = 1
-		}
+		prev = val
+		run = 1
 	}
 
 	// Fill up the destination array
