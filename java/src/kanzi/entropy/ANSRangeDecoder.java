@@ -102,7 +102,7 @@ public class ANSRangeDecoder implements EntropyDecoder
       for (int k=0; k<endk; k++)
       {
          Symbol[] syms = this.symbols[k];
-         
+
          for (int i=0; i<256; i++)
             syms[i] = new Symbol();
       }
@@ -153,9 +153,9 @@ public class ANSRangeDecoder implements EntropyDecoder
          
          for (int i=start; i<end; i++)
          {
-            final byte cur = this.f2s[prv][st&mask];
-            block[i] = cur;
-            final Symbol sym = this.symbols[prv][cur&0xFF];
+            final int cur = this.f2s[prv][st&mask] & 0xFF;
+            block[i] = (byte) cur;
+            final Symbol sym = this.symbols[prv][cur];
 
             // Compute next ANS state
             // D(x) = (s, q_s (x/M) + mod(x,M) - b_s) where s is such b_s <= x mod M < b_{s+1}
@@ -165,7 +165,7 @@ public class ANSRangeDecoder implements EntropyDecoder
             while (st < ANS_TOP)
                st = (st<<8) | (int) this.bitstream.readBits(8);
 
-            prv = cur & 0xFF;
+            prv = cur;
          }             
       }
    }
@@ -178,7 +178,7 @@ public class ANSRangeDecoder implements EntropyDecoder
       final int dim = 255*this.order + 1;
       this.logRange = (int) (8 + this.bitstream.readBits(3));
       final int scale = 1 << this.logRange;
-   
+
       for (int k=0; k<dim; k++)
       {
          final int[] f = frequencies[k];

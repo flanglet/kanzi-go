@@ -225,9 +225,8 @@ public class ANSRangeEncoder implements EntropyEncoder
          {
             final int cur = block[i] & 0xFF;
             final Symbol sym = symb[cur];
-            final int max = sym.xMax;
 
-            while (st >= max)
+            while (st >= sym.xMax)
             {
                this.buffer[n++] = (byte) st;
                st >>>= 8;
@@ -248,9 +247,8 @@ public class ANSRangeEncoder implements EntropyEncoder
          {
             final int cur = block[i] & 0xFF;
             final Symbol sym = this.symbols[cur][prv];
-            final int max = sym.xMax;
 
-            while (st >= max)
+            while (st >= sym.xMax)
             {
                this.buffer[n++] = (byte) st;
                st >>>= 8;
@@ -266,9 +264,8 @@ public class ANSRangeEncoder implements EntropyEncoder
 
          // Last symbol
          final Symbol sym = this.symbols[0][prv];
-         final int max = sym.xMax;
 
-         while (st >= max)
+         while (st >= sym.xMax)
          {
             this.buffer[n++] = (byte) st;
             st >>>= 8;
