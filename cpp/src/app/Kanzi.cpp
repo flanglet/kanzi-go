@@ -47,7 +47,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
     string inputName;
     string outputName;
     string strLevel = "-1";
-    string strVerbose = "1";
+    string strVerbose = "2";
     string strTasks = "1";
     string strBlockSize = "";
     string strOverwrite = "false";
@@ -97,7 +97,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
             strVerbose = (arg.compare(0, 10, "--verbose=") == 0) ? arg.substr(10) : arg;
             int verbose = atoi(strVerbose.c_str());
 
-            if ((verbose < 0) || (verbose > 4)) {
+            if ((verbose < 0) || (verbose > 5)) {
                 cerr << "Invalid verbosity level provided on command line: " << arg << endl;
                 exit(Error::ERR_INVALID_PARAM);
             }
@@ -131,9 +131,9 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
             printOut("   -h, --help", true);
             printOut("        display this message\n", true);
             printOut("   -v, --verbose=<level>", true);
-            printOut("        set the verbosity level [0..4]", true);
-            printOut("        0=silent, 1=default, 2=display block size (byte rounded)", true);
-            printOut("        3=display timings, 4=display extra information\n", true);
+            printOut("        set the verbosity level [0..5]", true);
+            printOut("        0=silent, 1=default, 2=default, 3=display block size,", true);
+            printOut("        4=display block size and timings, 5=display extra information\n", true);
             printOut("   -f, --force", true);
             printOut("        overwrite the output file if it already exists\n", true);
             printOut("   -i, --input=<inputName>", true);

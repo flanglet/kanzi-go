@@ -63,7 +63,7 @@ BlockDecompressor::BlockDecompressor(map<string, string>& args)
     _cis = nullptr;
     _os = nullptr;
 
-    if (_verbosity > 1)
+    if (_verbosity > 2)
         addListener(new InfoPrinter(_verbosity, InfoPrinter::DECODING, cout));
 
     if ((_verbosity > 0) && (args.size() > 0)) {
@@ -130,7 +130,7 @@ void BlockDecompressor::dispose()
 
 int BlockDecompressor::call()
 {
-    bool printFlag = _verbosity > 1;
+    bool printFlag = _verbosity > 2;
     stringstream ss;
     ss << "Kanzi 1.1 (C) 2017,  Frederic Langlet";
     printOut(ss.str().c_str(), _verbosity >= 1);
@@ -151,8 +151,8 @@ int BlockDecompressor::call()
     printOut(ss.str().c_str(), printFlag);
 
     uint64 read = 0;
-    bool silent = _verbosity < 1;
-    printOut("Decoding ...", !silent);
+    printFlag = _verbosity > 1;
+    printOut("Decoding ...", printFlag);
 
     if (_listeners.size() > 0) {
         Event evt(Event::DECOMPRESSION_START, -1, int64(0));
@@ -224,7 +224,7 @@ int BlockDecompressor::call()
         }
 
         try {
-            OutputStream* ds = (printFlag == true) ? &cout : nullptr;
+            OutputStream* ds = (_verbosity > 2) ? &cout : nullptr;
             _cis = new CompressedInputStream(*is, ds, _jobs);
 
             for (uint i = 0; i < _listeners.size(); i++)
@@ -320,25 +320,29 @@ int BlockDecompressor::call()
 
     clock.stop();
     double delta = clock.elapsed();
-    printOut("", !silent);
+    printOut("", _verbosity >= 1);
     ss.str(string());
     ss << "Decoding:          " << uint(delta) << " ms";
-    printOut(ss.str().c_str(), !silent);
+    printOut(ss.str().c_str(), printFlag);
     ss.str(string());
     ss << "Input size:        " << _cis->getRead();
-    printOut(ss.str().c_str(), !silent);
+    printOut(ss.str().c_str(), printFlag);
     ss.str(string());
     ss << "Output size:       " << read;
-    printOut(ss.str().c_str(), !silent);
+    printOut(ss.str().c_str(), printFlag);
+    ss.str(string());
+    ss << "Decoding: " << _cis->getRead() << " => " << read;
+    ss << " bytes in " << delta << " ms";
+    printOut(ss.str().c_str(), _verbosity == 1);
 
     if (delta > 0) {
         double b2KB = double(1000) / double(1024);
         ss.str(string());
         ss << "Throughput (KB/s): " << uint(read * b2KB / delta);
-        printOut(ss.str().c_str(), !silent);
+        printOut(ss.str().c_str(), printFlag);
     }
 
-    printOut("", !silent);
+    printOut("", _verbosity >= 1);
 
     if (_listeners.size() > 0) {
         Event evt(Event::DECOMPRESSION_END, -1, int64(_cis->getRead()));

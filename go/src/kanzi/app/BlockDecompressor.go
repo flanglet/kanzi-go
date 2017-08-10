@@ -69,7 +69,7 @@ func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, e
 		this.cpuProf = ""
 	}
 
-	if this.verbosity > 1 {
+	if this.verbosity > 2 {
 		if listener, err := kio.NewInfoPrinter(this.verbosity, kio.DECODING, os.Stdout); err == nil {
 			this.AddListener(listener)
 		}
@@ -111,7 +111,7 @@ func (this *BlockDecompressor) RemoveListener(bl kanzi.Listener) bool {
 // Return exit code, number of bits written
 func (this *BlockDecompressor) Call() (int, uint64) {
 	var msg string
-	printFlag := this.verbosity > 1
+	printFlag := this.verbosity > 2
 	bd_printOut("Kanzi 1.1 (C) 2017,  Frederic Langlet", this.verbosity >= 1)
 	bd_printOut("Input file name set to '"+this.inputName+"'", printFlag)
 	bd_printOut("Output file name set to '"+this.outputName+"'", printFlag)
@@ -167,8 +167,8 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 
 	// Decode
 	read := uint64(0)
-	silent := this.verbosity < 1
-	bd_printOut("Decoding ...", !silent)
+	printFlag = this.verbosity > 1
+	bd_printOut("Decoding ...", printFlag)
 	var input io.ReadCloser
 
 	if len(this.listeners) > 0 {
@@ -193,7 +193,7 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 
 	verboseWriter := os.Stdout
 
-	if printFlag == false {
+	if this.verbosity <= 2 {
 		verboseWriter = nil
 	}
 
@@ -251,20 +251,22 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 	after := time.Now()
 	delta := after.Sub(before).Nanoseconds() / 1000000 // convert to ms
 
-	bd_printOut("", !silent)
+	bd_printOut("", this.verbosity >= 1)
 	msg = fmt.Sprintf("Decoding:          %d ms", delta)
-	bd_printOut(msg, !silent)
+	bd_printOut(msg, printFlag)
 	msg = fmt.Sprintf("Input size:        %d", cis.GetRead())
-	bd_printOut(msg, !silent)
+	bd_printOut(msg, printFlag)
 	msg = fmt.Sprintf("Output size:       %d", read)
-	bd_printOut(msg, !silent)
+	bd_printOut(msg, printFlag)
+	msg = fmt.Sprintf("Decoding: %v => %v bytes in %v ms", cis.GetRead(), read, delta)
+	bd_printOut(msg, this.verbosity == 1)
 
 	if delta > 0 {
 		msg = fmt.Sprintf("Throughput (KB/s): %d", ((read*uint64(1000))>>10)/uint64(delta))
-		bd_printOut(msg, !silent)
+		bd_printOut(msg, printFlag)
 	}
 
-	bd_printOut("", !silent)
+	bd_printOut("", this.verbosity >= 1)
 
 	if len(this.listeners) > 0 {
 		evt := kanzi.NewEvent(kanzi.EVT_DECOMPRESSION_END, -1, int64(cis.GetRead()), 0, false)

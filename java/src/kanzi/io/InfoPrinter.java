@@ -46,17 +46,21 @@ public class InfoPrinter implements Listener
       this.thresholds = (type == Type.ENCODING) ? 
               new Event.Type[]
               { 
+                 Event.Type.COMPRESSION_START,
                  Event.Type.BEFORE_TRANSFORM,
                  Event.Type.AFTER_TRANSFORM,
                  Event.Type.BEFORE_ENTROPY,
-                 Event.Type.AFTER_ENTROPY
+                 Event.Type.AFTER_ENTROPY,
+                 Event.Type.COMPRESSION_END
               } :
               new Event.Type[]
               { 
+                 Event.Type.DECOMPRESSION_START,
                  Event.Type.BEFORE_ENTROPY,
                  Event.Type.AFTER_ENTROPY,
                  Event.Type.BEFORE_TRANSFORM,
-                 Event.Type.AFTER_TRANSFORM
+                 Event.Type.AFTER_TRANSFORM,
+                 Event.Type.DECOMPRESSION_END
               };
    }
    
@@ -66,7 +70,7 @@ public class InfoPrinter implements Listener
    {
       int currentBlockId = evt.getId();
 
-      if (evt.getType() == this.thresholds[0])
+      if (evt.getType() == this.thresholds[1])
       {
          // Register initial block size
          BlockInfo bi = new BlockInfo();
@@ -77,12 +81,12 @@ public class InfoPrinter implements Listener
          
          this.map.put(currentBlockId, bi);
          
-         if (this.level >= 4)
+         if (this.level >= 5)
          {
             this.ps.println(evt);
          }
       }
-      else if (evt.getType() == this.thresholds[1])
+      else if (evt.getType() == this.thresholds[2])
       { 
          BlockInfo bi = this.map.get(currentBlockId);
          
@@ -94,13 +98,13 @@ public class InfoPrinter implements Listener
          if (this.type == Type.DECODING)
             bi.stage0Size = evt.getSize();
                           
-         if (this.level >= 4)
+         if (this.level >= 5)
          {
             long duration_ms = (bi.time1 - bi.time0) / 1000000L; 
             this.ps.println(String.format("%s [%d ms]", evt, duration_ms));
          }
       }
-      else if (evt.getType() == this.thresholds[2])
+      else if (evt.getType() == this.thresholds[3])
       {
          BlockInfo bi = this.map.get(currentBlockId);
          
@@ -110,18 +114,18 @@ public class InfoPrinter implements Listener
          bi.time2 = evt.getTime();
          bi.stage1Size = evt.getSize();
          
-         if (this.level >= 4)
+         if (this.level >= 5)
          {
             long duration_ms = (bi.time2 - bi.time1) / 1000000L; 
             this.ps.println(String.format("%s [%d ms]", evt, duration_ms));
          }
       }
-      else if (evt.getType() == this.thresholds[3])
+      else if (evt.getType() == this.thresholds[4])
       {        
          long stage2Size = evt.getSize();
          BlockInfo bi = this.map.remove(currentBlockId);
          
-         if ((bi == null) || (this.level < 2))
+         if ((bi == null) || (this.level < 3))
             return;
              
          bi.time3 = evt.getTime();
@@ -129,18 +133,18 @@ public class InfoPrinter implements Listener
          long duration2_ms = (bi.time3 - bi.time2) / 1000000L; 
          StringBuilder msg = new StringBuilder();
                   
-         if (this.level >= 4)
+         if (this.level >= 5)
          {
             this.ps.println(String.format("%s [%d ms]", evt, duration2_ms));
          }
          
          // Display block info
-         if (this.level >= 3)
+         if (this.level >= 4)
          {
             msg.append(String.format("Block %d: %d => %d [%d ms] => %d [%d ms]", currentBlockId, 
                     bi.stage0Size, bi.stage1Size, duration1_ms, stage2Size, duration2_ms));
          }
-         else
+         else if (this.level >= 3)
          {
             msg.append(String.format("Block %d: %d => %d => %d", currentBlockId, 
                     bi.stage0Size, bi.stage1Size, stage2Size));
@@ -158,6 +162,10 @@ public class InfoPrinter implements Listener
             msg.append(String.format("  [%s]", Integer.toHexString(evt.getHash())));
          
          this.ps.println(msg.toString());         
+      }
+      else if (this.level >= 5)
+      {
+         this.ps.println(evt);
       }
    }
    

@@ -28,16 +28,20 @@ InfoPrinter::InfoPrinter(int infoLevel, InfoPrinter::Type type, OutputStream& os
     _type = type;
 
     if (type == InfoPrinter::ENCODING) {
-        _thresholds[0] = Event::BEFORE_TRANSFORM;
-        _thresholds[1] = Event::AFTER_TRANSFORM;
-        _thresholds[2] = Event::BEFORE_ENTROPY;
-        _thresholds[3] = Event::AFTER_ENTROPY;
+        _thresholds[0] = Event::COMPRESSION_START;
+        _thresholds[1] = Event::BEFORE_TRANSFORM;
+        _thresholds[2] = Event::AFTER_TRANSFORM;
+        _thresholds[3] = Event::BEFORE_ENTROPY;
+        _thresholds[4] = Event::AFTER_ENTROPY;
+        _thresholds[5] = Event::COMPRESSION_END;
     }
     else {
-        _thresholds[0] = Event::BEFORE_ENTROPY;
-        _thresholds[1] = Event::AFTER_ENTROPY;
-        _thresholds[2] = Event::BEFORE_TRANSFORM;
-        _thresholds[3] = Event::AFTER_TRANSFORM;
+        _thresholds[0] = Event::DECOMPRESSION_START;
+        _thresholds[1] = Event::BEFORE_ENTROPY;
+        _thresholds[2] = Event::AFTER_ENTROPY;
+        _thresholds[3] = Event::BEFORE_TRANSFORM;
+        _thresholds[4] = Event::AFTER_TRANSFORM;
+        _thresholds[5] = Event::DECOMPRESSION_END;
     }
 }
 
@@ -45,7 +49,7 @@ void InfoPrinter::processEvent(const Event& evt)
 {
     int currentBlockId = evt.getId();
 
-    if (evt.getType() == _thresholds[0]) {
+    if (evt.getType() == _thresholds[1]) {
 
         // Register initial block size
         BlockInfo* bi = new BlockInfo();
@@ -61,12 +65,11 @@ void InfoPrinter::processEvent(const Event& evt)
             _map.insert(pair<int, BlockInfo*>(currentBlockId, bi));
         }
 
-        if (_level >= 4) {
-//			PrintStream(_os) << evt.toString() << endl;
+        if (_level >= 5) {
             _os << evt.toString() << endl;
         }
     }
-    else if (evt.getType() == _thresholds[1]) {
+    else if (evt.getType() == _thresholds[2]) {
         BlockInfo* bi = nullptr;
 
         {
@@ -86,16 +89,15 @@ void InfoPrinter::processEvent(const Event& evt)
 
         bi->_clock1.stop();
 
-        if (_level >= 4) {
+        if (_level >= 5) {
             stringstream ss;
             ss << evt.toString() << " [" << uint(bi->_clock1.elapsed()) << " ms]";
-//          PrintStream(_os) << ss.str() << endl;
             _os << ss.str() << endl;
         }
 
          bi->_clock2.start();
     }
-    else if (evt.getType() == _thresholds[2]) {
+    else if (evt.getType() == _thresholds[3]) {
         BlockInfo* bi = nullptr;
 
         {
@@ -113,16 +115,15 @@ void InfoPrinter::processEvent(const Event& evt)
         bi->_clock2.stop();
         bi->_stage1Size = evt.getSize();
 
-        if (_level >= 4) {
+        if (_level >= 5) {
             stringstream ss;
             ss << evt.toString() << " [" << uint(bi->_clock2.elapsed())  << " ms]";
-//          PrintStream(_os) << ss.str() << endl;
             _os << ss.str() << endl;
         }
 
         bi->_clock2.start();
     }
-    else if (evt.getType() == _thresholds[3]) {
+    else if (evt.getType() == _thresholds[4]) {
         BlockInfo* bi = nullptr;
         map<int, BlockInfo*>::iterator it;
 
@@ -135,7 +136,7 @@ void InfoPrinter::processEvent(const Event& evt)
             if (it == _map.end())
                 return;
 
-            if (_level < 2) {
+            if (_level < 3) {
                 delete it->second;
                 _map.erase(it);
                 return;
@@ -148,17 +149,17 @@ void InfoPrinter::processEvent(const Event& evt)
         bi->_clock2.stop();
         stringstream ss;
 
-        if (_level >= 4) {
+        if (_level >= 5) {
             ss << evt.toString() << " [" << uint(bi->_clock2.elapsed()) << " ms]" << endl;
         }
 
         // Display block info
-        if (_level >= 3) {
+        if (_level >= 4) {
             ss << "Block " << currentBlockId << ": " << bi->_stage0Size << " => ";
             ss << bi->_stage1Size << " [" << uint(bi->_clock1.elapsed()) << " ms] => " << stage2Size;
             ss << " [" << uint(bi->_clock2.elapsed()) << " ms]";
         }
-        else {
+        else  if (_level >= 3) {
             ss << "Block " << currentBlockId << ": " << bi->_stage0Size << " => ";
             ss << bi->_stage1Size << " => " << stage2Size;
         }
@@ -179,7 +180,6 @@ void InfoPrinter::processEvent(const Event& evt)
             ss << buf;
         }
 
-//		  PrintStream(_os) << ss.str() << endl;
         _os << ss.str() << endl;
         delete bi;
 
@@ -189,5 +189,8 @@ void InfoPrinter::processEvent(const Event& evt)
 #endif
             _map.erase(it);
         }
+    }
+    else if (_level >= 5) {
+       _os << evt.toString() << endl;
     }
 }

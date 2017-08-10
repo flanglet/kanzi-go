@@ -62,7 +62,7 @@ namespace kanzi
 #ifdef CONCURRENCY_ENABLED
 		mutex _mutex;
 #endif
-		Event::Type _thresholds[4];
+		Event::Type _thresholds[6];
 		InfoPrinter::Type _type;
 		int _level;
 	};

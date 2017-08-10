@@ -137,7 +137,7 @@ func main() {
 
 func processCommandLine(args []string, argsMap map[string]interface{}) {
 	blockSize := -1
-	verbose := 1
+	verbose := 2
 	overwrite := false
 	checksum := false
 	inputName := ""
@@ -205,7 +205,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 				os.Exit(kio.ERR_INVALID_PARAM)
 			}
 
-			if verbose < 0 || verbose > 4 {
+			if verbose < 0 || verbose > 5 {
 				fmt.Printf("Invalid verbosity level provided on command line: %v\n", arg)
 				os.Exit(kio.ERR_INVALID_PARAM)
 			}
@@ -241,9 +241,9 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 			printOut("   -h, --help", true)
 			printOut("        display this message\n", true)
 			printOut("   -v, --verbose=<level>", true)
-			printOut("        set the verbosity level [0..4]", true)
-			printOut("        0=silent, 1=default, 2=display block size (byte rounded)", true)
-			printOut("        3=display timings, 4=display extra information\n", true)
+			printOut("        set the verbosity level [0..5]", true)
+			printOut("        0=silent, 1=compact, 2=default, 3=display block size,", true)
+			printOut("        4=display block size and timings, 5=display extra information\n", true)
 			printOut("   -f, --force", true)
 			printOut("        overwrite the output file if it already exists\n", true)
 			printOut("   -i, --input=<inputName>", true)

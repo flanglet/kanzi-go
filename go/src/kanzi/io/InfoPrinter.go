@@ -63,17 +63,21 @@ func NewInfoPrinter(infoLevel, type_ uint, writer io.Writer) (*InfoPrinter, erro
 
 	if this.type_ == ENCODING {
 		this.thresholds = []int{
+			kanzi.EVT_COMPRESSION_START,
 			kanzi.EVT_BEFORE_TRANSFORM,
 			kanzi.EVT_AFTER_TRANSFORM,
 			kanzi.EVT_BEFORE_ENTROPY,
 			kanzi.EVT_AFTER_ENTROPY,
+			kanzi.EVT_COMPRESSION_END,
 		}
 	} else {
 		this.thresholds = []int{
+			kanzi.EVT_DECOMPRESSION_START,
 			kanzi.EVT_BEFORE_ENTROPY,
 			kanzi.EVT_AFTER_ENTROPY,
 			kanzi.EVT_BEFORE_TRANSFORM,
 			kanzi.EVT_AFTER_TRANSFORM,
+			kanzi.EVT_DECOMPRESSION_END,
 		}
 	}
 
@@ -83,7 +87,7 @@ func NewInfoPrinter(infoLevel, type_ uint, writer io.Writer) (*InfoPrinter, erro
 func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 	currentBlockId := int32(evt.Id())
 
-	if evt.EventType() == this.thresholds[0] {
+	if evt.EventType() == this.thresholds[1] {
 		// Register initial block size
 		bi := BlockInfo{time0: evt.Time()}
 
@@ -95,10 +99,10 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 		this.map_[currentBlockId] = bi
 		this.lock.Unlock()
 
-		if this.level >= 4 {
+		if this.level >= 5 {
 			fmt.Fprintln(this.writer, evt)
 		}
-	} else if evt.EventType() == this.thresholds[1] {
+	} else if evt.EventType() == this.thresholds[2] {
 		this.lock.RLock()
 		bi, exists := this.map_[currentBlockId]
 		this.lock.RUnlock()
@@ -114,12 +118,12 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 			this.map_[currentBlockId] = bi
 			this.lock.Unlock()
 
-			if this.level >= 4 {
+			if this.level >= 5 {
 				duration_ms := bi.time1.Sub(bi.time0).Nanoseconds() / 1000000
 				fmt.Fprintln(this.writer, fmt.Sprintf("%s [%d ms]", evt, duration_ms))
 			}
 		}
-	} else if evt.EventType() == this.thresholds[2] {
+	} else if evt.EventType() == this.thresholds[3] {
 		this.lock.RLock()
 		bi, exists := this.map_[currentBlockId]
 		this.lock.RUnlock()
@@ -131,17 +135,17 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 			this.map_[currentBlockId] = bi
 			this.lock.Unlock()
 
-			if this.level >= 4 {
+			if this.level >= 5 {
 				duration_ms := bi.time2.Sub(bi.time1).Nanoseconds() / 1000000
 				fmt.Fprintln(this.writer, fmt.Sprintf("%s [%d ms]", evt, duration_ms))
 			}
 		}
-	} else if evt.EventType() == this.thresholds[3] {
+	} else if evt.EventType() == this.thresholds[4] {
 		this.lock.RLock()
 		bi, exists := this.map_[currentBlockId]
 		this.lock.RUnlock()
 
-		if exists == false || this.level < 2 {
+		if exists == false || this.level < 3 {
 			return
 		}
 
@@ -158,15 +162,15 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 		// Display block info
 		var msg string
 
-		if this.level >= 4 {
+		if this.level >= 5 {
 			fmt.Fprintln(this.writer, fmt.Sprintf("%s [%d ms]", evt, duration2_ms))
 		}
 
 		// Display block info
-		if this.level >= 3 {
+		if this.level >= 4 {
 			msg = fmt.Sprintf("Block %d: %d => %d [%d ms] => %d [%d ms]", currentBlockId,
 				bi.stage0Size, bi.stage1Size, duration1_ms, stage2Size, duration2_ms)
-		} else {
+		} else if this.level >= 3 {
 			msg = fmt.Sprintf("Block %d: %d => %d => %d", currentBlockId,
 				bi.stage0Size, bi.stage1Size, stage2Size)
 		}
@@ -184,5 +188,7 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 		}
 
 		fmt.Fprintln(this.writer, msg)
-	}
+	} else 		if this.level >= 5 {
+			fmt.Fprintln(this.writer, evt)
+		}
 }

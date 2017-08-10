@@ -101,7 +101,7 @@ public class Kanzi
     private static void processCommandLine(String args[], Map<String, Object> map)
     {
         int blockSize = -1;
-        int verbose = 1;
+        int verbose = 2;
         boolean overwrite = false;
         boolean checksum = false;
         String inputName = null;
@@ -162,7 +162,7 @@ public class Kanzi
                {
                    verbose = Integer.parseInt(verboseLevel);
 
-                   if ((verbose < 0) || (verbose > 4))
+                   if ((verbose < 0) || (verbose > 5))
                       throw new NumberFormatException();
                }
                catch (NumberFormatException e)
@@ -195,9 +195,9 @@ public class Kanzi
                printOut("   -h, --help", true);
                printOut("        display this message\n", true);
                printOut("   -v, --verbose=<level>", true);
-               printOut("        set the verbosity level [0..4]", true);
-               printOut("        0=silent, 1=default, 2=display block size (byte rounded)", true);
-               printOut("        3=display timings, 4=display extra information\n", true);
+               printOut("        set the verbosity level [0..5]", true);
+               printOut("        0=silent, 1=compact, 2=default, 3=display block size,", true);
+               printOut("        4=display block size and timings, 5=display extra information\n", true);
                printOut("   -f, --force", true);
                printOut("        overwrite the output file if it already exists\n", true);
                printOut("   -i, --input=<inputName>", true);

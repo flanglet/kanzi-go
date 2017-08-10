@@ -122,7 +122,7 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 		this.cpuProf = ""
 	}
 
-	if this.verbosity > 1 {
+	if this.verbosity > 2 {
 		if listener, err := kio.NewInfoPrinter(this.verbosity, kio.ENCODING, os.Stdout); err == nil {
 			this.AddListener(listener)
 		}
@@ -164,7 +164,7 @@ func (this *BlockCompressor) CpuProf() string {
 // Return exit code, number of bits written
 func (this *BlockCompressor) Call() (int, uint64) {
 	var msg string
-	printFlag := this.verbosity > 1
+	printFlag := this.verbosity > 2
 	bc_printOut("Kanzi 1.1 (C) 2017,  Frederic Langlet", this.verbosity >= 1)
 	bc_printOut("Input file name set to '"+this.inputName+"'", printFlag)
 	bc_printOut("Output file name set to '"+this.outputName+"'", printFlag)
@@ -251,7 +251,7 @@ func (this *BlockCompressor) Call() (int, uint64) {
 
 	verboseWriter := os.Stdout
 
-	if printFlag == false {
+	if this.verbosity <= 2 {
 		verboseWriter = nil
 	}
 
@@ -297,8 +297,8 @@ func (this *BlockCompressor) Call() (int, uint64) {
 	// Encode
 	length := 0
 	read := int64(0)
-	silent := this.verbosity < 1
-	bc_printOut("Encoding ...", !silent)
+	printFlag = this.verbosity > 1
+	bc_printOut("Encoding ...", printFlag)
 	written = cos.GetWritten()
 
 	buffer := make([]byte, COMP_DEFAULT_BUFFER_SIZE)
@@ -347,22 +347,24 @@ func (this *BlockCompressor) Call() (int, uint64) {
 	after := time.Now()
 	delta := after.Sub(before).Nanoseconds() / 1000000 // convert to ms
 
-	bc_printOut("", !silent)
+	bc_printOut("", this.verbosity >= 1)
 	msg = fmt.Sprintf("Encoding:          %d ms", delta)
-	bc_printOut(msg, !silent)
+	bc_printOut(msg, printFlag)
 	msg = fmt.Sprintf("Input size:        %d", read)
-	bc_printOut(msg, !silent)
+	bc_printOut(msg, printFlag)
 	msg = fmt.Sprintf("Output size:       %d", cos.GetWritten())
-	bc_printOut(msg, !silent)
+	bc_printOut(msg, printFlag)
 	msg = fmt.Sprintf("Ratio:             %f", float64(cos.GetWritten())/float64(read))
-	bc_printOut(msg, !silent)
+	bc_printOut(msg, printFlag)
+	msg = fmt.Sprintf("Encoding: %v => %v bytes in %v ms", read, cos.GetWritten(), delta)
+	bc_printOut(msg, this.verbosity == 1)
 
 	if delta > 0 {
 		msg = fmt.Sprintf("Throughput (KB/s): %d", ((read*int64(1000))>>10)/delta)
-		bc_printOut(msg, !silent)
+		bc_printOut(msg, printFlag)
 	}
 
-	bc_printOut("", !silent)
+	bc_printOut("", this.verbosity >= 1)
 
 	if len(this.listeners) > 0 {
 		evt := kanzi.NewEvent(kanzi.EVT_COMPRESSION_END, -1, int64(cos.GetWritten()), 0, false)

@@ -100,7 +100,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
       this.ownPool = (threadPool == null) && (this.pool != null);
       this.listeners = new ArrayList<>(10);
       
-      if (this.verbosity > 1)
+      if (this.verbosity > 2)
          this.addListener(new InfoPrinter(this.verbosity, InfoPrinter.Type.ENCODING, System.out));
       
       if ((this.verbosity > 0) && (map.size() > 0))
@@ -150,7 +150,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
    @Override
    public Integer call()
    { 
-      boolean printFlag = this.verbosity > 1;
+      boolean printFlag = this.verbosity > 2;
       printOut("Kanzi 1.1 (C) 2017,  Frederic Langlet", this.verbosity >= 1);
       printOut("Input file name set to '" + this.inputName + "'", printFlag);
       printOut("Output file name set to '" + this.outputName + "'", printFlag);
@@ -249,8 +249,8 @@ public class BlockCompressor implements Runnable, Callable<Integer>
       }
 
       // Encode
-      boolean silent = this.verbosity < 1;
-      printOut("Encoding ...", !silent);
+      printFlag = this.verbosity > 1;
+      printOut("Encoding ...", printFlag);
       int read = 0;
       SliceByteArray sa = new SliceByteArray(new byte[DEFAULT_BUFFER_SIZE], 0);
       int len;
@@ -321,18 +321,20 @@ public class BlockCompressor implements Runnable, Callable<Integer>
 
        long after = System.nanoTime();
        long delta = (after - before) / 1000000L; // convert to ms
-       printOut("", !silent);
-       printOut("Encoding:          "+delta+" ms", !silent);
-       printOut("Input size:        "+read, !silent);
-       printOut("Output size:       "+this.cos.getWritten(), !silent);
+       printOut("", this.verbosity>=1);
+       printOut("Encoding:          "+delta+" ms", printFlag);
+       printOut("Input size:        "+read, printFlag);
+       printOut("Output size:       "+this.cos.getWritten(), printFlag);
        float f = this.cos.getWritten() / (float) read;
-       printOut("Ratio:             "+String.format("%1$.6f", f), !silent);
+       printOut("Ratio:             "+String.format("%1$.6f", f), printFlag);
+       printOut("Encoding: "+read+" => "+this.cos.getWritten()+
+          " bytes in "+delta+" ms", this.verbosity==1);
 
        if (delta > 0)
-          printOut("Throughput (KB/s): "+(((read * 1000L) >> 10) / delta), !silent);
+          printOut("Throughput (KB/s): "+(((read * 1000L) >> 10) / delta), printFlag);
 
-       printOut("", !silent);
- 
+       printOut("", this.verbosity>=1);
+       
        if (this.listeners.size() > 0)
        {
           Event evt = new Event(Event.Type.COMPRESSION_END, -1, this.cos.getWritten());

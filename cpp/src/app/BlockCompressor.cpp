@@ -124,7 +124,7 @@ BlockCompressor::BlockCompressor(map<string, string>& args)
     _cos = nullptr;
     _is = nullptr;
 
-    if (_verbosity > 1)
+    if (_verbosity > 2)
         addListener(new InfoPrinter(_verbosity, InfoPrinter::ENCODING, cout));
 
     if ((_verbosity > 0) && (args.size() > 0)) {
@@ -191,7 +191,7 @@ void BlockCompressor::dispose()
 
 int BlockCompressor::call()
 {
-    bool printFlag = _verbosity > 1;
+    bool printFlag = _verbosity > 2;
     stringstream ss;
     ss << "Kanzi 1.1 (C) 2017,  Frederic Langlet";
     printOut(ss.str().c_str(), _verbosity >= 1);
@@ -317,8 +317,8 @@ int BlockCompressor::call()
     }
 
     // Encode
-    bool silent = _verbosity < 1;
-    printOut("Encoding ...", !silent);
+    printFlag = _verbosity > 1;
+    printOut("Encoding ...", printFlag);
     int read = 0;
     byte* buf = new byte[DEFAULT_BUFFER_SIZE];
     SliceArray<byte> sa(buf, DEFAULT_BUFFER_SIZE, 0);
@@ -390,28 +390,32 @@ int BlockCompressor::call()
 
     clock.stop();
     double delta = clock.elapsed();
-    printOut("", !silent);
+    printOut("", _verbosity >= 1);
     ss.str(string());
     ss << "Encoding:          " << uint(delta) << " ms";
-    printOut(ss.str().c_str(), !silent);
+    printOut(ss.str().c_str(), printFlag);
     ss.str(string());
     ss << "Input size:        " << read;
-    printOut(ss.str().c_str(), !silent);
+    printOut(ss.str().c_str(), printFlag);
     ss.str(string());
     ss << "Output size:       " << _cos->getWritten();
-    printOut(ss.str().c_str(), !silent);
+    printOut(ss.str().c_str(), printFlag);
     ss.str(string());
     ss << "Ratio:             " << float(_cos->getWritten()) / float(read);
-    printOut(ss.str().c_str(), !silent);
+    printOut(ss.str().c_str(), printFlag);
+    ss.str(string());
+    ss << "Encoding: " << read << " => " << _cos->getWritten();
+    ss << " bytes in " << delta<< " ms";
+    printOut(ss.str().c_str(), _verbosity == 1);
 
     if (delta > 0) {
         double b2KB = double(1000) / double(1024);
         ss.str(string());
         ss << "Throughput (KB/s): " << uint(read * b2KB / delta);
-        printOut(ss.str().c_str(), !silent);
+        printOut(ss.str().c_str(), printFlag);
     }
 
-    printOut("", !silent);
+    printOut("", _verbosity >= 1);
 
     if (_listeners.size() > 0) {
         Event evt(Event::COMPRESSION_END, -1, int64(_cos->getWritten()));

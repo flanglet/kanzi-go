@@ -69,7 +69,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       this.ownPool = (threadPool == null) && (this.pool != null);
       this.listeners = new ArrayList<Listener>(10);
 
-      if (this.verbosity > 1)
+      if (this.verbosity > 2)
          this.addListener(new InfoPrinter(this.verbosity, InfoPrinter.Type.DECODING, System.out));
 
       if ((this.verbosity > 0) && (map.size() > 0))
@@ -118,7 +118,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
    @Override
    public Integer call()
    {
-      boolean printFlag = this.verbosity > 1;
+      boolean printFlag = this.verbosity > 2;
       printOut("Kanzi 1.1 (C) 2017,  Frederic Langlet", this.verbosity >= 1);
       printOut("Input file name set to '" + this.inputName + "'", printFlag);
       printOut("Output file name set to '" + this.outputName + "'", printFlag);
@@ -127,8 +127,8 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       printOut("Using " + this.jobs + " job" + ((this.jobs > 1) ? "s" : ""), printFlag);
 
       long read = 0;
-      boolean silent = this.verbosity < 1;
-      printOut("Decoding ...", !silent);
+      printFlag = this.verbosity > 1;
+      printOut("Decoding ...", printFlag);
       
       if (this.listeners.size() > 0)
       {
@@ -204,7 +204,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
 
          try
          {
-            PrintStream ds = (printFlag == true) ? System.out : null;
+            PrintStream ds = (this.verbosity > 2) ? System.out : null;
             this.cis = new CompressedInputStream(is, ds, this.pool, this.jobs);
 
             for (Listener bl : this.listeners)
@@ -292,15 +292,17 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
 
       long after = System.nanoTime();
       long delta = (after - before) / 1000000L; // convert to ms
-      printOut("", !silent);
-      printOut("Decoding:          "+delta+" ms", !silent);
-      printOut("Input size:        "+this.cis.getRead(), !silent);
-      printOut("Output size:       "+read, !silent);
+      printOut("", this.verbosity>=1);
+      printOut("Decoding:          "+delta+" ms", printFlag);
+      printOut("Input size:        "+this.cis.getRead(), printFlag);
+      printOut("Output size:       "+read, printFlag);
+      printOut("Decoding: "+this.cis.getRead()+" => "+read+
+          " bytes in "+delta+" ms", this.verbosity==1);
 
       if (delta > 0)
-         printOut("Throughput (KB/s): "+(((read * 1000L) >> 10) / delta), !silent);
+         printOut("Throughput (KB/s): "+(((read * 1000L) >> 10) / delta), printFlag);
 
-      printOut("", !silent);
+      printOut("", this.verbosity>=1);
       return 0;
    }
 
