@@ -50,9 +50,11 @@ bool BWT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int count)
     byte* dst = &output._array[output._index];
 
     // Lazy dynamic memory allocation
-    if (_bufferSize < count) {
+    if ((_buffer3 == nullptr) || (_bufferSize < count)) {
+        if (_buffer3 != nullptr)
+           delete[] _buffer3;
+
         _bufferSize = count;
-        delete[] _buffer3;
         _buffer3 = new int[_bufferSize];
     }
 
@@ -139,9 +141,11 @@ bool BWT::inverseRegularBlock(SliceArray<byte>& input, SliceArray<byte>& output,
     byte* dst = &output._array[output._index];
 
     // Lazy dynamic memory allocation
-    if (_bufferSize < count) {
+    if ((_buffer1 == nullptr) || (_bufferSize < count)) {
+        if (_buffer1 != nullptr)
+            delete[] _buffer1;
+
         _bufferSize = count;
-        delete[] _buffer1;
         _buffer1 = new uint32[_bufferSize];
     }
 
@@ -223,11 +227,15 @@ bool BWT::inverseBigBlock(SliceArray<byte>& input, SliceArray<byte>& output, int
     byte* dst = &output._array[output._index];
 
     // Lazy dynamic memory allocations
-    if (_bufferSize < count) {
+    if ((_buffer1 == nullptr) || (_bufferSize < count)) {
+        if (_buffer1 != nullptr)
+           delete[] _buffer1;
+        
+        if (_buffer2 != nullptr)
+            delete[] _buffer2;
+        
         _bufferSize = count;
-        delete[] _buffer1;
         _buffer1 = new uint32[_bufferSize];
-        delete[] _buffer2;
         _buffer2 = new byte[_bufferSize];
     }
 

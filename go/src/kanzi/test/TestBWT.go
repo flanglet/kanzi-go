@@ -37,7 +37,7 @@ func main() {
 		buf2 := make([]byte, size)
 		bwt, _ := transform.NewBWT()
 		bwt.Forward(buf1, buf2)
-		fmt.Printf("BWT:  %s (%v)\n", buf2, bwt.PrimaryIndex())
+		fmt.Printf("BWT:  %s (%v)\n", buf2, bwt.PrimaryIndex(0))
 		bwts, _ := transform.NewBWTS()
 		bwts.Forward(buf1, buf2)
 		fmt.Printf("BWTS: %s\n", buf2)
@@ -106,9 +106,8 @@ func TestCorrectness(isBWT bool) {
 		fmt.Printf("Encoded: %s", str2)
 
 		if isBWT {
-			primaryIndex := bwt.(*transform.BWT).PrimaryIndex()
+			primaryIndex := bwt.(*transform.BWT).PrimaryIndex(0)
 			fmt.Printf("  (Primary index=%v)\n", primaryIndex)
-			bwt.(*transform.BWT).SetPrimaryIndex(primaryIndex)
 		} else {
 			println()
 		}

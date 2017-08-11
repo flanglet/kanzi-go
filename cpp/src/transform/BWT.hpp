@@ -82,17 +82,22 @@ namespace kanzi
    public:
        BWT()
        {
-           _buffer1 = new uint32[0]; // Allocate empty: only used in inverse
-           _buffer2 = new byte[0]; // Allocate empty: only used for big blocks (size >= 1<<24)
-           _buffer3 = new int[0]; // Allocate empty: only used in forward
+           _buffer1 = nullptr; // Only used in inverse
+           _buffer2 = nullptr; // Only used for big blocks (size >= 1<<24)
+           _buffer3 = nullptr; // Only used in forward
            _bufferSize = 0;
        }
 
        ~BWT()
        {
-           delete[] _buffer1;
-           delete[] _buffer2;
-           delete[] _buffer3;
+           if (_buffer1 != nullptr)
+              delete[] _buffer1;
+
+           if (_buffer2 != nullptr)
+               delete[] _buffer2;
+
+           if (_buffer3 != nullptr)
+               delete[] _buffer3;
        }
 
        bool forward(SliceArray<byte>& input, SliceArray<byte>& output, int length);
