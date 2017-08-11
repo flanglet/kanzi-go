@@ -475,7 +475,7 @@ void BlockCompressor::getTransformAndCodec(int level, string tranformAndCodec[2]
 
     case 2:
         tranformAndCodec[0] = "BWT+RANK+ZRLT";
-        tranformAndCodec[1] = "RANGE";
+        tranformAndCodec[1] = "ANS0";
         return;
 
     case 3:

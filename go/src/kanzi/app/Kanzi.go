@@ -258,7 +258,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 				printOut("   -l, --level=<compression>", true)
 				printOut("        set the compression level [0..5]", true)
 				printOut("        Providing this option forces entropy and transform.", true)
-				printOut("        0=None&None (store), 1=TEXT+LZ4&HUFFMAN, 2=BWT+RANK+ZRLT&RANGE", true)
+				printOut("        0=None&None (store), 1=TEXT+LZ4&HUFFMAN, 2=BWT+RANK+ZRLT&ANS0", true)
 				printOut("        3=BWT+RANK+ZRLT&FPAQ, 4=BWT&CM, 5=RLT+TEXT&TPAQ\n", true)
 				printOut("   -e, --entropy=<codec>", true)
 				printOut("        entropy codec [None|Huffman|ANS0|ANS1|Range|PAQ|FPAQ|TPAQ|CM]", true)
