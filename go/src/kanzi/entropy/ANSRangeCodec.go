@@ -27,9 +27,9 @@ import (
 // For an alternate C implementation example, see https://github.com/Cyan4973/FiniteStateEntropy
 
 const (
-	ANS_TOP                 = 1 << 22
-	DEFAULT_ANS0_CHUNK_SIZE = uint(1 << 16) // 64 KB by default
-	DEFAULT_ANS_LOG_RANGE   = uint(12)
+	ANS_TOP                 = 1 << 23
+	DEFAULT_ANS0_CHUNK_SIZE = uint(1 << 15) // 32 KB by default
+	DEFAULT_ANS_LOG_RANGE   = uint(13)      // max possible for ANS_TOP=1<23
 )
 
 type ANSRangeEncoder struct {
@@ -72,7 +72,7 @@ func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncode
 	if len(args) > 1 {
 		chkSize = args[1]
 	} else if order == 1 {
-		chkSize <<= 4
+		chkSize <<= 8
 	}
 
 	if len(args) > 2 {
@@ -365,6 +365,11 @@ type EncSymbol struct {
 }
 
 func (this *EncSymbol) reset(cumFreq, freq int, logRange uint) {
+	// Make sure xMax is a positive int32. Compatibility with Java implementation
+	if freq >= 1<<logRange {
+		freq = (1 << logRange) - 1
+	}
+
 	this.freq = freq
 	this.xMax = ((ANS_TOP >> logRange) << 8) * freq
 	this.cmplFreq = (1 << logRange) - freq
@@ -424,7 +429,7 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 	if len(args) > 1 {
 		chkSize = args[1]
 	} else if order == 1 {
-		chkSize <<= 4
+		chkSize <<= 8
 	}
 
 	if order != 0 && order != 1 {
@@ -544,7 +549,7 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, error) {
 				freq2sym[sum+j] = byte(i)
 			}
 
-			symb[i].reset(sum, f[i])
+			symb[i].reset(sum, f[i], this.logRange)
 			sum += f[i]
 		}
 
@@ -652,7 +657,12 @@ type DecSymbol struct {
 	freq    int
 }
 
-func (this *DecSymbol) reset(cumFreq, freq int) {
+func (this *DecSymbol) reset(cumFreq, freq int, logRange uint) {
+	// Mirror encoder
+	if freq >= 1<<logRange {
+		freq = (1 << logRange) - 1
+	}
+
 	this.cumFreq = cumFreq
 	this.freq = freq
 }

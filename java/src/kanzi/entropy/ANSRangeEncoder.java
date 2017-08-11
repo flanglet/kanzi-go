@@ -25,9 +25,9 @@ import kanzi.OutputBitStream;
 
 public class ANSRangeEncoder implements EntropyEncoder
 {
-   private static final int ANS_TOP = 1 << 22;
-   private static final int DEFAULT_ANS0_CHUNK_SIZE = 1 << 16; // 64 KB by default
-   private static final int DEFAULT_LOG_RANGE = 12; // max possible for ANS_TOP=1<22
+   private static final int ANS_TOP = 1 << 23;
+   private static final int DEFAULT_ANS0_CHUNK_SIZE = 1 << 15; // 32 KB by default
+   private static final int DEFAULT_LOG_RANGE = 13; // max possible for ANS_TOP=1<23
 
    private final OutputBitStream bitstream;
    private final int[][] alphabet;
@@ -48,7 +48,7 @@ public class ANSRangeEncoder implements EntropyEncoder
 
    public ANSRangeEncoder(OutputBitStream bs, int order)
    {
-      this(bs, order, DEFAULT_ANS0_CHUNK_SIZE<<(4*(order&1)), DEFAULT_LOG_RANGE);
+      this(bs, order, DEFAULT_ANS0_CHUNK_SIZE<<(8*(order&1)), DEFAULT_LOG_RANGE);
    }
 
 
@@ -348,6 +348,10 @@ public class ANSRangeEncoder implements EntropyEncoder
 
       public void reset(int cumFreq, int freq, int logRange)
       {
+         // Make sure xMax is a positive int32
+         if (freq >= 1<<logRange)
+            freq = (1<<logRange) - 1;
+                  
          this.freq = freq;
          this.xMax = ((ANS_TOP>>>logRange) << 8) * freq;
          this.cmplFreq = (1<<logRange) - freq;

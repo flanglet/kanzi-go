@@ -48,7 +48,7 @@ namespace kanzi
    class ANSRangeEncoder : public EntropyEncoder
    {
    public:
-	   static const uint ANS_TOP = 1 << 22;
+	   static const uint ANS_TOP = 1 << 23;
 
       ANSRangeEncoder(OutputBitStream& bitstream, 
                       int order = 0, 
@@ -67,8 +67,8 @@ namespace kanzi
    
 
    private:
-	   static const int DEFAULT_ANS0_CHUNK_SIZE = 1 << 16; // 64 KB by default
-	   static const int DEFAULT_LOG_RANGE = 12; // max possible for ANS_TOP=1<22
+	   static const int DEFAULT_ANS0_CHUNK_SIZE = 1 << 15; // 32 KB by default
+	   static const int DEFAULT_LOG_RANGE = 13; // max possible for ANS_TOP=1<23
 
 
 	   uint* _alphabet;

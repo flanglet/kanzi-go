@@ -33,7 +33,7 @@ namespace kanzi
    public:
       ANSDecSymbol() { }
       ~ANSDecSymbol() { }
-      void reset(int cumFreq, int freq);
+      void reset(int cumFreq, int freq, int logRange);
 
       int _cumFreq;
       int _freq;
@@ -42,7 +42,7 @@ namespace kanzi
 
    class ANSRangeDecoder : public EntropyDecoder {
    public:
-	   static const uint ANS_TOP = 1 << 22;
+	   static const uint ANS_TOP = 1 << 23;
 
       ANSRangeDecoder(InputBitStream& bitstream, int order = 0, int chunkSize = -1) THROW;
 
@@ -55,7 +55,7 @@ namespace kanzi
 	   void dispose() {};
 
    private:
-	   static const int DEFAULT_ANS0_CHUNK_SIZE = 1 << 16; // 64 KB by default
+	   static const int DEFAULT_ANS0_CHUNK_SIZE = 1 << 15; // 32 KB by default
 	   static const int DEFAULT_LOG_RANGE = 13;
 
 	   InputBitStream& _bitstream;

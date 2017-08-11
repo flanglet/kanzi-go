@@ -36,7 +36,7 @@ ANSRangeDecoder::ANSRangeDecoder(InputBitStream& bitstream, int order, int chunk
         throw IllegalArgumentException("The chunk size must be at most 2^30");
 
     if (chunkSize == -1)
-    	chunkSize = DEFAULT_ANS0_CHUNK_SIZE << (4*order);
+    	chunkSize = DEFAULT_ANS0_CHUNK_SIZE << (8*order);
 
     _chunkSize = chunkSize;
     _order = order;
@@ -140,7 +140,7 @@ int ANSRangeDecoder::decodeHeader(uint frequencies[])
             for (int j = f[i] - 1; j >= 0; j--)
                 freq2sym[sum + j] = byte(i);
 
-            symb[i].reset(sum, f[i]);
+            symb[i].reset(sum, f[i], _logRange);
             sum += f[i];
         }
 
@@ -216,8 +216,12 @@ void ANSRangeDecoder::decodeChunk(byte block[], int start, int end)
     }
 }
 
-void ANSDecSymbol::reset(int cumFreq, int freq)
+void ANSDecSymbol::reset(int cumFreq, int freq, int logRange)
 {
+    // Mirror encoder
+    if (freq >= 1<<logRange)
+        freq = (1<<logRange) - 1;
+    
     _cumFreq = cumFreq;
     _freq = freq;
 }

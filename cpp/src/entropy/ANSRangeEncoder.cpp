@@ -41,7 +41,7 @@ ANSRangeEncoder::ANSRangeEncoder(OutputBitStream& bitstream, int order, int chun
     }
 
     if (chunkSize == -1)
-    	chunkSize = DEFAULT_ANS0_CHUNK_SIZE << (4*order);
+    	chunkSize = DEFAULT_ANS0_CHUNK_SIZE << (8*order);
 
     _order = order;
     const int dim = 255 * order + 1;
@@ -262,6 +262,10 @@ int ANSRangeEncoder::rebuildStatistics(byte block[], int start, int end, int lr)
 
 void ANSEncSymbol::reset(int cumFreq, int freq, int logRange)
 {
+    // Make sure xMax is a positive int32. Compatibility with Java implementation
+    if (freq >= 1<<logRange)
+        freq = (1<<logRange) - 1;
+
     _freq = freq;
     _xMax = ((ANSRangeEncoder::ANS_TOP >> logRange) << 8) * freq;
     _cmplFreq = (1 << logRange) - freq;
