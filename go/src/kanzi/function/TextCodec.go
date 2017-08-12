@@ -746,7 +746,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 	h2 := TC_HASH1
 	isFirstWordChar := true
 
-	for (srcIdx < srcEnd) && (dstIdx < dstEnd) {
+	for srcIdx < srcEnd && dstIdx < dstEnd {
 		cur := src[srcIdx]
 
 		if isText(cur) {
@@ -1064,7 +1064,7 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	wordRun := false
 	err := error(nil)
 
-	for (srcIdx < srcEnd) && (dstIdx < dstEnd) {
+	for srcIdx < srcEnd && dstIdx < dstEnd {
 		cur := src[srcIdx]
 		srcIdx++
 
@@ -1125,7 +1125,7 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 		}
 
-		if (cur == TC_ESCAPE_TOKEN1) || (cur == TC_ESCAPE_TOKEN2) {
+		if cur == TC_ESCAPE_TOKEN1 || cur == TC_ESCAPE_TOKEN2 {
 			// Word in dictionary
 			// Read word index (varint 5 bits + 7 bits + 7 bits)
 			idx := int(src[srcIdx] & 0xFF)
@@ -1154,13 +1154,13 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			pe := &this.dictList[idx]
 
 			// Sanity check
-			if (pe.pos < 0) || (dstIdx+int(pe.length) >= dstEnd) {
+			if pe.pos < 0 || dstIdx+int(pe.length) >= dstEnd {
 				err = fmt.Errorf("Invalid input data")
 				break
 			}
 
-			// Add space if only delimiter between 2 words (2nd word in dictionary)
-			if (wordRun == true) && (idx <= this.dictSize) {
+			// Add space if only delimiter between 2 words (not an escaped delimiter)
+			if wordRun == true && pe.length > 1 {
 				dst[dstIdx] = ' '
 				dstIdx++
 			}

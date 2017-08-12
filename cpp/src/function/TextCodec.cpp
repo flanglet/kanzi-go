@@ -1086,8 +1086,8 @@ bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int c
             if ((e._pos < 0) || (dstIdx + e._length >= dstEnd))
                 break;
 
-            // Add space if only delimiter between 2 words (2nd word in dictionary)
-            if ((wordRun == true) && (idx <= _dictSize))
+            // Add space if only delimiter between 2 words (not an escaped delimiter) 
+            if ((wordRun == true) && (e._length > 1))
                 dst[dstIdx++] = ' ';
 
             // Emit word

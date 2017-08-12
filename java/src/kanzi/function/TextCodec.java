@@ -1100,8 +1100,8 @@ public final class TextCodec implements ByteFunction
             if ((e.pos < 0) || (dstIdx+e.length >= dstEnd))
                break;
 
-            // Add space if only delimiter between 2 words (2nd word in dictionary)
-            if ((wordRun == true) && (idx < this.dictSize))
+            // Add space if only delimiter between 2 words (not an escaped delimiter) 
+            if ((wordRun == true) && (e.length > 1))
                dst[dstIdx++] = ' ';
 
             int flag = 0;
