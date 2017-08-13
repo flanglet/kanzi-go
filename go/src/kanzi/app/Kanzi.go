@@ -466,7 +466,8 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 			continue
 		}
 
-		if !strings.HasPrefix(arg, "--verbose=") && ctx == -1 && !strings.HasPrefix(arg, "--output=") {
+		if !strings.HasPrefix(arg, "--verbose=") && !strings.HasPrefix(arg, "--output=") &&
+			ctx == -1 && !strings.HasPrefix(arg, "--cpuProf=") {
 			printOut("Warning: ignoring unknown option ["+arg+"]", verbose > 0)
 		}
 
