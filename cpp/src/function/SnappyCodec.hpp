@@ -50,11 +50,11 @@ namespace kanzi
       static const int TAG_DEC_LEN2   = 0xF4;
       static const int TAG_DEC_LEN3   = 0xF8;
       static const int TAG_DEC_LEN4   = 0xFC;
-      static const byte TAG_ENC_LEN1  = (byte) (TAG_DEC_LEN1 | TAG_LITERAL);
-      static const byte TAG_ENC_LEN2  = (byte) (TAG_DEC_LEN2 | TAG_LITERAL);
-      static const byte TAG_ENC_LEN3  = (byte) (TAG_DEC_LEN3 | TAG_LITERAL);
-      static const byte TAG_ENG_LEN4  = (byte) (TAG_DEC_LEN4 | TAG_LITERAL);
-      static const byte B0            = (byte) (TAG_DEC_LEN4 | TAG_COPY2);
+      static const byte TAG_ENC_LEN1  = byte(TAG_DEC_LEN1 | TAG_LITERAL);
+      static const byte TAG_ENC_LEN2  = byte(TAG_DEC_LEN2 | TAG_LITERAL);
+      static const byte TAG_ENC_LEN3  = byte(TAG_DEC_LEN3 | TAG_LITERAL);
+      static const byte TAG_ENG_LEN4  = byte(TAG_DEC_LEN4 | TAG_LITERAL);
+      static const byte B0            = byte(TAG_DEC_LEN4 | TAG_COPY2);
       static const uint HASH_SEED     = 0x1E35A7BD;
 
       int _buffer[MAX_TABLE_SIZE];

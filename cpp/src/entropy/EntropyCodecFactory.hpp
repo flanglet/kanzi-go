@@ -56,14 +56,14 @@ namespace kanzi
    public:
        static EntropyDecoder* newDecoder(InputBitStream& ibs, map<string, string>& ctx, short entropyType) THROW;
 
-       static EntropyEncoder* newEncoder(OutputBitStream& obs, map<string, string>& ctx,short entropyType) THROW;
+       static EntropyEncoder* newEncoder(OutputBitStream& obs, map<string, string>& ctx, short entropyType) THROW;
 
        static const char* getName(short entropyType) THROW;
 
        static short getType(const char* name) THROW;
    };
 
-   inline EntropyDecoder* EntropyCodecFactory::newDecoder(InputBitStream& ibs, map<string, string>& ctx,short entropyType) THROW
+   inline EntropyDecoder* EntropyCodecFactory::newDecoder(InputBitStream& ibs, map<string, string>&, short entropyType) THROW
    {
        switch (entropyType) {
        // Each block is decoded separately
@@ -96,11 +96,11 @@ namespace kanzi
            return new NullEntropyDecoder(ibs);
 
        default:
-           throw IllegalArgumentException("Unsupported entropy codec type: " + (char)entropyType);
+           throw IllegalArgumentException("Unsupported entropy codec type: " + char(entropyType));
        }
    }
 
-   inline EntropyEncoder* EntropyCodecFactory::newEncoder(OutputBitStream& obs, map<string, string>& ctx,short entropyType) THROW
+   inline EntropyEncoder* EntropyCodecFactory::newEncoder(OutputBitStream& obs, map<string, string>& ,short entropyType) THROW
    {
        switch (entropyType) {
        case HUFFMAN_TYPE:
@@ -131,7 +131,7 @@ namespace kanzi
            return new NullEntropyEncoder(obs);
 
        default:
-           throw IllegalArgumentException("Unknown entropy codec type: " + (char)entropyType);
+           throw IllegalArgumentException("Unknown entropy codec type: " + char(entropyType));
        }
    }
 

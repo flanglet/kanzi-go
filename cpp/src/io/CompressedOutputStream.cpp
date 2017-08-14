@@ -75,7 +75,8 @@ CompressedOutputStream::CompressedOutputStream(OutputStream& os, map<string, str
     _transformType = ff.getType(transform.c_str());
     _blockSize = bSize;
     it = ctx.find("checksum");
-    bool checksum = it->second.c_str() == "true";
+    string str = it->second;
+    bool checksum = str == "TRUE";
     _hasher = (checksum == true) ? new XXHash32(BITSTREAM_TYPE) : nullptr;
     _jobs = (tasks == 0) ? 1 : tasks;
     _sa = new SliceArray<byte>(new byte[_blockSize * _jobs], _blockSize * _jobs, 0);

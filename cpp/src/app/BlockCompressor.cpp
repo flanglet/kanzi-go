@@ -285,9 +285,7 @@ int BlockCompressor::call()
             stringstream ss;
             ss << _blockSize;
             ctx["blockSize"] = ss.str();
-            ss.str(string());
-            ss << _checksum;
-            ctx["checksum"] = ss.str();
+            ctx["checksum"] = (_checksum == true) ? "TRUE" : "FALSE";
             ss.str(string());
             ss << _jobs;
             ctx["jobs"] = ss.str();

@@ -125,7 +125,6 @@ bool DCT4::inverse(SliceArray<int>& input, SliceArray<int>& output, int length)
     input._index += 16;
     output._index += 16;
     return true;
-    return true;
 }
 
 void DCT4::computeInverse(int input[], int output[], const int shift)
