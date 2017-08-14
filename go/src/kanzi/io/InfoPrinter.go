@@ -170,9 +170,6 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 		if this.level >= 4 {
 			msg = fmt.Sprintf("Block %d: %d => %d [%d ms] => %d [%d ms]", currentBlockId,
 				bi.stage0Size, bi.stage1Size, duration1_ms, stage2Size, duration2_ms)
-		} else if this.level >= 3 {
-			msg = fmt.Sprintf("Block %d: %d => %d => %d", currentBlockId,
-				bi.stage0Size, bi.stage1Size, stage2Size)
 		}
 
 		// Add compression ratio for encoding

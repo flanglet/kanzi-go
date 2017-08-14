@@ -144,11 +144,6 @@ public class InfoPrinter implements Listener
             msg.append(String.format("Block %d: %d => %d [%d ms] => %d [%d ms]", currentBlockId, 
                     bi.stage0Size, bi.stage1Size, duration1_ms, stage2Size, duration2_ms));
          }
-         else if (this.level >= 3)
-         {
-            msg.append(String.format("Block %d: %d => %d => %d", currentBlockId, 
-                    bi.stage0Size, bi.stage1Size, stage2Size));
-         }
 
          // Add compression ratio for encoding
          if (this.type == Type.ENCODING)

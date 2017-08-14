@@ -242,7 +242,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 			printOut("        display this message\n", true)
 			printOut("   -v, --verbose=<level>", true)
 			printOut("        set the verbosity level [0..5]", true)
-			printOut("        0=silent, 1=compact, 2=default, 3=display block size,", true)
+			printOut("        0=silent, 1=compact, 2=default, 3=display configuration,", true)
 			printOut("        4=display block size and timings, 5=display extra information\n", true)
 			printOut("   -f, --force", true)
 			printOut("        overwrite the output file if it already exists\n", true)

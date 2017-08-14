@@ -19,7 +19,6 @@ limitations under the License.
 
 using namespace kanzi;
 
-//mutex PrintStream::_mutex;
 
 InfoPrinter::InfoPrinter(int infoLevel, InfoPrinter::Type type, OutputStream& os)
     : _os(os)
@@ -158,10 +157,6 @@ void InfoPrinter::processEvent(const Event& evt)
             ss << "Block " << currentBlockId << ": " << bi->_stage0Size << " => ";
             ss << bi->_stage1Size << " [" << uint(bi->_clock1.elapsed()) << " ms] => " << stage2Size;
             ss << " [" << uint(bi->_clock2.elapsed()) << " ms]";
-        }
-        else  if (_level >= 3) {
-            ss << "Block " << currentBlockId << ": " << bi->_stage0Size << " => ";
-            ss << bi->_stage1Size << " => " << stage2Size;
         }
 
         // Add compression ratio for encoding
