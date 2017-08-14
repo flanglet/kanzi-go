@@ -16,12 +16,12 @@ limitations under the License.
 package io
 
 import (
-    "errors"
 	"bytes"
+	"errors"
 )
 
 type BufferStream struct {
-	buf bytes.Buffer
+	buf    bytes.Buffer
 	closed bool
 }
 
@@ -32,20 +32,19 @@ func NewBufferStream(buffer []byte) (*BufferStream, error) {
 
 func (this *BufferStream) Write(b []byte) (int, error) {
 	if this.closed {
-	   return 0, errors.New("Stream closed")
+		return 0, errors.New("Stream closed")
 	}
-	
+
 	return this.buf.Write(b)
 }
 
 func (this *BufferStream) Read(b []byte) (int, error) {
 	if this.closed {
-	   return 0, errors.New("Stream closed")
+		return 0, errors.New("Stream closed")
 	}
-	
+
 	return this.buf.Read(b)
 }
-
 
 func (this *BufferStream) Close() error {
 	this.closed = true

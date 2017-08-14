@@ -648,7 +648,7 @@ func (this *HuffmanDecoder) Decode(block []byte) (int, error) {
 			block[i+5] = this.fastDecodeByte()
 			block[i+6] = this.fastDecodeByte()
 			block[i+7] = this.fastDecodeByte()
-			i+=8
+			i += 8
 		}
 
 		for i < endChunk {

@@ -292,7 +292,7 @@ func (this *IntBTree) Rank(value int) int {
 		return -1
 	}
 
-	if val, _ :=this.Min(); val == value {
+	if val, _ := this.Min(); val == value {
 		return 0
 	}
 
@@ -300,8 +300,8 @@ func (this *IntBTree) Rank(value int) int {
 
 	if rank == this.size {
 		return -1
-	} 
-		
+	}
+
 	return -rank
 }
 

@@ -161,7 +161,7 @@ func (this *DefaultInputBitStream) pullCurrent() {
 		}
 	} else {
 		// Regular processing, buffer length is multiple of 8
-		buf := this.buffer[this.position:this.position+8]
+		buf := this.buffer[this.position : this.position+8]
 		val = uint64(buf[0]) << 56
 		val |= (uint64(buf[1]) << 48)
 		val |= (uint64(buf[2]) << 40)

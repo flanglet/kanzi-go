@@ -70,7 +70,7 @@ func (this *RiceGolombEncoder) EncodeByte(val byte) {
 	}
 
 	// quotient is unary encoded, remainder is binary encoded
-	n := uint(emit >> this.logBase) + this.logBase + 1
+	n := uint(emit>>this.logBase) + this.logBase + 1
 	emit = this.base | (emit & (this.base - 1))
 
 	if this.signed == true {

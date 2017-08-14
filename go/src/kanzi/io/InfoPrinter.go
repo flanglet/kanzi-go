@@ -185,7 +185,7 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 		}
 
 		fmt.Fprintln(this.writer, msg)
-	} else 		if this.level >= 5 {
-			fmt.Fprintln(this.writer, evt)
-		}
+	} else if this.level >= 5 {
+		fmt.Fprintln(this.writer, evt)
+	}
 }
