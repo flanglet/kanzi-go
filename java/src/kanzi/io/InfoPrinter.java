@@ -143,20 +143,20 @@ public class InfoPrinter implements Listener
          {
             msg.append(String.format("Block %d: %d => %d [%d ms] => %d [%d ms]", currentBlockId, 
                     bi.stage0Size, bi.stage1Size, duration1_ms, stage2Size, duration2_ms));
-         }
 
-         // Add compression ratio for encoding
-         if (this.type == Type.ENCODING)
-         {
-            if (bi.stage0Size != 0)
-               msg.append(String.format(" (%d%%)", (stage2Size*100L/(long) bi.stage0Size)));
+            // Add compression ratio for encoding
+            if (this.type == Type.ENCODING)
+            {
+               if (bi.stage0Size != 0)
+                  msg.append(String.format(" (%d%%)", (stage2Size*100L/(long) bi.stage0Size)));
+            }
+
+            // Optionally add hash
+            if (evt.getHash() != null) 
+               msg.append(String.format("  [%s]", Integer.toHexString(evt.getHash())));
+
+            this.ps.println(msg.toString());         
          }
-         
-         // Optionally add hash
-         if (evt.getHash() != null) 
-            msg.append(String.format("  [%s]", Integer.toHexString(evt.getHash())));
-         
-         this.ps.println(msg.toString());         
       }
       else if (this.level >= 5)
       {

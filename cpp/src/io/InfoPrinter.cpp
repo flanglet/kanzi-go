@@ -19,7 +19,6 @@ limitations under the License.
 
 using namespace kanzi;
 
-
 InfoPrinter::InfoPrinter(int infoLevel, InfoPrinter::Type type, OutputStream& os)
     : _os(os)
 {
@@ -94,7 +93,7 @@ void InfoPrinter::processEvent(const Event& evt)
             _os << ss.str() << endl;
         }
 
-         bi->_clock2.start();
+        bi->_clock2.start();
     }
     else if (evt.getType() == _thresholds[3]) {
         BlockInfo* bi = nullptr;
@@ -116,7 +115,7 @@ void InfoPrinter::processEvent(const Event& evt)
 
         if (_level >= 5) {
             stringstream ss;
-            ss << evt.toString() << " [" << uint(bi->_clock2.elapsed())  << " ms]";
+            ss << evt.toString() << " [" << uint(bi->_clock2.elapsed()) << " ms]";
             _os << ss.str() << endl;
         }
 
@@ -157,25 +156,26 @@ void InfoPrinter::processEvent(const Event& evt)
             ss << "Block " << currentBlockId << ": " << bi->_stage0Size << " => ";
             ss << bi->_stage1Size << " [" << uint(bi->_clock1.elapsed()) << " ms] => " << stage2Size;
             ss << " [" << uint(bi->_clock2.elapsed()) << " ms]";
-        }
 
-        // Add compression ratio for encoding
-        if (_type == InfoPrinter::ENCODING) {
-            if (bi->_stage0Size != 0) {
+            // Add compression ratio for encoding
+            if (_type == InfoPrinter::ENCODING) {
+                if (bi->_stage0Size != 0) {
+                    char buf[32];
+                    sprintf(buf, " (%d%%)", uint(stage2Size * (double)100 / (double)bi->_stage0Size));
+                    ss << buf;
+                }
+            }
+
+            // Optionally add hash
+            if (evt.getHash() != 0) {
                 char buf[32];
-                sprintf(buf, " (%d%%)", uint(stage2Size * (double)100 / (double)bi->_stage0Size));
+                sprintf(buf, " [%08X]", evt.getHash());
                 ss << buf;
             }
-        }
 
-        // Optionally add hash
-        if (evt.getHash() != 0) {
-            char buf[32];
-            sprintf(buf, " [%08X]", evt.getHash());
-            ss << buf;
+            _os << ss.str() << endl;
         }
-
-        _os << ss.str() << endl;
+        
         delete bi;
 
         {
@@ -186,6 +186,6 @@ void InfoPrinter::processEvent(const Event& evt)
         }
     }
     else if (_level >= 5) {
-       _os << evt.toString() << endl;
+        _os << evt.toString() << endl;
     }
 }

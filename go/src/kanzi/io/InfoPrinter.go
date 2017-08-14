@@ -170,21 +170,21 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 		if this.level >= 4 {
 			msg = fmt.Sprintf("Block %d: %d => %d [%d ms] => %d [%d ms]", currentBlockId,
 				bi.stage0Size, bi.stage1Size, duration1_ms, stage2Size, duration2_ms)
-		}
 
-		// Add compression ratio for encoding
-		if this.type_ == ENCODING {
-			if bi.stage0Size != 0 {
-				msg += fmt.Sprintf(" (%d%%)", uint64(stage2Size)*100/uint64(bi.stage0Size))
+			// Add compression ratio for encoding
+			if this.type_ == ENCODING {
+				if bi.stage0Size != 0 {
+					msg += fmt.Sprintf(" (%d%%)", uint64(stage2Size)*100/uint64(bi.stage0Size))
+				}
 			}
-		}
 
-		// Optionally add hash
-		if evt.Hashing() == true {
-			msg += fmt.Sprintf("  [%x]", evt.Hash())
-		}
+			// Optionally add hash
+			if evt.Hashing() == true {
+				msg += fmt.Sprintf("  [%x]", evt.Hash())
+			}
 
-		fmt.Fprintln(this.writer, msg)
+			fmt.Fprintln(this.writer, msg)
+		}
 	} else if this.level >= 5 {
 		fmt.Fprintln(this.writer, evt)
 	}
