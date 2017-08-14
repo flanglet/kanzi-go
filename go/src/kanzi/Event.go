@@ -38,6 +38,11 @@ type Event struct {
 	hash      uint32
 	hashing   bool
 	time_     time.Time
+	msg       string
+}
+
+func NewEventFromString(eventType, id int, msg string) *Event {
+	return &Event{eventType: eventType, id: id, size: 0, msg: msg, time_: time.Now()}
 }
 
 func NewEvent(eventType, id int, size int64, hash uint32, hashing bool) *Event {
@@ -70,6 +75,10 @@ func (this *Event) Hashing() bool {
 }
 
 func (this *Event) String() string {
+	if len(this.msg) > 0 {
+		return this.msg
+	}
+
 	hash := ""
 	type_ := ""
 	id_ := ""

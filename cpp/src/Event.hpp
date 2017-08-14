@@ -40,6 +40,8 @@ namespace kanzi
            DECOMPRESSION_END
        };
 
+       Event(Event::Type type, int id, const char* msg);
+
        Event(Event::Type type, int id, int64 size);
 
        Event(Event::Type type, int id, int64 size, int hash, bool hashing);
@@ -70,6 +72,7 @@ namespace kanzi
        bool _hashing;
        time_t _time;
        Clock _clock;
+       const char* _msg;
    };
 
 }

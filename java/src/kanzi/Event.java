@@ -35,11 +35,24 @@ public class Event
    private final Type type;
    private final boolean hashing;
    private final long time;
+   private final String msg;
       
 
    public Event(Type type, int id, long size)
    {
       this(type, id, size, 0, false);
+   }
+   
+   
+   public Event(Type type, int id, String msg)
+   {
+      this.id = id;
+      this.size = 0L;
+      this.hash = 0;
+      this.hashing = false;
+      this.type = type;
+      this.time = System.nanoTime();
+      this.msg = msg;
    }
    
    
@@ -51,6 +64,7 @@ public class Event
       this.hashing = hashing;
       this.type = type;
       this.time = System.nanoTime();
+      this.msg = null;
    }
    
    
@@ -87,6 +101,9 @@ public class Event
    @Override
    public String toString()
    {
+      if (this.msg != null)
+         return this.msg;
+      
       StringBuilder sb = new StringBuilder(200);
       sb.append("{ \"type\":\"").append(this.getType()).append("\"");
       
