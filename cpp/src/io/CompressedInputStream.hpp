@@ -16,6 +16,7 @@ limitations under the License.
 #ifndef _CompressedInputStream_
 #define _CompressedInputStream_
 
+#include <map>
 #include <string>
 #include <vector>
 #include "../concurrent.hpp"
@@ -78,12 +79,15 @@ namespace kanzi {
        XXHash32* _hasher;
        atomic_int* _processedBlockId;
        vector<Listener*> _listeners;
+       map<string, string> _ctx;
+
 
    public:
        DecodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuffer, int blockSize,
            short transformType, short entropyType, int blockId,
            InputBitStream* ibs, XXHash32* hasher,
-           atomic_int* processedBlockId, vector<Listener*>& listeners);
+           atomic_int* processedBlockId, vector<Listener*>& listeners,
+           map<string, string>& ctx);
 
        ~DecodingTask(){};
 
@@ -120,6 +124,8 @@ namespace kanzi {
        int _jobs;
        vector<Listener*> _listeners;
        streamsize _gcount;
+       map<string, string> _ctx;
+
 
        void readHeader() THROW;
 
@@ -130,7 +136,7 @@ namespace kanzi {
        static void notifyListeners(vector<Listener*>& listeners, const Event& evt);
 
    public:
-       CompressedInputStream(InputStream& is, OutputStream* debug, int jobs);
+       CompressedInputStream(InputStream& is, map<string, string>& ctx, OutputStream* debug);
 
        ~CompressedInputStream();
 

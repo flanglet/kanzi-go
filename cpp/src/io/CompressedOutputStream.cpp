@@ -27,46 +27,58 @@ limitations under the License.
 
 using namespace kanzi;
 
-CompressedOutputStream::CompressedOutputStream(const string& entropyCodec, const string& transform,
-    OutputStream& os, int blockSize, bool checksum, int jobs)
+CompressedOutputStream::CompressedOutputStream(OutputStream& os, map<string, string>& ctx)
     : OutputStream(os.rdbuf())
-    , _os(os)
+    , _os(os), _ctx(ctx)
 {
-    if (blockSize > MAX_BITSTREAM_BLOCK_SIZE) {
+    map<string, string>::iterator it;
+    it = ctx.find("blockSize");
+    int bSize = atoi(it->second.c_str());
+    it = ctx.find("codec");
+    string entropyCodec = it->second.c_str();
+    it = ctx.find("transform");
+    string transform = it->second.c_str();
+
+    if (bSize > MAX_BITSTREAM_BLOCK_SIZE) {
         std::stringstream ss;
         ss << "The block size must be at most " << (MAX_BITSTREAM_BLOCK_SIZE >> 20) << " MB";
         throw IllegalArgumentException(ss.str());
     }
 
-    if (blockSize < MIN_BITSTREAM_BLOCK_SIZE) {
+    if (bSize < MIN_BITSTREAM_BLOCK_SIZE) {
         std::stringstream ss;
         ss << "The block size must be at least " << MIN_BITSTREAM_BLOCK_SIZE;
         throw IllegalArgumentException(ss.str());
     }
 
-    if ((blockSize & -16) != blockSize)
+    if ((bSize & -16) != bSize)
         throw IllegalArgumentException("The block size must be a multiple of 16");
 
+    it = ctx.find("jobs");
+    int tasks = atoi(it->second.c_str());
+
 #ifndef CONCURRENCY_ENABLED
-    if (jobs != 1)
+    if (tasks > 1)
         throw IllegalArgumentException("The number of jobs is limited to 1 in this version");
 #else
-    if ((jobs < 1) || (jobs > 16))
+    if ((tasks < 0) || (tasks > 16))  // 0 indicates no user choice
         throw IllegalArgumentException("The number of jobs must be in [1..16]");
 #endif
 
     _blockId = 0;
     _initialized = false;
     _closed = false;
-    const int bufferSize = (blockSize <= 65536) ? blockSize : 65536;
+    const int bufferSize = (bSize <= 65536) ? bSize : 65536;
     _obs = new DefaultOutputBitStream(os, bufferSize);
     _entropyType = EntropyCodecFactory::getType(entropyCodec.c_str());
     FunctionFactory<byte> ff;
     _transformType = ff.getType(transform.c_str());
-    _blockSize = blockSize;
+    _blockSize = bSize;
+    it = ctx.find("checksum");
+    bool checksum = it->second.c_str() == "true";
     _hasher = (checksum == true) ? new XXHash32(BITSTREAM_TYPE) : nullptr;
-    _jobs = jobs;
-    _sa = new SliceArray<byte>(new byte[blockSize * _jobs], blockSize * _jobs, 0);
+    _jobs = (tasks == 0) ? 1 : tasks;
+    _sa = new SliceArray<byte>(new byte[_blockSize * _jobs], _blockSize * _jobs, 0);
     _buffers = new SliceArray<byte>*[2*_jobs];
 
     for (int i = 0; i < 2*_jobs; i++)
@@ -265,6 +277,7 @@ void CompressedOutputStream::processBlock() THROW
             if (sz == 0)
                 break;
 
+            map<string, string> copyCtx(_ctx);
             _buffers[2*jobId]->_index = 0;
             _buffers[2*jobId+1]->_index = 0;
               		              
@@ -281,7 +294,7 @@ void CompressedOutputStream::processBlock() THROW
                 _buffers[2*jobId+1], sz, _transformType,
                 _entropyType, firstBlockId + jobId + 1,
                 _obs, _hasher, &_blockId,
-                blockListeners);
+                blockListeners, copyCtx);
             tasks.push_back(task);
             _sa->_index += sz;
         }
@@ -366,7 +379,8 @@ template <class T>
 EncodingTask<T>::EncodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuffer, int length,
     short transformType, short entropyType, int blockId,
     OutputBitStream* obs, XXHash32* hasher,
-    atomic_int* processedBlockId, vector<Listener*>& listeners)
+    atomic_int* processedBlockId, vector<Listener*>& listeners,
+    map<string, string>& ctx) : _ctx(ctx)
 {
     _data = iBuffer;
     _buffer = oBuffer;
@@ -425,7 +439,10 @@ T EncodingTask<T>::call() THROW
             mode = (byte)(CompressedOutputStream::SMALL_BLOCK_MASK | (_blockLength & CompressedOutputStream::COPY_LENGTH_MASK));
         }
         else {
-            TransformSequence<byte>* transform = FunctionFactory<byte>::newFunction(_blockLength, _transformType);
+            stringstream ss;
+            ss << _blockLength;
+            _ctx["size"] = ss.str();
+            TransformSequence<byte>* transform = FunctionFactory<byte>::newFunction(_ctx, _transformType);
             int requiredSize = transform->getMaxEncodedLength(_blockLength);
 
             if (_buffer->_length < requiredSize) {
@@ -490,7 +507,7 @@ T EncodingTask<T>::call() THROW
 
         // Each block is encoded separately
         // Rebuild the entropy encoder to reset block statistics
-        ee = EntropyCodecFactory::newEncoder(*_obs, _entropyType);
+        ee = EntropyCodecFactory::newEncoder(*_obs, _ctx, _entropyType);
 
         // Entropy encode block
         if (ee->encode(_buffer->_array, 0, postTransformLength) != postTransformLength)

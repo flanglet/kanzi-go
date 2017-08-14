@@ -24,6 +24,7 @@ import java.io.OutputStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -42,6 +43,7 @@ import kanzi.Listener;
 public class BlockCompressor implements Runnable, Callable<Integer>
 {
    private static final int DEFAULT_BUFFER_SIZE = 32768;
+   private static final int DEFAULT_BLOCK_SIZE  = 1024*1024; 
    public static final int WARN_EMPTY_INPUT = -128;
    
    private final int verbosity;
@@ -87,7 +89,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
 
       this.codec = (strCodec == null) ? "HUFFMAN" : strCodec;
       Integer iBlockSize = (Integer) map.remove("block");
-      this.blockSize = (iBlockSize == null) ? 1024*1024 : iBlockSize;
+      this.blockSize = (iBlockSize == null) ? DEFAULT_BLOCK_SIZE : iBlockSize;
       
       // Extract transform names. Curate input (EG. NONE+NONE+xxxx => xxxx)          
       ByteFunctionFactory bff = new ByteFunctionFactory();      
@@ -95,7 +97,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
       Boolean bChecksum = (Boolean) map.remove("checksum");
       this.checksum = (bChecksum == null) ? false : bChecksum;
       this.jobs = (Integer) map.remove("jobs");
-      this.pool = (this.jobs == 1) ? null : 
+      this.pool = (this.jobs < 2) ? null : 
               ((threadPool == null) ? Executors.newCachedThreadPool() : threadPool);
       this.ownPool = (threadPool == null) && (this.pool != null);
       this.listeners = new ArrayList<>(10);
@@ -106,7 +108,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
       if ((this.verbosity > 0) && (map.size() > 0))
       {
          for (String k : map.keySet())
-            printOut("Ignoring invalid option [" + k + "]", verbosity>0);
+            printOut("Ignoring invalid option [" + k + "]", this.verbosity>0);
       }  
    }
  
@@ -171,7 +173,8 @@ public class BlockCompressor implements Runnable, Callable<Integer>
          printOut("Compression level set to " +  this.level, printFlag);
       }
       
-      printOut("Using " + this.jobs + " job" + ((this.jobs > 1) ? "s" : ""), printFlag);      
+      if (this.jobs > 0)
+         printOut("Using " + this.jobs + " job" + ((this.jobs > 1) ? "s" : ""), printFlag);      
 
       OutputStream os;
       
@@ -219,9 +222,14 @@ public class BlockCompressor implements Runnable, Callable<Integer>
          
          try
          {
-            this.cos = new CompressedOutputStream(this.codec, this.transform,
-                 os, this.blockSize, this.checksum,
-                 this.pool, this.jobs);
+            Map<String, Object> ctx = new HashMap<>();
+            ctx.put("blockSize", this.blockSize);
+            ctx.put("checksum", this.checksum);
+            ctx.put("pool", this.pool);
+            ctx.put("jobs", this.jobs);
+            ctx.put("codec", this.codec);
+            ctx.put("transform", this.transform);
+            this.cos = new CompressedOutputStream(os, ctx);
             
             for (Listener bl : this.listeners)
                this.cos.addListener(bl);

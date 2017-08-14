@@ -38,7 +38,7 @@ const (
 	TEXTCODEC_TYPE      = uint16(10) // Text codec
 )
 
-func NewByteFunction(size uint, functionType uint16) (*function.ByteTransformSequence, error) {
+func NewByteFunction(ctx map[string]interface{}, functionType uint16) (*function.ByteTransformSequence, error) {
 	nbtr := 0
 
 	// Several transforms
@@ -61,7 +61,7 @@ func NewByteFunction(size uint, functionType uint16) (*function.ByteTransformSeq
 		t := (functionType >> (12 - uint(4*i))) & 0x0F
 
 		if t != NULL_TRANSFORM_TYPE || i == 0 {
-			if transforms[nbtr], err = newByteFunctionToken(size, t); err != nil {
+			if transforms[nbtr], err = newByteFunctionToken(ctx, t); err != nil {
 				return nil, err
 			}
 		}
@@ -72,7 +72,9 @@ func NewByteFunction(size uint, functionType uint16) (*function.ByteTransformSeq
 	return function.NewByteTransformSequence(transforms)
 }
 
-func newByteFunctionToken(size uint, functionType uint16) (kanzi.ByteTransform, error) {
+func newByteFunctionToken(ctx map[string]interface{}, functionType uint16) (kanzi.ByteTransform, error) {
+	size := ctx["size"].(uint)
+
 	switch uint16(functionType & 0x0F) {
 
 	case SNAPPY_TYPE:

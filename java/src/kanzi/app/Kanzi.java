@@ -108,7 +108,7 @@ public class Kanzi
         String outputName = null;
         String codec = null;
         String transform = null;
-        int tasks = 1;
+        int tasks = 0;
         int ctx = -1;
         int level = -1;
         char mode = ' ';

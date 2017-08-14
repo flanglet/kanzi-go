@@ -144,7 +144,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 	outputName := ""
 	codec := ""
 	transform := ""
-	tasks := 1
+	tasks := 0
 	cpuProf := ""
 	ctx := -1
 	level := -1

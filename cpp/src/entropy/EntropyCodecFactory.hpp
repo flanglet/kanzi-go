@@ -54,16 +54,16 @@ namespace kanzi
        static const byte ANS1_TYPE    = 8; // Asymmetric Numerical System order 1
 
    public:
-       static EntropyDecoder* newDecoder(InputBitStream& ibs, short entropyType) THROW;
+       static EntropyDecoder* newDecoder(InputBitStream& ibs, map<string, string>& ctx, short entropyType) THROW;
 
-       static EntropyEncoder* newEncoder(OutputBitStream& obs, short entropyType) THROW;
+       static EntropyEncoder* newEncoder(OutputBitStream& obs, map<string, string>& ctx,short entropyType) THROW;
 
        static const char* getName(short entropyType) THROW;
 
        static short getType(const char* name) THROW;
    };
 
-   inline EntropyDecoder* EntropyCodecFactory::newDecoder(InputBitStream& ibs, short entropyType) THROW
+   inline EntropyDecoder* EntropyCodecFactory::newDecoder(InputBitStream& ibs, map<string, string>& ctx,short entropyType) THROW
    {
        switch (entropyType) {
        // Each block is decoded separately
@@ -100,7 +100,7 @@ namespace kanzi
        }
    }
 
-   inline EntropyEncoder* EntropyCodecFactory::newEncoder(OutputBitStream& obs, short entropyType) THROW
+   inline EntropyEncoder* EntropyCodecFactory::newEncoder(OutputBitStream& obs, map<string, string>& ctx,short entropyType) THROW
    {
        switch (entropyType) {
        case HUFFMAN_TYPE:

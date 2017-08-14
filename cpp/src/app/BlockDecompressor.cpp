@@ -147,8 +147,12 @@ int BlockDecompressor::call()
     ss << "Overwrite set to " << (_overwrite ? "true" : "false");
     printOut(ss.str().c_str(), printFlag);
     ss.str(string());
-    ss << "Using " << _jobs << " job" << ((_jobs > 1) ? "s" : "");
-    printOut(ss.str().c_str(), printFlag);
+
+    if (_jobs > 0) {
+       ss << "Using " << _jobs << " job" << ((_jobs > 1) ? "s" : "");
+       printOut(ss.str().c_str(), printFlag);
+       ss.str(string());
+    }
 
     uint64 read = 0;
     printFlag = _verbosity > 1;
@@ -224,8 +228,12 @@ int BlockDecompressor::call()
         }
 
         try {
+            map<string, string> ctx;
+            stringstream ss;
+            ss << _jobs;
+            ctx["jobs"] = ss.str();
             OutputStream* ds = (_verbosity > 2) ? &cout : nullptr;
-            _cis = new CompressedInputStream(*is, ds, _jobs);
+            _cis = new CompressedInputStream(*is, ctx, ds);
 
             for (uint i = 0; i < _listeners.size(); i++)
                 _cis->addListener(*_listeners[i]);

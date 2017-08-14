@@ -20,7 +20,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -68,38 +70,32 @@ public class CompressedInputStream extends InputStream
    private final int jobs;
    private final ExecutorService pool;
    private final List<Listener> listeners;
-
-
-   public CompressedInputStream(InputStream is)
-   {
-      this(is, null);
-   }
+   private final Map<String, Object> ctx;
 
 
    // debug print stream is optional (may be null)
-   public CompressedInputStream(InputStream is, PrintStream debug)
-   {
-      this(is, debug, null, 1);
-   }
-
-
-   // debug print stream is optional (may be null)
-   public CompressedInputStream(InputStream is, PrintStream debug,
-               ExecutorService pool, int jobs)
+   public CompressedInputStream(InputStream is, Map<String, Object> ctx)
    {
       if (is == null)
          throw new NullPointerException("Invalid null input stream parameter");
-
-      if ((jobs < 1) || (jobs > 16))
+            
+      if (ctx == null)
+         throw new NullPointerException("Invalid null context parameter");
+            
+      final int tasks = (Integer) ctx.get("jobs");
+ 
+      if ((tasks < 0) || (tasks > 16)) // 0 indicates no user choice
          throw new IllegalArgumentException("The number of jobs must be in [1..16]");
 
-      if ((jobs != 1) && (pool == null))
-         throw new IllegalArgumentException("The thread pool cannot be null when the number of jobs is "+jobs);
+      ExecutorService threadPool = (ExecutorService) ctx.get("pool");
+      
+      if ((tasks > 1) && (threadPool == null))
+         throw new IllegalArgumentException("The thread pool cannot be null when the number of jobs is "+tasks);
 
       this.ibs = new DefaultInputBitStream(is, DEFAULT_BUFFER_SIZE);
       this.sa = new SliceByteArray();
-      this.jobs = jobs;
-      this.pool = pool;
+      this.jobs = (tasks == 0) ? 1 : tasks;
+      this.pool = threadPool;
       this.buffers = new SliceByteArray[2*this.jobs];
       this.closed = new AtomicBoolean(false);
       this.initialized = new AtomicBoolean(false);
@@ -107,9 +103,10 @@ public class CompressedInputStream extends InputStream
       for (int i=0; i<this.buffers.length; i++)
          this.buffers[i] = new SliceByteArray(EMPTY_BYTE_ARRAY, 0);
 
-      this.ds = debug;
+      this.ds = (PrintStream) ctx.get("printstream");
       this.blockId = new AtomicInteger(0);
-      this.listeners = new ArrayList<Listener>(10);
+      this.listeners = new ArrayList<>(10);
+      this.ctx = ctx;
    }
 
 
@@ -346,7 +343,7 @@ public class CompressedInputStream extends InputStream
          Listener[] blockListeners = this.listeners.toArray(new Listener[this.listeners.size()]);
          int decoded = 0;
          this.sa.index = 0;
-         List<Callable<Status>> tasks = new ArrayList<Callable<Status>>(this.jobs);
+         List<Callable<Status>> tasks = new ArrayList<>(this.jobs);
          int firstBlockId = this.blockId.get();
 
          // Create as many tasks as required
@@ -365,7 +362,7 @@ public class CompressedInputStream extends InputStream
                     this.buffers[2*jobId+1], blkSize, this.transformType,
                     this.entropyType, firstBlockId+jobId+1,
                     this.ibs, this.hasher, this.blockId,
-                    blockListeners);
+                    blockListeners, new HashMap<>(this.ctx));
             tasks.add(task);            
          }
 
@@ -493,12 +490,14 @@ public class CompressedInputStream extends InputStream
       private final XXHash32 hasher;
       private final AtomicInteger processedBlockId;
       private final Listener[] listeners;
+      private final Map<String, Object> ctx;
 
 
       DecodingTask(SliceByteArray iBuffer, SliceByteArray oBuffer, int blockSize,
               short transformType, short entropyType, int blockId,
               InputBitStream ibs, XXHash32 hasher,
-              AtomicInteger processedBlockId, Listener[] listeners)
+              AtomicInteger processedBlockId, Listener[] listeners,
+              Map<String, Object> ctx)
       {
          this.data = iBuffer;
          this.buffer = oBuffer;
@@ -510,6 +509,7 @@ public class CompressedInputStream extends InputStream
          this.hasher = hasher;
          this.processedBlockId = processedBlockId;
          this.listeners = listeners;
+         this.ctx = ctx;
       }
 
 
@@ -612,7 +612,7 @@ public class CompressedInputStream extends InputStream
 
             // Each block is decoded separately
             // Rebuild the entropy decoder to reset block statistics
-            ed = new EntropyCodecFactory().newDecoder(this.ibs, typeOfEntropy);
+            ed = new EntropyCodecFactory().newDecoder(this.ibs, this.ctx, typeOfEntropy);
 
             // Block entropy decode
             if (ed.decode(buffer.array, 0, preTransformLength) != preTransformLength)
@@ -655,7 +655,8 @@ public class CompressedInputStream extends InputStream
             }
             else
             {
-               ByteTransformSequence transform = new ByteFunctionFactory().newFunction(preTransformLength,
+               this.ctx.put("size", preTransformLength);
+               ByteTransformSequence transform = new ByteFunctionFactory().newFunction(this.ctx,
                        typeOfTransform);
                transform.setSkipFlags((byte) ((mode>>2) & ByteTransformSequence.SKIP_MASK));
                buffer.index = 0;

@@ -48,7 +48,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
     string outputName;
     string strLevel = "-1";
     string strVerbose = "2";
-    string strTasks = "1";
+    string strTasks = "0";
     string strBlockSize = "";
     string strOverwrite = "false";
     string strChecksum = "false";

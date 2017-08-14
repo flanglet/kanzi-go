@@ -29,15 +29,19 @@ limitations under the License.
 
 using namespace kanzi;
 
-CompressedInputStream::CompressedInputStream(InputStream& is, OutputStream* debug, int jobs)
+CompressedInputStream::CompressedInputStream(InputStream& is, map<string, string>& ctx, OutputStream* debug)
     : InputStream(is.rdbuf())
-    , _is(is)
+    , _is(is), _ctx(ctx)
 {
+    map<string, string>::iterator it;
+    it = ctx.find("jobs");
+    int tasks = atoi(it->second.c_str());
+
 #ifndef CONCURRENCY_ENABLED
-    if (jobs != 1)
+    if (tasks > 1)
         throw IllegalArgumentException("The number of jobs is limited to 1 in this version");
 #else
-    if ((jobs < 1) || (jobs > 16))
+    if ((tasks < 0) || (tasks > 16)) // 0 indicates no user choice
         throw IllegalArgumentException("The number of jobs must be in [1..16]");
 #endif
 
@@ -48,7 +52,7 @@ CompressedInputStream::CompressedInputStream(InputStream& is, OutputStream* debu
     _ds = debug;
     _gcount = 0;
     _ibs = new DefaultInputBitStream(is, DEFAULT_BUFFER_SIZE);
-    _jobs = jobs;
+    _jobs = (tasks == 0) ? 1 : tasks;
     _sa = new SliceArray<byte>(new byte[0], 0, 0);
     _hasher = nullptr;
     _buffers = new SliceArray<byte>*[2 * _jobs];
@@ -308,6 +312,7 @@ int CompressedInputStream::processBlock() THROW
         for (int jobId = 0; jobId < _jobs; jobId++) {
             _buffers[2 * jobId]->_index = 0;
             _buffers[2 * jobId + 1]->_index = 0;
+            map<string, string> copyCtx(_ctx);
 
             if (_buffers[2 * jobId]->_length < blkSize) {
                 delete[] _buffers[2 * jobId]->_array;
@@ -318,7 +323,7 @@ int CompressedInputStream::processBlock() THROW
             DecodingTask<DecodingTaskResult>* task = new DecodingTask<DecodingTaskResult>(_buffers[2 * jobId],
                 _buffers[2 * jobId + 1], blkSize, _transformType,
                 _entropyType, firstBlockId + jobId + 1, _ibs, _hasher, &_blockId,
-                blockListeners);
+                blockListeners, copyCtx);
             tasks.push_back(task);
         }
 
@@ -443,7 +448,8 @@ template <class T>
 DecodingTask<T>::DecodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuffer, int blockSize,
     short transformType, short entropyType, int blockId,
     InputBitStream* ibs, XXHash32* hasher,
-    atomic_int* processedBlockId, vector<Listener*>& listeners)
+    atomic_int* processedBlockId, vector<Listener*>& listeners,
+    map<string, string>& ctx) : _ctx(ctx)
 {
     _blockLength = blockSize;
     _data = iBuffer;
@@ -533,7 +539,7 @@ T DecodingTask<T>::call() THROW
 
         // Each block is decoded separately
         // Rebuild the entropy decoder to reset block statistics
-        ed = EntropyCodecFactory::newDecoder(*_ibs, _entropyType);
+        ed = EntropyCodecFactory::newDecoder(*_ibs, _ctx, _entropyType);
 
         // Block entropy decode
         if (ed->decode(_buffer->_array, 0, preTransformLength) != preTransformLength) {
@@ -574,7 +580,10 @@ T DecodingTask<T>::call() THROW
             _data->_index = savedIdx + preTransformLength;
         }
         else {
-            TransformSequence<byte>* transform = FunctionFactory<byte>::newFunction(_blockLength, _transformType);
+            stringstream ss;
+            ss << _blockLength;
+            _ctx["size"] = ss.str();
+            TransformSequence<byte>* transform = FunctionFactory<byte>::newFunction(_ctx, _transformType);
             transform->setSkipFlags((byte)((mode >> 2) & TransformSequence<byte>::SKIP_MASK));
             _buffer->_index = 0;
 

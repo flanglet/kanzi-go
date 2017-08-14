@@ -33,7 +33,8 @@ const (
 	ANS1_TYPE    = uint16(8) // Asymmetric Numerical System order 1
 )
 
-func NewEntropyDecoder(ibs kanzi.InputBitStream, entropyType uint16) (kanzi.EntropyDecoder, error) {
+func NewEntropyDecoder(ibs kanzi.InputBitStream, ctx map[string]interface{},
+	entropyType uint16) (kanzi.EntropyDecoder, error) {
 	switch entropyType {
 
 	case HUFFMAN_TYPE:
@@ -72,7 +73,8 @@ func NewEntropyDecoder(ibs kanzi.InputBitStream, entropyType uint16) (kanzi.Entr
 	}
 }
 
-func NewEntropyEncoder(obs kanzi.OutputBitStream, entropyType uint16) (kanzi.EntropyEncoder, error) {
+func NewEntropyEncoder(obs kanzi.OutputBitStream, ctx map[string]interface{},
+	entropyType uint16) (kanzi.EntropyEncoder, error) {
 	switch uint16(entropyType) {
 
 	case HUFFMAN_TYPE:

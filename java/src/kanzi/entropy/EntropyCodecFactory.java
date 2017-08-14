@@ -15,6 +15,7 @@ limitations under the License.
 
 package kanzi.entropy;
 
+import java.util.Map;
 import kanzi.EntropyDecoder;
 import kanzi.EntropyEncoder;
 import kanzi.InputBitStream;
@@ -34,7 +35,7 @@ public class EntropyCodecFactory
    public static final byte ANS1_TYPE    = 8; // Asymmetric Numerical System order 1
    
    
-   public EntropyDecoder newDecoder(InputBitStream ibs, short entropyType)
+   public EntropyDecoder newDecoder(InputBitStream ibs, Map<String, Object> ctx, short entropyType)
    {
       if (ibs == null)
          throw new NullPointerException("Invalid null input bitstream parameter");
@@ -67,7 +68,7 @@ public class EntropyCodecFactory
    } 
    
    
-   public EntropyEncoder newEncoder(OutputBitStream obs, short entropyType)
+   public EntropyEncoder newEncoder(OutputBitStream obs, Map<String, Object> ctx, short entropyType)
    {
       if (obs == null)
          throw new NullPointerException("Invalid null output bitstream parameter");

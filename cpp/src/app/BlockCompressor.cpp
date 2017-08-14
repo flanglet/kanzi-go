@@ -83,7 +83,7 @@ BlockCompressor::BlockCompressor(map<string, string>& args)
     it = args.find("block");
 
     if (it == args.end()) {
-        _blockSize = 1024 * 1024;
+        _blockSize = DEFAULT_BLOCK_SIZE;
     }
     else {
         _blockSize = atoi(it->second.c_str());
@@ -233,8 +233,11 @@ int BlockCompressor::call()
         ss.str(string());
     }
 
-    ss << "Using " << _jobs << " job" << ((_jobs > 1) ? "s" : "");
-    printOut(ss.str().c_str(), printFlag);
+    if (_jobs > 0) {
+       ss << "Using " << _jobs << " job" << ((_jobs > 1) ? "s" : "");
+       printOut(ss.str().c_str(), printFlag);
+       ss.str(string());
+    }
 
     OutputStream* os = nullptr;
 
@@ -278,8 +281,19 @@ int BlockCompressor::call()
         }
 
         try {
-            _cos = new CompressedOutputStream(_codec, _transform,
-                *os, _blockSize, _checksum, _jobs);
+            map<string, string> ctx;
+            stringstream ss;
+            ss << _blockSize;
+            ctx["blockSize"] = ss.str();
+            ss.str(string());
+            ss << _checksum;
+            ctx["checksum"] = ss.str();
+            ss.str(string());
+            ss << _jobs;
+            ctx["jobs"] = ss.str();
+            ctx["codec"] = _codec;
+            ctx["transform"] = _transform;
+            _cos = new CompressedOutputStream(*os, ctx);
 
             for (uint i = 0; i < _listeners.size(); i++)
                 _cos->addListener(*_listeners[i]);

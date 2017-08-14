@@ -115,6 +115,7 @@ type CompressedOutputStream struct {
 	jobs          int
 	channels      []chan error
 	listeners     []kanzi.Listener
+	ctx           map[string]interface{}
 }
 
 type EncodingTask struct {
@@ -129,36 +130,46 @@ type EncodingTask struct {
 	output          chan error
 	listeners       []kanzi.Listener
 	obs             kanzi.OutputBitStream
+	ctx             map[string]interface{}
 }
 
-func NewCompressedOutputStream(entropyCodec string, transform string, os io.WriteCloser, blockSize uint,
-	checksum bool, debugWriter io.Writer, jobs uint) (*CompressedOutputStream, error) {
+func NewCompressedOutputStream(os io.WriteCloser, ctx map[string]interface{}) (*CompressedOutputStream, error) {
 	if os == nil {
 		return nil, NewIOError("Invalid null writer parameter", ERR_CREATE_STREAM)
 	}
 
-	if blockSize > MAX_BITSTREAM_BLOCK_SIZE {
+	if ctx == nil {
+		return nil, NewIOError("Invalid null context parameter", ERR_CREATE_STREAM)
+	}
+
+	entropyCodec := ctx["codec"].(string)
+	transform := ctx["transform"].(string)
+	bSize := ctx["blockSize"].(uint)
+
+	if bSize > MAX_BITSTREAM_BLOCK_SIZE {
 		errMsg := fmt.Sprintf("The block size must be at most %d MB", MAX_BITSTREAM_BLOCK_SIZE>>20)
 		return nil, NewIOError(errMsg, ERR_CREATE_STREAM)
 	}
 
-	if blockSize < MIN_BITSTREAM_BLOCK_SIZE {
+	if bSize < MIN_BITSTREAM_BLOCK_SIZE {
 		errMsg := fmt.Sprintf("The block size must be at least %d", MIN_BITSTREAM_BLOCK_SIZE)
 		return nil, NewIOError(errMsg, ERR_CREATE_STREAM)
 	}
 
-	if int(blockSize)&-16 != int(blockSize) {
+	if int(bSize)&-16 != int(bSize) {
 		return nil, NewIOError("The block size must be a multiple of 16", ERR_CREATE_STREAM)
 	}
 
-	if jobs < 1 || jobs > 16 {
+	tasks := ctx["jobs"].(uint)
+
+	if tasks < 0 || tasks > 16 { // 0 indicates no user choice
 		return nil, NewIOError("The number of jobs must be in [1..16]", ERR_CREATE_STREAM)
 	}
 
 	this := new(CompressedOutputStream)
 	var err error
 
-	bufferSize := blockSize
+	bufferSize := bSize
 
 	if bufferSize > 65536 {
 		bufferSize = 65536
@@ -174,7 +185,8 @@ func NewCompressedOutputStream(entropyCodec string, transform string, os io.Writ
 	// Check transform type validity (panic on error)
 	this.transformType = GetByteFunctionType(transform)
 
-	this.blockSize = blockSize
+	this.blockSize = bSize
+	checksum := ctx["checksum"].(bool)
 
 	if checksum == true {
 		this.hasher, err = hash.NewXXHash32(BITSTREAM_TYPE)
@@ -184,15 +196,21 @@ func NewCompressedOutputStream(entropyCodec string, transform string, os io.Writ
 		}
 	}
 
-	this.data = make([]byte, jobs*blockSize)
-	this.buffers = make([]blockBuffer, 2*jobs)
+	this.debugWriter = ctx["printstream"].(io.Writer)
+
+	if tasks == 0 {
+		this.jobs = 1
+	} else {
+		this.jobs = int(tasks)
+	}
+
+	this.data = make([]byte, this.jobs*int(this.blockSize))
+	this.buffers = make([]blockBuffer, 2*this.jobs)
 
 	for i := range this.buffers {
 		this.buffers[i] = blockBuffer{Buf: EMPTY_BYTE_SLICE}
 	}
 
-	this.debugWriter = debugWriter
-	this.jobs = int(jobs)
 	this.blockId = 0
 	this.channels = make([]chan error, this.jobs+1)
 
@@ -201,6 +219,7 @@ func NewCompressedOutputStream(entropyCodec string, transform string, os io.Writ
 	}
 
 	this.listeners = make([]kanzi.Listener, 0)
+	this.ctx = ctx
 	return this, nil
 }
 
@@ -370,6 +389,11 @@ func (this *CompressedOutputStream) processBlock() error {
 		}
 
 		copy(this.buffers[2*jobId].Buf, this.data[offset:offset+sz])
+		copyCtx := make(map[string]interface{})
+
+		for k, v := range this.ctx {
+			copyCtx[k] = v
+		}
 
 		task := EncodingTask{
 			iBuffer:         &this.buffers[2*jobId],
@@ -382,7 +406,8 @@ func (this *CompressedOutputStream) processBlock() error {
 			input:           this.channels[jobId],
 			output:          this.channels[jobId+1],
 			obs:             this.obs,
-			listeners:       listeners}
+			listeners:       listeners,
+			ctx:             copyCtx}
 
 		// Invoke the tasks concurrently
 		// Tasks are chained through channels. Upon completion of transform
@@ -445,7 +470,8 @@ func (this *EncodingTask) encode() {
 
 		mode = byte(SMALL_BLOCK_SIZE | (this.blockLength & COPY_LENGTH_MASK))
 	} else {
-		t, err := NewByteFunction(this.blockLength, this.typeOfTransform)
+		this.ctx["size"] = this.blockLength
+		t, err := NewByteFunction(this.ctx, this.typeOfTransform)
 
 		if err != nil {
 			<-this.input
@@ -518,7 +544,7 @@ func (this *EncodingTask) encode() {
 
 	// Each block is encoded separately
 	// Rebuild the entropy encoder to reset block statistics
-	ee, err := entropy.NewEntropyEncoder(this.obs, this.typeOfEntropy)
+	ee, err := entropy.NewEntropyEncoder(this.obs, this.ctx, this.typeOfEntropy)
 
 	if err != nil {
 		this.output <- NewIOError(err.Error(), ERR_CREATE_CODEC)
@@ -589,6 +615,7 @@ type CompressedInputStream struct {
 	resChan       chan Message
 	listeners     []kanzi.Listener
 	readLastBlock bool
+	ctx           map[string]interface{}
 }
 
 type DecodingTask struct {
@@ -604,24 +631,36 @@ type DecodingTask struct {
 	result          chan Message
 	listeners       []kanzi.Listener
 	ibs             kanzi.InputBitStream
+	ctx             map[string]interface{}
 }
 
-func NewCompressedInputStream(is io.ReadCloser,
-	debugWriter io.Writer, jobs uint) (*CompressedInputStream, error) {
+func NewCompressedInputStream(is io.ReadCloser, ctx map[string]interface{}) (*CompressedInputStream, error) {
 	if is == nil {
 		return nil, NewIOError("Invalid null reader parameter", ERR_CREATE_STREAM)
 	}
 
-	if jobs < 1 || jobs > 16 {
+	if ctx == nil {
+		return nil, NewIOError("Invalid null context parameter", ERR_CREATE_STREAM)
+	}
+
+	tasks := ctx["jobs"].(uint)
+
+	if tasks < 0 || tasks > 16 { // 0 indicates no user choice
 		return nil, NewIOError("The number of jobs must be in [1..16]", ERR_CREATE_STREAM)
 	}
 
 	this := new(CompressedInputStream)
-	this.debugWriter = debugWriter
-	this.jobs = int(jobs)
+	this.debugWriter = ctx["printstream"].(io.Writer)
+
+	if tasks == 0 {
+		this.jobs = 1
+	} else {
+		this.jobs = int(tasks)
+	}
+
 	this.blockId = 0
 	this.data = EMPTY_BYTE_SLICE
-	this.buffers = make([]blockBuffer, 2*jobs)
+	this.buffers = make([]blockBuffer, 2*this.jobs)
 
 	for i := range this.buffers {
 		this.buffers[i] = blockBuffer{Buf: EMPTY_BYTE_SLICE}
@@ -646,6 +685,7 @@ func NewCompressedInputStream(is io.ReadCloser,
 	}
 
 	this.listeners = make([]kanzi.Listener, 0)
+	this.ctx = ctx
 	return this, nil
 }
 
@@ -859,6 +899,12 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 			this.buffers[2*jobId].Buf = make([]byte, blkSize)
 		}
 
+		copyCtx := make(map[string]interface{})
+
+		for k, v := range this.ctx {
+			copyCtx[k] = v
+		}
+
 		task := DecodingTask{
 			iBuffer:         &this.buffers[2*jobId],
 			oBuffer:         &this.buffers[2*jobId+1],
@@ -871,7 +917,8 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 			output:          nextChan,
 			result:          this.resChan,
 			listeners:       listeners,
-			ibs:             this.ibs}
+			ibs:             this.ibs,
+			ctx:             copyCtx}
 
 		// Invoke the tasks concurrently
 		// Tasks are daisy chained through channels. All tasks wait for a signal
@@ -1027,7 +1074,7 @@ func (this *DecodingTask) decode() {
 
 	// Each block is decoded separately
 	// Rebuild the entropy decoder to reset block statistics
-	ed, err := entropy.NewEntropyDecoder(this.ibs, this.typeOfEntropy)
+	ed, err := entropy.NewEntropyDecoder(this.ibs, this.ctx, this.typeOfEntropy)
 
 	if err != nil {
 		// Error => cancel concurrent decoding tasks
@@ -1073,7 +1120,8 @@ func (this *DecodingTask) decode() {
 
 		res.decoded = int(preTransformLength)
 	} else {
-		transform, err := NewByteFunction(preTransformLength, this.typeOfTransform)
+		this.ctx["size"] = preTransformLength
+		transform, err := NewByteFunction(this.ctx, this.typeOfTransform)
 
 		if err != nil {
 			// Error => return

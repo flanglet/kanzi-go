@@ -48,10 +48,10 @@ template <class T>
 
        string getName(short functionType) const THROW;
 
-       static TransformSequence<T>* newFunction(int size, short functionType) THROW;
+       static TransformSequence<T>* newFunction(map<string, string>& ctx, short functionType) THROW;
 
    private:
-       static Transform<T>* newFunctionToken(int size, short functionType) THROW;
+       static Transform<T>* newFunctionToken(map<string, string>& ctx, short functionType) THROW;
 
        static const char* getNameToken(int functionType) THROW;
    };
@@ -148,7 +148,7 @@ template <class T>
    }
 
    template <class T>
-   TransformSequence<T>* FunctionFactory<T>::newFunction(int size, short functionType) THROW
+   TransformSequence<T>* FunctionFactory<T>::newFunction(map<string, string>& ctx, short functionType) THROW
    {
        int nbtr = 0;
 
@@ -170,15 +170,18 @@ template <class T>
            int t = (functionType >> (12 - 4 * i)) & 0x0F;
 
            if ((t != NULL_TRANSFORM_TYPE) || (i == 0))
-               transforms[nbtr++] = newFunctionToken(size, short(t));
+               transforms[nbtr++] = newFunctionToken(ctx, short(t));
        }
 
        return new TransformSequence<T>(transforms, true);
    }
 
    template <class T>
-   Transform<T>* FunctionFactory<T>::newFunctionToken(int size, short functionType) THROW
+   Transform<T>* FunctionFactory<T>::newFunctionToken(map<string, string>& ctx, short functionType) THROW
    {
+       map<string, string>::iterator it = ctx.find("size");
+       int size = atoi(it->second.c_str());
+
        switch (functionType & 0x0F) {
        case SNAPPY_TYPE:
            return new SnappyCodec();

@@ -16,6 +16,7 @@ limitations under the License.
 #ifndef _CompressedOutputStream_
 #define _CompressedOutputStream_
 
+#include <map>
 #include <string>
 #include <vector>
 #include "../concurrent.hpp"
@@ -73,12 +74,15 @@ namespace kanzi {
        XXHash32* _hasher;
        atomic_int* _processedBlockId;
        vector<Listener*> _listeners;
+       map<string, string> _ctx;
+
 
    public:
        EncodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuffer, int length,
            short transformType, short entropyType, int blockId,
            OutputBitStream* obs, XXHash32* hasher,
-           atomic_int* processedBlockId, vector<Listener*>& listeners);
+           atomic_int* processedBlockId, vector<Listener*>& listeners,
+           map<string, string>& ctx);
 
        ~EncodingTask(){};
 
@@ -89,7 +93,6 @@ namespace kanzi {
        friend class EncodingTask<EncodingTaskResult>;
 
    private:
-       static const int DEFAULT_BLOCK_SIZE = 1024 * 1024; // Default block size
        static const int BITSTREAM_TYPE = 0x4B414E5A; // "KANZ"
        static const int BITSTREAM_FORMAT_VERSION = 3;
        static const int COPY_LENGTH_MASK = 0x0F;
@@ -111,6 +114,8 @@ namespace kanzi {
        atomic_int _blockId;
        int _jobs;
        vector<Listener*> _listeners;
+       map<string, string> _ctx;
+
 
        void writeHeader() THROW;
 
@@ -119,13 +124,8 @@ namespace kanzi {
        static void notifyListeners(vector<Listener*>& listeners, const Event& evt);
 
    public:
-       // CompressedOutputStream(const string& entropyCodec, const string& functionType, OutputStream& os);
 
-       // CompressedOutputStream(const string& entropyCodec, const string& functionType,
-       //     OutputStream& os, int blockSize, bool checksum);
-
-       CompressedOutputStream(const string& entropyCodec, const string& transform,
-           OutputStream& os, int blockSize, bool checksum, int jobs);
+       CompressedOutputStream(OutputStream& os, map<string, string>& ctx);
 
        ~CompressedOutputStream();
 

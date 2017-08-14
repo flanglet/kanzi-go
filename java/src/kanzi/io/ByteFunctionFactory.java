@@ -15,6 +15,7 @@ limitations under the License.
 
 package kanzi.io;
 
+import java.util.Map;
 import kanzi.ByteTransform;
 import kanzi.function.BWTBlockCodec;
 import kanzi.function.ByteTransformSequence;
@@ -124,7 +125,7 @@ public class ByteFunctionFactory
    }
    
    
-   public ByteTransformSequence newFunction(int size, short functionType)
+   public ByteTransformSequence newFunction(Map<String, Object> ctx, short functionType)
    {      
       int nbtr = 0;
       
@@ -147,15 +148,17 @@ public class ByteFunctionFactory
           int t = (functionType >>> (12-4*i)) & 0x0F;
           
           if ((t != NULL_TRANSFORM_TYPE) || (i == 0))
-             transforms[nbtr++] = newFunctionToken(size, (short) t);
+             transforms[nbtr++] = newFunctionToken(ctx, (short) t);
       }
     
       return new ByteTransformSequence(transforms);
    }
    
    
-   private static ByteTransform newFunctionToken(int size, short functionType)
+   private static ByteTransform newFunctionToken(Map<String, Object> ctx, short functionType)
    {
+      final int size = (Integer) ctx.get("size");
+
       switch (functionType & 0x0F)
       {
          case SNAPPY_TYPE:

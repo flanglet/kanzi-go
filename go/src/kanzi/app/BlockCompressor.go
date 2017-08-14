@@ -28,6 +28,7 @@ import (
 
 const (
 	COMP_DEFAULT_BUFFER_SIZE = 32768
+	COMP_DEFAULT_BLOCK_SIZE  = 1024 * 1024
 	WARN_EMPTY_INPUT         = -128
 )
 
@@ -90,7 +91,7 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 		this.blockSize = block.(uint)
 		delete(argsMap, "block")
 	} else {
-		this.blockSize = 1024 * 1024
+		this.blockSize = COMP_DEFAULT_BLOCK_SIZE
 	}
 
 	if len(strTransf) == 0 {
@@ -199,14 +200,17 @@ func (this *BlockCompressor) Call() (int, uint64) {
 		bc_printOut(msg, printFlag)
 	}
 
-	prefix := ""
+	if this.jobs > 0 {
+		prefix := ""
 
-	if this.jobs > 1 {
-		prefix = "s"
+		if this.jobs > 1 {
+			prefix = "s"
+		}
+
+		msg = fmt.Sprintf("Using %d job%s", this.jobs, prefix)
+		bc_printOut(msg, printFlag)
 	}
 
-	msg = fmt.Sprintf("Using %d job%s", this.jobs, prefix)
-	bc_printOut(msg, printFlag)
 	written := uint64(0)
 	var output io.WriteCloser
 
@@ -255,8 +259,15 @@ func (this *BlockCompressor) Call() (int, uint64) {
 		verboseWriter = nil
 	}
 
-	cos, err := kio.NewCompressedOutputStream(this.entropyCodec, this.transform,
-		output, this.blockSize, this.checksum, verboseWriter, this.jobs)
+	ctx := make(map[string]interface{})
+	ctx["blockSize"] = this.blockSize
+	ctx["checksum"] = this.checksum
+	ctx["jobs"] = this.jobs
+	ctx["codec"] = this.entropyCodec
+	ctx["transform"] = this.transform
+	ctx["printstream"] = verboseWriter
+
+	cos, err := kio.NewCompressedOutputStream(output, ctx)
 
 	if err != nil {
 		if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {

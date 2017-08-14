@@ -45,6 +45,7 @@ namespace kanzi
 
    private:
       static const int DEFAULT_BUFFER_SIZE = 32768;
+      static const int DEFAULT_BLOCK_SIZE = 1024 * 1024;
 
       int _verbosity;
       bool _overwrite;

@@ -119,14 +119,18 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 	bd_printOut(msg, printFlag)
 	msg = fmt.Sprintf("Overwrite set to %t", this.overwrite)
 	bd_printOut(msg, printFlag)
-	prefix := ""
 
-	if this.jobs > 1 {
-		prefix = "s"
+	if this.jobs > 0 {
+		prefix := ""
+
+		if this.jobs > 1 {
+			prefix = "s"
+		}
+
+		msg = fmt.Sprintf("Using %d job%s", this.jobs, prefix)
+		bd_printOut(msg, printFlag)
 	}
 
-	msg = fmt.Sprintf("Using %d job%s", this.jobs, prefix)
-	bd_printOut(msg, printFlag)
 	var output io.WriteCloser
 
 	if strings.ToUpper(this.outputName) == "NONE" {
@@ -197,7 +201,11 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 		verboseWriter = nil
 	}
 
-	cis, err := kio.NewCompressedInputStream(input, verboseWriter, this.jobs)
+	ctx := make(map[string]interface{})
+	ctx["jobs"] = this.jobs
+	ctx["printstream"] = verboseWriter
+
+	cis, err := kio.NewCompressedInputStream(input, ctx)
 
 	if err != nil {
 		if err.(*kio.IOError) != nil {

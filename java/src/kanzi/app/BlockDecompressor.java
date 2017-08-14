@@ -21,10 +21,10 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PrintStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -64,10 +64,10 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       this.inputName = (String) map.remove("inputName");
       this.outputName = (String) map.remove("outputName");
       this.jobs = (Integer) map.remove("jobs");
-      this.pool = (this.jobs == 1) ? null :
+      this.pool = (this.jobs < 2) ? null :
               ((threadPool == null) ? Executors.newCachedThreadPool() : threadPool);
       this.ownPool = (threadPool == null) && (this.pool != null);
-      this.listeners = new ArrayList<Listener>(10);
+      this.listeners = new ArrayList<>(10);
 
       if (this.verbosity > 2)
          this.addListener(new InfoPrinter(this.verbosity, InfoPrinter.Type.DECODING, System.out));
@@ -75,7 +75,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       if ((this.verbosity > 0) && (map.size() > 0))
       {
          for (String k : map.keySet())
-            printOut("Ignoring invalid option [" + k + "]", verbosity>0);
+            printOut("Ignoring invalid option [" + k + "]", this.verbosity>0);
       }      
    }
    
@@ -124,7 +124,9 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       printOut("Output file name set to '" + this.outputName + "'", printFlag);
       printOut("Verbosity set to "+this.verbosity, printFlag);
       printOut("Overwrite set to "+this.overwrite, printFlag);
-      printOut("Using " + this.jobs + " job" + ((this.jobs > 1) ? "s" : ""), printFlag);
+      
+      if (this.jobs > 0)
+         printOut("Using " + this.jobs + " job" + ((this.jobs > 1) ? "s" : ""), printFlag);
 
       long read = 0;
       printFlag = this.verbosity > 1;
@@ -204,8 +206,14 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
 
          try
          {
-            PrintStream ds = (this.verbosity > 2) ? System.out : null;
-            this.cis = new CompressedInputStream(is, ds, this.pool, this.jobs);
+            Map<String, Object> ctx = new HashMap<>();
+            ctx.put("pool", this.pool);
+            ctx.put("jobs", this.jobs);
+            
+            if (this.verbosity > 2)
+                ctx.put("printstream", System.out);            
+
+            this.cis = new CompressedInputStream(is, ctx);
 
             for (Listener bl : this.listeners)
                this.cis.addListener(bl);
