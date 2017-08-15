@@ -253,20 +253,12 @@ func (this *BlockCompressor) Call() (int, uint64) {
 
 	}
 
-	verboseWriter := os.Stdout
-
-	if this.verbosity <= 2 {
-		verboseWriter = nil
-	}
-
 	ctx := make(map[string]interface{})
 	ctx["blockSize"] = this.blockSize
 	ctx["checksum"] = this.checksum
 	ctx["jobs"] = this.jobs
 	ctx["codec"] = this.entropyCodec
 	ctx["transform"] = this.transform
-	ctx["printstream"] = verboseWriter
-
 	cos, err := kio.NewCompressedOutputStream(output, ctx)
 
 	if err != nil {

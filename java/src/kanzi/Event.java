@@ -26,7 +26,8 @@ public class Event
       BEFORE_ENTROPY,
       AFTER_ENTROPY,
       COMPRESSION_END,
-      DECOMPRESSION_END
+      DECOMPRESSION_END,
+      AFTER_HEADER_DECODING
    }
 
    private final int id;

@@ -29,7 +29,7 @@ limitations under the License.
 
 using namespace kanzi;
 
-CompressedInputStream::CompressedInputStream(InputStream& is, map<string, string>& ctx, OutputStream* debug)
+CompressedInputStream::CompressedInputStream(InputStream& is, map<string, string>& ctx)
     : InputStream(is.rdbuf())
     , _is(is), _ctx(ctx)
 {
@@ -49,7 +49,6 @@ CompressedInputStream::CompressedInputStream(InputStream& is, map<string, string
     _initialized = false;
     _closed = false;
     _maxIdx = 0;
-    _ds = debug;
     _gcount = 0;
     _ibs = new DefaultInputBitStream(is, DEFAULT_BUFFER_SIZE);
     _jobs = (tasks == 0) ? 1 : tasks;
@@ -127,9 +126,10 @@ void CompressedInputStream::readHeader() THROW
     // Read reserved bits
     _ibs->readBits(9);
 
-    if (_ds != nullptr) {
-        *_ds << "Checksum set to " << (_hasher != nullptr ? "true" : "false") << endl;
-        *_ds << "Block size set to " << _blockSize << " bytes" << endl;
+    if (_listeners.size() > 0) {
+        stringstream ss;
+        ss << "Checksum set to " << (_hasher != nullptr ? "true" : "false") << endl;
+        ss  << "Block size set to " << _blockSize << " bytes" << endl;
 
         try {
             FunctionFactory<byte> ff;
@@ -138,12 +138,12 @@ void CompressedInputStream::readHeader() THROW
             if (w1 == "NONE")
                 w1 = "no";
 
-            *_ds << "Using " << w1 << " transform (stage 1)" << endl;
+            ss << "Using " << w1 << " transform (stage 1)" << endl;
         }
         catch (IllegalArgumentException&) {
-            stringstream ss;
-            ss << "Invalid bitstream, unknown transform type: " << _transformType;
-            throw IOException(ss.str(), Error::ERR_INVALID_CODEC);
+            stringstream err;
+            err << "Invalid bitstream, unknown transform type: " << _transformType;
+            throw IOException(err.str(), Error::ERR_INVALID_CODEC);
         }
 
         try {
@@ -152,13 +152,18 @@ void CompressedInputStream::readHeader() THROW
             if (w2 == "NONE")
                 w2 = "no";
 
-            *_ds << "Using " << w2 << " entropy codec (stage 2)" << endl;
+            ss << "Using " << w2 << " entropy codec (stage 2)";
         }
         catch (IllegalArgumentException&) {
-            stringstream ss;
-            ss << "Invalid bitstream, unknown entropy codec type: " << _entropyType;
-            throw IOException(ss.str(), Error::ERR_INVALID_CODEC);
+            stringstream err;
+            err << "Invalid bitstream, unknown entropy codec type: " << _entropyType;
+            throw IOException(err.str(), Error::ERR_INVALID_CODEC);
         }
+
+        // Protect against future concurrent modification of the list of block listeners
+        vector<Listener*> blockListeners(_listeners);
+        Event evt(Event::AFTER_HEADER_DECODING, 0, ss.str());
+        CompressedInputStream::notifyListeners(blockListeners, evt);
     }
 }
 

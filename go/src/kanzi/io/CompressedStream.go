@@ -107,7 +107,6 @@ type CompressedOutputStream struct {
 	entropyType   uint16
 	transformType uint16
 	obs           kanzi.OutputBitStream
-	debugWriter   io.Writer
 	initialized   int32
 	closed        int32
 	blockId       int
@@ -195,8 +194,6 @@ func NewCompressedOutputStream(os io.WriteCloser, ctx map[string]interface{}) (*
 			return nil, err
 		}
 	}
-
-	this.debugWriter = ctx["printstream"].(io.Writer)
 
 	if tasks == 0 {
 		this.jobs = 1
@@ -604,7 +601,6 @@ type CompressedInputStream struct {
 	entropyType   uint16
 	transformType uint16
 	ibs           kanzi.InputBitStream
-	debugWriter   io.Writer
 	initialized   int32
 	closed        int32
 	blockId       int
@@ -650,7 +646,6 @@ func NewCompressedInputStream(is io.ReadCloser, ctx map[string]interface{}) (*Co
 	}
 
 	this := new(CompressedInputStream)
-	this.debugWriter = ctx["printstream"].(io.Writer)
 
 	if tasks == 0 {
 		this.jobs = 1
@@ -764,23 +759,26 @@ func (this *CompressedInputStream) readHeader() error {
 	// Read reserved bits
 	this.ibs.ReadBits(9)
 
-	if this.debugWriter != nil {
-		fmt.Fprintf(this.debugWriter, "Checksum set to %v\n", (this.hasher != nil))
-		fmt.Fprintf(this.debugWriter, "Block size set to %d bytes\n", this.blockSize)
+	if len(this.listeners) > 0 {
+		msg := ""
+		msg += fmt.Sprintf("Checksum set to %v\n", this.hasher != nil)
+		msg += fmt.Sprintf("Block size set to %d bytes\n", this.blockSize)
 		w1 := GetByteFunctionName(this.transformType)
 
 		if w1 == "NONE" {
 			w1 = "no"
 		}
 
-		fmt.Fprintf(this.debugWriter, "Using %v transform (stage 1)\n", w1)
+		msg += fmt.Sprintf("Using %v transform (stage 1)\n", w1)
 		w2 := entropy.GetEntropyCodecName(this.entropyType)
 
 		if w2 == "NONE" {
 			w2 = "no"
 		}
 
-		fmt.Fprintf(this.debugWriter, "Using %v entropy codec (stage 2)\n", w2)
+		msg += fmt.Sprintf("Using %v entropy codec (stage 2)", w2)
+		evt := kanzi.NewEventFromString(kanzi.EVT_AFTER_HEADER_DECODING, 0, msg)
+		notifyListeners(this.listeners, evt)
 	}
 
 	return nil

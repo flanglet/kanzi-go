@@ -232,8 +232,7 @@ int BlockDecompressor::call()
             stringstream ss;
             ss << _jobs;
             ctx["jobs"] = ss.str();
-            OutputStream* ds = (_verbosity > 2) ? &cout : nullptr;
-            _cis = new CompressedInputStream(*is, ctx, ds);
+            _cis = new CompressedInputStream(*is, ctx);
 
             for (uint i = 0; i < _listeners.size(); i++)
                 _cis->addListener(*_listeners[i]);

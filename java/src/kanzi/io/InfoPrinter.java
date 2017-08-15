@@ -158,6 +158,10 @@ public class InfoPrinter implements Listener
             this.ps.println(msg.toString());         
          }
       }
+      else if ((evt.getType() == Event.Type.AFTER_HEADER_DECODING) && (this.level >= 3))
+      {
+         this.ps.println(evt);
+      }
       else if (this.level >= 5)
       {
          this.ps.println(evt);

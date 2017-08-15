@@ -37,10 +37,11 @@ namespace kanzi
            BEFORE_ENTROPY,
            AFTER_ENTROPY,
            DECOMPRESSION_START,
-           DECOMPRESSION_END
+           DECOMPRESSION_END,
+           AFTER_HEADER_DECODING
        };
 
-       Event(Event::Type type, int id, const char* msg);
+       Event(Event::Type type, int id, const string& msg);
 
        Event(Event::Type type, int id, int64 size);
 
@@ -72,7 +73,7 @@ namespace kanzi
        bool _hashing;
        time_t _time;
        Clock _clock;
-       const char* _msg;
+       string _msg;
    };
 
 }

@@ -195,16 +195,8 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 		}()
 	}
 
-	verboseWriter := os.Stdout
-
-	if this.verbosity <= 2 {
-		verboseWriter = nil
-	}
-
 	ctx := make(map[string]interface{})
 	ctx["jobs"] = this.jobs
-	ctx["printstream"] = verboseWriter
-
 	cis, err := kio.NewCompressedInputStream(input, ctx)
 
 	if err != nil {

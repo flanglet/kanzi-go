@@ -209,10 +209,6 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
             Map<String, Object> ctx = new HashMap<>();
             ctx.put("pool", this.pool);
             ctx.put("jobs", this.jobs);
-            
-            if (this.verbosity > 2)
-                ctx.put("printstream", System.out);            
-
             this.cis = new CompressedInputStream(is, ctx);
 
             for (Listener bl : this.listeners)

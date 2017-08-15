@@ -62,7 +62,6 @@ public class CompressedInputStream extends InputStream
    private short entropyType;
    private short transformType;
    private final InputBitStream ibs;
-   private final PrintStream ds;
    private final AtomicBoolean initialized;
    private final AtomicBoolean closed;
    private int maxIdx;
@@ -103,7 +102,6 @@ public class CompressedInputStream extends InputStream
       for (int i=0; i<this.buffers.length; i++)
          this.buffers[i] = new SliceByteArray(EMPTY_BYTE_ARRAY, 0);
 
-      this.ds = (PrintStream) ctx.get("printstream");
       this.blockId = new AtomicInteger(0);
       this.listeners = new ArrayList<>(10);
       this.ctx = ctx;
@@ -147,10 +145,11 @@ public class CompressedInputStream extends InputStream
       // Read reserved bits
       this.ibs.readBits(9);
 
-      if (this.ds != null)
+      if (this.listeners.size() > 0)
       {
-         this.ds.println("Checksum set to " + (this.hasher != null));
-         this.ds.println("Block size set to " + this.blockSize + " bytes");
+         StringBuilder sb = new StringBuilder(200);
+         sb.append("Checksum set to ").append(this.hasher != null).append("\n");
+         sb.append("Block size set to ").append(this.blockSize).append(" bytes").append("\n");
 
          try
          {
@@ -159,7 +158,7 @@ public class CompressedInputStream extends InputStream
             if ("NONE".equals(w1))
                w1 = "no";
 
-            this.ds.println("Using " + w1 + " transform (stage 1)");
+            sb.append("Using ").append(w1).append(" transform (stage 1)").append("\n");
          }
          catch (IllegalArgumentException e)
          {
@@ -174,13 +173,18 @@ public class CompressedInputStream extends InputStream
             if ("NONE".equals(w2))
                w2 = "no";
 
-            this.ds.println("Using " + w2 + " entropy codec (stage 2)");
+            sb.append("Using ").append(w2).append(" entropy codec (stage 2)");
          }
          catch (IllegalArgumentException e)
          {
             throw new kanzi.io.IOException("Invalid bitstream, unknown entropy codec type: "+
                     this.entropyType , Error.ERR_INVALID_CODEC);
          }
+        
+         // Protect against future concurrent modification of the list of block listeners
+         Listener[] blockListeners = this.listeners.toArray(new Listener[this.listeners.size()]);
+         Event evt = new Event(Event.Type.AFTER_HEADER_DECODING, 0, sb.toString());
+         notifyListeners(blockListeners, evt);        
       }
    }
 

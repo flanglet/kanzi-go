@@ -116,7 +116,6 @@ namespace kanzi {
        short _transformType;
        InputBitStream* _ibs;
        InputStream& _is;
-       OutputStream* _ds;
        atomic_bool _initialized;
        atomic_bool _closed;
        atomic_int _blockId;
@@ -136,7 +135,7 @@ namespace kanzi {
        static void notifyListeners(vector<Listener*>& listeners, const Event& evt);
 
    public:
-       CompressedInputStream(InputStream& is, map<string, string>& ctx, OutputStream* debug);
+       CompressedInputStream(InputStream& is, map<string, string>& ctx);
 
        ~CompressedInputStream();
 

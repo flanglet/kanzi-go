@@ -185,7 +185,9 @@ void InfoPrinter::processEvent(const Event& evt)
             _map.erase(it);
         }
     }
-    else if (_level >= 5) {
+    else if ((evt.getType() == Event::AFTER_HEADER_DECODING) && (_level >= 3)) {
+        _os << evt.toString() << endl;
+    }    else if (_level >= 5) {
         _os << evt.toString() << endl;
     }
 }

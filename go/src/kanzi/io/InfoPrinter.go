@@ -185,6 +185,8 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 
 			fmt.Fprintln(this.writer, msg)
 		}
+	} else if evt.EventType() == kanzi.EVT_AFTER_HEADER_DECODING && this.level >= 3 {
+		fmt.Fprintln(this.writer, evt)
 	} else if this.level >= 5 {
 		fmt.Fprintln(this.writer, evt)
 	}

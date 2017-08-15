@@ -21,17 +21,16 @@ limitations under the License.
 using namespace kanzi;
 
 Event::Event(Event::Type type, int id, int64 size)
-    : _time(time(nullptr))
+    : _time(time(nullptr)), _msg()
 {
     _id = id;
     _size = size;
     _hash = 0;
     _hashing = false;
     _type = type;
-    _msg = nullptr;
 }
 
-Event::Event(Event::Type type, int id, const char* msg)
+Event::Event(Event::Type type, int id, const string& msg)
     : _time(time(nullptr))
 {
     _id = id;
@@ -43,19 +42,18 @@ Event::Event(Event::Type type, int id, const char* msg)
 }
 
 Event::Event(Event::Type type, int id, int64 size, int hash, bool hashing)
-    : _time(time(nullptr))
+    : _time(time(nullptr)), _msg()
 {
     _id = id;
     _size = size;
     _hash = hash;
     _hashing = hashing;
     _type = type;
-    _msg = nullptr;
 }
 
 string Event::toString() const
 {
-    if (_msg != nullptr)
+    if (_msg.size() > 0)
        return _msg;
 
     std::stringstream ss;
