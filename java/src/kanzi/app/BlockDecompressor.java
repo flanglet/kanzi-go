@@ -34,7 +34,6 @@ import kanzi.Event;
 import kanzi.io.Error;
 import kanzi.SliceByteArray;
 import kanzi.io.CompressedInputStream;
-import kanzi.io.InfoPrinter;
 import kanzi.io.NullOutputStream;
 import kanzi.Listener;
 

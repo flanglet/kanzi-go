@@ -124,7 +124,7 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 	}
 
 	if this.verbosity > 2 {
-		if listener, err := kio.NewInfoPrinter(this.verbosity, kio.ENCODING, os.Stdout); err == nil {
+		if listener, err := NewInfoPrinter(this.verbosity, ENCODING, os.Stdout); err == nil {
 			this.AddListener(listener)
 		}
 	}

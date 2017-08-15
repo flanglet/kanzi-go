@@ -23,7 +23,7 @@ limitations under the License.
 #include <string>
 #include <sys/stat.h>
 #include "BlockDecompressor.hpp"
-#include "../io/InfoPrinter.hpp"
+#include "InfoPrinter.hpp"
 #include "../io/Error.hpp"
 #include "../io/IOException.hpp"
 #include "../IllegalArgumentException.hpp"

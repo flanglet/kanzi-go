@@ -4,6 +4,7 @@ CFLAGS=-c -static -std=c++11 -Wall -Wextra -s -O3 -fomit-frame-pointer -msse2
 LDFLAGS=-lpthread
 LIB_SOURCES=Global.cpp \
 	Event.cpp \
+	app/InfoPrinter.cpp \
 	transform/DCT16.cpp \
 	transform/DCT32.cpp \
 	transform/DCT4.cpp \
@@ -21,7 +22,6 @@ LIB_SOURCES=Global.cpp \
 	bitstream/DefaultOutputBitStream.cpp \
 	io/CompressedInputStream.cpp \
 	io/CompressedOutputStream.cpp \
-	io/InfoPrinter.cpp \
 	entropy/ANSRangeDecoder.cpp \
 	entropy/ANSRangeEncoder.cpp \
 	entropy/EntropyUtils.cpp \

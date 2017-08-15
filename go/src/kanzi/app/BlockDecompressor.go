@@ -70,7 +70,7 @@ func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, e
 	}
 
 	if this.verbosity > 2 {
-		if listener, err := kio.NewInfoPrinter(this.verbosity, kio.DECODING, os.Stdout); err == nil {
+		if listener, err := NewInfoPrinter(this.verbosity, DECODING, os.Stdout); err == nil {
 			this.AddListener(listener)
 		}
 	}

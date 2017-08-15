@@ -35,7 +35,6 @@ import kanzi.SliceByteArray;
 import kanzi.io.ByteFunctionFactory;
 import kanzi.io.CompressedOutputStream;
 import kanzi.io.Error;
-import kanzi.io.InfoPrinter;
 import kanzi.io.NullOutputStream;
 import kanzi.Listener;
 
