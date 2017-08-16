@@ -47,7 +47,7 @@ namespace kanzi {
    class TextCodec : public Function<byte> {
    public:
        static const int THRESHOLD1 = 128;
-       static const int THRESHOLD2 = THRESHOLD1 * 128;
+       static const int THRESHOLD2 = THRESHOLD1 * THRESHOLD1;
        static const int LOG_HASHES_SIZE = 24; // 16 MB
        static const byte ESCAPE_TOKEN1 = byte(0x0F); // dictionary word preceded by space symbol
        static const byte ESCAPE_TOKEN2 = byte(0x0E); // toggle upper/lower case of first word char

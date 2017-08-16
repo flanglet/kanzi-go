@@ -741,7 +741,7 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
             continue;
         }
 
-        bool mustEmit = true;
+        bool mustEmit = emitAnchor < srcIdx;
 
         if (((srcIdx > anchor + 2)) && (isDelimiter(cur) || (cur == ESCAPE_TOKEN1) || (cur == ESCAPE_TOKEN2))) // At least 2 letters
         {
@@ -859,10 +859,7 @@ bool TextCodec::expandDictionary()
 
 int TextCodec::emitSymbols(byte src[], byte dst[], const int srcEnd, const int dstEnd)
 {
-    if (srcEnd == 0)
-        return 0;
-
-    return (3 * srcEnd < dstEnd) ? emit1(src, dst, srcEnd, dstEnd) : emit2(src, dst, srcEnd, dstEnd);
+    return ((srcEnd << 2) < dstEnd) ? emit1(src, dst, srcEnd, dstEnd) : emit2(src, dst, srcEnd, dstEnd);
 }
 
 int TextCodec::emit1(byte src[], byte dst[], const int srcEnd, const int)

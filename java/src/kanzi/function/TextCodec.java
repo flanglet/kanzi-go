@@ -30,7 +30,7 @@ import kanzi.SliceByteArray;
 public final class TextCodec implements ByteFunction
 {
    private static final int THRESHOLD1 = 128;
-   private static final int THRESHOLD2 = THRESHOLD1*128;
+   private static final int THRESHOLD2 = THRESHOLD1 * THRESHOLD1;
    public static final int LOG_HASHES_SIZE = 24; // 16 MB
    public static final byte ESCAPE_TOKEN1 = (byte) 0x0F; // dictionary word preceded by space symbol
    public static final byte ESCAPE_TOKEN2 = (byte) 0x0E; // toggle upper/lower case of first word char
@@ -719,7 +719,6 @@ public final class TextCodec implements ByteFunction
       int words = this.staticDictSize;
       int h1 = HASH1;
       int h2 = HASH1;
-      boolean isFirstWordChar = true;
 
       while ((srcIdx < srcEnd) && (dstIdx < dstEnd))
       {
@@ -730,12 +729,11 @@ public final class TextCodec implements ByteFunction
             // Compute hashes
             // h1 -> hash of word chars
             // h2 -> hash of word chars with first char case flipped
-            if (isFirstWordChar == true)
+            if (srcIdx == anchor+1)
             {
                final int caseFlag = isUpperCase(cur) ? 32 : - 32;
                h1 = h1*HASH1 ^ cur*HASH2;
                h2 = h2*HASH1 ^ (cur+caseFlag)*HASH2;
-               isFirstWordChar = false;
             }
             else
             {
@@ -748,7 +746,7 @@ public final class TextCodec implements ByteFunction
             continue;
          }
 
-         boolean mustEmit = true;
+         boolean mustEmit = emitAnchor < srcIdx;
 
          if (((srcIdx > anchor+2)) && (isDelimiter(cur) || (cur == ESCAPE_TOKEN1) || (cur == ESCAPE_TOKEN2))) // At least 2 letters
          {
@@ -831,7 +829,6 @@ public final class TextCodec implements ByteFunction
          anchor = srcIdx;
          emitAnchor = anchor;
          srcIdx++;
-         isFirstWordChar = true;
          h1 = HASH1;
          h2 = HASH1;
       }
@@ -864,10 +861,7 @@ public final class TextCodec implements ByteFunction
 
    private int emitSymbols(byte[] src, final int srcIdx, byte[] dst, int dstIdx, final int srcEnd, final int dstEnd)
    {
-      if (srcIdx >= srcEnd)
-         return 0;
-
-      return (3*(srcEnd-srcIdx) < (dstEnd-dstIdx)) ?
+      return ((srcEnd-srcIdx)<<2 < (dstEnd-dstIdx)) ?
          this.emit1(src, srcIdx, dst, dstIdx, srcEnd, dstEnd) :
          this.emit2(src, srcIdx, dst, dstIdx, srcEnd, dstEnd);
    }

@@ -32,7 +32,7 @@ import (
 
 const (
 	TC_THRESHOLD1      = 128
-	TC_THRESHOLD2      = TC_THRESHOLD1 * 128
+	TC_THRESHOLD2      = TC_THRESHOLD1 * TC_THRESHOLD1
 	TC_LOG_HASHES_SIZE = 24         // 16 MB
 	TC_ESCAPE_TOKEN1   = byte(0x0F) // dictionary word preceded by space symbol
 	TC_ESCAPE_TOKEN2   = byte(0x0E) // toggle upper/lower case of first word char
@@ -775,7 +775,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 			continue
 		}
 
-		mustEmit := true
+		mustEmit := emitAnchor < srcIdx
 
 		if (srcIdx > anchor+2) && (isDelimiter(cur) || cur == TC_ESCAPE_TOKEN1 || cur == TC_ESCAPE_TOKEN2) { // At least 2 letters
 			// Check word in dictionary
@@ -906,11 +906,7 @@ func (this *TextCodec) expandDictionary() bool {
 }
 
 func (this *TextCodec) emitSymbols(src, dst []byte) int {
-	if len(src) == 0 {
-		return 0
-	}
-
-	if 3*len(src) < len(dst) {
+	if len(src)<<2 < len(dst) {
 		return this.emit1(src, dst)
 	} else {
 		return this.emit2(src, dst)
