@@ -47,7 +47,7 @@ import kanzi.Listener;
 public class CompressedOutputStream extends OutputStream
 {
    private static final int BITSTREAM_TYPE           = 0x4B414E5A; // "KANZ"
-   private static final int BITSTREAM_FORMAT_VERSION = 3;
+   private static final int BITSTREAM_FORMAT_VERSION = 4;
    private static final int COPY_LENGTH_MASK         = 0x0F;
    private static final int SMALL_BLOCK_MASK         = 0x80;
    private static final int MIN_BITSTREAM_BLOCK_SIZE = 1024;

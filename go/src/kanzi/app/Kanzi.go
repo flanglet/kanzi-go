@@ -262,10 +262,10 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 				printOut("        3=BWT+RANK+ZRLT&FPAQ, 4=BWT&CM, 5=RLT+TEXT&TPAQ\n", true)
 				printOut("   -e, --entropy=<codec>", true)
 				printOut("        entropy codec [None|Huffman|ANS0|ANS1|Range|PAQ|FPAQ|TPAQ|CM]", true)
-				printOut("        (default is Huffman)\n", true)
+				printOut("        (default is ANS0)\n", true)
 				printOut("   -t, --transform=<codec>", true)
 				printOut("        transform [None|BWT|BWTS|SNAPPY|LZ4|RLT|ZRLT|MTFT|RANK|TEXT|TIMESTAMP]", true)
-				printOut("        EG: BWT+RANK or BWTS+MTFT (default is BWT+MTFT+ZRLT)\n", true)
+				printOut("        EG: BWT+RANK or BWTS+MTFT (default is BWT+RANK+ZRLT)\n", true)
 				printOut("   -x, --checksum", true)
 				printOut("        enable block checksum\n", true)
 			}

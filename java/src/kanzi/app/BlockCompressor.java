@@ -86,13 +86,13 @@ public class BlockCompressor implements Runnable, Callable<Integer>
          strCodec = (String) map.remove("entropy");
       }
 
-      this.codec = (strCodec == null) ? "HUFFMAN" : strCodec;
+      this.codec = (strCodec == null) ? "ANS0" : strCodec;
       Integer iBlockSize = (Integer) map.remove("block");
       this.blockSize = (iBlockSize == null) ? DEFAULT_BLOCK_SIZE : iBlockSize;
       
       // Extract transform names. Curate input (EG. NONE+NONE+xxxx => xxxx)          
       ByteFunctionFactory bff = new ByteFunctionFactory();      
-      this.transform = (strTransf == null) ? "BWT+MTFT+ZRLT" : bff.getName(bff.getType(strTransf));
+      this.transform = (strTransf == null) ? "BWT+RANK+ZRLT" : bff.getName(bff.getType(strTransf));
       Boolean bChecksum = (Boolean) map.remove("checksum");
       this.checksum = (bChecksum == null) ? false : bChecksum;
       this.jobs = (Integer) map.remove("jobs");

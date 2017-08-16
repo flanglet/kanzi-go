@@ -81,7 +81,7 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 			strCodec = codec.(string)
 			delete(argsMap, "entropy")
 		} else {
-			strCodec = "HUFFMAN"
+			strCodec = "ANS0"
 		}
 	}
 
@@ -99,7 +99,7 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 			strTransf = transf.(string)
 			delete(argsMap, "transform")
 		} else {
-			strTransf = "BWT+MTFT+ZRLT"
+			strTransf = "BWT+RANK+ZRLT"
 		}
 	}
 

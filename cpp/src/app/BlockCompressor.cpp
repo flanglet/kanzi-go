@@ -65,7 +65,7 @@ BlockCompressor::BlockCompressor(map<string, string>& args)
     it = args.find("entropy");
 
     if (it == args.end()) {
-        strCodec = "HUFFMAN";
+        strCodec = "ANS0";
     }
     else {
         strCodec = it->second;
@@ -94,7 +94,7 @@ BlockCompressor::BlockCompressor(map<string, string>& args)
 
     if (it == args.end()) {
         if (strTransf.length() == 0)
-            strTransf = "BWT+MTFT+ZRLT";
+            strTransf = "BWT+RANK+ZRLT";
     }
     else {
         if (strTransf.length() == 0)
