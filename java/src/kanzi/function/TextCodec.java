@@ -861,6 +861,9 @@ public final class TextCodec implements ByteFunction
 
    private int emitSymbols(byte[] src, final int srcIdx, byte[] dst, int dstIdx, final int srcEnd, final int dstEnd)
    {
+      if (srcIdx == srcEnd)
+         return 0;
+         
       return ((srcEnd-srcIdx)<<2 < (dstEnd-dstIdx)) ?
          this.emit1(src, srcIdx, dst, dstIdx, srcEnd, dstEnd) :
          this.emit2(src, srcIdx, dst, dstIdx, srcEnd, dstEnd);

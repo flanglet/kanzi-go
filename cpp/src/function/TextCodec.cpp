@@ -716,7 +716,6 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
     int words = _staticDictSize;
     int32 h1 = HASH1;
     int32 h2 = HASH1;
-    bool isFirstWordChar = true;
 
     while ((srcIdx < srcEnd) && (dstIdx < dstEnd)) {
         byte cur = src[srcIdx];
@@ -725,11 +724,10 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
             // Compute hashes
             // h1 -> hash of word chars
             // h2 -> hash of word chars with first char case flipped
-            if (isFirstWordChar == true) {
+            if (srcIdx == anchor + 1) {
                 const int32 caseFlag = isUpperCase(cur) ? 32 : -32;
                 h1 = h1 * HASH1 ^ int32(cur) * HASH2;
                 h2 = h2 * HASH1 ^ (int32(cur) + caseFlag) * HASH2;
-                isFirstWordChar = false;
             }
             else {
                 const int32 h = int32(cur) * HASH2;
@@ -821,7 +819,6 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
         anchor = srcIdx;
         emitAnchor = anchor;
         srcIdx++;
-        isFirstWordChar = true;
         h1 = HASH1;
         h2 = HASH1;
     }
@@ -859,6 +856,9 @@ bool TextCodec::expandDictionary()
 
 int TextCodec::emitSymbols(byte src[], byte dst[], const int srcEnd, const int dstEnd)
 {
+    if (srcEnd == 0)
+       return 0;
+
     return ((srcEnd << 2) < dstEnd) ? emit1(src, dst, srcEnd, dstEnd) : emit2(src, dst, srcEnd, dstEnd);
 }
 

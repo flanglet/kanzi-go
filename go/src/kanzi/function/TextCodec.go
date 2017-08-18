@@ -744,7 +744,6 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 	words := this.staticDictSize
 	h1 := TC_HASH1
 	h2 := TC_HASH1
-	isFirstWordChar := true
 
 	for srcIdx < srcEnd && dstIdx < dstEnd {
 		cur := src[srcIdx]
@@ -753,7 +752,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 			// Compute hashes
 			// h1 -> hash of word chars
 			// h2 -> hash of word chars with first char case flipped
-			if isFirstWordChar == true {
+			if srcIdx == anchor+1 {
 				var caseFlag int32
 
 				if isUpperCase(cur) {
@@ -764,7 +763,6 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 				h1 = h1*TC_HASH1 ^ (int32(cur) * TC_HASH2)
 				h2 = h2*TC_HASH1 ^ ((int32(cur) + caseFlag) * TC_HASH2)
-				isFirstWordChar = false
 			} else {
 				h := int32(cur) * TC_HASH2
 				h1 = h1*TC_HASH1 ^ h
@@ -871,7 +869,6 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 		anchor = srcIdx
 		emitAnchor = anchor
 		srcIdx++
-		isFirstWordChar = true
 		h1 = TC_HASH1
 		h2 = TC_HASH1
 	}
@@ -906,6 +903,10 @@ func (this *TextCodec) expandDictionary() bool {
 }
 
 func (this *TextCodec) emitSymbols(src, dst []byte) int {
+	if len(src) == 0 {
+		return 0
+	}
+
 	if len(src)<<2 < len(dst) {
 		return this.emit1(src, dst)
 	} else {
