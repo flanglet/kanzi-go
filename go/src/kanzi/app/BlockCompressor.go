@@ -166,7 +166,7 @@ func (this *BlockCompressor) CpuProf() string {
 func (this *BlockCompressor) Call() (int, uint64) {
 	var msg string
 	printFlag := this.verbosity > 2
-	bc_printOut("Kanzi 1.1 (C) 2017,  Frederic Langlet", this.verbosity >= 1)
+	bc_printOut("Kanzi 1.2 (C) 2017,  Frederic Langlet", this.verbosity >= 1)
 	bc_printOut("Input file name set to '"+this.inputName+"'", printFlag)
 	bc_printOut("Output file name set to '"+this.outputName+"'", printFlag)
 	msg = fmt.Sprintf("Block size set to %d bytes", this.blockSize)

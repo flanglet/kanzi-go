@@ -112,7 +112,7 @@ func (this *BlockDecompressor) RemoveListener(bl kanzi.Listener) bool {
 func (this *BlockDecompressor) Call() (int, uint64) {
 	var msg string
 	printFlag := this.verbosity > 2
-	bd_printOut("Kanzi 1.1 (C) 2017,  Frederic Langlet", this.verbosity >= 1)
+	bd_printOut("Kanzi 1.2 (C) 2017,  Frederic Langlet", this.verbosity >= 1)
 	bd_printOut("Input file name set to '"+this.inputName+"'", printFlag)
 	bd_printOut("Output file name set to '"+this.outputName+"'", printFlag)
 	msg = fmt.Sprintf("Verbosity set to %v", this.verbosity)
