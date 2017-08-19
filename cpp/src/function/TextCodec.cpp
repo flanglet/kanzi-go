@@ -833,7 +833,7 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
 
 bool TextCodec::expandDictionary()
 {
-    if (_dictSize >= THRESHOLD2 * 32)
+    if (_dictSize >= MAX_DICT_SIZE)
         return false;
 
     DictEntry* newDict = new DictEntry[_dictSize*2];
@@ -1087,14 +1087,13 @@ bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int c
             if ((wordRun == true) && (e._length > 1))
                 dst[dstIdx++] = ' ';
 
-            // Emit word
-            int32 flag = 0;
+            int32 caseFlag = 0;
 
             // Flip case of first character
             if (cur == ESCAPE_TOKEN2)
-                flag = isUpperCase(e._buf[e._pos]) ? 32 : -32;
+                caseFlag = isUpperCase(e._buf[e._pos]) ? 32 : -32;
 
-            dst[dstIdx++] = byte(e._buf[e._pos] + flag);
+            dst[dstIdx++] = byte(e._buf[e._pos] + caseFlag);
             const byte* buf = &e._buf[e._pos];
 
             for (int n = 1, l = e._length; n < l; n++, dstIdx++)

@@ -29,8 +29,10 @@ import kanzi.SliceByteArray;
 // emit current symbol.
 public final class TextCodec implements ByteFunction
 {
-   private static final int THRESHOLD1 = 128;
+   private static final int LOG_THRESHOLD1 = 7;
+   private static final int THRESHOLD1 = 1 << LOG_THRESHOLD1;
    private static final int THRESHOLD2 = THRESHOLD1 * THRESHOLD1;
+   private static final int MAX_DICT_SIZE = 1 << 19;
    public static final int LOG_HASHES_SIZE = 24; // 16 MB
    public static final byte ESCAPE_TOKEN1 = (byte) 0x0F; // dictionary word preceded by space symbol
    public static final byte ESCAPE_TOKEN2 = (byte) 0x0E; // toggle upper/lower case of first word char
@@ -844,7 +846,7 @@ public final class TextCodec implements ByteFunction
    
    private boolean expandDictionary()
    {
-      if (this.dictSize >= THRESHOLD2*32)
+      if (this.dictSize >= MAX_DICT_SIZE)
          return false;
  
       DictEntry[] newDict = new DictEntry[this.dictSize*2];
@@ -944,7 +946,7 @@ public final class TextCodec implements ByteFunction
       {
          if (val >= THRESHOLD2)
             dst[dstIdx++] = (byte) (0xE0 | (val>>14));
-
+         
          dst[dstIdx++] = (byte) (0x80 | (val>>7));
          dst[dstIdx++] = (byte) (0x7F & val);
       }
@@ -952,7 +954,7 @@ public final class TextCodec implements ByteFunction
       {
          dst[dstIdx++] = (byte) val;
       }
-
+           
       return dstIdx;
    }
 
@@ -1101,14 +1103,14 @@ public final class TextCodec implements ByteFunction
             if ((wordRun == true) && (e.length > 1))
                dst[dstIdx++] = ' ';
 
-            int flag = 0;
+            int caseFlag = 0;
 
             // Flip case of first character
             if (cur == ESCAPE_TOKEN2)
-               flag = isUpperCase(e.buf[e.pos]) ? 32 : -32;
+               caseFlag = isUpperCase(e.buf[e.pos]) ? 32 : -32;
 
             // Emit word
-            dst[dstIdx++] = (byte) (e.buf[e.pos] + flag);
+            dst[dstIdx++] = (byte) (e.buf[e.pos] + caseFlag);
 
             for (int n=e.pos+1, l=e.pos+e.length; n<l; n++, dstIdx++)
                dst[dstIdx] = e.buf[n];

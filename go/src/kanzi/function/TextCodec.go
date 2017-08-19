@@ -31,8 +31,10 @@ import (
 // emit current symbol.
 
 const (
-	TC_THRESHOLD1      = 128
+	TC_LOG_THRESHOLD1  = 7
+	TC_THRESHOLD1      = 1 << TC_LOG_THRESHOLD1
 	TC_THRESHOLD2      = TC_THRESHOLD1 * TC_THRESHOLD1
+	TC_MAX_DICT_SIZE   = 1 << 19
 	TC_LOG_HASHES_SIZE = 24         // 16 MB
 	TC_ESCAPE_TOKEN1   = byte(0x0F) // dictionary word preceded by space symbol
 	TC_ESCAPE_TOKEN2   = byte(0x0E) // toggle upper/lower case of first word char
@@ -886,7 +888,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 }
 
 func (this *TextCodec) expandDictionary() bool {
-	if this.dictSize >= TC_THRESHOLD2*32 {
+	if this.dictSize >= TC_MAX_DICT_SIZE {
 		return false
 	}
 
@@ -998,9 +1000,8 @@ func emitWordIndex(dst []byte, val int) int {
 
 	// Emit word index (varint 5 bits + 7 bits + 7 bits)
 	if val >= TC_THRESHOLD1 {
-
 		if val >= TC_THRESHOLD2 {
-			dst[0] = byte(0xE0 | (val >> 14))
+			dst[dstIdx] = byte(0xE0 | (val >> 14))
 			dstIdx++
 		}
 
@@ -1125,12 +1126,12 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		if cur == TC_ESCAPE_TOKEN1 || cur == TC_ESCAPE_TOKEN2 {
 			// Word in dictionary
 			// Read word index (varint 5 bits + 7 bits + 7 bits)
-			idx := int(src[srcIdx] & 0xFF)
+			idx := int(src[srcIdx])
 			srcIdx++
 
 			if idx >= 0x80 {
 				idx &= 0x7F
-				idx2 := int(src[srcIdx] & 0xFF)
+				idx2 := int(src[srcIdx])
 				srcIdx++
 
 				if idx2 >= 0x80 {
@@ -1162,19 +1163,19 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 				dstIdx++
 			}
 
-			flag := byte(0)
+			caseFlag := byte(0)
 
 			// Flip case of first character
 			if cur == TC_ESCAPE_TOKEN2 {
 				if isUpperCase(pe.buf[pe.pos]) {
-					flag = 32
+					caseFlag = 32
 				} else {
-					flag = 256 - 32
+					caseFlag = 256 - 32
 				}
 			}
 
 			// Emit word
-			dst[dstIdx] = pe.buf[pe.pos] + flag
+			dst[dstIdx] = pe.buf[pe.pos] + caseFlag
 			dstIdx++
 			buf := pe.buf[pe.pos+1 : pe.pos+int(pe.length)]
 
