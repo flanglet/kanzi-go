@@ -65,7 +65,7 @@ inline void BinaryEntropyEncoder::encodeBit(int bit)
 {
     // Calculate interval split
     // Written in a way to maximize accuracy of multiplication/division
-    uint64 split = (((_high - _low) >> 4) * (uint64)_predictor->get()) >> 8;
+    uint64 split = (((_high - _low) >> 4) * uint64(_predictor->get())) >> 8;
 
     // Update fields with new interval bounds
     _high -= (-bit & (_high - _low - split));

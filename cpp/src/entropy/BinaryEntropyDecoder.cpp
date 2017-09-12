@@ -77,7 +77,7 @@ inline int BinaryEntropyDecoder::decodeBit()
 {
     // Calculate interval split
     // Written in a way to maximize accuracy of multiplication/division
-    uint64 split = ((((_high - _low) >> 4) * (uint64)_predictor->get()) >> 8) + _low;
+    uint64 split = ((((_high - _low) >> 4) * uint64(_predictor->get())) >> 8) + _low;
     int bit;
 
     if (split >= _current) {

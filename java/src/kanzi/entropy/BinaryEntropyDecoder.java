@@ -101,7 +101,7 @@ public class BinaryEntropyDecoder implements EntropyDecoder
    }
 
 
-   public final int decodeBit()
+   public int decodeBit()
    {
       // Calculate interval split
       // Written in a way to maximize accuracy of multiplication/division
@@ -116,7 +116,7 @@ public class BinaryEntropyDecoder implements EntropyDecoder
       else
       {
          bit = 0;
-         this.low = split + 1;
+         this.low = -~split;
       }
 
        // Update predictor
