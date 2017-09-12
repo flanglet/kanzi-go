@@ -116,6 +116,9 @@ void CompressedInputStream::readHeader() THROW
 
     // Read block size
     _blockSize = int(_ibs->readBits(26)) << 4;
+    stringstream ss;
+    ss << _blockSize;
+    _ctx["size"] = ss.str().c_str();
 
     if ((_blockSize < MIN_BITSTREAM_BLOCK_SIZE) || (_blockSize > MAX_BITSTREAM_BLOCK_SIZE)) {
         stringstream ss;
@@ -235,7 +238,7 @@ int CompressedInputStream::_get() THROW
 
 istream& CompressedInputStream::read(char* data, streamsize length) THROW
 {
-    int remaining = (int)length;
+    int remaining = int(length);
 
     if (remaining < 0)
         throw ios_base::failure("Invalid buffer size");
@@ -524,7 +527,7 @@ T DecodingTask<T>::call() THROW
 
         // Extract checksum from bit stream (if any)
         if (_hasher != nullptr)
-            checksum1 = (int)_ibs->readBits(32);
+            checksum1 = int(_ibs->readBits(32));
 
         if (_listeners.size() > 0) {
             // Notify before entropy (block size in bitstream is unknown)
