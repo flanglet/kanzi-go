@@ -25,13 +25,12 @@ import kanzi.Global;
 public class TPAQPredictor implements Predictor
 {
    private static final int MAX_LENGTH = 88;
-   private static final int MIXER_SIZE = 0x1000;
-   private static final int HASH_SIZE = 8*1024*1024;
+   private static final int MIXER_SIZE = 4096;
+   private static final int BUFFER_SIZE = 64*1024*1024;
    private static final int MASK0 = MIXER_SIZE - 1;
-   private static final int MASK1 = HASH_SIZE - 1;
-   private static final int MASK2 = 8*HASH_SIZE - 1;
-   private static final int MASK3 = 32*HASH_SIZE - 1;
-   private static final int MASK4 = 0x80808080;
+   private static final int MASK1 = 0xF0F0F0F0;
+   private static final int MASK2 = 0x80808080;
+   private static final int MASK3 = BUFFER_SIZE - 1;
    private static final int C1 = 0xcc9e2d51;
    private static final int C2 = 0x1b873593;
    private static final int C3 = 0xe6546b64;
@@ -55,60 +54,60 @@ public class TPAQPredictor implements Predictor
    // pair, so another state with about the same ratio of n0/n1 is substituted.
    // Also, when a bit is observed and the count of the opposite bit is large,
    // then part of this count is discarded to favor newer data over old.
-   private static final short[] STATE_TABLE =
+   private static final byte[] STATE_TABLE =
    {
-        1,   2,   3, 163, 143, 169,   4, 163,   5, 165,
-        6,  89,   7, 245,   8, 217,   9, 245,  10, 245,
-       11, 233,  12, 244,  13, 227,  14,  74,  15, 221,
-       16, 221,  17, 218,  18, 226,  19, 243,  20, 218,
-       21, 238,  22, 242,  23,  74,  24, 238,  25, 241,
-       26, 240,  27, 239,  28, 224,  29, 225,  30, 221,
-       31, 232,  32,  72,  33, 224,  34, 228,  35, 223,
-       36, 225,  37, 238,  38,  73,  39, 167,  40,  76,
-       41, 237,  42, 234,  43, 231,  44,  72,  45,  31,
-       46,  63,  47, 225,  48, 237,  49, 236,  50, 235,
-       51,  53,  52, 234,  47,  53,  54, 234,  55, 229,
-       56, 219,  57, 229,  58, 233,  59, 232,  60, 228,
-       61, 226,  62,  72,  63,  74,  64, 222,  65,  75,
-       66, 220,  67, 167,  68,  57,  69, 218,   6,  70,
-       71, 168,  71,  72,  71,  73,  61,  74,  75, 217,
-       56,  76,  77, 167,  78,  79,  77,  79,  80, 166,
-       81, 162,  82, 162,  83, 162,  84, 162,  85, 165,
-       86,  89,  87,  89,  88, 165,  77,  89,  90, 162,
-       91,  93,  92,  93,  80,  93,  94, 161,  95, 100,
-       96,  93,  97,  93,  98,  93,  99,  93,  90,  93,
-      101, 161,  94, 102, 103, 120, 101, 104, 102, 105,
-      104, 106, 107, 108, 104, 106, 105, 109, 108, 110,
-      111, 160, 112, 134, 113, 108, 114, 108, 115, 126,
-      116, 117,  92, 117, 118, 121,  94, 119, 103, 120,
-      119, 107, 122, 124, 123, 117,  94, 117, 113, 125,
-      126, 127, 113, 124, 128, 139, 129, 130, 114, 124,
-      131, 133, 132, 109, 112, 110, 134, 135, 111, 110,
-      134, 136, 110, 137, 134, 138, 134, 127, 128, 140,
-      128, 141, 142, 145, 143, 144, 115, 124, 113, 125,
-      142, 146, 128, 147, 148, 151, 149, 125,  79, 150,
-      148, 127, 142, 152, 148, 153, 150, 154, 155, 156,
-      149, 139, 157, 158, 149, 139, 159, 156, 149, 139,
-      131, 130, 101, 117,  98, 163, 115, 164, 114, 141,
-       91, 163,  79, 147,  58,   2,   1,   2, 170, 199,
-      129, 171, 128, 172, 110, 173, 174, 177, 128, 175,
-      176, 171, 129, 171, 174, 178, 179, 180, 174, 172,
-      176, 181, 141, 182, 157, 183, 179, 184, 185, 186,
-      157, 178, 187, 189, 188, 181, 168, 181, 151, 190,
-      191, 193, 192, 182, 188, 182, 187, 194, 172, 195,
-      175, 196, 170, 197, 152, 198, 185, 169, 170, 200,
-      176, 201, 170, 202, 203, 204, 148, 180, 185, 205,
-      203, 206, 185, 207, 192, 208, 209, 210, 188, 194,
-      211, 212, 192, 184, 213, 215, 214, 193, 188, 184,
-      216, 208, 168, 193,  84, 163,  54, 219,  54, 168,
-      221,  94,  54, 217,  55, 223,  85, 224,  69, 225,
-       63,  76,  56, 227,  86, 217,  58, 229, 230, 219,
-      231,  79,  57,  86, 229, 165,  56, 217, 224, 214,
-       54, 225,  54, 216,  66, 216,  58, 234,  54,  75,
-       61, 214,  57, 237, 222,  74,  78,  74,  85, 163,
-       82, 217,   0,   0,   0,   0,   0,   0,   0,   0,
-        0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-        0,   0
+      (byte)   1, (byte)   2, (byte)   3, (byte) 163, (byte) 143, (byte) 169, (byte)   4, (byte) 163, (byte)   5, (byte) 165,
+      (byte)   6, (byte)  89, (byte)   7, (byte) 245, (byte)   8, (byte) 217, (byte)   9, (byte) 245, (byte)  10, (byte) 245,
+      (byte)  11, (byte) 233, (byte)  12, (byte) 244, (byte)  13, (byte) 227, (byte)  14, (byte)  74, (byte)  15, (byte) 221,
+      (byte)  16, (byte) 221, (byte)  17, (byte) 218, (byte)  18, (byte) 226, (byte)  19, (byte) 243, (byte)  20, (byte) 218,
+      (byte)  21, (byte) 238, (byte)  22, (byte) 242, (byte)  23, (byte)  74, (byte)  24, (byte) 238, (byte)  25, (byte) 241,
+      (byte)  26, (byte) 240, (byte)  27, (byte) 239, (byte)  28, (byte) 224, (byte)  29, (byte) 225, (byte)  30, (byte) 221,
+      (byte)  31, (byte) 232, (byte)  32, (byte)  72, (byte)  33, (byte) 224, (byte)  34, (byte) 228, (byte)  35, (byte) 223,
+      (byte)  36, (byte) 225, (byte)  37, (byte) 238, (byte)  38, (byte)  73, (byte)  39, (byte) 167, (byte)  40, (byte)  76,
+      (byte)  41, (byte) 237, (byte)  42, (byte) 234, (byte)  43, (byte) 231, (byte)  44, (byte)  72, (byte)  45, (byte)  31,
+      (byte)  46, (byte)  63, (byte)  47, (byte) 225, (byte)  48, (byte) 237, (byte)  49, (byte) 236, (byte)  50, (byte) 235,
+      (byte)  51, (byte)  53, (byte)  52, (byte) 234, (byte)  47, (byte)  53, (byte)  54, (byte) 234, (byte)  55, (byte) 229,
+      (byte)  56, (byte) 219, (byte)  57, (byte) 229, (byte)  58, (byte) 233, (byte)  59, (byte) 232, (byte)  60, (byte) 228,
+      (byte)  61, (byte) 226, (byte)  62, (byte)  72, (byte)  63, (byte)  74, (byte)  64, (byte) 222, (byte)  65, (byte)  75,
+      (byte)  66, (byte) 220, (byte)  67, (byte) 167, (byte)  68, (byte)  57, (byte)  69, (byte) 218, (byte)   6, (byte)  70,
+      (byte)  71, (byte) 168, (byte)  71, (byte)  72, (byte)  71, (byte)  73, (byte)  61, (byte)  74, (byte)  75, (byte) 217,
+      (byte)  56, (byte)  76, (byte)  77, (byte) 167, (byte)  78, (byte)  79, (byte)  77, (byte)  79, (byte)  80, (byte) 166,
+      (byte)  81, (byte) 162, (byte)  82, (byte) 162, (byte)  83, (byte) 162, (byte)  84, (byte) 162, (byte)  85, (byte) 165,
+      (byte)  86, (byte)  89, (byte)  87, (byte)  89, (byte)  88, (byte) 165, (byte)  77, (byte)  89, (byte)  90, (byte) 162,
+      (byte)  91, (byte)  93, (byte)  92, (byte)  93, (byte)  80, (byte)  93, (byte)  94, (byte) 161, (byte)  95, (byte) 100,
+      (byte)  96, (byte)  93, (byte)  97, (byte)  93, (byte)  98, (byte)  93, (byte)  99, (byte)  93, (byte)  90, (byte)  93,
+      (byte) 101, (byte) 161, (byte)  94, (byte) 102, (byte) 103, (byte) 120, (byte) 101, (byte) 104, (byte) 102, (byte) 105,
+      (byte) 104, (byte) 106, (byte) 107, (byte) 108, (byte) 104, (byte) 106, (byte) 105, (byte) 109, (byte) 108, (byte) 110,
+      (byte) 111, (byte) 160, (byte) 112, (byte) 134, (byte) 113, (byte) 108, (byte) 114, (byte) 108, (byte) 115, (byte) 126,
+      (byte) 116, (byte) 117, (byte)  92, (byte) 117, (byte) 118, (byte) 121, (byte)  94, (byte) 119, (byte) 103, (byte) 120,
+      (byte) 119, (byte) 107, (byte) 122, (byte) 124, (byte) 123, (byte) 117, (byte)  94, (byte) 117, (byte) 113, (byte) 125,
+      (byte) 126, (byte) 127, (byte) 113, (byte) 124, (byte) 128, (byte) 139, (byte) 129, (byte) 130, (byte) 114, (byte) 124,
+      (byte) 131, (byte) 133, (byte) 132, (byte) 109, (byte) 112, (byte) 110, (byte) 134, (byte) 135, (byte) 111, (byte) 110,
+      (byte) 134, (byte) 136, (byte) 110, (byte) 137, (byte) 134, (byte) 138, (byte) 134, (byte) 127, (byte) 128, (byte) 140,
+      (byte) 128, (byte) 141, (byte) 142, (byte) 145, (byte) 143, (byte) 144, (byte) 115, (byte) 124, (byte) 113, (byte) 125,
+      (byte) 142, (byte) 146, (byte) 128, (byte) 147, (byte) 148, (byte) 151, (byte) 149, (byte) 125, (byte)  79, (byte) 150,
+      (byte) 148, (byte) 127, (byte) 142, (byte) 152, (byte) 148, (byte) 153, (byte) 150, (byte) 154, (byte) 155, (byte) 156,
+      (byte) 149, (byte) 139, (byte) 157, (byte) 158, (byte) 149, (byte) 139, (byte) 159, (byte) 156, (byte) 149, (byte) 139,
+      (byte) 131, (byte) 130, (byte) 101, (byte) 117, (byte)  98, (byte) 163, (byte) 115, (byte) 164, (byte) 114, (byte) 141,
+      (byte)  91, (byte) 163, (byte)  79, (byte) 147, (byte)  58, (byte)   2, (byte)   1, (byte)   2, (byte) 170, (byte) 199,
+      (byte) 129, (byte) 171, (byte) 128, (byte) 172, (byte) 110, (byte) 173, (byte) 174, (byte) 177, (byte) 128, (byte) 175,
+      (byte) 176, (byte) 171, (byte) 129, (byte) 171, (byte) 174, (byte) 178, (byte) 179, (byte) 180, (byte) 174, (byte) 172,
+      (byte) 176, (byte) 181, (byte) 141, (byte) 182, (byte) 157, (byte) 183, (byte) 179, (byte) 184, (byte) 185, (byte) 186,
+      (byte) 157, (byte) 178, (byte) 187, (byte) 189, (byte) 188, (byte) 181, (byte) 168, (byte) 181, (byte) 151, (byte) 190,
+      (byte) 191, (byte) 193, (byte) 192, (byte) 182, (byte) 188, (byte) 182, (byte) 187, (byte) 194, (byte) 172, (byte) 195,
+      (byte) 175, (byte) 196, (byte) 170, (byte) 197, (byte) 152, (byte) 198, (byte) 185, (byte) 169, (byte) 170, (byte) 200,
+      (byte) 176, (byte) 201, (byte) 170, (byte) 202, (byte) 203, (byte) 204, (byte) 148, (byte) 180, (byte) 185, (byte) 205,
+      (byte) 203, (byte) 206, (byte) 185, (byte) 207, (byte) 192, (byte) 208, (byte) 209, (byte) 210, (byte) 188, (byte) 194,
+      (byte) 211, (byte) 212, (byte) 192, (byte) 184, (byte) 213, (byte) 215, (byte) 214, (byte) 193, (byte) 188, (byte) 184,
+      (byte) 216, (byte) 208, (byte) 168, (byte) 193, (byte)  84, (byte) 163, (byte)  54, (byte) 219, (byte)  54, (byte) 168,
+      (byte) 221, (byte)  94, (byte)  54, (byte) 217, (byte)  55, (byte) 223, (byte)  85, (byte) 224, (byte)  69, (byte) 225,
+      (byte)  63, (byte)  76, (byte)  56, (byte) 227, (byte)  86, (byte) 217, (byte)  58, (byte) 229, (byte) 230, (byte) 219,
+      (byte) 231, (byte)  79, (byte)  57, (byte)  86, (byte) 229, (byte) 165, (byte)  56, (byte) 217, (byte) 224, (byte) 214,
+      (byte)  54, (byte) 225, (byte)  54, (byte) 216, (byte)  66, (byte) 216, (byte)  58, (byte) 234, (byte)  54, (byte)  75,
+      (byte)  61, (byte) 214, (byte)  57, (byte) 237, (byte) 222, (byte)  74, (byte)  78, (byte)  74, (byte)  85, (byte) 163,
+      (byte)  82, (byte) 217, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0,
+      (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0,
+      (byte)   0, (byte)   0
    };
 
    // State Map
@@ -350,6 +349,8 @@ public class TPAQPredictor implements Predictor
    private int matchLen;
    private int matchPos;
    private int hash;
+   private final int hashMask;
+   private final int statesMask;
    private final AdaptiveProbMap apm;
    private final Mixer mixer;
    private final byte[] buffer;
@@ -361,11 +362,22 @@ public class TPAQPredictor implements Predictor
 
    public TPAQPredictor()
    {
+      this(23);
+   }
+   
+   
+   public TPAQPredictor(int logHash)
+   {
+      if ((logHash < 10) || (logHash > 24))
+         throw new IllegalArgumentException("The hash table size log must be in [10..24]");
+      
      this.pr = 2048;
      this.c0 = 1;
-     this.states = new byte[MASK3+1];
-     this.hashes = new int[HASH_SIZE];
-     this.buffer = new byte[MASK2+1];
+     this.states = new byte[64<<logHash];
+     this.statesMask = this.states.length - 1;
+     this.hashes = new int[1<<logHash];
+     this.hashMask = this.hashes.length - 1;
+     this.buffer = new byte[BUFFER_SIZE];
      this.cp = new int[8];
      this.ctx = new int[8];
      this.apm = new AdaptiveProbMap(65536, 7);
@@ -383,15 +395,15 @@ public class TPAQPredictor implements Predictor
 
      if (this.c0 > 255)
      {
-        this.buffer[this.pos&MASK2] = (byte) this.c0;
+        this.buffer[this.pos&MASK3] = (byte) this.c0;
         this.pos++;
-        this.c8 = (this.c8<<8) | ((this.c4>>24)&0xFF);
+        this.c8 = (this.c8<<8) | (this.c4>>>24);
         this.c4 = (this.c4<<8) | (this.c0&0xFF);
-        this.hash = (((this.hash*43707) << 4) + this.c4) & MASK1;
+        this.hash = (((this.hash*43707) << 4) + this.c4) & this.hashMask;
 
         // Shift by 16 if binary data else 0
-        this.shift4 = (((this.c4&MASK4)>>>31) | ((-(this.c4&MASK4))>>>31)) << 4;
-        final int shift8 = (((this.c8&MASK4)>>>31) | ((-(this.c8&MASK4))>>>31)) << 4;
+        this.shift4 = ((this.c4&MASK2) == 0) ? 0 : 16;
+        final int shift8 = ((this.c8&MASK2) == 0) ? 0 : 16;
         this.c0 = 1;
         this.bpos = 0;
 
@@ -403,7 +415,7 @@ public class TPAQPredictor implements Predictor
         this.addContext(1, hash(C1, this.c4 << 24)); // hash with random primes
         this.addContext(2, hash(C2, this.c4 << 16));
         this.addContext(3, hash(C3, this.c4 << 8));
-        this.addContext(4, hash(C4, this.c4 & 0xF0F0F0F0));
+        this.addContext(4, hash(C4, this.c4 & MASK1));
         this.addContext(5, hash(C5, this.c4));
         this.addContext(6, hash(this.c4>>this.shift4, this.c8>>shift8));
         
@@ -417,8 +429,8 @@ public class TPAQPredictor implements Predictor
       // Add inputs to NN
       for (int i=0; i<7; i++)
       {
-         this.states[this.cp[i]] = (byte) STATE_TABLE[((this.states[this.cp[i]]&0xFF)<<1)|bit];
-         this.cp[i] = (this.ctx[i] + this.c0) & MASK3;
+         this.states[this.cp[i]] = STATE_TABLE[((this.states[this.cp[i]]&0xFF)<<1)|bit];
+         this.cp[i] = (this.ctx[i] + this.c0) & this.statesMask;
          this.mixer.addInput(STATE_MAP[(i<<8)|(this.states[this.cp[i]]&0xFF)]);
       }
 
@@ -448,11 +460,11 @@ public class TPAQPredictor implements Predictor
          this.matchPos = this.hashes[this.hash];
 
          // Detect match
-         if ((this.matchPos != 0) && (this.pos - this.matchPos <= MASK2))
+         if ((this.matchPos != 0) && (this.pos-this.matchPos <= MASK3))
          {
             int r = this.matchLen + 1;
 
-            while ((r <= MAX_LENGTH) && (this.buffer[(this.pos-r)&MASK2] == this.buffer[(this.matchPos-r)&MASK2]))
+            while ((r <= MAX_LENGTH) && (this.buffer[(this.pos-r)&MASK3] == this.buffer[(this.matchPos-r)&MASK3]))
                r++;
 
             this.matchLen = r - 1;
@@ -463,12 +475,12 @@ public class TPAQPredictor implements Predictor
 
    private void addMatchContext()
    {
-      if (this.c0 == ((this.buffer[this.matchPos&MASK2] & 0xFF) | 256) >> (8-this.bpos))
+      if (this.c0 == ((this.buffer[this.matchPos&MASK3] & 0xFF) | 256) >> (8-this.bpos))
       {
          // Add match length to NN inputs. Compute input based on run length
          int p = (this.matchLen<=24) ? this.matchLen : 24+((this.matchLen-24)>>2);
 
-         if (((this.buffer[this.matchPos&MASK2] >> (7-this.bpos)) & 1) == 0)
+         if (((this.buffer[this.matchPos&MASK3] >> (7-this.bpos)) & 1) == 0)
             p = -p;
 
          this.mixer.addInput(p<<6);

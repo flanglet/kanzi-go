@@ -63,7 +63,7 @@ namespace kanzi
        static short getType(const char* name) THROW;
    };
 
-   inline EntropyDecoder* EntropyCodecFactory::newDecoder(InputBitStream& ibs, map<string, string>&, short entropyType) THROW
+   inline EntropyDecoder* EntropyCodecFactory::newDecoder(InputBitStream& ibs, map<string, string>& ctx, short entropyType) THROW
    {
        switch (entropyType) {
        // Each block is decoded separately
@@ -90,7 +90,18 @@ namespace kanzi
            return new BinaryEntropyDecoder(ibs, new CMPredictor());
 
        case TPAQ_TYPE:
-           return new BinaryEntropyDecoder(ibs, new TPAQPredictor());
+          {
+            string strSize = ctx["size"];
+            int size = atoi(strSize.c_str());
+            int logHash;
+
+            if (size >= 64*1024*1024)
+               logHash = 24;
+            else 
+               logHash = (size < 1024*1024) ? 22 : 23;
+            
+            return new BinaryEntropyDecoder(ibs, new TPAQPredictor(logHash));
+          }
 
        case NONE_TYPE:
            return new NullEntropyDecoder(ibs);
@@ -100,7 +111,7 @@ namespace kanzi
        }
    }
 
-   inline EntropyEncoder* EntropyCodecFactory::newEncoder(OutputBitStream& obs, map<string, string>& ,short entropyType) THROW
+   inline EntropyEncoder* EntropyCodecFactory::newEncoder(OutputBitStream& obs, map<string, string>& ctx, short entropyType) THROW
    {
        switch (entropyType) {
        case HUFFMAN_TYPE:
@@ -125,7 +136,18 @@ namespace kanzi
            return new BinaryEntropyEncoder(obs, new CMPredictor());
 
        case TPAQ_TYPE:
-           return new BinaryEntropyEncoder(obs, new TPAQPredictor());
+          {
+            string strSize = ctx["size"];
+            int size = atoi(strSize.c_str());
+            int logHash;
+
+            if (size >= 64*1024*1024)
+               logHash = 24;
+            else 
+               logHash = (size < 1024*1024) ? 22 : 23;
+            
+            return new BinaryEntropyEncoder(obs, new TPAQPredictor(logHash));
+          }
 
        case NONE_TYPE:
            return new NullEntropyEncoder(obs);

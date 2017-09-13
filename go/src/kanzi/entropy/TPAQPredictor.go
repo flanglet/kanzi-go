@@ -16,6 +16,7 @@ limitations under the License.
 package entropy
 
 import (
+	"errors"
 	"kanzi"
 )
 
@@ -25,22 +26,22 @@ import (
 // See http://encode.ru/threads/1738-TANGELO-new-compressor-(derived-from-PAQ8-FP8)
 
 const (
-	TPAQ_MAX_LENGTH = 88
-	TPAQ_MIXER_SIZE = 0x1000
-	TPAQ_HASH_SIZE  = 8 * 1024 * 1024
-	TPAQ_MASK0      = TPAQ_MIXER_SIZE - 1
-	TPAQ_MASK1      = TPAQ_HASH_SIZE - 1
-	TPAQ_MASK2      = 8*TPAQ_HASH_SIZE - 1
-	TPAQ_MASK3      = 32*TPAQ_HASH_SIZE - 1
-	TPAQ_MASK4      = int32(-2139062144) // 0x80808080
-	TPAQ_C1         = int32(-862048943)
-	TPAQ_C2         = int32(461845907)
-	TPAQ_C3         = int32(-430675100)
-	TPAQ_C4         = int32(-2048144789)
-	TPAQ_C5         = int32(-1028477387)
-	TPAQ_HASH1      = int32(200002979)
-	TPAQ_HASH2      = int32(30005491)
-	TPAQ_HASH3      = int32(50004239)
+	TPAQ_MAX_LENGTH  = 88
+	TPAQ_MIXER_SIZE  = 4096
+	TPAQ_HASH_SIZE   = 8 * 1024 * 1024
+	TPAQ_BUFFER_SIZE = 64 * 1024 * 1024
+	TPAQ_MASK0       = TPAQ_MIXER_SIZE - 1
+	TPAQ_MASK1       = int32(-252645136) // 0xF0F0F0F0
+	TPAQ_MASK2       = int32(-2139062144) // 0x80808080
+	TPAQ_MASK3       = TPAQ_BUFFER_SIZE - 1
+	TPAQ_C1          = int32(-862048943)
+	TPAQ_C2          = int32(461845907)
+	TPAQ_C3          = int32(-430675100)
+	TPAQ_C4          = int32(-2048144789)
+	TPAQ_C5          = int32(-1028477387)
+	TPAQ_HASH1       = int32(200002979)
+	TPAQ_HASH2       = int32(30005491)
+	TPAQ_HASH3       = int32(50004239)
 )
 
 ///////////////////////// state table ////////////////////////
@@ -338,33 +339,41 @@ func hashTPAQ(x, y int32) int32 {
 }
 
 type TPAQPredictor struct {
-	pr       int   // next predicted value (0-4095)
-	c0       int32 // bitwise context: last 0-7 bits with a leading 1 (1-255)
-	c4       int32 // last 4 whole bytes, last is in low 8 bits
-	c8       int32 // last 8 to 4 whole bytes, last is in low 8 bits
-	bpos     uint  // number of bits in c0 (0-7)
-	pos      int32
-	shift4   uint
-	matchLen int32
-	matchPos int32
-	hash     int32
-	apm      *AdaptiveProbMap
-	mixer    *TPAQMixer
-	buffer   []int8
-	hashes   []int32  // hash table(context, buffer position)
-	states   []uint8  // hash table(context, prediction)
-	cp       [8]int32 // context pointers
-	ctx      [8]int32 // contexts
+	pr         int   // next predicted value (0-4095)
+	c0         int32 // bitwise context: last 0-7 bits with a leading 1 (1-255)
+	c4         int32 // last 4 whole bytes, last is in low 8 bits
+	c8         int32 // last 8 to 4 whole bytes, last is in low 8 bits
+	bpos       uint  // number of bits in c0 (0-7)
+	pos        int32
+	shift4     uint
+	matchLen   int32
+	matchPos   int32
+	hash       int32
+	statesMask int32
+	hashMask   int32
+	apm        *AdaptiveProbMap
+	mixer      *TPAQMixer
+	buffer     []int8
+	hashes     []int32  // hash table(context, buffer position)
+	states     []uint8  // hash table(context, prediction)
+	cp         [8]int32 // context pointers
+	ctx        [8]int32 // contexts
 }
 
-func NewTPAQPredictor() (*TPAQPredictor, error) {
+func NewTPAQPredictor(logHash uint) (*TPAQPredictor, error) {
+	if logHash < 10 || logHash > 24 {
+		return nil, errors.New("The hash table size log must be in [10..24]")
+	}
+
 	var err error
 	this := new(TPAQPredictor)
 	this.pr = 2048
 	this.c0 = 1
-	this.states = make([]uint8, TPAQ_MASK3+1)
-	this.hashes = make([]int32, TPAQ_HASH_SIZE)
-	this.buffer = make([]int8, TPAQ_MASK2+1)
+	this.states = make([]uint8, 64<<logHash)
+	this.statesMask = int32(len(this.states) - 1)
+	this.hashes = make([]int32, 1<<logHash)
+	this.hashMask = int32(len(this.hashes) - 1)
+	this.buffer = make([]int8, TPAQ_BUFFER_SIZE)
 	this.bpos = 0
 	this.apm, err = newAdaptiveProbMap(65536, 7)
 
@@ -383,16 +392,15 @@ func (this *TPAQPredictor) Update(bit byte) {
 	this.c0 = (this.c0 << 1) | int32(bit)
 
 	if this.c0 > 255 {
-		this.buffer[this.pos&TPAQ_MASK2] = int8(this.c0)
+		this.buffer[this.pos&TPAQ_MASK3] = int8(this.c0)
 		this.pos++
 		this.c8 = (this.c8 << 8) | ((this.c4 >> 24) & 0xFF)
 		this.c4 = (this.c4 << 8) | (this.c0 & 0xFF)
-		this.hash = (((this.hash * 43707) << 4) + this.c4) & TPAQ_MASK1
+		this.hash = (((this.hash * 43707) << 4) + this.c4) & this.hashMask
 
 		// Shift by 16 if binary data else 0
-		this.shift4 = uint(-(((this.c4 & TPAQ_MASK4) >> 31) | ((-(this.c4 & TPAQ_MASK4)) >> 31))) << 4
-		shift8 := uint(-(((this.c8 & TPAQ_MASK4) >> 31) | ((-(this.c8 & TPAQ_MASK4)) >> 31))) << 4
-
+		this.shift4 = uint(-(((this.c4 & TPAQ_MASK2) >> 31) | ((-(this.c4 & TPAQ_MASK2)) >> 31))) << 4
+		shift8 := uint(-(((this.c8 & TPAQ_MASK2) >> 31) | ((-(this.c8 & TPAQ_MASK2)) >> 31))) << 4
 		this.c0 = 1
 		this.bpos = 0
 
@@ -404,7 +412,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.addContext(1, hashTPAQ(TPAQ_C1, this.c4<<24)) // hash with random primes
 		this.addContext(2, hashTPAQ(TPAQ_C2, this.c4<<16))
 		this.addContext(3, hashTPAQ(TPAQ_C3, this.c4<<8))
-		this.addContext(4, hashTPAQ(TPAQ_C4, this.c4&-252645136)) // 0xF0F0F0F0
+		this.addContext(4, hashTPAQ(TPAQ_C4, this.c4&TPAQ_MASK1))
 		this.addContext(5, hashTPAQ(TPAQ_C5, this.c4))
 		this.addContext(6, hashTPAQ(this.c4>>this.shift4, this.c8>>shift8))
 
@@ -420,7 +428,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 	// Add inputs to NN
 	for i := range cp_ {
 		this.states[cp_[i]] = TPAQ_STATE_TABLE[(int(this.states[cp_[i]])<<1)|y]
-		cp_[i] = (this.ctx[i] + int32(this.c0)) & TPAQ_MASK3
+		cp_[i] = (this.ctx[i] + int32(this.c0)) & this.statesMask
 		this.mixer.addInput(TPAQ_STATE_MAP[(i<<8)|int(this.states[cp_[i]])])
 	}
 
@@ -455,10 +463,10 @@ func (this *TPAQPredictor) findMatch() {
 		this.matchPos = this.hashes[this.hash]
 
 		// Detect match
-		if this.matchPos != 0 && this.pos-this.matchPos <= TPAQ_MASK2 {
+		if this.matchPos != 0 && this.pos-this.matchPos <= TPAQ_MASK3 {
 			r := this.matchLen + 1
 
-			for r <= TPAQ_MAX_LENGTH && this.buffer[(this.pos-r)&TPAQ_MASK2] == this.buffer[(this.matchPos-r)&TPAQ_MASK2] {
+			for r <= TPAQ_MAX_LENGTH && this.buffer[(this.pos-r)&TPAQ_MASK3] == this.buffer[(this.matchPos-r)&TPAQ_MASK3] {
 				r++
 			}
 
@@ -468,7 +476,7 @@ func (this *TPAQPredictor) findMatch() {
 }
 
 func (this *TPAQPredictor) addMatchContext() {
-	if this.c0 == ((int32(this.buffer[this.matchPos&TPAQ_MASK2])&0xFF)|256)>>(8-this.bpos) {
+	if this.c0 == ((int32(this.buffer[this.matchPos&TPAQ_MASK3])&0xFF)|256)>>(8-this.bpos) {
 		// Add match length to NN inputs. Compute input based on run length
 		var p int32
 
@@ -478,7 +486,7 @@ func (this *TPAQPredictor) addMatchContext() {
 			p = (24 + ((this.matchLen - 24) >> 2))
 		}
 
-		if ((this.buffer[this.matchPos&TPAQ_MASK2] >> (7 - this.bpos)) & 1) == 0 {
+		if ((this.buffer[this.matchPos&TPAQ_MASK3] >> (7 - this.bpos)) & 1) == 0 {
 			p = -p
 		}
 
