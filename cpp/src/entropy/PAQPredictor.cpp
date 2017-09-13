@@ -118,9 +118,9 @@ const int* StateMap::initStateMapData()
 
 PAQPredictor::PAQPredictor()
     : _sm()
-    , _apm2(1024, 6)
-    , _apm3(1024, 7)
-    , _apm4(65536, 8)
+    , _apm2(1024)
+    , _apm3(1024)
+    , _apm4(65536)
 {
     _pr = 2048;
     _c0 = 1;

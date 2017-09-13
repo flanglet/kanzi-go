@@ -161,9 +161,9 @@ namespace kanzi
        StateMap _sm; // state -> pr
        int _run; // count of consecutive identical bytes (0-65535)
        int _runCtx; // (0-3) if run is 0, 1, 2-3, 4+
-       AdaptiveProbMap _apm2;
-       AdaptiveProbMap _apm3;
-       AdaptiveProbMap _apm4;
+       AdaptiveProbMap<6> _apm2;
+       AdaptiveProbMap<7> _apm3;
+       AdaptiveProbMap<8> _apm4;
    };
 
 }

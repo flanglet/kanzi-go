@@ -30,27 +30,40 @@ namespace kanzi
    // a.get(y, pr, cx) returned adjusted probability in context cx (0 to
    //   N-1).  rate determines the learning rate (smaller = faster, default 8).
    //////////////////////////////////////////////////////////////////
+   template <int RATE>
    class AdaptiveProbMap 
    {
    public:
-       AdaptiveProbMap(int n, int rate=7);
+       AdaptiveProbMap<RATE>(int n);
 
-       ~AdaptiveProbMap() { delete[] _data; }
+       ~AdaptiveProbMap<RATE>() { delete[] _data; }
 
        int get(int bit, int pr, int ctx);
 
    private:
        int _index; // last p, context
-       int _rate; // update rate
        int* _data; // [NbCtx][33]:  p, context -> p
    };
 
-   inline int AdaptiveProbMap::get(int bit, int pr, int ctx)
+   template <int RATE>
+   inline AdaptiveProbMap<RATE>::AdaptiveProbMap(int n)
+   {
+       _data = new int[33 * n];
+       _index = 0;
+
+       for (int i = 0, k = 0; i < n; i++, k += 33) {
+           for (int j = 0; j < 33; j++)
+               _data[k + j] = (i == 0) ? Global::squash((j - 16) << 7) << 4 : _data[j];
+       }
+   }
+
+   template <int RATE>
+   inline int AdaptiveProbMap<RATE>::get(int bit, int pr, int ctx)
    {
        // Update probability based on error and learning rate
-       const int g = (bit << 16) + (bit << _rate) - (bit << 1);
-       _data[_index] += ((g - _data[_index]) >> _rate);
-       _data[_index + 1] += ((g - _data[_index + 1]) >> _rate);
+       const int g = (bit << 16) + (bit << RATE) - (bit << 1);
+       _data[_index] += ((g - _data[_index]) >> RATE);
+       _data[_index + 1] += ((g - _data[_index + 1]) >> RATE);
        pr = Global::STRETCH[pr];
 
        // Find new context

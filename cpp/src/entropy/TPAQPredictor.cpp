@@ -313,7 +313,7 @@ inline int32 TPAQPredictor::hash(int32 x, int32 y)
 }
 
 TPAQPredictor::TPAQPredictor()
-    : _apm(65536, 7)
+    : _apm(65536)
     , _mixer(MIXER_SIZE)
 {
     _pr = 2048;

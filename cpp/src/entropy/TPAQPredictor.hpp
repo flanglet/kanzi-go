@@ -110,7 +110,7 @@ namespace kanzi
        int32 _matchLen;
        int32 _matchPos;
        int32 _hash;
-       AdaptiveProbMap _apm;
+       AdaptiveProbMap<7> _apm;
        TPAQMixer _mixer;
        byte* _buffer;
        int32* _hashes; // hash table(context, buffer position)
