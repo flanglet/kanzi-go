@@ -254,7 +254,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
             continue;
         }
 
-        if ((arg.compare(0, 10, "--level=") == 0) || (ctx == ARG_IDX_LEVEL)) {
+        if ((arg.compare(0, 8, "--level=") == 0) || (ctx == ARG_IDX_LEVEL)) {
             strLevel = (arg.compare(0, 8, "--level=") == 0) ? arg.substr(8) : arg;
             level = atoi(strLevel.c_str());
 
