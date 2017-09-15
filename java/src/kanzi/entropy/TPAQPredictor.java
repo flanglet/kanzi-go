@@ -27,10 +27,10 @@ public class TPAQPredictor implements Predictor
    private static final int MAX_LENGTH = 88;
    private static final int MIXER_SIZE = 4096;
    private static final int BUFFER_SIZE = 64*1024*1024;
-   private static final int MASK0 = MIXER_SIZE - 1;
-   private static final int MASK1 = 0xF0F0F0F0;
-   private static final int MASK2 = 0x80808080;
-   private static final int MASK3 = BUFFER_SIZE - 1;
+   private static final int MASK_MIXER = MIXER_SIZE - 1;
+   private static final int MASK_BUFFER = BUFFER_SIZE- 1;
+   private static final int MASK1 = 0x80808080;
+   private static final int MASK2 = 0xF0F0F0F0;
    private static final int C1 = 0xcc9e2d51;
    private static final int C2 = 0x1b873593;
    private static final int C3 = 0xe6546b64;
@@ -373,7 +373,7 @@ public class TPAQPredictor implements Predictor
       
      this.pr = 2048;
      this.c0 = 1;
-     this.states = new byte[64<<logHash];
+     this.states = new byte[32<<logHash];
      this.statesMask = this.states.length - 1;
      this.hashes = new int[1<<logHash];
      this.hashMask = this.hashes.length - 1;
@@ -395,27 +395,27 @@ public class TPAQPredictor implements Predictor
 
      if (this.c0 > 255)
      {
-        this.buffer[this.pos&MASK3] = (byte) this.c0;
+        this.buffer[this.pos&MASK_BUFFER] = (byte) this.c0;
         this.pos++;
         this.c8 = (this.c8<<8) | (this.c4>>>24);
         this.c4 = (this.c4<<8) | (this.c0&0xFF);
         this.hash = (((this.hash*43707) << 4) + this.c4) & this.hashMask;
-
-        // Shift by 16 if binary data else 0
-        this.shift4 = ((this.c4&MASK2) == 0) ? 0 : 16;
-        final int shift8 = ((this.c8&MASK2) == 0) ? 0 : 16;
         this.c0 = 1;
         this.bpos = 0;
 
+        // Shift by 16 if binary data else 0
+        this.shift4 = ((this.c4&MASK1) == 0) ? 0 : 16;
+        final int shift8 = ((this.c8&MASK1) == 0) ? 0 : 16;
+
         // Select Neural Net
-        this.mixer.setContext(this.c4 & MASK0);
+        this.mixer.setContext(this.c4&MASK_MIXER);
 
         // Add contexts to NN
-        this.addContext(0, this.c4 ^ (this.c4 & 0xFFFF));
-        this.addContext(1, hash(C1, this.c4 << 24)); // hash with random primes
-        this.addContext(2, hash(C2, this.c4 << 16));
-        this.addContext(3, hash(C3, this.c4 << 8));
-        this.addContext(4, hash(C4, this.c4 & MASK1));
+        this.addContext(0, this.c4 ^ (this.c4&0xFFFF));
+        this.addContext(1, hash(C1, this.c4<<24)); // hash with random primes
+        this.addContext(2, hash(C2, this.c4<<16));
+        this.addContext(3, hash(C3, this.c4<<8));
+        this.addContext(4, hash(C4, this.c4&MASK2));
         this.addContext(5, hash(C5, this.c4));
         this.addContext(6, hash(this.c4>>this.shift4, this.c8>>shift8));
         
@@ -441,7 +441,7 @@ public class TPAQPredictor implements Predictor
       int p = this.mixer.get();
 
       // SSE (Secondary Symbol Estimation)
-      p = this.apm.get(bit, p, this.c0 | ((this.c4&0xFF00) >> this.shift4));
+      p = this.apm.get(bit, p, this.c0 | (this.c4&0xFF00));
       this.pr = p + ((p-2048) >>> 31);
    }
 
@@ -460,11 +460,11 @@ public class TPAQPredictor implements Predictor
          this.matchPos = this.hashes[this.hash];
 
          // Detect match
-         if ((this.matchPos != 0) && (this.pos-this.matchPos <= MASK3))
+         if ((this.matchPos != 0) && (this.pos - this.matchPos <= MASK_BUFFER))
          {
             int r = this.matchLen + 1;
 
-            while ((r <= MAX_LENGTH) && (this.buffer[(this.pos-r)&MASK3] == this.buffer[(this.matchPos-r)&MASK3]))
+            while ((r <= MAX_LENGTH) && (this.buffer[(this.pos-r)&MASK_BUFFER] == this.buffer[(this.matchPos-r)&MASK_BUFFER]))
                r++;
 
             this.matchLen = r - 1;
@@ -475,12 +475,12 @@ public class TPAQPredictor implements Predictor
 
    private void addMatchContext()
    {
-      if (this.c0 == ((this.buffer[this.matchPos&MASK3] & 0xFF) | 256) >> (8-this.bpos))
+      if (this.c0 == ((this.buffer[this.matchPos&MASK_BUFFER]&0xFF) | 256) >> (8-this.bpos))
       {
          // Add match length to NN inputs. Compute input based on run length
          int p = (this.matchLen<=24) ? this.matchLen : 24+((this.matchLen-24)>>2);
 
-         if (((this.buffer[this.matchPos&MASK3] >> (7-this.bpos)) & 1) == 0)
+         if (((this.buffer[this.matchPos&MASK_BUFFER] >> (7-this.bpos)) & 1) == 0)
             p = -p;
 
          this.mixer.addInput(p<<6);

@@ -28,12 +28,11 @@ import (
 const (
 	TPAQ_MAX_LENGTH  = 88
 	TPAQ_MIXER_SIZE  = 4096
-	TPAQ_HASH_SIZE   = 8 * 1024 * 1024
 	TPAQ_BUFFER_SIZE = 64 * 1024 * 1024
-	TPAQ_MASK0       = TPAQ_MIXER_SIZE - 1
-	TPAQ_MASK1       = int32(-252645136) // 0xF0F0F0F0
-	TPAQ_MASK2       = int32(-2139062144) // 0x80808080
-	TPAQ_MASK3       = TPAQ_BUFFER_SIZE - 1
+	TPAQ_MASK_MIXER  = TPAQ_MIXER_SIZE - 1
+	TPAQ_MASK_BUFFER = TPAQ_BUFFER_SIZE - 1
+	TPAQ_MASK1       = int32(-2139062144) // 0x80808080
+	TPAQ_MASK2       = int32(-252645136)  // 0xF0F0F0F0
 	TPAQ_C1          = int32(-862048943)
 	TPAQ_C2          = int32(461845907)
 	TPAQ_C3          = int32(-430675100)
@@ -369,7 +368,7 @@ func NewTPAQPredictor(logHash uint) (*TPAQPredictor, error) {
 	this := new(TPAQPredictor)
 	this.pr = 2048
 	this.c0 = 1
-	this.states = make([]uint8, 64<<logHash)
+	this.states = make([]uint8, 32<<logHash)
 	this.statesMask = int32(len(this.states) - 1)
 	this.hashes = make([]int32, 1<<logHash)
 	this.hashMask = int32(len(this.hashes) - 1)
@@ -392,27 +391,27 @@ func (this *TPAQPredictor) Update(bit byte) {
 	this.c0 = (this.c0 << 1) | int32(bit)
 
 	if this.c0 > 255 {
-		this.buffer[this.pos&TPAQ_MASK3] = int8(this.c0)
+		this.buffer[this.pos&TPAQ_MASK_BUFFER] = int8(this.c0)
 		this.pos++
 		this.c8 = (this.c8 << 8) | ((this.c4 >> 24) & 0xFF)
 		this.c4 = (this.c4 << 8) | (this.c0 & 0xFF)
 		this.hash = (((this.hash * 43707) << 4) + this.c4) & this.hashMask
-
-		// Shift by 16 if binary data else 0
-		this.shift4 = uint(-(((this.c4 & TPAQ_MASK2) >> 31) | ((-(this.c4 & TPAQ_MASK2)) >> 31))) << 4
-		shift8 := uint(-(((this.c8 & TPAQ_MASK2) >> 31) | ((-(this.c8 & TPAQ_MASK2)) >> 31))) << 4
 		this.c0 = 1
 		this.bpos = 0
 
+		// Shift by 16 if binary data else 0
+		this.shift4 = uint(-(((this.c4 & TPAQ_MASK1) >> 31) | ((-(this.c4 & TPAQ_MASK1)) >> 31))) << 4
+		shift8 := uint(-(((this.c8 & TPAQ_MASK1) >> 31) | ((-(this.c8 & TPAQ_MASK1)) >> 31))) << 4
+
 		// Select Neural Net
-		this.mixer.setContext(this.c4 & TPAQ_MASK0)
+		this.mixer.setContext(this.c4 & TPAQ_MASK_MIXER)
 
 		// Add contexts NN
 		this.addContext(0, this.c4^(this.c4&0xFFFF))
 		this.addContext(1, hashTPAQ(TPAQ_C1, this.c4<<24)) // hash with random primes
 		this.addContext(2, hashTPAQ(TPAQ_C2, this.c4<<16))
 		this.addContext(3, hashTPAQ(TPAQ_C3, this.c4<<8))
-		this.addContext(4, hashTPAQ(TPAQ_C4, this.c4&TPAQ_MASK1))
+		this.addContext(4, hashTPAQ(TPAQ_C4, this.c4&TPAQ_MASK2))
 		this.addContext(5, hashTPAQ(TPAQ_C5, this.c4))
 		this.addContext(6, hashTPAQ(this.c4>>this.shift4, this.c8>>shift8))
 
@@ -440,7 +439,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 	p := this.mixer.get()
 
 	// SSE (Secondary Symbol Estimation)
-	p = this.apm.get(y, p, int(this.c0|((this.c4&0xFF00)>>this.shift4)))
+	p = this.apm.get(y, p, int(this.c0|(this.c4&0xFF00)))
 	p32 := uint32(p)
 	this.pr = p + int((p32-2048)>>31)
 }
@@ -463,10 +462,10 @@ func (this *TPAQPredictor) findMatch() {
 		this.matchPos = this.hashes[this.hash]
 
 		// Detect match
-		if this.matchPos != 0 && this.pos-this.matchPos <= TPAQ_MASK3 {
+		if this.matchPos != 0 && this.pos-this.matchPos <= TPAQ_MASK_BUFFER {
 			r := this.matchLen + 1
 
-			for r <= TPAQ_MAX_LENGTH && this.buffer[(this.pos-r)&TPAQ_MASK3] == this.buffer[(this.matchPos-r)&TPAQ_MASK3] {
+			for r <= TPAQ_MAX_LENGTH && this.buffer[(this.pos-r)&TPAQ_MASK_BUFFER] == this.buffer[(this.matchPos-r)&TPAQ_MASK_BUFFER] {
 				r++
 			}
 
@@ -476,7 +475,7 @@ func (this *TPAQPredictor) findMatch() {
 }
 
 func (this *TPAQPredictor) addMatchContext() {
-	if this.c0 == ((int32(this.buffer[this.matchPos&TPAQ_MASK3])&0xFF)|256)>>(8-this.bpos) {
+	if this.c0 == ((int32(this.buffer[this.matchPos&TPAQ_MASK_BUFFER])&0xFF)|256)>>(8-this.bpos) {
 		// Add match length to NN inputs. Compute input based on run length
 		var p int32
 
@@ -486,7 +485,7 @@ func (this *TPAQPredictor) addMatchContext() {
 			p = (24 + ((this.matchLen - 24) >> 2))
 		}
 
-		if ((this.buffer[this.matchPos&TPAQ_MASK3] >> (7 - this.bpos)) & 1) == 0 {
+		if ((this.buffer[this.matchPos&TPAQ_MASK_BUFFER] >> (7 - this.bpos)) & 1) == 0 {
 			p = -p
 		}
 

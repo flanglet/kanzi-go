@@ -316,7 +316,7 @@ inline int32 TPAQPredictor::hash(int32 x, int32 y)
 TPAQPredictor::TPAQPredictor(int logHash)
     : _apm(65536)
     , _mixer(MIXER_SIZE)
-    ,_statesMask((64<<logHash) - 1)
+    ,_statesMask((32<<logHash) - 1)
     ,_hashMask((1<<logHash) - 1)
 {
     if ((logHash < 10) && (logHash > 24))
@@ -331,13 +331,13 @@ TPAQPredictor::TPAQPredictor(int logHash)
     _matchPos = 0;
     _hash = 0;
     int hashSize = 1 << logHash;
-    _states = new byte[64*hashSize];
+    _states = new byte[32*hashSize];
     _hashes = new int32[hashSize];
     _buffer = new byte[BUFFER_SIZE];
     _bpos = 0;
     memset(_cp, 0, sizeof(_cp));
     memset(_ctx, 0, sizeof(_ctx));
-    memset(_states, 0, 64*hashSize);
+    memset(_states, 0, 32*hashSize);
     memset(_hashes, 0, sizeof(int32)*hashSize);
     memset(_buffer, 0, BUFFER_SIZE);
 }
@@ -357,28 +357,27 @@ void TPAQPredictor::update(int bit)
     _c0 = (_c0 << 1) | bit;
 
     if (_c0 > 255) {
-        _buffer[_pos & MASK3] = byte(_c0);
+        _buffer[_pos & MASK_BUFFER] = byte(_c0);
         _pos++;
         _c8 = (_c8 << 8) | ((_c4 >> 24) & 0xFF);
         _c4 = (_c4 << 8) | (_c0 & 0xFF);
         _hash = (((_hash * 43707) << 4) + _c4) & _hashMask;
-
-        // Shift by 16 if binary data else 0
-        _shift4 = ((_c4 & MASK2) == 0) ? 0 : 16;
-        const uint32 shift8 = ((_c8 & MASK2) == 0) ? 0 : 16;
-
         _c0 = 1;
         _bpos = 0;
+       
+        // Shift by 16 if binary data else 0
+        _shift4 = ((_c4 & MASK1) == 0) ? 0 : 16;
+        const uint32 shift8 = ((_c8 & MASK1) == 0) ? 0 : 16;
 
         // Select Neural Net
-        _mixer.setContext(_c4 & MASK0);
+        _mixer.setContext(_c4 & MASK_MIXER);
 
         // Add contexts to NN
         addContext(0, _c4 ^ (_c4 & 0xFFFF));
         addContext(1, hash(C1, _c4 << 24)); // hash with random primes
         addContext(2, hash(C2, _c4 << 16));
         addContext(3, hash(C3, _c4 << 8));
-        addContext(4, hash(C4, _c4 & MASK1));
+        addContext(4, hash(C4, _c4 & MASK2));
         addContext(5, hash(C5, _c4));
         addContext(6, hash(_c4 >> _shift4, _c8 >> shift8));
 
@@ -403,7 +402,7 @@ void TPAQPredictor::update(int bit)
     int p = _mixer.get();
 
     // SSE (Secondary Symbol Estimation)
-    p = _apm.get(bit, p, _c0 | ((_c4 & 0xFF00) >> _shift4));
+    p = _apm.get(bit, p, _c0 | (_c4 & 0xFF00));
     _pr = p + (uint32(p - 2048) >> 31);
 }
 
@@ -421,10 +420,10 @@ inline void TPAQPredictor::findMatch()
         _matchPos = _hashes[_hash];
 
         // Detect match
-        if ((_matchPos != 0) && (_pos - _matchPos <= MASK3)) {
+        if ((_matchPos != 0) && (_pos - _matchPos <= MASK_BUFFER)) {
             int r = _matchLen + 1;
 
-            while ((r <= MAX_LENGTH) && (_buffer[(_pos - r) & MASK3] == _buffer[(_matchPos - r) & MASK3]))
+            while ((r <= MAX_LENGTH) && (_buffer[(_pos - r) & MASK_BUFFER] == _buffer[(_matchPos - r) & MASK_BUFFER]))
                 r++;
 
             _matchLen = r - 1;
@@ -434,11 +433,11 @@ inline void TPAQPredictor::findMatch()
 
 inline void TPAQPredictor::addMatchContext()
 {
-    if (_c0 == ((_buffer[_matchPos & MASK3] & 0xFF) | 256) >> (8 - _bpos)) {
+    if (_c0 == ((_buffer[_matchPos & MASK_BUFFER] & 0xFF) | 256) >> (8 - _bpos)) {
         // Add match length to NN inputs. Compute input based on run length
         int p = (_matchLen <= 24) ? _matchLen : 24 + ((_matchLen - 24) >> 2);
 
-        if (((_buffer[_matchPos & MASK3] >> (7 - _bpos)) & 1) == 0)
+        if (((_buffer[_matchPos & MASK_BUFFER] >> (7 - _bpos)) & 1) == 0)
             p = -p;
 
         _mixer.addInput(p << 6);

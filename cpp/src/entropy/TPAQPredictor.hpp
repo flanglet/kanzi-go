@@ -86,10 +86,10 @@ namespace kanzi
        static const int MAX_LENGTH = 88;
        static const int MIXER_SIZE = 4096;
        static const int BUFFER_SIZE = 64 * 1024 * 1024;
-       static const int MASK0 = MIXER_SIZE - 1;
-       static const int MASK1 = 0xF0F0F0F0;
-       static const int MASK2 = 0x80808080;
-       static const int MASK3 = BUFFER_SIZE - 1;
+       static const int MASK_MIXER = MIXER_SIZE - 1;
+       static const int MASK_BUFFER = BUFFER_SIZE - 1;
+       static const int MASK1 = 0x80808080;
+       static const int MASK2 = 0xF0F0F0F0;
        static const int C1 = 0xcc9e2d51;
        static const int C2 = 0x1b873593;
        static const int C3 = 0xe6546b64;
