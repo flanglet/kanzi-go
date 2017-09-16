@@ -136,14 +136,14 @@ public class CompressedInputStream extends InputStream
 
       // Read block size
       this.blockSize = (int) this.ibs.readBits(26) << 4;
-      this.ctx.put("size", this.blockSize);
+      this.ctx.put("blockSize", this.blockSize);
 
       if ((this.blockSize < MIN_BITSTREAM_BLOCK_SIZE) || (this.blockSize > MAX_BITSTREAM_BLOCK_SIZE))
          throw new kanzi.io.IOException("Invalid bitstream, incorrect block size: " + this.blockSize,
                  Error.ERR_BLOCK_SIZE);
 
       // Read reserved bits
-      this.ibs.readBits(9);
+      this.ibs.readBits(9);   
 
       if (this.listeners.size() > 0)
       {

@@ -118,7 +118,7 @@ void CompressedInputStream::readHeader() THROW
     _blockSize = int(_ibs->readBits(26)) << 4;
     stringstream ss;
     ss << _blockSize;
-    _ctx["size"] = ss.str().c_str();
+    _ctx["blockSize"] = ss.str().c_str();
 
     if ((_blockSize < MIN_BITSTREAM_BLOCK_SIZE) || (_blockSize > MAX_BITSTREAM_BLOCK_SIZE)) {
         stringstream ss;

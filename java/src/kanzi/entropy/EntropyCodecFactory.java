@@ -59,13 +59,13 @@ public class EntropyCodecFactory
          case CM_TYPE:
             return new BinaryEntropyDecoder(ibs, new CMPredictor());
          case TPAQ_TYPE:
-            final int size = (Integer) ctx.get("size");
+            final int size = (Integer) ctx.get("blockSize");
             int logHash;
             
             if (size >= 64*1024*1024)
                logHash = 24;
             else 
-               logHash = (size < 1024*1024) ? 22 : 23;
+               logHash = (size < 1024*1024) ? 22 : 23;           
             
             return new BinaryEntropyDecoder(ibs, new TPAQPredictor(logHash));
          case NONE_TYPE:
@@ -98,7 +98,7 @@ public class EntropyCodecFactory
          case CM_TYPE:
             return new BinaryEntropyEncoder(obs, new CMPredictor());
          case TPAQ_TYPE:
-            final int size = (Integer) ctx.get("size");
+            final int size = (Integer) ctx.get("blockSize");
             int logHash;
             
             if (size >= 64*1024*1024)

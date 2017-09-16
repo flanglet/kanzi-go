@@ -91,7 +91,7 @@ namespace kanzi
 
        case TPAQ_TYPE:
           {
-            string strSize = ctx["size"];
+            string strSize = ctx["blockSize"];
             int size = atoi(strSize.c_str());
             int logHash;
 
@@ -137,7 +137,7 @@ namespace kanzi
 
        case TPAQ_TYPE:
           {
-            string strSize = ctx["size"];
+            string strSize = ctx["blockSize"];
             int size = atoi(strSize.c_str());
             int logHash;
 
