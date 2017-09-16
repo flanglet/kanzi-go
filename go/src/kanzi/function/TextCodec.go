@@ -43,11 +43,11 @@ const (
 )
 
 type DictEntry struct {
-	hash   int32  // full hash
+	hash   int32  // full word hash
 	pos    int    // position in text
 	idx    int32  // index in dictionary
 	length int16  // length in text
-	buf    []byte // data
+	buf    []byte // text data
 }
 
 type TextCodec struct {

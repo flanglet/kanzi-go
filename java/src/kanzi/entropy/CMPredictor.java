@@ -82,7 +82,7 @@ public class CMPredictor implements Predictor
          counter2_[this.idx]   += ((counter2_[this.idx]^0xFFFF)   >> SLOW_RATE);
          this.ctx++;
       } 
-
+       
       if (this.ctx > 255)
       {
          this.c2 = this.c1;
@@ -101,7 +101,7 @@ public class CMPredictor implements Predictor
          }
       }
    }
-
+   
    
    // Return the split value representing the probability of 1 in the [0..4095] range. 
    @Override

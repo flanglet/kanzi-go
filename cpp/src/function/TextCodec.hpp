@@ -21,11 +21,11 @@ limitations under the License.
 namespace kanzi {
    class DictEntry {
    public:
-       int32 _hash; // full hash
+       int32 _hash; // full word hash
        int _pos; // position in text
        int32 _idx; // index in dictionary
        int16 _length; // length in text
-       const byte* _buf; // data
+       const byte* _buf; // text data
 
        DictEntry();
 

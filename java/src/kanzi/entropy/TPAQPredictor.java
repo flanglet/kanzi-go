@@ -362,7 +362,7 @@ public class TPAQPredictor implements Predictor
 
    public TPAQPredictor()
    {
-      this(23);
+      this(23); // 8 MB
    }
    
    

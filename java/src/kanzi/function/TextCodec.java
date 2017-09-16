@@ -857,7 +857,7 @@ public final class TextCodec implements ByteFunction
       return true;  
    }
    
-
+  
    private int emitSymbols(byte[] src, final int srcIdx, byte[] dst, int dstIdx, final int srcEnd, final int dstEnd)
    {
       if (srcIdx == srcEnd)
@@ -1244,11 +1244,11 @@ public final class TextCodec implements ByteFunction
 
    static class DictEntry
    {
-      int hash; // full hash
+      int hash; // full word hash
       int pos;  // position in text
       int idx; // index in dictionary
       short length; // length in text
-      byte[] buf;  // data
+      byte[] buf;  // text data
 
 
       DictEntry(byte[] buf, int pos, int hash, int idx, int length)
@@ -1270,5 +1270,5 @@ public final class TextCodec implements ByteFunction
 
          return sb.toString();
       }
-      }
-      }
+   }
+}
