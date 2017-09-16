@@ -15,7 +15,6 @@ limitations under the License.
 
 #include <cstring>
 #include "TPAQPredictor.hpp"
-#include "../IllegalArgumentException.hpp"
 
 using namespace kanzi;
 
@@ -313,15 +312,10 @@ inline int32 TPAQPredictor::hash(int32 x, int32 y)
     return (h >> 1) ^ (h >> 9) ^ (x >> 2) ^ (y >> 3) ^ HASH3;
 }
 
-TPAQPredictor::TPAQPredictor(int logHash)
+TPAQPredictor::TPAQPredictor()
     : _apm(65536)
     , _mixer(MIXER_SIZE)
-    ,_statesMask((32<<logHash) - 1)
-    ,_hashMask((1<<logHash) - 1)
 {
-    if ((logHash < 10) && (logHash > 24))
-        throw IllegalArgumentException("The hash table size log must be in [10..24]");
-
     _pr = 2048;
     _c0 = 1;
     _c4 = 0;
@@ -330,15 +324,14 @@ TPAQPredictor::TPAQPredictor(int logHash)
     _matchLen = 0;
     _matchPos = 0;
     _hash = 0;
-    int hashSize = 1 << logHash;
-    _states = new byte[32*hashSize];
-    _hashes = new int32[hashSize];
+    _states = new byte[STATES_SIZE];
+    _hashes = new int32[HASH_SIZE];
     _buffer = new byte[BUFFER_SIZE];
     _bpos = 0;
     memset(_cp, 0, sizeof(_cp));
     memset(_ctx, 0, sizeof(_ctx));
-    memset(_states, 0, 32*hashSize);
-    memset(_hashes, 0, sizeof(int32)*hashSize);
+    memset(_states, 0, STATES_SIZE);
+    memset(_hashes, 0, HASH_SIZE);
     memset(_buffer, 0, BUFFER_SIZE);
 }
 
@@ -361,7 +354,7 @@ void TPAQPredictor::update(int bit)
         _pos++;
         _c8 = (_c8 << 8) | ((_c4 >> 24) & 0xFF);
         _c4 = (_c4 << 8) | (_c0 & 0xFF);
-        _hash = (((_hash * 43707) << 4) + _c4) & _hashMask;
+        _hash = (((_hash * 43707) << 4) + _c4) & MASK_HASH;
         _c0 = 1;
         _bpos = 0;
        
@@ -391,7 +384,7 @@ void TPAQPredictor::update(int bit)
     // Add inputs to NN
     for (int i = 0; i < 7; i++) {
         _states[_cp[i]] = STATE_TABLE[((_states[_cp[i]] & 0xFF) << 1) | bit];
-        _cp[i] = (_ctx[i] + _c0) & _statesMask;
+        _cp[i] = (_ctx[i] + _c0) & MASK_STATES;
         _mixer.addInput(STATE_MAP[(i << 8) | (_states[_cp[i]] & 0xFF)]);
     }
 

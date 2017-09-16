@@ -16,7 +16,6 @@ limitations under the License.
 package entropy
 
 import (
-	"errors"
 	"kanzi"
 )
 
@@ -29,8 +28,12 @@ const (
 	TPAQ_MAX_LENGTH  = 88
 	TPAQ_MIXER_SIZE  = 4096
 	TPAQ_BUFFER_SIZE = 64 * 1024 * 1024
+	TPAQ_HASH_SIZE   = 16 * 1024 * 1024
+	TPAQ_STATES_SIZE = 32 * TPAQ_HASH_SIZE
 	TPAQ_MASK_MIXER  = TPAQ_MIXER_SIZE - 1
 	TPAQ_MASK_BUFFER = TPAQ_BUFFER_SIZE - 1
+	TPAQ_MASK_STATES = TPAQ_STATES_SIZE - 1
+	TPAQ_MASK_HASH   = TPAQ_HASH_SIZE - 1
 	TPAQ_MASK1       = int32(-2139062144) // 0x80808080
 	TPAQ_MASK2       = int32(-252645136)  // 0xF0F0F0F0
 	TPAQ_C1          = int32(-862048943)
@@ -338,42 +341,34 @@ func hashTPAQ(x, y int32) int32 {
 }
 
 type TPAQPredictor struct {
-	pr         int   // next predicted value (0-4095)
-	c0         int32 // bitwise context: last 0-7 bits with a leading 1 (1-255)
-	c4         int32 // last 4 whole bytes, last is in low 8 bits
-	c8         int32 // last 8 to 4 whole bytes, last is in low 8 bits
-	bpos       uint  // number of bits in c0 (0-7)
-	pos        int32
-	shift4     uint
-	matchLen   int32
-	matchPos   int32
-	hash       int32
-	statesMask int32
-	hashMask   int32
-	apm        *AdaptiveProbMap
-	mixer      *TPAQMixer
-	buffer     []int8
-	hashes     []int32  // hash table(context, buffer position)
-	states     []uint8  // hash table(context, prediction)
-	cp         [8]int32 // context pointers
-	ctx        [8]int32 // contexts
+	pr       int   // next predicted value (0-4095)
+	c0       int32 // bitwise context: last 0-7 bits with a leading 1 (1-255)
+	c4       int32 // last 4 whole bytes, last is in low 8 bits
+	c8       int32 // last 8 to 4 whole bytes, last is in low 8 bits
+	bpos     uint  // number of bits in c0 (0-7)
+	pos      int32
+	shift4   uint
+	matchLen int32
+	matchPos int32
+	hash     int32
+	apm    *AdaptiveProbMap
+	mixer  *TPAQMixer
+	buffer []int8
+	hashes []int32  // hash table(context, buffer position)
+	states []uint8  // hash table(context, prediction)
+	cp     [8]int32 // context pointers
+	ctx    [8]int32 // contexts
 }
 
-func NewTPAQPredictor(logHash uint) (*TPAQPredictor, error) {
-	if logHash < 10 || logHash > 24 {
-		return nil, errors.New("The hash table size log must be in [10..24]")
-	}
-
-	var err error
+func NewTPAQPredictor() (*TPAQPredictor, error) {
 	this := new(TPAQPredictor)
 	this.pr = 2048
 	this.c0 = 1
-	this.states = make([]uint8, 32<<logHash)
-	this.statesMask = int32(len(this.states) - 1)
-	this.hashes = make([]int32, 1<<logHash)
-	this.hashMask = int32(len(this.hashes) - 1)
+	this.states = make([]uint8, TPAQ_STATES_SIZE)
+	this.hashes = make([]int32, TPAQ_HASH_SIZE)
 	this.buffer = make([]int8, TPAQ_BUFFER_SIZE)
 	this.bpos = 0
+	var err error
 	this.apm, err = newAdaptiveProbMap(65536, 7)
 
 	if err == nil {
@@ -395,7 +390,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.pos++
 		this.c8 = (this.c8 << 8) | ((this.c4 >> 24) & 0xFF)
 		this.c4 = (this.c4 << 8) | (this.c0 & 0xFF)
-		this.hash = (((this.hash * 43707) << 4) + this.c4) & this.hashMask
+		this.hash = (((this.hash * 43707) << 4) + this.c4) & TPAQ_MASK_HASH
 		this.c0 = 1
 		this.bpos = 0
 
@@ -427,7 +422,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 	// Add inputs to NN
 	for i := range cp_ {
 		this.states[cp_[i]] = TPAQ_STATE_TABLE[(int(this.states[cp_[i]])<<1)|y]
-		cp_[i] = (this.ctx[i] + int32(this.c0)) & this.statesMask
+		cp_[i] = (this.ctx[i] + int32(this.c0)) & TPAQ_MASK_STATES
 		this.mixer.addInput(TPAQ_STATE_MAP[(i<<8)|int(this.states[cp_[i]])])
 	}
 

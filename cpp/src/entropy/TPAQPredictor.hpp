@@ -73,7 +73,7 @@ namespace kanzi
    class TPAQPredictor : public Predictor
    {
    public:
-       TPAQPredictor(int logHash=23);
+       TPAQPredictor();
 
        ~TPAQPredictor();
 
@@ -86,8 +86,12 @@ namespace kanzi
        static const int MAX_LENGTH = 88;
        static const int MIXER_SIZE = 4096;
        static const int BUFFER_SIZE = 64 * 1024 * 1024;
-       static const int MASK_MIXER = MIXER_SIZE - 1;
+       static const int HASH_SIZE = 16 * 1024 * 1024;
+       static const int STATES_SIZE = 32 * HASH_SIZE;
        static const int MASK_BUFFER = BUFFER_SIZE - 1;
+       static const int MASK_MIXER = MIXER_SIZE - 1;
+       static const int MASK_STATES = STATES_SIZE - 1;
+       static const int MASK_HASH = HASH_SIZE - 1;
        static const int MASK1 = 0x80808080;
        static const int MASK2 = 0xF0F0F0F0;
        static const int C1 = 0xcc9e2d51;
@@ -109,8 +113,6 @@ namespace kanzi
        int32 _matchLen;
        int32 _matchPos;
        int32 _hash;
-       const int32 _hashMask;
-       const int32 _statesMask;
        AdaptiveProbMap<7> _apm;
        TPAQMixer _mixer;
        byte* _buffer;

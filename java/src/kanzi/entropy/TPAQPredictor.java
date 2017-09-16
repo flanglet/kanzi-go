@@ -27,8 +27,12 @@ public class TPAQPredictor implements Predictor
    private static final int MAX_LENGTH = 88;
    private static final int MIXER_SIZE = 4096;
    private static final int BUFFER_SIZE = 64*1024*1024;
+   private static final int HASH_SIZE = 16*1024*1024;
+   private static final int STATES_SIZE = 32*HASH_SIZE;
    private static final int MASK_MIXER = MIXER_SIZE - 1;
-   private static final int MASK_BUFFER = BUFFER_SIZE- 1;
+   private static final int MASK_BUFFER = BUFFER_SIZE - 1;
+   private static final int MASK_STATES = STATES_SIZE - 1;
+   private static final int MASK_HASH = HASH_SIZE- 1;
    private static final int MASK1 = 0x80808080;
    private static final int MASK2 = 0xF0F0F0F0;
    private static final int C1 = 0xcc9e2d51;
@@ -349,8 +353,6 @@ public class TPAQPredictor implements Predictor
    private int matchLen;
    private int matchPos;
    private int hash;
-   private final int hashMask;
-   private final int statesMask;
    private final AdaptiveProbMap apm;
    private final Mixer mixer;
    private final byte[] buffer;
@@ -359,24 +361,13 @@ public class TPAQPredictor implements Predictor
    private final int[] cp;             // context pointers
    private final int[] ctx;            // contexts
 
-
+   
    public TPAQPredictor()
-   {
-      this(23); // 8 MB
-   }
-   
-   
-   public TPAQPredictor(int logHash)
-   {
-      if ((logHash < 10) || (logHash > 24))
-         throw new IllegalArgumentException("The hash table size log must be in [10..24]");
-      
+   {   
      this.pr = 2048;
      this.c0 = 1;
-     this.states = new byte[32<<logHash];
-     this.statesMask = this.states.length - 1;
-     this.hashes = new int[1<<logHash];
-     this.hashMask = this.hashes.length - 1;
+     this.states = new byte[STATES_SIZE];
+     this.hashes = new int[HASH_SIZE];
      this.buffer = new byte[BUFFER_SIZE];
      this.cp = new int[8];
      this.ctx = new int[8];
@@ -399,7 +390,7 @@ public class TPAQPredictor implements Predictor
         this.pos++;
         this.c8 = (this.c8<<8) | (this.c4>>>24);
         this.c4 = (this.c4<<8) | (this.c0&0xFF);
-        this.hash = (((this.hash*43707) << 4) + this.c4) & this.hashMask;
+        this.hash = (((this.hash*43707) << 4) + this.c4) & MASK_HASH;
         this.c0 = 1;
         this.bpos = 0;
 
@@ -430,7 +421,7 @@ public class TPAQPredictor implements Predictor
       for (int i=0; i<7; i++)
       {
          this.states[this.cp[i]] = STATE_TABLE[((this.states[this.cp[i]]&0xFF)<<1)|bit];
-         this.cp[i] = (this.ctx[i] + this.c0) & this.statesMask;
+         this.cp[i] = (this.ctx[i] + this.c0) & MASK_STATES;
          this.mixer.addInput(STATE_MAP[(i<<8)|(this.states[this.cp[i]]&0xFF)]);
       }
 

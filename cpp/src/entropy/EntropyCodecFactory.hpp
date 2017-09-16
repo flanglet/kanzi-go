@@ -90,18 +90,7 @@ namespace kanzi
            return new BinaryEntropyDecoder(ibs, new CMPredictor());
 
        case TPAQ_TYPE:
-          {
-            string strSize = ctx["blockSize"];
-            int size = atoi(strSize.c_str());
-            int logHash;
-
-            if (size >= 64*1024*1024)
-               logHash = 24;
-            else 
-               logHash = (size < 1024*1024) ? 22 : 23;
-            
-            return new BinaryEntropyDecoder(ibs, new TPAQPredictor(logHash));
-          }
+            return new BinaryEntropyDecoder(ibs, new TPAQPredictor());
 
        case NONE_TYPE:
            return new NullEntropyDecoder(ibs);
@@ -136,18 +125,7 @@ namespace kanzi
            return new BinaryEntropyEncoder(obs, new CMPredictor());
 
        case TPAQ_TYPE:
-          {
-            string strSize = ctx["blockSize"];
-            int size = atoi(strSize.c_str());
-            int logHash;
-
-            if (size >= 64*1024*1024)
-               logHash = 24;
-            else 
-               logHash = (size < 1024*1024) ? 22 : 23;
-            
-            return new BinaryEntropyEncoder(obs, new TPAQPredictor(logHash));
-          }
+            return new BinaryEntropyEncoder(obs, new TPAQPredictor());
 
        case NONE_TYPE:
            return new NullEntropyEncoder(obs);
