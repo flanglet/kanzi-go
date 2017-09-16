@@ -698,9 +698,10 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
     int srcIdx = input._index;
     int dstIdx = output._index;
 
-    if (count <= 1) {
-        if (count > 0)
-            dst[dstIdx++] = src[srcIdx++];
+    if (count <= 16)
+    { 
+       for (int i=0; i<count; i++)
+          dst[dstIdx++] = src[srcIdx++];
 
         input._index = srcIdx;
         output._index = dstIdx;
@@ -714,27 +715,11 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
     int endWordIdx = ~anchor;
     int emitAnchor = input._index; // never less than input._index
     int words = _staticDictSize;
-    int32 h1 = HASH1;
-    int32 h2 = HASH1;
 
     while ((srcIdx < srcEnd) && (dstIdx < dstEnd)) {
         byte cur = src[srcIdx];
 
         if (isText(cur)) {
-            // Compute hashes
-            // h1 -> hash of word chars
-            // h2 -> hash of word chars with first char case flipped
-            if (srcIdx == anchor + 1) {
-                const int32 caseFlag = isUpperCase(cur) ? 32 : -32;
-                h1 = h1 * HASH1 ^ int32(cur) * HASH2;
-                h2 = h2 * HASH1 ^ (int32(cur) + caseFlag) * HASH2;
-            }
-            else {
-                const int32 h = int32(cur) * HASH2;
-                h1 = h1 * HASH1 ^ h;
-                h2 = h2 * HASH1 ^ h;
-            }
-
             srcIdx++;
             continue;
         }
@@ -743,6 +728,23 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
 
         if (((srcIdx > anchor + 2)) && (isDelimiter(cur) || (cur == ESCAPE_TOKEN1) || (cur == ESCAPE_TOKEN2))) // At least 2 letters
         {
+            // Compute hashes
+            // h1 -> hash of word chars
+            // h2 -> hash of word chars with first char case flipped
+            byte val = src[anchor+1];
+            const int caseFlag = isUpperCase(val) ? 32 : -32;
+            int32 h1 = HASH1;
+            int32 h2 = HASH1;
+            h1 = h1 * HASH1 ^ int32(val) * HASH2;
+            h2 = h2 * HASH1 ^ int32(val + caseFlag) * HASH2;
+
+            for (int i=anchor+2; i<srcIdx; i++) 
+            {
+                const int h = int32(src[i]) * HASH2;
+                h1 = h1 * HASH1 ^ h;
+                h2 = h2 * HASH1 ^ h;
+            }
+
             // Check word in dictionary
             const int length = srcIdx - anchor - 1;
             DictEntry* pe1 = _dictMap[h1 & _hashMask];
@@ -819,8 +821,6 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
         anchor = srcIdx;
         emitAnchor = anchor;
         srcIdx++;
-        h1 = HASH1;
-        h2 = HASH1;
     }
 
     // Emit last symbols
@@ -969,9 +969,10 @@ bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int c
     byte* src = input._array;
     byte* dst = output._array;
 
-    if (count <= 1) {
-        if (count > 0)
-            dst[dstIdx++] = src[srcIdx++];
+    if (count <= 16)
+    { 
+       for (int i=0; i<count; i++)
+          dst[dstIdx++] = src[srcIdx++];
 
         input._index = srcIdx;
         output._index = dstIdx;
@@ -995,33 +996,17 @@ bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int c
         if ((srcIdx > anchor + 3) && ((cur == ESCAPE_TOKEN1) || (cur == ESCAPE_TOKEN2) || (isDelimiter(cur)))) // At least 2 letters
         {
             int length = srcIdx - anchor - 2;
-            byte first = src[anchor + 1];
-            const int caseFlag = isUpperCase(first) ? 32 : -32;
             int h1 = HASH1;
-            int h2 = HASH1;
-            h1 = h1 * HASH1 ^ int32(first) * HASH2;
-            h2 = h2 * HASH1 ^ int32(first + caseFlag) * HASH2;
 
-            for (int i = 2; i <= length; i++)
-                h1 = h1 * HASH1 ^ int32(src[anchor + i]) * HASH2;
+            for (int i=1; i<=length; i++)
+               h1 = h1*HASH1 ^ int32(src[anchor + i])*HASH2;
 
             // Lookup word in dictionary
-            DictEntry* pe1 = _dictMap[h1 & _hashMask];
-            DictEntry* pe2 = nullptr; // _dictMap[h2 & _hashMask];
+            DictEntry* pe = _dictMap[h1 & _hashMask];
 
             // Check for hash collisions
-            if ((pe1 != nullptr) && ((pe1->_length != length) || (pe1->_hash != h1)))
-                pe1 = nullptr;
-
-            if (pe1 == nullptr) {
-                pe2 = _dictMap[h2 & _hashMask];
-
-                // Hash collision (quick check)  ?
-                if ((pe2 != nullptr) && ((pe2->_length != length) || (pe2->_hash != h2)))
-                    pe2 = nullptr;
-            }
-
-            DictEntry* pe = (pe2 == nullptr) ? pe1 : pe2;
+            if ((pe != nullptr) && ((pe->_length != length) || (pe->_hash != h1)))
+                pe = nullptr;
 
             if (pe != nullptr) {
                 if (!sameWords(&pe->_buf[pe->_pos + 1], &src[anchor + 2], length - 1))
@@ -1139,8 +1124,7 @@ int TextCodec::createDictionary(SliceArray<byte> input, DictEntry dict[], int ma
             continue;
         }
 
-        if ((isDelimiter(cur)) && (nbWords < maxWords) && (i >= anchor + 2)) // At least 2 letters
-        {
+        if ((isDelimiter(cur)) && (nbWords < maxWords) && (i >= anchor + 2)) { // At least 2 letters
             dict[nbWords] = DictEntry(words, anchor + 1, h, nbWords, i - anchor - 1);
             nbWords++;
         }

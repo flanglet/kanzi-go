@@ -82,7 +82,7 @@ public final class TextCodec implements ByteFunction
        boolean[] res = new boolean[256];
 
        for (int i=0; i<256; i++)
-         res[i] = isLowerCase((byte) i) || isUpperCase((byte) i);
+          res[i] = isLowerCase((byte) i) || isUpperCase((byte) i);
 
        return res;
    }
@@ -702,9 +702,9 @@ public final class TextCodec implements ByteFunction
       int srcIdx = input.index;
       int dstIdx = output.index;
 
-      if (count <= 1)
+      if (count <= 16)
       {
-         if (count > 0)
+         for (int i=0; i<count; i++)
             dst[dstIdx++] = src[srcIdx++];
 
          input.index = srcIdx;
@@ -719,8 +719,6 @@ public final class TextCodec implements ByteFunction
       int endWordIdx = ~anchor;
       int emitAnchor = input.index; // never less than input.index
       int words = this.staticDictSize;
-      int h1 = HASH1;
-      int h2 = HASH1;
 
       while ((srcIdx < srcEnd) && (dstIdx < dstEnd))
       {
@@ -728,22 +726,6 @@ public final class TextCodec implements ByteFunction
 
          if (isText(cur))
          {
-            // Compute hashes
-            // h1 -> hash of word chars
-            // h2 -> hash of word chars with first char case flipped
-            if (srcIdx == anchor+1)
-            {
-               final int caseFlag = isUpperCase(cur) ? 32 : - 32;
-               h1 = h1*HASH1 ^ cur*HASH2;
-               h2 = h2*HASH1 ^ (cur+caseFlag)*HASH2;
-            }
-            else
-            {
-               final int hh = cur * HASH2;
-               h1 = h1*HASH1 ^ hh;
-               h2 = h2*HASH1 ^ hh;
-            }
-
             srcIdx++;
             continue;
          }
@@ -752,6 +734,23 @@ public final class TextCodec implements ByteFunction
 
          if (((srcIdx > anchor+2)) && (isDelimiter(cur) || (cur == ESCAPE_TOKEN1) || (cur == ESCAPE_TOKEN2))) // At least 2 letters
          {
+            // Compute hashes
+            // h1 -> hash of word chars
+            // h2 -> hash of word chars with first char case flipped
+            byte val = src[anchor+1];
+            final int caseFlag = isUpperCase(val) ? 32 : -32;
+            int h1 = HASH1;
+            int h2 = HASH1;
+            h1 = h1 * HASH1 ^ val * HASH2;
+            h2 = h2 * HASH1 ^ (val + caseFlag) * HASH2;
+
+            for (int i=anchor+2; i<srcIdx; i++) 
+            {
+                final int h = src[i] * HASH2;
+                h1 = h1 * HASH1 ^ h;
+                h2 = h2 * HASH1 ^ h;
+            }
+
             // Check word in dictionary
             final int length = srcIdx - anchor - 1;
             DictEntry e1 = this.dictMap[h1 & this.hashMask];
@@ -831,8 +830,6 @@ public final class TextCodec implements ByteFunction
          anchor = srcIdx;
          emitAnchor = anchor;
          srcIdx++;
-         h1 = HASH1;
-         h2 = HASH1;
       }
 
       // Emit last symbols
@@ -848,10 +845,10 @@ public final class TextCodec implements ByteFunction
    {
       if (this.dictSize >= MAX_DICT_SIZE)
          return false;
- 
+  
       DictEntry[] newDict = new DictEntry[this.dictSize*2];
       System.arraycopy(this.dictList, 0, newDict, 0, this.dictSize);
-      
+
       for (int i=this.dictSize; i<this.dictSize*2; i++)
          newDict[i] = new DictEntry(null, -1, 0, i, 0);
       
@@ -954,7 +951,7 @@ public final class TextCodec implements ByteFunction
       {
          dst[dstIdx++] = (byte) val;
       }
-           
+
       return dstIdx;
    }
 
@@ -990,9 +987,9 @@ public final class TextCodec implements ByteFunction
       final byte[] src = input.array;
       final byte[] dst = output.array;
 
-      if (count <= 1)
+      if (count <= 16)
       {
-         if (count > 0)
+         for (int i=0; i<count; i++)
             dst[dstIdx++] = src[srcIdx++];
 
          input.index = srcIdx;
@@ -1098,7 +1095,7 @@ public final class TextCodec implements ByteFunction
             // Sanity check
             if ((e.pos < 0) || (dstIdx+e.length >= dstEnd))
                break;
-
+           
             // Add space if only delimiter between 2 words (not an escaped delimiter) 
             if ((wordRun == true) && (e.length > 1))
                dst[dstIdx++] = ' ';
@@ -1146,7 +1143,7 @@ public final class TextCodec implements ByteFunction
    public int getMaxEncodedLength(int srcLength)
    {
       // Space needed by destination buffer could be 3 x srcLength (if input data
-      // is all delimiters). Limit to 1 x srcLength and ket the caller deal with
+      // is all delimiters). Limit to 1 x srcLength and let the caller deal with
       // a failure when the output is not smaller than the input
       return srcLength;
    }
@@ -1273,5 +1270,5 @@ public final class TextCodec implements ByteFunction
 
          return sb.toString();
       }
-   }
-}
+      }
+      }

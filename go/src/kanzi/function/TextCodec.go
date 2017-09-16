@@ -720,8 +720,8 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 	srcIdx := 0
 	dstIdx := 0
 
-	if count <= 1 {
-		if count > 0 {
+	if count <= 16 {
+		for i := 0; i < count; i++ {
 			dst[dstIdx] = src[srcIdx]
 			srcIdx++
 			dstIdx++
@@ -744,33 +744,11 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 	endWordIdx := ^anchor
 	emitAnchor := 0 // never negative
 	words := this.staticDictSize
-	h1 := TC_HASH1
-	h2 := TC_HASH1
 
 	for srcIdx < srcEnd && dstIdx < dstEnd {
 		cur := src[srcIdx]
 
 		if isText(cur) {
-			// Compute hashes
-			// h1 -> hash of word chars
-			// h2 -> hash of word chars with first char case flipped
-			if srcIdx == anchor+1 {
-				var caseFlag int32
-
-				if isUpperCase(cur) {
-					caseFlag = 32
-				} else {
-					caseFlag = -32
-				}
-
-				h1 = h1*TC_HASH1 ^ (int32(cur) * TC_HASH2)
-				h2 = h2*TC_HASH1 ^ ((int32(cur) + caseFlag) * TC_HASH2)
-			} else {
-				h := int32(cur) * TC_HASH2
-				h1 = h1*TC_HASH1 ^ h
-				h2 = h2*TC_HASH1 ^ h
-			}
-
 			srcIdx++
 			continue
 		}
@@ -778,6 +756,29 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 		mustEmit := emitAnchor < srcIdx
 
 		if (srcIdx > anchor+2) && (isDelimiter(cur) || cur == TC_ESCAPE_TOKEN1 || cur == TC_ESCAPE_TOKEN2) { // At least 2 letters
+			// Compute hashes
+			// h1 -> hash of word chars
+			// h2 -> hash of word chars with first char case flipped
+			val := src[anchor+1]
+			var caseFlag int32
+
+			if isUpperCase(val) {
+				caseFlag = 32
+			} else {
+				caseFlag = -32
+			}
+
+			h1 := TC_HASH1
+			h2 := TC_HASH1
+			h1 = h1*TC_HASH1 ^ (int32(val) * TC_HASH2)
+			h2 = h2*TC_HASH1 ^ ((int32(val) + caseFlag) * TC_HASH2)
+
+			for i := anchor + 2; i < srcIdx; i++ {
+				h := int32(src[i]) * TC_HASH2
+				h1 = h1*TC_HASH1 ^ h
+				h2 = h2*TC_HASH1 ^ h
+			}
+
 			// Check word in dictionary
 			length := srcIdx - anchor - 1
 			pe1 := this.dictMap[h1&this.hashMask]
@@ -871,8 +872,6 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 		anchor = srcIdx
 		emitAnchor = anchor
 		srcIdx++
-		h1 = TC_HASH1
-		h2 = TC_HASH1
 	}
 
 	// Emit last symbols
@@ -1045,8 +1044,8 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	dstIdx := 0
 	count := len(src)
 
-	if count <= 1 {
-		if count > 0 {
+	if count <= 16 {
+		for i := 0; i < count; i++ {
 			dst[dstIdx] = src[srcIdx]
 			srcIdx++
 			dstIdx++
@@ -1210,7 +1209,7 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 func (this TextCodec) MaxEncodedLen(srcLen int) int {
 	// Space needed by destination buffer could be 3 x srcLength (if input data
-	// is all delimiters). Limit to 1 x srcLength and ket the caller deal with
+	// is all delimiters). Limit to 1 x srcLength and let the caller deal with
 	// a failure when the output is not smaller than the input
 	return srcLen
 }

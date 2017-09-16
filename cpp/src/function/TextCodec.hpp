@@ -70,7 +70,7 @@ namespace kanzi {
 
        // Required encoding output buffer size
        // Space needed by destination buffer could be 3 x srcLength (if input data
-       // is all delimiters). Limit to 1 x srcLength and ket the caller deal with
+       // is all delimiters). Limit to 1 x srcLength and let the caller deal with
        // a failure when the output is not smaller than the input
        inline int getMaxEncodedLength(int srcLen) const { return srcLen; }
 
