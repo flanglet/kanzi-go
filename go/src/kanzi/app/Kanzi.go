@@ -36,7 +36,7 @@ const (
 	ARG_IDX_JOBS       = 7
 	ARG_IDX_VERBOSE    = 8
 	ARG_IDX_LEVEL      = 9
-	ARG_IDX_PROFILE    = 12
+	ARG_IDX_PROFILE    = 13
 )
 
 var (
@@ -462,6 +462,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 				fmt.Printf("Invalid number of jobs provided on command line: %v\n", strTasks)
 				os.Exit(kio.ERR_BLOCK_SIZE)
 			}
+
 			ctx = -1
 			continue
 		}
