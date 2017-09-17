@@ -34,7 +34,6 @@ LIB_SOURCES=Global.cpp \
 	entropy/RangeDecoder.cpp \
 	entropy/RangeEncoder.cpp \
 	entropy/HuffmanCommon.cpp \
-	entropy/AdaptiveProbMap.cpp \
 	entropy/BinaryEntropyDecoder.cpp \
 	entropy/BinaryEntropyEncoder.cpp \
 	entropy/FPAQPredictor.cpp \
