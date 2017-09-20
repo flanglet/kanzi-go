@@ -19,51 +19,77 @@ import (
 	"kanzi"
 )
 
-/////////////////////////////////////////////////////////////////
 // APM maps a probability and a context into a new probability
-// that bit y will next be 1.  After each guess it updates
-// its state to improve future guesses.  Methods:
-//
-// APM a(N) creates with N contexts, uses 66*N bytes memory.
-// a.get(y, pr, cx) returned adjusted probability in context cx (0 to
-//   N-1).  rate determines the learning rate (smaller = faster, default 8).
-//////////////////////////////////////////////////////////////////
+// that the current bit will next be 1. After each guess, it updates
+// its state to improve future guesses.
+
 type AdaptiveProbMap struct {
-	index int   // last p, context
+	index int   // last prob, context
 	rate  uint  // update rate
-	data  []int // [NbCtx][33]:  p, context -> p
+	data  []int // prob, context -> prob
 }
 
-func newAdaptiveProbMap(n, rate uint) (*AdaptiveProbMap, error) {
-	this := new(AdaptiveProbMap)
+type LinearAdaptiveProbMap AdaptiveProbMap
+type LogisticAdaptiveProbMap AdaptiveProbMap
+
+func newLogisticAdaptiveProbMap(n, rate uint) (*LogisticAdaptiveProbMap, error) {
+	this := new(LogisticAdaptiveProbMap)
 	this.data = make([]int, n*33)
 	this.rate = rate
-	k := 0
 
-	for i := uint(0); i < n; i++ {
-		for j := 0; j < 33; j++ {
-			if i == 0 {
-				this.data[k+j] = kanzi.Squash((j-16)<<7) << 4
-			} else {
-				this.data[k+j] = this.data[j]
-			}
-		}
+	for j := 0; j <= 32; j++ {
+		this.data[j] = kanzi.Squash((j-16)<<7) << 4
+	}
 
-		k += 33
+	for i := uint(1); i < n; i++ {
+		copy(this.data[i*33:(i+1)*33], this.data[0:33])
 	}
 
 	return this, nil
 }
 
-func (this *AdaptiveProbMap) get(bit int, pr int, ctx int) int {
+// Return improved prediction given current bit, prediction and context
+func (this *LogisticAdaptiveProbMap) get(bit int, pr int, ctx int) int {
 	// Update probability based on error and learning rate
 	g := (bit << 16) + (bit << this.rate) - (bit << 1)
 	this.data[this.index] += ((g - this.data[this.index]) >> this.rate)
 	this.data[this.index+1] += ((g - this.data[this.index+1]) >> this.rate)
 	pr = kanzi.STRETCH[pr]
 
-	// Find new context
+	// Find index: 33*ctx + quantized prediction in [0..32]
 	this.index = ((pr + 2048) >> 7) + (ctx << 5) + ctx
+
+	// Return interpolated probability
+	w := pr & 127
+	return (this.data[this.index]*(128-w) + this.data[this.index+1]*w) >> 11
+}
+
+func newLinearAdaptiveProbMap(n, rate uint) (*LinearAdaptiveProbMap, error) {
+	this := new(LinearAdaptiveProbMap)
+	this.data = make([]int, n*65)
+	this.rate = rate
+
+	for j := 0; j <= 64; j++ {
+		this.data[j] = (j << 6) << 4
+	}
+
+	for i := uint(1); i < n; i++ {
+		copy(this.data[i*65:(i+1)*65], this.data[0:65])
+	}
+
+	return this, nil
+}
+
+// Return improved prediction given current bit, prediction and context
+func (this *LinearAdaptiveProbMap) get(bit int, pr int, ctx int) int {
+	// Update probability based on error and learning rate
+	g := (bit << 16) + (bit << this.rate) - (bit << 1)
+	this.data[this.index] += ((g - this.data[this.index]) >> this.rate)
+	this.data[this.index+1] += ((g - this.data[this.index+1]) >> this.rate)
+	pr = kanzi.STRETCH[pr]
+
+	// Find index: 65*ctx + quantized prediction in [0..64]
+	this.index = (pr >> 6) + (ctx << 6) + ctx
 
 	// Return interpolated probability
 	w := pr & 127

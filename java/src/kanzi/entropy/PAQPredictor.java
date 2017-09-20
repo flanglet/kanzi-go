@@ -102,7 +102,7 @@ package kanzi.entropy;
 //// changes (e.g. removing global context).
 
 public class PAQPredictor implements Predictor
-{
+{          
    ///////////////////////// state table ////////////////////////
    // STATE_TABLE[state,0] = next state if bit is 0, 0 <= state < 256
    // STATE_TABLE[state,1] = next state if bit is 1
@@ -197,9 +197,9 @@ public class PAQPredictor implements Predictor
    private final StateMap sm;        // state -> pr
    private int run;                  // count of consecutive identical bytes (0-65535)
    private int runCtx;               // (0-3) if run is 0, 1, 2-3, 4+
-   private final AdaptiveProbMap apm2;
-   private final AdaptiveProbMap apm3;
-   private final AdaptiveProbMap apm4;
+   private final LogisticAdaptiveProbMap apm2;
+   private final LogisticAdaptiveProbMap apm3;
+   private final LogisticAdaptiveProbMap apm4;
    
    
    public PAQPredictor()
@@ -207,9 +207,9 @@ public class PAQPredictor implements Predictor
      this.pr = 2048;
      this.c0 = 1;
      this.states = new int[256];
-     this.apm2 = new AdaptiveProbMap(1024, 6);
-     this.apm3 = new AdaptiveProbMap(1024, 7);
-     this.apm4 = new AdaptiveProbMap(65536, 8);
+     this.apm2 = new LogisticAdaptiveProbMap(1024, 6);
+     this.apm3 = new LogisticAdaptiveProbMap(1024, 7);
+     this.apm4 = new LogisticAdaptiveProbMap(65536, 8);
      this.sm = new StateMap();
      this.bpos = 8;
    } 
@@ -243,7 +243,7 @@ public class PAQPredictor implements Predictor
         this.c4 = (this.c4 << 8) | (this.c0 & 0xFF);
         this.c0 = 1;
      }
-
+     
      int c1d = ((((this.c4 & 0xFF) | 256) >> this.bpos) == this.c0) ? 2 : 0;
      this.bpos--;
      c1d += ((this.c4 >> this.bpos) & 1);
@@ -291,7 +291,7 @@ public class PAQPredictor implements Predictor
             int n1 = STATE_TABLE[(i<<2)+3];
             array[i] = ((n1+1) << 16) / (n0+n1+3);
          }
-
+    
          return array;
       }
 

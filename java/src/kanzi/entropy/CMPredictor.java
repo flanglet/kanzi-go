@@ -52,7 +52,7 @@ public class CMPredictor implements Predictor
             this.counter2[i+i][j]   = j << 12;
             this.counter2[i+i+1][j] = j << 12;
          }
-
+   
          this.counter2[i+i][16]   -= 16;
          this.counter2[i+i+1][16] -= 16;
       }			

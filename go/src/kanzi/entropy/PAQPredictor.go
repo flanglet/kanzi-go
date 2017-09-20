@@ -197,9 +197,9 @@ type PAQPredictor struct {
 	sm     *PAQStateMap // state -> pr
 	run    uint         // count of consecutive identical bytes (0-65535)
 	runCtx int          // (0-3) if run is 0, 1, 2-3, 4+
-	apm2   *AdaptiveProbMap
-	apm3   *AdaptiveProbMap
-	apm4   *AdaptiveProbMap
+	apm2   *LogisticAdaptiveProbMap
+	apm3   *LogisticAdaptiveProbMap
+	apm4   *LogisticAdaptiveProbMap
 }
 
 func NewPAQPredictor() (*PAQPredictor, error) {
@@ -208,14 +208,14 @@ func NewPAQPredictor() (*PAQPredictor, error) {
 	this.pr = 2048
 	this.c0 = 1
 	this.bpos = 8
-	this.apm2, err = newAdaptiveProbMap(1024, 6)
+	this.apm2, err = newLogisticAdaptiveProbMap(1024, 6)
 
 	if err == nil {
-		this.apm3, err = newAdaptiveProbMap(1024, 7)
+		this.apm3, err = newLogisticAdaptiveProbMap(1024, 7)
 	}
 
 	if err == nil {
-		this.apm4, err = newAdaptiveProbMap(65536, 8)
+		this.apm4, err = newLogisticAdaptiveProbMap(65536, 8)
 	}
 
 	if err == nil {

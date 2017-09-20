@@ -388,8 +388,7 @@ void TPAQPredictor::update(int bit)
         _mixer.addInput(STATE_MAP[(i << 8) | (_states[_cp[i]] & 0xFF)]);
     }
 
-    if (_matchLen > 0)
-        addMatchContext();
+    addMatchContext();
 
     // Get prediction from NN
     int p = _mixer.get();
@@ -426,17 +425,23 @@ inline void TPAQPredictor::findMatch()
 
 inline void TPAQPredictor::addMatchContext()
 {
-    if (_c0 == ((_buffer[_matchPos & MASK_BUFFER] & 0xFF) | 256) >> (8 - _bpos)) {
-        // Add match length to NN inputs. Compute input based on run length
-        int p = (_matchLen <= 24) ? _matchLen : 24 + ((_matchLen - 24) >> 2);
+    int p = 64;
 
-        if (((_buffer[_matchPos & MASK_BUFFER] >> (7 - _bpos)) & 1) == 0)
-            p = -p;
+    if (_matchLen > 0) {      
+       if (_c0 == ((_buffer[_matchPos & MASK_BUFFER] & 0xFF) | 256) >> (8 - _bpos)) {
+           // Add match length to NN inputs. Compute input based on run length
+           p = (_matchLen <= 24) ? _matchLen : 24 + ((_matchLen - 24) >> 2);
 
-        _mixer.addInput(p << 6);
+           if (((_buffer[_matchPos & MASK_BUFFER] >> (7 - _bpos)) & 1) == 0)
+               p = -p;
+
+           p <<= 6;
+       }
+       else
+           _matchLen = 0;
     }
-    else
-        _matchLen = 0;
+
+    _mixer.addInput(p);
 }
 
 inline void TPAQPredictor::addContext(int ctxId, int32 cx)
@@ -489,11 +494,6 @@ inline void TPAQMixer::update(int bit)
 inline int TPAQMixer::get()
 {
     int32* buf = &_buffer[_ctx];
-
-    while ((_idx & 7) != 0) {
-        buf[_idx] = 64;
-        _idx++;
-    }
 
     // Neural Network dot product (sum weights*inputs)
     const int p = (buf[0] * buf[8])

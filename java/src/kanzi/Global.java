@@ -203,7 +203,7 @@ public class Global
    {
       if (d > 2047)
          return 4095;
-
+      
       if (d < -2047)
          return 0;
 

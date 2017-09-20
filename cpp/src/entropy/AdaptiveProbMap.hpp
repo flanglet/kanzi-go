@@ -18,25 +18,19 @@ limitations under the License.
 
 #include "../Global.hpp"
 
+// APM maps a probability and a context into a new probability
+// that the current bit will next be 1. After each guess, it updates
+// its state to improve future guesses. 
+
 namespace kanzi 
 {
-
-   /////////////////////////////////////////////////////////////////
-   // APM maps a probability and a context into a new probability
-   // that bit y will next be 1.  After each guess it updates
-   // its state to improve future guesses.  Methods:
-   //
-   // APM a(N) creates with N contexts, uses 66*N bytes memory.
-   // a.get(y, pr, cx) returned adjusted probability in context cx (0 to
-   //   N-1).  rate determines the learning rate (smaller = faster, default 8).
-   //////////////////////////////////////////////////////////////////
    template <int RATE>
-   class AdaptiveProbMap 
+   class LinearAdaptiveProbMap 
    {
    public:
-       AdaptiveProbMap<RATE>(int n);
+       LinearAdaptiveProbMap<RATE>(int n);
 
-       ~AdaptiveProbMap<RATE>() { delete[] _data; }
+       ~LinearAdaptiveProbMap<RATE>() { delete[] _data; }
 
        int get(int bit, int pr, int ctx);
 
@@ -46,19 +40,71 @@ namespace kanzi
    };
 
    template <int RATE>
-   inline AdaptiveProbMap<RATE>::AdaptiveProbMap(int n)
+   inline LinearAdaptiveProbMap<RATE>::LinearAdaptiveProbMap(int n)
+   {
+       _data = new int[65 * n];
+       _index = 0;
+
+       for (int j = 0; j <= 64; j++) {
+          _data[j] = (j << 6) << 4;
+       }
+
+       for (int i = 1; i < n; i++) {
+           memcpy(&_data[i*65], &_data[0], 65*sizeof(int));
+       }
+   }
+
+   // Return improved prediction given current bit, prediction and context
+   template <int RATE>
+   inline int LinearAdaptiveProbMap<RATE>::get(int bit, int pr, int ctx)
+   {
+       // Update probability based on error and learning rate
+       const int g = (bit << 16) + (bit << RATE) - (bit << 1);
+       _data[_index] += ((g - _data[_index]) >> RATE);
+       _data[_index + 1] += ((g - _data[_index + 1]) >> RATE);
+
+       // Find index: 65*ctx + quantized prediction in [0..64]
+       _index = (pr >> 6) + (ctx << 6) + ctx;
+
+       // Return interpolated probabibility
+       const int w = pr & 127;
+       return (_data[_index] * (128 - w) + _data[_index + 1] * w) >> 11;
+   }
+
+
+   template <int RATE>
+   class LogisticAdaptiveProbMap 
+   {
+   public:
+       LogisticAdaptiveProbMap<RATE>(int n);
+
+       ~LogisticAdaptiveProbMap<RATE>() { delete[] _data; }
+
+       int get(int bit, int pr, int ctx);
+
+   private:
+       int _index; // last p, context
+       int* _data; // [NbCtx][33]:  p, context -> p
+   };
+
+   template <int RATE>
+   inline LogisticAdaptiveProbMap<RATE>::LogisticAdaptiveProbMap(int n)
    {
        _data = new int[33 * n];
        _index = 0;
 
-       for (int i = 0, k = 0; i < n; i++, k += 33) {
-           for (int j = 0; j < 33; j++)
-               _data[k + j] = (i == 0) ? Global::squash((j - 16) << 7) << 4 : _data[j];
+       for (int j = 0; j < 33; j++) {
+          _data[j] = Global::squash((j - 16) << 7) << 4;
+       }
+
+       for (int i = 1; i < n; i++) {
+           memcpy(&_data[i*33], &_data[0], 33*sizeof(int));
        }
    }
 
+   // Return improved prediction given current bit, prediction and context
    template <int RATE>
-   inline int AdaptiveProbMap<RATE>::get(int bit, int pr, int ctx)
+   inline int LogisticAdaptiveProbMap<RATE>::get(int bit, int pr, int ctx)
    {
        // Update probability based on error and learning rate
        const int g = (bit << 16) + (bit << RATE) - (bit << 1);
@@ -66,7 +112,7 @@ namespace kanzi
        _data[_index + 1] += ((g - _data[_index + 1]) >> RATE);
        pr = Global::STRETCH[pr];
 
-       // Find new context
+       // Find index: 33*ctx + quantized prediction in [0..32]
        _index = ((pr + 2048) >> 7) + (ctx << 5) + ctx;
 
        // Return interpolated probabibility

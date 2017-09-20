@@ -57,9 +57,9 @@ namespace kanzi
 
        string getTypeAsString() const;
 
-       time_t getTime() const { return _time; }
+       time_t getTime() const { return _time; } // System time
 
-       double getElapsed() const { return _clock.elapsed(); }
+       double getElapsed() const { return _clock.elapsed(); } // CPU time
 
        int getHash() const { return (_hashing) ? _hash : 0; }
 

@@ -353,14 +353,14 @@ public class TPAQPredictor implements Predictor
    private int matchLen;
    private int matchPos;
    private int hash;
-   private final AdaptiveProbMap apm;
+   private final LogisticAdaptiveProbMap apm;
    private final Mixer mixer;
    private final byte[] buffer;
    private final int[] hashes;         // hash table(context, buffer position)
    private final byte[] states;        // hash table(context, prediction)
    private final int[] cp;             // context pointers
    private final int[] ctx;            // contexts
-
+   
    
    public TPAQPredictor()
    {   
@@ -371,8 +371,8 @@ public class TPAQPredictor implements Predictor
      this.buffer = new byte[BUFFER_SIZE];
      this.cp = new int[8];
      this.ctx = new int[8];
-     this.apm = new AdaptiveProbMap(65536, 7);
-     this.mixer = new Mixer(MIXER_SIZE);
+     this.apm = new LogisticAdaptiveProbMap(65536, 7);
+     this.mixer = new Mixer(MIXER_SIZE); 
    }
 
 
@@ -416,7 +416,7 @@ public class TPAQPredictor implements Predictor
         // Keep track of new match position
         this.hashes[this.hash] = this.pos;
       }
-
+     
       // Add inputs to NN
       for (int i=0; i<7; i++)
       {
@@ -425,8 +425,7 @@ public class TPAQPredictor implements Predictor
          this.mixer.addInput(STATE_MAP[(i<<8)|(this.states[this.cp[i]]&0xFF)]);
       }
 
-      if (this.matchLen > 0)
-         this.addMatchContext();
+      this.addMatchContext();
 
       // Get prediction from NN
       int p = this.mixer.get();
@@ -466,18 +465,25 @@ public class TPAQPredictor implements Predictor
 
    private void addMatchContext()
    {
-      if (this.c0 == ((this.buffer[this.matchPos&MASK_BUFFER]&0xFF) | 256) >> (8-this.bpos))
+      int p = 64;
+      
+      if (this.matchLen > 0)
       {
-         // Add match length to NN inputs. Compute input based on run length
-         int p = (this.matchLen<=24) ? this.matchLen : 24+((this.matchLen-24)>>2);
+         if (this.c0 == ((this.buffer[this.matchPos&MASK_BUFFER]&0xFF) | 256) >> (8-this.bpos))
+         {
+            // Add match length to NN inputs. Compute input based on run length
+            p = (this.matchLen<=24) ? this.matchLen : 24+((this.matchLen-24)>>2);
 
-         if (((this.buffer[this.matchPos&MASK_BUFFER] >> (7-this.bpos)) & 1) == 0)
-            p = -p;
+            if (((this.buffer[this.matchPos&MASK_BUFFER] >> (7-this.bpos)) & 1) == 0)
+               p = -p;
 
-         this.mixer.addInput(p<<6);
+            p <<= 6;
+         }
+         else
+            this.matchLen = 0;
       }
-      else
-         this.matchLen = 0;
+
+      this.mixer.addInput(p);
    }
 
 
@@ -526,7 +532,7 @@ public class TPAQPredictor implements Predictor
          this.buffer = new int[size*16]; // context index << 4
         
          for (int i=0; i<this.buffer.length; i++)
-            this.buffer[i] = 2048;
+               this.buffer[i] = 2048;
          
          this.pr = 2048;
       }
@@ -560,12 +566,6 @@ public class TPAQPredictor implements Predictor
 
       public int get()
       {
-         while ((this.idx & 7) != 0)
-         {
-            this.buffer[this.ctx+this.idx] = 64;
-            this.idx++;
-         }
-         
          // Neural Network dot product (sum weights*inputs)
          int p =    (this.buffer[this.ctx]  *this.buffer[this.ctx+8])
                   + (this.buffer[this.ctx+1]*this.buffer[this.ctx+9])

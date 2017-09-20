@@ -351,13 +351,13 @@ type TPAQPredictor struct {
 	matchLen int32
 	matchPos int32
 	hash     int32
-	apm    *AdaptiveProbMap
-	mixer  *TPAQMixer
-	buffer []int8
-	hashes []int32  // hash table(context, buffer position)
-	states []uint8  // hash table(context, prediction)
-	cp     [8]int32 // context pointers
-	ctx    [8]int32 // contexts
+	apm      *LogisticAdaptiveProbMap
+	mixer    *TPAQMixer
+	buffer   []int8
+	hashes   []int32  // hash table(context, buffer position)
+	states   []uint8  // hash table(context, prediction)
+	cp       [8]int32 // context pointers
+	ctx      [8]int32 // contexts
 }
 
 func NewTPAQPredictor() (*TPAQPredictor, error) {
@@ -369,7 +369,7 @@ func NewTPAQPredictor() (*TPAQPredictor, error) {
 	this.buffer = make([]int8, TPAQ_BUFFER_SIZE)
 	this.bpos = 0
 	var err error
-	this.apm, err = newAdaptiveProbMap(65536, 7)
+	this.apm, err = newLogisticAdaptiveProbMap(65536, 7)
 
 	if err == nil {
 		this.mixer, err = newTPAQMixer(TPAQ_MIXER_SIZE)
@@ -426,9 +426,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.mixer.addInput(TPAQ_STATE_MAP[(i<<8)|int(this.states[cp_[i]])])
 	}
 
-	if this.matchLen > 0 {
-		this.addMatchContext()
-	}
+	this.addMatchContext()
 
 	// Get prediction from NN
 	p := this.mixer.get()
@@ -470,24 +468,29 @@ func (this *TPAQPredictor) findMatch() {
 }
 
 func (this *TPAQPredictor) addMatchContext() {
-	if this.c0 == ((int32(this.buffer[this.matchPos&TPAQ_MASK_BUFFER])&0xFF)|256)>>(8-this.bpos) {
-		// Add match length to NN inputs. Compute input based on run length
-		var p int32
+	p := int32(64)
 
-		if this.matchLen <= 24 {
-			p = this.matchLen
+	if this.matchLen > 0 {
+		if this.c0 == ((int32(this.buffer[this.matchPos&TPAQ_MASK_BUFFER])&0xFF)|256)>>(8-this.bpos) {
+			// Add match length to NN inputs. Compute input based on run length
+
+			if this.matchLen <= 24 {
+				p = this.matchLen
+			} else {
+				p = (24 + ((this.matchLen - 24) >> 2))
+			}
+
+			if ((this.buffer[this.matchPos&TPAQ_MASK_BUFFER] >> (7 - this.bpos)) & 1) == 0 {
+				p = -p
+			}
+
+			p <<= 6
 		} else {
-			p = (24 + ((this.matchLen - 24) >> 2))
+			this.matchLen = 0
 		}
-
-		if ((this.buffer[this.matchPos&TPAQ_MASK_BUFFER] >> (7 - this.bpos)) & 1) == 0 {
-			p = -p
-		}
-
-		this.mixer.addInput(p << 6)
-	} else {
-		this.matchLen = 0
 	}
+
+	this.mixer.addInput(p)
 }
 
 func (this *TPAQPredictor) addContext(ctxId int, cx int32) {
@@ -561,11 +564,6 @@ func (this *TPAQMixer) setContext(ctx int32) {
 }
 
 func (this *TPAQMixer) get() int {
-	for this.idx&7 != 0 {
-		this.buffer[this.idx] = 64
-		this.idx++
-	}
-
 	// Neural Network dot product (sum weights*inputs)
 	p := (this.buffer[0] * this.buffer[8]) +
 		(this.buffer[1] * this.buffer[9]) +
