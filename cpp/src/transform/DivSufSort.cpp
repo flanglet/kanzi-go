@@ -13,6 +13,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+#include <algorithm>
+#include <utility>
 #include <stddef.h>
 #include "DivSufSort.hpp"
 
@@ -1490,9 +1492,7 @@ inline int DivSufSort::ssIlg(int n)
 
 inline void DivSufSort::swapInSA(int a, int b)
 {
-    const int tmp = _sa[a];
-    _sa[a] = _sa[b];
-    _sa[b] = tmp;
+   std::swap(_sa[a], _sa[b]);
 }
 
 // Tandem Repeat Sort
