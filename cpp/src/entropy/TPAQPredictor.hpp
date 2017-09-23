@@ -24,26 +24,24 @@ limitations under the License.
 namespace kanzi
 {
 
-   // Tangelo PAQ predictor
+   // TPAQ predictor
    // Derived from a modified version of Tangelo 2.4 (by Jan Ondrus).
    // PAQ8 is written by Matt Mahoney.
    // See http://encode.ru/threads/1738-TANGELO-new-compressor-(derived-from-PAQ8-FP8)
 
-   //////////////////////////// Mixer /////////////////////////////
-   // Mixer combines models using 4096 neural networks with 8 inputs.
-   // It is used as follows:
-   // m.update(y) trains the network where the expected output is the last bit.
-   // m.addInput(stretch(p)) inputs prediction from one of N models.  The
-   //     prediction should be positive to predict a 1 bit, negative for 0,
-   //     nominally -2K to 2K.
-   // m.setContext(cxt) selects cxt (0..4095) as one of M neural networks to use.
-   // m.get() returns the (squashed) output prediction that the next bit is 1.
-   //  The normal sequence per prediction is:
-   //
-   // - m.addInput(x) called N times with input x=(-2047..2047)
-   // - m.setContext(cxt) called once with cxt=(0..M-1)
-   // - m.get() called once to predict the next bit, returns 0..4095
-   // - m.update(y) called once for actual bit y=(0..1).
+  class MixerData
+  {
+   public:
+      int32 _w0, _w1, _w2, _w3, _w4, _w5, _w6, _w7;
+      int32 _p0, _p1, _p2, _p3, _p4, _p5, _p6, _p7;
+
+      MixerData() { }
+
+      ~MixerData() { }
+   };
+
+ 
+   // Mixer combines models using neural networks with 8 inputs.
    class TPAQMixer
    {
        friend class TPAQPredictor;
@@ -55,25 +53,26 @@ namespace kanzi
 
        ~TPAQMixer();
 
-       int get();
-
-   private:
-       int _ctx;
-       int _idx;
-       int _pr;
-       int32* _buffer;
-
        void update(int bit);
 
-       void setContext(int ctx) { _ctx = ctx << 4; }
+       int get(int p0, int p1, int p2, int p3, int p4, int p5, int p6, int p7);
+
+   private:
+       int _pr;
+       MixerData* _cur;
+       MixerData* _buffer;
+
+
+       void setContext(int ctx) { _cur = &_buffer[ctx]; }
 
        void addInput(int32 pred);
    };
 
+
    class TPAQPredictor : public Predictor
    {
    public:
-       TPAQPredictor();
+       TPAQPredictor(int logStates=28);
 
        ~TPAQPredictor();
 
@@ -84,13 +83,11 @@ namespace kanzi
 
    private:
        static const int MAX_LENGTH = 88;
-       static const int MIXER_SIZE = 4096;
+       static const int MIXER_SIZE = 16 * 1024;
        static const int BUFFER_SIZE = 64 * 1024 * 1024;
        static const int HASH_SIZE = 16 * 1024 * 1024;
-       static const int STATES_SIZE = 32 * HASH_SIZE;
        static const int MASK_BUFFER = BUFFER_SIZE - 1;
        static const int MASK_MIXER = MIXER_SIZE - 1;
-       static const int MASK_STATES = STATES_SIZE - 1;
        static const int MASK_HASH = HASH_SIZE - 1;
        static const int MASK1 = 0x80808080;
        static const int MASK2 = 0xF0F0F0F0;
@@ -118,14 +115,27 @@ namespace kanzi
        byte* _buffer;
        int32* _hashes; // hash table(context, buffer position)
        byte* _states; // hash table(context, prediction)
-       int32 _cp[8]; // context pointers
-       int32 _ctx[8]; // contexts
+       const int32 _statesMask;
+       int32 _cp0; // context pointers
+       int32 _cp1; 
+       int32 _cp2; 
+       int32 _cp3; 
+       int32 _cp4; 
+       int32 _cp5; 
+       int32 _cp6; 
+       int32 _ctx0; // contexts
+       int32 _ctx1; 
+       int32 _ctx2; 
+       int32 _ctx3; 
+       int32 _ctx4; 
+       int32 _ctx5; 
+       int32 _ctx6;  
 
        static int32 hash(int32 x, int32 y);
 
-       void addContext(int ctxId, int32 cx);
+       int addContext(int32 ctxId, int32 cx);
 
-       void addMatchContext();
+       int addMatchContext();
 
        void findMatch();
   };

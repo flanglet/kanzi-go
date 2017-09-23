@@ -17,21 +17,19 @@ package kanzi.entropy;
 import kanzi.Global;
 
 
-// Tangelo PAQ predictor
-// Derived from a modified version of Tangelo 2.4 (by Jan Ondrus).
+// TPAQ predictor
+// Derived from a heavily modified version of Tangelo 2.4 (by Jan Ondrus).
 // PAQ8 is written by Matt Mahoney.
 // See http://encode.ru/threads/1738-TANGELO-new-compressor-(derived-from-PAQ8-FP8)
 
 public class TPAQPredictor implements Predictor
 {
    private static final int MAX_LENGTH = 88;
-   private static final int MIXER_SIZE = 4096;
+   private static final int MIXER_SIZE = 16*1024;
    private static final int BUFFER_SIZE = 64*1024*1024;
    private static final int HASH_SIZE = 16*1024*1024;
-   private static final int STATES_SIZE = 32*HASH_SIZE;
    private static final int MASK_MIXER = MIXER_SIZE - 1;
    private static final int MASK_BUFFER = BUFFER_SIZE - 1;
-   private static final int MASK_STATES = STATES_SIZE - 1;
    private static final int MASK_HASH = HASH_SIZE- 1;
    private static final int MASK1 = 0x80808080;
    private static final int MASK2 = 0xF0F0F0F0;
@@ -353,26 +351,47 @@ public class TPAQPredictor implements Predictor
    private int matchLen;
    private int matchPos;
    private int hash;
+   private final int statesMask;
    private final LogisticAdaptiveProbMap apm;
    private final Mixer mixer;
    private final byte[] buffer;
    private final int[] hashes;         // hash table(context, buffer position)
    private final byte[] states;        // hash table(context, prediction)
-   private final int[] cp;             // context pointers
-   private final int[] ctx;            // contexts
-   
-   
+   private int cp0;                    // context pointers
+   private int cp1;
+   private int cp2;
+   private int cp3;
+   private int cp4;
+   private int cp5;
+   private int cp6;
+   private int ctx0;                   // contexts
+   private int ctx1;
+   private int ctx2;
+   private int ctx3;
+   private int ctx4;
+   private int ctx5;
+   private int ctx6;
+
+     
    public TPAQPredictor()
+   { 
+       this(28); // 256 MB
+   }  
+   
+   
+   public TPAQPredictor(int logStates)
    {   
-     this.pr = 2048;
-     this.c0 = 1;
-     this.states = new byte[STATES_SIZE];
-     this.hashes = new int[HASH_SIZE];
-     this.buffer = new byte[BUFFER_SIZE];
-     this.cp = new int[8];
-     this.ctx = new int[8];
-     this.apm = new LogisticAdaptiveProbMap(65536, 7);
-     this.mixer = new Mixer(MIXER_SIZE); 
+      if ((logStates < 16) || (logStates > 30))
+         throw new IllegalArgumentException("The log of the states table size must be in [16..30]");
+      
+      this.pr = 2048;
+      this.c0 = 1;
+      this.states = new byte[1<<logStates];
+      this.hashes = new int[HASH_SIZE];
+      this.buffer = new byte[BUFFER_SIZE];
+      this.apm = new LogisticAdaptiveProbMap(65536, 7);
+      this.mixer = new Mixer(MIXER_SIZE); 
+      this.statesMask = this.states.length - 1;
    }
 
 
@@ -402,13 +421,13 @@ public class TPAQPredictor implements Predictor
         this.mixer.setContext(this.c4&MASK_MIXER);
 
         // Add contexts to NN
-        this.addContext(0, this.c4 ^ (this.c4&0xFFFF));
-        this.addContext(1, hash(C1, this.c4<<24)); // hash with random primes
-        this.addContext(2, hash(C2, this.c4<<16));
-        this.addContext(3, hash(C3, this.c4<<8));
-        this.addContext(4, hash(C4, this.c4&MASK2));
-        this.addContext(5, hash(C5, this.c4));
-        this.addContext(6, hash(this.c4>>this.shift4, this.c8>>shift8));
+        this.ctx0 = this.addContext(0, this.c4 ^ (this.c4&0xFFFF));
+        this.ctx1 = this.addContext(1, hash(C1, this.c4<<24)); // hash with random primes
+        this.ctx2 = this.addContext(2, hash(C2, this.c4<<16));
+        this.ctx3 = this.addContext(3, hash(C3, this.c4<<8));
+        this.ctx4 = this.addContext(4, hash(C4, this.c4&MASK2));
+        this.ctx5 = this.addContext(5, hash(C5, this.c4));
+        this.ctx6 = this.addContext(6, hash(this.c4>>this.shift4, this.c8>>shift8));
         
         // Find match
         this.findMatch();
@@ -417,18 +436,36 @@ public class TPAQPredictor implements Predictor
         this.hashes[this.hash] = this.pos;
       }
      
-      // Add inputs to NN
-      for (int i=0; i<7; i++)
-      {
-         this.states[this.cp[i]] = STATE_TABLE[((this.states[this.cp[i]]&0xFF)<<1)|bit];
-         this.cp[i] = (this.ctx[i] + this.c0) & MASK_STATES;
-         this.mixer.addInput(STATE_MAP[(i<<8)|(this.states[this.cp[i]]&0xFF)]);
-      }
+      // Get initial predictions
+      final int c = this.c0;
+      final int mask = this.statesMask;
+      final byte[] st = this.states;
+      st[this.cp0] = STATE_TABLE[((st[this.cp0]&0xFF)<<1)|bit];
+      this.cp0 = (this.ctx0 + c) & mask;
+      int p0 = STATE_MAP[(0<<8)|(st[this.cp0]&0xFF)];
+      st[this.cp1] = STATE_TABLE[((st[this.cp1]&0xFF)<<1)|bit];
+      this.cp1 = (this.ctx1 + c) & mask;
+      int p1 = STATE_MAP[(1<<8)|(st[this.cp1]&0xFF)];
+      st[this.cp2] = STATE_TABLE[((st[this.cp2]&0xFF)<<1)|bit];
+      this.cp2 = (this.ctx2 + c) & mask;
+      int p2 = STATE_MAP[(2<<8)|(st[this.cp2]&0xFF)];
+      st[this.cp3] = STATE_TABLE[((st[this.cp3]&0xFF)<<1)|bit];
+      this.cp3 = (this.ctx3 + c) & mask;
+      int p3 = STATE_MAP[(3<<8)|(st[this.cp3]&0xFF)];
+      st[this.cp4] = STATE_TABLE[((st[this.cp4]&0xFF)<<1)|bit];
+      this.cp4 = (this.ctx4 + c) & mask;
+      int p4 = STATE_MAP[(4<<8)|(st[this.cp4]&0xFF)];
+      st[this.cp5] = STATE_TABLE[((st[this.cp5]&0xFF)<<1)|bit];
+      this.cp5 = (this.ctx5 + c) & mask;
+      int p5 = STATE_MAP[(5<<8)|(st[this.cp5]&0xFF)];
+      st[this.cp6] = STATE_TABLE[((st[this.cp6]&0xFF)<<1)|bit];
+      this.cp6 = (this.ctx6 + c) & mask;
+      int p6 = STATE_MAP[(6<<8)|(st[this.cp6]&0xFF)];
 
-      this.addMatchContext();
+      int p7 = this.addMatchContext();
 
-      // Get prediction from NN
-      int p = this.mixer.get();
+      // Mix predictions using NN
+      int p = this.mixer.get(p0, p1, p2, p3, p4, p5, p6, p7);
 
       // SSE (Secondary Symbol Estimation)
       p = this.apm.get(bit, p, this.c0 | (this.c4&0xFF00));
@@ -463,7 +500,7 @@ public class TPAQPredictor implements Predictor
    }
 
 
-   private void addMatchContext()
+   private int addMatchContext()
    {
       int p = 64;
       
@@ -483,15 +520,15 @@ public class TPAQPredictor implements Predictor
             this.matchLen = 0;
       }
 
-      this.mixer.addInput(p);
+      return p;
    }
 
 
-   private void addContext(int ctxId, int cx)
+   private int addContext(int ctxId, int cx)
    {
       cx = cx*987654323 + ctxId;
       cx = (cx << 16) | (cx >>> 16);
-      this.ctx[ctxId] = cx*123456791 + ctxId;
+      return cx*123456791 + ctxId;
    }
 
 
@@ -503,88 +540,78 @@ public class TPAQPredictor implements Predictor
    }
 
 
-   //////////////////////////// Mixer /////////////////////////////
-
-   // Mixer combines models using 4096 neural networks with 8 inputs.
-   // It is used as follows:
-   // m.update(y) trains the network where the expected output is the last bit.
-   // m.addInput(stretch(p)) inputs prediction from one of N models.  The
-   //     prediction should be positive to predict a 1 bit, negative for 0,
-   //     nominally -2K to 2K.
-   // m.setContext(cxt) selects cxt (0..4095) as one of M neural networks to use.
-   // m.get() returns the (squashed) output prediction that the next bit is 1.
-   //  The normal sequence per prediction is:
-   //
-   // - m.addInput(x) called N times with input x=(-2047..2047)
-   // - m.setContext(cxt) called once with cxt=(0..M-1)
-   // - m.get() called once to predict the next bit, returns 0..4095
-   // - m.update(y) called once for actual bit y=(0..1).
+   // Mixer combines models using neural networks with 8 inputs.
    static class Mixer
    {
-      private final int[] buffer;   // packed buffer: 8 inputs + 8 weights per ctx
-      private int ctx;              // context
-      private int idx;              // input index
+      private final MixerData[] buffer; // 8 inputs + 8 weights per context
+      private MixerData cur;        // contextual NN
       private int pr;               // squashed prediction
       
       
       Mixer(int size)
       {
-         this.buffer = new int[size*16]; // context index << 4
+         this.buffer = new MixerData[size];
         
          for (int i=0; i<this.buffer.length; i++)
-               this.buffer[i] = 2048;
+            this.buffer[i] = new MixerData();
          
+         this.cur = this.buffer[0];
          this.pr = 2048;
       }
 
       // Adjust weights to minimize coding cost of last prediction
       void update(int bit)
       {
-         this.idx = 0;
          int err = (bit<<12) - this.pr;
 
          if (err == 0)
             return;
 
          err = (err << 4) - err;
+         MixerData md = this.cur;
 
          // Train Neural Network: update weights
-         this.buffer[this.ctx+8]  += ((this.buffer[this.ctx]  *err + 0) >> 15);
-         this.buffer[this.ctx+9]  += ((this.buffer[this.ctx+1]*err + 0) >> 15);
-         this.buffer[this.ctx+10] += ((this.buffer[this.ctx+2]*err + 0) >> 15);
-         this.buffer[this.ctx+11] += ((this.buffer[this.ctx+3]*err + 0) >> 15);
-         this.buffer[this.ctx+12] += ((this.buffer[this.ctx+4]*err + 0) >> 15);
-         this.buffer[this.ctx+13] += ((this.buffer[this.ctx+5]*err + 0) >> 15);
-         this.buffer[this.ctx+14] += ((this.buffer[this.ctx+6]*err + 0) >> 15);
-         this.buffer[this.ctx+15] += ((this.buffer[this.ctx+7]*err + 0) >> 15);
+         md.w0 += ((md.p0*err + 0) >> 15);
+         md.w1 += ((md.p1*err + 0) >> 15);
+         md.w2 += ((md.p2*err + 0) >> 15);
+         md.w3 += ((md.p3*err + 0) >> 15);
+         md.w4 += ((md.p4*err + 0) >> 15);
+         md.w5 += ((md.p5*err + 0) >> 15);
+         md.w6 += ((md.p6*err + 0) >> 15);
+         md.w7 += ((md.p7*err + 0) >> 15);
       }
 
       void setContext(int ctx)
       {
-         this.ctx = ctx << 4; 
+         this.cur = this.buffer[ctx]; 
       }
 
-      public int get()
+      public int get(int p0, int p1, int p2, int p3, int p4, int p5, int p6, int p7)
       {
+         MixerData md = this.cur;
+         md.p0 = p0;
+         md.p1 = p1;
+         md.p2 = p2;
+         md.p3 = p3;
+         md.p4 = p4;
+         md.p5 = p5;
+         md.p6 = p6;
+         md.p7 = p7;
+         
          // Neural Network dot product (sum weights*inputs)
-         int p =    (this.buffer[this.ctx]  *this.buffer[this.ctx+8])
-                  + (this.buffer[this.ctx+1]*this.buffer[this.ctx+9])
-                  + (this.buffer[this.ctx+2]*this.buffer[this.ctx+10])
-                  + (this.buffer[this.ctx+3]*this.buffer[this.ctx+11])
-                  + (this.buffer[this.ctx+4]*this.buffer[this.ctx+12])
-                  + (this.buffer[this.ctx+5]*this.buffer[this.ctx+13])
-                  + (this.buffer[this.ctx+6]*this.buffer[this.ctx+14])
-                  + (this.buffer[this.ctx+7]*this.buffer[this.ctx+15]);
+         int p = md.w0*p0 + md.w1*p1 + md.w2*p2 + md.w3*p3 +
+                 md.w4*p4 + md.w5*p5 + md.w6*p6 + md.w7*p7;
 
          this.pr = Global.squash((p+65536)>>17);
          return this.pr;
       }
-
-      public void addInput(int input)
-      {
-         this.buffer[this.ctx+this.idx] = input;
-         this.idx++;
-      }
+   }
+   
+   
+   static class MixerData
+   {
+      int w0, w1, w2, w3, w4, w5, w6, w7;
+      int p0, p1, p2, p3, p4, p5, p6, p7;
    }
 
 }

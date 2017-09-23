@@ -16,23 +16,22 @@ limitations under the License.
 package entropy
 
 import (
+	"errors"
 	"kanzi"
 )
 
-// Tangelo PAQ predictor
-// Derived from a modified version of Tangelo 2.4 (by Jan Ondrus).
+// TPAQ predictor
+// Derived from a heavily modified version of Tangelo 2.4 (by Jan Ondrus).
 // PAQ8 is written by Matt Mahoney.
 // See http://encode.ru/threads/1738-TANGELO-new-compressor-(derived-from-PAQ8-FP8)
 
 const (
 	TPAQ_MAX_LENGTH  = 88
-	TPAQ_MIXER_SIZE  = 4096
+	TPAQ_MIXER_SIZE  = 16 * 1024
 	TPAQ_BUFFER_SIZE = 64 * 1024 * 1024
 	TPAQ_HASH_SIZE   = 16 * 1024 * 1024
-	TPAQ_STATES_SIZE = 32 * TPAQ_HASH_SIZE
 	TPAQ_MASK_MIXER  = TPAQ_MIXER_SIZE - 1
 	TPAQ_MASK_BUFFER = TPAQ_BUFFER_SIZE - 1
-	TPAQ_MASK_STATES = TPAQ_STATES_SIZE - 1
 	TPAQ_MASK_HASH   = TPAQ_HASH_SIZE - 1
 	TPAQ_MASK1       = int32(-2139062144) // 0x80808080
 	TPAQ_MASK2       = int32(-252645136)  // 0xF0F0F0F0
@@ -341,33 +340,50 @@ func hashTPAQ(x, y int32) int32 {
 }
 
 type TPAQPredictor struct {
-	pr       int   // next predicted value (0-4095)
-	c0       int32 // bitwise context: last 0-7 bits with a leading 1 (1-255)
-	c4       int32 // last 4 whole bytes, last is in low 8 bits
-	c8       int32 // last 8 to 4 whole bytes, last is in low 8 bits
-	bpos     uint  // number of bits in c0 (0-7)
-	pos      int32
-	shift4   uint
-	matchLen int32
-	matchPos int32
-	hash     int32
-	apm      *LogisticAdaptiveProbMap
-	mixer    *TPAQMixer
-	buffer   []int8
-	hashes   []int32  // hash table(context, buffer position)
-	states   []uint8  // hash table(context, prediction)
-	cp       [8]int32 // context pointers
-	ctx      [8]int32 // contexts
+	pr         int   // next predicted value (0-4095)
+	c0         int32 // bitwise context: last 0-7 bits with a leading 1 (1-255)
+	c4         int32 // last 4 whole bytes, last is in low 8 bits
+	c8         int32 // last 8 to 4 whole bytes, last is in low 8 bits
+	bpos       uint  // number of bits in c0 (0-7)
+	pos        int32
+	shift4     uint
+	matchLen   int32
+	matchPos   int32
+	hash       int32
+	statesMask int32
+	apm        *LogisticAdaptiveProbMap
+	mixer      *TPAQMixer
+	buffer     []int8
+	hashes     []int32 // hash table(context, buffer position)
+	states     []uint8 // hash table(context, prediction)
+	cp0        int32   // context pointers
+	cp1        int32
+	cp2        int32
+	cp3        int32
+	cp4        int32
+	cp5        int32
+	cp6        int32
+	ctx0       int32 // contexts
+	ctx1       int32
+	ctx2       int32
+	ctx3       int32
+	ctx4       int32
+	ctx5       int32
+	ctx6       int32
 }
 
-func NewTPAQPredictor() (*TPAQPredictor, error) {
+func NewTPAQPredictor(logStates uint) (*TPAQPredictor, error) {
+	if logStates < 16 || logStates > 30 {
+		return nil, errors.New("The log of the states table size must be in [16..30]")
+	}
+
 	this := new(TPAQPredictor)
 	this.pr = 2048
 	this.c0 = 1
-	this.states = make([]uint8, TPAQ_STATES_SIZE)
+	this.states = make([]uint8, 1<<logStates)
 	this.hashes = make([]int32, TPAQ_HASH_SIZE)
 	this.buffer = make([]int8, TPAQ_BUFFER_SIZE)
-	this.bpos = 0
+	this.statesMask = int32(1<<logStates) - 1
 	var err error
 	this.apm, err = newLogisticAdaptiveProbMap(65536, 7)
 
@@ -402,13 +418,13 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.mixer.setContext(this.c4 & TPAQ_MASK_MIXER)
 
 		// Add contexts NN
-		this.addContext(0, this.c4^(this.c4&0xFFFF))
-		this.addContext(1, hashTPAQ(TPAQ_C1, this.c4<<24)) // hash with random primes
-		this.addContext(2, hashTPAQ(TPAQ_C2, this.c4<<16))
-		this.addContext(3, hashTPAQ(TPAQ_C3, this.c4<<8))
-		this.addContext(4, hashTPAQ(TPAQ_C4, this.c4&TPAQ_MASK2))
-		this.addContext(5, hashTPAQ(TPAQ_C5, this.c4))
-		this.addContext(6, hashTPAQ(this.c4>>this.shift4, this.c8>>shift8))
+		this.ctx0 = this.addContext(0, this.c4^(this.c4&0xFFFF))
+		this.ctx1 = this.addContext(1, hashTPAQ(TPAQ_C1, this.c4<<24)) // hash with random primes
+		this.ctx2 = this.addContext(2, hashTPAQ(TPAQ_C2, this.c4<<16))
+		this.ctx3 = this.addContext(3, hashTPAQ(TPAQ_C3, this.c4<<8))
+		this.ctx4 = this.addContext(4, hashTPAQ(TPAQ_C4, this.c4&TPAQ_MASK2))
+		this.ctx5 = this.addContext(5, hashTPAQ(TPAQ_C5, this.c4))
+		this.ctx6 = this.addContext(6, hashTPAQ(this.c4>>this.shift4, this.c8>>shift8))
 
 		// Find match
 		this.findMatch()
@@ -417,19 +433,34 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.hashes[this.hash] = this.pos
 	}
 
-	cp_ := this.cp[0:7]
+	// Get initial predictions
+	c := int32(this.c0)
+	this.states[this.cp0] = TPAQ_STATE_TABLE[(int(this.states[this.cp0])<<1)|y]
+	this.cp0 = (this.ctx0 + c) & this.statesMask
+	p0 := TPAQ_STATE_MAP[(0<<8)|int(this.states[this.cp0])]
+	this.states[this.cp1] = TPAQ_STATE_TABLE[(int(this.states[this.cp1])<<1)|y]
+	this.cp1 = (this.ctx1 + c) & this.statesMask
+	p1 := TPAQ_STATE_MAP[(1<<8)|int(this.states[this.cp1])]
+	this.states[this.cp2] = TPAQ_STATE_TABLE[(int(this.states[this.cp2])<<1)|y]
+	this.cp2 = (this.ctx2 + c) & this.statesMask
+	p2 := TPAQ_STATE_MAP[(2<<8)|int(this.states[this.cp2])]
+	this.states[this.cp3] = TPAQ_STATE_TABLE[(int(this.states[this.cp3])<<1)|y]
+	this.cp3 = (this.ctx3 + c) & this.statesMask
+	p3 := TPAQ_STATE_MAP[(3<<8)|int(this.states[this.cp3])]
+	this.states[this.cp4] = TPAQ_STATE_TABLE[(int(this.states[this.cp4])<<1)|y]
+	this.cp4 = (this.ctx4 + c) & this.statesMask
+	p4 := TPAQ_STATE_MAP[(4<<8)|int(this.states[this.cp4])]
+	this.states[this.cp5] = TPAQ_STATE_TABLE[(int(this.states[this.cp5])<<1)|y]
+	this.cp5 = (this.ctx5 + c) & this.statesMask
+	p5 := TPAQ_STATE_MAP[(5<<8)|int(this.states[this.cp5])]
+	this.states[this.cp6] = TPAQ_STATE_TABLE[(int(this.states[this.cp6])<<1)|y]
+	this.cp6 = (this.ctx6 + c) & this.statesMask
+	p6 := TPAQ_STATE_MAP[(6<<8)|int(this.states[this.cp6])]
 
-	// Add inputs to NN
-	for i := range cp_ {
-		this.states[cp_[i]] = TPAQ_STATE_TABLE[(int(this.states[cp_[i]])<<1)|y]
-		cp_[i] = (this.ctx[i] + int32(this.c0)) & TPAQ_MASK_STATES
-		this.mixer.addInput(TPAQ_STATE_MAP[(i<<8)|int(this.states[cp_[i]])])
-	}
+	p7 := this.addMatchContext()
 
-	this.addMatchContext()
-
-	// Get prediction from NN
-	p := this.mixer.get()
+	// Mix predictions using NN
+	p := this.mixer.get(p0, p1, p2, p3, p4, p5, p6, p7)
 
 	// SSE (Secondary Symbol Estimation)
 	p = this.apm.get(y, p, int(this.c0|(this.c4&0xFF00)))
@@ -467,7 +498,7 @@ func (this *TPAQPredictor) findMatch() {
 	}
 }
 
-func (this *TPAQPredictor) addMatchContext() {
+func (this *TPAQPredictor) addMatchContext() int32 {
 	p := int32(64)
 
 	if this.matchLen > 0 {
@@ -490,55 +521,34 @@ func (this *TPAQPredictor) addMatchContext() {
 		}
 	}
 
-	this.mixer.addInput(p)
+	return p
 }
 
-func (this *TPAQPredictor) addContext(ctxId int, cx int32) {
+func (this *TPAQPredictor) addContext(ctxId int, cx int32) int32 {
 	cx = cx*987654323 + int32(ctxId)
 	cx = cx<<16 | int32(uint32(cx)>>16)
-	this.ctx[ctxId] = cx*123456791 + int32(ctxId)
+	return cx*123456791 + int32(ctxId)
 }
 
-//////////////////////////// Mixer /////////////////////////////
 
-// Mixer combines models using 4096 neural networks with 8 inputs.
-// It is used as follows:
-// m.update(y) trains the network where the expected output is the last bit.
-// m.addInput(stretch(p)) inputs prediction from one of N models.  The
-//     prediction should be positive to predict a 1 bit, negative for 0,
-//     nominally -2K to 2K.
-// m.setContext(cxt) selects cxt (0..4095) as one of M neural networks to use.
-// m.get() returns the (squashed) output prediction that the next bit is 1.
-//  The normal sequence per prediction is:
-//
-// - m.addInput(x) called N times with input x=(-2047..2047)
-// - m.setContext(cxt) called once with cxt=(0..M-1)
-// - m.get() called once to predict the next bit, returns 0..4095
-// - m.update(y) called once for actual bit y=(0..1).
+// Mixer combines models using neural networks with 8 inputs.
 type TPAQMixer struct {
-	data   []int32 // packed buffer: 8 inputs + 8 weights per ctx
-	buffer []int32 //alias of the data buffer
-	idx    int     // input index
-	pr     int     // squashed prediction
+	buffer []MixerData // packed buffer: 8 inputs + 8 weights per ctx
+	cur    *MixerData
+	pr     int // squashed prediction
 }
 
 func newTPAQMixer(size int) (*TPAQMixer, error) {
 	var err error
 	this := new(TPAQMixer)
-	this.data = make([]int32, size*16) // context index << 4
-	this.buffer = this.data[0:16]
-
-	for i := range this.data {
-		this.data[i] = 2048
-	}
-
+	this.buffer = make([]MixerData, size)
+	this.cur = &this.buffer[0]
 	this.pr = 2048
 	return this, err
 }
 
 // Adjust weights to minimize coding cost of last prediction
 func (this *TPAQMixer) update(bit int) {
-	this.idx = 0
 	err := int32((bit << 12) - this.pr)
 
 	if err == 0 {
@@ -546,39 +556,44 @@ func (this *TPAQMixer) update(bit int) {
 	}
 
 	err = (err << 4) - err
+	md := this.cur
 
 	// Train Neural Network: update weights
-	this.buffer[8] += ((this.buffer[0]*err + 0) >> 15)
-	this.buffer[9] += ((this.buffer[1]*err + 0) >> 15)
-	this.buffer[10] += ((this.buffer[2]*err + 0) >> 15)
-	this.buffer[11] += ((this.buffer[3]*err + 0) >> 15)
-	this.buffer[12] += ((this.buffer[4]*err + 0) >> 15)
-	this.buffer[13] += ((this.buffer[5]*err + 0) >> 15)
-	this.buffer[14] += ((this.buffer[6]*err + 0) >> 15)
-	this.buffer[15] += ((this.buffer[7]*err + 0) >> 15)
+	md.w0 += ((md.p0*err + 0) >> 15)
+	md.w1 += ((md.p1*err + 0) >> 15)
+	md.w2 += ((md.p2*err + 0) >> 15)
+	md.w3 += ((md.p3*err + 0) >> 15)
+	md.w4 += ((md.p4*err + 0) >> 15)
+	md.w5 += ((md.p5*err + 0) >> 15)
+	md.w6 += ((md.p6*err + 0) >> 15)
+	md.w7 += ((md.p7*err + 0) >> 15)
 }
 
 func (this *TPAQMixer) setContext(ctx int32) {
-	cx := int(ctx << 4)
-	this.buffer = this.data[cx : cx+16]
+	this.cur = &this.buffer[ctx]
 }
 
-func (this *TPAQMixer) get() int {
+func (this *TPAQMixer) get(p0, p1, p2, p3, p4, p5, p6, p7 int32) int {
+	md := this.cur
+	md.p0 = p0
+	md.p1 = p1
+	md.p2 = p2
+	md.p3 = p3
+	md.p4 = p4
+	md.p5 = p5
+	md.p6 = p6
+	md.p7 = p7
+
 	// Neural Network dot product (sum weights*inputs)
-	p := (this.buffer[0] * this.buffer[8]) +
-		(this.buffer[1] * this.buffer[9]) +
-		(this.buffer[2] * this.buffer[10]) +
-		(this.buffer[3] * this.buffer[11]) +
-		(this.buffer[4] * this.buffer[12]) +
-		(this.buffer[5] * this.buffer[13]) +
-		(this.buffer[6] * this.buffer[14]) +
-		(this.buffer[7] * this.buffer[15])
+	p := md.w0*p0 + md.w1*p1 + md.w2*p2 + md.w3*p3 +
+		md.w4*p4 + md.w5*p5 + md.w6*p6 + md.w7*p7
 
 	this.pr = kanzi.Squash(int((p + 65536) >> 17))
 	return this.pr
 }
 
-func (this *TPAQMixer) addInput(input int32) {
-	this.buffer[this.idx] = input
-	this.idx++
+type MixerData struct {
+	w0, w1, w2, w3, w4, w5, w6, w7 int32
+	p0, p1, p2, p3, p4, p5, p6, p7 int32
 }
+

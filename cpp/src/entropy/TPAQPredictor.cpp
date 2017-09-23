@@ -14,6 +14,7 @@ limitations under the License.
 */
 
 #include <cstring>
+#include "../IllegalArgumentException.hpp"
 #include "TPAQPredictor.hpp"
 
 using namespace kanzi;
@@ -312,10 +313,14 @@ inline int32 TPAQPredictor::hash(int32 x, int32 y)
     return (h >> 1) ^ (h >> 9) ^ (x >> 2) ^ (y >> 3) ^ HASH3;
 }
 
-TPAQPredictor::TPAQPredictor()
+TPAQPredictor::TPAQPredictor(int logStates)
     : _apm(65536)
     , _mixer(MIXER_SIZE)
+    ,_statesMask((1<<logStates)-1)
 {
+    if ((logStates < 16) || (logStates > 30))
+       throw IllegalArgumentException("The log of the states table size must be in [16..30]");
+    
     _pr = 2048;
     _c0 = 1;
     _c4 = 0;
@@ -324,13 +329,15 @@ TPAQPredictor::TPAQPredictor()
     _matchLen = 0;
     _matchPos = 0;
     _hash = 0;
-    _states = new byte[STATES_SIZE];
+    _states = new byte[1<<logStates];
     _hashes = new int32[HASH_SIZE];
     _buffer = new byte[BUFFER_SIZE];
     _bpos = 0;
-    memset(_cp, 0, sizeof(_cp));
-    memset(_ctx, 0, sizeof(_ctx));
-    memset(_states, 0, STATES_SIZE);
+    _cp0 = _cp1 = _cp2 = _cp3 = 0;
+    _cp4 = _cp5 = _cp6 = 0;
+    _ctx0 = _ctx1 = _ctx2 = _ctx3 = 0;
+    _ctx4 = _ctx5 = _ctx6 = 0;
+    memset(_states, 0, 1<<logStates);
     memset(_hashes, 0, HASH_SIZE);
     memset(_buffer, 0, BUFFER_SIZE);
 }
@@ -366,13 +373,13 @@ void TPAQPredictor::update(int bit)
         _mixer.setContext(_c4 & MASK_MIXER);
 
         // Add contexts to NN
-        addContext(0, _c4 ^ (_c4 & 0xFFFF));
-        addContext(1, hash(C1, _c4 << 24)); // hash with random primes
-        addContext(2, hash(C2, _c4 << 16));
-        addContext(3, hash(C3, _c4 << 8));
-        addContext(4, hash(C4, _c4 & MASK2));
-        addContext(5, hash(C5, _c4));
-        addContext(6, hash(_c4 >> _shift4, _c8 >> shift8));
+        _ctx0 = addContext(0, _c4 ^ (_c4 & 0xFFFF));
+        _ctx1 = addContext(1, hash(C1, _c4 << 24)); // hash with random primes
+        _ctx2 = addContext(2, hash(C2, _c4 << 16));
+        _ctx3 = addContext(3, hash(C3, _c4 << 8));
+        _ctx4 = addContext(4, hash(C4, _c4 & MASK2));
+        _ctx5 = addContext(5, hash(C5, _c4));
+        _ctx6 = addContext(6, hash(_c4 >> _shift4, _c8 >> shift8));
 
         // Find match
         findMatch();
@@ -381,17 +388,33 @@ void TPAQPredictor::update(int bit)
         _hashes[_hash] = _pos;
     }
 
-    // Add inputs to NN
-    for (int i = 0; i < 7; i++) {
-        _states[_cp[i]] = STATE_TABLE[((_states[_cp[i]] & 0xFF) << 1) | bit];
-        _cp[i] = (_ctx[i] + _c0) & MASK_STATES;
-        _mixer.addInput(STATE_MAP[(i << 8) | (_states[_cp[i]] & 0xFF)]);
-    }
+    // Get initial predictions
+    _states[_cp0] = STATE_TABLE[((_states[_cp0] & 0xFF) << 1) | bit];
+    _cp0 = (_ctx0 + _c0) & _statesMask;
+    int p0 = STATE_MAP[(0 << 8) | (_states[_cp0] & 0xFF)];
+    _states[_cp1] = STATE_TABLE[((_states[_cp1] & 0xFF) << 1) | bit];
+    _cp1 = (_ctx1 + _c0) & _statesMask;
+    int p1 = STATE_MAP[(1 << 8) | (_states[_cp1] & 0xFF)];
+    _states[_cp2] = STATE_TABLE[((_states[_cp2] & 0xFF) << 1) | bit];
+    _cp2 = (_ctx2 + _c0) & _statesMask;
+    int p2 = STATE_MAP[(2 << 8) | (_states[_cp2] & 0xFF)];
+    _states[_cp3] = STATE_TABLE[((_states[_cp3] & 0xFF) << 1) | bit];
+    _cp3 = (_ctx3 + _c0) & _statesMask;
+    int p3 = STATE_MAP[(3 << 8) | (_states[_cp3] & 0xFF)];
+    _states[_cp4] = STATE_TABLE[((_states[_cp4] & 0xFF) << 1) | bit];
+    _cp4 = (_ctx4 + _c0) & _statesMask;
+    int p4 = STATE_MAP[(4 << 8) | (_states[_cp4] & 0xFF)];
+    _states[_cp5] = STATE_TABLE[((_states[_cp5] & 0xFF) << 1) | bit];
+    _cp5 = (_ctx5 + _c0) & _statesMask;
+    int p5 = STATE_MAP[(5 << 8) | (_states[_cp5] & 0xFF)];
+    _states[_cp6] = STATE_TABLE[((_states[_cp6] & 0xFF) << 1) | bit];
+    _cp6 = (_ctx6 + _c0) & _statesMask;
+    int p6 = STATE_MAP[(6 << 8) | (_states[_cp6] & 0xFF)];
+ 
+    int p7 = addMatchContext();
 
-    addMatchContext();
-
-    // Get prediction from NN
-    int p = _mixer.get();
+    // Mix predictions using NN
+    int p = _mixer.get(p0, p1, p2, p3, p4, p5, p6, p7);
 
     // SSE (Secondary Symbol Estimation)
     p = _apm.get(bit, p, _c0 | (_c4 & 0xFF00));
@@ -423,7 +446,7 @@ inline void TPAQPredictor::findMatch()
     }
 }
 
-inline void TPAQPredictor::addMatchContext()
+inline int TPAQPredictor::addMatchContext()
 {
     int p = 64;
 
@@ -441,26 +464,21 @@ inline void TPAQPredictor::addMatchContext()
            _matchLen = 0;
     }
 
-    _mixer.addInput(p);
+    return p;
 }
 
-inline void TPAQPredictor::addContext(int ctxId, int32 cx)
+inline int TPAQPredictor::addContext(int32 ctxId, int32 cx)
 {
     cx = cx * 987654323 + ctxId;
-    cx = (cx << 16) | (uint(cx) >> 16);
-    _ctx[ctxId] = cx * 123456791 + ctxId;
+    cx = (cx << 16) | (uint32(cx) >> 16);
+    return cx * 123456791 + ctxId;
 }
 
 TPAQMixer::TPAQMixer(int size)
 {
-    _buffer = new int32[size * 16]; // context index << 4
-    
-    for (int i=0; i<size * 16; i++)
-       _buffer[i] = 2048;
-
+    _buffer = new MixerData[size];
+    _cur = &_buffer[0];
     _pr = 2048;
-    _idx = 0;
-    _ctx = 0;
 }
 
 TPAQMixer::~TPAQMixer()
@@ -471,46 +489,46 @@ TPAQMixer::~TPAQMixer()
 // Adjust weights to minimize coding cost of last prediction
 inline void TPAQMixer::update(int bit)
 {
-    _idx = 0;
     int err = (bit << 12) - _pr;
 
     if (err == 0)
         return;
 
     err = (err << 4) - err;
-    int32* buf = &_buffer[_ctx];
 
     // Train Neural Network: update weights
-    buf[8] += ((buf[0] * err + 0) >> 15);
-    buf[9] += ((buf[1] * err + 0) >> 15);
-    buf[10] += ((buf[2] * err + 0) >> 15);
-    buf[11] += ((buf[3] * err + 0) >> 15);
-    buf[12] += ((buf[4] * err + 0) >> 15);
-    buf[13] += ((buf[5] * err + 0) >> 15);
-    buf[14] += ((buf[6] * err + 0) >> 15);
-    buf[15] += ((buf[7] * err + 0) >> 15);
+    _cur->_w0 += ((_cur->_p0 * err + 0) >> 15);
+    _cur->_w1 += ((_cur->_p1 * err + 0) >> 15);
+    _cur->_w2 += ((_cur->_p2 * err + 0) >> 15);
+    _cur->_w3 += ((_cur->_p3 * err + 0) >> 15);
+    _cur->_w4 += ((_cur->_p4 * err + 0) >> 15);
+    _cur->_w5 += ((_cur->_p5 * err + 0) >> 15);
+    _cur->_w6 += ((_cur->_p6 * err + 0) >> 15);
+    _cur->_w7 += ((_cur->_p7 * err + 0) >> 15);
 }
 
-inline int TPAQMixer::get()
+inline int TPAQMixer::get(int p0, int p1, int p2, int p3, int p4, int p5, int p6, int p7)
 {
-    int32* buf = &_buffer[_ctx];
-
+    _cur->_p0 = p0;
+    _cur->_p1 = p1;
+    _cur->_p2 = p2;
+    _cur->_p3 = p3;
+    _cur->_p4 = p4;
+    _cur->_p5 = p5;
+    _cur->_p6 = p6;
+    _cur->_p7 = p7;
+   
     // Neural Network dot product (sum weights*inputs)
-    const int p = (buf[0] * buf[8])
-        + (buf[1] * buf[9])
-        + (buf[2] * buf[10])
-        + (buf[3] * buf[11])
-        + (buf[4] * buf[12])
-        + (buf[5] * buf[13])
-        + (buf[6] * buf[14])
-        + (buf[7] * buf[15]);
+    const int32 p = (p0*_cur->_w0) + 
+                    (p1*_cur->_w1) + 
+                    (p2*_cur->_w2) + 
+                    (p3*_cur->_w3) +
+                    (p4*_cur->_w4) + 
+                    (p5*_cur->_w5) + 
+                    (p6*_cur->_w6) + 
+                    (p7*_cur->_w7);
 
     _pr = Global::squash((p + 65536) >> 17);
     return _pr;
 }
 
-inline void TPAQMixer::addInput(int32 input)
-{
-    _buffer[_ctx + _idx] = input;
-    _idx++;
-}
