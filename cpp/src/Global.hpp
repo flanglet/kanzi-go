@@ -36,6 +36,8 @@ namespace kanzi {
        // d has range -2047 to 2047 representing -8 to 8.  p has range 0 to 4095.
        static const int* STRETCH;
 
+       static const int* SQUASH;
+
        static int squash(int d);
 
        static int readInt32(const byte* p);
@@ -74,6 +76,7 @@ namespace kanzi {
        static const int SQRT_THRESHOLD8;
 
        static const int* initStretch();
+       static const int* initSquash();
    };
 
    inline int Global::readInt32(const byte* p)
@@ -93,15 +96,13 @@ namespace kanzi {
    // return p = 1/(1 + exp(-d)), d scaled by 8 bits, p scaled by 12 bits
    inline int Global::squash(int d)
    {
-       if (d > 2047)
+       if (d >= 2048)
            return 4095;
 
-       if (d < -2047)
+       if (d <= -2048)
            return 0;
 
-       int w = d & 127;
-       d = (d >> 7) + 16;
-       return (INV_EXP[d] * (128 - w) + INV_EXP[d + 1] * w) >> 11;
+       return SQUASH[d+2047];
    }
 }
 #endif

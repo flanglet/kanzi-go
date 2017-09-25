@@ -156,6 +156,21 @@ const int Global::SQRT[] = {
     248, 248, 249, 249, 250, 250, 251, 251, 252, 252, 253, 253, 254, 254, 255, 255
 };
 
+const int* Global::SQUASH = Global::initSquash();
+
+const int* Global::initSquash()
+{
+    int* res = new int[4096];
+
+    for (int x = -2047; x <= 2047; x++) {
+       int w = x & 127;
+       int y = (x >> 7) + 16;
+       res[x+2047] = (INV_EXP[y] * (128 - w) + INV_EXP[y + 1] * w) >> 11;
+    }
+
+    return res;
+}
+
 const int* Global::STRETCH = Global::initStretch();
 
 const int* Global::initStretch()

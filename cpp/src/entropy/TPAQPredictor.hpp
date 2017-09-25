@@ -29,41 +29,24 @@ namespace kanzi
    // PAQ8 is written by Matt Mahoney.
    // See http://encode.ru/threads/1738-TANGELO-new-compressor-(derived-from-PAQ8-FP8)
 
-  class MixerData
-  {
-   public:
-      int32 _w0, _w1, _w2, _w3, _w4, _w5, _w6, _w7;
-      int32 _p0, _p1, _p2, _p3, _p4, _p5, _p6, _p7;
-
-      MixerData() { }
-
-      ~MixerData() { }
-   };
-
- 
    // Mixer combines models using neural networks with 8 inputs.
    class TPAQMixer
    {
        friend class TPAQPredictor;
 
    public:
-       static const int* DATA;
+      TPAQMixer() { _pr = 2048; }
 
-       TPAQMixer(int size);
-
-       ~TPAQMixer();
+      ~TPAQMixer() { }
 
        void update(int bit);
 
        int get(int p0, int p1, int p2, int p3, int p4, int p5, int p6, int p7);
 
    private:
+       int32 _w0, _w1, _w2, _w3, _w4, _w5, _w6, _w7;
+       int32 _p0, _p1, _p2, _p3, _p4, _p5, _p6, _p7;
        int _pr;
-       MixerData* _cur;
-       MixerData* _buffer;
-
-
-       void setContext(int ctx) { _cur = &_buffer[ctx]; }
 
        void addInput(int32 pred);
    };
@@ -111,7 +94,8 @@ namespace kanzi
        int32 _matchPos;
        int32 _hash;
        LogisticAdaptiveProbMap<7> _apm;
-       TPAQMixer _mixer;
+       TPAQMixer* _mixers;
+       TPAQMixer* _mixer; // current mixer
        byte* _buffer;
        int32* _hashes; // hash table(context, buffer position)
        byte* _states; // hash table(context, prediction)

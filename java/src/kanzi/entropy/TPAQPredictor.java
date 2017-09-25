@@ -353,7 +353,8 @@ public class TPAQPredictor implements Predictor
    private int hash;
    private final int statesMask;
    private final LogisticAdaptiveProbMap apm;
-   private final Mixer mixer;
+   private final Mixer[] mixers;
+   private Mixer mixer;                // current mixer
    private final byte[] buffer;
    private final int[] hashes;         // hash table(context, buffer position)
    private final byte[] states;        // hash table(context, prediction)
@@ -386,11 +387,16 @@ public class TPAQPredictor implements Predictor
       
       this.pr = 2048;
       this.c0 = 1;
+      this.mixers = new Mixer[MIXER_SIZE];
+
+      for (int i=0; i<this.mixers.length; i++)
+         this.mixers[i] = new Mixer();
+
+      this.mixer = this.mixers[0];      
       this.states = new byte[1<<logStates];
       this.hashes = new int[HASH_SIZE];
       this.buffer = new byte[BUFFER_SIZE];
       this.apm = new LogisticAdaptiveProbMap(65536, 7);
-      this.mixer = new Mixer(MIXER_SIZE); 
       this.statesMask = this.states.length - 1;
    }
 
@@ -418,7 +424,7 @@ public class TPAQPredictor implements Predictor
         final int shift8 = ((this.c8&MASK1) == 0) ? 0 : 16;
 
         // Select Neural Net
-        this.mixer.setContext(this.c4&MASK_MIXER);
+        this.mixer = this.mixers[this.c4&MASK_MIXER];
 
         // Add contexts to NN
         this.ctx0 = this.addContext(0, this.c4 ^ (this.c4&0xFFFF));
@@ -540,22 +546,16 @@ public class TPAQPredictor implements Predictor
    }
 
 
-   // Mixer combines models using neural networks with 8 inputs.
+   // Mixer combines models using a neural network with 8 inputs.
    static class Mixer
    {
-      private final MixerData[] buffer; // 8 inputs + 8 weights per context
-      private MixerData cur;        // contextual NN
-      private int pr;               // squashed prediction
+      private int pr;  // squashed prediction
+      private int w0, w1, w2, w3, w4, w5, w6, w7; 
+      private int p0, p1, p2, p3, p4, p5, p6, p7;
       
       
-      Mixer(int size)
+      Mixer()
       {
-         this.buffer = new MixerData[size];
-        
-         for (int i=0; i<this.buffer.length; i++)
-            this.buffer[i] = new MixerData();
-         
-         this.cur = this.buffer[0];
          this.pr = 2048;
       }
 
@@ -568,50 +568,37 @@ public class TPAQPredictor implements Predictor
             return;
 
          err = (err << 4) - err;
-         MixerData md = this.cur;
 
          // Train Neural Network: update weights
-         md.w0 += ((md.p0*err + 0) >> 15);
-         md.w1 += ((md.p1*err + 0) >> 15);
-         md.w2 += ((md.p2*err + 0) >> 15);
-         md.w3 += ((md.p3*err + 0) >> 15);
-         md.w4 += ((md.p4*err + 0) >> 15);
-         md.w5 += ((md.p5*err + 0) >> 15);
-         md.w6 += ((md.p6*err + 0) >> 15);
-         md.w7 += ((md.p7*err + 0) >> 15);
+         this.w0 += ((this.p0*err + 0) >> 15);
+         this.w1 += ((this.p1*err + 0) >> 15);
+         this.w2 += ((this.p2*err + 0) >> 15);
+         this.w3 += ((this.p3*err + 0) >> 15);
+         this.w4 += ((this.p4*err + 0) >> 15);
+         this.w5 += ((this.p5*err + 0) >> 15);
+         this.w6 += ((this.p6*err + 0) >> 15);
+         this.w7 += ((this.p7*err + 0) >> 15);
       }
 
-      void setContext(int ctx)
-      {
-         this.cur = this.buffer[ctx]; 
-      }
 
       public int get(int p0, int p1, int p2, int p3, int p4, int p5, int p6, int p7)
-      {
-         MixerData md = this.cur;
-         md.p0 = p0;
-         md.p1 = p1;
-         md.p2 = p2;
-         md.p3 = p3;
-         md.p4 = p4;
-         md.p5 = p5;
-         md.p6 = p6;
-         md.p7 = p7;
+      { 
+         this.p0 = p0;
+         this.p1 = p1;
+         this.p2 = p2;
+         this.p3 = p3;
+         this.p4 = p4;
+         this.p5 = p5;
+         this.p6 = p6;
+         this.p7 = p7;
          
          // Neural Network dot product (sum weights*inputs)
-         int p = md.w0*p0 + md.w1*p1 + md.w2*p2 + md.w3*p3 +
-                 md.w4*p4 + md.w5*p5 + md.w6*p6 + md.w7*p7;
+         int p = this.w0*p0 + this.w1*p1 + this.w2*p2 + this.w3*p3 +
+                 this.w4*p4 + this.w5*p5 + this.w6*p6 + this.w7*p7;
 
          this.pr = Global.squash((p+65536)>>17);
          return this.pr;
       }
-   }
-   
-   
-   static class MixerData
-   {
-      int w0, w1, w2, w3, w4, w5, w6, w7;
-      int p0, p1, p2, p3, p4, p5, p6, p7;
    }
 
 }

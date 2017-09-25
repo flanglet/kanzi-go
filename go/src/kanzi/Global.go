@@ -140,6 +140,35 @@ var INV_EXP = []int{
 	65506, 65519, 65526,
 }
 
+var SQUASH = initSquash()
+
+// Inverse of squash. d = ln(p/(1-p)), d scaled by 8 bits, p by 12 bits.
+// d has range -2047 to 2047 representing -8 to 8.  p has range 0 to 4095.
+func initSquash() []int {
+	res := make([]int, 4096)
+
+	for x := -2047; x <= 2047; x++ {
+		w := x & 127
+		y := (x >> 7) + 16
+		res[x+2047] = (INV_EXP[y]*(128-w) + INV_EXP[y+1]*w) >> 11
+	}
+
+	return res
+}
+
+// return p = 1/(1 + exp(-d)), d scaled by 8 bits, p scaled by 12 bits
+func Squash(d int) int {
+	if d >= 2048 {
+		return 4095
+	}
+
+	if d <= -2048 {
+		return 0
+	}
+
+	return SQUASH[d+2047]
+}
+
 // Inverse of squash. d = ln(p/(1-p)), d scaled by 8 bits, p by 12 bits.
 // d has range -2047 to 2047 representing -8 to 8.  p has range 0 to 4095.
 var STRETCH = initStretch()
@@ -161,21 +190,6 @@ func initStretch() []int {
 
 	res[4095] = 2047
 	return res
-}
-
-// return p = 1/(1 + exp(-d)), d scaled by 8 bits, p scaled by 12 bits
-func Squash(d int) int {
-	if d > 2047 {
-		return 4095
-	}
-
-	if d < -2047 {
-		return 0
-	}
-
-	w := d & 127
-	d = (d >> 7) + 16
-	return (INV_EXP[d]*(128-w) + INV_EXP[d+1]*w) >> 11
 }
 
 // Return 1024 * 10 * log10(x)

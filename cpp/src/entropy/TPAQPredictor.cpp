@@ -315,7 +315,6 @@ inline int32 TPAQPredictor::hash(int32 x, int32 y)
 
 TPAQPredictor::TPAQPredictor(int logStates)
     : _apm(65536)
-    , _mixer(MIXER_SIZE)
     ,_statesMask((1<<logStates)-1)
 {
     if ((logStates < 16) || (logStates > 30))
@@ -329,6 +328,8 @@ TPAQPredictor::TPAQPredictor(int logStates)
     _matchLen = 0;
     _matchPos = 0;
     _hash = 0;
+    _mixers = new TPAQMixer[MIXER_SIZE];
+    _mixer = &_mixers[0];
     _states = new byte[1<<logStates];
     _hashes = new int32[HASH_SIZE];
     _buffer = new byte[BUFFER_SIZE];
@@ -347,12 +348,13 @@ TPAQPredictor::~TPAQPredictor()
     delete[] _states;
     delete[] _hashes;
     delete[] _buffer;
+    delete[] _mixers;
 }
 
 // Update the probability model
 void TPAQPredictor::update(int bit)
 {
-    _mixer.update(bit);
+    _mixer->update(bit);
     _bpos++;
     _c0 = (_c0 << 1) | bit;
 
@@ -370,7 +372,7 @@ void TPAQPredictor::update(int bit)
         const uint32 shift8 = ((_c8 & MASK1) == 0) ? 0 : 16;
 
         // Select Neural Net
-        _mixer.setContext(_c4 & MASK_MIXER);
+        _mixer = &_mixers[_c4 & MASK_MIXER];
 
         // Add contexts to NN
         _ctx0 = addContext(0, _c4 ^ (_c4 & 0xFFFF));
@@ -414,7 +416,7 @@ void TPAQPredictor::update(int bit)
     int p7 = addMatchContext();
 
     // Mix predictions using NN
-    int p = _mixer.get(p0, p1, p2, p3, p4, p5, p6, p7);
+    int p = _mixer->get(p0, p1, p2, p3, p4, p5, p6, p7);
 
     // SSE (Secondary Symbol Estimation)
     p = _apm.get(bit, p, _c0 | (_c4 & 0xFF00));
@@ -474,17 +476,6 @@ inline int TPAQPredictor::addContext(int32 ctxId, int32 cx)
     return cx * 123456791 + ctxId;
 }
 
-TPAQMixer::TPAQMixer(int size)
-{
-    _buffer = new MixerData[size];
-    _cur = &_buffer[0];
-    _pr = 2048;
-}
-
-TPAQMixer::~TPAQMixer()
-{
-    delete[] _buffer;
-}
 
 // Adjust weights to minimize coding cost of last prediction
 inline void TPAQMixer::update(int bit)
@@ -497,36 +488,30 @@ inline void TPAQMixer::update(int bit)
     err = (err << 4) - err;
 
     // Train Neural Network: update weights
-    _cur->_w0 += ((_cur->_p0 * err + 0) >> 15);
-    _cur->_w1 += ((_cur->_p1 * err + 0) >> 15);
-    _cur->_w2 += ((_cur->_p2 * err + 0) >> 15);
-    _cur->_w3 += ((_cur->_p3 * err + 0) >> 15);
-    _cur->_w4 += ((_cur->_p4 * err + 0) >> 15);
-    _cur->_w5 += ((_cur->_p5 * err + 0) >> 15);
-    _cur->_w6 += ((_cur->_p6 * err + 0) >> 15);
-    _cur->_w7 += ((_cur->_p7 * err + 0) >> 15);
+    _w0 += ((_p0 * err + 0) >> 15);
+    _w1 += ((_p1 * err + 0) >> 15);
+    _w2 += ((_p2 * err + 0) >> 15);
+    _w3 += ((_p3 * err + 0) >> 15);
+    _w4 += ((_p4 * err + 0) >> 15);
+    _w5 += ((_p5 * err + 0) >> 15);
+    _w6 += ((_p6 * err + 0) >> 15);
+    _w7 += ((_p7 * err + 0) >> 15);
 }
 
 inline int TPAQMixer::get(int p0, int p1, int p2, int p3, int p4, int p5, int p6, int p7)
 {
-    _cur->_p0 = p0;
-    _cur->_p1 = p1;
-    _cur->_p2 = p2;
-    _cur->_p3 = p3;
-    _cur->_p4 = p4;
-    _cur->_p5 = p5;
-    _cur->_p6 = p6;
-    _cur->_p7 = p7;
+    _p0 = p0;
+    _p1 = p1;
+    _p2 = p2;
+    _p3 = p3;
+    _p4 = p4;
+    _p5 = p5;
+    _p6 = p6;
+    _p7 = p7;
    
     // Neural Network dot product (sum weights*inputs)
-    const int32 p = (p0*_cur->_w0) + 
-                    (p1*_cur->_w1) + 
-                    (p2*_cur->_w2) + 
-                    (p3*_cur->_w3) +
-                    (p4*_cur->_w4) + 
-                    (p5*_cur->_w5) + 
-                    (p6*_cur->_w6) + 
-                    (p7*_cur->_w7);
+    const int32 p = (p0*_w0) +  (p1*_w1) + (p2*_w2) + (p3*_w3) +
+                    (p4*_w4) + (p5*_w5) +  (p6*_w6) + (p7*_w7);
 
     _pr = Global::squash((p + 65536) >> 17);
     return _pr;

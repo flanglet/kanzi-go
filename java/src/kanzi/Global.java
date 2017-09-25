@@ -174,11 +174,40 @@ public class Global
       65506, 65519, 65526     
     };
 
+ 
+    private static final int[] SQUASH = initSquash();
+    
+    private static int[] initSquash()
+    {
+       final int[] res = new int[4096];
+       
+       for (int x=-2047; x<=2047; x++)
+       {
+          final int w = x & 127;
+          final int y = (x >> 7) + 16;
+          res[x+2047] = (INV_EXP[y]*(128-w) + INV_EXP[y+1]*w) >> 11; 
+       }
+       
+       return res;
+   }
 
+ 
+   // return p = 1/(1 + exp(-d)), d scaled by 8 bits, p scaled by 12 bits
+   public static int squash(int d)
+   {
+      if (d >= 2048)
+         return 4095;
+      
+      if (d <= -2048)
+         return 0;
+
+      return SQUASH[d+2047];
+   }
+
+   
     // Inverse of squash. d = ln(p/(1-p)), d scaled by 8 bits, p by 12 bits.
     // d has range -2047 to 2047 representing -8 to 8.  p has range 0 to 4095.
     public static final int[] STRETCH = initStretch();
-
 
     private static int[] initStretch()
     {
@@ -195,21 +224,6 @@ public class Global
 
        res[4095] = 2047;
        return res;
-   }
-
- 
-   // return p = 1/(1 + exp(-d)), d scaled by 8 bits, p scaled by 12 bits
-   public static int squash(int d)
-   {
-      if (d > 2047)
-         return 4095;
-      
-      if (d < -2047)
-         return 0;
-
-      final int w = d & 127;
-      d = (d >> 7) + 16;
-      return (INV_EXP[d]*(128-w) + INV_EXP[d+1]*w) >> 11;
    }
    
    

@@ -352,7 +352,8 @@ type TPAQPredictor struct {
 	hash       int32
 	statesMask int32
 	apm        *LogisticAdaptiveProbMap
-	mixer      *TPAQMixer
+	mixers     []TPAQMixer
+	mixer      *TPAQMixer // current mixer
 	buffer     []int8
 	hashes     []int32 // hash table(context, buffer position)
 	states     []uint8 // hash table(context, prediction)
@@ -378,6 +379,13 @@ func NewTPAQPredictor(logStates uint) (*TPAQPredictor, error) {
 	}
 
 	this := new(TPAQPredictor)
+	this.mixers = make([]TPAQMixer, TPAQ_MIXER_SIZE)
+
+	for _, m := range this.mixers {
+		m.pr = 2048
+	}
+
+	this.mixer = &this.mixers[0]
 	this.pr = 2048
 	this.c0 = 1
 	this.states = make([]uint8, 1<<logStates)
@@ -386,11 +394,6 @@ func NewTPAQPredictor(logStates uint) (*TPAQPredictor, error) {
 	this.statesMask = int32(1<<logStates) - 1
 	var err error
 	this.apm, err = newLogisticAdaptiveProbMap(65536, 7)
-
-	if err == nil {
-		this.mixer, err = newTPAQMixer(TPAQ_MIXER_SIZE)
-	}
-
 	return this, err
 }
 
@@ -415,7 +418,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 		shift8 := uint(-(((this.c8 & TPAQ_MASK1) >> 31) | ((-(this.c8 & TPAQ_MASK1)) >> 31))) << 4
 
 		// Select Neural Net
-		this.mixer.setContext(this.c4 & TPAQ_MASK_MIXER)
+		this.mixer = &this.mixers[this.c4&TPAQ_MASK_MIXER]
 
 		// Add contexts NN
 		this.ctx0 = this.addContext(0, this.c4^(this.c4&0xFFFF))
@@ -530,21 +533,11 @@ func (this *TPAQPredictor) addContext(ctxId int, cx int32) int32 {
 	return cx*123456791 + int32(ctxId)
 }
 
-
 // Mixer combines models using neural networks with 8 inputs.
 type TPAQMixer struct {
-	buffer []MixerData // packed buffer: 8 inputs + 8 weights per ctx
-	cur    *MixerData
-	pr     int // squashed prediction
-}
-
-func newTPAQMixer(size int) (*TPAQMixer, error) {
-	var err error
-	this := new(TPAQMixer)
-	this.buffer = make([]MixerData, size)
-	this.cur = &this.buffer[0]
-	this.pr = 2048
-	return this, err
+	pr                             int // squashed prediction
+	w0, w1, w2, w3, w4, w5, w6, w7 int32
+	p0, p1, p2, p3, p4, p5, p6, p7 int32
 }
 
 // Adjust weights to minimize coding cost of last prediction
@@ -556,44 +549,32 @@ func (this *TPAQMixer) update(bit int) {
 	}
 
 	err = (err << 4) - err
-	md := this.cur
 
 	// Train Neural Network: update weights
-	md.w0 += ((md.p0*err + 0) >> 15)
-	md.w1 += ((md.p1*err + 0) >> 15)
-	md.w2 += ((md.p2*err + 0) >> 15)
-	md.w3 += ((md.p3*err + 0) >> 15)
-	md.w4 += ((md.p4*err + 0) >> 15)
-	md.w5 += ((md.p5*err + 0) >> 15)
-	md.w6 += ((md.p6*err + 0) >> 15)
-	md.w7 += ((md.p7*err + 0) >> 15)
-}
-
-func (this *TPAQMixer) setContext(ctx int32) {
-	this.cur = &this.buffer[ctx]
+	this.w0 += ((this.p0*err + 0) >> 15)
+	this.w1 += ((this.p1*err + 0) >> 15)
+	this.w2 += ((this.p2*err + 0) >> 15)
+	this.w3 += ((this.p3*err + 0) >> 15)
+	this.w4 += ((this.p4*err + 0) >> 15)
+	this.w5 += ((this.p5*err + 0) >> 15)
+	this.w6 += ((this.p6*err + 0) >> 15)
+	this.w7 += ((this.p7*err + 0) >> 15)
 }
 
 func (this *TPAQMixer) get(p0, p1, p2, p3, p4, p5, p6, p7 int32) int {
-	md := this.cur
-	md.p0 = p0
-	md.p1 = p1
-	md.p2 = p2
-	md.p3 = p3
-	md.p4 = p4
-	md.p5 = p5
-	md.p6 = p6
-	md.p7 = p7
+	this.p0 = p0
+	this.p1 = p1
+	this.p2 = p2
+	this.p3 = p3
+	this.p4 = p4
+	this.p5 = p5
+	this.p6 = p6
+	this.p7 = p7
 
 	// Neural Network dot product (sum weights*inputs)
-	p := md.w0*p0 + md.w1*p1 + md.w2*p2 + md.w3*p3 +
-		md.w4*p4 + md.w5*p5 + md.w6*p6 + md.w7*p7
+	p := this.w0*p0 + this.w1*p1 + this.w2*p2 + this.w3*p3 +
+		this.w4*p4 + this.w5*p5 + this.w6*p6 + this.w7*p7
 
 	this.pr = kanzi.Squash(int((p + 65536) >> 17))
 	return this.pr
 }
-
-type MixerData struct {
-	w0, w1, w2, w3, w4, w5, w6, w7 int32
-	p0, p1, p2, p3, p4, p5, p6, p7 int32
-}
-

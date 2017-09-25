@@ -44,7 +44,7 @@ package kanzi.entropy;
    {
       // Update probability based on error and learning rate
       final int g = (bit<<16) + (bit<<this.rate) - (bit<<1);
-      this.data[this.index] += ((g-this.data[this.index]) >> this.rate);
+      this.data[this.index] += ((g-this.data[this.index]) >> this.rate);      
       this.data[this.index+1] += ((g-this.data[this.index+1]) >> this.rate);
 
       // Find index: 65*ctx + quantized prediction in [0..64]
