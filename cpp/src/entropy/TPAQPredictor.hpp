@@ -98,15 +98,15 @@ namespace kanzi
        TPAQMixer* _mixer; // current mixer
        byte* _buffer;
        int32* _hashes; // hash table(context, buffer position)
-       byte* _states; // hash table(context, prediction)
+       uint8* _states; // hash table(context, prediction)
        const int32 _statesMask;
-       int32 _cp0; // context pointers
-       int32 _cp1; 
-       int32 _cp2; 
-       int32 _cp3; 
-       int32 _cp4; 
-       int32 _cp5; 
-       int32 _cp6; 
+       uint8* _cp0; // context pointers
+       uint8* _cp1; 
+       uint8* _cp2; 
+       uint8* _cp3; 
+       uint8* _cp4; 
+       uint8* _cp5; 
+       uint8* _cp6; 
        int32 _ctx0; // contexts
        int32 _ctx1; 
        int32 _ctx2; 

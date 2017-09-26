@@ -70,6 +70,7 @@ MSVC++ 5.0  _MSC_VER == 1100
 #endif
 
 typedef int8_t byte;
+typedef uint8_t uint8;
 typedef int16_t int16;
 typedef int32_t int32;
 typedef int64_t int64;

@@ -55,5 +55,5 @@ import kanzi.Global;
       // Return interpolated probability
       final int w = pr & 127;
       return (this.data[this.index]*(128-w) + this.data[this.index+1]*w) >> 11;
-   }
+   }   
 }

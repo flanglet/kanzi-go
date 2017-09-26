@@ -60,59 +60,63 @@ const (
 // pair, so another state with about the same ratio of n0/n1 is substituted.
 // Also, when a bit is observed and the count of the opposite bit is large,
 // then part of this count is discarded to favor newer data over old.
-var TPAQ_STATE_TABLE = []uint8{
-	1, 2, 3, 163, 143, 169, 4, 163, 5, 165,
-	6, 89, 7, 245, 8, 217, 9, 245, 10, 245,
-	11, 233, 12, 244, 13, 227, 14, 74, 15, 221,
-	16, 221, 17, 218, 18, 226, 19, 243, 20, 218,
-	21, 238, 22, 242, 23, 74, 24, 238, 25, 241,
-	26, 240, 27, 239, 28, 224, 29, 225, 30, 221,
-	31, 232, 32, 72, 33, 224, 34, 228, 35, 223,
-	36, 225, 37, 238, 38, 73, 39, 167, 40, 76,
-	41, 237, 42, 234, 43, 231, 44, 72, 45, 31,
-	46, 63, 47, 225, 48, 237, 49, 236, 50, 235,
-	51, 53, 52, 234, 47, 53, 54, 234, 55, 229,
-	56, 219, 57, 229, 58, 233, 59, 232, 60, 228,
-	61, 226, 62, 72, 63, 74, 64, 222, 65, 75,
-	66, 220, 67, 167, 68, 57, 69, 218, 6, 70,
-	71, 168, 71, 72, 71, 73, 61, 74, 75, 217,
-	56, 76, 77, 167, 78, 79, 77, 79, 80, 166,
-	81, 162, 82, 162, 83, 162, 84, 162, 85, 165,
-	86, 89, 87, 89, 88, 165, 77, 89, 90, 162,
-	91, 93, 92, 93, 80, 93, 94, 161, 95, 100,
-	96, 93, 97, 93, 98, 93, 99, 93, 90, 93,
-	101, 161, 94, 102, 103, 120, 101, 104, 102, 105,
-	104, 106, 107, 108, 104, 106, 105, 109, 108, 110,
-	111, 160, 112, 134, 113, 108, 114, 108, 115, 126,
-	116, 117, 92, 117, 118, 121, 94, 119, 103, 120,
-	119, 107, 122, 124, 123, 117, 94, 117, 113, 125,
-	126, 127, 113, 124, 128, 139, 129, 130, 114, 124,
-	131, 133, 132, 109, 112, 110, 134, 135, 111, 110,
-	134, 136, 110, 137, 134, 138, 134, 127, 128, 140,
-	128, 141, 142, 145, 143, 144, 115, 124, 113, 125,
-	142, 146, 128, 147, 148, 151, 149, 125, 79, 150,
-	148, 127, 142, 152, 148, 153, 150, 154, 155, 156,
-	149, 139, 157, 158, 149, 139, 159, 156, 149, 139,
-	131, 130, 101, 117, 98, 163, 115, 164, 114, 141,
-	91, 163, 79, 147, 58, 2, 1, 2, 170, 199,
-	129, 171, 128, 172, 110, 173, 174, 177, 128, 175,
-	176, 171, 129, 171, 174, 178, 179, 180, 174, 172,
-	176, 181, 141, 182, 157, 183, 179, 184, 185, 186,
-	157, 178, 187, 189, 188, 181, 168, 181, 151, 190,
-	191, 193, 192, 182, 188, 182, 187, 194, 172, 195,
-	175, 196, 170, 197, 152, 198, 185, 169, 170, 200,
-	176, 201, 170, 202, 203, 204, 148, 180, 185, 205,
-	203, 206, 185, 207, 192, 208, 209, 210, 188, 194,
-	211, 212, 192, 184, 213, 215, 214, 193, 188, 184,
-	216, 208, 168, 193, 84, 163, 54, 219, 54, 168,
-	221, 94, 54, 217, 55, 223, 85, 224, 69, 225,
-	63, 76, 56, 227, 86, 217, 58, 229, 230, 219,
-	231, 79, 57, 86, 229, 165, 56, 217, 224, 214,
-	54, 225, 54, 216, 66, 216, 58, 234, 54, 75,
-	61, 214, 57, 237, 222, 74, 78, 74, 85, 163,
-	82, 217, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0,
+var TPAQ_STATE_TABLE = [][]uint8{
+	{
+		1, 3, 143, 4, 5, 6, 7, 8, 9, 10,
+		11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+		21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+		31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+		41, 42, 43, 44, 45, 46, 47, 48, 49, 50,
+		51, 52, 47, 54, 55, 56, 57, 58, 59, 60,
+		61, 62, 63, 64, 65, 66, 67, 68, 69, 6,
+		71, 71, 71, 61, 75, 56, 77, 78, 77, 80,
+		81, 82, 83, 84, 85, 86, 87, 88, 77, 90,
+		91, 92, 80, 94, 95, 96, 97, 98, 99, 90,
+		101, 94, 103, 101, 102, 104, 107, 104, 105, 108,
+		111, 112, 113, 114, 115, 116, 92, 118, 94, 103,
+		119, 122, 123, 94, 113, 126, 113, 128, 129, 114,
+		131, 132, 112, 134, 111, 134, 110, 134, 134, 128,
+		128, 142, 143, 115, 113, 142, 128, 148, 149, 79,
+		148, 142, 148, 150, 155, 149, 157, 149, 159, 149,
+		131, 101, 98, 115, 114, 91, 79, 58, 1, 170,
+		129, 128, 110, 174, 128, 176, 129, 174, 179, 174,
+		176, 141, 157, 179, 185, 157, 187, 188, 168, 151,
+		191, 192, 188, 187, 172, 175, 170, 152, 185, 170,
+		176, 170, 203, 148, 185, 203, 185, 192, 209, 188,
+		211, 192, 213, 214, 188, 216, 168, 84, 54, 54,
+		221, 54, 55, 85, 69, 63, 56, 86, 58, 230,
+		231, 57, 229, 56, 224, 54, 54, 66, 58, 54,
+		61, 57, 222, 78, 85, 82, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0,
+	},
+	{
+		2, 163, 169, 163, 165, 89, 245, 217, 245, 245,
+		233, 244, 227, 74, 221, 221, 218, 226, 243, 218,
+		238, 242, 74, 238, 241, 240, 239, 224, 225, 221,
+		232, 72, 224, 228, 223, 225, 238, 73, 167, 76,
+		237, 234, 231, 72, 31, 63, 225, 237, 236, 235,
+		53, 234, 53, 234, 229, 219, 229, 233, 232, 228,
+		226, 72, 74, 222, 75, 220, 167, 57, 218, 70,
+		168, 72, 73, 74, 217, 76, 167, 79, 79, 166,
+		162, 162, 162, 162, 165, 89, 89, 165, 89, 162,
+		93, 93, 93, 161, 100, 93, 93, 93, 93, 93,
+		161, 102, 120, 104, 105, 106, 108, 106, 109, 110,
+		160, 134, 108, 108, 126, 117, 117, 121, 119, 120,
+		107, 124, 117, 117, 125, 127, 124, 139, 130, 124,
+		133, 109, 110, 135, 110, 136, 137, 138, 127, 140,
+		141, 145, 144, 124, 125, 146, 147, 151, 125, 150,
+		127, 152, 153, 154, 156, 139, 158, 139, 156, 139,
+		130, 117, 163, 164, 141, 163, 147, 2, 2, 199,
+		171, 172, 173, 177, 175, 171, 171, 178, 180, 172,
+		181, 182, 183, 184, 186, 178, 189, 181, 181, 190,
+		193, 182, 182, 194, 195, 196, 197, 198, 169, 200,
+		201, 202, 204, 180, 205, 206, 207, 208, 210, 194,
+		212, 184, 215, 193, 184, 208, 193, 163, 219, 168,
+		94, 217, 223, 224, 225, 76, 227, 217, 229, 219,
+		79, 86, 165, 217, 214, 225, 216, 216, 234, 75,
+		214, 237, 74, 74, 163, 217, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0,
+	},
 }
 
 // State Map
@@ -357,13 +361,13 @@ type TPAQPredictor struct {
 	buffer     []int8
 	hashes     []int32 // hash table(context, buffer position)
 	states     []uint8 // hash table(context, prediction)
-	cp0        int32   // context pointers
-	cp1        int32
-	cp2        int32
-	cp3        int32
-	cp4        int32
-	cp5        int32
-	cp6        int32
+	cp0        *uint8  // context pointers
+	cp1        *uint8
+	cp2        *uint8
+	cp3        *uint8
+	cp4        *uint8
+	cp5        *uint8
+	cp6        *uint8
 	ctx0       int32 // contexts
 	ctx1       int32
 	ctx2       int32
@@ -392,6 +396,14 @@ func NewTPAQPredictor(logStates uint) (*TPAQPredictor, error) {
 	this.hashes = make([]int32, TPAQ_HASH_SIZE)
 	this.buffer = make([]int8, TPAQ_BUFFER_SIZE)
 	this.statesMask = int32(1<<logStates) - 1
+	this.cp0 = &this.states[0]
+	this.cp1 = &this.states[0]
+	this.cp2 = &this.states[0]
+	this.cp3 = &this.states[0]
+	this.cp4 = &this.states[0]
+	this.cp5 = &this.states[0]
+	this.cp6 = &this.states[0]
+
 	var err error
 	this.apm, err = newLogisticAdaptiveProbMap(65536, 7)
 	return this, err
@@ -438,27 +450,28 @@ func (this *TPAQPredictor) Update(bit byte) {
 
 	// Get initial predictions
 	c := int32(this.c0)
-	this.states[this.cp0] = TPAQ_STATE_TABLE[(int(this.states[this.cp0])<<1)|y]
-	this.cp0 = (this.ctx0 + c) & this.statesMask
-	p0 := TPAQ_STATE_MAP[(0<<8)|int(this.states[this.cp0])]
-	this.states[this.cp1] = TPAQ_STATE_TABLE[(int(this.states[this.cp1])<<1)|y]
-	this.cp1 = (this.ctx1 + c) & this.statesMask
-	p1 := TPAQ_STATE_MAP[(1<<8)|int(this.states[this.cp1])]
-	this.states[this.cp2] = TPAQ_STATE_TABLE[(int(this.states[this.cp2])<<1)|y]
-	this.cp2 = (this.ctx2 + c) & this.statesMask
-	p2 := TPAQ_STATE_MAP[(2<<8)|int(this.states[this.cp2])]
-	this.states[this.cp3] = TPAQ_STATE_TABLE[(int(this.states[this.cp3])<<1)|y]
-	this.cp3 = (this.ctx3 + c) & this.statesMask
-	p3 := TPAQ_STATE_MAP[(3<<8)|int(this.states[this.cp3])]
-	this.states[this.cp4] = TPAQ_STATE_TABLE[(int(this.states[this.cp4])<<1)|y]
-	this.cp4 = (this.ctx4 + c) & this.statesMask
-	p4 := TPAQ_STATE_MAP[(4<<8)|int(this.states[this.cp4])]
-	this.states[this.cp5] = TPAQ_STATE_TABLE[(int(this.states[this.cp5])<<1)|y]
-	this.cp5 = (this.ctx5 + c) & this.statesMask
-	p5 := TPAQ_STATE_MAP[(5<<8)|int(this.states[this.cp5])]
-	this.states[this.cp6] = TPAQ_STATE_TABLE[(int(this.states[this.cp6])<<1)|y]
-	this.cp6 = (this.ctx6 + c) & this.statesMask
-	p6 := TPAQ_STATE_MAP[(6<<8)|int(this.states[this.cp6])]
+	table := TPAQ_STATE_TABLE[bit]
+	*this.cp0 = table[*this.cp0]
+	*this.cp1 = table[*this.cp1]
+	*this.cp2 = table[*this.cp2]
+	*this.cp3 = table[*this.cp3]
+	*this.cp4 = table[*this.cp4]
+	*this.cp5 = table[*this.cp5]
+	*this.cp6 = table[*this.cp6]
+	this.cp0 = &this.states[(this.ctx0+c)&this.statesMask]
+	p0 := TPAQ_STATE_MAP[(0<<8)|uint(*this.cp0)]
+	this.cp1 = &this.states[(this.ctx1+c)&this.statesMask]
+	p1 := TPAQ_STATE_MAP[(1<<8)|uint(*this.cp1)]
+	this.cp2 = &this.states[(this.ctx2+c)&this.statesMask]
+	p2 := TPAQ_STATE_MAP[(2<<8)|uint(*this.cp2)]
+	this.cp3 = &this.states[(this.ctx3+c)&this.statesMask]
+	p3 := TPAQ_STATE_MAP[(3<<8)|uint(*this.cp3)]
+	this.cp4 = &this.states[(this.ctx4+c)&this.statesMask]
+	p4 := TPAQ_STATE_MAP[(4<<8)|uint(*this.cp4)]
+	this.cp5 = &this.states[(this.ctx5+c)&this.statesMask]
+	p5 := TPAQ_STATE_MAP[(5<<8)|uint(*this.cp5)]
+	this.cp6 = &this.states[(this.ctx6+c)&this.statesMask]
+	p6 := TPAQ_STATE_MAP[(6<<8)|uint(*this.cp6)]
 
 	p7 := this.addMatchContext()
 

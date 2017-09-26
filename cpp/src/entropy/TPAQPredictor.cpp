@@ -14,6 +14,7 @@ limitations under the License.
 */
 
 #include <cstring>
+#include "../types.hpp"
 #include "../IllegalArgumentException.hpp"
 #include "TPAQPredictor.hpp"
 
@@ -33,59 +34,59 @@ using namespace kanzi;
 // pair, so another state with about the same ratio of n0/n1 is substituted.
 // Also, when a bit is observed and the count of the opposite bit is large,
 // then part of this count is discarded to favor newer data over old.
-const byte STATE_TABLE[] = {
-      (byte)   1, (byte)   2, (byte)   3, (byte) 163, (byte) 143, (byte) 169, (byte)   4, (byte) 163, (byte)   5, (byte) 165,
-      (byte)   6, (byte)  89, (byte)   7, (byte) 245, (byte)   8, (byte) 217, (byte)   9, (byte) 245, (byte)  10, (byte) 245,
-      (byte)  11, (byte) 233, (byte)  12, (byte) 244, (byte)  13, (byte) 227, (byte)  14, (byte)  74, (byte)  15, (byte) 221,
-      (byte)  16, (byte) 221, (byte)  17, (byte) 218, (byte)  18, (byte) 226, (byte)  19, (byte) 243, (byte)  20, (byte) 218,
-      (byte)  21, (byte) 238, (byte)  22, (byte) 242, (byte)  23, (byte)  74, (byte)  24, (byte) 238, (byte)  25, (byte) 241,
-      (byte)  26, (byte) 240, (byte)  27, (byte) 239, (byte)  28, (byte) 224, (byte)  29, (byte) 225, (byte)  30, (byte) 221,
-      (byte)  31, (byte) 232, (byte)  32, (byte)  72, (byte)  33, (byte) 224, (byte)  34, (byte) 228, (byte)  35, (byte) 223,
-      (byte)  36, (byte) 225, (byte)  37, (byte) 238, (byte)  38, (byte)  73, (byte)  39, (byte) 167, (byte)  40, (byte)  76,
-      (byte)  41, (byte) 237, (byte)  42, (byte) 234, (byte)  43, (byte) 231, (byte)  44, (byte)  72, (byte)  45, (byte)  31,
-      (byte)  46, (byte)  63, (byte)  47, (byte) 225, (byte)  48, (byte) 237, (byte)  49, (byte) 236, (byte)  50, (byte) 235,
-      (byte)  51, (byte)  53, (byte)  52, (byte) 234, (byte)  47, (byte)  53, (byte)  54, (byte) 234, (byte)  55, (byte) 229,
-      (byte)  56, (byte) 219, (byte)  57, (byte) 229, (byte)  58, (byte) 233, (byte)  59, (byte) 232, (byte)  60, (byte) 228,
-      (byte)  61, (byte) 226, (byte)  62, (byte)  72, (byte)  63, (byte)  74, (byte)  64, (byte) 222, (byte)  65, (byte)  75,
-      (byte)  66, (byte) 220, (byte)  67, (byte) 167, (byte)  68, (byte)  57, (byte)  69, (byte) 218, (byte)   6, (byte)  70,
-      (byte)  71, (byte) 168, (byte)  71, (byte)  72, (byte)  71, (byte)  73, (byte)  61, (byte)  74, (byte)  75, (byte) 217,
-      (byte)  56, (byte)  76, (byte)  77, (byte) 167, (byte)  78, (byte)  79, (byte)  77, (byte)  79, (byte)  80, (byte) 166,
-      (byte)  81, (byte) 162, (byte)  82, (byte) 162, (byte)  83, (byte) 162, (byte)  84, (byte) 162, (byte)  85, (byte) 165,
-      (byte)  86, (byte)  89, (byte)  87, (byte)  89, (byte)  88, (byte) 165, (byte)  77, (byte)  89, (byte)  90, (byte) 162,
-      (byte)  91, (byte)  93, (byte)  92, (byte)  93, (byte)  80, (byte)  93, (byte)  94, (byte) 161, (byte)  95, (byte) 100,
-      (byte)  96, (byte)  93, (byte)  97, (byte)  93, (byte)  98, (byte)  93, (byte)  99, (byte)  93, (byte)  90, (byte)  93,
-      (byte) 101, (byte) 161, (byte)  94, (byte) 102, (byte) 103, (byte) 120, (byte) 101, (byte) 104, (byte) 102, (byte) 105,
-      (byte) 104, (byte) 106, (byte) 107, (byte) 108, (byte) 104, (byte) 106, (byte) 105, (byte) 109, (byte) 108, (byte) 110,
-      (byte) 111, (byte) 160, (byte) 112, (byte) 134, (byte) 113, (byte) 108, (byte) 114, (byte) 108, (byte) 115, (byte) 126,
-      (byte) 116, (byte) 117, (byte)  92, (byte) 117, (byte) 118, (byte) 121, (byte)  94, (byte) 119, (byte) 103, (byte) 120,
-      (byte) 119, (byte) 107, (byte) 122, (byte) 124, (byte) 123, (byte) 117, (byte)  94, (byte) 117, (byte) 113, (byte) 125,
-      (byte) 126, (byte) 127, (byte) 113, (byte) 124, (byte) 128, (byte) 139, (byte) 129, (byte) 130, (byte) 114, (byte) 124,
-      (byte) 131, (byte) 133, (byte) 132, (byte) 109, (byte) 112, (byte) 110, (byte) 134, (byte) 135, (byte) 111, (byte) 110,
-      (byte) 134, (byte) 136, (byte) 110, (byte) 137, (byte) 134, (byte) 138, (byte) 134, (byte) 127, (byte) 128, (byte) 140,
-      (byte) 128, (byte) 141, (byte) 142, (byte) 145, (byte) 143, (byte) 144, (byte) 115, (byte) 124, (byte) 113, (byte) 125,
-      (byte) 142, (byte) 146, (byte) 128, (byte) 147, (byte) 148, (byte) 151, (byte) 149, (byte) 125, (byte)  79, (byte) 150,
-      (byte) 148, (byte) 127, (byte) 142, (byte) 152, (byte) 148, (byte) 153, (byte) 150, (byte) 154, (byte) 155, (byte) 156,
-      (byte) 149, (byte) 139, (byte) 157, (byte) 158, (byte) 149, (byte) 139, (byte) 159, (byte) 156, (byte) 149, (byte) 139,
-      (byte) 131, (byte) 130, (byte) 101, (byte) 117, (byte)  98, (byte) 163, (byte) 115, (byte) 164, (byte) 114, (byte) 141,
-      (byte)  91, (byte) 163, (byte)  79, (byte) 147, (byte)  58, (byte)   2, (byte)   1, (byte)   2, (byte) 170, (byte) 199,
-      (byte) 129, (byte) 171, (byte) 128, (byte) 172, (byte) 110, (byte) 173, (byte) 174, (byte) 177, (byte) 128, (byte) 175,
-      (byte) 176, (byte) 171, (byte) 129, (byte) 171, (byte) 174, (byte) 178, (byte) 179, (byte) 180, (byte) 174, (byte) 172,
-      (byte) 176, (byte) 181, (byte) 141, (byte) 182, (byte) 157, (byte) 183, (byte) 179, (byte) 184, (byte) 185, (byte) 186,
-      (byte) 157, (byte) 178, (byte) 187, (byte) 189, (byte) 188, (byte) 181, (byte) 168, (byte) 181, (byte) 151, (byte) 190,
-      (byte) 191, (byte) 193, (byte) 192, (byte) 182, (byte) 188, (byte) 182, (byte) 187, (byte) 194, (byte) 172, (byte) 195,
-      (byte) 175, (byte) 196, (byte) 170, (byte) 197, (byte) 152, (byte) 198, (byte) 185, (byte) 169, (byte) 170, (byte) 200,
-      (byte) 176, (byte) 201, (byte) 170, (byte) 202, (byte) 203, (byte) 204, (byte) 148, (byte) 180, (byte) 185, (byte) 205,
-      (byte) 203, (byte) 206, (byte) 185, (byte) 207, (byte) 192, (byte) 208, (byte) 209, (byte) 210, (byte) 188, (byte) 194,
-      (byte) 211, (byte) 212, (byte) 192, (byte) 184, (byte) 213, (byte) 215, (byte) 214, (byte) 193, (byte) 188, (byte) 184,
-      (byte) 216, (byte) 208, (byte) 168, (byte) 193, (byte)  84, (byte) 163, (byte)  54, (byte) 219, (byte)  54, (byte) 168,
-      (byte) 221, (byte)  94, (byte)  54, (byte) 217, (byte)  55, (byte) 223, (byte)  85, (byte) 224, (byte)  69, (byte) 225,
-      (byte)  63, (byte)  76, (byte)  56, (byte) 227, (byte)  86, (byte) 217, (byte)  58, (byte) 229, (byte) 230, (byte) 219,
-      (byte) 231, (byte)  79, (byte)  57, (byte)  86, (byte) 229, (byte) 165, (byte)  56, (byte) 217, (byte) 224, (byte) 214,
-      (byte)  54, (byte) 225, (byte)  54, (byte) 216, (byte)  66, (byte) 216, (byte)  58, (byte) 234, (byte)  54, (byte)  75,
-      (byte)  61, (byte) 214, (byte)  57, (byte) 237, (byte) 222, (byte)  74, (byte)  78, (byte)  74, (byte)  85, (byte) 163,
-      (byte)  82, (byte) 217, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0,
-      (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0,
-      (byte)   0, (byte)   0
+const uint8 STATE_TABLE[2][256] = {
+    { 1, 3, 143, 4, 5, 6, 7, 8, 9, 10,
+        11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+        21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+        31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+        41, 42, 43, 44, 45, 46, 47, 48, 49, 50,
+        51, 52, 47, 54, 55, 56, 57, 58, 59, 60,
+        61, 62, 63, 64, 65, 66, 67, 68, 69, 6,
+        71, 71, 71, 61, 75, 56, 77, 78, 77, 80,
+        81, 82, 83, 84, 85, 86, 87, 88, 77, 90,
+        91, 92, 80, 94, 95, 96, 97, 98, 99, 90,
+        101, 94, 103, 101, 102, 104, 107, 104, 105, 108,
+        111, 112, 113, 114, 115, 116, 92, 118, 94, 103,
+        119, 122, 123, 94, 113, 126, 113, 128, 129, 114,
+        131, 132, 112, 134, 111, 134, 110, 134, 134, 128,
+        128, 142, 143, 115, 113, 142, 128, 148, 149, 79,
+        148, 142, 148, 150, 155, 149, 157, 149, 159, 149,
+        131, 101, 98, 115, 114, 91, 79, 58, 1, 170,
+        129, 128, 110, 174, 128, 176, 129, 174, 179, 174,
+        176, 141, 157, 179, 185, 157, 187, 188, 168, 151,
+        191, 192, 188, 187, 172, 175, 170, 152, 185, 170,
+        176, 170, 203, 148, 185, 203, 185, 192, 209, 188,
+        211, 192, 213, 214, 188, 216, 168, 84, 54, 54,
+        221, 54, 55, 85, 69, 63, 56, 86, 58, 230,
+        231, 57, 229, 56, 224, 54, 54, 66, 58, 54,
+        61, 57, 222, 78, 85, 82, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0 },
+    { 2, 163, 169, 163, 165, 89, 245, 217, 245, 245,
+        233, 244, 227, 74, 221, 221, 218, 226, 243, 218,
+        238, 242, 74, 238, 241, 240, 239, 224, 225, 221,
+        232, 72, 224, 228, 223, 225, 238, 73, 167, 76,
+        237, 234, 231, 72, 31, 63, 225, 237, 236, 235,
+        53, 234, 53, 234, 229, 219, 229, 233, 232, 228,
+        226, 72, 74, 222, 75, 220, 167, 57, 218, 70,
+        168, 72, 73, 74, 217, 76, 167, 79, 79, 166,
+        162, 162, 162, 162, 165, 89, 89, 165, 89, 162,
+        93, 93, 93, 161, 100, 93, 93, 93, 93, 93,
+        161, 102, 120, 104, 105, 106, 108, 106, 109, 110,
+        160, 134, 108, 108, 126, 117, 117, 121, 119, 120,
+        107, 124, 117, 117, 125, 127, 124, 139, 130, 124,
+        133, 109, 110, 135, 110, 136, 137, 138, 127, 140,
+        141, 145, 144, 124, 125, 146, 147, 151, 125, 150,
+        127, 152, 153, 154, 156, 139, 158, 139, 156, 139,
+        130, 117, 163, 164, 141, 163, 147, 2, 2, 199,
+        171, 172, 173, 177, 175, 171, 171, 178, 180, 172,
+        181, 182, 183, 184, 186, 178, 189, 181, 181, 190,
+        193, 182, 182, 194, 195, 196, 197, 198, 169, 200,
+        201, 202, 204, 180, 205, 206, 207, 208, 210, 194,
+        212, 184, 215, 193, 184, 208, 193, 163, 219, 168,
+        94, 217, 223, 224, 225, 76, 227, 217, 229, 219,
+        79, 86, 165, 217, 214, 225, 216, 216, 234, 75,
+        214, 237, 74, 74, 163, 217, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0 }
 };
 
 // State Map
@@ -315,11 +316,11 @@ inline int32 TPAQPredictor::hash(int32 x, int32 y)
 
 TPAQPredictor::TPAQPredictor(int logStates)
     : _apm(65536)
-    ,_statesMask((1<<logStates)-1)
+    , _statesMask((1 << logStates) - 1)
 {
     if ((logStates < 16) || (logStates > 30))
-       throw IllegalArgumentException("The log of the states table size must be in [16..30]");
-    
+        throw IllegalArgumentException("The log of the states table size must be in [16..30]");
+
     _pr = 2048;
     _c0 = 1;
     _c4 = 0;
@@ -330,15 +331,20 @@ TPAQPredictor::TPAQPredictor(int logStates)
     _hash = 0;
     _mixers = new TPAQMixer[MIXER_SIZE];
     _mixer = &_mixers[0];
-    _states = new byte[1<<logStates];
+    _states = new uint8[1 << logStates];
     _hashes = new int32[HASH_SIZE];
     _buffer = new byte[BUFFER_SIZE];
     _bpos = 0;
-    _cp0 = _cp1 = _cp2 = _cp3 = 0;
-    _cp4 = _cp5 = _cp6 = 0;
+    _cp0 = &_states[0];
+    _cp1 = &_states[0];
+    _cp2 = &_states[0];
+    _cp3 = &_states[0];
+    _cp4 = &_states[0];
+    _cp5 = &_states[0];
+    _cp6 = &_states[0];
     _ctx0 = _ctx1 = _ctx2 = _ctx3 = 0;
     _ctx4 = _ctx5 = _ctx6 = 0;
-    memset(_states, 0, 1<<logStates);
+    memset(_states, 0, 1 << logStates);
     memset(_hashes, 0, HASH_SIZE);
     memset(_buffer, 0, BUFFER_SIZE);
 }
@@ -366,7 +372,7 @@ void TPAQPredictor::update(int bit)
         _hash = (((_hash * 43707) << 4) + _c4) & MASK_HASH;
         _c0 = 1;
         _bpos = 0;
-       
+
         // Shift by 16 if binary data else 0
         _shift4 = ((_c4 & MASK1) == 0) ? 0 : 16;
         const uint32 shift8 = ((_c8 & MASK1) == 0) ? 0 : 16;
@@ -391,28 +397,29 @@ void TPAQPredictor::update(int bit)
     }
 
     // Get initial predictions
-    _states[_cp0] = STATE_TABLE[((_states[_cp0] & 0xFF) << 1) | bit];
-    _cp0 = (_ctx0 + _c0) & _statesMask;
-    int p0 = STATE_MAP[(0 << 8) | (_states[_cp0] & 0xFF)];
-    _states[_cp1] = STATE_TABLE[((_states[_cp1] & 0xFF) << 1) | bit];
-    _cp1 = (_ctx1 + _c0) & _statesMask;
-    int p1 = STATE_MAP[(1 << 8) | (_states[_cp1] & 0xFF)];
-    _states[_cp2] = STATE_TABLE[((_states[_cp2] & 0xFF) << 1) | bit];
-    _cp2 = (_ctx2 + _c0) & _statesMask;
-    int p2 = STATE_MAP[(2 << 8) | (_states[_cp2] & 0xFF)];
-    _states[_cp3] = STATE_TABLE[((_states[_cp3] & 0xFF) << 1) | bit];
-    _cp3 = (_ctx3 + _c0) & _statesMask;
-    int p3 = STATE_MAP[(3 << 8) | (_states[_cp3] & 0xFF)];
-    _states[_cp4] = STATE_TABLE[((_states[_cp4] & 0xFF) << 1) | bit];
-    _cp4 = (_ctx4 + _c0) & _statesMask;
-    int p4 = STATE_MAP[(4 << 8) | (_states[_cp4] & 0xFF)];
-    _states[_cp5] = STATE_TABLE[((_states[_cp5] & 0xFF) << 1) | bit];
-    _cp5 = (_ctx5 + _c0) & _statesMask;
-    int p5 = STATE_MAP[(5 << 8) | (_states[_cp5] & 0xFF)];
-    _states[_cp6] = STATE_TABLE[((_states[_cp6] & 0xFF) << 1) | bit];
-    _cp6 = (_ctx6 + _c0) & _statesMask;
-    int p6 = STATE_MAP[(6 << 8) | (_states[_cp6] & 0xFF)];
- 
+    const uint8* table = STATE_TABLE[bit];
+    *_cp0 = table[*_cp0];
+    *_cp1 = table[*_cp1];
+    *_cp2 = table[*_cp2];
+    *_cp3 = table[*_cp3];
+    *_cp4 = table[*_cp4];
+    *_cp5 = table[*_cp5];
+    *_cp6 = table[*_cp6];
+    _cp0 = &_states[(_ctx0 + _c0) & _statesMask];
+    int p0 = STATE_MAP[(0 << 8) | (*_cp0)];
+    _cp1 = &_states[(_ctx1 + _c0) & _statesMask];
+    int p1 = STATE_MAP[(1 << 8) | (*_cp1)];
+    _cp2 = &_states[(_ctx2 + _c0) & _statesMask];
+    int p2 = STATE_MAP[(2 << 8) | (*_cp2)];
+    _cp3 = &_states[(_ctx3 + _c0) & _statesMask];
+    int p3 = STATE_MAP[(3 << 8) | (*_cp3)];
+    _cp4 = &_states[(_ctx4 + _c0) & _statesMask];
+    int p4 = STATE_MAP[(4 << 8) | (*_cp4)];
+    _cp5 = &_states[(_ctx5 + _c0) & _statesMask];
+    int p5 = STATE_MAP[(5 << 8) | (*_cp5)];
+    _cp6 = &_states[(_ctx6 + _c0) & _statesMask];
+    int p6 = STATE_MAP[(6 << 8) | (*_cp6)];
+
     int p7 = addMatchContext();
 
     // Mix predictions using NN
@@ -428,7 +435,7 @@ inline void TPAQPredictor::findMatch()
     // Update ongoing sequence match or detect match in the buffer (LZ like)
     if (_matchLen > 0) {
         if (_matchLen < MAX_LENGTH)
-        	_matchLen++;
+            _matchLen++;
 
         _matchPos++;
     }
@@ -452,18 +459,18 @@ inline int TPAQPredictor::addMatchContext()
 {
     int p = 64;
 
-    if (_matchLen > 0) {      
-       if (_c0 == ((_buffer[_matchPos & MASK_BUFFER] & 0xFF) | 256) >> (8 - _bpos)) {
-           // Add match length to NN inputs. Compute input based on run length
-           p = (_matchLen <= 24) ? _matchLen : 24 + ((_matchLen - 24) >> 2);
+    if (_matchLen > 0) {
+        if (_c0 == ((_buffer[_matchPos & MASK_BUFFER] & 0xFF) | 256) >> (8 - _bpos)) {
+            // Add match length to NN inputs. Compute input based on run length
+            p = (_matchLen <= 24) ? _matchLen : 24 + ((_matchLen - 24) >> 2);
 
-           if (((_buffer[_matchPos & MASK_BUFFER] >> (7 - _bpos)) & 1) == 0)
-               p = -p;
+            if (((_buffer[_matchPos & MASK_BUFFER] >> (7 - _bpos)) & 1) == 0)
+                p = -p;
 
-           p <<= 6;
-       }
-       else
-           _matchLen = 0;
+            p <<= 6;
+        }
+        else
+            _matchLen = 0;
     }
 
     return p;
@@ -475,7 +482,6 @@ inline int TPAQPredictor::addContext(int32 ctxId, int32 cx)
     cx = (cx << 16) | (uint32(cx) >> 16);
     return cx * 123456791 + ctxId;
 }
-
 
 // Adjust weights to minimize coding cost of last prediction
 inline void TPAQMixer::update(int bit)
@@ -508,12 +514,10 @@ inline int TPAQMixer::get(int p0, int p1, int p2, int p3, int p4, int p5, int p6
     _p5 = p5;
     _p6 = p6;
     _p7 = p7;
-   
+
     // Neural Network dot product (sum weights*inputs)
-    const int32 p = (p0*_w0) +  (p1*_w1) + (p2*_w2) + (p3*_w3) +
-                    (p4*_w4) + (p5*_w5) +  (p6*_w6) + (p7*_w7);
+    const int32 p = (p0 * _w0) + (p1 * _w1) + (p2 * _w2) + (p3 * _w3) + (p4 * _w4) + (p5 * _w5) + (p6 * _w6) + (p7 * _w7);
 
     _pr = Global::squash((p + 65536) >> 17);
     return _pr;
 }
-

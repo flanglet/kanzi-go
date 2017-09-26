@@ -56,60 +56,64 @@ public class TPAQPredictor implements Predictor
    // pair, so another state with about the same ratio of n0/n1 is substituted.
    // Also, when a bit is observed and the count of the opposite bit is large,
    // then part of this count is discarded to favor newer data over old.
-   private static final byte[] STATE_TABLE =
+   private static final byte[][] STATE_TABLE =
    {
-      (byte)   1, (byte)   2, (byte)   3, (byte) 163, (byte) 143, (byte) 169, (byte)   4, (byte) 163, (byte)   5, (byte) 165,
-      (byte)   6, (byte)  89, (byte)   7, (byte) 245, (byte)   8, (byte) 217, (byte)   9, (byte) 245, (byte)  10, (byte) 245,
-      (byte)  11, (byte) 233, (byte)  12, (byte) 244, (byte)  13, (byte) 227, (byte)  14, (byte)  74, (byte)  15, (byte) 221,
-      (byte)  16, (byte) 221, (byte)  17, (byte) 218, (byte)  18, (byte) 226, (byte)  19, (byte) 243, (byte)  20, (byte) 218,
-      (byte)  21, (byte) 238, (byte)  22, (byte) 242, (byte)  23, (byte)  74, (byte)  24, (byte) 238, (byte)  25, (byte) 241,
-      (byte)  26, (byte) 240, (byte)  27, (byte) 239, (byte)  28, (byte) 224, (byte)  29, (byte) 225, (byte)  30, (byte) 221,
-      (byte)  31, (byte) 232, (byte)  32, (byte)  72, (byte)  33, (byte) 224, (byte)  34, (byte) 228, (byte)  35, (byte) 223,
-      (byte)  36, (byte) 225, (byte)  37, (byte) 238, (byte)  38, (byte)  73, (byte)  39, (byte) 167, (byte)  40, (byte)  76,
-      (byte)  41, (byte) 237, (byte)  42, (byte) 234, (byte)  43, (byte) 231, (byte)  44, (byte)  72, (byte)  45, (byte)  31,
-      (byte)  46, (byte)  63, (byte)  47, (byte) 225, (byte)  48, (byte) 237, (byte)  49, (byte) 236, (byte)  50, (byte) 235,
-      (byte)  51, (byte)  53, (byte)  52, (byte) 234, (byte)  47, (byte)  53, (byte)  54, (byte) 234, (byte)  55, (byte) 229,
-      (byte)  56, (byte) 219, (byte)  57, (byte) 229, (byte)  58, (byte) 233, (byte)  59, (byte) 232, (byte)  60, (byte) 228,
-      (byte)  61, (byte) 226, (byte)  62, (byte)  72, (byte)  63, (byte)  74, (byte)  64, (byte) 222, (byte)  65, (byte)  75,
-      (byte)  66, (byte) 220, (byte)  67, (byte) 167, (byte)  68, (byte)  57, (byte)  69, (byte) 218, (byte)   6, (byte)  70,
-      (byte)  71, (byte) 168, (byte)  71, (byte)  72, (byte)  71, (byte)  73, (byte)  61, (byte)  74, (byte)  75, (byte) 217,
-      (byte)  56, (byte)  76, (byte)  77, (byte) 167, (byte)  78, (byte)  79, (byte)  77, (byte)  79, (byte)  80, (byte) 166,
-      (byte)  81, (byte) 162, (byte)  82, (byte) 162, (byte)  83, (byte) 162, (byte)  84, (byte) 162, (byte)  85, (byte) 165,
-      (byte)  86, (byte)  89, (byte)  87, (byte)  89, (byte)  88, (byte) 165, (byte)  77, (byte)  89, (byte)  90, (byte) 162,
-      (byte)  91, (byte)  93, (byte)  92, (byte)  93, (byte)  80, (byte)  93, (byte)  94, (byte) 161, (byte)  95, (byte) 100,
-      (byte)  96, (byte)  93, (byte)  97, (byte)  93, (byte)  98, (byte)  93, (byte)  99, (byte)  93, (byte)  90, (byte)  93,
-      (byte) 101, (byte) 161, (byte)  94, (byte) 102, (byte) 103, (byte) 120, (byte) 101, (byte) 104, (byte) 102, (byte) 105,
-      (byte) 104, (byte) 106, (byte) 107, (byte) 108, (byte) 104, (byte) 106, (byte) 105, (byte) 109, (byte) 108, (byte) 110,
-      (byte) 111, (byte) 160, (byte) 112, (byte) 134, (byte) 113, (byte) 108, (byte) 114, (byte) 108, (byte) 115, (byte) 126,
-      (byte) 116, (byte) 117, (byte)  92, (byte) 117, (byte) 118, (byte) 121, (byte)  94, (byte) 119, (byte) 103, (byte) 120,
-      (byte) 119, (byte) 107, (byte) 122, (byte) 124, (byte) 123, (byte) 117, (byte)  94, (byte) 117, (byte) 113, (byte) 125,
-      (byte) 126, (byte) 127, (byte) 113, (byte) 124, (byte) 128, (byte) 139, (byte) 129, (byte) 130, (byte) 114, (byte) 124,
-      (byte) 131, (byte) 133, (byte) 132, (byte) 109, (byte) 112, (byte) 110, (byte) 134, (byte) 135, (byte) 111, (byte) 110,
-      (byte) 134, (byte) 136, (byte) 110, (byte) 137, (byte) 134, (byte) 138, (byte) 134, (byte) 127, (byte) 128, (byte) 140,
-      (byte) 128, (byte) 141, (byte) 142, (byte) 145, (byte) 143, (byte) 144, (byte) 115, (byte) 124, (byte) 113, (byte) 125,
-      (byte) 142, (byte) 146, (byte) 128, (byte) 147, (byte) 148, (byte) 151, (byte) 149, (byte) 125, (byte)  79, (byte) 150,
-      (byte) 148, (byte) 127, (byte) 142, (byte) 152, (byte) 148, (byte) 153, (byte) 150, (byte) 154, (byte) 155, (byte) 156,
-      (byte) 149, (byte) 139, (byte) 157, (byte) 158, (byte) 149, (byte) 139, (byte) 159, (byte) 156, (byte) 149, (byte) 139,
-      (byte) 131, (byte) 130, (byte) 101, (byte) 117, (byte)  98, (byte) 163, (byte) 115, (byte) 164, (byte) 114, (byte) 141,
-      (byte)  91, (byte) 163, (byte)  79, (byte) 147, (byte)  58, (byte)   2, (byte)   1, (byte)   2, (byte) 170, (byte) 199,
-      (byte) 129, (byte) 171, (byte) 128, (byte) 172, (byte) 110, (byte) 173, (byte) 174, (byte) 177, (byte) 128, (byte) 175,
-      (byte) 176, (byte) 171, (byte) 129, (byte) 171, (byte) 174, (byte) 178, (byte) 179, (byte) 180, (byte) 174, (byte) 172,
-      (byte) 176, (byte) 181, (byte) 141, (byte) 182, (byte) 157, (byte) 183, (byte) 179, (byte) 184, (byte) 185, (byte) 186,
-      (byte) 157, (byte) 178, (byte) 187, (byte) 189, (byte) 188, (byte) 181, (byte) 168, (byte) 181, (byte) 151, (byte) 190,
-      (byte) 191, (byte) 193, (byte) 192, (byte) 182, (byte) 188, (byte) 182, (byte) 187, (byte) 194, (byte) 172, (byte) 195,
-      (byte) 175, (byte) 196, (byte) 170, (byte) 197, (byte) 152, (byte) 198, (byte) 185, (byte) 169, (byte) 170, (byte) 200,
-      (byte) 176, (byte) 201, (byte) 170, (byte) 202, (byte) 203, (byte) 204, (byte) 148, (byte) 180, (byte) 185, (byte) 205,
-      (byte) 203, (byte) 206, (byte) 185, (byte) 207, (byte) 192, (byte) 208, (byte) 209, (byte) 210, (byte) 188, (byte) 194,
-      (byte) 211, (byte) 212, (byte) 192, (byte) 184, (byte) 213, (byte) 215, (byte) 214, (byte) 193, (byte) 188, (byte) 184,
-      (byte) 216, (byte) 208, (byte) 168, (byte) 193, (byte)  84, (byte) 163, (byte)  54, (byte) 219, (byte)  54, (byte) 168,
-      (byte) 221, (byte)  94, (byte)  54, (byte) 217, (byte)  55, (byte) 223, (byte)  85, (byte) 224, (byte)  69, (byte) 225,
-      (byte)  63, (byte)  76, (byte)  56, (byte) 227, (byte)  86, (byte) 217, (byte)  58, (byte) 229, (byte) 230, (byte) 219,
-      (byte) 231, (byte)  79, (byte)  57, (byte)  86, (byte) 229, (byte) 165, (byte)  56, (byte) 217, (byte) 224, (byte) 214,
-      (byte)  54, (byte) 225, (byte)  54, (byte) 216, (byte)  66, (byte) 216, (byte)  58, (byte) 234, (byte)  54, (byte)  75,
-      (byte)  61, (byte) 214, (byte)  57, (byte) 237, (byte) 222, (byte)  74, (byte)  78, (byte)  74, (byte)  85, (byte) 163,
-      (byte)  82, (byte) 217, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0,
-      (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0, (byte)   0,
-      (byte)   0, (byte)   0
+      { 
+            1,     3,  -113,     4,     5,     6,     7,     8,     9,    10,
+           11,    12,    13,    14,    15,    16,    17,    18,    19,    20,
+           21,    22,    23,    24,    25,    26,    27,    28,    29,    30,
+           31,    32,    33,    34,    35,    36,    37,    38,    39,    40,
+           41,    42,    43,    44,    45,    46,    47,    48,    49,    50,
+           51,    52,    47,    54,    55,    56,    57,    58,    59,    60,
+           61,    62,    63,    64,    65,    66,    67,    68,    69,     6,
+           71,    71,    71,    61,    75,    56,    77,    78,    77,    80,
+           81,    82,    83,    84,    85,    86,    87,    88,    77,    90,
+           91,    92,    80,    94,    95,    96,    97,    98,    99,    90,
+          101,    94,   103,   101,   102,   104,   107,   104,   105,   108,
+          111,   112,   113,   114,   115,   116,    92,   118,    94,   103,
+          119,   122,   123,    94,   113,   126,   113,  -128,  -127,   114,
+         -125,  -124,   112,  -122,   111,  -122,   110,  -122,  -122,  -128,
+         -128,  -114,  -113,   115,   113,  -114,  -128,  -108,  -107,    79,
+         -108,  -114,  -108,  -106,  -101,  -107,   -99,  -107,   -97,  -107,
+         -125,   101,    98,   115,   114,    91,    79,    58,     1,   -86,
+         -127,  -128,   110,   -82,  -128,   -80,  -127,   -82,   -77,   -82,
+          -80,  -115,   -99,   -77,   -71,   -99,   -69,   -68,   -88,  -105,
+          -65,   -64,   -68,   -69,   -84,   -81,   -86,  -104,   -71,   -86,
+          -80,   -86,   -53,  -108,   -71,   -53,   -71,   -64,   -47,   -68,
+          -45,   -64,   -43,   -42,   -68,   -40,   -88,    84,    54,    54,
+          -35,    54,    55,    85,    69,    63,    56,    86,    58,   -26,
+          -25,    57,   -27,    56,   -32,    54,    54,    66,    58,    54,
+           61,    57,   -34,    78,    85,    82,     0,     0,     0,     0,
+            0,     0,     0,     0,     0,     0
+      },
+      {
+            2,   -93,   -87,   -93,   -91,    89,   -11,   -39,   -11,   -11,
+          -23,   -12,   -29,    74,   -35,   -35,   -38,   -30,   -13,   -38,
+          -18,   -14,    74,   -18,   -15,   -16,   -17,   -32,   -31,   -35,
+          -24,    72,   -32,   -28,   -33,   -31,   -18,    73,   -89,    76,
+          -19,   -22,   -25,    72,    31,    63,   -31,   -19,   -20,   -21,
+           53,   -22,    53,   -22,   -27,   -37,   -27,   -23,   -24,   -28,
+          -30,    72,    74,   -34,    75,   -36,   -89,    57,   -38,    70,
+          -88,    72,    73,    74,   -39,    76,   -89,    79,    79,   -90,
+          -94,   -94,   -94,   -94,   -91,    89,    89,   -91,    89,   -94,
+           93,    93,    93,   -95,   100,    93,    93,    93,    93,    93,
+          -95,   102,   120,   104,   105,   106,   108,   106,   109,   110,
+          -96,  -122,   108,   108,   126,   117,   117,   121,   119,   120,
+          107,   124,   117,   117,   125,   127,   124,  -117,  -126,   124,
+         -123,   109,   110,  -121,   110,  -120,  -119,  -118,   127,  -116,
+         -115,  -111,  -112,   124,   125,  -110,  -109,  -105,   125,  -106,
+          127,  -104,  -103,  -102,  -100,  -117,   -98,  -117,  -100,  -117,
+         -126,   117,   -93,   -92,  -115,   -93,  -109,     2,     2,   -57,
+          -85,   -84,   -83,   -79,   -81,   -85,   -85,   -78,   -76,   -84,
+          -75,   -74,   -73,   -72,   -70,   -78,   -67,   -75,   -75,   -66,
+          -63,   -74,   -74,   -62,   -61,   -60,   -59,   -58,   -87,   -56,
+          -55,   -54,   -52,   -76,   -51,   -50,   -49,   -48,   -46,   -62,
+          -44,   -72,   -41,   -63,   -72,   -48,   -63,   -93,   -37,   -88,
+           94,   -39,   -33,   -32,   -31,    76,   -29,   -39,   -27,   -37,
+           79,    86,   -91,   -39,   -42,   -31,   -40,   -40,   -22,    75,
+          -42,   -19,    74,    74,   -93,   -39,     0,     0,     0,     0,
+            0,     0,     0,     0,     0,     0        
+      }
    };
 
    // State Map
@@ -373,7 +377,7 @@ public class TPAQPredictor implements Predictor
    private int ctx5;
    private int ctx6;
 
-     
+   
    public TPAQPredictor()
    { 
        this(28); // 256 MB
@@ -446,25 +450,26 @@ public class TPAQPredictor implements Predictor
       final int c = this.c0;
       final int mask = this.statesMask;
       final byte[] st = this.states;
-      st[this.cp0] = STATE_TABLE[((st[this.cp0]&0xFF)<<1)|bit];
+      final byte[] table = STATE_TABLE[bit];
+      st[this.cp0] = table[st[this.cp0]&0xFF];
       this.cp0 = (this.ctx0 + c) & mask;
       int p0 = STATE_MAP[(0<<8)|(st[this.cp0]&0xFF)];
-      st[this.cp1] = STATE_TABLE[((st[this.cp1]&0xFF)<<1)|bit];
+      st[this.cp1] = table[st[this.cp1]&0xFF];
       this.cp1 = (this.ctx1 + c) & mask;
       int p1 = STATE_MAP[(1<<8)|(st[this.cp1]&0xFF)];
-      st[this.cp2] = STATE_TABLE[((st[this.cp2]&0xFF)<<1)|bit];
+      st[this.cp2] = table[st[this.cp2]&0xFF];
       this.cp2 = (this.ctx2 + c) & mask;
       int p2 = STATE_MAP[(2<<8)|(st[this.cp2]&0xFF)];
-      st[this.cp3] = STATE_TABLE[((st[this.cp3]&0xFF)<<1)|bit];
+      st[this.cp3] = table[st[this.cp3]&0xFF];
       this.cp3 = (this.ctx3 + c) & mask;
       int p3 = STATE_MAP[(3<<8)|(st[this.cp3]&0xFF)];
-      st[this.cp4] = STATE_TABLE[((st[this.cp4]&0xFF)<<1)|bit];
+      st[this.cp4] = table[st[this.cp4]&0xFF];
       this.cp4 = (this.ctx4 + c) & mask;
       int p4 = STATE_MAP[(4<<8)|(st[this.cp4]&0xFF)];
-      st[this.cp5] = STATE_TABLE[((st[this.cp5]&0xFF)<<1)|bit];
+      st[this.cp5] = table[st[this.cp5]&0xFF];
       this.cp5 = (this.ctx5 + c) & mask;
       int p5 = STATE_MAP[(5<<8)|(st[this.cp5]&0xFF)];
-      st[this.cp6] = STATE_TABLE[((st[this.cp6]&0xFF)<<1)|bit];
+      st[this.cp6] = table[st[this.cp6]&0xFF];
       this.cp6 = (this.ctx6 + c) & mask;
       int p6 = STATE_MAP[(6<<8)|(st[this.cp6]&0xFF)];
 
@@ -601,4 +606,4 @@ public class TPAQPredictor implements Predictor
       }
    }
 
-}
+         }
