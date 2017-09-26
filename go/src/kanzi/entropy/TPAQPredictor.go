@@ -386,7 +386,7 @@ func NewTPAQPredictor(logStates uint) (*TPAQPredictor, error) {
 	this.mixers = make([]TPAQMixer, TPAQ_MIXER_SIZE)
 
 	for _, m := range this.mixers {
-		m.pr = 2048
+		m.init()
 	}
 
 	this.mixer = &this.mixers[0]
@@ -473,7 +473,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 	this.cp6 = &this.states[(this.ctx6+c)&this.statesMask]
 	p6 := TPAQ_STATE_MAP[(6<<8)|uint(*this.cp6)]
 
-	p7 := this.addMatchContext()
+	p7 := this.addMatchContextPred()
 
 	// Mix predictions using NN
 	p := this.mixer.get(p0, p1, p2, p3, p4, p5, p6, p7)
@@ -514,7 +514,7 @@ func (this *TPAQPredictor) findMatch() {
 	}
 }
 
-func (this *TPAQPredictor) addMatchContext() int32 {
+func (this *TPAQPredictor) addMatchContextPred() int32 {
 	p := int32(64)
 
 	if this.matchLen > 0 {
@@ -551,6 +551,18 @@ type TPAQMixer struct {
 	pr                             int // squashed prediction
 	w0, w1, w2, w3, w4, w5, w6, w7 int32
 	p0, p1, p2, p3, p4, p5, p6, p7 int32
+}
+
+func (this *TPAQMixer) init() {
+	this.pr = 2048
+	this.w0 = 64
+	this.w1 = 64
+	this.w2 = 64
+	this.w3 = 64
+	this.w4 = 64
+	this.w5 = 64
+	this.w6 = 64
+	this.w7 = 64
 }
 
 // Adjust weights to minimize coding cost of last prediction

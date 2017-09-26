@@ -35,7 +35,7 @@ namespace kanzi
        friend class TPAQPredictor;
 
    public:
-      TPAQMixer() { _pr = 2048; }
+      TPAQMixer() { _pr = 2048; _w0 = _w1 = _w2 = _w3 = _w4 = _w5 = _w6 = _w7 = 64; }
 
       ~TPAQMixer() { }
 
@@ -117,9 +117,9 @@ namespace kanzi
 
        static int32 hash(int32 x, int32 y);
 
-       int addContext(int32 ctxId, int32 cx);
+       int32 addContext(int32 ctxId, int32 cx);
 
-       int addMatchContext();
+       int addMatchContextPred();
 
        void findMatch();
   };

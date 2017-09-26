@@ -331,7 +331,8 @@ TPAQPredictor::TPAQPredictor(int logStates)
     _hash = 0;
     _mixers = new TPAQMixer[MIXER_SIZE];
     _mixer = &_mixers[0];
-    _states = new uint8[1 << logStates];
+    const int statesSize = 1 << logStates;
+    _states = new uint8[statesSize];
     _hashes = new int32[HASH_SIZE];
     _buffer = new byte[BUFFER_SIZE];
     _bpos = 0;
@@ -344,7 +345,7 @@ TPAQPredictor::TPAQPredictor(int logStates)
     _cp6 = &_states[0];
     _ctx0 = _ctx1 = _ctx2 = _ctx3 = 0;
     _ctx4 = _ctx5 = _ctx6 = 0;
-    memset(_states, 0, 1 << logStates);
+    memset(_states, 0, statesSize);
     memset(_hashes, 0, HASH_SIZE);
     memset(_buffer, 0, BUFFER_SIZE);
 }
@@ -420,7 +421,7 @@ void TPAQPredictor::update(int bit)
     _cp6 = &_states[(_ctx6 + _c0) & _statesMask];
     int p6 = STATE_MAP[(6 << 8) | (*_cp6)];
 
-    int p7 = addMatchContext();
+    int p7 = addMatchContextPred();
 
     // Mix predictions using NN
     int p = _mixer->get(p0, p1, p2, p3, p4, p5, p6, p7);
@@ -455,7 +456,7 @@ inline void TPAQPredictor::findMatch()
     }
 }
 
-inline int TPAQPredictor::addMatchContext()
+inline int TPAQPredictor::addMatchContextPred()
 {
     int p = 64;
 
@@ -476,7 +477,7 @@ inline int TPAQPredictor::addMatchContext()
     return p;
 }
 
-inline int TPAQPredictor::addContext(int32 ctxId, int32 cx)
+inline int32 TPAQPredictor::addContext(int32 ctxId, int32 cx)
 {
     cx = cx * 987654323 + ctxId;
     cx = (cx << 16) | (uint32(cx) >> 16);
@@ -516,7 +517,8 @@ inline int TPAQMixer::get(int p0, int p1, int p2, int p3, int p4, int p5, int p6
     _p7 = p7;
 
     // Neural Network dot product (sum weights*inputs)
-    const int32 p = (p0 * _w0) + (p1 * _w1) + (p2 * _w2) + (p3 * _w3) + (p4 * _w4) + (p5 * _w5) + (p6 * _w6) + (p7 * _w7);
+    const int32 p = (p0 * _w0) + (p1 * _w1) + (p2 * _w2) + (p3 * _w3) + 
+                    (p4 * _w4) + (p5 * _w5) + (p6 * _w6) + (p7 * _w7);
 
     _pr = Global::squash((p + 65536) >> 17);
     return _pr;

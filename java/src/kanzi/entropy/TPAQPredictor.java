@@ -473,7 +473,7 @@ public class TPAQPredictor implements Predictor
       this.cp6 = (this.ctx6 + c) & mask;
       int p6 = STATE_MAP[(6<<8)|(st[this.cp6]&0xFF)];
 
-      int p7 = this.addMatchContext();
+      int p7 = this.addMatchContextPred();
 
       // Mix predictions using NN
       int p = this.mixer.get(p0, p1, p2, p3, p4, p5, p6, p7);
@@ -511,7 +511,7 @@ public class TPAQPredictor implements Predictor
    }
 
 
-   private int addMatchContext()
+   private int addMatchContextPred()
    {
       int p = 64;
       
@@ -562,6 +562,8 @@ public class TPAQPredictor implements Predictor
       Mixer()
       {
          this.pr = 2048;
+         this.w0 = this.w1 = this.w2 = this.w3 = 64;
+         this.w4 = this.w5 = this.w6 = this.w7 = 64;
       }
 
       // Adjust weights to minimize coding cost of last prediction
@@ -606,4 +608,4 @@ public class TPAQPredictor implements Predictor
       }
    }
 
-         }
+}
