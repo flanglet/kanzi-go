@@ -36,7 +36,7 @@ namespace kanzi
 
    private:
        int _index; // last p, context
-       int* _data; // [NbCtx][33]:  p, context -> p
+       int32* _data; // [NbCtx][33]:  p, context -> p
    };
 
    template <int RATE>
@@ -46,11 +46,11 @@ namespace kanzi
        _index = 0;
 
        for (int j = 0; j <= 64; j++) {
-          _data[j] = (j << 6) << 4;
+          _data[j] = int32(j << 6) << 4;
        }
 
        for (int i = 1; i < n; i++) {
-           memcpy(&_data[i*65], &_data[0], 65*sizeof(int));
+           memcpy(&_data[i*65], &_data[0], 65*sizeof(int32));
        }
    }
 
@@ -59,7 +59,7 @@ namespace kanzi
    inline int LinearAdaptiveProbMap<RATE>::get(int bit, int pr, int ctx)
    {
        // Update probability based on error and learning rate
-       const int g = (bit << 16) + (bit << RATE) - (bit << 1);
+       const int32 g = int32((bit << 16) + (bit << RATE) - (bit << 1));
        _data[_index] += ((g - _data[_index]) >> RATE);
        _data[_index + 1] += ((g - _data[_index + 1]) >> RATE);
 
@@ -67,8 +67,8 @@ namespace kanzi
        _index = (pr >> 6) + (ctx << 6) + ctx;
 
        // Return interpolated probabibility
-       const int w = pr & 127;
-       return (_data[_index] * (128 - w) + _data[_index + 1] * w) >> 11;
+       const int32 w = int32(pr & 127);
+       return int(_data[_index] * (128 - w) + _data[_index + 1] * w) >> 11;
    }
 
 
@@ -84,7 +84,7 @@ namespace kanzi
 
    private:
        int _index; // last p, context
-       int* _data; // [NbCtx][33]:  p, context -> p
+       int32* _data; // [NbCtx][33]:  p, context -> p
    };
 
    template <int RATE>
@@ -94,11 +94,11 @@ namespace kanzi
        _index = 0;
 
        for (int j = 0; j < 33; j++) {
-          _data[j] = Global::squash((j - 16) << 7) << 4;
+          _data[j] = int32(Global::squash((j - 16) << 7)) << 4;
        }
 
        for (int i = 1; i < n; i++) {
-           memcpy(&_data[i*33], &_data[0], 33*sizeof(int));
+           memcpy(&_data[i*33], &_data[0], 33*sizeof(int32));
        }
    }
 
@@ -107,7 +107,7 @@ namespace kanzi
    inline int LogisticAdaptiveProbMap<RATE>::get(int bit, int pr, int ctx)
    {
        // Update probability based on error and learning rate
-       const int g = (bit << 16) + (bit << RATE) - (bit << 1);
+       const int32 g = int32((bit << 16) + (bit << RATE) - (bit << 1));
        _data[_index] += ((g - _data[_index]) >> RATE);
        _data[_index + 1] += ((g - _data[_index + 1]) >> RATE);
        pr = Global::STRETCH[pr];
@@ -116,9 +116,54 @@ namespace kanzi
        _index = ((pr + 2048) >> 7) + (ctx << 5) + ctx;
 
        // Return interpolated probabibility
-       const int w = pr & 127;
-       return (_data[_index] * (128 - w) + _data[_index + 1] * w) >> 11;
+       const int32 w = int32(pr & 127);
+       return int(_data[_index] * (128 - w) + _data[_index + 1] * w) >> 11;
    }
 
 }
+
+
+template <int RATE>
+class FastLogisticAdaptiveProbMap
+{
+public:
+	FastLogisticAdaptiveProbMap<RATE>(int n);
+
+	~FastLogisticAdaptiveProbMap<RATE>() { delete[] _data; }
+
+	int get(int bit, int pr, int ctx);
+
+private:
+	int32* _p; // last p
+	int32* _data; // [NbCtx][33]:  p, context -> p
+};
+
+template <int RATE>
+inline FastLogisticAdaptiveProbMap<RATE>::FastLogisticAdaptiveProbMap(int n)
+{
+	_data = new int[33 * n];
+	_p = &_data[0];
+
+	for (int j = 0; j < 33; j++) {
+		_data[j] = int32(Global::squash((j - 16) << 7)) << 4;
+	}
+
+	for (int i = 1; i < n; i++) {
+		memcpy(&_data[i * 33], &_data[0], 33 * sizeof(int32));
+	}
+}
+
+// Return improved prediction given current bit, prediction and context
+template <int RATE>
+inline int FastLogisticAdaptiveProbMap<RATE>::get(int bit, int pr, int ctx)
+{
+	// Update probability based on error and learning rate
+	const int32 g = int32((bit << 16) + (bit << RATE) - (bit << 1));
+	*_p += ((g - *_p) >> RATE);
+
+	// Find index: 33*ctx + quantized prediction in [0..32]
+	_p = &_data[((Global::STRETCH[pr] + 2048) >> 7) + (ctx << 5) + ctx];
+	return int(*_p) >> 4;
+}
+
 #endif
