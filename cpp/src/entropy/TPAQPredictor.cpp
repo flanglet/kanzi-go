@@ -21,8 +21,6 @@ limitations under the License.
 using namespace kanzi;
 
 ///////////////////////// state table ////////////////////////
-// STATE_TABLE[2*state+0] = next state if bit is 0, 0 <= state < 256
-// STATE_TABLE[2*state+1] = next state if bit is 1
 // States represent a bit history within some context.
 // State 0 is the starting state (no bits seen).
 // States 1-30 represent all possible sequences of 1-4 bits.
@@ -35,6 +33,7 @@ using namespace kanzi;
 // Also, when a bit is observed and the count of the opposite bit is large,
 // then part of this count is discarded to favor newer data over old.
 const uint8 STATE_TABLE[2][256] = {
+    // Bit 0
     { 1, 3, 143, 4, 5, 6, 7, 8, 9, 10,
         11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
         21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
@@ -61,6 +60,7 @@ const uint8 STATE_TABLE[2][256] = {
         231, 57, 229, 56, 224, 54, 54, 66, 58, 54,
         61, 57, 222, 78, 85, 82, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0 },
+    // Bit 1
     { 2, 163, 169, 163, 165, 89, 245, 217, 245, 245,
         233, 244, 227, 74, 221, 221, 218, 226, 243, 218,
         238, 242, 74, 238, 241, 240, 239, 224, 225, 221,
@@ -89,8 +89,8 @@ const uint8 STATE_TABLE[2][256] = {
         0, 0, 0, 0, 0, 0 }
 };
 
-// State Map
-const int STATE_MAP[] = {
+// State Maps ... bits 0 to 7
+const int STATE_MAP0[] = {
     -119, -120, 169, -476, -484, -386, -737, -881, -874, -712,
     -848, -679, -559, -794, -1212, -782, -1205, -1205, -613, -753,
     -1169, -1169, -1169, -743, -1155, -732, -720, -1131, -1131, -1131,
@@ -117,7 +117,9 @@ const int STATE_MAP[] = {
     -832, -832, -569, 0, -95, -660, 1, 569, 153, 416,
     -416, 1, 1, -569, 1, -318, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1,
+};
 
+const int STATE_MAP1[] = {
     -10, -436, 401, -521, -623, -689, -736, -812, -812, -900,
     -865, -891, -1006, -965, -981, -916, -946, -976, -1072, -1014,
     -1058, -1090, -1044, -1030, -1044, -1104, -1009, -1418, -1131, -1131,
@@ -144,7 +146,9 @@ const int STATE_MAP[] = {
     -355, -448, -142, -67, -76, -310, -324, -225, -96, 0,
     46, -72, 0, -439, 14, -55, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1,
+};
 
+const int STATE_MAP2[] = {
     -32, -521, 485, -627, -724, -752, -815, -886, -1017, -962,
     -1022, -984, -1099, -1062, -1090, -1062, -1108, -1085, -1248, -1126,
     -1233, -1104, -1233, -1212, -1285, -1184, -1162, -1309, -1240, -1309,
@@ -171,7 +175,9 @@ const int STATE_MAP[] = {
     -422, -419, -107, -89, -24, -69, -244, -51, -27, -250,
     0, 1, -145, 74, 12, 11, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1,
+};
 
+const int STATE_MAP3[] = {
     -25, -605, 564, -746, -874, -905, -949, -1044, -1126, -1049,
     -1099, -1140, -1248, -1122, -1184, -1240, -1198, -1285, -1262, -1332,
     -1418, -1402, -1390, -1285, -1418, -1418, -1418, -1367, -1552, -1440,
@@ -198,7 +204,9 @@ const int STATE_MAP[] = {
     -184, -455, -216, -19, -107, -219, -22, -232, -19, -198,
     -198, -113, -398, 0, -49, -29, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1,
+};
 
+const int STATE_MAP4[] = {
     -34, -648, 644, -793, -889, -981, -1053, -1108, -1108, -1117,
     -1176, -1198, -1205, -1140, -1355, -1332, -1418, -1440, -1402, -1355,
     -1367, -1418, -1402, -1525, -1504, -1402, -1390, -1378, -1525, -1440,
@@ -225,7 +233,9 @@ const int STATE_MAP[] = {
     -237, -495, -152, -43, 69, 46, -121, -191, -102, 170,
     -137, -45, -364, -57, -212, 7, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1,
+};
 
+const int STATE_MAP5[] = {
     -30, -722, 684, -930, -1006, -1155, -1191, -1212, -1332, -1149,
     -1276, -1297, -1320, -1285, -1344, -1648, -1402, -1482, -1552, -1255,
     -1344, -1504, -1728, -1525, -1418, -1728, -1856, -1584, -1390, -1552,
@@ -252,7 +262,9 @@ const int STATE_MAP[] = {
     -238, -459, -262, -100, 122, -152, -455, -269, -238, 0,
     -152, -416, -369, -219, -175, -41, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1,
+};
 
+const int STATE_MAP6[] = {
     -11, -533, 477, -632, -731, -815, -808, -910, -940, -995,
     -1094, -1040, -946, -1044, -1198, -1099, -1104, -1090, -1162, -1122,
     -1145, -1205, -1248, -1269, -1255, -1285, -1140, -1219, -1269, -1285,
@@ -279,7 +291,10 @@ const int STATE_MAP[] = {
     -345, -484, -119, -80, -58, -189, -253, -223, -106, -73,
     -57, -64, -268, -208, -4, 12, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1,
+};
 
+/*
+const int STATE_MAP7[] = {
     -38, -419, 362, -548, -577, -699, -725, -838, -860, -869,
     -891, -970, -989, -1030, -1014, -1030, -1169, -1067, -1113, -1155,
     -1212, -1176, -1269, -1205, -1320, -1378, -1169, -1285, -1418, -1240,
@@ -307,6 +322,7 @@ const int STATE_MAP[] = {
     -513, -156, -247, -108, -177, -95, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1,
 };
+*/
 
 inline int32 TPAQPredictor::hash(int32 x, int32 y)
 {
@@ -400,28 +416,28 @@ void TPAQPredictor::update(int bit)
     // Get initial predictions
     const uint8* table = STATE_TABLE[bit];
     *_cp0 = table[*_cp0];
-    *_cp1 = table[*_cp1];
-    *_cp2 = table[*_cp2];
-    *_cp3 = table[*_cp3];
-    *_cp4 = table[*_cp4];
-    *_cp5 = table[*_cp5];
-    *_cp6 = table[*_cp6];
     _cp0 = &_states[(_ctx0 + _c0) & _statesMask];
-    int p0 = STATE_MAP[(0 << 8) | (*_cp0)];
+    const int p0 = STATE_MAP0[*_cp0];
+    *_cp1 = table[*_cp1];
     _cp1 = &_states[(_ctx1 + _c0) & _statesMask];
-    int p1 = STATE_MAP[(1 << 8) | (*_cp1)];
+    const int p1 = STATE_MAP1[*_cp1];
+    *_cp2 = table[*_cp2];
     _cp2 = &_states[(_ctx2 + _c0) & _statesMask];
-    int p2 = STATE_MAP[(2 << 8) | (*_cp2)];
+    const int p2 = STATE_MAP2[*_cp2];
+    *_cp3 = table[*_cp3];
     _cp3 = &_states[(_ctx3 + _c0) & _statesMask];
-    int p3 = STATE_MAP[(3 << 8) | (*_cp3)];
+    const int p3 = STATE_MAP3[*_cp3];
+    *_cp4 = table[*_cp4];
     _cp4 = &_states[(_ctx4 + _c0) & _statesMask];
-    int p4 = STATE_MAP[(4 << 8) | (*_cp4)];
+    const int p4 = STATE_MAP4[*_cp4];
+    *_cp5 = table[*_cp5];
     _cp5 = &_states[(_ctx5 + _c0) & _statesMask];
-    int p5 = STATE_MAP[(5 << 8) | (*_cp5)];
+    const int p5 = STATE_MAP5[*_cp5];
+    *_cp6 = table[*_cp6];
     _cp6 = &_states[(_ctx6 + _c0) & _statesMask];
-    int p6 = STATE_MAP[(6 << 8) | (*_cp6)];
+    const int p6 = STATE_MAP6[*_cp6];
 
-    int p7 = addMatchContextPred();
+    const int p7 = addMatchContextPred();
 
     // Mix predictions using NN
     int p = _mixer->get(p0, p1, p2, p3, p4, p5, p6, p7);
@@ -458,12 +474,12 @@ inline void TPAQPredictor::findMatch()
 
 inline int TPAQPredictor::addMatchContextPred()
 {
-    int p = 64;
+    int p = 0;
 
     if (_matchLen > 0) {
         if (_c0 == ((_buffer[_matchPos & MASK_BUFFER] & 0xFF) | 256) >> (8 - _bpos)) {
             // Add match length to NN inputs. Compute input based on run length
-            p = (_matchLen <= 24) ? _matchLen : 24 + ((_matchLen - 24) >> 2);
+            p = (_matchLen <= 24) ? _matchLen : 24 + ((_matchLen - 24) >> 3);
 
             if (((_buffer[_matchPos & MASK_BUFFER] >> (7 - _bpos)) & 1) == 0)
                 p = -p;
@@ -493,6 +509,7 @@ inline void TPAQMixer::update(int bit)
         return;
 
     err = (err << 4) - err;
+    _skew += err;
 
     // Train Neural Network: update weights
     _w0 += ((_p0 * err + 0) >> 15);
@@ -518,7 +535,8 @@ inline int TPAQMixer::get(int p0, int p1, int p2, int p3, int p4, int p5, int p6
 
     // Neural Network dot product (sum weights*inputs)
     const int32 p = (p0 * _w0) + (p1 * _w1) + (p2 * _w2) + (p3 * _w3) + 
-                    (p4 * _w4) + (p5 * _w5) + (p6 * _w6) + (p7 * _w7);
+                    (p4 * _w4) + (p5 * _w5) + (p6 * _w6) + (p7 * _w7) +
+                    _skew;
 
     _pr = Global::squash((p + 65536) >> 17);
     return _pr;

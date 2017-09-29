@@ -32,7 +32,7 @@ import kanzi.Global;
       this.data = new int[n*33];
       this.rate = rate;
 
-      for (int j=0; j<=33; j++)
+      for (int j=0; j<=32; j++)
          this.data[j] = Global.squash((j-16)<<7) << 4 ;
 
       for (int i=1; i<n; i++)

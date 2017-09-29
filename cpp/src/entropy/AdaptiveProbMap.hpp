@@ -93,7 +93,7 @@ namespace kanzi
        _data = new int[33 * n];
        _index = 0;
 
-       for (int j = 0; j < 33; j++) {
+       for (int j = 0; j <= 32; j++) {
           _data[j] = int32(Global::squash((j - 16) << 7)) << 4;
        }
 
@@ -144,7 +144,7 @@ inline FastLogisticAdaptiveProbMap<RATE>::FastLogisticAdaptiveProbMap(int n)
 	_data = new int[33 * n];
 	_p = &_data[0];
 
-	for (int j = 0; j < 33; j++) {
+	for (int j = 0; j <= 32; j++) {
 		_data[j] = int32(Global::squash((j - 16) << 7)) << 4;
 	}
 

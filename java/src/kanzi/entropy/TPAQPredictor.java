@@ -30,7 +30,7 @@ public class TPAQPredictor implements Predictor
    private static final int HASH_SIZE = 16*1024*1024;
    private static final int MASK_MIXER = MIXER_SIZE - 1;
    private static final int MASK_BUFFER = BUFFER_SIZE - 1;
-   private static final int MASK_HASH = HASH_SIZE- 1;
+   private static final int MASK_HASH = HASH_SIZE - 1;
    private static final int MASK1 = 0x80808080;
    private static final int MASK2 = 0xF0F0F0F0;
    private static final int C1 = 0xcc9e2d51;
@@ -43,8 +43,6 @@ public class TPAQPredictor implements Predictor
    private static final int HASH3 = 50004239;
 
    ///////////////////////// state table ////////////////////////
-   // STATE_TABLE[2*state+0] = next state if bit is 0, 0 <= state < 256
-   // STATE_TABLE[2*state+1] = next state if bit is 1
    // States represent a bit history within some context.
    // State 0 is the starting state (no bits seen).
    // States 1-30 represent all possible sequences of 1-4 bits.
@@ -58,6 +56,7 @@ public class TPAQPredictor implements Predictor
    // then part of this count is discarded to favor newer data over old.
    private static final byte[][] STATE_TABLE =
    {
+      // Bit 0
       { 
             1,     3,  -113,     4,     5,     6,     7,     8,     9,    10,
            11,    12,    13,    14,    15,    16,    17,    18,    19,    20,
@@ -86,6 +85,7 @@ public class TPAQPredictor implements Predictor
            61,    57,   -34,    78,    85,    82,     0,     0,     0,     0,
             0,     0,     0,     0,     0,     0
       },
+      // Bit 1
       {
             2,   -93,   -87,   -93,   -91,    89,   -11,   -39,   -11,   -11,
           -23,   -12,   -29,    74,   -35,   -35,   -38,   -30,   -13,   -38,
@@ -116,8 +116,8 @@ public class TPAQPredictor implements Predictor
       }
    };
 
-   // State Map
-   private static final int[] STATE_MAP =
+   // State Maps ... bits 0 to 7
+   private static final int[] STATE_MAP0 =
    {
        -119,  -120,   169,  -476,  -484,  -386,  -737,  -881,  -874,  -712,
        -848,  -679,  -559,  -794, -1212,  -782, -1205, -1205,  -613,  -753,
@@ -145,7 +145,10 @@ public class TPAQPredictor implements Predictor
        -832,  -832,  -569,     0,   -95,  -660,     1,   569,   153,   416,
        -416,     1,     1,  -569,     1,  -318,     1,     1,     1,     1,
           1,     1,     1,     1,     1,     1,
-
+   };
+      
+   private static final int[] STATE_MAP1 =
+   {
         -10,  -436,   401,  -521,  -623,  -689,  -736,  -812,  -812,  -900,
        -865,  -891, -1006,  -965,  -981,  -916,  -946,  -976, -1072, -1014,
       -1058, -1090, -1044, -1030, -1044, -1104, -1009, -1418, -1131, -1131,
@@ -172,7 +175,10 @@ public class TPAQPredictor implements Predictor
        -355,  -448,  -142,   -67,   -76,  -310,  -324,  -225,   -96,     0,
          46,   -72,     0,  -439,    14,   -55,     1,     1,     1,     1,
           1,     1,     1,     1,     1,     1,
-
+   };
+      
+   private static final int[] STATE_MAP2 =
+   {
         -32,  -521,   485,  -627,  -724,  -752,  -815,  -886, -1017,  -962,
       -1022,  -984, -1099, -1062, -1090, -1062, -1108, -1085, -1248, -1126,
       -1233, -1104, -1233, -1212, -1285, -1184, -1162, -1309, -1240, -1309,
@@ -199,7 +205,10 @@ public class TPAQPredictor implements Predictor
        -422,  -419,  -107,   -89,   -24,   -69,  -244,   -51,   -27,  -250,
           0,     1,  -145,    74,    12,    11,     1,     1,     1,     1,
           1,     1,     1,     1,     1,     1,
-
+   };
+      
+   private static final int[] STATE_MAP3 =
+   {
         -25,  -605,   564,  -746,  -874,  -905,  -949, -1044, -1126, -1049,
       -1099, -1140, -1248, -1122, -1184, -1240, -1198, -1285, -1262, -1332,
       -1418, -1402, -1390, -1285, -1418, -1418, -1418, -1367, -1552, -1440,
@@ -226,7 +235,10 @@ public class TPAQPredictor implements Predictor
        -184,  -455,  -216,   -19,  -107,  -219,   -22,  -232,   -19,  -198,
        -198,  -113,  -398,     0,   -49,   -29,     1,     1,     1,     1,
           1,     1,     1,     1,     1,     1,
-
+   };
+      
+   private static final int[] STATE_MAP4 =
+   {
         -34,  -648,   644,  -793,  -889,  -981, -1053, -1108, -1108, -1117,
       -1176, -1198, -1205, -1140, -1355, -1332, -1418, -1440, -1402, -1355,
       -1367, -1418, -1402, -1525, -1504, -1402, -1390, -1378, -1525, -1440,
@@ -253,7 +265,10 @@ public class TPAQPredictor implements Predictor
        -237,  -495,  -152,   -43,    69,    46,  -121,  -191,  -102,   170,
        -137,   -45,  -364,   -57,  -212,     7,     1,     1,     1,     1,
           1,     1,     1,     1,     1,     1,
-
+   };
+      
+   private static final int[] STATE_MAP5 =
+   {
         -30,  -722,   684,  -930, -1006, -1155, -1191, -1212, -1332, -1149,
       -1276, -1297, -1320, -1285, -1344, -1648, -1402, -1482, -1552, -1255,
       -1344, -1504, -1728, -1525, -1418, -1728, -1856, -1584, -1390, -1552,
@@ -280,7 +295,10 @@ public class TPAQPredictor implements Predictor
        -238,  -459,  -262,  -100,   122,  -152,  -455,  -269,  -238,     0,
        -152,  -416,  -369,  -219,  -175,   -41,     1,     1,     1,     1,
           1,     1,     1,     1,     1,     1,
-
+   };
+      
+   private static final int[] STATE_MAP6 =
+   {
         -11,  -533,   477,  -632,  -731,  -815,  -808,  -910,  -940,  -995,
       -1094, -1040,  -946, -1044, -1198, -1099, -1104, -1090, -1162, -1122,
       -1145, -1205, -1248, -1269, -1255, -1285, -1140, -1219, -1269, -1285,
@@ -307,7 +325,11 @@ public class TPAQPredictor implements Predictor
        -345,  -484,  -119,   -80,   -58,  -189,  -253,  -223,  -106,   -73,
         -57,   -64,  -268,  -208,    -4,    12,     1,     1,     1,     1,
           1,     1,     1,     1,     1,     1,
-
+   };
+      
+/*
+   private static final int[] STATE_MAP7 =
+   {
         -38,  -419,   362,  -548,  -577,  -699,  -725,  -838,  -860,  -869,
        -891,  -970,  -989, -1030, -1014, -1030, -1169, -1067, -1113, -1155,
       -1212, -1176, -1269, -1205, -1320, -1378, -1169, -1285, -1418, -1240,
@@ -335,6 +357,7 @@ public class TPAQPredictor implements Predictor
        -513,  -156,  -247,  -108,  -177,   -95,     1,     1,     1,     1,
           1,     1,     1,     1,     1,     1,
    };
+*/
 
 
    static int hash(int x, int y)
@@ -377,15 +400,15 @@ public class TPAQPredictor implements Predictor
    private int ctx5;
    private int ctx6;
 
-   
+
    public TPAQPredictor()
-   { 
+   {
        this(28); // 256 MB
-   }  
-   
+   }
+
    
    public TPAQPredictor(int logStates)
-   {   
+   {
       if ((logStates < 16) || (logStates > 30))
          throw new IllegalArgumentException("The log of the states table size must be in [16..30]");
       
@@ -438,14 +461,14 @@ public class TPAQPredictor implements Predictor
         this.ctx4 = this.addContext(4, hash(C4, this.c4&MASK2));
         this.ctx5 = this.addContext(5, hash(C5, this.c4));
         this.ctx6 = this.addContext(6, hash(this.c4>>this.shift4, this.c8>>shift8));
-        
+
         // Find match
         this.findMatch();
 
         // Keep track of new match position
         this.hashes[this.hash] = this.pos;
       }
-     
+
       // Get initial predictions
       final int c = this.c0;
       final int mask = this.statesMask;
@@ -453,25 +476,25 @@ public class TPAQPredictor implements Predictor
       final byte[] table = STATE_TABLE[bit];
       st[this.cp0] = table[st[this.cp0]&0xFF];
       this.cp0 = (this.ctx0 + c) & mask;
-      int p0 = STATE_MAP[(0<<8)|(st[this.cp0]&0xFF)];
+      int p0 = STATE_MAP0[st[this.cp0]&0xFF];
       st[this.cp1] = table[st[this.cp1]&0xFF];
       this.cp1 = (this.ctx1 + c) & mask;
-      int p1 = STATE_MAP[(1<<8)|(st[this.cp1]&0xFF)];
+      int p1 = STATE_MAP1[st[this.cp1]&0xFF];
       st[this.cp2] = table[st[this.cp2]&0xFF];
       this.cp2 = (this.ctx2 + c) & mask;
-      int p2 = STATE_MAP[(2<<8)|(st[this.cp2]&0xFF)];
+      int p2 = STATE_MAP2[st[this.cp2]&0xFF];
       st[this.cp3] = table[st[this.cp3]&0xFF];
       this.cp3 = (this.ctx3 + c) & mask;
-      int p3 = STATE_MAP[(3<<8)|(st[this.cp3]&0xFF)];
+      int p3 = STATE_MAP3[st[this.cp3]&0xFF];
       st[this.cp4] = table[st[this.cp4]&0xFF];
       this.cp4 = (this.ctx4 + c) & mask;
-      int p4 = STATE_MAP[(4<<8)|(st[this.cp4]&0xFF)];
+      int p4 = STATE_MAP4[st[this.cp4]&0xFF];
       st[this.cp5] = table[st[this.cp5]&0xFF];
       this.cp5 = (this.ctx5 + c) & mask;
-      int p5 = STATE_MAP[(5<<8)|(st[this.cp5]&0xFF)];
+      int p5 = STATE_MAP5[st[this.cp5]&0xFF];
       st[this.cp6] = table[st[this.cp6]&0xFF];
       this.cp6 = (this.ctx6 + c) & mask;
-      int p6 = STATE_MAP[(6<<8)|(st[this.cp6]&0xFF)];
+      int p6 = STATE_MAP6[st[this.cp6]&0xFF];
 
       int p7 = this.addMatchContextPred();
 
@@ -513,14 +536,14 @@ public class TPAQPredictor implements Predictor
 
    private int addMatchContextPred()
    {
-      int p = 64;
+      int p = 0;
       
       if (this.matchLen > 0)
       {
          if (this.c0 == ((this.buffer[this.matchPos&MASK_BUFFER]&0xFF) | 256) >> (8-this.bpos))
          {
             // Add match length to NN inputs. Compute input based on run length
-            p = (this.matchLen<=24) ? this.matchLen : 24+((this.matchLen-24)>>2);
+            p = (this.matchLen<=24) ? this.matchLen : 24+((this.matchLen-24)>>3);
 
             if (((this.buffer[this.matchPos&MASK_BUFFER] >> (7-this.bpos)) & 1) == 0)
                p = -p;
@@ -555,10 +578,11 @@ public class TPAQPredictor implements Predictor
    static class Mixer
    {
       private int pr;  // squashed prediction
+      private int skew; 
       private int w0, w1, w2, w3, w4, w5, w6, w7; 
       private int p0, p1, p2, p3, p4, p5, p6, p7;
-      
-      
+
+
       Mixer()
       {
          this.pr = 2048;
@@ -566,6 +590,7 @@ public class TPAQPredictor implements Predictor
          this.w4 = this.w5 = this.w6 = this.w7 = 64;
       }
 
+      
       // Adjust weights to minimize coding cost of last prediction
       void update(int bit)
       {
@@ -575,6 +600,7 @@ public class TPAQPredictor implements Predictor
             return;
 
          err = (err << 4) - err;
+         this.skew += err;
 
          // Train Neural Network: update weights
          this.w0 += ((this.p0*err + 0) >> 15);
@@ -589,7 +615,7 @@ public class TPAQPredictor implements Predictor
 
 
       public int get(int p0, int p1, int p2, int p3, int p4, int p5, int p6, int p7)
-      { 
+      {
          this.p0 = p0;
          this.p1 = p1;
          this.p2 = p2;
@@ -598,10 +624,11 @@ public class TPAQPredictor implements Predictor
          this.p5 = p5;
          this.p6 = p6;
          this.p7 = p7;
-         
+
          // Neural Network dot product (sum weights*inputs)
          int p = this.w0*p0 + this.w1*p1 + this.w2*p2 + this.w3*p3 +
-                 this.w4*p4 + this.w5*p5 + this.w6*p6 + this.w7*p7;
+                 this.w4*p4 + this.w5*p5 + this.w6*p6 + this.w7*p7 +
+                 this.skew;
 
          this.pr = Global.squash((p+65536)>>17);
          return this.pr;

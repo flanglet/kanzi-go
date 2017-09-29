@@ -25,7 +25,7 @@ namespace kanzi
 {
 
    // TPAQ predictor
-   // Derived from a modified version of Tangelo 2.4 (by Jan Ondrus).
+   // Derived from a heavily modified version of Tangelo 2.4 (by Jan Ondrus).
    // PAQ8 is written by Matt Mahoney.
    // See http://encode.ru/threads/1738-TANGELO-new-compressor-(derived-from-PAQ8-FP8)
 
@@ -35,7 +35,7 @@ namespace kanzi
        friend class TPAQPredictor;
 
    public:
-      TPAQMixer() { _pr = 2048; _w0 = _w1 = _w2 = _w3 = _w4 = _w5 = _w6 = _w7 = 64; }
+      TPAQMixer() { _pr = 2048; _w0 = _w1 = _w2 = _w3 = _w4 = _w5 = _w6 = _w7 = 64; _skew = 0; }
 
       ~TPAQMixer() { }
 
@@ -47,6 +47,7 @@ namespace kanzi
        int32 _w0, _w1, _w2, _w3, _w4, _w5, _w6, _w7;
        int32 _p0, _p1, _p2, _p3, _p4, _p5, _p6, _p7;
        int _pr;
+       int32 _skew;
 
        void addInput(int32 pred);
    };
