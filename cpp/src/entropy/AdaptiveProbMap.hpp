@@ -120,50 +120,48 @@ namespace kanzi
        return int(_data[_index] * (128 - w) + _data[_index + 1] * w) >> 11;
    }
 
+
+   template <int RATE>
+   class FastLogisticAdaptiveProbMap
+   {
+   public:
+	   FastLogisticAdaptiveProbMap<RATE>(int n);
+
+	   ~FastLogisticAdaptiveProbMap<RATE>() { delete[] _data; }
+
+	   int get(int bit, int pr, int ctx);
+
+   private:
+	   int32* _p; // last p
+	   int32* _data; // [NbCtx][33]:  p, context -> p
+   };
+
+   template <int RATE>
+   inline FastLogisticAdaptiveProbMap<RATE>::FastLogisticAdaptiveProbMap(int n)
+   {
+	   _data = new int[33 * n];
+	   _p = &_data[0];
+
+	   for (int j = 0; j <= 32; j++) {
+		   _data[j] = int32(Global::squash((j - 16) << 7)) << 4;
+	   }
+
+	   for (int i = 1; i < n; i++) {
+		   memcpy(&_data[i * 33], &_data[0], 33 * sizeof(int32));
+	   }
+   }
+
+   // Return improved prediction given current bit, prediction and context
+   template <int RATE>
+   inline int FastLogisticAdaptiveProbMap<RATE>::get(int bit, int pr, int ctx)
+   {
+	   // Update probability based on error and learning rate
+	   const int32 g = int32((bit << 16) + (bit << RATE) - (bit << 1));
+	   *_p += ((g - *_p) >> RATE);
+
+	   // Find index: 33*ctx + quantized prediction in [0..32]
+	   _p = &_data[((Global::STRETCH[pr] + 2048) >> 7) + (ctx << 5) + ctx];
+	   return int(*_p) >> 4;
+   }
 }
-
-
-template <int RATE>
-class FastLogisticAdaptiveProbMap
-{
-public:
-	FastLogisticAdaptiveProbMap<RATE>(int n);
-
-	~FastLogisticAdaptiveProbMap<RATE>() { delete[] _data; }
-
-	int get(int bit, int pr, int ctx);
-
-private:
-	int32* _p; // last p
-	int32* _data; // [NbCtx][33]:  p, context -> p
-};
-
-template <int RATE>
-inline FastLogisticAdaptiveProbMap<RATE>::FastLogisticAdaptiveProbMap(int n)
-{
-	_data = new int[33 * n];
-	_p = &_data[0];
-
-	for (int j = 0; j <= 32; j++) {
-		_data[j] = int32(Global::squash((j - 16) << 7)) << 4;
-	}
-
-	for (int i = 1; i < n; i++) {
-		memcpy(&_data[i * 33], &_data[0], 33 * sizeof(int32));
-	}
-}
-
-// Return improved prediction given current bit, prediction and context
-template <int RATE>
-inline int FastLogisticAdaptiveProbMap<RATE>::get(int bit, int pr, int ctx)
-{
-	// Update probability based on error and learning rate
-	const int32 g = int32((bit << 16) + (bit << RATE) - (bit << 1));
-	*_p += ((g - *_p) >> RATE);
-
-	// Find index: 33*ctx + quantized prediction in [0..32]
-	_p = &_data[((Global::STRETCH[pr] + 2048) >> 7) + (ctx << 5) + ctx];
-	return int(*_p) >> 4;
-}
-
 #endif

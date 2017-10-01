@@ -54,5 +54,5 @@ func (this *FPAQPredictor) Update(bit byte) {
 
 // Return the split value representing the probability of 1 in the [0..4095] range.
 func (this *FPAQPredictor) Get() int {
-	return int(this.probs[this.ctxIdx] >> 3)
+	return this.probs[this.ctxIdx] >> 3
 }
