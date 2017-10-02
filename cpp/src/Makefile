@@ -76,25 +76,25 @@ tests: $(TESTS)
 app: $(APP)
 
 testBWT: $(LIB_OBJECTS) test/TestBWT.o
-	$(CC) $^ -o $@ $(LDFLAGS)
+	$(CC) $^ -o ../bin/$@ $(LDFLAGS)
 
 testMTFT: $(LIB_OBJECTS) test/TestMTFT.o
-	$(CC) $^ -o $@ $(LDFLAGS)
+	$(CC) $^ -o ../bin/$@ $(LDFLAGS)
 
 testEntropyCodec: $(LIB_OBJECTS) test/TestEntropyCodec.o
-	$(CC) $^ -o $@ $(LDFLAGS)
+	$(CC) $^ -o ../bin/$@ $(LDFLAGS)
 
 testDefaultBitStream: $(LIB_OBJECTS) test/TestDefaultBitStream.o
-	$(CC) $^ -o $@ $(LDFLAGS)
+	$(CC) $^ -o ../bin/$@ $(LDFLAGS)
 
 testFunctions: $(LIB_OBJECTS) test/TestFunctions.o
-	$(CC) $^ -o $@ $(LDFLAGS) 
+	$(CC) $^ -o ../bin/$@ $(LDFLAGS) 
 
 testTransforms: $(LIB_OBJECTS) test/TestTransforms.o
-	$(CC) $^ -o $@ $(LDFLAGS)
+	$(CC) $^ -o ../bin/$@ $(LDFLAGS)
 
 kanzi: $(LIB_OBJECTS) $(APP_OBJECTS) app/Kanzi.o
-	$(CC) $^ -o $@ $(LDFLAGS)
+	$(CC) $^ -o ../bin/$@ $(LDFLAGS)
 
 clean: 
 	rm -f $(TESTS) $(OBJECTS) $(TEST_OBJECTS) $(APP)
