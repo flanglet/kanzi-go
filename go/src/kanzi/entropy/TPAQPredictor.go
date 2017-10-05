@@ -365,7 +365,6 @@ type TPAQPredictor struct {
 	c8         int32 // last 8 to 4 whole bytes, last is in low 8 bits
 	bpos       uint  // number of bits in c0 (0-7)
 	pos        int32
-	shift4     uint
 	matchLen   int32
 	matchPos   int32
 	hash       int32
@@ -441,8 +440,16 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.bpos = 0
 
 		// Shift by 16 if binary data else 0
-		this.shift4 = uint(-(((this.c4 & TPAQ_MASK1) >> 31) | ((-(this.c4 & TPAQ_MASK1)) >> 31))) << 4
-		shift8 := uint(-(((this.c8 & TPAQ_MASK1) >> 31) | ((-(this.c8 & TPAQ_MASK1)) >> 31))) << 4
+		val1 := this.c4
+		val2 := this.c8
+
+		if this.c4&TPAQ_MASK1 != 0 {
+			val1 >>= 16
+		}
+
+		if this.c8&TPAQ_MASK1 != 0 {
+			val2 >>= 16
+		}
 
 		// Select Neural Net
 		this.mixer = &this.mixers[this.c4&TPAQ_MASK_MIXER]
@@ -454,7 +461,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.ctx3 = this.addContext(3, hashTPAQ(TPAQ_C3, this.c4<<8))
 		this.ctx4 = this.addContext(4, hashTPAQ(TPAQ_C4, this.c4&TPAQ_MASK2))
 		this.ctx5 = this.addContext(5, hashTPAQ(TPAQ_C5, this.c4))
-		this.ctx6 = this.addContext(6, hashTPAQ(this.c4>>this.shift4, this.c8>>shift8))
+		this.ctx6 = this.addContext(6, hashTPAQ(val1, val2))
 
 		// Find match
 		this.findMatch()

@@ -90,7 +90,6 @@ namespace kanzi
        int32 _c8; // last 8 to 4 whole bytes, last is in low 8 bits
        int _bpos; // number of bits in c0 (0-7)
        int32 _pos;
-       uint32 _shift4;
        int32 _matchLen;
        int32 _matchPos;
        int32 _hash;

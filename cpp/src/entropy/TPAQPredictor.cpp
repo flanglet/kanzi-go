@@ -375,8 +375,8 @@ void TPAQPredictor::update(int bit)
         _bpos = 0;
 
         // Shift by 16 if binary data else 0
-        _shift4 = ((_c4 & MASK1) == 0) ? 0 : 16;
-        const uint32 shift8 = ((_c8 & MASK1) == 0) ? 0 : 16;
+        const int32 val1 = ((_c4 & MASK1) == 0) ? _c4 : _c4 >> 16;
+        const int32 val2 = ((_c8 & MASK1) == 0) ? _c8 : _c8 >> 16;
 
         // Select Neural Net
         _mixer = &_mixers[_c4 & MASK_MIXER];
@@ -388,7 +388,7 @@ void TPAQPredictor::update(int bit)
         _ctx3 = addContext(3, hash(C3, _c4 << 8));
         _ctx4 = addContext(4, hash(C4, _c4 & MASK2));
         _ctx5 = addContext(5, hash(C5, _c4));
-        _ctx6 = addContext(6, hash(_c4 >> _shift4, _c8 >> shift8));
+        _ctx6 = addContext(6, hash(val1, val2));
 
         // Find match
         findMatch();

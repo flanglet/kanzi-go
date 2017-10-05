@@ -374,7 +374,6 @@ public class TPAQPredictor implements Predictor
    private int c8;                     // last 8 to 4 whole bytes, last is in low 8 bits
    private int bpos;                   // number of bits in c0 (0-7)
    private int pos;
-   private int shift4;
    private int matchLen;
    private int matchPos;
    private int hash;
@@ -447,8 +446,8 @@ public class TPAQPredictor implements Predictor
         this.bpos = 0;
 
         // Shift by 16 if binary data else 0
-        this.shift4 = ((this.c4&MASK1) == 0) ? 0 : 16;
-        final int shift8 = ((this.c8&MASK1) == 0) ? 0 : 16;
+        final int val1 = ((this.c4&MASK1) == 0) ? this.c4 : this.c4>>16;
+        final int val2 = ((this.c8&MASK1) == 0) ? this.c8 : this.c8>>16;
 
         // Select Neural Net
         this.mixer = this.mixers[this.c4&MASK_MIXER];
@@ -460,7 +459,7 @@ public class TPAQPredictor implements Predictor
         this.ctx3 = this.addContext(3, hash(C3, this.c4<<8));
         this.ctx4 = this.addContext(4, hash(C4, this.c4&MASK2));
         this.ctx5 = this.addContext(5, hash(C5, this.c4));
-        this.ctx6 = this.addContext(6, hash(this.c4>>this.shift4, this.c8>>shift8));
+        this.ctx6 = this.addContext(6, hash(val1, val2));
 
         // Find match
         this.findMatch();
@@ -494,7 +493,7 @@ public class TPAQPredictor implements Predictor
       int p5 = STATE_MAP5[st[this.cp5]&0xFF];
       st[this.cp6] = table[st[this.cp6]&0xFF];
       this.cp6 = (this.ctx6 + c) & mask;
-      int p6 = STATE_MAP6[st[this.cp6]&0xFF];
+      int p6 = STATE_MAP6[st[this.cp6]&0xFF];      
 
       int p7 = this.addMatchContextPred();
 
@@ -529,9 +528,9 @@ public class TPAQPredictor implements Predictor
                r++;
 
             this.matchLen = r - 1;
-         }
+         }         
       }
-   }
+   }     
 
 
    private int addMatchContextPred()
