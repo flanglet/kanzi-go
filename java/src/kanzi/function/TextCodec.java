@@ -33,6 +33,7 @@ public final class TextCodec implements ByteFunction
    private static final int THRESHOLD1 = 1 << LOG_THRESHOLD1;
    private static final int THRESHOLD2 = THRESHOLD1 * THRESHOLD1;
    private static final int MAX_DICT_SIZE = 1 << 19;
+   private static final int MAX_WORD_LENGTH = 32;
    public static final int LOG_HASHES_SIZE = 24; // 16 MB
    public static final byte ESCAPE_TOKEN1 = (byte) 0x0F; // dictionary word preceded by space symbol
    public static final byte ESCAPE_TOKEN2 = (byte) 0x0E; // toggle upper/lower case of first word char
@@ -713,7 +714,7 @@ public final class TextCodec implements ByteFunction
       }
 
       final int srcEnd = input.index + count;
-      final int dstEnd = dst.length;
+      final int dstEnd = output.index + this.getMaxEncodedLength(count);
       final int dstEnd3 = dstEnd - 3;
       int anchor = isText(src[srcIdx]) ? srcIdx - 1 : srcIdx; // previous delimiter
       int endWordIdx = ~anchor;
@@ -779,7 +780,7 @@ public final class TextCodec implements ByteFunction
             if (e == null)
             {
                // Word not found in the dictionary or hash collision: add or replace word
-               if (((length > 3) || ((length > 2) && (words < THRESHOLD2))) && (length < 32768))
+               if (((length > 3) || ((length > 2) && (words < THRESHOLD2))) && (length < MAX_WORD_LENGTH))
                {
                   e = this.dictList[words];
 
@@ -1037,7 +1038,7 @@ public final class TextCodec implements ByteFunction
             if (e == null)
             {
                // Word not found in the dictionary or hash collision: add or replace word
-               if (((length > 3) || ((length > 2) && (words < THRESHOLD2))) && (length < 32768))
+               if (((length > 3) || ((length > 2) && (words < THRESHOLD2))) && (length < MAX_WORD_LENGTH))
                {
                   e = this.dictList[words];
 

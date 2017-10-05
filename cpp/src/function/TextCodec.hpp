@@ -50,6 +50,7 @@ namespace kanzi {
        static const int THRESHOLD1 = 1 << LOG_THRESHOLD1;
        static const int THRESHOLD2 = THRESHOLD1 * THRESHOLD1;
        static const int MAX_DICT_SIZE = 1 << 19;
+       static const int MAX_WORD_LENGTH = 32;
        static const int LOG_HASHES_SIZE = 24; // 16 MB
        static const byte ESCAPE_TOKEN1 = byte(0x0F); // dictionary word preceded by space symbol
        static const byte ESCAPE_TOKEN2 = byte(0x0E); // toggle upper/lower case of first word char

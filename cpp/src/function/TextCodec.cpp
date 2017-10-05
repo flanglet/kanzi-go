@@ -709,7 +709,7 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
     }
 
     const int srcEnd = srcIdx + count;
-    const int dstEnd = output._length;
+    const int dstEnd = output._index + getMaxEncodedLength(count);
     const int dstEnd3 = dstEnd - 3;
     int anchor = isText(src[srcIdx]) ? srcIdx - 1 : srcIdx; // previous delimiter
     int endWordIdx = ~anchor;
@@ -771,7 +771,7 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
 
             if (pe == nullptr) {
                 // Word not found in the dictionary or hash collision: add or replace word
-                if (((length > 3) || ((length > 2) && (words < THRESHOLD2))) && (length < 32768)) {
+                if (((length > 3) || ((length > 2) && (words < THRESHOLD2))) && (length < MAX_WORD_LENGTH)) {
                     DictEntry* pe = &_dictList[words];
                     int peidx = int(pe->_idx);
 
@@ -1015,7 +1015,7 @@ bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int c
 
             if (pe == nullptr) {
                 // Word not found in the dictionary or hash collision: add or replace word
-                if (((length > 3) || ((length > 2) && (words < THRESHOLD2))) && (length < 32768)) {
+                if (((length > 3) || ((length > 2) && (words < THRESHOLD2))) && (length < MAX_WORD_LENGTH)) {
                     DictEntry& e = _dictList[words];
 
                     if (e._idx >= _staticDictSize) {

@@ -35,6 +35,7 @@ const (
 	TC_THRESHOLD1      = 1 << TC_LOG_THRESHOLD1
 	TC_THRESHOLD2      = TC_THRESHOLD1 * TC_THRESHOLD1
 	TC_MAX_DICT_SIZE   = 1 << 19
+	TC_MAX_WORD_LENGTH = 32
 	TC_LOG_HASHES_SIZE = 24         // 16 MB
 	TC_ESCAPE_TOKEN1   = byte(0x0F) // dictionary word preceded by space symbol
 	TC_ESCAPE_TOKEN2   = byte(0x0E) // toggle upper/lower case of first word char
@@ -731,7 +732,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	srcEnd := count
-	dstEnd := len(dst)
+	dstEnd := this.MaxEncodedLen(count)
 	dstEnd3 := dstEnd - 3
 	var anchor int // previous delimiter
 
@@ -814,7 +815,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 			if pe == nil {
 				// Word not found in the dictionary or hash collision: add or replace word
-				if (length > 3) || (length > 2 && words < TC_THRESHOLD2 && length < 32768) {
+				if (length > 3) || (length > 2 && words < TC_THRESHOLD2 && length < TC_MAX_WORD_LENGTH) {
 					pe := &this.dictList[words]
 					peidx := int(pe.idx)
 
@@ -1095,7 +1096,7 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 			if pe == nil {
 				// Word not found in the dictionary or hash collision: add or replace word
-				if (length > 3) || (length > 2 && words < TC_THRESHOLD2 && length < 32768) {
+				if (length > 3) || (length > 2 && words < TC_THRESHOLD2 && length < TC_MAX_WORD_LENGTH) {
 					pe = &this.dictList[words]
 					peidx := int(pe.idx)
 
