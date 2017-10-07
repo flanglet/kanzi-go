@@ -18,7 +18,7 @@ import kanzi.Global;
 
 // APM maps a probability and a context into a new probability
 // that the current bit will next be 1. After each guess, it updates
-// its state to improve future guesses. 
+// its state to improve future guesses.
 
 /*package*/ class FastLogisticAdaptiveProbMap
 {
@@ -33,7 +33,7 @@ import kanzi.Global;
       this.rate = rate;
 
       for (int j=0; j<=32; j++)
-         this.data[j] = Global.squash((j-16)<<7) << 4 ;
+         this.data[j] = Global.squash((j-16)<<7) << 4;
 
       for (int i=1; i<n; i++)
          System.arraycopy(this.data, 0, this.data, i*33, 33);
@@ -50,5 +50,5 @@ import kanzi.Global;
       // Find index: 33*ctx + quantized prediction in [0..32]
       this.index = ((Global.STRETCH[pr]+2048)>>7) + (ctx<<5) + ctx;
       return (this.data[this.index]) >> 4;
-   }   
+   }
 }

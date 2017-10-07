@@ -19,23 +19,23 @@ import java.util.TreeSet;
 import kanzi.Global;
 
 
-// Class used to predict a block based on its neighbors in the current frame or 
+// Class used to predict a block based on its neighbors in the current frame or
 // in a reference frame
 public class LossyIntraPredictor
 {
    // 4096 / n
    private static final int[] IDIV  = initInverse();
-   
+
    private static int[] initInverse()
    {
       final int[] res = new int[32*32+1];
-      
+
       for (int i=1; i<res.length; i++)
          res[i] = (1<<16) / i;
-         
+
       return res;
    }
-   
+
    public enum Mode
    {
       DC,              // DC
@@ -51,7 +51,7 @@ public class LossyIntraPredictor
 
       // 'direct' encoding mode can be encoded as reference prediction mode
       // with same frame (or empty frame?) and deltaX=deltaY=0
-      
+
       public static Mode getMode(int val)
       {
          if (val == BILINEAR_HV.ordinal())
@@ -90,7 +90,7 @@ public class LossyIntraPredictor
 
    private static final int ACTION_POPULATE  = 1;
    private static final int ACTION_GET_INDEX = 2;
-   private static final int ACTION_GET_COORD = 3;   
+   private static final int ACTION_GET_COORD = 3;
    private static final int ANGLE_30 = 30;    // Approximate (deltaX=2, deltaY=1)
    private static final int ANGLE_45 = 45;    // Exact (deltaX=1, deltaY=1)
    private static final int ANGLE_60 = 60;    // Approximate (deltaX=1, deltaY=2)
@@ -208,7 +208,7 @@ public class LossyIntraPredictor
       return this.stride;
    }
 
-   
+
    // Compute block prediction (from other blocks) using several different methods (modes)
    // Another block (spatial or temporal) can be provided optionally
    // The input arrays must be frame channels (R,G,B or Y,U,V)
@@ -263,17 +263,17 @@ public class LossyIntraPredictor
          p.frame = other;
          p.x = ox;
          p.y = oy;
-         this.computePredictionReference(predictions[Mode.REFERENCE_INTER.ordinal()], 
+         this.computePredictionReference(predictions[Mode.REFERENCE_INTER.ordinal()],
             input, iy*this.stride+ix, other, oy*this.stride+ox,blockDim);
 
          // Set best prediction index
          minIdx = Mode.REFERENCE_INTER.ordinal();
       }
-      
+
       // Found perfect match ?
       if ((predictions[minIdx].sad == 0) && (exhaustive == false))
         return Mode.REFERENCE_INTER.ordinal();
-      
+
       if (((predictionType & DIR_RIGHT) != 0) || (predictionType & DIR_LEFT) != 0)
       {
          // Compute block residues based on prediction modes
@@ -286,49 +286,49 @@ public class LossyIntraPredictor
          //  b4   x0 x1 x2 x3 x4 x5 x6 x7   c4
          //  b5   x0 x1 x2 x3 x4 x5 x6 x7   c5
          //  b6   x0 x1 x2 x3 x4 x5 x6 x7   c6
-         //  b7   x0 x1 x2 x3 x4 x5 x6 x7   c7    
+         //  b7   x0 x1 x2 x3 x4 x5 x6 x7   c7
          int sad;
          sad = this.computePredictionHorizontal(predictions[Mode.HORIZONTAL.ordinal()], input, ox, oy, predictionType);
-         
+
          if ((sad == 0) && (exhaustive == false))
             return Mode.HORIZONTAL.ordinal();
 
          sad = this.computePredictionVertical(predictions[Mode.VERTICAL.ordinal()], input, ox, oy, predictionType);
-                  
+
          if ((sad == 0) && (exhaustive == false))
             return Mode.VERTICAL.ordinal();
-         
+
          sad = this.computePredictionDC(predictions[Mode.DC.ordinal()], input, ox, oy, predictionType);
-         
+
          if ((sad == 0) && (exhaustive == false))
             return Mode.DC.ordinal();
-                  
+
          sad = this.computePredictionMedian(predictions[Mode.MEDIAN.ordinal()], input, ox, oy, predictionType);
-         
+
          if ((sad == 0) && (exhaustive == false))
             return Mode.MEDIAN.ordinal();
-                  
+
          sad = this.computePredictionBilinearHV(predictions[Mode.BILINEAR_HV.ordinal()], input, ox, oy, predictionType);
-         
+
          if ((sad == 0) && (exhaustive == false))
             return Mode.BILINEAR_HV.ordinal();
 
          sad = this.computePredictionDirectional(predictions[Mode.DIRECTIONAL_30.ordinal()], input, ox, oy, ANGLE_30, predictionType);
-         
+
          if ((sad == 0) && (exhaustive == false))
             return Mode.DIRECTIONAL_30.ordinal();
-         
+
          sad = this.computePredictionDirectional(predictions[Mode.DIRECTIONAL_45.ordinal()], input, ox, oy, ANGLE_45, predictionType);
-         
+
          if ((sad == 0) && (exhaustive == false))
             return Mode.DIRECTIONAL_45.ordinal();
-         
+
          sad = this.computePredictionDirectional(predictions[Mode.DIRECTIONAL_60.ordinal()], input, ox, oy, ANGLE_60, predictionType);
-         
+
          if ((sad == 0) && (exhaustive == false))
-            return Mode.DIRECTIONAL_60.ordinal();         
+            return Mode.DIRECTIONAL_60.ordinal();
       }
-      
+
       // Find best prediction
       for (int i=0; i<predictions.length; i++)
       {
@@ -373,7 +373,7 @@ public class LossyIntraPredictor
 
    // Compute residue against another (spatial/temporal) block
    // Return error of difference block
-   private int computePredictionReference(Prediction prediction, int[] input, int iIdx, 
+   private int computePredictionReference(Prediction prediction, int[] input, int iIdx,
       final int[] other, int oIdx, int blockDim)
    {
       final int st = this.stride;
@@ -400,7 +400,7 @@ public class LossyIntraPredictor
                 ref2 = other[oIdx+2] & mask_;
                 ref3 = other[oIdx+3] & mask_;
              }
-             
+
              final int val0 = (input[i]   & mask_) - ref0;
              final int val1 = (input[i+1] & mask_) - ref1;
              final int val2 = (input[i+2] & mask_) - ref2;
@@ -553,7 +553,7 @@ public class LossyIntraPredictor
        {
           for (int j=start; j<endj; j+=st)
           {
-             final int xMax = this.width - blockDim;             
+             final int xMax = this.width - blockDim;
              final int endi = j + blockDim;
              final int c = (x < xMax) ? input[endi] & mask_ : this.defaultPixVal;
 
@@ -573,7 +573,7 @@ public class LossyIntraPredictor
     }
 
 
-    private int[] computeBlockVertical(Prediction prediction, int[] output, 
+    private int[] computeBlockVertical(Prediction prediction, int[] output,
        final int x, final int y, int direction)
     {
        final int blockDim = prediction.blockDim;
@@ -617,7 +617,7 @@ public class LossyIntraPredictor
     }
 
 
-    private int[] computeBlockBilinearHV(Prediction prediction, int[] output, 
+    private int[] computeBlockBilinearHV(Prediction prediction, int[] output,
        final int x, final int y, int direction)
     {
        final int st = this.stride;
@@ -632,7 +632,7 @@ public class LossyIntraPredictor
        int a1 = this.defaultPixVal;
        int a2 = this.defaultPixVal;
        int a3 = this.defaultPixVal;
-       
+
        if ((direction & DIR_LEFT) != 0)
        {
           for (int j=start, jj=1; j<endj; j+=st, jj++)
@@ -672,7 +672,7 @@ public class LossyIntraPredictor
           {
              final int endi = j + blockDim;
 
-             for (int i=endi-4; i>=j ; i-=4)
+             for (int i=endi-4; i>=j; i-=4)
              {
                 final int c = (x < xMax) ? input[endi] & mask_ : this.defaultPixVal;
                 k = line + i - j;
@@ -696,14 +696,14 @@ public class LossyIntraPredictor
              }
 
              line += blockDim;
-          }            
+          }
        }
-     
+
        return output;
     }
 
-                   
-    private int[] computeBlockMedian(Prediction prediction, int[] output, 
+
+    private int[] computeBlockMedian(Prediction prediction, int[] output,
        final int x, final int y, int direction)
     {
        final int st = this.stride;
@@ -718,11 +718,11 @@ public class LossyIntraPredictor
        int a1 = this.defaultPixVal;
        int a2 = this.defaultPixVal;
        int a3 = this.defaultPixVal;
-       
+
        if ((direction & DIR_LEFT) != 0)
        {
           final int d = ((y > 0) && (x > 0)) ? input[start-st-1] & mask_ : this.defaultPixVal;
-          
+
           for (int j=start; j<endj; j+=st)
           {
              final int endi = j + blockDim;
@@ -751,7 +751,7 @@ public class LossyIntraPredictor
        }
        else if ((direction & DIR_RIGHT) != 0)
        {
-          final int xMax = this.width - blockDim;          
+          final int xMax = this.width - blockDim;
           final int e = ((y > 0) && (x < xMax)) ? input[start-st+blockDim] & mask_ : this.defaultPixVal;
           int line = 0;
 
@@ -759,7 +759,7 @@ public class LossyIntraPredictor
           {
              final int endi = j + blockDim;
 
-             for (int i=endi-4; i>=j ; i-=4)
+             for (int i=endi-4; i>=j; i-=4)
              {
                 final int c = (x < xMax) ? input[endi] & mask_ : this.defaultPixVal;
                 k = line + i - j;
@@ -773,7 +773,7 @@ public class LossyIntraPredictor
                    a3 = input[blockAbove+3] & mask_;
                 }
 
-                // MEDIAN: (xi,yi)+MEDIAN(ai, ci, (ai+ci)-e)  
+                // MEDIAN: (xi,yi)+MEDIAN(ai, ci, (ai+ci)-e)
                 output[i]   = Global.clip0_255(residue[k]   + median(a0, c, a0+c-e));
                 output[i+1] = Global.clip0_255(residue[k+1] + median(a1, c, a1+c-e));
                 output[i+2] = Global.clip0_255(residue[k+2] + median(a2, c, a2+c-e));
@@ -789,17 +789,17 @@ public class LossyIntraPredictor
 
 
     private static int median(int x, int y, int z)
-    {     
+    {
        if (y < z)
           return (x < y) ? y : ((x < z) ? x : z);
        else
-          return (x < z) ? z : ((x < y) ? x : y);       
+          return (x < z) ? z : ((x < y) ? x : y);
     }
-    
-    
-    private int[] computeBlockDirectional(Prediction prediction, int[] output, 
+
+
+    private int[] computeBlockDirectional(Prediction prediction, int[] output,
        final int x, final int y, int angle, int direction)
-    {       
+    {
        final int st = this.stride;
        final int mask_ = this.mask;
        final int start = (y*st) + x;
@@ -813,7 +813,7 @@ public class LossyIntraPredictor
 
        if ((direction & DIR_LEFT) != 0)
        {
-          // DIRECTIONAL_L          
+          // DIRECTIONAL_L
           for (int j=start, jj=1; j<endj; j+=st, jj++)
           {
              final int endi = j + blockDim;
@@ -822,7 +822,7 @@ public class LossyIntraPredictor
              {
                 int offset = -1;
                 final int ii = i - j + 1;
-                
+
                 if ((ii<<shiftX) >= (jj<<shiftY))
                 {
                   // Above 'diagonal' (including it) : reference is ai (or d)
@@ -833,8 +833,8 @@ public class LossyIntraPredictor
                {
                  // Below 'diagonal' : reference is bi
                  if (x > 0)
-                    offset = (jj - ((ii<<shiftX)>>shiftY))*st + start - st - 1;              
-               }  
+                    offset = (jj - ((ii<<shiftX)>>shiftY))*st + start - st - 1;
+               }
 
                if (offset >= 0)
                   output[i] = Global.clip0_255(residue[k] + (input[offset] & mask_));
@@ -842,7 +842,7 @@ public class LossyIntraPredictor
                   output[i] = Global.clip0_255(residue[k] + this.defaultPixVal);
 
                k++;
-            }         
+            }
           }
        }
        else if ((direction & DIR_RIGHT) != 0)
@@ -859,28 +859,28 @@ public class LossyIntraPredictor
              {
                 int offset = -1;
                 final int ii = blockDim - i + j - 1;
-                k = line + i - j;                
-                
+                k = line + i - j;
+
                 if ((ii<<shiftX) >= (jj<<shiftY))
                 {
                    // Above 'diagonal' (including it) : reference is ai
                    if (y > 0)
-                      offset = (jj - ((ii<<shiftX)>>shiftY)) + start - st - 1;   
+                      offset = (jj - ((ii<<shiftX)>>shiftY)) + start - st - 1;
                 }
                 else
                 {
                    // Below 'diagonal' : reference is ci
                    if (x < xMax)
-                      offset = (jj - ((ii<<shiftX)>>shiftY))*st + start - st - 1;                                  
+                      offset = (jj - ((ii<<shiftX)>>shiftY))*st + start - st - 1;
                 }
 
                 if (offset >= 0)
                    output[i] = Global.clip0_255(residue[k] + (input[offset] & mask_));
                 else
                    output[i] = Global.clip0_255(residue[k] + this.defaultPixVal);
-             } 
-             
-             line += blockDim; 
+             }
+
+             line += blockDim;
           }
        }
 
@@ -888,7 +888,7 @@ public class LossyIntraPredictor
     }
 
 
-    private int[] computeBlockDC(Prediction prediction, int[] output, 
+    private int[] computeBlockDC(Prediction prediction, int[] output,
        final int x, final int y, int direction)
     {
        final int st = this.stride;
@@ -1012,7 +1012,7 @@ public class LossyIntraPredictor
        {
           for (int j=start; j<endj; j+=st)
           {
-             final int xMax = this.width - blockDim;             
+             final int xMax = this.width - blockDim;
              final int endi = j + blockDim;
              final int c = (x < xMax) ? input[endi] & mask_ : this.defaultPixVal;
 
@@ -1032,7 +1032,7 @@ public class LossyIntraPredictor
                 residue[k+2] = val2;
                 residue[k+3] = val3;
                 k += 4;
-             }         
+             }
           }
        }
 
@@ -1041,7 +1041,7 @@ public class LossyIntraPredictor
     }
 
 
-    private int computePredictionVertical(Prediction prediction, int[] input, 
+    private int computePredictionVertical(Prediction prediction, int[] input,
        final int x, final int y, int direction)
     {
        final int blockDim = prediction.blockDim;
@@ -1094,7 +1094,7 @@ public class LossyIntraPredictor
     }
 
 
-    private int computePredictionBilinearHV(Prediction prediction, int[] input, 
+    private int computePredictionBilinearHV(Prediction prediction, int[] input,
        final int x, final int y, int direction)
     {
        final int st = this.stride;
@@ -1157,7 +1157,7 @@ public class LossyIntraPredictor
           {
              final int endi = j + blockDim;
 
-             for (int i=endi-4; i>=j ; i-=4)
+             for (int i=endi-4; i>=j; i-=4)
              {
                 final int c = (x < xMax) ? input[endi] & mask_ : this.defaultPixVal;
                 k = line + i - j;
@@ -1189,15 +1189,15 @@ public class LossyIntraPredictor
              }
 
              line += blockDim;
-          }            
+          }
        }
 
        prediction.sad = sad;
-       return prediction.sad;     
+       return prediction.sad;
     }
 
-               
-    private int computePredictionMedian(Prediction prediction, int[] input, 
+
+    private int computePredictionMedian(Prediction prediction, int[] input,
        final int x, final int y, int direction)
     {
        final int st = this.stride;
@@ -1212,11 +1212,11 @@ public class LossyIntraPredictor
        int a2 = this.defaultPixVal;
        int a3 = this.defaultPixVal;
        int sad = 0;
-       
+
        if ((direction & DIR_LEFT) != 0)
        {
           final int d = ((y > 0) && (x > 0)) ? input[start-st-1] & mask_ : this.defaultPixVal;
-          
+
           for (int j=start; j<endj; j+=st)
           {
              final int endi = j + blockDim;
@@ -1253,7 +1253,7 @@ public class LossyIntraPredictor
        }
        else if ((direction & DIR_RIGHT) != 0)
        {
-          final int xMax = this.width - blockDim;          
+          final int xMax = this.width - blockDim;
           final int e = ((y > 0) && (x < xMax)) ? input[start-st+blockDim] & mask_ : this.defaultPixVal;
           int line = 0;
 
@@ -1261,7 +1261,7 @@ public class LossyIntraPredictor
           {
              final int endi = j + blockDim;
 
-             for (int i=endi-4; i>=j ; i-=4)
+             for (int i=endi-4; i>=j; i-=4)
              {
                 final int c = (x < xMax) ? input[endi] & mask_ : this.defaultPixVal;
                 k = line + i - j;
@@ -1299,9 +1299,9 @@ public class LossyIntraPredictor
     }
 
 
-    private int computePredictionDirectional(Prediction prediction, int[] input, 
+    private int computePredictionDirectional(Prediction prediction, int[] input,
        final int x, final int y, int angle, int direction)
-    {       
+    {
        final int st = this.stride;
        final int start = (y*st) + x;
        final int mask_ = this.mask;
@@ -1315,7 +1315,7 @@ public class LossyIntraPredictor
 
        if ((direction & DIR_LEFT) != 0)
        {
-          // DIRECTIONAL_L          
+          // DIRECTIONAL_L
           for (int j=start, jj=1; j<endj; j+=st, jj++)
           {
              final int endi = j + blockDim;
@@ -1325,7 +1325,7 @@ public class LossyIntraPredictor
                 // (y<<shiftY) = (x<<shiftX) + const(offset)
                 final int ii = i - j + 1;
                 int offset = -1;
-                
+
                 if ((ii<<shiftX) >= (jj<<shiftY))
                 {
                   // Above 'diagonal' (including it) : reference is ai (or d)
@@ -1336,8 +1336,8 @@ public class LossyIntraPredictor
                 {
                   // Below 'diagonal' : reference is bi
                   if (x > 0)
-                     offset = (jj - ((ii<<shiftX)>>shiftY))*st + start - st - 1;              
-               } 
+                     offset = (jj - ((ii<<shiftX)>>shiftY))*st + start - st - 1;
+               }
 
                final int val = (offset >= 0) ? (input[i] & mask_) - (input[offset] & mask_) :
                     (input[i] & mask_) - this.defaultPixVal;
@@ -1345,7 +1345,7 @@ public class LossyIntraPredictor
                sad += ((val + (val >> 31)) ^ (val >> 31)); //abs
                residue[k] = val;
                k++;
-            }         
+            }
           }
        }
        else if ((direction & DIR_RIGHT) != 0)
@@ -1358,33 +1358,33 @@ public class LossyIntraPredictor
           {
              final int endi = j + blockDim;
 
-             for (int i=endi-1; i>=j ; i--)
+             for (int i=endi-1; i>=j; i--)
              {
                 int offset = -1;
                 final int ii = blockDim - i + j - 1;
-                k = line + i - j;                
+                k = line + i - j;
 
                 if ((ii<<shiftX) >= (jj<<shiftY))
                 {
                    // Above 'diagonal' (including it) : reference is ai
                    if (y > 0)
-                      offset = (jj - ((ii<<shiftX)>>shiftY)) + start - st - 1;   
+                      offset = (jj - ((ii<<shiftX)>>shiftY)) + start - st - 1;
                 }
                 else
                 {
                    // Below 'diagonal' : reference is ci
                    if (x < xMax)
-                      offset = (jj - ((ii<<shiftX)>>shiftY))*st + start - st - 1;                                  
+                      offset = (jj - ((ii<<shiftX)>>shiftY))*st + start - st - 1;
                 }
 
                 final int val = (offset >= 0) ? (input[i] & mask_) - (input[offset] & mask_) :
                     (input[i] & mask_) - this.defaultPixVal;
-             
+
                 sad += ((val + (val >> 31)) ^ (val >> 31)); //abs
                 residue[k] = val;
-             } 
-             
-             line += blockDim; 
+             }
+
+             line += blockDim;
           }
        }
 
@@ -1393,7 +1393,7 @@ public class LossyIntraPredictor
     }
 
 
-    private int computePredictionDC(Prediction prediction, int[] input, 
+    private int computePredictionDC(Prediction prediction, int[] input,
        final int x, final int y, int direction)
     {
        final int st = this.stride;
@@ -1409,11 +1409,11 @@ public class LossyIntraPredictor
        {
          sum += blockDim;
          final int above = start - st;
-  
+
          for (int i=0; i<blockDim; i++)
            dc += (input[above+i] & mask_);
        }
-          
+
        if ((direction & DIR_LEFT) != 0)
        {
           // dc=ai+bi
@@ -1440,7 +1440,7 @@ public class LossyIntraPredictor
        dc = (sum == 0) ? this.defaultPixVal : (dc + (sum>>1)) / sum;
        int k = 0;
        int sad = 0;
-          
+
        for (int j=start; j<endj; j+=st)
        {
           final int endi = j + blockDim;
@@ -1731,8 +1731,8 @@ public class LossyIntraPredictor
             return false;
          }
       }
-      
-      
+
+
       @Override
       public int hashCode()
       {

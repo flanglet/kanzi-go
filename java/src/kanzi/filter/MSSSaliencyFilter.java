@@ -28,11 +28,11 @@ import kanzi.util.color.YCbCrColorModelConverter;
 // Proceedings of IEEE International Conference on Image Processing (ICIP), 2010.
 // Fast integer based approximation using YUV rather than the slow LAB color model.
 public final class MSSSaliencyFilter implements IntFilter
-{    
+{
     // Type of filter output (3 'pixel' output channels or 1 'cost' output channel)
     public static final int IMAGE = 0;
     public static final int COST = 1;
-    
+
     private final int width;
     private final int height;
     private final int stride;
@@ -46,7 +46,7 @@ public final class MSSSaliencyFilter implements IntFilter
     private int[] chanA2;
     private int[] chanB2;
     private int[] buf;
-    
+
 
     public MSSSaliencyFilter(int width, int height)
     {
@@ -68,7 +68,7 @@ public final class MSSSaliencyFilter implements IntFilter
 
         if (width < 8)
             throw new IllegalArgumentException("The width must be at least 8");
-        
+
         if (stride < 8)
             throw new IllegalArgumentException("The stride must be at least 8");
 
@@ -87,15 +87,15 @@ public final class MSSSaliencyFilter implements IntFilter
         this.buf = new int[0];
     }
 
-   
+
    @Override
    public boolean apply(SliceIntArray input, SliceIntArray output)
    {
       if ((!SliceIntArray.isValid(input)) || (!SliceIntArray.isValid(output)))
          return false;
-      
+
       final int count = this.stride * this.height;
-      
+
       // Lazy instantiation
       if (this.buf.length < count)
       {
@@ -107,14 +107,14 @@ public final class MSSSaliencyFilter implements IntFilter
          this.chanA2 = new int[count];
          this.chanB2 = new int[count];
       }
-      
+
       final int[] src = input.array;
       final int[] dst = output.array;
       int srcIdx = input.index;
       int dstIdx = output.index;
       final int h = this.height;
       final int w = this.width;
-      
+
       SliceIntArray saL1 = new SliceIntArray(this.chanL1, 0);
       SliceIntArray saA1 = new SliceIntArray(this.chanA1, 0);
       SliceIntArray saB1 = new SliceIntArray(this.chanB1, 0);
@@ -130,7 +130,7 @@ public final class MSSSaliencyFilter implements IntFilter
 
          if (cvt.convertRGBtoYUV(src, this.chanL1, this.chanA1, this.chanB1, ColorModelType.YUV444) == false)
             return false;
-         
+
          copyImage(this.chanA1, this.buf, w, h, 0, this.width, this.stride);
 
          if (this.integralFilter.apply(sa, saA2) == false)
@@ -157,7 +157,7 @@ public final class MSSSaliencyFilter implements IntFilter
             this.chanB1[i] = 0;
          }
       }
-          
+
       copyImage(this.chanL1, this.buf, w, h, 0, this.width, this.stride);
 
       if (this.integralFilter.apply(sa, saL2) == false)
@@ -171,19 +171,19 @@ public final class MSSSaliencyFilter implements IntFilter
       int maxVal = 0;
       srcIdx = 0;
 
-      // Compute distance of differences 
+      // Compute distance of differences
       for (int y=0; y<h; y++)
       {
          final int yoff	= Math.min(y, h-y);
          final int y1	= y - yoff;
          final int y2	= Math.min(y+yoff, h-1);
-         
+
          for (int x=0; x<w; x++)
          {
             final int xoff	= Math.min(x, w-x);
             final int x1	= x - xoff;
             final int x2	= Math.min(x+xoff, w-1);
-            final int area = (x2-x1+1) * (y2-y1+1);     
+            final int area = (x2-x1+1) * (y2-y1+1);
             final int offset1 = (y1-1) * st;
             final int offset2 = y2 * st;
             final int valL = getIntegralSum(this.chanL2, x1, offset1, x2, offset2) / area;
@@ -193,27 +193,27 @@ public final class MSSSaliencyFilter implements IntFilter
             final int val1 = valL - this.chanL1[idx];
             final int val2 = valA - this.chanA1[idx];
             final int val3 = valB - this.chanB1[idx];
-            final int val = (val1*val1) + (val2*val2) + (val3*val3); // non linearity (dist. square)            
-            dst[dstIdx+x] = val; 
-            
+            final int val = (val1*val1) + (val2*val2) + (val3*val3); // non linearity (dist. square)
+            dst[dstIdx+x] = val;
+
             if (val < minVal)
-               minVal = val; 
-           
-            if (val > maxVal) 
-               maxVal = (int) val; 
+               minVal = val;
+
+            if (val > maxVal)
+               maxVal = (int) val;
          }
 
          srcIdx += st;
          dstIdx += st;
-      } 
-      
+      }
+
       final int range = maxVal - minVal;
       dstIdx = output.index;
-      
+
       if ((maxVal - minVal > 1) || (this.mask != -1))
       {
          final int scale = (255<<16) / range;
-         
+
          for (int y=0; y<h; y++)
          {
             for (int x=0; x<w; x++)
@@ -223,55 +223,55 @@ public final class MSSSaliencyFilter implements IntFilter
             }
 
             dstIdx += st;
-         }         
+         }
       }
 
       return true;
    }
 
-   
+
    private static void copyImage(int[] input, int[] output, int w, int h, int offs, int stride1, int stride2)
    {
       if (input == output)
          return;
-      
+
       if (stride1 == stride2)
       {
          // Copy full buffer
          System.arraycopy(input, offs, output, 0, input.length-offs);
          return;
       }
-      
+
       int srcIdx = offs;
       int dstIdx = 0;
-      
+
       for (int j=h-1; j>=0; j--)
-      {         
+      {
          // Copy line by line to respect different strides
          System.arraycopy(input, srcIdx, output, dstIdx, w);
          srcIdx += stride1;
          dstIdx += stride2;
       }
    }
-   
-   
+
+
    private static int getIntegralSum(int[] data, int x1, int offset1, int x2, int offset2)
    {
       if (x1 <= 0)
       {
          if (offset1 <= 0)
             return data[offset2+x2];
-         
+
          return data[offset2+x2] - data[offset1+x2];
       }
 
 		if (offset1 <= 0)
 			return data[offset2+x2] - data[offset2+x1-1];
 
-      return data[offset2+x2] + data[offset1+x1-1] - data[offset1+x2] - data[offset2+x1-1];     
+      return data[offset2+x2] + data[offset1+x1-1] - data[offset1+x2] - data[offset2+x1-1];
    }
-   
-   
+
+
    private boolean gaussianSmooth(SliceIntArray input, SliceIntArray output)
    {
       // Use a very small and inaccurate kernel (1, 2, 1)
@@ -296,14 +296,14 @@ public final class MSSSaliencyFilter implements IntFilter
             for (int i=1; i<w-1; i++)
             {
                nxt = src[srcIdx+i+1];
-               this.buf[idx+i] = (prv + cur + cur + nxt + 2) >>> 2 ; 
+               this.buf[idx+i] = (prv + cur + cur + nxt + 2) >>> 2;
                prv = cur;
                cur = nxt;
             }
-            
+
             this.buf[idx+w-1] = cur;
             srcIdx += st;
-            idx += st;            
+            idx += st;
          }
       }
 
@@ -324,15 +324,15 @@ public final class MSSSaliencyFilter implements IntFilter
                final int nxt = this.buf[idx+i+st];
                dst[dstIdx+i] = (prv + cur + cur + nxt + 2) >>> 2;
             }
-            
+
             dstIdx += st;
             idx += st;
          }
-         
+
          System.arraycopy(this.buf, idx, dst, dstIdx, w);
       }
 
       return true;
-   } 
-    
+   }
+
 }

@@ -372,7 +372,7 @@ public class ContextResizer implements IntFilter
            return false;
 
         if (geodesics.length == 0)
-           return true ;
+           return true;
 
         final int[] src = source.array;
         final int[] dst = destination.array;
@@ -496,7 +496,7 @@ public class ContextResizer implements IntFilter
            return false;
 
         if (geodesics.length == 0)
-           return true ;
+           return true;
 
         final int[] src = source.array;
         final int[] dst = destination.array;

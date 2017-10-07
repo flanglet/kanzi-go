@@ -348,8 +348,9 @@ func (this *SnappyCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			break
 		}
 
-		for ; d < end; d++ {
+		for d < end  {
 			dst[d] = dst[d-offset]
+			d++
 		}
 	}
 
@@ -364,9 +365,10 @@ func (this *SnappyCodec) Inverse(src, dst []byte) (uint, uint, error) {
 func (this SnappyCodec) putUvarint(buf []byte, val uint64) int {
 	idx := 0
 
-	for ; val >= 0x80; val >>= 7 {
+	for val >= 0x80 {
 		buf[idx] = byte(val | 0x80)
 		idx++
+		val >>= 7
 	}
 
 	buf[idx] = byte(val)
