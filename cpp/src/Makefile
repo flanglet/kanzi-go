@@ -45,6 +45,7 @@ LIB_SOURCES=Global.cpp \
 	function/SnappyCodec.cpp \
 	function/RLT.cpp \
 	function/TextCodec.cpp \
+	function/X86Codec.cpp \
 	function/ZRLT.cpp 
 LIB_OBJECTS=$(LIB_SOURCES:.cpp=.o)
 
