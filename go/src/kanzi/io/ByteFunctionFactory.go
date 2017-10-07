@@ -34,8 +34,8 @@ const (
 	ZRLT_TYPE           = uint16(6)  // Zero Run Length
 	MTFT_TYPE           = uint16(7)  // Move To Front
 	RANK_TYPE           = uint16(8)  // Rank
-	TIMESTAMP_TYPE      = uint16(9)  // TimeStamp
-	TEXTCODEC_TYPE      = uint16(10) // Text codec
+	X86_TYPE            = uint16(9)  // X86 codec
+	DICT_TYPE           = uint16(10) // Text codec
 )
 
 func NewByteFunction(ctx map[string]interface{}, functionType uint16) (*function.ByteTransformSequence, error) {
@@ -101,10 +101,7 @@ func newByteFunctionToken(ctx map[string]interface{}, functionType uint16) (kanz
 	case RANK_TYPE:
 		return transform.NewSBRT(transform.SBRT_MODE_RANK)
 
-	case TIMESTAMP_TYPE:
-		return transform.NewSBRT(transform.SBRT_MODE_TIMESTAMP)
-
-	case TEXTCODEC_TYPE:
+	case DICT_TYPE:
 		// Select an appropriate initial dictionary size
 		dictSize := 1 << 12
 
@@ -115,6 +112,9 @@ func newByteFunctionToken(ctx map[string]interface{}, functionType uint16) (kanz
 		}
 
 		return function.NewTextCodec(dictSize)
+
+	case X86_TYPE:
+		return function.NewX86Codec()
 
 	case NULL_TRANSFORM_TYPE:
 		return function.NewNullFunction()
@@ -177,10 +177,10 @@ func getByteFunctionNameToken(functionType uint16) string {
 	case RANK_TYPE:
 		return "RANK"
 
-	case TIMESTAMP_TYPE:
-		return "TIMESTAMP"
+	case X86_TYPE:
+		return "X86"
 
-	case TEXTCODEC_TYPE:
+	case DICT_TYPE:
 		return "TEXT"
 
 	case NULL_TRANSFORM_TYPE:
@@ -252,11 +252,11 @@ func getByteFunctionTypeToken(name string) uint16 {
 	case "RANK":
 		return RANK_TYPE
 
-	case "TIMESTAMP":
-		return TIMESTAMP_TYPE
+	case "X86":
+		return X86_TYPE
 
 	case "TEXT":
-		return TEXTCODEC_TYPE
+		return DICT_TYPE
 
 	case "NONE":
 		return NULL_TRANSFORM_TYPE

@@ -19,6 +19,7 @@
 #include "../transform/SBRT.hpp"
 #include "../function/NullFunction.hpp"
 #include "../function/TextCodec.hpp"
+#include "../function/X86Codec.hpp"
 
 namespace kanzi {
 
@@ -35,8 +36,8 @@ template <class T>
        static const short ZRLT_TYPE = 6; // Zero Run Length
        static const short MTFT_TYPE = 7; // Move To Front
        static const short RANK_TYPE = 8; // Rank
-       static const short TIMESTAMP_TYPE = 9; // TimeStamp
-       static const short TEXTCODEC_TYPE = 10; // Text codec
+       static const short X86_TYPE = 9; // X86 codec
+       static const short DICT_TYPE = 10; // Text codec
 
        FunctionFactory() {}
 
@@ -133,11 +134,11 @@ template <class T>
        if (name.compare("RANK") == 0)
            return RANK_TYPE;
 
-       if (name.compare("TIMESTAMP") == 0)
-           return TIMESTAMP_TYPE;
-
        if (name.compare("TEXT") == 0)
-           return TEXTCODEC_TYPE;
+           return DICT_TYPE;
+
+       if (name.compare("X86") == 0)
+           return X86_TYPE;
 
        if (name.compare("NONE") == 0)
            return NULL_TRANSFORM_TYPE;
@@ -207,7 +208,7 @@ template <class T>
        case RANK_TYPE:
            return new SBRT(SBRT::MODE_RANK);
 
-       case TEXTCODEC_TYPE:
+       case DICT_TYPE:
            {
               // Select an appropriate initial dictionary size
               int dictSize = 1<<12;
@@ -221,11 +222,11 @@ template <class T>
               return new TextCodec(dictSize); 
            }
 
-       case TIMESTAMP_TYPE:
-           return new SBRT(SBRT::MODE_TIMESTAMP);
+       case X86_TYPE:
+           return new X86Codec();
 
        case NULL_TRANSFORM_TYPE:
-           return new NullFunction<byte>();
+           return new NullFunction<T>();
 
        default:
            stringstream ss;
@@ -288,11 +289,11 @@ template <class T>
        case RANK_TYPE:
            return "RANK";
 
-       case TIMESTAMP_TYPE:
-           return "TIMESTAMP";
-
-       case TEXTCODEC_TYPE:
+       case DICT_TYPE:
            return "TEXT";
+
+       case X86_TYPE:
+           return "X86";
 
        case NULL_TRANSFORM_TYPE:
            return "NONE";

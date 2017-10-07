@@ -79,7 +79,7 @@ public class BinaryEntropyEncoder implements EntropyEncoder
 
 
    public void encodeBit(int bit)
-   {
+   {      
       // Calculate interval split
       // Written in a way to maximize accuracy of multiplication/division
       final long split = (((this.high - this.low) >>> 4) * this.predictor.get()) >>> 8;
@@ -87,7 +87,7 @@ public class BinaryEntropyEncoder implements EntropyEncoder
       // Update fields with new interval bounds
       this.high -= (-bit & (this.high - this.low - split));
       this.low += (~-bit & -~split);
-          
+            
       // Update predictor
       this.predictor.update(bit);
             

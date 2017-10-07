@@ -19,6 +19,7 @@ import java.util.Map;
 import kanzi.ByteTransform;
 import kanzi.function.BWTBlockCodec;
 import kanzi.function.ByteTransformSequence;
+import kanzi.function.X86Codec;
 import kanzi.function.LZ4Codec;
 import kanzi.function.NullFunction;
 import kanzi.function.RLT;
@@ -42,8 +43,8 @@ public class ByteFunctionFactory
    public static final short ZRLT_TYPE           = 6;  // Zero Run Length
    public static final short MTFT_TYPE           = 7;  // Move To Front
    public static final short RANK_TYPE           = 8;  // Rank
-   public static final short TIMESTAMP_TYPE      = 9;  // TimeStamp
-   public static final short TEXTCODEC_TYPE      = 10; // Text codec
+   public static final short X86_TYPE            = 9;  // X86 codec
+   public static final short DICT_TYPE           = 10; // Text codec
  
 
    // The returned type contains 4 (nibble based) transform values
@@ -110,11 +111,11 @@ public class ByteFunctionFactory
          case "RANK":
             return RANK_TYPE;
 
-         case "TIMESTAMP":
-            return TIMESTAMP_TYPE;
+         case "X86":
+            return X86_TYPE;
 
          case "TEXT":
-            return TEXTCODEC_TYPE;
+            return DICT_TYPE;
 
          case "NONE":
             return NULL_TRANSFORM_TYPE;
@@ -185,7 +186,7 @@ public class ByteFunctionFactory
          case RANK_TYPE:
             return new SBRT(SBRT.MODE_RANK);
             
-         case TEXTCODEC_TYPE:
+         case DICT_TYPE:
             // Select an appropriate initial dictionary size
             int dictSize = 1<<12;
             
@@ -197,8 +198,8 @@ public class ByteFunctionFactory
  
             return new TextCodec(dictSize);
             
-         case TIMESTAMP_TYPE:
-            return new SBRT(SBRT.MODE_TIMESTAMP);
+         case X86_TYPE:
+            return new X86Codec();
             
          case NULL_TRANSFORM_TYPE:
             return new NullFunction();
@@ -263,10 +264,10 @@ public class ByteFunctionFactory
          case RANK_TYPE:
             return "RANK";
             
-         case TIMESTAMP_TYPE:
-            return "TIMESTAMP";
+         case X86_TYPE:
+            return "X86";
             
-         case TEXTCODEC_TYPE:
+         case DICT_TYPE:
             return "TEXT";
             
          case NULL_TRANSFORM_TYPE:
