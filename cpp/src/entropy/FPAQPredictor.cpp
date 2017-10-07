@@ -33,5 +33,5 @@ inline void FPAQPredictor::update(int bit)
     _probs[_ctxIdx] -= (((3 * ((_probs[_ctxIdx] - 16) - (-bit & (PSCALE - 48)))) >> 7) + bit);
 
     // Update context by registering the current bit (or wrapping after 8 bits)
-    _ctxIdx = (_ctxIdx < 128) ? (_ctxIdx << 1) | bit : 1;
+    _ctxIdx = (_ctxIdx < 128) ? (_ctxIdx << 1) + bit : 1;
 }

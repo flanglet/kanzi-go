@@ -46,7 +46,7 @@ func (this *FPAQPredictor) Update(bit byte) {
 
 	// Update context by registering the current bit (or wrapping after 8 bits)
 	if this.ctxIdx < 128 {
-		this.ctxIdx = (this.ctxIdx << 1) | bit
+		this.ctxIdx = (this.ctxIdx << 1) + bit
 	} else {
 		this.ctxIdx = 1
 	}

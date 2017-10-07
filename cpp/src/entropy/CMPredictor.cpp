@@ -40,26 +40,27 @@ CMPredictor::CMPredictor()
         _counter2[i + i][16] -= 16;
         _counter2[i + i + 1][16] -= 16;
     }
+
+    _pc1 = _counter1[_ctx];
+    _pc2 = _counter2[(_ctx << 1) | _runMask];
 }
 
 // Update the probability model
 inline void CMPredictor::update(int bit)
 {
-    int* counter1_ = _counter1[_ctx];
     _ctx <<= 1;
-    int* counter2_ = _counter2[_ctx | _runMask];
 
     if (bit == 0) {
-        counter1_[256] -= (counter1_[256] >> FAST_RATE);
-        counter1_[_c1] -= (counter1_[_c1] >> MEDIUM_RATE);
-        counter2_[_idx + 1] -= (counter2_[_idx + 1] >> SLOW_RATE);
-        counter2_[_idx] -= (counter2_[_idx] >> SLOW_RATE);
+        _pc1[256] -= (_pc1[256] >> FAST_RATE);
+        _pc1[_c1] -= (_pc1[_c1] >> MEDIUM_RATE);
+        _pc2[_idx + 1] -= (_pc2[_idx + 1] >> SLOW_RATE);
+        _pc2[_idx] -= (_pc2[_idx] >> SLOW_RATE);
     }
     else {
-        counter1_[256] += ((counter1_[256] ^ 0xFFFF) >> FAST_RATE);
-        counter1_[_c1] += ((counter1_[_c1] ^ 0xFFFF) >> MEDIUM_RATE);
-        counter2_[_idx + 1] += ((counter2_[_idx + 1] ^ 0xFFFF) >> SLOW_RATE);
-        counter2_[_idx] += ((counter2_[_idx] ^ 0xFFFF) >> SLOW_RATE);
+        _pc1[256] += ((_pc1[256] ^ 0xFFFF) >> FAST_RATE);
+        _pc1[_c1] += ((_pc1[_c1] ^ 0xFFFF) >> MEDIUM_RATE);
+        _pc2[_idx + 1] += ((_pc2[_idx + 1] ^ 0xFFFF) >> SLOW_RATE);
+        _pc2[_idx] += ((_pc2[_idx] ^ 0xFFFF) >> SLOW_RATE);
         _ctx++;
     }
 
@@ -82,12 +83,12 @@ inline void CMPredictor::update(int bit)
 // Return the split value representing the probability of 1 in the [0..4095] range.
 inline int CMPredictor::get()
 {
-    const int* pc1 = _counter1[_ctx];
-    const int p = (13 * pc1[256] + 14 * pc1[_c1] + 5 * pc1[_c2]) >> 5;
+    _pc1 = _counter1[_ctx];
+    const int p = (13 * _pc1[256] + 14 * _pc1[_c1] + 5 * _pc1[_c2]) >> 5;
     _idx = p >> 12;
-    const int* pc2 = _counter2[(_ctx << 1) | _runMask];
-    const int x1 = pc2[_idx];
-    const int x2 = pc2[_idx + 1];
+    _pc2 = _counter2[(_ctx << 1) | _runMask];
+    const int x1 = _pc2[_idx];
+    const int x2 = _pc2[_idx + 1];
     const int ssep = x1 + (((x2 - x1) * (p & 4095)) >> 12);
     return (p + ssep + ssep + ssep + 32) >> 6; // rescale to [0..4095]
 }

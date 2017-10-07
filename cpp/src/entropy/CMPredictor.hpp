@@ -38,6 +38,8 @@ namespace kanzi
        int _runMask;
        int _counter1[256][257];
        int _counter2[512][17];
+       int* _pc1;
+       int* _pc2;
 
    public:
        CMPredictor();

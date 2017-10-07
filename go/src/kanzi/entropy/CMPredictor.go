@@ -104,8 +104,8 @@ func (this *CMPredictor) Get() int {
 	p := (13*pc1[256] + 14*pc1[this.c1] + 5*pc1[this.c2]) >> 5
 	this.idx = p >> 12
 	pc2 := this.counter2[(this.ctx<<1)|this.runMask]
-	x1 := pc2[this.idx]
 	x2 := pc2[this.idx+1]
+	x1 := pc2[this.idx]
 	ssep := x1 + (((x2 - x1) * (p & 4095)) >> 12)
 	return (p + ssep + ssep + ssep + 32) >> 6 // rescale to [0..4095]
 }
