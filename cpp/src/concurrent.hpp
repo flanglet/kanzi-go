@@ -33,7 +33,7 @@ public:
 #ifndef CONCURRENCY_ENABLED
 #ifdef __GNUC__
 // Require g++ 5.0 minimum, 4.8.4 generates exceptions on futures (?)
-#if __GNUC_PREREQ(5, 0)
+#if ((__GNUC__ << 16) + __GNUC_MINOR__ >= (5 << 16) + 0)
 #define CONCURRENCY_ENABLED
 #endif
 #else
