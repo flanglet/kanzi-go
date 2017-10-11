@@ -42,7 +42,7 @@ func NewFPAQPredictor() (*FPAQPredictor, error) {
 // bit == 1 -> prob += (3*(PSCALE+32-prob)) >> 7
 // bit == 0 -> prob -= (3*(prob-16)) >> 7
 func (this *FPAQPredictor) Update(bit byte) {
-	this.probs[this.ctxIdx] -= (((3 * ((this.probs[this.ctxIdx] - 16) - (-int(bit) & (PSCALE - 48)))) >> 7) + int(bit))
+	this.probs[this.ctxIdx] -= (((3 * (this.probs[this.ctxIdx] - (-int(bit) & (PSCALE - 48)))) >> 7) + int(bit))
 
 	// Update context by registering the current bit (or wrapping after 8 bits)
 	if this.ctxIdx < 128 {
