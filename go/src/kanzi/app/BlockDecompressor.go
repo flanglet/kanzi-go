@@ -170,7 +170,7 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 	}()
 
 	// Decode
-	read := uint64(0)
+	read := int64(0)
 	printFlag = this.verbosity > 1
 	bd_printOut("Decoding ...", printFlag)
 	var input io.ReadCloser

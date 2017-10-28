@@ -331,7 +331,7 @@ int BlockCompressor::call()
     // Encode
     printFlag = _verbosity > 1;
     printOut("Encoding ...", printFlag);
-    int read = 0;
+    int64 read = 0;
     byte* buf = new byte[DEFAULT_BUFFER_SIZE];
     SliceArray<byte> sa(buf, DEFAULT_BUFFER_SIZE, 0);
     int len;

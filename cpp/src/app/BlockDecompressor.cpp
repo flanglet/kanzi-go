@@ -154,7 +154,7 @@ int BlockDecompressor::call()
        ss.str(string());
     }
 
-    uint64 read = 0;
+    int64 read = 0;
     printFlag = _verbosity > 1;
     printOut("Decoding ...", printFlag);
 

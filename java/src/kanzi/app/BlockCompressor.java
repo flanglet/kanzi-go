@@ -258,7 +258,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
       // Encode
       printFlag = this.verbosity > 1;
       printOut("Encoding ...", printFlag);
-      int read = 0;
+      long read = 0;
       SliceByteArray sa = new SliceByteArray(new byte[DEFAULT_BUFFER_SIZE], 0);
       int len;
       
