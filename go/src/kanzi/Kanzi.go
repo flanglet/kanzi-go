@@ -209,6 +209,10 @@ func (LittleEndian) Uint32(p uintptr) uint32 {
 	return *(*uint32)(unsafe.Pointer(p))
 }
 
+func (LittleEndian) Uint16(p uintptr) uint16 {
+	return *(*uint16)(unsafe.Pointer(p))
+}
+
 type BigEndian struct {
 }
 
@@ -230,6 +234,12 @@ func (BigEndian) Uint32(p uintptr) uint32 {
 		((v << 8) & 0x00FF0000) |
 		((v >> 8) & 0x0000FF00) |
 		((v >> 24) & 0x000000FF)
+}
+
+func (BigEndian) Uint16(p uintptr) uint16 {
+	v := *(*uint16)(unsafe.Pointer(p))
+	return ((v << 8) & 0x0000FF00) |
+		((v >> 8) & 0x000000FF)
 }
 
 func DifferentInts(src, dst []byte) bool {

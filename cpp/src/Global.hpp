@@ -40,9 +40,11 @@ namespace kanzi {
 
        static int squash(int d);
 
-       static int readInt32(const byte* p);
+       static int64 readLong64(const byte* p);
 
-       static int readUInt32(const byte* p);
+       static int32 readInt32(const byte* p);
+
+       static int16 readInt16(const byte* p);
 
        static int ten_log10(int32 x) THROW;
 
@@ -79,17 +81,24 @@ namespace kanzi {
        static const int* initSquash();
    };
 
-   inline int Global::readInt32(const byte* p)
+   inline int64 Global::readLong64(const byte* p)
    {
-       int val;
+       int64 val;
+       memcpy(&val, p, 8);
+       return val;
+   }
+
+   inline int32 Global::readInt32(const byte* p)
+   {
+       int32 val;
        memcpy(&val, p, 4);
        return val;
    }
 
-   inline int Global::readUInt32(const byte* p)
+   inline int16 Global::readInt16(const byte* p)
    {
-       uint val;
-       memcpy(&val, p, 4);
+       int16 val;
+       memcpy(&val, p, 2);
        return val;
    }
 

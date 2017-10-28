@@ -32,7 +32,9 @@ public class Global
    private static final int SHIFT32_1  = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN) ?  16 : 8;
    private static final int SHIFT32_2  = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN) ?  8  : 16;
    private static final int SHIFT32_3  = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN) ?  0  : 24;
-
+   private static final int SHIFT16_0  = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN) ?  8 : 0;
+   private static final int SHIFT16_1  = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN) ?  0 : 8;
+   
    
    public static long readLong64(byte[] buf, int offset)
    {
@@ -53,6 +55,13 @@ public class Global
              ((buf[offset+2] & 0xFF) << SHIFT32_2) |
              ((buf[offset+1] & 0xFF) << SHIFT32_1) |
              ((buf[offset]   & 0xFF) << SHIFT32_0);       
+   }
+   
+     
+   public static int readInt16(byte[] buf, int offset)
+   {
+      return ((buf[offset+1] & 0xFF) << SHIFT16_1) |
+             ((buf[offset]   & 0xFF) << SHIFT16_0);       
    }
    
      

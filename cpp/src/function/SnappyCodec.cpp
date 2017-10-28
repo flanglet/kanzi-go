@@ -159,7 +159,7 @@ bool SnappyCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int
 
     while (srcIdx < ends2) {
         // Update the hash table
-        const int h = (Global::readUInt32(&src[srcIdx]) * HASH_SEED) >> shift;
+        const int h = (Global::readInt32(&src[srcIdx]) * HASH_SEED) >> shift;
         int t = table[h]; // The last position with the same hash as srcIdx
         table[h] = srcIdx;
 

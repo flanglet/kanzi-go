@@ -95,10 +95,10 @@ bool LZ4Codec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int co
         memset(table, 0, sizeof(int) * (size_t(1) << hashLog));
 
         // First byte
-        int h = (Global::readUInt32(&src[srcIdx]) * LZ4_HASH_SEED) >> hashShift;
+        int h = (Global::readInt32(&src[srcIdx]) * LZ4_HASH_SEED) >> hashShift;
         table[h] = srcIdx - base;
         srcIdx++;
-        h = (Global::readUInt32(&src[srcIdx]) * LZ4_HASH_SEED) >> hashShift;
+        h = (Global::readInt32(&src[srcIdx]) * LZ4_HASH_SEED) >> hashShift;
 
         while (true) {
             int fwdIdx = srcIdx;
@@ -123,7 +123,7 @@ bool LZ4Codec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int co
                 searchMatchNb++;
                 match = table[h] + base;
                 table[h] = srcIdx - base;
-                h = (Global::readUInt32(&src[fwdIdx]) * LZ4_HASH_SEED) >> hashShift;
+                h = (Global::readInt32(&src[fwdIdx]) * LZ4_HASH_SEED) >> hashShift;
             } while ((differentInts(src, match, srcIdx) == true) || (match <= srcIdx - MAX_DISTANCE));
 
             // Catch up
@@ -187,11 +187,11 @@ bool LZ4Codec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int co
                 }
 
                 // Fill table
-                h = (Global::readUInt32(&src[srcIdx - 2]) * LZ4_HASH_SEED) >> hashShift;
+                h = (Global::readInt32(&src[srcIdx - 2]) * LZ4_HASH_SEED) >> hashShift;
                 table[h] = srcIdx - 2 - base;
 
                 // Test next position
-                h = (Global::readUInt32(&src[srcIdx]) * LZ4_HASH_SEED) >> hashShift;
+                h = (Global::readInt32(&src[srcIdx]) * LZ4_HASH_SEED) >> hashShift;
                 match = table[h] + base;
                 table[h] = srcIdx - base;
 
@@ -205,7 +205,7 @@ bool LZ4Codec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int co
 
             // Prepare next loop
             srcIdx++;
-            h = (Global::readUInt32(&src[srcIdx]) * LZ4_HASH_SEED) >> hashShift;
+            h = (Global::readInt32(&src[srcIdx]) * LZ4_HASH_SEED) >> hashShift;
         }
     }
 
