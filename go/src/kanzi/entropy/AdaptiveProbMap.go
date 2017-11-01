@@ -20,12 +20,12 @@ import (
 )
 
 // APM maps a probability and a context into a new probability
-// that the current bit will next be 1. After each guess, it updates
+// that the next bit will be 1. After each guess, it updates
 // its state to improve future guesses.
 
 type AdaptiveProbMap struct {
-	index int   // last prob, context
-	rate  uint  // update rate
+	index int     // last prob, context
+	rate  uint    // update rate
 	data  []int32 // prob, context -> prob
 }
 
@@ -34,7 +34,7 @@ type LogisticAdaptiveProbMap AdaptiveProbMap
 type FastLogisticAdaptiveProbMap AdaptiveProbMap
 
 func newLogisticAdaptiveProbMap(n, rate uint) (*LogisticAdaptiveProbMap, error) {
-	this := new(LogisticAdaptiveProbMap)
+	this := &LogisticAdaptiveProbMap{}
 	this.data = make([]int32, n*33)
 	this.rate = rate
 
@@ -62,11 +62,11 @@ func (this *LogisticAdaptiveProbMap) get(bit int, pr int, ctx int) int {
 
 	// Return interpolated probability
 	w := int32(pr & 127)
-	return int(this.data[this.index+1]*w + this.data[this.index]*(128-w)) >> 11
+	return int(this.data[this.index+1]*w+this.data[this.index]*(128-w)) >> 11
 }
 
 func newFastLogisticAdaptiveProbMap(n, rate uint) (*FastLogisticAdaptiveProbMap, error) {
-	this := new(FastLogisticAdaptiveProbMap)
+	this := &FastLogisticAdaptiveProbMap{}
 	this.data = make([]int32, n*33)
 	this.rate = rate
 
@@ -90,14 +90,13 @@ func (this *FastLogisticAdaptiveProbMap) get(bit int, pr int, ctx int) int {
 	return int(this.data[this.index]) >> 4
 }
 
-
 func newLinearAdaptiveProbMap(n, rate uint) (*LinearAdaptiveProbMap, error) {
-	this := new(LinearAdaptiveProbMap)
+	this := &LinearAdaptiveProbMap{}
 	this.data = make([]int32, n*65)
 	this.rate = rate
 
 	for j := 0; j <= 64; j++ {
-		this.data[j] = int32(j << 6) << 4
+		this.data[j] = int32(j<<6) << 4
 	}
 
 	for i := uint(1); i < n; i++ {
@@ -120,5 +119,5 @@ func (this *LinearAdaptiveProbMap) get(bit int, pr int, ctx int) int {
 
 	// Return interpolated probability
 	w := int32(pr & 127)
-	return int(this.data[this.index+1]*w + this.data[this.index]*(128-w)) >> 11
+	return int(this.data[this.index+1]*w+this.data[this.index]*(128-w)) >> 11
 }

@@ -398,7 +398,7 @@ public class TPAQPredictor implements Predictor
    private int ctx4;
    private int ctx5;
    private int ctx6;
-
+   
 
    public TPAQPredictor()
    {

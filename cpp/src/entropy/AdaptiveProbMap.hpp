@@ -19,7 +19,7 @@ limitations under the License.
 #include "../Global.hpp"
 
 // APM maps a probability and a context into a new probability
-// that the current bit will next be 1. After each guess, it updates
+// that the next bit will be 1. After each guess, it updates
 // its state to improve future guesses. 
 
 namespace kanzi 

@@ -57,10 +57,10 @@ public class BinaryEntropyEncoder implements EntropyEncoder
          return -1;
 
       final int end = blkptr + len;
-
+      
       for (int i=blkptr; i<end; i++)
          this.encodeByte(array[i]);
-
+      
       return len;
    }
 
