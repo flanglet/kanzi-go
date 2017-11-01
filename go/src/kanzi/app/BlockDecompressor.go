@@ -187,7 +187,7 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 
 		if input, err = os.Open(this.inputName); err != nil {
 			fmt.Printf("Cannot open input file '%v': %v\n", this.inputName, err)
-			return kio.ERR_OPEN_FILE, read
+			return kio.ERR_OPEN_FILE, uint64(read)
 		}
 
 		defer func() {
@@ -202,11 +202,11 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 	if err != nil {
 		if err.(*kio.IOError) != nil {
 			fmt.Printf("%s\n", err.(*kio.IOError).Message())
-			return err.(*kio.IOError).ErrorCode(), read
+			return err.(*kio.IOError).ErrorCode(), uint64(read)
 		}
 
 		fmt.Printf("Cannot create compressed stream: %v\n", err)
-		return kio.ERR_CREATE_DECOMPRESSOR, read
+		return kio.ERR_CREATE_DECOMPRESSOR, uint64(read)
 	}
 
 	for _, bl := range this.listeners {
@@ -222,11 +222,11 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 		if decoded, err = cis.Read(buffer); err != nil {
 			if ioerr, isIOErr := err.(*kio.IOError); isIOErr == true {
 				fmt.Printf("%s\n", ioerr.Message())
-				return ioerr.ErrorCode(), read
+				return ioerr.ErrorCode(), uint64(read)
 			}
 
 			fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err)
-			return kio.ERR_PROCESS_BLOCK, read
+			return kio.ERR_PROCESS_BLOCK, uint64(read)
 		}
 
 		if decoded > 0 {
@@ -234,10 +234,10 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 
 			if err != nil {
 				fmt.Printf("Failed to write decompressed block to file '%v': %v\n", this.outputName, err)
-				return kio.ERR_WRITE_FILE, read
+				return kio.ERR_WRITE_FILE, uint64(read)
 			}
 
-			read += uint64(decoded)
+			read += int64(decoded)
 		}
 	}
 
@@ -245,7 +245,7 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 	// Deferred close is fallback for error paths
 	if err := cis.Close(); err != nil {
 		fmt.Printf("%v\n", err)
-		return kio.ERR_PROCESS_BLOCK, read
+		return kio.ERR_PROCESS_BLOCK, uint64(read)
 	}
 
 	after := time.Now()
@@ -262,7 +262,7 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 	bd_printOut(msg, this.verbosity == 1)
 
 	if delta > 0 {
-		msg = fmt.Sprintf("Throughput (KB/s): %d", ((read*uint64(1000))>>10)/uint64(delta))
+		msg = fmt.Sprintf("Throughput (KB/s): %d", ((read*int64(1000))>>10)/int64(delta))
 		bd_printOut(msg, printFlag)
 	}
 
