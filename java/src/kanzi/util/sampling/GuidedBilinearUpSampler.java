@@ -76,8 +76,11 @@ public class GuidedBilinearUpSampler implements UpSampler
 
    public boolean setGuide(int[] guide)
    {
-      if (guide == null)
-         return false;
+      if ((guide == null) || (guide.length == 0)) 
+      {
+         this.guide = new int[0];
+         return true;
+      }
        
       if (guide.length < 4*this.width*this.height)
          return false;

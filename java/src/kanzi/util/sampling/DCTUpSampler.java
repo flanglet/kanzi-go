@@ -36,7 +36,6 @@ public class DCTUpSampler implements UpSampler
    private final int[] scan;    
    private final int[] buffer1;
    private final int[] buffer2;
-   private int[] guide;
    
    
    public DCTUpSampler(int width, int height)
@@ -97,7 +96,6 @@ public class DCTUpSampler implements UpSampler
       this.dim = step;
       this.buffer1 = new int[this.dim*this.dim];
       this.buffer2 = new int[this.dim*this.dim];
-      this.guide = new int[0];
    }
     
     
@@ -134,11 +132,11 @@ public class DCTUpSampler implements UpSampler
       for (int y=0; y<h; y+=step)
       {
          for (int x=0; x<w; x+=step)
-         {
+         {         
             int iOffs = offs;
             int n = 0;
             
-            // Fill buf from input
+            // Fill buf(dim/2 x dim/2) from input at x,y
             for (int j=0; j<step; j++)
             {
                for (int i=0; i<step; i+=4)
@@ -153,36 +151,30 @@ public class DCTUpSampler implements UpSampler
 
                iOffs += st;   
             }
-            
+
             src.index = 0;
             dst.index = 0;
             src.length = count4;
             this.fdct.forward(src, dst);
-               
-            // Unpack and clear DCT high frequency bands
-            for (int i=0; i<count; i++)
-               buf1[i] = 0;
-
+            
+            // Unpack and clear DCT high frequency bands (3/4 coefficients)
+            for (int i=0; i<count; i+=4)
+            {
+               buf1[i]   = 0;
+               buf1[i+1] = 0;
+               buf1[i+2] = 0;
+               buf1[i+3] = 0;
+            }
+            
             for (int i=0; i<count4; i++)
                buf1[this.scan[i]] = buf2[i];
-
-//            if (this.guide.length > 0)
-//            {
-//               src.index = 0;
-//               dst.index = 0;
-//               src.length = count;
-//               this.idct.forward(src, dst);
-//
-//               for (int i=count4; i<count; i++)
-//                  buf1[this.scan[i]] = buf2[this.scan[i]] >> 1;
-//            }
-         
+            
             src.index = 0;
             dst.index = 0;
             src.length = count;
             this.idct.inverse(src, dst);
             int oOffs = (offs<<2) + (x<<1);
-             n = 0;
+            n = 0;
 
             // Fill output at x,y from buf(dim x dim)
             for (int j=0; j<this.dim; j++)
@@ -201,23 +193,7 @@ public class DCTUpSampler implements UpSampler
       }    
    }
 
-
-//   public boolean setGuide(int[] guide)
-//   {
-//      if (guide == null)
-//         return false;
-//       
-//      if (guide.length < 4*this.width*this.height)
-//         return false;
-//       
-//      if (this.guide.length < 4*this.width*this.height)
-//         this.guide = new int[4*this.width*this.height];
-//      
-//      System.arraycopy(guide, 0, this.guide, 0, 4*this.width*this.height);
-//      return true;
-//   }
-
-    
+   
    @Override
    public boolean supportsScalingFactor(int factor)
    {

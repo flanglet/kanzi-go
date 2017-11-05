@@ -133,8 +133,8 @@ public class DCTDownSampler implements DownSampler
       {
          for (int x=0; x<w; x+=step)
          {
-            int n = 0;
             int iOffs = offs;
+            int n = 0;
 
             // Fill buf(dim x dim) from input at x,y
             for (int j=0; j<step; j++)
@@ -162,8 +162,13 @@ public class DCTDownSampler implements DownSampler
             this.fdct.forward(src, dst);
            
             // Pack and clear DCT high frequency bands (3/4 coefficients)
-            for (int i=count4; i<count; i++)
-               buf1[i] = 0;
+            for (int i=count4; i<count; i+=4)
+            {
+               buf1[i]   = 0;
+               buf1[i+1] = 0;
+               buf1[i+2] = 0;
+               buf1[i+3] = 0;
+            }
 
             for (int i=0; i<count4; i++)
                buf1[i] = buf2[this.scan[i]];
@@ -172,7 +177,7 @@ public class DCTDownSampler implements DownSampler
             dst.index = 0;
             src.length = count4;
             this.idct.inverse(src, dst);
-            int oOffs = (offs >> 2) + (x >> 1);
+            int oOffs = (offs>>2) + (x>>1);
             n = 0;
           
             // Fill output at x,y from buf(dim/2 x dim/2)
@@ -184,7 +189,7 @@ public class DCTDownSampler implements DownSampler
                   output[oOffs+i] = (val >= 255) ? 255 : val & ~(val>>31); 
                }
                   
-               oOffs += (st >> 1);
+               oOffs += (st>>1);
             }           
          }
          
