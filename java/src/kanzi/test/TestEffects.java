@@ -360,7 +360,7 @@ public class TestEffects
                   // Median
                   frame.setVisible(true);    
                   int radius = (param1 == null) ? MedianFilter.DEFAULT_RADIUS : param1;
-                  int threshold = (param2 == null) ? MedianFilter.DEFAULT_THRESHOLD : param1;
+                  int threshold = (param2 == null) ? MedianFilter.DEFAULT_THRESHOLD : param2;
                   effect = new MedianFilter(w/2, h, w, radius, threshold);
                   test(effect, img, filterName + " - left half", 0, 200, 150, 0, 0);
                   effect = new MedianFilter(w/2, h, w, radius, threshold);
