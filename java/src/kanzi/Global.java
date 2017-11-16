@@ -203,14 +203,11 @@ public class Global
  
    // return p = 1/(1 + exp(-d)), d scaled by 8 bits, p scaled by 12 bits
    public static int squash(int d)
-   {
+   {      
       if (d >= 2048)
          return 4095;
       
-      if (d <= -2048)
-         return 0;
-
-      return SQUASH[d+2047];
+      return SQUASH[positiveOrNull(d+2047)];
    }
 
    
