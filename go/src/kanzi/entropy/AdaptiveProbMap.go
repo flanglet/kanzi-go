@@ -56,7 +56,7 @@ func (this *LogisticAdaptiveProbMap) get(bit int, pr int, ctx int) int {
 	this.data[this.index+1] += ((g - this.data[this.index+1]) >> this.rate)
 	this.data[this.index] += ((g - this.data[this.index]) >> this.rate)
 	pr = kanzi.STRETCH[pr]
-
+	
 	// Find index: 33*ctx + quantized prediction in [0..32]
 	this.index = ((pr + 2048) >> 7) + (ctx << 5) + ctx
 

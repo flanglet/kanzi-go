@@ -477,10 +477,10 @@ inline int TPAQPredictor::addMatchContextPred()
     return p;
 }
 
-inline int32 TPAQPredictor::addContext(int32 ctxId, int32 cx)
+inline int32 TPAQPredictor::addContext(uint32 ctxId, uint32 cx)
 {
     cx = cx * 987654323 + ctxId;
-    cx = (cx << 16) | (uint32(cx) >> 16);
+    cx = (cx << 16) | (cx >> 16);
     return cx * 123456791 + ctxId;
 }
 

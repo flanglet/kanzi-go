@@ -48,8 +48,6 @@ namespace kanzi
        int32 _p0, _p1, _p2, _p3, _p4, _p5, _p6, _p7;
        int _pr;
        int32 _skew;
-
-       void addInput(int32 pred);
    };
 
 
@@ -117,7 +115,7 @@ namespace kanzi
 
        static int32 hash(int32 x, int32 y);
 
-       int32 addContext(int32 ctxId, int32 cx);
+       int32 addContext(uint32 ctxId, uint32 cx);
 
        int addMatchContextPred();
 
