@@ -32,8 +32,6 @@ type CMPredictor struct {
 	runMask  int
 	counter1 [][]int
 	counter2 [][]int
-	pc1      []int
-	pc2      []int
 }
 
 func NewCMPredictor() (*CMPredictor, error) {
@@ -68,18 +66,20 @@ func NewCMPredictor() (*CMPredictor, error) {
 
 // Update the probability model
 func (this *CMPredictor) Update(bit byte) {
+	pc1 := this.counter1[this.ctx]
 	this.ctx <<= 1
+	pc2 := this.counter2[this.ctx|this.runMask]
 
 	if bit == 0 {
-		this.pc1[256] -= (this.pc1[256] >> FAST_RATE)
-		this.pc1[this.c1] -= (this.pc1[this.c1] >> MEDIUM_RATE)
-		this.pc2[this.idx+1] -= (this.pc2[this.idx+1] >> SLOW_RATE)
-		this.pc2[this.idx] -= (this.pc2[this.idx] >> SLOW_RATE)
+		pc1[256] -= (pc1[256] >> FAST_RATE)
+		pc1[this.c1] -= (pc1[this.c1] >> MEDIUM_RATE)
+		pc2[this.idx+1] -= (pc2[this.idx+1] >> SLOW_RATE)
+		pc2[this.idx] -= (pc2[this.idx] >> SLOW_RATE)
 	} else {
-		this.pc1[256] += ((this.pc1[256] ^ 0xFFFF) >> FAST_RATE)
-		this.pc1[this.c1] += ((this.pc1[this.c1] ^ 0xFFFF) >> MEDIUM_RATE)
-		this.pc2[this.idx+1] += ((this.pc2[this.idx+1] ^ 0xFFFF) >> SLOW_RATE)
-		this.pc2[this.idx] += ((this.pc2[this.idx] ^ 0xFFFF) >> SLOW_RATE)
+		pc1[256] += ((pc1[256] ^ 0xFFFF) >> FAST_RATE)
+		pc1[this.c1] += ((pc1[this.c1] ^ 0xFFFF) >> MEDIUM_RATE)
+		pc2[this.idx+1] += ((pc2[this.idx+1] ^ 0xFFFF) >> SLOW_RATE)
+		pc2[this.idx] += ((pc2[this.idx] ^ 0xFFFF) >> SLOW_RATE)
 		this.ctx++
 	}
 
@@ -100,12 +100,12 @@ func (this *CMPredictor) Update(bit byte) {
 
 // Return the split value representing the probability of 1 in the [0..4095] range.
 func (this *CMPredictor) Get() int {
-	this.pc1 = this.counter1[this.ctx]
-	p := (13*this.pc1[256] + 14*this.pc1[this.c1] + 5*this.pc1[this.c2]) >> 5
+	pc1 := this.counter1[this.ctx]
+	p := (13*pc1[256] + 14*pc1[this.c1] + 5*pc1[this.c2]) >> 5
 	this.idx = p >> 12
-	this.pc2 = this.counter2[(this.ctx<<1)|this.runMask]
-	x2 := this.pc2[this.idx+1]
-	x1 := this.pc2[this.idx]
+	pc2 := this.counter2[(this.ctx<<1)|this.runMask]
+	x2 := pc2[this.idx+1]
+	x1 := pc2[this.idx]
 	ssep := x1 + (((x2 - x1) * (p & 4095)) >> 12)
 	return (p + ssep + ssep + ssep + 32) >> 6 // rescale to [0..4095]
 }
