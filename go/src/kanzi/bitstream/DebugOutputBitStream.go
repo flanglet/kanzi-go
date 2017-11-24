@@ -127,9 +127,9 @@ func (this *DebugOutputBitStream) WriteBits(bits uint64, length uint) uint {
 }
 
 func (this *DebugOutputBitStream) printByte(val byte) {
-	if val >= 0 && val < 10 {
+	if val < 10 {
 		fmt.Fprintf(this.out, " [00%1d] ", val)
-	} else if val >= 0 && val < 100 {
+	} else if val < 100 {
 		fmt.Fprintf(this.out, " [0%2d] ", val)
 	} else {
 		fmt.Fprintf(this.out, " [%3d] ", val)

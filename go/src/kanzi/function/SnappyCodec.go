@@ -339,7 +339,6 @@ func (this *SnappyCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 		default:
-			break
 		}
 
 		end := d + length
