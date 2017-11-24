@@ -161,7 +161,7 @@ func NewCompressedOutputStream(os io.WriteCloser, ctx map[string]interface{}) (*
 
 	tasks := ctx["jobs"].(uint)
 
-	if tasks < 0 || tasks > 16 { // 0 indicates no user choice
+	if tasks > 16 { // 0 indicates no user choice
 		return nil, NewIOError("The number of jobs must be in [1..16]", ERR_CREATE_STREAM)
 	}
 
@@ -641,7 +641,7 @@ func NewCompressedInputStream(is io.ReadCloser, ctx map[string]interface{}) (*Co
 
 	tasks := ctx["jobs"].(uint)
 
-	if tasks < 0 || tasks > 16 { // 0 indicates no user choice
+	if tasks > 16 { // 0 indicates no user choice
 		return nil, NewIOError("The number of jobs must be in [1..16]", ERR_CREATE_STREAM)
 	}
 
@@ -1109,8 +1109,6 @@ func (this *DecodingTask) decode() {
 			int64(preTransformLength), checksum1, this.hasher != nil)
 		notifyListeners(this.listeners, evt)
 	}
-
-	read = this.ibs.Read() - read
 
 	if mode&SMALL_BLOCK_MASK != 0 {
 		if !bytes.Equal(buffer, data) {

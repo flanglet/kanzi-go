@@ -662,7 +662,7 @@ func (this *DivSufSort) ssCompare3(p1, p2, depth int) int {
 func (this *DivSufSort) ssInplaceMerge(pa, first, middle, last, depth int) {
 	arr := this.sa
 
-	for true {
+	for {
 		var p, x int
 
 		if arr[last-1] < 0 {
@@ -745,7 +745,7 @@ func (this *DivSufSort) ssRotate(first, middle, last int) {
 			b := middle - 1
 			t := arr[a]
 
-			for true {
+			for {
 				arr[a] = arr[b]
 				a--
 				arr[b] = arr[a]
@@ -770,7 +770,7 @@ func (this *DivSufSort) ssRotate(first, middle, last int) {
 			b := middle
 			t := arr[a]
 
-			for true {
+			for {
 				arr[a] = arr[b]
 				a++
 				arr[b] = arr[a]
@@ -815,7 +815,7 @@ func (this *DivSufSort) ssSwapMerge(pa, first, middle, last, buf, bufSize, depth
 	arr := this.sa
 	check := 0
 
-	for true {
+	for {
 		if last-middle <= bufSize {
 			if first < middle && middle < last {
 				this.ssMergeBackward(pa, first, middle, last, buf, depth)
@@ -970,9 +970,9 @@ func (this *DivSufSort) ssMergeForward(pa, first, middle, last, buf, depth int) 
 	c := middle
 	t := arr[a]
 
-	for true {
+	for {
 		if r := this.ssCompare3(pa+arr[b], pa+arr[c], depth); r < 0 {
-			for true {
+			for {
 				arr[a] = arr[b]
 				a++
 
@@ -989,7 +989,7 @@ func (this *DivSufSort) ssMergeForward(pa, first, middle, last, buf, depth int) 
 				}
 			}
 		} else if r > 0 {
-			for true {
+			for {
 				arr[a] = arr[c]
 				a++
 				arr[c] = arr[a]
@@ -1015,7 +1015,7 @@ func (this *DivSufSort) ssMergeForward(pa, first, middle, last, buf, depth int) 
 		} else {
 			arr[c] = ^arr[c]
 
-			for true {
+			for {
 				arr[a] = arr[b]
 				a++
 
@@ -1032,7 +1032,7 @@ func (this *DivSufSort) ssMergeForward(pa, first, middle, last, buf, depth int) 
 				}
 			}
 
-			for true {
+			for {
 				arr[a] = arr[c]
 				a++
 				arr[c] = arr[a]
@@ -1085,10 +1085,10 @@ func (this *DivSufSort) ssMergeBackward(pa, first, middle, last, buf, depth int)
 	c := middle - 1
 	t := arr[a]
 
-	for true {
+	for {
 		if r := this.ssCompare3(p1, p2, depth); r > 0 {
 			if x&1 != 0 {
-				for true {
+				for {
 					arr[a] = arr[b]
 					a--
 					arr[b] = arr[a]
@@ -1121,7 +1121,7 @@ func (this *DivSufSort) ssMergeBackward(pa, first, middle, last, buf, depth int)
 			}
 		} else if r < 0 {
 			if x&2 != 0 {
-				for true {
+				for {
 					arr[a] = arr[c]
 					a--
 					arr[c] = arr[a]
@@ -1161,7 +1161,7 @@ func (this *DivSufSort) ssMergeBackward(pa, first, middle, last, buf, depth int)
 			}
 		} else { // r = 0
 			if x&1 != 0 {
-				for true {
+				for {
 					arr[a] = arr[b]
 					a--
 					arr[b] = arr[a]
@@ -1187,7 +1187,7 @@ func (this *DivSufSort) ssMergeBackward(pa, first, middle, last, buf, depth int)
 			b--
 
 			if x&2 != 0 {
-				for true {
+				for {
 					arr[a] = arr[c]
 					a--
 					arr[c] = arr[a]
@@ -1245,7 +1245,7 @@ func (this *DivSufSort) ssInsertionSort(pa, first, last, depth int) {
 		var r int
 
 		for r = this.ssCompare3(t, pa+arr[j], depth); r > 0; {
-			for true {
+			for {
 				arr[j-1] = arr[j]
 				j++
 
@@ -1319,7 +1319,7 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 	limit := ssIlg(last - first)
 	x := 0
 
-	for true {
+	for {
 		if last-first <= SS_INSERTIONSORT_THRESHOLD {
 			if last-first > 1 {
 				this.ssInsertionSort(pa, first, last, depth)
@@ -1653,7 +1653,7 @@ func (this *DivSufSort) ssPartition(pa, first, last, depth int) int {
 	b := last
 	d := depth - 1
 
-	for true {
+	for {
 		a++
 
 		for a < b && buf2[buf1[a]]+d >= buf2[buf1[a]+1] {
@@ -1759,7 +1759,7 @@ func (this *DivSufSort) trSort(n, depth int) {
 		skip := 0
 		unsorted := 0
 
-		for true {
+		for {
 			t := arr[first]
 
 			if t < 0 {
@@ -1937,7 +1937,7 @@ func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *TRBudget
 	limit := trIlg(last - first)
 	trlink := -1
 
-	for true {
+	for {
 		if limit < 0 {
 			if limit == -1 {
 				// tandem repeat partition
@@ -2034,7 +2034,7 @@ func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *TRBudget
 				if arr[first] >= 0 {
 					a := first
 
-					for true {
+					for {
 						arr[isa+arr[a]] = a
 						a++
 
@@ -2049,7 +2049,7 @@ func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *TRBudget
 				if first < last {
 					a := first
 
-					for true {
+					for {
 						arr[a] = ^arr[a]
 						a++
 
@@ -2471,7 +2471,7 @@ func (this *DivSufSort) trInsertionSort(isad, first, last int) {
 		r := buf2[t] - buf2[buf1[b]]
 
 		for r < 0 {
-			for true {
+			for {
 				buf1[b+1] = buf1[b]
 				b--
 

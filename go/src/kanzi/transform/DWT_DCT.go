@@ -37,16 +37,12 @@ func NewDWT_DCT(dim uint) (*DWT_DCT, error) {
 	switch dim {
 	case 8:
 		tr, err = NewDCT4()
-		break
 	case 16:
 		tr, err = NewDCT8()
-		break
 	case 32:
 		tr, err = NewDCT16()
-		break
 	case 64:
 		tr, err = NewDCT32()
-		break
 	default:
 		err = errors.New("Invalid transform dimension (must be 8, 16, 32 or 64)")
 	}

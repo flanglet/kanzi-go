@@ -233,11 +233,8 @@ func (this *RangeEncoder) rebuildStatistics(block []byte, lr uint) error {
 	}
 
 	// Rebuild statistics
-	if _, err := this.updateFrequencies(this.freqs, len(block), lr); err != nil {
-		return err
-	}
-
-	return nil
+	_, err := this.updateFrequencies(this.freqs, len(block), lr)
+	return err
 }
 
 func (this *RangeEncoder) encodeByte(b byte) {

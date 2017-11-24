@@ -783,8 +783,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 			// Check word in dictionary
 			length := srcIdx - anchor - 1
 			pe1 := this.dictMap[h1&this.hashMask]
-			var pe2 *DictEntry
-			pe2 = nil
+			var pe2 *DictEntry = nil
 
 			// Check for hash collisions
 			if (pe1 != nil) && (pe1.length != int16(length) || pe1.hash != h1) {

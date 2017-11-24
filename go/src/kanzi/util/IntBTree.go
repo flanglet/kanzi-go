@@ -109,7 +109,7 @@ func (this *IntBTree) Add(val int) {
 func addNode(parent, node *IntBTNode) {
 	value := node.base
 
-	for true {
+	for {
 		if value < parent.base {
 			if parent.left == nil {
 				parent.left = node
@@ -206,10 +206,9 @@ func (this *IntBTree) Remove(value int) bool {
 
 func (this *IntBTree) removeNode(value int) *IntBTNode {
 	current := this.root
-	var prev *IntBTNode
-	prev = nil
+	var prev *IntBTNode = nil
 
-	for true {
+	for {
 		if value < current.base {
 			if current.left == nil {
 				return nil
