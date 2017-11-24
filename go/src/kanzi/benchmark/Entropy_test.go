@@ -597,7 +597,7 @@ func BenchmarkTPAQ(b *testing.B) {
 			}
 
 			obs, _ := bitstream.NewDefaultOutputBitStream(&bs, uint(size))
-			predictor, _ := entropy.NewTPAQPredictor()
+			predictor, _ := entropy.NewTPAQPredictor(27)
 			ec, _ := entropy.NewBinaryEntropyEncoder(obs, predictor)
 
 			// Encode
@@ -614,7 +614,7 @@ func BenchmarkTPAQ(b *testing.B) {
 			}
 
 			ibs, _ := bitstream.NewDefaultInputBitStream(&bs, uint(size))
-			predictor, _ = entropy.NewTPAQPredictor()
+			predictor, _ = entropy.NewTPAQPredictor(27)
 			ed, _ := entropy.NewBinaryEntropyDecoder(ibs, predictor)
 
 			// Decode
