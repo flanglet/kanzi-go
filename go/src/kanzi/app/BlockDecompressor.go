@@ -140,7 +140,7 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 	} else {
 		var err error
 
-		if output, err = os.OpenFile(this.outputName, os.O_RDWR, 666); err == nil {
+		if output, err = os.OpenFile(this.outputName, os.O_RDWR, 0666); err == nil {
 			// File exists
 			if this.overwrite == false {
 				fmt.Printf("The output file '%v' exists and the 'overwrite' command ", this.outputName)

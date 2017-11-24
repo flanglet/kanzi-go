@@ -221,7 +221,7 @@ func (this *BlockCompressor) Call() (int, uint64) {
 	} else {
 		var err error
 
-		if output, err = os.OpenFile(this.outputName, os.O_RDWR, 666); err == nil {
+		if output, err = os.OpenFile(this.outputName, os.O_RDWR, 0666); err == nil {
 			// File exists
 			output.Close()
 
