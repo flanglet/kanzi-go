@@ -4,7 +4,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 you may obtain a copy of the License at
 
-                http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -37,11 +37,9 @@ limitations under the License.
 #include "TPAQPredictor.hpp"
 #include "../IllegalArgumentException.hpp"
 
-namespace kanzi 
-{
+namespace kanzi {
 
-   class EntropyCodecFactory 
-   {
+   class EntropyCodecFactory {
    private:
        static const byte NONE_TYPE = 0; // No compression
        static const byte HUFFMAN_TYPE = 1; // Huffman
@@ -51,7 +49,7 @@ namespace kanzi
        static const byte ANS0_TYPE = 5; // Asymmetric Numerical System order 0
        static const byte CM_TYPE = 6; // Context Model
        static const byte TPAQ_TYPE = 7; // Tangelo PAQ
-       static const byte ANS1_TYPE    = 8; // Asymmetric Numerical System order 1
+       static const byte ANS1_TYPE = 8; // Asymmetric Numerical System order 1
 
    public:
        static EntropyDecoder* newDecoder(InputBitStream& ibs, map<string, string>& ctx, short entropyType) THROW;
@@ -89,26 +87,27 @@ namespace kanzi
        case CM_TYPE:
            return new BinaryEntropyDecoder(ibs, new CMPredictor());
 
-       case TPAQ_TYPE:
-          {
-              string strSize = ctx["blockSize"];
-              int size = atoi(strSize.c_str());
-              int logStates;
-            
-              if (size >= 64*1024*1024)
-                 logStates = 29;
-              else if (size >= 16*1024*1024)
-                 logStates = 28;
-              else 
-                 logStates = (size < 1024*1024) ? 26 : 27;  
+       case TPAQ_TYPE: {
+           string strSize = ctx["blockSize"];
+           int size = atoi(strSize.c_str());
+           int logStates;
 
-              return new BinaryEntropyDecoder(ibs, new TPAQPredictor(logStates));
-          }
+           if (size >= 64 * 1024 * 1024)
+               logStates = 29;
+           else if (size >= 16 * 1024 * 1024)
+               logStates = 28;
+           else
+               logStates = (size < 1024 * 1024) ? 26 : 27;
+
+           return new BinaryEntropyDecoder(ibs, new TPAQPredictor(logStates));
+       }
        case NONE_TYPE:
            return new NullEntropyDecoder(ibs);
 
        default:
-           throw IllegalArgumentException("Unsupported entropy codec type: " + char(entropyType));
+           string msg = "Unknown entropy codec type: ";
+           msg += char(entropyType);
+           throw IllegalArgumentException(msg);
        }
    }
 
@@ -136,26 +135,27 @@ namespace kanzi
        case CM_TYPE:
            return new BinaryEntropyEncoder(obs, new CMPredictor());
 
-       case TPAQ_TYPE:
-          {
-              string strSize = ctx["blockSize"];
-              int size = atoi(strSize.c_str());
-              int logStates;
-            
-              if (size >= 64*1024*1024)
-                 logStates = 29;
-              else if (size >= 16*1024*1024)
-                 logStates = 28;
-              else 
-                 logStates = (size < 1024*1024) ? 26 : 27;  
+       case TPAQ_TYPE: {
+           string strSize = ctx["blockSize"];
+           int size = atoi(strSize.c_str());
+           int logStates;
 
-              return new BinaryEntropyEncoder(obs, new TPAQPredictor(logStates));
-          }
+           if (size >= 64 * 1024 * 1024)
+               logStates = 29;
+           else if (size >= 16 * 1024 * 1024)
+               logStates = 28;
+           else
+               logStates = (size < 1024 * 1024) ? 26 : 27;
+
+           return new BinaryEntropyEncoder(obs, new TPAQPredictor(logStates));
+       }
        case NONE_TYPE:
            return new NullEntropyEncoder(obs);
 
        default:
-           throw IllegalArgumentException("Unknown entropy codec type: " + char(entropyType));
+           string msg = "Unknown entropy codec type: ";
+           msg += char(entropyType);
+           throw IllegalArgumentException(msg);
        }
    }
 
@@ -190,13 +190,15 @@ namespace kanzi
            return "NONE";
 
        default:
-           throw IllegalArgumentException("Unknown entropy codec type: " + (char)entropyType);
+           string msg = "Unknown entropy codec type: ";
+           msg += char(entropyType);
+           throw IllegalArgumentException(msg);
        }
    }
 
    inline short EntropyCodecFactory::getType(const char* str) THROW
    {
-	   string name = str;
+       string name = str;
        transform(name.begin(), name.end(), name.begin(), ::toupper);
 
        if (name == "HUFFMAN")
