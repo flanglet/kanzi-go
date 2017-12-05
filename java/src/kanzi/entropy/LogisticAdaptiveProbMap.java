@@ -20,7 +20,7 @@ import kanzi.Global;
 // that the next bit will be 1. After each guess, it updates
 // its state to improve future guesses.
 
-/*package*/ class LogisticAdaptiveProbMap
+/*package*/ final class LogisticAdaptiveProbMap
 {
    private int index;        // last prob, context
    private final int rate;   // update rate
