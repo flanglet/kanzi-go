@@ -27,6 +27,8 @@ public class Kanzi
       "-c", "-d", "-i", "-o", "-b", "-t", "-e", "-j", "-v", "-l", "-x", "-f", "-h"
    };
 
+   //private static final int ARG_IDX_COMPRESS = 0;
+   //private static final int ARG_IDX_DECOMPRESS = 1;
    private static final int ARG_IDX_INPUT = 2;
    private static final int ARG_IDX_OUTPUT = 3;
    private static final int ARG_IDX_BLOCK = 4;

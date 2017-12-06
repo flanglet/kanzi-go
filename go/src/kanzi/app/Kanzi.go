@@ -26,8 +26,8 @@ import (
 )
 
 const (
-	ARG_IDX_COMPRESS   = 0
-	ARG_IDX_DECOMPRESS = 1
+	//ARG_IDX_COMPRESS   = 0
+	//ARG_IDX_DECOMPRESS = 1
 	ARG_IDX_INPUT      = 2
 	ARG_IDX_OUTPUT     = 3
 	ARG_IDX_BLOCK      = 4

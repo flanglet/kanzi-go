@@ -25,8 +25,8 @@ static const string CMD_LINE_ARGS[13] = {
     "-c", "-d", "-i", "-o", "-b", "-t", "-e", "-j", "-v", "-l", "-x", "-f", "-h"
 };
 
-static const int ARG_IDX_COMPRESS = 0;
-static const int ARG_IDX_DECOMPRESS = 1;
+//static const int ARG_IDX_COMPRESS = 0;
+//static const int ARG_IDX_DECOMPRESS = 1;
 static const int ARG_IDX_INPUT = 2;
 static const int ARG_IDX_OUTPUT = 3;
 static const int ARG_IDX_BLOCK = 4;
