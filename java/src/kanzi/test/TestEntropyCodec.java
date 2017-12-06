@@ -110,7 +110,7 @@ public class TestEntropyCodec
           return new PAQPredictor();
        
        if (type.equals("TPAQ"))
-          return new TPAQPredictor();
+          return new TPAQPredictor(24);
        
        if (type.equals("FPAQ"))
           return new FPAQPredictor();

@@ -84,7 +84,7 @@ func getPredictor(name string) entropy.Predictor {
 		return res
 
 	case "TPAQ":
-		res, _ := entropy.NewTPAQPredictor()
+		res, _ := entropy.NewTPAQPredictor(24)
 		return res
 
 	case "CM":

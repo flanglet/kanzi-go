@@ -49,7 +49,7 @@ static Predictor* getPredictor(string type)
         return new PAQPredictor();
 
     if (type.compare("TPAQ") == 0)
-        return new TPAQPredictor();
+        return new TPAQPredictor(24);
 
     if (type.compare("FPAQ") == 0)
         return new FPAQPredictor();
