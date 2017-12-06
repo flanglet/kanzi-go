@@ -628,7 +628,7 @@ func (this *HuffmanDecoder) Decode(block []byte) (int, error) {
 			endChunk = end
 		}
 
-		// Compute minimum number of bits requires in bitstream for fast decoding
+		// Compute minimum number of bits required in bitstream for fast decoding
 		endPaddingSize := 64 / int(this.minCodeLen)
 
 		if int(this.minCodeLen)*endPaddingSize != 64 {

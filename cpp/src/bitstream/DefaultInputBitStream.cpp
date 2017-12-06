@@ -73,13 +73,13 @@ uint64 DefaultInputBitStream::readBits(uint count) THROW
             shift += (_bitIndex - 63); // adjust if bitIndex != 63 (end of stream)
         }
 
-        res = (_current >> shift) & (((uint64)-1) >> (64 - count));
+        res = (_current >> shift) & ((uint64(-1)) >> (64 - count));
         _bitIndex = (_bitIndex - count) & 63;
     }
     else {
         // Not enough spots available in 'current'
         uint remaining = count - _bitIndex - 1;
-        res = _current & (((uint64)-1) >> (63 - _bitIndex));
+        res = _current & (uint64(-1) >> (63 - _bitIndex));
         pullCurrent();
         res <<= remaining;
         _bitIndex -= remaining;
@@ -173,21 +173,21 @@ inline void DefaultInputBitStream::pullCurrent()
         val = 0;
 
         while (_position <= _maxPosition) {
-            val |= (((uint64)(_buffer[_position++] & 0xFF)) << shift);
+            val |= ((uint64(_buffer[_position++] & 0xFF)) << shift);
             shift -= 8;
         }
     }
     else {
         // Regular processing, buffer length is multiple of 8
         byte* buf = &_buffer[_position];
-        val = (((uint64)(buf[0] & 0xFF)) << 56);
-        val |= (((uint64)(buf[1] & 0xFF)) << 48);
-        val |= (((uint64)(buf[2] & 0xFF)) << 40);
-        val |= (((uint64)(buf[3] & 0xFF)) << 32);
-        val |= (((uint64)(buf[4] & 0xFF)) << 24);
-        val |= (((uint64)(buf[5] & 0xFF)) << 16);
-        val |= (((uint64)(buf[6] & 0xFF)) << 8);
-        val |= ((uint64)(buf[7] & 0xFF));
+        val = ((uint64(buf[0] & 0xFF)) << 56);
+        val |= ((uint64(buf[1] & 0xFF)) << 48);
+        val |= ((uint64(buf[2] & 0xFF)) << 40);
+        val |= ((uint64(buf[3] & 0xFF)) << 32);
+        val |= ((uint64(buf[4] & 0xFF)) << 24);
+        val |= ((uint64(buf[5] & 0xFF)) << 16);
+        val |= ((uint64(buf[6] & 0xFF)) << 8);
+        val |= (uint64(buf[7] & 0xFF));
         _bitIndex = 63;
         _position += 8;
     }

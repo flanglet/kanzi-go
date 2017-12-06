@@ -216,7 +216,7 @@ public class HuffmanDecoder implements EntropyDecoder
           if (this.readLengths() <= 0)
              return startChunk - blkptr;
 
-          // Compute minimum number of bits requires in bitstream for fast decoding
+          // Compute minimum number of bits required in bitstream for fast decoding
           int endPaddingSize = 64 / this.minCodeLen;
 
           if (this.minCodeLen * endPaddingSize != 64)

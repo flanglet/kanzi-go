@@ -174,7 +174,7 @@ int HuffmanDecoder::decode(byte block[], uint blkptr, uint len)
         if (readLengths() <= 0)
             return startChunk - blkptr;
 
-        // Compute minimum number of bits requires in bitstream for fast decoding
+        // Compute minimum number of bits required in bitstream for fast decoding
         int endPaddingSize = 64 / _minCodeLen;
 
         if (_minCodeLen * endPaddingSize != 64)
