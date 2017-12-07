@@ -176,13 +176,13 @@ const int* Global::STRETCH = Global::initStretch();
 const int* Global::initStretch()
 {
     int* res = new int[4096];
-    int pi = 0;
+    int n = 0;
 
-    for (int x = -2047; (x <= 2047) && (pi < 4096); x++) {
-        int i = squash(x);
+    for (int x = -2047; (x <= 2047) && (n < 4096); x++) {
+        const int sq = squash(x);
 
-        while (pi <= i)
-            res[pi++] = x;
+        while (n <= sq)
+            res[n++] = x;
     }
 
     res[4095] = 2047;

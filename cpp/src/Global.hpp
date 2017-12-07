@@ -30,7 +30,7 @@ namespace kanzi {
        static const int TEN_LOG10_100[]; // array with 10 elements: 10 * (4096*Math.log10(x))
        static const int LOG2_4096[]; // array with 256 elements: 4096*Math.log2(x)
        static const int LOG2[]; // array with 256 elements: int(Math.log2(x-1))
-       static const int SQRT[]; 
+       static const int SQRT[];
 
        // Inverse of squash. d = ln(p/(1-p)), d scaled by 8 bits, p by 12 bits.
        // d has range -2047 to 2047 representing -8 to 8.  p has range 0 to 4095.
@@ -111,7 +111,7 @@ namespace kanzi {
        if (d <= -2048)
            return 0;
 
-       return SQUASH[d+2047];
+       return SQUASH[d + 2047];
    }
 }
 #endif

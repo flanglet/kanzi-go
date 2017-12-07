@@ -1,3 +1,4 @@
+
 /*
 Copyright 2011-2017 Frederic Langlet
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,7 +30,8 @@ using namespace kanzi;
 
 CompressedOutputStream::CompressedOutputStream(OutputStream& os, map<string, string>& ctx)
     : OutputStream(os.rdbuf())
-    , _os(os), _ctx(ctx)
+    , _os(os)
+    , _ctx(ctx)
 {
     map<string, string>::iterator it;
     it = ctx.find("blockSize");
@@ -61,7 +63,7 @@ CompressedOutputStream::CompressedOutputStream(OutputStream& os, map<string, str
     if (tasks > 1)
         throw IllegalArgumentException("The number of jobs is limited to 1 in this version");
 #else
-    if ((tasks < 0) || (tasks > 16))  // 0 indicates no user choice
+    if ((tasks < 0) || (tasks > 16)) // 0 indicates no user choice
         throw IllegalArgumentException("The number of jobs must be in [1..16]");
 #endif
 
@@ -80,9 +82,9 @@ CompressedOutputStream::CompressedOutputStream(OutputStream& os, map<string, str
     _hasher = (checksum == true) ? new XXHash32(BITSTREAM_TYPE) : nullptr;
     _jobs = (tasks == 0) ? 1 : tasks;
     _sa = new SliceArray<byte>(new byte[_blockSize * _jobs], _blockSize * _jobs, 0);
-    _buffers = new SliceArray<byte>*[2*_jobs];
+    _buffers = new SliceArray<byte>*[2 * _jobs];
 
-    for (int i = 0; i < 2*_jobs; i++)
+    for (int i = 0; i < 2 * _jobs; i++)
         _buffers[i] = new SliceArray<byte>(new byte[0], 0, 0);
 }
 
@@ -95,7 +97,7 @@ CompressedOutputStream::~CompressedOutputStream()
         // Ignore and continue
     }
 
-    for (int i = 0; i < 2*_jobs; i++)
+    for (int i = 0; i < 2 * _jobs; i++)
         delete[] _buffers[i]->_array;
 
     delete[] _buffers;
@@ -235,7 +237,7 @@ void CompressedOutputStream::close() THROW
     _sa->_length = 0;
     _sa->_index = -1;
 
-    for (int i = 0; i < 2*_jobs; i++) {
+    for (int i = 0; i < 2 * _jobs; i++) {
         delete[] _buffers[i]->_array;
         _buffers[i]->_array = new byte[0];
         _buffers[i]->_length = 0;
@@ -279,20 +281,19 @@ void CompressedOutputStream::processBlock() THROW
                 break;
 
             map<string, string> copyCtx(_ctx);
-            _buffers[2*jobId]->_index = 0;
-            _buffers[2*jobId+1]->_index = 0;
-              		              
-            if (_buffers[2*jobId]->_length < sz)
-            {
-                delete[] _buffers[2*jobId]->_array;
-                _buffers[2*jobId]->_array = new byte[sz];
-                _buffers[2*jobId]->_length = sz;
-            }
- 
-            memcpy(&_buffers[2*jobId]->_array[0], &_sa->_array[_sa->_index], sz);
+            _buffers[2 * jobId]->_index = 0;
+            _buffers[2 * jobId + 1]->_index = 0;
 
-            EncodingTask<EncodingTaskResult>* task = new EncodingTask<EncodingTaskResult>(_buffers[2*jobId],
-                _buffers[2*jobId+1], sz, _transformType,
+            if (_buffers[2 * jobId]->_length < sz) {
+                delete[] _buffers[2 * jobId]->_array;
+                _buffers[2 * jobId]->_array = new byte[sz];
+                _buffers[2 * jobId]->_length = sz;
+            }
+
+            memcpy(&_buffers[2 * jobId]->_array[0], &_sa->_array[_sa->_index], sz);
+
+            EncodingTask<EncodingTaskResult>* task = new EncodingTask<EncodingTaskResult>(_buffers[2 * jobId],
+                _buffers[2 * jobId + 1], sz, _transformType,
                 _entropyType, firstBlockId + jobId + 1,
                 _obs, _hasher, &_blockId,
                 blockListeners, copyCtx);
@@ -305,39 +306,39 @@ void CompressedOutputStream::processBlock() THROW
             EncodingTask<EncodingTaskResult>* task = tasks.back();
             tasks.pop_back();
             EncodingTaskResult res = task->call();
-			int err = res._error;
-			string msg = res._msg;
+            int err = res._error;
+            string msg = res._msg;
 
             if (err != 0)
                 throw IOException(msg, err);
         }
 #ifdef CONCURRENCY_ENABLED
         else {
-			vector<EncodingTask<EncodingTaskResult>*>::iterator it;
-			vector<future<EncodingTaskResult>> results;
+            vector<EncodingTask<EncodingTaskResult>*>::iterator it;
+            vector<future<EncodingTaskResult> > results;
 
             // Register task futures and launch tasks in parallel
             for (it = tasks.begin(); it != tasks.end(); it++) {
-				results.push_back(async(launch::async, &EncodingTask<EncodingTaskResult>::call, *it));
-			}
+                results.push_back(async(launch::async, &EncodingTask<EncodingTaskResult>::call, *it));
+            }
 
-			// Wait for tasks completion and check results
-			for (uint i = 0; i < tasks.size(); i++) {
-				EncodingTaskResult res = results[i].get();
-				int err = res._error;
-				string msg = res._msg;
+            // Wait for tasks completion and check results
+            for (uint i = 0; i < tasks.size(); i++) {
+                EncodingTaskResult res = results[i].get();
+                int err = res._error;
+                string msg = res._msg;
 
-				if (err != 0)
-					throw IOException(msg, err);
+                if (err != 0)
+                    throw IOException(msg, err);
             }
         }
 #endif
 
-		for (vector<EncodingTask<EncodingTaskResult>*>::iterator it = tasks.begin(); it != tasks.end(); it++)
-			delete *it;
+        for (vector<EncodingTask<EncodingTaskResult>*>::iterator it = tasks.begin(); it != tasks.end(); it++)
+            delete *it;
 
-		tasks.clear();
-		_sa->_index = 0;
+        tasks.clear();
+        _sa->_index = 0;
     }
     catch (BitStreamException& e) {
         for (vector<EncodingTask<EncodingTaskResult>*>::iterator it = tasks.begin(); it != tasks.end(); it++)
@@ -346,14 +347,14 @@ void CompressedOutputStream::processBlock() THROW
         tasks.clear();
         throw IOException(e.what(), e.error());
     }
-	catch (IOException& e) {
-		for (vector<EncodingTask<EncodingTaskResult>*>::iterator it = tasks.begin(); it != tasks.end(); it++)
-			delete *it;
+    catch (IOException& e) {
+        for (vector<EncodingTask<EncodingTaskResult>*>::iterator it = tasks.begin(); it != tasks.end(); it++)
+            delete *it;
 
-		tasks.clear();
-		throw e;
-	}
-	catch (exception& e) {
+        tasks.clear();
+        throw e;
+    }
+    catch (exception& e) {
         for (vector<EncodingTask<EncodingTaskResult>*>::iterator it = tasks.begin(); it != tasks.end(); it++)
             delete *it;
 
@@ -381,7 +382,8 @@ EncodingTask<T>::EncodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuff
     short transformType, short entropyType, int blockId,
     OutputBitStream* obs, XXHash32* hasher,
     atomic_int* processedBlockId, vector<Listener*>& listeners,
-    map<string, string>& ctx) : _ctx(ctx)
+    map<string, string>& ctx)
+    : _ctx(ctx)
 {
     _data = iBuffer;
     _buffer = oBuffer;
@@ -394,7 +396,6 @@ EncodingTask<T>::EncodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuff
     _listeners = listeners;
     _processedBlockId = processedBlockId;
 }
-
 
 // Encode mode + transformed entropy coded data
 // mode: 0b1000xxxx => small block (written as is) + 4 LSB for block size (0-15)
@@ -437,7 +438,7 @@ T EncodingTask<T>::call() THROW
 
             _data->_index += _blockLength;
             _buffer->_index = _blockLength;
-            mode = (byte)(CompressedOutputStream::SMALL_BLOCK_MASK | (_blockLength & CompressedOutputStream::COPY_LENGTH_MASK));
+            mode = byte(CompressedOutputStream::SMALL_BLOCK_MASK | (_blockLength & CompressedOutputStream::COPY_LENGTH_MASK));
         }
         else {
             stringstream ss;
@@ -463,7 +464,7 @@ T EncodingTask<T>::call() THROW
             if (postTransformLength < 0)
                 return EncodingTaskResult(_blockId, Error::ERR_WRITE_FILE, "Invalid transform size");
 
-			for (uint64 n = 0xFF; n < uint64(postTransformLength); n <<= 8)
+            for (uint64 n = 0xFF; n < uint64(postTransformLength); n <<= 8)
                 dataSize++;
 
             if (dataSize > 3)
@@ -518,7 +519,7 @@ T EncodingTask<T>::call() THROW
         delete ee;
         ee = nullptr;
 
-        const int w = (int)((_obs->written() - written) / 8);
+        const int w = int((_obs->written() - written) / 8);
 
         // After completion of the entropy coding, increment the block id.
         // It unfreezes the task processing the next block (if any)
