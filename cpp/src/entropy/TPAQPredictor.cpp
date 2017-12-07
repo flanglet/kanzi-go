@@ -484,6 +484,14 @@ inline int32 TPAQPredictor::addContext(uint32 ctxId, uint32 cx)
     return cx * 123456791 + ctxId;
 }
 
+
+inline TPAQMixer::TPAQMixer()
+{
+   _pr = 2048; _skew = 0;
+   _w0 = _w1 = _w2 = _w3 = _w4 = _w5 = _w6 = _w7 = 64;  
+   _p0 = _p1 = _p2 = _p3 = _p4 = _p5 = _p6 = _p7 = 0;  
+}
+
 // Adjust weights to minimize coding cost of last prediction
 inline void TPAQMixer::update(int bit)
 {
@@ -506,7 +514,7 @@ inline void TPAQMixer::update(int bit)
     _w7 += ((_p7 * err + 0) >> 15);
 }
 
-inline int TPAQMixer::get(int p0, int p1, int p2, int p3, int p4, int p5, int p6, int p7)
+inline int TPAQMixer::get(int32 p0, int32 p1, int32 p2, int32 p3, int32 p4, int32 p5, int32 p6, int32 p7)
 {
     _p0 = p0;
     _p1 = p1;

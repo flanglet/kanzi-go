@@ -35,13 +35,13 @@ namespace kanzi
        friend class TPAQPredictor;
 
    public:
-      TPAQMixer() { _pr = 2048; _w0 = _w1 = _w2 = _w3 = _w4 = _w5 = _w6 = _w7 = 64; _skew = 0; }
+      TPAQMixer(); 
 
       ~TPAQMixer() { }
 
        void update(int bit);
 
-       int get(int p0, int p1, int p2, int p3, int p4, int p5, int p6, int p7);
+       int get(int32 p0, int32 p1, int32 p2, int32 p3, int32 p4, int32 p5, int32 p6, int32 p7);
 
    private:
        int32 _w0, _w1, _w2, _w3, _w4, _w5, _w6, _w7;
