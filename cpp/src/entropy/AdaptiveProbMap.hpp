@@ -42,7 +42,7 @@ namespace kanzi
    template <int RATE>
    inline LinearAdaptiveProbMap<RATE>::LinearAdaptiveProbMap(int n)
    {
-       _data = new int[65 * n];
+       _data = new int32[65 * n];
        _index = 0;
 
        for (int j = 0; j <= 64; j++) {
@@ -90,7 +90,7 @@ namespace kanzi
    template <int RATE>
    inline LogisticAdaptiveProbMap<RATE>::LogisticAdaptiveProbMap(int n)
    {
-       _data = new int[33 * n];
+       _data = new int32[33 * n];
        _index = 0;
 
        for (int j = 0; j <= 32; j++) {
@@ -139,7 +139,7 @@ namespace kanzi
    template <int RATE>
    inline FastLogisticAdaptiveProbMap<RATE>::FastLogisticAdaptiveProbMap(int n)
    {
-	   _data = new int[33 * n];
+	   _data = new int32[33 * n];
 	   _p = &_data[0];
 
 	   for (int j = 0; j <= 32; j++) {
