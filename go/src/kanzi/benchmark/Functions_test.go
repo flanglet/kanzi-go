@@ -168,7 +168,7 @@ func BenchmarkZRLT(b *testing.B) {
 		n := iter / 20
 
 		for n < len(input) {
-			val := byte(rand.Intn(255))
+			val := byte(rand.Intn(4))
 
 			if val%7 == 0 {
 				val = 0

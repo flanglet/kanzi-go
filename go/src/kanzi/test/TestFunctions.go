@@ -79,6 +79,11 @@ func getByteFunction(name string) kanzi.ByteFunction {
 
 func TestCorrectness(name string) {
 	fmt.Printf("Correctness test for %v\n", name)
+	rng := 256
+
+	if name == "ZRLT" {
+		rng = 5
+	}
 
 	for ii := 0; ii < 20; ii++ {
 		rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -117,7 +122,7 @@ func TestCorrectness(name string) {
 
 			// Leave zeros at the beginning for ZRLT to succeed
 			for i := 20; i < len(arr); i++ {
-				arr[i] = rand.Intn(256)
+				arr[i] = rand.Intn(rng)
 			}
 		} else {
 			arr = make([]int, 1024)
@@ -131,7 +136,7 @@ func TestCorrectness(name string) {
 					length = 1
 				}
 
-				val := rand.Intn(256)
+				val := rand.Intn(rng)
 				end := idx + length
 
 				if end >= len(arr) {
@@ -227,6 +232,11 @@ func TestSpeed(name string) {
 	size := 50000
 	fmt.Printf("\n\nSpeed test for %v\n", name)
 	fmt.Printf("Iterations: %v\n", iter)
+	rng := 256
+
+	if name == "ZRLT" {
+		rng = 5
+	}
 
 	for jj := 0; jj < 3; jj++ {
 		bf := getByteFunction(name)
@@ -241,10 +251,10 @@ func TestSpeed(name string) {
 		delta2 := int64(0)
 
 		for n < len(input) {
-			val := byte(rand.Intn(255))
+			val := byte(rand.Intn(rng))
 			input[n] = val
 			n++
-			run := rand.Intn(255)
+			run := rand.Intn(256)
 			run -= 220
 
 			for run > 0 && n < len(input) {

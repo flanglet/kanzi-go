@@ -98,6 +98,7 @@ public class TestFunctions
 
       // Test behavior
       System.out.println("Correctness test for " + name);
+      int range = name.equals("ZRLT") ? 5 : 256;
 
       for (int ii=0; ii<20; ii++)
       {
@@ -145,7 +146,7 @@ public class TestFunctions
 
             // Leave zeros at the beginning for ZRLT to succeed
             for (int j=20; j<arr.length; j++)
-                arr[j] = rnd.nextInt(256);
+                arr[j] = rnd.nextInt(range);
          }
          else
          {
@@ -160,7 +161,7 @@ public class TestFunctions
                if (len % 3 == 0)
                  len = 1;
 
-                int val = rnd.nextInt(256);
+                int val = rnd.nextInt(range);
                 int end = (idx+len) < arr.length ? idx+len : arr.length;
 
                 for (int j=idx; j<end; j++)
@@ -268,6 +269,7 @@ public class TestFunctions
       System.out.println("\n\nSpeed test for " + name);
       System.out.println("Iterations: " + iter);
       System.out.println();
+      int range = name.equals("ZRLT") ? 5 : 256;
 
       for (int jj=0; jj<3; jj++)
       {
@@ -285,9 +287,9 @@ public class TestFunctions
 
          while (n < input.length)        
          {
-            byte val = (byte) (rnd.nextInt() & 255);
+            byte val = (byte) rnd.nextInt(range);
             input[n++] = val;
-            int run = rnd.nextInt() & 255;
+            int run = rnd.nextInt(256);
             run -= 220;
 
             while ((--run > 0) && (n < input.length))       

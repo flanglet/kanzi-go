@@ -53,6 +53,7 @@ int testFunctionsCorrectness(string name)
 
     cout << endl
          << "Correctness for " << name << endl;
+    int mod = (name== "ZRLT") ? 5 : 256;
 
     for (int ii = 0; ii < 20; ii++) {
         cout << endl
@@ -93,7 +94,7 @@ int testFunctionsCorrectness(string name)
                 if (val >= 33)
                     val = 0;
 
-                arr[i] = (byte)val;
+                arr[i] = byte(val);
             }
             memcpy(values, &arr[0], size);
         }
@@ -108,7 +109,7 @@ int testFunctionsCorrectness(string name)
                 if (val >= 33)
                     val = 0;
 
-                arr[i] = (byte)val;
+                arr[i] = byte(val);
             }
             memcpy(values, &arr[0], size);
         }
@@ -123,7 +124,7 @@ int testFunctionsCorrectness(string name)
                 if (val >= 33)
                     val = 0;
 
-                arr[i] = (byte)val;
+                arr[i] = byte(val);
             }
             memcpy(values, &arr[0], size);
         }
@@ -134,7 +135,7 @@ int testFunctionsCorrectness(string name)
 
             // Leave zeros at the beginning for ZRLT to succeed
             for (int j = 20; j < 512; j++)
-                arr[j] = (byte)(rand() % 256);
+                arr[j] = byte(rand() % mod);
 
             memcpy(values, &arr[0], size);
         }
@@ -151,7 +152,7 @@ int testFunctionsCorrectness(string name)
                 if (len % 3 == 0)
                     len = 1;
 
-                byte val = (byte)(rand() % 256);
+                byte val = byte(rand() % mod);
                 int end = (idx + len) < size ? idx + len : size;
 
                 for (int j = idx; j < end; j++)
@@ -174,7 +175,7 @@ int testFunctionsCorrectness(string name)
         memset(reverse, 0xAA, size);
 
         for (int i = 0; i < size; i++)
-            input[i] = (byte)(values[i] & 255);
+            input[i] = byte(values[i] & 255);
 
         cout << endl
              << "Original: " << endl;
@@ -266,6 +267,7 @@ int testFunctionsSpeed(string name)
     SliceArray<byte> iba1(input, size, 0);
     SliceArray<byte> iba2(output, f->getMaxEncodedLength(size), 0);
     SliceArray<byte> iba3(reverse, size, 0);
+    int mod = (name== "ZRLT") ? 5 : 256;
     delete f;
 
     for (int jj = 0; jj < 3; jj++) {
@@ -274,9 +276,9 @@ int testFunctionsSpeed(string name)
         int n = iter / 20;
 
         while (n < size) {
-            byte val = (byte)(rand() % 255);
+            byte val = byte(rand() % mod);
             input[n++] = val;
-            int run = rand() % 255;
+            int run = rand() % 256;
             run -= 220;
 
             while ((--run > 0) && (n < size))
