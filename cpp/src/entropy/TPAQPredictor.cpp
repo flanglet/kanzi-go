@@ -279,7 +279,7 @@ const int STATE_MAP[] = {
     -345, -484, -119, -80, -58, -189, -253, -223, -106, -73,
     -57, -64, -268, -208, -4, 12, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1,
-
+/*
     -38, -419, 362, -548, -577, -699, -725, -838, -860, -869,
     -891, -970, -989, -1030, -1014, -1030, -1169, -1067, -1113, -1155,
     -1212, -1176, -1269, -1205, -1320, -1378, -1169, -1285, -1418, -1240,
@@ -306,6 +306,7 @@ const int STATE_MAP[] = {
     -419, -405, -214, -150, -119, -493, -447, -133, -331, -224,
     -513, -156, -247, -108, -177, -95, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1,
+*/
 };
 
 inline int32 TPAQPredictor::hash(int32 x, int32 y)
@@ -333,8 +334,11 @@ TPAQPredictor::TPAQPredictor(int logStates)
     _mixer = &_mixers[0];
     const int statesSize = 1 << logStates;
     _states = new uint8[statesSize];
+    memset(_states, 0, statesSize);
     _hashes = new int32[HASH_SIZE];
+    memset(_hashes, 0, sizeof(int32)*HASH_SIZE);
     _buffer = new byte[BUFFER_SIZE];
+    memset(_buffer, 0, BUFFER_SIZE);
     _bpos = 0;
     _cp0 = &_states[0];
     _cp1 = &_states[0];
@@ -345,9 +349,6 @@ TPAQPredictor::TPAQPredictor(int logStates)
     _cp6 = &_states[0];
     _ctx0 = _ctx1 = _ctx2 = _ctx3 = 0;
     _ctx4 = _ctx5 = _ctx6 = 0;
-    memset(_states, 0, statesSize);
-    memset(_hashes, 0, HASH_SIZE);
-    memset(_buffer, 0, BUFFER_SIZE);
 }
 
 TPAQPredictor::~TPAQPredictor()
@@ -495,7 +496,7 @@ inline TPAQMixer::TPAQMixer()
 // Adjust weights to minimize coding cost of last prediction
 inline void TPAQMixer::update(int bit)
 {
-    int err = (bit << 12) - _pr;
+    int32 err = (bit << 12) - _pr;
 
     if (err == 0)
         return;
