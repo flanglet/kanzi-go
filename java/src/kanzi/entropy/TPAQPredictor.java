@@ -398,7 +398,7 @@ public class TPAQPredictor implements Predictor
    private int ctx4;
    private int ctx5;
    private int ctx6;
-   
+
 
    public TPAQPredictor()
    {
@@ -480,7 +480,7 @@ public class TPAQPredictor implements Predictor
       this.cp1 = (this.ctx1 + c) & mask;
       int p1 = STATE_MAP1[st[this.cp1]&0xFF];
       st[this.cp2] = table[st[this.cp2]&0xFF];
-      this.cp2 = (this.ctx2 + c) & mask;
+      this.cp2 = (this.ctx2 + c) & mask;  
       int p2 = STATE_MAP2[st[this.cp2]&0xFF];
       st[this.cp3] = table[st[this.cp3]&0xFF];
       this.cp3 = (this.ctx3 + c) & mask;
@@ -633,5 +633,5 @@ public class TPAQPredictor implements Predictor
          return this.pr;
       }
    }
-
+   
 }

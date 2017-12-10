@@ -90,7 +90,7 @@ const uint8 STATE_TABLE[2][256] = {
 };
 
 // State Map
-const int STATE_MAP[] = {
+const int32 STATE_MAP[] = {
     -119, -120, 169, -476, -484, -386, -737, -881, -874, -712,
     -848, -679, -559, -794, -1212, -782, -1205, -1205, -613, -753,
     -1169, -1169, -1169, -743, -1155, -732, -720, -1131, -1131, -1131,
@@ -279,7 +279,7 @@ const int STATE_MAP[] = {
     -345, -484, -119, -80, -58, -189, -253, -223, -106, -73,
     -57, -64, -268, -208, -4, 12, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1,
-/*
+    /*
     -38, -419, 362, -548, -577, -699, -725, -838, -860, -869,
     -891, -970, -989, -1030, -1014, -1030, -1169, -1067, -1113, -1155,
     -1212, -1176, -1269, -1205, -1320, -1378, -1169, -1285, -1418, -1240,
@@ -336,7 +336,7 @@ TPAQPredictor::TPAQPredictor(int logStates)
     _states = new uint8[statesSize];
     memset(_states, 0, statesSize);
     _hashes = new int32[HASH_SIZE];
-    memset(_hashes, 0, sizeof(int32)*HASH_SIZE);
+    memset(_hashes, 0, sizeof(int32) * HASH_SIZE);
     _buffer = new byte[BUFFER_SIZE];
     memset(_buffer, 0, BUFFER_SIZE);
     _bpos = 0;
@@ -401,24 +401,24 @@ void TPAQPredictor::update(int bit)
     // Get initial predictions
     const uint8* table = STATE_TABLE[bit];
     *_cp0 = table[*_cp0];
-    *_cp1 = table[*_cp1];
-    *_cp2 = table[*_cp2];
-    *_cp3 = table[*_cp3];
-    *_cp4 = table[*_cp4];
-    *_cp5 = table[*_cp5];
-    *_cp6 = table[*_cp6];
     _cp0 = &_states[(_ctx0 + _c0) & _statesMask];
     const int p0 = STATE_MAP[(0 << 8) | (*_cp0)];
+    *_cp1 = table[*_cp1];
     _cp1 = &_states[(_ctx1 + _c0) & _statesMask];
     const int p1 = STATE_MAP[(1 << 8) | (*_cp1)];
+    *_cp2 = table[*_cp2];
     _cp2 = &_states[(_ctx2 + _c0) & _statesMask];
     const int p2 = STATE_MAP[(2 << 8) | (*_cp2)];
+    *_cp3 = table[*_cp3];
     _cp3 = &_states[(_ctx3 + _c0) & _statesMask];
     const int p3 = STATE_MAP[(3 << 8) | (*_cp3)];
+    *_cp4 = table[*_cp4];
     _cp4 = &_states[(_ctx4 + _c0) & _statesMask];
     const int p4 = STATE_MAP[(4 << 8) | (*_cp4)];
+    *_cp5 = table[*_cp5];
     _cp5 = &_states[(_ctx5 + _c0) & _statesMask];
     const int p5 = STATE_MAP[(5 << 8) | (*_cp5)];
+    *_cp6 = table[*_cp6];
     _cp6 = &_states[(_ctx6 + _c0) & _statesMask];
     const int p6 = STATE_MAP[(6 << 8) | (*_cp6)];
 
@@ -485,12 +485,12 @@ inline int32 TPAQPredictor::addContext(uint32 ctxId, uint32 cx)
     return cx * 123456791 + ctxId;
 }
 
-
 inline TPAQMixer::TPAQMixer()
 {
-   _pr = 2048; _skew = 0;
-   _w0 = _w1 = _w2 = _w3 = _w4 = _w5 = _w6 = _w7 = 64;  
-   _p0 = _p1 = _p2 = _p3 = _p4 = _p5 = _p6 = _p7 = 0;  
+    _pr = 2048;
+    _skew = 0;
+    _w0 = _w1 = _w2 = _w3 = _w4 = _w5 = _w6 = _w7 = 64;
+    _p0 = _p1 = _p2 = _p3 = _p4 = _p5 = _p6 = _p7 = 0;
 }
 
 // Adjust weights to minimize coding cost of last prediction
@@ -528,8 +528,7 @@ inline int TPAQMixer::get(int32 p0, int32 p1, int32 p2, int32 p3, int32 p4, int3
 
     // Neural Network dot product (sum weights*inputs)
     const int32 p = (p0 * _w0) + (p1 * _w1) + (p2 * _w2) + (p3 * _w3) + 
-                    (p4 * _w4) + (p5 * _w5) + (p6 * _w6) + (p7 * _w7) +
-                    _skew;
+                    (p4 * _w4) + (p5 * _w5) + (p6 * _w6) + (p7 * _w7) + _skew;
 
     _pr = Global::squash((p + 65536) >> 17);
     return _pr;
