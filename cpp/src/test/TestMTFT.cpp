@@ -30,7 +30,7 @@ void testMTFTCorrectness()
 {
     // Test behavior
     cout << "MTFT Correctness test" << endl;
-    srand((uint)time(nullptr));
+    srand(uint(time(nullptr)));
 
     for (int ii = 0; ii < 20; ii++) {
         byte val[32];
@@ -39,12 +39,12 @@ void testMTFTCorrectness()
         if (ii == 0) {
             byte val2[] = { 5, 2, 4, 7, 0, 0, 7, 1, 7 };
             size = 32;
-            memcpy(val, &val2[0], size);
+            memset(&val[0], 0, size);
+            memcpy(&val[0], &val2[0], 9);
         }
         else {
-
             for (int i = 0; i < 32; i++)
-                val[i] = (byte)(65 + (rand() % (5 * ii)));
+                val[i] = byte(65 + (rand() % (5 * ii)));
         }
 
         MTFT mtft;
@@ -104,7 +104,7 @@ int testMTFTSpeed()
          << endl
          << "MTFT Speed test" << endl;
     cout << "Iterations: " << iter << endl;
-    srand((uint)time(nullptr));
+    srand(uint(time(nullptr)));
 
     for (int jj = 0; jj < 4; jj++) {
         byte input[20000];
@@ -176,14 +176,14 @@ int testMTFTSpeed()
             }
         }
 
-        double prod = (double)iter * (double)size;
-        double b2KB = (double)1 / (double)1024;
-        double d1_sec = (double)delta1 / CLOCKS_PER_SEC;
-        double d2_sec = (double)delta2 / CLOCKS_PER_SEC;
-        cout << "MTFT Forward transform [ms]: " << (int)(d1_sec * 1000) << endl;
-        cout << "Throughput [KB/s]          : " << (int)(prod * b2KB / d1_sec) << endl;
-        cout << "MTFT Reverse transform [ms]: " << (int)(d2_sec * 1000) << endl;
-        cout << "Throughput [KB/s]          : " << (int)(prod * b2KB / d2_sec) << endl;
+        double prod = double(iter) * double(size);
+        double b2KB = double(1) / double(1024);
+        double d1_sec = double(delta1) / CLOCKS_PER_SEC;
+        double d2_sec = double(delta2) / CLOCKS_PER_SEC;
+        cout << "MTFT Forward transform [ms]: " << int(d1_sec * 1000) << endl;
+        cout << "Throughput [KB/s]          : " << int(prod * b2KB / d1_sec) << endl;
+        cout << "MTFT Reverse transform [ms]: " << int(d2_sec * 1000) << endl;
+        cout << "Throughput [KB/s]          : " << int(prod * b2KB / d2_sec) << endl;
         cout << endl;
     }
 
