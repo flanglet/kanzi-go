@@ -22,6 +22,9 @@ const (
 	SS_SMERGE_STACKSIZE        = 32
 	TR_STACKSIZE               = 64
 	TR_INSERTIONSORT_THRESHOLD = 8
+	MASK_FFFF0000              = -65536    // make 32 bit systems happy
+	MASK_FF000000              = -16777216 // make 32 bit systems happy
+	MASK_0000FF00              = 65280     // make 32 bit systems happy
 )
 
 var SQQ_TABLE = []int{
@@ -1276,14 +1279,14 @@ func ssIsqrt(x int) int {
 
 	var e int
 
-	if x&0xFFFF0000 != 0 {
-		if x&0xFF000000 != 0 {
+	if x&MASK_FFFF0000 != 0 {
+		if x&MASK_FF000000 != 0 {
 			e = 24 + LOG_TABLE[(x>>24)&0xFF]
 		} else {
 			e = 16 + LOG_TABLE[(x>>16)&0xFF]
 		}
 	} else {
-		if x&0x0000FF00 != 0 {
+		if x&MASK_0000FF00 != 0 {
 			e = 8 + LOG_TABLE[(x>>8)&0xFF]
 		} else {
 			e = LOG_TABLE[x&0xFF]

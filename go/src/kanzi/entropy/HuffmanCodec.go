@@ -361,7 +361,7 @@ func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
 			endChunk = len(block)
 		}
 
-		endChunk8 := ((endChunk - startChunk) & 0xFFFFFFF8) + startChunk
+		endChunk8 := ((endChunk - startChunk) & -8) + startChunk
 
 		for i := range frequencies {
 			frequencies[i] = 0
