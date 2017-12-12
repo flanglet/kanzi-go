@@ -91,10 +91,10 @@ int EntropyUtils::encodeAlphabet(OutputBitStream& obs, uint alphabet[], int leng
     if ((length == 256) && (count >= 32) && (count <= 224)) {
         // Regular alphabet of symbols less than 256
         obs.writeBit(BIT_ENCODED_ALPHABET_256);
-		uint64 masks[4] = { 0, 0, 0, 0 };
+        uint64 masks[4] = { 0, 0, 0, 0 };
 
-		for (int i = 0; i < count; i++)
-			masks[alphabet[i] >> 6] |= ((uint64(1)) << (alphabet[i] & 63));
+        for (int i = 0; i < count; i++)
+            masks[alphabet[i] >> 6] |= ((uint64(1)) << (alphabet[i] & 63));
 
         for (int i = 0; i < 4; i++)
             obs.writeBits(masks[i], 64);
