@@ -327,7 +327,7 @@ int Global::log2_1024(int32 x) THROW
     taylor += (((z * z2) / 3) >> log);
     taylor -= ((z2 * z2) >> (log + 2));
     taylor = (taylor * 5909) >> (log + 2); // rescale: 4096*1/log(2)
-    return int(base + (log << 10) + taylor);
+    return int(base + (uint64(log) << 10) + taylor);
 }
 
 // Integer SQRT implementation based on algorithm at

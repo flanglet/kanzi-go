@@ -61,7 +61,7 @@ int EntropyUtils::encodeAlphabet(OutputBitStream& obs, uint alphabet[], int leng
     if ((length & (length - 1)) != 0)
         return -1;
 
-    if (count > length)
+    if ((count > length) || (count >= 256))
         return -1;
 
     // First, push alphabet encoding mode
@@ -103,7 +103,7 @@ int EntropyUtils::encodeAlphabet(OutputBitStream& obs, uint alphabet[], int leng
     }
 
     obs.writeBit(DELTA_ENCODED_ALPHABET);
-    int* diffs = new int[count];
+    int diffs[256];
 
     if (length - count < count) {
         // Encode all missing symbols
@@ -195,7 +195,6 @@ int EntropyUtils::encodeAlphabet(OutputBitStream& obs, uint alphabet[], int leng
             encodeSize(obs, log, diffs[j]);
     }
 
-    delete[] diffs;
     return count;
 }
 
