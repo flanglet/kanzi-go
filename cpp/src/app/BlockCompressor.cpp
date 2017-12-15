@@ -318,6 +318,7 @@ int BlockCompressor::call()
 
             if (!*ifs) {
                 cerr << "Cannot open input file '" << _inputName << "'" << endl;
+                return Error::ERR_OPEN_FILE;
             }
 
             _is = ifs;
