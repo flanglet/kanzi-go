@@ -311,8 +311,8 @@ const int32 STATE_MAP[] = {
 
 inline int32 TPAQPredictor::hash(int32 x, int32 y)
 {
-    const int32 h = x * HASH1 ^ y * HASH2;
-    return (h >> 1) ^ (h >> 9) ^ (x >> 2) ^ (y >> 3) ^ HASH3;
+    const int32 h = x * HASH ^ y * HASH;
+    return (h >> 1) ^ (h >> 9) ^ (x >> 2) ^ (y >> 3) ^ HASH;
 }
 
 TPAQPredictor::TPAQPredictor(int logStates)
@@ -327,6 +327,7 @@ TPAQPredictor::TPAQPredictor(int logStates)
     _c4 = 0;
     _c8 = 0;
     _pos = 0;
+    _binCount = 0;
     _matchLen = 0;
     _matchPos = 0;
     _hash = 0;
@@ -374,22 +375,36 @@ void TPAQPredictor::update(int bit)
         _hash = (((_hash * 43707) << 4) + _c4) & MASK_HASH;
         _c0 = 1;
         _bpos = 0;
-
-        // Shift by 16 if binary data else 0
-        const int32 val1 = ((_c4 & MASK1) == 0) ? _c4 : _c4 >> 16;
-        const int32 val2 = ((_c8 & MASK1) == 0) ? _c8 : _c8 >> 16;
+        _binCount += ((_c4 >> 7) & 1);
 
         // Select Neural Net
         _mixer = &_mixers[_c4 & MASK_MIXER];
+        
+        int32 h1, h2, h3;
+
+        if (_binCount < (_pos >> 2))
+        {
+           // Mostly text
+           h1 = ((_c4 & MASK_80808080) == 0) ? _c4 : _c4 >> 16;
+           h2 = ((_c8 & MASK_80808080) == 0) ? _c8 : _c8 >> 16;
+           h3 = _c4 ^ (_c8 & 0xFFFF);
+        }
+        else
+        {
+           // Mostly binary
+           h1 = _c4 >> 16;
+           h2 = _c8 >> 16;
+           h3 = _c4 ^ (_c4 & 0xFFFF);
+        }
 
         // Add contexts to NN
-        _ctx0 = addContext(0, _c4 ^ (_c4 & 0xFFFF));
-        _ctx1 = addContext(1, hash(C1, _c4 << 24)); // hash with random primes
-        _ctx2 = addContext(2, hash(C2, _c4 << 16));
-        _ctx3 = addContext(3, hash(C3, _c4 << 8));
-        _ctx4 = addContext(4, hash(C4, _c4 & MASK2));
-        _ctx5 = addContext(5, hash(C5, _c4));
-        _ctx6 = addContext(6, hash(val1, val2));
+        _ctx0 = addContext(0, h3);
+        _ctx1 = addContext(1, hash(HASH, _c4 << 24));
+        _ctx2 = addContext(2, hash(HASH, _c4 << 16));
+        _ctx3 = addContext(3, hash(HASH, _c4 << 8));
+        _ctx4 = addContext(4, hash(HASH, _c4 & MASK_F0F0F0F0));
+        _ctx5 = addContext(5, hash(HASH, _c4));
+        _ctx6 = addContext(6, hash(h1, h2));
 
         // Find match
         findMatch();

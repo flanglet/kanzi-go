@@ -71,16 +71,9 @@ namespace kanzi
        static const int MASK_BUFFER = BUFFER_SIZE - 1;
        static const int MASK_MIXER = MIXER_SIZE - 1;
        static const int MASK_HASH = HASH_SIZE - 1;
-       static const int MASK1 = 0x80808080;
-       static const int MASK2 = 0xF0F0F0F0;
-       static const int C1 = 0xcc9e2d51;
-       static const int C2 = 0x1b873593;
-       static const int C3 = 0xe6546b64;
-       static const int C4 = 0x85ebca6b;
-       static const int C5 = 0xc2b2ae35;
-       static const int HASH1 = 200002979;
-       static const int HASH2 = 30005491;
-       static const int HASH3 = 50004239;
+       static const int MASK_80808080 = 0x80808080;
+       static const int MASK_F0F0F0F0 = 0xF0F0F0F0;
+       static const int HASH = 200002979;
 
        int _pr; // next predicted value (0-4095)
        int32 _c0; // bitwise context: last 0-7 bits with a leading 1 (1-255)
@@ -88,6 +81,7 @@ namespace kanzi
        int32 _c8; // last 8 to 4 whole bytes, last is in low 8 bits
        int _bpos; // number of bits in c0 (0-7)
        int32 _pos;
+       int32 _binCount;
        int32 _matchLen;
        int32 _matchPos;
        int32 _hash;

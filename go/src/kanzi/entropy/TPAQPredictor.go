@@ -26,23 +26,16 @@ import (
 // See http://encode.ru/threads/1738-TANGELO-new-compressor-(derived-from-PAQ8-FP8)
 
 const (
-	TPAQ_MAX_LENGTH  = 88
-	TPAQ_MIXER_SIZE  = 16 * 1024
-	TPAQ_BUFFER_SIZE = 64 * 1024 * 1024
-	TPAQ_HASH_SIZE   = 16 * 1024 * 1024
-	TPAQ_MASK_MIXER  = TPAQ_MIXER_SIZE - 1
-	TPAQ_MASK_BUFFER = TPAQ_BUFFER_SIZE - 1
-	TPAQ_MASK_HASH   = TPAQ_HASH_SIZE - 1
-	TPAQ_MASK1       = int32(-2139062144) // 0x80808080
-	TPAQ_MASK2       = int32(-252645136)  // 0xF0F0F0F0
-	TPAQ_C1          = int32(-862048943)
-	TPAQ_C2          = int32(461845907)
-	TPAQ_C3          = int32(-430675100)
-	TPAQ_C4          = int32(-2048144789)
-	TPAQ_C5          = int32(-1028477387)
-	TPAQ_HASH1       = int32(200002979)
-	TPAQ_HASH2       = int32(30005491)
-	TPAQ_HASH3       = int32(50004239)
+	TPAQ_MAX_LENGTH    = 88
+	TPAQ_MIXER_SIZE    = 16 * 1024
+	TPAQ_BUFFER_SIZE   = 64 * 1024 * 1024
+	TPAQ_HASH_SIZE     = 16 * 1024 * 1024
+	TPAQ_MASK_MIXER    = TPAQ_MIXER_SIZE - 1
+	TPAQ_MASK_BUFFER   = TPAQ_BUFFER_SIZE - 1
+	TPAQ_MASK_HASH     = TPAQ_HASH_SIZE - 1
+	TPAQ_MASK_80808080 = int32(-2139062144) // 0x80808080
+	TPAQ_MASK_F0F0F0F0 = int32(-252645136)  // 0xF0F0F0F0
+	TPAQ_HASH          = int32(200002979)
 )
 
 ///////////////////////// state table ////////////////////////
@@ -354,8 +347,8 @@ var TPAQ_STATE_MAP7 = []int32{
 */
 
 func hashTPAQ(x, y int32) int32 {
-	h := x*TPAQ_HASH1 ^ y*TPAQ_HASH2
-	return h>>1 ^ h>>9 ^ x>>2 ^ y>>3 ^ TPAQ_HASH3
+	h := x*TPAQ_HASH ^ y*TPAQ_HASH
+	return h>>1 ^ h>>9 ^ x>>2 ^ y>>3 ^ TPAQ_HASH
 }
 
 type TPAQPredictor struct {
@@ -365,6 +358,7 @@ type TPAQPredictor struct {
 	c8         int32 // last 8 to 4 whole bytes, last is in low 8 bits
 	bpos       uint  // number of bits in c0 (0-7)
 	pos        int32
+	binCount   int32
 	matchLen   int32
 	matchPos   int32
 	hash       int32
@@ -438,30 +432,43 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.hash = (((this.hash * 43707) << 4) + this.c4) & TPAQ_MASK_HASH
 		this.c0 = 1
 		this.bpos = 0
-
-		// Shift by 16 if binary data else 0
-		val1 := this.c4
-		val2 := this.c8
-
-		if this.c4&TPAQ_MASK1 != 0 {
-			val1 >>= 16
-		}
-
-		if this.c8&TPAQ_MASK1 != 0 {
-			val2 >>= 16
-		}
+		this.binCount += ((this.c4 >> 7) & 1)
 
 		// Select Neural Net
 		this.mixer = &this.mixers[this.c4&TPAQ_MASK_MIXER]
 
-		// Add contexts NN
-		this.ctx0 = this.addContext(0, this.c4^(this.c4&0xFFFF))
-		this.ctx1 = this.addContext(1, hashTPAQ(TPAQ_C1, this.c4<<24)) // hash with random primes
-		this.ctx2 = this.addContext(2, hashTPAQ(TPAQ_C2, this.c4<<16))
-		this.ctx3 = this.addContext(3, hashTPAQ(TPAQ_C3, this.c4<<8))
-		this.ctx4 = this.addContext(4, hashTPAQ(TPAQ_C4, this.c4&TPAQ_MASK2))
-		this.ctx5 = this.addContext(5, hashTPAQ(TPAQ_C5, this.c4))
-		this.ctx6 = this.addContext(6, hashTPAQ(val1, val2))
+		var h1, h2, h3 int32
+
+		if this.binCount < this.pos>>2 {
+			// Mostly text
+			if this.c4&TPAQ_MASK_80808080 == 0 {
+				h1 = this.c4
+			} else {
+				h1 = this.c4 >> 16
+			}
+
+			if this.c8&TPAQ_MASK_80808080 == 0 {
+				h2 = this.c8
+			} else {
+				h2 = this.c8 >> 16
+			}
+
+			h3 = this.c4 ^ (this.c8 & 0xFFFF)
+		} else {
+			// Mostly binary
+			h1 = this.c4 >> 16
+			h2 = this.c8 >> 16
+			h3 = this.c4 ^ (this.c4 & 0xFFFF)
+		}
+
+		// Add contexts to NN
+		this.ctx0 = this.addContext(0, h3)
+		this.ctx1 = this.addContext(1, hashTPAQ(TPAQ_HASH, this.c4<<24))
+		this.ctx2 = this.addContext(2, hashTPAQ(TPAQ_HASH, this.c4<<16))
+		this.ctx3 = this.addContext(3, hashTPAQ(TPAQ_HASH, this.c4<<8))
+		this.ctx4 = this.addContext(4, hashTPAQ(TPAQ_HASH, this.c4&TPAQ_MASK_F0F0F0F0))
+		this.ctx5 = this.addContext(5, hashTPAQ(TPAQ_HASH, this.c4))
+		this.ctx6 = this.addContext(6, hashTPAQ(h1, h2))
 
 		// Find match
 		this.findMatch()
@@ -564,7 +571,7 @@ func (this *TPAQPredictor) addMatchContextPred() int32 {
 
 func (this *TPAQPredictor) addContext(ctxId int32, cx int32) int32 {
 	cx = cx*987654323 + ctxId
-	cx = (cx<<16) | int32(uint32(cx)>>16)
+	cx = (cx << 16) | int32(uint32(cx)>>16)
 	return cx*123456791 + ctxId
 }
 

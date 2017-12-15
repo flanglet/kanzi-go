@@ -31,16 +31,9 @@ public class TPAQPredictor implements Predictor
    private static final int MASK_MIXER = MIXER_SIZE - 1;
    private static final int MASK_BUFFER = BUFFER_SIZE - 1;
    private static final int MASK_HASH = HASH_SIZE - 1;
-   private static final int MASK1 = 0x80808080;
-   private static final int MASK2 = 0xF0F0F0F0;
-   private static final int C1 = 0xcc9e2d51;
-   private static final int C2 = 0x1b873593;
-   private static final int C3 = 0xe6546b64;
-   private static final int C4 = 0x85ebca6b;
-   private static final int C5 = 0xc2b2ae35;
-   private static final int HASH1 = 200002979;
-   private static final int HASH2 = 30005491;
-   private static final int HASH3 = 50004239;
+   private static final int MASK_80808080 = 0x80808080;
+   private static final int MASK_F0F0F0F0 = 0xF0F0F0F0;
+   private static final int HASH = 200002979;
 
    ///////////////////////// state table ////////////////////////
    // States represent a bit history within some context.
@@ -362,8 +355,8 @@ public class TPAQPredictor implements Predictor
 
    static int hash(int x, int y)
    {
-      final int h = x*HASH1 ^ y*HASH2;
-      return (h>>1) ^ (h>>9) ^ (x>>2) ^ (y>>3) ^ HASH3;
+      final int h = x*HASH ^ y*HASH;
+      return (h>>1) ^ (h>>9) ^ (x>>2) ^ (y>>3) ^ HASH;
    }
 
 
@@ -374,6 +367,7 @@ public class TPAQPredictor implements Predictor
    private int c8;                     // last 8 to 4 whole bytes, last is in low 8 bits
    private int bpos;                   // number of bits in c0 (0-7)
    private int pos;
+   private int binCount;
    private int matchLen;
    private int matchPos;
    private int hash;
@@ -399,7 +393,7 @@ public class TPAQPredictor implements Predictor
    private int ctx5;
    private int ctx6;
 
-
+   
    public TPAQPredictor()
    {
        this(28); // 256 MB
@@ -444,22 +438,36 @@ public class TPAQPredictor implements Predictor
         this.hash = (((this.hash*43707) << 4) + this.c4) & MASK_HASH;
         this.c0 = 1;
         this.bpos = 0;
-
-        // Shift by 16 if binary data else 0
-        final int val1 = ((this.c4&MASK1) == 0) ? this.c4 : this.c4>>16;
-        final int val2 = ((this.c8&MASK1) == 0) ? this.c8 : this.c8>>16;
+        this.binCount += ((this.c4 >> 7) & 1);
 
         // Select Neural Net
         this.mixer = this.mixers[this.c4&MASK_MIXER];
 
+        final int h1, h2, h3;
+        
+        if (this.binCount < (this.pos>>2))
+        {
+           // Mostly text
+           h1 = ((this.c4&MASK_80808080) == 0) ? this.c4 : this.c4>>16;
+           h2 = ((this.c8&MASK_80808080) == 0) ? this.c8 : this.c8>>16;
+           h3 = this.c4 ^ (this.c8&0xFFFF);
+        }
+        else
+        {
+           // Mostly binary
+           h1 = this.c4 >> 16;
+           h2 = this.c8 >> 16;
+           h3 = this.c4 ^ (this.c4&0xFFFF);
+        }
+
         // Add contexts to NN
-        this.ctx0 = this.addContext(0, this.c4 ^ (this.c4&0xFFFF));
-        this.ctx1 = this.addContext(1, hash(C1, this.c4<<24)); // hash with random primes
-        this.ctx2 = this.addContext(2, hash(C2, this.c4<<16));
-        this.ctx3 = this.addContext(3, hash(C3, this.c4<<8));
-        this.ctx4 = this.addContext(4, hash(C4, this.c4&MASK2));
-        this.ctx5 = this.addContext(5, hash(C5, this.c4));
-        this.ctx6 = this.addContext(6, hash(val1, val2));
+        this.ctx0 = this.addContext(0, h3);
+        this.ctx1 = this.addContext(1, hash(HASH, this.c4<<24));
+        this.ctx2 = this.addContext(2, hash(HASH, this.c4<<16));
+        this.ctx3 = this.addContext(3, hash(HASH, this.c4<<8));
+        this.ctx4 = this.addContext(4, hash(HASH, this.c4&MASK_F0F0F0F0));
+        this.ctx5 = this.addContext(5, hash(HASH, this.c4));
+        this.ctx6 = this.addContext(6, hash(h1, h2));
 
         // Find match
         this.findMatch();
