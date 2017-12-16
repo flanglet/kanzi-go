@@ -50,7 +50,7 @@ public class EntropyUtils
       if ((alphabet.length & (alphabet.length-1)) != 0)
          return -1;
       
-      if ((count > alphabet.length) || (count >= 256))
+      if (count > alphabet.length)
          return -1;
 
       // First, push alphabet encoding mode

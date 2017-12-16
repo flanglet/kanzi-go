@@ -129,10 +129,6 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) int {
 		return -1
 	}
 
-	if count >= 256 {
-		return -1
-	}
-
 	// First, push alphabet encoding mode
 	if alphabetSize > 0 && count == alphabetSize {
 		// Full alphabet
