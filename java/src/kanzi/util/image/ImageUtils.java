@@ -451,6 +451,7 @@ public class ImageUtils
    public static ImageInfo loadPPM(InputStream is) throws IOException
    {
       boolean raw;
+      boolean grey;
       DataInputStream dis = null;
 
       try 
@@ -464,14 +465,24 @@ public class ImageUtils
           switch (type.charAt(1))
           {
             case '1':
-            case '2':
             case '3':
+               grey = false;
+               raw = false;
+               break;
+               
+            case '2':
+               grey = true;
                raw = false;
                break;
 
             case '4':
-            case '5':
             case '6':
+               grey = false;
+               raw = true;
+               break;
+               
+            case '5':
+               grey = true;
                raw = true;
                break;
 
@@ -491,21 +502,41 @@ public class ImageUtils
           
           if (raw == true) 
           {
-              final byte row[] = new byte[3*w];
-              
-              for (int j=0; j<h; j++) 
+              if (grey == true)
               {
-                  dis.readFully(row);
-                  
-                  for (int i=0, k=0; i<w; i++, k+=3) 
+                  final byte row[] = new byte[w];
+
+                  for (int j=0; j<h; j++) 
                   {
-                      final int r = (row[k]   + 256) & 0xFF;
-                      final int g = (row[k+1] + 256) & 0xFF;
-                      final int b = (row[k+2] + 256) & 0xFF;
-                      data[offs+i] = (r << 16) | (g << 8) | b;
+                      dis.readFully(row);
+
+                      for (int i=0, k=0; i<w; i++, k++) 
+                      {
+                          final int val = (row[k] + 256) & 0xFF;
+                          data[offs+i] = (val << 16) | (val << 8) | val;
+                      }
+
+                      offs += w;
+                  }                
+              }
+              else
+              {
+                  final byte row[] = new byte[3*w];
+
+                  for (int j=0; j<h; j++) 
+                  {
+                      dis.readFully(row);
+
+                      for (int i=0, k=0; i<w; i++, k+=3) 
+                      {
+                          final int r = (row[k]   + 256) & 0xFF;
+                          final int g = (row[k+1] + 256) & 0xFF;
+                          final int b = (row[k+2] + 256) & 0xFF;
+                          data[offs+i] = (r << 16) | (g << 8) | b;
+                      }
+
+                      offs += w;
                   }
-                  
-                  offs += w;
               }
           } 
           else 
@@ -524,7 +555,7 @@ public class ImageUtils
               }
           }
 
-          return new ImageInfo(w, h, data);          
+          return new ImageInfo(w, h, data, !grey);          
       } 
       finally 
       {
@@ -755,13 +786,21 @@ public class ImageUtils
       public final int width;
       public final int height;
       public final int[] data;
+      public boolean isRGB;
       
       
       public ImageInfo(int width, int height, int[] data)
       {
+         this(width, height, data, true);
+      }
+
+      
+      public ImageInfo(int width, int height, int[] data, boolean isRGB)
+      {      
          this.width = width;
          this.height = height;
          this.data = data;
+         this.isRGB = isRGB;
       }
    }
 }
