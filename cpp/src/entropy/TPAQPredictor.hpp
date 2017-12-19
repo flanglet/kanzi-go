@@ -34,6 +34,9 @@ namespace kanzi
    {
        friend class TPAQPredictor;
 
+       static const int BEGIN_LEARN_RATE = 60 << 8;
+       static const int END_LEARN_RATE = 14 << 8;
+
    public:
       TPAQMixer(); 
 
@@ -48,6 +51,7 @@ namespace kanzi
        int32 _p0, _p1, _p2, _p3, _p4, _p5, _p6, _p7;
        int _pr;
        int32 _skew;
+       int32 _learnRate;
    };
 
 

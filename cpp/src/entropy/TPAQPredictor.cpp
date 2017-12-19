@@ -504,8 +504,9 @@ inline TPAQMixer::TPAQMixer()
 {
     _pr = 2048;
     _skew = 0;
-    _w0 = _w1 = _w2 = _w3 = _w4 = _w5 = _w6 = _w7 = 64;
+    _w0 = _w1 = _w2 = _w3 = _w4 = _w5 = _w6 = _w7 = 2048;
     _p0 = _p1 = _p2 = _p3 = _p4 = _p5 = _p6 = _p7 = 0;
+    _learnRate = BEGIN_LEARN_RATE;
 }
 
 // Adjust weights to minimize coding cost of last prediction
@@ -516,7 +517,9 @@ inline void TPAQMixer::update(int bit)
     if (err == 0)
         return;
 
-    err = (err << 4) - err;
+    // Decaying learn rate 
+    err = (err*_learnRate) >> 8;
+    _learnRate += ((END_LEARN_RATE-_learnRate)>>31);  
     _skew += err;
 
     // Train Neural Network: update weights

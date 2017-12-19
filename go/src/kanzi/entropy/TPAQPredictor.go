@@ -26,16 +26,18 @@ import (
 // See http://encode.ru/threads/1738-TANGELO-new-compressor-(derived-from-PAQ8-FP8)
 
 const (
-	TPAQ_MAX_LENGTH    = 88
-	TPAQ_MIXER_SIZE    = 16 * 1024
-	TPAQ_BUFFER_SIZE   = 64 * 1024 * 1024
-	TPAQ_HASH_SIZE     = 16 * 1024 * 1024
-	TPAQ_MASK_MIXER    = TPAQ_MIXER_SIZE - 1
-	TPAQ_MASK_BUFFER   = TPAQ_BUFFER_SIZE - 1
-	TPAQ_MASK_HASH     = TPAQ_HASH_SIZE - 1
-	TPAQ_MASK_80808080 = int32(-2139062144) // 0x80808080
-	TPAQ_MASK_F0F0F0F0 = int32(-252645136)  // 0xF0F0F0F0
-	TPAQ_HASH          = int32(200002979)
+	TPAQ_MAX_LENGTH       = 88
+	TPAQ_MIXER_SIZE       = 16 * 1024
+	TPAQ_BUFFER_SIZE      = 64 * 1024 * 1024
+	TPAQ_HASH_SIZE        = 16 * 1024 * 1024
+	TPAQ_MASK_MIXER       = TPAQ_MIXER_SIZE - 1
+	TPAQ_MASK_BUFFER      = TPAQ_BUFFER_SIZE - 1
+	TPAQ_MASK_HASH        = TPAQ_HASH_SIZE - 1
+	TPAQ_MASK_80808080    = int32(-2139062144) // 0x80808080
+	TPAQ_MASK_F0F0F0F0    = int32(-252645136)  // 0xF0F0F0F0
+	TPAQ_HASH             = int32(200002979)
+	TPAQ_BEGIN_LEARN_RATE = 60 << 8
+	TPAQ_END_LEARN_RATE   = 14 << 8
 )
 
 ///////////////////////// state table ////////////////////////
@@ -581,19 +583,21 @@ type TPAQMixer struct {
 	skew                           int32
 	w0, w1, w2, w3, w4, w5, w6, w7 int32
 	p0, p1, p2, p3, p4, p5, p6, p7 int32
+	learnRate                      int32
 }
 
 func (this *TPAQMixer) init() {
 	this.pr = 2048
 	this.skew = 0
-	this.w0 = 64
-	this.w1 = 64
-	this.w2 = 64
-	this.w3 = 64
-	this.w4 = 64
-	this.w5 = 64
-	this.w6 = 64
-	this.w7 = 64
+	this.w0 = 2048
+	this.w1 = 2048
+	this.w2 = 2048
+	this.w3 = 2048
+	this.w4 = 2048
+	this.w5 = 2048
+	this.w6 = 2048
+	this.w7 = 2048
+	this.learnRate = TPAQ_BEGIN_LEARN_RATE
 }
 
 // Adjust weights to minimize coding cost of last prediction
@@ -604,7 +608,9 @@ func (this *TPAQMixer) update(bit int) {
 		return
 	}
 
-	err = (err << 4) - err
+	// Decaying learn rate
+	err = (err * this.learnRate) >> 8
+	this.learnRate += ((TPAQ_END_LEARN_RATE - this.learnRate) >> 31)
 	this.skew += err
 
 	// Train Neural Network: update weights

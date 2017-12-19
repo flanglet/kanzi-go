@@ -33,7 +33,7 @@ public class BinaryEntropyEncoder implements EntropyEncoder
    private long high;
    private final OutputBitStream bitstream;
    private boolean disposed;
-
+   
 
    public BinaryEntropyEncoder(OutputBitStream bitstream, Predictor predictor)
    {
@@ -76,7 +76,7 @@ public class BinaryEntropyEncoder implements EntropyEncoder
       this.encodeBit((val >> 1) & 1);
       this.encodeBit(val & 1);
    }
-
+   
 
    public void encodeBit(int bit)
    {      
@@ -95,7 +95,7 @@ public class BinaryEntropyEncoder implements EntropyEncoder
       while (((this.low ^ this.high) & MASK_24_56) == 0)
          this.flush();
    }
-
+      
 
    private void flush()
    {

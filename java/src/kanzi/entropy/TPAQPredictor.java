@@ -483,27 +483,27 @@ public class TPAQPredictor implements Predictor
       final byte[] table = STATE_TABLE[bit];
       st[this.cp0] = table[st[this.cp0]&0xFF];
       this.cp0 = (this.ctx0 + c) & mask;
-      int p0 = STATE_MAP0[st[this.cp0]&0xFF];
+      final int p0 = STATE_MAP0[st[this.cp0]&0xFF];
       st[this.cp1] = table[st[this.cp1]&0xFF];
       this.cp1 = (this.ctx1 + c) & mask;
-      int p1 = STATE_MAP1[st[this.cp1]&0xFF];
+      final int p1 = STATE_MAP1[st[this.cp1]&0xFF];
       st[this.cp2] = table[st[this.cp2]&0xFF];
       this.cp2 = (this.ctx2 + c) & mask;  
-      int p2 = STATE_MAP2[st[this.cp2]&0xFF];
+      final int p2 = STATE_MAP2[st[this.cp2]&0xFF];
       st[this.cp3] = table[st[this.cp3]&0xFF];
       this.cp3 = (this.ctx3 + c) & mask;
-      int p3 = STATE_MAP3[st[this.cp3]&0xFF];
+      final int p3 = STATE_MAP3[st[this.cp3]&0xFF];
       st[this.cp4] = table[st[this.cp4]&0xFF];
       this.cp4 = (this.ctx4 + c) & mask;
-      int p4 = STATE_MAP4[st[this.cp4]&0xFF];
+      final int p4 = STATE_MAP4[st[this.cp4]&0xFF];
       st[this.cp5] = table[st[this.cp5]&0xFF];
       this.cp5 = (this.ctx5 + c) & mask;
-      int p5 = STATE_MAP5[st[this.cp5]&0xFF];
+      final int p5 = STATE_MAP5[st[this.cp5]&0xFF];
       st[this.cp6] = table[st[this.cp6]&0xFF];
       this.cp6 = (this.ctx6 + c) & mask;
-      int p6 = STATE_MAP6[st[this.cp6]&0xFF];      
+      final int p6 = STATE_MAP6[st[this.cp6]&0xFF];      
 
-      int p7 = this.addMatchContextPred();
+      final int p7 = this.addMatchContextPred();
 
       // Mix predictions using NN
       int p = this.mixer.get(p0, p1, p2, p3, p4, p5, p6, p7);
@@ -584,17 +584,22 @@ public class TPAQPredictor implements Predictor
    // Mixer combines models using a neural network with 8 inputs.
    static class Mixer
    {
+      private static final int BEGIN_LEARN_RATE = 60 << 8;
+      private static final int END_LEARN_RATE = 14 << 8;
+
       private int pr;  // squashed prediction
       private int skew; 
       private int w0, w1, w2, w3, w4, w5, w6, w7; 
       private int p0, p1, p2, p3, p4, p5, p6, p7;
+      private int learnRate;
 
-
+      
       Mixer()
       {
          this.pr = 2048;
-         this.w0 = this.w1 = this.w2 = this.w3 = 64;
-         this.w4 = this.w5 = this.w6 = this.w7 = 64;
+         this.w0 = this.w1 = this.w2 = this.w3 = 2048;
+         this.w4 = this.w5 = this.w6 = this.w7 = 2048;
+         this.learnRate = BEGIN_LEARN_RATE;
       }
 
       
@@ -602,11 +607,13 @@ public class TPAQPredictor implements Predictor
       void update(int bit)
       {
          int err = (bit<<12) - this.pr;
-
+         
          if (err == 0)
             return;
 
-         err = (err << 4) - err;
+         // Decaying learn rate 
+         err = (err*this.learnRate) >> 8;
+         this.learnRate += ((END_LEARN_RATE-this.learnRate)>>31);       
          this.skew += err;
 
          // Train Neural Network: update weights
