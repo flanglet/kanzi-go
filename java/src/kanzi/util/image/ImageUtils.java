@@ -100,7 +100,7 @@ public class ImageUtils
          case "PGM" : 
          case "PNM" : 
          case "PPM" : 
-            return loadPPM(is);
+            return loadPNM(is);
       
          case "BMP" :
          case "GIF" :
@@ -448,7 +448,7 @@ public class ImageUtils
    }
 
    
-   public static ImageInfo loadPPM(InputStream is) throws IOException
+   public static ImageInfo loadPNM(InputStream is) throws IOException
    {
       boolean raw;
       boolean grey;
@@ -465,27 +465,27 @@ public class ImageUtils
           switch (type.charAt(1))
           {
             case '1':
-            case '3':
-               grey = false;
-               raw = false;
-               break;
-               
             case '2':
                grey = true;
                raw = false;
                break;
 
-            case '4':
-            case '6':
+            case '3':
                grey = false;
-               raw = true;
+               raw = false;
                break;
                
+            case '4':
             case '5':
                grey = true;
                raw = true;
                break;
 
+            case '6':
+               grey = false;
+               raw = true;
+               break;
+               
             default:
                throw new IOException("Invalid format " + type);
           }
@@ -572,8 +572,8 @@ public class ImageUtils
    }
 
 
-    private static String readWord(InputStream is) throws IOException 
-    {
+   private static String readWord(InputStream is) throws IOException 
+   {
       StringBuilder builder = new StringBuilder(100);
       BufferedReader br = null;
       int b;
@@ -586,7 +586,7 @@ public class ImageUtils
            
          if (b == '#') 
          {  
-            // Read ppm comment
+            // Read pnm comment
             if (br == null)
                br = new BufferedReader(new InputStreamReader(is));
               
