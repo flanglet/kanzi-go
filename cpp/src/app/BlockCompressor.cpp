@@ -193,9 +193,6 @@ int BlockCompressor::call()
 {
     bool printFlag = _verbosity > 2;
     stringstream ss;
-    ss << "Kanzi 1.2 (C) 2017,  Frederic Langlet";
-    printOut(ss.str().c_str(), _verbosity >= 1);
-    ss.str(string());
     ss << "Input file name set to '" << _inputName << "'";
     printOut(ss.str().c_str(), printFlag);
     ss.str(string());
@@ -417,7 +414,7 @@ int BlockCompressor::call()
     ss << "Ratio:             " << float(_cos->getWritten()) / float(read);
     printOut(ss.str().c_str(), printFlag);
     ss.str(string());
-    ss << "Encoding: " << read << " => " << _cos->getWritten();
+    ss << "Encoding " << _inputName << ": " << read << " => " << _cos->getWritten();
     ss << " bytes in " << delta<< " ms";
     printOut(ss.str().c_str(), _verbosity == 1);
 

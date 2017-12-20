@@ -152,7 +152,6 @@ public class BlockCompressor implements Runnable, Callable<Integer>
    public Integer call()
    { 
       boolean printFlag = this.verbosity > 2;
-      printOut("Kanzi 1.2 (C) 2017,  Frederic Langlet", this.verbosity >= 1);
       printOut("Input file name set to '" + this.inputName + "'", printFlag);
       printOut("Output file name set to '" + this.outputName + "'", printFlag);
       printOut("Block size set to " + this.blockSize + " bytes", printFlag);
@@ -334,7 +333,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
        printOut("Output size:       "+this.cos.getWritten(), printFlag);
        float f = this.cos.getWritten() / (float) read;
        printOut("Ratio:             "+String.format("%1$.6f", f), printFlag);
-       printOut("Encoding: "+read+" => "+this.cos.getWritten()+
+       printOut("Encoding "+this.inputName+": "+read+" => "+this.cos.getWritten()+
           " bytes in "+delta+" ms", this.verbosity==1);
 
        if (delta > 0)

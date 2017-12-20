@@ -42,7 +42,7 @@ public class Kanzi
    public static void main(String[] args)
    {
       Map<String, Object> map = new HashMap<>();
-      processCommandLine(args, map);
+      processCommandLine(args, map);    
       char mode = (char) map.remove("mode");
 
       if (mode == 'c')
@@ -87,12 +87,6 @@ public class Kanzi
             bd.dispose();
 
          System.exit(code);
-      }
-
-      if (map.containsKey("help"))
-      {
-         System.out.println("java -cp kanzi.jar kanzi.app.Kanzi --compress | --decompress | --help");
-         System.exit(0);
       }
 
       System.out.println("Missing arguments: try --help or -h");
@@ -184,6 +178,9 @@ public class Kanzi
         // Overwrite verbosity if the output goes to stdout
         if ("STDOUT".equalsIgnoreCase(outputName))
            verbose = 0;
+
+        if (verbose >= 1)
+            printOut("Kanzi 1.3 (C) 2018,  Frederic Langlet", true);
 
         ctx = -1;
 

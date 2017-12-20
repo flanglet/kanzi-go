@@ -125,12 +125,6 @@ func main() {
 		os.Exit(code)
 	}
 
-	if _, prst := argsMap["help"]; prst == true {
-		print(os.Args[0])
-		println(" --compress | --decompress | --help")
-		os.Exit(0)
-	}
-
 	println("Missing arguments: try --help or -h")
 	os.Exit(1)
 }
@@ -225,6 +219,10 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 	// Overwrite verbosity if the output goes to stdout
 	if strings.ToUpper(outputName) == "STDOUT" {
 		verbose = 0
+	}
+
+	if verbose >= 1 {
+		printOut("Kanzi 1.3 (C) 2018,  Frederic Langlet", true)
 	}
 
 	ctx = -1

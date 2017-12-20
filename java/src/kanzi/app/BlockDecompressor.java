@@ -118,7 +118,6 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
    public Integer call()
    {
       boolean printFlag = this.verbosity > 2;
-      printOut("Kanzi 1.2 (C) 2017,  Frederic Langlet", this.verbosity >= 1);
       printOut("Input file name set to '" + this.inputName + "'", printFlag);
       printOut("Output file name set to '" + this.outputName + "'", printFlag);
       printOut("Verbosity set to "+this.verbosity, printFlag);
@@ -299,7 +298,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       printOut("Decoding:          "+delta+" ms", printFlag);
       printOut("Input size:        "+this.cis.getRead(), printFlag);
       printOut("Output size:       "+read, printFlag);
-      printOut("Decoding: "+this.cis.getRead()+" => "+read+
+      printOut("Decoding "+this.inputName+": "+this.cis.getRead()+" => "+read+
           " bytes in "+delta+" ms", this.verbosity==1);
 
       if (delta > 0)

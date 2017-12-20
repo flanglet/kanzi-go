@@ -121,6 +121,10 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
         }
     }
 
+    if (verbose >= 1) {
+        printOut("Kanzi 1.3 (C) 2018,  Frederic Langlet", true);
+    }
+
     ctx = -1;
 
     for (int i = 1; i < argc; i++) {
@@ -141,15 +145,16 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
             printOut("   -o, --output=<outputName>", true);
 
             if (mode.compare(0, 1, "c") != 0) {
-               printOut("        optional name of the output file (defaults to <input.knz>) or 'none'", true);
-               printOut("        or 'stdout'\n", true);
-            } else if (mode.compare(0, 1, "d") != 0) {
-               printOut("        optional name of the output file (defaults to <input.bak>) or 'none'", true);
-               printOut("        or 'stdout'\n", true);
-            } else {
-               printOut("        optional name of the output file or 'none' or 'stdout'\n", true);
+                printOut("        optional name of the output file (defaults to <input.knz>) or 'none'", true);
+                printOut("        or 'stdout'\n", true);
             }
-
+            else if (mode.compare(0, 1, "d") != 0) {
+                printOut("        optional name of the output file (defaults to <input.bak>) or 'none'", true);
+                printOut("        or 'stdout'\n", true);
+            }
+            else {
+                printOut("        optional name of the output file or 'none' or 'stdout'\n", true);
+            }
 
             if (mode.compare(0, 1, "d") != 0) {
                 printOut("   -b, --block=<size>", true);
@@ -369,7 +374,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
     map["mode"] = mode;
 
     if (mode == "c")
-       map["level"] = strLevel;
+        map["level"] = strLevel;
 
     if (strOverwrite == "true")
         map["overwrite"] = strOverwrite;
@@ -419,13 +424,6 @@ int main(int argc, const char* argv[])
             cerr << "Could not create the decompressor: " << e.what() << endl;
             exit(Error::ERR_CREATE_DECOMPRESSOR);
         }
-    }
-
-    it = args.find("help");
-
-    if (it != args.end()) {
-        cout << "Kanzi --compress | --decompress | --help" << endl;
-        return 1;
     }
 
     cout << "Missing arguments: try --help or -h" << endl;

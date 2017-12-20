@@ -132,9 +132,6 @@ int BlockDecompressor::call()
 {
     bool printFlag = _verbosity > 2;
     stringstream ss;
-    ss << "Kanzi 1.2 (C) 2017,  Frederic Langlet";
-    printOut(ss.str().c_str(), _verbosity >= 1);
-    ss.str(string());
     ss << "Input file name set to '" << _inputName << "'";
     printOut(ss.str().c_str(), printFlag);
     ss.str(string());
@@ -338,7 +335,7 @@ int BlockDecompressor::call()
     ss << "Output size:       " << read;
     printOut(ss.str().c_str(), printFlag);
     ss.str(string());
-    ss << "Decoding: " << _cis->getRead() << " => " << read;
+    ss << "Decoding " << _inputName << ": " << _cis->getRead() << " => " << read;
     ss << " bytes in " << delta << " ms";
     printOut(ss.str().c_str(), _verbosity == 1);
 
