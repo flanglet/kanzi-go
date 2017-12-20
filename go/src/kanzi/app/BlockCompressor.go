@@ -413,7 +413,7 @@ func getTransformAndCodec(level int) string {
 		return "BWT&CM"
 
 	case 5:
-		return "RLT+TEXT&TPAQ"
+		return "X86+RLT+TEXT&TPAQ"
 
 	default:
 		return "Unknown&Unknown"

@@ -407,7 +407,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
              return "BWT&CM";
              
           case 5 :
-             return "RLT+TEXT&TPAQ";
+             return "X86+RLT+TEXT&TPAQ";
              
           default :
              return "Unknown&Unknown";             

@@ -139,8 +139,17 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
             printOut("   -i, --input=<inputName>", true);
             printOut("        mandatory name of the input file or 'stdin'\n", true);
             printOut("   -o, --output=<outputName>", true);
-            printOut("        optional name of the output file (defaults to <input.knz>) or 'none'", true);
-            printOut("        or 'stdout'\n", true);
+
+            if (mode.compare(0, 1, "c") != 0) {
+               printOut("        optional name of the output file (defaults to <input.knz>) or 'none'", true);
+               printOut("        or 'stdout'\n", true);
+            } else if (mode.compare(0, 1, "d") != 0) {
+               printOut("        optional name of the output file (defaults to <input.bak>) or 'none'", true);
+               printOut("        or 'stdout'\n", true);
+            } else {
+               printOut("        optional name of the output file or 'none' or 'stdout'\n", true);
+            }
+
 
             if (mode.compare(0, 1, "d") != 0) {
                 printOut("   -b, --block=<size>", true);
@@ -149,7 +158,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
                 printOut("        set the compression level [0..5]", true);
                 printOut("        Providing this option forces entropy and transform.", true);
                 printOut("        0=None&None (store), 1=TEXT+LZ4&HUFFMAN, 2=BWT+RANK+ZRLT&ANS0", true);
-                printOut("        3=BWT+RANK+ZRLT&FPAQ, 4=BWT&CM, 5=RLT+TEXT&TPAQ\n", true);
+                printOut("        3=BWT+RANK+ZRLT&FPAQ, 4=BWT&CM, 5=X86+RLT+TEXT&TPAQ\n", true);
                 printOut("   -e, --entropy=<codec>", true);
                 printOut("        entropy codec [None|Huffman|ANS0|ANS1|Range|PAQ|FPAQ|TPAQ|CM]", true);
                 printOut("       (default is ANS0)\n", true);
@@ -161,7 +170,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
             }
 
             printOut("   -j, --jobs=<jobs>", true);
-            printOut("        number of concurrent jobs\n", true);
+            printOut("        maximum number of jobs the program may start concurrently\n", true);
             printOut("", true);
             stringstream ss;
 
@@ -330,7 +339,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
     }
 
     if (outputName.length() == 0) {
-        outputName = inputName + ".knz";
+        outputName = (mode.compare(0, 1, "c") != 0) ? inputName + ".knz" : inputName + ".bak";
     }
 
     if (ctx != -1) {

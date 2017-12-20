@@ -28,15 +28,15 @@ import (
 const (
 	//ARG_IDX_COMPRESS   = 0
 	//ARG_IDX_DECOMPRESS = 1
-	ARG_IDX_INPUT      = 2
-	ARG_IDX_OUTPUT     = 3
-	ARG_IDX_BLOCK      = 4
-	ARG_IDX_TRANSFORM  = 5
-	ARG_IDX_ENTROPY    = 6
-	ARG_IDX_JOBS       = 7
-	ARG_IDX_VERBOSE    = 8
-	ARG_IDX_LEVEL      = 9
-	ARG_IDX_PROFILE    = 13
+	ARG_IDX_INPUT     = 2
+	ARG_IDX_OUTPUT    = 3
+	ARG_IDX_BLOCK     = 4
+	ARG_IDX_TRANSFORM = 5
+	ARG_IDX_ENTROPY   = 6
+	ARG_IDX_JOBS      = 7
+	ARG_IDX_VERBOSE   = 8
+	ARG_IDX_LEVEL     = 9
+	ARG_IDX_PROFILE   = 13
 )
 
 var (
@@ -249,8 +249,16 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 			printOut("   -i, --input=<inputName>", true)
 			printOut("        mandatory name of the input file or 'stdin'\n", true)
 			printOut("   -o, --output=<outputName>", true)
-			printOut("        optional name of the output file (defaults to <input.knz>) or 'none'", true)
-			printOut("        or 'stdout'\n", true)
+
+			if mode == "c" {
+				printOut("        optional name of the output file (defaults to <input.knz>) or 'none'", true)
+				printOut("        or 'stdout'\n", true)
+			} else if mode == "d" {
+				printOut("        optional name of the output file (defaults to <input.bak>) or 'none'", true)
+				printOut("        or 'stdout'\n", true)
+			} else {
+				printOut("        optional name of the output file or 'none' or 'stdout'\n", true)
+			}
 
 			if mode != "d" {
 				printOut("   -b, --block=<size>", true)
@@ -259,7 +267,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 				printOut("        set the compression level [0..5]", true)
 				printOut("        Providing this option forces entropy and transform.", true)
 				printOut("        0=None&None (store), 1=TEXT+LZ4&HUFFMAN, 2=BWT+RANK+ZRLT&ANS0", true)
-				printOut("        3=BWT+RANK+ZRLT&FPAQ, 4=BWT&CM, 5=RLT+TEXT&TPAQ\n", true)
+				printOut("        3=BWT+RANK+ZRLT&FPAQ, 4=BWT&CM, 5=X86+RLT+TEXT&TPAQ\n", true)
 				printOut("   -e, --entropy=<codec>", true)
 				printOut("        entropy codec [None|Huffman|ANS0|ANS1|Range|PAQ|FPAQ|TPAQ|CM]", true)
 				printOut("        (default is ANS0)\n", true)
@@ -271,7 +279,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 			}
 
 			printOut("   -j, --jobs=<jobs>", true)
-			printOut("        number of concurrent jobs\n", true)
+			printOut("        maximum number of jobs the program may start concurrently\n", true)
 			printOut("", true)
 
 			if mode != "d" {
@@ -481,7 +489,11 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 	}
 
 	if outputName == "" {
-		outputName = inputName + ".knz"
+		if mode == "c" {
+			outputName = inputName + ".knz"
+		} else {
+			outputName = inputName + ".bak"
+		}
 	}
 
 	if ctx != -1 {
