@@ -41,9 +41,9 @@ namespace kanzi
        static uint64 decodeSize(InputBitStream& ibs, int log);
 
    public:
-       EntropyUtils(){};
+       EntropyUtils() { memset(_errors, 0, sizeof(int) * 65536); }
 
-       ~EntropyUtils(){};
+       ~EntropyUtils() {}
 
        static int encodeAlphabet(OutputBitStream& obs, uint alphabet[], int length, int count);
 

@@ -100,9 +100,11 @@ void testBitStreamCorrectnessAligned()
         cout << endl;
         cout << endl;
     }
+
+    delete[] values;
 }
 
-void testBitStreamSpeed(string& fileName)
+void testBitStreamSpeed(const string& fileName)
 {
     // Test speed
     cout << "\nSpeed Test" << endl;

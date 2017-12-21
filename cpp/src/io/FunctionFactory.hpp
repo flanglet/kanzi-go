@@ -64,7 +64,7 @@ template <class T>
        string name(cname);
 
        if (name.find("+") == string::npos)
-           return (short)(getTypeToken(name.c_str()) << 12);
+           return short(getTypeToken(name.c_str()) << 12);
 
        char buf[64];
        int length = (name.length() < 63) ? int(name.length()) : 63;
@@ -72,7 +72,7 @@ template <class T>
        buf[length] = 0;
        const char* token = strtok(buf, "+");
 
-       if (token == NULL) {
+       if (token == nullptr) {
            stringstream ss;
            ss << "Unknown transform type: " << name;
            throw IllegalArgumentException(ss.str());
@@ -82,7 +82,7 @@ template <class T>
        int shift = 12;
        int n = 0;
 
-       while (token != NULL) {
+       while (token != nullptr) {
            short typeTk = getTypeToken(token);
            n++;
 
@@ -101,7 +101,7 @@ template <class T>
            token = strtok(nullptr, "+");
        }
 
-       return (short)res;
+       return short(res);
    }
 
    template <class T>
@@ -305,4 +305,5 @@ template <class T>
        }
    }
 }
+
 #endif

@@ -132,7 +132,7 @@ static EntropyDecoder* getDecoder(string name, InputBitStream& ibs, Predictor* p
     return nullptr;
 }
 
-void testEntropyCodecCorrectness(string name)
+void testEntropyCodecCorrectness(const string& name)
 {
     // Test behavior
     cout << "Correctness test for " << name << endl;
@@ -219,7 +219,7 @@ void testEntropyCodecCorrectness(string name)
     }
 }
 
-int testEntropyCodecSpeed(string name)
+int testEntropyCodecSpeed(const string& name)
 {
     // Test speed
     cout << endl
@@ -267,6 +267,7 @@ int testEntropyCodecSpeed(string name)
 
             if (ec->encode(values1, 0, size) < 0) {
                 cout << "Encoding error" << endl;
+                delete ec;
                 return 1;
             }
 
@@ -288,6 +289,7 @@ int testEntropyCodecSpeed(string name)
 
             if (ed->decode(values2, 0, size) < 0) {
                 cout << "Decoding error" << endl;
+                delete ed;
                 return 1;
             }
 

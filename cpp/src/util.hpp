@@ -34,7 +34,7 @@ template <typename T>::string to_string(T value)
 	return os.str();
 }
 
-inline string __trim(string str, bool left, bool right)
+inline string __trim(string& str, bool left, bool right)
 {
     string::size_type begin=0;
     string::size_type end=str.size()-1;
@@ -52,9 +52,9 @@ inline string __trim(string str, bool left, bool right)
     return str.substr(begin, end - begin + 1);
 }
 
-inline string trim(string str)  { return __trim(str, true, true); }
-inline string ltrim(string str) { return __trim(str, true, false); }
-inline string rtrim(string str) { return __trim(str, false, true); }
+inline string trim(string& str)  { return __trim(str, true, true); }
+inline string ltrim(string& str) { return __trim(str, true, false); }
+inline string rtrim(string& str) { return __trim(str, false, true); }
 
 inline bool samePaths(string& f1, string& f2)
 {

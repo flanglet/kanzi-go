@@ -118,7 +118,10 @@ int EntropyUtils::encodeAlphabet(OutputBitStream& obs, uint alphabet[], int leng
         obs.writeBits(count, log);
 
         if (count == 0)
+        {
+            delete[] diffs;
             return 0;
+        }
 
         obs.writeBit(ABSENT_SYMBOLS_MASK);
         log = 1;
@@ -159,7 +162,10 @@ int EntropyUtils::encodeAlphabet(OutputBitStream& obs, uint alphabet[], int leng
         obs.writeBits(count, log);
 
         if (count == 0)
+        {
+            delete[] diffs;
             return 0;
+        }
 
         obs.writeBit(PRESENT_SYMBOLS_MASK);
         int previous = 0;

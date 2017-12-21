@@ -40,7 +40,7 @@ limitations under the License.
 namespace kanzi {
 
    class EntropyCodecFactory {
-   private:
+   public:
        static const byte NONE_TYPE = 0; // No compression
        static const byte HUFFMAN_TYPE = 1; // Huffman
        static const byte FPAQ_TYPE = 2; // Fast PAQ (order 0)
@@ -51,7 +51,6 @@ namespace kanzi {
        static const byte TPAQ_TYPE = 7; // Tangelo PAQ
        static const byte ANS1_TYPE = 8; // Asymmetric Numerical System order 1
 
-   public:
        static EntropyDecoder* newDecoder(InputBitStream& ibs, map<string, string>& ctx, short entropyType) THROW;
 
        static EntropyEncoder* newEncoder(OutputBitStream& obs, map<string, string>& ctx, short entropyType) THROW;

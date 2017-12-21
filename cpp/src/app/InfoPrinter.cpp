@@ -20,10 +20,9 @@ limitations under the License.
 using namespace kanzi;
 
 InfoPrinter::InfoPrinter(int infoLevel, InfoPrinter::Type type, OutputStream& os)
-    : _os(os)
+    : _os(os), _type(type)
 {
     _level = infoLevel;
-    _type = type;
 
     if (type == InfoPrinter::ENCODING) {
         _thresholds[0] = Event::COMPRESSION_START;

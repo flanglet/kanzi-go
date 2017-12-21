@@ -25,6 +25,10 @@ SBRT::SBRT(int mode)
         throw IllegalArgumentException("Invalid mode parameter");
 
     _mode = mode;
+    memset(_prev, 0, sizeof(int) * 256);
+    memset(_curr, 0, sizeof(int) * 256);
+    memset(_symbols, 0, sizeof(int) * 256);
+    memset(_ranks, 0, sizeof(int) * 256);
 }
 
 bool SBRT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int count)
@@ -83,7 +87,10 @@ bool SBRT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int count)
 
 bool SBRT::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int count)
 {
-    if ((input._array == NULL) || (output._array == NULL) || (input._array == output._array))
+    if ((!SliceArray<byte>::isValid(input)) || (!SliceArray<byte>::isValid(output)))
+       return false;
+
+    if (input._array == output._array)
         return false;
 
     if ((count < 0) || (count+input._index > input._length))

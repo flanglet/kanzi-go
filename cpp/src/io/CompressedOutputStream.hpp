@@ -34,25 +34,25 @@ namespace kanzi {
        int _error; // 0 = OK
        string _msg;
 
-       EncodingTaskResult()
+       EncodingTaskResult() :
+          _msg("")
        {
            _blockId = -1;
            _error = 0;
-           _msg = "";
        }
 
-       EncodingTaskResult(int blockId, int error, const string& msg)
+       EncodingTaskResult(int blockId, int error, const string& msg) :
+          _msg(msg)
        {
            _blockId = blockId;
            _error = error;
-           _msg = msg;
        }
 
-       EncodingTaskResult(const EncodingTaskResult& result)
+       EncodingTaskResult(const EncodingTaskResult& result) :
+          _msg(result._msg)
        {
            _blockId = result._blockId;
            _error = result._error;
-           _msg = result._msg;
        }
 
        ~EncodingTaskResult() {}

@@ -102,7 +102,7 @@ bool X86Codec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int co
 
 bool X86Codec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int count)
 {
-    if ((input._array == NULL) || (output._array == NULL) || (input._array == output._array))
+    if ((!SliceArray<byte>::isValid(input)) || (!SliceArray<byte>::isValid(output)))
         return false;
 
     if ((count < 0) || (count + input._index > input._length))

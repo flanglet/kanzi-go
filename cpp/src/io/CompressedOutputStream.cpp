@@ -59,15 +59,16 @@ CompressedOutputStream::CompressedOutputStream(OutputStream& os, map<string, str
     it = ctx.find("jobs");
     int tasks = atoi(it->second.c_str());
 
-#ifndef CONCURRENCY_ENABLED
-    if (tasks > 1)
-        throw IllegalArgumentException("The number of jobs is limited to 1 in this version");
-#else
+#ifdef CONCURRENCY_ENABLED
     if ((tasks < 0) || (tasks > 16)) // 0 indicates no user choice
         throw IllegalArgumentException("The number of jobs must be in [1..16]");
+#else
+    if (tasks > 1)
+        throw IllegalArgumentException("The number of jobs is limited to 1 in this version");
 #endif
 
     _blockId = 0;
+    _blockSize = bSize;
     _initialized = false;
     _closed = false;
     const int bufferSize = (bSize <= 65536) ? bSize : 65536;
@@ -75,7 +76,6 @@ CompressedOutputStream::CompressedOutputStream(OutputStream& os, map<string, str
     _entropyType = EntropyCodecFactory::getType(entropyCodec.c_str());
     FunctionFactory<byte> ff;
     _transformType = ff.getType(transform.c_str());
-    _blockSize = bSize;
     it = ctx.find("checksum");
     string str = it->second;
     bool checksum = str == "TRUE";

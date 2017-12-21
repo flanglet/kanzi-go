@@ -104,6 +104,9 @@ public class CompressedInputStream extends InputStream
       this.blockId = new AtomicInteger(0);
       this.listeners = new ArrayList<>(10);
       this.ctx = ctx;
+      this.blockSize = 0;
+      this.entropyType = EntropyCodecFactory.NONE_TYPE;
+      this.transformType = ByteFunctionFactory.NULL_TRANSFORM_TYPE;
    }
 
 

@@ -44,12 +44,12 @@ static Function<byte>* getByteFunction(string name)
         return new SnappyCodec();
 
     cout << "No such byte function: " << name << endl;
-    return NULL;
+    return nullptr;
 }
 
-int testFunctionsCorrectness(string name)
+int testFunctionsCorrectness(const string& name)
 {
-    srand((uint)time(NULL));
+    srand((uint)time(nullptr));
 
     cout << endl
          << "Correctness for " << name << endl;
@@ -217,6 +217,7 @@ int testFunctionsCorrectness(string name)
 
         if (f->inverse(iba2, iba3, count) == false) {
             cout << "Decoding error" << endl;
+            delete f;
             return 1;
         }
 
@@ -249,10 +250,10 @@ int testFunctionsCorrectness(string name)
     return 0;
 }
 
-int testFunctionsSpeed(string name)
+int testFunctionsSpeed(const string& name)
 {
     // Test speed
-    srand((uint)time(NULL));
+    srand((uint)time(nullptr));
     int iter = 50000;
     int size = 30000;
     cout << endl

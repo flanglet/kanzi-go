@@ -60,7 +60,8 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
     string mode = " ";
 
     for (int i = 1; i < argc; i++) {
-        string arg = ltrim(rtrim(argv[i]));
+        string arg(argv[i]);
+        arg = trim(arg);
 
         if (arg.compare(0, 2, "-o") == 0) {
             ctx = ARG_IDX_OUTPUT;
@@ -104,7 +105,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
         }
         else if ((arg.compare(0, 9, "--output=") == 0) || (ctx == ARG_IDX_OUTPUT)) {
             arg = (arg.compare(0, 9, "--output=") == 0) ? arg.substr(9) : arg;
-            outputName = ltrim(rtrim(arg));
+            outputName = trim(arg);
         }
 
         ctx = -1;
@@ -128,7 +129,8 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
     ctx = -1;
 
     for (int i = 1; i < argc; i++) {
-        string arg = ltrim(rtrim(argv[i]));
+        string arg(argv[i]);
+        arg = trim(arg);
 
         if ((arg == "--help") || (arg == "-h")) {
             printOut("", true);
@@ -247,14 +249,14 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
 
         if ((arg.compare(0, 8, "--input=") == 0) | (ctx == ARG_IDX_INPUT)) {
             inputName = (arg.compare(0, 8, "--input=") == 0) ? arg.substr(8) : arg;
-            inputName = ltrim(rtrim(inputName));
+            inputName = trim(inputName);
             ctx = -1;
             continue;
         }
 
         if ((arg.compare(0, 10, "--entropy=") == 0) || (ctx == ARG_IDX_ENTROPY)) {
             codec = (arg.compare(0, 10, "--entropy=") == 0) ? arg.substr(10) : arg;
-            codec = ltrim(rtrim(codec));
+            codec = trim(codec);
             transform(codec.begin(), codec.end(), codec.begin(), ::toupper);
             ctx = -1;
             continue;
@@ -262,7 +264,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
 
         if ((arg.compare(0, 12, "--transform=") == 0) || (ctx == ARG_IDX_TRANSFORM)) {
             transf = (arg.compare(0, 12, "--transform=") == 0) ? arg.substr(12) : arg;
-            transf = ltrim(rtrim(transf));
+            transf = trim(transf);
             transform(transf.begin(), transf.end(), transf.begin(), ::toupper);
             ctx = -1;
             continue;
@@ -283,7 +285,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
 
         if ((arg.compare(0, 8, "--block=") == 0) || (ctx == ARG_IDX_BLOCK)) {
             string str = (arg.compare(0, 8, "--block=") == 0) ? arg.substr(8) : arg;
-            str = ltrim(rtrim(str));
+            str = trim(str);
             transform(str.begin(), str.end(), str.begin(), ::toupper);
             char lastChar = (str.length() == 0) ? ' ' : str[str.length() - 1];
             int scale = 1;

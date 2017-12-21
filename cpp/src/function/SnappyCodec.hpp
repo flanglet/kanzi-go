@@ -28,9 +28,9 @@ namespace kanzi
    class SnappyCodec : public Function<byte>
    {
    public:
-       SnappyCodec(){};
+       SnappyCodec() { memset(_buffer, 0, sizeof(int)*MAX_TABLE_SIZE); }
 
-       ~SnappyCodec(){};
+       ~SnappyCodec( ){}
 
        bool forward(SliceArray<byte>& src, SliceArray<byte>& dst, int length);
 

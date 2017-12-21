@@ -55,11 +55,12 @@ namespace kanzi
    {
        _deallocate = deallocate;
        _length = 4;
+       _skipFlags = 0;
 
        for (int i = 3; i >= 0; i--) {
            _transforms[i] = transforms[i];
 
-           if (_transforms[i] == NULL)
+           if (_transforms[i] == nullptr)
                _length = i;
        }
 
@@ -72,7 +73,7 @@ namespace kanzi
    {
        if (_deallocate == true) {
            for (int i = 0; i < 4; i++) {
-               if (_transforms[i] != NULL)
+               if (_transforms[i] != nullptr)
                    delete _transforms[i];
            }
        }
@@ -214,7 +215,7 @@ namespace kanzi
        for (int i = 0; i < _length; i++) {
            Function<T>* f = dynamic_cast<Function<T>*>(_transforms[i]);
 
-           if (f != NULL) {
+           if (f != nullptr) {
                int reqSize = f->getMaxEncodedLength(srcLength);
 
                if (reqSize > requiredSize)

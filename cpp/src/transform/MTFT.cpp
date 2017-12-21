@@ -20,8 +20,10 @@ using namespace kanzi;
 
 MTFT::MTFT()
 {
-   _anchor = NULL;
-   memset(_heads, 0, sizeof(Payload*)*16);
+   _anchor = nullptr;
+   memset(_lengths, 0, sizeof(int) * 256);
+   memset(_buckets, 0, sizeof(byte) * 256);
+   memset(_heads, 0, sizeof(Payload*) * 16);
 }
 
 bool MTFT::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int count)
@@ -132,13 +134,16 @@ void MTFT::balanceLists(bool resetValues)
 
 bool MTFT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int count)
 {
+    if ((!SliceArray<byte>::isValid(input)) || (!SliceArray<byte>::isValid(output)))
+       return false;
+
     if (input._array == output._array)
         return false;
 
     if ((count < 0) || (count + input._index > input._length))
         return false;
 
-    if (_anchor == NULL)
+    if (_anchor == nullptr)
         initLists();
     else
         balanceLists(true);
@@ -171,7 +176,7 @@ bool MTFT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int count)
 
         dst[i] = (byte)idx;
 
-        // Unlink (the end anchor ensures p.next != NULL)
+        // Unlink (the end anchor ensures p.next != nullptr)
         p->_previous->_next = p->_next;
         p->_next->_previous = p->_previous;
 

@@ -56,6 +56,7 @@ public:
     Clock()
     {
         start();
+        _stop = _start;
     }
 
     void start()

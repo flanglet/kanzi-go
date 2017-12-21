@@ -86,6 +86,8 @@ namespace kanzi
            _buffer2 = nullptr; // Only used for big blocks (size >= 1<<24)
            _buffer3 = nullptr; // Only used in forward
            _bufferSize = 0;
+           memset(_buckets, 0, sizeof(uint32) * 256);
+           memset(_primaryIndexes, 0, sizeof(int) * 9);
        }
 
        ~BWT()

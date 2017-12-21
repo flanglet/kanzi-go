@@ -40,22 +40,22 @@ namespace kanzi {
 
        DecodingTaskResult(){};
 
-       DecodingTaskResult(SliceArray<byte>& data, int blockId, int decoded, int checksum, int error, const string& msg)
+       DecodingTaskResult(SliceArray<byte>& data, int blockId, int decoded, int checksum, int error, const string& msg) :
+          _msg(msg)
        {
            _data = data._array;
            _blockId = blockId;
            _error = error;
-           _msg = msg;
            _decoded = decoded;
            _checksum = checksum;
        }
 
-       DecodingTaskResult(const DecodingTaskResult& result)
+       DecodingTaskResult(const DecodingTaskResult& result) :
+          _msg(result._msg)
        {
            _data = result._data;
            _blockId = result._blockId;
            _error = result._error;
-           _msg = result._msg;
            _decoded = result._decoded;
            _checksum = result._checksum;
        }

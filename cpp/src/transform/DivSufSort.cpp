@@ -14,6 +14,7 @@ limitations under the License.
 */
 
 #include <algorithm>
+#include <cstring>
 #include <utility>
 #include <stddef.h>
 #include "DivSufSort.hpp"
@@ -59,6 +60,9 @@ DivSufSort::DivSufSort()
     _ssStack = new Stack(SS_MISORT_STACKSIZE);
     _trStack = new Stack(TR_STACKSIZE);
     _mergeStack = new Stack(SS_SMERGE_STACKSIZE);
+    _sa = nullptr;
+    memset(_bucketA, 0, sizeof(int) * 256);
+    memset(_bucketB, 0, sizeof(int) * 65536);
 }
 
 DivSufSort::~DivSufSort()

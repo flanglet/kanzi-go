@@ -47,6 +47,7 @@ namespace kanzi
            _buffer1 = new int[0];
            _buffer2 = new int[0];
            _bufferSize = 0;
+           memset(_buckets, 0, sizeof(int) * 256);
        }
 
        ~BWTS() 

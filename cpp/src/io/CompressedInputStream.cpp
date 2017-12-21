@@ -37,15 +37,18 @@ CompressedInputStream::CompressedInputStream(InputStream& is, map<string, string
     it = ctx.find("jobs");
     int tasks = atoi(it->second.c_str());
 
-#ifndef CONCURRENCY_ENABLED
-    if (tasks > 1)
-        throw IllegalArgumentException("The number of jobs is limited to 1 in this version");
-#else
+#ifdef CONCURRENCY_ENABLED
     if ((tasks < 0) || (tasks > 16)) // 0 indicates no user choice
         throw IllegalArgumentException("The number of jobs must be in [1..16]");
+#else
+    if (tasks > 1)
+        throw IllegalArgumentException("The number of jobs is limited to 1 in this version");
 #endif
 
     _blockId = 0;
+    _blockSize = 0;
+    _entropyType = EntropyCodecFactory::NONE_TYPE;
+    _transformType = FunctionFactory<byte>::NULL_TRANSFORM_TYPE;
     _initialized = false;
     _closed = false;
     _maxIdx = 0;
