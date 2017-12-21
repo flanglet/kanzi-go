@@ -18,7 +18,7 @@ package kanzi.util.color;
 import kanzi.ColorModelType;
 
    
-// YCoCg color spce tranform has 3 impportant features:
+// YCoCg color space transform has 3 important features:
 // Reversible (integer math only)
 // Small increase in dynamic range (0 bit for Y, 1 bit for Co and Cg)
 // Higher coding gains than other color spaces
