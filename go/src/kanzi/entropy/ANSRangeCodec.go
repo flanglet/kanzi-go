@@ -360,7 +360,6 @@ type EncSymbol struct {
 	cmplFreq int    // Complement of frequency: (1 << scale_bits) - freq
 	invShift uint8  // Reciprocal shift
 	invFreq  uint64 // Fixed-point reciprocal frequency
-	freq     int
 }
 
 func (this *EncSymbol) reset(cumFreq, freq int, logRange uint) {
@@ -369,7 +368,6 @@ func (this *EncSymbol) reset(cumFreq, freq int, logRange uint) {
 		freq = (1 << logRange) - 1
 	}
 
-	this.freq = freq
 	this.xMax = ((ANS_TOP >> logRange) << 8) * freq
 	this.cmplFreq = (1 << logRange) - freq
 

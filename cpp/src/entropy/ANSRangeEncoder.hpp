@@ -41,7 +41,6 @@ namespace kanzi
       int _cmplFreq; // Complement of frequency: (1 << scale_bits) - freq
       int _invShift; // Reciprocal shift
       uint64 _invFreq; // Fixed-point reciprocal frequency
-      int _freq;
    };
 
 

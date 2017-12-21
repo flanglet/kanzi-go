@@ -266,7 +266,6 @@ void ANSEncSymbol::reset(int cumFreq, int freq, int logRange)
     if (freq >= 1<<logRange)
         freq = (1<<logRange) - 1;
 
-    _freq = freq;
     _xMax = ((ANSRangeEncoder::ANS_TOP >> logRange) << 8) * freq;
     _cmplFreq = (1 << logRange) - freq;
 

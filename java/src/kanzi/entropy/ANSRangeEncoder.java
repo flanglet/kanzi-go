@@ -343,7 +343,6 @@ public class ANSRangeEncoder implements EntropyEncoder
       int cmplFreq; // Complement of frequency: (1 << scale_bits) - freq
       int invShift; // Reciprocal shift
       long invFreq; // Fixed-point reciprocal frequency
-      int freq;
 
 
       public void reset(int cumFreq, int freq, int logRange)
@@ -352,7 +351,6 @@ public class ANSRangeEncoder implements EntropyEncoder
          if (freq >= 1<<logRange)
             freq = (1<<logRange) - 1;
                   
-         this.freq = freq;
          this.xMax = ((ANS_TOP>>>logRange) << 8) * freq;
          this.cmplFreq = (1<<logRange) - freq;
 
