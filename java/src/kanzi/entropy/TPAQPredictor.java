@@ -584,8 +584,8 @@ public class TPAQPredictor implements Predictor
    // Mixer combines models using a neural network with 8 inputs.
    static class Mixer
    {
-      private static final int BEGIN_LEARN_RATE = 60 << 8;
-      private static final int END_LEARN_RATE = 14 << 8;
+      private static final int BEGIN_LEARN_RATE = 60 << 7;
+      private static final int END_LEARN_RATE = 14 << 7; 
 
       private int pr;  // squashed prediction
       private int skew; 
@@ -612,7 +612,7 @@ public class TPAQPredictor implements Predictor
             return;
 
          // Decaying learn rate 
-         err = (err*this.learnRate) >> 8;
+         err = (err*this.learnRate) >> 7;
          this.learnRate += ((END_LEARN_RATE-this.learnRate)>>31);       
          this.skew += err;
 

@@ -518,7 +518,7 @@ inline void TPAQMixer::update(int bit)
         return;
 
     // Decaying learn rate 
-    err = (err*_learnRate) >> 8;
+    err = (err*_learnRate) >> 7;
     _learnRate += ((END_LEARN_RATE-_learnRate)>>31);  
     _skew += err;
 

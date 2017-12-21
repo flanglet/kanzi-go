@@ -36,8 +36,8 @@ const (
 	TPAQ_MASK_80808080    = int32(-2139062144) // 0x80808080
 	TPAQ_MASK_F0F0F0F0    = int32(-252645136)  // 0xF0F0F0F0
 	TPAQ_HASH             = int32(200002979)
-	TPAQ_BEGIN_LEARN_RATE = 60 << 8
-	TPAQ_END_LEARN_RATE   = 14 << 8
+	TPAQ_BEGIN_LEARN_RATE = 60 << 7
+	TPAQ_END_LEARN_RATE   = 14 << 7
 )
 
 ///////////////////////// state table ////////////////////////
@@ -609,7 +609,7 @@ func (this *TPAQMixer) update(bit int) {
 	}
 
 	// Decaying learn rate
-	err = (err * this.learnRate) >> 8
+	err = (err * this.learnRate) >> 7
 	this.learnRate += ((TPAQ_END_LEARN_RATE - this.learnRate) >> 31)
 	this.skew += err
 
