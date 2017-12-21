@@ -2591,14 +2591,14 @@ func (this *DivSufSort) trCopy(isa, first, a, b, last, depth int) {
 }
 
 func trIlg(n int) int {
-	if n&0xFFFF0000 != 0 {
-		if n&0xFF000000 != 0 {
+	if n&MASK_FFFF0000 != 0 {
+		if n&MASK_FF000000 != 0 {
 			return 24 + LOG_TABLE[(n>>24)&0xFF]
 		}
 
 		return 16 + LOG_TABLE[(n>>16)&0xFF]
 	} else {
-		if n&0x0000FF00 != 0 {
+		if n&MASK_0000FF00 != 0 {
 			return 8 + LOG_TABLE[(n>>8)&0xFF]
 		}
 
