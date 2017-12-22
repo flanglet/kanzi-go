@@ -30,7 +30,7 @@ Event::Event(Event::Type type, int id, int64 size)
 }
 
 Event::Event(Event::Type type, int id, const string& msg)
-    : _type(type), _time(time(nullptr)), _msg()
+    : _type(type), _time(time(nullptr)), _msg(msg)
 {
     _id = id;
     _size = 0;

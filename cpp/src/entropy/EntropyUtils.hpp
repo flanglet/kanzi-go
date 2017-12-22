@@ -16,6 +16,7 @@ limitations under the License.
 #ifndef _EntropyUtils_
 #define _EntropyUtils_
 
+#include <cstring>
 #include "../InputBitStream.hpp"
 #include "../OutputBitStream.hpp"
 
