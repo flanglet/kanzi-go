@@ -682,7 +682,7 @@ func NewCompressedInputStream(is io.ReadCloser, ctx map[string]interface{}) (*Co
 	this.listeners = make([]kanzi.Listener, 0)
 	this.ctx = ctx
 	this.blockSize = 0
-	this.entropyType = NONE_TYPE
+	this.entropyType = entropy.NONE_TYPE
 	this.transformType = NULL_TRANSFORM_TYPE
 	return this, nil
 }
