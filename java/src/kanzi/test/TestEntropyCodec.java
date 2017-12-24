@@ -164,8 +164,16 @@ public class TestEntropyCodec
           case "FPAQ":
           case "CM":
           case "PAQ":
-          case "TPAQ":
-             return new BinaryEntropyDecoder(ibs, getPredictor(name));
+          case "TPAQ":             
+             Predictor pred = getPredictor(name);
+             
+             if (pred == null)
+             {
+                System.out.println("No such entropy decoder: "+name);
+                return null;
+             }
+             
+             return new BinaryEntropyDecoder(ibs, pred);
              
           case "HUFFMAN":
              return new HuffmanDecoder(ibs);
@@ -246,12 +254,20 @@ public class TestEntropyCodec
                 DebugOutputBitStream dbgbs = new DebugOutputBitStream(obs, System.out);
                 dbgbs.showByte(true);
                 EntropyEncoder ec = getEncoder(name, dbgbs);
+                
+                if (ec == null)
+                   System.exit(1);
+                
                 ec.encode(values, 0, values.length);                
                 ec.dispose();
                 dbgbs.close();
                 byte[] buf = os.toByteArray();
                 InputBitStream ibs = new DefaultInputBitStream(new ByteArrayInputStream(buf), 1024);
                 EntropyDecoder ed = getDecoder(name, ibs);
+                                
+                if (ed == null)
+                   System.exit(1);
+                
                 System.out.println();
                 System.out.println("\nDecoded:");
                 boolean ok = true;
@@ -327,6 +343,10 @@ public class TestEntropyCodec
                 ByteArrayOutputStream os = new ByteArrayOutputStream(size*2);
                 OutputBitStream obs = new DefaultOutputBitStream(os, size);
                 EntropyEncoder ec = getEncoder(name, obs);
+                                
+                if (ec == null)
+                   System.exit(1);
+                
                 long before1 = System.nanoTime();
                 
                 if (ec.encode(values1, 0, values1.length) < 0)
@@ -344,6 +364,10 @@ public class TestEntropyCodec
                 byte[] buf = os.toByteArray();
                 InputBitStream ibs = new DefaultInputBitStream(new ByteArrayInputStream(buf), size);
                 EntropyDecoder ed = getDecoder(name, ibs);
+                                
+                if (ed == null)
+                   System.exit(1);
+                
                 long before2 = System.nanoTime();
                 
                 if (ed.decode(values2, 0, size) < 0)

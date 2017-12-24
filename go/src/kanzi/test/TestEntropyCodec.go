@@ -141,26 +141,23 @@ func getEncoder(name string, obs kanzi.OutputBitStream) kanzi.EntropyEncoder {
 	default:
 		panic(fmt.Errorf("No such entropy encoder: '%s'", name))
 	}
-	
+
 	return nil
 }
 
 func getDecoder(name string, ibs kanzi.InputBitStream) kanzi.EntropyDecoder {
 	switch name {
 	case "PAQ":
-		res, _ := entropy.NewBinaryEntropyDecoder(ibs, getPredictor(name))
-		return res
-
 	case "FPAQ":
-		res, _ := entropy.NewBinaryEntropyDecoder(ibs, getPredictor(name))
-		return res
-
 	case "TPAQ":
-		res, _ := entropy.NewBinaryEntropyDecoder(ibs, getPredictor(name))
-		return res
-
 	case "CM":
-		res, _ := entropy.NewBinaryEntropyDecoder(ibs, getPredictor(name))
+		pred := getPredictor(name)
+
+		if pred == nil {
+			panic(fmt.Errorf("No such entropy decoder: '%s'", name))
+		}
+
+		res, _ := entropy.NewBinaryEntropyDecoder(ibs, pred)
 		return res
 
 	case "HUFFMAN":
@@ -190,7 +187,7 @@ func getDecoder(name string, ibs kanzi.InputBitStream) kanzi.EntropyDecoder {
 	default:
 		panic(fmt.Errorf("No such entropy decoder: '%s'", name))
 	}
-	
+
 	return nil
 }
 
@@ -244,6 +241,10 @@ func TestCorrectness(name string) {
 		//dbgbs.Mark(true)
 		ec := getEncoder(name, dbgbs)
 
+		if ec == nil {
+			os.Exit(1)
+		}
+
 		if _, err := ec.Encode(values); err != nil {
 			fmt.Printf("Error during encoding: %s", err)
 			os.Exit(1)
@@ -256,6 +257,10 @@ func TestCorrectness(name string) {
 
 		ibs, _ := bitstream.NewDefaultInputBitStream(&bs, 16384)
 		ed := getDecoder(name, ibs)
+
+		if ed == nil {
+			os.Exit(1)
+		}
 
 		ok := true
 		values2 := make([]byte, len(values))
@@ -325,6 +330,10 @@ func TestSpeed(name string) {
 			obs, _ := bitstream.NewDefaultOutputBitStream(&bs, uint(size))
 			ec := getEncoder(name, obs)
 
+			if ec == nil {
+				os.Exit(1)
+			}
+
 			// Encode
 			before1 := time.Now()
 
@@ -346,6 +355,9 @@ func TestSpeed(name string) {
 			ibs, _ := bitstream.NewDefaultInputBitStream(&bs, uint(size))
 			ed := getDecoder(name, ibs)
 
+			if ed == nil {
+				os.Exit(1)
+			}
 			// Decode
 			before2 := time.Now()
 

@@ -74,23 +74,25 @@ static EntropyEncoder* getEncoder(string name, OutputBitStream& obs, Predictor* 
     if (name.compare("RANGE") == 0)
         return new RangeEncoder(obs);
 
-    if (name.compare("PAQ") == 0)
-        return new BinaryEntropyEncoder(obs, predictor, false);
-
-    if (name.compare("TPAQ") == 0)
-        return new BinaryEntropyEncoder(obs, predictor, false);
-
-    if (name.compare("FPAQ") == 0)
-        return new BinaryEntropyEncoder(obs, predictor, false);
-
-    if (name.compare("CM") == 0)
-        return new BinaryEntropyEncoder(obs, predictor, false);
-
     if (name.compare("EXPGOLOMB") == 0)
         return new ExpGolombEncoder(obs);
 
     if (name.compare("RICEGOLOMB") == 0)
         return new RiceGolombEncoder(obs, 4);
+
+    if (predictor != nullptr) {
+       if (name.compare("PAQ") == 0)
+           return new BinaryEntropyEncoder(obs, predictor, false);
+
+       if (name.compare("TPAQ") == 0)
+           return new BinaryEntropyEncoder(obs, predictor, false);
+
+       if (name.compare("FPAQ") == 0)
+           return new BinaryEntropyEncoder(obs, predictor, false);
+
+       if (name.compare("CM") == 0)
+           return new BinaryEntropyEncoder(obs, predictor, false);
+    }
 
     cout << "No such entropy encoder: " << name << endl;
     return nullptr;
@@ -188,6 +190,10 @@ void testEntropyCodecCorrectness(const string& name)
         dbgobs.showByte(true);
 
         EntropyEncoder* ec = getEncoder(name, dbgobs, getPredictor(name));
+
+        if (ec == nullptr)
+           exit(1);
+
         ec->encode(values, 0, size);
         ec->dispose();
         delete ec;
@@ -196,6 +202,10 @@ void testEntropyCodecCorrectness(const string& name)
 
         DefaultInputBitStream ibs(ios);
         EntropyDecoder* ed = getDecoder(name, ibs, getPredictor(name));
+        
+        if (ec == nullptr)
+           exit(1);
+
         cout << endl
              << endl
              << "Decoded:" << endl;
@@ -262,6 +272,9 @@ int testEntropyCodecSpeed(const string& name)
             DefaultOutputBitStream obs(ios, 16384);
             predictor = getPredictor(name);
             EntropyEncoder* ec = getEncoder(name, obs, predictor);
+            
+            if (ec == nullptr)
+                 exit(1);
 
             clock_t before1 = clock();
 
@@ -285,6 +298,10 @@ int testEntropyCodecSpeed(const string& name)
             DefaultInputBitStream ibs(ios, 16384);
             predictor = getPredictor(name);
             EntropyDecoder* ed = getDecoder(name, ibs, predictor);
+            
+            if (ed == nullptr)
+                 exit(1);
+
             clock_t before2 = clock();
 
             if (ed->decode(values2, 0, size) < 0) {
