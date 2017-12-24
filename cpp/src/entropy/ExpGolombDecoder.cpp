@@ -46,12 +46,12 @@ byte ExpGolombDecoder::decodeByte()
 
     if (_signed == true) {
         // Decode signed: read value + sign
-        byte res = (byte)_bitstream.readBits(log2 + 1);
+        byte res = byte(_bitstream.readBits(log2 + 1));
         byte sgn = res & 1;
         res = (res >> 1) + (1 << log2) - 1;
-        return (byte)((res - sgn) ^ -sgn); // res or -res
+        return byte((res - sgn) ^ -sgn); // res or -res
     }
 
     // Decode unsigned
-    return (byte)((1 << log2) - 1 + _bitstream.readBits(log2));
+    return byte((1 << log2) - 1 + _bitstream.readBits(log2));
 }

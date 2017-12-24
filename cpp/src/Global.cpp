@@ -13,6 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+#include <intrin.h>  
 #include "Global.hpp"
 #include "IllegalArgumentException.hpp"
 
@@ -190,7 +191,7 @@ const int* Global::initStretch()
 }
 
 // Return 1024 * 10 * log10(x)
-int Global::ten_log10(int32 x) THROW
+inline int Global::ten_log10(int32 x) THROW
 {
     if (x <= 0)
         throw IllegalArgumentException("Cannot calculate log of a negative or null value");
@@ -203,7 +204,7 @@ int Global::ten_log10(int32 x) THROW
 
 // Return 1024 * sin(1024*x) [x in radians]
 // Max error is less than 1.5%
-int Global::sin(int32 rad1024)
+inline int Global::sin(int32 rad1024)
 {
     if ((rad1024 >= Global::PI_1024_MULT2) || (rad1024 <= -Global::PI_1024_MULT2))
         rad1024 %= Global::PI_1024_MULT2;
@@ -222,7 +223,7 @@ int Global::sin(int32 rad1024)
 
 // Return 1024 * cos(1024*x) [x in radians]
 // Max error is less than 1.5%
-int Global::cos(int32 rad1024)
+inline int Global::cos(int32 rad1024)
 {
     if ((rad1024 >= Global::PI_1024_MULT2) || (rad1024 <= -Global::PI_1024_MULT2))
         rad1024 %= Global::PI_1024_MULT2;
@@ -239,10 +240,16 @@ int Global::cos(int32 rad1024)
     return COS_1024[(x * Global::CONST1) >> 12];
 }
 
-int Global::log2(int32 x) THROW
+inline int Global::log2(int32 x) THROW
 {
     if (x <= 0)
         throw IllegalArgumentException("Cannot calculate log of a negative or null value");
+
+#if defined(__GNUC__)
+    return 31 - __builtin_clz(x);
+#elif defined(_MSC_VER)
+    return 31 - __lzcnt(x);
+#endif
 
     if (x <= 256)
         return Global::LOG2[x - 1];
@@ -250,7 +257,7 @@ int Global::log2(int32 x) THROW
     return len32(x);
 }
 
-int Global::len32(int32 x)
+inline int Global::len32(int32 x)
 {
     if (x == 0)
         return 0;
@@ -272,7 +279,7 @@ int Global::len32(int32 x)
 
 // Return 1024 * log2(x)
 // Max error is around 0.1%
-int Global::log2_1024(int32 x) THROW
+inline int Global::log2_1024(int32 x) THROW
 {
     if (x <= 0)
         throw IllegalArgumentException("Cannot calculate log of a negative or null value");
@@ -333,7 +340,7 @@ int Global::log2_1024(int32 x) THROW
 // Integer SQRT implementation based on algorithm at
 // http://guru.multimedia.cx/fast-integer-square-root/
 // Return 1024*sqrt(x) with a precision higher than 0.1%
-int Global::sqrt(int32 x) THROW
+inline int Global::sqrt(int32 x) THROW
 {
     if (x < 0)
         throw IllegalArgumentException("Cannot calculate sqrt of a negative value");

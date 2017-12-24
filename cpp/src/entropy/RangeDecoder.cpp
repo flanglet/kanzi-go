@@ -59,7 +59,7 @@ int RangeDecoder::decodeHeader(uint frequencies[])
     int inc = (alphabetSize > 64) ? 16 : 8;
     int llr = 3;
 
-    while ((uint)(1 << llr) <= logRange)
+    while (uint(1 << llr) <= logRange)
         llr++;
 
     // Decode all frequencies (but the first one) by chunks of size 'inc'

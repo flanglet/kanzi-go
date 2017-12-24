@@ -175,8 +175,7 @@ void ANSRangeEncoder::encodeChunk(byte block[], int start, int end)
         const ANSEncSymbol* symb = &_symbols[0];
 
         for (int i = end - 1; i >= start; i--) {
-            const int cur = block[i] & 0xFF;
-            const ANSEncSymbol sym = symb[cur];
+            const ANSEncSymbol sym = symb[block[i] & 0xFF];
             const uint max = sym._xMax;
 
             while (st >= max) {

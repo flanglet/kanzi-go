@@ -53,8 +53,8 @@ inline byte RiceGolombDecoder::decodeByte()
        if ((res != 0) && (_signed == true))
        {
           if (_bitstream.readBit() == 1)
-             return (byte) (~res+1);
+             return byte(~res+1);
        }
 
-       return (byte) res;
+       return byte(res);
 }

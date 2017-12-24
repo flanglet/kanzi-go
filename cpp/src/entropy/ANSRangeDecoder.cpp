@@ -61,7 +61,7 @@ int ANSRangeDecoder::decodeHeader(uint frequencies[])
 {
     int res = 0;
     const int dim = 255 * _order + 1;
-    _logRange = (int)(8 + _bitstream.readBits(3));
+    _logRange = int(8 + _bitstream.readBits(3));
     const int scale = 1 << _logRange;
 
     if (_f2sSize < dim * scale) {
@@ -91,7 +91,7 @@ int ANSRangeDecoder::decodeHeader(uint frequencies[])
         // Decode all frequencies (but the first one) by chunks
         for (int i = 1; i < alphabetSize; i += chkSize) {
             // Read frequencies size for current chunk
-            const int logMax = (int)(1 + _bitstream.readBits(llr));
+            const int logMax = int(1 + _bitstream.readBits(llr));
 
             if (1 << logMax > scale) {
                 stringstream ss;
