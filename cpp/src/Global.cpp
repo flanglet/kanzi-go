@@ -13,7 +13,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+#ifdef _MSC_VER
 #include <intrin.h>  
+#endif
+
 #include "Global.hpp"
 #include "IllegalArgumentException.hpp"
 
