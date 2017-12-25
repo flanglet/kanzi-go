@@ -304,6 +304,30 @@ public class ImageUtils
    }  
    
    
+   public int[] rotate90(int[] data)
+   {
+      final int w = this.width - 1;
+      final int h = this.height;
+      final int st = this.stride;
+      
+      if (this.iBuf.length < w*h)
+         this.iBuf = new int[w*h];
+
+      int offs = 0;
+      
+      for (int j=0; j<h; j++)
+      {
+         for (int i=0; i<w; i++)
+            this.iBuf[i*h+j] = data[offs+i];
+         
+         offs += st; 
+      }
+      
+      System.arraycopy(this.iBuf, 0, data, 0, w*h);
+      return data;
+   }  
+   
+   
    public byte[] toGrey(byte[] rgb)   
    {
       final int length = 3 * this.width * this.height;
@@ -623,11 +647,14 @@ public class ImageUtils
            
          if (b == '#') 
          {  
-            // Read ppm comment
-            if (br == null)
-               br = new BufferedReader(new InputStreamReader(is));
-                
-            br.readLine();
+            // Read ppm comment       
+            do
+            {
+               if ((b = is.read()) == -1)
+                   throw new EOFException();
+            }
+            while (b != 0x0A);
+            
             b = ' ';  // continue reading
          }
       } 
