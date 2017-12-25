@@ -571,6 +571,8 @@ public class CompressedOutputStream extends OutputStream
                if (postTransformLength < 0)
                   return new Status(currentBlockId, Error.ERR_WRITE_FILE, "Invalid transform size");
 
+               this.ctx.put("size", postTransformLength);
+               
                for (long n=0xFF; n<postTransformLength; n<<=8)
                   dataSize++;
 

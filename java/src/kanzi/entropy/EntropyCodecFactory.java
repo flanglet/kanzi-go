@@ -59,17 +59,7 @@ public class EntropyCodecFactory
          case CM_TYPE:
             return new BinaryEntropyDecoder(ibs, new CMPredictor());
          case TPAQ_TYPE:
-            final int size = (Integer) ctx.get("blockSize");
-            int logStates;
-            
-            if (size >= 64*1024*1024)
-               logStates = 29;
-            else if (size >= 16*1024*1024)
-               logStates = 28;
-            else 
-               logStates = (size < 1024*1024) ? 26 : 27;  
-
-            return new BinaryEntropyDecoder(ibs, new TPAQPredictor(logStates));
+            return new BinaryEntropyDecoder(ibs, new TPAQPredictor(ctx));
          case NONE_TYPE:
             return new NullEntropyDecoder(ibs);
          default:
@@ -99,18 +89,8 @@ public class EntropyCodecFactory
             return new BinaryEntropyEncoder(obs, new FPAQPredictor());
          case CM_TYPE:
             return new BinaryEntropyEncoder(obs, new CMPredictor());
-         case TPAQ_TYPE:
-            final int size = (Integer) ctx.get("blockSize");
-            int logStates;
-            
-            if (size >= 64*1024*1024)
-               logStates = 29;
-            else if (size >= 16*1024*1024)
-               logStates = 28;
-            else 
-               logStates = (size < 1024*1024) ? 26 : 27;         
-            
-            return new BinaryEntropyEncoder(obs, new TPAQPredictor(logStates));
+         case TPAQ_TYPE:            
+            return new BinaryEntropyEncoder(obs, new TPAQPredictor(ctx));
          case NONE_TYPE:
             return new NullEntropyEncoder(obs);
          default :

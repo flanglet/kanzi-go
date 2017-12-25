@@ -16,6 +16,7 @@ limitations under the License.
 #ifndef _TPAQPredictor_
 #define _TPAQPredictor_
 
+#include <map>
 #include "AdaptiveProbMap.hpp"
 #include "../Global.hpp"
 #include "Predictor.hpp"
@@ -58,7 +59,7 @@ namespace kanzi
    class TPAQPredictor : public Predictor
    {
    public:
-       TPAQPredictor(int logStates=28);
+       TPAQPredictor(map<string, string>* ctx = nullptr);
 
        ~TPAQPredictor();
 
@@ -69,11 +70,9 @@ namespace kanzi
 
    private:
        static const int MAX_LENGTH = 88;
-       static const int MIXER_SIZE = 16 * 1024;
        static const int BUFFER_SIZE = 64 * 1024 * 1024;
        static const int HASH_SIZE = 16 * 1024 * 1024;
        static const int MASK_BUFFER = BUFFER_SIZE - 1;
-       static const int MASK_MIXER = MIXER_SIZE - 1;
        static const int MASK_HASH = HASH_SIZE - 1;
        static const int MASK_80808080 = 0x80808080;
        static const int MASK_F0F0F0F0 = 0xF0F0F0F0;
@@ -95,7 +94,8 @@ namespace kanzi
        byte* _buffer;
        int32* _hashes; // hash table(context, buffer position)
        uint8* _states; // hash table(context, prediction)
-       const int32 _statesMask;
+       int32 _statesMask;
+       int32 _mixersMask;
        uint8* _cp0; // context pointers
        uint8* _cp1; 
        uint8* _cp2; 

@@ -86,20 +86,9 @@ namespace kanzi {
        case CM_TYPE:
            return new BinaryEntropyDecoder(ibs, new CMPredictor());
 
-       case TPAQ_TYPE: {
-           string strSize = ctx["blockSize"];
-           int size = atoi(strSize.c_str());
-           int logStates;
-
-           if (size >= 64 * 1024 * 1024)
-               logStates = 29;
-           else if (size >= 16 * 1024 * 1024)
-               logStates = 28;
-           else
-               logStates = (size < 1024 * 1024) ? 26 : 27;
-
-           return new BinaryEntropyDecoder(ibs, new TPAQPredictor(logStates));
-       }
+       case TPAQ_TYPE: 
+           return new BinaryEntropyDecoder(ibs, new TPAQPredictor(&ctx));
+       
        case NONE_TYPE:
            return new NullEntropyDecoder(ibs);
 
@@ -134,20 +123,9 @@ namespace kanzi {
        case CM_TYPE:
            return new BinaryEntropyEncoder(obs, new CMPredictor());
 
-       case TPAQ_TYPE: {
-           string strSize = ctx["blockSize"];
-           int size = atoi(strSize.c_str());
-           int logStates;
-
-           if (size >= 64 * 1024 * 1024)
-               logStates = 29;
-           else if (size >= 16 * 1024 * 1024)
-               logStates = 28;
-           else
-               logStates = (size < 1024 * 1024) ? 26 : 27;
-
-           return new BinaryEntropyEncoder(obs, new TPAQPredictor(logStates));
-       }
+       case TPAQ_TYPE: 
+           return new BinaryEntropyEncoder(obs, new TPAQPredictor(&ctx));
+       
        case NONE_TYPE:
            return new NullEntropyEncoder(obs);
 

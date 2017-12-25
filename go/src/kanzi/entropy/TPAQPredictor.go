@@ -16,7 +16,6 @@ limitations under the License.
 package entropy
 
 import (
-	"errors"
 	"kanzi"
 )
 
@@ -27,10 +26,8 @@ import (
 
 const (
 	TPAQ_MAX_LENGTH       = 88
-	TPAQ_MIXER_SIZE       = 16 * 1024
 	TPAQ_BUFFER_SIZE      = 64 * 1024 * 1024
 	TPAQ_HASH_SIZE        = 16 * 1024 * 1024
-	TPAQ_MASK_MIXER       = TPAQ_MIXER_SIZE - 1
 	TPAQ_MASK_BUFFER      = TPAQ_BUFFER_SIZE - 1
 	TPAQ_MASK_HASH        = TPAQ_HASH_SIZE - 1
 	TPAQ_MASK_80808080    = int32(-2139062144) // 0x80808080
@@ -365,6 +362,7 @@ type TPAQPredictor struct {
 	matchPos   int32
 	hash       int32
 	statesMask int32
+	mixersMask int32
 	apm        *LogisticAdaptiveProbMap
 	mixers     []TPAQMixer
 	mixer      *TPAQMixer // current mixer
@@ -387,13 +385,43 @@ type TPAQPredictor struct {
 	ctx6       int32
 }
 
-func NewTPAQPredictor(logStates uint) (*TPAQPredictor, error) {
-	if logStates < 16 || logStates > 30 {
-		return nil, errors.New("The log of the states table size must be in [16..30]")
+func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
+	this := new(TPAQPredictor)
+	statesSize := 1 << 28
+	mixersSize := 1 << 12
+
+	if ctx != nil {
+		// Block size requested by the user
+		// The user can request a big block size to force more states
+		rbsz := (*ctx)["blockSize"].(uint)
+
+		if rbsz >= 64*1024*1024 {
+			statesSize = 1 << 29
+		} else if rbsz >= 16*1024*1024 {
+			statesSize = 1 << 28
+		} else if rbsz >= 1024*1024 {
+			statesSize = 1 << 27
+		} else {
+			statesSize = 1 << 26
+		}
+
+		// Actual size of the current block
+		// Too many mixers hurts compression for small blocks.
+		// Too few mixers hurts compression for big blocks.
+		absz := (*ctx)["size"].(uint)
+
+		if absz >= 8*1024*1024 {
+			mixersSize = 1 << 14
+		} else if absz >= 4*1024*1024 {
+			mixersSize = 1 << 12
+		} else if absz >= 1024*1024 {
+			mixersSize = 1 << 10
+		} else {
+			mixersSize = 1 << 9
+		}
 	}
 
-	this := new(TPAQPredictor)
-	this.mixers = make([]TPAQMixer, TPAQ_MIXER_SIZE)
+	this.mixers = make([]TPAQMixer, mixersSize)
 
 	for i := range this.mixers {
 		this.mixers[i].init()
@@ -402,10 +430,11 @@ func NewTPAQPredictor(logStates uint) (*TPAQPredictor, error) {
 	this.mixer = &this.mixers[0]
 	this.pr = 2048
 	this.c0 = 1
-	this.states = make([]uint8, 1<<logStates)
+	this.states = make([]uint8, statesSize)
 	this.hashes = make([]int32, TPAQ_HASH_SIZE)
 	this.buffer = make([]int8, TPAQ_BUFFER_SIZE)
-	this.statesMask = int32(1<<logStates) - 1
+	this.statesMask = int32(statesSize - 1)
+	this.mixersMask = int32(mixersSize - 1)
 	this.cp0 = &this.states[0]
 	this.cp1 = &this.states[0]
 	this.cp2 = &this.states[0]
@@ -437,7 +466,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.binCount += ((this.c4 >> 7) & 1)
 
 		// Select Neural Net
-		this.mixer = &this.mixers[this.c4&TPAQ_MASK_MIXER]
+		this.mixer = &this.mixers[this.c4&this.mixersMask]
 
 		var h1, h2, h3 int32
 

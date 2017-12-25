@@ -14,6 +14,7 @@ limitations under the License.
 */
 package kanzi.entropy;
 
+import java.util.Map;
 import kanzi.Global;
 
 
@@ -25,10 +26,8 @@ import kanzi.Global;
 public class TPAQPredictor implements Predictor
 {
    private static final int MAX_LENGTH = 88;
-   private static final int MIXER_SIZE = 16*1024;
    private static final int BUFFER_SIZE = 64*1024*1024;
    private static final int HASH_SIZE = 16*1024*1024;
-   private static final int MASK_MIXER = MIXER_SIZE - 1;
    private static final int MASK_BUFFER = BUFFER_SIZE - 1;
    private static final int MASK_HASH = HASH_SIZE - 1;
    private static final int MASK_80808080 = 0x80808080;
@@ -372,6 +371,7 @@ public class TPAQPredictor implements Predictor
    private int matchPos;
    private int hash;
    private final int statesMask;
+   private final int mixersMask;
    private final LogisticAdaptiveProbMap apm;
    private final Mixer[] mixers;
    private Mixer mixer;                // current mixer
@@ -392,32 +392,59 @@ public class TPAQPredictor implements Predictor
    private int ctx4;
    private int ctx5;
    private int ctx6;
-
+   
    
    public TPAQPredictor()
    {
-       this(28); // 256 MB
+       this(null); // 256 MB
    }
 
    
-   public TPAQPredictor(int logStates)
+   public TPAQPredictor(Map<String, Object> ctx)
    {
-      if ((logStates < 16) || (logStates > 30))
-         throw new IllegalArgumentException("The log of the states table size must be in [16..30]");
+      int statesSize = 1 << 28;
+      int mixersSize = 1 << 12;
+      
+      if (ctx != null)
+      {
+         // Block size requested by the user
+         // The user can request a big block size to force more states
+         final int rbsz = (Integer) ctx.get("blockSize");
+
+         if (rbsz >= 64*1024*1024)
+            statesSize = 1 << 29;
+         else if (rbsz >= 16*1024*1024)
+            statesSize = 1 << 28;
+         else 
+            statesSize = (rbsz >= 1024*1024) ? 1 << 27 : 1 << 26; 
+         
+         // Actual size of the current block
+         // Too many mixers hurts compression for small blocks.
+         // Too few mixers hurts compression for big blocks.
+         final int absz = (Integer) ctx.get("size");
+
+         if (absz >= 8*1024*1024)
+            mixersSize = 1 << 14;
+         else if (absz >= 4*1024*1024)
+            mixersSize = 1 << 12;
+         else  
+            mixersSize = (absz >= 1024*1024) ? 1 << 10 : 1 << 9;          
+      }
       
       this.pr = 2048;
       this.c0 = 1;
-      this.mixers = new Mixer[MIXER_SIZE];
+      this.mixers = new Mixer[mixersSize];
 
       for (int i=0; i<this.mixers.length; i++)
          this.mixers[i] = new Mixer();
 
       this.mixer = this.mixers[0];      
-      this.states = new byte[1<<logStates];
+      this.states = new byte[statesSize];
       this.hashes = new int[HASH_SIZE];
       this.buffer = new byte[BUFFER_SIZE];
-      this.apm = new LogisticAdaptiveProbMap(65536, 7);
       this.statesMask = this.states.length - 1;
+      this.mixersMask = this.mixers.length - 1;
+      this.apm = new LogisticAdaptiveProbMap(65536, 7);
    }
 
 
@@ -441,7 +468,7 @@ public class TPAQPredictor implements Predictor
         this.binCount += ((this.c4 >> 7) & 1);
 
         // Select Neural Net
-        this.mixer = this.mixers[this.c4&MASK_MIXER];
+        this.mixer = this.mixers[this.c4&this.mixersMask];
 
         final int h1, h2, h3;
         
@@ -468,7 +495,7 @@ public class TPAQPredictor implements Predictor
         this.ctx4 = this.addContext(4, hash(HASH, this.c4&MASK_F0F0F0F0));
         this.ctx5 = this.addContext(5, hash(HASH, this.c4));
         this.ctx6 = this.addContext(6, hash(h1, h2));
-
+    
         // Find match
         this.findMatch();
 
@@ -502,7 +529,7 @@ public class TPAQPredictor implements Predictor
       st[this.cp6] = table[st[this.cp6]&0xFF];
       this.cp6 = (this.ctx6 + c) & mask;
       final int p6 = STATE_MAP6[st[this.cp6]&0xFF];      
-
+      
       final int p7 = this.addMatchContextPred();
 
       // Mix predictions using NN
@@ -511,7 +538,7 @@ public class TPAQPredictor implements Predictor
       // SSE (Secondary Symbol Estimation)
       p = this.apm.get(bit, p, this.c0 | (this.c4&0xFF00));
       this.pr = p + ((p-2048) >>> 31);
-   }
+}
 
 
    private void findMatch()
@@ -535,8 +562,8 @@ public class TPAQPredictor implements Predictor
             while ((r <= MAX_LENGTH) && (this.buffer[(this.pos-r)&MASK_BUFFER] == this.buffer[(this.matchPos-r)&MASK_BUFFER]))
                r++;
 
-            this.matchLen = r - 1;
-         }         
+            this.matchLen = r - 1;           
+         }    
       }
    }     
 
@@ -551,7 +578,7 @@ public class TPAQPredictor implements Predictor
          {
             // Add match length to NN inputs. Compute input based on run length
             p = (this.matchLen<=24) ? this.matchLen : 24+((this.matchLen-24)>>3);
-
+  
             if (((this.buffer[this.matchPos&MASK_BUFFER] >> (7-this.bpos)) & 1) == 0)
                p = -p;
 
@@ -615,7 +642,7 @@ public class TPAQPredictor implements Predictor
          err = (err*this.learnRate) >> 7;
          this.learnRate += ((END_LEARN_RATE-this.learnRate)>>31);       
          this.skew += err;
-
+     
          // Train Neural Network: update weights
          this.w0 += ((this.p0*err + 0) >> 15);
          this.w1 += ((this.p1*err + 0) >> 15);
@@ -648,5 +675,5 @@ public class TPAQPredictor implements Predictor
          return this.pr;
       }
    }
-   
+  
 }

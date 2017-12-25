@@ -62,20 +62,7 @@ func NewEntropyDecoder(ibs kanzi.InputBitStream, ctx map[string]interface{},
 		return NewBinaryEntropyDecoder(ibs, predictor)
 
 	case TPAQ_TYPE:
-		size := ctx["blockSize"].(uint)
-		var logStates uint
-
-		if size >= 64*1024*1024 {
-			logStates = 29
-		} else if size >= 16*1024*1024 {
-			logStates = 28
-		} else if size < 1024*1024 {
-			logStates = 26
-		} else {
-			logStates = 27
-		}
-
-		predictor, _ := NewTPAQPredictor(logStates)
+		predictor, _ := NewTPAQPredictor(&ctx)
 		return NewBinaryEntropyDecoder(ibs, predictor)
 
 	case NONE_TYPE:
@@ -115,20 +102,7 @@ func NewEntropyEncoder(obs kanzi.OutputBitStream, ctx map[string]interface{},
 		return NewBinaryEntropyEncoder(obs, predictor)
 
 	case TPAQ_TYPE:
-		size := ctx["blockSize"].(uint)
-		var logStates uint
-
-		if size >= 64*1024*1024 {
-			logStates = 29
-		} else if size >= 16*1024*1024 {
-			logStates = 28
-		} else if size < 1024*1024 {
-			logStates = 26
-		} else {
-			logStates = 27
-		}
-
-		predictor, _ := NewTPAQPredictor(logStates)
+		predictor, _ := NewTPAQPredictor(&ctx)
 		return NewBinaryEntropyEncoder(obs, predictor)
 
 	case NONE_TYPE:

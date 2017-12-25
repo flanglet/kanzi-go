@@ -315,12 +315,38 @@ inline int32 TPAQPredictor::hash(int32 x, int32 y)
     return (h >> 1) ^ (h >> 9) ^ (x >> 2) ^ (y >> 3) ^ HASH;
 }
 
-TPAQPredictor::TPAQPredictor(int logStates)
+TPAQPredictor::TPAQPredictor(map<string, string>* ctx)
     : _apm(65536)
-    , _statesMask((1 << logStates) - 1)
 {
-    if ((logStates < 16) || (logStates > 30))
-        throw IllegalArgumentException("The log of the states table size must be in [16..30]");
+    int statesSize = 1 << 28;
+    int mixersSize = 1 << 12;
+
+    if (ctx != nullptr) {
+        // Block size requested by the user
+        // The user can request a big block size to force more states
+        string strRBSZ = (*ctx)["blockSize"];
+        const int rbsz = atoi(strRBSZ.c_str());
+
+        if (rbsz >= 64 * 1024 * 1024)
+            statesSize = 1 << 29;
+        else if (rbsz >= 16 * 1024 * 1024)
+            statesSize = 1 << 28;
+        else
+            statesSize = (rbsz >= 1024*1024) ? 1 << 27 : 1 << 26;
+
+        // Actual size of the current block
+        // Too many mixers hurts compression for small blocks.
+        // Too few mixers hurts compression for big blocks.
+        string strABSZ = (*ctx)["size"];
+        const int absz = atoi(strABSZ.c_str());
+
+        if (absz >= 8*1024*1024)
+           mixersSize = 1 << 14;
+        else if (absz >= 4*1024*1024)
+           mixersSize = 1 << 12;
+        else  
+           mixersSize = (absz >= 1*1024*1024) ? 1 << 10 : 1 << 9;   
+    }
 
     _pr = 2048;
     _c0 = 1;
@@ -331,15 +357,16 @@ TPAQPredictor::TPAQPredictor(int logStates)
     _matchLen = 0;
     _matchPos = 0;
     _hash = 0;
-    _mixers = new TPAQMixer[MIXER_SIZE];
+    _mixers = new TPAQMixer[mixersSize];
     _mixer = &_mixers[0];
-    const int statesSize = 1 << logStates;
     _states = new uint8[statesSize];
     memset(_states, 0, statesSize);
     _hashes = new int32[HASH_SIZE];
     memset(_hashes, 0, sizeof(int32) * HASH_SIZE);
     _buffer = new byte[BUFFER_SIZE];
     memset(_buffer, 0, BUFFER_SIZE);
+    _statesMask = statesSize - 1;
+    _mixersMask = mixersSize - 1;
     _bpos = 0;
     _cp0 = &_states[0];
     _cp1 = &_states[0];
@@ -378,23 +405,21 @@ void TPAQPredictor::update(int bit)
         _binCount += ((_c4 >> 7) & 1);
 
         // Select Neural Net
-        _mixer = &_mixers[_c4 & MASK_MIXER];
-        
+        _mixer = &_mixers[_c4 & _mixersMask];
+
         int32 h1, h2, h3;
 
-        if (_binCount < (_pos >> 2))
-        {
-           // Mostly text
-           h1 = ((_c4 & MASK_80808080) == 0) ? _c4 : _c4 >> 16;
-           h2 = ((_c8 & MASK_80808080) == 0) ? _c8 : _c8 >> 16;
-           h3 = _c4 ^ (_c8 & 0xFFFF);
+        if (_binCount < (_pos >> 2)) {
+            // Mostly text
+            h1 = ((_c4 & MASK_80808080) == 0) ? _c4 : _c4 >> 16;
+            h2 = ((_c8 & MASK_80808080) == 0) ? _c8 : _c8 >> 16;
+            h3 = _c4 ^ (_c8 & 0xFFFF);
         }
-        else
-        {
-           // Mostly binary
-           h1 = _c4 >> 16;
-           h2 = _c8 >> 16;
-           h3 = _c4 ^ (_c4 & 0xFFFF);
+        else {
+            // Mostly binary
+            h1 = _c4 >> 16;
+            h2 = _c8 >> 16;
+            h3 = _c4 ^ (_c4 & 0xFFFF);
         }
 
         // Add contexts to NN
@@ -517,9 +542,9 @@ inline void TPAQMixer::update(int bit)
     if (err == 0)
         return;
 
-    // Decaying learn rate 
-    err = (err*_learnRate) >> 7;
-    _learnRate += ((END_LEARN_RATE-_learnRate)>>31);  
+    // Decaying learn rate
+    err = (err * _learnRate) >> 7;
+    _learnRate += ((END_LEARN_RATE - _learnRate) >> 31);
     _skew += err;
 
     // Train Neural Network: update weights

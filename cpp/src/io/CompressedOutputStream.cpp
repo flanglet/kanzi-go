@@ -464,6 +464,10 @@ T EncodingTask<T>::call() THROW
             if (postTransformLength < 0)
                 return EncodingTaskResult(_blockId, Error::ERR_WRITE_FILE, "Invalid transform size");
 
+            ss.str(string());
+            ss << postTransformLength;
+            _ctx["size"] = ss.str();
+
             for (uint64 n = 0xFF; n < uint64(postTransformLength); n <<= 8)
                 dataSize++;
 

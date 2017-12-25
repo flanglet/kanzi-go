@@ -486,6 +486,7 @@ func (this *EncodingTask) encode() {
 		// Forward transform (ignore error, encode skipFlags)
 		_, postTransformLength, _ = t.Forward(data[0:this.blockLength], buffer)
 		mode |= ((t.SkipFlags() & function.TRANSFORM_SKIP_MASK) << 2)
+		this.ctx["size"] = postTransformLength
 
 		for i := uint64(0xFF); i < uint64(postTransformLength); i <<= 8 {
 			dataSize++
