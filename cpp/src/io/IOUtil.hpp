@@ -30,7 +30,7 @@ limitations under the License.
 
 using namespace std;
 
-static void createFileList(string target, vector<string>& files) THROW
+static inline void createFileList(string target, vector<string>& files) THROW
 {
     struct stat buffer;
 
