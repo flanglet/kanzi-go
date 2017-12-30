@@ -430,6 +430,8 @@ FileCompressTask<T>::FileCompressTask(int verbosity, bool overwrite, bool checks
     _blockSize = blockSize;
     _jobs = jobs;
     _listeners = listeners;
+    _is = nullptr;
+    _cos = nullptr;
 }
 
 template <class T>

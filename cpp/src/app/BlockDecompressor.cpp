@@ -290,6 +290,8 @@ FileDecompressTask<T>::FileDecompressTask(int verbosity, bool overwrite,
     _outputName = outputName;
     _jobs = jobs;
     _listeners = listeners;
+    _os = nullptr;
+    _cis = nullptr;
 }
 
 template <class T>
