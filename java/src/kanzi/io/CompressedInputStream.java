@@ -53,6 +53,7 @@ public class CompressedInputStream extends InputStream
    private static final int MAX_BITSTREAM_BLOCK_SIZE = 1024*1024*1024;
    private static final byte[] EMPTY_BYTE_ARRAY      = new byte[0];
    private static final int CANCEL_TASKS_ID          = -1;
+   private static final int MAX_CONCURRENCY          = 32;
 
    private int blockSize;
    private XXHash32 hasher;
@@ -82,8 +83,8 @@ public class CompressedInputStream extends InputStream
             
       final int tasks = (Integer) ctx.get("jobs");
  
-      if ((tasks < 0) || (tasks > 16)) // 0 indicates no user choice
-         throw new IllegalArgumentException("The number of jobs must be in [1..16]");
+      if ((tasks <= 0) || (tasks > MAX_CONCURRENCY)) // 0 indicates no user choice
+         throw new IllegalArgumentException("The number of jobs must be in [1.." + MAX_CONCURRENCY+ "]");
 
       ExecutorService threadPool = (ExecutorService) ctx.get("pool");
       
@@ -92,7 +93,7 @@ public class CompressedInputStream extends InputStream
 
       this.ibs = new DefaultInputBitStream(is, DEFAULT_BUFFER_SIZE);
       this.sa = new SliceByteArray();
-      this.jobs = (tasks == 0) ? 1 : tasks;
+      this.jobs = tasks;
       this.pool = threadPool;
       this.buffers = new SliceByteArray[2*this.jobs];
       this.closed = new AtomicBoolean(false);

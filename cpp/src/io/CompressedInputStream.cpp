@@ -38,8 +38,11 @@ CompressedInputStream::CompressedInputStream(InputStream& is, map<string, string
     int tasks = atoi(it->second.c_str());
 
 #ifdef CONCURRENCY_ENABLED
-    if ((tasks < 0) || (tasks > 16)) // 0 indicates no user choice
-        throw IllegalArgumentException("The number of jobs must be in [1..16]");
+    if ((tasks < 0) || (tasks > MAX_CONCURRENCY)) { // 0 indicates no user choice
+        stringstream ss;
+        ss << "The number of jobs must be in [1.." << MAX_CONCURRENCY << "]";
+        throw IllegalArgumentException(ss.str());
+    }
 #else
     if (tasks > 1)
         throw IllegalArgumentException("The number of jobs is limited to 1 in this version");
@@ -54,7 +57,7 @@ CompressedInputStream::CompressedInputStream(InputStream& is, map<string, string
     _maxIdx = 0;
     _gcount = 0;
     _ibs = new DefaultInputBitStream(is, DEFAULT_BUFFER_SIZE);
-    _jobs = (tasks == 0) ? 1 : tasks;
+    _jobs = tasks;
     _sa = new SliceArray<byte>(new byte[0], 0, 0);
     _hasher = nullptr;
     _buffers = new SliceArray<byte>*[2 * _jobs];
@@ -361,12 +364,11 @@ int CompressedInputStream::processBlock() THROW
         }
 #ifdef CONCURRENCY_ENABLED
         else {
-            vector<DecodingTask<DecodingTaskResult>*>::iterator it;
             vector<future<DecodingTaskResult> > results;
 
             // Register task futures and launch tasks in parallel
-            for (it = tasks.begin(); it != tasks.end(); it++) {
-                results.push_back(async(&DecodingTask<DecodingTaskResult>::call, *it));
+            for (uint i = 0; i < tasks.size(); i++) {
+                results.push_back(async(&DecodingTask<DecodingTaskResult>::call, tasks[i]));
             }
 
             // Wait for tasks completion and check results
@@ -493,7 +495,7 @@ T DecodingTask<T>::call() THROW
 
     // Skip, either all data have been processed or an error occured
     if (taskId == CompressedInputStream::CANCEL_TASKS_ID) {
-        return DecodingTaskResult(*_data, _blockId, checksum1, 0, 0, "");
+        return T(*_data, _blockId, checksum1, 0, 0, "");
     }
 
     EntropyDecoder* ed = nullptr;
@@ -517,7 +519,7 @@ T DecodingTask<T>::call() THROW
         if (preTransformLength == 0) {
             // Last block is empty, return success and cancel pending tasks
             _processedBlockId->store(CompressedInputStream::CANCEL_TASKS_ID);
-            return DecodingTaskResult(*_data, _blockId, 0, checksum1, 0, "");
+            return T(*_data, _blockId, 0, checksum1, 0, "");
         }
 
         if ((preTransformLength < 0) || (preTransformLength > CompressedInputStream::MAX_BITSTREAM_BLOCK_SIZE)) {
@@ -525,7 +527,7 @@ T DecodingTask<T>::call() THROW
             _processedBlockId->store(CompressedInputStream::CANCEL_TASKS_ID);
             stringstream ss;
             ss << "Invalid compressed block length: " << preTransformLength;
-            return DecodingTaskResult(*_data, _blockId, 0, checksum1, Error::ERR_READ_FILE, ss.str());
+            return T(*_data, _blockId, 0, checksum1, Error::ERR_READ_FILE, ss.str());
         }
 
         // Extract checksum from bit stream (if any)
@@ -556,7 +558,7 @@ T DecodingTask<T>::call() THROW
         if (ed->decode(_buffer->_array, 0, preTransformLength) != preTransformLength) {
             // Error => cancel concurrent decoding tasks
             _processedBlockId->store(CompressedInputStream::CANCEL_TASKS_ID);
-            return DecodingTaskResult(*_data, _blockId, 0, checksum1, Error::ERR_PROCESS_BLOCK,
+            return T(*_data, _blockId, 0, checksum1, Error::ERR_PROCESS_BLOCK,
                 "Entropy decoding failed");
         }
 
@@ -604,7 +606,7 @@ T DecodingTask<T>::call() THROW
             delete transform;
 
             if (res == false) {
-                return DecodingTaskResult(*_data, _blockId, 0, checksum1, Error::ERR_PROCESS_BLOCK,
+                return T(*_data, _blockId, 0, checksum1, Error::ERR_PROCESS_BLOCK,
                     "Transform inverse failed");
             }
         }
@@ -618,11 +620,11 @@ T DecodingTask<T>::call() THROW
             if (checksum2 != checksum1) {
                 stringstream ss;
                 ss << "Corrupted bitstream: expected checksum " << hex << checksum1 << ", found " << hex << checksum2;
-                return DecodingTaskResult(*_data, _blockId, decoded, checksum1, Error::ERR_PROCESS_BLOCK, ss.str());
+                return T(*_data, _blockId, decoded, checksum1, Error::ERR_PROCESS_BLOCK, ss.str());
             }
         }
 
-        return DecodingTaskResult(*_data, _blockId, decoded, checksum1, 0, "");
+        return T(*_data, _blockId, decoded, checksum1, 0, "");
     }
     catch (exception& e) {
         // Make sure to unfreeze next block
@@ -632,6 +634,6 @@ T DecodingTask<T>::call() THROW
         if (ed != nullptr)
             delete ed;
 
-        return DecodingTaskResult(*_data, _blockId, 0, checksum1, Error::ERR_PROCESS_BLOCK, e.what());
+        return T(*_data, _blockId, 0, checksum1, Error::ERR_PROCESS_BLOCK, e.what());
     }
 }

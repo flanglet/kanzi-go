@@ -40,8 +40,8 @@ namespace kanzi {
 
        DecodingTaskResult(){};
 
-       DecodingTaskResult(SliceArray<byte>& data, int blockId, int decoded, int checksum, int error, const string& msg) :
-          _msg(msg)
+       DecodingTaskResult(SliceArray<byte>& data, int blockId, int decoded, int checksum, int error, const string& msg)
+           : _msg(msg)
        {
            _data = data._array;
            _blockId = blockId;
@@ -50,8 +50,8 @@ namespace kanzi {
            _checksum = checksum;
        }
 
-       DecodingTaskResult(const DecodingTaskResult& result) :
-          _msg(result._msg)
+       DecodingTaskResult(const DecodingTaskResult& result)
+           : _msg(result._msg)
        {
            _data = result._data;
            _blockId = result._blockId;
@@ -81,7 +81,6 @@ namespace kanzi {
        vector<Listener*> _listeners;
        map<string, string> _ctx;
 
-
    public:
        DecodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuffer, int blockSize,
            short transformType, short entropyType, int blockId,
@@ -107,6 +106,7 @@ namespace kanzi {
        static const int MIN_BITSTREAM_BLOCK_SIZE = 1024;
        static const int MAX_BITSTREAM_BLOCK_SIZE = 1024 * 1024 * 1024;
        static const int CANCEL_TASKS_ID = -1;
+       static const int MAX_CONCURRENCY = 32;
 
        int _blockSize;
        XXHash32* _hasher;
@@ -124,7 +124,6 @@ namespace kanzi {
        vector<Listener*> _listeners;
        streamsize _gcount;
        map<string, string> _ctx;
-
 
        void readHeader() THROW;
 

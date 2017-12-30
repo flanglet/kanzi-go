@@ -22,12 +22,15 @@ import (
 	kio "kanzi/io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
 
 const (
 	DECOMP_DEFAULT_BUFFER_SIZE = 32768
+	DECOMP_DEFAULT_CONCURRENCY = 8
+	DECOMP_MAX_CONCURRENCY     = 32
 )
 
 // Main block decompressor struct
@@ -41,12 +44,14 @@ type BlockDecompressor struct {
 	cpuProf    string
 }
 
+type FileDecompressResult struct {
+	code int
+	read uint64
+}
+
 func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, error) {
 	this := new(BlockDecompressor)
 	this.listeners = make([]kanzi.Listener, 0)
-
-	this.verbosity = argsMap["verbose"].(uint)
-	delete(argsMap, "verbose")
 
 	if force, prst := argsMap["overwrite"]; prst == true {
 		this.overwrite = force.(bool)
@@ -59,8 +64,18 @@ func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, e
 	delete(argsMap, "inputName")
 	this.outputName = argsMap["outputName"].(string)
 	delete(argsMap, "outputName")
-	this.jobs = argsMap["jobs"].(uint)
+	concurrency := argsMap["jobs"].(uint)
 	delete(argsMap, "jobs")
+
+	if concurrency == 0 {
+		this.jobs = DECOMP_DEFAULT_CONCURRENCY
+	} else {
+		if concurrency > DECOMP_MAX_CONCURRENCY {
+			fmt.Printf("Warning: the number of jobs is too high, defaulting to %v\n", DECOMP_MAX_CONCURRENCY)
+			concurrency = DECOMP_MAX_CONCURRENCY
+		}
+		this.jobs = concurrency
+	}
 
 	if prof, prst := argsMap["cpuProf"]; prst == true {
 		this.cpuProf = prof.(string)
@@ -69,23 +84,16 @@ func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, e
 		this.cpuProf = ""
 	}
 
-	if this.verbosity > 2 {
-		if listener, err := NewInfoPrinter(this.verbosity, DECODING, os.Stdout); err == nil {
-			this.AddListener(listener)
-		}
-	}
+	this.verbosity = argsMap["verbose"].(uint)
+	delete(argsMap, "verbose")
 
 	if this.verbosity > 0 && len(argsMap) > 0 {
 		for k, _ := range argsMap {
-			bd_printOut("Ignoring invalid option ["+k+"]", this.verbosity > 0)
+			log.Println("Ignoring invalid option ["+k+"]", this.verbosity > 0)
 		}
 	}
 
 	return this, nil
-}
-
-func (this *BlockDecompressor) CpuProf() string {
-	return this.cpuProf
 }
 
 func (this *BlockDecompressor) AddListener(bl kanzi.Listener) bool {
@@ -108,27 +116,215 @@ func (this *BlockDecompressor) RemoveListener(bl kanzi.Listener) bool {
 	return false
 }
 
+func (this *BlockDecompressor) CpuProf() string {
+	return this.cpuProf
+}
+
+func fileDecompressWorker(tasks <-chan FileDecompressTask, cancel <-chan bool, results chan<- FileDecompressResult) {
+	// Pull tasks from channel and run them
+	more := true
+
+	for more {
+		select {
+		case t, m := <-tasks:
+			more = m
+
+			if more {
+				res, read := t.Call()
+				results <- FileDecompressResult{code: res, read: read}
+				more = res == 0
+			}
+
+		case c := <-cancel:
+			more = !c
+		}
+	}
+}
+
 // Return exit code, number of bits written
 func (this *BlockDecompressor) Call() (int, uint64) {
-	var msg string
-	printFlag := this.verbosity > 2
-	bd_printOut("Input file name set to '"+this.inputName+"'", printFlag)
-	bd_printOut("Output file name set to '"+this.outputName+"'", printFlag)
-	msg = fmt.Sprintf("Verbosity set to %v", this.verbosity)
-	bd_printOut(msg, printFlag)
-	msg = fmt.Sprintf("Overwrite set to %t", this.overwrite)
-	bd_printOut(msg, printFlag)
+	var err error
+	before := time.Now()
+	files := make([]string, 0, 256)
+	files, err = createFileList(this.inputName, files)
 
-	if this.jobs > 0 {
-		prefix := ""
-
-		if this.jobs > 1 {
-			prefix = "s"
+	if err != nil {
+		if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
+			fmt.Printf("%s\n", ioerr.Error())
+			return ioerr.ErrorCode(), 0
 		}
 
-		msg = fmt.Sprintf("Using %d job%s", this.jobs, prefix)
-		bd_printOut(msg, printFlag)
+		fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err.Error())
+		return kio.ERR_OPEN_FILE, 0
 	}
+
+	if len(files) == 0 {
+		fmt.Printf("Cannot open input file '%v'\n", this.inputName)
+		return kio.ERR_OPEN_FILE, 0
+	}
+
+	files = sort.StringSlice(files)
+	nbFiles := len(files)
+
+	// Limit verbosity level when files are processed concurrently
+	if this.jobs > 1 && nbFiles > 1 && this.verbosity > 1 {
+		log.Println("Warning: limiting verbosity to 1 due to concurrent processing of input files.\n", true)
+		this.verbosity = 1
+	}
+
+	if this.verbosity > 2 {
+		if listener, err := NewInfoPrinter(this.verbosity, ENCODING, os.Stdout); err == nil {
+			this.AddListener(listener)
+		}
+	}
+
+	printFlag := this.verbosity > 2
+	var msg string
+	log.Println("\n", printFlag)
+
+	if nbFiles > 1 {
+		msg = fmt.Sprintf("%d files to decompress\n", nbFiles)
+	} else {
+		msg = fmt.Sprintf("%d file to decompress\n", nbFiles)
+	}
+
+	log.Println(msg, this.verbosity > 0)
+	msg = fmt.Sprintf("Verbosity set to %v", this.verbosity)
+	log.Println(msg, printFlag)
+	msg = fmt.Sprintf("Overwrite set to %t", this.overwrite)
+	log.Println(msg, printFlag)
+
+	if this.jobs > 1 {
+		if strings.ToUpper(this.outputName) == "STDOUT" {
+			fmt.Println("Cannot output to STDOUT with multiple jobs")
+			return kio.ERR_CREATE_FILE, 0
+		}
+
+		msg = fmt.Sprintf("Using %d jobs", this.jobs)
+	} else {
+		msg = fmt.Sprintf("Using %d job", this.jobs)
+	}
+
+	log.Println(msg, printFlag)
+
+	res := 1
+	read := uint64(0)
+
+	if nbFiles == 1 {
+		iName := files[0]
+
+		if len(this.outputName) == 0 {
+			this.outputName = iName + ".knz"
+		}
+
+		task := FileDecompressTask{verbosity: this.verbosity,
+			overwrite:  this.overwrite,
+			inputName:  iName,
+			outputName: this.outputName,
+			jobs:       1,
+			listeners:  this.listeners}
+
+		res, read = task.Call()
+	} else {
+		if len(this.outputName) != 0 && strings.ToUpper(this.outputName) != "NONE" {
+			fmt.Println("Output file cannot be provided when input is a directory (except 'NONE')")
+			return kio.ERR_CREATE_FILE, 0
+		}
+
+		tasks := make(chan FileDecompressTask, nbFiles)
+		results := make(chan FileDecompressResult, nbFiles)
+		cancel := make(chan bool, 1)
+
+		for _, iName := range files {
+			var oName string
+
+			if len(this.outputName) == 0 {
+				oName = iName + ".bak"
+			} else {
+				oName = "NONE"
+			}
+
+			task := FileDecompressTask{verbosity: this.verbosity,
+				overwrite:  this.overwrite,
+				inputName:  iName,
+				outputName: oName,
+				jobs:       1,
+				listeners:  this.listeners}
+
+			// Push task to channel. The workers are the consumers.
+			tasks <- task
+		}
+
+		close(tasks)
+
+		// Create one worker per job. A worker calls several tasks sequentially.
+		for j := uint(0); j < this.jobs; j++ {
+			go fileDecompressWorker(tasks, cancel, results)
+		}
+
+		// Wait for all task results
+		for i := 0; i < nbFiles; i++ {
+			result := <-results
+			read += result.read
+
+			if result.code != 0 {
+				// Exit early
+				res = result.code
+				break
+			}
+		}
+
+		cancel <- true
+		close(cancel)
+		close(results)
+	}
+
+	after := time.Now()
+
+	if nbFiles > 1 {
+		delta := after.Sub(before).Nanoseconds() / 1000000 // convert to ms
+		log.Println("", this.verbosity > 0)
+		msg = fmt.Sprintf("Total decoding time: %d ms", delta)
+		log.Println(msg, this.verbosity > 0)
+
+		if read > 1 {
+			msg = fmt.Sprintf("Total input size: %d bytes", read)
+		} else {
+			msg = fmt.Sprintf("Total input size: %d byte", read)
+		}
+
+		log.Println(msg, this.verbosity > 0)
+	}
+
+	return res, read
+}
+
+func bd_notifyListeners(listeners []kanzi.Listener, evt *kanzi.Event) {
+	defer func() {
+		if r := recover(); r != nil {
+			// Ignore exceptions in listeners
+		}
+	}()
+
+	for _, bl := range listeners {
+		bl.ProcessEvent(evt)
+	}
+}
+
+type FileDecompressTask struct {
+	verbosity  uint
+	overwrite  bool
+	inputName  string
+	outputName string
+	jobs       uint
+	listeners  []kanzi.Listener
+}
+
+func (this *FileDecompressTask) Call() (int, uint64) {
+	var msg string
+	printFlag := this.verbosity > 2
+	log.Println("Input file name set to '"+this.inputName+"'", printFlag)
+	log.Println("Output file name set to '"+this.outputName+"'", printFlag)
 
 	var output io.WriteCloser
 
@@ -171,7 +367,8 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 	// Decode
 	read := int64(0)
 	printFlag = this.verbosity > 1
-	bd_printOut("Decoding ...", printFlag)
+	log.Println("\nDecoding "+this.inputName+" ...", printFlag)
+	log.Println("", this.verbosity > 3)
 	var input io.ReadCloser
 
 	if len(this.listeners) > 0 {
@@ -250,22 +447,22 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 	after := time.Now()
 	delta := after.Sub(before).Nanoseconds() / 1000000 // convert to ms
 
-	bd_printOut("", this.verbosity >= 1)
+	log.Println("", this.verbosity > 1)
 	msg = fmt.Sprintf("Decoding:          %d ms", delta)
-	bd_printOut(msg, printFlag)
+	log.Println(msg, printFlag)
 	msg = fmt.Sprintf("Input size:        %d", cis.GetRead())
-	bd_printOut(msg, printFlag)
+	log.Println(msg, printFlag)
 	msg = fmt.Sprintf("Output size:       %d", read)
-	bd_printOut(msg, printFlag)
+	log.Println(msg, printFlag)
 	msg = fmt.Sprintf("Decoding %v: %v => %v bytes in %v ms", this.inputName, cis.GetRead(), read, delta)
-	bd_printOut(msg, this.verbosity == 1)
+	log.Println(msg, this.verbosity == 1)
 
 	if delta > 0 {
 		msg = fmt.Sprintf("Throughput (KB/s): %d", ((read*int64(1000))>>10)/int64(delta))
-		bd_printOut(msg, printFlag)
+		log.Println(msg, printFlag)
 	}
 
-	bd_printOut("", this.verbosity >= 1)
+	log.Println("", this.verbosity > 1)
 
 	if len(this.listeners) > 0 {
 		evt := kanzi.NewEvent(kanzi.EVT_DECOMPRESSION_END, -1, int64(cis.GetRead()), 0, false)
@@ -273,22 +470,4 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 	}
 
 	return 0, cis.GetRead()
-}
-
-func bd_printOut(msg string, print bool) {
-	if print == true {
-		fmt.Println(msg)
-	}
-}
-
-func bd_notifyListeners(listeners []kanzi.Listener, evt *kanzi.Event) {
-	defer func() {
-		if r := recover(); r != nil {
-			// Ignore exceptions in listeners
-		}
-	}()
-
-	for _, bl := range listeners {
-		bl.ProcessEvent(evt)
-	}
 }

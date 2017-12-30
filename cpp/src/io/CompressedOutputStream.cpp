@@ -60,8 +60,11 @@ CompressedOutputStream::CompressedOutputStream(OutputStream& os, map<string, str
     int tasks = atoi(it->second.c_str());
 
 #ifdef CONCURRENCY_ENABLED
-    if ((tasks < 0) || (tasks > 16)) // 0 indicates no user choice
-        throw IllegalArgumentException("The number of jobs must be in [1..16]");
+    if ((tasks < 0) || (tasks > MAX_CONCURRENCY)) { // 0 indicates no user choice
+        stringstream ss;
+        ss << "The number of jobs must be in [1.." << MAX_CONCURRENCY << "]";
+        throw IllegalArgumentException(ss.str());
+    }
 #else
     if (tasks > 1)
         throw IllegalArgumentException("The number of jobs is limited to 1 in this version");
@@ -80,7 +83,7 @@ CompressedOutputStream::CompressedOutputStream(OutputStream& os, map<string, str
     string str = it->second;
     bool checksum = str == "TRUE";
     _hasher = (checksum == true) ? new XXHash32(BITSTREAM_TYPE) : nullptr;
-    _jobs = (tasks == 0) ? 1 : tasks;
+    _jobs = tasks;
     _sa = new SliceArray<byte>(new byte[_blockSize * _jobs], _blockSize * _jobs, 0);
     _buffers = new SliceArray<byte>*[2 * _jobs];
 
@@ -314,12 +317,11 @@ void CompressedOutputStream::processBlock() THROW
         }
 #ifdef CONCURRENCY_ENABLED
         else {
-            vector<EncodingTask<EncodingTaskResult>*>::iterator it;
             vector<future<EncodingTaskResult> > results;
 
             // Register task futures and launch tasks in parallel
-            for (it = tasks.begin(); it != tasks.end(); it++) {
-                results.push_back(async(launch::async, &EncodingTask<EncodingTaskResult>::call, *it));
+            for (uint i = 0; i < tasks.size(); i++) {
+                results.push_back(async(launch::async, &EncodingTask<EncodingTaskResult>::call, tasks[i]));
             }
 
             // Wait for tasks completion and check results
@@ -462,7 +464,7 @@ T EncodingTask<T>::call() THROW
             delete transform;
 
             if (postTransformLength < 0)
-                return EncodingTaskResult(_blockId, Error::ERR_WRITE_FILE, "Invalid transform size");
+                return T(_blockId, Error::ERR_WRITE_FILE, "Invalid transform size");
 
             ss.str(string());
             ss << postTransformLength;
@@ -472,7 +474,7 @@ T EncodingTask<T>::call() THROW
                 dataSize++;
 
             if (dataSize > 3)
-                return EncodingTaskResult(_blockId, Error::ERR_WRITE_FILE, "Invalid block data length");
+                return T(_blockId, Error::ERR_WRITE_FILE, "Invalid block data length");
 
             // Record size of 'block size' - 1 in bytes
             mode |= (dataSize & 0x03);
@@ -517,13 +519,11 @@ T EncodingTask<T>::call() THROW
 
         // Entropy encode block
         if (ee->encode(_buffer->_array, 0, postTransformLength) != postTransformLength)
-            return EncodingTaskResult(_blockId, Error::ERR_PROCESS_BLOCK, "Entropy coding failed");
+            return T(_blockId, Error::ERR_PROCESS_BLOCK, "Entropy coding failed");
 
         // Dispose before processing statistics. Dispose may write to the bitstream
         delete ee;
         ee = nullptr;
-
-        const int w = int((_obs->written() - written) / 8);
 
         // After completion of the entropy coding, increment the block id.
         // It unfreezes the task processing the next block (if any)
@@ -531,13 +531,15 @@ T EncodingTask<T>::call() THROW
 
         if (_listeners.size() > 0) {
             // Notify after entropy
+            const int w = int((_obs->written() - written) / 8);
+              
             Event evt(Event::AFTER_ENTROPY,
                 int64(_blockId), w, checksum, _hasher != nullptr);
 
             CompressedOutputStream::notifyListeners(_listeners, evt);
         }
 
-        return EncodingTaskResult(_blockId, 0, "Success");
+        return T(_blockId, 0, "Success");
     }
     catch (exception& e) {
         // Make sure to unfreeze next block
@@ -547,6 +549,6 @@ T EncodingTask<T>::call() THROW
         if (ee != nullptr)
             delete ee;
 
-        return EncodingTaskResult(_blockId, Error::ERR_PROCESS_BLOCK, e.what());
+        return T(_blockId, Error::ERR_PROCESS_BLOCK, e.what());
     }
 }

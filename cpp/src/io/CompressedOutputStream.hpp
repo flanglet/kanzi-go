@@ -34,22 +34,22 @@ namespace kanzi {
        int _error; // 0 = OK
        string _msg;
 
-       EncodingTaskResult() :
-          _msg("")
+       EncodingTaskResult()
+           : _msg("")
        {
            _blockId = -1;
            _error = 0;
        }
 
-       EncodingTaskResult(int blockId, int error, const string& msg) :
-          _msg(msg)
+       EncodingTaskResult(int blockId, int error, const string& msg)
+           : _msg(msg)
        {
            _blockId = blockId;
            _error = error;
        }
 
-       EncodingTaskResult(const EncodingTaskResult& result) :
-          _msg(result._msg)
+       EncodingTaskResult(const EncodingTaskResult& result)
+           : _msg(result._msg)
        {
            _blockId = result._blockId;
            _error = result._error;
@@ -76,7 +76,6 @@ namespace kanzi {
        vector<Listener*> _listeners;
        map<string, string> _ctx;
 
-
    public:
        EncodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuffer, int length,
            short transformType, short entropyType, int blockId,
@@ -100,6 +99,7 @@ namespace kanzi {
        static const int MIN_BITSTREAM_BLOCK_SIZE = 1024;
        static const int MAX_BITSTREAM_BLOCK_SIZE = 1024 * 1024 * 1024;
        static const int SMALL_BLOCK_SIZE = 15;
+       static const int MAX_CONCURRENCY = 32;
 
        int _blockSize;
        XXHash32* _hasher;
@@ -116,7 +116,6 @@ namespace kanzi {
        vector<Listener*> _listeners;
        map<string, string> _ctx;
 
-
        void writeHeader() THROW;
 
        void processBlock() THROW;
@@ -124,7 +123,6 @@ namespace kanzi {
        static void notifyListeners(vector<Listener*>& listeners, const Event& evt);
 
    public:
-
        CompressedOutputStream(OutputStream& os, map<string, string>& ctx);
 
        ~CompressedOutputStream();

@@ -30,10 +30,9 @@ public final class DefaultArrayComparator implements ArrayComparator
         
         this.array = array;
     }
+        
     
-    
-    
-   @Override
+    @Override
     public int compare(int lidx, int ridx)
     {
         int res = this.array[lidx] - this.array[ridx];

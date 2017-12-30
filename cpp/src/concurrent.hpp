@@ -27,22 +27,44 @@ public:
 };
 
 #if __cplusplus >= 201103L || _MSC_VER >= 1700
-// C++ 11 (or partial)
-#include <atomic>
+	// C++ 11 (or partial)
+	#include <atomic>
 
-#ifndef CONCURRENCY_ENABLED
-#ifdef __GNUC__
-// Require g++ 5.0 minimum, 4.8.4 generates exceptions on futures (?)
-#if ((__GNUC__ << 16) + __GNUC_MINOR__ >= (5 << 16) + 0)
-#define CONCURRENCY_ENABLED
+	#ifndef CONCURRENCY_ENABLED
+		#ifdef __GNUC__
+			// Require g++ 5.0 minimum, 4.8.4 generates exceptions on futures (?)
+			#if ((__GNUC__ << 16) + __GNUC_MINOR__ >= (5 << 16) + 0)
+				#define CONCURRENCY_ENABLED
+			#endif
+		#else
+			#define CONCURRENCY_ENABLED
+		#endif
+	#endif
 #endif
-#else
-#define CONCURRENCY_ENABLED
-#endif
-#endif
-#endif
+
 
 #ifdef CONCURRENCY_ENABLED
+
+template<class T, class R>
+class BoundedConcurrentQueue {
+public:
+	BoundedConcurrentQueue(int nbItems, T* data) { _data = data; _size = nbItems; }
+
+	~BoundedConcurrentQueue() { }
+
+	T* get() { int idx = _index.fetch_add(1); return (idx >= _size) ? nullptr : &_data[idx]; }
+   
+	void clear() { _index.store(_size); }
+
+private:
+	atomic_int _index;
+	int _size;
+	T* _data;
+};
+
+
+
+
 #include <chrono>
 
 using namespace chrono;
@@ -118,18 +140,20 @@ private:
     int _n;
 
 public:
-    atomic_int() { _n = 0; }
-    atomic_int& operator=(int n)
-    {
+    atomic_int(int n=0) { _n = n; }
+    atomic_int& operator=(int n) {
         _n = n;
         return *this;
     }
     int load() const { return _n; }
     void store(int n) { _n = n; }
-    atomic_int& operator++(int)
-    {
+    atomic_int& operator++(int) {
         _n++;
         return *this;
+    }
+    atomic_int fetch_add(atomic_int arg) {
+       _n++;
+       return atomic_int(_n-1);
     }
 };
 
@@ -138,16 +162,14 @@ private:
     bool _b;
 
 public:
-    atomic_bool() { _b = false; }
-    atomic_bool& operator=(bool b)
-    {
+    atomic_bool(bool b=false) { _b = b; }
+    atomic_bool& operator=(bool b) {
         _b = b;
         return *this;
     }
     bool load() const { return _b; }
     void store(bool b) { _b = b; }
-    bool exchange(bool expected, int)
-    {
+    bool exchange(bool expected, int) {
         bool b = _b;
         _b = expected;
         return b;
@@ -156,5 +178,7 @@ public:
 #endif //   (__cplusplus && __cplusplus < 201103L) || (_MSC_VER && _MSC_VER < 1700)
 
 #endif // CONCURRENCY_ENABLED
+
+
 
 #endif

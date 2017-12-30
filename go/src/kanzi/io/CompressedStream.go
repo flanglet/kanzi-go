@@ -44,6 +44,7 @@ const (
 	MIN_BITSTREAM_BLOCK_SIZE   = 1024
 	MAX_BITSTREAM_BLOCK_SIZE   = 1024 * 1024 * 1024
 	SMALL_BLOCK_SIZE           = 15
+	MAX_CONCURRENCY            = 32
 
 	ERR_MISSING_PARAM       = -1
 	ERR_BLOCK_SIZE          = -2
@@ -161,8 +162,9 @@ func NewCompressedOutputStream(os io.WriteCloser, ctx map[string]interface{}) (*
 
 	tasks := ctx["jobs"].(uint)
 
-	if tasks > 16 { // 0 indicates no user choice
-		return nil, NewIOError("The number of jobs must be in [1..16]", ERR_CREATE_STREAM)
+	if tasks > MAX_CONCURRENCY {
+		errMsg := fmt.Sprintf("The number of jobs must be in [1..%v]", MAX_CONCURRENCY)
+		return nil, NewIOError(errMsg, ERR_CREATE_STREAM)
 	}
 
 	this := new(CompressedOutputStream)
@@ -195,12 +197,7 @@ func NewCompressedOutputStream(os io.WriteCloser, ctx map[string]interface{}) (*
 		}
 	}
 
-	if tasks == 0 {
-		this.jobs = 1
-	} else {
-		this.jobs = int(tasks)
-	}
-
+	this.jobs = int(tasks)
 	this.data = make([]byte, this.jobs*int(this.blockSize))
 	this.buffers = make([]blockBuffer, 2*this.jobs)
 
@@ -642,18 +639,14 @@ func NewCompressedInputStream(is io.ReadCloser, ctx map[string]interface{}) (*Co
 
 	tasks := ctx["jobs"].(uint)
 
-	if tasks > 16 { // 0 indicates no user choice
-		return nil, NewIOError("The number of jobs must be in [1..16]", ERR_CREATE_STREAM)
+	if tasks > MAX_CONCURRENCY {
+		errMsg := fmt.Sprintf("The number of jobs must be in [1..%v]", MAX_CONCURRENCY)
+		return nil, NewIOError(errMsg, ERR_CREATE_STREAM)
 	}
 
 	this := new(CompressedInputStream)
 
-	if tasks == 0 {
-		this.jobs = 1
-	} else {
-		this.jobs = int(tasks)
-	}
-
+	this.jobs = int(tasks)
 	this.blockId = 0
 	this.data = EMPTY_BYTE_SLICE
 	this.buffers = make([]blockBuffer, 2*this.jobs)

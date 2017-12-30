@@ -106,6 +106,14 @@ inline bool samePaths(string& f1, string& f2)
 }
 
 
+inline void printOut(const char* msg, bool print)
+{
+    if ((print == true) && (msg != nullptr))
+        cout << msg << endl;
+}
+
+
+
 #ifdef CONCURRENCY_ENABLED
 // Thread safe ostream
 class PrintStream : public ostringstream

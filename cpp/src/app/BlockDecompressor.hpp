@@ -22,47 +22,104 @@ limitations under the License.
 #include "../OutputStream.hpp"
 #include "../Listener.hpp"
 #include "../io/CompressedInputStream.hpp"
+#include "../io/IOUtil.hpp"
 
-namespace kanzi 
-{
-
-   class BlockDecompressor 
-   {
+namespace kanzi {
+   class FileDecompressResult {
    public:
-      static const int WARN_EMPTY_INPUT = -128;
+       int _code;
+       uint64 _read;
 
-      BlockDecompressor(map<string, string>& map);    
+       FileDecompressResult(int code = 0, uint64 read = 0)
+       {
+           _code = code;
+           _read = read;
+       }
 
-      ~BlockDecompressor();
-
-      int call();
-
-      bool addListener(Listener* bl);
-
-      bool removeListener(Listener* bl);
-
-      void dispose();
-
-
-   private:
-      static const int DEFAULT_BUFFER_SIZE = 32768;
-
-      int _verbosity;
-      bool _overwrite;
-      string _inputName;
-      string _outputName;
-      string _codec;
-      string _transform;
-      int _blockSize;
-      int _jobs;
-      OutputStream* _os;
-      CompressedInputStream* _cis;
-      vector<Listener*> _listeners;
-
-      static void printOut(const char* msg, bool print);
-
-      static void notifyListeners(vector<Listener*>& listeners, const Event& evt);
+       ~FileDecompressResult() {}
    };
 
+#ifdef CONCURRENCY_ENABLED
+   template <class T, class R>
+   class FileDecompressWorker : public Task<R> {
+   public:
+       FileDecompressWorker(BoundedConcurrentQueue<T, R>* queue) { _queue = queue; }
+
+       ~FileDecompressWorker() {}
+
+       R call();
+
+   private:
+       BoundedConcurrentQueue<T, R>* _queue;
+   };
+#endif
+
+   template <class T>
+   class FileDecompressTask : public Task<T> {
+   public:
+       static const int DEFAULT_BUFFER_SIZE = 32768;
+       static const int WARN_EMPTY_INPUT = -128;
+
+       FileDecompressTask(int verbosity, bool overwrite,
+           const string& inputName, const string& outputName,
+           int jobs, vector<Listener*> listeners);
+
+       ~FileDecompressTask();
+
+       T call();
+
+       void dispose();
+
+   private:
+       int _verbosity;
+       bool _overwrite;
+       string _inputName;
+       string _outputName;
+       int _jobs;
+       OutputStream* _os;
+       CompressedInputStream* _cis;
+       vector<Listener*> _listeners;
+   };
+
+   class BlockDecompressor {
+       friend class FileDecompressTask<FileDecompressResult>;
+
+   public:
+       static const int WARN_EMPTY_INPUT = -128;
+
+       BlockDecompressor(map<string, string>& map);
+
+       ~BlockDecompressor();
+
+       int call();
+
+       bool addListener(Listener* bl);
+
+       bool removeListener(Listener* bl);
+
+       void dispose();
+
+   private:
+       static const int DEFAULT_BUFFER_SIZE = 32768;
+#ifdef CONCURRENCY_ENABLED
+	   static const int DEFAULT_CONCURRENCY = 8;
+#else
+	   static const int DEFAULT_CONCURRENCY = 1;
+#endif
+
+       int _verbosity;
+       bool _overwrite;
+       string _inputName;
+       string _outputName;
+       string _codec;
+       string _transform;
+       int _blockSize;
+       int _jobs;
+       OutputStream* _os;
+       CompressedInputStream* _cis;
+       vector<Listener*> _listeners;
+
+       static void notifyListeners(vector<Listener*>& listeners, const Event& evt);
+   };
 }
 #endif

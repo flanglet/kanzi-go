@@ -24,12 +24,15 @@ import java.io.OutputStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import kanzi.Event;
 import kanzi.io.Error;
 import kanzi.SliceByteArray;
@@ -42,34 +45,36 @@ import kanzi.Listener;
 public class BlockDecompressor implements Runnable, Callable<Integer>
 {
    private static final int DEFAULT_BUFFER_SIZE = 32768;
+   private static final int DEFAULT_CONCURRENCY = 8;
+   private static final int MAX_CONCURRENCY = 32;
 
-   private final int verbosity;
+   private int verbosity;
    private final boolean overwrite;
    private final String inputName;
    private final String outputName;
-   private CompressedInputStream cis;
-   private OutputStream os;
    private final int jobs;
-   private final boolean ownPool;
    private final ExecutorService pool;
    private final List<Listener> listeners;
 
 
-   public BlockDecompressor(Map<String, Object> map, ExecutorService threadPool)
+   public BlockDecompressor(Map<String, Object> map)
    {
-      this.verbosity = (Integer) map.remove("verbose");
       Boolean bForce = (Boolean) map.remove("overwrite");
       this.overwrite = (bForce == null) ? false : bForce;
       this.inputName = (String) map.remove("inputName");
       this.outputName = (String) map.remove("outputName");
-      this.jobs = (Integer) map.remove("jobs");
-      this.pool = (this.jobs < 2) ? null :
-              ((threadPool == null) ? Executors.newCachedThreadPool() : threadPool);
-      this.ownPool = (threadPool == null) && (this.pool != null);
-      this.listeners = new ArrayList<>(10);
+      int concurrency = (Integer) map.remove("jobs");
 
-      if (this.verbosity > 2)
-         this.addListener(new InfoPrinter(this.verbosity, InfoPrinter.Type.DECODING, System.out));
+      if (concurrency > MAX_CONCURRENCY)
+      {
+         System.err.println("Warning: the number of jobs is too high, defaulting to "+MAX_CONCURRENCY);
+         concurrency = MAX_CONCURRENCY;
+      }
+                       
+      this.jobs = (concurrency == 0) ? DEFAULT_CONCURRENCY : concurrency;
+      this.pool = Executors.newFixedThreadPool(this.jobs);
+      this.listeners = new ArrayList<>(10);
+      this.verbosity = (Integer) map.remove("verbose");
 
       if ((this.verbosity > 0) && (map.size() > 0))
       {
@@ -81,28 +86,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
 
    public void dispose()
    {
-      try
-      {
-         if (this.cis != null)
-            this.cis.close();
-      }
-      catch (IOException ioe)
-      {
-         System.err.println("Decompression failure: " + ioe.getMessage());
-         System.exit(Error.ERR_WRITE_FILE);
-      }
-
-      try
-      {
-         if (this.os != null)
-            this.os.close();
-      }
-      catch (IOException ioe)
-      {
-         /* ignore */
-      }
-
-      if ((this.pool != null) && (this.ownPool == true))
+      if (this.pool != null)
          this.pool.shutdown();
    }
    
@@ -117,195 +101,132 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
    @Override
    public Integer call()
    {
-      boolean printFlag = this.verbosity > 2;
-      printOut("Input file name set to '" + this.inputName + "'", printFlag);
-      printOut("Output file name set to '" + this.outputName + "'", printFlag);
-      printOut("Verbosity set to "+this.verbosity, printFlag);
-      printOut("Overwrite set to "+this.overwrite, printFlag);
-      
-      if (this.jobs > 0)
-         printOut("Using " + this.jobs + " job" + ((this.jobs > 1) ? "s" : ""), printFlag);
-
+      List<Path> files = new ArrayList<>();
       long read = 0;
-      printFlag = this.verbosity > 1;
-      printOut("Decoding ...", printFlag);
+      long before = System.nanoTime();
       
-      if (this.listeners.size() > 0)
-      {
-         Event evt = new Event(Event.Type.DECOMPRESSION_START, -1, 0);
-         Listener[] array = this.listeners.toArray(new Listener[this.listeners.size()]);
-         notifyListeners(array, evt);
-      }
-      
-      if (this.outputName.equalsIgnoreCase("NONE"))
-      {
-         this.os = new NullOutputStream();
-      }
-      else if (this.outputName.equalsIgnoreCase("STDOUT"))
-      {
-         this.os = System.out;
-      }
-      else
-      {
-         try
-         {
-            File output = new File(this.outputName);
-
-            if (output.exists())
-            {
-               if (output.isDirectory())
-               {
-                  System.err.println("The output file is a directory");
-                  return Error.ERR_OUTPUT_IS_DIR;
-               }
-
-               if (this.overwrite == false)
-               {
-                  System.err.println("The output file exists and the 'force' command "
-                          + "line option has not been provided");
-                  return Error.ERR_OVERWRITE_FILE;
-               }
-
-               Path path1 = FileSystems.getDefault().getPath(this.inputName).toAbsolutePath();
-               Path path2 = FileSystems.getDefault().getPath(this.outputName).toAbsolutePath();
-
-               if (path1.equals(path2))
-               {
-                  System.err.println("The input and output files must be different");
-                  return Error.ERR_CREATE_FILE;
-               }
-            }
-         }
-         catch (Exception e)
-         {
-            System.err.println("Cannot open output file '"+ this.outputName+"' for writing: " + e.getMessage());
-            return Error.ERR_CREATE_FILE;
-         }
-
-         try
-         {
-            // Create output stream (note: it creates the file yielding file.exists()
-            // to return true so it must be called after the check).
-            this.os = new FileOutputStream(this.outputName);
-         }
-         catch (IOException e)
-         {
-            System.err.println("Cannot open output file '"+ this.outputName+"' for writing: " + e.getMessage());
-            return Error.ERR_CREATE_FILE;
-         }
-      }
-
-      InputStream is;
-
       try
       {
-         is = (this.inputName.equalsIgnoreCase("STDIN")) ? System.in :
-            new FileInputStream(new File(this.inputName));
-
-         try
-         {
-            Map<String, Object> ctx = new HashMap<>();
-            ctx.put("pool", this.pool);
-            ctx.put("jobs", this.jobs);
-            this.cis = new CompressedInputStream(is, ctx);
-
-            for (Listener bl : this.listeners)
-               this.cis.addListener(bl);
-         }
-         catch (Exception e)
-         {
-            System.err.println("Cannot create compressed stream: "+e.getMessage());
-            return Error.ERR_CREATE_DECOMPRESSOR;
-         }
+         Kanzi.createFileList(this.inputName, files);
       }
-      catch (Exception e)
+      catch (IOException e)
       {
-         System.err.println("Cannot open input file '"+ this.inputName+"': " + e.getMessage());
+         System.err.println(e.getMessage());
          return Error.ERR_OPEN_FILE;
       }
+      
+      if (files.isEmpty())
+      {
+         System.err.println("Cannot open input file '"+this.inputName+"'");
+         return Error.ERR_OPEN_FILE;
+      }
+      
+      Collections.sort(files);
+      int nbFiles = files.size();
+      
+      // Limit verbosity level when files are processed concurrently
+      if ((this.jobs > 1) && (nbFiles > 1) && (this.verbosity > 1)) {
+         printOut("Warning: limiting verbosity to 1 due to concurrent processing of input files.\n", true);
+         this.verbosity = 1;
+      }
+      
+      if (this.verbosity > 2)
+         this.addListener(new InfoPrinter(this.verbosity, InfoPrinter.Type.ENCODING, System.out));
+   
+      boolean printFlag = this.verbosity > 2;
+      printOut("\n", printFlag);
+      String strFiles = (nbFiles > 1) ? " files" : " file";
+      printOut(nbFiles+strFiles+" to decompress\n", this.verbosity > 0);
+      printOut("Verbosity set to "+this.verbosity, printFlag);
+      printOut("Overwrite set to "+this.overwrite, printFlag);
+      printOut("Using " + this.jobs + " job" + ((this.jobs > 1) ? "s" : ""), printFlag);      
+    
+      if ((this.jobs>1) && ("STDOUT".equalsIgnoreCase(this.outputName)))
+      {
+         System.err.println("Cannot output to STDOUT with multiple jobs");
+         return Error.ERR_CREATE_FILE;
+      }   
 
-      long before = System.nanoTime();
+      int res = 0;
 
       try
       {
-         SliceByteArray sa = new SliceByteArray(new byte[DEFAULT_BUFFER_SIZE], 0);
-         int decoded;
-
-         // Decode next block
-         do
+         // Run the task(s)
+         if (nbFiles == 1)
          {
-            decoded = this.cis.read(sa.array, 0, sa.length);
+            String oName = this.outputName;
+            String iName = files.get(0).toString();
+            
+            if (oName == null)
+               oName = iName + ".bak";
+            
+            FileDecompressTask task = new FileDecompressTask(this.verbosity, this.overwrite, 
+                     iName, oName, this.pool, 1, this.listeners);
 
-            if (decoded < 0)
-            {
-               System.err.println("Reached end of stream");
-               return Error.ERR_READ_FILE;
-            }
-
-            try
-            {
-               if (decoded > 0)
-               {
-                  this.os.write(sa.array, 0, decoded);
-                  read += decoded;
-               }
-            }
-            catch (Exception e)
-            {
-               System.err.print("Failed to write decompressed block to file '"+this.outputName+"': ");
-               System.err.println(e.getMessage());
-               return Error.ERR_READ_FILE;
-            }
+            FileDecompressResult fdr = task.call();
+            res = fdr.code;
+            read = fdr.read;
          }
-         while (decoded == sa.array.length);
-      }
-      catch (kanzi.io.IOException e)
-      {
-         System.err.println(e.getMessage());
-         return e.getErrorCode();
+         else
+         {
+            if (("NONE".equalsIgnoreCase(this.outputName) == false) && (this.outputName != null))          
+            {
+               System.err.println("Output file cannot be provided when input is a directory (except 'NONE')");
+               return Error.ERR_CREATE_FILE;
+            }
+            
+            ArrayBlockingQueue<FileDecompressTask> queue = new ArrayBlockingQueue(nbFiles, true);
+
+            // Create one task per file
+            for (Path file : files)
+            {
+               String iName = file.toString();
+               String oName = (this.outputName != null) ? "NONE" : iName + ".bak";
+
+               FileDecompressTask task = new FileDecompressTask(this.verbosity, 
+                  this.overwrite, iName, oName, this.pool, 1, this.listeners);
+               queue.offer(task);               
+            }
+
+            List<FileDecompressWorker> workers = new ArrayList<>(this.jobs);
+            
+		  	   // Create one worker per job and run it. A worker calls several tasks sequentially.
+            for (int i=0; i<this.jobs; i++)
+               workers.add(new FileDecompressWorker(queue));
+            
+            // Invoke the tasks concurrently and wait for results
+            // Using workers instead of tasks direclty, allows for early exit on failure
+            for (Future<FileDecompressResult> result : this.pool.invokeAll(workers))
+            {
+               FileDecompressResult fdr = result.get();               
+               read += fdr.read;
+
+               if (fdr.code != 0)
+               {
+                  // Exit early by telling the workers that the queue is empty
+                  queue.clear(); 
+                  res = fdr.code;
+               }              
+            }           
+         }
       }
       catch (Exception e)
       {
-         System.err.println("An unexpected condition happened. Exiting ...");
-         System.err.println(e.getMessage());
-         return Error.ERR_UNKNOWN;
+         System.err.println("An unexpected error occured: " + e.getMessage());
+         res = Error.ERR_UNKNOWN;
       }
-      finally
-      {
-         // Close streams to ensure all data are flushed
-         this.dispose();
-
-         try
-         {
-            is.close();
-         }
-         catch (IOException e)
-         {
-            // Ignore
-         }         
-
-         if (this.listeners.size() > 0)
-         {
-            Event evt = new Event(Event.Type.DECOMPRESSION_END, -1, this.cis.getRead());
-            Listener[] array = this.listeners.toArray(new Listener[this.listeners.size()]);
-            notifyListeners(array, evt);
-         }          
-      }
-
+      
       long after = System.nanoTime();
-      long delta = (after - before) / 1000000L; // convert to ms
-      printOut("", this.verbosity>=1);
-      printOut("Decoding:          "+delta+" ms", printFlag);
-      printOut("Input size:        "+this.cis.getRead(), printFlag);
-      printOut("Output size:       "+read, printFlag);
-      printOut("Decoding "+this.inputName+": "+this.cis.getRead()+" => "+read+
-          " bytes in "+delta+" ms", this.verbosity==1);
-
-      if (delta > 0)
-         printOut("Throughput (KB/s): "+(((read * 1000L) >> 10) / delta), printFlag);
-
-      printOut("", this.verbosity>=1);
-      return 0;
+      
+      if (nbFiles > 1) 
+      {
+         long delta = (after - before) / 1000000L; // convert to ms
+         printOut("", this.verbosity>0);
+         printOut("Total encoding time: "+delta+" ms", this.verbosity > 0);
+         printOut("Total input size: "+read+" byte"+((read>1)?"s":""), this.verbosity > 0);
+	   }
+      
+      return res;
    }
 
 
@@ -341,5 +262,296 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
             // Ignore exceptions in listeners
           }
        }
-    }    
+    } 
+    
+    
+    
+    
+   static class FileDecompressResult
+   {
+       final int code;
+       final long read; 
+
+
+      public FileDecompressResult(int code, long read)
+      {
+         this.code = code;
+         this.read = read;
+      }  
+   } 
+   
+   
+   static class FileDecompressTask implements Callable<FileDecompressResult>
+   {
+      private final int verbosity;
+      private final boolean overwrite;
+      private final String inputName;
+      private final String outputName;
+      private CompressedInputStream cis;
+      private OutputStream os;
+      private final int jobs;
+      private final ExecutorService pool;
+      private final List<Listener> listeners;       
+
+
+      public FileDecompressTask(int verbosity, boolean overwrite, String inputName, 
+         String outputName, ExecutorService pool, int jobs, List<Listener> listeners)
+      {
+         this.verbosity = verbosity;
+         this.overwrite = overwrite;
+         this.inputName = inputName;
+         this.outputName = outputName;
+         this.jobs = jobs;
+         this.pool = pool;
+         this.listeners = listeners;
+      }
+      
+      
+      @Override
+      public FileDecompressResult call() throws Exception
+      {
+         boolean printFlag = this.verbosity > 2;
+         printOut("Input file name set to '" + this.inputName + "'", printFlag);
+         printOut("Output file name set to '" + this.outputName + "'", printFlag);
+
+         long read = 0;
+         printFlag = this.verbosity > 1;
+         printOut("\nDecoding "+this.inputName+" ...", printFlag);
+         printOut("", this.verbosity>3);
+
+         if (this.listeners.size() > 0)
+         {
+            Event evt = new Event(Event.Type.DECOMPRESSION_START, -1, 0);
+            Listener[] array = this.listeners.toArray(new Listener[this.listeners.size()]);
+            notifyListeners(array, evt);
+         }
+
+         if ("NONE".equalsIgnoreCase(this.outputName))
+         {
+            this.os = new NullOutputStream();
+         }
+         else if ("STDOUT".equalsIgnoreCase(this.outputName))
+         {
+            this.os = System.out;
+         }
+         else
+         {
+            try
+            {
+               File output = new File(this.outputName);
+
+               if (output.exists())
+               {
+                  if (output.isDirectory())
+                  {
+                     System.err.println("The output file is a directory");
+                     return new FileDecompressResult(Error.ERR_OUTPUT_IS_DIR, 0);
+                  }
+
+                  if (this.overwrite == false)
+                  {
+                     System.err.println("The output file exists and the 'force' command "
+                             + "line option has not been provided");
+                     return new FileDecompressResult(Error.ERR_OVERWRITE_FILE, 0);
+                  }
+
+                  Path path1 = FileSystems.getDefault().getPath(this.inputName).toAbsolutePath();
+                  Path path2 = FileSystems.getDefault().getPath(this.outputName).toAbsolutePath();
+
+                  if (path1.equals(path2))
+                  {
+                     System.err.println("The input and output files must be different");
+                     return new FileDecompressResult(Error.ERR_CREATE_FILE, 0);
+                  }
+               }
+            }
+            catch (Exception e)
+            {
+               System.err.println("Cannot open output file '"+ this.outputName+"' for writing: " + e.getMessage());
+               return new FileDecompressResult(Error.ERR_CREATE_FILE, 0);
+            }
+
+            try
+            {
+               // Create output stream (note: it creates the file yielding file.exists()
+               // to return true so it must be called after the check).
+               this.os = new FileOutputStream(this.outputName);
+            }
+            catch (IOException e)
+            {
+               System.err.println("Cannot open output file '"+ this.outputName+"' for writing: " + e.getMessage());
+               return new FileDecompressResult(Error.ERR_CREATE_FILE, 0);
+            }
+         }
+
+         InputStream is;
+
+         try
+         {
+            is = ("STDIN").equalsIgnoreCase(this.inputName) ? System.in :
+               new FileInputStream(new File(this.inputName));
+
+            try
+            {
+               Map<String, Object> ctx = new HashMap<>();
+               ctx.put("pool", this.pool);
+               ctx.put("jobs", this.jobs);
+               this.cis = new CompressedInputStream(is, ctx);
+
+               for (Listener bl : this.listeners)
+                  this.cis.addListener(bl);
+            }
+            catch (Exception e)
+            {
+               System.err.println("Cannot create compressed stream: "+e.getMessage());
+               return new FileDecompressResult(Error.ERR_CREATE_DECOMPRESSOR, 0);
+            }
+         }
+         catch (Exception e)
+         {
+            System.err.println("Cannot open input file '"+ this.inputName+"': " + e.getMessage());
+            return new FileDecompressResult(Error.ERR_OPEN_FILE, 0);
+         }
+
+         long before = System.nanoTime();
+
+         try
+         {
+            SliceByteArray sa = new SliceByteArray(new byte[DEFAULT_BUFFER_SIZE], 0);
+            int decoded;
+
+            // Decode next block
+            do
+            {
+               decoded = this.cis.read(sa.array, 0, sa.length);
+
+               if (decoded < 0)
+               {
+                  System.err.println("Reached end of stream");
+                  return new FileDecompressResult(Error.ERR_READ_FILE,  this.cis.getRead());
+               }
+
+               try
+               {
+                  if (decoded > 0)
+                  {
+                     this.os.write(sa.array, 0, decoded);
+                     read += decoded;
+                  }
+               }
+               catch (Exception e)
+               {
+                  System.err.print("Failed to write decompressed block to file '"+this.outputName+"': ");
+                  System.err.println(e.getMessage());
+                  return new FileDecompressResult(Error.ERR_READ_FILE, this.cis.getRead());
+               }
+            }
+            while (decoded == sa.array.length);
+         }
+         catch (kanzi.io.IOException e)
+         {
+            System.err.println(e.getMessage());
+            return new FileDecompressResult(e.getErrorCode(), this.cis.getRead());
+         }
+         catch (Exception e)
+         {
+            System.err.println("An unexpected condition happened. Exiting ...");
+            System.err.println(e.getMessage());
+            return new FileDecompressResult(Error.ERR_UNKNOWN, this.cis.getRead());
+         }
+         finally
+         {
+            // Close streams to ensure all data are flushed
+            this.dispose();
+
+            try
+            {
+               is.close();
+            }
+            catch (IOException e)
+            {
+               // Ignore
+            }         
+
+            if (this.listeners.size() > 0)
+            {
+               Event evt = new Event(Event.Type.DECOMPRESSION_END, -1, this.cis.getRead());
+               Listener[] array = this.listeners.toArray(new Listener[this.listeners.size()]);
+               notifyListeners(array, evt);
+            }          
+         }
+
+         long after = System.nanoTime();
+         long delta = (after - before) / 1000000L; // convert to ms
+         printOut("", this.verbosity>1);
+         printOut("Decoding:          "+delta+" ms", printFlag);
+         printOut("Input size:        "+this.cis.getRead(), printFlag);
+         printOut("Output size:       "+read, printFlag);
+         printOut("Decoding "+this.inputName+": "+this.cis.getRead()+" => "+read+
+             " bytes in "+delta+" ms", this.verbosity==1);
+
+         if (delta > 0)
+            printOut("Throughput (KB/s): "+(((read * 1000L) >> 10) / delta), printFlag);
+
+         printOut("", this.verbosity>1);
+         return new FileDecompressResult(0, this.cis.getRead());
+      }
+      
+      public void dispose()
+      {
+         try
+         {
+            if (this.cis != null)
+               this.cis.close();
+         }
+         catch (IOException ioe)
+         {
+            System.err.println("Decompression failure: " + ioe.getMessage());
+            System.exit(Error.ERR_WRITE_FILE);
+         }
+
+         try
+         {
+            if (this.os != null)
+               this.os.close();
+         }
+         catch (IOException ioe)
+         {
+            /* ignore */
+         }
+      }
+   }
+   
+   
+   
+   static class FileDecompressWorker implements Callable<FileDecompressResult>
+   {
+      private final ArrayBlockingQueue<FileDecompressTask> queue;
+
+      public FileDecompressWorker(ArrayBlockingQueue<FileDecompressTask> queue)
+      {
+         this.queue = queue;
+      }
+       
+      @Override
+      public FileDecompressResult call() throws Exception
+      {
+         int res = 0;
+         long read = 0;
+         
+         while (res == 0)
+         {
+            FileDecompressTask task = this.queue.poll();
+            
+            if (task == null)
+               break;
+
+            FileDecompressResult result = task.call();
+            res = result.code;
+            read += result.read;
+         }
+
+         return new FileDecompressResult(res, read);
+      }
+   }   
 }

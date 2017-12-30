@@ -15,9 +15,9 @@ limitations under the License.
 
 #include <iostream>
 #include <algorithm>
+
 #include "BlockCompressor.hpp"
 #include "BlockDecompressor.hpp"
-#include "../io/Error.hpp"
 
 using namespace kanzi;
 
@@ -36,18 +36,15 @@ static const int ARG_IDX_JOBS = 7;
 static const int ARG_IDX_VERBOSE = 8;
 static const int ARG_IDX_LEVEL = 9;
 
-void printOut(const char* msg, bool print)
-{
-    if ((print == true) && (msg != nullptr))
-        cout << msg << endl;
-}
+static const char* APP_HEADER = "Kanzi 1.3 (C) 2018,  Frederic Langlet";
+
 
 void processCommandLine(int argc, const char* argv[], map<string, string>& map)
 {
     string inputName;
     string outputName;
     string strLevel = "-1";
-    string strVerbose = "2";
+    string strVerbose = "1";
     string strTasks = "0";
     string strBlockSize = "";
     string strOverwrite = "false";
@@ -123,7 +120,9 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
     }
 
     if (verbose >= 1) {
-        printOut("Kanzi 1.3 (C) 2018,  Frederic Langlet", true);
+		printOut("", true);
+		printOut(APP_HEADER, true);
+		printOut("", true);
     }
 
     ctx = -1;
@@ -137,30 +136,44 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
             printOut("   -h, --help", true);
             printOut("        display this message\n", true);
             printOut("   -v, --verbose=<level>", true);
-            printOut("        set the verbosity level [0..5]", true);
-            printOut("        0=silent, 1=default, 2=default, 3=display configuration,", true);
-            printOut("        4=display block size and timings, 5=display extra information\n", true);
+            printOut("        0=silent, 1=default, 2=display details, 3=display configuration,", true);
+            printOut("        4=display block size and timings, 5=display extra information", true);
+            printOut("        Verbosity is reduced to 1 when files are processed concurrently", true);
+            printOut("        Verbosity is silently reduced to 0 when the output is 'stdout'", true);
+            printOut("        (EG: The source is a directory and the number of jobs > 1).\n", true);
             printOut("   -f, --force", true);
             printOut("        overwrite the output file if it already exists\n", true);
             printOut("   -i, --input=<inputName>", true);
-            printOut("        mandatory name of the input file or 'stdin'\n", true);
+            printOut("        mandatory name of the input file or directory or 'stdin'", true);
+            printOut("        When the source is a directory, all files in it will be processed.", true);
+            stringstream ss;
+            ss << "        Provide " << PATH_SEPARATOR << ". at the end of the directory name to avoid recursion";
+            printOut(ss.str().c_str(), true);
+            ss.str(string());
+            ss << "        (EG: myDir" << PATH_SEPARATOR << ". => no recursion)\n";
+            printOut(ss.str().c_str(), true);
+            ss.str(string());
             printOut("   -o, --output=<outputName>", true);
 
             if (mode.compare(0, 1, "c") != 0) {
-                printOut("        optional name of the output file (defaults to <input.knz>) or 'none'", true);
-                printOut("        or 'stdout'\n", true);
+                printOut("        optional name of the output file (defaults to <inputName.knz>", true);
+                printOut("        when the source is a file and to the input name when the source", true);
+                printOut("        is a directory) or 'none' or 'stdout'. 'stdout' is not valid", true);
+                printOut("        when the number of jobs is greater than 1.\n", true);
             }
             else if (mode.compare(0, 1, "d") != 0) {
-                printOut("        optional name of the output file (defaults to <input.bak>) or 'none'", true);
-                printOut("        or 'stdout'\n", true);
+                printOut("        optional name of the output file (defaults to <inputName.bak>", true);
+                printOut("        when the source is a file and to the input name when the source", true);
+                printOut("        is a directory) or 'none' or 'stdout'. 'stdout' is not valid", true);
+                printOut("        when the number of jobs is greater than 1.\n", true);
             }
             else {
-                printOut("        optional name of the output file or 'none' or 'stdout'\n", true);
+                printOut("        optional name of the output file or 'none' or 'stdout'.\n", true);
             }
 
             if (mode.compare(0, 1, "d") != 0) {
                 printOut("   -b, --block=<size>", true);
-                printOut("        size of blocks, multiple of 16, max 1 GB, min 1 KB, default 1 MB\n", true);
+                printOut("        size of blocks, multiple of 16 (default 1 MB, max 1 GB, min 1 KB).\n", true);
                 printOut("   -l, --level=<compression>", true);
                 printOut("        set the compression level [0..5]", true);
                 printOut("        Providing this option forces entropy and transform.", true);
@@ -168,7 +181,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
                 printOut("        3=BWT+RANK+ZRLT&FPAQ, 4=BWT&CM, 5=X86+RLT+TEXT&TPAQ\n", true);
                 printOut("   -e, --entropy=<codec>", true);
                 printOut("        entropy codec [None|Huffman|ANS0|ANS1|Range|PAQ|FPAQ|TPAQ|CM]", true);
-                printOut("       (default is ANS0)\n", true);
+                printOut("        (default is ANS0)\n", true);
                 printOut("   -t, --transform=<codec>", true);
                 printOut("        transform [None|BWT|BWTS|SNAPPY|LZ4|RLT|ZRLT|MTFT|RANK|TEXT|X86]", true);
                 printOut("        EG: BWT+RANK or BWTS+MTFT (default is BWT+RANK+ZRLT)\n", true);
@@ -177,9 +190,9 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
             }
 
             printOut("   -j, --jobs=<jobs>", true);
-            printOut("        maximum number of jobs the program may start concurrently\n", true);
+            printOut("        maximum number of jobs the program may start concurrently", true);
+            printOut("        (default is 8, maximum is 32).\n", true);
             printOut("", true);
-            stringstream ss;
 
             if (mode.compare(0, 1, "d") != 0) {
                 printOut("EG. Kanzi -c -i foo.txt -o none -b 4m -l 4 -v 3\n", true);
@@ -345,10 +358,6 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
         exit(Error::ERR_MISSING_PARAM);
     }
 
-    if (outputName.length() == 0) {
-        outputName = (mode.compare(0, 1, "c") != 0) ? inputName + ".knz" : inputName + ".bak";
-    }
-
     if (ctx != -1) {
         stringstream ss;
         ss << "Warning: ignoring option with missing value [" << CMD_LINE_ARGS[ctx] << "]";
@@ -431,3 +440,4 @@ int main(int argc, const char* argv[])
     cout << "Missing arguments: try --help or -h" << endl;
     return 1;
 }
+

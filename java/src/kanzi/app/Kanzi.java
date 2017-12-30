@@ -15,7 +15,15 @@ limitations under the License.
 
 package kanzi.app;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.DirectoryIteratorException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 
@@ -37,8 +45,10 @@ public class Kanzi
    private static final int ARG_IDX_JOBS = 7;
    private static final int ARG_IDX_VERBOSE = 8;
    private static final int ARG_IDX_LEVEL = 9;
-
-
+   
+   private static final String APP_HEADER = "Kanzi 1.3 (C) 2018,  Frederic Langlet";
+   
+  
    public static void main(String[] args)
    {
       Map<String, Object> map = new HashMap<>();
@@ -51,7 +61,7 @@ public class Kanzi
 
          try
          {
-            bc = new BlockCompressor(map, null);
+            bc = new BlockCompressor(map);
          }
          catch (Exception e)
          {
@@ -73,7 +83,7 @@ public class Kanzi
 
          try
          {
-            bd = new BlockDecompressor(map, null);
+            bd = new BlockDecompressor(map);
          }
          catch (Exception e)
          {
@@ -97,7 +107,7 @@ public class Kanzi
     private static void processCommandLine(String args[], Map<String, Object> map)
     {
         int blockSize = -1;
-        int verbose = 2;
+        int verbose = 1;
         boolean overwrite = false;
         boolean checksum = false;
         String inputName = null;
@@ -180,7 +190,7 @@ public class Kanzi
            verbose = 0;
 
         if (verbose >= 1)
-            printOut("Kanzi 1.3 (C) 2018,  Frederic Langlet", true);
+            printOut("\n" + APP_HEADER +"\n", true);
 
         ctx = -1;
 
@@ -194,34 +204,43 @@ public class Kanzi
                printOut("   -h, --help", true);
                printOut("        display this message\n", true);
                printOut("   -v, --verbose=<level>", true);
-               printOut("        set the verbosity level [0..5]", true);
-               printOut("        0=silent, 1=compact, 2=default, 3=display configuration,", true);
-               printOut("        4=display block size and timings, 5=display extra information\n", true);
+               printOut("        0=silent, 1=default, 2=display details, 3=display configuration,", true);
+               printOut("        4=display block size and timings, 5=display extra information", true);
+               printOut("        Verbosity is reduced to 1 when files are processed concurrently", true);
+               printOut("        Verbosity is silently reduced to 0 when the output is 'stdout'", true);
+               printOut("        (EG: The source is a directory and the number of jobs > 1).\n", true);
                printOut("   -f, --force", true);
                printOut("        overwrite the output file if it already exists\n", true);
                printOut("   -i, --input=<inputName>", true);
-               printOut("        mandatory name of the input file or 'stdin'\n", true);
+               printOut("        mandatory name of the input file or directory or 'stdin'", true);
+               printOut("        When the source is a directory, all files in it will be processed.", true);
+               printOut("        Provide " + File.separator + ". at the end of the directory name to avoid recursion", true);
+               printOut("        (EG: myDir" + File.separator + ". => no recursion)\n", true);
                printOut("   -o, --output=<outputName>", true);
                
                if (mode == 'c')
                {
-                  printOut("        optional name of the output file (defaults to <input.knz>) or 'none'", true);
-                  printOut("        or 'stdout'\n", true);
+                  printOut("        optional name of the output file (defaults to <inputName.knz>", true);
+                  printOut("        when the source is a file and to the input name when the source", true);
+                  printOut("        is a directory) or 'none' or 'stdout'. 'stdout' is not valid", true);
+                  printOut("        when the number of jobs is greater than 1.\n", true);
                }
                else if (mode == 'd')
                {
-                  printOut("        optional name of the output file (defaults to <input.bak>) or 'none'", true);
-                  printOut("        or 'stdout'\n", true);
-               }
+                  printOut("        optional name of the output file (defaults to <inputName.bak>", true);
+                  printOut("        when the source is a file and to the input name when the source", true);
+                  printOut("        is a directory) or 'none' or 'stdout'. 'stdout' is not valid", true);
+                  printOut("        when the number of jobs is greater than 1.\n", true);
+                }
                else
                {
-                  printOut("        optional name of the output file or 'none' or 'stdout'\n", true);
+                  printOut("        optional name of the output file or 'none' or 'stdout'.\n", true);
                }
 
                if (mode != 'd')
                {
                   printOut("   -b, --block=<size>", true);
-                  printOut("        size of blocks, multiple of 16, max 1 GB, min 1 KB, default 1 MB\n", true);
+                  printOut("        size of blocks, multiple of 16 (default 1 MB, max 1 GB, min 1 KB).\n", true);
                   printOut("   -l, --level=<compression>", true);
                   printOut("        set the compression level [0..5]", true);
                   printOut("        Providing this option forces entropy and transform.", true);
@@ -238,7 +257,8 @@ public class Kanzi
                }
 
                printOut("   -j, --jobs=<jobs>", true);
-               printOut("        maximum number of jobs the program may start concurrently\n", true);
+               printOut("        maximum number of jobs the program may start concurrently", true);
+               printOut("        (default is 8, maximum is 32).\n", true);
                printOut("", true);
 
                if (mode != 'd')
@@ -429,9 +449,6 @@ public class Kanzi
            System.exit(kanzi.io.Error.ERR_MISSING_PARAM);
         }
 
-        if (outputName == null)
-           outputName = (mode == 'c') ? inputName + ".knz" : inputName + ".bak";
-
         if (ctx != -1)
         {
            printOut("Warning: ignoring option with missing value ["+ CMD_LINE_ARGS[ctx] + "]", verbose>0);
@@ -479,4 +496,59 @@ public class Kanzi
        if ((print == true) && (msg != null))
           System.out.println(msg);
     }
+    
+    
+    public static void createFileList(String target, List<Path> files) throws IOException
+    {
+       if (target == null)
+          return;
+       
+       Path root = Paths.get(target);
+       
+       if ((Files.exists(root) == false) || (Files.isHidden(root) == true))
+          throw new IOException("Cannot access input file '"+root+"'");
+       
+       if (Files.isRegularFile(root) == true)
+       {
+          files.add(root);
+          return;
+       }       
+        
+       // If not a regular file and not a directory (a link ?), fail 
+       if (Files.isDirectory(root) == false)
+          throw new IOException("Invalid file type '"+root+"'");
+       
+       String suffix = File.separator + ".";
+       String strRoot = root.toString();
+       boolean isRecursive = !strRoot.endsWith(suffix); 
+       
+       if (isRecursive == true)
+       {
+          if (strRoot.endsWith(File.separator) == false)
+             root = Paths.get(strRoot+File.separator);
+       }
+       else
+       {
+          // Remove suffix
+          root = Paths.get(strRoot.substring(0, strRoot.length()-1));
+       }
+       
+       try (DirectoryStream<Path> stream = Files.newDirectoryStream(root)) 
+       {
+          for (Path entry: stream) 
+          {
+             if ((Files.exists(entry) == false) || (Files.isHidden(entry) == true))
+                continue;
+
+             if ((Files.isRegularFile(entry) == true) && (entry.getFileName().toString().startsWith(".") == false))
+                files.add(entry);
+             else if ((isRecursive == true) && (Files.isDirectory(entry) == true))
+                createFileList(entry.toString(), files);
+          }
+       } 
+       catch (DirectoryIteratorException e) 
+       {
+         throw e.getCause();
+       }
+    }    
 }

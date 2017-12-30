@@ -22,51 +22,111 @@ limitations under the License.
 #include "../InputStream.hpp"
 #include "../Listener.hpp"
 #include "../io/CompressedOutputStream.hpp"
+#include "../io/IOUtil.hpp"
 
-namespace kanzi 
-{
+namespace kanzi {
 
-   class BlockCompressor
-   {
+   class FileCompressResult {
    public:
-      static const int WARN_EMPTY_INPUT = -128;
+       int _code;
+       uint64 _read;
+       uint64 _written;
 
-      BlockCompressor(map<string, string>& m);
-      
-      ~BlockCompressor();
+       FileCompressResult(int code = 0, uint64 read = 0, uint64 written = 0)
+       {
+           _code = code;
+           _read = read;
+           _written = written;
+       }
 
-      int call();
-
-      bool addListener(Listener* bl);
-
-      bool removeListener(Listener* bl);
-
-      void dispose();
-
-   private:
-      static const int DEFAULT_BUFFER_SIZE = 32768;
-      static const int DEFAULT_BLOCK_SIZE = 1024 * 1024;
-
-      int _verbosity;
-      bool _overwrite;
-      bool _checksum;
-      string _inputName;
-      string _outputName;
-      string _codec;
-      string _transform;
-      int _blockSize;
-      int _level; // command line compression level
-      int _jobs;
-      InputStream* _is;
-      CompressedOutputStream* _cos;
-      vector<Listener*> _listeners;
-
-      static void printOut(const char* msg, bool print);
-
-      static void notifyListeners(vector<Listener*>& listeners, const Event& evt);
-
-      static void getTransformAndCodec(int level, string tranformAndCodec[2]);
+       ~FileCompressResult() {}
    };
 
+#ifdef CONCURRENCY_ENABLED
+   template <class T, class R>
+   class FileCompressWorker : public Task<R> {
+   public:
+       FileCompressWorker(BoundedConcurrentQueue<T, R>* queue) { _queue = queue; }
+
+       ~FileCompressWorker() {}
+
+       R call();
+
+   private:
+       BoundedConcurrentQueue<T, R>* _queue;
+   };
+#endif
+
+   template <class T>
+   class FileCompressTask : public Task<T> {
+   public:
+       static const int DEFAULT_BUFFER_SIZE = 32768;
+       static const int WARN_EMPTY_INPUT = -128;
+
+       FileCompressTask(int verbosity, bool overwrite, bool checksum,
+           const string& inputName, const string& outputName, const string& codec,
+           const string& transform, int blockSize, int jobs, vector<Listener*> listeners);
+
+       ~FileCompressTask();
+
+       T call();
+
+       void dispose();
+
+   private:
+       int _verbosity;
+       bool _overwrite;
+       bool _checksum;
+       string _inputName;
+       string _outputName;
+       string _codec;
+       string _transform;
+       int _blockSize;
+       int _jobs;
+       InputStream* _is;
+       CompressedOutputStream* _cos;
+       vector<Listener*> _listeners;
+   };
+
+   class BlockCompressor {
+       friend class FileCompressTask<FileCompressResult>;
+
+   public:
+       BlockCompressor(map<string, string>& m);
+
+       ~BlockCompressor();
+
+       int call();
+
+       bool addListener(Listener* bl);
+
+       bool removeListener(Listener* bl);
+
+       void dispose();
+
+   private:
+       static const int DEFAULT_BLOCK_SIZE = 1024 * 1024;
+#ifdef CONCURRENCY_ENABLED
+       static const int DEFAULT_CONCURRENCY = 8;
+#else
+       static const int DEFAULT_CONCURRENCY = 1;
+#endif
+
+       int _verbosity;
+       bool _overwrite;
+       bool _checksum;
+       string _inputName;
+       string _outputName;
+       string _codec;
+       string _transform;
+       int _blockSize;
+       int _level; // command line compression level
+       int _jobs;
+       vector<Listener*> _listeners;
+
+       static void notifyListeners(vector<Listener*>& listeners, const Event& evt);
+
+       static void getTransformAndCodec(int level, string tranformAndCodec[2]);
+   };
 }
 #endif

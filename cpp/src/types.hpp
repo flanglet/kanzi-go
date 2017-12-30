@@ -50,7 +50,7 @@ limitations under the License.
 	   // C++ 11
 	   #include <cstdint>
 	#else
-	   #if (_MSC_VER < 1300)
+	   #if defined(_MSC_VER)  && _MSC_VER < 1300
 	      typedef signed char int8_t;
 	      typedef signed short int16_t;
 	      typedef signed int int32_t;
@@ -131,14 +131,12 @@ limitations under the License.
 		__asm__ volatile("bswapq %0" : "=r"(swapped_bytes) : "0"(x));
 		return swapped_bytes;
 	#else // fallback
-		x = ((x & 0xffffffff00000000ull) >> 32) | ((x & 0x00000000ffffffffull) << 32);
-		x = ((x & 0xffff0000ffff0000ull) >> 16) | ((x & 0x0000ffff0000ffffull) << 16);
-		x = ((x & 0xff00ff00ff00ff00ull) >> 8) | ((x & 0x00ff00ff00ff00ffull) << 8);
+		x = ((x & 0xFFFFFFFF00000000ull) >> 32) | ((x & 0x00000000FFFFFFFFull) << 32);
+		x = ((x & 0xFFFF0000FFFF0000ull) >> 16) | ((x & 0x0000FFFF0000FFFFull) << 16);
+		x = ((x & 0xFF00FF00FF00FF00ull) >> 8) | ((x & 0x00FF00FF00FF00FFull) << 8);
 		return x;
 	#endif 
 	}
-
-
 
 	static inline void prefetch(const void* ptr) {
 	#ifdef __GNUG__
@@ -147,5 +145,12 @@ limitations under the License.
 		_mm_prefetch((char*) ptr, _MM_HINT_T0);
 	#endif
 	}
+
+
+   #if defined(WIN32) || defined(_WIN32) 
+      #define PATH_SEPARATOR '\\' 
+   #else 
+      #define PATH_SEPARATOR '/' 
+   #endif
 
 #endif

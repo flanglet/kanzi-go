@@ -16,13 +16,17 @@ limitations under the License.
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io/ioutil"
 	kio "kanzi/io"
 	"os"
+	"path/filepath"
 	"runtime"
 	"runtime/pprof"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 const (
@@ -37,6 +41,7 @@ const (
 	ARG_IDX_VERBOSE   = 8
 	ARG_IDX_LEVEL     = 9
 	ARG_IDX_PROFILE   = 13
+	APP_HEADER        = "Kanzi 1.3 (C) 2018,  Frederic Langlet"
 )
 
 var (
@@ -44,6 +49,8 @@ var (
 		"-c", "-d", "-i", "-o", "-b", "-t", "-e", "-j",
 		"-v", "-l", "-x", "-f", "-h", "-p",
 	}
+	mutex sync.Mutex
+	log   = Printer{os: bufio.NewWriter(os.Stdout)}
 )
 
 func main() {
@@ -131,7 +138,7 @@ func main() {
 
 func processCommandLine(args []string, argsMap map[string]interface{}) {
 	blockSize := -1
-	verbose := 2
+	verbose := 1
 	overwrite := false
 	checksum := false
 	inputName := ""
@@ -222,7 +229,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 	}
 
 	if verbose >= 1 {
-		printOut("Kanzi 1.3 (C) 2018,  Frederic Langlet", true)
+		log.Println("\n"+APP_HEADER+"\n", true)
 	}
 
 	ctx = -1
@@ -235,61 +242,75 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 		arg = strings.TrimSpace(arg)
 
 		if arg == "--help" || arg == "-h" {
-			printOut("", true)
-			printOut("   -h, --help", true)
-			printOut("        display this message\n", true)
-			printOut("   -v, --verbose=<level>", true)
-			printOut("        set the verbosity level [0..5]", true)
-			printOut("        0=silent, 1=compact, 2=default, 3=display configuration,", true)
-			printOut("        4=display block size and timings, 5=display extra information\n", true)
-			printOut("   -f, --force", true)
-			printOut("        overwrite the output file if it already exists\n", true)
-			printOut("   -i, --input=<inputName>", true)
-			printOut("        mandatory name of the input file or 'stdin'\n", true)
-			printOut("   -o, --output=<outputName>", true)
+			log.Println("", true)
+			log.Println("   -h, --help", true)
+			log.Println("        display this message\n", true)
+			log.Println("   -v, --verbose=<level>", true)
+			log.Println("        set the verbosity level [0..5]", true)
+			log.Println("        0=silent, 1=default, 2=display details, 3=display configuration,", true)
+			log.Println("        4=display block size and timings, 5=display extra information", true)
+			log.Println("        Verbosity is reduced to 1 when files are processed concurrently", true)
+			log.Println("        Verbosity is silently reduced to 0 when the output is 'stdout'", true)
+			log.Println("        (EG: The source is a directory and the number of jobs > 1).\n", true)
+			log.Println("   -f, --force", true)
+			log.Println("        overwrite the output file if it already exists\n", true)
+			log.Println("   -i, --input=<inputName>", true)
+			log.Println("        mandatory name of the input file or directory or 'stdin'", true)
+			log.Println("        When the source is a directory, all files in it will be processed.", true)
+			msg := fmt.Sprintf("        Provide %c. at the end of the directory name to avoid recursion.", os.PathSeparator)
+			log.Println(msg, true)
+			msg = fmt.Sprintf("        (EG: myDir%c. => no recursion)\n", os.PathSeparator)
+			log.Println(msg, true)
+			log.Println("   -o, --output=<outputName>", true)
 
 			if mode == "c" {
-				printOut("        optional name of the output file (defaults to <input.knz>) or 'none'", true)
-				printOut("        or 'stdout'\n", true)
+				log.Println("        optional name of the output file (defaults to <inputName.knz>", true)
+				log.Println("        when the source is a file and to the input name when the source", true)
+				log.Println("        is a directory) or 'none' or 'stdout'. 'stdout' is not valid", true)
+				log.Println("        when the number of jobs is greater than 1.\n", true)
 			} else if mode == "d" {
-				printOut("        optional name of the output file (defaults to <input.bak>) or 'none'", true)
-				printOut("        or 'stdout'\n", true)
+				log.Println("        optional name of the output file (defaults to <inputName.bak>", true)
+				log.Println("        when the source is a file and to the input name when the source", true)
+				log.Println("        is a directory) or 'none' or 'stdout'. 'stdout' is not valid", true)
+				log.Println("        iwhen the number of jobs is greater than 1.\n", true)
+
 			} else {
-				printOut("        optional name of the output file or 'none' or 'stdout'\n", true)
+				log.Println("        optional name of the output file or 'none' or 'stdout'.\n", true)
 			}
 
 			if mode != "d" {
-				printOut("   -b, --block=<size>", true)
-				printOut("        size of blocks, multiple of 16, max 1 GB, min 1 KB, default 1 MB\n", true)
-				printOut("   -l, --level=<compression>", true)
-				printOut("        set the compression level [0..5]", true)
-				printOut("        Providing this option forces entropy and transform.", true)
-				printOut("        0=None&None (store), 1=TEXT+LZ4&HUFFMAN, 2=BWT+RANK+ZRLT&ANS0", true)
-				printOut("        3=BWT+RANK+ZRLT&FPAQ, 4=BWT&CM, 5=X86+RLT+TEXT&TPAQ\n", true)
-				printOut("   -e, --entropy=<codec>", true)
-				printOut("        entropy codec [None|Huffman|ANS0|ANS1|Range|PAQ|FPAQ|TPAQ|CM]", true)
-				printOut("        (default is ANS0)\n", true)
-				printOut("   -t, --transform=<codec>", true)
-				printOut("        transform [None|BWT|BWTS|SNAPPY|LZ4|RLT|ZRLT|MTFT|RANK|TEXT|X86]", true)
-				printOut("        EG: BWT+RANK or BWTS+MTFT (default is BWT+RANK+ZRLT)\n", true)
-				printOut("   -x, --checksum", true)
-				printOut("        enable block checksum\n", true)
+				log.Println("   -b, --block=<size>", true)
+				log.Println("        size of blocks, multiple of 16 (default 1 MB, max 1 GB, min 1 KB).\n", true)
+				log.Println("   -l, --level=<compression>", true)
+				log.Println("        set the compression level [0..5]", true)
+				log.Println("        Providing this option forces entropy and transform.", true)
+				log.Println("        0=None&None (store), 1=TEXT+LZ4&HUFFMAN, 2=BWT+RANK+ZRLT&ANS0", true)
+				log.Println("        3=BWT+RANK+ZRLT&FPAQ, 4=BWT&CM, 5=X86+RLT+TEXT&TPAQ\n", true)
+				log.Println("   -e, --entropy=<codec>", true)
+				log.Println("        entropy codec [None|Huffman|ANS0|ANS1|Range|PAQ|FPAQ|TPAQ|CM]", true)
+				log.Println("        (default is ANS0)\n", true)
+				log.Println("   -t, --transform=<codec>", true)
+				log.Println("        transform [None|BWT|BWTS|SNAPPY|LZ4|RLT|ZRLT|MTFT|RANK|TEXT|X86]", true)
+				log.Println("        EG: BWT+RANK or BWTS+MTFT (default is BWT+RANK+ZRLT)\n", true)
+				log.Println("   -x, --checksum", true)
+				log.Println("        enable block checksum\n", true)
 			}
 
-			printOut("   -j, --jobs=<jobs>", true)
-			printOut("        maximum number of jobs the program may start concurrently\n", true)
-			printOut("", true)
+			log.Println("   -j, --jobs=<jobs>", true)
+			log.Println("        maximum number of jobs the program may start concurrently", true)
+			log.Println("        (default is 8, maximum is 32).\n", true)
+			log.Println("", true)
 
 			if mode != "d" {
-				printOut("EG. Kanzi -c -i foo.txt -o none -b 4m -l 4 -v 3\n", true)
-				printOut("EG. Kanzi -c -i foo.txt -o foo.knz -f -t BWT+MTFT+ZRLT -b 4m -e FPAQ -v 3 -j 4\n", true)
-				printOut("EG. Kanzi --compress --input=foo.txt --output=foo.knz --block=4m --force", true)
-				printOut("          --transform=BWT+MTFT+ZRLT --entropy=FPAQ --verbose=3 --jobs=4\n", true)
+				log.Println("EG. Kanzi -c -i foo.txt -o none -b 4m -l 4 -v 3\n", true)
+				log.Println("EG. Kanzi -c -i foo.txt -o foo.knz -f -t BWT+MTFT+ZRLT -b 4m -e FPAQ -v 3 -j 4\n", true)
+				log.Println("EG. Kanzi --compress --input=foo.txt --output=foo.knz --block=4m --force", true)
+				log.Println("          --transform=BWT+MTFT+ZRLT --entropy=FPAQ --verbose=3 --jobs=4\n", true)
 			}
 
 			if mode != "c" {
-				printOut("EG. Kanzi -d -i foo.knz -f -v 2 -j 2\n", true)
-				printOut("EG. Kanzi --decompress --input=foo.knz --force --verbose=2 --jobs=2\n", true)
+				log.Println("EG. Kanzi -d -i foo.knz -f -v 2 -j 2\n", true)
+				log.Println("EG. Kanzi --decompress --input=foo.knz --force --verbose=2 --jobs=2\n", true)
 			}
 
 			os.Exit(0)
@@ -297,7 +318,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 
 		if arg == "--compress" || arg == "-c" || arg == "--decompress" || arg == "-d" {
 			if ctx != -1 {
-				printOut("Warning: ignoring option ["+CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
+				log.Println("Warning: ignoring option ["+CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
 			}
 
 			ctx = -1
@@ -306,7 +327,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 
 		if arg == "--force" || arg == "-f" {
 			if ctx != -1 {
-				printOut("Warning: ignoring option ["+CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
+				log.Println("Warning: ignoring option ["+CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
 			}
 
 			overwrite = true
@@ -316,7 +337,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 
 		if arg == "--checksum" || arg == "-x" {
 			if ctx != -1 {
-				printOut("Warning: ignoring option ["+CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
+				log.Println("Warning: ignoring option ["+CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
 			}
 
 			checksum = true
@@ -475,7 +496,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 
 		if !strings.HasPrefix(arg, "--verbose=") && !strings.HasPrefix(arg, "--output=") &&
 			ctx == -1 && !strings.HasPrefix(arg, "--cpuProf=") {
-			printOut("Warning: ignoring unknown option ["+arg+"]", verbose > 0)
+			log.Println("Warning: ignoring unknown option ["+arg+"]", verbose > 0)
 		}
 
 		ctx = -1
@@ -486,25 +507,17 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 		os.Exit(kio.ERR_MISSING_PARAM)
 	}
 
-	if outputName == "" {
-		if mode == "c" {
-			outputName = inputName + ".knz"
-		} else {
-			outputName = inputName + ".bak"
-		}
-	}
-
 	if ctx != -1 {
-		printOut("Warning: ignoring option with missing value ["+CMD_LINE_ARGS[ctx]+"]", verbose > 0)
+		log.Println("Warning: ignoring option with missing value ["+CMD_LINE_ARGS[ctx]+"]", verbose > 0)
 	}
 
 	if level >= 0 {
 		if len(codec) != 0 {
-			printOut("Warning: providing the 'level' option forces the entropy codec. Ignoring ["+codec+"]", verbose > 0)
+			log.Println("Warning: providing the 'level' option forces the entropy codec. Ignoring ["+codec+"]", verbose > 0)
 		}
 
 		if len(transform) != 0 {
-			printOut("Warning: providing the 'level' option forces the transform. Ignoring ["+transform+"]", verbose > 0)
+			log.Println("Warning: providing the 'level' option forces the transform. Ignoring ["+transform+"]", verbose > 0)
 		}
 	}
 
@@ -545,8 +558,56 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 	}
 }
 
-func printOut(msg string, print bool) {
+func createFileList(target string, fileList []string) ([]string, error) {
+	suffix := string([]byte{os.PathSeparator, '.'})
+	isRecursive := len(target) <= 2 || target[len(target)-len(suffix):] != suffix
+	var err error
+
+	if isRecursive {
+		if target[len(target)-1] != os.PathSeparator {
+			target = target + string([]byte{os.PathSeparator})
+		}
+
+		err = filepath.Walk(target, func(path string, fi os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			if fi.Mode().IsRegular() && fi.Name()[0] != '.' {
+				fileList = append(fileList, path)
+			}
+
+			return err
+		})
+	} else {
+		// Remove suffix
+		target = target[0 : len(target)-1]
+
+		var files []os.FileInfo
+		files, err = ioutil.ReadDir(target)
+
+		if err == nil {
+			for _, fi := range files {
+				if fi.Mode().IsRegular() && fi.Name()[0] != '.' {
+					fileList = append(fileList, target+fi.Name())
+				}
+			}
+		}
+	}
+
+	return fileList, err
+}
+
+// Buffered printer is required in concurrent code
+type Printer struct {
+	os *bufio.Writer
+}
+
+func (this *Printer) Println(msg string, print bool) {
 	if print == true {
-		fmt.Println(msg)
+		mutex.Lock()
+		this.os.Write([]byte(msg + "\n"))
+		this.os.Flush()
+		mutex.Unlock()
 	}
 }

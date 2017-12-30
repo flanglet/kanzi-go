@@ -19,6 +19,8 @@ limitations under the License.
 #include <ctime>
 #include "../Global.hpp"
 
+using namespace kanzi;
+
 namespace kanzi 
 {
 
