@@ -559,9 +559,22 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 }
 
 func createFileList(target string, fileList []string) ([]string, error) {
+	fi, err := os.Stat(target)
+
+	if err != nil {
+		return fileList, err
+	}
+
+	if fi.Mode().IsRegular() {
+		if fi.Name()[0] != '.' {
+			fileList = append(fileList, target)
+		}
+
+		return fileList, nil
+	}
+
 	suffix := string([]byte{os.PathSeparator, '.'})
 	isRecursive := len(target) <= 2 || target[len(target)-len(suffix):] != suffix
-	var err error
 
 	if isRecursive {
 		if target[len(target)-1] != os.PathSeparator {

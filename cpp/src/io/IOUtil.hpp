@@ -45,7 +45,9 @@ static inline void createFileList(string target, vector<string>& files) THROW
 
     if ((buffer.st_mode & S_IFREG) != 0) {
         // Target is regular file
-        files.push_back(target);
+        if (target[0] != '.')
+           files.push_back(target);
+
         return;
     }
 

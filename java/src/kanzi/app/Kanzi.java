@@ -510,7 +510,9 @@ public class Kanzi
        
        if (Files.isRegularFile(root) == true)
        {
-          files.add(root);
+          if (target.charAt(0) != '.')
+             files.add(root);
+          
           return;
        }       
         
