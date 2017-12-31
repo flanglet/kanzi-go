@@ -685,7 +685,7 @@ public class CompressedInputStream extends InputStream
                final int checksum2 = this.hasher.hash(data.array, savedIdx, decoded);
 
                if (checksum2 != checksum1)
-                  return new Status(data, currentBlockId, decoded, checksum1, Error.ERR_PROCESS_BLOCK,
+                  return new Status(data, currentBlockId, decoded, checksum1, Error.ERR_CRC_CHECK,
                           "Corrupted bitstream: expected checksum " + Integer.toHexString(checksum1) +
                           ", found " + Integer.toHexString(checksum2));
             }

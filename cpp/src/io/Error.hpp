@@ -22,25 +22,26 @@ namespace kanzi
    class Error 
    {
    public:
-       static const int ERR_MISSING_PARAM = -1;
-       static const int ERR_BLOCK_SIZE = -2;
-       static const int ERR_INVALID_CODEC = -3;
-       static const int ERR_CREATE_COMPRESSOR = -4;
-       static const int ERR_CREATE_DECOMPRESSOR = -5;
-       static const int ERR_OUTPUT_IS_DIR = -6;
-       static const int ERR_OVERWRITE_FILE = -7;
-       static const int ERR_CREATE_FILE = -8;
-       static const int ERR_CREATE_BITSTREAM = -9;
-       static const int ERR_OPEN_FILE = -10;
-       static const int ERR_READ_FILE = -11;
-       static const int ERR_WRITE_FILE = -12;
-       static const int ERR_PROCESS_BLOCK = -13;
-       static const int ERR_CREATE_CODEC = -14;
-       static const int ERR_INVALID_FILE = -15;
-       static const int ERR_STREAM_VERSION = -16;
-       static const int ERR_CREATE_STREAM = -17;
-       static const int ERR_INVALID_PARAM = -18;
-       static const int ERR_UNKNOWN = -127;
+       static const int ERR_MISSING_PARAM = 1;
+       static const int ERR_BLOCK_SIZE = 2;
+       static const int ERR_INVALID_CODEC = 3;
+       static const int ERR_CREATE_COMPRESSOR = 4;
+       static const int ERR_CREATE_DECOMPRESSOR = 5;
+       static const int ERR_OUTPUT_IS_DIR = 6;
+       static const int ERR_OVERWRITE_FILE = 7;
+       static const int ERR_CREATE_FILE = 8;
+       static const int ERR_CREATE_BITSTREAM = 9;
+       static const int ERR_OPEN_FILE = 10;
+       static const int ERR_READ_FILE = 11;
+       static const int ERR_WRITE_FILE = 12;
+       static const int ERR_PROCESS_BLOCK = 13;
+       static const int ERR_CREATE_CODEC = 14;
+       static const int ERR_INVALID_FILE = 15;
+       static const int ERR_STREAM_VERSION = 16;
+       static const int ERR_CREATE_STREAM = 17;
+       static const int ERR_INVALID_PARAM = 18;
+       static const int ERR_CRC_CHECK = 19;
+       static const int ERR_UNKNOWN = 127;
    };
 
 }

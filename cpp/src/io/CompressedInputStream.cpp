@@ -620,7 +620,7 @@ T DecodingTask<T>::call() THROW
             if (checksum2 != checksum1) {
                 stringstream ss;
                 ss << "Corrupted bitstream: expected checksum " << hex << checksum1 << ", found " << hex << checksum2;
-                return T(*_data, _blockId, decoded, checksum1, Error::ERR_PROCESS_BLOCK, ss.str());
+                return T(*_data, _blockId, decoded, checksum1, Error::ERR_CRC_CHECK, ss.str());
             }
         }
 

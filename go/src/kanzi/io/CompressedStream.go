@@ -46,25 +46,26 @@ const (
 	SMALL_BLOCK_SIZE           = 15
 	MAX_CONCURRENCY            = 32
 
-	ERR_MISSING_PARAM       = -1
-	ERR_BLOCK_SIZE          = -2
-	ERR_INVALID_CODEC       = -3
-	ERR_CREATE_COMPRESSOR   = -4
-	ERR_CREATE_DECOMPRESSOR = -5
-	ERR_OUTPUT_IS_DIR       = -6
-	ERR_OVERWRITE_FILE      = -7
-	ERR_CREATE_FILE         = -8
-	ERR_CREATE_BITSTREAM    = -9
-	ERR_OPEN_FILE           = -10
-	ERR_READ_FILE           = -11
-	ERR_WRITE_FILE          = -12
-	ERR_PROCESS_BLOCK       = -13
-	ERR_CREATE_CODEC        = -14
-	ERR_INVALID_FILE        = -15
-	ERR_STREAM_VERSION      = -16
-	ERR_CREATE_STREAM       = -17
-	ERR_INVALID_PARAM       = -18
-	ERR_UNKNOWN             = -127
+	ERR_MISSING_PARAM       = 1
+	ERR_BLOCK_SIZE          = 2
+	ERR_INVALID_CODEC       = 3
+	ERR_CREATE_COMPRESSOR   = 4
+	ERR_CREATE_DECOMPRESSOR = 5
+	ERR_OUTPUT_IS_DIR       = 6
+	ERR_OVERWRITE_FILE      = 7
+	ERR_CREATE_FILE         = 8
+	ERR_CREATE_BITSTREAM    = 9
+	ERR_OPEN_FILE           = 10
+	ERR_READ_FILE           = 11
+	ERR_WRITE_FILE          = 12
+	ERR_PROCESS_BLOCK       = 13
+	ERR_CREATE_CODEC        = 14
+	ERR_INVALID_FILE        = 15
+	ERR_STREAM_VERSION      = 16
+	ERR_CREATE_STREAM       = 17
+	ERR_INVALID_PARAM       = 18
+	ERR_CRC_CHECK           = 19
+	ERR_UNKNOWN             = 127
 )
 
 var (
@@ -1143,7 +1144,7 @@ func (this *DecodingTask) decode() {
 
 			if checksum2 != checksum1 {
 				errMsg := fmt.Sprintf("Corrupted bitstream: expected checksum %x, found %x", checksum1, checksum2)
-				res.err = NewIOError(errMsg, ERR_PROCESS_BLOCK)
+				res.err = NewIOError(errMsg, ERR_CRC_CHECK)
 				notify(nil, this.result, false, res)
 				return
 			}
