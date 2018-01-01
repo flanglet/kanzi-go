@@ -135,7 +135,6 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
          this.addListener(new InfoPrinter(this.verbosity, InfoPrinter.Type.ENCODING, System.out));
    
       boolean printFlag = this.verbosity > 2;
-      printOut("\n", printFlag);
       String strFiles = (nbFiles > 1) ? " files" : " file";
       printOut(nbFiles+strFiles+" to decompress\n", this.verbosity > 0);
       printOut("Verbosity set to "+this.verbosity, printFlag);

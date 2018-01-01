@@ -189,8 +189,6 @@ int BlockCompressor::call()
         addListener(new InfoPrinter(_verbosity, InfoPrinter::ENCODING, cout));
 
     bool printFlag = _verbosity > 2;
-    printOut("\n", printFlag);
-
     stringstream ss;
     string strFiles = (nbFiles > 1) ? " files" : " file";
     ss << nbFiles << strFiles << " to compress\n";

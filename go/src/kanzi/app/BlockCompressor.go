@@ -236,7 +236,6 @@ func (this *BlockCompressor) Call() (int, uint64) {
 
 	printFlag := this.verbosity > 2
 	var msg string
-	log.Println("\n", printFlag)
 
 	if nbFiles > 1 {
 		msg = fmt.Sprintf("%d files to compress\n", nbFiles)

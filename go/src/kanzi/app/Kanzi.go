@@ -503,7 +503,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 	}
 
 	if inputName == "" {
-		fmt.Printf("Missing input file name, exiting ...")
+		fmt.Printf("Missing input file name, exiting ...\n")
 		os.Exit(kio.ERR_MISSING_PARAM)
 	}
 
