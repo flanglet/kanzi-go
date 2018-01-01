@@ -148,8 +148,35 @@ func getEncoder(name string, obs kanzi.OutputBitStream) kanzi.EntropyEncoder {
 func getDecoder(name string, ibs kanzi.InputBitStream) kanzi.EntropyDecoder {
 	switch name {
 	case "PAQ":
+		pred := getPredictor(name)
+
+		if pred == nil {
+			panic(fmt.Errorf("No such entropy decoder: '%s'", name))
+		}
+
+		res, _ := entropy.NewBinaryEntropyDecoder(ibs, pred)
+		return res
+
 	case "FPAQ":
+		pred := getPredictor(name)
+
+		if pred == nil {
+			panic(fmt.Errorf("No such entropy decoder: '%s'", name))
+		}
+
+		res, _ := entropy.NewBinaryEntropyDecoder(ibs, pred)
+		return res
+
 	case "TPAQ":
+		pred := getPredictor(name)
+
+		if pred == nil {
+			panic(fmt.Errorf("No such entropy decoder: '%s'", name))
+		}
+
+		res, _ := entropy.NewBinaryEntropyDecoder(ibs, pred)
+		return res
+
 	case "CM":
 		pred := getPredictor(name)
 
