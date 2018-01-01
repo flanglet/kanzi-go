@@ -34,12 +34,26 @@ CompressedOutputStream::CompressedOutputStream(OutputStream& os, map<string, str
     , _ctx(ctx)
 {
     map<string, string>::iterator it;
-    it = ctx.find("blockSize");
-    int bSize = atoi(it->second.c_str());
     it = ctx.find("codec");
     string entropyCodec = it->second.c_str();
     it = ctx.find("transform");
     string transform = it->second.c_str();
+    it = ctx.find("jobs");
+    int tasks = atoi(it->second.c_str());
+
+#ifdef CONCURRENCY_ENABLED
+    if ((tasks <= 0) || (tasks > MAX_CONCURRENCY)) { 
+        stringstream ss;
+        ss << "The number of jobs must be in [1.." << MAX_CONCURRENCY << "]";
+        throw IllegalArgumentException(ss.str());
+    }
+#else
+    if (tasks > 1)
+        throw IllegalArgumentException("The number of jobs is limited to 1 in this version");
+#endif
+
+    it = ctx.find("blockSize");
+    int bSize = atoi(it->second.c_str());
 
     if (bSize > MAX_BITSTREAM_BLOCK_SIZE) {
         std::stringstream ss;
@@ -56,18 +70,9 @@ CompressedOutputStream::CompressedOutputStream(OutputStream& os, map<string, str
     if ((bSize & -16) != bSize)
         throw IllegalArgumentException("The block size must be a multiple of 16");
 
-    it = ctx.find("jobs");
-    int tasks = atoi(it->second.c_str());
-
 #ifdef CONCURRENCY_ENABLED
-    if ((tasks < 0) || (tasks > MAX_CONCURRENCY)) { // 0 indicates no user choice
-        stringstream ss;
-        ss << "The number of jobs must be in [1.." << MAX_CONCURRENCY << "]";
-        throw IllegalArgumentException(ss.str());
-    }
-#else
-    if (tasks > 1)
-        throw IllegalArgumentException("The number of jobs is limited to 1 in this version");
+    if (uint64(bSize) * uint64(tasks) >= uint64(1 << 31)) 
+       tasks = (1<<31) / bSize;
 #endif
 
     _blockId = 0;
@@ -84,7 +89,7 @@ CompressedOutputStream::CompressedOutputStream(OutputStream& os, map<string, str
     bool checksum = str == "TRUE";
     _hasher = (checksum == true) ? new XXHash32(BITSTREAM_TYPE) : nullptr;
     _jobs = tasks;
-    _sa = new SliceArray<byte>(new byte[_blockSize * _jobs], _blockSize * _jobs, 0);
+    _sa = new SliceArray<byte>(new byte[_blockSize], _blockSize, 0); // initally 1 blockSize
     _buffers = new SliceArray<byte>*[2 * _jobs];
 
     for (int i = 0; i < 2 * _jobs; i++)
@@ -196,7 +201,7 @@ ostream& CompressedOutputStream::put(char c) THROW
     try {
         // If the buffer is full, time to encode
         if (_sa->_index >= _sa->_length)
-            processBlock();
+            processBlock(false);
 
         _sa->_array[_sa->_index++] = (byte)c;
         return *this;
@@ -219,7 +224,7 @@ void CompressedOutputStream::close() THROW
         return;
 
     if (_sa->_index > 0)
-        processBlock();
+        processBlock(true);
 
     try {
         // Write end block of size 0
@@ -258,10 +263,20 @@ ostream& CompressedOutputStream::seekp(streampos) THROW
     throw ios_base::failure("Not supported");
 }
 
-void CompressedOutputStream::processBlock() THROW
+void CompressedOutputStream::processBlock(bool force) THROW
 {
     if (_sa->_index == 0)
         return;
+
+    if (!force && (_sa->_length < _jobs * _blockSize)) {
+        // Grow byte array until max allowed
+        byte* buf = new byte[_sa->_length + _blockSize];
+        memcpy(buf, _sa->_array, _sa->_length);
+        delete[] _sa->_array;
+        _sa->_array = buf;
+        _sa->_length = _sa->_length + _blockSize;
+        return;
+    }
 
     if (!_initialized.exchange(true, memory_order_acquire))
         writeHeader();
@@ -304,7 +319,7 @@ void CompressedOutputStream::processBlock() THROW
             _sa->_index += sz;
         }
 
-        if (_jobs == 1) {
+        if (tasks.size() == 1) {
             // Synchronous call
             EncodingTask<EncodingTaskResult>* task = tasks.back();
             tasks.pop_back();
@@ -532,7 +547,7 @@ T EncodingTask<T>::call() THROW
         if (_listeners.size() > 0) {
             // Notify after entropy
             const int w = int((_obs->written() - written) / 8);
-              
+
             Event evt(Event::AFTER_ENTROPY,
                 int64(_blockId), w, checksum, _hasher != nullptr);
 

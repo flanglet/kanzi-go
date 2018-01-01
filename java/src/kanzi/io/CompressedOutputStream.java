@@ -90,6 +90,11 @@ public class CompressedOutputStream extends OutputStream
       if (transform == null)
          throw new NullPointerException("Invalid null transform type parameter");
 
+      int tasks = (Integer) ctx.get("jobs");
+ 
+      if ((tasks <= 0) || (tasks > MAX_CONCURRENCY)) 
+         throw new IllegalArgumentException("The number of jobs must be in [1.." + MAX_CONCURRENCY+ "]");
+
       final int bSize = (Integer) ctx.get("blockSize");   
       
       if (bSize > MAX_BITSTREAM_BLOCK_SIZE)
@@ -101,11 +106,9 @@ public class CompressedOutputStream extends OutputStream
       if ((bSize & -16) != bSize)
          throw new IllegalArgumentException("The block size must be a multiple of 16");
 
-      final int tasks = (Integer) ctx.get("jobs");
- 
-      if ((tasks <= 0) || (tasks > MAX_CONCURRENCY)) // 0 indicates no user choice
-         throw new IllegalArgumentException("The number of jobs must be in [1.." + MAX_CONCURRENCY+ "]");
-
+      if (((long) bSize) * ((long) tasks) >= (long) Integer.MAX_VALUE)
+         tasks = Integer.MAX_VALUE / bSize;
+      
       ExecutorService threadPool = (ExecutorService) ctx.get("pool");
 
       if ((tasks > 1) && (threadPool == null))
@@ -120,7 +123,7 @@ public class CompressedOutputStream extends OutputStream
       this.hasher = (checksum == true) ? new XXHash32(BITSTREAM_TYPE) : null;
       this.jobs = tasks;
       this.pool = threadPool;
-      this.sa = new SliceByteArray(new byte[this.blockSize*this.jobs], 0);
+      this.sa = new SliceByteArray(new byte[this.blockSize], 0); // initally 1 blockSize
       this.buffers = new SliceByteArray[2*this.jobs];
       this.closed = new AtomicBoolean(false);
       this.initialized = new AtomicBoolean(false);
@@ -257,7 +260,7 @@ public class CompressedOutputStream extends OutputStream
       {
          // If the buffer is full, time to encode
          if (this.sa.index >= this.sa.length)
-            this.processBlock();
+            this.processBlock(false);
 
          this.sa.array[this.sa.index++] = (byte) b;
       }
@@ -321,7 +324,7 @@ public class CompressedOutputStream extends OutputStream
          return;
 
       if (this.sa.index > 0)
-         this.processBlock();
+         this.processBlock(true);
 
       try
       {
@@ -347,11 +350,21 @@ public class CompressedOutputStream extends OutputStream
    }
 
    
-   private void processBlock() throws IOException
+   private void processBlock(boolean force) throws IOException
    {
       if (this.sa.index == 0)
          return;
 
+      if ((force == false) && (this.sa.length < this.jobs*this.blockSize))
+      {
+         // Grow byte array until max allowed
+         final byte[] buf = new byte[this.sa.length+this.blockSize];
+         System.arraycopy(this.sa.array, 0, buf, 0, this.sa.length);
+         this.sa.array = buf;
+         this.sa.length = buf.length;
+         return;
+      }
+      
       if (this.initialized.getAndSet(true) == false)
          this.writeHeader();
 
@@ -393,8 +406,8 @@ public class CompressedOutputStream extends OutputStream
             this.sa.index += sz;
          }
 
-         if (this.jobs == 1)
-         {
+         if (tasks.size() == 1)
+         {           
             // Synchronous call
             Status status = tasks.get(0).call();
             

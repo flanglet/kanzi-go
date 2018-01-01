@@ -145,6 +145,14 @@ func NewCompressedOutputStream(os io.WriteCloser, ctx map[string]interface{}) (*
 
 	entropyCodec := ctx["codec"].(string)
 	transform := ctx["transform"].(string)
+
+	tasks := ctx["jobs"].(uint)
+
+	if tasks == 0 || tasks > MAX_CONCURRENCY {
+		errMsg := fmt.Sprintf("The number of jobs must be in [1..%v]", MAX_CONCURRENCY)
+		return nil, NewIOError(errMsg, ERR_CREATE_STREAM)
+	}
+
 	bSize := ctx["blockSize"].(uint)
 
 	if bSize > MAX_BITSTREAM_BLOCK_SIZE {
@@ -161,11 +169,8 @@ func NewCompressedOutputStream(os io.WriteCloser, ctx map[string]interface{}) (*
 		return nil, NewIOError("The block size must be a multiple of 16", ERR_CREATE_STREAM)
 	}
 
-	tasks := ctx["jobs"].(uint)
-
-	if tasks > MAX_CONCURRENCY {
-		errMsg := fmt.Sprintf("The number of jobs must be in [1..%v]", MAX_CONCURRENCY)
-		return nil, NewIOError(errMsg, ERR_CREATE_STREAM)
+	if uint64(bSize)*uint64(tasks) >= uint64(1<<31) {
+		tasks = (1 << 31) / bSize
 	}
 
 	this := new(CompressedOutputStream)
@@ -199,7 +204,7 @@ func NewCompressedOutputStream(os io.WriteCloser, ctx map[string]interface{}) (*
 	}
 
 	this.jobs = int(tasks)
-	this.data = make([]byte, this.jobs*int(this.blockSize))
+	this.data = make([]byte, int(this.blockSize)) // initally 1 blockSize
 	this.buffers = make([]blockBuffer, 2*this.jobs)
 
 	for i := range this.buffers {
@@ -287,12 +292,12 @@ func (this *CompressedOutputStream) Write(array []byte) (int, error) {
 
 	startChunk := 0
 	remaining := len(array)
-	bSize := int(this.jobs) * int(this.blockSize)
+	bSize := this.jobs * int(this.blockSize)
 
 	for remaining > 0 {
 		if this.curIdx >= bSize {
 			// Buffer full, time to encode
-			if err := this.processBlock(); err != nil {
+			if err := this.processBlock(false); err != nil {
 				return len(array) - remaining, err
 			}
 		}
@@ -320,7 +325,7 @@ func (this *CompressedOutputStream) Close() error {
 	}
 
 	if this.curIdx > 0 {
-		if err := this.processBlock(); err != nil {
+		if err := this.processBlock(true); err != nil {
 			return err
 		}
 
@@ -348,9 +353,16 @@ func (this *CompressedOutputStream) Close() error {
 	return nil
 }
 
-func (this *CompressedOutputStream) processBlock() error {
+func (this *CompressedOutputStream) processBlock(force bool) error {
 	if this.curIdx == 0 {
 		return nil
+	}
+
+	if !force && len(this.data) < int(this.blockSize)*this.jobs {
+		// Grow byte array until max allowed
+		buf := make([]byte, len(this.data)+int(this.blockSize))
+		copy(this.data, buf)
+		this.data = buf
 	}
 
 	if atomic.SwapInt32(&this.initialized, 1) == 0 {
@@ -640,7 +652,7 @@ func NewCompressedInputStream(is io.ReadCloser, ctx map[string]interface{}) (*Co
 
 	tasks := ctx["jobs"].(uint)
 
-	if tasks > MAX_CONCURRENCY {
+	if tasks == 0 || tasks > MAX_CONCURRENCY {
 		errMsg := fmt.Sprintf("The number of jobs must be in [1..%v]", MAX_CONCURRENCY)
 		return nil, NewIOError(errMsg, ERR_CREATE_STREAM)
 	}
@@ -753,6 +765,10 @@ func (this *CompressedInputStream) readHeader() error {
 	if this.blockSize < MIN_BITSTREAM_BLOCK_SIZE || this.blockSize > MAX_BITSTREAM_BLOCK_SIZE {
 		errMsg := fmt.Sprintf("Invalid bitstream, incorrect block size: %d", this.blockSize)
 		return NewIOError(errMsg, ERR_BLOCK_SIZE)
+	}
+
+	if uint64(this.blockSize)*uint64(this.jobs) >= uint64(1<<31) {
+		this.jobs = (1 << 31) / int(this.blockSize)
 	}
 
 	// Read reserved bits
@@ -954,7 +970,7 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 			decoded += res.decoded
 
 			if len(listeners) > 0 {
-				// Notify after transform ... in block order
+				// Notify after transform ... in block order !
 				evt := kanzi.NewEvent(kanzi.EVT_AFTER_TRANSFORM, res.blockId,
 					int64(res.decoded), res.checksum, this.hasher != nil)
 				notifyListeners(listeners, evt)
@@ -1068,6 +1084,8 @@ func (this *DecodingTask) decode() {
 		buffer = make([]byte, bufferSize)
 		this.oBuffer.Buf = buffer
 	}
+
+	this.ctx["size"] = preTransformLength
 
 	// Each block is decoded separately
 	// Rebuild the entropy decoder to reset block statistics

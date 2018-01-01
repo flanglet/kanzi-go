@@ -203,7 +203,7 @@ public class TPAQPredictor implements Predictor
             statesSize = 1 << 29;
          else if (rbsz >= 16*1024*1024)
             statesSize = 1 << 28;
-         else 
+         else
             statesSize = (rbsz >= 1024*1024) ? 1 << 27 : 1 << 26; 
          
          // Actual size of the current block
@@ -407,7 +407,7 @@ public class TPAQPredictor implements Predictor
       private int w0, w1, w2, w3, w4, w5, w6, w7; 
       private int p0, p1, p2, p3, p4, p5, p6, p7;
       private int learnRate;
-
+      
       
       Mixer()
       {

@@ -611,6 +611,32 @@ func createFileList(target string, fileList []string) ([]string, error) {
 	return fileList, err
 }
 
+func computeJobsPerTask(jobsPerTask []uint, jobs, tasks uint) []uint {
+	var q, r uint
+
+	if jobs <= tasks {
+		q = 1
+		r = 0
+	} else {
+		q = jobs / tasks
+		r = tasks - q*tasks
+	}
+
+	n := uint(0)
+
+	for r != 0 {
+		jobsPerTask[n]++
+		r--
+		n++
+
+		if n == tasks {
+			n = 0
+		}
+	}
+
+	return jobsPerTask
+}
+
 // Buffered printer is required in concurrent code
 type Printer struct {
 	os *bufio.Writer

@@ -1,3 +1,4 @@
+
 /*
 Copyright 2011-2017 Frederic Langlet
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -252,7 +253,7 @@ int BlockCompressor::call()
 
         FileCompressTask<FileCompressResult> task(_verbosity,
             _overwrite, _checksum, iName, oName, _codec,
-            _transform, _blockSize, 1, _listeners);
+            _transform, _blockSize, _jobs, _listeners);
 
         FileCompressResult fcr = task.call();
         res = fcr._code;
@@ -266,13 +267,16 @@ int BlockCompressor::call()
         }
 
         vector<FileCompressTask<FileCompressResult>*> tasks;
+        int* jobsPerTask = new int[nbFiles];
+        computeJobsPerTask(jobsPerTask, _jobs, nbFiles);
+        int n = 0;
 
         // Create one task per file
         for (int i = 0; i < nbFiles; i++) {
             string iName = files[i];
             string oName = (_outputName.length() > 0) ? "NONE" : iName + ".knz";
             FileCompressTask<FileCompressResult>* task = new FileCompressTask<FileCompressResult>(_verbosity, _overwrite, _checksum,
-                iName, oName, _codec, _transform, _blockSize, 1, _listeners);
+                iName, oName, _codec, _transform, _blockSize, jobsPerTask[n++], _listeners);
             tasks.push_back(task);
         }
 
@@ -320,6 +324,8 @@ int BlockCompressor::call()
                     break;
             }
         }
+
+        delete[] jobsPerTask;
 
         for (int i = 0; i < nbFiles; i++)
             delete tasks[i];
@@ -412,6 +418,29 @@ void BlockCompressor::getTransformAndCodec(int level, string tranformAndCodec[2]
         tranformAndCodec[0] = "Unknown";
         tranformAndCodec[1] = "Unknown";
         return;
+    }
+}
+
+void BlockCompressor::computeJobsPerTask(int jobsPerTask[], int jobs, int tasks)
+{
+    if ((jobs <= 0) || (tasks <= 0))
+        return;
+
+    int q = (jobs <= tasks) ? 1 : jobs / tasks;
+    int r = (jobs <= tasks) ? 0 : jobs - q * tasks;
+
+    for (int i = 0; i < tasks; i++)
+        jobsPerTask[i] = q;
+
+    int n = 0;
+
+    while (r != 0) {
+        jobsPerTask[n]++;
+        r--;
+        n++;
+
+        if (n == tasks)
+            n = 0;
     }
 }
 

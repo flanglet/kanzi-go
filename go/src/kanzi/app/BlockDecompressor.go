@@ -29,7 +29,7 @@ import (
 
 const (
 	DECOMP_DEFAULT_BUFFER_SIZE = 32768
-	DECOMP_DEFAULT_CONCURRENCY = 8
+	DECOMP_DEFAULT_CONCURRENCY = 1
 	DECOMP_MAX_CONCURRENCY     = 32
 )
 
@@ -214,14 +214,14 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 		iName := files[0]
 
 		if len(this.outputName) == 0 {
-			this.outputName = iName + ".knz"
+			this.outputName = iName + ".bak"
 		}
 
 		task := FileDecompressTask{verbosity: this.verbosity,
 			overwrite:  this.overwrite,
 			inputName:  iName,
 			outputName: this.outputName,
-			jobs:       1,
+			jobs:       this.jobs,
 			listeners:  this.listeners}
 
 		res, read = task.Call()
@@ -231,9 +231,13 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 			return kio.ERR_CREATE_FILE, 0
 		}
 
+		// Create channels for task synchronization
 		tasks := make(chan FileDecompressTask, nbFiles)
 		results := make(chan FileDecompressResult, nbFiles)
 		cancel := make(chan bool, 1)
+
+		jobsPerTask := computeJobsPerTask(make([]uint, nbFiles), this.jobs, uint(nbFiles))
+		n := 0
 
 		for _, iName := range files {
 			var oName string
@@ -248,8 +252,10 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 				overwrite:  this.overwrite,
 				inputName:  iName,
 				outputName: oName,
-				jobs:       1,
+				jobs:       jobsPerTask[n],
 				listeners:  this.listeners}
+
+			n++
 
 			// Push task to channel. The workers are the consumers.
 			tasks <- task

@@ -31,7 +31,7 @@ const (
 	COMP_DEFAULT_BUFFER_SIZE = 32768
 	COMP_DEFAULT_BLOCK_SIZE  = 1024 * 1024
 	WARN_EMPTY_INPUT         = -128
-	COMP_DEFAULT_CONCURRENCY = 8
+	COMP_DEFAULT_CONCURRENCY = 1
 	COMP_MAX_CONCURRENCY     = 32
 )
 
@@ -307,7 +307,7 @@ func (this *BlockCompressor) Call() (int, uint64) {
 			entropyCodec: this.entropyCodec,
 			transform:    this.transform,
 			blockSize:    this.blockSize,
-			jobs:         1,
+			jobs:         this.jobs,
 			listeners:    this.listeners}
 
 		res, read, written = task.Call()
@@ -317,9 +317,13 @@ func (this *BlockCompressor) Call() (int, uint64) {
 			return kio.ERR_CREATE_FILE, 0
 		}
 
+		// Create channels for task synchronization
 		tasks := make(chan FileCompressTask, nbFiles)
 		results := make(chan FileCompressResult, nbFiles)
 		cancel := make(chan bool, 1)
+
+		jobsPerTask := computeJobsPerTask(make([]uint, nbFiles), this.jobs, uint(nbFiles))
+		n := 0
 
 		for _, iName := range files {
 			var oName string
@@ -339,8 +343,10 @@ func (this *BlockCompressor) Call() (int, uint64) {
 				entropyCodec: this.entropyCodec,
 				transform:    this.transform,
 				blockSize:    this.blockSize,
-				jobs:         1,
+				jobs:         jobsPerTask[n],
 				listeners:    this.listeners}
+
+			n++
 
 			// Push task to channel. The workers are the consumers.
 			tasks <- task

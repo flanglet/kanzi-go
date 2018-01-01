@@ -118,7 +118,7 @@ namespace kanzi {
 
        void writeHeader() THROW;
 
-       void processBlock() THROW;
+       void processBlock(bool force) THROW;
 
        static void notifyListeners(vector<Listener*>& listeners, const Event& evt);
 

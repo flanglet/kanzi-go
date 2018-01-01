@@ -101,11 +101,7 @@ namespace kanzi {
 
    private:
        static const int DEFAULT_BUFFER_SIZE = 32768;
-#ifdef CONCURRENCY_ENABLED
-	   static const int DEFAULT_CONCURRENCY = 8;
-#else
-	   static const int DEFAULT_CONCURRENCY = 1;
-#endif
+       static const int DEFAULT_CONCURRENCY = 1;
 
        int _verbosity;
        bool _overwrite;
@@ -120,6 +116,8 @@ namespace kanzi {
        vector<Listener*> _listeners;
 
        static void notifyListeners(vector<Listener*>& listeners, const Event& evt);
+       
+       static void computeJobsPerTask(int jobsPerTask[], int jobs, int tasks);
    };
 }
 #endif

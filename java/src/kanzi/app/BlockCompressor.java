@@ -47,7 +47,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
 {
    private static final int DEFAULT_BUFFER_SIZE = 32768;
    private static final int DEFAULT_BLOCK_SIZE  = 1024*1024; 
-   private static final int DEFAULT_CONCURRENCY = 8;
+   private static final int DEFAULT_CONCURRENCY = 1;
    private static final int MAX_CONCURRENCY = 32;   
    public static final int WARN_EMPTY_INPUT = -128;
    
@@ -213,7 +213,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
             
             FileCompressTask task = new FileCompressTask(this.verbosity, this.overwrite, this.checksum, 
                      iName, oName, this.codec, this.transform, this.blockSize, 
-                     this.pool, 1, this.listeners);
+                     this.pool, this.jobs, this.listeners);
 
             FileCompressResult fcr = task.call();
             res = fcr.code;
@@ -228,7 +228,9 @@ public class BlockCompressor implements Runnable, Callable<Integer>
                return Error.ERR_CREATE_FILE;
             }
 
-             ArrayBlockingQueue<FileCompressTask> queue = new ArrayBlockingQueue(nbFiles, true);
+            ArrayBlockingQueue<FileCompressTask> queue = new ArrayBlockingQueue(nbFiles, true);
+            int[] jobsPerTask = computeJobsPerTask(new int[nbFiles], this.jobs, nbFiles);
+            int n = 0;
 
             // Create one task per file
             for (Path file : files)
@@ -238,7 +240,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
 
                FileCompressTask task = new FileCompressTask(this.verbosity, this.overwrite, this.checksum, 
                   iName, oName, this.codec, this.transform, this.blockSize, 
-                  this.pool, 1, this.listeners);
+                  this.pool, jobsPerTask[n++], this.listeners);
                queue.offer(task);               
             }
        
@@ -352,7 +354,27 @@ public class BlockCompressor implements Runnable, Callable<Integer>
              return "Unknown&Unknown";             
        }
     }
+
     
+    private static int[] computeJobsPerTask(int[] jobsPerTask, int jobs, int tasks)
+    {
+       int q = (jobs <= tasks) ? 1 : jobs / tasks;
+       int r = (jobs <= tasks) ? 0 : jobs - q*tasks;
+       Arrays.fill(jobsPerTask, q);
+       int n = 0;
+      
+       while (r != 0) 
+       {
+          jobsPerTask[n]++;
+          r--;
+          n++;
+         
+          if (n == tasks)
+             n = 0;
+       } 
+       
+       return jobsPerTask;
+    }    
     
 
     static class FileCompressResult

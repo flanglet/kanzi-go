@@ -1,4 +1,5 @@
 
+
 /*
 Copyright 2011-2017 Frederic Langlet
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,14 +32,15 @@ using namespace kanzi;
 
 CompressedInputStream::CompressedInputStream(InputStream& is, map<string, string>& ctx)
     : InputStream(is.rdbuf())
-    , _is(is), _ctx(ctx)
+    , _is(is)
+    , _ctx(ctx)
 {
     map<string, string>::iterator it;
     it = ctx.find("jobs");
     int tasks = atoi(it->second.c_str());
 
 #ifdef CONCURRENCY_ENABLED
-    if ((tasks < 0) || (tasks > MAX_CONCURRENCY)) { // 0 indicates no user choice
+    if ((tasks <= 0) || (tasks > MAX_CONCURRENCY)) {
         stringstream ss;
         ss << "The number of jobs must be in [1.." << MAX_CONCURRENCY << "]";
         throw IllegalArgumentException(ss.str());
@@ -132,13 +134,18 @@ void CompressedInputStream::readHeader() THROW
         throw IOException(ss.str(), Error::ERR_BLOCK_SIZE);
     }
 
+#ifdef CONCURRENCY_ENABLED
+    if (uint64(_blockSize) * uint64(_jobs) >= uint64(1 << 31)) 
+       _jobs = (1<<31) / _blockSize;
+#endif
+
     // Read reserved bits
     _ibs->readBits(9);
 
     if (_listeners.size() > 0) {
         stringstream ss;
         ss << "Checksum set to " << (_hasher != nullptr ? "true" : "false") << endl;
-        ss  << "Block size set to " << _blockSize << " bytes" << endl;
+        ss << "Block size set to " << _blockSize << " bytes" << endl;
 
         try {
             FunctionFactory<byte> ff;
@@ -341,7 +348,7 @@ int CompressedInputStream::processBlock() THROW
             tasks.push_back(task);
         }
 
-        if (_jobs == 1) {
+        if (tasks.size() == 1) {
             // Synchronous call
             DecodingTask<DecodingTaskResult>* task = tasks.back();
             tasks.pop_back();
@@ -356,11 +363,13 @@ int CompressedInputStream::processBlock() THROW
             _sa->_index += res._decoded;
             decoded += res._decoded;
 
-            // Notify after transform ... in block order
-            Event evt(Event::AFTER_TRANSFORM, res._blockId,
-                int64(res._decoded), res._checksum, _hasher != nullptr);
+            if (blockListeners.size() > 0) {
+                // Notify after transform ... in block order !
+                Event evt(Event::AFTER_TRANSFORM, res._blockId,
+                    int64(res._decoded), res._checksum, _hasher != nullptr);
 
-            CompressedInputStream::notifyListeners(blockListeners, evt);
+                CompressedInputStream::notifyListeners(blockListeners, evt);
+            }
         }
 #ifdef CONCURRENCY_ENABLED
         else {
@@ -384,11 +393,13 @@ int CompressedInputStream::processBlock() THROW
                 _sa->_index += res._decoded;
                 decoded += res._decoded;
 
-                // Notify after transform ... in block order
-                Event evt(Event::AFTER_TRANSFORM, res._blockId,
-                    int64(res._decoded), res._checksum, _hasher != nullptr);
+                if (blockListeners.size() > 0) {
+                    // Notify after transform ... in block order !
+                    Event evt(Event::AFTER_TRANSFORM, res._blockId,
+                        int64(res._decoded), res._checksum, _hasher != nullptr);
 
-                CompressedInputStream::notifyListeners(blockListeners, evt);
+                    CompressedInputStream::notifyListeners(blockListeners, evt);
+                }
             }
         }
 #endif
@@ -462,7 +473,8 @@ DecodingTask<T>::DecodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuff
     short transformType, short entropyType, int blockId,
     InputBitStream* ibs, XXHash32* hasher,
     atomic_int* processedBlockId, vector<Listener*>& listeners,
-    map<string, string>& ctx) : _ctx(ctx)
+    map<string, string>& ctx)
+    : _ctx(ctx)
 {
     _blockLength = blockSize;
     _data = iBuffer;
@@ -549,6 +561,9 @@ T DecodingTask<T>::call() THROW
         }
 
         const int savedIdx = _data->_index;
+        stringstream ss;
+        ss << preTransformLength;
+        _ctx["size"] = ss.str();
 
         // Each block is decoded separately
         // Rebuild the entropy decoder to reset block statistics

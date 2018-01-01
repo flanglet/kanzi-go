@@ -179,12 +179,15 @@ int BlockDecompressor::call()
         }
 
         vector<FileDecompressTask<FileDecompressResult>*> tasks;
+        int* jobsPerTask = new int[nbFiles];
+        computeJobsPerTask(jobsPerTask, _jobs, nbFiles);
+        int n = 0;
 
         //  Create one task per file
         for (int i = 0; i < nbFiles; i++) {
             string iName = files[i];
             string oName = (_outputName.length() > 0) ? "NONE" : iName + ".bak";
-            FileDecompressTask<FileDecompressResult>* task = new FileDecompressTask<FileDecompressResult>(_verbosity, _overwrite, iName, oName, 1, _listeners);
+            FileDecompressTask<FileDecompressResult>* task = new FileDecompressTask<FileDecompressResult>(_verbosity, _overwrite, iName, oName, jobsPerTask[n++], _listeners);
             tasks.push_back(task);
         }
 
@@ -230,6 +233,8 @@ int BlockDecompressor::call()
                     break;
             }
         }
+
+        delete[] jobsPerTask;
 
         for (int i = 0; i < nbFiles; i++)
             delete tasks[i];
@@ -277,6 +282,29 @@ void BlockDecompressor::notifyListeners(vector<Listener*>& listeners, const Even
 
     for (it = listeners.begin(); it != listeners.end(); it++)
         (*it)->processEvent(evt);
+}
+
+void BlockDecompressor::computeJobsPerTask(int jobsPerTask[], int jobs, int tasks)
+{
+    if ((jobs <= 0) || (tasks <= 0))
+        return;
+
+    int q = (jobs <= tasks) ? 1 : jobs / tasks;
+    int r = (jobs <= tasks) ? 0 : jobs - q * tasks;
+
+    for (int i = 0; i < tasks; i++)
+        jobsPerTask[i] = q;
+
+    int n = 0;
+
+    while (r != 0) {
+        jobsPerTask[n]++;
+        r--;
+        n++;
+
+        if (n == tasks)
+            n = 0;
+    }
 }
 
 template <class T>

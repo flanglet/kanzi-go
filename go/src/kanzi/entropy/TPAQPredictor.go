@@ -394,7 +394,7 @@ func (this *TPAQPredictor) addMatchContextPred() int32 {
 	return p
 }
 
-func (this *TPAQPredictor) addContext(ctxId int32, cx int32) int32 {
+func (this *TPAQPredictor) addContext(ctxId, cx int32) int32 {
 	cx = cx*987654323 + ctxId
 	cx = (cx << 16) | int32(uint32(cx)>>16)
 	return cx*123456791 + ctxId

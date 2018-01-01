@@ -66,7 +66,7 @@ public class CompressedInputStream extends InputStream
    private final AtomicBoolean closed;
    private int maxIdx;
    private final AtomicInteger blockId;
-   private final int jobs;
+   private int jobs;
    private final ExecutorService pool;
    private final List<Listener> listeners;
    private final Map<String, Object> ctx;
@@ -83,7 +83,7 @@ public class CompressedInputStream extends InputStream
             
       final int tasks = (Integer) ctx.get("jobs");
  
-      if ((tasks <= 0) || (tasks > MAX_CONCURRENCY)) // 0 indicates no user choice
+      if ((tasks <= 0) || (tasks > MAX_CONCURRENCY)) 
          throw new IllegalArgumentException("The number of jobs must be in [1.." + MAX_CONCURRENCY+ "]");
 
       ExecutorService threadPool = (ExecutorService) ctx.get("pool");
@@ -145,6 +145,9 @@ public class CompressedInputStream extends InputStream
       if ((this.blockSize < MIN_BITSTREAM_BLOCK_SIZE) || (this.blockSize > MAX_BITSTREAM_BLOCK_SIZE))
          throw new kanzi.io.IOException("Invalid bitstream, incorrect block size: " + this.blockSize,
                  Error.ERR_BLOCK_SIZE);
+
+      if (((long) this.blockSize) * ((long) this.jobs) >= (long) Integer.MAX_VALUE)
+         this.jobs = Integer.MAX_VALUE / this.blockSize;
 
       // Read reserved bits
       this.ibs.readBits(9);   
@@ -374,9 +377,9 @@ public class CompressedInputStream extends InputStream
             tasks.add(task);            
          }
 
-         Status[] results = new Status[this.jobs];
+         Status[] results = new Status[tasks.size()];
 
-         if (this.jobs == 1)
+         if (tasks.size() == 1)
          {
             // Synchronous call
             Status status = tasks.get(0).call();
@@ -402,13 +405,16 @@ public class CompressedInputStream extends InputStream
          {                           
             System.arraycopy(res.data, 0, this.sa.array, this.sa.index, res.decoded);
             this.sa.index += res.decoded;
-            decoded += res.decoded;
-           
-            // Notify after transform ... in block order
-            Event evt = new Event(Event.Type.AFTER_TRANSFORM, res.blockId,
-                    res.decoded, res.checksum, this.hasher != null);
+            decoded += res.decoded;      
+            
+            if (blockListeners.length > 0)
+            {
+               // Notify after transform ... in block order !
+               Event evt = new Event(Event.Type.AFTER_TRANSFORM, res.blockId,
+                       res.decoded, res.checksum, this.hasher != null);
 
-            notifyListeners(blockListeners, evt);
+               notifyListeners(blockListeners, evt);
+            }
          }
 
          this.sa.index = 0;
@@ -617,6 +623,7 @@ public class CompressedInputStream extends InputStream
             }
             
             final int savedIdx = data.index;
+            this.ctx.put("size", preTransformLength);
 
             // Each block is decoded separately
             // Rebuild the entropy decoder to reset block statistics

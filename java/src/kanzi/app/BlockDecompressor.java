@@ -24,6 +24,7 @@ import java.io.OutputStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -45,7 +46,7 @@ import kanzi.Listener;
 public class BlockDecompressor implements Runnable, Callable<Integer>
 {
    private static final int DEFAULT_BUFFER_SIZE = 32768;
-   private static final int DEFAULT_CONCURRENCY = 8;
+   private static final int DEFAULT_CONCURRENCY = 1;
    private static final int MAX_CONCURRENCY = 32;
 
    private int verbosity;
@@ -161,7 +162,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
                oName = iName + ".bak";
             
             FileDecompressTask task = new FileDecompressTask(this.verbosity, this.overwrite, 
-                     iName, oName, this.pool, 1, this.listeners);
+                     iName, oName, this.pool, this.jobs, this.listeners);
 
             FileDecompressResult fdr = task.call();
             res = fdr.code;
@@ -176,7 +177,9 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
             }
             
             ArrayBlockingQueue<FileDecompressTask> queue = new ArrayBlockingQueue(nbFiles, true);
-
+            int[] jobsPerTask = computeJobsPerTask(new int[nbFiles], this.jobs, nbFiles);
+            int n = 0;
+            
             // Create one task per file
             for (Path file : files)
             {
@@ -184,7 +187,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
                String oName = (this.outputName != null) ? "NONE" : iName + ".bak";
 
                FileDecompressTask task = new FileDecompressTask(this.verbosity, 
-                  this.overwrite, iName, oName, this.pool, 1, this.listeners);
+                  this.overwrite, iName, oName, this.pool, jobsPerTask[n++], this.listeners);
                queue.offer(task);               
             }
 
@@ -265,6 +268,26 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
     } 
     
     
+    private static int[] computeJobsPerTask(int[] jobsPerTask, int jobs, int tasks)
+    {
+       int q = (jobs <= tasks) ? 1 : jobs / tasks;
+       int r = (jobs <= tasks) ? 0 : jobs - q*tasks;
+       Arrays.fill(jobsPerTask, q);
+       int n = 0;
+      
+       while (r != 0) 
+       {
+          jobsPerTask[n]++;
+          r--;
+          n++;
+         
+          if (n == tasks)
+             n = 0;
+       } 
+       
+       return jobsPerTask;
+    }    
+            
     
     
    static class FileDecompressResult

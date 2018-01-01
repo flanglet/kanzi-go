@@ -1,3 +1,4 @@
+
 /*
 Copyright 2011-2017 Frederic Langlet
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,7 +38,6 @@ static const int ARG_IDX_VERBOSE = 8;
 static const int ARG_IDX_LEVEL = 9;
 
 static const char* APP_HEADER = "Kanzi 1.3 (C) 2018,  Frederic Langlet";
-
 
 void processCommandLine(int argc, const char* argv[], map<string, string>& map)
 {
@@ -120,9 +120,9 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
     }
 
     if (verbose >= 1) {
-		printOut("", true);
-		printOut(APP_HEADER, true);
-		printOut("", true);
+        printOut("", true);
+        printOut(APP_HEADER, true);
+        printOut("", true);
     }
 
     ctx = -1;
@@ -405,6 +405,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
     map["jobs"] = strTasks;
 }
 
+
 int main(int argc, const char* argv[])
 {
     map<string, string> args;
@@ -440,4 +441,3 @@ int main(int argc, const char* argv[])
     cout << "Missing arguments: try --help or -h" << endl;
     return 1;
 }
-
