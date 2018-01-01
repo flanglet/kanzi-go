@@ -1095,7 +1095,7 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 			if pe == nil {
 				// Word not found in the dictionary or hash collision: add or replace word
-				if (length > 3) || (length > 2 && words < TC_THRESHOLD2 && length < TC_MAX_WORD_LENGTH) {
+				if ((length > 3) || (length > 2 && words < TC_THRESHOLD2)) && length < TC_MAX_WORD_LENGTH {
 					pe = &this.dictList[words]
 					peidx := int(pe.idx)
 
