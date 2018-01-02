@@ -173,7 +173,7 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 	}
 
 	if this.verbosity > 2 {
-		if listener, err := NewInfoPrinter(this.verbosity, ENCODING, os.Stdout); err == nil {
+		if listener, err := NewInfoPrinter(this.verbosity, DECODING, os.Stdout); err == nil {
 			this.AddListener(listener)
 		}
 	}

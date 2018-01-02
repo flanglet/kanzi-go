@@ -132,7 +132,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       }
       
       if (this.verbosity > 2)
-         this.addListener(new InfoPrinter(this.verbosity, InfoPrinter.Type.ENCODING, System.out));
+         this.addListener(new InfoPrinter(this.verbosity, InfoPrinter.Type.DECODING, System.out));
    
       boolean printFlag = this.verbosity > 2;
       String strFiles = (nbFiles > 1) ? " files" : " file";
