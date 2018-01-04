@@ -156,15 +156,13 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
             printOut("   -o, --output=<outputName>", true);
 
             if (mode.compare(0, 1, "c") != 0) {
-                printOut("        optional name of the output file (defaults to <inputName.knz>", true);
-                printOut("        when the source is a file and to the input name when the source", true);
-                printOut("        is a directory) or 'none' or 'stdout'. 'stdout' is not valid", true);
+                printOut("        optional name of the output file or directory (defaults to", true);
+                printOut("        <inputName.knz>) or 'none' or 'stdout'. 'stdout' is not valid", true);
                 printOut("        when the number of jobs is greater than 1.\n", true);
             }
             else if (mode.compare(0, 1, "d") != 0) {
-                printOut("        optional name of the output file (defaults to <inputName.bak>", true);
-                printOut("        when the source is a file and to the input name when the source", true);
-                printOut("        is a directory) or 'none' or 'stdout'. 'stdout' is not valid", true);
+                printOut("        optional name of the output file or directory (defaults to", true);
+                printOut("        <inputName.knz>) or 'none' or 'stdout'. 'stdout' is not valid", true);
                 printOut("        when the number of jobs is greater than 1.\n", true);
             }
             else {
@@ -191,7 +189,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
 
             printOut("   -j, --jobs=<jobs>", true);
             printOut("        maximum number of jobs the program may start concurrently", true);
-            printOut("        (default is 8, maximum is 32).\n", true);
+            printOut("        (default is 1, maximum is 32).\n", true);
             printOut("", true);
 
             if (mode.compare(0, 1, "d") != 0) {
@@ -404,7 +402,6 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
 
     map["jobs"] = strTasks;
 }
-
 
 int main(int argc, const char* argv[])
 {

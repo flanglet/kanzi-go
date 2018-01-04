@@ -264,15 +264,13 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 			log.Println("   -o, --output=<outputName>", true)
 
 			if mode == "c" {
-				log.Println("        optional name of the output file (defaults to <inputName.knz>", true)
-				log.Println("        when the source is a file and to the input name when the source", true)
-				log.Println("        is a directory) or 'none' or 'stdout'. 'stdout' is not valid", true)
+				log.Println("        optional name of the output file or directory (defaults to", true)
+				log.Println("        <inputName.knz>) or 'none' or 'stdout'. 'stdout' is not valid", true)
 				log.Println("        when the number of jobs is greater than 1.\n", true)
 			} else if mode == "d" {
-				log.Println("        optional name of the output file (defaults to <inputName.bak>", true)
-				log.Println("        when the source is a file and to the input name when the source", true)
-				log.Println("        is a directory) or 'none' or 'stdout'. 'stdout' is not valid", true)
-				log.Println("        iwhen the number of jobs is greater than 1.\n", true)
+				log.Println("        optional name of the output file or directory (defaults to", true)
+				log.Println("        <inputName.bak>) or 'none' or 'stdout'. 'stdout' is not valid", true)
+				log.Println("        when the number of jobs is greater than 1.\n", true)
 
 			} else {
 				log.Println("        optional name of the output file or 'none' or 'stdout'.\n", true)
@@ -298,7 +296,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 
 			log.Println("   -j, --jobs=<jobs>", true)
 			log.Println("        maximum number of jobs the program may start concurrently", true)
-			log.Println("        (default is 8, maximum is 32).\n", true)
+			log.Println("        (default is 1, maximum is 32).\n", true)
 			log.Println("", true)
 
 			if mode != "d" {

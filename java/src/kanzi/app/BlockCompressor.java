@@ -22,7 +22,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -158,15 +160,6 @@ public class BlockCompressor implements Runnable, Callable<Integer>
       Collections.sort(files);
       int nbFiles = files.size();
       
-      // Limit verbosity level when files are processed concurrently
-      if ((this.jobs > 1) && (nbFiles > 1) && (this.verbosity > 1)) {
-         printOut("Warning: limiting verbosity to 1 due to concurrent processing of input files.\n", true);
-         this.verbosity = 1;
-      }
-      
-      if (this.verbosity > 2)
-         this.addListener(new InfoPrinter(this.verbosity, InfoPrinter.Type.ENCODING, System.out));
-         
       boolean printFlag = this.verbosity > 2;
       String strFiles = (nbFiles > 1) ? " files" : " file";
       printOut(nbFiles+strFiles+" to compress\n", this.verbosity > 0);
@@ -195,20 +188,77 @@ public class BlockCompressor implements Runnable, Callable<Integer>
          return Error.ERR_CREATE_FILE;
       }      
             
+      // Limit verbosity level when files are processed concurrently
+      if ((this.jobs > 1) && (nbFiles > 1) && (this.verbosity > 1)) {
+         printOut("Warning: limiting verbosity to 1 due to concurrent processing of input files.\n", true);
+         this.verbosity = 1;
+      }
+      
+      if (this.verbosity > 2)
+         this.addListener(new InfoPrinter(this.verbosity, InfoPrinter.Type.ENCODING, System.out));
+         
       int res = 0;
       long read = 0;
       long written = 0;            
 
       try
       {
+         boolean inputIsDir;
+         String formattedOutName = this.outputName;
+         String formattedInName = this.inputName;
+         boolean specialOutput = ("NONE".equalsIgnoreCase(formattedOutName)) || 
+            ("STDOUT".equalsIgnoreCase(formattedOutName));
+         
+         if (Files.isDirectory(Paths.get(formattedInName))) 
+         {
+            inputIsDir = true;
+
+            if (formattedInName.endsWith(".") == true)
+               formattedInName = formattedInName.substring(0, formattedInName.length()-1);
+
+            if (formattedInName.endsWith(File.separator) == false)
+               formattedInName += File.separator;
+            
+            if ((formattedOutName != null) && (specialOutput == false))          
+            {
+               if (Files.isDirectory(Paths.get(formattedOutName)) == false)
+               {
+                  System.err.println("Output must be an existing directory (or 'NONE')");
+                  return Error.ERR_CREATE_FILE;
+               }
+               
+               if (formattedOutName.endsWith(File.separator) == false)
+                  formattedOutName += File.separator;
+            }
+         } 
+         else
+         {
+            inputIsDir = false;
+            
+            if ((formattedOutName != null) && (specialOutput == false))           
+            {
+               if (Files.isDirectory(Paths.get(formattedOutName)) == true)
+               {
+                  System.err.println("Output must be a file (or 'NONE')");
+                  return Error.ERR_CREATE_FILE;
+               }
+            }
+         }
+         
          // Run the task(s)
          if (nbFiles == 1)
          {
-            String oName = this.outputName;
+            String oName = formattedOutName;
             String iName = files.get(0).toString();
             
             if (oName == null)
+            {
                oName = iName + ".knz";
+            }
+            else if ((inputIsDir == true) && (specialOutput == false))
+            {
+               oName = formattedOutName + iName.substring(formattedInName.length()+1) + ".knz";
+            }
             
             FileCompressTask task = new FileCompressTask(this.verbosity, this.overwrite, this.checksum, 
                      iName, oName, this.codec, this.transform, this.blockSize, 
@@ -221,12 +271,6 @@ public class BlockCompressor implements Runnable, Callable<Integer>
          }
          else
          {
-            if (("NONE".equalsIgnoreCase(this.outputName) == false) && (this.outputName != null))          
-            {
-               System.err.println("Output file cannot be provided when input is a directory (except 'NONE')");
-               return Error.ERR_CREATE_FILE;
-            }
-
             ArrayBlockingQueue<FileCompressTask> queue = new ArrayBlockingQueue(nbFiles, true);
             int[] jobsPerTask = computeJobsPerTask(new int[nbFiles], this.jobs, nbFiles);
             int n = 0;
@@ -234,9 +278,18 @@ public class BlockCompressor implements Runnable, Callable<Integer>
             // Create one task per file
             for (Path file : files)
             {
+               String oName = formattedOutName;
                String iName = file.toString();
-               String oName = (this.outputName != null) ? "NONE" : iName + ".knz";
 
+               if (oName == null)
+               {
+                  oName = iName + ".knz";
+               }
+               else if ((inputIsDir == true) && (specialOutput == false))
+               {
+                  oName = formattedOutName + iName.substring(formattedInName.length()) + ".knz";
+               }
+            
                FileCompressTask task = new FileCompressTask(this.verbosity, this.overwrite, this.checksum, 
                   iName, oName, this.codec, this.transform, this.blockSize, 
                   this.pool, jobsPerTask[n++], this.listeners);

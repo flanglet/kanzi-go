@@ -166,18 +166,6 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 	files = sort.StringSlice(files)
 	nbFiles := len(files)
 
-	// Limit verbosity level when files are processed concurrently
-	if this.jobs > 1 && nbFiles > 1 && this.verbosity > 1 {
-		log.Println("Warning: limiting verbosity to 1 due to concurrent processing of input files.\n", true)
-		this.verbosity = 1
-	}
-
-	if this.verbosity > 2 {
-		if listener, err := NewInfoPrinter(this.verbosity, DECODING, os.Stdout); err == nil {
-			this.AddListener(listener)
-		}
-	}
-
 	printFlag := this.verbosity > 2
 	var msg string
 
@@ -194,42 +182,108 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 	log.Println(msg, printFlag)
 
 	if this.jobs > 1 {
+		msg = fmt.Sprintf("Using %d jobs", this.jobs)
+		log.Println(msg, printFlag)
+
 		if strings.ToUpper(this.outputName) == "STDOUT" {
 			fmt.Println("Cannot output to STDOUT with multiple jobs")
 			return kio.ERR_CREATE_FILE, 0
 		}
-
-		msg = fmt.Sprintf("Using %d jobs", this.jobs)
 	} else {
-		msg = fmt.Sprintf("Using %d job", this.jobs)
+		log.Println("Using 1 job", printFlag)
 	}
 
-	log.Println(msg, printFlag)
+	// Limit verbosity level when files are processed concurrently
+	if this.jobs > 1 && nbFiles > 1 && this.verbosity > 1 {
+		log.Println("Warning: limiting verbosity to 1 due to concurrent processing of input files.\n", true)
+		this.verbosity = 1
+	}
+
+	if this.verbosity > 2 {
+		if listener, err := NewInfoPrinter(this.verbosity, DECODING, os.Stdout); err == nil {
+			this.AddListener(listener)
+		}
+	}
 
 	res := 1
 	read := uint64(0)
+	var inputIsDir bool
+	formattedOutName := this.outputName
+	formattedInName := this.inputName
+	specialOutput := strings.ToUpper(formattedOutName) == "NONE" || strings.ToUpper(formattedOutName) == "STDOUT"
+
+	fi, err := os.Stat(this.inputName)
+
+	if err != nil {
+		fmt.Printf("Cannot access %v\n", formattedInName)
+		return kio.ERR_OPEN_FILE, 0
+	}
+
+	if fi.IsDir() {
+		inputIsDir = true
+
+		if formattedInName[len(formattedInName)-1] == '.' {
+			formattedInName = formattedInName[0 : len(formattedInName)-1]
+		}
+
+		if formattedInName[len(formattedInName)-1] != os.PathSeparator {
+			formattedInName = formattedInName + string([]byte{os.PathSeparator})
+		}
+
+		if !specialOutput {
+			fi, err = os.Stat(formattedOutName)
+
+			if err != nil {
+				fmt.Println("Output must be an existing directory (or 'NONE')")
+				return kio.ERR_OPEN_FILE, 0
+			}
+
+			if !fi.IsDir() {
+				fmt.Println("Output must be a directory (or 'NONE')")
+				return kio.ERR_CREATE_FILE, 0
+			}
+
+			if formattedOutName[len(formattedOutName)-1] != os.PathSeparator {
+				formattedOutName = formattedOutName + string([]byte{os.PathSeparator})
+			}
+		}
+	} else {
+		inputIsDir = false
+
+		if !specialOutput {
+			fi, err = os.Stat(formattedOutName)
+
+			if err != nil {
+				fmt.Printf("Cannot access %v\n", formattedOutName)
+				return kio.ERR_OPEN_FILE, 0
+			}
+
+			if fi.IsDir() {
+				fmt.Println("Output must be a file (or 'NONE')")
+				return kio.ERR_CREATE_FILE, 0
+			}
+		}
+	}
 
 	if nbFiles == 1 {
+		oName := formattedOutName
 		iName := files[0]
 
-		if len(this.outputName) == 0 {
+		if len(oName) == 0 {
 			this.outputName = iName + ".bak"
+		} else {
+			oName = formattedOutName + iName[len(formattedInName):] + ".bak"
 		}
 
 		task := FileDecompressTask{verbosity: this.verbosity,
 			overwrite:  this.overwrite,
 			inputName:  iName,
-			outputName: this.outputName,
+			outputName: oName,
 			jobs:       this.jobs,
 			listeners:  this.listeners}
 
 		res, read = task.Call()
 	} else {
-		if len(this.outputName) != 0 && strings.ToUpper(this.outputName) != "NONE" {
-			fmt.Println("Output file cannot be provided when input is a directory (except 'NONE')")
-			return kio.ERR_CREATE_FILE, 0
-		}
-
 		// Create channels for task synchronization
 		tasks := make(chan FileDecompressTask, nbFiles)
 		results := make(chan FileDecompressResult, nbFiles)
@@ -239,12 +293,12 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 		n := 0
 
 		for _, iName := range files {
-			var oName string
+			oName := formattedOutName
 
-			if len(this.outputName) == 0 {
+			if len(oName) == 0 {
 				oName = iName + ".bak"
-			} else {
-				oName = "NONE"
+			} else if inputIsDir == true && specialOutput == false {
+				oName = formattedOutName + iName[len(formattedInName):] + ".bak"
 			}
 
 			task := FileDecompressTask{verbosity: this.verbosity,

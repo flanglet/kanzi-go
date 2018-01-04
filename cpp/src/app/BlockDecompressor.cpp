@@ -122,15 +122,6 @@ int BlockDecompressor::call()
     sort(files.begin(), files.end());
     int nbFiles = int(files.size());
 
-    // Limit verbosity level when files are processed concurrently
-    if ((_jobs > 1) && (nbFiles > 1) && (_verbosity > 1)) {
-        printOut("Warning: limiting verbosity to 1 due to concurrent processing of input files.\n", _verbosity > 1);
-        _verbosity = 1;
-    }
-
-    if (_verbosity > 2)
-        addListener(new InfoPrinter(_verbosity, InfoPrinter::DECODING, cout));
-
     bool printFlag = _verbosity > 2;
     stringstream ss;
     string strFiles = (nbFiles > 1) ? " files" : " file";
@@ -155,15 +146,89 @@ int BlockDecompressor::call()
         return Error::ERR_CREATE_FILE;
     }
 
+    // Limit verbosity level when files are processed concurrently
+    if ((_jobs > 1) && (nbFiles > 1) && (_verbosity > 1)) {
+        printOut("Warning: limiting verbosity to 1 due to concurrent processing of input files.\n", _verbosity > 1);
+        _verbosity = 1;
+    }
+
+    if (_verbosity > 2)
+        addListener(new InfoPrinter(_verbosity, InfoPrinter::DECODING, cout));
+
     int res = 0;
+
+    bool inputIsDir;
+    string formattedOutName = _outputName;
+    string formattedInName = _inputName;
+    string upperOutputName = _outputName;
+    transform(upperOutputName.begin(), upperOutputName.end(), upperOutputName.begin(), ::toupper);
+    bool specialOutput = (upperOutputName.compare(0, 4, "NONE") == 0) ||
+       (upperOutputName.compare(0, 6, "STDOUT") == 0);
+    struct stat buffer;
+
+    if (stat(formattedInName.c_str(), &buffer) != 0) {
+        stringstream ss;
+        ss << "Cannot access input file '" << formattedInName << "'";
+        return Error::ERR_OPEN_FILE;
+    }
+
+    if ((buffer.st_mode & S_IFDIR) != 0) {
+        inputIsDir = true;
+
+        if (formattedInName[formattedInName.size() - 1] == '.') {
+            formattedInName = formattedInName.substr(0, formattedInName.size() - 1);
+        }
+
+        if (formattedInName[formattedInName.size() - 1] != PATH_SEPARATOR) {
+            stringstream ss;
+            ss << formattedInName << PATH_SEPARATOR;
+            formattedInName = ss.str();
+        }
+
+        if ((formattedOutName.size() != 0) && (specialOutput == false)) {
+            if (stat(formattedOutName.c_str(), &buffer) != 0) {
+                cerr << "Output must be an existing directory (or 'NONE')" << endl;
+                return Error::ERR_OPEN_FILE;
+            }
+
+            if ((buffer.st_mode & S_IFDIR) == 0) {
+                cerr << "Output must be a directory (or 'NONE')" << endl;
+                return Error::ERR_CREATE_FILE;
+            }
+
+            if (formattedOutName[formattedOutName.size() - 1] != PATH_SEPARATOR) {
+                stringstream ss;
+                ss << formattedOutName << PATH_SEPARATOR;
+                formattedOutName = ss.str();
+            }
+        }
+    }
+    else {
+        inputIsDir = false;
+
+        if (stat(formattedOutName.c_str(), &buffer) != 0) {
+            stringstream ss;
+            ss << "Cannot access input file '" << formattedOutName << "'";
+            return Error::ERR_OPEN_FILE;
+        }
+
+        if ((buffer.st_mode & S_IFDIR) != 0) {
+            cerr << "Output must be a file (or 'NONE')" << endl;
+            return Error::ERR_CREATE_FILE;
+        }
+    }
 
     // Run the task(s)
     if (nbFiles == 1) {
+        string oName = formattedOutName;
         string iName = files[0];
-        string oName = _outputName;
 
-        if (oName.size() == 0)
-            oName = iName + ".bak";
+        if (oName.length() == 0) {
+            oName = iName + ".knz";
+        }
+        else if ((inputIsDir == true) && (specialOutput == false)) {
+            oName = formattedOutName + iName.substr(formattedInName.size() + 1) + ".knz";
+        }
 
         FileDecompressTask<FileDecompressResult> task(_verbosity, _overwrite, iName, oName, 1, _listeners);
         FileDecompressResult fdr = task.call();
@@ -171,11 +236,6 @@ int BlockDecompressor::call()
         read = fdr._read;
     }
     else {
-        if ((_outputName.length() > 0) && (outputName.compare("NONE") != 0)) {
-            cerr << "Output file cannot be provided when input is a directory (except 'NONE')" << endl;
-            return Error::ERR_CREATE_FILE;
-        }
-
         vector<FileDecompressTask<FileDecompressResult>*> tasks;
         int* jobsPerTask = new int[nbFiles];
         computeJobsPerTask(jobsPerTask, _jobs, nbFiles);
@@ -183,8 +243,15 @@ int BlockDecompressor::call()
 
         //  Create one task per file
         for (int i = 0; i < nbFiles; i++) {
+            string oName = formattedOutName;
             string iName = files[i];
-            string oName = (_outputName.length() > 0) ? "NONE" : iName + ".bak";
+
+            if (oName.length() == 0) {
+                oName = iName + ".knz";
+            }
+            else if ((inputIsDir == true) && (specialOutput == false)) {
+                oName = formattedOutName + iName.substr(formattedInName.size() + 1) + ".knz";
+            }
             FileDecompressTask<FileDecompressResult>* task = new FileDecompressTask<FileDecompressResult>(_verbosity, _overwrite, iName, oName, jobsPerTask[n++], _listeners);
             tasks.push_back(task);
         }
