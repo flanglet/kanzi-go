@@ -85,8 +85,6 @@ namespace kanzi {
        friend class FileDecompressTask<FileDecompressResult>;
 
    public:
-       static const int WARN_EMPTY_INPUT = -128;
-
        BlockDecompressor(map<string, string>& map);
 
        ~BlockDecompressor();

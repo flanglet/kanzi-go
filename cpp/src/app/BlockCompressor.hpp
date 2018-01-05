@@ -61,7 +61,6 @@ namespace kanzi {
    class FileCompressTask : public Task<T> {
    public:
        static const int DEFAULT_BUFFER_SIZE = 32768;
-       static const int WARN_EMPTY_INPUT = -128;
 
        FileCompressTask(int verbosity, bool overwrite, bool checksum,
            const string& inputName, const string& outputName, const string& codec,

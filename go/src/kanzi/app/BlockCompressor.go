@@ -30,7 +30,6 @@ import (
 const (
 	COMP_DEFAULT_BUFFER_SIZE = 32768
 	COMP_DEFAULT_BLOCK_SIZE  = 1024 * 1024
-	WARN_EMPTY_INPUT         = -128
 	COMP_DEFAULT_CONCURRENCY = 1
 	COMP_MAX_CONCURRENCY     = 32
 )
@@ -636,8 +635,9 @@ func (this *FileCompressTask) Call() (int, uint64, uint64) {
 	}
 
 	if read == 0 {
-		fmt.Println("Empty input file ... nothing to do")
-		return WARN_EMPTY_INPUT, read, cos.GetWritten()
+		msg = fmt.Sprintf("Input file %v is empty ... nothing to do", this.inputName)
+		log.Println(msg, this.verbosity > 0)
+		return 0, read, cos.GetWritten()
 	}
 
 	// Close streams to ensure all data are flushed

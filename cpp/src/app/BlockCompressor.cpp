@@ -703,8 +703,10 @@ T FileCompressTask<T>::call()
 
     if (read == 0) {
         delete[] buf;
-        cout << "Empty input file ... nothing to do" << endl;
-        return T(WARN_EMPTY_INPUT, read, _cos->getWritten());
+        ss.str(string());
+        ss << "Input file " << _inputName << " is empty ... nothing to do";
+        printOut(ss.str().c_str(), _verbosity > 0);
+        return T(0, read, _cos->getWritten());
     }
 
     clock.stop();

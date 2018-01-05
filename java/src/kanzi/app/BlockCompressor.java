@@ -635,8 +635,8 @@ public class BlockCompressor implements Runnable, Callable<Integer>
 
          if (read == 0)
          {
-            System.out.println("Empty input file ... nothing to do");
-            return new FileCompressResult(WARN_EMPTY_INPUT, read, this.cos.getWritten());
+            printOut("Input file " + this.inputName + " is empty... nothing to do", this.verbosity > 0);
+            return new FileCompressResult(0, read, this.cos.getWritten());
          }
 
          long after = System.nanoTime();
