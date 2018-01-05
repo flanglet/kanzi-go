@@ -15,9 +15,9 @@ limitations under the License.
 
 #ifndef _IOUtil_
 #define _IOUtil_
+
 #include <sys/stat.h>
 #include "../types.hpp"
-
 #include "Error.hpp"
 #include "IOException.hpp"
 

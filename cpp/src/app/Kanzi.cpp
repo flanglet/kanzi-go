@@ -19,6 +19,8 @@ limitations under the License.
 
 #include "BlockCompressor.hpp"
 #include "BlockDecompressor.hpp"
+#include "../util.hpp"
+#include "../io/Error.hpp"
 
 using namespace kanzi;
 
@@ -39,6 +41,12 @@ static const int ARG_IDX_LEVEL = 9;
 
 static const char* APP_HEADER = "Kanzi 1.3 (C) 2018,  Frederic Langlet";
 
+
+#ifdef CONCURRENCY_ENABLED
+   mutex Printer::_mtx;
+#endif
+
+
 void processCommandLine(int argc, const char* argv[], map<string, string>& map)
 {
     string inputName;
@@ -55,6 +63,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
     int ctx = -1;
     int level = -1;
     string mode = " ";
+    Printer log(&cout);
 
     for (int i = 1; i < argc; i++) {
         string arg(argv[i]);
@@ -120,9 +129,9 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
     }
 
     if (verbose >= 1) {
-        printOut("", true);
-        printOut(APP_HEADER, true);
-        printOut("", true);
+        log.println("", true);
+        log.println(APP_HEADER, true);
+        log.println("", true);
     }
 
     ctx = -1;
@@ -132,76 +141,76 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
         arg = trim(arg);
 
         if ((arg == "--help") || (arg == "-h")) {
-            printOut("", true);
-            printOut("   -h, --help", true);
-            printOut("        display this message\n", true);
-            printOut("   -v, --verbose=<level>", true);
-            printOut("        0=silent, 1=default, 2=display details, 3=display configuration,", true);
-            printOut("        4=display block size and timings, 5=display extra information", true);
-            printOut("        Verbosity is reduced to 1 when files are processed concurrently", true);
-            printOut("        Verbosity is silently reduced to 0 when the output is 'stdout'", true);
-            printOut("        (EG: The source is a directory and the number of jobs > 1).\n", true);
-            printOut("   -f, --force", true);
-            printOut("        overwrite the output file if it already exists\n", true);
-            printOut("   -i, --input=<inputName>", true);
-            printOut("        mandatory name of the input file or directory or 'stdin'", true);
-            printOut("        When the source is a directory, all files in it will be processed.", true);
+            log.println("", true);
+            log.println("   -h, --help", true);
+            log.println("        display this message\n", true);
+            log.println("   -v, --verbose=<level>", true);
+            log.println("        0=silent, 1=default, 2=display details, 3=display configuration,", true);
+            log.println("        4=display block size and timings, 5=display extra information", true);
+            log.println("        Verbosity is reduced to 1 when files are processed concurrently", true);
+            log.println("        Verbosity is silently reduced to 0 when the output is 'stdout'", true);
+            log.println("        (EG: The source is a directory and the number of jobs > 1).\n", true);
+            log.println("   -f, --force", true);
+            log.println("        overwrite the output file if it already exists\n", true);
+            log.println("   -i, --input=<inputName>", true);
+            log.println("        mandatory name of the input file or directory or 'stdin'", true);
+            log.println("        When the source is a directory, all files in it will be processed.", true);
             stringstream ss;
             ss << "        Provide " << PATH_SEPARATOR << ". at the end of the directory name to avoid recursion";
-            printOut(ss.str().c_str(), true);
+            log.println(ss.str().c_str(), true);
             ss.str(string());
             ss << "        (EG: myDir" << PATH_SEPARATOR << ". => no recursion)\n";
-            printOut(ss.str().c_str(), true);
+            log.println(ss.str().c_str(), true);
             ss.str(string());
-            printOut("   -o, --output=<outputName>", true);
+            log.println("   -o, --output=<outputName>", true);
 
             if (mode.compare(0, 1, "c") != 0) {
-                printOut("        optional name of the output file or directory (defaults to", true);
-                printOut("        <inputName.knz>) or 'none' or 'stdout'. 'stdout' is not valid", true);
-                printOut("        when the number of jobs is greater than 1.\n", true);
+                log.println("        optional name of the output file or directory (defaults to", true);
+                log.println("        <inputName.knz>) or 'none' or 'stdout'. 'stdout' is not valid", true);
+                log.println("        when the number of jobs is greater than 1.\n", true);
             }
             else if (mode.compare(0, 1, "d") != 0) {
-                printOut("        optional name of the output file or directory (defaults to", true);
-                printOut("        <inputName.knz>) or 'none' or 'stdout'. 'stdout' is not valid", true);
-                printOut("        when the number of jobs is greater than 1.\n", true);
+                log.println("        optional name of the output file or directory (defaults to", true);
+                log.println("        <inputName.knz>) or 'none' or 'stdout'. 'stdout' is not valid", true);
+                log.println("        when the number of jobs is greater than 1.\n", true);
             }
             else {
-                printOut("        optional name of the output file or 'none' or 'stdout'.\n", true);
+                log.println("        optional name of the output file or 'none' or 'stdout'.\n", true);
             }
 
             if (mode.compare(0, 1, "d") != 0) {
-                printOut("   -b, --block=<size>", true);
-                printOut("        size of blocks, multiple of 16 (default 1 MB, max 1 GB, min 1 KB).\n", true);
-                printOut("   -l, --level=<compression>", true);
-                printOut("        set the compression level [0..5]", true);
-                printOut("        Providing this option forces entropy and transform.", true);
-                printOut("        0=None&None (store), 1=TEXT+LZ4&HUFFMAN, 2=BWT+RANK+ZRLT&ANS0", true);
-                printOut("        3=BWT+RANK+ZRLT&FPAQ, 4=BWT&CM, 5=X86+RLT+TEXT&TPAQ\n", true);
-                printOut("   -e, --entropy=<codec>", true);
-                printOut("        entropy codec [None|Huffman|ANS0|ANS1|Range|PAQ|FPAQ|TPAQ|CM]", true);
-                printOut("        (default is ANS0)\n", true);
-                printOut("   -t, --transform=<codec>", true);
-                printOut("        transform [None|BWT|BWTS|SNAPPY|LZ4|RLT|ZRLT|MTFT|RANK|TEXT|X86]", true);
-                printOut("        EG: BWT+RANK or BWTS+MTFT (default is BWT+RANK+ZRLT)\n", true);
-                printOut("   -x, --checksum", true);
-                printOut("        enable block checksum\n", true);
+                log.println("   -b, --block=<size>", true);
+                log.println("        size of blocks, multiple of 16 (default 1 MB, max 1 GB, min 1 KB).\n", true);
+                log.println("   -l, --level=<compression>", true);
+                log.println("        set the compression level [0..5]", true);
+                log.println("        Providing this option forces entropy and transform.", true);
+                log.println("        0=None&None (store), 1=TEXT+LZ4&HUFFMAN, 2=BWT+RANK+ZRLT&ANS0", true);
+                log.println("        3=BWT+RANK+ZRLT&FPAQ, 4=BWT&CM, 5=X86+RLT+TEXT&TPAQ\n", true);
+                log.println("   -e, --entropy=<codec>", true);
+                log.println("        entropy codec [None|Huffman|ANS0|ANS1|Range|PAQ|FPAQ|TPAQ|CM]", true);
+                log.println("        (default is ANS0)\n", true);
+                log.println("   -t, --transform=<codec>", true);
+                log.println("        transform [None|BWT|BWTS|SNAPPY|LZ4|RLT|ZRLT|MTFT|RANK|TEXT|X86]", true);
+                log.println("        EG: BWT+RANK or BWTS+MTFT (default is BWT+RANK+ZRLT)\n", true);
+                log.println("   -x, --checksum", true);
+                log.println("        enable block checksum\n", true);
             }
 
-            printOut("   -j, --jobs=<jobs>", true);
-            printOut("        maximum number of jobs the program may start concurrently", true);
-            printOut("        (default is 1, maximum is 32).\n", true);
-            printOut("", true);
+            log.println("   -j, --jobs=<jobs>", true);
+            log.println("        maximum number of jobs the program may start concurrently", true);
+            log.println("        (default is 1, maximum is 32).\n", true);
+            log.println("", true);
 
             if (mode.compare(0, 1, "d") != 0) {
-                printOut("EG. Kanzi -c -i foo.txt -o none -b 4m -l 4 -v 3\n", true);
-                printOut("EG. Kanzi -c -i foo.txt -o foo.knz -f -t BWT+MTFT+ZRLT -b 4m -e FPAQ -v 3 -j 4\n", true);
-                printOut("EG. Kanzi --compress --input=foo.txt --output=foo.knz --force", true);
-                printOut("          --transform=BWT+MTFT+ZRLT --block=4m --entropy=FPAQ --verbose=3 --jobs=4\n", true);
+                log.println("EG. Kanzi -c -i foo.txt -o none -b 4m -l 4 -v 3\n", true);
+                log.println("EG. Kanzi -c -i foo.txt -o foo.knz -f -t BWT+MTFT+ZRLT -b 4m -e FPAQ -v 3 -j 4\n", true);
+                log.println("EG. Kanzi --compress --input=foo.txt --output=foo.knz --force", true);
+                log.println("          --transform=BWT+MTFT+ZRLT --block=4m --entropy=FPAQ --verbose=3 --jobs=4\n", true);
             }
 
             if (mode.compare(0, 1, "c") != 0) {
-                printOut("EG. Kanzi -d -i foo.knz -f -v 2 -j 2\n", true);
-                printOut("EG. Kanzi --decompress --input=foo.knz --force --verbose=2 --jobs=2\n", true);
+                log.println("EG. Kanzi -d -i foo.knz -f -v 2 -j 2\n", true);
+                log.println("EG. Kanzi --decompress --input=foo.knz --force --verbose=2 --jobs=2\n", true);
             }
 
             exit(0);
@@ -211,7 +220,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
             if (ctx != -1) {
                 stringstream ss;
                 ss << "Warning: ignoring option [" << CMD_LINE_ARGS[ctx] << "] with no value.";
-                printOut(ss.str().c_str(), verbose > 0);
+                log.println(ss.str().c_str(), verbose > 0);
             }
 
             ctx = -1;
@@ -222,7 +231,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
             if (ctx != -1) {
                 stringstream ss;
                 ss << "Warning: ignoring option [" << CMD_LINE_ARGS[ctx] << "] with no value.";
-                printOut(ss.str().c_str(), verbose > 0);
+                log.println(ss.str().c_str(), verbose > 0);
             }
 
             strOverwrite = "true";
@@ -234,7 +243,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
             if (ctx != -1) {
                 stringstream ss;
                 ss << "Warning: ignoring option [" << CMD_LINE_ARGS[ctx] << "] with no value.";
-                printOut(ss.str().c_str(), verbose > 0);
+                log.println(ss.str().c_str(), verbose > 0);
             }
 
             strChecksum = "true";
@@ -345,7 +354,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
         if ((arg.compare(0, 10, "--verbose=") != 0) && (ctx == -1) && (arg.compare(0, 9, "--output=") != 0)) {
             stringstream ss;
             ss << "Warning: ignoring unknown option [" << arg << "]";
-            printOut(ss.str().c_str(), verbose > 0);
+            log.println(ss.str().c_str(), verbose > 0);
         }
 
         ctx = -1;
@@ -359,20 +368,20 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
     if (ctx != -1) {
         stringstream ss;
         ss << "Warning: ignoring option with missing value [" << CMD_LINE_ARGS[ctx] << "]";
-        printOut(ss.str().c_str(), verbose > 0);
+        log.println(ss.str().c_str(), verbose > 0);
     }
 
     if (level >= 0) {
         if (codec.length() > 0) {
             stringstream ss;
             ss << "Warning: providing the 'level' option forces the entropy codec. Ignoring [" << codec << "]";
-            printOut(ss.str().c_str(), verbose > 0);
+            log.println(ss.str().c_str(), verbose > 0);
         }
 
         if (transf.length() > 0) {
             stringstream ss;
             ss << "Warning: providing the 'level' option forces the transform. Ignoring [" << transf << "]";
-            printOut(ss.str().c_str(), verbose > 0);
+            log.println(ss.str().c_str(), verbose > 0);
         }
     }
 

@@ -22,7 +22,6 @@ limitations under the License.
 #include "../InputStream.hpp"
 #include "../Listener.hpp"
 #include "../io/CompressedOutputStream.hpp"
-#include "../io/IOUtil.hpp"
 
 namespace kanzi {
 

@@ -25,6 +25,11 @@ limitations under the License.
 #include <iostream>
 #include <sys/stat.h>
 
+#ifdef CONCURRENCY_ENABLED
+#include <mutex>
+#endif
+
+
 using namespace std;
 
 template <typename T>::string to_string(T value)
@@ -106,31 +111,27 @@ inline bool samePaths(string& f1, string& f2)
 }
 
 
-inline void printOut(const char* msg, bool print)
+// Thread safe printer
+class Printer 
 {
-    if ((print == true) && (msg != nullptr))
-        cout << msg << endl;
-}
+   public:
+      Printer(ostream* os) { _os = os; }
+      ~Printer() {}
 
-
-
+      void println(const char* msg, bool print) {
+         if ((print == true) && (msg != nullptr)) {
 #ifdef CONCURRENCY_ENABLED
-// Thread safe ostream
-class PrintStream : public ostringstream
-{
-private:
-	static mutex _mutex;
-
-public:
-	PrintStream() {}
-
-	~PrintStream()
-	{
-		lock_guard<std::mutex> guard(_mutex);
-		cout << this->str();
-	}
-
-};
+            lock_guard<mutex> lock(_mtx);
 #endif
+            (*_os) << msg << endl;
+         }
+      }
+
+   private:
+#ifdef CONCURRENCY_ENABLED
+      static mutex _mtx;
+#endif
+      ostream* _os;
+};
 
 #endif

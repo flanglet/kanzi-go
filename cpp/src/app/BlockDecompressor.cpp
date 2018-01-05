@@ -25,11 +25,14 @@ limitations under the License.
 #include <sys/stat.h>
 #include "BlockDecompressor.hpp"
 #include "InfoPrinter.hpp"
-#include "../io/Error.hpp"
-#include "../io/IOException.hpp"
 #include "../IllegalArgumentException.hpp"
-#include "../io/NullOutputStream.hpp"
 #include "../SliceArray.hpp"
+#include "../util.hpp"
+#include "../io/IOException.hpp"
+#include "../io/IOUtil.hpp"
+#include "../io/NullOutputStream.hpp"
+#include "../io/NullOutputStream.hpp"
+
 #ifdef CONCURRENCY_ENABLED
 #include <future>
 #endif
@@ -76,10 +79,12 @@ BlockDecompressor::BlockDecompressor(map<string, string>& args)
     args.erase(it);
 
     if ((_verbosity > 0) && (args.size() > 0)) {
+        Printer log(&cout);
+
         for (it = args.begin(); it != args.end(); it++) {
             stringstream ss;
             ss << "Ignoring invalid option [" << it->first << "]";
-            printOut(ss.str().c_str(), _verbosity > 0);
+            log.println(ss.str().c_str(), _verbosity > 0);
         }
     }
 }
@@ -122,20 +127,21 @@ int BlockDecompressor::call()
     sort(files.begin(), files.end());
     int nbFiles = int(files.size());
 
+    Printer log(&cout);
     bool printFlag = _verbosity > 2;
     stringstream ss;
     string strFiles = (nbFiles > 1) ? " files" : " file";
     ss << nbFiles << strFiles << " to decompress\n";
-    printOut(ss.str().c_str(), _verbosity > 0);
+    log.println(ss.str().c_str(), _verbosity > 0);
     ss.str(string());
     ss << "Verbosity set to " << _verbosity;
-    printOut(ss.str().c_str(), printFlag);
+    log.println(ss.str().c_str(), printFlag);
     ss.str(string());
     ss << "Overwrite set to " << (_overwrite ? "true" : "false");
-    printOut(ss.str().c_str(), printFlag);
+    log.println(ss.str().c_str(), printFlag);
     ss.str(string());
     ss << "Using " << _jobs << " job" << ((_jobs > 1) ? "s" : "");
-    printOut(ss.str().c_str(), printFlag);
+    log.println(ss.str().c_str(), printFlag);
     ss.str(string());
 
     string outputName = _outputName;
@@ -148,7 +154,7 @@ int BlockDecompressor::call()
 
     // Limit verbosity level when files are processed concurrently
     if ((_jobs > 1) && (nbFiles > 1) && (_verbosity > 1)) {
-        printOut("Warning: limiting verbosity to 1 due to concurrent processing of input files.\n", _verbosity > 1);
+        log.println("Warning: limiting verbosity to 1 due to concurrent processing of input files.\n", _verbosity > 1);
         _verbosity = 1;
     }
 
@@ -162,8 +168,7 @@ int BlockDecompressor::call()
     string formattedInName = _inputName;
     string upperOutputName = _outputName;
     transform(upperOutputName.begin(), upperOutputName.end(), upperOutputName.begin(), ::toupper);
-    bool specialOutput = (upperOutputName.compare(0, 4, "NONE") == 0) ||
-       (upperOutputName.compare(0, 6, "STDOUT") == 0);
+    bool specialOutput = (upperOutputName.compare(0, 4, "NONE") == 0) || (upperOutputName.compare(0, 6, "STDOUT") == 0);
     struct stat buffer;
 
     if (stat(formattedInName.c_str(), &buffer) != 0) {
@@ -185,7 +190,7 @@ int BlockDecompressor::call()
             formattedInName = ss.str();
         }
 
-        if ((formattedInName.size( )!= 0) && (formattedInName[formattedInName.size() - 1] != PATH_SEPARATOR)) {
+        if ((formattedInName.size() != 0) && (formattedInName[formattedInName.size() - 1] != PATH_SEPARATOR)) {
             if (stat(formattedOutName.c_str(), &buffer) != 0) {
                 cerr << "Output must be an existing directory (or 'NONE')" << endl;
                 return Error::ERR_OPEN_FILE;
@@ -207,16 +212,16 @@ int BlockDecompressor::call()
         inputIsDir = false;
 
         if ((formattedOutName.size() != 0) && (specialOutput == false)) {
-           if (stat(formattedOutName.c_str(), &buffer) != 0) {
-               stringstream ss;
-               cerr << "Cannot access input file '" << formattedOutName << "'";
-               return Error::ERR_OPEN_FILE;
-           }
+            if (stat(formattedOutName.c_str(), &buffer) != 0) {
+                stringstream ss;
+                cerr << "Cannot access input file '" << formattedOutName << "'";
+                return Error::ERR_OPEN_FILE;
+            }
 
-           if ((buffer.st_mode & S_IFDIR) != 0) {
-               cerr << "Output must be a file (or 'NONE')" << endl;
-               return Error::ERR_CREATE_FILE;
-           }
+            if ((buffer.st_mode & S_IFDIR) != 0) {
+                cerr << "Output must be a file (or 'NONE')" << endl;
+                return Error::ERR_CREATE_FILE;
+            }
         }
     }
 
@@ -310,13 +315,14 @@ int BlockDecompressor::call()
     clock.stop();
 
     if (nbFiles > 1) {
+        Printer log(&cout);
         double delta = clock.elapsed();
-        printOut("", _verbosity > 0);
+        log.println("", _verbosity > 0);
         ss << "Total decoding time: " << uint64(delta) << " ms";
-        printOut(ss.str().c_str(), _verbosity > 0);
+        log.println(ss.str().c_str(), _verbosity > 0);
         ss.str(string());
         ss << "Total input size: " << read << " byte" << ((read > 1) ? "s" : "");
-        printOut(ss.str().c_str(), _verbosity > 0);
+        log.println(ss.str().c_str(), _verbosity > 0);
         ss.str(string());
     }
 
@@ -413,20 +419,21 @@ FileDecompressTask<T>::~FileDecompressTask()
 template <class T>
 T FileDecompressTask<T>::call()
 {
+    Printer log(&cout);
     bool printFlag = _verbosity > 2;
     stringstream ss;
     ss << "Input file name set to '" << _inputName << "'";
-    printOut(ss.str().c_str(), printFlag);
+    log.println(ss.str().c_str(), printFlag);
     ss.str(string());
     ss << "Output file name set to '" << _outputName << "'";
-    printOut(ss.str().c_str(), printFlag);
+    log.println(ss.str().c_str(), printFlag);
     ss.str(string());
 
     int64 read = 0;
     printFlag = _verbosity > 1;
     ss << "\nDecoding " << _inputName << " ...";
-    printOut(ss.str().c_str(), printFlag);
-    printOut("\n", _verbosity > 3);
+    log.println(ss.str().c_str(), printFlag);
+    log.println("\n", _verbosity > 3);
 
     if (_listeners.size() > 0) {
         Event evt(Event::DECOMPRESSION_START, -1, int64(0));
@@ -597,29 +604,29 @@ T FileDecompressTask<T>::call()
 
     clock.stop();
     double delta = clock.elapsed();
-    printOut("", _verbosity > 1);
+    log.println("", _verbosity > 1);
     ss.str(string());
     ss << "Decoding:          " << uint64(delta) << " ms";
-    printOut(ss.str().c_str(), printFlag);
+    log.println(ss.str().c_str(), printFlag);
     ss.str(string());
     ss << "Input size:        " << _cis->getRead();
-    printOut(ss.str().c_str(), printFlag);
+    log.println(ss.str().c_str(), printFlag);
     ss.str(string());
     ss << "Output size:       " << read;
-    printOut(ss.str().c_str(), printFlag);
+    log.println(ss.str().c_str(), printFlag);
     ss.str(string());
     ss << "Decoding " << _inputName << ": " << _cis->getRead() << " => " << read;
     ss << " bytes in " << delta << " ms";
-    printOut(ss.str().c_str(), _verbosity == 1);
+    log.println(ss.str().c_str(), _verbosity == 1);
 
     if (delta > 0) {
         double b2KB = double(1000) / double(1024);
         ss.str(string());
         ss << "Throughput (KB/s): " << uint(read * b2KB / delta);
-        printOut(ss.str().c_str(), printFlag);
+        log.println(ss.str().c_str(), printFlag);
     }
 
-    printOut("", _verbosity > 1);
+    log.println("", _verbosity > 1);
 
     if (_listeners.size() > 0) {
         Event evt(Event::DECOMPRESSION_END, -1, int64(_cis->getRead()));

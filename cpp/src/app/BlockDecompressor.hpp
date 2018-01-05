@@ -22,7 +22,6 @@ limitations under the License.
 #include "../OutputStream.hpp"
 #include "../Listener.hpp"
 #include "../io/CompressedInputStream.hpp"
-#include "../io/IOUtil.hpp"
 
 namespace kanzi {
    class FileDecompressResult {
