@@ -28,6 +28,7 @@ limitations under the License.
 #include "../IllegalArgumentException.hpp"
 #include "../SliceArray.hpp"
 #include "../util.hpp"
+#include "../Error.hpp"
 #include "../io/IOException.hpp"
 #include "../io/IOUtil.hpp"
 #include "../io/NullOutputStream.hpp"

@@ -20,6 +20,29 @@ import (
 	"unsafe"
 )
 
+const (
+	ERR_MISSING_PARAM       = 1
+	ERR_BLOCK_SIZE          = 2
+	ERR_INVALID_CODEC       = 3
+	ERR_CREATE_COMPRESSOR   = 4
+	ERR_CREATE_DECOMPRESSOR = 5
+	ERR_OUTPUT_IS_DIR       = 6
+	ERR_OVERWRITE_FILE      = 7
+	ERR_CREATE_FILE         = 8
+	ERR_CREATE_BITSTREAM    = 9
+	ERR_OPEN_FILE           = 10
+	ERR_READ_FILE           = 11
+	ERR_WRITE_FILE          = 12
+	ERR_PROCESS_BLOCK       = 13
+	ERR_CREATE_CODEC        = 14
+	ERR_INVALID_FILE        = 15
+	ERR_STREAM_VERSION      = 16
+	ERR_CREATE_STREAM       = 17
+	ERR_INVALID_PARAM       = 18
+	ERR_CRC_CHECK           = 19
+	ERR_UNKNOWN             = 127
+)
+
 // An integer function is an operation that takes an array of integers as input and
 // and turns it into another array of integers. The size of the returned array
 // is not known in advance (by the caller).
@@ -178,9 +201,9 @@ func SameByteSlices(slice1, slice2 []byte, deepCheck bool) bool {
 
 	if deepCheck == true {
 		return bytes.Equal(slice1, slice2)
-	} 
-		
-	return false	
+	}
+
+	return false
 }
 
 func IsBigEndian() bool {

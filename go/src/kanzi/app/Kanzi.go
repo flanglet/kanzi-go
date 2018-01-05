@@ -19,7 +19,7 @@ import (
 	"bufio"
 	"fmt"
 	"io/ioutil"
-	kio "kanzi/io"
+	"kanzi"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -65,7 +65,7 @@ func main() {
 		defer func() {
 			if r := recover(); r != nil {
 				fmt.Printf("An unexpected error occured during compression: %v\n", r.(error))
-				code = kio.ERR_UNKNOWN
+				code = kanzi.ERR_UNKNOWN
 			}
 
 			os.Exit(code)
@@ -75,7 +75,7 @@ func main() {
 
 		if err != nil {
 			fmt.Printf("Failed to create block compressor: %v\n", err)
-			os.Exit(kio.ERR_CREATE_COMPRESSOR)
+			os.Exit(kanzi.ERR_CREATE_COMPRESSOR)
 		}
 
 		if len(bc.CpuProf()) != 0 {
@@ -102,7 +102,7 @@ func main() {
 		defer func() {
 			if r := recover(); r != nil {
 				fmt.Printf("An unexpected error occured during decompression: %v\n", r.(error))
-				code = kio.ERR_UNKNOWN
+				code = kanzi.ERR_UNKNOWN
 			}
 
 			os.Exit(code)
@@ -112,7 +112,7 @@ func main() {
 
 		if err != nil {
 			fmt.Printf("Failed to create block decompressor: %v\n", err)
-			os.Exit(kio.ERR_CREATE_DECOMPRESSOR)
+			os.Exit(kanzi.ERR_CREATE_DECOMPRESSOR)
 		}
 
 		if len(bd.CpuProf()) != 0 {
@@ -172,7 +172,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 		if arg == "--compress" || arg == "-c" {
 			if mode == "d" {
 				fmt.Println("Both compression and decompression options were provided.")
-				os.Exit(kio.ERR_INVALID_PARAM)
+				os.Exit(kanzi.ERR_INVALID_PARAM)
 			}
 
 			mode = "c"
@@ -182,7 +182,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 		if arg == "--decompress" || arg == "-d" {
 			if mode == "c" {
 				fmt.Println("Both compression and decompression options were provided.")
-				os.Exit(kio.ERR_INVALID_PARAM)
+				os.Exit(kanzi.ERR_INVALID_PARAM)
 			}
 
 			mode = "d"
@@ -203,12 +203,12 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 
 			if verbose, err = strconv.Atoi(verboseLevel); err != nil {
 				fmt.Printf("Invalid verbosity level provided on command line: %v\n", arg)
-				os.Exit(kio.ERR_INVALID_PARAM)
+				os.Exit(kanzi.ERR_INVALID_PARAM)
 			}
 
 			if verbose < 0 || verbose > 5 {
 				fmt.Printf("Invalid verbosity level provided on command line: %v\n", arg)
-				os.Exit(kio.ERR_INVALID_PARAM)
+				os.Exit(kanzi.ERR_INVALID_PARAM)
 			}
 		} else if strings.HasPrefix(arg, "--output=") || ctx == ARG_IDX_OUTPUT {
 			if strings.HasPrefix(arg, "--output") {
@@ -408,12 +408,12 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 
 			if level, err = strconv.Atoi(str); err != nil {
 				fmt.Printf("Invalid compression level provided on command line: %v\n", arg)
-				os.Exit(kio.ERR_INVALID_PARAM)
+				os.Exit(kanzi.ERR_INVALID_PARAM)
 			}
 
 			if level < 0 || level > 5 {
 				fmt.Printf("Invalid compression level provided on command line: %v\n", arg)
-				os.Exit(kio.ERR_INVALID_PARAM)
+				os.Exit(kanzi.ERR_INVALID_PARAM)
 			}
 
 			ctx = -1
@@ -465,7 +465,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 
 			if blockSize, err = strconv.Atoi(strBlockSize); err != nil || blockSize <= 0 {
 				fmt.Printf("Invalid block size provided on command line: %v\n", strBlockSize)
-				os.Exit(kio.ERR_BLOCK_SIZE)
+				os.Exit(kanzi.ERR_BLOCK_SIZE)
 			}
 
 			blockSize = scale * blockSize
@@ -485,7 +485,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 
 			if tasks, err = strconv.Atoi(strTasks); err != nil || tasks < 1 {
 				fmt.Printf("Invalid number of jobs provided on command line: %v\n", strTasks)
-				os.Exit(kio.ERR_BLOCK_SIZE)
+				os.Exit(kanzi.ERR_BLOCK_SIZE)
 			}
 
 			ctx = -1
@@ -502,7 +502,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 
 	if inputName == "" {
 		fmt.Printf("Missing input file name, exiting ...\n")
-		os.Exit(kio.ERR_MISSING_PARAM)
+		os.Exit(kanzi.ERR_MISSING_PARAM)
 	}
 
 	if ctx != -1 {

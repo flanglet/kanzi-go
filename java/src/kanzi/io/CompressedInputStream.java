@@ -15,6 +15,7 @@ limitations under the License.
 
 package kanzi.io;
 
+import kanzi.Error;
 import kanzi.Event;
 import java.io.IOException;
 import java.io.InputStream;

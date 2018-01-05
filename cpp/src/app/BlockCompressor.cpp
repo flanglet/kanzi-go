@@ -26,6 +26,7 @@ limitations under the License.
 #include "InfoPrinter.hpp"
 #include "../util.hpp"
 #include "../SliceArray.hpp"
+#include "../Error.hpp"
 #include "../IllegalArgumentException.hpp"
 #include "../io/FunctionFactory.hpp"
 #include "../io/IOException.hpp"

@@ -19,8 +19,8 @@ limitations under the License.
 #include <string>
 #include <stdexcept>
 #include "../util.hpp"
+#include "../Error.hpp"
 #include "../Global.hpp"
-#include "Error.hpp"
 
 using namespace std;
 

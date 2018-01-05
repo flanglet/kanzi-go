@@ -17,9 +17,9 @@ limitations under the License.
 #define _IOUtil_
 
 #include <sys/stat.h>
-#include "../types.hpp"
-#include "Error.hpp"
 #include "IOException.hpp"
+#include "../types.hpp"
+#include "../Error.hpp"
 
 #ifdef _MSC_VER
 #include "../msvc_dirent.hpp"

@@ -22,7 +22,6 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,7 +66,7 @@ public class Kanzi
          catch (Exception e)
          {
             System.err.println("Could not create the compressor: "+e.getMessage());
-            System.exit(kanzi.io.Error.ERR_CREATE_COMPRESSOR);
+            System.exit(kanzi.Error.ERR_CREATE_COMPRESSOR);
          }
 
          final int code = bc.call();
@@ -89,7 +88,7 @@ public class Kanzi
          catch (Exception e)
          {
             System.err.println("Could not create the decompressor: "+e.getMessage());
-            System.exit(kanzi.io.Error.ERR_CREATE_DECOMPRESSOR);
+            System.exit(kanzi.Error.ERR_CREATE_DECOMPRESSOR);
          }
 
          final int code = bd.call();
@@ -142,7 +141,7 @@ public class Kanzi
               if (mode == 'd')
               {
                   System.err.println("Both compression and decompression options were provided.");
-                  System.exit(kanzi.io.Error.ERR_INVALID_PARAM);
+                  System.exit(kanzi.Error.ERR_INVALID_PARAM);
               }
 
               mode = 'c';
@@ -154,7 +153,7 @@ public class Kanzi
               if (mode == 'c')
               {
                   System.err.println("Both compression and decompression options were provided.");
-                  System.exit(kanzi.io.Error.ERR_INVALID_PARAM);
+                  System.exit(kanzi.Error.ERR_INVALID_PARAM);
               }
 
               mode = 'd';
@@ -175,7 +174,7 @@ public class Kanzi
                catch (NumberFormatException e)
                {
                   System.err.println("Invalid verbosity level provided on command line: "+arg);
-                  System.exit(kanzi.io.Error.ERR_INVALID_PARAM);
+                  System.exit(kanzi.Error.ERR_INVALID_PARAM);
                }
            }
            else if (arg.startsWith("--output=") || (ctx == ARG_IDX_OUTPUT))
@@ -363,13 +362,13 @@ public class Kanzi
                catch (NumberFormatException e)
                {
                   System.err.println("Invalid compression level provided on command line: "+arg);
-                  System.exit(kanzi.io.Error.ERR_INVALID_PARAM);
+                  System.exit(kanzi.Error.ERR_INVALID_PARAM);
                }
 
                if ((level < 0) || (level > 5))
                {
                   System.err.println("Invalid compression level provided on command line: "+arg);
-                  System.exit(kanzi.io.Error.ERR_INVALID_PARAM);                  
+                  System.exit(kanzi.Error.ERR_INVALID_PARAM);                  
                }
                
                ctx = -1;
@@ -409,7 +408,7 @@ public class Kanzi
               catch (NumberFormatException e)
               {
                  System.err.println("Invalid block size provided on command line: "+arg);
-                 System.exit(kanzi.io.Error.ERR_INVALID_PARAM);
+                 System.exit(kanzi.Error.ERR_INVALID_PARAM);
               }
            }
 
@@ -430,7 +429,7 @@ public class Kanzi
               catch (NumberFormatException e)
               {
                  System.err.println("Invalid number of jobs provided on command line: "+arg);
-                 System.exit(kanzi.io.Error.ERR_INVALID_PARAM);
+                 System.exit(kanzi.Error.ERR_INVALID_PARAM);
               }
            }
 
@@ -445,7 +444,7 @@ public class Kanzi
         if (inputName == null)
         {
            System.err.println("Missing input file name, exiting ...");
-           System.exit(kanzi.io.Error.ERR_MISSING_PARAM);
+           System.exit(kanzi.Error.ERR_MISSING_PARAM);
         }
 
         if (ctx != -1)

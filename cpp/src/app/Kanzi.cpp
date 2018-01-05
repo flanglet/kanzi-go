@@ -20,7 +20,7 @@ limitations under the License.
 #include "BlockCompressor.hpp"
 #include "BlockDecompressor.hpp"
 #include "../util.hpp"
-#include "../io/Error.hpp"
+#include "../Error.hpp"
 
 using namespace kanzi;
 

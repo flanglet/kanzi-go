@@ -40,7 +40,7 @@ import kanzi.Event;
 import kanzi.SliceByteArray;
 import kanzi.io.ByteFunctionFactory;
 import kanzi.io.CompressedOutputStream;
-import kanzi.io.Error;
+import kanzi.Error;
 import kanzi.io.NullOutputStream;
 import kanzi.Listener;
 

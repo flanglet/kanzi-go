@@ -155,12 +155,12 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 		}
 
 		fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err.Error())
-		return kio.ERR_OPEN_FILE, 0
+		return kanzi.ERR_OPEN_FILE, 0
 	}
 
 	if len(files) == 0 {
 		fmt.Printf("Cannot open input file '%v'\n", this.inputName)
-		return kio.ERR_OPEN_FILE, 0
+		return kanzi.ERR_OPEN_FILE, 0
 	}
 
 	files = sort.StringSlice(files)
@@ -187,7 +187,7 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 
 		if strings.ToUpper(this.outputName) == "STDOUT" {
 			fmt.Println("Cannot output to STDOUT with multiple jobs")
-			return kio.ERR_CREATE_FILE, 0
+			return kanzi.ERR_CREATE_FILE, 0
 		}
 	} else {
 		log.Println("Using 1 job", printFlag)
@@ -216,7 +216,7 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 
 	if err != nil {
 		fmt.Printf("Cannot access %v\n", formattedInName)
-		return kio.ERR_OPEN_FILE, 0
+		return kanzi.ERR_OPEN_FILE, 0
 	}
 
 	if fi.IsDir() {
@@ -235,12 +235,12 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 
 			if err != nil {
 				fmt.Println("Output must be an existing directory (or 'NONE')")
-				return kio.ERR_OPEN_FILE, 0
+				return kanzi.ERR_OPEN_FILE, 0
 			}
 
 			if !fi.IsDir() {
 				fmt.Println("Output must be a directory (or 'NONE')")
-				return kio.ERR_CREATE_FILE, 0
+				return kanzi.ERR_CREATE_FILE, 0
 			}
 
 			if formattedOutName[len(formattedOutName)-1] != os.PathSeparator {
@@ -255,12 +255,12 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 
 			if err != nil {
 				fmt.Printf("Cannot access %v\n", formattedOutName)
-				return kio.ERR_OPEN_FILE, 0
+				return kanzi.ERR_OPEN_FILE, 0
 			}
 
 			if fi.IsDir() {
 				fmt.Println("Output must be a file (or 'NONE')")
-				return kio.ERR_CREATE_FILE, 0
+				return kanzi.ERR_CREATE_FILE, 0
 			}
 		}
 	}
@@ -400,7 +400,7 @@ func (this *FileDecompressTask) Call() (int, uint64) {
 				fmt.Printf("The output file '%v' exists and the 'overwrite' command ", this.outputName)
 				fmt.Println("line option has not been provided")
 				output.Close()
-				return kio.ERR_OVERWRITE_FILE, 0
+				return kanzi.ERR_OVERWRITE_FILE, 0
 			}
 
 			path1, _ := filepath.Abs(this.inputName)
@@ -408,13 +408,13 @@ func (this *FileDecompressTask) Call() (int, uint64) {
 
 			if path1 == path2 {
 				fmt.Print("The input and output files must be different")
-				return kio.ERR_CREATE_FILE, 0
+				return kanzi.ERR_CREATE_FILE, 0
 			}
 		} else {
 			// File does not exist, create
 			if output, err = os.Create(this.outputName); err != nil {
 				fmt.Printf("Cannot open output file '%v' for writing: %v\n", this.outputName, err)
-				return kio.ERR_CREATE_FILE, 0
+				return kanzi.ERR_CREATE_FILE, 0
 			}
 		}
 	}
@@ -442,7 +442,7 @@ func (this *FileDecompressTask) Call() (int, uint64) {
 
 		if input, err = os.Open(this.inputName); err != nil {
 			fmt.Printf("Cannot open input file '%v': %v\n", this.inputName, err)
-			return kio.ERR_OPEN_FILE, uint64(read)
+			return kanzi.ERR_OPEN_FILE, uint64(read)
 		}
 
 		defer func() {
@@ -461,7 +461,7 @@ func (this *FileDecompressTask) Call() (int, uint64) {
 		}
 
 		fmt.Printf("Cannot create compressed stream: %v\n", err)
-		return kio.ERR_CREATE_DECOMPRESSOR, uint64(read)
+		return kanzi.ERR_CREATE_DECOMPRESSOR, uint64(read)
 	}
 
 	for _, bl := range this.listeners {
@@ -481,7 +481,7 @@ func (this *FileDecompressTask) Call() (int, uint64) {
 			}
 
 			fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err)
-			return kio.ERR_PROCESS_BLOCK, uint64(read)
+			return kanzi.ERR_PROCESS_BLOCK, uint64(read)
 		}
 
 		if decoded > 0 {
@@ -489,7 +489,7 @@ func (this *FileDecompressTask) Call() (int, uint64) {
 
 			if err != nil {
 				fmt.Printf("Failed to write decompressed block to file '%v': %v\n", this.outputName, err)
-				return kio.ERR_WRITE_FILE, uint64(read)
+				return kanzi.ERR_WRITE_FILE, uint64(read)
 			}
 
 			read += int64(decoded)
@@ -500,7 +500,7 @@ func (this *FileDecompressTask) Call() (int, uint64) {
 	// Deferred close is fallback for error paths
 	if err := cis.Close(); err != nil {
 		fmt.Printf("%v\n", err)
-		return kio.ERR_PROCESS_BLOCK, uint64(read)
+		return kanzi.ERR_PROCESS_BLOCK, uint64(read)
 	}
 
 	after := time.Now()

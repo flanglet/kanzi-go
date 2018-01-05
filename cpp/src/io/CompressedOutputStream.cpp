@@ -16,12 +16,13 @@ limitations under the License.
 
 #include <sstream>
 #include "CompressedOutputStream.hpp"
-#include "../bitstream/DefaultOutputBitStream.hpp"
-#include "Error.hpp"
-#include "../entropy/EntropyCodecFactory.hpp"
 #include "FunctionFactory.hpp"
-#include "../io/IOException.hpp"
+#include "IOException.hpp"
+#include "../Error.hpp"
 #include "../IllegalArgumentException.hpp"
+#include "../bitstream/DefaultOutputBitStream.hpp"
+#include "../entropy/EntropyCodecFactory.hpp"
+
 #ifdef CONCURRENCY_ENABLED
 #include <future>
 #endif
