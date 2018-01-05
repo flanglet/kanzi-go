@@ -185,7 +185,7 @@ int BlockDecompressor::call()
             formattedInName = ss.str();
         }
 
-        if ((formattedOutName.size() != 0) && (specialOutput == false)) {
+        if ((formattedInName.size( )!= 0) && (formattedInName[formattedInName.size() - 1] != PATH_SEPARATOR)) {
             if (stat(formattedOutName.c_str(), &buffer) != 0) {
                 cerr << "Output must be an existing directory (or 'NONE')" << endl;
                 return Error::ERR_OPEN_FILE;
@@ -206,15 +206,17 @@ int BlockDecompressor::call()
     else {
         inputIsDir = false;
 
-        if (stat(formattedOutName.c_str(), &buffer) != 0) {
-            stringstream ss;
-            ss << "Cannot access input file '" << formattedOutName << "'";
-            return Error::ERR_OPEN_FILE;
-        }
+        if ((formattedOutName.size() != 0) && (specialOutput == false)) {
+           if (stat(formattedOutName.c_str(), &buffer) != 0) {
+               stringstream ss;
+               cerr << "Cannot access input file '" << formattedOutName << "'";
+               return Error::ERR_OPEN_FILE;
+           }
 
-        if ((buffer.st_mode & S_IFDIR) != 0) {
-            cerr << "Output must be a file (or 'NONE')" << endl;
-            return Error::ERR_CREATE_FILE;
+           if ((buffer.st_mode & S_IFDIR) != 0) {
+               cerr << "Output must be a file (or 'NONE')" << endl;
+               return Error::ERR_CREATE_FILE;
+           }
         }
     }
 
@@ -224,10 +226,10 @@ int BlockDecompressor::call()
         string iName = files[0];
 
         if (oName.length() == 0) {
-            oName = iName + ".knz";
+            oName = iName + ".bak";
         }
         else if ((inputIsDir == true) && (specialOutput == false)) {
-            oName = formattedOutName + iName.substr(formattedInName.size() + 1) + ".knz";
+            oName = formattedOutName + iName.substr(formattedInName.size() + 1) + ".bak";
         }
 
         FileDecompressTask<FileDecompressResult> task(_verbosity, _overwrite, iName, oName, 1, _listeners);
@@ -247,10 +249,10 @@ int BlockDecompressor::call()
             string iName = files[i];
 
             if (oName.length() == 0) {
-                oName = iName + ".knz";
+                oName = iName + ".bak";
             }
             else if ((inputIsDir == true) && (specialOutput == false)) {
-                oName = formattedOutName + iName.substr(formattedInName.size() + 1) + ".knz";
+                oName = formattedOutName + iName.substr(formattedInName.size() + 1) + ".bak";
             }
             FileDecompressTask<FileDecompressResult>* task = new FileDecompressTask<FileDecompressResult>(_verbosity, _overwrite, iName, oName, jobsPerTask[n++], _listeners);
             tasks.push_back(task);

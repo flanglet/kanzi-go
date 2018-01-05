@@ -313,7 +313,7 @@ func (this *BlockCompressor) Call() (int, uint64) {
 			formattedInName = formattedInName + string([]byte{os.PathSeparator})
 		}
 
-		if !specialOutput && len(formattedOutName) > 0 {
+		if len(formattedOutName) > 0 && specialOutput == false {
 			fi, err = os.Stat(formattedOutName)
 
 			if err != nil {
@@ -333,7 +333,7 @@ func (this *BlockCompressor) Call() (int, uint64) {
 	} else {
 		inputIsDir = false
 
-		if !specialOutput && len(formattedOutName) > 0 {
+		if len(formattedOutName) > 0 && specialOutput == false {
 			fi, err = os.Stat(formattedOutName)
 
 			if err != nil {
@@ -353,7 +353,7 @@ func (this *BlockCompressor) Call() (int, uint64) {
 		iName := files[0]
 
 		if len(oName) == 0 {
-			this.outputName = iName + ".knz"
+			oName = iName + ".knz"
 		} else {
 			oName = formattedOutName + iName[len(formattedInName):] + ".knz"
 		}

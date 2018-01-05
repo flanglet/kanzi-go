@@ -230,7 +230,7 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 			formattedInName = formattedInName + string([]byte{os.PathSeparator})
 		}
 
-		if !specialOutput {
+		if len(formattedOutName) > 0 && specialOutput == false {
 			fi, err = os.Stat(formattedOutName)
 
 			if err != nil {
@@ -250,7 +250,7 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 	} else {
 		inputIsDir = false
 
-		if !specialOutput {
+		if len(formattedOutName) > 0 && specialOutput == false {
 			fi, err = os.Stat(formattedOutName)
 
 			if err != nil {
@@ -270,7 +270,7 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 		iName := files[0]
 
 		if len(oName) == 0 {
-			this.outputName = iName + ".bak"
+			oName = iName + ".bak"
 		} else {
 			oName = formattedOutName + iName[len(formattedInName):] + ".bak"
 		}

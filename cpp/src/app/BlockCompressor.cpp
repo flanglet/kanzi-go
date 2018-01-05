@@ -263,7 +263,7 @@ int BlockCompressor::call()
             formattedInName = formattedInName.substr(0, formattedInName.size() - 1);
         }
 
-        if (formattedInName[formattedInName.size() - 1] != PATH_SEPARATOR) {
+        if ((formattedInName.size( )!= 0) && (formattedInName[formattedInName.size() - 1] != PATH_SEPARATOR)) {
             stringstream ss;
             ss << formattedInName << PATH_SEPARATOR;
             formattedInName = ss.str();
@@ -290,15 +290,17 @@ int BlockCompressor::call()
     else {
         inputIsDir = false;
 
-        if (stat(formattedOutName.c_str(), &buffer) != 0) {
-            stringstream ss;
-            ss << "Cannot access input file '" << formattedOutName << "'";
-            return Error::ERR_OPEN_FILE;
-        }
+        if ((formattedOutName.size() != 0) && (specialOutput == false)) {
+           if (stat(formattedOutName.c_str(), &buffer) != 0) {
+               stringstream ss;
+               cerr << "Cannot access input file '" << formattedOutName << "'";
+               return Error::ERR_OPEN_FILE;
+           }
 
-        if ((buffer.st_mode & S_IFDIR) != 0) {
-            cerr << "Output must be a file (or 'NONE')" << endl;
-            return Error::ERR_CREATE_FILE;
+           if ((buffer.st_mode & S_IFDIR) != 0) {
+               cerr << "Output must be a file (or 'NONE')" << endl;
+               return Error::ERR_CREATE_FILE;
+           }
         }
     }
 
