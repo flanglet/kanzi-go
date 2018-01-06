@@ -480,7 +480,7 @@ T FileDecompressTask<T>::call()
                 if (_overwrite == true) {
                     // Attempt to create the full folder hierarchy to file
                     string parentDir = _outputName;
-                    uint idx = _outputName.find_last_of(PATH_SEPARATOR);
+                    size_t idx = _outputName.find_last_of(PATH_SEPARATOR);
 
                     if (idx != string::npos) {
                         parentDir = parentDir.substr(0, idx);
