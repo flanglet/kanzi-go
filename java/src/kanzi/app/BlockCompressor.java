@@ -527,8 +527,27 @@ public class BlockCompressor implements Runnable, Callable<Integer>
                      return new FileCompressResult(Error.ERR_CREATE_FILE, 0, 0); 
                   }
                }
-
-               os = new FileOutputStream(output);
+             
+               try
+               {
+                  os = new FileOutputStream(output);
+               }
+               catch (IOException e1)
+               {
+                  if (this.overwrite == false)
+                     throw e1;
+                  
+                  try 
+                  {
+                     // Attempt to create the full folder hierarchy to file
+                     Files.createDirectories(FileSystems.getDefault().getPath(this.outputName).getParent());
+                     os = new FileOutputStream(output);
+                  } 
+                  catch (IOException e2)
+                  {
+                     throw e1;
+                  }
+               }
             }
 
             try

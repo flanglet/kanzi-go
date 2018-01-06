@@ -16,7 +16,9 @@ limitations under the License.
 #ifndef _IOUtil_
 #define _IOUtil_
 
+#include <errno.h>
 #include <sys/stat.h>
+#include <direct.h>
 #include "IOException.hpp"
 #include "../types.hpp"
 #include "../Error.hpp"
@@ -27,10 +29,9 @@ limitations under the License.
 #include <dirent.h>
 #endif
 
-
 using namespace std;
 
-static inline void createFileList(string target, vector<string>& files) THROW
+static void createFileList(string& target, vector<string>& files) THROW
 {
     struct stat buffer;
 
@@ -102,6 +103,29 @@ static inline void createFileList(string target, vector<string>& files) THROW
         ss << "Cannot read directory '" << target << "'";
         throw IOException(ss.str(), Error::ERR_READ_FILE);
     }
+}
+
+
+static int mkdirAll(const string& path) {
+    errno = 0;
+
+    for (uint i=0; i<path.size(); i++) {
+        if (path[i] == PATH_SEPARATOR) {
+            string curPath = path.substr(0, i);
+
+            if (_mkdir(curPath.c_str()) != 0) {
+                if (errno != EEXIST)
+                    return -1; 
+            }
+        }
+    }   
+
+    if (_mkdir(path.c_str()) != 0) {
+        if (errno != EEXIST)
+            return -1; 
+    }   
+
+    return 0;
 }
 
 #endif

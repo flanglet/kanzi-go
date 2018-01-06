@@ -172,9 +172,17 @@ int BlockDecompressor::call()
     bool specialOutput = (upperOutputName.compare(0, 4, "NONE") == 0) || (upperOutputName.compare(0, 6, "STDOUT") == 0);
     struct stat buffer;
 
+    // Need to strip path separator at the end to make 'stat()' happy
+    if (formattedInName[formattedInName.size() - 1] == PATH_SEPARATOR) {
+        formattedInName = formattedInName.substr(0, formattedInName.size() - 1);
+    }
+
+    if (formattedOutName[formattedOutName.size() - 1] == PATH_SEPARATOR) {
+        formattedOutName = formattedOutName.substr(0, formattedOutName.size() - 1);
+    }
+    
     if (stat(formattedInName.c_str(), &buffer) != 0) {
-        stringstream ss;
-        ss << "Cannot access input file '" << formattedInName << "'";
+        cerr << "Cannot access input file '" << formattedInName << "'";
         return Error::ERR_OPEN_FILE;
     }
 
@@ -185,10 +193,8 @@ int BlockDecompressor::call()
             formattedInName = formattedInName.substr(0, formattedInName.size() - 1);
         }
 
-        if (formattedInName[formattedInName.size() - 1] != PATH_SEPARATOR) {
-            stringstream ss;
-            ss << formattedInName << PATH_SEPARATOR;
-            formattedInName = ss.str();
+        if ((formattedInName.size() != 0) && (formattedInName[formattedInName.size() - 1] != PATH_SEPARATOR)) {
+            formattedInName += PATH_SEPARATOR;
         }
 
         if ((formattedInName.size() != 0) && (formattedInName[formattedInName.size() - 1] != PATH_SEPARATOR)) {
@@ -202,11 +208,7 @@ int BlockDecompressor::call()
                 return Error::ERR_CREATE_FILE;
             }
 
-            if (formattedOutName[formattedOutName.size() - 1] != PATH_SEPARATOR) {
-                stringstream ss;
-                ss << formattedOutName << PATH_SEPARATOR;
-                formattedOutName = ss.str();
-            }
+            formattedOutName += PATH_SEPARATOR;
         }
     }
     else {
@@ -475,8 +477,25 @@ T FileDecompressTask<T>::call()
             _os = new ofstream(_outputName.c_str(), ofstream::binary);
 
             if (!*_os) {
-                cerr << "Cannot open output file '" << _outputName + "' for writing." << endl;
-                return T(Error::ERR_CREATE_FILE, 0);
+                if (_overwrite == true) {
+                    // Attempt to create the full folder hierarchy to file
+                    string parentDir = _outputName;
+                    uint idx = _outputName.find_last_of(PATH_SEPARATOR);
+
+                    if (idx != string::npos) {
+                        parentDir = parentDir.substr(0, idx);
+                    }
+
+                    // Attempt to create the full folder hierarchy to file
+                    if (mkdirAll(parentDir) == 0) {
+                        _os = new ofstream(_outputName.c_str(), ofstream::binary);
+                    }
+                }
+
+                if (!*_os) {
+                    cerr << "Cannot open output file '" << _outputName << "' for writing." << endl;
+                    return T(Error::ERR_CREATE_FILE, 0);
+                }
             }
         }
         catch (exception& e) {

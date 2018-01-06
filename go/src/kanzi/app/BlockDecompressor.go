@@ -21,6 +21,7 @@ import (
 	"kanzi"
 	kio "kanzi/io"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -411,10 +412,20 @@ func (this *FileDecompressTask) Call() (int, uint64) {
 				return kanzi.ERR_CREATE_FILE, 0
 			}
 		} else {
-			// File does not exist, create
-			if output, err = os.Create(this.outputName); err != nil {
-				fmt.Printf("Cannot open output file '%v' for writing: %v\n", this.outputName, err)
-				return kanzi.ERR_CREATE_FILE, 0
+			output, err = os.Create(this.outputName)
+
+			if err != nil {
+				if this.overwrite {
+					// Attempt to create the full folder hierarchy to file
+					if err = os.MkdirAll(path.Dir(strings.Replace(this.outputName, "\\", "/", -1)), os.ModePerm); err == nil {
+						output, err = os.Create(this.outputName)
+					}
+				}
+
+				if err != nil {
+					fmt.Printf("Cannot open output file '%v' for writing: %v\n", this.outputName, err)
+					return kanzi.ERR_CREATE_FILE, 0
+				}
 			}
 		}
 	}

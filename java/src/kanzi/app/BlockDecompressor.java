@@ -439,20 +439,29 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
                      return new FileDecompressResult(Error.ERR_CREATE_FILE, 0);
                   }
                }
+               
+               try
+               {
+                  this.os = new FileOutputStream(output);
+               }
+               catch (IOException e1)
+               {
+                  if (this.overwrite == false)
+                     throw e1;
+                  
+                  try 
+                  {
+                     // Attempt to create the full folder hierarchy to file
+                     Files.createDirectories(FileSystems.getDefault().getPath(this.outputName).getParent());
+                     this.os = new FileOutputStream(output);
+                  } 
+                  catch (IOException e2)
+                  {
+                     throw e1;
+                  }
+               }               
             }
             catch (Exception e)
-            {
-               System.err.println("Cannot open output file '"+ this.outputName+"' for writing: " + e.getMessage());
-               return new FileDecompressResult(Error.ERR_CREATE_FILE, 0);
-            }
-
-            try
-            {
-               // Create output stream (note: it creates the file yielding file.exists()
-               // to return true so it must be called after the check).
-               this.os = new FileOutputStream(this.outputName);
-            }
-            catch (IOException e)
             {
                System.err.println("Cannot open output file '"+ this.outputName+"' for writing: " + e.getMessage());
                return new FileDecompressResult(Error.ERR_CREATE_FILE, 0);
