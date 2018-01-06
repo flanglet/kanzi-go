@@ -18,13 +18,13 @@ limitations under the License.
 
 #include <errno.h>
 #include <sys/stat.h>
-#include <direct.h>
 #include "IOException.hpp"
 #include "../types.hpp"
 #include "../Error.hpp"
 
 #ifdef _MSC_VER
 #include "../msvc_dirent.hpp"
+#include <direct.h>
 #else
 #include <dirent.h>
 #endif
@@ -109,18 +109,27 @@ static void createFileList(string& target, vector<string>& files) THROW
 static int mkdirAll(const string& path) {
     errno = 0;
 
-    for (uint i=0; i<path.size(); i++) {
+    // Scan path, ignoring potential PATH_SEPARATOR at position 0
+    for (uint i=1; i<path.size(); i++) {
         if (path[i] == PATH_SEPARATOR) {
             string curPath = path.substr(0, i);
 
+#ifdef _MSC_VER
             if (_mkdir(curPath.c_str()) != 0) {
+#else
+            if (mkdir(curPath.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) != 0) {
+#endif
                 if (errno != EEXIST)
                     return -1; 
             }
         }
-    }   
+    } 
 
+#ifdef _MSC_VER
     if (_mkdir(path.c_str()) != 0) {
+#else
+    if (mkdir(path.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) != 0) {
+#endif
         if (errno != EEXIST)
             return -1; 
     }   

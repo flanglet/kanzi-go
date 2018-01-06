@@ -321,7 +321,7 @@ int BlockCompressor::call()
             oName = iName + ".knz";
         }
         else if ((inputIsDir == true) && (specialOutput == false)) {
-            oName = formattedOutName + iName.substr(formattedInName.size() + 1) + ".knz";
+            oName = formattedOutName + iName.substr(formattedInName.size()) + ".knz";
         }
 
         FileCompressTask<FileCompressResult> task(_verbosity,

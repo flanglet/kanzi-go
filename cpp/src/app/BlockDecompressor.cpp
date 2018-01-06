@@ -237,7 +237,7 @@ int BlockDecompressor::call()
             oName = iName + ".bak";
         }
         else if ((inputIsDir == true) && (specialOutput == false)) {
-            oName = formattedOutName + iName.substr(formattedInName.size() + 1) + ".bak";
+            oName = formattedOutName + iName.substr(formattedInName.size()) + ".bak";
         }
 
         FileDecompressTask<FileDecompressResult> task(_verbosity, _overwrite, iName, oName, 1, _listeners);
