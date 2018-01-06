@@ -346,7 +346,7 @@ int BlockCompressor::call()
                 oName = iName + ".knz";
             }
             else if ((inputIsDir == true) && (specialOutput == false)) {
-                oName = formattedOutName + iName.substr(formattedInName.size() + 1) + ".knz";
+                oName = formattedOutName + iName.substr(formattedInName.size()) + ".knz";
             }
 
             FileCompressTask<FileCompressResult>* task = new FileCompressTask<FileCompressResult>(_verbosity, _overwrite, _checksum,
@@ -577,7 +577,7 @@ T FileCompressTask<T>::call()
                 }
 
                 if (_overwrite == false) {
-                    cerr << "The output file exists and the 'force' command "
+                    cerr << "File '" << _outputName << "' exists and the 'force' command "
                          << "line option has not been provided" << endl;
                     return T(Error::ERR_OVERWRITE_FILE, 0, 0);
                 }
@@ -586,7 +586,7 @@ T FileCompressTask<T>::call()
             os = new ofstream(_outputName.c_str(), ofstream::binary);
 
             if (!*os) {
-                cerr << "Cannot open output file '" << _outputName + "' for writing: " << endl;
+                cerr << "Cannot open output file '" << _outputName + "' for writing." << endl;
                 return T(Error::ERR_CREATE_FILE, 0, 0);
             }
         }

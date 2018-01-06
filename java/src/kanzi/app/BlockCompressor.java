@@ -513,8 +513,8 @@ public class BlockCompressor implements Runnable, Callable<Integer>
 
                   if (this.overwrite == false)
                   {
-                     System.err.println("The output file exists and the 'overwrite' command "
-                             + "line option has not been provided");
+                     System.err.println("File '" + this.outputName + "' exists and " +
+                        "the 'force' command line option has not been provided");
                      return new FileCompressResult(Error.ERR_OVERWRITE_FILE, 0, 0);
                   }
 

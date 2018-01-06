@@ -526,7 +526,7 @@ func (this *FileCompressTask) Call() (int, uint64, uint64) {
 			output.Close()
 
 			if this.overwrite == false {
-				fmt.Print("The output file exists and the 'force' command ")
+				fmt.Printf("File '%v' exists and the 'force' command ", this.outputName)
 				fmt.Println("line option has not been provided")
 				return kanzi.ERR_OVERWRITE_FILE, 0, 0
 			}

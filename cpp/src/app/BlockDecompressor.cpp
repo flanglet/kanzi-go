@@ -258,7 +258,7 @@ int BlockDecompressor::call()
                 oName = iName + ".bak";
             }
             else if ((inputIsDir == true) && (specialOutput == false)) {
-                oName = formattedOutName + iName.substr(formattedInName.size() + 1) + ".bak";
+                oName = formattedOutName + iName.substr(formattedInName.size()) + ".bak";
             }
             FileDecompressTask<FileDecompressResult>* task = new FileDecompressTask<FileDecompressResult>(_verbosity, _overwrite, iName, oName, jobsPerTask[n++], _listeners);
             tasks.push_back(task);
@@ -466,7 +466,7 @@ T FileDecompressTask<T>::call()
                 }
 
                 if (_overwrite == false) {
-                    cerr << "The output file exists and the 'force' command "
+                    cerr << "File '" << _outputName << "' exists and the 'force' command "
                          << "line option has not been provided" << endl;
                     return T(Error::ERR_OVERWRITE_FILE, 0);
                 }
@@ -475,7 +475,7 @@ T FileDecompressTask<T>::call()
             _os = new ofstream(_outputName.c_str(), ofstream::binary);
 
             if (!*_os) {
-                cerr << "Cannot open output file '" << _outputName + "' for writing: " << endl;
+                cerr << "Cannot open output file '" << _outputName + "' for writing." << endl;
                 return T(Error::ERR_CREATE_FILE, 0);
             }
         }

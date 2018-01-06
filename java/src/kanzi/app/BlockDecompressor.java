@@ -425,8 +425,8 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
 
                   if (this.overwrite == false)
                   {
-                     System.err.println("The output file exists and the 'force' command "
-                             + "line option has not been provided");
+                     System.err.println("File '" + this.outputName + "' exists and " +
+                        "the 'force' command line option has not been provided");
                      return new FileDecompressResult(Error.ERR_OVERWRITE_FILE, 0);
                   }
 

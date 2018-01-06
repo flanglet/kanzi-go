@@ -397,7 +397,7 @@ func (this *FileDecompressTask) Call() (int, uint64) {
 		if output, err = os.OpenFile(this.outputName, os.O_RDWR, 0666); err == nil {
 			// File exists
 			if this.overwrite == false {
-				fmt.Printf("The output file '%v' exists and the 'overwrite' command ", this.outputName)
+				fmt.Printf("File '%v' exists and the 'overwrite' command ", this.outputName)
 				fmt.Println("line option has not been provided")
 				output.Close()
 				return kanzi.ERR_OVERWRITE_FILE, 0
