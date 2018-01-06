@@ -173,11 +173,11 @@ int BlockDecompressor::call()
     struct stat buffer;
 
     // Need to strip path separator at the end to make 'stat()' happy
-    if (formattedInName[formattedInName.size() - 1] == PATH_SEPARATOR) {
+    if ((formattedInName.size() != 0) && (formattedInName[formattedInName.size() - 1] == PATH_SEPARATOR)) {
         formattedInName = formattedInName.substr(0, formattedInName.size() - 1);
     }
 
-    if (formattedOutName[formattedOutName.size() - 1] == PATH_SEPARATOR) {
+    if ((formattedOutName.size() != 0) && (formattedOutName[formattedOutName.size() - 1] == PATH_SEPARATOR)) {
         formattedOutName = formattedOutName.substr(0, formattedOutName.size() - 1);
     }
     
