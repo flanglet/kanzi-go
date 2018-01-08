@@ -254,12 +254,7 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 		if len(formattedOutName) > 0 && specialOutput == false {
 			fi, err = os.Stat(formattedOutName)
 
-			if err != nil {
-				fmt.Printf("Cannot access %v\n", formattedOutName)
-				return kanzi.ERR_OPEN_FILE, 0
-			}
-
-			if fi.IsDir() {
+			if err == nil && fi.IsDir() {
 				fmt.Println("Output must be a file (or 'NONE')")
 				return kanzi.ERR_CREATE_FILE, 0
 			}

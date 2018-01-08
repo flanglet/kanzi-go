@@ -266,7 +266,7 @@ int BlockCompressor::call()
     }
 
     if (stat(formattedInName.c_str(), &buffer) != 0) {
-        cerr << "Cannot access input file '" << formattedInName << "'";
+        cerr << "Cannot access input file '" << formattedInName << "'" << endl;
         return Error::ERR_OPEN_FILE;
     }
 
@@ -299,13 +299,7 @@ int BlockCompressor::call()
         inputIsDir = false;
 
         if ((formattedOutName.size() != 0) && (specialOutput == false)) {
-            if (stat(formattedOutName.c_str(), &buffer) != 0) {
-                stringstream ss;
-                cerr << "Cannot access input file '" << formattedOutName << "'";
-                return Error::ERR_OPEN_FILE;
-            }
-
-            if ((buffer.st_mode & S_IFDIR) != 0) {
+            if ((stat(formattedOutName.c_str(), &buffer) != 0) && ((buffer.st_mode & S_IFDIR) != 0)) {
                 cerr << "Output must be a file (or 'NONE')" << endl;
                 return Error::ERR_CREATE_FILE;
             }
