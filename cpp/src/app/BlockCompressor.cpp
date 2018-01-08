@@ -599,7 +599,6 @@ T FileCompressTask<T>::call()
                         parentDir = parentDir.substr(0, idx);
                     }
 
-                    // Attempt to create the full folder hierarchy to file
                     if (mkdirAll(parentDir) == 0) {
                         os = new ofstream(_outputName.c_str(), ofstream::binary);
                     }
