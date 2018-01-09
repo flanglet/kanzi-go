@@ -343,14 +343,6 @@ public class CompressedInputStream extends InputStream
          // Add a padding area to manage any block with header (of size <= EXTRA_BUFFER_SIZE)
          final int blkSize = this.blockSize + EXTRA_BUFFER_SIZE;
 
-         if (this.sa.length < this.jobs*this.blockSize)
-         {
-			   this.sa.length = this.jobs * this.blockSize;
-
-			   if (this.sa.array.length < this.sa.length)
-                this.sa.array = new byte[this.sa.length];
-         }
-
 		   // Protect against future concurrent modification of the list of block listeners
          Listener[] blockListeners = this.listeners.toArray(new Listener[this.listeners.size()]);
          int decoded = 0;
@@ -378,13 +370,14 @@ public class CompressedInputStream extends InputStream
             tasks.add(task);            
          }
 
-         Status[] results = new Status[tasks.size()];
+         List<Status> results = new ArrayList<>(tasks.size());
 
          if (tasks.size() == 1)
          {
             // Synchronous call
             Status status = tasks.get(0).call();
-            results[0] = status;
+            results.add(status);
+            decoded += status.decoded;
 
             if (status.error != 0)
                throw new kanzi.io.IOException(status.msg, status.error);
@@ -395,19 +388,29 @@ public class CompressedInputStream extends InputStream
             for (Future<Status> result : this.pool.invokeAll(tasks))
             {
                Status status = result.get();
-               results[status.blockId-firstBlockId-1] = status;
+               results.add(status);
+               decoded += status.decoded;
 
                if (status.error != 0)
                   throw new kanzi.io.IOException(status.msg, status.error);
             }
          }
 
+         final int size = this.sa.index + decoded;
+            
+         if (size > this.jobs*this.blockSize)
+            throw new kanzi.io.IOException("Invalid data", Error.ERR_PROCESS_BLOCK);
+         
+         this.sa.length = size;
+
+         if (this.sa.array.length < this.sa.length)
+             this.sa.array = new byte[this.sa.length];
+         
          for (Status res : results)
          {                           
             System.arraycopy(res.data, 0, this.sa.array, this.sa.index, res.decoded);
             this.sa.index += res.decoded;
-            decoded += res.decoded;      
-            
+                       
             if (blockListeners.length > 0)
             {
                // Notify after transform ... in block order !

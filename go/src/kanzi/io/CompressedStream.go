@@ -747,7 +747,7 @@ func (this *CompressedInputStream) readHeader() error {
 	}
 
 	if uint64(this.blockSize)*uint64(this.jobs) >= uint64(1<<31) {
-		this.jobs = int(uint(1 << 31) / this.blockSize)
+		this.jobs = int(uint(1<<31) / this.blockSize)
 	}
 
 	// Read reserved bits
@@ -871,10 +871,6 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 
 	blkSize := int(this.blockSize)
 
-	if len(this.data) < this.jobs*blkSize {
-		this.data = make([]byte, this.jobs*blkSize)
-	}
-
 	// Add a padding area to manage any block with header (of size <= EXTRA_BUFFER_SIZE)
 	blkSize += EXTRA_BUFFER_SIZE
 
@@ -934,30 +930,36 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 
 		// Order the results based on block ID
 		results[res.blockId-this.blockId-1] = res
+		decoded += res.decoded
+
+		if res.err != nil {
+			return decoded, res.err
+		}
+	}
+
+	if decoded > this.jobs*int(this.blockSize) {
+		return decoded, NewIOError("Invalid data", kanzi.ERR_PROCESS_BLOCK)
+	}
+
+	if len(this.data) < decoded {
+		this.data = make([]byte, decoded)
 	}
 
 	// Process results
 	for _, res := range results {
-		if res.err != nil {
-			if err == nil {
-				// Keep first error encountered
-				err = res.err
-			}
-		} else {
-			copy(this.data[offset:], res.data[0:res.decoded])
-			offset += res.decoded
-			decoded += res.decoded
+		copy(this.data[offset:], res.data[0:res.decoded])
+		offset += res.decoded
 
-			if len(listeners) > 0 {
-				// Notify after transform ... in block order !
-				evt := kanzi.NewEvent(kanzi.EVT_AFTER_TRANSFORM, res.blockId,
-					int64(res.decoded), res.checksum, this.hasher != nil)
-				notifyListeners(listeners, evt)
-			}
+		if len(listeners) > 0 {
+			// Notify after transform ... in block order !
+			evt := kanzi.NewEvent(kanzi.EVT_AFTER_TRANSFORM, res.blockId,
+				int64(res.decoded), res.checksum, this.hasher != nil)
+			notifyListeners(listeners, evt)
+		}
 
-			if res.decoded == 0 {
-				this.readLastBlock = true
-			}
+		if res.decoded == 0 {
+			this.readLastBlock = true
+			break
 		}
 	}
 

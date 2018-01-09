@@ -1,5 +1,3 @@
-
-
 /*
 Copyright 2011-2017 Frederic Langlet
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -47,7 +45,7 @@ CompressedInputStream::CompressedInputStream(InputStream& is, map<string, string
         throw IllegalArgumentException(ss.str());
     }
 #else
-    if (tasks > 1)
+    if ((tasks <= 0) || (tasks > 1))
         throw IllegalArgumentException("The number of jobs is limited to 1 in this version");
 #endif
 
@@ -136,8 +134,8 @@ void CompressedInputStream::readHeader() THROW
     }
 
 #ifdef CONCURRENCY_ENABLED
-    if (uint64(_blockSize) * uint64(_jobs) >= uint64(1 << 31)) 
-       _jobs = (1<<31) / _blockSize;
+    if (uint64(_blockSize) * uint64(_jobs) >= uint64(1 << 31))
+        _jobs = (1 << 31) / _blockSize;
 #endif
 
     // Read reserved bits
@@ -318,12 +316,6 @@ int CompressedInputStream::processBlock() THROW
         // Add a padding area to manage any block with header (of size <= EXTRA_BUFFER_SIZE)
         const int blkSize = _blockSize + EXTRA_BUFFER_SIZE;
 
-        if (_sa->_length < _jobs * blkSize) {
-            _sa->_length = _jobs * blkSize;
-            delete[] _sa->_array;
-            _sa->_array = new byte[_sa->_length];
-        }
-
         // Protect against future concurrent modification of the list of block listeners
         vector<Listener*> blockListeners(_listeners);
         int decoded = 0;
@@ -354,15 +346,24 @@ int CompressedInputStream::processBlock() THROW
             DecodingTask<DecodingTaskResult>* task = tasks.back();
             tasks.pop_back();
             DecodingTaskResult res = task->call();
-            int err = res._error;
-            string msg = res._msg;
 
-            if (err != 0)
-                throw IOException(msg, err);
+            if (res._error != 0)
+                throw IOException(res._msg, res._error); // deallocate in catch block
+
+            decoded += res._decoded;
+            const int size = _sa->_index + decoded;
+
+            if (size > _jobs * _blockSize)
+                throw IOException("Invalid data", Error::ERR_PROCESS_BLOCK); // deallocate in catch code
+
+            if (_sa->_length < size) {
+                _sa->_length = size;
+                delete[] _sa->_array;
+                _sa->_array = new byte[_sa->_length];
+            }
 
             memcpy(&_sa->_array[_sa->_index], &res._data[0], res._decoded);
             _sa->_index += res._decoded;
-            decoded += res._decoded;
 
             if (blockListeners.size() > 0) {
                 // Notify after transform ... in block order !
@@ -375,6 +376,7 @@ int CompressedInputStream::processBlock() THROW
 #ifdef CONCURRENCY_ENABLED
         else {
             vector<future<DecodingTaskResult> > results;
+            vector<DecodingTaskResult> sortedResults(tasks.size());
 
             // Register task futures and launch tasks in parallel
             for (uint i = 0; i < tasks.size(); i++) {
@@ -382,17 +384,29 @@ int CompressedInputStream::processBlock() THROW
             }
 
             // Wait for tasks completion and check results
-            for (uint i = 0; i < tasks.size(); i++) {
+            for (uint i = 0; i < results.size(); i++) {
+                DecodingTaskResult status = results[i].get();
+                decoded += status._decoded;
+
+                if (status._error != 0)
+                   throw IOException(status._msg, status._error); // deallocate in catch block
+            }
+
+            const int size = _sa->_index + decoded;
+
+            if (size > _jobs * _blockSize)
+                throw IOException("Invalid data", Error::ERR_PROCESS_BLOCK); // deallocate in catch code
+
+            if (_sa->_length < size) {
+                _sa->_length = size;
+                delete[] _sa->_array;
+                _sa->_array = new byte[_sa->_length];
+            }
+
+            for (uint i = 0; i < results.size(); i++) {
                 DecodingTaskResult res = results[i].get();
-                int err = res._error;
-                string msg = res._msg;
-
-                if (err != 0)
-                    throw IOException(msg, err);
-
                 memcpy(&_sa->_array[_sa->_index], &res._data[0], res._decoded);
                 _sa->_index += res._decoded;
-                decoded += res._decoded;
 
                 if (blockListeners.size() > 0) {
                     // Notify after transform ... in block order !
@@ -404,7 +418,6 @@ int CompressedInputStream::processBlock() THROW
             }
         }
 #endif
-
         for (vector<DecodingTask<DecodingTaskResult>*>::iterator it = tasks.begin(); it != tasks.end(); it++)
             delete *it;
 

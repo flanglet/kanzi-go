@@ -234,7 +234,7 @@ int BlockDecompressor::call()
             oName = formattedOutName + iName.substr(formattedInName.size()) + ".bak";
         }
 
-        FileDecompressTask<FileDecompressResult> task(_verbosity, _overwrite, iName, oName, 1, _listeners);
+        FileDecompressTask<FileDecompressResult> task(_verbosity, _overwrite, iName, oName, _jobs, _listeners);
         FileDecompressResult fdr = task.call();
         res = fdr._code;
         read = fdr._read;

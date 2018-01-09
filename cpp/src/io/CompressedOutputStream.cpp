@@ -1,4 +1,3 @@
-
 /*
 Copyright 2011-2017 Frederic Langlet
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,13 +42,13 @@ CompressedOutputStream::CompressedOutputStream(OutputStream& os, map<string, str
     int tasks = atoi(it->second.c_str());
 
 #ifdef CONCURRENCY_ENABLED
-    if ((tasks <= 0) || (tasks > MAX_CONCURRENCY)) { 
+    if ((tasks <= 0) || (tasks > MAX_CONCURRENCY)) {
         stringstream ss;
         ss << "The number of jobs must be in [1.." << MAX_CONCURRENCY << "]";
         throw IllegalArgumentException(ss.str());
     }
 #else
-    if (tasks > 1)
+    if ((tasks <= 0) || (tasks > 1))
         throw IllegalArgumentException("The number of jobs is limited to 1 in this version");
 #endif
 
@@ -72,8 +71,8 @@ CompressedOutputStream::CompressedOutputStream(OutputStream& os, map<string, str
         throw IllegalArgumentException("The block size must be a multiple of 16");
 
 #ifdef CONCURRENCY_ENABLED
-    if (uint64(bSize) * uint64(tasks) >= uint64(1 << 31)) 
-       tasks = (1<<31) / bSize;
+    if (uint64(bSize) * uint64(tasks) >= uint64(1 << 31))
+        tasks = (1 << 31) / bSize;
 #endif
 
     _blockId = 0;
@@ -325,11 +324,9 @@ void CompressedOutputStream::processBlock(bool force) THROW
             EncodingTask<EncodingTaskResult>* task = tasks.back();
             tasks.pop_back();
             EncodingTaskResult res = task->call();
-            int err = res._error;
-            string msg = res._msg;
 
-            if (err != 0)
-                throw IOException(msg, err);
+            if (res._error != 0)
+                throw IOException(res._msg, res._error); // deallocate in catch block
         }
 #ifdef CONCURRENCY_ENABLED
         else {
@@ -342,16 +339,13 @@ void CompressedOutputStream::processBlock(bool force) THROW
 
             // Wait for tasks completion and check results
             for (uint i = 0; i < tasks.size(); i++) {
-                EncodingTaskResult res = results[i].get();
-                int err = res._error;
-                string msg = res._msg;
+                EncodingTaskResult status = results[i].get();
 
-                if (err != 0)
-                    throw IOException(msg, err);
+                if (status._error != 0)
+                    throw IOException(status._msg, status._error); // deallocate in catch block
             }
         }
 #endif
-
         for (vector<EncodingTask<EncodingTaskResult>*>::iterator it = tasks.begin(); it != tasks.end(); it++)
             delete *it;
 
