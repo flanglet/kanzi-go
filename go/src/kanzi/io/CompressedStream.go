@@ -747,7 +747,7 @@ func (this *CompressedInputStream) readHeader() error {
 	}
 
 	if uint64(this.blockSize)*uint64(this.jobs) >= uint64(1<<31) {
-		this.jobs = (1 << 31) / int(this.blockSize)
+		this.jobs = int(uint(1 << 31) / this.blockSize)
 	}
 
 	// Read reserved bits
