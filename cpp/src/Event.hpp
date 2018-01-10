@@ -25,56 +25,50 @@ using namespace std;
 namespace kanzi 
 {
 
-   class Event
-   {
-   public:
-       enum Type 
-       {
-           COMPRESSION_START,
-           COMPRESSION_END,
-           BEFORE_TRANSFORM,
-           AFTER_TRANSFORM,
-           BEFORE_ENTROPY,
-           AFTER_ENTROPY,
-           DECOMPRESSION_START,
-           DECOMPRESSION_END,
-           AFTER_HEADER_DECODING
-       };
+   class Event {
+      public:
+          enum Type {
+              COMPRESSION_START,
+              COMPRESSION_END,
+              BEFORE_TRANSFORM,
+              AFTER_TRANSFORM,
+              BEFORE_ENTROPY,
+              AFTER_ENTROPY,
+              DECOMPRESSION_START,
+              DECOMPRESSION_END,
+              AFTER_HEADER_DECODING
+          };
 
-       Event(Event::Type type, int id, const string& msg);
+          Event(Event::Type type, int id, const string& msg, clock_t evtTime);
 
-       Event(Event::Type type, int id, int64 size);
+          Event(Event::Type type, int id, int64 size, clock_t evtTime);
 
-       Event(Event::Type type, int id, int64 size, int hash, bool hashing);
+          Event(Event::Type type, int id, int64 size, int hash, bool hashing, clock_t evtTime);
 
-       ~Event() {}
+          ~Event() {}
 
-       int getId() const { return _id; }
+          int getId() const { return _id; }
 
-       int64 getSize() const { return _size; }
+          int64 getSize() const { return _size; }
 
-       Event::Type getType() const { return _type; }
+          Event::Type getType() const { return _type; }
 
-       string getTypeAsString() const;
+          string getTypeAsString() const;
 
-       time_t getTime() const { return _time; } // System time
+          clock_t getTime() const { return _time; }
 
-       double getElapsed() const { return _clock.elapsed(); } // CPU time
+          int getHash() const { return (_hashing) ? _hash : 0; }
 
-       int getHash() const { return (_hashing) ? _hash : 0; }
+          string toString() const;
 
-       string toString() const;
-
-   private:
-       int _id;
-       int64 _size;
-       int _hash;
-       Event::Type _type;
-       bool _hashing;
-       time_t _time;
-       Clock _clock;
-       string _msg;
-   };
-
+      private:
+          int _id;
+          int64 _size;
+          int _hash;
+          Event::Type _type;
+          bool _hashing;
+          clock_t _time;
+          string _msg;
+      };
 }
 #endif

@@ -28,44 +28,43 @@ limitations under the License.
 
 using namespace std;
 
-namespace kanzi
+namespace kanzi 
 {
 
-	class BlockInfo
-	{
-	public:
-		Clock _clock1;
-		Clock _clock2;
-		int64 _stage0Size;
-		int64 _stage1Size;
-	};
+   class BlockInfo {
+   public:
+       clock_t _time0;
+       clock_t _time1;
+       clock_t _time2;
+       clock_t _time3;
+       int64 _stage0Size;
+       int64 _stage1Size;
+   };
 
-	// An implementation of Listener to display block information (verbose option
-	// of the BlockCompressor/BlockDecompressor)
-	class InfoPrinter : public Listener
-	{
-	public:
-		enum Type {
-			ENCODING,
-			DECODING
-		};
+   // An implementation of Listener to display block information (verbose option
+   // of the BlockCompressor/BlockDecompressor)
+   class InfoPrinter : public Listener {
+   public:
+       enum Type {
+           ENCODING,
+           DECODING
+       };
 
-		InfoPrinter(int infoLevel, InfoPrinter::Type type, OutputStream& os);
+       InfoPrinter(int infoLevel, InfoPrinter::Type type, OutputStream& os);
 
-		~InfoPrinter() {}
+       ~InfoPrinter() {}
 
-		void processEvent(const Event& evt);
+       void processEvent(const Event& evt);
 
-	private:
-		ostream& _os;
-		map<int, BlockInfo*> _map;
-#ifdef CONCURRENCY_ENABLED
-		mutex _mutex;
-#endif
-		Event::Type _thresholds[6];
-		InfoPrinter::Type _type;
-		int _level;
-	};
-
+   private:
+       ostream& _os;
+       map<int, BlockInfo*> _map;
+   #ifdef CONCURRENCY_ENABLED
+       mutex _mutex;
+   #endif
+       Event::Type _thresholds[6];
+       InfoPrinter::Type _type;
+       int _level;
+   };
 }
 #endif

@@ -47,24 +47,36 @@ public class Event
    
    public Event(Type type, int id, String msg)
    {
+      this(type, id, msg, 0);
+   }
+   
+   
+   public Event(Type type, int id, String msg, long time)
+   {
       this.id = id;
       this.size = 0L;
       this.hash = 0;
       this.hashing = false;
       this.type = type;
-      this.time = System.nanoTime();
+      this.time = (time > 0) ? time : System.nanoTime();
       this.msg = msg;
    }
    
    
    public Event(Type type, int id, long size, int hash, boolean hashing)
    {
+      this(type, id, size, hash, hashing, 0);
+   }
+   
+   
+   public Event(Type type, int id, long size, int hash, boolean hashing, long time)
+   {
       this.id = id;
       this.size = size;
       this.hash = hash;
       this.hashing = hashing;
       this.type = type;
-      this.time = System.nanoTime();
+      this.time = (time > 0) ? time : System.nanoTime();
       this.msg = null;
    }
    

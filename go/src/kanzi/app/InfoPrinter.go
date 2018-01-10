@@ -119,7 +119,7 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 			this.lock.Unlock()
 
 			if this.level >= 5 {
-				duration_ms := bi.time1.Sub(bi.time0).Nanoseconds() / 1000000
+				duration_ms := bi.time1.Sub(bi.time0).Nanoseconds() / int64(time.Millisecond)
 				fmt.Fprintln(this.writer, fmt.Sprintf("%s [%d ms]", evt, duration_ms))
 			}
 		}
@@ -136,7 +136,7 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 			this.lock.Unlock()
 
 			if this.level >= 5 {
-				duration_ms := bi.time2.Sub(bi.time1).Nanoseconds() / 1000000
+				duration_ms := bi.time2.Sub(bi.time1).Nanoseconds() / int64(time.Millisecond)
 				fmt.Fprintln(this.writer, fmt.Sprintf("%s [%d ms]", evt, duration_ms))
 			}
 		}
@@ -153,8 +153,8 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 		delete(this.map_, currentBlockId)
 		this.lock.Unlock()
 		bi.time3 = evt.Time()
-		duration1_ms := bi.time1.Sub(bi.time0).Nanoseconds() / 1000000
-		duration2_ms := bi.time3.Sub(bi.time2).Nanoseconds() / 1000000
+		duration1_ms := bi.time1.Sub(bi.time0).Nanoseconds() / int64(time.Millisecond)
+		duration2_ms := bi.time3.Sub(bi.time2).Nanoseconds() / int64(time.Millisecond)
 
 		// Get block size after stage 2
 		stage2Size := evt.Size()

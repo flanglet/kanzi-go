@@ -42,13 +42,21 @@ type Event struct {
 	msg       string
 }
 
-func NewEventFromString(eventType, id int, msg string) *Event {
-	return &Event{eventType: eventType, id: id, size: 0, msg: msg, time_: time.Now()}
+func NewEventFromString(evtType, id int, msg string, evtTime time.Time) *Event {
+	if evtTime.IsZero() {
+		evtTime = time.Now()
+	}
+
+	return &Event{eventType: evtType, id: id, size: 0, msg: msg, time_: evtTime}
 }
 
-func NewEvent(eventType, id int, size int64, hash uint32, hashing bool) *Event {
-	return &Event{eventType: eventType, id: id, size: size, hash: hash,
-		hashing: hashing, time_: time.Now()}
+func NewEvent(evtType, id int, size int64, hash uint32, hashing bool, evtTime time.Time) *Event {
+	if evtTime.IsZero() {
+		evtTime = time.Now()
+	}
+
+	return &Event{eventType: evtType, id: id, size: size, hash: hash,
+		hashing: hashing, time_: evtTime}
 }
 
 func (this *Event) EventType() int {

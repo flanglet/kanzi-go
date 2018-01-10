@@ -20,8 +20,10 @@ limitations under the License.
 
 using namespace kanzi;
 
-Event::Event(Event::Type type, int id, int64 size)
-    : _type(type), _time(time(nullptr)), _msg()
+Event::Event(Event::Type type, int id, int64 size, clock_t evtTime)
+    : _type(type)
+    , _time(evtTime)
+    , _msg()
 {
     _id = id;
     _size = size;
@@ -29,8 +31,10 @@ Event::Event(Event::Type type, int id, int64 size)
     _hashing = false;
 }
 
-Event::Event(Event::Type type, int id, const string& msg)
-    : _type(type), _time(time(nullptr)), _msg(msg)
+Event::Event(Event::Type type, int id, const string& msg, clock_t evtTime)
+    : _type(type)
+    , _time(evtTime)
+    , _msg(msg)
 {
     _id = id;
     _size = 0;
@@ -38,8 +42,10 @@ Event::Event(Event::Type type, int id, const string& msg)
     _hashing = false;
 }
 
-Event::Event(Event::Type type, int id, int64 size, int hash, bool hashing)
-    : _type(type), _time(time(nullptr)), _msg()
+Event::Event(Event::Type type, int id, int64 size, int hash, bool hashing, clock_t evtTime)
+    : _type(type)
+    , _time(evtTime)
+    , _msg()
 {
     _id = id;
     _size = size;
@@ -50,14 +56,14 @@ Event::Event(Event::Type type, int id, int64 size, int hash, bool hashing)
 string Event::toString() const
 {
     if (_msg.size() > 0)
-       return _msg;
+        return _msg;
 
     std::stringstream ss;
     ss << "{ \"type\":\"" << getTypeAsString() << "\"";
 
     if (_id >= 0)
         ss << ", \"id\":" << getId();
-    
+
     ss << ", \"size\":" << getSize();
     ss << ", \"time\":" << getTime();
 

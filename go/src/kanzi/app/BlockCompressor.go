@@ -611,7 +611,7 @@ func (this *FileCompressTask) Call() (int, uint64, uint64) {
 	buffer := make([]byte, COMP_DEFAULT_BUFFER_SIZE)
 
 	if len(this.listeners) > 0 {
-		evt := kanzi.NewEvent(kanzi.EVT_COMPRESSION_START, -1, 0, 0, false)
+		evt := kanzi.NewEvent(kanzi.EVT_COMPRESSION_START, -1, 0, 0, false, time.Now())
 		bc_notifyListeners(this.listeners, evt)
 	}
 
@@ -675,7 +675,7 @@ func (this *FileCompressTask) Call() (int, uint64, uint64) {
 	log.Println("", this.verbosity > 1)
 
 	if len(this.listeners) > 0 {
-		evt := kanzi.NewEvent(kanzi.EVT_COMPRESSION_END, -1, int64(cos.GetWritten()), 0, false)
+		evt := kanzi.NewEvent(kanzi.EVT_COMPRESSION_END, -1, int64(cos.GetWritten()), 0, false, time.Now())
 		bc_notifyListeners(this.listeners, evt)
 	}
 

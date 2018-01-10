@@ -437,7 +437,7 @@ func (this *FileDecompressTask) Call() (int, uint64) {
 	var input io.ReadCloser
 
 	if len(this.listeners) > 0 {
-		evt := kanzi.NewEvent(kanzi.EVT_DECOMPRESSION_START, -1, 0, 0, false)
+		evt := kanzi.NewEvent(kanzi.EVT_DECOMPRESSION_START, -1, 0, 0, false, time.Now())
 		bd_notifyListeners(this.listeners, evt)
 	}
 
@@ -530,7 +530,7 @@ func (this *FileDecompressTask) Call() (int, uint64) {
 	log.Println("", this.verbosity > 1)
 
 	if len(this.listeners) > 0 {
-		evt := kanzi.NewEvent(kanzi.EVT_DECOMPRESSION_END, -1, int64(cis.GetRead()), 0, false)
+		evt := kanzi.NewEvent(kanzi.EVT_DECOMPRESSION_END, -1, int64(cis.GetRead()), 0, false, time.Now())
 		bd_notifyListeners(this.listeners, evt)
 	}
 

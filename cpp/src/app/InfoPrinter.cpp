@@ -20,7 +20,8 @@ limitations under the License.
 using namespace kanzi;
 
 InfoPrinter::InfoPrinter(int infoLevel, InfoPrinter::Type type, OutputStream& os)
-    : _os(os), _type(type)
+    : _os(os)
+    , _type(type)
 {
     _level = infoLevel;
 
@@ -50,7 +51,7 @@ void InfoPrinter::processEvent(const Event& evt)
 
         // Register initial block size
         BlockInfo* bi = new BlockInfo();
-        bi->_clock1.start();
+        bi->_time0 = evt.getTime();
 
         if (_type == InfoPrinter::ENCODING)
             bi->_stage0Size = evt.getSize();
@@ -84,15 +85,13 @@ void InfoPrinter::processEvent(const Event& evt)
         if (_type == InfoPrinter::DECODING)
             bi->_stage0Size = evt.getSize();
 
-        bi->_clock1.stop();
+        bi->_time1 = evt.getTime();
 
         if (_level >= 5) {
             stringstream ss;
-            ss << evt.toString() << " [" << uint(bi->_clock1.elapsed()) << " ms]";
+            ss << evt.toString() << " [" << uint(bi->_time1 - bi->_time0) << " ms]";
             _os << ss.str() << endl;
         }
-
-        bi->_clock2.start();
     }
     else if (evt.getType() == _thresholds[3]) {
         BlockInfo* bi = nullptr;
@@ -109,16 +108,14 @@ void InfoPrinter::processEvent(const Event& evt)
             bi = it->second;
         }
 
-        bi->_clock2.stop();
+        bi->_time2 = evt.getTime();
         bi->_stage1Size = evt.getSize();
 
         if (_level >= 5) {
             stringstream ss;
-            ss << evt.toString() << " [" << uint(bi->_clock2.elapsed()) << " ms]";
+            ss << evt.toString() << " [" << uint(bi->_time2 - bi->_time1) << " ms]";
             _os << ss.str() << endl;
         }
-
-        bi->_clock2.start();
     }
     else if (evt.getType() == _thresholds[4]) {
         BlockInfo* bi = nullptr;
@@ -143,18 +140,18 @@ void InfoPrinter::processEvent(const Event& evt)
         }
 
         int64 stage2Size = evt.getSize();
-        bi->_clock2.stop();
+        bi->_time3 = evt.getTime();
         stringstream ss;
 
         if (_level >= 5) {
-            ss << evt.toString() << " [" << uint(bi->_clock2.elapsed()) << " ms]" << endl;
+            ss << evt.toString() << " [" << uint(bi->_time3 - bi->_time2) << " ms]" << endl;
         }
 
         // Display block info
         if (_level >= 4) {
             ss << "Block " << currentBlockId << ": " << bi->_stage0Size << " => ";
-            ss << bi->_stage1Size << " [" << uint(bi->_clock1.elapsed()) << " ms] => " << stage2Size;
-            ss << " [" << uint(bi->_clock2.elapsed()) << " ms]";
+            ss << bi->_stage1Size << " [" << uint(bi->_time1 - bi->_time0) << " ms] => " << stage2Size;
+            ss << " [" << uint(bi->_time3 - bi->_time2) << " ms]";
 
             // Add compression ratio for encoding
             if (_type == InfoPrinter::ENCODING) {
@@ -174,7 +171,7 @@ void InfoPrinter::processEvent(const Event& evt)
 
             _os << ss.str() << endl;
         }
-        
+
         delete bi;
 
         {
@@ -186,7 +183,8 @@ void InfoPrinter::processEvent(const Event& evt)
     }
     else if ((evt.getType() == Event::AFTER_HEADER_DECODING) && (_level >= 3)) {
         _os << evt.toString() << endl;
-    }    else if (_level >= 5) {
+    }
+    else if (_level >= 5) {
         _os << evt.toString() << endl;
     }
 }

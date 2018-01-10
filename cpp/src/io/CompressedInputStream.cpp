@@ -177,7 +177,7 @@ void CompressedInputStream::readHeader() THROW
 
         // Protect against future concurrent modification of the list of block listeners
         vector<Listener*> blockListeners(_listeners);
-        Event evt(Event::AFTER_HEADER_DECODING, 0, ss.str());
+        Event evt(Event::AFTER_HEADER_DECODING, 0, ss.str(), clock());
         CompressedInputStream::notifyListeners(blockListeners, evt);
     }
 }
@@ -368,28 +368,29 @@ int CompressedInputStream::processBlock() THROW
             if (blockListeners.size() > 0) {
                 // Notify after transform ... in block order !
                 Event evt(Event::AFTER_TRANSFORM, res._blockId,
-                    int64(res._decoded), res._checksum, _hasher != nullptr);
+                    int64(res._decoded), res._checksum, _hasher != nullptr, res._completionTime);
 
                 CompressedInputStream::notifyListeners(blockListeners, evt);
             }
         }
 #ifdef CONCURRENCY_ENABLED
         else {
-            vector<future<DecodingTaskResult> > results;
-            vector<DecodingTaskResult> sortedResults(tasks.size());
+            vector<future<DecodingTaskResult> > futures;
+            vector<DecodingTaskResult> results;
 
             // Register task futures and launch tasks in parallel
             for (uint i = 0; i < tasks.size(); i++) {
-                results.push_back(async(&DecodingTask<DecodingTaskResult>::call, tasks[i]));
+                futures.push_back(async(&DecodingTask<DecodingTaskResult>::call, tasks[i]));
             }
 
             // Wait for tasks completion and check results
-            for (uint i = 0; i < results.size(); i++) {
-                DecodingTaskResult status = results[i].get();
+            for (uint i = 0; i < futures.size(); i++) {
+                DecodingTaskResult status = futures[i].get();
+                results.push_back(status);
                 decoded += status._decoded;
 
                 if (status._error != 0)
-                   throw IOException(status._msg, status._error); // deallocate in catch block
+                    throw IOException(status._msg, status._error); // deallocate in catch block
             }
 
             const int size = _sa->_index + decoded;
@@ -404,14 +405,14 @@ int CompressedInputStream::processBlock() THROW
             }
 
             for (uint i = 0; i < results.size(); i++) {
-                DecodingTaskResult res = results[i].get();
+                DecodingTaskResult res = results[i];
                 memcpy(&_sa->_array[_sa->_index], &res._data[0], res._decoded);
                 _sa->_index += res._decoded;
 
                 if (blockListeners.size() > 0) {
                     // Notify after transform ... in block order !
                     Event evt(Event::AFTER_TRANSFORM, res._blockId,
-                        int64(res._decoded), res._checksum, _hasher != nullptr);
+                        int64(res._decoded), res._checksum, _hasher != nullptr, res._completionTime);
 
                     CompressedInputStream::notifyListeners(blockListeners, evt);
                 }
@@ -562,7 +563,7 @@ T DecodingTask<T>::call() THROW
 
         if (_listeners.size() > 0) {
             // Notify before entropy (block size in bitstream is unknown)
-            Event evt(Event::BEFORE_ENTROPY, _blockId, int64(-1), checksum1, _hasher != nullptr);
+            Event evt(Event::BEFORE_ENTROPY, _blockId, int64(-1), checksum1, _hasher != nullptr, clock());
             CompressedInputStream::notifyListeners(_listeners, evt);
         }
 
@@ -597,7 +598,7 @@ T DecodingTask<T>::call() THROW
         if (_listeners.size() > 0) {
             // Notify after entropy (block size set to size in bitstream)
             Event evt(Event::AFTER_ENTROPY, _blockId,
-                int64((_ibs->read() - read) / 8), checksum1, _hasher != nullptr);
+                int64((_ibs->read() - read) / 8), checksum1, _hasher != nullptr, clock());
 
             CompressedInputStream::notifyListeners(_listeners, evt);
         }
@@ -609,7 +610,7 @@ T DecodingTask<T>::call() THROW
         if (_listeners.size() > 0) {
             // Notify before transform (block size after entropy decoding)
             Event evt(Event::BEFORE_TRANSFORM, _blockId,
-                int64(preTransformLength), checksum1, _hasher != nullptr);
+                int64(preTransformLength), checksum1, _hasher != nullptr, clock());
 
             CompressedInputStream::notifyListeners(_listeners, evt);
         }

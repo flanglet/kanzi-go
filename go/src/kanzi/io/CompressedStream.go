@@ -25,6 +25,7 @@ import (
 	"kanzi/function"
 	"kanzi/util/hash"
 	"sync/atomic"
+	"time"
 )
 
 // Write to/read from stream using a 2 step process:
@@ -439,7 +440,7 @@ func (this *EncodingTask) encode() {
 	if len(this.listeners) > 0 {
 		// Notify before transform
 		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_TRANSFORM, this.currentBlockId,
-			int64(this.blockLength), checksum, this.hasher != nil)
+			int64(this.blockLength), checksum, this.hasher != nil, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
 
@@ -495,7 +496,7 @@ func (this *EncodingTask) encode() {
 	if len(this.listeners) > 0 {
 		// Notify after transform
 		evt := kanzi.NewEvent(kanzi.EVT_AFTER_TRANSFORM, this.currentBlockId,
-			int64(postTransformLength), checksum, this.hasher != nil)
+			int64(postTransformLength), checksum, this.hasher != nil, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
 
@@ -525,7 +526,7 @@ func (this *EncodingTask) encode() {
 	if len(this.listeners) > 0 {
 		// Notify before entropy
 		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_ENTROPY, this.currentBlockId,
-			int64(postTransformLength), checksum, this.hasher != nil)
+			int64(postTransformLength), checksum, this.hasher != nil, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
 
@@ -552,7 +553,7 @@ func (this *EncodingTask) encode() {
 	if len(this.listeners) > 0 {
 		// Notify after entropy
 		evt := kanzi.NewEvent(kanzi.EVT_AFTER_ENTROPY, this.currentBlockId,
-			int64(this.obs.Written()-written)/8, checksum, this.hasher != nil)
+			int64(this.obs.Written()-written)/8, checksum, this.hasher != nil, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
 
@@ -573,12 +574,13 @@ func notifyListeners(listeners []kanzi.Listener, evt *kanzi.Event) {
 }
 
 type Message struct {
-	err      *IOError
-	data     []byte
-	decoded  int
-	blockId  int
-	text     string
-	checksum uint32
+	err            *IOError
+	data           []byte
+	decoded        int
+	blockId        int
+	text           string
+	checksum       uint32
+	completionTime time.Time
 }
 
 type semaphore chan bool
@@ -771,7 +773,7 @@ func (this *CompressedInputStream) readHeader() error {
 		}
 
 		msg += fmt.Sprintf("Using %v entropy codec (stage 2)", w2)
-		evt := kanzi.NewEventFromString(kanzi.EVT_AFTER_HEADER_DECODING, 0, msg)
+		evt := kanzi.NewEventFromString(kanzi.EVT_AFTER_HEADER_DECODING, 0, msg, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
 
@@ -953,7 +955,7 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 		if len(listeners) > 0 {
 			// Notify after transform ... in block order !
 			evt := kanzi.NewEvent(kanzi.EVT_AFTER_TRANSFORM, res.blockId,
-				int64(res.decoded), res.checksum, this.hasher != nil)
+				int64(res.decoded), res.checksum, this.hasher != nil, res.completionTime)
 			notifyListeners(listeners, evt)
 		}
 
@@ -980,6 +982,7 @@ func notify(chan1 chan bool, chan2 chan Message, run bool, msg Message) {
 	}
 
 	if chan2 != nil {
+		msg.completionTime = time.Now()
 		chan2 <- msg
 	}
 }
@@ -1050,7 +1053,7 @@ func (this *DecodingTask) decode() {
 	if len(this.listeners) > 0 {
 		// Notify before entropy (block size in bitstream is unknown)
 		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_ENTROPY, this.currentBlockId,
-			int64(-1), checksum1, this.hasher != nil)
+			int64(-1), checksum1, this.hasher != nil, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
 
@@ -1092,7 +1095,7 @@ func (this *DecodingTask) decode() {
 	if len(this.listeners) > 0 {
 		// Notify after entropy
 		evt := kanzi.NewEvent(kanzi.EVT_AFTER_ENTROPY, this.currentBlockId,
-			int64(this.ibs.Read()-read)/8, checksum1, this.hasher != nil)
+			int64(this.ibs.Read()-read)/8, checksum1, this.hasher != nil, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
 
@@ -1103,7 +1106,7 @@ func (this *DecodingTask) decode() {
 	if len(this.listeners) > 0 {
 		// Notify before transform
 		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_TRANSFORM, this.currentBlockId,
-			int64(preTransformLength), checksum1, this.hasher != nil)
+			int64(preTransformLength), checksum1, this.hasher != nil, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
 

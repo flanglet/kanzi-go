@@ -27,7 +27,8 @@ limitations under the License.
 #include "../SliceArray.hpp"
 #include "../util/XXHash32.hpp"
 
-namespace kanzi {
+namespace kanzi 
+{
 
    class DecodingTaskResult {
    public:
@@ -37,11 +38,16 @@ namespace kanzi {
        int _error; // 0 = OK
        string _msg;
        int _checksum;
+       clock_t _completionTime;
 
-       DecodingTaskResult(){};
+       DecodingTaskResult()
+           : _blockId(-1)
+           , _msg()
+           , _completionTime(clock()){};
 
        DecodingTaskResult(SliceArray<byte>& data, int blockId, int decoded, int checksum, int error, const string& msg)
            : _msg(msg)
+           , _completionTime(clock())
        {
            _data = data._array;
            _blockId = blockId;
@@ -58,6 +64,7 @@ namespace kanzi {
            _error = result._error;
            _decoded = result._decoded;
            _checksum = result._checksum;
+           _completionTime = result._completionTime;
        }
 
        ~DecodingTaskResult() {}

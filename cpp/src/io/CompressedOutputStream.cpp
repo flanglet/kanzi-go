@@ -330,16 +330,16 @@ void CompressedOutputStream::processBlock(bool force) THROW
         }
 #ifdef CONCURRENCY_ENABLED
         else {
-            vector<future<EncodingTaskResult> > results;
+            vector<future<EncodingTaskResult> > futures;
 
             // Register task futures and launch tasks in parallel
             for (uint i = 0; i < tasks.size(); i++) {
-                results.push_back(async(launch::async, &EncodingTask<EncodingTaskResult>::call, tasks[i]));
+                futures.push_back(async(launch::async, &EncodingTask<EncodingTaskResult>::call, tasks[i]));
             }
 
             // Wait for tasks completion and check results
             for (uint i = 0; i < tasks.size(); i++) {
-                EncodingTaskResult status = results[i].get();
+                EncodingTaskResult status = futures[i].get();
 
                 if (status._error != 0)
                     throw IOException(status._msg, status._error); // deallocate in catch block
@@ -431,7 +431,7 @@ T EncodingTask<T>::call() THROW
         if (_listeners.size() > 0) {
             // Notify before transform
             Event evt(Event::BEFORE_TRANSFORM, _blockId,
-                int64(_blockLength), checksum, _hasher != nullptr);
+                int64(_blockLength), checksum, _hasher != nullptr, clock());
 
             CompressedOutputStream::notifyListeners(_listeners, evt);
         }
@@ -494,7 +494,7 @@ T EncodingTask<T>::call() THROW
         if (_listeners.size() > 0) {
             // Notify after transform
             Event evt(Event::AFTER_TRANSFORM, _blockId,
-                int64(postTransformLength), checksum, _hasher != nullptr);
+                int64(postTransformLength), checksum, _hasher != nullptr, clock());
 
             CompressedOutputStream::notifyListeners(_listeners, evt);
         }
@@ -518,7 +518,7 @@ T EncodingTask<T>::call() THROW
         if (_listeners.size() > 0) {
             // Notify before entropy
             Event evt(Event::BEFORE_ENTROPY, _blockId,
-                int64(postTransformLength), checksum, _hasher != nullptr);
+                int64(postTransformLength), checksum, _hasher != nullptr, clock());
 
             CompressedOutputStream::notifyListeners(_listeners, evt);
         }
@@ -544,7 +544,7 @@ T EncodingTask<T>::call() THROW
             const int w = int((_obs->written() - written) / 8);
 
             Event evt(Event::AFTER_ENTROPY,
-                int64(_blockId), w, checksum, _hasher != nullptr);
+                int64(_blockId), w, checksum, _hasher != nullptr, clock());
 
             CompressedOutputStream::notifyListeners(_listeners, evt);
         }

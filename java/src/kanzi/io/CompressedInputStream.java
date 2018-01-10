@@ -415,7 +415,7 @@ public class CompressedInputStream extends InputStream
             {
                // Notify after transform ... in block order !
                Event evt = new Event(Event.Type.AFTER_TRANSFORM, res.blockId,
-                       res.decoded, res.checksum, this.hasher != null);
+                       res.decoded, res.checksum, this.hasher != null, res.completionTime);
 
                notifyListeners(blockListeners, evt);
             }
@@ -728,6 +728,7 @@ public class CompressedInputStream extends InputStream
       final int error; // 0 = OK
       final String msg;
       final int checksum;
+      final long completionTime;
 
       Status(SliceByteArray data, int blockId, int decoded, int checksum, int error, String msg)
       {
@@ -737,6 +738,7 @@ public class CompressedInputStream extends InputStream
          this.checksum = checksum;
          this.error = error;
          this.msg = msg;
+         this.completionTime = System.nanoTime();
       }
    }
 }
