@@ -198,7 +198,7 @@ int BlockDecompressor::call()
 			formattedInName += PATH_SEPARATOR;
 		}
 
-		if ((formattedInName.size() != 0) && (formattedInName[formattedInName.size() - 1] != PATH_SEPARATOR)) {
+		if ((formattedOutName.size() != 0) && (specialOutput == false)) {
 			if (stat(formattedOutName.c_str(), &buffer) != 0) {
 				cerr << "Output must be an existing directory (or 'NONE')" << endl;
 				return Error::ERR_OPEN_FILE;
