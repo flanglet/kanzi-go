@@ -343,9 +343,9 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 		log.Println(msg, this.verbosity > 0)
 
 		if read > 1 {
-			msg = fmt.Sprintf("Total input size: %d bytes", read)
+			msg = fmt.Sprintf("Total output size: %d bytes", read)
 		} else {
-			msg = fmt.Sprintf("Total input size: %d byte", read)
+			msg = fmt.Sprintf("Total output size: %d byte", read)
 		}
 
 		log.Println(msg, this.verbosity > 0)

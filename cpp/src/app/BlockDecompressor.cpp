@@ -319,7 +319,7 @@ int BlockDecompressor::call()
 		ss << "Total decoding time: " << uint64(delta) << " ms";
 		log.println(ss.str().c_str(), _verbosity > 0);
 		ss.str(string());
-		ss << "Total input size: " << read << " byte" << ((read > 1) ? "s" : "");
+		ss << "Total output size: " << read << " byte" << ((read > 1) ? "s" : "");
 		log.println(ss.str().c_str(), _verbosity > 0);
 		ss.str(string());
 	}
