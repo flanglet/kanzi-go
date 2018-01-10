@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS=-c -static -std=c++11 -Wall -Wextra -s -O3 -fomit-frame-pointer -msse2
+CFLAGS=-c -static -std=c++11 -Wall -Wextra -O3 -fomit-frame-pointer -msse2
 #CFLAGS=-c -static -Wall -DNDEBUG -O3 -fomit-frame-pointer -msse2 -std=c++0x -D_FILE_OFFSET_BITS=64 
 LDFLAGS=-lpthread
 LIB_SOURCES=Global.cpp \
