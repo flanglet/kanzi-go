@@ -32,7 +32,7 @@ Silesia corpus benchmark
 
 i7-7700K @4.20GHz, 32GB RAM, Ubuntu 16.10
 
-Kanzi version 1.2 C++ implementation. Block size is 100 MB. 
+Kanzi version 1.3 C++ implementation. Block size is 100 MB. 
 All corpus files compressed one by one.
 
 
