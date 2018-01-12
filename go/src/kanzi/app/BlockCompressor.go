@@ -349,7 +349,7 @@ func (this *BlockCompressor) Call() (int, uint64) {
 
 		if len(oName) == 0 {
 			oName = iName + ".knz"
-		} else {
+		} else if inputIsDir == true && specialOutput == false {
 			oName = formattedOutName + iName[len(formattedInName):] + ".knz"
 		}
 

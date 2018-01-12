@@ -267,7 +267,7 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 
 		if len(oName) == 0 {
 			oName = iName + ".bak"
-		} else {
+		} else if inputIsDir == true && specialOutput == false {
 			oName = formattedOutName + iName[len(formattedInName):] + ".bak"
 		}
 
