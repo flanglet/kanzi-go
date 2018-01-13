@@ -17,7 +17,7 @@ limitations under the License.
 #define _XXHash32_
 
 #include <ctime>
-#include "../Global.hpp"
+#include "../Memory.hpp"
 
 using namespace kanzi;
 
@@ -64,10 +64,10 @@ namespace kanzi
            int v4 = _seed - PRIME32_1;
 
            do {
-               v1 = round(v1, Global::readInt32(&data[idx]));
-               v2 = round(v2, Global::readInt32(&data[idx + 4]));
-               v3 = round(v3, Global::readInt32(&data[idx + 8]));
-               v4 = round(v4, Global::readInt32(&data[idx + 12]));
+               v1 = round(v1, LittleEndian::readInt32(&data[idx]));
+               v2 = round(v2, LittleEndian::readInt32(&data[idx + 4]));
+               v3 = round(v3, LittleEndian::readInt32(&data[idx + 8]));
+               v4 = round(v4, LittleEndian::readInt32(&data[idx + 12]));
                idx += 16;
            } while (idx <= end16);
 
@@ -83,7 +83,7 @@ namespace kanzi
        h32 += length;
 
        while (idx <= length - 4) {
-           h32 += ((Global::readInt32(&data[idx])) * PRIME32_3);
+           h32 += ((LittleEndian::readInt32(&data[idx])) * PRIME32_3);
            h32 = ((h32 << 17) | (h32 >> 15)) * PRIME32_4;
            idx += 4;
        }

@@ -14,6 +14,9 @@ limitations under the License.
 */
 
 #include "DefaultOutputBitStream.hpp"
+#include "../IllegalArgumentException.hpp"
+#include "../Memory.hpp"
+#include "../io/IOException.hpp"
 #include <fstream>
 
 using namespace kanzi;
@@ -133,16 +136,7 @@ void DefaultOutputBitStream::close() THROW
 // Push 64 bits of current value into buffer.
 inline void DefaultOutputBitStream::pushCurrent() THROW
 {
-    byte* buf = &_buffer[_position];
-    buf[0] = byte(_current >> 56);
-    buf[1] = byte(_current >> 48);
-    buf[2] = byte(_current >> 40);
-    buf[3] = byte(_current >> 32);
-    buf[4] = byte(_current >> 24);
-    buf[5] = byte(_current >> 16);
-    buf[6] = byte(_current >> 8);
-    buf[7] = byte(_current);
-    
+    BigEndian::writeLong64(&_buffer[_position], _current);   
     _bitIndex = 63;
     _current = 0;
     _position += 8;

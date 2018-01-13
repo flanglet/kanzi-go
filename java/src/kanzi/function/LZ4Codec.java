@@ -16,7 +16,7 @@ limitations under the License.
 package kanzi.function;
 
 import kanzi.ByteFunction;
-import kanzi.Global;
+import kanzi.Memory;
 import kanzi.SliceByteArray;
 
 
@@ -132,10 +132,10 @@ public final class LZ4Codec implements ByteFunction
             table[i] = 0;
 
          // First byte
-         int h = (Global.readInt32(src, srcIdx) * HASH_SEED) >>> hashShift;
+         int h = (Memory.LittleEndian.readInt32(src, srcIdx) * HASH_SEED) >>> hashShift;
          table[h] = srcIdx - base;         
          srcIdx++;
-         h = (Global.readInt32(src, srcIdx) * HASH_SEED) >>> hashShift;
+         h = (Memory.LittleEndian.readInt32(src, srcIdx) * HASH_SEED) >>> hashShift;
 
          while (true)
          {
@@ -162,7 +162,7 @@ public final class LZ4Codec implements ByteFunction
                searchMatchNb++;
                match = table[h] + base;            
                table[h] = srcIdx - base;
-               h = (Global.readInt32(src, fwdIdx) * HASH_SEED) >>> hashShift;
+               h = (Memory.LittleEndian.readInt32(src, fwdIdx) * HASH_SEED) >>> hashShift;
             }
             while ((differentInts(src, match, srcIdx) == true) || (match <= srcIdx - MAX_DISTANCE));
 
@@ -234,11 +234,11 @@ public final class LZ4Codec implements ByteFunction
                }
 
                // Fill table
-               h = (Global.readInt32(src, srcIdx-2) * HASH_SEED) >>> hashShift;
+               h = (Memory.LittleEndian.readInt32(src, srcIdx-2) * HASH_SEED) >>> hashShift;
                table[h] = srcIdx - 2 - base;
 
                // Test next position
-               h = (Global.readInt32(src, srcIdx) * HASH_SEED) >>> hashShift;
+               h = (Memory.LittleEndian.readInt32(src, srcIdx) * HASH_SEED) >>> hashShift;
                match = table[h] + base;
                table[h] = srcIdx - base;
 
@@ -253,7 +253,7 @@ public final class LZ4Codec implements ByteFunction
             
             // Prepare next loop
             srcIdx++;
-            h = (Global.readInt32(src, srcIdx) * HASH_SEED) >>> hashShift;
+            h = (Memory.LittleEndian.readInt32(src, srcIdx) * HASH_SEED) >>> hashShift;
          }
       }
 
@@ -337,14 +337,16 @@ public final class LZ4Codec implements ByteFunction
          // Get match length
          if (length == ML_MASK)
          {
-            byte len;
-
-            while (((len = src[srcIdx++]) == (byte) 0xFF) && (srcIdx <= srcEnd))
+            while (((src[srcIdx]) == (byte) 0xFF) && (srcIdx < srcEnd))
+            {
+               srcIdx++;
                length += 0xFF;
+            }
 
-            length += (len & 0xFF);
+            if (srcIdx < srcEnd)
+               length += (src[srcIdx++] & 0xFF);
 
-            if (length > MAX_LENGTH)
+            if ((length > MAX_LENGTH) || (srcIdx == srcEnd))
                throw new IllegalArgumentException("Invalid length decoded: " + length);
          }
 

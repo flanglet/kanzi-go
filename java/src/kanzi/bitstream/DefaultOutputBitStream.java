@@ -18,6 +18,7 @@ package kanzi.bitstream;
 import kanzi.BitStreamException;
 import java.io.IOException;
 import java.io.OutputStream;
+import kanzi.Memory;
 import kanzi.OutputBitStream;
 
 
@@ -109,14 +110,7 @@ public final class DefaultOutputBitStream implements OutputBitStream
    // Push 64 bits of current value into buffer.
    private void pushCurrent()
    {
-      this.buffer[this.position]   = (byte) (this.current >>> 56);
-      this.buffer[this.position+1] = (byte) (this.current >>> 48);
-      this.buffer[this.position+2] = (byte) (this.current >>> 40);
-      this.buffer[this.position+3] = (byte) (this.current >>> 32);
-      this.buffer[this.position+4] = (byte) (this.current >>> 24);
-      this.buffer[this.position+5] = (byte) (this.current >>> 16);
-      this.buffer[this.position+6] = (byte) (this.current >>> 8);
-      this.buffer[this.position+7] = (byte) (this.current);
+      Memory.BigEndian.writeLong64(this.buffer, this.position, this.current);
       this.bitIndex = 63;
       this.current = 0;
       this.position += 8;
@@ -168,7 +162,7 @@ public final class DefaultOutputBitStream implements OutputBitStream
       }
       catch (BitStreamException e)
       {
-	 // Revert fields to allow subsequent attempts in case of transient failure
+         // Revert fields to allow subsequent attempts in case of transient failure
          this.position = savedPosition;
          this.bitIndex = savedBitIndex;
          this.current = savedCurrent;

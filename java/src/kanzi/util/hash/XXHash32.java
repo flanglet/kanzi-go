@@ -16,7 +16,7 @@ limitations under the License.
 package kanzi.util.hash;
 
 
-import kanzi.Global;
+import kanzi.Memory;
 
 // XXHash is an extremely fast hash algorithm. It was written by Yann Collet.
 // Port to Java of the original source code: https://github.com/Cyan4973/xxHash
@@ -73,18 +73,16 @@ public class XXHash32
       
         do
         {
-           v1 = round(v1, Global.readInt32(data, idx));
-           v2 = round(v2, Global.readInt32(data, idx+4));
-           v3 = round(v3, Global.readInt32(data, idx+8));
-           v4 = round(v4, Global.readInt32(data, idx+12));
+           v1 = round(v1, Memory.LittleEndian.readInt32(data, idx));
+           v2 = round(v2, Memory.LittleEndian.readInt32(data, idx+4));
+           v3 = round(v3, Memory.LittleEndian.readInt32(data, idx+8));
+           v4 = round(v4, Memory.LittleEndian.readInt32(data, idx+12));
            idx += 16;
         } 
         while (idx <= end16);
 
-        h32  = ((v1 << 1)  | (v1 >>> 31));
-        h32 += ((v2 << 7)  | (v2 >>> 25));
-        h32 += ((v3 << 12) | (v3 >>> 20));
-        h32 += ((v4 << 18) | (v4 >>> 14));
+        h32  = ((v1 << 1)  | (v1 >>> 31)) + ((v2 << 7)  | (v2 >>> 25)) +
+               ((v3 << 12) | (v3 >>> 20)) + ((v4 << 18) | (v4 >>> 14));
       } 
       else 
       {
@@ -95,7 +93,7 @@ public class XXHash32
 
       while (idx <= end - 4) 
       {
-         h32 += ((Global.readInt32(data, idx)) * PRIME32_3);
+         h32 += ((Memory.LittleEndian.readInt32(data, idx)) * PRIME32_3);
          h32 = ((h32 << 17) | (h32 >>> 15)) * PRIME32_4;
          idx += 4;
       }

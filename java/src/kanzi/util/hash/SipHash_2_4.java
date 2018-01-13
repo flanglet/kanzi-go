@@ -16,7 +16,7 @@ limitations under the License.
 package kanzi.util.hash;
 
 
-import kanzi.Global;
+import kanzi.Memory;
 
 // Port of SipHash (64 bits) to Java. Implemented with CROUNDS=2, dROUNDS=4.
 // SipHash was designed by Jean-Philippe Aumasson and Daniel J. Bernstein.
@@ -60,7 +60,7 @@ public class SipHash_2_4
       if (seed.length != 16) 
          throw new IllegalArgumentException("Seed length must be exactly 16");
 
-      this.setSeed(Global.readLong64(seed, 0), Global.readLong64(seed, 8));
+      this.setSeed(Memory.LittleEndian.readLong64(seed, 0), Memory.LittleEndian.readLong64(seed, 8));
    }
 
    
@@ -89,7 +89,7 @@ public class SipHash_2_4
    
          for ( ; n<end8; n+=8)
          {
-            final long m = Global.readLong64(data, n);
+            final long m = Memory.LittleEndian.readLong64(data, n);
             this.v3 ^= m;
             this.sipRound();
             this.sipRound();

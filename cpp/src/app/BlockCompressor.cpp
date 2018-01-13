@@ -582,7 +582,7 @@ T FileCompressTask<T>::call()
 				}
 			}
 
-			os = new ofstream(_outputName.c_str(), ofstream::binary);
+			os = new ofstream(_outputName.c_str(), ofstream::out | ofstream::binary);
 
 			if (!*os) {
 				if (_overwrite == true) {
@@ -640,7 +640,7 @@ T FileCompressTask<T>::call()
 			_is = &cin;
 		}
 		else {
-			ifstream* ifs = new ifstream(_inputName.c_str(), ifstream::binary);
+			ifstream* ifs = new ifstream(_inputName.c_str(), ifstream::in | ifstream::binary);
 
 			if (!*ifs) {
 				cerr << "Cannot open input file '" << _inputName << "'" << endl;

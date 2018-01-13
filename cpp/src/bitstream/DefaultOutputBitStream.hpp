@@ -17,8 +17,6 @@ limitations under the License.
 #define _DefaultOutputBitStream_
 
 #include "../OutputStream.hpp"
-#include "../IllegalArgumentException.hpp"
-#include "../io/IOException.hpp"
 #include "../OutputBitStream.hpp"
 
 using namespace std;

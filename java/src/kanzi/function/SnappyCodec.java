@@ -16,7 +16,7 @@ limitations under the License.
 package kanzi.function;
 
 import kanzi.ByteFunction;
-import kanzi.Global;
+import kanzi.Memory;
 import kanzi.SliceByteArray;
 
 
@@ -225,7 +225,7 @@ public final class SnappyCodec implements ByteFunction
      while (srcIdx < ends2)
      {
         // Update the hash table
-        final int h = (Global.readInt32(src, srcIdx) * HASH_SEED) >>> shift;
+        final int h = (Memory.LittleEndian.readInt32(src, srcIdx) * HASH_SEED) >>> shift;
         int t = table[h]; // The last position with the same hash as srcIdx
         table[h] = srcIdx;
 

@@ -16,6 +16,7 @@ limitations under the License.
 package bitstream
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -161,15 +162,7 @@ func (this *DefaultInputBitStream) pullCurrent() {
 		}
 	} else {
 		// Regular processing, buffer length is multiple of 8
-		buf := this.buffer[this.position : this.position+8]
-		val = uint64(buf[0]) << 56
-		val |= (uint64(buf[1]) << 48)
-		val |= (uint64(buf[2]) << 40)
-		val |= (uint64(buf[3]) << 32)
-		val |= (uint64(buf[4]) << 24)
-		val |= (uint64(buf[5]) << 16)
-		val |= (uint64(buf[6]) << 8)
-		val |= uint64(buf[7])
+		val = binary.BigEndian.Uint64(this.buffer[this.position : this.position+8])
 		this.bitIndex = 63
 		this.position += 8
 	}

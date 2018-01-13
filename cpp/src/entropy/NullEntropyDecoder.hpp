@@ -16,61 +16,48 @@ limitations under the License.
 #ifndef _NullEntropyDecoder_
 #define _NullEntropyDecoder_
 
+#include "../Memory.hpp"
 
-namespace kanzi 
-{
+namespace kanzi {
 
    // Null entropy decoder
    // Pass through that writes the data directly to the bitstream
-   class NullEntropyDecoder : public EntropyDecoder
-   {
-      private:
+   class NullEntropyDecoder : public EntropyDecoder {
+   private:
+       InputBitStream& _bitstream;
 
-         InputBitStream& _bitstream;
+   public:
+       NullEntropyDecoder(InputBitStream& bitstream);
 
-      public :
+       ~NullEntropyDecoder() {}
 
-        NullEntropyDecoder(InputBitStream& bitstream);
+       int decode(byte block[], uint blkptr, uint len);
 
-	     ~NullEntropyDecoder() { }
+       InputBitStream& getBitStream() const { return _bitstream; };
 
-        int decode(byte block[], uint blkptr, uint len);
-
-	     InputBitStream& getBitStream() const { return _bitstream; };
-
-	     void dispose() { }
+       void dispose() {}
    };
 
-
-   inline NullEntropyDecoder::NullEntropyDecoder(InputBitStream& bitstream) : _bitstream(bitstream)
+   inline NullEntropyDecoder::NullEntropyDecoder(InputBitStream& bitstream)
+       : _bitstream(bitstream)
    {
    }
 
    inline int NullEntropyDecoder::decode(byte block[], uint blkptr, uint len)
    {
-          const uint len8 = len & -8;
-          const uint end8 = blkptr + len8;
-          uint i = blkptr;
+       const uint len8 = len & -8;
+       const uint end8 = blkptr + len8;
+       uint i = blkptr;
 
-          while (i < end8)
-          {
-		      uint64 val = _bitstream.readBits(64);
-		      block[i]   = byte(val >> 56);
-		      block[i+1] = byte(val >> 48);
-		      block[i+2] = byte(val >> 40);
-		      block[i+3] = byte(val >> 32);
-		      block[i+4] = byte(val >> 24);
-		      block[i+5] = byte(val >> 16);
-		      block[i+6] = byte(val >> 8);
-		      block[i+7] = byte(val);          
-		      i += 8;
-          }
+       while (i < end8) {
+           BigEndian::writeLong64(&block[i], _bitstream.readBits(64));
+           i += 8;
+       }
 
-          while (i < blkptr + len)
-             block[i++] = byte(_bitstream.readBits(8));
+       while (i < blkptr + len)
+           block[i++] = byte(_bitstream.readBits(8));
 
-          return len;
+       return len;
    }
-
 }
 #endif

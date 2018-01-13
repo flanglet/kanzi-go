@@ -18,7 +18,7 @@ package kanzi.util.hash;
 // XXHash is an extremely fast hash algorithm. It was written by Yann Collet.
 // Port to Java of the original source code: https://github.com/Cyan4973/xxHash
 
-import kanzi.Global;
+import kanzi.Memory;
 
 
 public class XXHash64
@@ -73,18 +73,16 @@ public class XXHash64
 
         do
         {
-           v1 = round(v1, Global.readLong64(data, idx));
-           v2 = round(v2, Global.readLong64(data, idx+8));
-           v3 = round(v3, Global.readLong64(data, idx+16));
-           v4 = round(v4, Global.readLong64(data, idx+24));
+           v1 = round(v1, Memory.LittleEndian.readLong64(data, idx));
+           v2 = round(v2, Memory.LittleEndian.readLong64(data, idx+8));
+           v3 = round(v3, Memory.LittleEndian.readLong64(data, idx+16));
+           v4 = round(v4, Memory.LittleEndian.readLong64(data, idx+24));
            idx += 32;
         }
         while (idx <= end32);
 
-        h64  = ((v1 << 1)  | (v1 >>> 31));
-        h64 += ((v2 << 7)  | (v2 >>> 25));
-        h64 += ((v3 << 12) | (v3 >>> 20));
-        h64 += ((v4 << 18) | (v4 >>> 14));
+        h64  = ((v1 << 1)  | (v1 >>> 31)) + ((v2 << 7)  | (v2 >>> 25)) +
+               ((v3 << 12) | (v3 >>> 20)) + ((v4 << 18) | (v4 >>> 14));
 
         h64 = mergeRound(h64, v1);
         h64 = mergeRound(h64, v2);
@@ -100,14 +98,14 @@ public class XXHash64
 
       while (idx+8 <= end)
       {
-         h64 ^= round(0, Global.readLong64(data, idx));
+         h64 ^= round(0, Memory.LittleEndian.readLong64(data, idx));
          h64 = ((h64 << 27) | (h64 >>> 37)) * PRIME64_1 + PRIME64_4;
          idx += 8;
       }
 
       while (idx+4 <= end)
       {
-         h64 ^= (Global.readInt32(data, idx) * PRIME64_1);
+         h64 ^= (Memory.LittleEndian.readInt32(data, idx) * PRIME64_1);
          h64 = ((h64 << 23) | (h64 >>> 41)) * PRIME64_2 + PRIME64_3;
          idx += 4;
       }
@@ -131,7 +129,7 @@ public class XXHash64
    private static long round(long acc, long val)
    {
       acc += (val*PRIME64_2);
-      return ((acc << 13) | (acc >>> 19)) * PRIME64_1;
+      return ((acc << 31) | (acc >>> 33)) * PRIME64_1;
    }
 
 

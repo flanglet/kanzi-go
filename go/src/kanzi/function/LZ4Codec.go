@@ -52,19 +52,11 @@ const (
 
 type LZ4Codec struct {
 	buffer []int
-	order  binary.ByteOrder
 }
 
 func NewLZ4Codec() (*LZ4Codec, error) {
 	this := new(LZ4Codec)
 	this.buffer = make([]int, 1<<HASH_LOG_64K)
-
-	if kanzi.IsBigEndian() {
-		this.order = binary.BigEndian
-	} else {
-		this.order = binary.LittleEndian
-	}
-
 	return this, nil
 }
 
@@ -148,10 +140,10 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		// First byte
-		h32 := (this.order.Uint32(src[srcIdx:srcIdx+4]) * LZ4_HASH_SEED) >> hashShift
+		h32 := (binary.LittleEndian.Uint32(src[srcIdx:]) * LZ4_HASH_SEED) >> hashShift
 		table[h32] = srcIdx
 		srcIdx++
-		h32 = (this.order.Uint32(src[srcIdx:srcIdx+4]) * LZ4_HASH_SEED) >> hashShift
+		h32 = (binary.LittleEndian.Uint32(src[srcIdx:]) * LZ4_HASH_SEED) >> hashShift
 
 		for {
 			fwdIdx := srcIdx
@@ -174,9 +166,9 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 				searchMatchNb++
 				match = table[h32]
 				table[h32] = srcIdx
-				h32 = (this.order.Uint32(src[fwdIdx:fwdIdx+4]) * LZ4_HASH_SEED) >> hashShift
+				h32 = (binary.LittleEndian.Uint32(src[fwdIdx:]) * LZ4_HASH_SEED) >> hashShift
 
-				if kanzi.DifferentInts(src[srcIdx:srcIdx+4], src[match:match+4]) == false && match > srcIdx-MAX_DISTANCE {
+				if kanzi.DifferentInts(src[srcIdx:], src[match:]) == false && match > srcIdx-MAX_DISTANCE {
 					break
 				}
 			}
@@ -238,15 +230,15 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 				}
 
 				// Fill table
-				h32 = (this.order.Uint32(src[srcIdx-2:srcIdx+2]) * LZ4_HASH_SEED) >> hashShift
+				h32 = (binary.LittleEndian.Uint32(src[srcIdx-2:]) * LZ4_HASH_SEED) >> hashShift
 				table[h32] = srcIdx - 2
 
 				// Test next position
-				h32 = (this.order.Uint32(src[srcIdx:srcIdx+4]) * LZ4_HASH_SEED) >> hashShift
+				h32 = (binary.LittleEndian.Uint32(src[srcIdx:]) * LZ4_HASH_SEED) >> hashShift
 				match = table[h32]
 				table[h32] = srcIdx
 
-				if kanzi.DifferentInts(src[srcIdx:srcIdx+4], src[match:match+4]) || match <= srcIdx-MAX_DISTANCE {
+				if kanzi.DifferentInts(src[srcIdx:], src[match:]) || match <= srcIdx-MAX_DISTANCE {
 					break
 				}
 
@@ -257,7 +249,7 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 
 			// Prepare next loop
 			srcIdx++
-			h32 = (this.order.Uint32(src[srcIdx:srcIdx+4]) * LZ4_HASH_SEED) >> hashShift
+			h32 = (binary.LittleEndian.Uint32(src[srcIdx:]) * LZ4_HASH_SEED) >> hashShift
 		}
 	}
 
@@ -339,15 +331,17 @@ func (this *LZ4Codec) Inverse(src, dst []byte) (uint, uint, error) {
 
 		// Get match length
 		if length == ML_MASK {
-			for src[srcIdx] == byte(0xFF) && srcIdx < count {
+			for src[srcIdx] == 0xFF && srcIdx < count {
 				srcIdx++
 				length += 0xFF
 			}
 
-			length += int(src[srcIdx])
-			srcIdx++
+			if srcIdx < count {
+				length += int(src[srcIdx])
+				srcIdx++
+			}
 
-			if length > MAX_LENGTH {
+			if length > MAX_LENGTH || srcIdx == count {
 				return 0, 0, fmt.Errorf("Invalid length decoded: %d", length)
 			}
 		}
@@ -361,23 +355,35 @@ func (this *LZ4Codec) Inverse(src, dst []byte) (uint, uint, error) {
 				dst[dstIdx+i] = dst[match+i]
 			}
 		} else {
-			// Unroll loop
-			for {
-				s := dst[match : match+8]
-				d := dst[dstIdx : dstIdx+8]
-				d[0] = s[0]
-				d[1] = s[1]
-				d[2] = s[2]
-				d[3] = s[3]
-				d[4] = s[4]
-				d[5] = s[5]
-				d[6] = s[6]
-				d[7] = s[7]
-				match += 8
-				dstIdx += 8
+			if dstIdx >= match+8 {
+				for {
+					binary.LittleEndian.PutUint64(dst[dstIdx:], binary.LittleEndian.Uint64(dst[match:]))
+					match += 8
+					dstIdx += 8
 
-				if dstIdx >= cpy {
-					break
+					if dstIdx >= cpy {
+						break
+					}
+				}
+			} else {
+				// Unroll loop
+				for {
+					s := dst[match : match+8]
+					d := dst[dstIdx : dstIdx+8]
+					d[0] = s[0]
+					d[1] = s[1]
+					d[2] = s[2]
+					d[3] = s[3]
+					d[4] = s[4]
+					d[5] = s[5]
+					d[6] = s[6]
+					d[7] = s[7]
+					match += 8
+					dstIdx += 8
+
+					if dstIdx >= cpy {
+						break
+					}
 				}
 			}
 		}

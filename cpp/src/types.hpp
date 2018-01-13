@@ -21,6 +21,9 @@ limitations under the License.
 #include <emmintrin.h>
 
 	/*
+	MSVC++ 14.1 _MSC_VER == 1912 (Visual Studio 2017)
+	MSVC++ 14.1 _MSC_VER == 1911 (Visual Studio 2017)
+	MSVC++ 14.1 _MSC_VER == 1910 (Visual Studio 2017)
 	MSVC++ 14.0 _MSC_VER == 1900 (Visual Studio 2015)
 	MSVC++ 12.0 _MSC_VER == 1800 (Visual Studio 2013)
 	MSVC++ 11.0 _MSC_VER == 1700 (Visual Studio 2012)
@@ -91,52 +94,6 @@ limitations under the License.
 		#endif
 	#endif
 
-	#if !defined(WORDS_BIGENDIAN) && \
-			(defined(__BIG_ENDIAN__) || defined(_M_PPC) || \
-			 (defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)))
-		#define WORDS_BIGENDIAN
-	#endif
-
-	static inline uint32 bswap32(uint32 x) {
-	#if defined(HAVE_BUILTIN_BSWAP32)
-	   return __builtin_bswap32(x);
-	#elif defined(_MSC_VER)
-		return uint32(_byteswap_ulong(x));
-	#elif defined(__i386__) || defined(__x86_64__)
-		uint32 swapped_bytes;
-		__asm__ volatile("bswap %0" : "=r"(swapped_bytes) : "0"(x));
-		return swapped_bytes;
-	#else // fallback
-		return (x >> 24) | ((x >> 8) & 0xFF00) | ((x << 8) & 0xFF0000) | (x << 24);
-	#endif 
-	}
-
-	static inline uint16 bswap16(uint16 x) {
-	#if defined(HAVE_BUILTIN_BSWAP16)
-		return __builtin_bswap16(x);
-	#elif defined(_MSC_VER)
-		return _byteswap_ushort(x);
-	#else // fallback
-		return (x >> 8) | ((x & 0xFF) << 8);
-	#endif
-	}
-
-	static inline uint64 bswap64(uint64 x) {
-	#if defined(HAVE_BUILTIN_BSWAP64)
-		return __builtin_bswap64(x);
-	#elif defined(_MSC_VER)
-		return uint64(_byteswap_uint64(x));
-	#elif defined(__x86_64__)
-		uint64 swapped_bytes;
-		__asm__ volatile("bswapq %0" : "=r"(swapped_bytes) : "0"(x));
-		return swapped_bytes;
-	#else // fallback
-		x = ((x & 0xFFFFFFFF00000000ull) >> 32) | ((x & 0x00000000FFFFFFFFull) << 32);
-		x = ((x & 0xFFFF0000FFFF0000ull) >> 16) | ((x & 0x0000FFFF0000FFFFull) << 16);
-		x = ((x & 0xFF00FF00FF00FF00ull) >> 8) | ((x & 0x00FF00FF00FF00FFull) << 8);
-		return x;
-	#endif 
-	}
 
 	static inline void prefetch(const void* ptr) {
 	#ifdef __GNUG__

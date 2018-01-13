@@ -17,6 +17,7 @@ package kanzi.bitstream;
 
 import java.io.IOException;
 import java.io.InputStream;
+import kanzi.Memory;
 import kanzi.BitStreamException;
 import kanzi.InputBitStream;
 
@@ -159,14 +160,7 @@ public final class DefaultInputBitStream implements InputBitStream
        else
        {
           // Regular processing, buffer length is multiple of 8
-          val =  (((long) (this.buffer[this.position]   & 0xFF)) << 56);
-          val |= (((long) (this.buffer[this.position+1] & 0xFF)) << 48);
-          val |= (((long) (this.buffer[this.position+2] & 0xFF)) << 40);
-          val |= (((long) (this.buffer[this.position+3] & 0xFF)) << 32);
-          val |= (((long) (this.buffer[this.position+4] & 0xFF)) << 24);
-          val |= (((long) (this.buffer[this.position+5] & 0xFF)) << 16);
-          val |= (((long) (this.buffer[this.position+6] & 0xFF)) << 8);
-          val |=  ((long) (this.buffer[this.position+7] & 0xFF));
+          val = Memory.BigEndian.readLong64(this.buffer, this.position);
           this.bitIndex = 63;
           this.position += 8;
        }

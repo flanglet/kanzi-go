@@ -16,6 +16,7 @@ limitations under the License.
 package bitstream
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -104,15 +105,7 @@ func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) uint {
 
 // Push 64 bits of current value into buffer.
 func (this *DefaultOutputBitStream) pushCurrent() {
-	buf := this.buffer[this.position : this.position+8]
-	buf[0] = byte(this.current >> 56)
-	buf[1] = byte(this.current >> 48)
-	buf[2] = byte(this.current >> 40)
-	buf[3] = byte(this.current >> 32)
-	buf[4] = byte(this.current >> 24)
-	buf[5] = byte(this.current >> 16)
-	buf[6] = byte(this.current >> 8)
-	buf[7] = byte(this.current)
+	binary.BigEndian.PutUint64(this.buffer[this.position:this.position+8], this.current)
 	this.bitIndex = 63
 	this.current = 0
 	this.position += 8

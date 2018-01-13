@@ -16,13 +16,13 @@ limitations under the License.
 #ifndef _NullEntropyEncoder_
 #define _NullEntropyEncoder_
 
-namespace kanzi 
-{
+#include "../Memory.hpp"
+
+namespace kanzi {
 
    // Null entropy encoder
    // Pass through that writes the data directly to the bitstream
-   class NullEntropyEncoder : public EntropyEncoder 
-   {
+   class NullEntropyEncoder : public EntropyEncoder {
    private:
        OutputBitStream& _bitstream;
 
@@ -51,19 +51,7 @@ namespace kanzi
 
        try {
            while (i < end8) {
-               uint64 val;
-               val = (uint64(block[i] & 0xFF)) << 56;
-               val |= (uint64(block[i + 1] & 0xFF) << 48);
-               val |= (uint64(block[i + 2] & 0xFF) << 40);
-               val |= (uint64(block[i + 3] & 0xFF) << 32);
-               val |= (uint64(block[i + 4] & 0xFF) << 24);
-               val |= (uint64(block[i + 5] & 0xFF) << 16);
-               val |= (uint64(block[i + 6] & 0xFF) << 8);
-               val |= uint64(block[i + 7] & 0xFF);
-
-               if (_bitstream.writeBits(val, 64) != 64)
-                   return i;
-
+               _bitstream.writeBits(BigEndian::readLong64(&block[i]), 64);
                i += 8;
            }
 
@@ -78,6 +66,5 @@ namespace kanzi
 
        return len;
    }
-
 }
 #endif

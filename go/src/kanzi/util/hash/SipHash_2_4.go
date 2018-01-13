@@ -16,8 +16,7 @@ limitations under the License.
 package hash
 
 import (
-	"kanzi"
-	"unsafe"
+	"encoding/binary"
 )
 
 // Port of SipHash (64 bits) to Go. Implemented with CROUNDS=2, dROUNDS=4.
@@ -32,22 +31,14 @@ const (
 )
 
 type SipHash_2_4 struct {
-	v0         uint64
-	v1         uint64
-	v2         uint64
-	v3         uint64
-	endianHash kanzi.ByteOrder // uses unsafe package
+	v0 uint64
+	v1 uint64
+	v2 uint64
+	v3 uint64
 }
 
 func NewSipHash() (*SipHash_2_4, error) {
 	this := new(SipHash_2_4)
-
-	if kanzi.IsBigEndian() {
-		this.endianHash = &kanzi.BigEndian{}
-	} else {
-		this.endianHash = &kanzi.LittleEndian{}
-	}
-
 	return this, nil
 }
 
@@ -68,8 +59,7 @@ func (this *SipHash_2_4) SetSeedFromBuf(seed []byte) {
 		panic("Seed length must be exactly 16")
 	}
 
-	p := uintptr(unsafe.Pointer(&seed[0]))
-	this.SetSeedFromLongs(this.endianHash.Uint64(p), this.endianHash.Uint64(p+8))
+	this.SetSeedFromLongs(binary.LittleEndian.Uint64(seed[0:8]), binary.LittleEndian.Uint64(seed[8:16]))
 }
 
 func (this *SipHash_2_4) SetSeedFromLongs(k0, k1 uint64) {
@@ -81,27 +71,26 @@ func (this *SipHash_2_4) SetSeedFromLongs(k0, k1 uint64) {
 
 func (this *SipHash_2_4) Hash(data []byte) uint64 {
 	length := len(data)
-	p := uintptr(unsafe.Pointer(&data[0]))
-	end := p + uintptr(length)
+	n := 0
 
 	if length >= 8 {
-		end8 := end - 8
+		end8 := length - 8
 
-		for p < end8 {
-			m := this.endianHash.Uint64(p)
+		for n < end8 {
+			m := binary.LittleEndian.Uint64(data[n : n+8])
 			this.v3 ^= m
 			this.sipRound()
 			this.sipRound()
 			this.v0 ^= m
-			p += 8
+			n += 8
 		}
 	}
 
-	last := uint64(length&0xFF) << 56	
+	last := uint64(length&0xFF) << 56
 
-	for shift := uint(0); p < end; shift+=8 {
-		last |= (uint64(*(*byte)(unsafe.Pointer(p))) << shift)
-		p++
+	for shift := uint(0); n < length; shift += 8 {
+		last |= (uint64(data[n]) << shift)
+		n++
 	}
 
 	this.v3 ^= last

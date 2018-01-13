@@ -16,8 +16,7 @@ limitations under the License.
 package hash
 
 import (
-	"kanzi"
-	"unsafe"
+	"encoding/binary"
 )
 
 // XXHash32 is an extremely fast hash algorithm. It was written by Yann Collet.
@@ -31,67 +30,13 @@ const (
 	XXHASH_PRIME32_5 = uint32(374761393)
 )
 
-type endianXXHash32 interface {
-	Uint32(p uintptr) uint32
-	loop(p, limit uintptr, v1, v2, v3, v4 uint32) (uintptr, uint32, uint32, uint32, uint32)
-}
-
-type littleEndianXXHash32 struct {
-	kanzi.LittleEndian // uses unsafe package
-}
-
-func (littleEndianXXHash32) loop(p, limit uintptr, v1, v2, v3, v4 uint32) (uintptr, uint32, uint32, uint32, uint32) {
-	for p <= limit {
-		v1 = xxHash32Round(v1, *(*uint32)(unsafe.Pointer(p)))
-		v2 = xxHash32Round(v2, *(*uint32)(unsafe.Pointer(p + 4)))
-		v3 = xxHash32Round(v3, *(*uint32)(unsafe.Pointer(p + 8)))
-		v4 = xxHash32Round(v4, *(*uint32)(unsafe.Pointer(p + 12)))
-		p += 16
-	}
-
-	return p, v1, v2, v3, v4
-}
-
-type bigEndianXXHash32 struct {
-	kanzi.BigEndian // uses unsafe package
-}
-
-func (bigEndianXXHash32) loop(p, limit uintptr, v1, v2, v3, v4 uint32) (uintptr, uint32, uint32, uint32, uint32) {
-	for p <= limit {
-		var v uint32
-		v = *(*uint32)(unsafe.Pointer(p))
-		v = ((v << 24) & 0xFF000000) | ((v << 8) & 0x00FF0000) | ((v >> 8) & 0x0000FF00) | ((v >> 24) & 0x000000FF)
-		v1 = xxHash32Round(v1, v)
-		v = *(*uint32)(unsafe.Pointer(p + 4))
-		v = ((v << 24) & 0xFF000000) | ((v << 8) & 0x00FF0000) | ((v >> 8) & 0x0000FF00) | ((v >> 24) & 0x000000FF)
-		v2 = xxHash32Round(v2, v)
-		v = *(*uint32)(unsafe.Pointer(p + 8))
-		v = ((v << 24) & 0xFF000000) | ((v << 8) & 0x00FF0000) | ((v >> 8) & 0x0000FF00) | ((v >> 24) & 0x000000FF)
-		v3 = xxHash32Round(v3, v)
-		v = *(*uint32)(unsafe.Pointer(p + 12))
-		v = ((v << 24) & 0xFF000000) | ((v << 8) & 0x00FF0000) | ((v >> 8) & 0x0000FF00) | ((v >> 24) & 0x000000FF)
-		v4 = xxHash32Round(v4, v)
-		p += 16
-	}
-
-	return p, v1, v2, v3, v4
-}
-
 type XXHash32 struct {
-	seed       uint32
-	endianHash endianXXHash32
+	seed uint32
 }
 
 func NewXXHash32(seed uint32) (*XXHash32, error) {
 	this := new(XXHash32)
 	this.seed = seed
-
-	if kanzi.IsBigEndian() {
-		this.endianHash = &bigEndianXXHash32{}
-	} else {
-		this.endianHash = &littleEndianXXHash32{}
-	}
-
 	return this, nil
 }
 
@@ -100,39 +45,44 @@ func (this *XXHash32) SetSeed(seed uint32) {
 }
 
 func (this *XXHash32) Hash(data []byte) uint32 {
-	length := len(data)
-	p := uintptr(unsafe.Pointer(&data[0]))
-	end := p + uintptr(length)
+	end := len(data)
 	var h32 uint32
+	n := 0
 
-	if length >= 16 {
+	if end >= 16 {
+		end16 := end - 16
 		v1 := this.seed + XXHASH_PRIME32_1 + XXHASH_PRIME32_2
 		v2 := this.seed + XXHASH_PRIME32_2
 		v3 := this.seed
 		v4 := this.seed - XXHASH_PRIME32_1
 
-		p, v1, v2, v3, v4 = this.endianHash.loop(p, end-16, v1, v2, v3, v4)
+		for n <= end16 {
+			buf := data[n : n+16]
+			v1 = xxHash32Round(v1, binary.LittleEndian.Uint32(buf[0:4]))
+			v2 = xxHash32Round(v2, binary.LittleEndian.Uint32(buf[4:8]))
+			v3 = xxHash32Round(v3, binary.LittleEndian.Uint32(buf[8:12]))
+			v4 = xxHash32Round(v4, binary.LittleEndian.Uint32(buf[12:16]))
+			n += 16
+		}
 
-		h32 = ((v1 << 1) | (v1 >> 31))
-		h32 += ((v2 << 7) | (v2 >> 25))
-		h32 += ((v3 << 12) | (v3 >> 20))
-		h32 += ((v4 << 18) | (v4 >> 14))
+		h32 = ((v1 << 1) | (v1 >> 31)) + ((v2 << 7) | (v2 >> 25)) +
+			((v3 << 12) | (v3 >> 20)) + ((v4 << 18) | (v4 >> 14))
 	} else {
 		h32 = this.seed + XXHASH_PRIME32_5
 	}
 
-	h32 += uint32(length)
+	h32 += uint32(end)
 
-	for p+4 <= end {
-		h32 += (this.endianHash.Uint32(p) * XXHASH_PRIME32_3)
+	for n+4 <= end {
+		h32 += (binary.LittleEndian.Uint32(data[n:n+4]) * XXHASH_PRIME32_3)
 		h32 = ((h32 << 17) | (h32 >> 15)) * XXHASH_PRIME32_4
-		p += 4
+		n += 4
 	}
 
-	for p < end {
-		h32 += (uint32(*(*byte)(unsafe.Pointer(p))) * XXHASH_PRIME32_5)
+	for n < end {
+		h32 += (uint32(data[n]) * XXHASH_PRIME32_5)
 		h32 = ((h32 << 11) | (h32 >> 21)) * XXHASH_PRIME32_1
-		p++
+		n++
 	}
 
 	h32 ^= (h32 >> 15)

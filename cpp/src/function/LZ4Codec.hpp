@@ -69,8 +69,6 @@ namespace kanzi
 
       static bool differentInts(byte block[], int srcIdx, int dstIdx);
 
-      static void arrayChunkCopy(byte* pSrc, byte* pDst);
-
       static void customArrayCopy(byte src[], byte dst[], int len);
    };
 

@@ -93,7 +93,7 @@ CompressedInputStream::~CompressedInputStream()
 void CompressedInputStream::readHeader() THROW
 {
     // Read stream type
-    const int type = int(_ibs->readBits(32));
+    const int32 type = int32(_ibs->readBits(32));
 
     // Sanity check
     if (type != BITSTREAM_TYPE) {

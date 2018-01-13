@@ -17,6 +17,7 @@ package kanzi.entropy;
 
 import kanzi.BitStreamException;
 import kanzi.EntropyEncoder;
+import kanzi.Memory;
 import kanzi.OutputBitStream;
 
 
@@ -38,9 +39,9 @@ public final class NullEntropyEncoder implements EntropyEncoder
 
 
     @Override
-    public int encode(byte[] array, int blkptr, int len)
+    public int encode(byte[] block, int blkptr, int len)
     {
-        if ((array == null) || (blkptr + len > array.length) || (blkptr < 0) || (len < 0))
+        if ((block == null) || (blkptr + len > block.length) || (blkptr < 0) || (len < 0))
            return -1;
 
         final int len8 = len & -8;
@@ -51,15 +52,13 @@ public final class NullEntropyEncoder implements EntropyEncoder
         {
            while (i < end8)
            {            
-              if (this.encodeLong(array, i) == false)
-                 return i;
-
+              this.bitstream.writeBits(Memory.BigEndian.readLong64(block, i), 64);
               i += 8;
            }
            
            while (i < blkptr + len)
            {            
-              this.bitstream.writeBits(array[i], 8);
+              this.bitstream.writeBits(block[i], 8);
               i++;
            }
         }
@@ -69,21 +68,6 @@ public final class NullEntropyEncoder implements EntropyEncoder
         }
 
         return len;
-    }
-
-    
-    private boolean encodeLong(byte[] array, int offset)
-    {
-        long val;
-        val  =  (long) (array[offset]   & 0xFF) << 56;
-        val |= ((long) (array[offset+1] & 0xFF) << 48);
-        val |= ((long) (array[offset+2] & 0xFF) << 40);
-        val |= ((long) (array[offset+3] & 0xFF) << 32);
-        val |= ((long) (array[offset+4] & 0xFF) << 24);
-        val |= ((long) (array[offset+5] & 0xFF) << 16);
-        val |= ((long) (array[offset+6] & 0xFF) << 8);
-        val |=  (long) (array[offset+7] & 0xFF);
-        return (this.bitstream.writeBits(val, 64) == 64);
     }
 
     

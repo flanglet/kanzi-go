@@ -16,6 +16,7 @@ limitations under the License.
 package entropy
 
 import (
+	"encoding/binary"
 	"kanzi"
 )
 
@@ -35,15 +36,7 @@ func (this *NullEntropyEncoder) Encode(block []byte) (int, error) {
 	len8 := len(block) & -8
 
 	for i := 0; i < len8; i += 8 {
-		val := uint64(block[i]) << 56
-		val |= (uint64(block[i+1]) << 48)
-		val |= (uint64(block[i+2]) << 40)
-		val |= (uint64(block[i+3]) << 32)
-		val |= (uint64(block[i+4]) << 24)
-		val |= (uint64(block[i+5]) << 16)
-		val |= (uint64(block[i+6]) << 8)
-		val |= uint64(block[i+7])
-		this.bitstream.WriteBits(val, 64)
+		this.bitstream.WriteBits(binary.BigEndian.Uint64(block[i:]), 64)
 	}
 
 	for i := len8; i < len(block); i++ {
@@ -74,15 +67,7 @@ func (this *NullEntropyDecoder) Decode(block []byte) (int, error) {
 	len8 := len(block) & -8
 
 	for i := 0; i < len8; i += 8 {
-		val := this.bitstream.ReadBits(64)
-		block[i] = byte(val >> 56)
-		block[i+1] = byte(val >> 48)
-		block[i+2] = byte(val >> 40)
-		block[i+3] = byte(val >> 32)
-		block[i+4] = byte(val >> 24)
-		block[i+5] = byte(val >> 16)
-		block[i+6] = byte(val >> 8)
-		block[i+7] = byte(val)
+		binary.BigEndian.PutUint64(block[i:], this.bitstream.ReadBits(64))
 	}
 
 	for i := len8; i < len(block); i++ {

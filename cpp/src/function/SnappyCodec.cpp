@@ -16,6 +16,7 @@ limitations under the License.
 #include <cstring>
 #include "SnappyCodec.hpp"
 #include "../IllegalArgumentException.hpp"
+#include "../Memory.hpp"
 
 using namespace kanzi;
 
@@ -47,28 +48,28 @@ int SnappyCodec::emitLiteral(SliceArray<byte>& input, SliceArray<byte>& output, 
     }
     else if (n < 0x0100) {
         dst[0] = TAG_ENC_LEN1;
-        dst[1] = (byte)n;
+        dst[1] = byte(n);
         dstIdx += 2;
     }
     else if (n < 0x010000) {
         dst[0] = TAG_ENC_LEN2;
-        dst[1] = (byte)n;
-        dst[2] = (byte)(n >> 8);
+        dst[1] = byte(n);
+        dst[2] = byte(n >> 8);
         dstIdx += 3;
     }
     else if (n < 0x01000000) {
         dst[0] = TAG_ENC_LEN3;
-        dst[1] = (byte)n;
-        dst[2] = (byte)(n >> 8);
-        dst[3] = (byte)(n >> 16);
+        dst[1] = byte(n);
+        dst[2] = byte(n >> 8);
+        dst[3] = byte(n >> 16);
         dstIdx += 4;
     }
     else {
         dst[0] = TAG_ENG_LEN4;
-        dst[1] = (byte)n;
-        dst[2] = (byte)(n >> 8);
-        dst[3] = (byte)(n >> 16);
-        dst[4] = (byte)(n >> 24);
+        dst[1] = byte(n);
+        dst[2] = byte(n >> 8);
+        dst[3] = byte(n >> 16);
+        dst[4] = byte(n >> 24);
         dstIdx += 5;;
     }
 
@@ -81,8 +82,8 @@ int SnappyCodec::emitCopy(SliceArray<byte>& output, int offset, int len)
 {
     byte* dst = &output._array[output._index];
     int idx = 0;
-    const byte b1 = (byte)offset;
-    const byte b2 = (byte)(offset >> 8);
+    const byte b1 = byte(offset);
+    const byte b2 = byte(offset >> 8);
 
     while (len >= 64) {
         dst[idx] = B0;
@@ -94,12 +95,12 @@ int SnappyCodec::emitCopy(SliceArray<byte>& output, int offset, int len)
 
     if (len > 0) {
         if ((offset < 2048) && (len < 12) && (len >= 4)) {
-            dst[idx] = (byte)(((b2 & 0x07) << 5) | ((len - 4) << 2) | TAG_COPY1);
+            dst[idx] = byte(((b2 & 0x07) << 5) | ((len - 4) << 2) | TAG_COPY1);
             dst[idx + 1] = b1;
             idx += 2;
         }
         else {
-            dst[idx] = (byte)(((len - 1) << 2) | TAG_COPY2);
+            dst[idx] = byte(((len - 1) << 2) | TAG_COPY2);
             dst[idx + 1] = b1;
             dst[idx + 2] = b2;
             idx += 3;
@@ -159,7 +160,7 @@ bool SnappyCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int
 
     while (srcIdx < ends2) {
         // Update the hash table
-        const int h = (Global::readInt32(&src[srcIdx]) * HASH_SEED) >> shift;
+        const int h = (LittleEndian::readInt32(&src[srcIdx]) * HASH_SEED) >> shift;
         int t = table[h]; // The last position with the same hash as srcIdx
         table[h] = srcIdx;
 
@@ -209,9 +210,9 @@ inline int SnappyCodec::putUvarint(byte buf[], uint64 x)
     int idx = 0;
 
     for (; x >= 0x80; x >>= 7)
-        buf[idx++] = (byte)(x | 0x80);
+        buf[idx++] = byte(x | 0x80);
 
-    buf[idx++] = (byte)x;
+    buf[idx++] = byte(x);
     return idx;
 }
 
@@ -356,5 +357,5 @@ bool SnappyCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int
 
 inline bool SnappyCodec::differentInts(byte block[], int srcIdx, int dstIdx)
 {
-    return *((int*)&block[srcIdx]) != *((int*)&block[dstIdx]);
+    return *((int32*)&block[srcIdx]) != *((int32*)&block[dstIdx]);
 }

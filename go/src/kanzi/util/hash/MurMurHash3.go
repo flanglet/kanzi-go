@@ -16,8 +16,7 @@ limitations under the License.
 package hash
 
 import (
-	"kanzi"
-	"unsafe"
+	"encoding/binary"
 )
 
 // MurmurHash3 was written by Austin Appleby, and is placed in the public
@@ -32,62 +31,13 @@ const (
 	MURMUR_HASH3_C5 = uint32(0xc2b2ae35)
 )
 
-type endianMurMurHash3 interface {
-	loop(p, limit uintptr, k1 uint32) (uintptr, uint32)
-}
-
-type littleEndianMurMurHash3 struct {
-}
-
-func (littleEndianMurMurHash3) loop(p, limit uintptr, h1 uint32) (uintptr, uint32) {
-	for p < limit {
-		k1 := *(*uint32)(unsafe.Pointer(p))
-		k1 *= MURMUR_HASH3_C1
-		k1 = (k1 << 15) | (k1 >> 17)
-		k1 *= MURMUR_HASH3_C2
-		h1 ^= k1
-		h1 = (h1 << 13) | (h1 >> 19)
-		h1 = (h1 * 5) + MURMUR_HASH3_C3
-		p += 4
-	}
-
-	return p, h1
-}
-
-type bigEndianMurMurHash3 struct {
-}
-
-func (bigEndianMurMurHash3) loop(p, limit uintptr, h1 uint32) (uintptr, uint32) {
-	for p < limit {
-		k1 := *(*uint32)(unsafe.Pointer(p))
-		k1 = ((k1 << 24) & 0xFF000000) | ((k1 << 8) & 0x00FF0000) | ((k1 >> 8) & 0x0000FF00) | ((k1 >> 24) & 0x000000FF)
-		k1 *= MURMUR_HASH3_C1
-		k1 = (k1 << 15) | (k1 >> 17)
-		k1 *= MURMUR_HASH3_C2
-		h1 ^= k1
-		h1 = (h1 << 13) | (h1 >> 19)
-		h1 = (h1 * 5) + MURMUR_HASH3_C3
-		p += 4
-	}
-
-	return p, h1
-}
-
 type MurMurHash3 struct {
-	seed       uint32
-	endianHash endianMurMurHash3 // uses unsafe package
+	seed uint32
 }
 
 func NewMurMurHash3(seed uint32) (*MurMurHash3, error) {
 	this := new(MurMurHash3)
 	this.seed = seed
-
-	if kanzi.IsBigEndian() {
-		this.endianHash = &bigEndianMurMurHash3{}
-	} else {
-		this.endianHash = &littleEndianMurMurHash3{}
-	}
-
 	return this, nil
 }
 
@@ -97,13 +47,23 @@ func (this *MurMurHash3) SetSeed(seed uint32) {
 
 func (this *MurMurHash3) Hash(data []byte) uint32 {
 	length := len(data)
-	p := uintptr(unsafe.Pointer(&data[0]))
-	end := p + uintptr(length)
 	h1 := this.seed // aliasing
+	n := 0
 
+	// Body
 	if length >= 4 {
-		// Body
-		p, h1 = this.endianHash.loop(p, end-4, h1)
+		end := length - 4
+
+		for n < end {
+			k1 := binary.LittleEndian.Uint32(data[n : n+4])
+			k1 *= MURMUR_HASH3_C1
+			k1 = (k1 << 15) | (k1 >> 17)
+			k1 *= MURMUR_HASH3_C2
+			h1 ^= k1
+			h1 = (h1 << 13) | (h1 >> 19)
+			h1 = (h1 * 5) + MURMUR_HASH3_C3
+			n += 4
+		}
 	}
 
 	// Tail
@@ -111,13 +71,13 @@ func (this *MurMurHash3) Hash(data []byte) uint32 {
 
 	switch length & 3 {
 	case 3:
-		k1 ^= ((uint32(*(*byte)(unsafe.Pointer(p + 2)))) << 16)
+		k1 ^= (uint32(data[n+2]) << 16)
 		fallthrough
 	case 2:
-		k1 ^= ((uint32(*(*byte)(unsafe.Pointer(p + 1)))) << 8)
+		k1 ^= (uint32(data[n+1]) << 8)
 		fallthrough
 	case 1:
-		k1 ^= uint32(*(*byte)(unsafe.Pointer(p)))
+		k1 ^= uint32(data[n])
 		k1 *= MURMUR_HASH3_C1
 		k1 = (k1 << 15) | (k1 >> 17)
 		k1 *= MURMUR_HASH3_C2

@@ -206,68 +206,8 @@ func SameByteSlices(slice1, slice2 []byte, deepCheck bool) bool {
 	return false
 }
 
-func IsBigEndian() bool {
-	x := uint64(0x0102030405060708)
-
-	if *(*byte)(unsafe.Pointer(&x)) == 0x01 {
-		return true
-	}
-
-	return false
-}
-
-type ByteOrder interface {
-	Uint32(p uintptr) uint32
-	Uint64(p uintptr) uint64
-}
-
-type LittleEndian struct {
-}
-
-func (LittleEndian) Uint64(p uintptr) uint64 {
-	return *(*uint64)(unsafe.Pointer(p))
-}
-
-func (LittleEndian) Uint32(p uintptr) uint32 {
-	return *(*uint32)(unsafe.Pointer(p))
-}
-
-func (LittleEndian) Uint16(p uintptr) uint16 {
-	return *(*uint16)(unsafe.Pointer(p))
-}
-
-type BigEndian struct {
-}
-
-func (BigEndian) Uint64(p uintptr) uint64 {
-	v := *(*uint64)(unsafe.Pointer(p))
-	return ((v << 56) & 0xFF00000000000000) |
-		((v << 40) & 0x00FF000000000000) |
-		((v << 24) & 0x0000FF0000000000) |
-		((v << 8) & 0x000000FF00000000) |
-		((v >> 8) & 0x00000000FF000000) |
-		((v >> 24) & 0x0000000000FF0000) |
-		((v >> 40) & 0x000000000000FF00) |
-		((v >> 56) & 0x00000000000000FF)
-}
-
-func (BigEndian) Uint32(p uintptr) uint32 {
-	v := *(*uint32)(unsafe.Pointer(p))
-	return ((v << 24) & 0xFF000000) |
-		((v << 8) & 0x00FF0000) |
-		((v >> 8) & 0x0000FF00) |
-		((v >> 24) & 0x000000FF)
-}
-
-func (BigEndian) Uint16(p uintptr) uint16 {
-	v := *(*uint16)(unsafe.Pointer(p))
-	return ((v << 8) & 0x0000FF00) |
-		((v >> 8) & 0x000000FF)
-}
-
 func DifferentInts(src, dst []byte) bool {
-	return src[0] != dst[0] ||
-		src[1] != dst[1] ||
-		src[2] != dst[2] ||
-		src[3] != dst[3]
+	p := uintptr(unsafe.Pointer(&src[0]))
+	q := uintptr(unsafe.Pointer(&dst[0]))
+	return *(*uint32)(unsafe.Pointer(p)) != *(*uint32)(unsafe.Pointer(q))
 }

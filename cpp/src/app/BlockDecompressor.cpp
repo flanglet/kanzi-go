@@ -469,7 +469,7 @@ T FileDecompressTask<T>::call()
 				}
 			}
 
-			_os = new ofstream(_outputName.c_str(), ofstream::binary);
+			_os = new ofstream(_outputName.c_str(), ofstream::out | ofstream::binary);
 
 			if (!*_os) {
 				if (_overwrite == true) {
@@ -508,7 +508,7 @@ T FileDecompressTask<T>::call()
 			is = &cin;
 		}
 		else {
-			ifstream* ifs = new ifstream(_inputName.c_str(), ifstream::binary);
+			ifstream* ifs = new ifstream(_inputName.c_str(), ifstream::in | ifstream::binary);
 
 			if (!*ifs) {
 				cerr << "Cannot open input file '" << _inputName << "'" << endl;

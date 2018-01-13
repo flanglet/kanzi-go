@@ -17,7 +17,7 @@ package kanzi.util.hash;
 
 // MurmurHash3 was written by Austin Appleby, and is placed in the public
 
-import kanzi.Global;
+import kanzi.Memory;
 
 // domain. The author hereby disclaims copyright to this source code.
 // Original source code: https://github.com/aappleby/smhasher
@@ -69,7 +69,7 @@ public class MurMurHash3
          
          for ( ; n<end; n+=4)
          {
-            int k1 = Global.readInt32(data, n);
+            int k1 = Memory.LittleEndian.readInt32(data, n);
             k1 *= C1;
             k1 = (k1 << 15) | (k1 >>> 17);
             k1 *= C2; 

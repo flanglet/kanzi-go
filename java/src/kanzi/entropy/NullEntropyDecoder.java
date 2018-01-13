@@ -17,6 +17,7 @@ package kanzi.entropy;
 
 import kanzi.EntropyDecoder;
 import kanzi.InputBitStream;
+import kanzi.Memory;
 
 
 // Null entropy encoder and decoder
@@ -36,9 +37,9 @@ public final class NullEntropyDecoder implements EntropyDecoder
         
      
     @Override
-    public int decode(byte[] array, int blkptr, int len)
+    public int decode(byte[] block, int blkptr, int len)
     {
-       if ((array == null) || (blkptr + len > array.length) || (blkptr < 0) || (len < 0))
+       if ((block == null) || (blkptr + len > block.length) || (blkptr < 0) || (len < 0))
           return -1;
 
        final int len8 = len & -8;
@@ -47,28 +48,14 @@ public final class NullEntropyDecoder implements EntropyDecoder
 
        while (i < end8)
        {
-          this.decodeLong(array, i);
+          Memory.BigEndian.writeLong64(block, i, this.bitstream.readBits(64));
           i += 8;
        }
 
        while (i < blkptr + len)
-          array[i++] = (byte) this.bitstream.readBits(8);
+          block[i++] = (byte) this.bitstream.readBits(8);
 
        return len;
-    }
-
-
-    private void decodeLong(byte[] array, int offset)
-    {
-       final long val = this.bitstream.readBits(64);
-       array[offset]   = (byte) (val >>> 56);
-       array[offset+1] = (byte) (val >>> 48);
-       array[offset+2] = (byte) (val >>> 40);
-       array[offset+3] = (byte) (val >>> 32);
-       array[offset+4] = (byte) (val >>> 24);
-       array[offset+5] = (byte) (val >>> 16);
-       array[offset+6] = (byte) (val >>> 8);
-       array[offset+7] = (byte)  val;
     }
 
 

@@ -44,19 +44,11 @@ const (
 
 type SnappyCodec struct {
 	buffer []int
-	order  binary.ByteOrder
 }
 
 func NewSnappyCodec() (*SnappyCodec, error) {
 	this := new(SnappyCodec)
 	this.buffer = make([]int, MAX_TABLE_SIZE)
-
-	if kanzi.IsBigEndian() {
-		this.order = binary.BigEndian
-	} else {
-		this.order = binary.LittleEndian
-	}
-
 	return this, nil
 }
 
@@ -208,7 +200,7 @@ func (this *SnappyCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	for srcIdx < ends2 {
 		// Update the hash table
-		h := (this.order.Uint32(src[srcIdx:srcIdx+4]) * SNAPPY_HASH_SEED) >> shift
+		h := (binary.LittleEndian.Uint32(src[srcIdx:srcIdx+4]) * SNAPPY_HASH_SEED) >> shift
 		t := table[h] // The last position with the same hash as srcIdx
 		table[h] = srcIdx
 
@@ -347,7 +339,7 @@ func (this *SnappyCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			break
 		}
 
-		for d < end  {
+		for d < end {
 			dst[d] = dst[d-offset]
 			d++
 		}

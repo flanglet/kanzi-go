@@ -15,6 +15,7 @@ limitations under the License.
 
 #include "DefaultInputBitStream.hpp"
 #include "../IllegalArgumentException.hpp"
+#include "../Memory.hpp"
 #include "../io/IOException.hpp"
 
 using namespace kanzi;
@@ -118,7 +119,7 @@ int DefaultInputBitStream::readFromInputStream(uint count) THROW
             size = count;
         }
         else {
-            size = (int) _is.gcount();
+            size = int(_is.gcount());
 
             if (!_is.eof()) {
                _position = 0;
@@ -179,15 +180,7 @@ inline void DefaultInputBitStream::pullCurrent()
     }
     else {
         // Regular processing, buffer length is multiple of 8
-        byte* buf = &_buffer[_position];
-        val = ((uint64(buf[0] & 0xFF)) << 56);
-        val |= ((uint64(buf[1] & 0xFF)) << 48);
-        val |= ((uint64(buf[2] & 0xFF)) << 40);
-        val |= ((uint64(buf[3] & 0xFF)) << 32);
-        val |= ((uint64(buf[4] & 0xFF)) << 24);
-        val |= ((uint64(buf[5] & 0xFF)) << 16);
-        val |= ((uint64(buf[6] & 0xFF)) << 8);
-        val |= (uint64(buf[7] & 0xFF));
+        val = BigEndian::readLong64(&_buffer[_position]);
         _bitIndex = 63;
         _position += 8;
     }

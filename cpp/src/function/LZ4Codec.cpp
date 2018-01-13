@@ -16,6 +16,7 @@ limitations under the License.
 #include <sstream>
 #include "LZ4Codec.hpp"
 #include "../IllegalArgumentException.hpp"
+#include "../Memory.hpp"
 
 using namespace kanzi;
 
@@ -95,10 +96,10 @@ bool LZ4Codec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int co
         memset(table, 0, sizeof(int) * (size_t(1) << hashLog));
 
         // First byte
-        int h = (Global::readInt32(&src[srcIdx]) * LZ4_HASH_SEED) >> hashShift;
+        int h = (LittleEndian::readInt32(&src[srcIdx]) * LZ4_HASH_SEED) >> hashShift;
         table[h] = srcIdx - base;
         srcIdx++;
-        h = (Global::readInt32(&src[srcIdx]) * LZ4_HASH_SEED) >> hashShift;
+        h = (LittleEndian::readInt32(&src[srcIdx]) * LZ4_HASH_SEED) >> hashShift;
 
         while (true) {
             int fwdIdx = srcIdx;
@@ -123,7 +124,7 @@ bool LZ4Codec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int co
                 searchMatchNb++;
                 match = table[h] + base;
                 table[h] = srcIdx - base;
-                h = (Global::readInt32(&src[fwdIdx]) * LZ4_HASH_SEED) >> hashShift;
+                h = (LittleEndian::readInt32(&src[fwdIdx]) * LZ4_HASH_SEED) >> hashShift;
             } while ((differentInts(src, match, srcIdx) == true) || (match <= srcIdx - MAX_DISTANCE));
 
             // Catch up
@@ -187,11 +188,11 @@ bool LZ4Codec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int co
                 }
 
                 // Fill table
-                h = (Global::readInt32(&src[srcIdx - 2]) * LZ4_HASH_SEED) >> hashShift;
+                h = (LittleEndian::readInt32(&src[srcIdx - 2]) * LZ4_HASH_SEED) >> hashShift;
                 table[h] = srcIdx - 2 - base;
 
                 // Test next position
-                h = (Global::readInt32(&src[srcIdx]) * LZ4_HASH_SEED) >> hashShift;
+                h = (LittleEndian::readInt32(&src[srcIdx]) * LZ4_HASH_SEED) >> hashShift;
                 match = table[h] + base;
                 table[h] = srcIdx - base;
 
@@ -205,7 +206,7 @@ bool LZ4Codec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int co
 
             // Prepare next loop
             srcIdx++;
-            h = (Global::readInt32(&src[srcIdx]) * LZ4_HASH_SEED) >> hashShift;
+            h = (LittleEndian::readInt32(&src[srcIdx]) * LZ4_HASH_SEED) >> hashShift;
         }
     }
 
@@ -285,14 +286,15 @@ bool LZ4Codec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int co
 
         // Get match length
         if (length == ML_MASK) {
-            byte len;
-
-            while (((len = src[srcIdx++]) == (byte)0xFF) && (srcIdx <= srcEnd))
+            while (((src[srcIdx]) == byte(0xFF)) && (srcIdx < srcEnd)) {
+                srcIdx++;
                 length += 0xFF;
+            }
 
-            length += (len & 0xFF);
+            if (srcIdx < srcEnd)
+               length += (src[srcIdx++] & 0xFF);
 
-            if (length > MAX_LENGTH) {
+            if ((length > MAX_LENGTH) || (srcIdx == srcEnd)) {
                 stringstream ss;
                 ss << "Invalid length decoded: " << length;
                 throw IllegalArgumentException(ss.str());
@@ -311,21 +313,28 @@ bool LZ4Codec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int co
                 p1[i] = p2[i];
         }
         else {
-            // Unroll loop
+          if (dstIdx >= match+8) {
+				do {
+				 memcpy(&dst[dstIdx], &dst[match], 8);
+				 match += 8;
+				 dstIdx += 8;
+               } while (dstIdx < cpy);
+			} else {
             do {
-                byte* p1 = &dst[dstIdx];
-                byte* p2 = &dst[match];
-                p1[0] = p2[0];
-                p1[1] = p2[1];
-                p1[2] = p2[2];
-                p1[3] = p2[3];
-                p1[4] = p2[4];
-                p1[5] = p2[5];
-                p1[6] = p2[6];
-                p1[7] = p2[7];
-                match += 8;
-                dstIdx += 8;
-            } while (dstIdx < cpy);
+                   byte* p1 = &dst[dstIdx];
+                   byte* p2 = &dst[match];
+                   p1[0] = p2[0];
+                   p1[1] = p2[1];
+                   p1[2] = p2[2];
+                   p1[3] = p2[3];
+                   p1[4] = p2[4];
+                   p1[5] = p2[5];
+                   p1[6] = p2[6];
+                   p1[7] = p2[7];
+                   match += 8;
+                   dstIdx += 8;
+               } while (dstIdx < cpy);
+            }
         }
 
         // Correction
@@ -338,18 +347,13 @@ bool LZ4Codec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int co
 }
 
 
-inline void LZ4Codec::arrayChunkCopy(byte* pSrc, byte* pDst)
-{
-    memcpy(pDst, pSrc, 8);
-}
-
 inline void LZ4Codec::customArrayCopy(byte src[], byte dst[], int len)
 {
     for (int i = 0; i < len; i += 8)
-        arrayChunkCopy(&src[i], &dst[i]);
+        memcpy(&dst[i], &src[i], 8);
 }
 
 inline bool LZ4Codec::differentInts(byte block[], int srcIdx, int dstIdx)
 {
-    return *((int*)&block[srcIdx]) != *((int*)&block[dstIdx]);
+    return *((int32*)&block[srcIdx]) != *((int32*)&block[dstIdx]);
 }
