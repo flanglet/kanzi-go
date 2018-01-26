@@ -30,33 +30,32 @@ inline int LZ4Codec::writeLength(byte block[], int length)
     int idx = 0;
 
     while (length >= 0x1FE) {
-        block[idx] = (byte)0xFF;
-        block[idx + 1] = (byte)0xFF;
+        block[idx] = byte(0xFF);
+        block[idx + 1] = byte(0xFF);
         idx += 2;
         length -= 0x1FE;
     }
 
     if (length >= 0xFF) {
-        block[idx] = (byte)0xFF;
+        block[idx] = byte(0xFF);
         idx++;
         length -= 0xFF;
     }
 
-    block[idx] = (byte)length;
+    block[idx] = byte(length);
     return idx + 1;
 }
-
 
 int LZ4Codec::writeLastLiterals(byte src[], byte dst[], int runLength)
 {
     int dstIdx = 1;
 
     if (runLength >= RUN_MASK) {
-        dst[0] = (byte)(RUN_MASK << ML_BITS);
+        dst[0] = byte(RUN_MASK << ML_BITS);
         dstIdx += writeLength(&dst[1], runLength - RUN_MASK);
     }
     else {
-        dst[0] = (byte)(runLength << ML_BITS);
+        dst[0] = byte(runLength << ML_BITS);
     }
 
     memcpy(&dst[dstIdx], src, runLength);
@@ -68,7 +67,7 @@ int LZ4Codec::writeLastLiterals(byte src[], byte dst[], int runLength)
 bool LZ4Codec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int count)
 {
     if ((!SliceArray<byte>::isValid(input)) || (!SliceArray<byte>::isValid(output)))
-       return false;
+        return false;
 
     if (input._array == output._array)
         return false;
@@ -79,7 +78,7 @@ bool LZ4Codec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int co
     byte* dst = output._array;
 
     if (output._length - dstIdx0 < getMaxEncodedLength(count))
-       return false;
+        return false;
 
     const int base = 0;
     const int hashLog = (count < LZ4_64K_LIMIT) ? HASH_LOG_64K : HASH_LOG;
@@ -139,11 +138,11 @@ bool LZ4Codec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int co
             dstIdx++;
 
             if (litLength >= RUN_MASK) {
-                dst[token] = (byte)(RUN_MASK << ML_BITS);
+                dst[token] = byte(RUN_MASK << ML_BITS);
                 dstIdx += writeLength(&dst[dstIdx], litLength - RUN_MASK);
             }
             else {
-                dst[token] = (byte)(litLength << ML_BITS);
+                dst[token] = byte(litLength << ML_BITS);
             }
 
             // Copy literals
@@ -153,8 +152,8 @@ bool LZ4Codec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int co
             // Next match
             do {
                 // Encode offset
-                dst[dstIdx++] = (byte)(srcIdx - match);
-                dst[dstIdx++] = (byte)((srcIdx - match) >> 8);
+                dst[dstIdx++] = byte(srcIdx - match);
+                dst[dstIdx++] = byte((srcIdx - match) >> 8);
 
                 // Encode match length
                 srcIdx += MIN_MATCH;
@@ -170,11 +169,11 @@ bool LZ4Codec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int co
 
                 // Encode match length
                 if (matchLength >= ML_MASK) {
-                    dst[token] += (byte)ML_MASK;
+                    dst[token] += byte(ML_MASK);
                     dstIdx += writeLength(&dst[dstIdx], matchLength - ML_MASK);
                 }
                 else {
-                    dst[token] += (byte)matchLength;
+                    dst[token] += byte(matchLength);
                 }
 
                 anchor = srcIdx;
@@ -217,13 +216,12 @@ bool LZ4Codec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int co
     return true;
 }
 
-
 // Reads same byte input as LZ4_decompress_generic in LZ4 r131 (7/15)
 // for a 32 bit architecture.
 bool LZ4Codec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int count)
 {
     if ((!SliceArray<byte>::isValid(input)) || (!SliceArray<byte>::isValid(output)))
-       return false;
+        return false;
 
     if (input._array == output._array)
         return false;
@@ -233,7 +231,7 @@ bool LZ4Codec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int co
     byte* src = input._array;
     byte* dst = output._array;
     const int srcEnd = srcIdx0 + count;
-    const int dstEnd =  output._length;
+    const int dstEnd = output._length;
     const int srcEnd2 = srcEnd - COPY_LENGTH;
     const int dstEnd2 = dstEnd - COPY_LENGTH;
     int srcIdx = srcIdx0;
@@ -247,7 +245,7 @@ bool LZ4Codec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int co
         if (length == RUN_MASK) {
             byte len;
 
-            while (((len = src[srcIdx++]) == (byte)0xFF) && (srcIdx <= srcEnd))
+            while (((len = src[srcIdx++]) == byte(0xFF)) && (srcIdx <= srcEnd))
                 length += 0xFF;
 
             length += (len & 0xFF);
@@ -271,11 +269,11 @@ bool LZ4Codec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int co
         srcIdx += length;
         dstIdx += length;
 
-		  if ((dstIdx > dstEnd2) || (srcIdx > srcEnd2))
-		  	  break;
+        if ((dstIdx > dstEnd2) || (srcIdx > srcEnd2))
+            break;
 
         // Get offset
-        const int delta = (src[srcIdx] & 0xFF) | ((src[srcIdx+1] & 0xFF) << 8);
+        const int delta = (src[srcIdx] & 0xFF) | ((src[srcIdx + 1] & 0xFF) << 8);
         srcIdx += 2;
         int match = dstIdx - delta;
 
@@ -292,7 +290,7 @@ bool LZ4Codec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int co
             }
 
             if (srcIdx < srcEnd)
-               length += (src[srcIdx++] & 0xFF);
+                length += (src[srcIdx++] & 0xFF);
 
             if ((length > MAX_LENGTH) || (srcIdx == srcEnd)) {
                 stringstream ss;
@@ -313,27 +311,28 @@ bool LZ4Codec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int co
                 p1[i] = p2[i];
         }
         else {
-          if (dstIdx >= match+8) {
-				do {
-				 memcpy(&dst[dstIdx], &dst[match], 8);
-				 match += 8;
-				 dstIdx += 8;
-               } while (dstIdx < cpy);
-			} else {
-            do {
-                   byte* p1 = &dst[dstIdx];
-                   byte* p2 = &dst[match];
-                   p1[0] = p2[0];
-                   p1[1] = p2[1];
-                   p1[2] = p2[2];
-                   p1[3] = p2[3];
-                   p1[4] = p2[4];
-                   p1[5] = p2[5];
-                   p1[6] = p2[6];
-                   p1[7] = p2[7];
-                   match += 8;
-                   dstIdx += 8;
-               } while (dstIdx < cpy);
+            if (dstIdx >= match + 8) {
+                do {
+                    memcpy(&dst[dstIdx], &dst[match], 8);
+                    match += 8;
+                    dstIdx += 8;
+                } while (dstIdx < cpy);
+            }
+            else {
+                do {
+                    byte* p1 = &dst[dstIdx];
+                    byte* p2 = &dst[match];
+                    p1[0] = p2[0];
+                    p1[1] = p2[1];
+                    p1[2] = p2[2];
+                    p1[3] = p2[3];
+                    p1[4] = p2[4];
+                    p1[5] = p2[5];
+                    p1[6] = p2[6];
+                    p1[7] = p2[7];
+                    match += 8;
+                    dstIdx += 8;
+                } while (dstIdx < cpy);
             }
         }
 
@@ -345,7 +344,6 @@ bool LZ4Codec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int co
     output._index = dstIdx;
     return srcIdx == srcEnd;
 }
-
 
 inline void LZ4Codec::customArrayCopy(byte src[], byte dst[], int len)
 {
