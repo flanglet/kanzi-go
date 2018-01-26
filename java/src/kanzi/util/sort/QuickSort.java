@@ -20,328 +20,1019 @@ import kanzi.IntSorter;
 
 
 
-// One implementation of the most famous sorting algorithm
-// There is a lot of litterature about quicksort
-// A great reference is http://users.aims.ac.za/~mackay/sorting/sorting.html
-// And of course: [Engineering a sort function] by Bentley and McIlroy
+// Implementation of the Dual-Pivot Quicksort algorithm by
+// Vladimir Yaroslavskiy, Jon Bentley and Josh Bloch.
+// See http://cr.openjdk.java.net/~alanb/DualPivotSortUpdate/webrev.01/raw_files/
+// new/src/java.base/share/classes/java/util/DualPivotQuicksort.java
 
 public class QuickSort implements IntSorter
 {
-    private static final int SMALL_ARRAY_THRESHOLD = 32;
+    private static final int HEAP_SORT_THRESHOLD = 69;
+    private static final int NANO_INSERTION_SORT_THRESHOLD = 36;
+    private static final int PAIR_INSERTION_SORT_THRESHOLD = 88;
+    private static final int MERGING_SORT_THRESHOLD = 2048;
+    private static final int MAX_RECURSION_DEPTH = 100;
+    private static final int LEFTMOST_BITS = MAX_RECURSION_DEPTH << 1;
     
-    private final ArrayComparator cmp;
-
-
-    public QuickSort()
-    {
-        this(null);
-    }
-
-
-    public QuickSort(ArrayComparator cmp)
-    {
-        this.cmp = cmp;
-    }
-
-
-    protected ArrayComparator getComparator()
-    {
-        return this.cmp;
-    }
-
-
-    @Override
-    public boolean sort(int[] input, int blkptr, int len)
-    {
-        if ((blkptr < 0) || (len <= 0) || (blkptr+len > input.length))
-            return false;
-
-        if (len == 1)
-           return true;
-        
-        recursiveSort(input, blkptr, blkptr+len-1, this.cmp);       
-        return true;
-    }
-
     
-    // Ternary partitioning 
-    private static void recursiveSort(int[] array, int low, int high, ArrayComparator comp)
-    {
-        if (high <= low + SMALL_ARRAY_THRESHOLD)
-        {
-            if (comp != null)
-               sortSmallArrayWithComparator(array, low, high, comp);
-            else
-               sortSmallArrayNoComparator(array, low, high);
-                       
+   private final ArrayComparator cmp;
+
+
+   public QuickSort()
+   {
+      this(null);
+   }
+
+
+   public QuickSort(ArrayComparator cmp)
+   {
+      this.cmp = cmp;
+   }
+
+
+   protected ArrayComparator getComparator()
+   {
+      return this.cmp;
+   }
+
+
+   @Override
+   public boolean sort(int[] input, int blkptr, int len)
+   {
+      if ((blkptr < 0) || (len <= 0) || (blkptr+len > input.length))
+         return false;
+
+      if (len == 1)
+         return true;
+
+      if (this.cmp == null)          
+         recursiveSort(input, LEFTMOST_BITS, blkptr, blkptr+len);       
+       else
+         recursiveSort(input, LEFTMOST_BITS, blkptr, blkptr+len, this.cmp); 
+      
+      return true;
+   }
+
+
+   private static void recursiveSort(int[] block, int bits, int low, int high) 
+   {
+      final int end = high - 1;
+      final int length = high - low;
+
+      if ((bits & 1) != 0) 
+      {
+         if (length < NANO_INSERTION_SORT_THRESHOLD) 
+         {
+            nanoInsertionSort(block, low, high);
             return;
-        }
+         }
 
-        // Regular path
-        // Choose a pivot: this THE most important step of the algorithm since
-        // a bad pivot can really ruin the performance (quadratic). Some research
-        // papers show that picking a random index in the [low+1 .. high-1] range
-        // is a good choice (on average). Here, a median is used
-        final int mid = low + ((high - low) >> 1);        
-        final int s = (high - low) >> 3;
-        final int lows = low + s;
-        final int highs = high - s;
-
-        final int l = (array[low] < array[low+s] ?
-           (array[lows] < array[lows+s] ? lows : array[low] < array[lows+s] ? lows+s : low) :
-           (array[lows] > array[lows+s] ? lows : array[low] > array[lows+s] ? lows+s : low));
-        final int m = (array[mid-s] < array[mid] ?
-           (array[mid] < array[mid+s] ? mid : array[mid-s] < array[mid+s] ? mid+s : mid-s) :
-           (array[mid] > array[mid+s] ? mid : array[mid-s] > array[mid+s] ? mid+s : mid-s));
-        final int h = (array[highs-s] < array[highs] ?
-           (array[highs] < array[high] ? highs : array[highs-s] < array[high] ? high : highs-s) :
-           (array[highs] > array[high] ? highs : array[highs-s] > array[high] ? high : highs-s));
-        final int pivIdx = (array[l] < array[m] ?
-            (array[m] < array[h] ? m : array[l] < array[h] ? h : l) :
-            (array[m] > array[h] ? m : array[l] > array[h] ? h : l));
-
-        final int pivot = array[pivIdx];
-        int i = low;
-        int mi = low;
-        int j = high;
-        int mj = high;
-
-        if (comp != null)
-        {
-            // Use center partition of values equal to pivot
-            while (i <= j)
-            {
-                // Move up
-                while ((i <= j) && (comp.compare(array[i], pivot) <= 0))
-                {
-                    if (array[i] == pivot) // Move the pivot value to the low end. 
-                        array[i] = array[mi++];
-
-                    i++;
-                }
-
-                // Move down
-                while ((i <= j) && (comp.compare(pivot, array[j]) <= 0))
-                {
-                    if (array[j] == pivot) // Move the pivot value to the high end.
-                        array[j] = array[mj--];
-
-                    j--;
-                }
-
-                if (i <= j)
-                {
-                    int tmp = array[i];
-                    array[i++] = array[j];
-                    array[j--] = tmp;
-                }
-            }
-        }
-        else 
-        {
-            // Use center partition of values equal to pivot
-            while (i <= j)
-            {
-                // Move up
-                while ((i <= j) && (array[i] <= pivot))
-                {
-                    if (array[i] == pivot) // Move the pivot value to the low end. 
-                        array[i] = array[mi++];
-
-                    i++;
-                }
-
-                // Move down
-                while ((i <= j) && (pivot <= array[j]))
-                {
-                    if (array[j] == pivot) // Move the pivot value to the high end.
-                        array[j] = array[mj--];
-
-                    j--;
-                }
-
-                if (i <= j)
-                {
-                    int tmp = array[i];
-                    array[i++] = array[j];
-                    array[j--] = tmp;
-                }
-            }
-        }
-
-        // Move the pivot values from the ends to the middle
-        // The values have not been updated (see optimization above),
-        // they are all equal to the pivot
-        for (mi--, i--; mi>=low; mi--, i--)
-        {
-            array[mi] = array[i];
-            array[i] = pivot;
-        }
-
-        for (mj++, j++; mj<=high; mj++, j++)
-        {
-            array[mj] = array[j];
-            array[j] = pivot;
-        }
-
-        // Sort the low and high sub-arrays
-        if (i > low)
-           recursiveSort(array, low, i, comp);
-
-        if (high > j)
-           recursiveSort(array, j, high, comp);
-    }
-
-
-    private static void sortSmallArrayWithComparator(int[] array, int low, int high, ArrayComparator comp)
-    {
-        // Shortcut for 2 element-sub-array
-        if (high == low + 1)
-        {
-            if (comp.compare(array[low], array[high]) > 0)
-            {
-                final int tmp = array[low];
-                array[low] = array[high];
-                array[high] = tmp;
-            }
-
+         if (length < PAIR_INSERTION_SORT_THRESHOLD) 
+         {
+            pairInsertionSort(block, low, end);
             return;
-        }
+         }
+      }
 
-        if (high == low + 2)
-        {
-           // Shortcut for 3 element-sub-array
-           final int a1 = array[low];
-           final int a2 = array[low+1];
-           final int a3 = array[high];
+      bits -= 2;
+      
+      // Switch to heap sort on the leftmost part or
+      // if the execution time is becoming quadratic
+      if ((length < HEAP_SORT_THRESHOLD) || (bits < 0)) 
+      {
+         heapSort(block, low, end);
+         return;
+      }
 
-           if (comp.compare(a1, a2) <= 0)
-           {
-              if (comp.compare(a2, a3) <= 0)
-                return;
+      // Check if the array is nearly sorted
+      if (mergingSort(block, low, high))
+         return;
 
-              if (comp.compare(a3, a1) <= 0)
-              { 
-                 array[low]   = a3;
-                 array[low+1] = a1;
-                 array[high]  = a2;
-                 return;
-              }
+      // Splitting step using approximation of the golden ratio
+      final int step = (length >> 3) * 3 + 3;
 
-              array[low+1] = a3;
-              array[high]  = a2;
-          }
-          else
-          {
-             if (comp.compare(a1, a3) <= 0)
-             {
-                array[low]   = a2;
-                array[low+1] = a1;
-                return;
-             }
+      // Use 5 elements for pivot selection
+      final int e1 = low + step;
+      final int e5 = end - step;
+      final int e3 = (e1 + e5) >>> 1;
+      final int e2 = (e1 + e3) >>> 1;
+      final int e4 = (e3 + e5) >>> 1;
 
-             if (comp.compare(a3, a2) <= 0)
-             {
-                array[low]  = a3;
-                array[high] = a1;
-                return;
-             }
+      // Sort these elements in place by the combination of 5-element 
+      // sorting network and insertion sort.
+      if (block[e5] < block[e3]) 
+         swap(block, e3, e5);
 
-             array[low]   = a2;
-             array[low+1] = a3;
-             array[high]  = a1;
-          }
+      if (block[e4] < block[e2]) 
+         swap(block, e2, e4);
 
-          return;
-       }
+      if (block[e5] < block[e4]) 
+         swap(block, e4, e5);
+
+      if (block[e3] < block[e2]) 
+         swap(block, e2, e3);
+
+      if (block[e4] < block[e3]) 
+          swap(block, e3, e4);
+
+      if (block[e1] > block[e2]) 
+      { 
+         final int t = block[e1]; 
+         block[e1] = block[e2]; 
+         block[e2] = t;
+
+         if (t > block[e3]) 
+         { 
+            block[e2] = block[e3]; 
+            block[e3] = t;
+
+            if (t > block[e4]) 
+            { 
+               block[e3] = block[e4];
+               block[e4] = t;
+
+               if (t > block[e5]) 
+               { 
+                  block[e4] = block[e5];
+                  block[e5] = t; 
+               }
+            }
+         }
+      }
+
+      // Index of the last element of the left part
+      int lower = low; 
+
+      // Index of the first element of the right part
+      int upper = end; 
+
+      if ((block[e1] < block[e2]) && (block[e2] < block[e3]) && 
+         (block[e3] < block[e4]) && (block[e4] < block[e5])) 
+      {
+         // Partitioning with two pivots
+         // Use the first and the fifth elements as the pivots.             
+         final int pivot1 = block[e1];
+         final int pivot2 = block[e5];
+
+         // The first and the last elements to be sorted are moved to the
+         // locations formerly occupied by the pivots. When partitioning
+         // is completed, the pivots are swapped back into their final
+         // positions, and excluded from subsequent sorting.
+         block[e1] = block[lower];
+         block[e5] = block[upper];
+
+         // Skip elements, which are less or greater than the pivots.
+         lower++;
+         upper--;
+
+         while (block[lower] < pivot1)
+            lower++;
+
+         while (block[upper] > pivot2)
+            upper--;
+
+         lower--;
+         upper++;
+         
+         for (int k=upper; --k>lower; ) 
+         {
+            final int ak = block[k];
+
+            if (ak < pivot1) 
+            { 
+               // Move block[k] to the left side
+               while (block[++lower] < pivot1) {}
+
+               if (lower > k) 
+               {
+                  lower = k;
+                  break;
+               }
+
+               if (block[lower] > pivot2) 
+               { 
+                  // block[lower] >= pivot1
+                  upper--;
+                  block[k] = block[upper];
+                  block[upper] = block[lower];
+               } 
+               else 
+               { 
+                  // pivot1 <= block[lower] <= pivot2
+                  block[k] = block[lower];
+               }
+
+               block[lower] = ak;
+            } 
+            else if (ak > pivot2) 
+            { 
+               // Move block[k] to the right side
+               upper--;
+               block[k] = block[upper];
+               block[upper] = ak;
+            }
+         }
+
+         // Swap the pivots back into their final positions
+         block[low] = block[lower]; 
+         block[lower] = pivot1;
+         block[end] = block[upper]; 
+         block[upper] = pivot2;
+
+         // Recursion
+         recursiveSort(block, bits|1, upper+1, high);
+         recursiveSort(block, bits, low, lower);
+         recursiveSort(block, bits|1, lower+1, upper);
+     } 
+     else 
+     { 
+         // Partitioning with one pivot
+
+         // Use the third element as the pivotas an approximation of the median.
+         final int pivot = block[e3];
+
+         // The first element to be sorted is moved to the location
+         // formerly occupied by the pivot. When partitioning is
+         // completed, the pivot is swapped back into its final
+         // position, and excluded from subsequent sorting.
+         block[e3] = block[lower];
+         upper++;
+
+         for (int k=upper-1; k>lower; k--) 
+         {
+            if (block[k] == pivot) 
+                continue;
+
+            final int ak = block[k];
+
+            if (ak < pivot) 
+            { 
+               // Move block[k] to the left side
+               lower++;
+               
+               while (block[lower] < pivot)
+                  lower++;
+
+               if (lower > k) 
+               {
+                  lower = k;
+                  break;
+               }
+               
+               block[k] = pivot;
+
+               if (block[lower] > pivot) 
+               {
+                  upper--;
+                  block[upper] = block[lower];
+               }
+               
+               block[lower] = ak;
+            } 
+            else 
+            { 
+               // Move block[k] to the right side
+               block[k] = pivot;
+               upper--;
+               block[upper] = ak;
+            }
+         }
+
+         // Swap the pivot into its final position.
+         block[low] = block[lower]; 
+         block[lower] = pivot;
+
+         // Recursion
+         recursiveSort(block, bits|1, upper, high);
+         recursiveSort(block, bits, low, lower);
+      }   
+   }
+   
+   
+   private static void swap(int[] block, int idx0, int idx1)
+   {
+      final int t = block[idx0];
+      block[idx0] = block[idx1];
+      block[idx1] = t;
+   }
+   
+
+   private static void nanoInsertionSort(int[] block, int low, int high)
+   {
+      // In the context of Quicksort, the elements from the left part
+      // play the role of sentinels. Therefore expensive check of the
+      // left range on each iteration can be skipped.
+      while (low < high)
+      {
+         int k = low;
+         final int ak = block[k];
+         k--;
+
+         while (ak < block[k])
+         {
+            block[k+1] = block[k];
+            k--;
+         }
+
+         block[k+1] = ak;
+         low++;
+      }
+   } 
+   
+   
+   private static void pairInsertionSort(int[] block, int left, final int right) 
+   {
+      // Align left boundary
+      left -= ((left ^ right) & 1);
+
+      // Two elements are inserted at once on each iteration.
+      // At first, we insert the greater element (a2) and then
+      // insert the less element (a1), but from position where
+      // the greater element was inserted. In the context of a
+      // Dual-Pivot Quicksort, the elements from the left part
+      // play the role of sentinels. Therefore expensive check
+      // of the left range on each iteration can be skipped.
+      left++;
+      
+      while (left < right) 
+      {
+         left++;
+         int k = left;
+         int a1 = block[k];
+
+         if (block[k-2] > block[k-1]) 
+         {
+            k--;
+            int a2 = block[k];
+
+            if (a1 > a2)
+            {
+               a2 = a1; 
+               a1 = block[k];
+            }
+
+            k--;
+            
+            while (a2 < block[k]) 
+            {
+               block[k+2] = block[k];
+               k--;
+            }
+
+            k++;
+            block[k+1] = a2;
+         }
+
+         k--;
+         
+         while (a1 < block[k]) 
+         {
+            block[k+1] = block[k];
+            k--;
+         }
+         
+         block[k+1] = a1;
+         left++;
+      }
+   }
  
-       // Switch to insertion sort to avoid recursion
-       for (int i=low+1; i<=high; i++)  
-       {
-          final int tmp = array[i];
-          int j = i - 1;
+  
+   private static void heapSort(int[] block, int left, int right) 
+   {
+      for (int k=(left+1+right)>>>1; k>left; ) 
+      {
+         k--;
+         pushDown(block, k, block[k], left, right);
+      }
+      
+      for (int k=right; k>left; k--) 
+      {
+         final int max = block[left];
+         pushDown(block, left, block[k], left, k);
+         block[k] = max;
+      }
+   }
 
-          for ( ; ((j >= low) && (comp.compare(array[j], tmp) > 0)); j--) 
-             array[j+1] = array[j];
+  
+   private static void pushDown(int[] block, int p, int value, int left, int right)
+   {
+      while (true)
+      {
+         int k = (p<<1) - left + 2;
 
-          array[j+1] = tmp;
-       }   
-    }
+         if ((k > right) || (block[k-1] > block[k])) 
+            k--;
 
+         if ((k > right) || (block[k] <= value)) 
+         {
+            block[p] = value;
+            return;
+         }
+         
+         block[p] = block[k];
+         p = k;
+      }
+   }   
+   
+    
+   private static boolean mergingSort(int[] block, int low, int high) 
+   {
+      final int length = high - low;
 
-    private static void sortSmallArrayNoComparator(int[] array, int low, int high)
-    {
-       // Shortcut for 2 element-sub-array
-       if (high == low + 1) 
-       {
-          if (array[low] > array[high]) 
-          {
-             final int tmp = array[low];
-             array[low] = array[high];
-             array[high] = tmp;
-          }
+      if (length < MERGING_SORT_THRESHOLD)
+         return false;
 
-          return;
-       }
+      final int max = (length > 2048000) ? 2000 : (length >> 10) | 5;
+      final int[] run = new int[max+1];
+      int count = 0;
+      int last = low;
+      run[0] = low;
+      
+      // Check if the array is highly structured.
+      for (int k=low+1; (k<high) && (count<max); ) 
+      {
+         if (block[k-1] < block[k]) 
+         {
+            // Identify ascending sequence
+            while (++k < high)
+            {
+               if (block[k-1] > block[k])
+                  break;
+            }
+         }
+         else if (block[k-1] > block[k]) 
+         {
+            // Identify descending sequence
+            while (++k < high)
+            {
+               if (block[k-1] < block[k])
+                  break;
+            }
 
-       if (high == low + 2) 
-       {        
-          // Shortcut for 3 element-sub-array
-          final int a1 = array[low];
-          final int a2 = array[low+1];
-          final int a3 = array[high];
+            // Reverse the run into ascending order
+            for (int i=last-1, j=k; ((++i < --j) && (block[i] > block[j])); ) 
+               swap(block, i, j);
+         } 
+         else 
+         { 
+            // Sequence with equal elements
+            final int ak = block[k]; 
+            
+            while (++k < high)
+            {
+               if (ak != block[k])
+                  break;
+            }
 
-          if (a1 <= a2) 
-          {
-             if (a2 <= a3) 
-                return;
+            if (k < high)
+               continue;
+         }
 
-             if (a3 <= a1)
-             {
-                array[low] = a3;
-                array[low+1] = a1;
-                array[high] = a2;
-                return;
-             }
+         if ((count == 0) || (block[last-1] > block[last]))
+            count++;
 
-             array[low+1] = a3;
-             array[high] = a2;
-          } 
-          else 
-          {
-             if (a1 <= a3) 
-             {
-                array[low] = a2;
-                array[low+1] = a1;
-                return;
-             }
+         last = k;
+         run[count] = k;
+      }
 
-             if (a3 <= a2) 
-             {
-                array[low] = a3;
-                array[high] = a1;
-                return;
-             }
+      // The array is highly structured => merge all runs
+      if ((count < max) && (count > 1)) 
+         merge(block, new int[length], true, low, run, 0, count);
+      
+      return count < max;
+   }
 
-             array[low] = a2;
-             array[low + 1] = a3;
-             array[high] = a1;
-          }
+    
+   private static int[] merge(int[] block1, int[] block2, boolean isSource,
+            int offset, int[] run, int lo, int hi) 
+   {
+      if (hi - lo == 1)
+      {
+         if (isSource == true) 
+            return block1;
+      
+         for (int i=run[hi], j=i-offset, low=run[lo]; i>low; i--, j--)
+            block2[j] = block1[i];
+          
+         return block2;
+      }
+      
+      final int mi = (lo + hi) >>> 1;
+      final int[] a1 = merge(block1, block2, !isSource, offset, run, lo, mi);
+      final int[] a2 = merge(block1, block2, true, offset, run, mi, hi);
+      
+      return merge((a1==block1) ? block2 : block1,
+                   (a1==block1) ? run[lo]-offset : run[lo],
+                    a1,
+                   (a1==block2) ? run[lo]-offset : run[lo],
+                   (a1==block2) ? run[mi]-offset : run[mi],
+                    a2,
+                   (a2==block2) ? run[mi]-offset : run[mi],
+                   (a2==block2) ? run[hi]-offset : run[hi]);
+   }
+   
+   
+   private static int[] merge(int[] dst, int k,
+            int[] block1, int i, int hi, int[] block2, int j, int hj) 
+   {
+      while (true) 
+      {
+         dst[k++] = (block1[i] < block2[j]) ? block1[i++] : block2[j++];
 
-          return;
-       }
+         if (i == hi) 
+         {
+            while (j < hj)
+               dst[k++] = block2[j++];
 
-       // Switch to insertion sort to avoid recursion
-       for (int i=low+1; i<=high; i++) 
-       {
-          final int tmp = array[i];
-          int j = i - 1;
+            return dst;
+         }
+         
+         if (j == hj) 
+         {
+            while (i < hi)
+               dst[k++] = block1[i++];
 
-          for ( ; ((j >= low) && (array[j] > tmp)); j--) 
-             array[j+1] = array[j];
+            return dst;
+         }
+      }
+   }   
+   
+   
+   
+   private static void recursiveSort(int[] block, int bits, int low, int high, ArrayComparator cmp) 
+   {
+      final int end = high - 1;
+      final int length = high - low;
 
-          array[j+1] = tmp;
-       }
-    }
+      if ((bits & 1) != 0) 
+      {
+         if (length < NANO_INSERTION_SORT_THRESHOLD) 
+         {
+            nanoInsertionSort(block, low, high, cmp);
+            return;
+         }
 
+         if (length < PAIR_INSERTION_SORT_THRESHOLD) 
+         {
+            pairInsertionSort(block, low, end, cmp);
+            return;
+         }
+      }
+
+      bits -= 2;
+      
+      // Switch to heap sort on the leftmost part or
+      // if the execution time is becoming quadratic
+      if ((length < HEAP_SORT_THRESHOLD) || (bits < 0)) 
+      {
+         heapSort(block, low, end, cmp);
+         return;
+      }
+
+      // Check if the array is nearly sorted
+      if (mergingSort(block, low, high, cmp))
+         return;
+
+      // Splitting step using approximation of the golden ratio
+      final int step = (length >> 3) * 3 + 3;
+
+      // Use 5 elements for pivot selection
+      final int e1 = low + step;
+      final int e5 = end - step;
+      final int e3 = (e1 + e5) >>> 1;
+      final int e2 = (e1 + e3) >>> 1;
+      final int e4 = (e3 + e5) >>> 1;
+
+      // Sort these elements in place by the combination of 5-element 
+      // sorting network and insertion sort.
+      if (cmp.compare(block[e5], block[e3]) < 0) 
+         swap(block, e3, e5);
+
+      if (cmp.compare(block[e4], block[e2]) < 0) 
+         swap(block, e2, e4);
+
+      if (cmp.compare(block[e5], block[e4]) < 0) 
+         swap(block, e4, e5);
+
+      if (cmp.compare(block[e3], block[e2]) < 0) 
+         swap(block, e2, e3);
+
+      if (cmp.compare(block[e4], block[e3]) < 0) 
+          swap(block, e3, e4);
+
+      if (cmp.compare(block[e1], block[e2]) > 0) 
+      { 
+         final int t = block[e1]; 
+         block[e1] = block[e2]; 
+         block[e2] = t;
+
+         if (cmp.compare(t, block[e3]) > 0)  
+         { 
+            block[e2] = block[e3]; 
+            block[e3] = t;
+
+            if (cmp.compare(t, block[e4]) > 0)  
+            { 
+               block[e3] = block[e4];
+               block[e4] = t;
+
+               if (cmp.compare(t, block[e5]) > 0)  
+               { 
+                  block[e4] = block[e5];
+                  block[e5] = t; 
+               }
+            }
+         }
+      }
+
+      // Index of the last element of the left part
+      int lower = low; 
+
+      // Index of the first element of the right part
+      int upper = end; 
+
+      if ((cmp.compare(block[e1], block[e2]) < 0) && (cmp.compare(block[e2], block[e3]) < 0) &&
+          (cmp.compare(block[e3], block[e4]) < 0)  && (cmp.compare(block[e4], block[e5]) < 0))
+      {
+         // Partitioning with two pivots
+         // Use the first and the fifth elements as the pivots.             
+         final int pivot1 = block[e1];
+         final int pivot2 = block[e5];
+
+         // The first and the last elements to be sorted are moved to the
+         // locations formerly occupied by the pivots. When partitioning
+         // is completed, the pivots are swapped back into their final
+         // positions, and excluded from subsequent sorting.
+         block[e1] = block[lower];
+         block[e5] = block[upper];
+
+         // Skip elements, which are less or greater than the pivots.
+         lower++;
+         upper--;
+
+         while (cmp.compare(block[lower], pivot1) < 0)  
+            lower++;
+
+         while (cmp.compare(block[upper], pivot2) > 0)  
+            upper--;
+
+         lower--;
+         upper++;
+         
+         for (int k=upper; --k>lower; ) 
+         {
+            final int ak = block[k];
+
+            if (cmp.compare(ak, pivot1) < 0)
+            { 
+               // Move block[k] to the left side
+               while (cmp.compare(block[++lower], pivot1) < 0) {}
+
+               if (lower > k) 
+               {
+                  lower = k;
+                  break;
+               }
+
+               if (cmp.compare(block[lower], pivot2) > 0)
+               { 
+                  // block[lower] >= pivot1
+                  upper--;
+                  block[k] = block[upper];
+                  block[upper] = block[lower];
+               } 
+               else 
+               { 
+                  // pivot1 <= block[lower] <= pivot2
+                  block[k] = block[lower];
+               }
+
+               block[lower] = ak;
+            } 
+            else if (cmp.compare(ak, pivot2) > 0)
+            { 
+               // Move block[k] to the right side
+               upper--;
+               block[k] = block[upper];
+               block[upper] = ak;
+            }
+         }
+
+         // Swap the pivots back into their final positions
+         block[low] = block[lower]; 
+         block[lower] = pivot1;
+         block[end] = block[upper]; 
+         block[upper] = pivot2;
+
+         // Recursion
+         recursiveSort(block, bits|1, upper+1, high, cmp);
+         recursiveSort(block, bits, low, lower, cmp);
+         recursiveSort(block, bits|1, lower+1, upper, cmp);
+     } 
+     else 
+     { 
+         // Partitioning with one pivot
+
+         // Use the third element as the pivotas an approximation of the median.
+         final int pivot = block[e3];
+
+         // The first element to be sorted is moved to the location
+         // formerly occupied by the pivot. When partitioning is
+         // completed, the pivot is swapped back into its final
+         // position, and excluded from subsequent sorting.
+         block[e3] = block[lower];
+         upper++;
+
+         for (int k=upper-1; k>lower; k--) 
+         {
+            if (cmp.compare(block[k], pivot) == 0)
+                continue;
+
+            final int ak = block[k];
+
+            if (cmp.compare(ak, pivot) < 0)
+            { 
+               // Move block[k] to the left side
+               lower++;
+               
+               while (cmp.compare(block[lower], pivot) < 0)
+                  lower++;
+
+               if (lower > k) 
+               {
+                  lower = k;
+                  break;
+               }
+               
+               block[k] = pivot;
+
+               if (cmp.compare(block[lower], pivot) > 0)
+               {
+                  upper--;
+                  block[upper] = block[lower];
+               }
+               
+               block[lower] = ak;
+            } 
+            else 
+            { 
+               // Move block[k] to the right side
+               block[k] = pivot;
+               upper--;
+               block[upper] = ak;
+            }
+         }
+
+         // Swap the pivot into its final position.
+         block[low] = block[lower]; 
+         block[lower] = pivot;
+
+         // Recursion
+         recursiveSort(block, bits|1, upper, high, cmp);
+         recursiveSort(block, bits, low, lower, cmp);
+      }   
+   }
+   
+   private static void nanoInsertionSort(int[] block, int low, int high, ArrayComparator cmp)
+   {
+      // In the context of Quicksort, the elements from the left part
+      // play the role of sentinels. Therefore expensive check of the
+      // left range on each iteration can be skipped.
+      while (low < high)
+      {
+         int k = low;
+         final int ak = block[k];
+         k--;
+
+         while (cmp.compare(ak, block[k]) < 0)
+         {
+            block[k+1] = block[k];
+            k--;
+         }
+
+         block[k+1] = ak;
+         low++;
+      }
+   } 
+   
+   
+   private static void pairInsertionSort(int[] block, int left, final int right, ArrayComparator cmp) 
+   {
+      // Align left boundary
+      left -= ((left ^ right) & 1);
+
+      // Two elements are inserted at once on each iteration.
+      // At first, we insert the greater element (a2) and then
+      // insert the less element (a1), but from position where
+      // the greater element was inserted. In the context of a
+      // Dual-Pivot Quicksort, the elements from the left part
+      // play the role of sentinels. Therefore expensive check
+      // of the left range on each iteration can be skipped.
+      left++;
+      
+      while (left < right) 
+      {
+         left++;
+         int k = left;
+         int a1 = block[k];
+
+         if (cmp.compare(block[k-2], block[k-1]) > 0)
+         {
+            k--;
+            int a2 = block[k];
+
+            if (cmp.compare(a1, a2) > 0)
+            {
+               a2 = a1; 
+               a1 = block[k];
+            }
+
+            k--;
+            
+            while (cmp.compare(a2, block[k]) < 0)
+            {
+               block[k+2] = block[k];
+               k--;
+            }
+
+            k++;
+            block[k+1] = a2;
+         }
+
+         k--;
+         
+         while (cmp.compare(a1, block[k]) < 0)
+         {
+            block[k+1] = block[k];
+            k--;
+         }
+         
+         block[k+1] = a1;
+         left++;
+      }
+   } 
+   
+   
+   private static void heapSort(int[] block, int left, int right, ArrayComparator cmp) 
+   {
+      for (int k=(left+1+right)>>>1; k>left; ) 
+      {
+         k--;
+         pushDown(block, k, block[k], left, right, cmp);
+      }
+      
+      for (int k=right; k>left; k--) 
+      {
+         final int max = block[left];
+         pushDown(block, left, block[k], left, k, cmp);
+         block[k] = max;
+      }
+   }
+
+  
+   private static void pushDown(int[] block, int p, int value, int left, int right,
+      ArrayComparator cmp)
+   {
+      while (true)
+      {
+         int k = (p<<1) - left + 2;
+
+         if ((k > right) || (cmp.compare(block[k-1], block[k]) > 0)) 
+            k--;
+
+         if ((k > right) || (cmp.compare(block[k], value) <= 0))
+         {
+            block[p] = value;
+            return;
+         }
+         
+         block[p] = block[k];
+         p = k;
+      }
+   }   
+   
+    
+   private static boolean mergingSort(int[] block, int low, int high, ArrayComparator cmp) 
+   {
+      final int length = high - low;
+
+      if (length < MERGING_SORT_THRESHOLD)
+         return false;
+
+      final int max = (length > 2048000) ? 2000 : (length >> 10) | 5;
+      final int[] run = new int[max+1];
+      int count = 0;
+      int last = low;
+      run[0] = low;
+      
+      // Check if the array is highly structured.
+      for (int k=low+1; (k<high) && (count<max); ) 
+      {
+         if (cmp.compare(block[k-1], block[k]) < 0)
+         {
+            // Identify ascending sequence
+            while (++k < high)
+            {
+               if (cmp.compare(block[k-1], block[k]) > 0)
+                  break;
+            }
+         }
+         else if (cmp.compare(block[k-1], block[k]) > 0)
+         {
+            // Identify descending sequence
+            while (++k < high)
+            {
+               if (cmp.compare(block[k-1], block[k]) < 0)
+                  break;
+            }
+
+            // Reverse the run into ascending order
+            for (int i=last-1, j=k; ((++i < --j) && (cmp.compare(block[i], block[j]) > 0)); ) 
+               swap(block, i, j);
+         } 
+         else 
+         { 
+            // Sequence with equal elements
+            final int ak = block[k]; 
+            
+            while (++k < high)
+            {
+               if (cmp.compare(ak, block[k]) != 0)
+                  break;               
+            }
+
+            if (k < high)
+               continue;
+         }
+
+         if ((count == 0) || (cmp.compare(block[last-1], block[last]) > 0))
+            count++;
+
+         last = k;
+         run[count] = k;
+      }
+
+      // The array is highly structured => merge all runs
+      if ((count < max) && (count > 1)) 
+         merge(block, new int[length], true, low, run, 0, count, cmp);
+      
+      return count < max;
+   }
+
+    
+   private static int[] merge(int[] block1, int[] block2, boolean isSource,
+            int offset, int[] run, int lo, int hi, ArrayComparator cmp) 
+   {
+      if (hi - lo == 1)
+      {
+         if (isSource == true) 
+            return block1;
+      
+         for (int i=run[hi], j=i-offset, low=run[lo]; i>low; i--, j--)
+            block2[j] = block1[i];
+          
+         return block2;
+      }
+      
+      final int mi = (lo + hi) >>> 1;
+      final int[] a1 = merge(block1, block2, !isSource, offset, run, lo, mi, cmp);
+      final int[] a2 = merge(block1, block2, true, offset, run, mi, hi, cmp);
+      
+      return merge((a1==block1) ? block2 : block1,
+                   (a1==block1) ? run[lo]-offset : run[lo],
+                    a1,
+                   (a1==block2) ? run[lo]-offset : run[lo],
+                   (a1==block2) ? run[mi]-offset : run[mi],
+                    a2,
+                   (a2==block2) ? run[mi]-offset : run[mi],
+                   (a2==block2) ? run[hi]-offset : run[hi],
+                   cmp);
+   }
+   
+   
+   private static int[] merge(int[] dst, int k,
+            int[] block1, int i, int hi, int[] block2, int j, int hj, ArrayComparator cmp)  
+   {
+      while (true) 
+      {
+         dst[k++] = (cmp.compare(block1[i], block2[j]) < 0) ? block1[i++] : block2[j++];
+
+         if (i == hi) 
+         {
+            while (j < hj)
+               dst[k++] = block2[j++];
+
+            return dst;
+         }
+         
+         if (j == hj) 
+         {
+            while (i < hi)
+               dst[k++] = block1[i++];
+
+            return dst;
+         }
+      }
+   }   
+     
 }
