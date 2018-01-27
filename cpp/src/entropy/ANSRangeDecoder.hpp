@@ -31,7 +31,7 @@ namespace kanzi
    class ANSDecSymbol 
    {
    public:
-      ANSDecSymbol() { }
+      ANSDecSymbol() { _freq = 0; _cumFreq = 0; }
       ~ANSDecSymbol() { }
       void reset(int cumFreq, int freq, int logRange);
 

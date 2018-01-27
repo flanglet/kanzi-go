@@ -32,7 +32,15 @@ namespace kanzi
    class ANSEncSymbol 
    {
    public:
-      ANSEncSymbol() { }
+      ANSEncSymbol() 
+      { 
+         _xMax = 0;
+         _bias = 0;
+         _cmplFreq = 0;
+         _invShift = 0;
+         _invFreq = 0;
+      }
+
       ~ANSEncSymbol() { }
       void reset(int cumFreq, int freq, int logRange);
 

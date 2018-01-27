@@ -109,7 +109,7 @@ bool ANSRangeEncoder::encodeHeader(int alphabetSize, uint alphabet[], uint frequ
     while (1 << llr <= lr)
         llr++;
 
-    // Encode all frequencies (but the first one) by chunks of size 'inc'
+    // Encode all frequencies (but the first one) by chunks
     for (int i = 1; i < alphabetSize; i += chkSize) {
         uint max = 0;
         uint logMax = 1;

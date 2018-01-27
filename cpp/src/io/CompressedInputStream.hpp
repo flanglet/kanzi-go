@@ -43,7 +43,13 @@ namespace kanzi
        DecodingTaskResult()
            : _blockId(-1)
            , _msg()
-           , _completionTime(clock()){};
+           , _completionTime(clock())
+       {
+          _data = nullptr;
+          _decoded = 0;
+          _error = 0;
+          _checksum = 0;
+       }
 
        DecodingTaskResult(SliceArray<byte>& data, int blockId, int decoded, int checksum, int error, const string& msg)
            : _msg(msg)
