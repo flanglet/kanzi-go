@@ -233,6 +233,7 @@ int testFunctionsCorrectness(const string& name)
                 cout << "Different (index " << i << ": ";
                 cout << (int)input[i] << " - " << (reverse[i] & 255);
                 cout << ")" << endl;
+                delete f;
                 return 1;
             }
         }
