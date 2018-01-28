@@ -32,7 +32,7 @@ public class TestSort
 {
    public static void main(String[] args)
    {
-       int len = 2000000;
+       int len = 1000000;
        int[] array = new int[len];
        int[] rnd = new int[len];
        int[] copy = new int[len];
@@ -46,6 +46,7 @@ public class TestSort
        QuickSort quickSort = new QuickSort();
        FlashSort flashSort = new FlashSort();
        MergeSort mergeSort = new MergeSort();
+       SpreadSort spreadSort = new SpreadSort();
        ForkJoinPool pool = new ForkJoinPool();
        ForkJoinParallelSort fjSort = new ForkJoinParallelSort(pool);
 
@@ -59,12 +60,13 @@ public class TestSort
        long sum7  = 0;
        long sum8  = 0;
        long sum9  = 0;
-       int max = 200;
+       long sum10 = 0;
+       int max = 400;
        int iter = 1;
 
         for (int k=0; k<max; k++)
         {
-            if (k % 10 == 0)
+            if (k % 50 == 0)
                System.out.println("Iteration "+k+" of "+max);
             
             for (int i=0; i<rnd.length; i++)
@@ -153,7 +155,16 @@ public class TestSort
                 sum9 += (after - before);
                 
                 if (ii == 0)
-                  check("Merge Sort", array);                
+                  check("Merge Sort", array);  
+                
+                System.arraycopy(copy, 0, array, 0, array.length);
+                before = System.nanoTime();
+                spreadSort.sort(array, 0, array.length);
+                after = System.nanoTime();
+                sum10 += (after - before);
+                
+                if (ii == 0)
+                  check("Spread Sort", array);                
             }
         }
 
@@ -169,6 +180,7 @@ public class TestSort
         System.out.println("Arrays.sort     Elapsed [ms]: " + (sum6  / 1000000));
         System.out.println("FlashSort       Elapsed [ms]: " + (sum7  / 1000000));
         System.out.println("MergeSort       Elapsed [ms]: " + (sum9  / 1000000));
+        System.out.println("SpreadSort      Elapsed [ms]: " + (sum10 / 1000000));
         System.out.println("ParallelSort    Elapsed [ms]: " + (sum8  / 1000000));
         System.out.println("");
 
@@ -181,11 +193,10 @@ public class TestSort
         sum9 = 0;
 
         RadixSort radixSort = new RadixSort(8); // radix 8
-        SpreadSort spreadSort = new SpreadSort();
 
         for (int k=0; k<max; k++)
         {
-            if (k % 10 == 0)
+            if (k % 50 == 0)
                System.out.println("Iteration "+k+" of "+max);
 
              for (int i=0; i<rnd.length; i++)

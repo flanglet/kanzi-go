@@ -67,7 +67,7 @@ public class QuickSort implements IntSorter
 
       if (this.cmp == null)          
          recursiveSort(input, LEFTMOST_BITS, blkptr, blkptr+len);       
-       else
+      else
          recursiveSort(input, LEFTMOST_BITS, blkptr, blkptr+len, this.cmp); 
       
       return true;
@@ -82,8 +82,10 @@ public class QuickSort implements IntSorter
       if ((bits & 1) != 0) 
       {
          if (length < NANO_INSERTION_SORT_THRESHOLD) 
-         {
-            nanoInsertionSort(block, low, high);
+         {      
+            if (length > 1)
+               nanoInsertionSort(block, low, high);
+            
             return;
          }
 
@@ -100,7 +102,9 @@ public class QuickSort implements IntSorter
       // if the execution time is becoming quadratic
       if ((length < HEAP_SORT_THRESHOLD) || (bits < 0)) 
       {
-         heapSort(block, low, end);
+         if (length > 1)
+            heapSort(block, low, end);
+         
          return;
       }
 
@@ -317,7 +321,7 @@ public class QuickSort implements IntSorter
    }
    
 
-   private static void nanoInsertionSort(int[] block, int low, int high)
+   private static void nanoInsertionSort(int[] block, int low, final int high)
    {
       // In the context of Quicksort, the elements from the left part
       // play the role of sentinels. Therefore expensive check of the
@@ -565,10 +569,12 @@ public class QuickSort implements IntSorter
       final int length = high - low;
 
       if ((bits & 1) != 0) 
-      {
+      {      
          if (length < NANO_INSERTION_SORT_THRESHOLD) 
          {
-            nanoInsertionSort(block, low, high, cmp);
+            if (length > 1)
+               nanoInsertionSort(block, low, high, cmp);
+            
             return;
          }
 
@@ -585,7 +591,9 @@ public class QuickSort implements IntSorter
       // if the execution time is becoming quadratic
       if ((length < HEAP_SORT_THRESHOLD) || (bits < 0)) 
       {
-         heapSort(block, low, end, cmp);
+         if (length > 1)
+            heapSort(block, low, end, cmp);
+         
          return;
       }
 
@@ -793,7 +801,7 @@ public class QuickSort implements IntSorter
       }   
    }
    
-   private static void nanoInsertionSort(int[] block, int low, int high, ArrayComparator cmp)
+   private static void nanoInsertionSort(int[] block, int low, final int high, ArrayComparator cmp)
    {
       // In the context of Quicksort, the elements from the left part
       // play the role of sentinels. Therefore expensive check of the
