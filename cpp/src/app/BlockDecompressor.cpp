@@ -279,7 +279,7 @@ int BlockDecompressor::call()
             ss.str(string());
             ss << jobsPerTask[n++];
             taskCtx["jobs"] = ss.str();
-            FileDecompressTask<FileDecompressResult>* task = new FileDecompressTask<FileDecompressResult>(ctx, _listeners);
+            FileDecompressTask<FileDecompressResult>* task = new FileDecompressTask<FileDecompressResult>(taskCtx, _listeners);
             tasks.push_back(task);
         }
 
