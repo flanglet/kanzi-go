@@ -15,10 +15,11 @@ limitations under the License.
 
 package kanzi;
 
+import java.util.Arrays;
+
 
 public class Global
 {
-    
    public final static int INFINITE_VALUE = 0;
   
    // array with 256 elements: int(Math.log2(x-1))
@@ -130,11 +131,11 @@ public class Global
     //  65536/(1 + exp(-alpha*x)) 
     private static final int[] INV_EXP =
     {
-       // alpha = 0.55 
+      // alpha = 0.55 
           0,    17,    30,    51,    89,   154,   267,   461,   795,  1366,
        2331,  3938,  6537, 10558, 16367, 23977, 32768, 41559, 49169, 54978,
       58999, 61598, 63205, 64170, 64741, 65075, 65269, 65382, 65447, 65485,
-      65506, 65519, 65526     
+      65506, 65519, 65526 
     };
 
  
@@ -514,4 +515,24 @@ public class Global
        return (val - ((x - (val*val)) >>> 31)) << (10 - (shift >> 1));
     }
     
+    
+    public static int[] computeJobsPerTask(int[] jobsPerTask, int jobs, int tasks)
+    {
+       int q = (jobs <= tasks) ? 1 : jobs / tasks;
+       int r = (jobs <= tasks) ? 0 : jobs - q*tasks;
+       Arrays.fill(jobsPerTask, q);
+       int n = 0;
+      
+       while (r != 0) 
+       {
+          jobsPerTask[n]++;
+          r--;
+          n++;
+         
+          if (n == tasks)
+             n = 0;
+       } 
+       
+       return jobsPerTask;
+    }     
 }

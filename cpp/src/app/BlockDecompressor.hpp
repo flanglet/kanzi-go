@@ -59,9 +59,7 @@ namespace kanzi {
        static const int DEFAULT_BUFFER_SIZE = 32768;
        static const int WARN_EMPTY_INPUT = -128;
 
-       FileDecompressTask(int verbosity, bool overwrite,
-           const string& inputName, const string& outputName,
-           int jobs, vector<Listener*> listeners);
+       FileDecompressTask(map<string, string>& ctx, vector<Listener*>& listeners);
 
        ~FileDecompressTask();
 
@@ -70,11 +68,7 @@ namespace kanzi {
        void dispose();
 
    private:
-       int _verbosity;
-       bool _overwrite;
-       string _inputName;
-       string _outputName;
-       int _jobs;
+       map<string, string> _ctx;
        OutputStream* _os;
        CompressedInputStream* _cis;
        vector<Listener*> _listeners;
@@ -113,8 +107,6 @@ namespace kanzi {
        vector<Listener*> _listeners;
 
        static void notifyListeners(vector<Listener*>& listeners, const Event& evt);
-       
-       static void computeJobsPerTask(int jobsPerTask[], int jobs, int tasks);
    };
 }
 #endif

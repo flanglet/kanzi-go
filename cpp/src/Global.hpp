@@ -53,6 +53,8 @@ namespace kanzi {
        static int len32(int32 x);
 
        static int sqrt(int32 x) THROW;
+       
+       static void computeJobsPerTask(int jobsPerTask[], int jobs, int tasks);
 
    private:
        static const int INFINITE_VALUE;

@@ -405,3 +405,27 @@ inline int Global::sqrt(int32 x) THROW
     // return 1024 * sqrt(x)
     return (val - ((x - (val * val)) >> 31)) << (10 - (shift >> 1));
 }
+
+
+void Global::computeJobsPerTask(int jobsPerTask[], int jobs, int tasks)
+{
+	if ((jobs <= 0) || (tasks <= 0))
+		return;
+
+	int q = (jobs <= tasks) ? 1 : jobs / tasks;
+	int r = (jobs <= tasks) ? 0 : jobs - q * tasks;
+
+	for (int i = 0; i < tasks; i++)
+		jobsPerTask[i] = q;
+
+	int n = 0;
+
+	while (r != 0) {
+		jobsPerTask[n]++;
+		r--;
+		n++;
+
+		if (n == tasks)
+			n = 0;
+	}
+}

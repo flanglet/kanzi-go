@@ -61,9 +61,7 @@ namespace kanzi {
    public:
        static const int DEFAULT_BUFFER_SIZE = 32768;
 
-       FileCompressTask(int verbosity, bool overwrite, bool checksum,
-           const string& inputName, const string& outputName, const string& codec,
-           const string& transform, int blockSize, int jobs, vector<Listener*> listeners);
+       FileCompressTask(map<string, string>& ctx, vector<Listener*>& listeners);
 
        ~FileCompressTask();
 
@@ -72,15 +70,7 @@ namespace kanzi {
        void dispose();
 
    private:
-       int _verbosity;
-       bool _overwrite;
-       bool _checksum;
-       string _inputName;
-       string _outputName;
-       string _codec;
-       string _transform;
-       int _blockSize;
-       int _jobs;
+       map<string, string> _ctx;
        InputStream* _is;
        CompressedOutputStream* _cos;
        vector<Listener*> _listeners;
@@ -121,9 +111,6 @@ namespace kanzi {
        static void notifyListeners(vector<Listener*>& listeners, const Event& evt);
 
        static void getTransformAndCodec(int level, string tranformAndCodec[2]);
-
-       static void computeJobsPerTask(int jobsPerTask[], int jobs, int tasks);
-
    };
 }
 #endif

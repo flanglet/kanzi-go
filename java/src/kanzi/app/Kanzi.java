@@ -550,5 +550,5 @@ public class Kanzi
        {
          throw e.getCause();
        }
-    }    
+    }
 }    

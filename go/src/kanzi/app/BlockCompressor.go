@@ -201,7 +201,7 @@ func fileCompressWorker(tasks <-chan FileCompressTask, cancel <-chan bool, resul
 func (this *BlockCompressor) Call() (int, uint64) {
 	var err error
 	before := time.Now()
-	files := make([]string, 0, 256)
+	files := make([]FileData, 0, 256)
 	files, err = createFileList(this.inputName, files)
 
 	if err != nil {
@@ -219,9 +219,7 @@ func (this *BlockCompressor) Call() (int, uint64) {
 		return kanzi.ERR_OPEN_FILE, 0
 	}
 
-	files = sort.StringSlice(files)
 	nbFiles := len(files)
-
 	printFlag := this.verbosity > 2
 	var msg string
 
@@ -343,9 +341,17 @@ func (this *BlockCompressor) Call() (int, uint64) {
 		}
 	}
 
+	ctx := make(map[string]interface{})
+	ctx["verbosity"] = this.verbosity
+	ctx["overwrite"] = this.overwrite
+	ctx["blockSize"] = this.blockSize
+	ctx["checksum"] = this.checksum
+	ctx["codec"] = this.entropyCodec
+	ctx["transform"] = this.transform
+
 	if nbFiles == 1 {
 		oName := formattedOutName
-		iName := files[0]
+		iName := files[0].Path
 
 		if len(oName) == 0 {
 			oName = iName + ".knz"
@@ -353,17 +359,11 @@ func (this *BlockCompressor) Call() (int, uint64) {
 			oName = formattedOutName + iName[len(formattedInName):] + ".knz"
 		}
 
-		task := FileCompressTask{verbosity: this.verbosity,
-			overwrite:    this.overwrite,
-			checksum:     this.checksum,
-			inputName:    iName,
-			outputName:   oName,
-			entropyCodec: this.entropyCodec,
-			transform:    this.transform,
-			blockSize:    this.blockSize,
-			jobs:         this.jobs,
-			listeners:    this.listeners}
-
+		ctx["fileSize"] = files[0].Size
+		ctx["inputName"] = iName
+		ctx["outputName"] = oName
+		ctx["jobs"] = this.jobs
+		task := FileCompressTask{ctx: ctx, listeners: this.listeners}
 		res, read, written = task.Call()
 	} else {
 		// Create channels for task synchronization
@@ -371,10 +371,13 @@ func (this *BlockCompressor) Call() (int, uint64) {
 		results := make(chan FileCompressResult, nbFiles)
 		cancel := make(chan bool, 1)
 
-		jobsPerTask := computeJobsPerTask(make([]uint, nbFiles), this.jobs, uint(nbFiles))
+		jobsPerTask := kanzi.ComputeJobsPerTask(make([]uint, nbFiles), this.jobs, uint(nbFiles))
 		n := 0
+		sort.Sort(FileCompareByName{data: files})
 
-		for _, iName := range files {
+		// Create one task per file
+		for _, f := range files {
+			iName := f.Path
 			oName := formattedOutName
 
 			if len(oName) == 0 {
@@ -383,19 +386,18 @@ func (this *BlockCompressor) Call() (int, uint64) {
 				oName = formattedOutName + iName[len(formattedInName):] + ".knz"
 			}
 
-			// Create one task per file
-			task := FileCompressTask{verbosity: this.verbosity,
-				overwrite:    this.overwrite,
-				checksum:     this.checksum,
-				inputName:    iName,
-				outputName:   oName,
-				entropyCodec: this.entropyCodec,
-				transform:    this.transform,
-				blockSize:    this.blockSize,
-				jobs:         jobsPerTask[n],
-				listeners:    this.listeners}
+			taskCtx := make(map[string]interface{})
 
+			for k, v := range ctx {
+				taskCtx[k] = v
+			}
+
+			taskCtx["fileSize"] = f.Size
+			taskCtx["inputName"] = iName
+			taskCtx["outputName"] = oName
+			taskCtx["jobs"] = jobsPerTask[n]
 			n++
+			task := FileCompressTask{ctx: taskCtx, listeners: this.listeners}
 
 			// Push task to channel. The workers are the consumers.
 			tasks <- task
@@ -489,46 +491,42 @@ func getTransformAndCodec(level int) string {
 }
 
 type FileCompressTask struct {
-	verbosity    uint
-	overwrite    bool
-	checksum     bool
-	inputName    string
-	outputName   string
-	entropyCodec string
-	transform    string
-	blockSize    uint
-	jobs         uint
-	listeners    []kanzi.Listener
-	cpuProf      string
+	ctx       map[string]interface{}
+	listeners []kanzi.Listener
+	cpuProf   string
 }
 
 func (this *FileCompressTask) Call() (int, uint64, uint64) {
 	var msg string
-	printFlag := this.verbosity > 2
-	log.Println("Input file name set to '"+this.inputName+"'", printFlag)
-	log.Println("Output file name set to '"+this.outputName+"'", printFlag)
+	verbosity := this.ctx["verbosity"].(uint)
+	inputName := this.ctx["inputName"].(string)
+	outputName := this.ctx["outputName"].(string)
+	printFlag := verbosity > 2
+	log.Println("Input file name set to '"+inputName+"'", printFlag)
+	log.Println("Output file name set to '"+outputName+"'", printFlag)
+	overwrite := this.ctx["overwrite"].(bool)
 
 	var output io.WriteCloser
 
-	if strings.ToUpper(this.outputName) == "NONE" {
+	if strings.ToUpper(outputName) == "NONE" {
 		output, _ = kio.NewNullOutputStream()
-	} else if strings.ToUpper(this.outputName) == "STDOUT" {
+	} else if strings.ToUpper(outputName) == "STDOUT" {
 		output = os.Stdout
 	} else {
 		var err error
 
-		if output, err = os.OpenFile(this.outputName, os.O_RDWR, 0666); err == nil {
+		if output, err = os.OpenFile(outputName, os.O_RDWR, 0666); err == nil {
 			// File exists
 			output.Close()
 
-			if this.overwrite == false {
-				fmt.Printf("File '%v' exists and the 'force' command ", this.outputName)
+			if overwrite == false {
+				fmt.Printf("File '%v' exists and the 'force' command ", outputName)
 				fmt.Println("line option has not been provided")
 				return kanzi.ERR_OVERWRITE_FILE, 0, 0
 			}
 
-			path1, _ := filepath.Abs(this.inputName)
-			path2, _ := filepath.Abs(this.outputName)
+			path1, _ := filepath.Abs(inputName)
+			path2, _ := filepath.Abs(outputName)
 
 			if path1 == path2 {
 				fmt.Print("The input and output files must be different")
@@ -536,18 +534,18 @@ func (this *FileCompressTask) Call() (int, uint64, uint64) {
 			}
 		}
 
-		output, err = os.Create(this.outputName)
+		output, err = os.Create(outputName)
 
 		if err != nil {
-			if this.overwrite {
+			if overwrite {
 				// Attempt to create the full folder hierarchy to file
-				if err = os.MkdirAll(path.Dir(strings.Replace(this.outputName, "\\", "/", -1)), os.ModePerm); err == nil {
-					output, err = os.Create(this.outputName)
+				if err = os.MkdirAll(path.Dir(strings.Replace(outputName, "\\", "/", -1)), os.ModePerm); err == nil {
+					output, err = os.Create(outputName)
 				}
 			}
 
 			if err != nil {
-				fmt.Printf("Cannot open output file '%v' for writing: %v\n", this.outputName, err)
+				fmt.Printf("Cannot open output file '%v' for writing: %v\n", outputName, err)
 				return kanzi.ERR_CREATE_FILE, 0, 0
 			}
 		}
@@ -558,13 +556,7 @@ func (this *FileCompressTask) Call() (int, uint64, uint64) {
 
 	}
 
-	ctx := make(map[string]interface{})
-	ctx["blockSize"] = this.blockSize
-	ctx["checksum"] = this.checksum
-	ctx["jobs"] = this.jobs
-	ctx["codec"] = this.entropyCodec
-	ctx["transform"] = this.transform
-	cos, err := kio.NewCompressedOutputStream(output, ctx)
+	cos, err := kio.NewCompressedOutputStream(output, this.ctx)
 
 	if err != nil {
 		if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
@@ -582,13 +574,13 @@ func (this *FileCompressTask) Call() (int, uint64, uint64) {
 
 	var input io.ReadCloser
 
-	if strings.ToUpper(this.inputName) == "STDIN" {
+	if strings.ToUpper(inputName) == "STDIN" {
 		input = os.Stdin
 	} else {
 		var err error
 
-		if input, err = os.Open(this.inputName); err != nil {
-			fmt.Printf("Cannot open input file '%v': %v\n", this.inputName, err)
+		if input, err = os.Open(inputName); err != nil {
+			fmt.Printf("Cannot open input file '%v': %v\n", inputName, err)
 			return kanzi.ERR_OPEN_FILE, 0, 0
 		}
 
@@ -602,9 +594,9 @@ func (this *FileCompressTask) Call() (int, uint64, uint64) {
 	}
 
 	// Encode
-	printFlag = this.verbosity > 1
-	log.Println("\nEncoding "+this.inputName+" ...", printFlag)
-	log.Println("", this.verbosity > 3)
+	printFlag = verbosity > 1
+	log.Println("\nEncoding "+inputName+" ...", printFlag)
+	log.Println("", verbosity > 3)
 	length := 0
 	read := uint64(0)
 
@@ -620,7 +612,7 @@ func (this *FileCompressTask) Call() (int, uint64, uint64) {
 
 	for length > 0 {
 		if err != nil {
-			fmt.Printf("Failed to read block from file '%v': %v\n", this.inputName, err)
+			fmt.Printf("Failed to read block from file '%v': %v\n", inputName, err)
 			return kanzi.ERR_READ_FILE, read, cos.GetWritten()
 		}
 
@@ -640,8 +632,8 @@ func (this *FileCompressTask) Call() (int, uint64, uint64) {
 	}
 
 	if read == 0 {
-		msg = fmt.Sprintf("Input file %v is empty ... nothing to do", this.inputName)
-		log.Println(msg, this.verbosity > 0)
+		msg = fmt.Sprintf("Input file %v is empty ... nothing to do", inputName)
+		log.Println(msg, verbosity > 0)
 		return 0, read, cos.GetWritten()
 	}
 
@@ -655,7 +647,7 @@ func (this *FileCompressTask) Call() (int, uint64, uint64) {
 	after := time.Now()
 	delta := after.Sub(before).Nanoseconds() / 1000000 // convert to ms
 
-	log.Println("", this.verbosity > 1)
+	log.Println("", verbosity > 1)
 	msg = fmt.Sprintf("Encoding:          %d ms", delta)
 	log.Println(msg, printFlag)
 	msg = fmt.Sprintf("Input size:        %d", read)
@@ -664,15 +656,15 @@ func (this *FileCompressTask) Call() (int, uint64, uint64) {
 	log.Println(msg, printFlag)
 	msg = fmt.Sprintf("Compression ratio: %f", float64(cos.GetWritten())/float64(read))
 	log.Println(msg, printFlag)
-	msg = fmt.Sprintf("Encoding %v: %v => %v bytes in %v ms", this.inputName, read, cos.GetWritten(), delta)
-	log.Println(msg, this.verbosity == 1)
+	msg = fmt.Sprintf("Encoding %v: %v => %v bytes in %v ms", inputName, read, cos.GetWritten(), delta)
+	log.Println(msg, verbosity == 1)
 
 	if delta > 0 {
 		msg = fmt.Sprintf("Throughput (KB/s): %d", ((int64(read*1000))>>10)/delta)
 		log.Println(msg, printFlag)
 	}
 
-	log.Println("", this.verbosity > 1)
+	log.Println("", verbosity > 1)
 
 	if len(this.listeners) > 0 {
 		evt := kanzi.NewEvent(kanzi.EVT_COMPRESSION_END, -1, int64(cos.GetWritten()), 0, false, time.Now())

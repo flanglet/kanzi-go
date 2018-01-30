@@ -503,3 +503,33 @@ func sqrt(x int) (int, error) {
 	// return 1024 * sqrt(x)
 	return (val - ((x - (val * val)) >> 31)) << (10 - (shift >> 1)), nil
 }
+
+func ComputeJobsPerTask(jobsPerTask []uint, jobs, tasks uint) []uint {
+	var q, r uint
+
+	if jobs <= tasks {
+		q = 1
+		r = 0
+	} else {
+		q = jobs / tasks
+		r = tasks - q*tasks
+	}
+
+	for i := range jobsPerTask {
+		jobsPerTask[i] = q
+	}
+
+	n := uint(0)
+
+	for r != 0 {
+		jobsPerTask[n]++
+		r--
+		n++
+
+		if n == tasks {
+			n = 0
+		}
+	}
+
+	return jobsPerTask
+}

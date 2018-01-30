@@ -31,7 +31,21 @@ limitations under the License.
 
 using namespace std;
 
-static void createFileList(string& target, vector<string>& files) THROW
+class FileData {
+   public:
+      string _path;
+      int64 _size;
+
+      FileData(string& path, int64 size) : _path(path), _size(size) { }
+      ~FileData() {}
+      
+      bool operator < (const FileData& other) const {
+        return _path < other._path;
+      }
+};
+
+
+static void createFileList(string& target, vector<FileData>& files) THROW
 {
     struct stat buffer;
 
@@ -47,7 +61,7 @@ static void createFileList(string& target, vector<string>& files) THROW
     if ((buffer.st_mode & S_IFREG) != 0) {
         // Target is regular file
         if (target[0] != '.')
-           files.push_back(target);
+           files.push_back(FileData(target, buffer.st_size));
 
         return;
     }
@@ -88,7 +102,7 @@ static void createFileList(string& target, vector<string>& files) THROW
             if (ent->d_name[0] != '.')
             {
                if ((buffer.st_mode & S_IFREG) != 0){
-                   files.push_back(fullpath);
+                   files.push_back(FileData(fullpath, buffer.st_size));
                }
                else if ((isRecursive) && ((buffer.st_mode & S_IFDIR) != 0)) {
                    createFileList(fullpath, files);

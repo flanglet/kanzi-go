@@ -26,7 +26,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -38,6 +37,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import kanzi.Event;
 import kanzi.Error;
+import kanzi.Global;
 import kanzi.SliceByteArray;
 import kanzi.io.CompressedInputStream;
 import kanzi.io.NullOutputStream;
@@ -123,10 +123,8 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
          System.err.println("Cannot open input file '"+this.inputName+"'");
          return Error.ERR_OPEN_FILE;
       }
-      
-      Collections.sort(files);
-      int nbFiles = files.size();
-      
+            
+      int nbFiles = files.size(); 
       boolean printFlag = this.verbosity > 2;
       String strFiles = (nbFiles > 1) ? " files" : " file";
       printOut(nbFiles+strFiles+" to decompress\n", this.verbosity > 0);
@@ -195,11 +193,17 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
             }
          }
 
+         Map<String, Object> ctx = new HashMap<>();
+         ctx.put("verbosity", this.verbosity);
+         ctx.put("overwrite", this.overwrite);
+         ctx.put("pool", this.pool);
+               
          // Run the task(s)
          if (nbFiles == 1)
          {
             String oName = this.outputName;
             String iName = files.get(0).toString();
+            long fileSize = Files.size(files.get(0));
             
             if (oName == null)
             {
@@ -210,9 +214,11 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
                oName = formattedOutName + iName.substring(formattedInName.length()+1) + ".bak";
             }
             
-            FileDecompressTask task = new FileDecompressTask(this.verbosity, this.overwrite, 
-                     iName, oName, this.pool, this.jobs, this.listeners);
-
+            ctx.put("fileSize", fileSize);
+            ctx.put("inputName", iName);
+            ctx.put("outputName", oName);
+            ctx.put("jobs", this.jobs);
+            FileDecompressTask task = new FileDecompressTask(ctx, this.listeners);
             FileDecompressResult fdr = task.call();
             res = fdr.code;
             read = fdr.read;
@@ -220,15 +226,18 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
          else
          {
             ArrayBlockingQueue<FileDecompressTask> queue = new ArrayBlockingQueue(nbFiles, true);
-            int[] jobsPerTask = computeJobsPerTask(new int[nbFiles], this.jobs, nbFiles);
+            int[] jobsPerTask = Global.computeJobsPerTask(new int[nbFiles], this.jobs, nbFiles);
             int n = 0;
+            Collections.sort(files);
             
             // Create one task per file
             for (Path file : files)
             {
                String oName = formattedOutName;
                String iName = file.toString();
-
+               long fileSize = Files.size(file);
+               Map taskCtx = new HashMap(ctx);
+               
                if (oName == null)
                {
                   oName = iName + ".bak";
@@ -238,8 +247,11 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
                   oName = formattedOutName + iName.substring(formattedInName.length()) + ".knz";
                }
                
-               FileDecompressTask task = new FileDecompressTask(this.verbosity, 
-                  this.overwrite, iName, oName, this.pool, jobsPerTask[n++], this.listeners);
+               taskCtx.put("fileSize", fileSize);
+               taskCtx.put("inputName", iName);
+               taskCtx.put("outputName", oName);
+               taskCtx.put("jobs", jobsPerTask[n++]);
+               FileDecompressTask task = new FileDecompressTask(taskCtx, this.listeners);
                queue.offer(task);               
             }
 
@@ -319,29 +331,8 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
        }
     } 
     
-    
-    private static int[] computeJobsPerTask(int[] jobsPerTask, int jobs, int tasks)
-    {
-       int q = (jobs <= tasks) ? 1 : jobs / tasks;
-       int r = (jobs <= tasks) ? 0 : jobs - q*tasks;
-       Arrays.fill(jobsPerTask, q);
-       int n = 0;
-      
-       while (r != 0) 
-       {
-          jobsPerTask[n]++;
-          r--;
-          n++;
-         
-          if (n == tasks)
-             n = 0;
-       } 
-       
-       return jobsPerTask;
-    }    
-            
-    
-    
+     
+              
    static class FileDecompressResult
    {
        final int code;
@@ -358,26 +349,15 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
    
    static class FileDecompressTask implements Callable<FileDecompressResult>
    {
-      private final int verbosity;
-      private final boolean overwrite;
-      private final String inputName;
-      private final String outputName;
+      private final Map<String, Object> ctx;
       private CompressedInputStream cis;
       private OutputStream os;
-      private final int jobs;
-      private final ExecutorService pool;
       private final List<Listener> listeners;       
 
 
-      public FileDecompressTask(int verbosity, boolean overwrite, String inputName, 
-         String outputName, ExecutorService pool, int jobs, List<Listener> listeners)
+      public FileDecompressTask(Map<String, Object> ctx, List<Listener> listeners)
       {
-         this.verbosity = verbosity;
-         this.overwrite = overwrite;
-         this.inputName = inputName;
-         this.outputName = outputName;
-         this.jobs = jobs;
-         this.pool = pool;
+         this.ctx = ctx;
          this.listeners = listeners;
       }
       
@@ -385,14 +365,18 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       @Override
       public FileDecompressResult call() throws Exception
       {
-         boolean printFlag = this.verbosity > 2;
-         printOut("Input file name set to '" + this.inputName + "'", printFlag);
-         printOut("Output file name set to '" + this.outputName + "'", printFlag);
+         int verbosity = (Integer) this.ctx.get("verbosity");
+         boolean printFlag = verbosity > 2;
+         String inputName = (String) this.ctx.get("inputName");
+         String outputName = (String) this.ctx.get("outputName");
+         printOut("Input file name set to '" + inputName + "'", printFlag);
+         printOut("Output file name set to '" + outputName + "'", printFlag);
+         boolean overwrite = (Boolean) this.ctx.get("overwrite");
 
          long read = 0;
-         printFlag = this.verbosity > 1;
-         printOut("\nDecoding "+this.inputName+" ...", printFlag);
-         printOut("", this.verbosity>3);
+         printFlag = verbosity > 1;
+         printOut("\nDecoding "+inputName+" ...", printFlag);
+         printOut("", verbosity>3);
 
          if (this.listeners.size() > 0)
          {
@@ -401,11 +385,11 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
             notifyListeners(array, evt);
          }
 
-         if ("NONE".equalsIgnoreCase(this.outputName))
+         if ("NONE".equalsIgnoreCase(outputName))
          {
             this.os = new NullOutputStream();
          }
-         else if ("STDOUT".equalsIgnoreCase(this.outputName))
+         else if ("STDOUT".equalsIgnoreCase(outputName))
          {
             this.os = System.out;
          }
@@ -413,7 +397,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
          {
             try
             {
-               File output = new File(this.outputName);
+               File output = new File(outputName);
 
                if (output.exists())
                {
@@ -423,15 +407,15 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
                      return new FileDecompressResult(Error.ERR_OUTPUT_IS_DIR, 0);
                   }
 
-                  if (this.overwrite == false)
+                  if (overwrite == false)
                   {
-                     System.err.println("File '" + this.outputName + "' exists and " +
+                     System.err.println("File '" + outputName + "' exists and " +
                         "the 'force' command line option has not been provided");
                      return new FileDecompressResult(Error.ERR_OVERWRITE_FILE, 0);
                   }
 
-                  Path path1 = FileSystems.getDefault().getPath(this.inputName).toAbsolutePath();
-                  Path path2 = FileSystems.getDefault().getPath(this.outputName).toAbsolutePath();
+                  Path path1 = FileSystems.getDefault().getPath(inputName).toAbsolutePath();
+                  Path path2 = FileSystems.getDefault().getPath(outputName).toAbsolutePath();
 
                   if (path1.equals(path2))
                   {
@@ -446,13 +430,13 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
                }
                catch (IOException e1)
                {
-                  if (this.overwrite == false)
+                  if (overwrite == false)
                      throw e1;
                   
                   try 
                   {
                      // Attempt to create the full folder hierarchy to file
-                     Files.createDirectories(FileSystems.getDefault().getPath(this.outputName).getParent());
+                     Files.createDirectories(FileSystems.getDefault().getPath(outputName).getParent());
                      this.os = new FileOutputStream(output);
                   } 
                   catch (IOException e2)
@@ -463,7 +447,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
             }
             catch (Exception e)
             {
-               System.err.println("Cannot open output file '"+ this.outputName+"' for writing: " + e.getMessage());
+               System.err.println("Cannot open output file '"+ outputName+"' for writing: " + e.getMessage());
                return new FileDecompressResult(Error.ERR_CREATE_FILE, 0);
             }
          }
@@ -472,15 +456,12 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
 
          try
          {
-            is = ("STDIN").equalsIgnoreCase(this.inputName) ? System.in :
-               new FileInputStream(new File(this.inputName));
+            is = ("STDIN").equalsIgnoreCase(inputName) ? System.in :
+               new FileInputStream(new File(inputName));
 
             try
             {
-               Map<String, Object> ctx = new HashMap<>();
-               ctx.put("pool", this.pool);
-               ctx.put("jobs", this.jobs);
-               this.cis = new CompressedInputStream(is, ctx);
+               this.cis = new CompressedInputStream(is, this.ctx);
 
                for (Listener bl : this.listeners)
                   this.cis.addListener(bl);
@@ -493,7 +474,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
          }
          catch (Exception e)
          {
-            System.err.println("Cannot open input file '"+ this.inputName+"': " + e.getMessage());
+            System.err.println("Cannot open input file '"+ inputName+"': " + e.getMessage());
             return new FileDecompressResult(Error.ERR_OPEN_FILE, 0);
          }
 
@@ -525,7 +506,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
                }
                catch (Exception e)
                {
-                  System.err.print("Failed to write decompressed block to file '"+this.outputName+"': ");
+                  System.err.print("Failed to write decompressed block to file '"+outputName+"': ");
                   System.err.println(e.getMessage());
                   return new FileDecompressResult(Error.ERR_READ_FILE, this.cis.getRead());
                }
@@ -567,17 +548,17 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
 
          long after = System.nanoTime();
          long delta = (after - before) / 1000000L; // convert to ms
-         printOut("", this.verbosity>1);
+         printOut("", verbosity>1);
          printOut("Decoding:          "+delta+" ms", printFlag);
          printOut("Input size:        "+this.cis.getRead(), printFlag);
          printOut("Output size:       "+read, printFlag);
-         printOut("Decoding "+this.inputName+": "+this.cis.getRead()+" => "+read+
-             " bytes in "+delta+" ms", this.verbosity==1);
+         printOut("Decoding "+inputName+": "+this.cis.getRead()+" => "+read+
+             " bytes in "+delta+" ms", verbosity==1);
 
          if (delta > 0)
             printOut("Throughput (KB/s): "+(((read * 1000L) >> 10) / delta), printFlag);
 
-         printOut("", this.verbosity>1);
+         printOut("", verbosity>1);
          return new FileDecompressResult(0, this.cis.getRead());
       }
       
@@ -590,7 +571,8 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
          }
          catch (IOException ioe)
          {
-            System.err.println("Decompression failure: " + ioe.getMessage());
+            String inputName = (String) this.ctx.get("inputName");
+            System.err.println("Compression failure for '" + inputName+"' : " + ioe.getMessage());
             System.exit(Error.ERR_WRITE_FILE);
          }
 

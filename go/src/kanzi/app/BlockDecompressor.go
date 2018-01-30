@@ -146,7 +146,7 @@ func fileDecompressWorker(tasks <-chan FileDecompressTask, cancel <-chan bool, r
 func (this *BlockDecompressor) Call() (int, uint64) {
 	var err error
 	before := time.Now()
-	files := make([]string, 0, 256)
+	files := make([]FileData, 0, 256)
 	files, err = createFileList(this.inputName, files)
 
 	if err != nil {
@@ -164,9 +164,7 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 		return kanzi.ERR_OPEN_FILE, 0
 	}
 
-	files = sort.StringSlice(files)
 	nbFiles := len(files)
-
 	printFlag := this.verbosity > 2
 	var msg string
 
@@ -261,9 +259,13 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 		}
 	}
 
+	ctx := make(map[string]interface{})
+	ctx["verbosity"] = this.verbosity
+	ctx["overwrite"] = this.overwrite
+
 	if nbFiles == 1 {
 		oName := formattedOutName
-		iName := files[0]
+		iName := files[0].Path
 
 		if len(oName) == 0 {
 			oName = iName + ".bak"
@@ -271,12 +273,11 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 			oName = formattedOutName + iName[len(formattedInName):] + ".bak"
 		}
 
-		task := FileDecompressTask{verbosity: this.verbosity,
-			overwrite:  this.overwrite,
-			inputName:  iName,
-			outputName: oName,
-			jobs:       this.jobs,
-			listeners:  this.listeners}
+		ctx["fileSize"] = files[0].Size
+		ctx["inputName"] = iName
+		ctx["outputName"] = oName
+		ctx["jobs"] = this.jobs
+		task := FileDecompressTask{ctx: ctx, listeners: this.listeners}
 
 		res, read = task.Call()
 	} else {
@@ -285,10 +286,12 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 		results := make(chan FileDecompressResult, nbFiles)
 		cancel := make(chan bool, 1)
 
-		jobsPerTask := computeJobsPerTask(make([]uint, nbFiles), this.jobs, uint(nbFiles))
+		jobsPerTask := kanzi.ComputeJobsPerTask(make([]uint, nbFiles), this.jobs, uint(nbFiles))
 		n := 0
+		sort.Sort(FileCompareByName{data: files})
 
-		for _, iName := range files {
+		for _, f := range files {
+			iName := f.Path
 			oName := formattedOutName
 
 			if len(oName) == 0 {
@@ -297,14 +300,18 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 				oName = formattedOutName + iName[len(formattedInName):] + ".bak"
 			}
 
-			task := FileDecompressTask{verbosity: this.verbosity,
-				overwrite:  this.overwrite,
-				inputName:  iName,
-				outputName: oName,
-				jobs:       jobsPerTask[n],
-				listeners:  this.listeners}
+			taskCtx := make(map[string]interface{})
 
+			for k, v := range ctx {
+				taskCtx[k] = v
+			}
+
+			taskCtx["fileSize"] = f.Size
+			taskCtx["inputName"] = iName
+			taskCtx["outputName"] = oName
+			taskCtx["jobs"] = jobsPerTask[n]
 			n++
+			task := FileDecompressTask{ctx: ctx, listeners: this.listeners}
 
 			// Push task to channel. The workers are the consumers.
 			tasks <- task
@@ -367,58 +374,59 @@ func bd_notifyListeners(listeners []kanzi.Listener, evt *kanzi.Event) {
 }
 
 type FileDecompressTask struct {
-	verbosity  uint
-	overwrite  bool
-	inputName  string
-	outputName string
-	jobs       uint
-	listeners  []kanzi.Listener
+	ctx       map[string]interface{}
+	jobs      uint
+	listeners []kanzi.Listener
 }
 
 func (this *FileDecompressTask) Call() (int, uint64) {
 	var msg string
-	printFlag := this.verbosity > 2
-	log.Println("Input file name set to '"+this.inputName+"'", printFlag)
-	log.Println("Output file name set to '"+this.outputName+"'", printFlag)
+	verbosity := this.ctx["verbosity"].(uint)
+	inputName := this.ctx["inputName"].(string)
+	outputName := this.ctx["outputName"].(string)
+	printFlag := verbosity > 2
+	log.Println("Input file name set to '"+inputName+"'", printFlag)
+	log.Println("Output file name set to '"+outputName+"'", printFlag)
+	overwrite := this.ctx["overwrite"].(bool)
 
 	var output io.WriteCloser
 
-	if strings.ToUpper(this.outputName) == "NONE" {
+	if strings.ToUpper(outputName) == "NONE" {
 		output, _ = kio.NewNullOutputStream()
-	} else if strings.ToUpper(this.outputName) == "STDOUT" {
+	} else if strings.ToUpper(outputName) == "STDOUT" {
 		output = os.Stdout
 	} else {
 		var err error
 
-		if output, err = os.OpenFile(this.outputName, os.O_RDWR, 0666); err == nil {
+		if output, err = os.OpenFile(outputName, os.O_RDWR, 0666); err == nil {
 			// File exists
-			if this.overwrite == false {
-				fmt.Printf("File '%v' exists and the 'overwrite' command ", this.outputName)
+			if overwrite == false {
+				fmt.Printf("File '%v' exists and the 'overwrite' command ", outputName)
 				fmt.Println("line option has not been provided")
 				output.Close()
 				return kanzi.ERR_OVERWRITE_FILE, 0
 			}
 
-			path1, _ := filepath.Abs(this.inputName)
-			path2, _ := filepath.Abs(this.outputName)
+			path1, _ := filepath.Abs(inputName)
+			path2, _ := filepath.Abs(outputName)
 
 			if path1 == path2 {
 				fmt.Print("The input and output files must be different")
 				return kanzi.ERR_CREATE_FILE, 0
 			}
 		} else {
-			output, err = os.Create(this.outputName)
+			output, err = os.Create(outputName)
 
 			if err != nil {
-				if this.overwrite {
+				if overwrite {
 					// Attempt to create the full folder hierarchy to file
-					if err = os.MkdirAll(path.Dir(strings.Replace(this.outputName, "\\", "/", -1)), os.ModePerm); err == nil {
-						output, err = os.Create(this.outputName)
+					if err = os.MkdirAll(path.Dir(strings.Replace(outputName, "\\", "/", -1)), os.ModePerm); err == nil {
+						output, err = os.Create(outputName)
 					}
 				}
 
 				if err != nil {
-					fmt.Printf("Cannot open output file '%v' for writing: %v\n", this.outputName, err)
+					fmt.Printf("Cannot open output file '%v' for writing: %v\n", outputName, err)
 					return kanzi.ERR_CREATE_FILE, 0
 				}
 			}
@@ -431,9 +439,9 @@ func (this *FileDecompressTask) Call() (int, uint64) {
 
 	// Decode
 	read := int64(0)
-	printFlag = this.verbosity > 1
-	log.Println("\nDecoding "+this.inputName+" ...", printFlag)
-	log.Println("", this.verbosity > 3)
+	printFlag = verbosity > 1
+	log.Println("\nDecoding "+inputName+" ...", printFlag)
+	log.Println("", verbosity > 3)
 	var input io.ReadCloser
 
 	if len(this.listeners) > 0 {
@@ -441,13 +449,13 @@ func (this *FileDecompressTask) Call() (int, uint64) {
 		bd_notifyListeners(this.listeners, evt)
 	}
 
-	if strings.ToUpper(this.inputName) == "STDIN" {
+	if strings.ToUpper(inputName) == "STDIN" {
 		input = os.Stdin
 	} else {
 		var err error
 
-		if input, err = os.Open(this.inputName); err != nil {
-			fmt.Printf("Cannot open input file '%v': %v\n", this.inputName, err)
+		if input, err = os.Open(inputName); err != nil {
+			fmt.Printf("Cannot open input file '%v': %v\n", inputName, err)
 			return kanzi.ERR_OPEN_FILE, uint64(read)
 		}
 
@@ -456,9 +464,7 @@ func (this *FileDecompressTask) Call() (int, uint64) {
 		}()
 	}
 
-	ctx := make(map[string]interface{})
-	ctx["jobs"] = this.jobs
-	cis, err := kio.NewCompressedInputStream(input, ctx)
+	cis, err := kio.NewCompressedInputStream(input, this.ctx)
 
 	if err != nil {
 		if err.(*kio.IOError) != nil {
@@ -494,7 +500,7 @@ func (this *FileDecompressTask) Call() (int, uint64) {
 			_, err = output.Write(buffer[0:decoded])
 
 			if err != nil {
-				fmt.Printf("Failed to write decompressed block to file '%v': %v\n", this.outputName, err)
+				fmt.Printf("Failed to write decompressed block to file '%v': %v\n", outputName, err)
 				return kanzi.ERR_WRITE_FILE, uint64(read)
 			}
 
@@ -512,22 +518,22 @@ func (this *FileDecompressTask) Call() (int, uint64) {
 	after := time.Now()
 	delta := after.Sub(before).Nanoseconds() / 1000000 // convert to ms
 
-	log.Println("", this.verbosity > 1)
+	log.Println("", verbosity > 1)
 	msg = fmt.Sprintf("Decoding:          %d ms", delta)
 	log.Println(msg, printFlag)
 	msg = fmt.Sprintf("Input size:        %d", cis.GetRead())
 	log.Println(msg, printFlag)
 	msg = fmt.Sprintf("Output size:       %d", read)
 	log.Println(msg, printFlag)
-	msg = fmt.Sprintf("Decoding %v: %v => %v bytes in %v ms", this.inputName, cis.GetRead(), read, delta)
-	log.Println(msg, this.verbosity == 1)
+	msg = fmt.Sprintf("Decoding %v: %v => %v bytes in %v ms", inputName, cis.GetRead(), read, delta)
+	log.Println(msg, verbosity == 1)
 
 	if delta > 0 {
 		msg = fmt.Sprintf("Throughput (KB/s): %d", ((read*int64(1000))>>10)/int64(delta))
 		log.Println(msg, printFlag)
 	}
 
-	log.Println("", this.verbosity > 1)
+	log.Println("", verbosity > 1)
 
 	if len(this.listeners) > 0 {
 		evt := kanzi.NewEvent(kanzi.EVT_DECOMPRESSION_END, -1, int64(cis.GetRead()), 0, false, time.Now())

@@ -556,7 +556,28 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 	}
 }
 
-func createFileList(target string, fileList []string) ([]string, error) {
+type FileData struct {
+	Path string
+	Size int64
+}
+
+type FileCompareByName struct {
+	data []FileData
+}
+
+func (this FileCompareByName) Len() int {
+	return len(this.data)
+}
+
+func (this FileCompareByName) Swap(i, j int) {
+	this.data[i], this.data[j] = this.data[j], this.data[i]
+}
+
+func (this FileCompareByName) Less(i, j int) bool {
+	return strings.Compare(this.data[i].Path, this.data[j].Path) < 0
+}
+
+func createFileList(target string, fileList []FileData) ([]FileData, error) {
 	fi, err := os.Stat(target)
 
 	if err != nil {
@@ -565,7 +586,7 @@ func createFileList(target string, fileList []string) ([]string, error) {
 
 	if fi.Mode().IsRegular() {
 		if fi.Name()[0] != '.' {
-			fileList = append(fileList, target)
+			fileList = append(fileList, FileData{Path: target, Size: fi.Size()})
 		}
 
 		return fileList, nil
@@ -585,7 +606,7 @@ func createFileList(target string, fileList []string) ([]string, error) {
 			}
 
 			if fi.Mode().IsRegular() && fi.Name()[0] != '.' {
-				fileList = append(fileList, path)
+				fileList = append(fileList, FileData{Path: path, Size: fi.Size()})
 			}
 
 			return err
@@ -600,43 +621,13 @@ func createFileList(target string, fileList []string) ([]string, error) {
 		if err == nil {
 			for _, fi := range files {
 				if fi.Mode().IsRegular() && fi.Name()[0] != '.' {
-					fileList = append(fileList, target+fi.Name())
+					fileList = append(fileList, FileData{Path: target + fi.Name(), Size: fi.Size()})
 				}
 			}
 		}
 	}
 
 	return fileList, err
-}
-
-func computeJobsPerTask(jobsPerTask []uint, jobs, tasks uint) []uint {
-	var q, r uint
-
-	if jobs <= tasks {
-		q = 1
-		r = 0
-	} else {
-		q = jobs / tasks
-		r = tasks - q*tasks
-	}
-
-	for i := range jobsPerTask {
-		jobsPerTask[i] = q
-	}
-
-	n := uint(0)
-
-	for r != 0 {
-		jobsPerTask[n]++
-		r--
-		n++
-
-		if n == tasks {
-			n = 0
-		}
-	}
-
-	return jobsPerTask
 }
 
 // Buffered printer is required in concurrent code
