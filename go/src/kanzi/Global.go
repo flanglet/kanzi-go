@@ -512,7 +512,7 @@ func ComputeJobsPerTask(jobsPerTask []uint, jobs, tasks uint) []uint {
 		r = 0
 	} else {
 		q = jobs / tasks
-		r = tasks - q*tasks
+		r = jobs - q*tasks
 	}
 
 	for i := range jobsPerTask {
