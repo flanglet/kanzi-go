@@ -58,82 +58,91 @@ func main() {
 	processCommandLine(os.Args, argsMap)
 	mode := argsMap["mode"].(string)
 	delete(argsMap, "mode")
+	status := 1
 
 	if mode == "c" {
-		runtime.GOMAXPROCS(runtime.NumCPU())
-		code := 0
-		defer func() {
-			if r := recover(); r != nil {
-				fmt.Printf("An unexpected error occured during compression: %v\n", r.(error))
-				code = kanzi.ERR_UNKNOWN
-			}
-
-			os.Exit(code)
-		}()
-
-		bc, err := NewBlockCompressor(argsMap)
-
-		if err != nil {
-			fmt.Printf("Failed to create block compressor: %v\n", err)
-			os.Exit(kanzi.ERR_CREATE_COMPRESSOR)
-		}
-
-		if len(bc.CpuProf()) != 0 {
-			if f, err := os.Create(bc.CpuProf()); err != nil {
-				fmt.Printf("Warning: cpu profile unavailable: %v\n", err)
-			} else {
-				pprof.StartCPUProfile(f)
-
-				defer func() {
-					pprof.StopCPUProfile()
-					f.Close()
-				}()
-			}
-		}
-
-		code, _ = bc.Call()
-		return
+		status = compress(argsMap)
+	} else if mode == "d" {
+		status = decompress(argsMap)
+	} else {
+		println("Missing arguments: try --help or -h")
 	}
 
-	if mode == "d" {
-		runtime.GOMAXPROCS(runtime.NumCPU())
-		code := 0
+	os.Exit(status)
+}
 
-		defer func() {
-			if r := recover(); r != nil {
-				fmt.Printf("An unexpected error occured during decompression: %v\n", r.(error))
-				code = kanzi.ERR_UNKNOWN
-			}
+func compress(argsMap map[string]interface{}) int {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	code := 0
 
-			os.Exit(code)
-		}()
-
-		bd, err := NewBlockDecompressor(argsMap)
-
-		if err != nil {
-			fmt.Printf("Failed to create block decompressor: %v\n", err)
-			os.Exit(kanzi.ERR_CREATE_DECOMPRESSOR)
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("An unexpected error occured during compression: %v\n", r.(error))
+			code = kanzi.ERR_UNKNOWN
 		}
 
-		if len(bd.CpuProf()) != 0 {
-			if f, err := os.Create(bd.CpuProf()); err != nil {
-				fmt.Printf("Warning: cpu profile unavailable: %v\n", err)
-			} else {
-				pprof.StartCPUProfile(f)
-
-				defer func() {
-					pprof.StopCPUProfile()
-					f.Close()
-				}()
-			}
-		}
-
-		code, _ = bd.Call()
 		os.Exit(code)
+	}()
+
+	bc, err := NewBlockCompressor(argsMap)
+
+	if err != nil {
+		fmt.Printf("Failed to create block compressor: %v\n", err)
+		return kanzi.ERR_CREATE_COMPRESSOR
 	}
 
-	println("Missing arguments: try --help or -h")
-	os.Exit(1)
+	if len(bc.CpuProf()) != 0 {
+		if f, err := os.Create(bc.CpuProf()); err != nil {
+			fmt.Printf("Warning: cpu profile unavailable: %v\n", err)
+		} else {
+			pprof.StartCPUProfile(f)
+
+			defer func() {
+				pprof.StopCPUProfile()
+				f.Close()
+			}()
+		}
+	}
+
+	code, _ = bc.Call()
+	return code
+}
+
+func decompress(argsMap map[string]interface{}) int {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	code := 0
+
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("An unexpected error occured during decompression: %v\n", r.(error))
+			code = kanzi.ERR_UNKNOWN
+		}
+
+		os.Exit(code)
+	}()
+
+	bd, err := NewBlockDecompressor(argsMap)
+
+	if err != nil {
+		fmt.Printf("Failed to create block decompressor: %v\n", err)
+		return kanzi.ERR_CREATE_DECOMPRESSOR
+	}
+
+	if len(bd.CpuProf()) != 0 {
+		if f, err := os.Create(bd.CpuProf()); err != nil {
+			fmt.Printf("Warning: cpu profile unavailable: %v\n", err)
+		} else {
+			pprof.StartCPUProfile(f)
+
+			defer func() {
+				pprof.StopCPUProfile()
+				f.Close()
+			}()
+		}
+	}
+
+	code, _ = bd.Call()
+	return code
 }
 
 func processCommandLine(args []string, argsMap map[string]interface{}) {
