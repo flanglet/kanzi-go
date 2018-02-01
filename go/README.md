@@ -1,7 +1,7 @@
 Build Kanzi
 ===========
 
-cd src/kanzi/app
+cd src/github.com/flanglet/kanzi/app
 
 
 Build Kanzi.go (compressor/decompressor):
