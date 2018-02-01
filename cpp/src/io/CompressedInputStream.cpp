@@ -102,7 +102,7 @@ void CompressedInputStream::readHeader() THROW
     }
 
     // Read stream version
-    int version = int(_ibs->readBits(7));
+    int version = int(_ibs->readBits(5));
 
     // Sanity check
     if (version != BITSTREAM_FORMAT_VERSION) {
@@ -138,8 +138,11 @@ void CompressedInputStream::readHeader() THROW
         _jobs = (1 << 31) / _blockSize;
 #endif
 
+    // Read number of blocks in input. 0 means 'unknown' and 63 means 63 or more.
+    _nbInputBlocks = uint8(_ibs->readBits(6));
+
     // Read reserved bits
-    _ibs->readBits(9);
+    _ibs->readBits(5);
 
     if (_listeners.size() > 0) {
         stringstream ss;
@@ -320,19 +323,48 @@ int CompressedInputStream::processBlock() THROW
         vector<Listener*> blockListeners(_listeners);
         int decoded = 0;
         _sa->_index = 0;
-        int firstBlockId = _blockId.load();
+        const int firstBlockId = _blockId.load();
+        int nbJobs = _jobs;
+        int* jobsPerTask;
+
+        // Assign optimal number of tasks and jobs per task
+        if (nbJobs > 1) {
+            // If the number of input blocks is available, use it to optimize
+            // memory usage
+            if (_nbInputBlocks != 0) {
+                // Limit the number of jobs if there are fewer blocks that this.jobs
+                // It allows more jobs per task and reduces memory usage.
+                if (nbJobs > _nbInputBlocks) {
+                    nbJobs = _nbInputBlocks;
+                }
+            }
+
+            jobsPerTask = new int[nbJobs];
+            Global::computeJobsPerTask(jobsPerTask, _jobs, nbJobs);
+        }
+        else {
+            jobsPerTask = new int[1];
+            jobsPerTask[0] = _jobs;
+        }
 
         // Create as many tasks as required
-        for (int jobId = 0; jobId < _jobs; jobId++) {
+        for (int jobId = 0; jobId < nbJobs; jobId++) {
             _buffers[2 * jobId]->_index = 0;
             _buffers[2 * jobId + 1]->_index = 0;
-            map<string, string> copyCtx(_ctx);
 
             if (_buffers[2 * jobId]->_length < blkSize) {
+                // Lazy instantiation of input buffers this.buffers[2*jobId]
+                // Output buffers this.buffers[2*jobId+1] are lazily instantiated
+                // by the decoding tasks.
                 delete[] _buffers[2 * jobId]->_array;
                 _buffers[2 * jobId]->_array = new byte[blkSize];
                 _buffers[2 * jobId]->_length = blkSize;
             }
+
+            map<string, string> copyCtx(_ctx);
+            stringstream ss;
+            ss << jobsPerTask[jobId];
+            copyCtx["jobs"] = ss.str();
 
             DecodingTask<DecodingTaskResult>* task = new DecodingTask<DecodingTaskResult>(_buffers[2 * jobId],
                 _buffers[2 * jobId + 1], blkSize, _transformType,
@@ -340,6 +372,8 @@ int CompressedInputStream::processBlock() THROW
                 blockListeners, copyCtx);
             tasks.push_back(task);
         }
+
+        delete[] jobsPerTask;
 
         if (tasks.size() == 1) {
             // Synchronous call
@@ -353,7 +387,7 @@ int CompressedInputStream::processBlock() THROW
             decoded += res._decoded;
             const int size = _sa->_index + decoded;
 
-            if (size > _jobs * _blockSize)
+            if (size > nbJobs * _blockSize)
                 throw IOException("Invalid data", Error::ERR_PROCESS_BLOCK); // deallocate in catch code
 
             if (_sa->_length < size) {
@@ -395,7 +429,7 @@ int CompressedInputStream::processBlock() THROW
 
             const int size = _sa->_index + decoded;
 
-            if (size > _jobs * _blockSize)
+            if (size > nbJobs * _blockSize)
                 throw IOException("Invalid data", Error::ERR_PROCESS_BLOCK); // deallocate in catch code
 
             if (_sa->_length < size) {

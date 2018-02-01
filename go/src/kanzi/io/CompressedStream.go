@@ -16,7 +16,6 @@ limitations under the License.
 package io
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"kanzi"
@@ -36,7 +35,7 @@ import (
 
 const (
 	BITSTREAM_TYPE             = 0x4B414E5A // "KANZ"
-	BITSTREAM_FORMAT_VERSION   = 4
+	BITSTREAM_FORMAT_VERSION   = 5
 	STREAM_DEFAULT_BUFFER_SIZE = 1024 * 1024
 	EXTRA_BUFFER_SIZE          = 256
 	COPY_LENGTH_MASK           = 0x0F
@@ -83,6 +82,7 @@ type blockBuffer struct {
 
 type CompressedOutputStream struct {
 	blockSize     uint
+	nbInputBlocks uint8
 	hasher        *hash.XXHash32
 	data          []byte
 	buffers       []blockBuffer
@@ -125,7 +125,6 @@ func NewCompressedOutputStream(os io.WriteCloser, ctx map[string]interface{}) (*
 
 	entropyCodec := ctx["codec"].(string)
 	transform := ctx["transform"].(string)
-
 	tasks := ctx["jobs"].(uint)
 
 	if tasks == 0 || tasks > MAX_CONCURRENCY {
@@ -171,8 +170,25 @@ func NewCompressedOutputStream(os io.WriteCloser, ctx map[string]interface{}) (*
 
 	// Check transform type validity (panic on error)
 	this.transformType = GetByteFunctionType(transform)
+	nbBlocks := uint8(0)
 
 	this.blockSize = bSize
+
+	// If input size has been provided, calculate the number of blocks
+	// in the input data else use 0. A value of 63 means '63 or more blocks'.
+	// This value is written to the bitstream header to let the decoder make
+	// better decisions about memory usage and job allocation in concurrent
+	// decompression scenario.
+	if fileSize, ok := ctx["fileSize"].(int64); ok {
+		nbBlocks = uint8((uint(fileSize) + (bSize - 1)) / bSize)
+	}
+
+	if nbBlocks > 63 {
+		this.nbInputBlocks = 63
+	} else {
+		this.nbInputBlocks = nbBlocks
+	}
+
 	checksum := ctx["checksum"].(bool)
 
 	if checksum == true {
@@ -238,7 +254,7 @@ func (this *CompressedOutputStream) writeHeader() *IOError {
 		return NewIOError("Cannot write bitstream type to header", kanzi.ERR_WRITE_FILE)
 	}
 
-	if this.obs.WriteBits(BITSTREAM_FORMAT_VERSION, 7) != 7 {
+	if this.obs.WriteBits(BITSTREAM_FORMAT_VERSION, 5) != 5 {
 		return NewIOError("Cannot write bitstream version to header", kanzi.ERR_WRITE_FILE)
 	}
 
@@ -258,7 +274,11 @@ func (this *CompressedOutputStream) writeHeader() *IOError {
 		return NewIOError("Cannot write block size to header", kanzi.ERR_WRITE_FILE)
 	}
 
-	if this.obs.WriteBits(0, 9) != 9 {
+	if this.obs.WriteBits(uint64(this.nbInputBlocks), 6) != 6 {
+		return NewIOError("Cannot write number of blocks to header", kanzi.ERR_WRITE_FILE)
+	}
+
+	if this.obs.WriteBits(0, 5) != 5 {
 		return NewIOError("Cannot write reserved bits to header", kanzi.ERR_WRITE_FILE)
 	}
 
@@ -587,6 +607,7 @@ type semaphore chan bool
 
 type CompressedInputStream struct {
 	blockSize     uint
+	nbInputBlocks uint8
 	hasher        *hash.XXHash32
 	data          []byte
 	buffers       []blockBuffer
@@ -599,7 +620,6 @@ type CompressedInputStream struct {
 	maxIdx        int
 	curIdx        int
 	jobs          int
-	syncChan      []semaphore
 	resChan       chan Message
 	listeners     []kanzi.Listener
 	readLastBlock bool
@@ -647,16 +667,6 @@ func NewCompressedInputStream(is io.ReadCloser, ctx map[string]interface{}) (*Co
 
 	for i := range this.buffers {
 		this.buffers[i] = blockBuffer{Buf: EMPTY_BYTE_SLICE}
-	}
-
-	// Channel of semaphores
-	this.syncChan = make([]semaphore, this.jobs)
-
-	for i := range this.syncChan {
-		if i > 0 {
-			// First channel is nil
-			this.syncChan[i] = make(semaphore)
-		}
 	}
 
 	this.resChan = make(chan Message)
@@ -715,7 +725,7 @@ func (this *CompressedInputStream) readHeader() error {
 		return NewIOError(errMsg, kanzi.ERR_INVALID_FILE)
 	}
 
-	version := this.ibs.ReadBits(7)
+	version := this.ibs.ReadBits(5)
 
 	// Sanity check
 	if version != BITSTREAM_FORMAT_VERSION {
@@ -752,8 +762,11 @@ func (this *CompressedInputStream) readHeader() error {
 		this.jobs = int(uint(1<<31) / this.blockSize)
 	}
 
+	// Read number of blocks in input. 0 means 'unknown' and 63 means 63 or more.
+	this.nbInputBlocks = uint8(this.ibs.ReadBits(6))
+
 	// Read reserved bits
-	this.ibs.ReadBits(9)
+	this.ibs.ReadBits(5)
 
 	if len(this.listeners) > 0 {
 		msg := ""
@@ -796,12 +809,6 @@ func (this *CompressedInputStream) Close() error {
 
 	for i := range this.buffers {
 		this.buffers[i] = blockBuffer{Buf: EMPTY_BYTE_SLICE}
-	}
-
-	for _, c := range this.syncChan {
-		if c != nil {
-			close(c)
-		}
 	}
 
 	close(this.resChan)
@@ -880,11 +887,50 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 	listeners := make([]kanzi.Listener, len(this.listeners))
 	copy(listeners, this.listeners)
 
-	// Invoke as many go routines as required
-	for jobId := 0; jobId < this.jobs; jobId++ {
-		curChan := this.syncChan[jobId]
-		nextChan := this.syncChan[(jobId+1)%this.jobs]
+	nbJobs := uint(this.jobs)
+	var jobsPerTask []uint
 
+	// Assign optimal number of tasks and jobs per task
+	if nbJobs > 1 {
+		// If the number of input blocks is available, use it to optimize
+		// memory usage
+		if this.nbInputBlocks != 0 {
+			// Limit the number of jobs if there are fewer blocks that this.jobs
+			// It allows more jobs per task and reduces memory usage.
+			if nbJobs > uint(this.nbInputBlocks) {
+				nbJobs = uint(this.nbInputBlocks)
+			}
+		}
+
+		jobsPerTask = kanzi.ComputeJobsPerTask(make([]uint, nbJobs), uint(this.jobs), nbJobs)
+	} else {
+		jobsPerTask = make([]uint, nbJobs)
+		jobsPerTask[0] = uint(this.jobs)
+	}
+
+	// Channel of semaphores
+	syncChan := make([]semaphore, nbJobs)
+
+	for i := range syncChan {
+		if i > 0 {
+			// First channel is nil
+			syncChan[i] = make(semaphore)
+		}
+	}
+
+	defer func() {
+		for _, c := range syncChan {
+			if c != nil {
+				close(c)
+			}
+		}
+	}()
+
+	// Invoke as many go routines as required
+	for jobId := range syncChan {
+		// Lazy instantiation of input buffers this.buffers[2*jobId]
+		// Output buffers this.buffers[2*jobId+1] are lazily instantiated
+		// by the decoding tasks.
 		if len(this.buffers[2*jobId].Buf) < blkSize {
 			this.buffers[2*jobId].Buf = make([]byte, blkSize)
 		}
@@ -903,8 +949,8 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 			typeOfTransform: this.transformType,
 			typeOfEntropy:   this.entropyType,
 			currentBlockId:  this.blockId + jobId + 1,
-			input:           curChan,
-			output:          nextChan,
+			input:           syncChan[jobId],
+			output:          syncChan[(jobId+1)%int(nbJobs)],
 			result:          this.resChan,
 			listeners:       listeners,
 			ibs:             this.ibs,
@@ -923,7 +969,7 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 	var err error
 	decoded := 0
 	offset := 0
-	results := make([]Message, this.jobs)
+	results := make([]Message, nbJobs)
 
 	// Wait for completion of all concurrent tasks
 	for _ = range results {
@@ -939,7 +985,7 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 		}
 	}
 
-	if decoded > this.jobs*int(this.blockSize) {
+	if decoded > int(nbJobs)*int(this.blockSize) {
 		return decoded, NewIOError("Invalid data", kanzi.ERR_PROCESS_BLOCK)
 	}
 
@@ -1111,7 +1157,7 @@ func (this *DecodingTask) decode() {
 	}
 
 	if mode&SMALL_BLOCK_MASK != 0 {
-		if !bytes.Equal(buffer, data) {
+		if &buffer != &data {
 			copy(data, buffer[0:preTransformLength])
 		}
 

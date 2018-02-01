@@ -48,7 +48,7 @@ import kanzi.Listener;
 public class CompressedOutputStream extends OutputStream
 {
    private static final int BITSTREAM_TYPE           = 0x4B414E5A; // "KANZ"
-   private static final int BITSTREAM_FORMAT_VERSION = 4;
+   private static final int BITSTREAM_FORMAT_VERSION = 5;
    private static final int COPY_LENGTH_MASK         = 0x0F;
    private static final int SMALL_BLOCK_MASK         = 0x80;
    private static final int MIN_BITSTREAM_BLOCK_SIZE = 1024;
@@ -58,6 +58,7 @@ public class CompressedOutputStream extends OutputStream
    private static final int MAX_CONCURRENCY          = 32;
 
    private final int blockSize;
+   private final int nbInputBlocks;
    private final XXHash32 hasher;
    private final SliceByteArray sa; // for all blocks
    private final SliceByteArray[] buffers; // input & output per block
@@ -120,7 +121,17 @@ public class CompressedOutputStream extends OutputStream
       this.entropyType = new EntropyCodecFactory().getType(entropyCodec);
       this.transformType = new ByteFunctionFactory().getType(transform);
       this.blockSize = bSize;
-      final boolean checksum = (Boolean) ctx.get("checksum");
+      
+      // If input size has been provided, calculate the number of blocks
+      // in the input data else use 0. A value of 63 means '63 or more blocks'.
+      // This value is written to the bitstream header to let the decoder make
+      // better decisions about memory usage and job allocation in concurrent
+      // decompression scenario.
+      long fileSize = (ctx.containsKey("fileSize")) ? (long) ctx.get("fileSize") : 0;
+      int nbBlocks = (int) (fileSize+(bSize-1)) / bSize;
+      this.nbInputBlocks = (nbBlocks > 63) ? 63 : nbBlocks;
+      
+      boolean checksum = (Boolean) ctx.get("checksum");
       this.hasher = (checksum == true) ? new XXHash32(BITSTREAM_TYPE) : null;
       this.jobs = tasks;
       this.pool = threadPool;
@@ -143,7 +154,7 @@ public class CompressedOutputStream extends OutputStream
       if (this.obs.writeBits(BITSTREAM_TYPE, 32) != 32)
          throw new kanzi.io.IOException("Cannot write bitstream type to header", Error.ERR_WRITE_FILE);
 
-      if (this.obs.writeBits(BITSTREAM_FORMAT_VERSION, 7) != 7)
+      if (this.obs.writeBits(BITSTREAM_FORMAT_VERSION, 5) != 5)
          throw new kanzi.io.IOException("Cannot write bitstream version to header", Error.ERR_WRITE_FILE);
 
       if (this.obs.writeBits((this.hasher != null) ? 1 : 0, 1) != 1)
@@ -158,7 +169,10 @@ public class CompressedOutputStream extends OutputStream
       if (this.obs.writeBits(this.blockSize >>> 4, 26) != 26)
          throw new kanzi.io.IOException("Cannot write block size to header", Error.ERR_WRITE_FILE);
 
-      if (this.obs.writeBits(0L, 9) != 9)
+      if (this.obs.writeBits(this.nbInputBlocks, 6) != 6)
+         throw new kanzi.io.IOException("Cannot write number of blocks to header", Error.ERR_WRITE_FILE);
+
+      if (this.obs.writeBits(0L, 5) != 5)
          throw new kanzi.io.IOException("Cannot write reserved bits to header", Error.ERR_WRITE_FILE);
    }
 

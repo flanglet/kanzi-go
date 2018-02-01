@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 import kanzi.BitStreamException;
 import kanzi.EntropyDecoder;
+import kanzi.Global;
 import kanzi.SliceByteArray;
 import kanzi.InputBitStream;
 import kanzi.bitstream.DefaultInputBitStream;
@@ -45,7 +46,7 @@ import kanzi.Listener;
 public class CompressedInputStream extends InputStream
 {
    private static final int BITSTREAM_TYPE           = 0x4B414E5A; // "KANZ"
-   private static final int BITSTREAM_FORMAT_VERSION = 4;
+   private static final int BITSTREAM_FORMAT_VERSION = 5;
    private static final int DEFAULT_BUFFER_SIZE      = 1024*1024;
    private static final int EXTRA_BUFFER_SIZE        = 256;
    private static final int COPY_LENGTH_MASK         = 0x0F;
@@ -57,6 +58,7 @@ public class CompressedInputStream extends InputStream
    private static final int MAX_CONCURRENCY          = 32;
 
    private int blockSize;
+   private int nbInputBlocks;
    private XXHash32 hasher;
    private final SliceByteArray sa; // for all blocks
    private final SliceByteArray[] buffers; // input & output per block
@@ -122,7 +124,7 @@ public class CompressedInputStream extends InputStream
          throw new kanzi.io.IOException("Invalid stream type", Error.ERR_INVALID_FILE);
 
       // Read stream version
-      final int version = (int) this.ibs.readBits(7);
+      final int version = (int) this.ibs.readBits(5);
 
       // Sanity check
       if (version != BITSTREAM_FORMAT_VERSION)
@@ -150,8 +152,11 @@ public class CompressedInputStream extends InputStream
       if (((long) this.blockSize) * ((long) this.jobs) >= (long) Integer.MAX_VALUE)
          this.jobs = Integer.MAX_VALUE / this.blockSize;
 
+      // Read number of blocks in input. 0 means 'unknown' and 63 means 63 or more.
+      this.nbInputBlocks = (int) this.ibs.readBits(6);
+      
       // Read reserved bits
-      this.ibs.readBits(9);   
+      this.ibs.readBits(5);   
 
       if (this.listeners.size() > 0)
       {
@@ -348,25 +353,51 @@ public class CompressedInputStream extends InputStream
          int decoded = 0;
          this.sa.index = 0;
          List<Callable<Status>> tasks = new ArrayList<>(this.jobs);
-         int firstBlockId = this.blockId.get();
+         final int firstBlockId = this.blockId.get();
+         int nbJobs = this.jobs;
+         int[] jobsPerTask;
+         
+         // Assign optimal number of tasks and jobs per task 
+         if (nbJobs > 1)
+         {
+            // If the number of input blocks is available, use it to optimize 
+            // memory usage
+            if (this.nbInputBlocks != 0)
+            {
+               // Limit the number of jobs if there are fewer blocks that this.jobs
+               // It allows more jobs per task and reduces memory usage.
+               nbJobs = Math.min(nbJobs, this.nbInputBlocks);
+            }
+  
+            jobsPerTask = Global.computeJobsPerTask(new int[nbJobs], this.jobs, nbJobs);           
+         }
+         else
+         {
+            jobsPerTask = new int[] { this.jobs };
+         }
 
          // Create as many tasks as required
-         for (int jobId=0; jobId<this.jobs; jobId++)
+         for (int jobId=0; jobId<nbJobs; jobId++)
          {
             this.buffers[2*jobId].index = 0;
             this.buffers[2*jobId+1].index = 0;
             
             if (this.buffers[2*jobId].array.length < blkSize)
             {
+               // Lazy instantiation of input buffers this.buffers[2*jobId]
+               // Output buffers this.buffers[2*jobId+1] are lazily instantiated
+               // by the decoding tasks.
                this.buffers[2*jobId].array = new byte[blkSize];    
                this.buffers[2*jobId].length = blkSize;
             }
-                               
+                         
+            Map<String, Object> map = new HashMap<>(this.ctx);
+            map.put("jobs", jobsPerTask[jobId]);
             Callable<Status> task = new DecodingTask(this.buffers[2*jobId],
                     this.buffers[2*jobId+1], blkSize, this.transformType,
                     this.entropyType, firstBlockId+jobId+1,
                     this.ibs, this.hasher, this.blockId,
-                    blockListeners, new HashMap<>(this.ctx));
+                    blockListeners, map);
             tasks.add(task);            
          }
 
@@ -398,7 +429,7 @@ public class CompressedInputStream extends InputStream
 
          final int size = this.sa.index + decoded;
             
-         if (size > this.jobs*this.blockSize)
+         if (size > nbJobs*this.blockSize)
             throw new kanzi.io.IOException("Invalid data", Error.ERR_PROCESS_BLOCK);
          
          this.sa.length = size;
@@ -674,7 +705,6 @@ public class CompressedInputStream extends InputStream
             }
             else
             {
-               this.ctx.put("size", preTransformLength);
                ByteTransformSequence transform = new ByteFunctionFactory().newFunction(this.ctx,
                        typeOfTransform);
                transform.setSkipFlags((byte) ((mode>>2) & ByteTransformSequence.SKIP_MASK));

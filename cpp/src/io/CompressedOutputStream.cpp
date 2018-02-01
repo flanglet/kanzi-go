@@ -77,6 +77,17 @@ CompressedOutputStream::CompressedOutputStream(OutputStream& os, map<string, str
 
     _blockId = 0;
     _blockSize = bSize;
+
+    // If input size has been provided, calculate the number of blocks
+    // in the input data else use 0. A value of 63 means '63 or more blocks'.
+    // This value is written to the bitstream header to let the decoder make
+    // better decisions about memory usage and job allocation in concurrent
+    // decompression scenario.
+    it = ctx.find("fileSize");
+    int64 fileSize = (it == ctx.end()) ? 0 : atoi(it->second.c_str());
+    int nbBlocks = int(fileSize + (bSize - 1)) / bSize;
+    _nbInputBlocks = (nbBlocks > 63) ? 63 : nbBlocks;
+
     _initialized = false;
     _closed = false;
     const int bufferSize = (bSize <= 65536) ? bSize : 65536;
@@ -124,7 +135,7 @@ void CompressedOutputStream::writeHeader() THROW
     if (_obs->writeBits(BITSTREAM_TYPE, 32) != 32)
         throw IOException("Cannot write bitstream type to header", Error::ERR_WRITE_FILE);
 
-    if (_obs->writeBits(BITSTREAM_FORMAT_VERSION, 7) != 7)
+    if (_obs->writeBits(BITSTREAM_FORMAT_VERSION, 5) != 5)
         throw IOException("Cannot write bitstream version to header", Error::ERR_WRITE_FILE);
 
     if (_obs->writeBits((_hasher != nullptr) ? 1 : 0, 1) != 1)
@@ -139,7 +150,10 @@ void CompressedOutputStream::writeHeader() THROW
     if (_obs->writeBits(_blockSize >> 4, 26) != 26)
         throw IOException("Cannot write block size to header", Error::ERR_WRITE_FILE);
 
-    if (_obs->writeBits(0L, 9) != 9)
+    if (_obs->writeBits(_nbInputBlocks, 6) != 6)
+        throw IOException("Cannot write  number of blocks to header", Error::ERR_WRITE_FILE);
+
+    if (_obs->writeBits(0, 5) != 5)
         throw IOException("Cannot write reserved bits to header", Error::ERR_WRITE_FILE);
 }
 

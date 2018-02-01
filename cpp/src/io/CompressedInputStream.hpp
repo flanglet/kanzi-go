@@ -111,7 +111,7 @@ namespace kanzi
 
    private:
        static const int BITSTREAM_TYPE = 0x4B414E5A; // "KANZ"
-       static const int BITSTREAM_FORMAT_VERSION = 4;
+       static const int BITSTREAM_FORMAT_VERSION = 5;
        static const int DEFAULT_BUFFER_SIZE = 1024 * 1024;
        static const int EXTRA_BUFFER_SIZE = 256;
        static const int COPY_LENGTH_MASK = 0x0F;
@@ -122,6 +122,7 @@ namespace kanzi
        static const int MAX_CONCURRENCY = 32;
 
        int _blockSize;
+       uint8 _nbInputBlocks;
        XXHash32* _hasher;
        SliceArray<byte>* _sa; // for all blocks
        SliceArray<byte>** _buffers; // per block
