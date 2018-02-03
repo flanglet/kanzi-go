@@ -2,10 +2,10 @@ kanzi
 =====
 
 
-This project offers Java, C++ and Go code for data compression.
+This project offers Java, C++ and Go lossless data compression.
 The goal is to provide clean APIs and really fast implementation.
-It includes lossless compression codecs (Huffman, Range, LZ4, Snappy, ANS, Context Mixers, PAQ derivatives), bit stream manipulation, Burrows-Wheeler (BWT) and Move-To-Front transform, Run Length coding, Exp Golomb coding, etc ...
-The Java code also provides image manipulation utilities (color model transforms, resampling, Wavelet, DCT, Hadamard transform) and  filters such as fast Gaussian filter, Sobel filter, fast median filter and constant time bilateral filter.
+It includes compression codecs (Run Length coding, Exp Golomb coding, Huffman, Range, LZ4, Snappy, ANS, Context Mixers, PAQ derivatives), bit stream manipulation, and transforms such as Burrows-Wheeler (BWT) and Move-To-Front, etc ...
+
 
 
 For more details, check https://github.com/flanglet/kanzi/wiki.
