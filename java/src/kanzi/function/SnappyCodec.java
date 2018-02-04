@@ -212,12 +212,10 @@ public final class SnappyCodec implements ByteFunction
         tableSize <<= 1;
      }
 
-     for (int i=0; i<tableSize; i++)
-        table[i] = -1;
-
-     // Iterate over the input bytes
+     // The encoded block must start with a literal, as there are no previous
+     // bytes to copy, so we start looking for hash matches at index 1
      final int srcIdx0 = input.index;
-     int srcIdx = srcIdx0; // The iterator position
+     int srcIdx = srcIdx0 + 1; 
      int lit = srcIdx0; // The start position of any pending literal bytes
      final int ends1 = srcIdx0 + count;
      final int ends2 = ends1 - 3;
@@ -226,11 +224,11 @@ public final class SnappyCodec implements ByteFunction
      {
         // Update the hash table
         final int h = (Memory.LittleEndian.readInt32(src, srcIdx) * HASH_SEED) >>> shift;
-        int t = table[h]; // The last position with the same hash as srcIdx
-        table[h] = srcIdx;
+        int t = srcIdx0 + table[h]; // The last position with the same hash as srcIdx
+        table[h] = srcIdx - srcIdx0;
 
         // If t is invalid or src[srcIdx:srcIdx+4] differs from src[t:t+4], accumulate a literal byte
-        if ((t < srcIdx0) || (srcIdx-t >= MAX_OFFSET) || (differentInts(src, srcIdx, t)))
+        if ((t == srcIdx0) || (srcIdx-t >= MAX_OFFSET) || (differentInts(src, srcIdx, t)))
         {
            srcIdx++;
            continue;
@@ -404,94 +402,94 @@ public final class SnappyCodec implements ByteFunction
            {
               case TAG_LITERAL:
               {
-                int x = src[s] & 0xFC;
+                  int x = src[s] & 0xFC;
 
-                if (x < TAG_DEC_LEN1)
-                {
-                    s++;
-                    x >>= 2;
-                }
-                else if (x == TAG_DEC_LEN1)
-                {
-                   s += 2;
-                   x = src[s-1] & 0xFF;
-                }
-                else if (x == TAG_DEC_LEN2)
-                {
-                   s += 3;  
-                   x = (src[s-2] & 0xFF) | ((src[s-1] & 0xFF) << 8);
-                }
-                else if (x == TAG_DEC_LEN3)
-                {
-                   s += 4; 
-                   x = (src[s-3] & 0xFF) | ((src[s-2] & 0xFF) << 8) | 
-                      ((src[s-1] & 0xFF) << 16);
-                }
-                else if (x == TAG_DEC_LEN4)
-                {
-                   s += 5;
-                   x = (src[s-4] & 0xFF) | ((src[s-3] & 0xFF) << 8) |
-                       ((src[s-2] & 0xFF) << 16) | ((src[s-1] & 0xFF) << 24);
-                }   
+                  if (x < TAG_DEC_LEN1)
+                  {
+                     s++;
+                     x >>= 2;
+                  }
+                  else if (x == TAG_DEC_LEN1)
+                  {
+                     s += 2;
+                     x = src[s-1] & 0xFF;
+                  }
+                  else if (x == TAG_DEC_LEN2)
+                  {
+                     s += 3;  
+                     x = (src[s-2] & 0xFF) | ((src[s-1] & 0xFF) << 8);
+                  }
+                  else if (x == TAG_DEC_LEN3)
+                  {
+                     s += 4; 
+                     x = (src[s-3] & 0xFF) | ((src[s-2] & 0xFF) << 8) | 
+                        ((src[s-1] & 0xFF) << 16);
+                  }
+                  else if (x == TAG_DEC_LEN4)
+                  {
+                     s += 5;
+                     x = (src[s-4] & 0xFF) | ((src[s-3] & 0xFF) << 8) |
+                         ((src[s-2] & 0xFF) << 16) | ((src[s-1] & 0xFF) << 24);
+                  }   
 
-                length = x + 1;
+                  length = x + 1;
 
-                if ((length <= 0) || (length > dst.length-d) || (length > ends-s))
-                   return false;
+                  if ((length <= 0) || (length > dst.length-d) || (length > ends-s))
+                     return false;
 
-                if (length < 16)
-                {
-                   for (int i=0; i<length; i++)
-                      dst[d+i] = src[s+i];
-                }
-                else
-                {
-                   System.arraycopy(src, s, dst, d, length);
-                }
- 
-                d += length;
-                s += length;
-                continue;
-             }
+                  if (length < 16)
+                  {
+                     for (int i=0; i<length; i++)
+                        dst[d+i] = src[s+i];
+                  }
+                  else
+                  {
+                     System.arraycopy(src, s, dst, d, length);
+                  }
 
-             case TAG_COPY1:
-             {
-                s += 2;
-                length = 4 + (((src[s-2] & 0xFF) >> 2) & 0x07);
-                offset = ((src[s-2] & 0xE0) << 3) | (src[s-1] & 0xFF);
-                break;
-             }
+                  d += length;
+                  s += length;
+                  continue;
+               }
 
-             case TAG_COPY2:
-             {
-                s += 3;
-                length = 1 + ((src[s-3] & 0xFF) >> 2);
-                offset = (src[s-2] & 0xFF) | ((src[s-1] & 0xFF) << 8);
-                break;
-             }
+               case TAG_COPY1:
+               {
+                  s += 2;
+                  length = 4 + (((src[s-2] & 0xFF) >> 2) & 0x07);
+                  offset = ((src[s-2] & 0xE0) << 3) | (src[s-1] & 0xFF);
+                  break;
+               }
 
-             default:
-                return false;
-          }
+               case TAG_COPY2:
+               {
+                  s += 3;
+                  length = 1 + ((src[s-3] & 0xFF) >> 2);
+                  offset = (src[s-2] & 0xFF) | ((src[s-1] & 0xFF) << 8);
+                  break;
+               }
 
-          final int end = d + length;
+               default:
+                  return false;
+            }
 
-          if ((offset > d) || (end > dst.length))
-             return false;
+            final int end = d + length;
 
-          for ( ; d<end; d++)
-             dst[d] = dst[d-offset];
-        }
+            if ((offset > d) || (end > dst.length))
+               return false;
+
+            for ( ; d<end; d++)
+               dst[d] = dst[d-offset];
+         }
      }
      catch (ArrayIndexOutOfBoundsException e)
      {
         // Catch incorrectly formatted input
-        // Fall through
+        // Fall through and return false
      }
       
      input.index = ends;
      output.index = d;
-     return (d - dstIdx == dLen);
+     return d - dstIdx == dLen;
   }
   
   

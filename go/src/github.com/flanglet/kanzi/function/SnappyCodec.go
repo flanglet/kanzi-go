@@ -60,7 +60,7 @@ func snappyEmitLiteral(src, dst []byte) int {
 
 	if n < 60 {
 		dst[0] = byte((n << 2) | TAG_LITERAL)
-		dstIdx++
+		dstIdx = 1
 
 		if length <= 16 {
 			i0 := 0
@@ -86,25 +86,25 @@ func snappyEmitLiteral(src, dst []byte) int {
 	} else if n < 0x0100 {
 		dst[0] = TAG_ENC_LEN1
 		dst[1] = byte(n)
-		dstIdx += 2
+		dstIdx = 2
 	} else if n < 0x010000 {
 		dst[0] = TAG_ENC_LEN2
 		dst[1] = byte(n)
 		dst[2] = byte(n >> 8)
-		dstIdx += 3
+		dstIdx = 3
 	} else if n < 0x01000000 {
 		dst[0] = TAG_ENC_LEN3
 		dst[1] = byte(n)
 		dst[2] = byte(n >> 8)
 		dst[3] = byte(n >> 16)
-		dstIdx += 4
+		dstIdx = 4
 	} else {
 		dst[0] = TAG_ENG_LEN4
 		dst[1] = byte(n)
 		dst[2] = byte(n >> 8)
 		dst[3] = byte(n >> 16)
 		dst[4] = byte(n >> 24)
-		dstIdx += 5
+		dstIdx = 5
 	}
 
 	copy(dst[dstIdx:], src[0:length])
@@ -126,17 +126,15 @@ func snappyEmitCopy(dst []byte, offset int) int {
 		length -= 64
 	}
 
-	if length > 0 {
-		if (offset < 2048) && (length < 12) && (length >= 4) {
-			dst[idx] = byte(((b2 & 0x07) << 5) | (byte(length-4) << 2) | TAG_COPY1)
-			dst[idx+1] = b1
-			idx += 2
-		} else {
-			dst[idx] = byte(((length - 1) << 2) | TAG_COPY2)
-			dst[idx+1] = b1
-			dst[idx+2] = b2
-			idx += 3
-		}
+	if (offset < 2048) && (length < 12) && (length >= 4) {
+		dst[idx] = byte(((b2 & 0x07) << 5) | (byte(length-4) << 2) | TAG_COPY1)
+		dst[idx+1] = b1
+		idx += 2
+	} else {
+		dst[idx] = byte(((length - 1) << 2) | TAG_COPY2)
+		dst[idx+1] = b1
+		dst[idx+2] = b2
+		idx += 3
 	}
 
 	return idx
@@ -162,7 +160,6 @@ func (this *SnappyCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	// The block starts with the varint-encoded length of the decompressed bytes.
-	srcIdx := 0
 	dstIdx := this.putUvarint(dst, uint64(count))
 
 	// Return early if src is short
@@ -174,7 +171,7 @@ func (this *SnappyCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return uint(count), uint(dstIdx), nil
 	}
 
-	// Initialize the hash table. Its size ranges from 1<<8 to 1<<14 inclusive.
+	// The hash table size ranges from 1<<8 to 1<<14 inclusive.
 	shift := uint(24)
 	tableSize := 256
 	table := this.buffer // aliasing
@@ -189,23 +186,21 @@ func (this *SnappyCodec) Forward(src, dst []byte) (uint, uint, error) {
 		tableSize <<= 1
 	}
 
-	for i := 0; i < tableSize; i++ {
-		table[i] = -1
-	}
-
-	// Iterate over the source bytes
 	lit := 0 // The start position of any pending literal bytes
-	ends1 := count
-	ends2 := ends1 - 3
+	ends := count - 3
 
-	for srcIdx < ends2 {
+	// The encoded block must start with a literal, as there are no previous
+	// bytes to copy, so we start looking for hash matches at index 1
+	srcIdx := 1
+
+	for srcIdx < ends {
 		// Update the hash table
 		h := (binary.LittleEndian.Uint32(src[srcIdx:srcIdx+4]) * SNAPPY_HASH_SEED) >> shift
 		t := table[h] // The last position with the same hash as srcIdx
 		table[h] = srcIdx
 
 		// If t is invalid or src[srcIdx:srcIdx+4] differs from src[t:t+4], accumulate a literal byte
-		if (t < 0) || (srcIdx-t >= MAX_OFFSET) || (kanzi.DifferentInts(src[srcIdx:srcIdx+4], src[t:t+4])) {
+		if (t == 0) || (srcIdx-t >= MAX_OFFSET) || (kanzi.DifferentInts(src[srcIdx:srcIdx+4], src[t:t+4])) {
 			srcIdx++
 			continue
 		}
@@ -220,7 +215,7 @@ func (this *SnappyCodec) Forward(src, dst []byte) (uint, uint, error) {
 		srcIdx += 4
 		t += 4
 
-		for (srcIdx < ends1) && (src[srcIdx] == src[t]) {
+		for (srcIdx < count) && (src[srcIdx] == src[t]) {
 			srcIdx++
 			t++
 		}
@@ -231,11 +226,11 @@ func (this *SnappyCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	// Emit any final pending literal bytes and return
-	if lit != ends1 {
-		dstIdx += snappyEmitLiteral(src[lit:ends1], dst[dstIdx:])
+	if lit != count {
+		dstIdx += snappyEmitLiteral(src[lit:count], dst[dstIdx:])
 	}
 
-	return uint(ends1), uint(dstIdx), nil
+	return uint(count), uint(dstIdx), nil
 }
 
 func (this *SnappyCodec) Inverse(src, dst []byte) (uint, uint, error) {

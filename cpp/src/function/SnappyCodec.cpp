@@ -30,7 +30,7 @@ int SnappyCodec::emitLiteral(SliceArray<byte>& input, SliceArray<byte>& output, 
 
     if (n < 60) {
         dst[0] = (byte)((n << 2) | TAG_LITERAL);
-        dstIdx++;
+        dstIdx = 1;
 
         if (len <= 16) {
             int i0 = 0;
@@ -49,20 +49,20 @@ int SnappyCodec::emitLiteral(SliceArray<byte>& input, SliceArray<byte>& output, 
     else if (n < 0x0100) {
         dst[0] = TAG_ENC_LEN1;
         dst[1] = byte(n);
-        dstIdx += 2;
+        dstIdx = 2;
     }
     else if (n < 0x010000) {
         dst[0] = TAG_ENC_LEN2;
         dst[1] = byte(n);
         dst[2] = byte(n >> 8);
-        dstIdx += 3;
+        dstIdx = 3;
     }
     else if (n < 0x01000000) {
         dst[0] = TAG_ENC_LEN3;
         dst[1] = byte(n);
         dst[2] = byte(n >> 8);
         dst[3] = byte(n >> 16);
-        dstIdx += 4;
+        dstIdx = 4;
     }
     else {
         dst[0] = TAG_ENG_LEN4;
@@ -70,7 +70,7 @@ int SnappyCodec::emitLiteral(SliceArray<byte>& input, SliceArray<byte>& output, 
         dst[2] = byte(n >> 8);
         dst[3] = byte(n >> 16);
         dst[4] = byte(n >> 24);
-        dstIdx += 5;;
+        dstIdx = 5;
     }
 
     memcpy(&dst[dstIdx], &src[0], len);
@@ -137,7 +137,7 @@ bool SnappyCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int
         return true;
     }
 
-    // Initialize the hash table. Its size ranges from 1<<8 to 1<<14 inclusive.
+    // The table size ranges from 1<<8 to 1<<14 inclusive.
     int shift = 24;
     int tableSize = 256;
     const int max = (count < MAX_TABLE_SIZE) ? count : MAX_TABLE_SIZE;
@@ -147,25 +147,25 @@ bool SnappyCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int
         tableSize <<= 1;
     }
 
-    memset(_buffer, -1, sizeof(int) * tableSize);
-
-    // Iterate over the input bytes
+    memset(_buffer, 0, sizeof(int) * tableSize);
     int* table = _buffer; // aliasing
-    byte* src = input._array;
-    const int srcIdx0 = input._index;
-    int srcIdx = srcIdx0; // The iterator position
-    int lit = srcIdx0; // The start position of any pending literal bytes
-    const int ends1 = srcIdx0 + count;
-    const int ends2 = ends1 - 3;
+    byte* src = &input._array[input._index];
+    
+    // The encoded block must start with a literal, as there are no previous
+    // bytes to copy, so we start looking for hash matches at index 1
+    const int srcIdx0 = 0;
+    int srcIdx = 1; 
+    int lit = 0; // The start position of any pending literal bytes
+    const int ends = count - 3;
 
-    while (srcIdx < ends2) {
+    while (srcIdx < ends) {
         // Update the hash table
         const int h = (LittleEndian::readInt32(&src[srcIdx]) * HASH_SEED) >> shift;
         int t = table[h]; // The last position with the same hash as srcIdx
         table[h] = srcIdx;
 
         // If t is invalid or src[srcIdx:srcIdx+4] differs from src[t:t+4], accumulate a literal byte
-        if ((t < srcIdx0) || (srcIdx - t >= MAX_OFFSET) || (differentInts(src, srcIdx, t))) {
+        if ((t == 0) || (srcIdx - t >= MAX_OFFSET) || (differentInts(src, srcIdx, t))) {
             srcIdx++;
             continue;
         }
@@ -182,7 +182,7 @@ bool SnappyCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int
         srcIdx += 4;
         t += 4;
 
-        while ((srcIdx < ends1) && (src[srcIdx] == src[t])) {
+        while ((srcIdx < count) && (src[srcIdx] == src[t])) {
             srcIdx++;
             t++;
         }
@@ -194,13 +194,13 @@ bool SnappyCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int
     }
 
     // Emit any const pending literal bytes and return
-    if (lit != ends1) {
+    if (lit != count) {
         input._index = lit;
         output._index = dstIdx;
-        dstIdx += emitLiteral(input, output, ends1 - lit);
+        dstIdx += emitLiteral(input, output, count - lit);
     }
 
-    input._index = ends1;
+    input._index = count;
     output._index = dstIdx;
     return true;
 }
