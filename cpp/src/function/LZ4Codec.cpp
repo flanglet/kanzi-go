@@ -72,23 +72,19 @@ bool LZ4Codec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int co
     if (input._array == output._array)
         return false;
 
-    const int srcIdx0 = input._index;
-    const int dstIdx0 = output._index;
-    byte* src = input._array;
-    byte* dst = output._array;
-
-    if (output._length - dstIdx0 < getMaxEncodedLength(count))
+    if (output._length  < getMaxEncodedLength(count))
         return false;
 
-    const int base = 0;
     const int hashLog = (count < LZ4_64K_LIMIT) ? HASH_LOG_64K : HASH_LOG;
     const int hashShift = 32 - hashLog;
-    const int srcEnd = srcIdx0 + count;
-    const int matchLimit = srcEnd - LAST_LITERALS;
-    const int mfLimit = srcEnd - MF_LIMIT;
-    int srcIdx = srcIdx0;
-    int dstIdx = dstIdx0;
-    int anchor = srcIdx0;
+    const int matchLimit = count - LAST_LITERALS;
+    const int mfLimit = count - MF_LIMIT;
+    const int srcEnd = count;
+    byte* src = &input._array[input._index];
+    byte* dst = &output._array[ output._index];
+    int srcIdx = 0;
+    int dstIdx = 0;
+    int anchor = 0;
     int* table = _buffer; // aliasing
 
     if (count > MIN_LENGTH) {
@@ -96,7 +92,7 @@ bool LZ4Codec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int co
 
         // First byte
         int h = (LittleEndian::readInt32(&src[srcIdx]) * LZ4_HASH_SEED) >> hashShift;
-        table[h] = srcIdx - base;
+        table[h] = srcIdx;
         srcIdx++;
         h = (LittleEndian::readInt32(&src[srcIdx]) * LZ4_HASH_SEED) >> hashShift;
 
@@ -121,8 +117,8 @@ bool LZ4Codec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int co
 
                 step = searchMatchNb >> SKIP_STRENGTH;
                 searchMatchNb++;
-                match = table[h] + base;
-                table[h] = srcIdx - base;
+                match = table[h];
+                table[h] = srcIdx;
                 h = (LittleEndian::readInt32(&src[fwdIdx]) * LZ4_HASH_SEED) >> hashShift;
             } while ((differentInts(src, match, srcIdx) == true) || (match <= srcIdx - MAX_DISTANCE));
 
@@ -188,12 +184,12 @@ bool LZ4Codec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int co
 
                 // Fill table
                 h = (LittleEndian::readInt32(&src[srcIdx - 2]) * LZ4_HASH_SEED) >> hashShift;
-                table[h] = srcIdx - 2 - base;
+                table[h] = srcIdx - 2;
 
                 // Test next position
                 h = (LittleEndian::readInt32(&src[srcIdx]) * LZ4_HASH_SEED) >> hashShift;
-                match = table[h] + base;
-                table[h] = srcIdx - base;
+                match = table[h];
+                table[h] = srcIdx;
 
                 if ((differentInts(src, match, srcIdx) == true) || (match <= srcIdx - MAX_DISTANCE))
                     break;
@@ -226,16 +222,14 @@ bool LZ4Codec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int co
     if (input._array == output._array)
         return false;
 
-    const int srcIdx0 = input._index;
-    const int dstIdx0 = output._index;
-    byte* src = input._array;
-    byte* dst = output._array;
-    const int srcEnd = srcIdx0 + count;
+    byte* src = &input._array[input._index];
+    byte* dst = &output._array[ output._index];
+    const int srcEnd = count;
     const int dstEnd = output._length;
     const int srcEnd2 = srcEnd - COPY_LENGTH;
     const int dstEnd2 = dstEnd - COPY_LENGTH;
-    int srcIdx = srcIdx0;
-    int dstIdx = dstIdx0;
+    int srcIdx = 0;
+    int dstIdx = 0;
 
     while (true) {
         // Get literal length

@@ -111,13 +111,12 @@ public final class LZ4Codec implements ByteFunction
       if (output.length - output.index < this.getMaxEncodedLength(count))
          return false;
 
+      final int hashLog = (count < LZ4_64K_LIMIT) ? HASH_LOG_64K : HASH_LOG;
+      final int hashShift = 32 - hashLog;
       final int srcIdx0 = input.index;
       final int dstIdx0 = output.index;
       final byte[] src = input.array;
       final byte[] dst = output.array;
-      final int base = srcIdx0;
-      final int hashLog = (count < LZ4_64K_LIMIT) ? HASH_LOG_64K : HASH_LOG;
-      final int hashShift = 32 - hashLog;
       final int srcEnd = srcIdx0 + count;
       final int matchLimit = srcEnd - LAST_LITERALS;
       final int mfLimit = srcEnd - MF_LIMIT;
@@ -133,7 +132,7 @@ public final class LZ4Codec implements ByteFunction
 
          // First byte
          int h = (Memory.LittleEndian.readInt32(src, srcIdx) * HASH_SEED) >>> hashShift;
-         table[h] = srcIdx - base;         
+         table[h] = srcIdx - srcIdx0;         
          srcIdx++;
          h = (Memory.LittleEndian.readInt32(src, srcIdx) * HASH_SEED) >>> hashShift;
 
@@ -160,8 +159,8 @@ public final class LZ4Codec implements ByteFunction
 
                step = searchMatchNb >> SKIP_STRENGTH;
                searchMatchNb++;
-               match = table[h] + base;            
-               table[h] = srcIdx - base;
+               match = table[h] + srcIdx0;            
+               table[h] = srcIdx - srcIdx0;
                h = (Memory.LittleEndian.readInt32(src, fwdIdx) * HASH_SEED) >>> hashShift;
             }
             while ((differentInts(src, match, srcIdx) == true) || (match <= srcIdx - MAX_DISTANCE));
@@ -235,12 +234,12 @@ public final class LZ4Codec implements ByteFunction
 
                // Fill table
                h = (Memory.LittleEndian.readInt32(src, srcIdx-2) * HASH_SEED) >>> hashShift;
-               table[h] = srcIdx - 2 - base;
+               table[h] = srcIdx - 2 - srcIdx0;
 
                // Test next position
                h = (Memory.LittleEndian.readInt32(src, srcIdx) * HASH_SEED) >>> hashShift;
-               match = table[h] + base;
-               table[h] = srcIdx - base;
+               match = table[h] + srcIdx0;
+               table[h] = srcIdx - srcIdx0;
 
                if ((differentInts(src, match, srcIdx) == true) || (match <= srcIdx - MAX_DISTANCE))
                   break;
