@@ -153,7 +153,6 @@ bool SnappyCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int
     
     // The encoded block must start with a literal, as there are no previous
     // bytes to copy, so we start looking for hash matches at index 1
-    const int srcIdx0 = 0;
     int srcIdx = 1; 
     int lit = 0; // The start position of any pending literal bytes
     const int ends = count - 3;
