@@ -26,15 +26,14 @@ bool ZRLT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int length
     if (input._array == output._array)
         return false;
 
-    byte* src = input._array;
-    byte* dst = output._array;
-    
     if (output._length - output._index < getMaxEncodedLength(length))
-         return false;
-     
-    int srcIdx = input._index;
-    int dstIdx = output._index;
-    const int srcEnd = srcIdx + length;
+         return false;   
+
+    byte* src = &input._array[input._index];
+    byte* dst = &output._array[output._index];
+    int srcIdx = 0;
+    int dstIdx = 0;
+    const int srcEnd = length;
     const int dstEnd = output._length;
     const int dstEnd2 = length - 2;
     int runLength = 1;
@@ -47,7 +46,7 @@ bool ZRLT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int length
                runLength++;
                srcIdx++;
 
-               if ((srcIdx < length) && (runLength < ZRLT_MAX_RUN))
+               if ((srcIdx < srcEnd) && (runLength < ZRLT_MAX_RUN))
                    continue;
            }
 
@@ -55,10 +54,10 @@ bool ZRLT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int length
                // Encode length
                int log2 = 1;
 
-               for (int val2 = runLength >> 1; val2 > 1; val2 >>= 1)
+               while (runLength>>log2 > 1)
                    log2++;
 
-               if (dstIdx >= length - log2)
+               if (dstIdx >= srcEnd - log2)
                    break;
 
                // Write every bit as a byte except the most significant one
@@ -98,7 +97,7 @@ bool ZRLT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int length
 
     input._index = srcIdx;
     output._index = dstIdx;
-    return (srcIdx == length) && (runLength == 1);
+    return (srcIdx == srcEnd) && (runLength == 1);
 }
 
 bool ZRLT::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int length)
@@ -109,11 +108,11 @@ bool ZRLT::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int length
     if (input._array == output._array)
         return false;
 
-    byte* src = input._array;
-    byte* dst = output._array;     
-    int srcIdx = input._index;
-    int dstIdx = output._index;
-    const int srcEnd = srcIdx + length;
+    byte* src = &input._array[input._index];
+    byte* dst = &output._array[output._index];
+    int srcIdx = 0;
+    int dstIdx = 0;
+    const int srcEnd = length;
     const int dstEnd = output._length;
     int runLength = 1;
 
@@ -128,7 +127,7 @@ bool ZRLT::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int length
            if (srcIdx >= srcEnd)
                break;
 
-           int val = src[srcIdx] & 0xFF;
+           uint8 val = src[srcIdx];
 
            if (val <= 1) {
                // Generate the run length bit by bit (but force MSB)
@@ -141,12 +140,12 @@ bool ZRLT::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int length
                    if (srcIdx >= length)
                        break;
 
-                   val = src[srcIdx] & 0xFF;
+                   val = src[srcIdx];
                } while (val <= 1);
 
                continue;
            }
-           
+
            // Regular data processing
            if (val == 0xFF) {
                srcIdx++;

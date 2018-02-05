@@ -64,9 +64,7 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 
 	if dstIdx < dstEnd {
 		for srcIdx < srcEnd {
-			val := src[srcIdx]
-
-			if val == 0 {
+			if src[srcIdx] == 0 {
 				runLength++
 				srcIdx++
 
@@ -98,20 +96,20 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 				continue
 			}
 
-			if val >= 0xFE {
+			if src[srcIdx] >= 0xFE {
 				if dstIdx >= dstEnd2 {
 					break
 				}
 
 				dst[dstIdx] = 0xFF
 				dstIdx++
-				dst[dstIdx] = val - 0xFE
+				dst[dstIdx] = src[srcIdx] - 0xFE
 			} else {
 				if dstIdx >= dstEnd {
 					break
 				}
 
-				dst[dstIdx] = val + 1
+				dst[dstIdx] = src[srcIdx] + 1
 			}
 
 			srcIdx++
@@ -161,28 +159,24 @@ func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 				break
 			}
 
-			val := src[srcIdx]
-
-			if val <= 1 {
+			if src[srcIdx] <= 1 {
 				// Generate the run length bit by bit (but force MSB)
 				runLength = 1
 
-				for val <= 1 {
-					runLength = (runLength << 1) | int(val)
+				for src[srcIdx] <= 1 {
+					runLength += (runLength + int(src[srcIdx]))
 					srcIdx++
 
 					if srcIdx >= srcEnd {
 						break
 					}
-
-					val = src[srcIdx]
 				}
 
 				continue
 			}
 
 			// Regular data processing
-			if val == 0xFF {
+			if src[srcIdx] == 0xFF {
 				srcIdx++
 
 				if srcIdx >= srcEnd {
@@ -191,7 +185,7 @@ func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 
 				dst[dstIdx] = 0xFE + src[srcIdx]
 			} else {
-				dst[dstIdx] = val - 1
+				dst[dstIdx] = src[srcIdx] - 1
 			}
 
 			srcIdx++
