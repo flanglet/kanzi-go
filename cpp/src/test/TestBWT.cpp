@@ -135,7 +135,7 @@ int testBWTSpeed(bool isBWT)
     int size = 256 * 1024;
     cout << endl
          << endl
-         << "BWT Speed test" << endl;
+         << (isBWT ? "BWT" : "BWTS") << " Speed test" << endl;    
     cout << "Iterations: " << iter << endl;
     cout << "Transform size: " << size << endl;
     srand(uint(time(nullptr)));

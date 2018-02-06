@@ -161,18 +161,18 @@ bool BWT::inverseRegularBlock(SliceArray<byte>& input, SliceArray<byte>& output,
     // Build array of packed index + value (assumes block size < 2^24)
     // Start with the primary index position
     int pIdx = getPrimaryIndex(0);
-    const uint32 val0 = src[pIdx] & 0xFF;
+    const uint8 val0 = src[pIdx];
     data[pIdx] = val0;
     buckets_[val0]++;
 
     for (int i = 0; i < pIdx; i++) {
-        const uint32 val = src[i] & 0xFF;
+        const uint8 val = src[i];
         data[i] = (buckets_[val] << 8) | val;
         buckets_[val]++;
     }
 
     for (int i = pIdx + 1; i < count; i++) {
-        const uint32 val = src[i] & 0xFF;
+        const uint8 val = src[i];
         data[i] = (buckets_[val] << 8) | val;
         buckets_[val]++;
     }
@@ -185,7 +185,7 @@ bool BWT::inverseRegularBlock(SliceArray<byte>& input, SliceArray<byte>& output,
         buckets_[i] = sum - buckets_[i];
     }
 
-    int idx = +count - 1;
+    int idx = count - 1;
 
     // Build inverse
     if (chunks == 1) {
@@ -230,10 +230,10 @@ bool BWT::inverseBigBlock(SliceArray<byte>& input, SliceArray<byte>& output, int
     if ((_buffer1 == nullptr) || (_bufferSize < count)) {
         if (_buffer1 != nullptr)
            delete[] _buffer1;
-        
+
         if (_buffer2 != nullptr)
             delete[] _buffer2;
-        
+
         _bufferSize = count;
         _buffer1 = new uint32[_bufferSize];
         _buffer2 = new byte[_bufferSize];
@@ -252,23 +252,23 @@ bool BWT::inverseBigBlock(SliceArray<byte>& input, SliceArray<byte>& output, int
     // Build arrays
     // Start with the primary index position
     int pIdx = getPrimaryIndex(0);
-    const byte val0 = src[pIdx];
-    data1[pIdx] = buckets_[val0 & 0xFF];
+    const uint8 val0 = src[pIdx];
+    data1[pIdx] = buckets_[val0];
     data2[pIdx] = val0;
-    buckets_[val0 & 0xFF]++;
+    buckets_[val0]++;
 
     for (int i = 0; i < pIdx; i++) {
-        const byte val = src[i];
-        data1[i] = buckets_[val & 0xFF];
+        const uint8 val = src[i];
+        data1[i] = buckets_[val];
         data2[i] = val;
-        buckets_[val & 0xFF]++;
+        buckets_[val]++;
     }
 
     for (int i = pIdx + 1; i < count; i++) {
-        const byte val = src[i];
-        data1[i] = buckets_[val & 0xFF];
+        const uint8 val = src[i];
+        data1[i] = buckets_[val];
         data2[i] = val;
-        buckets_[val & 0xFF]++;
+        buckets_[val]++;
     }
 
     uint32 sum = 0;
@@ -284,11 +284,11 @@ bool BWT::inverseBigBlock(SliceArray<byte>& input, SliceArray<byte>& output, int
     // Build inverse
     if (chunks == 1) {
         uint32 val1 = data1[pIdx];
-        byte val2 = data2[pIdx];
+        uint8 val2 = data2[pIdx];
         dst[idx--] = val2;
 
         for (; idx >= 0; idx--) {
-            const int n = val1 + buckets_[val2 & 0xFF];
+            const int n = val1 + buckets_[val2];
             val1 = data1[n];
             val2 = data2[n];
             dst[idx] = val2;
@@ -299,12 +299,12 @@ bool BWT::inverseBigBlock(SliceArray<byte>& input, SliceArray<byte>& output, int
 
         for (int i = chunks - 1; i >= 0; i--) {
             uint32 val1 = data1[pIdx];
-            byte val2 = data2[pIdx];
+            uint8 val2 = data2[pIdx];
             dst[idx--] = val2;
             const int endChunk = i * step;
 
             for (; idx >= endChunk; idx--) {
-                const int n = val1 + buckets_[val2 & 0xFF];
+                const int n = val1 + buckets_[val2];
                 val1 = data1[n];
                 val2 = data2[n];
                 dst[idx] = val2;
