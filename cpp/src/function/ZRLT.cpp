@@ -57,7 +57,7 @@ bool ZRLT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int length
                while (runLength>>log2 > 1)
                    log2++;
 
-               if (dstIdx >= srcEnd - log2)
+               if (dstIdx >= dstEnd - log2)
                    break;
 
                // Write every bit as a byte except the most significant one
@@ -137,7 +137,7 @@ bool ZRLT::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int length
                    runLength = (runLength << 1) | val;
                    srcIdx++;
 
-                   if (srcIdx >= length)
+                   if (srcIdx >= srcEnd)
                        break;
 
                    val = src[srcIdx];
@@ -150,7 +150,7 @@ bool ZRLT::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int length
            if (val == 0xFF) {
                srcIdx++;
 
-               if (srcIdx >= length)
+               if (srcIdx >= srcEnd)
                    break;
 
                dst[dstIdx] = byte(0xFE + src[srcIdx]);
@@ -165,8 +165,8 @@ bool ZRLT::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int length
 
     // If runLength is not 1, add trailing 0s
     const int end = dstIdx + runLength - 1;
-    input._index= srcIdx;
-    output._index= dstIdx;
+    input._index = srcIdx;
+    output._index = dstIdx;
 
     if (end > dstEnd)
         return false;
