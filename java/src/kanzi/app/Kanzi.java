@@ -503,7 +503,10 @@ public class Kanzi
        
        Path root = Paths.get(target);
        
-       if ((Files.exists(root) == false) || (Files.isHidden(root) == true))
+       if (Files.exists(root) == false) 
+          throw new IOException("Cannot access input file '"+root+"'");
+       
+       if ((Files.isRegularFile(root) == true) && (Files.isHidden(root) == true))
           throw new IOException("Cannot access input file '"+root+"'");
        
        if (Files.isRegularFile(root) == true)
