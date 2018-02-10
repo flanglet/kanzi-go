@@ -370,6 +370,7 @@ int BlockCompressor::call()
             ss.str(string());
             ss << jobsPerTask[n++];
             taskCtx["jobs"] = ss.str();
+            ss.str(string());
             FileCompressTask<FileCompressResult>* task = new FileCompressTask<FileCompressResult>(taskCtx, _listeners);
             tasks.push_back(task);
         }
