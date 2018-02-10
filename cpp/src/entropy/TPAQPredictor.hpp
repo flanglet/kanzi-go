@@ -39,7 +39,7 @@ namespace kanzi
        static const int END_LEARN_RATE = 14 << 7;
 
    public:
-      TPAQMixer(); 
+      TPAQMixer();
 
       ~TPAQMixer() { }
 
@@ -88,28 +88,30 @@ namespace kanzi
        int32 _matchLen;
        int32 _matchPos;
        int32 _hash;
-       LogisticAdaptiveProbMap<7> _apm;
+       LogisticAdaptiveProbMap<7> _sse0;
+       LogisticAdaptiveProbMap<7> _sse1;
        TPAQMixer* _mixers;
        TPAQMixer* _mixer; // current mixer
        byte* _buffer;
        int32* _hashes; // hash table(context, buffer position)
-       uint8* _states; // hash table(context, prediction)
+       uint8* _bigStatesMap; // hash table(context, prediction)
+       uint8* _smallStatesMap; // hash table(context, prediction)
        int32 _statesMask;
        int32 _mixersMask;
        uint8* _cp0; // context pointers
-       uint8* _cp1; 
-       uint8* _cp2; 
-       uint8* _cp3; 
-       uint8* _cp4; 
-       uint8* _cp5; 
-       uint8* _cp6; 
+       uint8* _cp1;
+       uint8* _cp2;
+       uint8* _cp3;
+       uint8* _cp4;
+       uint8* _cp5;
+       uint8* _cp6;
        int32 _ctx0; // contexts
-       int32 _ctx1; 
-       int32 _ctx2; 
-       int32 _ctx3; 
-       int32 _ctx4; 
-       int32 _ctx5; 
-       int32 _ctx6;  
+       int32 _ctx1;
+       int32 _ctx2;
+       int32 _ctx3;
+       int32 _ctx4;
+       int32 _ctx5;
+       int32 _ctx6;
 
        static int32 hash(int32 x, int32 y);
 

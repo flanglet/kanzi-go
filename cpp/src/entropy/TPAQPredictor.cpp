@@ -125,7 +125,7 @@ inline int32 TPAQPredictor::hash(int32 x, int32 y)
 }
 
 TPAQPredictor::TPAQPredictor(map<string, string>* ctx)
-    : _apm(65536)
+    : _sse0(256), _sse1(65536)
 {
     int statesSize = 1 << 28;
     int mixersSize = 1 << 12;
@@ -150,11 +150,11 @@ TPAQPredictor::TPAQPredictor(map<string, string>* ctx)
         const int absz = atoi(strABSZ.c_str());
 
         if (absz >= 8*1024*1024)
-           mixersSize = 1 << 14;
+           mixersSize = 1 << 15;
         else if (absz >= 4*1024*1024)
            mixersSize = 1 << 12;
-        else  
-           mixersSize = (absz >= 1*1024*1024) ? 1 << 10 : 1 << 9;   
+        else
+           mixersSize = (absz >= 1*1024*1024) ? 1 << 10 : 1 << 9;
     }
 
     _pr = 2048;
@@ -168,8 +168,10 @@ TPAQPredictor::TPAQPredictor(map<string, string>* ctx)
     _hash = 0;
     _mixers = new TPAQMixer[mixersSize];
     _mixer = &_mixers[0];
-    _states = new uint8[statesSize];
-    memset(_states, 0, statesSize);
+    _bigStatesMap = new uint8[statesSize];
+    memset(_bigStatesMap, 0, statesSize);
+    _smallStatesMap = new uint8[1<<24];
+    memset(_smallStatesMap, 0, 1<<24);
     _hashes = new int32[HASH_SIZE];
     memset(_hashes, 0, sizeof(int32) * HASH_SIZE);
     _buffer = new byte[BUFFER_SIZE];
@@ -177,20 +179,21 @@ TPAQPredictor::TPAQPredictor(map<string, string>* ctx)
     _statesMask = statesSize - 1;
     _mixersMask = mixersSize - 1;
     _bpos = 0;
-    _cp0 = &_states[0];
-    _cp1 = &_states[0];
-    _cp2 = &_states[0];
-    _cp3 = &_states[0];
-    _cp4 = &_states[0];
-    _cp5 = &_states[0];
-    _cp6 = &_states[0];
+    _cp0 = &_smallStatesMap[0];
+    _cp1 = &_smallStatesMap[0];
+    _cp2 = &_bigStatesMap[0];
+    _cp3 = &_bigStatesMap[0];
+    _cp4 = &_bigStatesMap[0];
+    _cp5 = &_bigStatesMap[0];
+    _cp6 = &_bigStatesMap[0];
     _ctx0 = _ctx1 = _ctx2 = _ctx3 = 0;
     _ctx4 = _ctx5 = _ctx6 = 0;
 }
 
 TPAQPredictor::~TPAQPredictor()
 {
-    delete[] _states;
+    delete[] _bigStatesMap;
+    delete[] _smallStatesMap;
     delete[] _hashes;
     delete[] _buffer;
     delete[] _mixers;
@@ -216,29 +219,26 @@ void TPAQPredictor::update(int bit)
         // Select Neural Net
         _mixer = &_mixers[_c4 & _mixersMask];
 
-        int32 h1, h2, h3;
+        // Add contexts to NN
+        _ctx0 = (_c4&0xFF) << 8;
+        _ctx1 = (_c4&0xFFFF) << 8;
+        _ctx2 = addContext(2, _c4&0xFFFFFF);
+        _ctx3 = addContext(3, _c4);
 
         if (_binCount < (_pos >> 2)) {
             // Mostly text
-            h1 = ((_c4 & MASK_80808080) == 0) ? _c4 : _c4 >> 16;
-            h2 = ((_c8 & MASK_80808080) == 0) ? _c8 : _c8 >> 16;
-            h3 = _c4 ^ (_c8 & 0xFFFF);
+            int32 h1 = ((_c4 & MASK_80808080) == 0) ? _c4 : _c4 >> 16;
+            int32 h2 = ((_c8 & MASK_80808080) == 0) ? _c8 : _c8 >> 16;
+            _ctx4 = addContext(4, _c4^(_c8&0xFFFF));
+            _ctx5 = addContext(5, hash(h1, h2));
+            _ctx6 = addContext(6, hash(HASH, _c4&MASK_F0F0F0F0));
         }
         else {
             // Mostly binary
-            h1 = _c4 >> 16;
-            h2 = _c8 >> 16;
-            h3 = _c4 ^ (_c4 & 0xFFFF);
+           _ctx4 = addContext(4, _c4^(_c4&0xFFFF));
+           _ctx5 = addContext(5, hash(_c4>>16, _c8>>16));
+           _ctx6 = ((_c4&0xFF) << 8) | ((_c8&0xFF) << 16);
         }
-
-        // Add contexts to NN
-        _ctx0 = addContext(0, h3);
-        _ctx1 = addContext(1, hash(HASH, _c4 << 24));
-        _ctx2 = addContext(2, hash(HASH, _c4 << 16));
-        _ctx3 = addContext(3, hash(HASH, _c4 << 8));
-        _ctx4 = addContext(4, hash(HASH, _c4 & MASK_F0F0F0F0));
-        _ctx5 = addContext(5, hash(HASH, _c4));
-        _ctx6 = addContext(6, hash(h1, h2));
 
         // Find match
         findMatch();
@@ -250,34 +250,43 @@ void TPAQPredictor::update(int bit)
     // Get initial predictions
     const uint8* table = STATE_TABLE[bit];
     *_cp0 = table[*_cp0];
-    _cp0 = &_states[(_ctx0 + _c0) & _statesMask];
+    _cp0 = &_smallStatesMap[_ctx0 + _c0];
     const int p0 = STATE_MAP[*_cp0];
     *_cp1 = table[*_cp1];
-    _cp1 = &_states[(_ctx1 + _c0) & _statesMask];
+    _cp1 = &_smallStatesMap[_ctx1 + _c0];
     const int p1 = STATE_MAP[*_cp1];
     *_cp2 = table[*_cp2];
-    _cp2 = &_states[(_ctx2 + _c0) & _statesMask];
+    _cp2 = &_bigStatesMap[(_ctx2 + _c0) & _statesMask];
     const int p2 = STATE_MAP[*_cp2];
     *_cp3 = table[*_cp3];
-    _cp3 = &_states[(_ctx3 + _c0) & _statesMask];
+    _cp3 = &_bigStatesMap[(_ctx3 + _c0) & _statesMask];
     const int p3 = STATE_MAP[*_cp3];
     *_cp4 = table[*_cp4];
-    _cp4 = &_states[(_ctx4 + _c0) & _statesMask];
+    _cp4 = &_bigStatesMap[(_ctx4 + _c0) & _statesMask];
     const int p4 = STATE_MAP[*_cp4];
     *_cp5 = table[*_cp5];
-    _cp5 = &_states[(_ctx5 + _c0) & _statesMask];
+    _cp5 = &_bigStatesMap[(_ctx5 + _c0) & _statesMask];
     const int p5 = STATE_MAP[*_cp5];
     *_cp6 = table[*_cp6];
-    _cp6 = &_states[(_ctx6 + _c0) & _statesMask];
+    _cp6 = &_bigStatesMap[(_ctx6 + _c0) & _statesMask];
     const int p6 = STATE_MAP[*_cp6];
 
     const int p7 = addMatchContextPred();
 
     // Mix predictions using NN
-    int p = _mixer->get(p0, p1, p2, p3, p4, p5, p6, p7);
+      int p = _mixer->get(p0, p1, p2, p3, p4, p5, p6, p7);
 
-    // SSE (Secondary Symbol Estimation)
-    p = _apm.get(bit, p, _c0 | (_c4 & 0xFF00));
+      // SSE (Secondary Symbol Estimation)
+      if (_binCount >= (_pos>>2))
+      {
+         p = _sse0.get(bit, p, _c0);
+         p = (3*_sse1.get(bit, p, _c0 | (_c4&0xFF00))+p+2) >> 2;
+      }
+      else
+      {
+         p = _sse1.get(bit, p, _c0 | (_c4&0xFF00));
+      }
+
     _pr = p + (uint32(p - 2048) >> 31);
 }
 
@@ -379,7 +388,7 @@ inline int TPAQMixer::get(int32 p0, int32 p1, int32 p2, int32 p3, int32 p4, int3
     _p7 = p7;
 
     // Neural Network dot product (sum weights*inputs)
-    const int32 p = (p0 * _w0) + (p1 * _w1) + (p2 * _w2) + (p3 * _w3) + 
+    const int32 p = (p0 * _w0) + (p1 * _w1) + (p2 * _w2) + (p3 * _w3) +
                     (p4 * _w4) + (p5 * _w5) + (p6 * _w6) + (p7 * _w7) + _skew;
 
     _pr = Global::squash((p + 65536) >> 17);
