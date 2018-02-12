@@ -232,13 +232,13 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 	this.buffer = make([]int8, TPAQ_BUFFER_SIZE)
 	this.statesMask = int32(statesSize - 1)
 	this.mixersMask = int32(mixersSize - 1)
-	this.cp0 = &this.smallStatesMap0[0]
-	this.cp1 = &this.smallStatesMap1[0]
+	this.cp0 = &this.smallStatesMap[0]
+	this.cp1 = &this.smallStatesMap[0]
 	this.cp2 = &this.bigStatesMap[0]
 	this.cp3 = &this.bigStatesMap[0]
 	this.cp4 = &this.bigStatesMap[0]
 	this.cp5 = &this.bigStatesMap[0]
-	this.cp6 = &this.smallStatesMap2[0]
+	this.cp6 = &this.smallStatesMap[0]
 
 	var err error
 	this.sse0, err = newLogisticAdaptiveProbMap(256, 7)
