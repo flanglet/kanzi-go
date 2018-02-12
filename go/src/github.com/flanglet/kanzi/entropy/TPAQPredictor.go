@@ -49,7 +49,7 @@ const (
 // pair, so another state with about the same ratio of n0/n1 is substituted.
 // Also, when a bit is observed and the count of the opposite bit is large,
 // then part of this count is discarded to favor newer data over old.
-var TPAQ_STATE_TABLE = [][]uint8{
+var TPAQ_STATE_TRANSITIONS = [][]uint8{
 	// Bit 0
 	{
 		1, 3, 143, 4, 5, 6, 7, 8, 9, 10,
@@ -232,13 +232,13 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 	this.buffer = make([]int8, TPAQ_BUFFER_SIZE)
 	this.statesMask = int32(statesSize - 1)
 	this.mixersMask = int32(mixersSize - 1)
-	this.cp0 = &this.smallStatesMap[0]
-	this.cp1 = &this.smallStatesMap[0]
+	this.cp0 = &this.smallStatesMap0[0]
+	this.cp1 = &this.smallStatesMap1[0]
 	this.cp2 = &this.bigStatesMap[0]
 	this.cp3 = &this.bigStatesMap[0]
 	this.cp4 = &this.bigStatesMap[0]
 	this.cp5 = &this.bigStatesMap[0]
-	this.cp6 = &this.bigStatesMap[0]
+	this.cp6 = &this.smallStatesMap2[0]
 
 	var err error
 	this.sse0, err = newLogisticAdaptiveProbMap(256, 7)
@@ -273,11 +273,11 @@ func (this *TPAQPredictor) Update(bit byte) {
 		// Add contexts to NN
 		this.ctx0 = (this.c4 & 0xFF) << 8
 		this.ctx1 = (this.c4 & 0xFFFF) << 8
-		this.ctx2 = this.addContext(2, this.c4&0xFFFFFF)
+		this.ctx2 = this.addContext(2, this.c4&0x00FFFFFF)
 		this.ctx3 = this.addContext(3, this.c4)
 
 		if this.binCount < this.pos>>2 {
-			// Mostly text
+			// Mostly text or mixed
 			var h1, h2 int32
 
 			if this.c4&TPAQ_MASK_80808080 == 0 {
@@ -294,7 +294,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 
 			this.ctx4 = this.addContext(4, this.c4^(this.c8&0xFFFF))
 			this.ctx5 = this.addContext(5, hashTPAQ(h1, h2))
-			this.ctx6 = this.addContext(6, hashTPAQ(TPAQ_HASH, this.c4&TPAQ_MASK_F0F0F0F0))
+			this.ctx6 = hashTPAQ(TPAQ_HASH, this.c4&TPAQ_MASK_F0F0F0F0) & 0x00FFFFFF
 		} else {
 			// Mostly binary
 			this.ctx4 = this.addContext(4, this.c4^(this.c4&0xFFFF))
@@ -305,33 +305,33 @@ func (this *TPAQPredictor) Update(bit byte) {
 		// Find match
 		this.findMatch()
 
-		// Keep track of new match position
+		// Keep track of current position
 		this.hashes[this.hash] = this.pos
 	}
 
 	// Get initial predictions
 	c := this.c0
-	table := TPAQ_STATE_TABLE[bit]
+	table := TPAQ_STATE_TRANSITIONS[bit]
 	*this.cp0 = table[*this.cp0]
-	this.cp0 = &this.smallStatesMap[this.ctx0+c]
+	this.cp0 = &this.smallStatesMap[this.ctx0^c]
 	p0 := TPAQ_STATE_MAP[*this.cp0]
 	*this.cp1 = table[*this.cp1]
-	this.cp1 = &this.smallStatesMap[this.ctx1+c]
+	this.cp1 = &this.smallStatesMap[this.ctx1^c]
 	p1 := TPAQ_STATE_MAP[*this.cp1]
 	*this.cp2 = table[*this.cp2]
-	this.cp2 = &this.bigStatesMap[(this.ctx2+c)&this.statesMask]
+	this.cp2 = &this.bigStatesMap[(this.ctx2^c)&this.statesMask]
 	p2 := TPAQ_STATE_MAP[*this.cp2]
 	*this.cp3 = table[*this.cp3]
-	this.cp3 = &this.bigStatesMap[(this.ctx3+c)&this.statesMask]
+	this.cp3 = &this.bigStatesMap[(this.ctx3^c)&this.statesMask]
 	p3 := TPAQ_STATE_MAP[*this.cp3]
 	*this.cp4 = table[*this.cp4]
-	this.cp4 = &this.bigStatesMap[(this.ctx4+c)&this.statesMask]
+	this.cp4 = &this.bigStatesMap[(this.ctx4^c)&this.statesMask]
 	p4 := TPAQ_STATE_MAP[*this.cp4]
 	*this.cp5 = table[*this.cp5]
-	this.cp5 = &this.bigStatesMap[(this.ctx5+c)&this.statesMask]
+	this.cp5 = &this.bigStatesMap[(this.ctx5^c)&this.statesMask]
 	p5 := TPAQ_STATE_MAP[*this.cp5]
 	*this.cp6 = table[*this.cp6]
-	this.cp6 = &this.bigStatesMap[(this.ctx6+c)&this.statesMask]
+	this.cp6 = &this.smallStatesMap[this.ctx6^c]
 	p6 := TPAQ_STATE_MAP[*this.cp6]
 
 	p7 := this.addMatchContextPred()

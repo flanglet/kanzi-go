@@ -46,7 +46,7 @@ public class TPAQPredictor implements Predictor
    // pair, so another state with about the same ratio of n0/n1 is substituted.
    // Also, when a bit is observed and the count of the opposite bit is large,
    // then part of this count is discarded to favor newer data over old.
-   private static final byte[][] STATE_TABLE =
+   private static final byte[][] STATE_TRANSITIONS =
    {
       // Bit 0
       { 
@@ -265,17 +265,17 @@ public class TPAQPredictor implements Predictor
         // Add contexts to NN
         this.ctx0 = (this.c4&0xFF) << 8;
         this.ctx1 = (this.c4&0xFFFF) << 8;
-        this.ctx2 = this.addContext(2, this.c4&0xFFFFFF);
+        this.ctx2 = this.addContext(2, this.c4&0x00FFFFFF);
         this.ctx3 = this.addContext(3, this.c4);
         
         if (this.binCount < (this.pos>>2))
         {
-           // Mostly text
+           // Mostly text or mixed
            final int h1 = ((this.c4&MASK_80808080) == 0) ? this.c4 : this.c4>>16;
            final int h2 = ((this.c8&MASK_80808080) == 0) ? this.c8 : this.c8>>16;
            this.ctx4 = this.addContext(4, this.c4^(this.c8&0xFFFF));
            this.ctx5 = this.addContext(5, hash(h1, h2));
-           this.ctx6 = this.addContext(6, hash(HASH, this.c4&MASK_F0F0F0F0));
+           this.ctx6 = hash(HASH, this.c4&MASK_F0F0F0F0) & 0x00FFFFFF;
         }
         else
         {
@@ -288,37 +288,37 @@ public class TPAQPredictor implements Predictor
         // Find match
         this.findMatch();
 
-        // Keep track of new match position
+        // Keep track of current position
         this.hashes[this.hash] = this.pos;
       }
-   
+    
       // Get initial predictions
       final int c = this.c0;
       final int mask = this.statesMask;
       final byte[] bst = this.bigStatesMap;
       final byte[] sst = this.smallStatesMap;
-      final byte[] table = STATE_TABLE[bit];      
+      final byte[] table = STATE_TRANSITIONS[bit];      
       sst[this.cp0] = table[sst[this.cp0]&0xFF];
-      this.cp0 = this.ctx0 + c;
+      this.cp0 = this.ctx0 ^ c;
       final int p0 = STATE_MAP[sst[this.cp0]&0xFF];
       sst[this.cp1] = table[sst[this.cp1]&0xFF];
-      this.cp1 = this.ctx1 + c;
+      this.cp1 = this.ctx1 ^ c;
       final int p1 = STATE_MAP[sst[this.cp1]&0xFF];
       bst[this.cp2] = table[bst[this.cp2]&0xFF];
-      this.cp2 = (this.ctx2 + c) & mask;  
+      this.cp2 = (this.ctx2 ^ c) & mask;  
       final int p2 = STATE_MAP[bst[this.cp2]&0xFF];
       bst[this.cp3] = table[bst[this.cp3]&0xFF];
-      this.cp3 = (this.ctx3 + c) & mask;
+      this.cp3 = (this.ctx3 ^ c) & mask;
       final int p3 = STATE_MAP[bst[this.cp3]&0xFF];
       bst[this.cp4] = table[bst[this.cp4]&0xFF];
-      this.cp4 = (this.ctx4 + c) & mask;
+      this.cp4 = (this.ctx4 ^ c) & mask;
       final int p4 = STATE_MAP[bst[this.cp4]&0xFF];
       bst[this.cp5] = table[bst[this.cp5]&0xFF];
-      this.cp5 = (this.ctx5 + c) & mask;
+      this.cp5 = (this.ctx5 ^ c) & mask;
       final int p5 = STATE_MAP[bst[this.cp5]&0xFF];
-      bst[this.cp6] = table[bst[this.cp6]&0xFF];
-      this.cp6 = (this.ctx6 + c) & mask;
-      final int p6 = STATE_MAP[bst[this.cp6]&0xFF];      
+      sst[this.cp6] = table[sst[this.cp6]&0xFF];
+      this.cp6 = this.ctx6 ^ c;
+      final int p6 = STATE_MAP[sst[this.cp6]&0xFF];      
 
       final int p7 = this.addMatchContextPred();
 

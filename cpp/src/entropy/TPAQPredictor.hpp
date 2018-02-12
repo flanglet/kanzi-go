@@ -94,7 +94,7 @@ namespace kanzi
        TPAQMixer* _mixer; // current mixer
        byte* _buffer;
        int32* _hashes; // hash table(context, buffer position)
-       uint8* _bigStatesMap; // hash table(context, prediction)
+       uint8* _bigStatesMap;// hash table(context, prediction)
        uint8* _smallStatesMap; // hash table(context, prediction)
        int32 _statesMask;
        int32 _mixersMask;

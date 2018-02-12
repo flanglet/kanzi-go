@@ -32,7 +32,7 @@ using namespace kanzi;
 // pair, so another state with about the same ratio of n0/n1 is substituted.
 // Also, when a bit is observed and the count of the opposite bit is large,
 // then part of this count is discarded to favor newer data over old.
-const uint8 STATE_TABLE[2][256] = {
+const uint8 STATE_TRANSITIONS[2][256] = {
     // Bit 0
     { 1, 3, 143, 4, 5, 6, 7, 8, 9, 10,
         11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
@@ -125,7 +125,8 @@ inline int32 TPAQPredictor::hash(int32 x, int32 y)
 }
 
 TPAQPredictor::TPAQPredictor(map<string, string>* ctx)
-    : _sse0(256), _sse1(65536)
+    : _sse0(256)
+    , _sse1(65536)
 {
     int statesSize = 1 << 28;
     int mixersSize = 1 << 12;
@@ -141,7 +142,7 @@ TPAQPredictor::TPAQPredictor(map<string, string>* ctx)
         else if (rbsz >= 16 * 1024 * 1024)
             statesSize = 1 << 28;
         else
-            statesSize = (rbsz >= 1024*1024) ? 1 << 27 : 1 << 26;
+            statesSize = (rbsz >= 1024 * 1024) ? 1 << 27 : 1 << 26;
 
         // Actual size of the current block
         // Too many mixers hurts compression for small blocks.
@@ -149,12 +150,12 @@ TPAQPredictor::TPAQPredictor(map<string, string>* ctx)
         string strABSZ = (*ctx)["size"];
         const int absz = atoi(strABSZ.c_str());
 
-        if (absz >= 8*1024*1024)
-           mixersSize = 1 << 15;
-        else if (absz >= 4*1024*1024)
-           mixersSize = 1 << 12;
+        if (absz >= 8 * 1024 * 1024)
+            mixersSize = 1 << 15;
+        else if (absz >= 4 * 1024 * 1024)
+            mixersSize = 1 << 12;
         else
-           mixersSize = (absz >= 1*1024*1024) ? 1 << 10 : 1 << 9;
+            mixersSize = (absz >= 1 * 1024 * 1024) ? 1 << 10 : 1 << 9;
     }
 
     _pr = 2048;
@@ -170,8 +171,8 @@ TPAQPredictor::TPAQPredictor(map<string, string>* ctx)
     _mixer = &_mixers[0];
     _bigStatesMap = new uint8[statesSize];
     memset(_bigStatesMap, 0, statesSize);
-    _smallStatesMap = new uint8[1<<24];
-    memset(_smallStatesMap, 0, 1<<24);
+    _smallStatesMap = new uint8[1 << 24];
+    memset(_smallStatesMap, 0, 1 << 24);
     _hashes = new int32[HASH_SIZE];
     memset(_hashes, 0, sizeof(int32) * HASH_SIZE);
     _buffer = new byte[BUFFER_SIZE];
@@ -185,7 +186,7 @@ TPAQPredictor::TPAQPredictor(map<string, string>* ctx)
     _cp3 = &_bigStatesMap[0];
     _cp4 = &_bigStatesMap[0];
     _cp5 = &_bigStatesMap[0];
-    _cp6 = &_bigStatesMap[0];
+    _cp6 = &_smallStatesMap[0];
     _ctx0 = _ctx1 = _ctx2 = _ctx3 = 0;
     _ctx4 = _ctx5 = _ctx6 = 0;
 }
@@ -220,72 +221,70 @@ void TPAQPredictor::update(int bit)
         _mixer = &_mixers[_c4 & _mixersMask];
 
         // Add contexts to NN
-        _ctx0 = (_c4&0xFF) << 8;
-        _ctx1 = (_c4&0xFFFF) << 8;
-        _ctx2 = addContext(2, _c4&0xFFFFFF);
+        _ctx0 = (_c4 & 0xFF) << 8;
+        _ctx1 = (_c4 & 0xFFFF) << 8;
+        _ctx2 = addContext(2, _c4 & 0x00FFFFFF);
         _ctx3 = addContext(3, _c4);
 
         if (_binCount < (_pos >> 2)) {
-            // Mostly text
+            // Mostly text or mixed
             int32 h1 = ((_c4 & MASK_80808080) == 0) ? _c4 : _c4 >> 16;
             int32 h2 = ((_c8 & MASK_80808080) == 0) ? _c8 : _c8 >> 16;
-            _ctx4 = addContext(4, _c4^(_c8&0xFFFF));
+            _ctx4 = addContext(4, _c4 ^ (_c8 & 0xFFFF));
             _ctx5 = addContext(5, hash(h1, h2));
-            _ctx6 = addContext(6, hash(HASH, _c4&MASK_F0F0F0F0));
+            _ctx6 = hash(HASH, _c4 & MASK_F0F0F0F0) & 0x00FFFFFF;
         }
         else {
             // Mostly binary
-           _ctx4 = addContext(4, _c4^(_c4&0xFFFF));
-           _ctx5 = addContext(5, hash(_c4>>16, _c8>>16));
-           _ctx6 = ((_c4&0xFF) << 8) | ((_c8&0xFF) << 16);
+            _ctx4 = addContext(4, _c4 ^ (_c4 & 0xFFFF));
+            _ctx5 = addContext(5, hash(_c4 >> 16, _c8 >> 16));
+            _ctx6 = ((_c4 & 0xFF) << 8) | ((_c8 & 0xFF) << 16);
         }
 
         // Find match
         findMatch();
 
-        // Keep track of new match position
+        // Keep track current position
         _hashes[_hash] = _pos;
     }
 
     // Get initial predictions
-    const uint8* table = STATE_TABLE[bit];
+    const uint8* table = STATE_TRANSITIONS[bit];
     *_cp0 = table[*_cp0];
-    _cp0 = &_smallStatesMap[_ctx0 + _c0];
+    _cp0 = &_smallStatesMap[_ctx0 ^ _c0];
     const int p0 = STATE_MAP[*_cp0];
     *_cp1 = table[*_cp1];
-    _cp1 = &_smallStatesMap[_ctx1 + _c0];
+    _cp1 = &_smallStatesMap[_ctx1 ^ _c0];
     const int p1 = STATE_MAP[*_cp1];
     *_cp2 = table[*_cp2];
-    _cp2 = &_bigStatesMap[(_ctx2 + _c0) & _statesMask];
+    _cp2 = &_bigStatesMap[(_ctx2 ^ _c0) & _statesMask];
     const int p2 = STATE_MAP[*_cp2];
     *_cp3 = table[*_cp3];
-    _cp3 = &_bigStatesMap[(_ctx3 + _c0) & _statesMask];
+    _cp3 = &_bigStatesMap[(_ctx3 ^ _c0) & _statesMask];
     const int p3 = STATE_MAP[*_cp3];
     *_cp4 = table[*_cp4];
-    _cp4 = &_bigStatesMap[(_ctx4 + _c0) & _statesMask];
+    _cp4 = &_bigStatesMap[(_ctx4 ^ _c0) & _statesMask];
     const int p4 = STATE_MAP[*_cp4];
     *_cp5 = table[*_cp5];
-    _cp5 = &_bigStatesMap[(_ctx5 + _c0) & _statesMask];
+    _cp5 = &_bigStatesMap[(_ctx5 ^ _c0) & _statesMask];
     const int p5 = STATE_MAP[*_cp5];
     *_cp6 = table[*_cp6];
-    _cp6 = &_bigStatesMap[(_ctx6 + _c0) & _statesMask];
+    _cp6 = &_smallStatesMap[_ctx6 ^ _c0];
     const int p6 = STATE_MAP[*_cp6];
 
     const int p7 = addMatchContextPred();
 
     // Mix predictions using NN
-      int p = _mixer->get(p0, p1, p2, p3, p4, p5, p6, p7);
+    int p = _mixer->get(p0, p1, p2, p3, p4, p5, p6, p7);
 
-      // SSE (Secondary Symbol Estimation)
-      if (_binCount >= (_pos>>2))
-      {
-         p = _sse0.get(bit, p, _c0);
-         p = (3*_sse1.get(bit, p, _c0 | (_c4&0xFF00))+p+2) >> 2;
-      }
-      else
-      {
-         p = _sse1.get(bit, p, _c0 | (_c4&0xFF00));
-      }
+    // SSE (Secondary Symbol Estimation)
+    if (_binCount >= (_pos >> 2)) {
+        p = _sse0.get(bit, p, _c0);
+        p = (3 * _sse1.get(bit, p, _c0 | (_c4 & 0xFF00)) + p + 2) >> 2;
+    }
+    else {
+        p = _sse1.get(bit, p, _c0 | (_c4 & 0xFF00));
+    }
 
     _pr = p + (uint32(p - 2048) >> 31);
 }
@@ -388,7 +387,7 @@ inline int TPAQMixer::get(int32 p0, int32 p1, int32 p2, int32 p3, int32 p4, int3
     _p7 = p7;
 
     // Neural Network dot product (sum weights*inputs)
-    const int32 p = (p0 * _w0) + (p1 * _w1) + (p2 * _w2) + (p3 * _w3) +
+    const int32 p = (p0 * _w0) + (p1 * _w1) + (p2 * _w2) + (p3 * _w3) + 
                     (p4 * _w4) + (p5 * _w5) + (p6 * _w6) + (p7 * _w7) + _skew;
 
     _pr = Global::squash((p + 65536) >> 17);
