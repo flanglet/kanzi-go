@@ -95,7 +95,8 @@ namespace kanzi
        byte* _buffer;
        int32* _hashes; // hash table(context, buffer position)
        uint8* _bigStatesMap;// hash table(context, prediction)
-       uint8* _smallStatesMap; // hash table(context, prediction)
+       uint8* _smallStatesMap0; // hash table(context, prediction)
+       uint8* _smallStatesMap1; // hash table(context, prediction)
        int32 _statesMask;
        int32 _mixersMask;
        uint8* _cp0; // context pointers
@@ -115,7 +116,7 @@ namespace kanzi
 
        static int32 hash(int32 x, int32 y);
 
-       int32 addContext(uint32 ctxId, uint32 cx);
+       int32 createContext(uint32 ctxId, uint32 cx);
 
        int addMatchContextPred();
 

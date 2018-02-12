@@ -171,8 +171,10 @@ TPAQPredictor::TPAQPredictor(map<string, string>* ctx)
     _mixer = &_mixers[0];
     _bigStatesMap = new uint8[statesSize];
     memset(_bigStatesMap, 0, statesSize);
-    _smallStatesMap = new uint8[1 << 24];
-    memset(_smallStatesMap, 0, 1 << 24);
+    _smallStatesMap0 = new uint8[1 << 16];
+    memset(_smallStatesMap0, 0, 1 << 16);
+    _smallStatesMap1 = new uint8[1 << 24];
+    memset(_smallStatesMap1, 0, 1 << 24);
     _hashes = new int32[HASH_SIZE];
     memset(_hashes, 0, sizeof(int32) * HASH_SIZE);
     _buffer = new byte[BUFFER_SIZE];
@@ -180,13 +182,13 @@ TPAQPredictor::TPAQPredictor(map<string, string>* ctx)
     _statesMask = statesSize - 1;
     _mixersMask = mixersSize - 1;
     _bpos = 0;
-    _cp0 = &_smallStatesMap[0];
-    _cp1 = &_smallStatesMap[0];
+    _cp0 = &_smallStatesMap0[0];
+    _cp1 = &_smallStatesMap1[0];
     _cp2 = &_bigStatesMap[0];
     _cp3 = &_bigStatesMap[0];
     _cp4 = &_bigStatesMap[0];
     _cp5 = &_bigStatesMap[0];
-    _cp6 = &_smallStatesMap[0];
+    _cp6 = &_bigStatesMap[0];
     _ctx0 = _ctx1 = _ctx2 = _ctx3 = 0;
     _ctx4 = _ctx5 = _ctx6 = 0;
 }
@@ -194,7 +196,8 @@ TPAQPredictor::TPAQPredictor(map<string, string>* ctx)
 TPAQPredictor::~TPAQPredictor()
 {
     delete[] _bigStatesMap;
-    delete[] _smallStatesMap;
+    delete[] _smallStatesMap0;
+    delete[] _smallStatesMap1;
     delete[] _hashes;
     delete[] _buffer;
     delete[] _mixers;
@@ -223,22 +226,22 @@ void TPAQPredictor::update(int bit)
         // Add contexts to NN
         _ctx0 = (_c4 & 0xFF) << 8;
         _ctx1 = (_c4 & 0xFFFF) << 8;
-        _ctx2 = addContext(2, _c4 & 0x00FFFFFF);
-        _ctx3 = addContext(3, _c4);
+        _ctx2 = createContext(2, _c4 & 0x00FFFFFF);
+        _ctx3 = createContext(3, _c4);
 
         if (_binCount < (_pos >> 2)) {
             // Mostly text or mixed
             int32 h1 = ((_c4 & MASK_80808080) == 0) ? _c4 : _c4 >> 16;
             int32 h2 = ((_c8 & MASK_80808080) == 0) ? _c8 : _c8 >> 16;
-            _ctx4 = addContext(4, _c4 ^ (_c8 & 0xFFFF));
-            _ctx5 = addContext(5, hash(h1, h2));
-            _ctx6 = hash(HASH, _c4 & MASK_F0F0F0F0) & 0x00FFFFFF;
+            _ctx4 = createContext(4, _c4 ^ (_c8 & 0xFFFF));
+            _ctx5 = createContext(5, hash(h1, h2));
+            _ctx6 = hash(HASH, _c4 & MASK_F0F0F0F0);
         }
         else {
             // Mostly binary
-            _ctx4 = addContext(4, _c4 ^ (_c4 & 0xFFFF));
-            _ctx5 = addContext(5, hash(_c4 >> 16, _c8 >> 16));
-            _ctx6 = ((_c4 & 0xFF) << 8) | ((_c8 & 0xFF) << 16);
+            _ctx4 = createContext(4, _c4 ^ (_c4 & 0xFFFF));
+            _ctx5 = createContext(5, hash(_c4 >> 16, _c8 >> 16));
+            _ctx6 = ((_c4 & 0xFF) << 8) | ((_c8 & 0xFFFF) << 16);
         }
 
         // Find match
@@ -251,25 +254,25 @@ void TPAQPredictor::update(int bit)
     // Get initial predictions
     const uint8* table = STATE_TRANSITIONS[bit];
     *_cp0 = table[*_cp0];
-    _cp0 = &_smallStatesMap[_ctx0 ^ _c0];
+    _cp0 = &_smallStatesMap0[_ctx0 + _c0];
     const int p0 = STATE_MAP[*_cp0];
     *_cp1 = table[*_cp1];
-    _cp1 = &_smallStatesMap[_ctx1 ^ _c0];
+    _cp1 = &_smallStatesMap1[_ctx1 + _c0];
     const int p1 = STATE_MAP[*_cp1];
     *_cp2 = table[*_cp2];
-    _cp2 = &_bigStatesMap[(_ctx2 ^ _c0) & _statesMask];
+    _cp2 = &_bigStatesMap[(_ctx2 + _c0) & _statesMask];
     const int p2 = STATE_MAP[*_cp2];
     *_cp3 = table[*_cp3];
-    _cp3 = &_bigStatesMap[(_ctx3 ^ _c0) & _statesMask];
+    _cp3 = &_bigStatesMap[(_ctx3 + _c0) & _statesMask];
     const int p3 = STATE_MAP[*_cp3];
     *_cp4 = table[*_cp4];
-    _cp4 = &_bigStatesMap[(_ctx4 ^ _c0) & _statesMask];
+    _cp4 = &_bigStatesMap[(_ctx4 + _c0) & _statesMask];
     const int p4 = STATE_MAP[*_cp4];
     *_cp5 = table[*_cp5];
-    _cp5 = &_bigStatesMap[(_ctx5 ^ _c0) & _statesMask];
+    _cp5 = &_bigStatesMap[(_ctx5 + _c0) & _statesMask];
     const int p5 = STATE_MAP[*_cp5];
     *_cp6 = table[*_cp6];
-    _cp6 = &_smallStatesMap[_ctx6 ^ _c0];
+    _cp6 = &_bigStatesMap[(_ctx6 + _c0) & _statesMask];
     const int p6 = STATE_MAP[*_cp6];
 
     const int p7 = addMatchContextPred();
@@ -335,7 +338,7 @@ inline int TPAQPredictor::addMatchContextPred()
     return p;
 }
 
-inline int32 TPAQPredictor::addContext(uint32 ctxId, uint32 cx)
+inline int32 TPAQPredictor::createContext(uint32 ctxId, uint32 cx)
 {
     cx = cx * 987654323 + ctxId;
     cx = (cx << 16) | (cx >> 16);
