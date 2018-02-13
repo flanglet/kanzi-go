@@ -157,8 +157,7 @@ type TPAQPredictor struct {
 	hash            int32
 	statesMask      int32
 	mixersMask      int32
-	sse0            *LogisticAdaptiveProbMap
-	sse1            *LogisticAdaptiveProbMap
+	sse             *LogisticAdaptiveProbMap
 	mixers          []TPAQMixer
 	mixer           *TPAQMixer // current mixer
 	buffer          []int8
@@ -243,12 +242,7 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 	this.cp6 = &this.bigStatesMap[0]
 
 	var err error
-	this.sse0, err = newLogisticAdaptiveProbMap(256, 7)
-
-	if err == nil {
-		this.sse1, err = newLogisticAdaptiveProbMap(65536, 7)
-	}
-
+	this.sse, err = newLogisticAdaptiveProbMap(65536, 7)
 	return this, err
 }
 
@@ -336,18 +330,13 @@ func (this *TPAQPredictor) Update(bit byte) {
 	this.cp6 = &this.bigStatesMap[(this.ctx6+c)&this.statesMask]
 	p6 := TPAQ_STATE_MAP[*this.cp6]
 
-	p7 := this.addMatchContextPred()
+	p7 := this.getMatchContextPred()
 
 	// Mix predictions using NN
 	p := this.mixer.get(p0, p1, p2, p3, p4, p5, p6, p7)
 
 	// SSE (Secondary Symbol Estimation)
-	if this.binCount >= (this.pos >> 2) {
-		p = this.sse0.get(y, p, int(c))
-		p = (3*this.sse1.get(y, p, int(c|(this.c4&0xFF00))) + p + 2) >> 2
-	} else {
-		p = this.sse1.get(y, p, int(c|(this.c4&0xFF00)))
-	}
+	p = this.sse.get(y, p, int(c|(this.c4&0xFF00)))
 
 	p32 := uint32(p)
 	this.pr = p + int((p32-2048)>>31)
@@ -383,7 +372,8 @@ func (this *TPAQPredictor) findMatch() {
 	}
 }
 
-func (this *TPAQPredictor) addMatchContextPred() int32 {
+// Get a prediction from the match model in [-2047..2048]
+func (this *TPAQPredictor) getMatchContextPred() int32 {
 	p := int32(0)
 
 	if this.matchLen > 0 {

@@ -125,8 +125,7 @@ inline int32 TPAQPredictor::hash(int32 x, int32 y)
 }
 
 TPAQPredictor::TPAQPredictor(map<string, string>* ctx)
-    : _sse0(256)
-    , _sse1(65536)
+    : _sse(65536)
 {
     int statesSize = 1 << 28;
     int mixersSize = 1 << 12;
@@ -275,19 +274,13 @@ void TPAQPredictor::update(int bit)
     _cp6 = &_bigStatesMap[(_ctx6 + _c0) & _statesMask];
     const int p6 = STATE_MAP[*_cp6];
 
-    const int p7 = addMatchContextPred();
+    const int p7 = getMatchContextPred();
 
     // Mix predictions using NN
     int p = _mixer->get(p0, p1, p2, p3, p4, p5, p6, p7);
 
     // SSE (Secondary Symbol Estimation)
-    if (_binCount >= (_pos >> 2)) {
-        p = _sse0.get(bit, p, _c0);
-        p = (3 * _sse1.get(bit, p, _c0 | (_c4 & 0xFF00)) + p + 2) >> 2;
-    }
-    else {
-        p = _sse1.get(bit, p, _c0 | (_c4 & 0xFF00));
-    }
+    p = _sse.get(bit, p, _c0 | (_c4 & 0xFF00));
 
     _pr = p + (uint32(p - 2048) >> 31);
 }
@@ -317,7 +310,8 @@ inline void TPAQPredictor::findMatch()
     }
 }
 
-inline int TPAQPredictor::addMatchContextPred()
+// Get a prediction from the match model in [-2047..2048]
+inline int TPAQPredictor::getMatchContextPred()
 {
     int p = 0;
 

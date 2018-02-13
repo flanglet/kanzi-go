@@ -160,8 +160,7 @@ public class TPAQPredictor implements Predictor
    private int hash;
    private final int statesMask;
    private final int mixersMask;
-   private final LogisticAdaptiveProbMap sse0;
-   private final LogisticAdaptiveProbMap sse1;
+   private final LogisticAdaptiveProbMap sse;
    private final Mixer[] mixers;
    private Mixer mixer;                  // current mixer
    private final byte[] buffer;
@@ -183,7 +182,7 @@ public class TPAQPredictor implements Predictor
    private int ctx4;
    private int ctx5;
    private int ctx6;
- 
+   
    
    public TPAQPredictor()
    {
@@ -237,8 +236,7 @@ public class TPAQPredictor implements Predictor
       this.buffer = new byte[BUFFER_SIZE];
       this.statesMask = this.bigStatesMap.length - 1;
       this.mixersMask = this.mixers.length - 1;
-      this.sse0 = new LogisticAdaptiveProbMap(256, 7);
-      this.sse1 = new LogisticAdaptiveProbMap(65536, 7);
+      this.sse = new LogisticAdaptiveProbMap(65536, 7);
    }
 
 
@@ -259,7 +257,7 @@ public class TPAQPredictor implements Predictor
         this.hash = (((this.hash*43707) << 4) + this.c4) & MASK_HASH;
         this.c0 = 1;
         this.bpos = 0;
-        this.binCount += ((this.c4 >> 7) & 1);
+        this.binCount += ((this.c4>>7) & 1);
         
         // Select Neural Net
         this.mixer = this.mixers[this.c4&this.mixersMask];
@@ -323,22 +321,14 @@ public class TPAQPredictor implements Predictor
       this.cp6 = (this.ctx6 + c) & mask;
       final int p6 = STATE_MAP[bst[this.cp6]&0xFF];      
 
-      final int p7 = this.addMatchContextPred();
+      final int p7 = this.getMatchContextPred();
 
       // Mix predictions using NN
       int p = this.mixer.get(p0, p1, p2, p3, p4, p5, p6, p7);
 
       // SSE (Secondary Symbol Estimation)
-      if (this.binCount >= (this.pos>>2))
-      {
-         p = this.sse0.get(bit, p, c);   
-         p = (3*this.sse1.get(bit, p, c | (this.c4&0xFF00))+p+2) >> 2;
-      }
-      else
-      {
-         p = this.sse1.get(bit, p, c | (this.c4&0xFF00));
-      }
-      
+      p = this.sse.get(bit, p, c | (this.c4&0xFF00));
+
       this.pr = p + ((p-2048) >>> 31);
 }
 
@@ -370,7 +360,8 @@ public class TPAQPredictor implements Predictor
    }     
 
 
-   private int addMatchContextPred()
+   // Get a prediction from the match model in [-2047..2048]
+   private int getMatchContextPred()
    {
       int p = 0;
       
@@ -380,7 +371,7 @@ public class TPAQPredictor implements Predictor
          {
             // Add match length to NN inputs. Compute input based on run length
             p = (this.matchLen<=24) ? this.matchLen : 24+((this.matchLen-24)>>3);
-  
+
             if (((this.buffer[this.matchPos&MASK_BUFFER] >> (7-this.bpos)) & 1) == 0)
                p = -p;
 
@@ -442,10 +433,9 @@ public class TPAQPredictor implements Predictor
 
          // Quickly decaying learn rate 
          err = (err*this.learnRate) >> 7;
-         this.learnRate += ((END_LEARN_RATE-this.learnRate)>>31);       
-         this.learnRate -= ((this.learnRate-END_LEARN_RATE)>>31);       
+         this.learnRate += ((END_LEARN_RATE-this.learnRate)>>31);            
          this.skew += err;
-     
+    
          // Train Neural Network: update weights
          this.w0 += ((this.p0*err + 0) >> 15);
          this.w1 += ((this.p1*err + 0) >> 15);
@@ -479,4 +469,4 @@ public class TPAQPredictor implements Predictor
       }
    }
 
-         }
+}

@@ -88,8 +88,7 @@ namespace kanzi
        int32 _matchLen;
        int32 _matchPos;
        int32 _hash;
-       LogisticAdaptiveProbMap<7> _sse0;
-       LogisticAdaptiveProbMap<7> _sse1;
+       LogisticAdaptiveProbMap<7> _sse;
        TPAQMixer* _mixers;
        TPAQMixer* _mixer; // current mixer
        byte* _buffer;
@@ -118,7 +117,7 @@ namespace kanzi
 
        int32 createContext(uint32 ctxId, uint32 cx);
 
-       int addMatchContextPred();
+       int getMatchContextPred();
 
        void findMatch();
   };
