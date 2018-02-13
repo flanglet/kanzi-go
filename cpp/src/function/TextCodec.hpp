@@ -16,7 +16,10 @@ limitations under the License.
 #ifndef _TextCodec_
 #define _TextCodec_
 
+#include <map>
 #include "../Function.hpp"
+
+using namespace std;
 
 namespace kanzi {
    class DictEntry {
@@ -55,9 +58,11 @@ namespace kanzi {
        static const byte ESCAPE_TOKEN1 = byte(0x0F); // dictionary word preceded by space symbol
        static const byte ESCAPE_TOKEN2 = byte(0x0E); // toggle upper/lower case of first word char
 
+       TextCodec(map<string, string>& ctx);
+
        TextCodec(int dictSize=THRESHOLD2*4);
 
-       TextCodec(int dictSize, byte dict[], int size, int logHashSize);
+       TextCodec(int dictSize, byte dict[], int size, int logHashSize=LOG_HASHES_SIZE);
 
        virtual ~TextCodec()
        {
@@ -92,7 +97,7 @@ namespace kanzi {
        static bool* initTextChars();
        static const bool* TEXT_CHARS;
 
-       static SliceArray<byte> unpackDictionary(const byte dict[], int dictSize);
+       static SliceArray<byte> unpackDictionary32(const byte dict[], int dictSize);
 
        static bool sameWords(const byte src[], byte dst[], int length);
 
@@ -116,8 +121,8 @@ namespace kanzi {
 
        int emitWordIndex(byte dst[], int val);
        int emitSymbols(byte src[], byte dst[], const int srcEnd, const int dstEnd);
-       int emit1(byte src[], byte dst[], const int srcEnd, const int dstEnd);
-       int emit2(byte src[], byte dst[], const int srcEnd, const int dstEnd);
+       int emitFast(byte src[], byte dst[], const int srcEnd, const int dstEnd);
+       int emitSlow(byte src[], byte dst[], const int srcEnd, const int dstEnd);
    };
 
    inline DictEntry::DictEntry()

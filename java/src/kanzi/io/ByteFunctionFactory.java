@@ -158,8 +158,6 @@ public class ByteFunctionFactory
    
    private static ByteTransform newFunctionToken(Map<String, Object> ctx, short functionType)
    {
-      final int size = (Integer) ctx.get("size");
-
       switch (functionType & 0x0F)
       {
          case SNAPPY_TYPE:
@@ -187,16 +185,7 @@ public class ByteFunctionFactory
             return new SBRT(SBRT.MODE_RANK);
             
          case DICT_TYPE:
-            // Select an appropriate initial dictionary size
-            int dictSize = 1<<12;
-            
-            for (int i=14; i<=24; i+=2)
-            {
-               if (size >= 1<<i)
-                  dictSize <<= 1;
-            }
- 
-            return new TextCodec(dictSize);
+            return new TextCodec(ctx);
             
          case X86_TYPE:
             return new X86Codec();
@@ -212,27 +201,27 @@ public class ByteFunctionFactory
    
    public String getName(short functionType)
    {              
-       StringBuilder sb = new StringBuilder();
+      StringBuilder sb = new StringBuilder();
 
-       for (int i=0; i<4; i++)
-       {
-          int t = functionType >>> (12-4*i);
-          
-          if ((t & 0x0F) == NULL_TRANSFORM_TYPE)
-             continue;
-          
-          String name = getNameToken(t);
-          
-          if (sb.length() != 0)
-             sb.append('+');
-             
+      for (int i=0; i<4; i++)
+      {
+         int t = functionType >>> (12-4*i);
+
+         if ((t & 0x0F) == NULL_TRANSFORM_TYPE)
+            continue;
+
+         String name = getNameToken(t);
+
+         if (sb.length() != 0)
+            sb.append('+');
+
          sb.append(name);
-       }
-       
-       if (sb.length() == 0)
-          sb.append(getNameToken(NULL_TRANSFORM_TYPE));
-       
-       return sb.toString();
+      }
+
+      if (sb.length() == 0)
+         sb.append(getNameToken(NULL_TRANSFORM_TYPE));
+
+      return sb.toString();
    }
    
    

@@ -542,7 +542,7 @@ const byte TextCodec::DICT_EN_1024[] = {
 DictEntry TextCodec::STATIC_DICTIONARY[1024] = {};
 const bool* TextCodec::DELIMITER_CHARS = TextCodec::initDelimiterChars();
 const bool* TextCodec::TEXT_CHARS = TextCodec::initTextChars();
-const int TextCodec::STATIC_DICT_WORDS = TextCodec::createDictionary(TextCodec::unpackDictionary(DICT_EN_1024, sizeof(DICT_EN_1024)), STATIC_DICTIONARY, 1024, 0);
+const int TextCodec::STATIC_DICT_WORDS = TextCodec::createDictionary(TextCodec::unpackDictionary32(DICT_EN_1024, sizeof(DICT_EN_1024)), STATIC_DICTIONARY, 1024, 0);
 
 bool* TextCodec::initDelimiterChars()
 {
@@ -590,13 +590,12 @@ bool* TextCodec::initTextChars()
 TextCodec::TextCodec(int dictSize)
 {
     _logHashSize = LOG_HASHES_SIZE;
+    _dictSize = dictSize;
     const int32 mapSize = 1 << _logHashSize;
     _dictMap = new DictEntry*[mapSize];
-    _dictSize = dictSize;
     _dictList = new DictEntry[_dictSize];
     _hashMask = mapSize - 1;
     int nbWords = STATIC_DICT_WORDS;
-
     memcpy(&_dictList[0], &STATIC_DICTIONARY[0], STATIC_DICT_WORDS * sizeof(DictEntry));
 
     // Add special entries at start of map
@@ -604,22 +603,38 @@ TextCodec::TextCodec(int dictSize)
     _escapes[1] = ESCAPE_TOKEN1;
     _dictList[nbWords] = DictEntry(_escapes, 0, 0, nbWords, 1);
     _dictList[nbWords + 1] = DictEntry(_escapes, 1, 0, nbWords + 1, 1);
-    nbWords += 2;
+    _staticDictSize = nbWords + 2;
+}
 
-    // Populate hash map
-    for (int i = 0; i < mapSize; i++) {
-        _dictMap[i] = nullptr;
+TextCodec::TextCodec(map<string, string>& ctx)
+{
+    map<string, string>::iterator it;
+    it = ctx.find("size");
+    const int blockSize = atoi(it->second.c_str());
+
+    // Select an appropriate initial dictionary size
+    int dSize = 1 << 12;
+
+    for (int i = 14; i <= 24; i += 2) {
+        if (blockSize >= 1 << i)
+            dSize <<= 1;
     }
 
-    for (int i = 0; i < nbWords; i++) {
-        _dictMap[_dictList[i]._hash & _hashMask] = &_dictList[i];
-    }
+    _logHashSize = LOG_HASHES_SIZE;
+    _dictSize = dSize;
+    const int32 mapSize = 1 << _logHashSize;
+    _dictMap = new DictEntry*[mapSize];
+    _dictList = new DictEntry[_dictSize];
+    _hashMask = mapSize - 1;
+    int nbWords = STATIC_DICT_WORDS;
+    memcpy(&_dictList[0], &STATIC_DICTIONARY[0], STATIC_DICT_WORDS * sizeof(DictEntry));
 
-    // Pre-allocate all dictionary entries
-    for (int i = nbWords; i < _dictSize; i++)
-        _dictList[i] = DictEntry(nullptr, -1, 0, i, 0);
-
-    _staticDictSize = nbWords;
+    // Add special entries at start of map
+    _escapes[0] = ESCAPE_TOKEN2;
+    _escapes[1] = ESCAPE_TOKEN1;
+    _dictList[nbWords] = DictEntry(_escapes, 0, 0, nbWords, 1);
+    _dictList[nbWords + 1] = DictEntry(_escapes, 1, 0, nbWords + 1, 1);
+    _staticDictSize = nbWords + 2;
 }
 
 // dictSize (in words) = number of dictionary entries
@@ -636,23 +651,23 @@ TextCodec::TextCodec(int dictSize, byte dict[], int size, int logHashSize)
     }
 
     _logHashSize = logHashSize;
+    _dictSize = dictSize;
     const int32 mapSize = 1 << _logHashSize;
     _dictMap = new DictEntry*[mapSize];
-    _dictSize = dictSize;
-    _dictList = new DictEntry[dictSize];
+    _dictList = new DictEntry[_dictSize];
     _hashMask = mapSize - 1;
     int nbWords;
 
     // Replace default dictionary ?
     if (dict != DICT_EN_1024) {
         // Keep at least 20% space for dynamic dictionary
-        nbWords = TextCodec::createDictionary(SliceArray<byte>(dict, size, 0), _dictList, dictSize * 4 / 5, 0);
+        nbWords = TextCodec::createDictionary(SliceArray<byte>(dict, size, 0), _dictList, _dictSize * 4 / 5, 0);
     }
     else {
         int sz = sizeof(STATIC_DICTIONARY);
 
-        if (sz > dictSize)
-            sz = dictSize;
+        if (sz > _dictSize)
+            sz = _dictSize;
 
         memcpy(&_dictList[0], &STATIC_DICTIONARY[0], sz);
         nbWords = STATIC_DICT_WORDS;
@@ -663,22 +678,7 @@ TextCodec::TextCodec(int dictSize, byte dict[], int size, int logHashSize)
     _escapes[1] = ESCAPE_TOKEN1;
     _dictList[nbWords] = DictEntry(_escapes, 0, 0, nbWords, 1);
     _dictList[nbWords + 1] = DictEntry(_escapes, 1, 0, nbWords + 1, 1);
-    nbWords += 2;
-
-    // Populate hash map
-    for (int i = 0; i < mapSize; i++) {
-        _dictMap[i] = nullptr;
-    }
-
-    for (int i = 0; i < nbWords; i++) {
-        _dictMap[_dictList[i]._hash & _hashMask] = &_dictList[i];
-    }
-
-    // Pre-allocate all dictionary entries
-    for (int i = nbWords; i < _dictSize; i++)
-        _dictList[i] = DictEntry(nullptr, -1, 0, i, 0);
-
-    _staticDictSize = nbWords;
+    _staticDictSize = nbWords + 2;
 }
 
 bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int count)
@@ -689,32 +689,47 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
     if (input._array == output._array)
         return false;
 
-    byte* src = input._array;
-    byte* dst = output._array;
-
     if (output._length - output._index < getMaxEncodedLength(count))
         return false;
 
-    int srcIdx = input._index;
-    int dstIdx = output._index;
+    byte* src = &input._array[input._index];
+    byte* dst = &output._array[output._index];
+    int srcIdx = 0;
+    int dstIdx = 0;
 
-    if (count <= 16)
-    { 
-       for (int i=0; i<count; i++)
-          dst[dstIdx++] = src[srcIdx++];
+    if (count <= 16) {
+        for (int i = 0; i < count; i++)
+            dst[dstIdx++] = src[srcIdx++];
 
-        input._index = srcIdx;
-        output._index = dstIdx;
+        input._index += count;
+        output._index += count;
         return true;
     }
 
-    const int srcEnd = srcIdx + count;
-    const int dstEnd = output._index + getMaxEncodedLength(count);
+    // Populate hash map
+    const int32 mapSize = 1 << _logHashSize;
+
+    for (int i = 0; i < mapSize; i++) {
+        _dictMap[i] = nullptr;
+    }
+
+    for (int i = 0; i < _staticDictSize; i++) {
+        _dictMap[_dictList[i]._hash & _hashMask] = &_dictList[i];
+    }
+
+    // Pre-allocate all dictionary entries
+    for (int i = _staticDictSize; i < _dictSize; i++)
+        _dictList[i] = DictEntry(nullptr, -1, 0, i, 0);
+
+    const int srcEnd = count;
+    const int dstEnd = getMaxEncodedLength(count);
     const int dstEnd3 = dstEnd - 3;
     int anchor = isText(src[srcIdx]) ? srcIdx - 1 : srcIdx; // previous delimiter
     int endWordIdx = ~anchor;
-    int emitAnchor = input._index; // never less than input._index
+    int emitAnchor = 0; // never less than 0
     int words = _staticDictSize;
+    int binCount = 0;
+    int threshold = 8192;
 
     while ((srcIdx < srcEnd) && (dstIdx < dstEnd)) {
         byte cur = src[srcIdx];
@@ -725,21 +740,21 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
         }
 
         bool mustEmit = emitAnchor < srcIdx;
+        binCount += (uint8(cur) >> 7);
 
         if (((srcIdx > anchor + 2)) && (isDelimiter(cur) || (cur == ESCAPE_TOKEN1) || (cur == ESCAPE_TOKEN2))) // At least 2 letters
         {
             // Compute hashes
             // h1 -> hash of word chars
             // h2 -> hash of word chars with first char case flipped
-            byte val = src[anchor+1];
+            byte val = src[anchor + 1];
             const int caseFlag = isUpperCase(val) ? 32 : -32;
             int32 h1 = HASH1;
             int32 h2 = HASH1;
             h1 = h1 * HASH1 ^ int32(val) * HASH2;
             h2 = h2 * HASH1 ^ int32(val + caseFlag) * HASH2;
 
-            for (int i=anchor+2; i<srcIdx; i++) 
-            {
+            for (int i = anchor + 2; i < srcIdx; i++) {
                 const int h = int32(src[i]) * HASH2;
                 h1 = h1 * HASH1 ^ h;
                 h2 = h2 * HASH1 ^ h;
@@ -817,6 +832,17 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
             dstIdx += emitSymbols(&src[emitAnchor], &dst[dstIdx], srcIdx - emitAnchor, dstEnd - dstIdx);
         }
 
+        if (srcIdx >= threshold) {
+            // Early exit if input does not look like text
+            if (4 * binCount >= srcIdx) {
+                output._index += dstIdx;
+                input._index += srcIdx;
+                return false;
+            }
+
+            threshold += 8192;
+        }
+
         // Reset delimiter position
         anchor = srcIdx;
         emitAnchor = anchor;
@@ -826,8 +852,8 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
     // Emit last symbols
     dstIdx += emitSymbols(&src[emitAnchor], &dst[dstIdx], srcEnd - emitAnchor, dstEnd - dstIdx);
 
-    output._index = dstIdx;
-    input._index = srcIdx;
+    output._index += dstIdx;
+    input._index += srcIdx;
     return srcIdx == srcEnd;
 }
 
@@ -836,8 +862,8 @@ bool TextCodec::expandDictionary()
     if (_dictSize >= MAX_DICT_SIZE)
         return false;
 
-    DictEntry* newDict = new DictEntry[_dictSize*2];
-    memcpy(&newDict[0], &_dictList[0], sizeof(DictEntry)*_dictSize);
+    DictEntry* newDict = new DictEntry[_dictSize * 2];
+    memcpy(&newDict[0], &_dictList[0], sizeof(DictEntry) * _dictSize);
 
     for (int i = _dictSize; i < _dictSize * 2; i++)
         newDict[i] = DictEntry(nullptr, -1, 0, i, 0);
@@ -857,12 +883,12 @@ bool TextCodec::expandDictionary()
 int TextCodec::emitSymbols(byte src[], byte dst[], const int srcEnd, const int dstEnd)
 {
     if (srcEnd == 0)
-       return 0;
+        return 0;
 
-    return ((srcEnd << 2) < dstEnd) ? emit1(src, dst, srcEnd, dstEnd) : emit2(src, dst, srcEnd, dstEnd);
+    return ((srcEnd << 2) < dstEnd) ? emitFast(src, dst, srcEnd, dstEnd) : emitSlow(src, dst, srcEnd, dstEnd);
 }
 
-int TextCodec::emit1(byte src[], byte dst[], const int srcEnd, const int)
+int TextCodec::emitFast(byte src[], byte dst[], const int srcEnd, const int)
 {
     // Fast path
     int dstIdx = 0;
@@ -885,7 +911,7 @@ int TextCodec::emit1(byte src[], byte dst[], const int srcEnd, const int)
     return dstIdx;
 }
 
-int TextCodec::emit2(byte src[], byte dst[], int const srcEnd, int const dstEnd)
+int TextCodec::emitSlow(byte src[], byte dst[], int const srcEnd, int const dstEnd)
 {
     // Slow path
     int dstIdx = 0;
@@ -964,24 +990,38 @@ bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int c
     if (input._array == output._array)
         return false;
 
-    int srcIdx = input._index;
-    int dstIdx = output._index;
-    byte* src = input._array;
-    byte* dst = output._array;
+    byte* src = &input._array[input._index];
+    byte* dst = &output._array[output._index];
+    int srcIdx = 0;
+    int dstIdx = 0;
 
-    if (count <= 16)
-    { 
-       for (int i=0; i<count; i++)
-          dst[dstIdx++] = src[srcIdx++];
+    if (count <= 16) {
+        for (int i = 0; i < count; i++)
+            dst[dstIdx++] = src[srcIdx++];
 
-        input._index = srcIdx;
-        output._index = dstIdx;
+        input._index += count;
+        output._index += count;
         return true;
     }
 
-    const int srcEnd = srcIdx + count;
+    // Populate hash map
+    const int32 mapSize = 1 << _logHashSize;
+
+    for (int i = 0; i < mapSize; i++) {
+        _dictMap[i] = nullptr;
+    }
+
+    for (int i = 0; i < _staticDictSize; i++) {
+        _dictMap[_dictList[i]._hash & _hashMask] = &_dictList[i];
+    }
+
+    // Pre-allocate all dictionary entries
+    for (int i = _staticDictSize; i < _dictSize; i++)
+        _dictList[i] = DictEntry(nullptr, -1, 0, i, 0);
+
+    const int srcEnd = count;
     const int dstEnd = output._length;
-    int anchor = input._index - 1;
+    int anchor = -1;
     int words = _staticDictSize;
     bool wordRun = false;
 
@@ -998,8 +1038,8 @@ bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int c
             int length = srcIdx - anchor - 2;
             int h1 = HASH1;
 
-            for (int i=1; i<=length; i++)
-               h1 = h1*HASH1 ^ int32(src[anchor + i])*HASH2;
+            for (int i = 1; i <= length; i++)
+                h1 = h1 * HASH1 ^ int32(src[anchor + i]) * HASH2;
 
             // Lookup word in dictionary
             DictEntry* pe = _dictMap[h1 & _hashMask];
@@ -1068,7 +1108,7 @@ bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int c
             if ((e._pos < 0) || (dstIdx + e._length >= dstEnd))
                 break;
 
-            // Add space if only delimiter between 2 words (not an escaped delimiter) 
+            // Add space if only delimiter between 2 words (not an escaped delimiter)
             if ((wordRun == true) && (e._length > 1))
                 dst[dstIdx++] = ' ';
 
@@ -1102,8 +1142,8 @@ bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int c
         }
     }
 
-    output._index = dstIdx;
-    input._index = srcIdx;
+    output._index += dstIdx;
+    input._index += srcIdx;
     return srcIdx == srcEnd;
 }
 
@@ -1136,7 +1176,8 @@ int TextCodec::createDictionary(SliceArray<byte> input, DictEntry dict[], int ma
     return nbWords;
 }
 
-SliceArray<byte> TextCodec::unpackDictionary(const byte dict[], int dictSize)
+// Unpack dictionary with 32 symbols (all lowercase except first word char)
+SliceArray<byte> TextCodec::unpackDictionary32(const byte dict[], int dictSize)
 {
     byte* buf = new byte[dictSize * 2];
     int d = 0;

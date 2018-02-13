@@ -62,7 +62,7 @@ type TextCodec struct {
 
 var (
 	TC_STATIC_DICTIONARY = make([]DictEntry, 1024)
-	TC_STATIC_DICT_WORDS = createDictionary(unpackDictionary(TC_DICT_EN_1024), TC_STATIC_DICTIONARY, 1024, 0)
+	TC_STATIC_DICT_WORDS = createDictionary(unpackDictionary32(TC_DICT_EN_1024), TC_STATIC_DICTIONARY, 1024, 0)
 	TC_DELIMITER_CHARS   = initDelimiterChars()
 	TC_TEXT_CHARS        = initTextChars()
 
@@ -611,21 +611,21 @@ func NewTextCodecWithArgs(dictSize int, dict []byte, logHashSize uint) (*TextCod
 
 	this := new(TextCodec)
 	this.logHashSize = uint(logHashSize)
-	this.dictMap = make([]*DictEntry, 1<<this.logHashSize)
-	this.dictList = make([]DictEntry, dictSize)
 	this.dictSize = dictSize
+	this.dictMap = make([]*DictEntry, 1<<this.logHashSize)
+	this.dictList = make([]DictEntry, this.dictSize)
 	this.hashMask = int32(1<<this.logHashSize) - 1
 	nbWords := 0
 
 	// Replace default dictionary ?
 	if dict != nil && &dict != &TC_DICT_EN_1024 {
 		// Keep at least 20% space for dynamic dictionary
-		nbWords = createDictionary(dict, this.dictList, dictSize*4/5, 0)
+		nbWords = createDictionary(dict, this.dictList, this.dictSize*4/5, 0)
 	} else {
 		size := len(TC_STATIC_DICTIONARY)
 
-		if size >= dictSize {
-			size = dictSize
+		if size >= this.dictSize {
+			size = this.dictSize
 		}
 
 		copy(this.dictList, TC_STATIC_DICTIONARY[0:size])
@@ -635,20 +635,41 @@ func NewTextCodecWithArgs(dictSize int, dict []byte, logHashSize uint) (*TextCod
 	// Add special entries at end of static dictionary
 	this.dictList[nbWords] = DictEntry{buf: []byte{TC_ESCAPE_TOKEN2}, pos: 0, hash: 0, idx: int32(nbWords), length: int16(1)}
 	this.dictList[nbWords+1] = DictEntry{buf: []byte{TC_ESCAPE_TOKEN1}, pos: 0, hash: 0, idx: int32(nbWords + 1), length: int16(1)}
-	nbWords += 2
+	this.staticDictSize = nbWords + 2
+	return this, nil
+}
 
-	// Populate hash map
-	for i := 0; i < nbWords; i++ {
-		e := this.dictList[i]
-		this.dictMap[e.hash&this.hashMask] = &e
+func NewTextCodecFromMap(ctx map[string]interface{}) (*TextCodec, error) {
+	this := new(TextCodec)
+	blockSize := ctx["size"].(uint)
+
+	// Select an appropriate initial dictionary size
+	dSize := 1 << 12
+
+	for i := uint(14); i <= 24; i += 2 {
+		if blockSize >= 1<<i {
+			dSize <<= 1
+		}
 	}
 
-	// Pre-allocate all dictionary entries
-	for i := nbWords; i < dictSize; i++ {
-		this.dictList[i] = DictEntry{buf: nil, pos: -1, hash: 0, idx: int32(i), length: int16(0)}
+	this.logHashSize = TC_LOG_HASHES_SIZE
+	this.dictSize = dSize
+	this.dictMap = make([]*DictEntry, 1<<this.logHashSize)
+	this.dictList = make([]DictEntry, this.dictSize)
+	this.hashMask = int32(1<<this.logHashSize) - 1
+	size := len(TC_STATIC_DICTIONARY)
+
+	if size >= this.dictSize {
+		size = this.dictSize
 	}
 
-	this.staticDictSize = nbWords
+	copy(this.dictList, TC_STATIC_DICTIONARY[0:size])
+	nbWords := TC_STATIC_DICT_WORDS
+
+	// Add special entries at end of static dictionary
+	this.dictList[nbWords] = DictEntry{buf: []byte{TC_ESCAPE_TOKEN2}, pos: 0, hash: 0, idx: int32(nbWords), length: int16(1)}
+	this.dictList[nbWords+1] = DictEntry{buf: []byte{TC_ESCAPE_TOKEN1}, pos: 0, hash: 0, idx: int32(nbWords + 1), length: int16(1)}
+	this.staticDictSize = nbWords + 2
 	return this, nil
 }
 
@@ -731,6 +752,17 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return uint(srcIdx), uint(dstIdx), nil
 	}
 
+	// Populate hash map
+	for i := 0; i < this.staticDictSize; i++ {
+		e := this.dictList[i]
+		this.dictMap[e.hash&this.hashMask] = &e
+	}
+
+	// Pre-allocate all dictionary entries
+	for i := this.staticDictSize; i < this.dictSize; i++ {
+		this.dictList[i] = DictEntry{buf: nil, pos: -1, hash: 0, idx: int32(i), length: int16(0)}
+	}
+
 	srcEnd := count
 	dstEnd := this.MaxEncodedLen(count)
 	dstEnd3 := dstEnd - 3
@@ -745,6 +777,8 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 	endWordIdx := ^anchor
 	emitAnchor := 0 // never negative
 	words := this.staticDictSize
+	binCount := 0
+	threshold := 8192
 
 	for srcIdx < srcEnd && dstIdx < dstEnd {
 		cur := src[srcIdx]
@@ -755,6 +789,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		mustEmit := emitAnchor < srcIdx
+		binCount += int(uint8(cur) >> 7)
 
 		if (srcIdx > anchor+2) && (isDelimiter(cur) || cur == TC_ESCAPE_TOKEN1 || cur == TC_ESCAPE_TOKEN2) { // At least 2 letters
 			// Compute hashes
@@ -868,6 +903,15 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 			dstIdx += this.emitSymbols(src[emitAnchor:srcIdx], dst[dstIdx:dstEnd])
 		}
 
+		if srcIdx >= threshold {
+			// Early exit if input does not look like text
+			if 4*binCount >= srcIdx {
+				return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skipping")
+			}
+
+			threshold += 8192
+		}
+
 		// Reset delimiter position
 		anchor = srcIdx
 		emitAnchor = anchor
@@ -909,13 +953,13 @@ func (this *TextCodec) emitSymbols(src, dst []byte) int {
 	}
 
 	if len(src)<<2 < len(dst) {
-		return this.emit1(src, dst)
+		return this.emitFast(src, dst)
 	} else {
-		return this.emit2(src, dst)
+		return this.emitSlow(src, dst)
 	}
 }
 
-func (this *TextCodec) emit1(src, dst []byte) int {
+func (this *TextCodec) emitFast(src, dst []byte) int {
 	// Fast path
 	dstIdx := 0
 
@@ -945,7 +989,7 @@ func (this *TextCodec) emit1(src, dst []byte) int {
 	return dstIdx
 }
 
-func (this *TextCodec) emit2(src, dst []byte) int {
+func (this *TextCodec) emitSlow(src, dst []byte) int {
 	// Slow path
 	dstIdx := 0
 	dstEnd := len(dst)
@@ -1052,6 +1096,17 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 
 		return uint(srcIdx), uint(dstIdx), nil
+	}
+
+	// Populate hash map
+	for i := 0; i < this.staticDictSize; i++ {
+		e := this.dictList[i]
+		this.dictMap[e.hash&this.hashMask] = &e
+	}
+
+	// Pre-allocate all dictionary entries
+	for i := this.staticDictSize; i < this.dictSize; i++ {
+		this.dictList[i] = DictEntry{buf: nil, pos: -1, hash: 0, idx: int32(i), length: int16(0)}
 	}
 
 	srcEnd := len(src)
@@ -1216,7 +1271,7 @@ func (this TextCodec) MaxEncodedLen(srcLen int) int {
 
 // Create dictionary from array of words
 func createDictionary(words []byte, dict []DictEntry, maxWords, startWord int) int {
-	anchor := -1
+	anchor := 0
 	h := TC_HASH1
 	nbWords := startWord
 
@@ -1228,12 +1283,12 @@ func createDictionary(words []byte, dict []DictEntry, maxWords, startWord int) i
 			continue
 		}
 
-		if isDelimiter(cur) && (nbWords < maxWords) && (i >= anchor+2) { // At least 2 letters
-			dict[nbWords] = DictEntry{buf: words, pos: anchor + 1, hash: h, idx: int32(nbWords), length: int16(i - anchor - 1)}
+		if isDelimiter(cur) && (nbWords < maxWords) && (i >= anchor+1) { // At least 2 letters
+			dict[nbWords] = DictEntry{buf: words, pos: anchor, hash: h, idx: int32(nbWords), length: int16(i - anchor)}
 			nbWords++
 		}
 
-		anchor = i
+		anchor = i + 1
 		h = TC_HASH1
 	}
 
@@ -1256,7 +1311,8 @@ func isDelimiter(val byte) bool {
 	return TC_DELIMITER_CHARS[val&0xFF]
 }
 
-func unpackDictionary(dict []byte) []byte {
+// Unpack dictionary with 32 symbols (all lowercase except first word char)
+func unpackDictionary32(dict []byte) []byte {
 	buf := make([]byte, len(dict)*2)
 	d := 0
 	val := 0

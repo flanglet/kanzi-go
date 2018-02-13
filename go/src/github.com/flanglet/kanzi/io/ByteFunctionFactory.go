@@ -73,8 +73,6 @@ func NewByteFunction(ctx map[string]interface{}, functionType uint16) (*function
 }
 
 func newByteFunctionToken(ctx map[string]interface{}, functionType uint16) (kanzi.ByteTransform, error) {
-	size := ctx["size"].(uint)
-
 	switch uint16(functionType & 0x0F) {
 
 	case SNAPPY_TYPE:
@@ -102,16 +100,7 @@ func newByteFunctionToken(ctx map[string]interface{}, functionType uint16) (kanz
 		return transform.NewSBRT(transform.SBRT_MODE_RANK)
 
 	case DICT_TYPE:
-		// Select an appropriate initial dictionary size
-		dictSize := 1 << 12
-
-		for i := uint(14); i <= 24; i += 2 {
-			if size >= 1<<i {
-				dictSize <<= 1
-			}
-		}
-
-		return function.NewTextCodec(dictSize)
+		return function.NewTextCodecFromMap(ctx)
 
 	case X86_TYPE:
 		return function.NewX86Codec()

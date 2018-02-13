@@ -15,6 +15,7 @@ limitations under the License.
 
 package kanzi.function;
 
+import java.util.Map;
 import kanzi.ByteFunction;
 import kanzi.SliceByteArray;
 
@@ -611,7 +612,7 @@ public final class TextCodec implements ByteFunction
    };
 
    private static final DictEntry[] STATIC_DICTIONARY = new DictEntry[1024];
-   private static final int STATIC_DICT_WORDS = createDictionary(unpackDictionary(DICT_EN_1024), STATIC_DICTIONARY, 1024, 0);
+   private static final int STATIC_DICT_WORDS = createDictionary(unpackDictionary32(DICT_EN_1024), STATIC_DICTIONARY, 1024, 0);
 
 
    private final DictEntry[] dictMap;
@@ -635,6 +636,34 @@ public final class TextCodec implements ByteFunction
    }
 
 
+   public TextCodec(Map<String, Object> ctx)
+   {
+      final int blockSize = (Integer) ctx.get("size");
+
+      // Select an appropriate initial dictionary size
+      int dSize = 1<<12;
+
+      for (int i=14; i<=24; i+=2)
+      {
+         if (blockSize >= 1<<i)
+            dSize <<= 1;
+      }
+
+      this.logHashSize = LOG_HASHES_SIZE;
+      this.dictSize = dSize;
+      this.dictMap = new DictEntry[1<<this.logHashSize];
+      this.dictList = new DictEntry[this.dictSize];
+      this.hashMask = (1 << this.logHashSize) - 1;
+      System.arraycopy(STATIC_DICTIONARY, 0, this.dictList, 0, Math.min(STATIC_DICTIONARY.length, this.dictSize));
+      int nbWords = STATIC_DICT_WORDS;
+
+      // Add special entries at end of static dictionary
+      this.dictList[nbWords]   = new DictEntry(new byte[] { ESCAPE_TOKEN2 }, 0, 0, nbWords, 1);
+      this.dictList[nbWords+1] = new DictEntry(new byte[] { ESCAPE_TOKEN1 }, 0, 0, nbWords+1, 1);
+      this.staticDictSize = nbWords + 2;
+   }
+
+
    // dictSize (in words) = number of dictionary entries
    public TextCodec(int dictSize, byte[] dict, int logHashSize)
    {
@@ -646,9 +675,9 @@ public final class TextCodec implements ByteFunction
             (STATIC_DICT_WORDS+128) + ".." + (1<<logHashSize) + "]");
 
       this.logHashSize = logHashSize;
-      this.dictMap = new DictEntry[1<<this.logHashSize];
-      this.dictList = new DictEntry[dictSize];
       this.dictSize = dictSize;
+      this.dictMap = new DictEntry[1<<this.logHashSize];
+      this.dictList = new DictEntry[this.dictSize];
       this.hashMask = (1 << this.logHashSize) - 1;
       int nbWords;
 
@@ -656,31 +685,18 @@ public final class TextCodec implements ByteFunction
       if ((dict != null) && (dict != DICT_EN_1024))
       {
          // Keep at least 20% space for dynamic dictionary
-         nbWords = createDictionary(dict, this.dictList, dictSize*4/5, 0);
+         nbWords = createDictionary(dict, this.dictList, this.dictSize*4/5, 0);
       }
       else
       {
-         System.arraycopy(STATIC_DICTIONARY, 0, this.dictList, 0, Math.min(STATIC_DICTIONARY.length, dictSize));
+         System.arraycopy(STATIC_DICTIONARY, 0, this.dictList, 0, Math.min(STATIC_DICTIONARY.length, this.dictSize));
          nbWords = STATIC_DICT_WORDS;
       }
 
       // Add special entries at end of static dictionary
       this.dictList[nbWords]   = new DictEntry(new byte[] { ESCAPE_TOKEN2 }, 0, 0, nbWords, 1);
       this.dictList[nbWords+1] = new DictEntry(new byte[] { ESCAPE_TOKEN1 }, 0, 0, nbWords+1, 1);
-      nbWords += 2;
-
-      // Populate hash map
-      for (int i=0; i<nbWords; i++)
-      {
-         DictEntry e = this.dictList[i];
-         this.dictMap[e.hash & hashMask] = e;
-      }
-
-      // Pre-allocate all dictionary entries
-      for (int i=nbWords; i<dictSize; i++)
-         this.dictList[i] = new DictEntry(null, -1, 0, i, 0);
-
-      this.staticDictSize = nbWords;
+      this.staticDictSize = nbWords + 2;
    }
 
 
@@ -713,6 +729,17 @@ public final class TextCodec implements ByteFunction
          return true;
       }
 
+      // Populate hash map
+      for (int i=0; i<this.staticDictSize; i++)
+      {
+         DictEntry e = this.dictList[i];
+         this.dictMap[e.hash & hashMask] = e;
+      }
+
+      // Pre-allocate all dictionary entries
+      for (int i=this.staticDictSize; i<this.dictSize; i++)
+         this.dictList[i] = new DictEntry(null, -1, 0, i, 0);
+
       final int srcEnd = input.index + count;
       final int dstEnd = output.index + this.getMaxEncodedLength(count);
       final int dstEnd3 = dstEnd - 3;
@@ -720,6 +747,8 @@ public final class TextCodec implements ByteFunction
       int endWordIdx = ~anchor;
       int emitAnchor = input.index; // never less than input.index
       int words = this.staticDictSize;
+      int binCount = 0;
+      int threshold = input.index + 8192;
 
       while ((srcIdx < srcEnd) && (dstIdx < dstEnd))
       {
@@ -732,6 +761,7 @@ public final class TextCodec implements ByteFunction
          }
 
          boolean mustEmit = emitAnchor < srcIdx;
+         binCount += (cur >>> 31);
 
          if (((srcIdx > anchor+2)) && (isDelimiter(cur) || (cur == ESCAPE_TOKEN1) || (cur == ESCAPE_TOKEN2))) // At least 2 letters
          {
@@ -827,6 +857,19 @@ public final class TextCodec implements ByteFunction
          if (mustEmit == true)
             dstIdx = this.emitSymbols(src, emitAnchor, dst, dstIdx, srcIdx, dstEnd);
 
+         if (srcIdx >= threshold)
+         {
+            // Early exit if input does not look like text
+            if (4*binCount >= (srcIdx-input.index)) 
+            {
+               output.index = dstIdx;
+               input.index = srcIdx;
+               return false;
+            }
+            
+            threshold += 8192;
+         }
+         
          // Reset delimiter position
          anchor = srcIdx;
          emitAnchor = anchor;
@@ -865,12 +908,12 @@ public final class TextCodec implements ByteFunction
          return 0;
          
       return ((srcEnd-srcIdx)<<2 < (dstEnd-dstIdx)) ?
-         this.emit1(src, srcIdx, dst, dstIdx, srcEnd, dstEnd) :
-         this.emit2(src, srcIdx, dst, dstIdx, srcEnd, dstEnd);
+         this.emitFast(src, srcIdx, dst, dstIdx, srcEnd, dstEnd) :
+         this.emitSlow(src, srcIdx, dst, dstIdx, srcEnd, dstEnd);
    }
 
 
-   private int emit1(byte[] src, final int srcIdx, byte[] dst, int dstIdx, final int srcEnd, final int dstEnd)
+   private int emitFast(byte[] src, final int srcIdx, byte[] dst, int dstIdx, final int srcEnd, final int dstEnd)
    {
       // Fast path
       if ((src[srcIdx] == ESCAPE_TOKEN1) || (src[srcIdx] == ESCAPE_TOKEN2))
@@ -893,7 +936,7 @@ public final class TextCodec implements ByteFunction
    }
 
 
-   private int emit2(byte[] src, final int srcIdx, byte[] dst, int dstIdx, final int srcEnd, final int dstEnd)
+   private int emitSlow(byte[] src, final int srcIdx, byte[] dst, int dstIdx, final int srcEnd, final int dstEnd)
    {
       // Slow path
       for (int i=srcIdx; i<srcEnd; i++)
@@ -959,11 +1002,10 @@ public final class TextCodec implements ByteFunction
 
    private static boolean sameWords(DictEntry e, byte[] src, int anchor, int length)
    {
-      final int l = e.pos + length;
       final byte[] buf = e.buf;
 
       // Skip first position (same result)
-      for (int i=e.pos+1, j=anchor+2; i<l; i++, j++)
+      for (int i=e.pos+1, j=anchor+2, l=e.pos+length; i<l; i++, j++)
       {
          if (buf[i] != src[j])
             return false;
@@ -997,6 +1039,17 @@ public final class TextCodec implements ByteFunction
          output.index = dstIdx;
          return true;
       }
+
+      // Populate hash map
+      for (int i=0; i<this.staticDictSize; i++)
+      {
+         DictEntry e = this.dictList[i];
+         this.dictMap[e.hash & hashMask] = e;
+      }
+
+      // Pre-allocate all dictionary entries
+      for (int i=this.staticDictSize; i<this.dictSize; i++)
+         this.dictList[i] = new DictEntry(null, -1, 0, i, 0);
 
       final int srcEnd = input.index + count;
       final int dstEnd = dst.length;
@@ -1153,27 +1206,27 @@ public final class TextCodec implements ByteFunction
    // Create dictionary from array of words
    private static int createDictionary(byte[] words, DictEntry[] dict, int maxWords, int startWord)
    {
-      int anchor = -1;
+      int anchor = 0;
       int h = HASH1;
       int nbWords = startWord;
 
       for (int i=0; ((i<words.length) && (nbWords<maxWords)); i++)
       {
          byte cur = words[i];
-
+         
          if (isText(cur))
          {
             h = h*HASH1 ^ cur*HASH2;
             continue;
          }
 
-         if ((isDelimiter(cur)) && (nbWords<maxWords) && (i>=anchor+2)) // At least 2 letters
+         if ((isDelimiter(cur)) && (nbWords<maxWords) && (i>=anchor+1)) // At least 2 letters
          {
-            dict[nbWords] = new DictEntry(words, anchor+1, h, nbWords, i-anchor-1);
+            dict[nbWords] = new DictEntry(words, anchor, h, nbWords, i-anchor);
             nbWords++;
          }
 
-         anchor = i;
+         anchor = i + 1;
          h = HASH1;
       }
 
@@ -1205,7 +1258,8 @@ public final class TextCodec implements ByteFunction
    }
 
 
-   private static byte[] unpackDictionary(byte[] dict)
+   // Unpack dictionary with 32 symbols (all lowercase except first word char)
+   private static byte[] unpackDictionary32(byte[] dict)
    {
       byte[] buf = new byte[dict.length*2];
       int d = 0;

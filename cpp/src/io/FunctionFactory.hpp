@@ -180,9 +180,6 @@ template <class T>
    template <class T>
    Transform<T>* FunctionFactory<T>::newFunctionToken(map<string, string>& ctx, short functionType) THROW
    {
-       map<string, string>::iterator it = ctx.find("size");
-       int size = atoi(it->second.c_str());
-
        switch (functionType & 0x0F) {
        case SNAPPY_TYPE:
            return new SnappyCodec();
@@ -209,18 +206,7 @@ template <class T>
            return new SBRT(SBRT::MODE_RANK);
 
        case DICT_TYPE:
-           {
-              // Select an appropriate initial dictionary size
-              int dictSize = 1<<12;
-            
-              for (int i=14; i<=24; i+=2)
-              {
-                 if (size >= 1<<i)
-                    dictSize <<= 1;
-              }
- 
-              return new TextCodec(dictSize); 
-           }
+           return new TextCodec(ctx);
 
        case X86_TYPE:
            return new X86Codec();
