@@ -31,8 +31,8 @@ namespace kanzi {
        const byte* _buf; // text data
 
        DictEntry();
-
-       DictEntry(const byte buf[], int pos, int hash, int idx, int length);
+       
+       DictEntry(const byte buf[], int pos, int32 hash, int idx, int length);
 
        DictEntry& operator = (const DictEntry& de);
 
@@ -80,7 +80,7 @@ namespace kanzi {
        // a failure when the output is not smaller than the input
        inline int getMaxEncodedLength(int srcLen) const { return srcLen; }
 
-       inline static bool isText(byte val) { return TEXT_CHARS[val & 0xFF]; }
+       inline static bool isText(byte val) { return TEXT_CHARS[uint8(val)]; }
 
        inline static bool isLowerCase(byte val) { return (val >= 'a') && (val <= 'z'); }
 

@@ -972,7 +972,19 @@ int TextCodec::emitWordIndex(byte dst[], int val)
 
 bool TextCodec::sameWords(const byte src[], byte dst[], int length)
 {
-    // Skip first position (same result)
+    if (length >= 4) {
+        int32* p1 = (int32*) &dst[0];
+        int32* p2 = (int32*) &src[0];
+
+        while (length >= 4) {
+            if (*p1++ != *p2++) {
+                return false;
+            }
+
+            length -= 4;
+        }
+    }
+
     for (int i = 0, j = 0; i < length; i++, j++) {
         if (dst[i] != src[j]) {
             return false;
@@ -1150,7 +1162,7 @@ bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int c
 // Create dictionary from array of words
 int TextCodec::createDictionary(SliceArray<byte> input, DictEntry dict[], int maxWords, int startWord)
 {
-    int anchor = -1;
+    int anchor = 0;
     int32 h = HASH1;
     int nbWords = startWord;
     int dictSize = input._length;
@@ -1164,12 +1176,12 @@ int TextCodec::createDictionary(SliceArray<byte> input, DictEntry dict[], int ma
             continue;
         }
 
-        if ((isDelimiter(cur)) && (nbWords < maxWords) && (i >= anchor + 2)) { // At least 2 letters
-            dict[nbWords] = DictEntry(words, anchor + 1, h, nbWords, i - anchor - 1);
+        if ((isDelimiter(cur)) && (nbWords < maxWords) && (i >= anchor + 1)) { // At least 2 letters
+            dict[nbWords] = DictEntry(words, anchor, h, nbWords, i - anchor);
             nbWords++;
         }
 
-        anchor = i;
+        anchor = i + 1;
         h = HASH1;
     }
 
