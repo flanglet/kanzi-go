@@ -728,7 +728,7 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
     int endWordIdx = ~anchor;
     int emitAnchor = 0; // never less than 0
     int words = _staticDictSize;
-    int binCount = 0;
+    int nbTextChars = 0;
     int threshold = 8192;
 
     while ((srcIdx < srcEnd) && (dstIdx < dstEnd)) {
@@ -736,11 +736,11 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
 
         if (isText(cur)) {
             srcIdx++;
+            nbTextChars++;
             continue;
         }
 
         bool mustEmit = emitAnchor < srcIdx;
-        binCount += (uint8(cur) >> 7);
 
         if (((srcIdx > anchor + 2)) && (isDelimiter(cur) || (cur == ESCAPE_TOKEN1) || (cur == ESCAPE_TOKEN2))) // At least 2 letters
         {
@@ -834,7 +834,7 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
 
         if (srcIdx >= threshold) {
             // Early exit if input does not look like text
-            if (4 * binCount >= srcIdx) {
+            if (2 * nbTextChars < srcIdx) {
                 output._index += dstIdx;
                 input._index += srcIdx;
                 return false;

@@ -777,7 +777,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 	endWordIdx := ^anchor
 	emitAnchor := 0 // never negative
 	words := this.staticDictSize
-	binCount := 0
+	nbTextChars := 0
 	threshold := 8192
 
 	for srcIdx < srcEnd && dstIdx < dstEnd {
@@ -785,11 +785,11 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 		if isText(cur) {
 			srcIdx++
+			nbTextChars++
 			continue
 		}
 
 		mustEmit := emitAnchor < srcIdx
-		binCount += int(uint8(cur) >> 7)
 
 		if (srcIdx > anchor+2) && (isDelimiter(cur) || cur == TC_ESCAPE_TOKEN1 || cur == TC_ESCAPE_TOKEN2) { // At least 2 letters
 			// Compute hashes
@@ -905,7 +905,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 		if srcIdx >= threshold {
 			// Early exit if input does not look like text
-			if 4*binCount >= srcIdx {
+			if 2*nbTextChars < srcIdx {
 				return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skipping")
 			}
 

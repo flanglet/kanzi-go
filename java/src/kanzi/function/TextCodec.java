@@ -747,7 +747,7 @@ public final class TextCodec implements ByteFunction
       int endWordIdx = ~anchor;
       int emitAnchor = input.index; // never less than input.index
       int words = this.staticDictSize;
-      int binCount = 0;
+      int nbTextChars = 0;
       int threshold = input.index + 8192;
 
       while ((srcIdx < srcEnd) && (dstIdx < dstEnd))
@@ -757,11 +757,11 @@ public final class TextCodec implements ByteFunction
          if (isText(cur))
          {
             srcIdx++;
+            nbTextChars++;
             continue;
          }
 
          boolean mustEmit = emitAnchor < srcIdx;
-         binCount += (cur >>> 31);
 
          if (((srcIdx > anchor+2)) && (isDelimiter(cur) || (cur == ESCAPE_TOKEN1) || (cur == ESCAPE_TOKEN2))) // At least 2 letters
          {
@@ -860,7 +860,7 @@ public final class TextCodec implements ByteFunction
          if (srcIdx >= threshold)
          {
             // Early exit if input does not look like text
-            if (4*binCount >= (srcIdx-input.index)) 
+            if (2*nbTextChars < srcIdx-input.index) 
             {
                output.index = dstIdx;
                input.index = srcIdx;
@@ -987,7 +987,7 @@ public final class TextCodec implements ByteFunction
       {
          if (val >= THRESHOLD2)
             dst[dstIdx++] = (byte) (0xE0 | (val>>14));
-         
+
          dst[dstIdx++] = (byte) (0x80 | (val>>7));
          dst[dstIdx++] = (byte) (0x7F & val);
       }
