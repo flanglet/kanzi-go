@@ -905,7 +905,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 		if srcIdx >= threshold {
 			// Early exit if input does not look like text
-			if 2*nbTextChars < srcIdx {
+			if 3*nbTextChars < srcIdx {
 				return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skipping")
 			}
 

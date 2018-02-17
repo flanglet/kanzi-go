@@ -860,7 +860,7 @@ public final class TextCodec implements ByteFunction
          if (srcIdx >= threshold)
          {
             // Early exit if input does not look like text
-            if (2*nbTextChars < srcIdx-input.index) 
+            if (3*nbTextChars < srcIdx-input.index) 
             {
                output.index = dstIdx;
                input.index = srcIdx;

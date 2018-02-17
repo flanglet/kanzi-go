@@ -834,7 +834,7 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
 
         if (srcIdx >= threshold) {
             // Early exit if input does not look like text
-            if (2 * nbTextChars < srcIdx) {
+            if (3 * nbTextChars < srcIdx) {
                 output._index += dstIdx;
                 input._index += srcIdx;
                 return false;
