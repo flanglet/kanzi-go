@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
    <project name="Kanzi Compression" default="build_compress">
    <property name="website" value="https://github.com/flanglet/kanzi"/>
-   <property name="Implementation-Version" value="1.0"/>
-   <property name="src.dir" value="src"/>
+   <property name="Implementation-Version" value="1.4.0-SNAPSHOT"/>
+   <property name="src.dir" value="src/main/java"/>
    <property name="build.dir" value="target"/>
    
    <target name="build_compress" depends="compile_compress">
