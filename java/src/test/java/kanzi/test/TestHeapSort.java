@@ -22,9 +22,9 @@ import org.junit.Test;
 public class TestHeapSort extends TestAbstractSort
 {
     @Test
-    public void testHeaptSort()
+    public void testHeapSort()
     {
         testCorrectness("HeapSort", new HeapSort(), 20);
         testSpeed("HeapSort", new HeapSort(), 10000);
-    }    
+    }
 }
