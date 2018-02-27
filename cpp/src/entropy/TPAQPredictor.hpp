@@ -71,7 +71,7 @@ namespace kanzi
    private:
        static const int MAX_LENGTH = 88;
        static const int BUFFER_SIZE = 64 * 1024 * 1024;
-       static const int HASH_SIZE = 16 * 1024 * 1024;
+       static const int HASH_SIZE = 64 * 1024 * 1024;
        static const int MASK_BUFFER = BUFFER_SIZE - 1;
        static const int MASK_HASH = HASH_SIZE - 1;
        static const int MASK_80808080 = 0x80808080;
