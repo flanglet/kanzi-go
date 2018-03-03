@@ -27,7 +27,7 @@ public class TPAQPredictor implements Predictor
 {
    private static final int MAX_LENGTH = 88;
    private static final int BUFFER_SIZE = 64*1024*1024;
-   private static final int HASH_SIZE = 64*1024*1024;
+   private static final int HASH_SIZE = 16*1024*1024;
    private static final int MASK_BUFFER = BUFFER_SIZE - 1;
    private static final int MASK_HASH = HASH_SIZE - 1;
    private static final int MASK_80808080 = 0x80808080;
@@ -160,7 +160,9 @@ public class TPAQPredictor implements Predictor
    private int hash;
    private final int statesMask;
    private final int mixersMask;
-   private final LogisticAdaptiveProbMap sse;
+   private final int hashMask;
+   private final LogisticAdaptiveProbMap sse0;   
+   private final LogisticAdaptiveProbMap sse1;
    private final Mixer[] mixers;
    private Mixer mixer;                  // current mixer
    private final byte[] buffer;
@@ -186,7 +188,7 @@ public class TPAQPredictor implements Predictor
    
    public TPAQPredictor()
    {
-       this(null); // 256 MB
+      this(null); // 256 MB
    }
 
    
@@ -194,9 +196,19 @@ public class TPAQPredictor implements Predictor
    {
       int statesSize = 1 << 28;
       int mixersSize = 1 << 12;
+      int hashSize = HASH_SIZE;
+      boolean extraPerf = false;
+      int extraMem = 0;
       
       if (ctx != null)
       {
+         // If extra mode, add more memory for states table, hash table
+         // and add second SSE
+         if (ctx.containsKey("extra"))
+            extraPerf = (Boolean) ctx.get("extra");
+            
+         extraMem = (extraPerf == true) ? 1 : 0;
+         
          // Block size requested by the user
          // The user can request a big block size to force more states
          final int rbsz = (Integer) ctx.get("blockSize");
@@ -221,6 +233,9 @@ public class TPAQPredictor implements Predictor
             mixersSize = (absz >= 1024*1024) ? 1 << 10 : 1 << 9;          
       }
 
+      mixersSize <<= extraMem;
+      hashSize <<= (2*extraMem);
+      
       this.pr = 2048;
       this.c0 = 1;
       this.mixers = new Mixer[mixersSize];
@@ -232,11 +247,13 @@ public class TPAQPredictor implements Predictor
       this.bigStatesMap = new byte[statesSize];
       this.smallStatesMap0 = new byte[1<<16];
       this.smallStatesMap1 = new byte[1<<24];
-      this.hashes = new int[HASH_SIZE];
+      this.hashes = new int[hashSize];
       this.buffer = new byte[BUFFER_SIZE];
       this.statesMask = this.bigStatesMap.length - 1;
       this.mixersMask = this.mixers.length - 1;
-      this.sse = new LogisticAdaptiveProbMap(65536, 7);
+      this.hashMask = this.hashes.length - 1;
+      this.sse0 = (extraPerf == true) ? new LogisticAdaptiveProbMap(256, 7) : null;
+      this.sse1 = new LogisticAdaptiveProbMap(65536, 7);
    }
 
 
@@ -254,7 +271,7 @@ public class TPAQPredictor implements Predictor
         this.pos++;
         this.c8 = (this.c8<<8) | (this.c4>>>24);
         this.c4 = (this.c4<<8) | (this.c0&0xFF);
-        this.hash = (((this.hash*43707) << 4) + this.c4) & MASK_HASH;
+        this.hash = (((this.hash*43707) << 4) + this.c4) & this.hashMask;
         this.c0 = 1;
         this.bpos = 0;
         this.binCount += ((this.c4>>7) & 1);
@@ -274,14 +291,14 @@ public class TPAQPredictor implements Predictor
            final int h1 = ((this.c4&MASK_80808080) == 0) ? this.c4 : this.c4>>16;
            final int h2 = ((this.c8&MASK_80808080) == 0) ? this.c8 : this.c8>>16;
            this.ctx4 = createContext(4, this.c4^(this.c8&0xFFFF));
-           this.ctx5 = createContext(5, hash(h1, h2));
+           this.ctx5 = hash(h1, h2); 
            this.ctx6 = hash(HASH, this.c4&MASK_F0F0F0F0);
         }
         else
         {
            // Mostly binary
            this.ctx4 = createContext(4, this.c4^(this.c4&0xFFFF));
-           this.ctx5 = createContext(5, hash(this.c4>>16, this.c8>>16));
+           this.ctx5 = hash(this.c4>>16, this.c8>>16);
            this.ctx6 = ((this.c4&0xFF) << 8) | ((this.c8&0xFFFF) << 16);
         }
 
@@ -327,7 +344,15 @@ public class TPAQPredictor implements Predictor
       int p = this.mixer.get(p0, p1, p2, p3, p4, p5, p6, p7);
 
       // SSE (Secondary Symbol Estimation)
-      p = this.sse.get(bit, p, c | (this.c4&0xFF00));
+      if ((this.sse0 == null) || (this.binCount < (this.pos>>2)))
+      {
+         p = this.sse1.get(bit, p, c | (this.c4&0xFF00));
+      }
+      else 
+      {
+         p = this.sse0.get(bit, p, this.c0);
+         p = (3 * this.sse1.get(bit, p, this.c0 | (this.c4&0xFF00)) + p + 2) >> 2;
+      }
 
       this.pr = p + ((p-2048) >>> 31);
 }

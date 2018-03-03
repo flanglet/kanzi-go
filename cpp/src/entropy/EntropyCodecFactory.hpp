@@ -50,6 +50,7 @@ namespace kanzi {
        static const byte CM_TYPE = 6; // Context Model
        static const byte TPAQ_TYPE = 7; // Tangelo PAQ
        static const byte ANS1_TYPE = 8; // Asymmetric Numerical System order 1
+       static const byte TPAQX_TYPE = 9; // Tangelo PAQ Extra
 
        static EntropyDecoder* newDecoder(InputBitStream& ibs, map<string, string>& ctx, short entropyType) THROW;
 
@@ -89,6 +90,10 @@ namespace kanzi {
        case TPAQ_TYPE: 
            return new BinaryEntropyDecoder(ibs, new TPAQPredictor(&ctx));
        
+       case TPAQX_TYPE: 
+           ctx["extra"] = "true";
+           return new BinaryEntropyDecoder(ibs, new TPAQPredictor(&ctx));
+
        case NONE_TYPE:
            return new NullEntropyDecoder(ibs);
 
@@ -126,6 +131,10 @@ namespace kanzi {
        case TPAQ_TYPE: 
            return new BinaryEntropyEncoder(obs, new TPAQPredictor(&ctx));
        
+       case TPAQX_TYPE: 
+           ctx["extra"] = "true";
+           return new BinaryEntropyEncoder(obs, new TPAQPredictor(&ctx));
+
        case NONE_TYPE:
            return new NullEntropyEncoder(obs);
 
@@ -162,6 +171,9 @@ namespace kanzi {
 
        case TPAQ_TYPE:
            return "TPAQ";
+
+       case TPAQX_TYPE:
+           return "TPAQX";
 
        case NONE_TYPE:
            return "NONE";

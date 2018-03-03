@@ -27,9 +27,8 @@ import (
 const (
 	TPAQ_MAX_LENGTH       = 88
 	TPAQ_BUFFER_SIZE      = 64 * 1024 * 1024
-	TPAQ_HASH_SIZE        = 64 * 1024 * 1024
+	TPAQ_HASH_SIZE        = 16 * 1024 * 1024
 	TPAQ_MASK_BUFFER      = TPAQ_BUFFER_SIZE - 1
-	TPAQ_MASK_HASH        = TPAQ_HASH_SIZE - 1
 	TPAQ_MASK_80808080    = int32(-2139062144) // 0x80808080
 	TPAQ_MASK_F0F0F0F0    = int32(-252645136)  // 0xF0F0F0F0
 	TPAQ_HASH             = int32(200002979)
@@ -157,7 +156,9 @@ type TPAQPredictor struct {
 	hash            int32
 	statesMask      int32
 	mixersMask      int32
-	sse             *LogisticAdaptiveProbMap
+	hashMask        int32
+	sse0            *LogisticAdaptiveProbMap
+	sse1            *LogisticAdaptiveProbMap
 	mixers          []TPAQMixer
 	mixer           *TPAQMixer // current mixer
 	buffer          []int8
@@ -185,8 +186,21 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 	this := new(TPAQPredictor)
 	statesSize := 1 << 28
 	mixersSize := 1 << 12
+	hashSize := TPAQ_HASH_SIZE
+	extraPerf := false
+	extraMem := uint(0)
 
 	if ctx != nil {
+		// If extra mode, add more memory for states table, hash table
+		// and add second SSE
+		if _, containsKey := (*ctx)["extra"]; containsKey {
+			extraPerf = (*ctx)["extra"].(bool)
+		}
+
+		if extraPerf == true {
+			extraMem = 1
+		}
+
 		// Block size requested by the user
 		// The user can request a big block size to force more states
 		rbsz := (*ctx)["blockSize"].(uint)
@@ -217,6 +231,9 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 		}
 	}
 
+	mixersSize <<= extraMem
+	hashSize <<= (2 * extraMem)
+
 	this.mixers = make([]TPAQMixer, mixersSize)
 
 	for i := range this.mixers {
@@ -229,10 +246,11 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 	this.bigStatesMap = make([]uint8, statesSize)
 	this.smallStatesMap0 = make([]uint8, 1<<16)
 	this.smallStatesMap1 = make([]uint8, 1<<24)
-	this.hashes = make([]int32, TPAQ_HASH_SIZE)
+	this.hashes = make([]int32, hashSize)
 	this.buffer = make([]int8, TPAQ_BUFFER_SIZE)
 	this.statesMask = int32(statesSize - 1)
 	this.mixersMask = int32(mixersSize - 1)
+	this.hashMask = int32(hashSize - 1)
 	this.cp0 = &this.smallStatesMap0[0]
 	this.cp1 = &this.smallStatesMap1[0]
 	this.cp2 = &this.bigStatesMap[0]
@@ -242,7 +260,12 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 	this.cp6 = &this.bigStatesMap[0]
 
 	var err error
-	this.sse, err = newLogisticAdaptiveProbMap(65536, 7)
+	this.sse1, err = newLogisticAdaptiveProbMap(65536, 7)
+
+	if extraPerf == true && err == nil {
+		this.sse0, err = newLogisticAdaptiveProbMap(256, 7)
+	}
+
 	return this, err
 }
 
@@ -258,7 +281,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.pos++
 		this.c8 = (this.c8 << 8) | ((this.c4 >> 24) & 0xFF)
 		this.c4 = (this.c4 << 8) | (this.c0 & 0xFF)
-		this.hash = (((this.hash * 43707) << 4) + this.c4) & TPAQ_MASK_HASH
+		this.hash = (((this.hash * 43707) << 4) + this.c4) & this.hashMask
 		this.c0 = 1
 		this.bpos = 0
 		this.binCount += ((this.c4 >> 7) & 1)
@@ -289,12 +312,12 @@ func (this *TPAQPredictor) Update(bit byte) {
 			}
 
 			this.ctx4 = createContext(4, this.c4^(this.c8&0xFFFF))
-			this.ctx5 = createContext(5, hashTPAQ(h1, h2))
+			this.ctx5 = hashTPAQ(h1, h2)
 			this.ctx6 = hashTPAQ(TPAQ_HASH, this.c4&TPAQ_MASK_F0F0F0F0)
 		} else {
 			// Mostly binary
 			this.ctx4 = createContext(4, this.c4^(this.c4&0xFFFF))
-			this.ctx5 = createContext(5, hashTPAQ(this.c4>>16, this.c8>>16))
+			this.ctx5 = hashTPAQ(this.c4>>16, this.c8>>16)
 			this.ctx6 = ((this.c4 & 0xFF) << 8) | ((this.c8 & 0xFFFF) << 16)
 		}
 
@@ -336,7 +359,12 @@ func (this *TPAQPredictor) Update(bit byte) {
 	p := this.mixer.get(p0, p1, p2, p3, p4, p5, p6, p7)
 
 	// SSE (Secondary Symbol Estimation)
-	p = this.sse.get(y, p, int(c|(this.c4&0xFF00)))
+	if this.sse0 == nil || this.binCount < (this.pos>>2) {
+		p = this.sse1.get(y, p, int(c|(this.c4&0xFF00)))
+	} else {
+		p = this.sse0.get(y, p, int(this.c0))
+		p = (3*this.sse1.get(y, p, int(this.c0|(this.c4&0xFF00))) + p + 2) >> 2
+	}
 
 	p32 := uint32(p)
 	this.pr = p + int((p32-2048)>>31)

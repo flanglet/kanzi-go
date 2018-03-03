@@ -71,9 +71,8 @@ namespace kanzi
    private:
        static const int MAX_LENGTH = 88;
        static const int BUFFER_SIZE = 64 * 1024 * 1024;
-       static const int HASH_SIZE = 64 * 1024 * 1024;
+       static const int HASH_SIZE = 16 * 1024 * 1024;
        static const int MASK_BUFFER = BUFFER_SIZE - 1;
-       static const int MASK_HASH = HASH_SIZE - 1;
        static const int MASK_80808080 = 0x80808080;
        static const int MASK_F0F0F0F0 = 0xF0F0F0F0;
        static const int HASH = 200002979;
@@ -88,7 +87,9 @@ namespace kanzi
        int32 _matchLen;
        int32 _matchPos;
        int32 _hash;
-       LogisticAdaptiveProbMap<7> _sse;
+       bool _extra;
+       LogisticAdaptiveProbMap<7> _sse0;
+       LogisticAdaptiveProbMap<7> _sse1;
        TPAQMixer* _mixers;
        TPAQMixer* _mixer; // current mixer
        byte* _buffer;
@@ -98,6 +99,7 @@ namespace kanzi
        uint8* _smallStatesMap1; // hash table(context, prediction)
        int32 _statesMask;
        int32 _mixersMask;
+       int32 _hashMask;
        uint8* _cp0; // context pointers
        uint8* _cp1;
        uint8* _cp2;

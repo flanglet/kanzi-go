@@ -125,12 +125,23 @@ inline int32 TPAQPredictor::hash(int32 x, int32 y)
 }
 
 TPAQPredictor::TPAQPredictor(map<string, string>* ctx)
-    : _sse(65536)
+    : _sse0(256)
+    , _sse1(65536)
 {
     int statesSize = 1 << 28;
     int mixersSize = 1 << 12;
+    int hashSize = HASH_SIZE;
+    _extra = false;
+    uint extraMem = 0;
 
     if (ctx != nullptr) {
+        if (ctx->find("extra") != ctx->end()) {
+            string strExtra = (*ctx)["extra"];
+            _extra = strExtra.compare(0, 5, "true") == 0;
+        }
+
+        extraMem = (_extra == true) ? 1 : 0;
+
         // Block size requested by the user
         // The user can request a big block size to force more states
         string strRBSZ = (*ctx)["blockSize"];
@@ -142,6 +153,7 @@ TPAQPredictor::TPAQPredictor(map<string, string>* ctx)
             statesSize = 1 << 28;
         else
             statesSize = (rbsz >= 1024 * 1024) ? 1 << 27 : 1 << 26;
+
 
         // Actual size of the current block
         // Too many mixers hurts compression for small blocks.
@@ -157,6 +169,8 @@ TPAQPredictor::TPAQPredictor(map<string, string>* ctx)
             mixersSize = (absz >= 1 * 1024 * 1024) ? 1 << 10 : 1 << 9;
     }
 
+    statesSize <<= extraMem;
+    hashSize <<= (2 * extraMem);
     _pr = 2048;
     _c0 = 1;
     _c4 = 0;
@@ -174,12 +188,13 @@ TPAQPredictor::TPAQPredictor(map<string, string>* ctx)
     memset(_smallStatesMap0, 0, 1 << 16);
     _smallStatesMap1 = new uint8[1 << 24];
     memset(_smallStatesMap1, 0, 1 << 24);
-    _hashes = new int32[HASH_SIZE];
-    memset(_hashes, 0, sizeof(int32) * HASH_SIZE);
+    _hashes = new int32[hashSize];
+    memset(_hashes, 0, sizeof(int32) * hashSize);
     _buffer = new byte[BUFFER_SIZE];
     memset(_buffer, 0, BUFFER_SIZE);
     _statesMask = statesSize - 1;
     _mixersMask = mixersSize - 1;
+    _hashMask = hashSize - 1;
     _bpos = 0;
     _cp0 = &_smallStatesMap0[0];
     _cp1 = &_smallStatesMap1[0];
@@ -214,7 +229,7 @@ void TPAQPredictor::update(int bit)
         _pos++;
         _c8 = (_c8 << 8) | ((_c4 >> 24) & 0xFF);
         _c4 = (_c4 << 8) | (_c0 & 0xFF);
-        _hash = (((_hash * 43707) << 4) + _c4) & MASK_HASH;
+        _hash = (((_hash * 43707) << 4) + _c4) & _hashMask;
         _c0 = 1;
         _bpos = 0;
         _binCount += ((_c4 >> 7) & 1);
@@ -233,13 +248,13 @@ void TPAQPredictor::update(int bit)
             int32 h1 = ((_c4 & MASK_80808080) == 0) ? _c4 : _c4 >> 16;
             int32 h2 = ((_c8 & MASK_80808080) == 0) ? _c8 : _c8 >> 16;
             _ctx4 = createContext(4, _c4 ^ (_c8 & 0xFFFF));
-            _ctx5 = createContext(5, hash(h1, h2));
+            _ctx5 = hash(h1, h2);
             _ctx6 = hash(HASH, _c4 & MASK_F0F0F0F0);
         }
         else {
             // Mostly binary
             _ctx4 = createContext(4, _c4 ^ (_c4 & 0xFFFF));
-            _ctx5 = createContext(5, hash(_c4 >> 16, _c8 >> 16));
+            _ctx5 = hash(_c4 >> 16, _c8 >> 16);
             _ctx6 = ((_c4 & 0xFF) << 8) | ((_c8 & 0xFFFF) << 16);
         }
 
@@ -280,7 +295,13 @@ void TPAQPredictor::update(int bit)
     int p = _mixer->get(p0, p1, p2, p3, p4, p5, p6, p7);
 
     // SSE (Secondary Symbol Estimation)
-    p = _sse.get(bit, p, _c0 | (_c4 & 0xFF00));
+    if ((_extra == false) || (_binCount < (_pos >> 2))) {
+        p = _sse1.get(bit, p, _c0 | (_c4 & 0xFF00));
+    }
+    else {
+        p = _sse0.get(bit, p, _c0);
+        p = (3 * _sse1.get(bit, p, _c0 | (_c4 & 0xFF00)) + p + 2) >> 2;
+    }
 
     _pr = p + (uint32(p - 2048) >> 31);
 }

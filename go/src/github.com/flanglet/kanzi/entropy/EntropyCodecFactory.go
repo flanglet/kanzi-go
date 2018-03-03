@@ -31,6 +31,7 @@ const (
 	CM_TYPE      = uint16(6) // Context Model
 	TPAQ_TYPE    = uint16(7) // Tangelo PAQ
 	ANS1_TYPE    = uint16(8) // Asymmetric Numerical System order 1
+	TPAQX_TYPE   = uint16(9) // Tangelo PAQ Extra
 )
 
 func NewEntropyDecoder(ibs kanzi.InputBitStream, ctx map[string]interface{},
@@ -62,6 +63,11 @@ func NewEntropyDecoder(ibs kanzi.InputBitStream, ctx map[string]interface{},
 		return NewBinaryEntropyDecoder(ibs, predictor)
 
 	case TPAQ_TYPE:
+		predictor, _ := NewTPAQPredictor(&ctx)
+		return NewBinaryEntropyDecoder(ibs, predictor)
+
+	case TPAQX_TYPE:
+		ctx["extra"] = true
 		predictor, _ := NewTPAQPredictor(&ctx)
 		return NewBinaryEntropyDecoder(ibs, predictor)
 
@@ -105,6 +111,11 @@ func NewEntropyEncoder(obs kanzi.OutputBitStream, ctx map[string]interface{},
 		predictor, _ := NewTPAQPredictor(&ctx)
 		return NewBinaryEntropyEncoder(obs, predictor)
 
+	case TPAQX_TYPE:
+		ctx["extra"] = true
+		predictor, _ := NewTPAQPredictor(&ctx)
+		return NewBinaryEntropyEncoder(obs, predictor)
+
 	case NONE_TYPE:
 		return NewNullEntropyEncoder(obs)
 
@@ -139,6 +150,9 @@ func GetEntropyCodecName(entropyType uint16) string {
 
 	case TPAQ_TYPE:
 		return "TPAQ"
+
+	case TPAQX_TYPE:
+		return "TPAQX"
 
 	case NONE_TYPE:
 		return "NONE"

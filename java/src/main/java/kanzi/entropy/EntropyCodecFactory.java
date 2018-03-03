@@ -33,6 +33,7 @@ public class EntropyCodecFactory
    public static final byte CM_TYPE      = 6; // Context Model
    public static final byte TPAQ_TYPE    = 7; // Tangelo PAQ
    public static final byte ANS1_TYPE    = 8; // Asymmetric Numerical System order 1
+   public static final byte TPAQX_TYPE   = 9; // Tangelo PAQ Extra
    
    
    public EntropyDecoder newDecoder(InputBitStream ibs, Map<String, Object> ctx, short entropyType)
@@ -59,6 +60,9 @@ public class EntropyCodecFactory
          case CM_TYPE:
             return new BinaryEntropyDecoder(ibs, new CMPredictor());
          case TPAQ_TYPE:
+            return new BinaryEntropyDecoder(ibs, new TPAQPredictor(ctx));
+         case TPAQX_TYPE:
+            ctx.put("extra", true);
             return new BinaryEntropyDecoder(ibs, new TPAQPredictor(ctx));
          case NONE_TYPE:
             return new NullEntropyDecoder(ibs);
@@ -89,7 +93,10 @@ public class EntropyCodecFactory
             return new BinaryEntropyEncoder(obs, new FPAQPredictor());
          case CM_TYPE:
             return new BinaryEntropyEncoder(obs, new CMPredictor());
-         case TPAQ_TYPE:            
+         case TPAQ_TYPE: 
+            return new BinaryEntropyEncoder(obs, new TPAQPredictor(ctx));
+         case TPAQX_TYPE:  
+            ctx.put("extra", true);
             return new BinaryEntropyEncoder(obs, new TPAQPredictor(ctx));
          case NONE_TYPE:
             return new NullEntropyEncoder(obs);
@@ -119,6 +126,8 @@ public class EntropyCodecFactory
             return "CM";
          case TPAQ_TYPE:
             return "TPAQ";
+         case TPAQX_TYPE:
+            return "TPAQX";
          case NONE_TYPE:
             return "NONE";
          default :
@@ -156,7 +165,10 @@ public class EntropyCodecFactory
          return NONE_TYPE;
 
       if (name.equals("TPAQ"))
-         return TPAQ_TYPE;
+         return TPAQ_TYPE;      
+
+      if (name.equals("TPAQX"))
+         return TPAQX_TYPE;
       
       throw new IllegalArgumentException("Unsupported entropy codec type: " + name); 
    } 
