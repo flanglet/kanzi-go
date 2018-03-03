@@ -71,6 +71,12 @@ public final class NullEntropyEncoder implements EntropyEncoder
     }
 
     
+    public void encodeByte(byte val)
+    {
+       this.bitstream.writeBits(val, 8);
+    }
+    
+    
     @Override
     public OutputBitStream getBitStream()
     {

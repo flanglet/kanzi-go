@@ -46,6 +46,10 @@ func (this *NullEntropyEncoder) Encode(block []byte) (int, error) {
 	return len(block), nil
 }
 
+func (this *NullEntropyEncoder) EncodeByte(val byte) {
+	this.bitstream.WriteBits(uint64(val), 8)
+}
+
 func (this *NullEntropyEncoder) BitStream() kanzi.OutputBitStream {
 	return this.bitstream
 }
@@ -75,6 +79,10 @@ func (this *NullEntropyDecoder) Decode(block []byte) (int, error) {
 	}
 
 	return len(block), nil
+}
+
+func (this *NullEntropyDecoder) DecodeByte() byte {
+	return byte(this.bitstream.ReadBits(8))
 }
 
 func (this *NullEntropyDecoder) BitStream() kanzi.InputBitStream {

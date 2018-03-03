@@ -33,6 +33,8 @@ namespace kanzi {
 
        int encode(byte arr[], uint blkptr, uint len);
 
+       void encodeByte(byte val);
+
        OutputBitStream& getBitStream() const { return _bitstream; };
 
        void dispose() {}
@@ -65,6 +67,10 @@ namespace kanzi {
        }
 
        return len;
+   }
+
+   inline void NullEntropyEncoder::encodeByte(byte val) {
+      _bitstream.writeBits(val, 8);
    }
 }
 #endif

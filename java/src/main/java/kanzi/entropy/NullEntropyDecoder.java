@@ -59,6 +59,12 @@ public final class NullEntropyDecoder implements EntropyDecoder
     }
 
 
+    public  byte decodeByte()
+    {
+       return (byte) this.bitstream.readBits(8);
+    }
+    
+    
     @Override
     public InputBitStream getBitStream()
     {

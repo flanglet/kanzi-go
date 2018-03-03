@@ -33,6 +33,8 @@ namespace kanzi {
 
        int decode(byte block[], uint blkptr, uint len);
 
+       byte decodeByte();
+
        InputBitStream& getBitStream() const { return _bitstream; };
 
        void dispose() {}
@@ -58,6 +60,11 @@ namespace kanzi {
            block[i++] = byte(_bitstream.readBits(8));
 
        return len;
+   }
+
+   inline byte NullEntropyDecoder::decodeByte()
+   {
+      return byte(_bitstream.readBits(8));
    }
 }
 #endif
