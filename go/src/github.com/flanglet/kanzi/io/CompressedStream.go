@@ -17,12 +17,12 @@ package io
 
 import (
 	"fmt"
-	"io"
 	kanzi "github.com/flanglet/kanzi"
 	"github.com/flanglet/kanzi/bitstream"
 	"github.com/flanglet/kanzi/entropy"
 	"github.com/flanglet/kanzi/function"
 	"github.com/flanglet/kanzi/util/hash"
+	"io"
 	"sync/atomic"
 	"time"
 )
@@ -285,38 +285,43 @@ func (this *CompressedOutputStream) writeHeader() *IOError {
 	return nil
 }
 
-func (this *CompressedOutputStream) Write(array []byte) (int, error) {
+func (this *CompressedOutputStream) Write(block []byte) (int, error) {
 	if atomic.LoadInt32(&this.closed) == 1 {
 		return 0, NewIOError("Stream closed", kanzi.ERR_WRITE_FILE)
 	}
 
 	startChunk := 0
-	remaining := len(array)
-	bSize := this.jobs * int(this.blockSize)
+	remaining := len(block)
 
 	for remaining > 0 {
-		if this.curIdx >= bSize {
-			// Buffer full, time to encode
-			if err := this.processBlock(false); err != nil {
-				return len(array) - remaining, err
+		lenChunk := len(block) - startChunk
+
+		if lenChunk+this.curIdx >= len(this.data) {
+			// Limit to number of available bytes in buffer
+			lenChunk = len(this.data) - this.curIdx
+		}
+
+		if lenChunk > 0 {
+			// Process a chunk of in-buffer data. No access to bitstream required
+			copy(this.data[this.curIdx:], block[startChunk:startChunk+lenChunk])
+			this.curIdx += lenChunk
+			startChunk += lenChunk
+			remaining -= lenChunk
+
+			if remaining == 0 {
+				break
 			}
 		}
 
-		lenChunk := len(array) - startChunk
-
-		if lenChunk+this.curIdx >= bSize {
-			// Limit to number of available bytes in buffer
-			lenChunk = bSize - this.curIdx
+		if this.curIdx >= len(this.data) {
+			// Buffer full, time to encode
+			if err := this.processBlock(false); err != nil {
+				return len(block) - remaining, err
+			}
 		}
-
-		// Process a chunk of in-buffer data. No access to bitstream required
-		copy(this.data[this.curIdx:], array[startChunk:startChunk+lenChunk])
-		this.curIdx += lenChunk
-		startChunk += lenChunk
-		remaining -= lenChunk
 	}
 
-	return len(array) - remaining, nil
+	return len(block) - remaining, nil
 }
 
 func (this *CompressedOutputStream) Close() error {
@@ -361,8 +366,9 @@ func (this *CompressedOutputStream) processBlock(force bool) error {
 	if !force && len(this.data) < int(this.blockSize)*this.jobs {
 		// Grow byte array until max allowed
 		buf := make([]byte, len(this.data)+int(this.blockSize))
-		copy(this.data, buf)
+		copy(buf, this.data)
 		this.data = buf
+		return nil
 	}
 
 	if atomic.SwapInt32(&this.initialized, 1) == 0 {
