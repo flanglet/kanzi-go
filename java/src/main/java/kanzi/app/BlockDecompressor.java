@@ -47,7 +47,7 @@ import kanzi.Listener;
 
 public class BlockDecompressor implements Runnable, Callable<Integer>
 {
-   private static final int DEFAULT_BUFFER_SIZE = 32768;
+   private static final int DEFAULT_BUFFER_SIZE = 65536;
    private static final int DEFAULT_CONCURRENCY = 1;
    private static final int MAX_CONCURRENCY = 32;
 

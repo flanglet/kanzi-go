@@ -176,7 +176,7 @@ bool CompressedOutputStream::removeListener(Listener& bl)
 
 ostream& CompressedOutputStream::write(const char* data, streamsize length) THROW
 {
-    int remaining = (int)length;
+    int remaining = int(length);
 
     if (remaining < 0)
         throw IOException("Invalid buffer size");

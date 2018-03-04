@@ -59,7 +59,7 @@ namespace kanzi {
    template <class T>
    class FileCompressTask : public Task<T> {
    public:
-       static const int DEFAULT_BUFFER_SIZE = 32768;
+       static const int DEFAULT_BUFFER_SIZE = 65536;
 
        FileCompressTask(map<string, string>& ctx, vector<Listener*>& listeners);
 
