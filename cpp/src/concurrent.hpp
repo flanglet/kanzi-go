@@ -94,7 +94,7 @@ public:
     double elapsed() const
     {
         // In millisec
-        return duration_cast<duration<double> >(_stop - _start).count() * 1000.0;
+        return duration_cast<std::chrono::milliseconds>(_stop - _start).count();
     }
 };
 #else

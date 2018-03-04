@@ -89,7 +89,7 @@ void InfoPrinter::processEvent(const Event& evt)
 
         if (_level >= 5) {
             stringstream ss;
-            ss << evt.toString() << " [" << uint(bi->_time1 - bi->_time0) << " ms]";
+            ss << evt.toString() << " [" << uint(double(bi->_time1 - bi->_time0) / CLOCKS_PER_SEC * 1000.0) << " ms]";
             _os << ss.str() << endl;
         }
     }
@@ -113,7 +113,7 @@ void InfoPrinter::processEvent(const Event& evt)
 
         if (_level >= 5) {
             stringstream ss;
-            ss << evt.toString() << " [" << uint(bi->_time2 - bi->_time1) << " ms]";
+            ss << evt.toString() << " [" << uint(double(bi->_time2 - bi->_time1) / CLOCKS_PER_SEC * 1000.0) << " ms]";
             _os << ss.str() << endl;
         }
     }
@@ -144,20 +144,20 @@ void InfoPrinter::processEvent(const Event& evt)
         stringstream ss;
 
         if (_level >= 5) {
-            ss << evt.toString() << " [" << uint(bi->_time3 - bi->_time2) << " ms]" << endl;
+            ss << evt.toString() << " [" << uint(double(bi->_time3 - bi->_time2) / CLOCKS_PER_SEC * 1000.0) << " ms]" << endl;
         }
 
         // Display block info
         if (_level >= 4) {
             ss << "Block " << currentBlockId << ": " << bi->_stage0Size << " => ";
-            ss << bi->_stage1Size << " [" << uint(bi->_time1 - bi->_time0) << " ms] => " << stage2Size;
-            ss << " [" << uint(bi->_time3 - bi->_time2) << " ms]";
+            ss << bi->_stage1Size << " [" << uint(double(bi->_time1 - bi->_time0) / CLOCKS_PER_SEC * 1000.0) << " ms] => " << stage2Size;
+            ss << " [" << uint(double(bi->_time3 - bi->_time2) / CLOCKS_PER_SEC * 1000.0) << " ms]";
 
             // Add compression ratio for encoding
             if (_type == InfoPrinter::ENCODING) {
                 if (bi->_stage0Size != 0) {
                     char buf[32];
-                    sprintf(buf, " (%d%%)", uint(stage2Size * (double)100 / (double)bi->_stage0Size));
+                    sprintf(buf, " (%d%%)", uint(stage2Size * double(100) / double(bi->_stage0Size)));
                     ss << buf;
                 }
             }
