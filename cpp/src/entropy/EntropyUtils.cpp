@@ -66,7 +66,7 @@ int EntropyUtils::encodeAlphabet(OutputBitStream& obs, uint alphabet[], int leng
 
     // First, push alphabet encoding mode
     if ((length > 0) && (count == length)) {
-        // Fuint64 alphabet
+        // uint64 alphabet
         obs.writeBit(FULL_ALPHABET);
 
         if (count == 256)
@@ -117,8 +117,7 @@ int EntropyUtils::encodeAlphabet(OutputBitStream& obs, uint alphabet[], int leng
         obs.writeBits(log - 1, 4);
         obs.writeBits(count, log);
 
-        if (count == 0)
-        {
+        if (count == 0) {
             delete[] diffs;
             return 0;
         }
@@ -161,8 +160,7 @@ int EntropyUtils::encodeAlphabet(OutputBitStream& obs, uint alphabet[], int leng
         obs.writeBits(log - 1, 4);
         obs.writeBits(count, log);
 
-        if (count == 0)
-        {
+        if (count == 0) {
             delete[] diffs;
             return 0;
         }
@@ -315,6 +313,41 @@ int EntropyUtils::decodeAlphabet(InputBitStream& ibs, uint alphabet[]) THROW
     return count;
 }
 
+// Return the first order entropy in the [0..1024] range
+int EntropyUtils::computeFirstOrderEntropy1024(byte block[], int blkptr, int length)
+{
+    if (length == 0)
+        return 0;
+
+    const int end8 = blkptr + (length & -8);
+
+    for (int i = blkptr; i < end8; i += 8) {
+        _buffer[block[i] & 0xFF]++;
+        _buffer[block[i + 1] & 0xFF]++;
+        _buffer[block[i + 2] & 0xFF]++;
+        _buffer[block[i + 3] & 0xFF]++;
+        _buffer[block[i + 4] & 0xFF]++;
+        _buffer[block[i + 5] & 0xFF]++;
+        _buffer[block[i + 6] & 0xFF]++;
+        _buffer[block[i + 7] & 0xFF]++;
+    }
+
+    for (int i = end8; i < blkptr + length; i++)
+        _buffer[block[i] & 0xFF]++;
+
+    int sum = 0;
+    const int logLength1024 = Global::log2_1024(length);
+
+    for (int i = 0; i < 256; i++) {
+        if (_buffer[i] == 0)
+            continue;
+
+        sum += ((_buffer[i] * (logLength1024 - Global::log2_1024(_buffer[i]))) >> 3);
+    }
+
+    return sum / length;
+}
+
 // Returns the size of the alphabet
 // length is the length of the alphabet array
 // 'totalFreq 'is the sum of frequencies.
@@ -354,11 +387,12 @@ int EntropyUtils::normalizeFrequencies(uint freqs[], uint alphabet[], int length
     uint sumFreq = 0;
     uint freqMax = 0;
     int idxMax = -1;
+    int* errors = &_buffer[0];
 
     // Scale frequencies by stretching distribution over complete range
     for (int i = 0; (i < length) && (sumFreq < totalFreq); i++) {
         alphabet[i] = 0;
-        _errors[i] = 0;
+        errors[i] = 0;
         const uint f = freqs[i];
 
         if (f == 0)
@@ -385,10 +419,10 @@ int EntropyUtils::normalizeFrequencies(uint freqs[], uint alphabet[], int length
 
             if (errCeiling < errFloor) {
                 scaledFreq++;
-                _errors[i] = int(errCeiling);
+                errors[i] = int(errCeiling);
             }
             else {
-                _errors[i] = int(errFloor);
+                errors[i] = int(errFloor);
             }
         }
 
@@ -417,8 +451,8 @@ int EntropyUtils::normalizeFrequencies(uint freqs[], uint alphabet[], int length
 
             // Create sorted queue of present symbols (except those with 'quantum frequency')
             for (int i = 0; i < alphabetSize; i++) {
-                if ((_errors[alphabet[i]] > 0) && (int(freqs[alphabet[i]]) != -inc)) {
-                    queue.push_back(new FreqSortData(_errors, freqs, alphabet[i]));
+                if ((errors[alphabet[i]] > 0) && (int(freqs[alphabet[i]]) != -inc)) {
+                    queue.push_back(new FreqSortData(errors, freqs, alphabet[i]));
                 }
             }
 
@@ -438,7 +472,7 @@ int EntropyUtils::normalizeFrequencies(uint freqs[], uint alphabet[], int length
 
                 // Distort frequency and error
                 freqs[fsd->_symbol] += inc;
-                _errors[fsd->_symbol] -= scale;
+                errors[fsd->_symbol] -= scale;
                 sumScaledFreq += inc;
                 queue.push_back(fsd);
                 push_heap(queue.begin(), queue.end(), FreqDataComparator());

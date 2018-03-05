@@ -26,6 +26,7 @@ namespace kanzi
    class EntropyUtils
    {
    private:
+       static const int INCOMPRESSIBLE_THRESHOLD = 973; // 0.95*1024
        static const int FULL_ALPHABET = 0;
        static const int PARTIAL_ALPHABET = 1;
        static const int ALPHABET_256 = 0;
@@ -35,14 +36,14 @@ namespace kanzi
        static const int PRESENT_SYMBOLS_MASK = 0;
        static const int ABSENT_SYMBOLS_MASK = 1;
 
-       int _errors[65536];
+       int _buffer[65536];
 
        static void encodeSize(OutputBitStream& obs, int log, int val);
 
        static uint64 decodeSize(InputBitStream& ibs, int log);
 
    public:
-       EntropyUtils() { memset(_errors, 0, sizeof(int) * 65536); }
+       EntropyUtils() { memset(_buffer, 0, sizeof(int) * 65536); }
 
        ~EntropyUtils() {}
 
@@ -51,6 +52,8 @@ namespace kanzi
        static int decodeAlphabet(InputBitStream& ibs, uint alphabet[]) THROW;
 
        int normalizeFrequencies(uint freqs[], uint alphabet[], int length, uint totalFreq, uint scale) THROW;
+
+       int computeFirstOrderEntropy1024(byte block[], int blkptr, int length);
    };
 
 }

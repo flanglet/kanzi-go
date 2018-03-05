@@ -22,6 +22,7 @@ import (
 )
 
 const (
+	INCOMPRESSIBLE_THRESHOLD = 973
 	FULL_ALPHABET            = 0
 	PARTIAL_ALPHABET         = 1
 	ALPHABET_256             = 0
@@ -109,12 +110,12 @@ func (this *FreqSortPriorityQueue) Pop() interface{} {
 }
 
 type EntropyUtils struct {
-	errors []int
+	buffer []int
 }
 
 func NewEntropyUtils() (*EntropyUtils, error) {
 	this := new(EntropyUtils)
-	this.errors = make([]int, 0)
+	this.buffer = make([]int, 0)
 	return this, nil
 }
 
@@ -394,7 +395,49 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 	return count, nil
 }
 
-// Returns the size of the alphabet
+// Return the first order entropy in the [0..1024] range
+func (this *EntropyUtils) ComputeFirstOrderEntropy1024(block []byte) int {
+	if len(block) == 0 {
+		return 0
+	}
+
+	if len(this.buffer) < 256 {
+		this.buffer = make([]int, 256)
+	}
+
+	end8 := len(block) & -8
+
+	for i := 0; i < end8; i += 8 {
+		this.buffer[block[i]]++
+		this.buffer[block[i+1]]++
+		this.buffer[block[i+2]]++
+		this.buffer[block[i+3]]++
+		this.buffer[block[i+4]]++
+		this.buffer[block[i+5]]++
+		this.buffer[block[i+6]]++
+		this.buffer[block[i+7]]++
+	}
+
+	for i := end8; i < len(block); i++ {
+		this.buffer[block[i]]++
+	}
+
+	sum := 0
+	logLength1024, _ := kanzi.Log2_1024(len(block))
+
+	for i := 0; i < 256; i++ {
+		if this.buffer[i] == 0 {
+			continue
+		}
+
+		log1024, _ := kanzi.Log2_1024(this.buffer[i])
+		sum += ((this.buffer[i] * (logLength1024 - log1024)) >> 3)
+	}
+
+	return sum / len(block)
+}
+
+// Return the size of the alphabet
 // The alphabet and freqs parameters are updated
 func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (int, error) {
 	if len(alphabet) > 1<<8 {
@@ -423,10 +466,11 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, tota
 		return alphabetSize, nil
 	}
 
-	if len(this.errors) < len(alphabet) {
-		this.errors = make([]int, len(alphabet))
+	if len(this.buffer) < len(alphabet) {
+		this.buffer = make([]int, len(alphabet))
 	}
 
+	errors := this.buffer
 	sumScaledFreq := 0
 	freqMax := 0
 	idxMax := -1
@@ -434,7 +478,7 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, tota
 	// Scale frequencies by stretching distribution over complete range
 	for i := range alphabet {
 		alphabet[i] = 0
-		this.errors[i] = 0
+		errors[i] = 0
 		f := freqs[i]
 
 		if f == 0 {
@@ -460,9 +504,9 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, tota
 
 			if errCeiling < errFloor {
 				scaledFreq++
-				this.errors[i] = int(errCeiling)
+				errors[i] = int(errCeiling)
 			} else {
-				this.errors[i] = int(errFloor)
+				errors[i] = int(errFloor)
 			}
 		}
 
@@ -499,8 +543,8 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, tota
 
 			// Create sorted queue of present symbols (except those with 'quantum frequency')
 			for i := 0; i < alphabetSize; i++ {
-				if this.errors[alphabet[i]] > 0 && freqs[alphabet[i]] != -inc {
-					heap.Push(&queue, &FreqSortData{errors: this.errors, frequencies: freqs, symbol: alphabet[i]})
+				if errors[alphabet[i]] > 0 && freqs[alphabet[i]] != -inc {
+					heap.Push(&queue, &FreqSortData{errors: errors, frequencies: freqs, symbol: alphabet[i]})
 				}
 			}
 
@@ -515,7 +559,7 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, tota
 
 				// Distort frequency and error
 				freqs[fsd.symbol] += inc
-				this.errors[fsd.symbol] -= scale
+				errors[fsd.symbol] -= scale
 				sumScaledFreq += inc
 				heap.Push(&queue, fsd)
 			}

@@ -17,12 +17,14 @@ package kanzi.entropy;
 
 import java.util.PriorityQueue;
 import kanzi.BitStreamException;
+import kanzi.Global;
 import kanzi.InputBitStream;
 import kanzi.OutputBitStream;
 
 
 public class EntropyUtils
 {
+   public static final int INCOMPRESSIBLE_THRESHOLD = 973; // 0.95*1024
    private static final int FULL_ALPHABET = 0;
    private static final int PARTIAL_ALPHABET = 1;
    private static final int ALPHABET_256 = 0;
@@ -30,15 +32,15 @@ public class EntropyUtils
    private static final int DELTA_ENCODED_ALPHABET = 0;
    private static final int BIT_ENCODED_ALPHABET_256 = 1;
    private static final int PRESENT_SYMBOLS_MASK = 0;
-   private static final int ABSENT_SYMBOLS_MASK = 1;
+   private static final int ABSENT_SYMBOLS_MASK = 1;   
 
 
-   private int[] errors;
+   private int[] buffer;
 
 
    public EntropyUtils()
    {
-      this.errors = new int[0];
+      this.buffer = new int[0];
    }
 
    
@@ -320,10 +322,51 @@ public class EntropyUtils
 
       return count;
    }
+   
+   
+   // Return the first order entropy in the [0..1024] range
+   public int computeFirstOrderEntropy1024(byte[] block, int blkptr, int length)
+   {
+      if (length == 0)
+         return 0;
+      
+      if (this.buffer.length < 256)
+         this.buffer = new int[256];
+      
+      final int end8 = blkptr + (length&-8);
+      
+      for (int i=blkptr; i<end8; i+=8)
+      {
+         this.buffer[block[i]   & 0xFF]++;
+         this.buffer[block[i+1] & 0xFF]++;
+         this.buffer[block[i+2] & 0xFF]++;
+         this.buffer[block[i+3] & 0xFF]++;
+         this.buffer[block[i+4] & 0xFF]++;
+         this.buffer[block[i+5] & 0xFF]++;
+         this.buffer[block[i+6] & 0xFF]++;
+         this.buffer[block[i+7] & 0xFF]++;
+      } 
+      
+      for (int i=end8; i<blkptr+length; i++)
+         this.buffer[block[i] & 0xFF]++;
+      
+      int sum = 0;
+      final int logLength1024 = Global.log2_1024(length);
+      
+      for (int i=0; i<256; i++)
+      {
+         if (this.buffer[i] == 0)
+            continue;
+         
+         sum += ((this.buffer[i]*(logLength1024-Global.log2_1024(this.buffer[i]))) >> 3);
+      }
+      
+      return sum / length;
+   }
 
    
    // Not thread safe
-   // Returns the size of the alphabet
+   // Return the size of the alphabet
    // The alphabet and freqs parameters are updated
    public int normalizeFrequencies(int[] freqs, int[] alphabet, int totalFreq, int scale)
    {
@@ -352,9 +395,10 @@ public class EntropyUtils
          return alphabetSize;
       }
 
-      if (this.errors.length < alphabet.length)
-         this.errors = new int[alphabet.length];   
+      if (this.buffer.length < alphabet.length)
+         this.buffer = new int[alphabet.length];   
       
+      final int[] errors = this.buffer;
       int sumScaledFreq = 0;
       int freqMax = 0;
       int idxMax = -1;
@@ -363,7 +407,7 @@ public class EntropyUtils
       for (int i=0; i<alphabet.length; i++)
       {
          alphabet[i] = 0;
-         this.errors[i] = 0;
+         errors[i] = 0;
          final int f = freqs[i];
 
          if (f == 0)
@@ -393,11 +437,11 @@ public class EntropyUtils
             if (errCeiling < errFloor)
             {
                scaledFreq++;
-               this.errors[i] = (int) errCeiling;
+               errors[i] = (int) errCeiling;
             }
             else
             {
-               this.errors[i] = (int) errFloor;
+               errors[i] = (int) errFloor;
             }
          }
 
@@ -431,8 +475,8 @@ public class EntropyUtils
             // Create sorted queue of present symbols (except those with 'quantum frequency')
             for (int i=0; i<alphabetSize; i++)
             {
-               if ((this.errors[alphabet[i]] >= 0) && (freqs[alphabet[i]] != -inc))
-                  queue.add(new FreqSortData(this.errors, freqs, alphabet[i]));
+               if ((errors[alphabet[i]] >= 0) && (freqs[alphabet[i]] != -inc))
+                  queue.add(new FreqSortData(errors, freqs, alphabet[i]));
             }
 
             while ((sumScaledFreq != scale) && (queue.size() > 0))
@@ -446,7 +490,7 @@ public class EntropyUtils
 
                 // Distort frequency and error
                 freqs[fsd.symbol] += inc;
-                this.errors[fsd.symbol] -= scale;
+                errors[fsd.symbol] -= scale;
                 sumScaledFreq += inc;
                 queue.add(fsd);
             }

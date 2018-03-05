@@ -282,7 +282,7 @@ inline int Global::len32(int32 x)
 
 // Return 1024 * log2(x)
 // Max error is around 0.1%
-inline int Global::log2_1024(int32 x) THROW
+int Global::log2_1024(int32 x) THROW
 {
     if (x <= 0)
         throw IllegalArgumentException("Cannot calculate log of a negative or null value");
