@@ -335,17 +335,17 @@ int EntropyUtils::computeFirstOrderEntropy1024(byte block[], int blkptr, int len
     for (int i = end8; i < blkptr + length; i++)
         _buffer[block[i] & 0xFF]++;
 
-    int sum = 0;
+    uint64 sum = 0;
     const int logLength1024 = Global::log2_1024(length);
 
     for (int i = 0; i < 256; i++) {
         if (_buffer[i] == 0)
             continue;
 
-        sum += ((_buffer[i] * (logLength1024 - Global::log2_1024(_buffer[i]))) >> 3);
+        sum += uint64((_buffer[i] * (logLength1024 - Global::log2_1024(_buffer[i]))) >> 3);
     }
 
-    return sum / length;
+    return int(sum / uint64(length));
 }
 
 // Returns the size of the alphabet

@@ -350,7 +350,7 @@ public class EntropyUtils
       for (int i=end8; i<blkptr+length; i++)
          this.buffer[block[i] & 0xFF]++;
       
-      int sum = 0;
+      long sum = 0;
       final int logLength1024 = Global.log2_1024(length);
       
       for (int i=0; i<256; i++)
@@ -361,7 +361,7 @@ public class EntropyUtils
          sum += ((this.buffer[i]*(logLength1024-Global.log2_1024(this.buffer[i]))) >> 3);
       }
       
-      return sum / length;
+      return (int) (sum / length);
    }
 
    

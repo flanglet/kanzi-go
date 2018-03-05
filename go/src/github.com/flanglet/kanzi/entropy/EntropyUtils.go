@@ -422,7 +422,7 @@ func (this *EntropyUtils) ComputeFirstOrderEntropy1024(block []byte) int {
 		this.buffer[block[i]]++
 	}
 
-	sum := 0
+	sum := uint64(0)
 	logLength1024, _ := kanzi.Log2_1024(len(block))
 
 	for i := 0; i < 256; i++ {
@@ -431,10 +431,10 @@ func (this *EntropyUtils) ComputeFirstOrderEntropy1024(block []byte) int {
 		}
 
 		log1024, _ := kanzi.Log2_1024(this.buffer[i])
-		sum += ((this.buffer[i] * (logLength1024 - log1024)) >> 3)
+		sum += uint64((this.buffer[i] * (logLength1024 - log1024)) >> 3)
 	}
 
-	return sum / len(block)
+	return int(sum / uint64(len(block)))
 }
 
 // Return the size of the alphabet
