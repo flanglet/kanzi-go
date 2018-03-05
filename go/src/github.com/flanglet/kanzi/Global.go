@@ -314,7 +314,7 @@ func Log2_1024(x int) (int, error) {
 	// series expansion than log2(512) + log2(1-255/512)
 	if z >= int64(1)<<(log-1) {
 		// z in [0.5, 0.75[ => rescale x so that z in [0, 0.25[
-		if z < int64(1)<<(log-1)+int64(1)<<(log-2) {
+		if z < (int64(1)<<(log-1))+(int64(1)<<(log-2)) {
 			base = 497
 			x = int(int64(x) * 5 / 7)
 		}

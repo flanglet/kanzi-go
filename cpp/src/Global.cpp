@@ -295,26 +295,26 @@ int Global::log2_1024(int32 x) THROW
 
     int log = 8;
 
-    for (uint64 y = x + 1; y >= 512; y >>= 1)
+    for (int64 y = x + 1; y >= 512; y >>= 1)
         log++;
 
     // x is a power of 2 ?
     if ((x & (x - 1)) == 0)
         return log << 10;
 
-    uint64 base = 0;
-    uint64 z = uint64(x) - (uint64(1) << log);
+    int64 base = 0;
+    int64 z = int64(x) - (int64(1) << log);
 
     // Use the fact that log2(x) = log2(2^(log2(x)+1)*y) = log2(2^p)+ 1 + ln(1-z)/ln(2)
     // with z in ]0, 0.5[, it yields log2(x) = p + 1 - (z/1 + z^2/2 + z^3/3 ...)/ln(2)
     // To improve accuracy (keep z in ]0, 0.25[), one can choose either (1+z) or (1-z).
     // EG: log2(257) = log2(256) + log2(1+1/256) is better approximated with Taylor
     // series expansion than log2(512) + log2(1-255/512)
-    if (z > (uint64(1) << (log - 1))) {
+    if (z > (int64(1) << (log - 1))) {
         // z in [0.5, 0.75[ => rescale x so that z in [0, 0.25[
-        if (z < (uint64(1) << (log - 1)) + (uint64(1) << (log - 2))) {
+        if (z < (int64(1) << (log - 1)) + (int64(1) << (log - 2))) {
             base = 497;
-            x = int(x * uint64(5) / uint64(7));
+            x = int(x * int64(5) / int64(7));
         }
 
         // z in [0.75, 1[ => select 1 - x Taylor series expansion
@@ -322,22 +322,22 @@ int Global::log2_1024(int32 x) THROW
     }
     else {
         // z in [0.25, 0.5[ => rescale x so that z in [0, 0.25[
-        if (z >= (uint64(1) << (log - 2))) {
+        if (z >= (int64(1) << (log - 2))) {
             base = 269;
-            x = int(x * uint64(5) / uint64(6));
+            x = int(x * int64(5) / int64(6));
         }
 
         // select 1 + x Taylor series expansion
     }
 
     z = x - (1 << log);
-    uint64 z2 = (z * z) >> log;
-    uint64 taylor = z;
+    int64 z2 = (z * z) >> log;
+    int64 taylor = z;
     taylor -= (z2 >> 1);
     taylor += (((z * z2) / 3) >> log);
     taylor -= ((z2 * z2) >> (log + 2));
     taylor = (taylor * 5909) >> (log + 2); // rescale: 4096*1/log(2)
-    return int(base + (uint64(log) << 10) + taylor);
+    return int(base + (int64(log) << 10) + taylor);
 }
 
 // Integer SQRT implementation based on algorithm at

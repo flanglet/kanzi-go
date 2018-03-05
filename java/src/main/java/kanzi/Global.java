@@ -286,7 +286,7 @@ public class Global
       if (z > 1L << (log-1))
       {         
          // z in [0.5, 0.75[ => rescale x so that z in [0, 0.25[
-         if (z < 1L << (log-1) + 1L << (log-2)) 
+         if (z < (1L << (log-1)) + (1L << (log-2))) 
          {
             base = 497;
             x = (int) ((x * 5L) / 7L);   
