@@ -18,8 +18,8 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	kanzi "github.com/flanglet/kanzi"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"

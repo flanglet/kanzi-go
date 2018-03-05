@@ -124,7 +124,7 @@ func NewEntropyEncoder(obs kanzi.OutputBitStream, ctx map[string]interface{},
 	}
 }
 
-func GetEntropyCodecName(entropyType uint16) string {
+func GetName(entropyType uint16) string {
 	switch uint16(entropyType) {
 
 	case HUFFMAN_TYPE:
@@ -162,7 +162,7 @@ func GetEntropyCodecName(entropyType uint16) string {
 	}
 }
 
-func GetEntropyCodecType(entropyName string) uint16 {
+func GetType(entropyName string) uint16 {
 	switch strings.ToUpper(entropyName) {
 
 	case "HUFFMAN":

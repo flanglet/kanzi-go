@@ -13,37 +13,36 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package io
+package function
 
 import (
 	"fmt"
 	kanzi "github.com/flanglet/kanzi"
-	"github.com/flanglet/kanzi/function"
 	"github.com/flanglet/kanzi/transform"
 	"strings"
 )
 
 const (
 	// Up to 15 transforms can be declared (4 bit index)
-	NULL_TRANSFORM_TYPE = uint16(0)  // copy
-	BWT_TYPE            = uint16(1)  // Burrows Wheeler
-	BWTS_TYPE           = uint16(2)  // Burrows Wheeler Scott
-	LZ4_TYPE            = uint16(3)  // LZ4
-	SNAPPY_TYPE         = uint16(4)  // Snappy
-	RLT_TYPE            = uint16(5)  // Run Length
-	ZRLT_TYPE           = uint16(6)  // Zero Run Length
-	MTFT_TYPE           = uint16(7)  // Move To Front
-	RANK_TYPE           = uint16(8)  // Rank
-	X86_TYPE            = uint16(9)  // X86 codec
-	DICT_TYPE           = uint16(10) // Text codec
+	NONE_TYPE   = uint16(0)  // copy
+	BWT_TYPE    = uint16(1)  // Burrows Wheeler
+	BWTS_TYPE   = uint16(2)  // Burrows Wheeler Scott
+	LZ4_TYPE    = uint16(3)  // LZ4
+	SNAPPY_TYPE = uint16(4)  // Snappy
+	RLT_TYPE    = uint16(5)  // Run Length
+	ZRLT_TYPE   = uint16(6)  // Zero Run Length
+	MTFT_TYPE   = uint16(7)  // Move To Front
+	RANK_TYPE   = uint16(8)  // Rank
+	X86_TYPE    = uint16(9)  // X86 codec
+	DICT_TYPE   = uint16(10) // Text codec
 )
 
-func NewByteFunction(ctx map[string]interface{}, functionType uint16) (*function.ByteTransformSequence, error) {
+func NewByteFunction(ctx map[string]interface{}, functionType uint16) (*ByteTransformSequence, error) {
 	nbtr := 0
 
 	// Several transforms
 	for i := uint(0); i < 4; i++ {
-		if (functionType>>(12-4*i))&0x0F != NULL_TRANSFORM_TYPE {
+		if (functionType>>(12-4*i))&0x0F != NONE_TYPE {
 			nbtr++
 		}
 	}
@@ -60,7 +59,7 @@ func NewByteFunction(ctx map[string]interface{}, functionType uint16) (*function
 	for i := range transforms {
 		t := (functionType >> (12 - uint(4*i))) & 0x0F
 
-		if t != NULL_TRANSFORM_TYPE || i == 0 {
+		if t != NONE_TYPE || i == 0 {
 			if transforms[nbtr], err = newByteFunctionToken(ctx, t); err != nil {
 				return nil, err
 			}
@@ -69,20 +68,20 @@ func NewByteFunction(ctx map[string]interface{}, functionType uint16) (*function
 		nbtr++
 	}
 
-	return function.NewByteTransformSequence(transforms)
+	return NewByteTransformSequence(transforms)
 }
 
 func newByteFunctionToken(ctx map[string]interface{}, functionType uint16) (kanzi.ByteTransform, error) {
 	switch uint16(functionType & 0x0F) {
 
 	case SNAPPY_TYPE:
-		return function.NewSnappyCodec()
+		return NewSnappyCodec()
 
 	case LZ4_TYPE:
-		return function.NewLZ4Codec()
+		return NewLZ4Codec()
 
 	case BWT_TYPE:
-		return function.NewBWTBlockCodec()
+		return NewBWTBlockCodec()
 
 	case BWTS_TYPE:
 		return transform.NewBWTS()
@@ -91,35 +90,35 @@ func newByteFunctionToken(ctx map[string]interface{}, functionType uint16) (kanz
 		return transform.NewMTFT()
 
 	case ZRLT_TYPE:
-		return function.NewZRLT()
+		return NewZRLT()
 
 	case RLT_TYPE:
-		return function.NewRLT(2)
+		return NewRLT(2)
 
 	case RANK_TYPE:
 		return transform.NewSBRT(transform.SBRT_MODE_RANK)
 
 	case DICT_TYPE:
-		return function.NewTextCodecFromMap(ctx)
+		return NewTextCodecFromMap(ctx)
 
 	case X86_TYPE:
-		return function.NewX86Codec()
+		return NewX86Codec()
 
-	case NULL_TRANSFORM_TYPE:
-		return function.NewNullFunction()
+	case NONE_TYPE:
+		return NewNullFunction()
 
 	default:
 		return nil, fmt.Errorf("Unknown transform type: '%v'", functionType)
 	}
 }
 
-func GetByteFunctionName(functionType uint16) string {
+func GetName(functionType uint16) string {
 	var s string
 
 	for i := uint(0); i < 4; i++ {
 		t := functionType >> (12 - 4*i)
 
-		if t&0x0F == NULL_TRANSFORM_TYPE {
+		if t&0x0F == NONE_TYPE {
 			continue
 		}
 
@@ -133,7 +132,7 @@ func GetByteFunctionName(functionType uint16) string {
 	}
 
 	if len(s) == 0 {
-		s += getByteFunctionNameToken(NULL_TRANSFORM_TYPE)
+		s += getByteFunctionNameToken(NONE_TYPE)
 	}
 
 	return s
@@ -172,7 +171,7 @@ func getByteFunctionNameToken(functionType uint16) string {
 	case DICT_TYPE:
 		return "TEXT"
 
-	case NULL_TRANSFORM_TYPE:
+	case NONE_TYPE:
 		return "NONE"
 
 	default:
@@ -181,7 +180,7 @@ func getByteFunctionNameToken(functionType uint16) string {
 }
 
 // The returned type contains 4 (nibble based) transform values
-func GetByteFunctionType(name string) uint16 {
+func GetType(name string) uint16 {
 	if strings.IndexByte(name, byte('+')) < 0 {
 		return getByteFunctionTypeToken(name) << 12
 	}
@@ -203,7 +202,7 @@ func GetByteFunctionType(name string) uint16 {
 		tkType := getByteFunctionTypeToken(token)
 
 		// Skip null transform
-		if tkType != NULL_TRANSFORM_TYPE {
+		if tkType != NONE_TYPE {
 			res |= (tkType << shift)
 			shift -= 4
 		}
@@ -248,7 +247,7 @@ func getByteFunctionTypeToken(name string) uint16 {
 		return DICT_TYPE
 
 	case "NONE":
-		return NULL_TRANSFORM_TYPE
+		return NONE_TYPE
 
 	default:
 		panic(fmt.Errorf("Unknown transform type: '%v'", name))

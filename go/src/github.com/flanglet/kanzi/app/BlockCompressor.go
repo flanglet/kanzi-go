@@ -17,9 +17,10 @@ package main
 
 import (
 	"fmt"
-	"io"
 	kanzi "github.com/flanglet/kanzi"
+	"github.com/flanglet/kanzi/function"
 	kio "github.com/flanglet/kanzi/io"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -110,7 +111,7 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 	}
 
 	// Extract transform names. Curate input (EG. NONE+NONE+xxxx => xxxx)
-	this.transform = kio.GetByteFunctionName(kio.GetByteFunctionType(strTransf))
+	this.transform = function.GetName(function.GetType(strTransf))
 
 	if check, prst := argsMap["checksum"]; prst == true {
 		this.checksum = check.(bool)

@@ -18,8 +18,8 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io"
 	kanzi "github.com/flanglet/kanzi"
+	"io"
 	"sync"
 	"time"
 )

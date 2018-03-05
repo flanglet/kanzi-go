@@ -39,8 +39,8 @@ const (
 	STREAM_DEFAULT_BUFFER_SIZE = 1024 * 1024
 	EXTRA_BUFFER_SIZE          = 256
 	COPY_LENGTH_MASK           = 0x0F
-	SMALL_BLOCK_MASK           = 0x80
-	SKIP_FUNCTION_MASK         = 0x40
+	ZERO_BLOCK_MASK            = 0x80
+	COPY_BLOCK_MASK            = 0x40
 	MIN_BITSTREAM_BLOCK_SIZE   = 1024
 	MAX_BITSTREAM_BLOCK_SIZE   = 1024 * 1024 * 1024
 	SMALL_BLOCK_SIZE           = 15
@@ -100,18 +100,18 @@ type CompressedOutputStream struct {
 }
 
 type EncodingTask struct {
-	iBuffer         *blockBuffer
-	oBuffer         *blockBuffer
-	hasher          *hash.XXHash32
-	blockLength     uint
-	typeOfTransform uint16
-	typeOfEntropy   uint16
-	currentBlockId  int
-	input           chan error
-	output          chan error
-	listeners       []kanzi.Listener
-	obs             kanzi.OutputBitStream
-	ctx             map[string]interface{}
+	iBuffer            *blockBuffer
+	oBuffer            *blockBuffer
+	hasher             *hash.XXHash32
+	blockLength        uint
+	blockTransformType uint16
+	blockEntropyType   uint16
+	currentBlockId     int
+	input              chan error
+	output             chan error
+	listeners          []kanzi.Listener
+	obs                kanzi.OutputBitStream
+	ctx                map[string]interface{}
 }
 
 func NewCompressedOutputStream(os io.WriteCloser, ctx map[string]interface{}) (*CompressedOutputStream, error) {
@@ -166,10 +166,10 @@ func NewCompressedOutputStream(os io.WriteCloser, ctx map[string]interface{}) (*
 	}
 
 	// Check entropy type validity (panic on error)
-	this.entropyType = entropy.GetEntropyCodecType(entropyCodec)
+	this.entropyType = entropy.GetType(entropyCodec)
 
 	// Check transform type validity (panic on error)
-	this.transformType = GetByteFunctionType(transform)
+	this.transformType = function.GetType(transform)
 	nbBlocks := uint8(0)
 
 	this.blockSize = bSize
@@ -338,7 +338,7 @@ func (this *CompressedOutputStream) Close() error {
 	}
 
 	// Write end block of size 0
-	this.obs.WriteBits(SMALL_BLOCK_MASK, 8)
+	this.obs.WriteBits(ZERO_BLOCK_MASK, 8)
 
 	if _, err := this.obs.Close(); err != nil {
 		return err
@@ -409,18 +409,18 @@ func (this *CompressedOutputStream) processBlock(force bool) error {
 		}
 
 		task := EncodingTask{
-			iBuffer:         &this.buffers[2*jobId],
-			oBuffer:         &this.buffers[2*jobId+1],
-			hasher:          this.hasher,
-			blockLength:     sz,
-			typeOfTransform: this.transformType,
-			typeOfEntropy:   this.entropyType,
-			currentBlockId:  this.blockId + jobId + 1,
-			input:           this.channels[jobId],
-			output:          this.channels[jobId+1],
-			obs:             this.obs,
-			listeners:       listeners,
-			ctx:             copyCtx}
+			iBuffer:            &this.buffers[2*jobId],
+			oBuffer:            &this.buffers[2*jobId+1],
+			hasher:             this.hasher,
+			blockLength:        sz,
+			blockTransformType: this.transformType,
+			blockEntropyType:   this.entropyType,
+			currentBlockId:     this.blockId + jobId + 1,
+			input:              this.channels[jobId],
+			output:             this.channels[jobId+1],
+			obs:                this.obs,
+			listeners:          listeners,
+			ctx:                copyCtx}
 
 		// Invoke the tasks concurrently
 		// Tasks are chained through channels. Upon completion of transform
@@ -447,7 +447,8 @@ func (this *CompressedOutputStream) GetWritten() uint64 {
 }
 
 // Encode mode + transformed entropy coded data
-// mode: 0b1000xxxx => small block (written as is) + 4 LSB for block size (0-15)
+// mode: 0b10000000 => empty block
+//       0x01000000 => copy block
 //       0x00xxxx00 => transform sequence skip flags (1 means skip)
 //       0x000000xx => size(size(block))-1
 func (this *EncodingTask) encode() {
@@ -471,53 +472,58 @@ func (this *EncodingTask) encode() {
 	}
 
 	if this.blockLength <= SMALL_BLOCK_SIZE {
-		// Just copy
-		if !kanzi.SameByteSlices(buffer, data, false) {
-			if len(buffer) < int(this.blockLength) {
-				buffer = make([]byte, this.blockLength)
-				this.oBuffer.Buf = buffer
-			}
-
-			copy(buffer, data[0:this.blockLength])
+		if this.blockLength == 0 {
+			this.blockTransformType = function.NONE_TYPE
+			this.blockEntropyType = entropy.NONE_TYPE
+			mode |= byte(ZERO_BLOCK_MASK)
+		} else {
+			mode |= byte(COPY_BLOCK_MASK)
 		}
-
-		mode = byte(SMALL_BLOCK_SIZE | (this.blockLength & COPY_LENGTH_MASK))
 	} else {
-		this.ctx["size"] = this.blockLength
-		t, err := NewByteFunction(this.ctx, this.typeOfTransform)
+		eu, _ := entropy.NewEntropyUtils()
+		entropy1024 := eu.ComputeFirstOrderEntropy1024(data[0:this.blockLength])
 
-		if err != nil {
-			<-this.input
-			this.output <- NewIOError(err.Error(), kanzi.ERR_CREATE_CODEC)
-			return
+		if entropy1024 >= entropy.INCOMPRESSIBLE_THRESHOLD {
+			this.blockTransformType = function.NONE_TYPE
+			this.blockEntropyType = entropy.NONE_TYPE
+			mode |= COPY_BLOCK_MASK
 		}
+	}
 
-		requiredSize := t.MaxEncodedLen(int(this.blockLength))
+	this.ctx["size"] = this.blockLength
+	t, err := function.NewByteFunction(this.ctx, this.blockTransformType)
 
-		if len(buffer) < requiredSize {
-			buffer = make([]byte, requiredSize)
-			this.oBuffer.Buf = buffer
-		}
+	if err != nil {
+		<-this.input
+		this.output <- NewIOError(err.Error(), kanzi.ERR_CREATE_CODEC)
+		return
+	}
 
-		// Forward transform (ignore error, encode skipFlags)
-		_, postTransformLength, _ = t.Forward(data[0:this.blockLength], buffer)
-		mode |= ((t.SkipFlags() & function.TRANSFORM_SKIP_MASK) << 2)
-		this.ctx["size"] = postTransformLength
+	requiredSize := t.MaxEncodedLen(int(this.blockLength))
 
-		for i := uint64(0xFF); i < uint64(postTransformLength); i <<= 8 {
-			dataSize++
-		}
+	if len(buffer) < requiredSize {
+		buffer = make([]byte, requiredSize)
+		this.oBuffer.Buf = buffer
+	}
 
-		if dataSize > 3 {
-			<-this.input
-			this.output <- NewIOError("Invalid block data length", kanzi.ERR_WRITE_FILE)
-			return
-		}
+	// Forward transform (ignore error, encode skipFlags)
+	_, postTransformLength, _ = t.Forward(data[0:this.blockLength], buffer)
+	mode |= ((t.SkipFlags() & function.TRANSFORM_SKIP_MASK) << 2)
+	this.ctx["size"] = postTransformLength
 
-		// Record size of 'block size' - 1 in bytes
-		mode |= byte(dataSize & 0x03)
+	for i := uint64(0xFF); i < uint64(postTransformLength); i <<= 8 {
 		dataSize++
 	}
+
+	if dataSize > 3 {
+		<-this.input
+		this.output <- NewIOError("Invalid block data length", kanzi.ERR_WRITE_FILE)
+		return
+	}
+
+	// Record size of 'block size' - 1 in bytes
+	mode |= byte(dataSize & 0x03)
+	dataSize++
 
 	if len(this.listeners) > 0 {
 		// Notify after transform
@@ -558,7 +564,7 @@ func (this *EncodingTask) encode() {
 
 	// Each block is encoded separately
 	// Rebuild the entropy encoder to reset block statistics
-	ee, err := entropy.NewEntropyEncoder(this.obs, this.ctx, this.typeOfEntropy)
+	ee, err := entropy.NewEntropyEncoder(this.obs, this.ctx, this.blockEntropyType)
 
 	if err != nil {
 		this.output <- NewIOError(err.Error(), kanzi.ERR_CREATE_CODEC)
@@ -633,19 +639,19 @@ type CompressedInputStream struct {
 }
 
 type DecodingTask struct {
-	iBuffer         *blockBuffer
-	oBuffer         *blockBuffer
-	hasher          *hash.XXHash32
-	blockLength     uint
-	typeOfTransform uint16
-	typeOfEntropy   uint16
-	currentBlockId  int
-	input           chan bool
-	output          chan bool
-	result          chan Message
-	listeners       []kanzi.Listener
-	ibs             kanzi.InputBitStream
-	ctx             map[string]interface{}
+	iBuffer            *blockBuffer
+	oBuffer            *blockBuffer
+	hasher             *hash.XXHash32
+	blockLength        uint
+	blockTransformType uint16
+	blockEntropyType   uint16
+	currentBlockId     int
+	input              chan bool
+	output             chan bool
+	result             chan Message
+	listeners          []kanzi.Listener
+	ibs                kanzi.InputBitStream
+	ctx                map[string]interface{}
 }
 
 func NewCompressedInputStream(is io.ReadCloser, ctx map[string]interface{}) (*CompressedInputStream, error) {
@@ -687,7 +693,7 @@ func NewCompressedInputStream(is io.ReadCloser, ctx map[string]interface{}) (*Co
 	this.ctx = ctx
 	this.blockSize = 0
 	this.entropyType = entropy.NONE_TYPE
-	this.transformType = NULL_TRANSFORM_TYPE
+	this.transformType = function.NONE_TYPE
 	return this, nil
 }
 
@@ -778,14 +784,14 @@ func (this *CompressedInputStream) readHeader() error {
 		msg := ""
 		msg += fmt.Sprintf("Checksum set to %v\n", this.hasher != nil)
 		msg += fmt.Sprintf("Block size set to %d bytes\n", this.blockSize)
-		w1 := GetByteFunctionName(this.transformType)
+		w1 := function.GetName(this.transformType)
 
 		if w1 == "NONE" {
 			w1 = "no"
 		}
 
 		msg += fmt.Sprintf("Using %v transform (stage 1)\n", w1)
-		w2 := entropy.GetEntropyCodecName(this.entropyType)
+		w2 := entropy.GetName(this.entropyType)
 
 		if w2 == "NONE" {
 			w2 = "no"
@@ -948,19 +954,19 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 		}
 
 		task := DecodingTask{
-			iBuffer:         &this.buffers[2*jobId],
-			oBuffer:         &this.buffers[2*jobId+1],
-			hasher:          this.hasher,
-			blockLength:     uint(blkSize),
-			typeOfTransform: this.transformType,
-			typeOfEntropy:   this.entropyType,
-			currentBlockId:  this.blockId + jobId + 1,
-			input:           syncChan[jobId],
-			output:          syncChan[(jobId+1)%int(nbJobs)],
-			result:          this.resChan,
-			listeners:       listeners,
-			ibs:             this.ibs,
-			ctx:             copyCtx}
+			iBuffer:            &this.buffers[2*jobId],
+			oBuffer:            &this.buffers[2*jobId+1],
+			hasher:             this.hasher,
+			blockLength:        uint(blkSize),
+			blockTransformType: this.transformType,
+			blockEntropyType:   this.entropyType,
+			currentBlockId:     this.blockId + jobId + 1,
+			input:              syncChan[jobId],
+			output:             syncChan[(jobId+1)%int(nbJobs)],
+			result:             this.resChan,
+			listeners:          listeners,
+			ibs:                this.ibs,
+			ctx:                copyCtx}
 
 		// Invoke the tasks concurrently
 		// Tasks are daisy chained through channels. All tasks wait for a signal
@@ -1040,7 +1046,8 @@ func notify(chan1 chan bool, chan2 chan Message, run bool, msg Message) {
 }
 
 // Decode mode + transformed entropy coded data
-// mode: 0b1000xxxx => small block (written as is) + 4 LSB for block size (0-15)
+// mode: 0b10000000 => empty block
+//       0x01000000 => copy block
 //       0x00xxxx00 => transform sequence skip flags (1 means skip)
 //       0x000000xx => size(size(block))-1
 func (this *DecodingTask) decode() {
@@ -1071,11 +1078,15 @@ func (this *DecodingTask) decode() {
 	read := this.ibs.Read()
 	mode := byte(this.ibs.ReadBits(8))
 	var preTransformLength uint
-	checksum1 := uint32(0)
 
-	if (mode & SMALL_BLOCK_MASK) != 0 {
-		preTransformLength = uint(mode & COPY_LENGTH_MASK)
+	if (mode & ZERO_BLOCK_MASK) != 0 {
+		preTransformLength = 0
 	} else {
+		if mode&COPY_BLOCK_MASK != 0 {
+			this.blockTransformType = function.NONE_TYPE
+			this.blockEntropyType = entropy.NONE_TYPE
+		}
+
 		dataSize := uint(1 + (mode & 0x03))
 		length := dataSize << 3
 		mask := uint64(1<<length) - 1
@@ -1096,6 +1107,8 @@ func (this *DecodingTask) decode() {
 		notify(this.output, this.result, false, res)
 		return
 	}
+
+	checksum1 := uint32(0)
 
 	// Extract checksum from bit stream (if any)
 	if this.hasher != nil {
@@ -1125,7 +1138,7 @@ func (this *DecodingTask) decode() {
 
 	// Each block is decoded separately
 	// Rebuild the entropy decoder to reset block statistics
-	ed, err := entropy.NewEntropyDecoder(this.ibs, this.ctx, this.typeOfEntropy)
+	ed, err := entropy.NewEntropyDecoder(this.ibs, this.ctx, this.blockEntropyType)
 
 	if err != nil {
 		// Error => cancel concurrent decoding tasks
@@ -1162,48 +1175,39 @@ func (this *DecodingTask) decode() {
 		notifyListeners(this.listeners, evt)
 	}
 
-	if mode&SMALL_BLOCK_MASK != 0 {
-		if &buffer != &data {
-			copy(data, buffer[0:preTransformLength])
-		}
+	this.ctx["size"] = preTransformLength
+	transform, err := function.NewByteFunction(this.ctx, this.blockTransformType)
 
-		res.decoded = int(preTransformLength)
-	} else {
-		this.ctx["size"] = preTransformLength
-		transform, err := NewByteFunction(this.ctx, this.typeOfTransform)
+	if err != nil {
+		// Error => return
+		res.err = NewIOError(err.Error(), kanzi.ERR_INVALID_CODEC)
+		notify(nil, this.result, false, res)
+		return
+	}
 
-		if err != nil {
-			// Error => return
-			res.err = NewIOError(err.Error(), kanzi.ERR_INVALID_CODEC)
+	transform.SetSkipFlags(((mode >> 2) & function.TRANSFORM_SKIP_MASK))
+	var oIdx uint
+
+	// Inverse transform
+	if _, oIdx, err = transform.Inverse(buffer[0:preTransformLength], data); err != nil {
+		// Error => return
+		res.err = NewIOError(err.Error(), kanzi.ERR_PROCESS_BLOCK)
+		notify(nil, this.result, false, res)
+		return
+	}
+
+	res.decoded = int(oIdx)
+
+	// Verify checksum
+	if this.hasher != nil {
+		checksum2 := this.hasher.Hash(data[0:res.decoded])
+
+		if checksum2 != checksum1 {
+			errMsg := fmt.Sprintf("Corrupted bitstream: expected checksum %x, found %x", checksum1, checksum2)
+			res.err = NewIOError(errMsg, kanzi.ERR_CRC_CHECK)
 			notify(nil, this.result, false, res)
 			return
 		}
-
-		transform.SetSkipFlags(((mode >> 2) & function.TRANSFORM_SKIP_MASK))
-		var oIdx uint
-
-		// Inverse transform
-		if _, oIdx, err = transform.Inverse(buffer[0:preTransformLength], data); err != nil {
-			// Error => return
-			res.err = NewIOError(err.Error(), kanzi.ERR_PROCESS_BLOCK)
-			notify(nil, this.result, false, res)
-			return
-		}
-
-		res.decoded = int(oIdx)
-
-		// Verify checksum
-		if this.hasher != nil {
-			checksum2 := this.hasher.Hash(data[0:res.decoded])
-
-			if checksum2 != checksum1 {
-				errMsg := fmt.Sprintf("Corrupted bitstream: expected checksum %x, found %x", checksum1, checksum2)
-				res.err = NewIOError(errMsg, kanzi.ERR_CRC_CHECK)
-				notify(nil, this.result, false, res)
-				return
-			}
-		}
-
 	}
 
 	notify(nil, this.result, false, res)

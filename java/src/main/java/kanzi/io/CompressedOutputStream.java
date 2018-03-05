@@ -15,6 +15,7 @@ limitations under the License.
 
 package kanzi.io;
 
+import kanzi.function.ByteFunctionFactory;
 import kanzi.Error;
 import kanzi.Event;
 import java.io.IOException;
@@ -38,6 +39,7 @@ import kanzi.entropy.EntropyCodecFactory;
 import kanzi.function.ByteTransformSequence;
 import kanzi.util.hash.XXHash32;
 import kanzi.Listener;
+import kanzi.entropy.EntropyUtils;
 
 
 
@@ -49,8 +51,8 @@ public class CompressedOutputStream extends OutputStream
 {
    private static final int BITSTREAM_TYPE           = 0x4B414E5A; // "KANZ"
    private static final int BITSTREAM_FORMAT_VERSION = 5;
-   private static final int COPY_LENGTH_MASK         = 0x0F;
-   private static final int SMALL_BLOCK_MASK         = 0x80;
+   private static final int ZERO_BLOCK_MASK          = 0x80;
+   private static final int COPY_BLOCK_MASK          = 0x40;
    private static final int MIN_BITSTREAM_BLOCK_SIZE = 1024;
    private static final int MAX_BITSTREAM_BLOCK_SIZE = 1024*1024*1024;
    private static final int SMALL_BLOCK_SIZE         = 15;
@@ -344,7 +346,7 @@ public class CompressedOutputStream extends OutputStream
       try
       {
          // Write end block of size 0
-         this.obs.writeBits(SMALL_BLOCK_MASK, 8);
+         this.obs.writeBits(ZERO_BLOCK_MASK, 8);
          this.obs.close();
       }
       catch (BitStreamException e)
@@ -527,12 +529,13 @@ public class CompressedOutputStream extends OutputStream
 
 
       // Encode mode + transformed entropy coded data
-      // mode: 0b1000xxxx => small block (written as is) + 4 LSB for block size (0-15)
+      // mode: 0b10000000 => empty block 
+      //       0x01000000 => copy block 
       //       0x00xxxx00 => transform sequence skip flags (1 means skip)
       //       0x000000xx => size(size(block))-1
       private Status encodeBlock(SliceByteArray data, SliceByteArray buffer,
-           int blockLength, short typeOfTransform,
-           short typeOfEntropy, int currentBlockId)
+           int blockLength, short blockTransformType,
+           short blockEntropyType, int currentBlockId)
       {
          EntropyEncoder ee = null;
 
@@ -555,63 +558,59 @@ public class CompressedOutputStream extends OutputStream
                
                notifyListeners(this.listeners, evt);
             }
-            
+
             if (blockLength <= SMALL_BLOCK_SIZE)
             {
-               // Just copy
-               if (data.array != buffer.array)
-               {
-                  if (buffer.length < blockLength)
-                  {
-                     buffer.length = blockLength;
-                     
-                     if (buffer.array.length < buffer.length)
-                        buffer.array = new byte[buffer.length];
-                  }
-               
-                  System.arraycopy(data.array, data.index, buffer.array, 0, blockLength);
-               }
-               
-               data.index += blockLength;
-               buffer.index = blockLength;
-               mode = (byte) (SMALL_BLOCK_MASK | (blockLength & COPY_LENGTH_MASK));
-            }
-            else
+               blockTransformType = ByteFunctionFactory.NONE_TYPE;
+               blockEntropyType = EntropyCodecFactory.NONE_TYPE;
+               mode |= ((blockLength == 0) ? ZERO_BLOCK_MASK : COPY_BLOCK_MASK);              
+            }            
+            else 
             {
-               this.ctx.put("size", blockLength);
-               ByteTransformSequence transform = new ByteFunctionFactory().newFunction(this.ctx, typeOfTransform);               
-               int requiredSize = transform.getMaxEncodedLength(blockLength);
-
-               if (buffer.length < requiredSize)
+               EntropyUtils eu = new EntropyUtils();
+               final int entropy = eu.computeFirstOrderEntropy1024(data.array, data.index, blockLength);
+               
+               if (entropy >= EntropyUtils.INCOMPRESSIBLE_THRESHOLD)
                {
-                  buffer.length = requiredSize;
-                  
-                  if (buffer.array.length < buffer.length)
-                      buffer.array = new byte[buffer.length];
+                  blockTransformType = ByteFunctionFactory.NONE_TYPE;
+                  blockEntropyType = EntropyCodecFactory.NONE_TYPE;
+                  mode |= COPY_BLOCK_MASK;
                }
-               
-               // Forward transform (ignore error, encode skipFlags)
-               buffer.index = 0;
-               data.length = blockLength;
-               transform.forward(data, buffer);
-               mode |= ((transform.getSkipFlags() & ByteTransformSequence.SKIP_MASK) << 2);                                   
-               postTransformLength = buffer.index;
-
-               if (postTransformLength < 0)
-                  return new Status(currentBlockId, Error.ERR_WRITE_FILE, "Invalid transform size");
-
-               this.ctx.put("size", postTransformLength);
-               
-               for (long n=0xFF; n<postTransformLength; n<<=8)
-                  dataSize++;
-
-               if (dataSize > 3) 
-                  return new Status(currentBlockId, Error.ERR_WRITE_FILE, "Invalid block data length");
-               
-               // Record size of 'block size' - 1 in bytes
-               mode |= (dataSize & 0x03);               
-               dataSize++;
             }
+
+            this.ctx.put("size", blockLength);
+            ByteTransformSequence transform = new ByteFunctionFactory().newFunction(this.ctx, blockTransformType);               
+            int requiredSize = transform.getMaxEncodedLength(blockLength);
+
+            if (buffer.length < requiredSize)
+            {
+               buffer.length = requiredSize;
+
+               if (buffer.array.length < buffer.length)
+                   buffer.array = new byte[buffer.length];
+            }
+
+            // Forward transform (ignore error, encode skipFlags)
+            buffer.index = 0;
+            data.length = blockLength;
+            transform.forward(data, buffer);
+            mode |= ((transform.getSkipFlags() & ByteTransformSequence.SKIP_MASK) << 2);                                   
+            postTransformLength = buffer.index;
+
+            if (postTransformLength < 0)
+               return new Status(currentBlockId, Error.ERR_WRITE_FILE, "Invalid transform size");
+
+            this.ctx.put("size", postTransformLength);
+
+            for (long n=0xFF; n<postTransformLength; n<<=8)
+               dataSize++;
+
+            if (dataSize > 3) 
+               return new Status(currentBlockId, Error.ERR_WRITE_FILE, "Invalid block data length");
+
+            // Record size of 'block size' - 1 in bytes
+            mode |= (dataSize & 0x03);               
+            dataSize++;
 
             if (this.listeners.length > 0)
             {
@@ -631,7 +630,7 @@ public class CompressedOutputStream extends OutputStream
                // Backoff improves performance in heavy contention scenarios
                LockSupport.parkNanos(10);
             }
-
+           
             // Write block 'header' (mode + compressed length);
             final long written = this.obs.written();
             this.obs.writeBits(mode, 8);
@@ -654,7 +653,7 @@ public class CompressedOutputStream extends OutputStream
    
             // Each block is encoded separately
             // Rebuild the entropy encoder to reset block statistics
-            ee = new EntropyCodecFactory().newEncoder(this.obs, this.ctx, typeOfEntropy);
+            ee = new EntropyCodecFactory().newEncoder(this.obs, this.ctx, blockEntropyType);
 
             // Entropy encode block
             if (ee.encode(buffer.array, 0, postTransformLength) != postTransformLength)

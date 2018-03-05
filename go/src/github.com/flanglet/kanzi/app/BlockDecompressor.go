@@ -17,9 +17,9 @@ package main
 
 import (
 	"fmt"
-	"io"
 	kanzi "github.com/flanglet/kanzi"
 	kio "github.com/flanglet/kanzi/io"
+	"io"
 	"os"
 	"path"
 	"path/filepath"

@@ -15,6 +15,7 @@ limitations under the License.
 
 package kanzi.io;
 
+import kanzi.function.ByteFunctionFactory;
 import kanzi.Error;
 import kanzi.Event;
 import java.io.IOException;
@@ -49,8 +50,8 @@ public class CompressedInputStream extends InputStream
    private static final int BITSTREAM_FORMAT_VERSION = 5;
    private static final int DEFAULT_BUFFER_SIZE      = 1024*1024;
    private static final int EXTRA_BUFFER_SIZE        = 256;
-   private static final int COPY_LENGTH_MASK         = 0x0F;
-   private static final int SMALL_BLOCK_MASK         = 0x80;
+   private static final int ZERO_BLOCK_MASK          = 0x80;
+   private static final int COPY_BLOCK_MASK          = 0x40;
    private static final int MIN_BITSTREAM_BLOCK_SIZE = 1024;
    private static final int MAX_BITSTREAM_BLOCK_SIZE = 1024*1024*1024;
    private static final byte[] EMPTY_BYTE_ARRAY      = new byte[0];
@@ -110,7 +111,7 @@ public class CompressedInputStream extends InputStream
       this.ctx = ctx;
       this.blockSize = 0;
       this.entropyType = EntropyCodecFactory.NONE_TYPE;
-      this.transformType = ByteFunctionFactory.NULL_TRANSFORM_TYPE;
+      this.transformType = ByteFunctionFactory.NONE_TYPE;
    }
 
 
@@ -571,12 +572,13 @@ public class CompressedInputStream extends InputStream
 
 
       // Decode mode + transformed entropy coded data
-      // mode: 0b1000xxxx => small block (written as is) + 4 LSB for block size (0-15)
+      // mode: 0b10000000 => empty block 
+      //       0x01000000 => copy block
       //       0x00xxxx00 => transform sequence skip flags (1 means skip)
       //       0x000000xx => size(size(block))-1
       // Return -1 if error, otherwise the number of bytes read from the encoder
       private Status decodeBlock(SliceByteArray data, SliceByteArray buffer,
-         short typeOfTransform, short typeOfEntropy, int currentBlockId)
+         short blockTransformType, short blockEntropyType, int currentBlockId)
       {
          int taskId = this.processedBlockId.get();
 
@@ -591,12 +593,11 @@ public class CompressedInputStream extends InputStream
             taskId = this.processedBlockId.get();
          }
 
-         int checksum1 = 0;
-
          // Skip, either all data have been processed or an error occured
          if (taskId == CANCEL_TASKS_ID)
-            return new Status(data, currentBlockId, checksum1, 0, 0, null);
+            return new Status(data, currentBlockId, 0, 0, 0, null);
 
+         int checksum1 = 0;
          EntropyDecoder ed = null;
 
          try
@@ -606,12 +607,18 @@ public class CompressedInputStream extends InputStream
             byte mode = (byte) this.ibs.readBits(8);
             int preTransformLength;
 
-            if ((mode & SMALL_BLOCK_MASK) != 0)
+            if ((mode & ZERO_BLOCK_MASK) != 0)
             {
-               preTransformLength = mode & COPY_LENGTH_MASK;
+               preTransformLength = 0;
             }
             else
             {
+               if ((mode & COPY_BLOCK_MASK) != 0)
+               {
+                  blockTransformType = ByteFunctionFactory.NONE_TYPE;
+                  blockEntropyType = EntropyCodecFactory.NONE_TYPE;
+               }
+               
                final int dataSize = 1 + (mode & 0x03);
                final int length = dataSize << 3;
                final long mask = (1L << length) - 1;
@@ -662,7 +669,7 @@ public class CompressedInputStream extends InputStream
 
             // Each block is decoded separately
             // Rebuild the entropy decoder to reset block statistics
-            ed = new EntropyCodecFactory().newDecoder(this.ibs, this.ctx, typeOfEntropy);
+            ed = new EntropyCodecFactory().newDecoder(this.ibs, this.ctx, blockEntropyType);
 
             // Block entropy decode
             if (ed.decode(buffer.array, 0, preTransformLength) != preTransformLength)
@@ -695,28 +702,17 @@ public class CompressedInputStream extends InputStream
                notifyListeners(this.listeners, evt);
             }
 
-            if ((mode & SMALL_BLOCK_MASK) != 0)
-            {
-               if (buffer.array != data.array)
-                  System.arraycopy(buffer.array, 0, data.array, savedIdx, preTransformLength);
+            ByteTransformSequence transform = new ByteFunctionFactory().newFunction(this.ctx,
+                     blockTransformType);
+            transform.setSkipFlags((byte) ((mode>>2) & ByteTransformSequence.SKIP_MASK));
+            buffer.index = 0;
 
-               buffer.index = preTransformLength;
-               data.index = savedIdx + preTransformLength;
-            }
-            else
-            {
-               ByteTransformSequence transform = new ByteFunctionFactory().newFunction(this.ctx,
-                       typeOfTransform);
-               transform.setSkipFlags((byte) ((mode>>2) & ByteTransformSequence.SKIP_MASK));
-               buffer.index = 0;
+            // Inverse transform
+            buffer.length = preTransformLength;
 
-               // Inverse transform
-               buffer.length = preTransformLength;
-
-               if (transform.inverse(buffer, data) == false)
-                  return new Status(data, currentBlockId, 0, checksum1, Error.ERR_PROCESS_BLOCK,
-                     "Transform inverse failed");
-            }
+            if (transform.inverse(buffer, data) == false)
+               return new Status(data, currentBlockId, 0, checksum1, Error.ERR_PROCESS_BLOCK,
+                  "Transform inverse failed");
 
             final int decoded = data.index - savedIdx;
 

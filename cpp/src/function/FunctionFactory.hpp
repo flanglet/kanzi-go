@@ -6,20 +6,20 @@
 #include <algorithm>
 #include <cstring>
 #include "../types.hpp"
-#include "../function/TransformSequence.hpp"
 #include "../IllegalArgumentException.hpp"
-#include "../function/BWTBlockCodec.hpp"
 #include "../transform/BWT.hpp"
 #include "../transform/BWTS.hpp"
-#include "../function/SnappyCodec.hpp"
-#include "../function/LZ4Codec.hpp"
 #include "../transform/MTFT.hpp"
-#include "../function/ZRLT.hpp"
-#include "../function/RLT.hpp"
 #include "../transform/SBRT.hpp"
-#include "../function/NullFunction.hpp"
-#include "../function/TextCodec.hpp"
-#include "../function/X86Codec.hpp"
+#include "TransformSequence.hpp"
+#include "BWTBlockCodec.hpp"
+#include "SnappyCodec.hpp"
+#include "LZ4Codec.hpp"
+#include "ZRLT.hpp"
+#include "RLT.hpp"
+#include "NullFunction.hpp"
+#include "TextCodec.hpp"
+#include "X86Codec.hpp"
 
 namespace kanzi {
 
@@ -27,7 +27,7 @@ template <class T>
    class FunctionFactory {
    public:
        // Up to 15 transforms can be declared (4 bit index)
-       static const short NULL_TRANSFORM_TYPE = 0; // copy
+       static const short NONE_TYPE = 0; // copy
        static const short BWT_TYPE = 1; // Burrows Wheeler
        static const short BWTS_TYPE = 2; // Burrows Wheeler Scott
        static const short LZ4_TYPE = 3; // LZ4
@@ -93,7 +93,7 @@ template <class T>
            }
 
            // Skip null transform
-           if (typeTk != NULL_TRANSFORM_TYPE) {
+           if (typeTk != NONE_TYPE) {
                res |= (typeTk << shift);
                shift -= 4;
            }
@@ -141,7 +141,7 @@ template <class T>
            return X86_TYPE;
 
        if (name.compare("NONE") == 0)
-           return NULL_TRANSFORM_TYPE;
+           return NONE_TYPE;
 
        stringstream ss;
        ss << "Unknown transform type: " << name;
@@ -155,7 +155,7 @@ template <class T>
 
        // Several transforms
        for (int i = 0; i < 4; i++) {
-           if (((functionType >> (12 - 4 * i)) & 0x0F) != NULL_TRANSFORM_TYPE)
+           if (((functionType >> (12 - 4 * i)) & 0x0F) != NONE_TYPE)
                nbtr++;
        }
 
@@ -170,7 +170,7 @@ template <class T>
            transforms[i] = nullptr;
            int t = (functionType >> (12 - 4 * i)) & 0x0F;
 
-           if ((t != NULL_TRANSFORM_TYPE) || (i == 0))
+           if ((t != NONE_TYPE) || (i == 0))
                transforms[nbtr++] = newFunctionToken(ctx, short(t));
        }
 
@@ -211,7 +211,7 @@ template <class T>
        case X86_TYPE:
            return new X86Codec();
 
-       case NULL_TRANSFORM_TYPE:
+       case NONE_TYPE:
            return new NullFunction<T>();
 
        default:
@@ -229,7 +229,7 @@ template <class T>
        for (int i = 0; i < 4; i++) {
            int t = functionType >> (12 - 4 * i);
 
-           if ((t & 0x0F) == NULL_TRANSFORM_TYPE)
+           if ((t & 0x0F) == NONE_TYPE)
                continue;
 
            string name = getNameToken(t);
@@ -241,7 +241,7 @@ template <class T>
        }
 
        if (ss.str().length() == 0) {
-           ss << getNameToken(NULL_TRANSFORM_TYPE);
+           ss << getNameToken(NONE_TYPE);
        }
 
        return ss.str();
@@ -281,7 +281,7 @@ template <class T>
        case X86_TYPE:
            return "X86";
 
-       case NULL_TRANSFORM_TYPE:
+       case NONE_TYPE:
            return "NONE";
 
        default:

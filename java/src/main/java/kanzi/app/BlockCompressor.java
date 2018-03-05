@@ -37,7 +37,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import kanzi.Event;
 import kanzi.SliceByteArray;
-import kanzi.io.ByteFunctionFactory;
+import kanzi.function.ByteFunctionFactory;
 import kanzi.io.CompressedOutputStream;
 import kanzi.Error;
 import kanzi.Global;

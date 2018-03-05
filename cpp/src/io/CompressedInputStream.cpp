@@ -16,12 +16,12 @@ limitations under the License.
 #include <sstream>
 #include <iomanip>
 #include "CompressedInputStream.hpp"
-#include "FunctionFactory.hpp"
 #include "IOException.hpp"
 #include "../Error.hpp"
 #include "../IllegalArgumentException.hpp"
 #include "../bitstream/DefaultInputBitStream.hpp"
 #include "../entropy/EntropyCodecFactory.hpp"
+#include "../function/FunctionFactory.hpp"
 
 #ifdef CONCURRENCY_ENABLED
 #include <future>
@@ -52,7 +52,7 @@ CompressedInputStream::CompressedInputStream(InputStream& is, map<string, string
     _blockId = 0;
     _blockSize = 0;
     _entropyType = EntropyCodecFactory::NONE_TYPE;
-    _transformType = FunctionFactory<byte>::NULL_TRANSFORM_TYPE;
+    _transformType = FunctionFactory<byte>::NONE_TYPE;
     _initialized = false;
     _closed = false;
     _maxIdx = 0;
@@ -538,7 +538,8 @@ DecodingTask<T>::DecodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuff
 }
 
 // Decode mode + transformed entropy coded data
-// mode: 0b1000xxxx => small block (written as is) + 4 LSB for block size (0-15)
+// mode: 0b10000000 => empty block
+//       0x01000000 => copy block
 //       0x00xxxx00 => transform sequence skip flags (1 means skip)
 //       0x000000xx => size(size(block))-1
 // Return -1 if error, otherwise the number of bytes read from the encoder
@@ -552,13 +553,12 @@ T DecodingTask<T>::call() THROW
         taskId = _processedBlockId->load();
     }
 
-    int checksum1 = 0;
-
     // Skip, either all data have been processed or an error occured
     if (taskId == CompressedInputStream::CANCEL_TASKS_ID) {
-        return T(*_data, _blockId, checksum1, 0, 0, "");
+        return T(*_data, _blockId, 0, 0, 0, "");
     }
 
+    int checksum1 = 0;
     EntropyDecoder* ed = nullptr;
 
     try {
@@ -567,10 +567,15 @@ T DecodingTask<T>::call() THROW
         byte mode = byte(_ibs->readBits(8));
         int preTransformLength;
 
-        if ((mode & CompressedInputStream::SMALL_BLOCK_MASK) != 0) {
-            preTransformLength = mode & CompressedInputStream::COPY_LENGTH_MASK;
+        if ((mode & CompressedInputStream::ZERO_BLOCK_MASK) != 0) {
+            preTransformLength = 0;
         }
         else {
+            if ((mode & CompressedInputStream::COPY_BLOCK_MASK) != 0) {
+                _transformType = FunctionFactory<byte>::NONE_TYPE;
+                _entropyType = EntropyCodecFactory::NONE_TYPE;
+            }
+
             int dataSize = 1 + (mode & 0x03);
             int length = dataSize << 3;
             uint64 mask = (uint64(1) << length) - 1;
@@ -649,30 +654,21 @@ T DecodingTask<T>::call() THROW
             CompressedInputStream::notifyListeners(_listeners, evt);
         }
 
-        if ((mode & CompressedInputStream::SMALL_BLOCK_MASK) != 0) {
-            if (_buffer->_array != _data->_array)
-                memcpy(&_data->_array[savedIdx], &_buffer->_array[0], preTransformLength);
+        ss.str(string());
+        ss << _blockLength;
+        _ctx["size"] = ss.str();
+        TransformSequence<byte>* transform = FunctionFactory<byte>::newFunction(_ctx, _transformType);
+        transform->setSkipFlags((byte)((mode >> 2) & TransformSequence<byte>::SKIP_MASK));
+        _buffer->_index = 0;
 
-            _buffer->_index = preTransformLength;
-            _data->_index = savedIdx + preTransformLength;
-        }
-        else {
-            stringstream ss;
-            ss << _blockLength;
-            _ctx["size"] = ss.str();
-            TransformSequence<byte>* transform = FunctionFactory<byte>::newFunction(_ctx, _transformType);
-            transform->setSkipFlags((byte)((mode >> 2) & TransformSequence<byte>::SKIP_MASK));
-            _buffer->_index = 0;
+        // Inverse transform
+        _buffer->_length = preTransformLength;
+        bool res = transform->inverse(*_buffer, *_data, _buffer->_length);
+        delete transform;
 
-            // Inverse transform
-            _buffer->_length = preTransformLength;
-            bool res = transform->inverse(*_buffer, *_data, _buffer->_length);
-            delete transform;
-
-            if (res == false) {
-                return T(*_data, _blockId, 0, checksum1, Error::ERR_PROCESS_BLOCK,
-                    "Transform inverse failed");
-            }
+        if (res == false) {
+            return T(*_data, _blockId, 0, checksum1, Error::ERR_PROCESS_BLOCK,
+                "Transform inverse failed");
         }
 
         const int decoded = _data->_index - savedIdx;

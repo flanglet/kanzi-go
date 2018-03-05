@@ -29,7 +29,7 @@ limitations under the License.
 #include "../SliceArray.hpp"
 #include "../Error.hpp"
 #include "../IllegalArgumentException.hpp"
-#include "../io/FunctionFactory.hpp"
+#include "../function/FunctionFactory.hpp"
 #include "../io/IOException.hpp"
 #include "../io/IOUtil.hpp"
 #include "../io/NullOutputStream.hpp"

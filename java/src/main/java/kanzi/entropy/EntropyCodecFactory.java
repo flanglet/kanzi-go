@@ -106,7 +106,7 @@ public class EntropyCodecFactory
    }
    
    
-   public String getName(short entropyType)
+   public static String getName(short entropyType)
    {
       switch (entropyType)
       {
@@ -136,7 +136,7 @@ public class EntropyCodecFactory
    }
    
    // Do not use switch on String because some versions of Java do not support it
-   public short getType(String name)
+   public static short getType(String name)
    {
       name = String.valueOf(name).toUpperCase();
       

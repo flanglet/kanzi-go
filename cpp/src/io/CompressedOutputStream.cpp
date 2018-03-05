@@ -15,12 +15,12 @@ limitations under the License.
 
 #include <sstream>
 #include "CompressedOutputStream.hpp"
-#include "FunctionFactory.hpp"
 #include "IOException.hpp"
 #include "../Error.hpp"
 #include "../IllegalArgumentException.hpp"
 #include "../bitstream/DefaultOutputBitStream.hpp"
 #include "../entropy/EntropyCodecFactory.hpp"
+#include "../function/FunctionFactory.hpp"
 
 #ifdef CONCURRENCY_ENABLED
 #include <future>
@@ -242,7 +242,7 @@ void CompressedOutputStream::close() THROW
 
     try {
         // Write end block of size 0
-        _obs->writeBits(SMALL_BLOCK_MASK, 8);
+        _obs->writeBits(ZERO_BLOCK_MASK, 8);
         _obs->close();
     }
     catch (exception& e) {
@@ -424,7 +424,8 @@ EncodingTask<T>::EncodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuff
 }
 
 // Encode mode + transformed entropy coded data
-// mode: 0b1000xxxx => small block (written as is) + 4 LSB for block size (0-15)
+// mode: 0b10000000 => empty block
+//       0x01000000 => copy block
 //       0x00xxxx00 => transform sequence skip flags (1 means skip)
 //       0x000000xx => size(size(block))-1
 template <class T>
@@ -451,59 +452,57 @@ T EncodingTask<T>::call() THROW
         }
 
         if (_blockLength <= CompressedOutputStream::SMALL_BLOCK_SIZE) {
-            // Just copy
-            if (_data->_array != _buffer->_array) {
-                if (_buffer->_length < _blockLength) {
-                    _buffer->_length = _blockLength;
-                    delete[] _buffer->_array;
-                    _buffer->_array = new byte[_buffer->_length];
-                }
-
-                memcpy(&_buffer->_array[0], &_data->_array[_data->_index], _blockLength);
-            }
-
-            _data->_index += _blockLength;
-            _buffer->_index = _blockLength;
-            mode = byte(CompressedOutputStream::SMALL_BLOCK_MASK | (_blockLength & CompressedOutputStream::COPY_LENGTH_MASK));
+            _transformType = FunctionFactory<byte>::NONE_TYPE;
+            _entropyType = EntropyCodecFactory::NONE_TYPE;
+            mode |= ((_blockLength == 0) ? CompressedOutputStream::ZERO_BLOCK_MASK : CompressedOutputStream::COPY_BLOCK_MASK);
         }
         else {
-            stringstream ss;
-            ss << _blockLength;
-            _ctx["size"] = ss.str();
-            TransformSequence<byte>* transform = FunctionFactory<byte>::newFunction(_ctx, _transformType);
-            int requiredSize = transform->getMaxEncodedLength(_blockLength);
+            EntropyUtils eu;
+            const int entropy = eu.computeFirstOrderEntropy1024(_data->_array, _data->_index, _blockLength);
 
-            if (_buffer->_length < requiredSize) {
-                _buffer->_length = requiredSize;
-                delete[] _buffer->_array;
-                _buffer->_array = new byte[_buffer->_length];
+            if (entropy >= EntropyUtils::INCOMPRESSIBLE_THRESHOLD) {
+                _transformType = FunctionFactory<byte>::NONE_TYPE;
+                _entropyType = EntropyCodecFactory::NONE_TYPE;
+                mode |= CompressedOutputStream::COPY_BLOCK_MASK;
             }
-
-            // Forward transform (ignore error, encode skipFlags)
-            _buffer->_index = 0;
-            _data->_length = _blockLength;
-            transform->forward(*_data, *_buffer, _data->_length);
-            mode |= ((transform->getSkipFlags() & TransformSequence<byte>::SKIP_MASK) << 2);
-            postTransformLength = _buffer->_index;
-            delete transform;
-
-            if (postTransformLength < 0)
-                return T(_blockId, Error::ERR_WRITE_FILE, "Invalid transform size");
-
-            ss.str(string());
-            ss << postTransformLength;
-            _ctx["size"] = ss.str();
-
-            for (uint64 n = 0xFF; n < uint64(postTransformLength); n <<= 8)
-                dataSize++;
-
-            if (dataSize > 3)
-                return T(_blockId, Error::ERR_WRITE_FILE, "Invalid block data length");
-
-            // Record size of 'block size' - 1 in bytes
-            mode |= (dataSize & 0x03);
-            dataSize++;
         }
+
+        stringstream ss;
+        ss << _blockLength;
+        _ctx["size"] = ss.str();
+        TransformSequence<byte>* transform = FunctionFactory<byte>::newFunction(_ctx, _transformType);
+        int requiredSize = transform->getMaxEncodedLength(_blockLength);
+
+        if (_buffer->_length < requiredSize) {
+            _buffer->_length = requiredSize;
+            delete[] _buffer->_array;
+            _buffer->_array = new byte[_buffer->_length];
+        }
+
+        // Forward transform (ignore error, encode skipFlags)
+        _buffer->_index = 0;
+        _data->_length = _blockLength;
+        transform->forward(*_data, *_buffer, _data->_length);
+        mode |= ((transform->getSkipFlags() & TransformSequence<byte>::SKIP_MASK) << 2);
+        postTransformLength = _buffer->_index;
+        delete transform;
+
+        if (postTransformLength < 0)
+            return T(_blockId, Error::ERR_WRITE_FILE, "Invalid transform size");
+
+        ss.str(string());
+        ss << postTransformLength;
+        _ctx["size"] = ss.str();
+
+        for (uint64 n = 0xFF; n < uint64(postTransformLength); n <<= 8)
+            dataSize++;
+
+        if (dataSize > 3)
+            return T(_blockId, Error::ERR_WRITE_FILE, "Invalid block data length");
+
+        // Record size of 'block size' - 1 in bytes
+        mode |= (dataSize & 0x03);
+        dataSize++;
 
         if (_listeners.size() > 0) {
             // Notify after transform

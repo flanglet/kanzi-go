@@ -13,19 +13,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kanzi.io;
+package kanzi.function;
 
 import java.util.Map;
 import kanzi.ByteTransform;
-import kanzi.function.BWTBlockCodec;
-import kanzi.function.ByteTransformSequence;
-import kanzi.function.X86Codec;
-import kanzi.function.LZ4Codec;
-import kanzi.function.NullFunction;
-import kanzi.function.RLT;
-import kanzi.function.SnappyCodec;
-import kanzi.function.TextCodec;
-import kanzi.function.ZRLT;
 import kanzi.transform.BWTS;
 import kanzi.transform.MTFT;
 import kanzi.transform.SBRT;
@@ -34,17 +25,17 @@ import kanzi.transform.SBRT;
 public class ByteFunctionFactory
 {
    // Up to 15 transforms can be declared (4 bit index)
-   public static final short NULL_TRANSFORM_TYPE = 0;  // copy
-   public static final short BWT_TYPE            = 1;  // Burrows Wheeler
-   public static final short BWTS_TYPE           = 2;  // Burrows Wheeler Scott
-   public static final short LZ4_TYPE            = 3;  // LZ4
-   public static final short SNAPPY_TYPE         = 4;  // Snappy
-   public static final short RLT_TYPE            = 5;  // Run Length 
-   public static final short ZRLT_TYPE           = 6;  // Zero Run Length
-   public static final short MTFT_TYPE           = 7;  // Move To Front
-   public static final short RANK_TYPE           = 8;  // Rank
-   public static final short X86_TYPE            = 9;  // X86 codec
-   public static final short DICT_TYPE           = 10; // Text codec
+   public static final short NONE_TYPE    = 0;  // copy
+   public static final short BWT_TYPE     = 1;  // Burrows Wheeler
+   public static final short BWTS_TYPE    = 2;  // Burrows Wheeler Scott
+   public static final short LZ4_TYPE     = 3;  // LZ4
+   public static final short SNAPPY_TYPE  = 4;  // Snappy
+   public static final short RLT_TYPE     = 5;  // Run Length 
+   public static final short ZRLT_TYPE    = 6;  // Zero Run Length
+   public static final short MTFT_TYPE    = 7;  // Move To Front
+   public static final short RANK_TYPE    = 8;  // Rank
+   public static final short X86_TYPE     = 9;  // X86 codec
+   public static final short DICT_TYPE    = 10; // Text codec
  
 
    // The returned type contains 4 (nibble based) transform values
@@ -69,7 +60,7 @@ public class ByteFunctionFactory
          final int typeTk = this.getTypeToken(token);
          
          // Skip null transform
-         if (typeTk != NULL_TRANSFORM_TYPE)
+         if (typeTk != NONE_TYPE)
          {
             res |= (typeTk << shift);
             shift -= 4;
@@ -118,7 +109,7 @@ public class ByteFunctionFactory
             return DICT_TYPE;
 
          case "NONE":
-            return NULL_TRANSFORM_TYPE;
+            return NONE_TYPE;
 
          default:
             throw new IllegalArgumentException("Unknown transform type: " + name);
@@ -133,7 +124,7 @@ public class ByteFunctionFactory
       // Several transforms
       for (int i=0; i<4; i++)
       {
-          if (((functionType >>> (12-4*i)) & 0x0F) != NULL_TRANSFORM_TYPE)
+          if (((functionType >>> (12-4*i)) & 0x0F) != NONE_TYPE)
              nbtr++;
       }
     
@@ -148,7 +139,7 @@ public class ByteFunctionFactory
       {
           int t = (functionType >>> (12-4*i)) & 0x0F;
           
-          if ((t != NULL_TRANSFORM_TYPE) || (i == 0))
+          if ((t != NONE_TYPE) || (i == 0))
              transforms[nbtr++] = newFunctionToken(ctx, (short) t);
       }
     
@@ -190,7 +181,7 @@ public class ByteFunctionFactory
          case X86_TYPE:
             return new X86Codec();
             
-         case NULL_TRANSFORM_TYPE:
+         case NONE_TYPE:
             return new NullFunction();
             
          default:
@@ -207,7 +198,7 @@ public class ByteFunctionFactory
       {
          int t = functionType >>> (12-4*i);
 
-         if ((t & 0x0F) == NULL_TRANSFORM_TYPE)
+         if ((t & 0x0F) == NONE_TYPE)
             continue;
 
          String name = getNameToken(t);
@@ -219,7 +210,7 @@ public class ByteFunctionFactory
       }
 
       if (sb.length() == 0)
-         sb.append(getNameToken(NULL_TRANSFORM_TYPE));
+         sb.append(getNameToken(NONE_TYPE));
 
       return sb.toString();
    }
@@ -259,7 +250,7 @@ public class ByteFunctionFactory
          case DICT_TYPE:
             return "TEXT";
             
-         case NULL_TRANSFORM_TYPE:
+         case NONE_TYPE:
             return "NONE";
             
          default:
