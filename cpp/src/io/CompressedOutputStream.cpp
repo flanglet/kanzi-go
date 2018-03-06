@@ -432,6 +432,7 @@ template <class T>
 T EncodingTask<T>::call() THROW
 {
     EntropyEncoder* ee = nullptr;
+    int histo[256];
 
     try {
         byte mode = 0;
@@ -457,8 +458,8 @@ T EncodingTask<T>::call() THROW
             mode |= ((_blockLength == 0) ? CompressedOutputStream::ZERO_BLOCK_MASK : CompressedOutputStream::COPY_BLOCK_MASK);
         }
         else {
-            EntropyUtils eu;
-            const int entropy = eu.computeFirstOrderEntropy1024(_data->_array, _data->_index, _blockLength);
+            const int entropy = EntropyUtils::computeFirstOrderEntropy1024(&_data->_array[_data->_index], _blockLength, histo);            
+            //_ctx["histo0"] = toString(histo, 256);
 
             if (entropy >= EntropyUtils::INCOMPRESSIBLE_THRESHOLD) {
                 _transformType = FunctionFactory<byte>::NONE_TYPE;

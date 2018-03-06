@@ -396,42 +396,43 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 }
 
 // Return the first order entropy in the [0..1024] range
-func (this *EntropyUtils) ComputeFirstOrderEntropy1024(block []byte) int {
+// Fills in the histogram with order 0 frequencies. Incoming array size must be 256
+func ComputeFirstOrderEntropy1024(block []byte, histo []int) int {
 	if len(block) == 0 {
 		return 0
 	}
 
-	if len(this.buffer) < 256 {
-		this.buffer = make([]int, 256)
+	for i := 0; i < 256; i++ {
+		histo[i] = 0
 	}
 
 	end8 := len(block) & -8
 
 	for i := 0; i < end8; i += 8 {
-		this.buffer[block[i]]++
-		this.buffer[block[i+1]]++
-		this.buffer[block[i+2]]++
-		this.buffer[block[i+3]]++
-		this.buffer[block[i+4]]++
-		this.buffer[block[i+5]]++
-		this.buffer[block[i+6]]++
-		this.buffer[block[i+7]]++
+		histo[block[i]]++
+		histo[block[i+1]]++
+		histo[block[i+2]]++
+		histo[block[i+3]]++
+		histo[block[i+4]]++
+		histo[block[i+5]]++
+		histo[block[i+6]]++
+		histo[block[i+7]]++
 	}
 
 	for i := end8; i < len(block); i++ {
-		this.buffer[block[i]]++
+		histo[block[i]]++
 	}
 
 	sum := uint64(0)
 	logLength1024, _ := kanzi.Log2_1024(len(block))
 
 	for i := 0; i < 256; i++ {
-		if this.buffer[i] == 0 {
+		if histo[i] == 0 {
 			continue
 		}
 
-		log1024, _ := kanzi.Log2_1024(this.buffer[i])
-		sum += uint64((this.buffer[i] * (logLength1024 - log1024)) >> 3)
+		log1024, _ := kanzi.Log2_1024(histo[i])
+		sum += uint64((histo[i] * (logLength1024 - log1024)) >> 3)
 	}
 
 	return int(sum / uint64(len(block)))

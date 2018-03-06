@@ -111,6 +111,30 @@ inline bool samePaths(string& f1, string& f2)
 }
 
 
+inline string toString(int data[], int length) {
+   stringstream ss;
+
+   for (int i = 0; i < length; i++) {
+       ss << i << " ";
+   }
+
+   return ss.str();
+}
+
+inline void fromString(string s, int data[], int length) {
+   int n = 0;
+   int idx = 0;
+
+   for (uint i = 0; (i < s.length()) && (idx < length); i++) {
+      if (s[i] != ' ')
+         n = (10 * n) + s[i] - '0';
+      else {
+         data[idx++] = n;
+         n = 0;
+      }
+   }
+}
+
 // Thread safe printer
 class Printer 
 {

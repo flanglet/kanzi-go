@@ -480,8 +480,9 @@ func (this *EncodingTask) encode() {
 			mode |= byte(COPY_BLOCK_MASK)
 		}
 	} else {
-		eu, _ := entropy.NewEntropyUtils()
-		entropy1024 := eu.ComputeFirstOrderEntropy1024(data[0:this.blockLength])
+		histo := make([]int, 256)
+		entropy1024 := entropy.ComputeFirstOrderEntropy1024(data[0:this.blockLength], histo)
+		//this.ctx["histo0"] = histo
 
 		if entropy1024 >= entropy.INCOMPRESSIBLE_THRESHOLD {
 			this.blockTransformType = function.NONE_TYPE

@@ -325,40 +325,41 @@ public class EntropyUtils
    
    
    // Return the first order entropy in the [0..1024] range
-   public int computeFirstOrderEntropy1024(byte[] block, int blkptr, int length)
+   // Fills in the histogram with order 0 frequencies. Incoming array size must be 256
+   public static int computeFirstOrderEntropy1024(byte[] block, int blkptr, int length, int[] histo)
    {
       if (length == 0)
          return 0;
       
-      if (this.buffer.length < 256)
-         this.buffer = new int[256];
-      
+      for (int i=0; i<256; i++)
+         histo[i] = 0;
+
       final int end8 = blkptr + (length&-8);
       
       for (int i=blkptr; i<end8; i+=8)
       {
-         this.buffer[block[i]   & 0xFF]++;
-         this.buffer[block[i+1] & 0xFF]++;
-         this.buffer[block[i+2] & 0xFF]++;
-         this.buffer[block[i+3] & 0xFF]++;
-         this.buffer[block[i+4] & 0xFF]++;
-         this.buffer[block[i+5] & 0xFF]++;
-         this.buffer[block[i+6] & 0xFF]++;
-         this.buffer[block[i+7] & 0xFF]++;
+         histo[block[i]   & 0xFF]++;
+         histo[block[i+1] & 0xFF]++;
+         histo[block[i+2] & 0xFF]++;
+         histo[block[i+3] & 0xFF]++;
+         histo[block[i+4] & 0xFF]++;
+         histo[block[i+5] & 0xFF]++;
+         histo[block[i+6] & 0xFF]++;
+         histo[block[i+7] & 0xFF]++;
       } 
       
       for (int i=end8; i<blkptr+length; i++)
-         this.buffer[block[i] & 0xFF]++;
+         histo[block[i] & 0xFF]++;
       
       long sum = 0;
       final int logLength1024 = Global.log2_1024(length);
       
       for (int i=0; i<256; i++)
       {
-         if (this.buffer[i] == 0)
+         if (histo[i] == 0)
             continue;
          
-         sum += ((this.buffer[i]*(logLength1024-Global.log2_1024(this.buffer[i]))) >> 3);
+         sum += ((histo[i]*(logLength1024-Global.log2_1024(histo[i]))) >> 3);
       }
       
       return (int) (sum / length);

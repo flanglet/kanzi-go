@@ -314,35 +314,40 @@ int EntropyUtils::decodeAlphabet(InputBitStream& ibs, uint alphabet[]) THROW
 }
 
 // Return the first order entropy in the [0..1024] range
-int EntropyUtils::computeFirstOrderEntropy1024(byte block[], int blkptr, int length)
+// Fills in the histogram with order 0 frequencies. Incoming array size must be 256
+int EntropyUtils::computeFirstOrderEntropy1024(byte block[], int length, int histo[])
 {
     if (length == 0)
         return 0;
 
-    const int end8 = blkptr + (length & -8);
-
-    for (int i = blkptr; i < end8; i += 8) {
-        _buffer[block[i] & 0xFF]++;
-        _buffer[block[i + 1] & 0xFF]++;
-        _buffer[block[i + 2] & 0xFF]++;
-        _buffer[block[i + 3] & 0xFF]++;
-        _buffer[block[i + 4] & 0xFF]++;
-        _buffer[block[i + 5] & 0xFF]++;
-        _buffer[block[i + 6] & 0xFF]++;
-        _buffer[block[i + 7] & 0xFF]++;
+    for (int i = 0; i < 256; i++) {
+        histo[i] = 0;
     }
 
-    for (int i = end8; i < blkptr + length; i++)
-        _buffer[block[i] & 0xFF]++;
+    const int end8 = length & -8;
+
+    for (int i = 0; i < end8; i += 8) {
+        histo[block[i] & 0xFF]++;
+        histo[block[i + 1] & 0xFF]++;
+        histo[block[i + 2] & 0xFF]++;
+        histo[block[i + 3] & 0xFF]++;
+        histo[block[i + 4] & 0xFF]++;
+        histo[block[i + 5] & 0xFF]++;
+        histo[block[i + 6] & 0xFF]++;
+        histo[block[i + 7] & 0xFF]++;
+    }
+
+    for (int i = end8; i < length; i++)
+        histo[block[i] & 0xFF]++;
 
     uint64 sum = 0;
     const int logLength1024 = Global::log2_1024(length);
 
     for (int i = 0; i < 256; i++) {
-        if (_buffer[i] == 0)
+        if (histo[i] == 0)
             continue;
 
-        sum += uint64((_buffer[i] * (logLength1024 - Global::log2_1024(_buffer[i]))) >> 3);
+        sum += uint64((histo[i] * (logLength1024 - Global::log2_1024(histo[i]))) >> 3);
     }
 
     return int(sum / uint64(length));

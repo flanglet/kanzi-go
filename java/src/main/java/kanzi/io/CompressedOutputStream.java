@@ -567,8 +567,9 @@ public class CompressedOutputStream extends OutputStream
             }            
             else 
             {
-               EntropyUtils eu = new EntropyUtils();
-               final int entropy = eu.computeFirstOrderEntropy1024(data.array, data.index, blockLength);
+               int[] histo = new int[256];
+               final int entropy = EntropyUtils.computeFirstOrderEntropy1024(data.array, data.index, blockLength, histo);
+               //this.ctx.put("histo0", histo);
                
                if (entropy >= EntropyUtils.INCOMPRESSIBLE_THRESHOLD)
                {
