@@ -620,7 +620,16 @@ T FileDecompressTask<T>::call()
     double delta = stopClock.elapsed();
     log.println("", verbosity > 1);
     ss.str(string());
-    ss << "Decoding:          " << uint64(delta) << " ms";
+    char buffer[32];
+
+    if (delta >= 1e5) {
+       sprintf(buffer, "%.1f s", delta/1000);
+       ss << "Decoding:          " << buffer;
+    } else {
+       sprintf(buffer, "%.0f ms", delta);
+       ss << "Decoding:          " << buffer;
+    }
+
     log.println(ss.str().c_str(), printFlag);
     ss.str(string());
     ss << "Input size:        " << _cis->getRead();
@@ -630,7 +639,15 @@ T FileDecompressTask<T>::call()
     log.println(ss.str().c_str(), printFlag);
     ss.str(string());
     ss << "Decoding " << inputName << ": " << _cis->getRead() << " => " << read;
-    ss << " bytes in " << delta << " ms";
+
+    if (delta >= 1e5) {
+       sprintf(buffer, "%.1f s", delta/1000);
+       ss << " bytes in " << buffer;
+    } else {
+       sprintf(buffer, "%.0f ms", delta);
+       ss << " bytes in " << buffer;
+    }
+
     log.println(ss.str().c_str(), verbosity == 1);
 
     if (delta > 0) {

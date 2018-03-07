@@ -631,14 +631,29 @@ public class BlockCompressor implements Runnable, Callable<Integer>
 
          long after = System.nanoTime();
          long delta = (after - before) / 1000000L; // convert to ms
+         String str;
          printOut("", verbosity>1);
-         printOut("Encoding:          "+delta+" ms", printFlag);
+
+         if (delta >= 100000) {            
+            str = String.format("%1$.1f", (float) delta) + " s";
+         } else {
+            str = String.valueOf(delta) + " ms";
+         }
+         
+         printOut("Encoding:          "+str, printFlag);
          printOut("Input size:        "+read, printFlag);
          printOut("Output size:       "+this.cos.getWritten(), printFlag);
          float f = this.cos.getWritten() / (float) read;
          printOut("Compression ratio: "+String.format("%1$.6f", f), printFlag);
-         printOut("Encoding "+inputName+": "+read+" => "+this.cos.getWritten()+
-            " bytes in "+delta+" ms", verbosity==1);
+         
+         if (delta >= 100000) {            
+            str = String.format("%1$.1f", (float) delta) + " s";
+         } else {
+            str = String.valueOf(delta) + " ms";
+         }
+
+         str = String.format("Encoding %s: %d => %d bytes in %s", inputName, read, this.cos.getWritten(), str);
+         printOut(str, verbosity==1);
 
          if (delta > 0)
             printOut("Throughput (KB/s): "+(((read * 1000L) >> 10) / delta), printFlag);

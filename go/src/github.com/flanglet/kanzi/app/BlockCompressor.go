@@ -647,9 +647,15 @@ func (this *FileCompressTask) Call() (int, uint64, uint64) {
 
 	after := time.Now()
 	delta := after.Sub(before).Nanoseconds() / 1000000 // convert to ms
-
 	log.Println("", verbosity > 1)
-	msg = fmt.Sprintf("Encoding:          %d ms", delta)
+
+	if delta >= 100000 {
+		msg = fmt.Sprintf("%.1f s", float64(delta)/1000)
+	} else {
+		msg = fmt.Sprintf("%.0f ms", float64(delta))
+	}
+
+	msg = fmt.Sprintf("Encoding:          %v", msg)
 	log.Println(msg, printFlag)
 	msg = fmt.Sprintf("Input size:        %d", read)
 	log.Println(msg, printFlag)
@@ -657,7 +663,14 @@ func (this *FileCompressTask) Call() (int, uint64, uint64) {
 	log.Println(msg, printFlag)
 	msg = fmt.Sprintf("Compression ratio: %f", float64(cos.GetWritten())/float64(read))
 	log.Println(msg, printFlag)
-	msg = fmt.Sprintf("Encoding %v: %v => %v bytes in %v ms", inputName, read, cos.GetWritten(), delta)
+
+	if delta >= 100000 {
+		msg = fmt.Sprintf("%.1f s", float64(delta)/1000)
+	} else {
+		msg = fmt.Sprintf("%.0f ms", float64(delta))
+	}
+
+	msg = fmt.Sprintf("Encoding %v: %v => %v bytes in %v", inputName, read, cos.GetWritten(), msg)
 	log.Println(msg, verbosity == 1)
 
 	if delta > 0 {

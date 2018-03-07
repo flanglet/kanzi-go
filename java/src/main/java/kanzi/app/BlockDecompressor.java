@@ -548,12 +548,27 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
 
          long after = System.nanoTime();
          long delta = (after - before) / 1000000L; // convert to ms
+         String str;
          printOut("", verbosity>1);
-         printOut("Decoding:          "+delta+" ms", printFlag);
+
+         if (delta >= 100000) {            
+            str = String.format("%1$.1f", (float) delta) + " s";
+         } else {
+            str = String.valueOf(delta) + " ms";
+         }
+         
+         printOut("Decoding:          "+str, printFlag);
          printOut("Input size:        "+this.cis.getRead(), printFlag);
          printOut("Output size:       "+read, printFlag);
-         printOut("Decoding "+inputName+": "+this.cis.getRead()+" => "+read+
-             " bytes in "+delta+" ms", verbosity==1);
+
+         if (delta >= 100000) {            
+            str = String.format("%1$.1f", (float) delta) + " s";
+         } else {
+            str = String.valueOf(delta) + " ms";
+         }
+
+         str = String.format("Decoding %s: %d => %d bytes in %s", inputName, this.cis.getRead(), read, str);
+         printOut(str, verbosity==1);
 
          if (delta > 0)
             printOut("Throughput (KB/s): "+(((read * 1000L) >> 10) / delta), printFlag);
