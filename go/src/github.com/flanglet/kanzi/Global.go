@@ -38,7 +38,7 @@ const (
 )
 
 // array with 256 elements: int(Math.log2(x-1))
-var LOG2 = [...]int{
+var LOG2 = [...]uint{
 	0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4,
 	4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
 	5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
@@ -58,7 +58,7 @@ var LOG2 = [...]int{
 }
 
 // array with 256 elements: 4096*Math.log2(x)
-var LOG2_4096 = [...]int{
+var LOG2_4096 = [...]uint{
 	0, 0, 4096, 6492, 8192, 9510, 10588, 11498, 12288, 12984, 13606, 14169, 14684, 15157, 15594, 16002,
 	16384, 16742, 17080, 17399, 17702, 17990, 18265, 18528, 18780, 19021, 19253, 19476, 19690, 19898, 20098, 20292,
 	20480, 20661, 20838, 21009, 21176, 21337, 21495, 21649, 21798, 21944, 22086, 22225, 22361, 22494, 22624, 22751,
@@ -78,7 +78,7 @@ var LOG2_4096 = [...]int{
 }
 
 // array with 10 elements: 10 * (4096*Math.log10(x))
-var TEN_LOG10_100 = [100]int{
+var TEN_LOG10_100 = [100]uint{
 	0, 0, 12330, 19542, 24660, 28629, 31873, 34615, 36990, 39085,
 	40960, 42655, 44203, 45627, 46945, 48172, 49320, 50399, 51415, 52377,
 	53290, 54158, 54985, 55776, 56533, 57259, 57957, 58628, 59275, 59899,
@@ -193,9 +193,9 @@ func initStretch() []int {
 }
 
 // Return 1024 * 10 * log10(x)
-func Ten_log10(x int32) (int, error) {
+func Ten_log10(x int32) (uint, error) {
 	if x <= 0 {
-		return -1, errors.New("Cannot calculate log of a negative or null value")
+		return 0, errors.New("Cannot calculate log of a negative or null value")
 	}
 
 	if x < 100 {
@@ -250,16 +250,18 @@ func Cos(rad1024 int) int {
 	return COS_1024[(x*CONST1)>>12]
 }
 
-func Len32(x uint) int {
+func Log2(x uint32) (uint, error) {
 	if x == 0 {
-		return 0
+		return 0, errors.New("Cannot calculate log of a negative or null value")
 	}
 
-	res := 0
+	var res uint
 
 	if x >= 1<<16 {
 		x >>= 16
 		res = 16
+	} else {
+		res = 0
 	}
 
 	if x >= 1<<8 {
@@ -267,26 +269,14 @@ func Len32(x uint) int {
 		res += 8
 	}
 
-	return res + LOG2[x-1]
-}
-
-func Log2(x int32) (int, error) {
-	if x <= 0 {
-		return -1, errors.New("Cannot calculate log of a negative or null value")
-	}
-
-	if x <= 256 {
-		return LOG2[x-1], nil
-	}
-
-	return Len32(uint(x)), nil
+	return res + LOG2[x-1], nil
 }
 
 // Return 1024 * log2(x)
 // Max error is around 0.1%
-func Log2_1024(x int) (int, error) {
+func Log2_1024(x int) (uint, error) {
 	if x <= 0 {
-		return -1, errors.New("Cannot calculate log of a negative or null value")
+		return 0, errors.New("Cannot calculate log of a negative or null value")
 	}
 
 	if x < 512 {
@@ -301,7 +291,7 @@ func Log2_1024(x int) (int, error) {
 
 	// x is a power of 2 ?
 	if x&(x-1) == 0 {
-		return int(log << 10), nil
+		return log << 10, nil
 	}
 
 	base := int64(0)
@@ -338,7 +328,7 @@ func Log2_1024(x int) (int, error) {
 	taylor += (((z * z2) / 3) >> log)
 	taylor -= ((z2 * z2) >> (log + 2))
 	taylor = (taylor * 5909) >> (log + 2) // rescale: 4096*1/log(2)
-	return int(base + int64(log<<10) + taylor), nil
+	return uint(base + int64(log<<10) + taylor), nil
 }
 
 func Clamp(x, min, max int) int {
@@ -397,7 +387,7 @@ func Lsb(x int) int {
 }
 
 // Most significant bit
-func Msb(x int) int {
+func Msb(x uint32) int {
 	x |= (x >> 1)
 	x |= (x >> 2)
 	x |= (x >> 4)
@@ -406,7 +396,7 @@ func Msb(x int) int {
 	return (x & ^(x >> 1))
 }
 
-func RoundUpPowerOfTwo(x int) int {
+func RoundUpPowerOfTwo(x int32) int {
 	x--
 	x |= (x >> 1)
 	x |= (x >> 2)

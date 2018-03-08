@@ -24,6 +24,7 @@ limitations under the License.
 #include <sstream>
 #include <iostream>
 #include <sys/stat.h>
+#include "types.hpp"
 
 #ifdef CONCURRENCY_ENABLED
 #include <mutex>
@@ -115,7 +116,7 @@ inline string toString(int data[], int length) {
    stringstream ss;
 
    for (int i = 0; i < length; i++) {
-       ss << i << " ";
+       ss << data[i] << " ";
    }
 
    return ss.str();
@@ -134,6 +135,17 @@ inline void fromString(string s, int data[], int length) {
       }
    }
 }
+
+
+//Prefetch
+static inline void prefetch(const void* ptr) {
+#if defined(__GNUG__) || defined(__clang__) 
+	__builtin_prefetch(ptr, 0, 1);
+#elif defined(__x86_64__)
+	_mm_prefetch((char*) ptr, _MM_HINT_T0);
+#endif
+}
+
 
 // Thread safe printer
 class Printer 

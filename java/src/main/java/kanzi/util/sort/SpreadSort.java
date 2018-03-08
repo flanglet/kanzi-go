@@ -16,6 +16,7 @@ limitations under the License.
 package kanzi.util.sort;
 
 import java.util.Arrays;
+import kanzi.Global;
 import kanzi.IntSorter;
 import kanzi.SliceIntArray;
 
@@ -36,6 +37,7 @@ public class SpreadSort implements IntSorter
       return _sort(array, idx, count);
    }
    
+   
    private static boolean _sort(int[] array, int idx, int count)
    {
       if (count < 2)
@@ -54,16 +56,12 @@ public class SpreadSort implements IntSorter
       return true;
    }
    
+   
    private static int roughLog2(int x) 
    {
-      int shift = 0;
-      x = (x + (x >> 31)) ^ (x >> 31); // abs(x)
-
-      while ((x>>shift) != 0)
-         shift++;
-
-      return shift;
+      return Global.log2(x);
    }
+   
    
    private static int getMaxCount(int logRange, int count)
    {
@@ -84,6 +82,7 @@ public class SpreadSort implements IntSorter
       return 1 << shift;
    }
 
+   
    private static void findExtremes(SliceIntArray sia, int count, int[] minMax)
    {
       final int[] input = sia.array;
@@ -91,7 +90,8 @@ public class SpreadSort implements IntSorter
       int min = input[sia.index];
       int max = min;
       
-      for (int i=sia.index; i<end; i++) {
+      for (int i=sia.index; i<end; i++) 
+      {
          final int val = input[i];
          
          if (val > max)
@@ -162,7 +162,8 @@ public class SpreadSort implements IntSorter
       // Assign the bin positions
       bins[0].position = sia.index;
 
-      for (int i=0; i<binCount-1; i++) {
+      for (int i=0; i<binCount-1; i++) 
+      {
          bins[i+1].position = bins[i].position + bins[i].count;
          bins[i].count = bins[i].position - sia.index;
       }
@@ -170,11 +171,13 @@ public class SpreadSort implements IntSorter
       bins[binCount-1].count = bins[binCount-1].position - sia.index;
 
       // Swap into place.  This dominates runtime, especially in the swap
-      for (int i=0; i<count; ++i) {
+      for (int i=0; i<count; i++) 
+      {
          Bin currBin;
          final int idx = sia.index + i;
          
-         for (currBin=bins[(array[idx]>>logDivisor)-divMin]; currBin.count>i; ) {
+         for (currBin=bins[(array[idx]>>logDivisor)-divMin]; currBin.count>i; ) 
+         {
                final int tmp = array[currBin.position];
                array[currBin.position] = array[idx];
                array[idx] = tmp;               
@@ -198,6 +201,7 @@ public class SpreadSort implements IntSorter
 
       return bins;
    }
+   
 
    private static void spreadSortBins(SliceIntArray sia, int[] minMaxCount, Bin[] bins, int maxCount)
    {
@@ -219,7 +223,8 @@ public class SpreadSort implements IntSorter
    }
  
    
-   private static class Bin {
+   private static class Bin 
+   {
       int position;
       int count;
    }

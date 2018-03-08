@@ -20,21 +20,31 @@ limitations under the License.
 #include <stdlib.h>
 #include <emmintrin.h>
 
-	/*
-	MSVC++ 14.1 _MSC_VER == 1912 (Visual Studio 2017)
-	MSVC++ 14.1 _MSC_VER == 1911 (Visual Studio 2017)
-	MSVC++ 14.1 _MSC_VER == 1910 (Visual Studio 2017)
-	MSVC++ 14.0 _MSC_VER == 1900 (Visual Studio 2015)
-	MSVC++ 12.0 _MSC_VER == 1800 (Visual Studio 2013)
-	MSVC++ 11.0 _MSC_VER == 1700 (Visual Studio 2012)
-	MSVC++ 10.0 _MSC_VER == 1600 (Visual Studio 2010)
-	MSVC++ 9.0  _MSC_VER == 1500 (Visual Studio 2008)
-	MSVC++ 8.0  _MSC_VER == 1400 (Visual Studio 2005)
-	MSVC++ 7.1  _MSC_VER == 1310 (Visual Studio 2003)
-	MSVC++ 7.0  _MSC_VER == 1300
-	MSVC++ 6.0  _MSC_VER == 1200
-	MSVC++ 5.0  _MSC_VER == 1100
-	*/
+
+	#ifdef _MSC_VER
+		#if !defined(__x86_64__)
+			#define __x86_64__  _M_X64
+		#endif
+		#if !defined(__i386__)
+			#define __i386__  _M_IX86 
+		#endif
+	#endif
+
+   /*
+   MSVC++ 14.1 _MSC_VER == 1912 (Visual Studio 2017)
+   MSVC++ 14.1 _MSC_VER == 1911 (Visual Studio 2017)
+   MSVC++ 14.1 _MSC_VER == 1910 (Visual Studio 2017)
+   MSVC++ 14.0 _MSC_VER == 1900 (Visual Studio 2015)
+   MSVC++ 12.0 _MSC_VER == 1800 (Visual Studio 2013)
+   MSVC++ 11.0 _MSC_VER == 1700 (Visual Studio 2012)
+   MSVC++ 10.0 _MSC_VER == 1600 (Visual Studio 2010)
+   MSVC++ 9.0  _MSC_VER == 1500 (Visual Studio 2008)
+   MSVC++ 8.0  _MSC_VER == 1400 (Visual Studio 2005)
+   MSVC++ 7.1  _MSC_VER == 1310 (Visual Studio 2003)
+   MSVC++ 7.0  _MSC_VER == 1300
+   MSVC++ 6.0  _MSC_VER == 1200
+   MSVC++ 5.0  _MSC_VER == 1100
+   */
 
 	#ifndef _GLIBCXX_USE_NOEXCEPT
 	#define _GLIBCXX_USE_NOEXCEPT
@@ -53,7 +63,7 @@ limitations under the License.
 	   // C++ 11
 	   #include <cstdint>
 	#else
-	   #if defined(_MSC_VER)  && _MSC_VER < 1300
+	   #if defined(_MSC_VER) && _MSC_VER < 1300
 	      typedef signed char int8_t;
 	      typedef signed short int16_t;
 	      typedef signed int int32_t;
@@ -83,25 +93,6 @@ limitations under the License.
 	typedef uint32_t uint;
 	typedef uint32_t uint32;
 	typedef uint64_t uint64;
-
-
-	#ifdef _MSC_VER
-		#if !defined(__x86_64__)
-			#define __x86_64__  _M_X64
-		#endif
-		#if !defined(__i386__)
-			#define __i386__  _M_IX86 
-		#endif
-	#endif
-
-
-	static inline void prefetch(const void* ptr) {
-	#ifdef __GNUG__
-		__builtin_prefetch(ptr, 0, 1);
-	#elif defined(__x86_64__)
-		_mm_prefetch((char*) ptr, _MM_HINT_T0);
-	#endif
-	}
 
 
    #if defined(WIN32) || defined(_WIN32) 

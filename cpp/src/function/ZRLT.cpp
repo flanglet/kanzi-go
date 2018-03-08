@@ -14,6 +14,7 @@ limitations under the License.
 */
 
 #include <stddef.h>
+#include "../Global.hpp"
 #include "ZRLT.hpp"
 
 using namespace kanzi;
@@ -52,18 +53,15 @@ bool ZRLT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int length
 
            if (runLength > 1) {
                // Encode length
-               int log2 = 1;
+               int log = Global::log2(runLength);
 
-               while (runLength>>log2 > 1)
-                   log2++;
-
-               if (dstIdx >= dstEnd - log2)
+               if (dstIdx >= dstEnd - log)
                    break;
 
                // Write every bit as a byte except the most significant one
-               while (log2 > 0) {
-                   log2--;
-                   dst[dstIdx++] = byte((runLength >> log2) & 1);
+               while (log > 0) {
+                   log--;
+                   dst[dstIdx++] = byte((runLength >> log) & 1);
                }
 
                runLength = 1;

@@ -58,7 +58,7 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 
 	srcEnd, dstEnd := uint(len(src)), uint(len(dst))
 	dstEnd2 := dstEnd - 2
-	runLength := 1
+	runLength := uint32(1)
 	srcIdx, dstIdx := uint(0), uint(0)
 	var err error
 
@@ -75,11 +75,7 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 
 			if runLength > 1 {
 				// Encode length
-				log2 := uint(1)
-
-				for runLength>>log2 > 1 {
-					log2++
-				}
+				log2, _ := kanzi.Log2(runLength)
 
 				if dstIdx >= dstEnd-log2 {
 					break

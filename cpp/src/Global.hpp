@@ -19,6 +19,8 @@ limitations under the License.
 #include <cstring>
 #include "types.hpp"
 #include "util.hpp"
+#include "IllegalArgumentException.hpp"
+
 
 namespace kanzi {
 
@@ -40,19 +42,19 @@ namespace kanzi {
 
        static int squash(int d);
 
-       static int ten_log10(int32 x) THROW;
+       static int ten_log10(uint32 x) THROW;
 
        static int sin(int32 x);
 
        static int cos(int32 x);
 
-       static int log2(int32 x) THROW;
+       static int log2(uint32 x) THROW; // fast, integer rounded
 
-       static int log2_1024(int32 x) THROW;
+       static int log2_1024(uint32 x) THROW; // slow, accurate
 
-       static int len32(int32 x);
+       static int len32(uint32 x);
 
-       static int sqrt(int32 x) THROW;
+       static int sqrt(uint32 x);
        
        static void computeJobsPerTask(int jobsPerTask[], int jobs, int tasks);
 
@@ -63,15 +65,15 @@ namespace kanzi {
        static const int SMALL_RAD_ANGLE_1024; // arbitrarily set to 0.25 rad
        static const int CONST1; // 326 >> 12 === 1/(4*Math.PI)
 
-       static const int SQRT_THRESHOLD0;
-       static const int SQRT_THRESHOLD1;
-       static const int SQRT_THRESHOLD2;
-       static const int SQRT_THRESHOLD3;
-       static const int SQRT_THRESHOLD4;
-       static const int SQRT_THRESHOLD5;
-       static const int SQRT_THRESHOLD6;
-       static const int SQRT_THRESHOLD7;
-       static const int SQRT_THRESHOLD8;
+       static const uint32 SQRT_THRESHOLD0;
+       static const uint32 SQRT_THRESHOLD1;
+       static const uint32 SQRT_THRESHOLD2;
+       static const uint32 SQRT_THRESHOLD3;
+       static const uint32 SQRT_THRESHOLD4;
+       static const uint32 SQRT_THRESHOLD5;
+       static const uint32 SQRT_THRESHOLD6;
+       static const uint32 SQRT_THRESHOLD7;
+       static const uint32 SQRT_THRESHOLD8;
 
        static const int* initStretch();
        static const int* initSquash();
@@ -89,5 +91,131 @@ namespace kanzi {
 
        return SQUASH[d + 2047];
    }
+
+
+   // Return 1024 * sin(1024*x) [x in radians]
+   // Max error is less than 1.5%
+   inline int Global::sin(int32 rad1024)
+   {
+       if ((rad1024 >= Global::PI_1024_MULT2) || (rad1024 <= -Global::PI_1024_MULT2))
+           rad1024 %= Global::PI_1024_MULT2;
+
+       // If x is small enough, return sin(x) === x
+       if ((rad1024 < Global::SMALL_RAD_ANGLE_1024) && (-rad1024 < Global::SMALL_RAD_ANGLE_1024))
+           return rad1024;
+
+       const int x = (rad1024 + (rad1024 >> 31)) ^ (rad1024 >> 31); // abs(rad1024)
+
+       if (x >= PI_1024)
+           return -(((rad1024 >> 31) ^ Global::SIN_1024[((x - Global::PI_1024) * CONST1) >> 12]) - (rad1024 >> 31));
+
+       return ((rad1024 >> 31) ^ Global::SIN_1024[(x * Global::CONST1) >> 12]) - (rad1024 >> 31);
+   }
+
+
+   // Return 1024 * cos(1024*x) [x in radians]
+   // Max error is less than 1.5%
+   inline int Global::cos(int32 rad1024)
+   {
+       if ((rad1024 >= Global::PI_1024_MULT2) || (rad1024 <= -Global::PI_1024_MULT2))
+           rad1024 %= Global::PI_1024_MULT2;
+
+       // If x is small enough, return cos(x) === 1 - (x*x)/2
+       if ((rad1024 < Global::SMALL_RAD_ANGLE_1024) && (-rad1024 < Global::SMALL_RAD_ANGLE_1024))
+           return 1024 - ((rad1024 * rad1024) >> 11);
+
+       const int x = (rad1024 + (rad1024 >> 31)) ^ (rad1024 >> 31); // abs(rad1024)
+
+       if (x >= Global::PI_1024)
+           return -COS_1024[((x - Global::PI_1024) * Global::CONST1) >> 12];
+
+       return COS_1024[(x * Global::CONST1) >> 12];
+   }
+
+
+   inline int Global::len32(uint32 x)
+   {
+       if (x == 0)
+           return 0;
+
+       int res = 0;
+
+       if (x >= 1 << 16) {
+           x >>= 16;
+           res = 16;
+       }
+
+       if (x >= 1 << 8) {
+           x >>= 8;
+           res += 8;
+       }
+
+       return res + Global::LOG2[x - 1];
+   }
+
+
+   // Integer SQRT implementation based on algorithm at
+   // http://guru.multimedia.cx/fast-integer-square-root/
+   // Return 1024*sqrt(x) with a precision higher than 0.1%
+   inline int Global::sqrt(uint32 x)
+   {
+       if (x <= 1)
+           return x << 10;
+
+       const int shift = (x < Global::SQRT_THRESHOLD5) ? ((x < Global::SQRT_THRESHOLD0) ? 16 : 10) : 0;
+       x <<= shift; // scale up for better precision
+
+       int val;
+
+       if (x < Global::SQRT_THRESHOLD1) {
+           if (x < Global::SQRT_THRESHOLD2) {
+               val = Global::SQRT[(x + 3) >> 2] >> 3;
+           }
+           else {
+               if (x < Global::SQRT_THRESHOLD3)
+                   val = Global::SQRT[(x + 28) >> 6] >> 1;
+               else
+                   val = Global::SQRT[x >> 8];
+           }
+       }
+       else {
+           if (x < Global::SQRT_THRESHOLD4) {
+               if (x < Global::SQRT_THRESHOLD5) {
+                   val = Global::SQRT[x >> 12];
+                   val = ((x / val) >> 3) + (val << 1);
+               }
+               else {
+                   val = Global::SQRT[x >> 16];
+                   val = ((x / val) >> 5) + (val << 3);
+               }
+           }
+           else {
+               if (x < Global::SQRT_THRESHOLD6) {
+                   if (x < Global::SQRT_THRESHOLD7) {
+                       val = Global::SQRT[x >> 18];
+                       val = ((x / val) >> 6) + (val << 4);
+                   }
+                   else {
+                       val = Global::SQRT[x >> 20];
+                       val = ((x / val) >> 7) + (val << 5);
+                   }
+               }
+               else {
+                   if (x < Global::SQRT_THRESHOLD8) {
+                       val = Global::SQRT[x >> 22];
+                       val = ((x / val) >> 8) + (val << 6);
+                   }
+                   else {
+                       val = Global::SQRT[x >> 24];
+                       val = ((x / val) >> 9) + (val << 7);
+                   }
+               }
+           }
+       }
+
+       // return 1024 * sqrt(x)
+       return (val - ((x - (val * val)) >> 31)) << (10 - (shift >> 1));
+   }
+
 }
 #endif

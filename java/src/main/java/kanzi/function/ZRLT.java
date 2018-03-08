@@ -16,6 +16,7 @@ limitations under the License.
 package kanzi.function;
 
 import kanzi.ByteFunction;
+import kanzi.Global;
 import kanzi.SliceByteArray;
 
 // Zero Run Length Encoding is a simple encoding algorithm by Wheeler
@@ -75,11 +76,8 @@ public final class ZRLT implements ByteFunction
             if (runLength > 1)
             {
                // Encode length
-               int log2 = 1;
-
-               for (int val2=runLength>>1; val2>1; val2>>=1)
-                  log2++;
-
+               int log2 = (runLength<=256) ? Global.LOG2[runLength-1] : 31-Integer.numberOfLeadingZeros(runLength);
+               
                if (dstIdx >= dstEnd - log2)
                   break;
 
