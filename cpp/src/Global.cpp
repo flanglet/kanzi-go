@@ -247,7 +247,7 @@ int Global::log2_1024(uint32 x) THROW
         // select 1 + x Taylor series expansion
     }
 
-    z = x - (1 << log);
+    z = int64(x) - (1 << log);
     int64 z2 = (z * z) >> log;
     int64 taylor = z;
     taylor -= (z2 >> 1);
