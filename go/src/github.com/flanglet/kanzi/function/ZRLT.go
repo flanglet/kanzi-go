@@ -77,7 +77,7 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 				// Encode length
 				log2, _ := kanzi.Log2(runLength)
 
-				if dstIdx >= dstEnd-log2 {
+				if dstIdx >= dstEnd-uint(log2) {
 					break
 				}
 

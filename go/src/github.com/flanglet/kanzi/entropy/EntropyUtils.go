@@ -424,14 +424,14 @@ func ComputeFirstOrderEntropy1024(block []byte, histo []int) int {
 	}
 
 	sum := uint64(0)
-	logLength1024, _ := kanzi.Log2_1024(len(block))
+	logLength1024, _ := kanzi.Log2_1024(uint32(len(block)))
 
 	for i := 0; i < 256; i++ {
 		if histo[i] == 0 {
 			continue
 		}
 
-		log1024, _ := kanzi.Log2_1024(histo[i])
+		log1024, _ := kanzi.Log2_1024(uint32(histo[i]))
 		sum += uint64((histo[i] * int(logLength1024 - log1024)) >> 3)
 	}
 

@@ -52,8 +52,6 @@ namespace kanzi {
 
        static int log2_1024(uint32 x) THROW; // slow, accurate
 
-       static int len32(uint32 x);
-
        static int sqrt(uint32 x);
        
        static void computeJobsPerTask(int jobsPerTask[], int jobs, int tasks);
@@ -77,6 +75,8 @@ namespace kanzi {
 
        static const int* initStretch();
        static const int* initSquash();
+
+       static int _log2(uint32 x);
    };
 
 
@@ -132,26 +132,6 @@ namespace kanzi {
        return COS_1024[(x * Global::CONST1) >> 12];
    }
 
-
-   inline int Global::len32(uint32 x)
-   {
-       if (x == 0)
-           return 0;
-
-       int res = 0;
-
-       if (x >= 1 << 16) {
-           x >>= 16;
-           res = 16;
-       }
-
-       if (x >= 1 << 8) {
-           x >>= 8;
-           res += 8;
-       }
-
-       return res + Global::LOG2[x - 1];
-   }
 
 
    // Integer SQRT implementation based on algorithm at
