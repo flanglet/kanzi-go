@@ -23,6 +23,8 @@ import kanzi.function.LZ4Codec;
 import kanzi.function.RLT;
 import kanzi.function.SnappyCodec;
 import kanzi.function.ZRLT;
+import org.junit.Assert;
+import org.junit.Test;
 
 
 public class TestFunctions
@@ -44,28 +46,61 @@ public class TestFunctions
           if (type.equals("ALL"))
           {
              System.out.println("\n\nTestLZ4");
-             testCorrectness("LZ4");
+             
+             if (testCorrectness("LZ4") == false)
+                System.exit(1);
+             
              testSpeed("LZ4");
              System.out.println("\n\nTestSnappy");
-             testCorrectness("SNAPPY");
+             
+             if (testCorrectness("SNAPPY") == false)
+                System.exit(1);
+             
              testSpeed("SNAPPY");
              System.out.println("\n\nTestZRLT");
-             testCorrectness("ZRLT");
+             
+             if (testCorrectness("ZRLT") == false)
+                System.exit(1);
+             
              testSpeed("ZRLT");
              System.out.println("\n\nTestRLT");
-             testCorrectness("RLT");
+             
+             if (testCorrectness("RLT") == false)
+                System.exit(1);
+             
              testSpeed("RLT");         
            }
           else
           {
              System.out.println("Test" + type);
-             testCorrectness(type);
+             
+             if (testCorrectness(type) == false)
+                System.exit(1);
+             
              testSpeed(type);
           }
       }        
    }
 
     
+   @Test
+   public void testFunctions()
+   {
+      System.out.println("\n\nTestLZ4");
+      Assert.assertTrue(testCorrectness("LZ4"));
+      //testSpeed("LZ4");
+      System.out.println("\n\nTestSnappy");
+      Assert.assertTrue(testCorrectness("SNAPPY"));
+      //testSpeed("SNAPPY");
+      System.out.println("\n\nTestZRLT");
+      Assert.assertTrue(testCorrectness("ZRLT"));
+      //testSpeed("ZRLT");
+      System.out.println("\n\nTestRLT");
+      Assert.assertTrue(testCorrectness("RLT"));
+      //testSpeed("RLT");   
+   }
+   
+   
    private static ByteFunction getByteFunction(String name)
    {
       switch(name) 
@@ -89,7 +124,7 @@ public class TestFunctions
    }
 
     
-   private static void testCorrectness(String name)
+   private static boolean testCorrectness(String name)
    {        
       byte[] input;
       byte[] output;
@@ -203,7 +238,7 @@ public class TestFunctions
              }
 
              System.out.println("\nEncoding error");
-             System.exit(1);
+             return false;
           }
 
           if (sa1.index != input.length)
@@ -230,7 +265,7 @@ public class TestFunctions
           if (f.inverse(sa2, sa3) == false)
           {
              System.out.println("Decoding error");
-             System.exit(1);
+             return false;
           }
 
           System.out.println("Decoded: ");
@@ -247,13 +282,15 @@ public class TestFunctions
              if (input[i] != reverse[i])
              {
                 System.out.println("Different (index "+i+": "+input[i]+" - "+reverse[i]+")");
-                System.exit(1);
+                return false;
              }
           }
 
           System.out.println("Identical");
           System.out.println();
       }
+      
+      return true;
    }
 
     
