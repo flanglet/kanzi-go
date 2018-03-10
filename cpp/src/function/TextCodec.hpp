@@ -31,7 +31,7 @@ namespace kanzi {
        const byte* _buf; // text data
 
        DictEntry();
-       
+
        DictEntry(const byte buf[], int pos, int32 hash, int idx, int length);
 
        DictEntry& operator = (const DictEntry& de);
@@ -91,6 +91,8 @@ namespace kanzi {
    private:
        static const int HASH1 = 200002979;
        static const int HASH2 = 50004239;
+       static const byte CR = byte(0x0D); 
+       static const byte LF = byte(0x0A); 
 
        static bool* initDelimiterChars();
        static const bool* DELIMITER_CHARS;
@@ -100,6 +102,8 @@ namespace kanzi {
        static SliceArray<byte> unpackDictionary32(const byte dict[], int dictSize);
 
        static bool sameWords(const byte src[], byte dst[], int length);
+
+       static bool isTextBlock(byte block[], int count, int freqs[]);
 
        bool expandDictionary();
 
@@ -113,11 +117,13 @@ namespace kanzi {
 
        DictEntry** _dictMap;
        DictEntry* _dictList;
+       int _freqs[256];
        byte _escapes[2];
        int _staticDictSize;
        int _dictSize;
        int _logHashSize;
        int32 _hashMask;
+       bool _isCRLF; // EOL = CR + LF
 
        int emitWordIndex(byte dst[], int val);
        int emitSymbols(byte src[], byte dst[], const int srcEnd, const int dstEnd);

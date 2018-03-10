@@ -39,6 +39,8 @@ const (
 	TC_LOG_HASHES_SIZE = 24         // 16 MB
 	TC_ESCAPE_TOKEN1   = byte(0x0F) // dictionary word preceded by space symbol
 	TC_ESCAPE_TOKEN2   = byte(0x0E) // toggle upper/lower case of first word char
+	LF                 = byte(0x0A)
+	CR                 = byte(0x0D)
 	TC_HASH1           = int32(200002979)
 	TC_HASH2           = int32(50004239)
 )
@@ -54,10 +56,12 @@ type DictEntry struct {
 type TextCodec struct {
 	dictMap        []*DictEntry
 	dictList       []DictEntry
+	freqs          []int
 	staticDictSize int
 	dictSize       int
 	logHashSize    uint
 	hashMask       int32
+	isCRLF         bool // EOL = CR+LF ?
 }
 
 var (
@@ -615,6 +619,7 @@ func NewTextCodecWithArgs(dictSize int, dict []byte, logHashSize uint) (*TextCod
 	this.dictMap = make([]*DictEntry, 1<<this.logHashSize)
 	this.dictList = make([]DictEntry, this.dictSize)
 	this.hashMask = int32(1<<this.logHashSize) - 1
+	this.freqs = make([]int, 256)
 	nbWords := 0
 
 	// Replace default dictionary ?
@@ -657,6 +662,7 @@ func NewTextCodecFromMap(ctx map[string]interface{}) (*TextCodec, error) {
 	this.dictMap = make([]*DictEntry, 1<<this.logHashSize)
 	this.dictList = make([]DictEntry, this.dictSize)
 	this.hashMask = int32(1<<this.logHashSize) - 1
+	this.freqs = make([]int, 256)
 	size := len(TC_STATIC_DICTIONARY)
 
 	if size >= this.dictSize {
@@ -777,15 +783,27 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 	endWordIdx := ^anchor
 	emitAnchor := 0 // never negative
 	words := this.staticDictSize
-	nbTextChars := 0
-	threshold := 8192
+
+	if isTextBlock(src[srcIdx:srcIdx+count], this.freqs) == false {
+		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skipping")
+	}
+
+	// DOS encoded end of line (CR+LF) ?
+	if (this.freqs[CR] > 0) && (this.freqs[LF] == this.freqs[CR]) {
+		this.isCRLF = true
+		dst[dstIdx] = 1
+		dstIdx++
+	} else {
+		this.isCRLF = false
+		dst[dstIdx] = 0
+		dstIdx++
+	}
 
 	for srcIdx < srcEnd && dstIdx < dstEnd {
 		cur := src[srcIdx]
 
 		if isText(cur) {
 			srcIdx++
-			nbTextChars++
 			continue
 		}
 
@@ -903,15 +921,6 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 			dstIdx += this.emitSymbols(src[emitAnchor:srcIdx], dst[dstIdx:dstEnd])
 		}
 
-		if srcIdx >= threshold {
-			// Early exit if input does not look like text
-			if 3*nbTextChars < srcIdx {
-				return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skipping")
-			}
-
-			threshold += 8192
-		}
-
 		// Reset delimiter position
 		anchor = srcIdx
 		emitAnchor = anchor
@@ -928,6 +937,36 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	return uint(srcIdx), uint(dstIdx), err
+}
+
+func isTextBlock(block []byte, freqs []int) bool {
+	for i := range freqs {
+		freqs[i] = 0
+	}
+
+	for i := range block {
+		freqs[block[i]]++
+	}
+
+	nbTextChars := 0
+
+	for i := 32; i < 128; i++ {
+		if isText(byte(i)) {
+			nbTextChars += freqs[i]
+		}
+	}
+
+	if 2*nbTextChars < len(block) {
+		return false
+	}
+
+	nbBinChars := 0
+
+	for i := 128; i < 256; i++ {
+		nbBinChars += freqs[i]
+	}
+
+	return 4*nbBinChars <= len(block)
 }
 
 func (this *TextCodec) expandDictionary() bool {
@@ -977,13 +1016,24 @@ func (this *TextCodec) emitFast(src, dst []byte) int {
 		dstIdx++
 		dstIdx += emitWordIndex(dst[dstIdx:], idx)
 	} else {
-		dst[dstIdx] = src[0]
-		dstIdx++
+		if (src[0] != CR) || (this.isCRLF == false) {
+			dst[dstIdx] = src[0]
+			dstIdx++
+		}
 	}
 
-	for i := 1; i < len(src); i++ {
-		dst[dstIdx] = src[i]
-		dstIdx++
+	if this.isCRLF == true {
+		for i := 1; i < len(src); i++ {
+			if src[i] != CR {
+				dst[dstIdx] = src[i]
+				dstIdx++
+			}
+		}
+	} else {
+		for i := 1; i < len(src); i++ {
+			dst[dstIdx] = src[i]
+			dstIdx++
+		}
 	}
 
 	return dstIdx
@@ -1026,12 +1076,14 @@ func (this *TextCodec) emitSlow(src, dst []byte) int {
 				dstIdx += emitWordIndex(dst[dstIdx:dstIdx+3], idx)
 			}
 		} else {
-			if dstIdx >= dstEnd {
-				break
-			}
+			if (cur != CR) || (this.isCRLF == false) {
+				if dstIdx >= dstEnd {
+					break
+				}
 
-			dst[dstIdx] = cur
-			dstIdx++
+				dst[dstIdx] = cur
+				dstIdx++
+			}
 		}
 	}
 
@@ -1115,6 +1167,8 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	words := this.staticDictSize
 	wordRun := false
 	err := error(nil)
+	this.isCRLF = src[srcIdx] != 0
+	srcIdx++
 
 	for srcIdx < srcEnd && dstIdx < dstEnd {
 		cur := src[srcIdx]
@@ -1250,7 +1304,11 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		} else {
 			wordRun = false
 			anchor = srcIdx - 1
-			dst[dstIdx] = cur
+
+			if (cur != CR) || (this.isCRLF == false) {
+				dst[dstIdx] = cur
+			}
+
 			dstIdx++
 		}
 	}
@@ -1344,7 +1402,5 @@ func unpackDictionary32(dict []byte) []byte {
 	}
 
 	buf[d] = ' ' // End
-	res := make([]byte, d)
-	copy(res[0:], buf[1:d+1])
-	return res
+	return buf[1 : d+1]
 }

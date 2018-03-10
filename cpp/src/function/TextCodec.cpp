@@ -728,15 +728,19 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
     int endWordIdx = ~anchor;
     int emitAnchor = 0; // never less than 0
     int words = _staticDictSize;
-    int nbTextChars = 0;
-    int threshold = 8192;
+
+    if (isTextBlock(&src[srcIdx], count, _freqs) == false)
+        return false;
+
+    // DOS encoded end of line (CR+LF) ?
+    _isCRLF = ((_freqs[CR] > 0) && (_freqs[LF] == _freqs[CR]));
+    dst[dstIdx++] = (_isCRLF == true) ? byte(1) : byte(0);
 
     while ((srcIdx < srcEnd) && (dstIdx < dstEnd)) {
         byte cur = src[srcIdx];
 
         if (isText(cur)) {
             srcIdx++;
-            nbTextChars++;
             continue;
         }
 
@@ -832,17 +836,6 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
             dstIdx += emitSymbols(&src[emitAnchor], &dst[dstIdx], srcIdx - emitAnchor, dstEnd - dstIdx);
         }
 
-        if (srcIdx >= threshold) {
-            // Early exit if input does not look like text
-            if (3 * nbTextChars < srcIdx) {
-                output._index += dstIdx;
-                input._index += srcIdx;
-                return false;
-            }
-
-            threshold += 8192;
-        }
-
         // Reset delimiter position
         anchor = srcIdx;
         emitAnchor = anchor;
@@ -855,6 +848,31 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
     output._index += dstIdx;
     input._index += srcIdx;
     return srcIdx == srcEnd;
+}
+
+bool TextCodec::isTextBlock(byte block[], int count, int freqs[])
+{
+    memset(freqs, 0, sizeof(int)*256);
+
+    for (int i = 0; i < count; i++)
+        freqs[block[i] & 0xFF]++;
+
+    int nbTextChars = 0;
+
+    for (int i = 32; i < 128; i++) {
+        if (isText(byte(i)) == true)
+            nbTextChars += freqs[i];
+    }
+
+    if (2 * nbTextChars < count)
+        return false;
+
+    int nbBinChars = 0;
+
+    for (int i = 128; i < 256; i++)
+        nbBinChars += freqs[i];
+
+    return 4 * nbBinChars <= count;
 }
 
 bool TextCodec::expandDictionary()
@@ -900,12 +918,18 @@ int TextCodec::emitFast(byte src[], byte dst[], const int srcEnd, const int)
         dstIdx += emitWordIndex(&dst[dstIdx], idx);
     }
     else {
-        dst[dstIdx] = src[0];
-        dstIdx++;
+        if ((src[0] != CR) || (_isCRLF == false))
+            dst[dstIdx++] = src[0];
     }
 
-    for (int i = 1; i < srcEnd; i++, dstIdx++) {
-        dst[dstIdx] = src[i];
+    if (_isCRLF == true) {
+       for (int i = 1; i < srcEnd; i++) {
+           if (src[i] != CR)
+               dst[dstIdx++] = src[i];
+       }
+    } else {
+       for (int i = 1; i < srcEnd; i++, dstIdx++)       
+            dst[dstIdx] = src[i];
     }
 
     return dstIdx;
@@ -941,10 +965,12 @@ int TextCodec::emitSlow(byte src[], byte dst[], int const srcEnd, int const dstE
             dstIdx += emitWordIndex(&dst[dstIdx], idx);
         }
         else {
-            if (dstIdx >= dstEnd)
-                break;
+            if ((cur != CR) || (_isCRLF == false)) {
+               if (dstIdx >= dstEnd)
+                  break;
 
-            dst[dstIdx++] = cur;
+                dst[dstIdx++] = cur;
+            }
         }
     }
 
@@ -973,8 +999,8 @@ int TextCodec::emitWordIndex(byte dst[], int val)
 bool TextCodec::sameWords(const byte src[], byte dst[], int length)
 {
     if (length >= 4) {
-        int32* p1 = (int32*) &dst[0];
-        int32* p2 = (int32*) &src[0];
+        int32* p1 = (int32*)&dst[0];
+        int32* p2 = (int32*)&src[0];
 
         while (length >= 4) {
             if (*p1++ != *p2++) {
@@ -1036,6 +1062,8 @@ bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int c
     int anchor = -1;
     int words = _staticDictSize;
     bool wordRun = false;
+    const bool isCRLF = src[srcIdx++] != 0;
+    _isCRLF = isCRLF;
 
     while ((srcIdx < srcEnd) && (dstIdx < dstEnd)) {
         byte cur = src[srcIdx++];
@@ -1150,7 +1178,9 @@ bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int c
         else {
             wordRun = false;
             anchor = srcIdx - 1;
-            dst[dstIdx++] = cur;
+
+            if ((cur != CR) || (isCRLF == false))
+                dst[dstIdx++] = cur;
         }
     }
 
