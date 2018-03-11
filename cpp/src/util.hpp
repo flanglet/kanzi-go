@@ -138,9 +138,17 @@ inline void fromString(string s, int data[], int length) {
 
 
 //Prefetch
-static inline void prefetch(const void* ptr) {
+static inline void prefetchRead(const void* ptr) {
 #if defined(__GNUG__) || defined(__clang__) 
 	__builtin_prefetch(ptr, 0, 1);
+#elif defined(__x86_64__)
+	_mm_prefetch((char*) ptr, _MM_HINT_T0);
+#endif
+}
+
+static inline void prefetchWrite(const void* ptr) {
+#if defined(__GNUG__) || defined(__clang__) 
+	__builtin_prefetch(ptr, 1, 1);
 #elif defined(__x86_64__)
 	_mm_prefetch((char*) ptr, _MM_HINT_T0);
 #endif

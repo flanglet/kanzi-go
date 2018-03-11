@@ -265,6 +265,12 @@ void TPAQPredictor::update(int bit)
         _hashes[_hash] = _pos;
     }
 
+    prefetchRead(&_bigStatesMap[(_ctx2 + _c0) & _statesMask]);
+    prefetchRead(&_bigStatesMap[(_ctx3 + _c0) & _statesMask]);
+    prefetchRead(&_bigStatesMap[(_ctx4 + _c0) & _statesMask]);
+    prefetchRead(&_bigStatesMap[(_ctx5 + _c0) & _statesMask]);
+    prefetchRead(&_bigStatesMap[(_ctx6 + _c0) & _statesMask]);
+
     // Get initial predictions
     const uint8* table = STATE_TRANSITIONS[bit];
     *_cp0 = table[*_cp0];
