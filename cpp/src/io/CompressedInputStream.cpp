@@ -116,10 +116,10 @@ void CompressedInputStream::readHeader() THROW
         _hasher = new XXHash32(BITSTREAM_TYPE);
 
     // Read entropy codec
-    _entropyType = short(_ibs->readBits(5));
+    _entropyType = uint32(_ibs->readBits(5));
 
-    // Read transform
-    _transformType = short(_ibs->readBits(16));
+    // Read transform: 8*4 bits
+    _transformType = int32(_ibs->readBits(32));
 
     // Read block size
     _blockSize = int(_ibs->readBits(26)) << 4;
@@ -519,7 +519,7 @@ void CompressedInputStream::notifyListeners(vector<Listener*>& listeners, const 
 
 template <class T>
 DecodingTask<T>::DecodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuffer, int blockSize,
-    short transformType, short entropyType, int blockId,
+    uint32 transformType, uint32 entropyType, int blockId,
     InputBitStream* ibs, XXHash32* hasher,
     atomic_int* processedBlockId, vector<Listener*>& listeners,
     map<string, string>& ctx)
@@ -538,11 +538,14 @@ DecodingTask<T>::DecodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuff
 }
 
 // Decode mode + transformed entropy coded data
-// mode: 0b10000000 => empty block
-//       0x01000000 => copy block
-//       0x00xxxx00 => transform sequence skip flags (1 means skip)
-//       0x000000xx => size(size(block))-1
-// Return -1 if error, otherwise the number of bytes read from the encoder
+// mode | 0b10000000 => copy block
+//      | 0b0yy00000 => size(size(block))-1
+//      | 0b000y0000 => 1 if more than 4 transforms
+//  case 4 transforms or less
+//      | 0b0000yyyy => transform sequence skip flags (1 means skip)
+//  case more than 4 transforms
+//      | 0b00000000
+//      then 0byyyyyyyy => transform sequence skip flags (1 means skip)
 template <class T>
 T DecodingTask<T>::call() THROW
 {
@@ -565,22 +568,23 @@ T DecodingTask<T>::call() THROW
         // Extract block header directly from bitstream
         uint64 read = _ibs->read();
         byte mode = byte(_ibs->readBits(8));
-        int preTransformLength;
+        byte skipFlags = 0;
 
-        if ((mode & CompressedInputStream::ZERO_BLOCK_MASK) != 0) {
-            preTransformLength = 0;
+        if ((mode & CompressedInputStream::COPY_BLOCK_MASK) != 0) {
+            _transformType = FunctionFactory<byte>::NONE_TYPE;
+            _entropyType = EntropyCodecFactory::NONE_TYPE;
         }
         else {
-            if ((mode & CompressedInputStream::COPY_BLOCK_MASK) != 0) {
-                _transformType = FunctionFactory<byte>::NONE_TYPE;
-                _entropyType = EntropyCodecFactory::NONE_TYPE;
-            }
-
-            int dataSize = 1 + (mode & 0x03);
-            int length = dataSize << 3;
-            uint64 mask = (uint64(1) << length) - 1;
-            preTransformLength = int(_ibs->readBits(length) & mask);
+            if ((mode & CompressedInputStream::TRANSFORMS_MASK) != 0)
+                skipFlags = byte(_ibs->readBits(8));
+            else
+                skipFlags = byte((mode << 4) | 0x0F);
         }
+
+        int dataSize = 1 + ((mode >> 5) & 0x03);
+        int length = dataSize << 3;
+        uint64 mask = (uint64(1) << length) - 1;
+        int preTransformLength = int(_ibs->readBits(length) & mask);
 
         if (preTransformLength == 0) {
             // Last block is empty, return success and cancel pending tasks
@@ -658,7 +662,7 @@ T DecodingTask<T>::call() THROW
         ss << _blockLength;
         _ctx["size"] = ss.str();
         TransformSequence<byte>* transform = FunctionFactory<byte>::newFunction(_ctx, _transformType);
-        transform->setSkipFlags((byte)((mode >> 2) & TransformSequence<byte>::SKIP_MASK));
+        transform->setSkipFlags(skipFlags);
         _buffer->_index = 0;
 
         // Inverse transform

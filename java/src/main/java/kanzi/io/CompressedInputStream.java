@@ -50,8 +50,8 @@ public class CompressedInputStream extends InputStream
    private static final int BITSTREAM_FORMAT_VERSION = 5;
    private static final int DEFAULT_BUFFER_SIZE      = 1024*1024;
    private static final int EXTRA_BUFFER_SIZE        = 256;
-   private static final int ZERO_BLOCK_MASK          = 0x80;
-   private static final int COPY_BLOCK_MASK          = 0x40;
+   private static final int COPY_BLOCK_MASK          = 0x80;
+   private static final int TRANSFORMS_MASK          = 0x10;
    private static final int MIN_BITSTREAM_BLOCK_SIZE = 1024;
    private static final int MAX_BITSTREAM_BLOCK_SIZE = 1024*1024*1024;
    private static final byte[] EMPTY_BYTE_ARRAY      = new byte[0];
@@ -63,8 +63,8 @@ public class CompressedInputStream extends InputStream
    private XXHash32 hasher;
    private final SliceByteArray sa; // for all blocks
    private final SliceByteArray[] buffers; // input & output per block
-   private short entropyType;
-   private short transformType;
+   private int entropyType;
+   private int transformType;
    private final InputBitStream ibs;
    private final AtomicBoolean initialized;
    private final AtomicBoolean closed;
@@ -137,10 +137,10 @@ public class CompressedInputStream extends InputStream
          this.hasher = new XXHash32(BITSTREAM_TYPE);
 
       // Read entropy codec
-      this.entropyType = (short) this.ibs.readBits(5);
+      this.entropyType = (int) this.ibs.readBits(5);
 
-      // Read transform
-      this.transformType = (short) this.ibs.readBits(16);
+      // Read transforms: 8*4 bits
+      this.transformType = (int) this.ibs.readBits(32);
 
       // Read block size
       this.blockSize = (int) this.ibs.readBits(26) << 4;
@@ -533,8 +533,8 @@ public class CompressedInputStream extends InputStream
       private final SliceByteArray data;
       private final SliceByteArray buffer;
       private final int blockSize;
-      private final short transformType;
-      private final short entropyType;
+      private final int transformType;
+      private final int entropyType;
       private final int blockId;
       private final InputBitStream ibs;
       private final XXHash32 hasher;
@@ -544,7 +544,7 @@ public class CompressedInputStream extends InputStream
 
 
       DecodingTask(SliceByteArray iBuffer, SliceByteArray oBuffer, int blockSize,
-              short transformType, short entropyType, int blockId,
+              int transformType, int entropyType, int blockId,
               InputBitStream ibs, XXHash32 hasher,
               AtomicInteger processedBlockId, Listener[] listeners,
               Map<String, Object> ctx)
@@ -572,13 +572,16 @@ public class CompressedInputStream extends InputStream
 
 
       // Decode mode + transformed entropy coded data
-      // mode: 0b10000000 => empty block 
-      //       0x01000000 => copy block
-      //       0x00xxxx00 => transform sequence skip flags (1 means skip)
-      //       0x000000xx => size(size(block))-1
-      // Return -1 if error, otherwise the number of bytes read from the encoder
+      // mode | 0b10000000 => copy block
+      //      | 0b0yy00000 => size(size(block))-1
+      //      | 0b000y0000 => 1 if more than 4 transforms
+      //  case 4 transforms or less
+      //      | 0b0000yyyy => transform sequence skip flags (1 means skip)
+      //  case more than 4 transforms
+      //      | 0b00000000
+      //      then 0byyyyyyyy => transform sequence skip flags (1 means skip)
       private Status decodeBlock(SliceByteArray data, SliceByteArray buffer,
-         short blockTransformType, short blockEntropyType, int currentBlockId)
+         int blockTransformType, int blockEntropyType, int currentBlockId)
       {
          int taskId = this.processedBlockId.get();
 
@@ -605,25 +608,25 @@ public class CompressedInputStream extends InputStream
             // Extract block header directly from bitstream
             final long read = this.ibs.read();
             byte mode = (byte) this.ibs.readBits(8);
-            int preTransformLength;
+            byte skipFlags = 0;
 
-            if ((mode & ZERO_BLOCK_MASK) != 0)
+            if ((mode & COPY_BLOCK_MASK) != 0)
             {
-               preTransformLength = 0;
+               blockTransformType = ByteFunctionFactory.NONE_TYPE;
+               blockEntropyType = EntropyCodecFactory.NONE_TYPE;
             }
             else
             {
-               if ((mode & COPY_BLOCK_MASK) != 0)
-               {
-                  blockTransformType = ByteFunctionFactory.NONE_TYPE;
-                  blockEntropyType = EntropyCodecFactory.NONE_TYPE;
-               }
-               
-               final int dataSize = 1 + (mode & 0x03);
-               final int length = dataSize << 3;
-               final long mask = (1L << length) - 1;
-               preTransformLength = (int) (this.ibs.readBits(length) & mask);
+               if ((mode & TRANSFORMS_MASK) != 0)
+                  skipFlags = (byte) this.ibs.readBits(8);
+               else
+                  skipFlags = (byte) ((mode<<4) | 0x0F);
             }
+            
+            final int dataSize = 1 + ((mode>>5)&0x03);
+            final int length = dataSize << 3;
+            final long mask = (1L<<length) - 1;
+            int preTransformLength = (int) (this.ibs.readBits(length) & mask);
 
             if (preTransformLength == 0)
             {
@@ -704,7 +707,7 @@ public class CompressedInputStream extends InputStream
 
             ByteTransformSequence transform = new ByteFunctionFactory().newFunction(this.ctx,
                      blockTransformType);
-            transform.setSkipFlags((byte) ((mode>>2) & ByteTransformSequence.SKIP_MASK));
+            transform.setSkipFlags(skipFlags);
             buffer.index = 0;
 
             // Inverse transform

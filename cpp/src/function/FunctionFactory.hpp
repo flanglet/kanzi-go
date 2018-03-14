@@ -27,44 +27,44 @@ template <class T>
    class FunctionFactory {
    public:
        // Up to 15 transforms can be declared (4 bit index)
-       static const short NONE_TYPE = 0; // copy
-       static const short BWT_TYPE = 1; // Burrows Wheeler
-       static const short BWTS_TYPE = 2; // Burrows Wheeler Scott
-       static const short LZ4_TYPE = 3; // LZ4
-       static const short SNAPPY_TYPE = 4; // Snappy
-       static const short RLT_TYPE = 5; // Run Length
-       static const short ZRLT_TYPE = 6; // Zero Run Length
-       static const short MTFT_TYPE = 7; // Move To Front
-       static const short RANK_TYPE = 8; // Rank
-       static const short X86_TYPE = 9; // X86 codec
-       static const short DICT_TYPE = 10; // Text codec
+       static const uint32 NONE_TYPE = 0; // copy
+       static const uint32 BWT_TYPE = 1; // Burrows Wheeler
+       static const uint32 BWTS_TYPE = 2; // Burrows Wheeler Scott
+       static const uint32 LZ4_TYPE = 3; // LZ4
+       static const uint32 SNAPPY_TYPE = 4; // Snappy
+       static const uint32 RLT_TYPE = 5; // Run Length
+       static const uint32 ZRLT_TYPE = 6; // Zero Run Length
+       static const uint32 MTFT_TYPE = 7; // Move To Front
+       static const uint32 RANK_TYPE = 8; // Rank
+       static const uint32 X86_TYPE = 9; // X86 codec
+       static const uint32 DICT_TYPE = 10; // Text codec
 
        FunctionFactory() {}
 
        ~FunctionFactory() {}
 
-       short getType(const char* name) const THROW;
+       uint32 getType(const char* name) const THROW;
 
-       short getTypeToken(const char* name) const THROW;
+       uint32 getTypeToken(const char* name) const THROW;
 
-       string getName(short functionType) const THROW;
+       string getName(uint32 functionType) const THROW;
 
-       static TransformSequence<T>* newFunction(map<string, string>& ctx, short functionType) THROW;
+       static TransformSequence<T>* newFunction(map<string, string>& ctx, uint32 functionType) THROW;
 
    private:
-       static Transform<T>* newFunctionToken(map<string, string>& ctx, short functionType) THROW;
+       static Transform<T>* newFunctionToken(map<string, string>& ctx, uint32 functionType) THROW;
 
-       static const char* getNameToken(int functionType) THROW;
+       static const char* getNameToken(uint32 functionType) THROW;
    };
 
-   // The returned type contains 4 (nibble based) transform values
+   // The returned type contains 8 (nibble based) transform values
    template <class T>
-   short FunctionFactory<T>::getType(const char* cname) const THROW
+   uint32 FunctionFactory<T>::getType(const char* cname) const THROW
    {
        string name(cname);
 
        if (name.find("+") == string::npos)
-           return short(getTypeToken(name.c_str()) << 12);
+           return short(getTypeToken(name.c_str()) << 28);
 
        char buf[64];
        int length = (name.length() < 63) ? int(name.length()) : 63;
@@ -78,17 +78,17 @@ template <class T>
            throw IllegalArgumentException(ss.str());
        }
 
-       int res = 0;
-       int shift = 12;
+       uint32 res = 0;
+       int shift = 28;
        int n = 0;
 
        while (token != nullptr) {
            short typeTk = getTypeToken(token);
            n++;
 
-           if (n > 4) {
+           if (n > 8) {
                stringstream ss;
-               ss << "Only 4 transforms allowed: " << name;
+               ss << "Only 8 transforms allowed: " << name;
                throw IllegalArgumentException(ss.str());
            }
 
@@ -101,11 +101,11 @@ template <class T>
            token = strtok(nullptr, "+");
        }
 
-       return short(res);
+       return res;
    }
 
    template <class T>
-   short FunctionFactory<T>::getTypeToken(const char* cname) const THROW
+   uint32 FunctionFactory<T>::getTypeToken(const char* cname) const THROW
    {
        string name(cname);
        transform(name.begin(), name.end(), name.begin(), ::toupper);
@@ -149,13 +149,13 @@ template <class T>
    }
 
    template <class T>
-   TransformSequence<T>* FunctionFactory<T>::newFunction(map<string, string>& ctx, short functionType) THROW
+   TransformSequence<T>* FunctionFactory<T>::newFunction(map<string, string>& ctx, uint32 functionType) THROW
    {
        int nbtr = 0;
 
        // Several transforms
-       for (int i = 0; i < 4; i++) {
-           if (((functionType >> (12 - 4 * i)) & 0x0F) != NONE_TYPE)
+       for (int i = 0; i < 8; i++) {
+           if (((functionType >> (28 - 4 * i)) & 0x0F) != NONE_TYPE)
                nbtr++;
        }
 
@@ -163,22 +163,22 @@ template <class T>
        if (nbtr == 0)
            nbtr = 1;
 
-       Transform<T>* transforms[4];
+       Transform<T>* transforms[8];
        nbtr = 0;
 
-       for (int i = 0; i < 4; i++) {
+       for (int i = 0; i < 8; i++) {
            transforms[i] = nullptr;
-           int t = (functionType >> (12 - 4 * i)) & 0x0F;
+           uint32 t = (functionType >> (28 - 4 * i)) & 0x0F;
 
            if ((t != NONE_TYPE) || (i == 0))
-               transforms[nbtr++] = newFunctionToken(ctx, short(t));
+               transforms[nbtr++] = newFunctionToken(ctx, t);
        }
 
        return new TransformSequence<T>(transforms, true);
    }
 
    template <class T>
-   Transform<T>* FunctionFactory<T>::newFunctionToken(map<string, string>& ctx, short functionType) THROW
+   Transform<T>* FunctionFactory<T>::newFunctionToken(map<string, string>& ctx, uint32 functionType) THROW
    {
        switch (functionType & 0x0F) {
        case SNAPPY_TYPE:
@@ -222,12 +222,12 @@ template <class T>
    }
 
    template <class T>
-   string FunctionFactory<T>::getName(short functionType) const THROW
+   string FunctionFactory<T>::getName(uint32 functionType) const THROW
    {
        stringstream ss;
 
-       for (int i = 0; i < 4; i++) {
-           int t = functionType >> (12 - 4 * i);
+       for (int i = 0; i < 8; i++) {
+           uint32 t = functionType >> (28 - 4 * i);
 
            if ((t & 0x0F) == NONE_TYPE)
                continue;
@@ -248,7 +248,7 @@ template <class T>
    }
 
    template <class T>
-   const char* FunctionFactory<T>::getNameToken(int functionType) THROW
+   const char* FunctionFactory<T>::getNameToken(uint32 functionType) THROW
    {
        switch (functionType & 0x0F) {
        case LZ4_TYPE:

@@ -26,8 +26,6 @@ namespace kanzi
    template <class T>
    class TransformSequence : public Function<T> {
    public:
-       static const int SKIP_MASK = 0x0F;
-
        TransformSequence(Transform<T>* transforms[4], bool deallocate = true) THROW;
 
        ~TransformSequence();
@@ -43,21 +41,25 @@ namespace kanzi
 
        void setSkipFlags(byte flags) { _skipFlags = flags; }
 
+       int getNbFunctions() { return _length; }
+
    private:
-       Transform<T>* _transforms[4]; // transforms or functions
+       static const byte SKIP_MASK = byte(0xFF);
+
+       Transform<T>* _transforms[8]; // transforms or functions
        bool _deallocate; // deallocate memory for transforms ?
        int _length; // number of transforms
-       byte _skipFlags; // skip transforms: 0b0000yyyy with yyyy=flags
+       byte _skipFlags; // skip transforms
    };
 
    template <class T>
-   TransformSequence<T>::TransformSequence(Transform<T>* transforms[4], bool deallocate) THROW
+   TransformSequence<T>::TransformSequence(Transform<T>* transforms[8], bool deallocate) THROW
    {
        _deallocate = deallocate;
-       _length = 4;
+       _length = 8;
        _skipFlags = 0;
 
-       for (int i = 3; i >= 0; i--) {
+       for (int i = 8; i >= 0; i--) {
            _transforms[i] = transforms[i];
 
            if (_transforms[i] == nullptr)
@@ -72,7 +74,7 @@ namespace kanzi
    TransformSequence<T>::~TransformSequence()
    {
        if (_deallocate == true) {
-           for (int i = 0; i < 4; i++) {
+           for (int i = 0; i < 8; i++) {
                if (_transforms[i] != nullptr)
                    delete _transforms[i];
            }
@@ -122,7 +124,7 @@ namespace kanzi
                    memmove(&sa2->_array[savedOIdx], &sa1->_array[savedIIdx], count);
 
                sa2->_index = savedOIdx + count;
-               _skipFlags |= (1 << (3 - i));
+               _skipFlags |= (1 << (7 - i));
            }
 
            count = sa2->_index - savedOIdx;
@@ -130,8 +132,8 @@ namespace kanzi
            sa2->_index = savedOIdx;
        }
 
-       for (int i = _length; i < 4; i++)
-           _skipFlags |= (1 << (3 - i));
+       for (int i = _length; i < 8; i++)
+           _skipFlags |= (1 << (7 - i));
 
        if (saIdx != 1)
            memmove(&sa[1]->_array[sa[1]->_index], &sa[0]->_array[sa[0]->_index], count);
@@ -170,7 +172,7 @@ namespace kanzi
 
        // Process transforms sequentially in reverse order
        for (int i = _length - 1; i >= 0; i--) {
-           if ((_skipFlags & (1 << (3 - i))) != 0)
+           if ((_skipFlags & (1 << (7 - i))) != 0)
                continue;
 
            SliceArray<T>* sa1 = sa[saIdx];

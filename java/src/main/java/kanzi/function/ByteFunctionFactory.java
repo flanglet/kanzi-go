@@ -38,22 +38,22 @@ public class ByteFunctionFactory
    public static final short DICT_TYPE    = 10; // Text codec
  
 
-   // The returned type contains 4 (nibble based) transform values
-   public short getType(String name)
+   // The returned type contains 8 (nibble based) transform values
+   public int getType(String name)
    {
-      if (name.indexOf('+') <  0)
-         return (short) (this.getTypeToken(name) << 12);
+      if (name.indexOf('+') < 0)
+         return this.getTypeToken(name) << 28;
       
       String[] tokens = name.split("\\+");
       
       if (tokens.length == 0)
          throw new IllegalArgumentException("Unknown transform type: " + name);
 
-      if (tokens.length > 4)
-         throw new IllegalArgumentException("Only 4 transforms allowed: " + name);
+      if (tokens.length > 8)
+         throw new IllegalArgumentException("Only 8 transforms allowed: " + name);
 
       int res = 0;
-      int shift = 12;
+      int shift = 28;
       
       for (String token: tokens)
       {
@@ -67,14 +67,14 @@ public class ByteFunctionFactory
          }
       }
       
-      return (short) res;
+      return res;
    }
    
    
-   private short getTypeToken(String name)
+   private int getTypeToken(String name)
    {
       // Strings in switch not supported in JDK 6
-      name = name.toUpperCase();
+      name = String.valueOf(name).toUpperCase();
       
       switch (name)
       {
@@ -117,15 +117,15 @@ public class ByteFunctionFactory
    }
    
    
-   public ByteTransformSequence newFunction(Map<String, Object> ctx, short functionType)
+   public ByteTransformSequence newFunction(Map<String, Object> ctx, int functionType)
    {      
       int nbtr = 0;
       
       // Several transforms
-      for (int i=0; i<4; i++)
+      for (int i=0; i<8; i++)
       {
-          if (((functionType >>> (12-4*i)) & 0x0F) != NONE_TYPE)
-             nbtr++;
+         if (((functionType >>> (28-4*i)) & 0x0F) != NONE_TYPE)
+            nbtr++;
       }
     
       // Only null transforms ? Keep first.
@@ -137,17 +137,17 @@ public class ByteFunctionFactory
       
       for (int i=0; i<transforms.length; i++)
       {
-          int t = (functionType >>> (12-4*i)) & 0x0F;
-          
-          if ((t != NONE_TYPE) || (i == 0))
-             transforms[nbtr++] = newFunctionToken(ctx, (short) t);
+         int t = (functionType >>> (28-4*i)) & 0x0F;
+
+         if ((t != NONE_TYPE) || (i == 0))
+            transforms[nbtr++] = newFunctionToken(ctx, t);
       }
     
       return new ByteTransformSequence(transforms);
    }
    
    
-   private static ByteTransform newFunctionToken(Map<String, Object> ctx, short functionType)
+   private static ByteTransform newFunctionToken(Map<String, Object> ctx, int functionType)
    {
       switch (functionType & 0x0F)
       {
@@ -190,13 +190,13 @@ public class ByteFunctionFactory
    }
 
    
-   public String getName(short functionType)
+   public String getName(int functionType)
    {              
       StringBuilder sb = new StringBuilder();
 
-      for (int i=0; i<4; i++)
+      for (int i=0; i<8; i++)
       {
-         int t = functionType >>> (12-4*i);
+         final int t = functionType >>> (28-4*i);
 
          if ((t & 0x0F) == NONE_TYPE)
             continue;

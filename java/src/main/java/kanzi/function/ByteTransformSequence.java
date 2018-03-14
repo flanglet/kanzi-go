@@ -23,10 +23,10 @@ import kanzi.SliceByteArray;
 // Encapsulates a sequence of transforms or functions in a function 
 public class ByteTransformSequence implements ByteFunction
 {
-   public static final int SKIP_MASK = 0x0F;
+   private static final int SKIP_MASK = 0xFF;
    
    private final ByteTransform[] transforms; // transforms or functions
-   private byte skipFlags; // skip transforms: 0b0000yyyy with yyyy=flags
+   private byte skipFlags; // skip transforms
   
    
    public ByteTransformSequence(ByteTransform[] transforms) 
@@ -34,8 +34,8 @@ public class ByteTransformSequence implements ByteFunction
       if (transforms == null)
          throw new NullPointerException("Invalid null transforms parameter");
       
-      if ((transforms.length == 0) || (transforms.length > 4))
-         throw new NullPointerException("Only 1 to 4 transforms allowed");
+      if ((transforms.length == 0) || (transforms.length > 8))
+         throw new NullPointerException("Only 1 to 8 transforms allowed");
       
       this.transforms = transforms;
    }
@@ -99,7 +99,7 @@ public class ByteTransformSequence implements ByteFunction
                System.arraycopy(sa1.array, savedIIdx, sa2.array, savedOIdx, count);
 
             sa2.index = savedOIdx + count;
-            this.skipFlags |= (1<<(3-i));
+            this.skipFlags |= (1<<(7-i));
          }
 
          count = sa2.index - savedOIdx;
@@ -108,8 +108,8 @@ public class ByteTransformSequence implements ByteFunction
          saIdx ^= 1;
       } 
       
-      for (int i=this.transforms.length; i<4; i++)
-          this.skipFlags |= (1<<(3-i));
+      for (int i=this.transforms.length; i<8; i++)
+          this.skipFlags |= (1<<(7-i));
             
       if (saIdx != 1)
          System.arraycopy(sa[0].array, sa[0].index, sa[1].array, sa[1].index, count);
@@ -160,7 +160,7 @@ public class ByteTransformSequence implements ByteFunction
       // Process transforms sequentially in reverse order
       for (int i=this.transforms.length-1; i>=0; i--)
       {         
-         if ((this.skipFlags & (1<<(3-i))) != 0)
+         if ((this.skipFlags & (1<<(7-i))) != 0)
             continue;        
 
          SliceByteArray sa1 = sa[saIdx];
@@ -218,6 +218,12 @@ public class ByteTransformSequence implements ByteFunction
       return requiredSize;
    }
 
+   
+   public int getNbFunctions()
+   {
+      return this.transforms.length;
+   }
+   
    
    public byte getSkipFlags()
    {

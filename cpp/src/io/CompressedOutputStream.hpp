@@ -67,8 +67,8 @@ namespace kanzi {
        SliceArray<byte>* _data;
        SliceArray<byte>* _buffer;
        int _blockLength;
-       short _transformType;
-       short _entropyType;
+       uint32 _transformType;
+       uint32 _entropyType;
        int _blockId;
        OutputBitStream* _obs;
        XXHash32* _hasher;
@@ -78,7 +78,7 @@ namespace kanzi {
 
    public:
        EncodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuffer, int length,
-           short transformType, short entropyType, int blockId,
+           uint32 transformType, uint32 entropyType, int blockId,
            OutputBitStream* obs, XXHash32* hasher,
            atomic_int* processedBlockId, vector<Listener*>& listeners,
            map<string, string>& ctx);
@@ -94,8 +94,8 @@ namespace kanzi {
    private:
        static const int BITSTREAM_TYPE = 0x4B414E5A; // "KANZ"
        static const int BITSTREAM_FORMAT_VERSION = 5;
-       static const int ZERO_BLOCK_MASK = 0x80;
-       static const int COPY_BLOCK_MASK = 0x40;
+       static const int COPY_BLOCK_MASK = 0x80;
+       static const int TRANSFORMS_MASK = 0x10;
        static const int MIN_BITSTREAM_BLOCK_SIZE = 1024;
        static const int MAX_BITSTREAM_BLOCK_SIZE = 1024 * 1024 * 1024;
        static const int SMALL_BLOCK_SIZE = 15;
@@ -106,8 +106,8 @@ namespace kanzi {
        XXHash32* _hasher;
        SliceArray<byte>* _sa; // for all blocks
        SliceArray<byte>** _buffers; // input & output per block
-       short _entropyType;
-       short _transformType;
+       uint32 _entropyType;
+       uint32 _transformType;
        OutputBitStream* _obs;
        OutputStream& _os;
        atomic_bool _initialized;

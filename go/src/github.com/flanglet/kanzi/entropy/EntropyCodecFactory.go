@@ -22,20 +22,20 @@ import (
 )
 
 const (
-	NONE_TYPE    = uint16(0) // No compression
-	HUFFMAN_TYPE = uint16(1) // Huffman
-	FPAQ_TYPE    = uint16(2) // Fast PAQ (order 0)
-	PAQ_TYPE     = uint16(3) // PAQ (stripped from many models for speed)
-	RANGE_TYPE   = uint16(4) // Range
-	ANS0_TYPE    = uint16(5) // Asymmetric Numerical System order 0
-	CM_TYPE      = uint16(6) // Context Model
-	TPAQ_TYPE    = uint16(7) // Tangelo PAQ
-	ANS1_TYPE    = uint16(8) // Asymmetric Numerical System order 1
-	TPAQX_TYPE   = uint16(9) // Tangelo PAQ Extra
+	NONE_TYPE    = uint32(0) // No compression
+	HUFFMAN_TYPE = uint32(1) // Huffman
+	FPAQ_TYPE    = uint32(2) // Fast PAQ (order 0)
+	PAQ_TYPE     = uint32(3) // PAQ (stripped from many models for speed)
+	RANGE_TYPE   = uint32(4) // Range
+	ANS0_TYPE    = uint32(5) // Asymmetric Numerical System order 0
+	CM_TYPE      = uint32(6) // Context Model
+	TPAQ_TYPE    = uint32(7) // Tangelo PAQ
+	ANS1_TYPE    = uint32(8) // Asymmetric Numerical System order 1
+	TPAQX_TYPE   = uint32(9) // Tangelo PAQ Extra
 )
 
 func NewEntropyDecoder(ibs kanzi.InputBitStream, ctx map[string]interface{},
-	entropyType uint16) (kanzi.EntropyDecoder, error) {
+	entropyType uint32) (kanzi.EntropyDecoder, error) {
 	switch entropyType {
 
 	case HUFFMAN_TYPE:
@@ -80,8 +80,8 @@ func NewEntropyDecoder(ibs kanzi.InputBitStream, ctx map[string]interface{},
 }
 
 func NewEntropyEncoder(obs kanzi.OutputBitStream, ctx map[string]interface{},
-	entropyType uint16) (kanzi.EntropyEncoder, error) {
-	switch uint16(entropyType) {
+	entropyType uint32) (kanzi.EntropyEncoder, error) {
+	switch entropyType {
 
 	case HUFFMAN_TYPE:
 		return NewHuffmanEncoder(obs)
@@ -124,8 +124,8 @@ func NewEntropyEncoder(obs kanzi.OutputBitStream, ctx map[string]interface{},
 	}
 }
 
-func GetName(entropyType uint16) string {
-	switch uint16(entropyType) {
+func GetName(entropyType uint32) string {
+	switch entropyType {
 
 	case HUFFMAN_TYPE:
 		return "HUFFMAN"
@@ -162,7 +162,7 @@ func GetName(entropyType uint16) string {
 	}
 }
 
-func GetType(entropyName string) uint16 {
+func GetType(entropyName string) uint32 {
 	switch strings.ToUpper(entropyName) {
 
 	case "HUFFMAN":

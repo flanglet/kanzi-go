@@ -38,9 +38,8 @@ const (
 	BITSTREAM_FORMAT_VERSION   = 5
 	STREAM_DEFAULT_BUFFER_SIZE = 1024 * 1024
 	EXTRA_BUFFER_SIZE          = 256
-	COPY_LENGTH_MASK           = 0x0F
-	ZERO_BLOCK_MASK            = 0x80
-	COPY_BLOCK_MASK            = 0x40
+	COPY_BLOCK_MASK            = 0x80
+	TRANSFORMS_MASK            = 0x10
 	MIN_BITSTREAM_BLOCK_SIZE   = 1024
 	MAX_BITSTREAM_BLOCK_SIZE   = 1024 * 1024 * 1024
 	SMALL_BLOCK_SIZE           = 15
@@ -86,8 +85,8 @@ type CompressedOutputStream struct {
 	hasher        *hash.XXHash32
 	data          []byte
 	buffers       []blockBuffer
-	entropyType   uint16
-	transformType uint16
+	entropyType   uint32
+	transformType uint32
 	obs           kanzi.OutputBitStream
 	initialized   int32
 	closed        int32
@@ -104,8 +103,8 @@ type EncodingTask struct {
 	oBuffer            *blockBuffer
 	hasher             *hash.XXHash32
 	blockLength        uint
-	blockTransformType uint16
-	blockEntropyType   uint16
+	blockTransformType uint32
+	blockEntropyType   uint32
 	currentBlockId     int
 	input              chan error
 	output             chan error
@@ -266,7 +265,7 @@ func (this *CompressedOutputStream) writeHeader() *IOError {
 		return NewIOError("Cannot write entropy type to header", kanzi.ERR_WRITE_FILE)
 	}
 
-	if this.obs.WriteBits(uint64(this.transformType), 16) != 16 {
+	if this.obs.WriteBits(uint64(this.transformType), 32) != 32 {
 		return NewIOError("Cannot write transform types to header", kanzi.ERR_WRITE_FILE)
 	}
 
@@ -338,7 +337,8 @@ func (this *CompressedOutputStream) Close() error {
 	}
 
 	// Write end block of size 0
-	this.obs.WriteBits(ZERO_BLOCK_MASK, 8)
+	this.obs.WriteBits(COPY_BLOCK_MASK, 8)
+	this.obs.WriteBits(0, 8)
 
 	if _, err := this.obs.Close(); err != nil {
 		return err
@@ -447,15 +447,18 @@ func (this *CompressedOutputStream) GetWritten() uint64 {
 }
 
 // Encode mode + transformed entropy coded data
-// mode: 0b10000000 => empty block
-//       0x01000000 => copy block
-//       0x00xxxx00 => transform sequence skip flags (1 means skip)
-//       0x000000xx => size(size(block))-1
+// mode | 0b10000000 => copy block
+//      | 0b0yy00000 => size(size(block))-1
+//      | 0b000y0000 => 1 if more than 4 transforms
+//  case 4 transforms or less
+//      | 0b0000yyyy => transform sequence skip flags (1 means skip)
+//  case more than 4 transforms
+//      | 0b00000000
+//      then 0byyyyyyyy => transform sequence skip flags (1 means skip)
 func (this *EncodingTask) encode() {
 	data := this.iBuffer.Buf
 	buffer := this.oBuffer.Buf
 	mode := byte(0)
-	dataSize := uint(0)
 	postTransformLength := this.blockLength
 	checksum := uint32(0)
 
@@ -475,8 +478,6 @@ func (this *EncodingTask) encode() {
 		if this.blockLength == 0 {
 			this.blockTransformType = function.NONE_TYPE
 			this.blockEntropyType = entropy.NONE_TYPE
-			mode |= byte(ZERO_BLOCK_MASK)
-		} else {
 			mode |= byte(COPY_BLOCK_MASK)
 		}
 	} else {
@@ -509,8 +510,8 @@ func (this *EncodingTask) encode() {
 
 	// Forward transform (ignore error, encode skipFlags)
 	_, postTransformLength, _ = t.Forward(data[0:this.blockLength], buffer)
-	mode |= ((t.SkipFlags() & function.TRANSFORM_SKIP_MASK) << 2)
 	this.ctx["size"] = postTransformLength
+	dataSize := uint(0)
 
 	for i := uint64(0xFF); i < uint64(postTransformLength); i <<= 8 {
 		dataSize++
@@ -523,7 +524,7 @@ func (this *EncodingTask) encode() {
 	}
 
 	// Record size of 'block size' - 1 in bytes
-	mode |= byte(dataSize & 0x03)
+	mode |= byte((dataSize & 0x03) << 5)
 	dataSize++
 
 	if len(this.listeners) > 0 {
@@ -545,11 +546,17 @@ func (this *EncodingTask) encode() {
 
 	// Write block 'header' (mode + compressed length)
 	written := this.obs.Written()
-	this.obs.WriteBits(uint64(mode), 8)
 
-	if dataSize > 0 {
-		this.obs.WriteBits(uint64(postTransformLength), 8*dataSize)
+	if ((mode & COPY_BLOCK_MASK) != 0) || (t.NbFunctions() <= 4) {
+		mode |= byte(t.SkipFlags() >> 4)
+		this.obs.WriteBits(uint64(mode), 8)
+	} else {
+		mode |= TRANSFORMS_MASK
+		this.obs.WriteBits(uint64(mode), 8)
+		this.obs.WriteBits(uint64(t.SkipFlags()), 8)
 	}
+
+	this.obs.WriteBits(uint64(postTransformLength), 8*dataSize)
 
 	// Write checksum
 	if this.hasher != nil {
@@ -624,8 +631,8 @@ type CompressedInputStream struct {
 	hasher        *hash.XXHash32
 	data          []byte
 	buffers       []blockBuffer
-	entropyType   uint16
-	transformType uint16
+	entropyType   uint32
+	transformType uint32
 	ibs           kanzi.InputBitStream
 	initialized   int32
 	closed        int32
@@ -644,8 +651,8 @@ type DecodingTask struct {
 	oBuffer            *blockBuffer
 	hasher             *hash.XXHash32
 	blockLength        uint
-	blockTransformType uint16
-	blockEntropyType   uint16
+	blockTransformType uint32
+	blockEntropyType   uint32
 	currentBlockId     int
 	input              chan bool
 	output             chan bool
@@ -757,10 +764,10 @@ func (this *CompressedInputStream) readHeader() error {
 	}
 
 	// Read entropy codec
-	this.entropyType = uint16(this.ibs.ReadBits(5))
+	this.entropyType = uint32(this.ibs.ReadBits(5))
 
-	// Read transform
-	this.transformType = uint16(this.ibs.ReadBits(16))
+	// Read transforms: 8*4 bits
+	this.transformType = uint32(this.ibs.ReadBits(32))
 
 	// Read block size
 	this.blockSize = uint(this.ibs.ReadBits(26)) << 4
@@ -1047,10 +1054,14 @@ func notify(chan1 chan bool, chan2 chan Message, run bool, msg Message) {
 }
 
 // Decode mode + transformed entropy coded data
-// mode: 0b10000000 => empty block
-//       0x01000000 => copy block
-//       0x00xxxx00 => transform sequence skip flags (1 means skip)
-//       0x000000xx => size(size(block))-1
+// mode | 0b10000000 => copy block
+//      | 0b0yy00000 => size(size(block))-1
+//      | 0b000y0000 => 1 if more than 4 transforms
+//  case 4 transforms or less
+//      | 0b0000yyyy => transform sequence skip flags (1 means skip)
+//  case more than 4 transforms
+//      | 0b00000000
+//      then 0byyyyyyyy => transform sequence skip flags (1 means skip)
 func (this *DecodingTask) decode() {
 	data := this.iBuffer.Buf
 	buffer := this.oBuffer.Buf
@@ -1078,21 +1089,23 @@ func (this *DecodingTask) decode() {
 	// Extract block header directly from bitstream
 	read := this.ibs.Read()
 	mode := byte(this.ibs.ReadBits(8))
-	var preTransformLength uint
+	skipFlags := byte(0)
 
-	if (mode & ZERO_BLOCK_MASK) != 0 {
-		preTransformLength = 0
+	if mode&COPY_BLOCK_MASK != 0 {
+		this.blockTransformType = function.NONE_TYPE
+		this.blockEntropyType = entropy.NONE_TYPE
 	} else {
-		if mode&COPY_BLOCK_MASK != 0 {
-			this.blockTransformType = function.NONE_TYPE
-			this.blockEntropyType = entropy.NONE_TYPE
+		if mode&TRANSFORMS_MASK != 0 {
+			skipFlags = byte(this.ibs.ReadBits(8))
+		} else {
+			skipFlags = (mode << 4) | 0x0F
 		}
-
-		dataSize := uint(1 + (mode & 0x03))
-		length := dataSize << 3
-		mask := uint64(1<<length) - 1
-		preTransformLength = uint(this.ibs.ReadBits(length) & mask)
 	}
+
+	dataSize := 1 + uint((mode>>5)&0x03)
+	length := dataSize << 3
+	mask := uint64(1<<length) - 1
+	preTransformLength := uint(this.ibs.ReadBits(length) & mask)
 
 	if preTransformLength == 0 {
 		// Last block is empty, return success and cancel pending tasks
@@ -1186,7 +1199,7 @@ func (this *DecodingTask) decode() {
 		return
 	}
 
-	transform.SetSkipFlags(((mode >> 2) & function.TRANSFORM_SKIP_MASK))
+	transform.SetSkipFlags(skipFlags)
 	var oIdx uint
 
 	// Inverse transform

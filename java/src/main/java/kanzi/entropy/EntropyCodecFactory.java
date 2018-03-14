@@ -36,7 +36,7 @@ public class EntropyCodecFactory
    public static final byte TPAQX_TYPE   = 9; // Tangelo PAQ Extra
    
    
-   public EntropyDecoder newDecoder(InputBitStream ibs, Map<String, Object> ctx, short entropyType)
+   public EntropyDecoder newDecoder(InputBitStream ibs, Map<String, Object> ctx, int entropyType)
    {
       if (ibs == null)
          throw new NullPointerException("Invalid null input bitstream parameter");
@@ -72,7 +72,7 @@ public class EntropyCodecFactory
    } 
    
    
-   public EntropyEncoder newEncoder(OutputBitStream obs, Map<String, Object> ctx, short entropyType)
+   public EntropyEncoder newEncoder(OutputBitStream obs, Map<String, Object> ctx, int entropyType)
    {
       if (obs == null)
          throw new NullPointerException("Invalid null output bitstream parameter");
@@ -106,7 +106,7 @@ public class EntropyCodecFactory
    }
    
    
-   public static String getName(short entropyType)
+   public static String getName(int entropyType)
    {
       switch (entropyType)
       {
@@ -135,42 +135,47 @@ public class EntropyCodecFactory
       }
    }
    
-   // Do not use switch on String because some versions of Java do not support it
-   public static short getType(String name)
+
+   public static int getType(String name)
    {
+      // Strings in switch not supported in JDK 6
       name = String.valueOf(name).toUpperCase();
       
-      if (name.equals("HUFFMAN"))
-         return HUFFMAN_TYPE; 
-      
-      if (name.equals("ANS0"))
-         return ANS0_TYPE; 
-      
-      if (name.equals("ANS1"))
-         return ANS1_TYPE; 
-      
-      if (name.equals("FPAQ"))
-         return FPAQ_TYPE;
-      
-      if (name.equals("PAQ"))
-         return PAQ_TYPE;
-      
-      if (name.equals("RANGE"))
-         return RANGE_TYPE; 
-      
-      if (name.equals("CM"))
-         return CM_TYPE; 
-      
-      if (name.equals("NONE"))
-         return NONE_TYPE;
+      switch(name)
+      {
+      case "HUFFMAN":
+          return HUFFMAN_TYPE; 
 
-      if (name.equals("TPAQ"))
-         return TPAQ_TYPE;      
+      case "ANS0":
+          return ANS0_TYPE; 
 
-      if (name.equals("TPAQX"))
-         return TPAQX_TYPE;
-      
-      throw new IllegalArgumentException("Unsupported entropy codec type: " + name); 
+      case "ANS1":
+          return ANS1_TYPE; 
+
+      case "FPAQ":
+          return FPAQ_TYPE;
+
+      case "PAQ":
+          return PAQ_TYPE;
+
+      case "RANGE":
+          return RANGE_TYPE; 
+
+      case "CM":
+          return CM_TYPE; 
+
+      case "NONE":
+          return NONE_TYPE;
+
+      case "TPAQ":
+          return TPAQ_TYPE;      
+
+      case "TPAQX":
+          return TPAQX_TYPE;
+
+      default:
+         throw new IllegalArgumentException("Unsupported entropy codec type: " + name); 
+      }
    } 
    
 }

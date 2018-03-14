@@ -51,8 +51,8 @@ public class CompressedOutputStream extends OutputStream
 {
    private static final int BITSTREAM_TYPE           = 0x4B414E5A; // "KANZ"
    private static final int BITSTREAM_FORMAT_VERSION = 5;
-   private static final int ZERO_BLOCK_MASK          = 0x80;
-   private static final int COPY_BLOCK_MASK          = 0x40;
+   private static final int COPY_BLOCK_MASK          = 0x80;
+   private static final int TRANSFORMS_MASK          = 0x10;
    private static final int MIN_BITSTREAM_BLOCK_SIZE = 1024;
    private static final int MAX_BITSTREAM_BLOCK_SIZE = 1024*1024*1024;
    private static final int SMALL_BLOCK_SIZE         = 15;
@@ -64,8 +64,8 @@ public class CompressedOutputStream extends OutputStream
    private final XXHash32 hasher;
    private final SliceByteArray sa; // for all blocks
    private final SliceByteArray[] buffers; // input & output per block
-   private final short entropyType;
-   private final short transformType;
+   private final int entropyType;
+   private final int transformType;
    private final OutputBitStream obs;
    private final AtomicBoolean initialized;
    private final AtomicBoolean closed;
@@ -120,7 +120,7 @@ public class CompressedOutputStream extends OutputStream
 
       final int bufferSize = (bSize <= 65536) ? bSize : 65536;
       this.obs = new DefaultOutputBitStream(os, bufferSize);
-      this.entropyType = new EntropyCodecFactory().getType(entropyCodec);
+      this.entropyType = EntropyCodecFactory.getType(entropyCodec);
       this.transformType = new ByteFunctionFactory().getType(transform);
       this.blockSize = bSize;
       
@@ -165,7 +165,7 @@ public class CompressedOutputStream extends OutputStream
       if (this.obs.writeBits(this.entropyType, 5) != 5)
          throw new kanzi.io.IOException("Cannot write entropy type to header", Error.ERR_WRITE_FILE);
 
-      if (this.obs.writeBits(this.transformType, 16) != 16)
+      if (this.obs.writeBits(this.transformType, 32) != 32)
          throw new kanzi.io.IOException("Cannot write transform types to header", Error.ERR_WRITE_FILE);
 
       if (this.obs.writeBits(this.blockSize >>> 4, 26) != 26)
@@ -346,7 +346,8 @@ public class CompressedOutputStream extends OutputStream
       try
       {
          // Write end block of size 0
-         this.obs.writeBits(ZERO_BLOCK_MASK, 8);
+         this.obs.writeBits(COPY_BLOCK_MASK, 8);
+         this.obs.writeBits(0, 8);
          this.obs.close();
       }
       catch (BitStreamException e)
@@ -490,8 +491,8 @@ public class CompressedOutputStream extends OutputStream
       private final SliceByteArray data;
       private final SliceByteArray buffer;
       private final int length;
-      private final short transformType;
-      private final short entropyType;
+      private final int transformType;
+      private final int entropyType;
       private final int blockId;
       private final OutputBitStream obs;
       private final XXHash32 hasher;
@@ -501,7 +502,7 @@ public class CompressedOutputStream extends OutputStream
 
 
       EncodingTask(SliceByteArray iBuffer, SliceByteArray oBuffer, int length,
-              short transformType, short entropyType, int blockId,
+              int transformType, int entropyType, int blockId,
               OutputBitStream obs, XXHash32 hasher,
               AtomicInteger processedBlockId, Listener[] listeners,
               Map<String, Object> ctx)
@@ -529,20 +530,23 @@ public class CompressedOutputStream extends OutputStream
 
 
       // Encode mode + transformed entropy coded data
-      // mode: 0b10000000 => empty block 
-      //       0x01000000 => copy block 
-      //       0x00xxxx00 => transform sequence skip flags (1 means skip)
-      //       0x000000xx => size(size(block))-1
+      // mode | 0b10000000 => copy block
+      //      | 0b0yy00000 => size(size(block))-1
+      //      | 0b000y0000 => 1 if more than 4 transforms
+      //  case 4 transforms or less
+      //      | 0b0000yyyy => transform sequence skip flags (1 means skip)
+      //  case more than 4 transforms
+      //      | 0b00000000
+      //      then 0byyyyyyyy => transform sequence skip flags (1 means skip)
       private Status encodeBlock(SliceByteArray data, SliceByteArray buffer,
-           int blockLength, short blockTransformType,
-           short blockEntropyType, int currentBlockId)
+           int blockLength, int blockTransformType,
+           int blockEntropyType, int currentBlockId)
       {
          EntropyEncoder ee = null;
 
          try
          {
             byte mode = 0;
-            int dataSize = 0;
             int postTransformLength = blockLength;
             int checksum = 0;
 
@@ -563,7 +567,7 @@ public class CompressedOutputStream extends OutputStream
             {
                blockTransformType = ByteFunctionFactory.NONE_TYPE;
                blockEntropyType = EntropyCodecFactory.NONE_TYPE;
-               mode |= ((blockLength == 0) ? ZERO_BLOCK_MASK : COPY_BLOCK_MASK);              
+               mode |= COPY_BLOCK_MASK;              
             }            
             else 
             {
@@ -588,29 +592,29 @@ public class CompressedOutputStream extends OutputStream
                buffer.length = requiredSize;
 
                if (buffer.array.length < buffer.length)
-                   buffer.array = new byte[buffer.length];
+                  buffer.array = new byte[buffer.length];
             }
 
             // Forward transform (ignore error, encode skipFlags)
             buffer.index = 0;
             data.length = blockLength;
             transform.forward(data, buffer);
-            mode |= ((transform.getSkipFlags() & ByteTransformSequence.SKIP_MASK) << 2);                                   
             postTransformLength = buffer.index;
 
             if (postTransformLength < 0)
                return new Status(currentBlockId, Error.ERR_WRITE_FILE, "Invalid transform size");
 
             this.ctx.put("size", postTransformLength);
+            int dataSize = 0;
 
             for (long n=0xFF; n<postTransformLength; n<<=8)
                dataSize++;
 
             if (dataSize > 3) 
                return new Status(currentBlockId, Error.ERR_WRITE_FILE, "Invalid block data length");
-
+    
             // Record size of 'block size' - 1 in bytes
-            mode |= (dataSize & 0x03);               
+            mode |= ((dataSize & 0x03) << 5);               
             dataSize++;
 
             if (this.listeners.length > 0)
@@ -634,10 +638,20 @@ public class CompressedOutputStream extends OutputStream
            
             // Write block 'header' (mode + compressed length);
             final long written = this.obs.written();
-            this.obs.writeBits(mode, 8);
+            
+            if (((mode & COPY_BLOCK_MASK) != 0) || (transform.getNbFunctions() <= 4))
+            {
+               mode |= (transform.getSkipFlags()>>>4); 
+               this.obs.writeBits(mode, 8);
+            }
+            else
+            {
+               mode |= TRANSFORMS_MASK;
+               this.obs.writeBits(mode, 8);
+               this.obs.writeBits(transform.getSkipFlags()&0xFF, 8);
+            }
 
-            if (dataSize > 0)
-               this.obs.writeBits(postTransformLength, 8*dataSize);
+            this.obs.writeBits(postTransformLength, 8*dataSize);
 
             // Write checksum
             if (this.hasher != null)

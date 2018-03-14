@@ -24,25 +24,25 @@ import (
 
 const (
 	// Up to 15 transforms can be declared (4 bit index)
-	NONE_TYPE   = uint16(0)  // copy
-	BWT_TYPE    = uint16(1)  // Burrows Wheeler
-	BWTS_TYPE   = uint16(2)  // Burrows Wheeler Scott
-	LZ4_TYPE    = uint16(3)  // LZ4
-	SNAPPY_TYPE = uint16(4)  // Snappy
-	RLT_TYPE    = uint16(5)  // Run Length
-	ZRLT_TYPE   = uint16(6)  // Zero Run Length
-	MTFT_TYPE   = uint16(7)  // Move To Front
-	RANK_TYPE   = uint16(8)  // Rank
-	X86_TYPE    = uint16(9)  // X86 codec
-	DICT_TYPE   = uint16(10) // Text codec
+	NONE_TYPE   = uint32(0)  // copy
+	BWT_TYPE    = uint32(1)  // Burrows Wheeler
+	BWTS_TYPE   = uint32(2)  // Burrows Wheeler Scott
+	LZ4_TYPE    = uint32(3)  // LZ4
+	SNAPPY_TYPE = uint32(4)  // Snappy
+	RLT_TYPE    = uint32(5)  // Run Length
+	ZRLT_TYPE   = uint32(6)  // Zero Run Length
+	MTFT_TYPE   = uint32(7)  // Move To Front
+	RANK_TYPE   = uint32(8)  // Rank
+	X86_TYPE    = uint32(9)  // X86 codec
+	DICT_TYPE   = uint32(10) // Text codec
 )
 
-func NewByteFunction(ctx map[string]interface{}, functionType uint16) (*ByteTransformSequence, error) {
+func NewByteFunction(ctx map[string]interface{}, functionType uint32) (*ByteTransformSequence, error) {
 	nbtr := 0
 
 	// Several transforms
-	for i := uint(0); i < 4; i++ {
-		if (functionType>>(12-4*i))&0x0F != NONE_TYPE {
+	for i := uint(0); i < 8; i++ {
+		if (functionType>>(28-4*i))&0x0F != NONE_TYPE {
 			nbtr++
 		}
 	}
@@ -57,7 +57,7 @@ func NewByteFunction(ctx map[string]interface{}, functionType uint16) (*ByteTran
 	var err error
 
 	for i := range transforms {
-		t := (functionType >> (12 - uint(4*i))) & 0x0F
+		t := (functionType >> (28 - uint(4*i))) & 0x0F
 
 		if t != NONE_TYPE || i == 0 {
 			if transforms[nbtr], err = newByteFunctionToken(ctx, t); err != nil {
@@ -71,8 +71,8 @@ func NewByteFunction(ctx map[string]interface{}, functionType uint16) (*ByteTran
 	return NewByteTransformSequence(transforms)
 }
 
-func newByteFunctionToken(ctx map[string]interface{}, functionType uint16) (kanzi.ByteTransform, error) {
-	switch uint16(functionType & 0x0F) {
+func newByteFunctionToken(ctx map[string]interface{}, functionType uint32) (kanzi.ByteTransform, error) {
+	switch functionType & 0x0F {
 
 	case SNAPPY_TYPE:
 		return NewSnappyCodec()
@@ -112,11 +112,11 @@ func newByteFunctionToken(ctx map[string]interface{}, functionType uint16) (kanz
 	}
 }
 
-func GetName(functionType uint16) string {
+func GetName(functionType uint32) string {
 	var s string
 
-	for i := uint(0); i < 4; i++ {
-		t := functionType >> (12 - 4*i)
+	for i := uint(0); i < 8; i++ {
+		t := functionType >> (28 - 4*i)
 
 		if t&0x0F == NONE_TYPE {
 			continue
@@ -138,8 +138,8 @@ func GetName(functionType uint16) string {
 	return s
 }
 
-func getByteFunctionNameToken(functionType uint16) string {
-	switch uint16(functionType & 0x0F) {
+func getByteFunctionNameToken(functionType uint32) string {
+	switch functionType & 0x0F {
 
 	case LZ4_TYPE:
 		return "LZ4"
@@ -179,10 +179,10 @@ func getByteFunctionNameToken(functionType uint16) string {
 	}
 }
 
-// The returned type contains 4 (nibble based) transform values
-func GetType(name string) uint16 {
+// The returned type contains 8 (nibble based) transform values
+func GetType(name string) uint32 {
 	if strings.IndexByte(name, byte('+')) < 0 {
-		return getByteFunctionTypeToken(name) << 12
+		return getByteFunctionTypeToken(name) << 28
 	}
 
 	tokens := strings.Split(name, "+")
@@ -191,12 +191,12 @@ func GetType(name string) uint16 {
 		panic(fmt.Errorf("Unknown transform type: '%v'", name))
 	}
 
-	if len(tokens) > 4 {
+	if len(tokens) > 8 {
 		panic(fmt.Errorf("Only 4 transforms allowed: '%v'", name))
 	}
 
-	res := uint16(0)
-	shift := uint(12)
+	res := uint32(0)
+	shift := uint(28)
 
 	for _, token := range tokens {
 		tkType := getByteFunctionTypeToken(token)
@@ -211,7 +211,7 @@ func GetType(name string) uint16 {
 	return res
 }
 
-func getByteFunctionTypeToken(name string) uint16 {
+func getByteFunctionTypeToken(name string) uint32 {
 	name = strings.ToUpper(name)
 
 	switch name {

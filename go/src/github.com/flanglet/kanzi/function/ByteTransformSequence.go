@@ -21,13 +21,13 @@ import (
 )
 
 const (
-	TRANSFORM_SKIP_MASK = 0x0F
+	TRANSFORM_SKIP_MASK = 0xFF
 )
 
 // Encapsulates a sequence of transforms or functions in a function
 type ByteTransformSequence struct {
 	transforms []kanzi.ByteTransform // transforms or functions
-	skipFlags  byte                  // skip transforms: 0b0000yyyy with yyyy=flags
+	skipFlags  byte                  // skip transforms
 }
 
 func NewByteTransformSequence(transforms []kanzi.ByteTransform) (*ByteTransformSequence, error) {
@@ -35,8 +35,8 @@ func NewByteTransformSequence(transforms []kanzi.ByteTransform) (*ByteTransformS
 		return nil, errors.New("Invalid null transforms parameter")
 	}
 
-	if len(transforms) == 0 || len(transforms) > 4 {
-		return nil, errors.New("Only 1 to 4 transforms allowed")
+	if len(transforms) == 0 || len(transforms) > 8 {
+		return nil, errors.New("Only 1 to 8 transforms allowed")
 	}
 
 	this := new(ByteTransformSequence)
@@ -89,7 +89,7 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 			}
 
 			oIdx = length
-			this.skipFlags |= (1 << (3 - uint(i)))
+			this.skipFlags |= (1 << (7 - uint(i)))
 
 			if err == nil {
 				err = err1
@@ -100,8 +100,8 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 		saIdx ^= 1
 	}
 
-	for i := len(this.transforms); i < 4; i++ {
-		this.skipFlags |= (1 << (3 - uint(i)))
+	for i := len(this.transforms); i < 8; i++ {
+		this.skipFlags |= (1 << (7 - uint(i)))
 	}
 
 	if saIdx != 1 {
@@ -147,7 +147,7 @@ func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) 
 
 	// Process transforms sequentially in reverse order
 	for i := len(this.transforms) - 1; i >= 0; i-- {
-		if this.skipFlags&(1<<(3-uint(i))) != 0 {
+		if this.skipFlags&(1<<(7-uint(i))) != 0 {
 			continue
 		}
 
@@ -187,6 +187,10 @@ func (this ByteTransformSequence) MaxEncodedLen(srcLen int) int {
 	}
 
 	return requiredSize
+}
+
+func (this *ByteTransformSequence) NbFunctions() int {
+	return len(this.transforms)
 }
 
 func (this *ByteTransformSequence) SkipFlags() byte {

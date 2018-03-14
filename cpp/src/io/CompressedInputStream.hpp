@@ -85,8 +85,8 @@ namespace kanzi
        SliceArray<byte>* _data;
        SliceArray<byte>* _buffer;
        int _blockLength;
-       short _transformType;
-       short _entropyType;
+       uint32 _transformType;
+       uint32 _entropyType;
        int _blockId;
        InputBitStream* _ibs;
        XXHash32* _hasher;
@@ -96,7 +96,7 @@ namespace kanzi
 
    public:
        DecodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuffer, int blockSize,
-           short transformType, short entropyType, int blockId,
+           uint32 transformType, uint32 entropyType, int blockId,
            InputBitStream* ibs, XXHash32* hasher,
            atomic_int* processedBlockId, vector<Listener*>& listeners,
            map<string, string>& ctx);
@@ -114,8 +114,8 @@ namespace kanzi
        static const int BITSTREAM_FORMAT_VERSION = 5;
        static const int DEFAULT_BUFFER_SIZE = 1024 * 1024;
        static const int EXTRA_BUFFER_SIZE = 256;
-       static const int ZERO_BLOCK_MASK = 0x80;
-       static const int COPY_BLOCK_MASK = 0x40;
+       static const int COPY_BLOCK_MASK = 0x80;
+       static const int TRANSFORMS_MASK = 0x10;
        static const int MIN_BITSTREAM_BLOCK_SIZE = 1024;
        static const int MAX_BITSTREAM_BLOCK_SIZE = 1024 * 1024 * 1024;
        static const int CANCEL_TASKS_ID = -1;
@@ -126,8 +126,8 @@ namespace kanzi
        XXHash32* _hasher;
        SliceArray<byte>* _sa; // for all blocks
        SliceArray<byte>** _buffers; // per block
-       short _entropyType;
-       short _transformType;
+       uint32 _entropyType;
+       uint32 _transformType;
        InputBitStream* _ibs;
        InputStream& _is;
        atomic_bool _initialized;
