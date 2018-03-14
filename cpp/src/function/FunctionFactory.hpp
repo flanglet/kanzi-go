@@ -64,7 +64,7 @@ template <class T>
        string name(cname);
 
        if (name.find("+") == string::npos)
-           return short(getTypeToken(name.c_str()) << 28);
+           return getTypeToken(name.c_str()) << 28;
 
        char buf[64];
        int length = (name.length() < 63) ? int(name.length()) : 63;

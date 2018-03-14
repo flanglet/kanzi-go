@@ -490,7 +490,6 @@ T EncodingTask<T>::call() THROW
         transform->forward(*_data, *_buffer, _data->_length);
         postTransformLength = _buffer->_index;
         
-
         if (postTransformLength < 0)
             return T(_blockId, Error::ERR_WRITE_FILE, "Invalid transform size");
 
