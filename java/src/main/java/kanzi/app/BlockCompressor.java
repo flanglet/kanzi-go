@@ -635,7 +635,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
          printOut("", verbosity>1);
 
          if (delta >= 100000) {            
-            str = String.format("%1$.1f", (float) delta) + " s";
+            str = String.format("%1$.1f", (float) delta/1000) + " s";
          } else {
             str = String.valueOf(delta) + " ms";
          }
@@ -647,7 +647,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
          printOut("Compression ratio: "+String.format("%1$.6f", f), printFlag);
          
          if (delta >= 100000) {            
-            str = String.format("%1$.1f", (float) delta) + " s";
+            str = String.format("%1$.1f", (float) delta/1000) + " s";
          } else {
             str = String.valueOf(delta) + " ms";
          }

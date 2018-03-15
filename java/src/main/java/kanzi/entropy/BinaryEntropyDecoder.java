@@ -82,7 +82,7 @@ public class BinaryEntropyDecoder implements EntropyDecoder
             | this.decodeBit());
    }
 
-
+    
    // Not thread safe
    public boolean isInitialized()
    {

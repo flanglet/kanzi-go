@@ -552,7 +552,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
          printOut("", verbosity>1);
 
          if (delta >= 100000) {            
-            str = String.format("%1$.1f", (float) delta) + " s";
+            str = String.format("%1$.1f", (float) delta/1000) + " s";
          } else {
             str = String.valueOf(delta) + " ms";
          }
@@ -562,7 +562,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
          printOut("Output size:       "+read, printFlag);
 
          if (delta >= 100000) {            
-            str = String.format("%1$.1f", (float) delta) + " s";
+            str = String.format("%1$.1f", (float) delta/1000) + " s";
          } else {
             str = String.valueOf(delta) + " ms";
          }
