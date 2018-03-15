@@ -136,6 +136,73 @@ inline void fromString(string s, int data[], int length) {
    }
 }
 
+#if __cplusplus >= 201103L || _MSC_VER >= 1700
+
+#include <chrono>
+
+using namespace chrono;
+
+class Clock {
+private:
+	steady_clock::time_point _start;
+	steady_clock::time_point _stop;
+
+public:
+	Clock()
+	{
+		start();
+		_stop = _start;
+	}
+
+	void start()
+	{
+		_start = steady_clock::now();
+	}
+
+	void stop()
+	{
+		_stop = steady_clock::now();
+	}
+
+	double elapsed() const
+	{
+		// In millisec
+		return double(duration_cast<std::chrono::milliseconds>(_stop - _start).count());
+	}
+};
+#else
+#include <ctime>
+
+class Clock {
+private:
+	clock_t _start;
+	clock_t _stop;
+
+public:
+	Clock()
+	{
+		start();
+		_stop = _start;
+	}
+
+	void start()
+	{
+		_start = clock();
+	}
+
+	void stop()
+	{
+		_stop = clock();
+	}
+
+	double elapsed() const
+	{
+		// In millisec
+		return double(_stop - _start) / CLOCKS_PER_SEC * 1000.0;
+	}
+};
+#endif
+
 
 //Prefetch
 static inline void prefetchRead(const void* ptr) {
