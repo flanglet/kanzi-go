@@ -641,7 +641,7 @@ public class CompressedOutputStream extends OutputStream
             
             if (((mode & COPY_BLOCK_MASK) != 0) || (transform.getNbFunctions() <= 4))
             {
-               mode |= (transform.getSkipFlags()>>>4); 
+               mode |= ((transform.getSkipFlags()&0xFF)>>>4); 
                this.obs.writeBits(mode, 8);
             }
             else
