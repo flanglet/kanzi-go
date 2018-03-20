@@ -956,7 +956,7 @@ func isTextBlock(block []byte, freqs []int) bool {
 		}
 	}
 
-	if 2*nbTextChars < len(block) {
+	if 8*nbTextChars < 3*len(block) {
 		return false
 	}
 
@@ -1103,13 +1103,11 @@ func emitWordIndex(dst []byte, val int) int {
 		dst[dstIdx] = byte(0x80 | (val >> 7))
 		dstIdx++
 		dst[dstIdx] = byte(0x7F & val)
-		dstIdx++
 	} else {
 		dst[dstIdx] = byte(val)
-		dstIdx++
 	}
 
-	return dstIdx
+	return dstIdx + 1
 }
 
 func sameWords(buf, src []byte) bool {
@@ -1305,10 +1303,12 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			wordRun = false
 			anchor = srcIdx - 1
 
-			if (cur != CR) || (this.isCRLF == false) {
-				dst[dstIdx] = cur
+			if (this.isCRLF == true) && (cur == LF) {
+				dst[dstIdx] = CR
+				dstIdx++
 			}
 
+			dst[dstIdx] = cur
 			dstIdx++
 		}
 	}

@@ -864,7 +864,7 @@ bool TextCodec::isTextBlock(byte block[], int count, int freqs[])
             nbTextChars += freqs[i];
     }
 
-    if (2 * nbTextChars < count)
+    if (8 * nbTextChars < 3 * count)
         return false;
 
     int nbBinChars = 0;
@@ -977,7 +977,7 @@ int TextCodec::emitSlow(byte src[], byte dst[], int const srcEnd, int const dstE
     return dstIdx;
 }
 
-int TextCodec::emitWordIndex(byte dst[], int val)
+inline int TextCodec::emitWordIndex(byte dst[], int val)
 {
     int dstIdx = 0;
 
@@ -987,13 +987,13 @@ int TextCodec::emitWordIndex(byte dst[], int val)
             dst[dstIdx++] = byte(0xE0 | (val >> 14));
 
         dst[dstIdx++] = byte(0x80 | (val >> 7));
-        dst[dstIdx++] = byte(0x7F & val);
+        dst[dstIdx] = byte(0x7F & val);
     }
     else {
-        dst[dstIdx++] = byte(val);
+        dst[dstIdx] = byte(val);
     }
 
-    return dstIdx;
+    return dstIdx + 1;
 }
 
 bool TextCodec::sameWords(const byte src[], byte dst[], int length)
@@ -1179,8 +1179,10 @@ bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int c
             wordRun = false;
             anchor = srcIdx - 1;
 
-            if ((cur != CR) || (isCRLF == false))
-                dst[dstIdx++] = cur;
+            if ((_isCRLF == true) && (cur == LF))
+               dst[dstIdx++] = CR;
+            
+            dst[dstIdx++] = cur;
         }
     }
 

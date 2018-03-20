@@ -858,6 +858,7 @@ public final class TextCodec implements ByteFunction
 
                dst[dstIdx++] = (e == e1) ? ESCAPE_TOKEN1 : ESCAPE_TOKEN2;
                dstIdx = emitWordIndex(dst, dstIdx, e.idx);
+                  
                endWordIdx = srcIdx;
                mustEmit = false;
             }
@@ -898,7 +899,7 @@ public final class TextCodec implements ByteFunction
             nbTextChars += freqs[i];
       }
 
-      if (2*nbTextChars < srcEnd-srcIdx)
+      if (8*nbTextChars < 3*(srcEnd-srcIdx))
          return false;
 
       int nbBinChars = 0;
@@ -1026,16 +1027,16 @@ public final class TextCodec implements ByteFunction
       {
          if (val >= THRESHOLD2)
             dst[dstIdx++] = (byte) (0xE0 | (val>>14));
-
+         
          dst[dstIdx++] = (byte) (0x80 | (val>>7));
-         dst[dstIdx++] = (byte) (0x7F & val);
+         dst[dstIdx] = (byte) (0x7F & val);
       }
       else
       {
-         dst[dstIdx++] = (byte) val;
+         dst[dstIdx] = (byte) val;
       }
-
-      return dstIdx;
+         
+      return dstIdx + 1;
    }
 
 
@@ -1225,8 +1226,10 @@ public final class TextCodec implements ByteFunction
             wordRun = false;
             anchor = srcIdx - 1;
             
-            if ((cur != CR) || (_isCRLF == false))
-               dst[dstIdx++] = cur;
+            if ((_isCRLF == true) && (cur == LF))
+               dst[dstIdx++] = CR;
+            
+            dst[dstIdx++] = cur;
          }
       }
 
