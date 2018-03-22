@@ -619,7 +619,7 @@ func NewTextCodecWithArgs(dictSize int, dict []byte, logHashSize uint) (*TextCod
 	this.dictMap = make([]*DictEntry, 1<<this.logHashSize)
 	this.dictList = make([]DictEntry, this.dictSize)
 	this.hashMask = int32(1<<this.logHashSize) - 1
-	this.freqs = make([]int, 256)
+	this.freqs = make([]int, 256*257)
 	nbWords := 0
 
 	// Replace default dictionary ?
@@ -662,7 +662,7 @@ func NewTextCodecFromMap(ctx map[string]interface{}) (*TextCodec, error) {
 	this.dictMap = make([]*DictEntry, 1<<this.logHashSize)
 	this.dictList = make([]DictEntry, this.dictSize)
 	this.hashMask = int32(1<<this.logHashSize) - 1
-	this.freqs = make([]int, 256)
+	this.freqs = make([]int, 256*257)
 	size := len(TC_STATIC_DICTIONARY)
 
 	if size >= this.dictSize {
@@ -783,21 +783,17 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 	endWordIdx := ^anchor
 	emitAnchor := 0 // never negative
 	words := this.staticDictSize
+	mode := computeStats(src[srcIdx:srcIdx+count], this.freqs)
 
-	if isTextBlock(src[srcIdx:srcIdx+count], this.freqs) == false {
+	// Not text ?
+	if mode&0x80 != 0 {
 		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skipping")
 	}
 
 	// DOS encoded end of line (CR+LF) ?
-	if (this.freqs[CR] > 0) && (this.freqs[LF] == this.freqs[CR]) {
-		this.isCRLF = true
-		dst[dstIdx] = 1
-		dstIdx++
-	} else {
-		this.isCRLF = false
-		dst[dstIdx] = 0
-		dstIdx++
-	}
+	this.isCRLF = mode&0x01 != 0
+	dst[dstIdx] = mode
+	dstIdx++
 
 	for srcIdx < srcEnd && dstIdx < dstEnd {
 		cur := src[srcIdx]
@@ -939,34 +935,66 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 	return uint(srcIdx), uint(dstIdx), err
 }
 
-func isTextBlock(block []byte, freqs []int) bool {
+// return status (8 bits):
+// 0x80 => not text
+// 0x01 => CR+LF transform
+func computeStats(block []byte, freqs []int) byte {
 	for i := range freqs {
 		freqs[i] = 0
 	}
 
-	for i := range block {
-		freqs[block[i]]++
+	prv := byte(0)
+	freqs1 := freqs[0:65536]
+	freqs0 := freqs[65536:]
+	freqs0[block[0]]++
+	freqs1[block[0]]++
+
+	for i := 1; i < len(block); i++ {
+		freqs0[block[i]]++
+		freqs1[(prv<<8)+block[i]]++
+		prv = block[i]
 	}
 
 	nbTextChars := 0
 
 	for i := 32; i < 128; i++ {
 		if isText(byte(i)) {
-			nbTextChars += freqs[i]
+			nbTextChars += freqs0[i]
 		}
 	}
 
-	if 8*nbTextChars < 3*len(block) {
-		return false
+	// Not text
+	if 2*nbTextChars < len(block) {
+		return 0x80
 	}
 
 	nbBinChars := 0
 
 	for i := 128; i < 256; i++ {
-		nbBinChars += freqs[i]
+		nbBinChars += freqs0[i]
 	}
 
-	return 4*nbBinChars <= len(block)
+	// Not text
+	if 4*nbBinChars > len(block) {
+		return 0x80
+	}
+
+	// Check CR+LF matches
+	res := byte(0)
+
+	if (freqs0[CR] != 0) && (freqs0[CR] == freqs0[LF]) {
+		res = 1
+		base := int(CR) << 8
+
+		for i := 0; i < 256; i++ {
+			if (i != int(LF)) && (freqs1[base+i] != 0) {
+				res = 0
+				break
+			}
+		}
+	}
+
+	return res
 }
 
 func (this *TextCodec) expandDictionary() bool {
@@ -1165,7 +1193,7 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	words := this.staticDictSize
 	wordRun := false
 	err := error(nil)
-	this.isCRLF = src[srcIdx] != 0
+	this.isCRLF = src[srcIdx]&0x01 != 0
 	srcIdx++
 
 	for srcIdx < srcEnd && dstIdx < dstEnd {

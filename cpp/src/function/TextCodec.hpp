@@ -101,9 +101,9 @@ namespace kanzi {
 
        static SliceArray<byte> unpackDictionary32(const byte dict[], int dictSize);
 
-       static bool sameWords(const byte src[], byte dst[], int length);
+       static bool sameWords(const byte src[], byte dst[], const int length);
 
-       static bool isTextBlock(byte block[], int count, int freqs[]);
+       static byte computeStats(byte block[], int count, int freqs[]);
 
        bool expandDictionary();
 
@@ -117,7 +117,7 @@ namespace kanzi {
 
        DictEntry** _dictMap;
        DictEntry* _dictList;
-       int _freqs[256];
+       int _freqs[257*256];
        byte _escapes[2];
        int _staticDictSize;
        int _dictSize;

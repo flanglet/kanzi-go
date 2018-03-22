@@ -728,13 +728,15 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
     int endWordIdx = ~anchor;
     int emitAnchor = 0; // never less than 0
     int words = _staticDictSize;
+    byte mode = computeStats(&src[srcIdx], count, _freqs);
 
-    if (isTextBlock(&src[srcIdx], count, _freqs) == false)
+    // Not text ?
+    if ((mode & 0x80) != 0)
         return false;
 
     // DOS encoded end of line (CR+LF) ?
-    _isCRLF = ((_freqs[CR] > 0) && (_freqs[LF] == _freqs[CR]));
-    dst[dstIdx++] = (_isCRLF == true) ? byte(1) : byte(0);
+    _isCRLF = (mode & 0x01) != 0;
+    dst[dstIdx++] = mode;
 
     while ((srcIdx < srcEnd) && (dstIdx < dstEnd)) {
         byte cur = src[srcIdx];
@@ -850,29 +852,55 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
     return srcIdx == srcEnd;
 }
 
-bool TextCodec::isTextBlock(byte block[], int count, int freqs[])
+byte TextCodec::computeStats(byte block[], int count, int freqs[])
 {
-    memset(freqs, 0, sizeof(int)*256);
-
-    for (int i = 0; i < count; i++)
-        freqs[block[i] & 0xFF]++;
-
+    memset(freqs, 0, sizeof(int)*257*256);
+    int prv = 0;
+    freqs[65536+uint8(block[0])]++;
+    freqs[uint8(block[0])]++;
+   
+    for (int i = 1; i < count; i++) {
+       const uint8 cur = uint8(block[i]);
+       freqs[65536+cur]++;
+       freqs[(prv<<8)+cur]++;
+       prv = cur;
+    }
+    
     int nbTextChars = 0;
 
     for (int i = 32; i < 128; i++) {
-        if (isText(byte(i)) == true)
-            nbTextChars += freqs[i];
+       if (isText(byte(i)) == true)
+          nbTextChars += freqs[65536+i];
     }
-
-    if (8 * nbTextChars < 3 * count)
-        return false;
-
+    
+    // Not text
+    if (2 * nbTextChars < count)
+       return byte(0x80);
+    
     int nbBinChars = 0;
 
     for (int i = 128; i < 256; i++)
-        nbBinChars += freqs[i];
+       nbBinChars += freqs[65536 + i];
 
-    return 4 * nbBinChars <= count;
+    // Not text
+    if (4 * nbBinChars > count)
+       return byte(0x80);
+   
+    // Check CR+LF matches
+    int res = 0;
+   
+    if ((freqs[65536 + CR] != 0) && (freqs[65536 + CR] == freqs[65536 + LF])) {
+       res = 1;
+      
+       for (int i = 0; i < 256; i++) {
+          if ((i != LF) && (freqs[(CR << 8) + i]) != 0) {
+             res = 0;
+             break;
+          }
+       }
+    }
+    
+    return res;
 }
 
 bool TextCodec::expandDictionary()
@@ -898,7 +926,7 @@ bool TextCodec::expandDictionary()
     return true;
 }
 
-int TextCodec::emitSymbols(byte src[], byte dst[], const int srcEnd, const int dstEnd)
+inline int TextCodec::emitSymbols(byte src[], byte dst[], const int srcEnd, const int dstEnd)
 {
     if (srcEnd == 0)
         return 0;
@@ -996,25 +1024,31 @@ inline int TextCodec::emitWordIndex(byte dst[], int val)
     return dstIdx + 1;
 }
 
-bool TextCodec::sameWords(const byte src[], byte dst[], int length)
+inline bool TextCodec::sameWords(const byte src[], byte dst[], const int length)
 {
     if (length >= 4) {
         int32* p1 = (int32*)&dst[0];
         int32* p2 = (int32*)&src[0];
+        int l = length;
 
-        while (length >= 4) {
-            if (*p1++ != *p2++) {
+        while (l >= 4) {
+            if (*p1++ != *p2++)
                 return false;
-            }
 
-            length -= 4;
+            l -= 4;
         }
+
+        for (int i = length-l; i < length; i++) {
+           if (dst[i] != src[i]) 
+              return false;
+        }
+
+        return true;
     }
 
-    for (int i = 0, j = 0; i < length; i++, j++) {
-        if (dst[i] != src[j]) {
+    for (int i = 0; i < length; i++) {
+        if (dst[i] != src[i])
             return false;
-        }
     }
 
     return true;
@@ -1062,7 +1096,7 @@ bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int c
     int anchor = -1;
     int words = _staticDictSize;
     bool wordRun = false;
-    const bool isCRLF = src[srcIdx++] != 0;
+    const bool isCRLF = (src[srcIdx++] & 0x01) != 0;
     _isCRLF = isCRLF;
 
     while ((srcIdx < srcEnd) && (dstIdx < dstEnd)) {

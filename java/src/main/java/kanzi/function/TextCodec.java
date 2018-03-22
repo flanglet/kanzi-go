@@ -658,7 +658,7 @@ public final class TextCodec implements ByteFunction
       this.dictMap = new DictEntry[1<<this.logHashSize];
       this.dictList = new DictEntry[this.dictSize];
       this.hashMask = (1 << this.logHashSize) - 1;
-      this.freqs = new int[256];
+      this.freqs = new int[256*257];
       System.arraycopy(STATIC_DICTIONARY, 0, this.dictList, 0, Math.min(STATIC_DICTIONARY.length, this.dictSize));
       int nbWords = STATIC_DICT_WORDS;
 
@@ -684,7 +684,7 @@ public final class TextCodec implements ByteFunction
       this.dictMap = new DictEntry[1<<this.logHashSize];
       this.dictList = new DictEntry[this.dictSize];
       this.hashMask = (1 << this.logHashSize) - 1;
-      this.freqs = new int[256];
+      this.freqs = new int[256*257];
       int nbWords;
 
       // Replace default dictionary ?
@@ -752,14 +752,16 @@ public final class TextCodec implements ByteFunction
       int anchor = isText(src[srcIdx]) ? srcIdx - 1 : srcIdx; // previous delimiter
       int endWordIdx = ~anchor;
       int emitAnchor = input.index; // never less than input.index
-      int words = this.staticDictSize; 
+      int words = this.staticDictSize;       
+      int mode = computeStats(src, srcIdx, srcEnd, this.freqs);
       
-      if (isTextBlock(src, srcIdx, srcEnd, this.freqs) == false)
+      // Not text ?
+      if ((mode & 0x80) != 0)
          return false;
       
       // DOS encoded end of line (CR+LF) ?
-      this.isCRLF = ((this.freqs[CR] > 0) && (this.freqs[LF] == this.freqs[CR]));
-      dst[dstIdx++] = (this.isCRLF == true) ? (byte) 1 : (byte) 0;
+      this.isCRLF = (mode & 0x01) != 0;
+      dst[dstIdx++] = (byte) mode;
       
       while ((srcIdx < srcEnd) && (dstIdx < dstEnd))
       {
@@ -787,9 +789,9 @@ public final class TextCodec implements ByteFunction
 
             for (int i=anchor+2; i<srcIdx; i++) 
             {
-                final int h = src[i] * HASH2;
-                h1 = h1 * HASH1 ^ h;
-                h2 = h2 * HASH1 ^ h;
+               final int h = src[i] * HASH2;
+               h1 = h1 * HASH1 ^ h;
+               h2 = h2 * HASH1 ^ h;
             }
 
             // Check word in dictionary
@@ -810,7 +812,7 @@ public final class TextCodec implements ByteFunction
             }
 
             DictEntry e = (e1 != null) ? e1 : e2;
-
+            
             if (e != null)
             {
                if (sameWords(e, src, anchor, length) == false)
@@ -857,8 +859,7 @@ public final class TextCodec implements ByteFunction
                   break;
 
                dst[dstIdx++] = (e == e1) ? ESCAPE_TOKEN1 : ESCAPE_TOKEN2;
-               dstIdx = emitWordIndex(dst, dstIdx, e.idx);
-                  
+               dstIdx = emitWordIndex(dst, dstIdx, e.idx);               
                endWordIdx = srcIdx;
                mustEmit = false;
             }
@@ -883,31 +884,65 @@ public final class TextCodec implements ByteFunction
    }
 
    
-   private static boolean isTextBlock(byte[] block, final int srcIdx, final int srcEnd, int[] freqs)
+   // return status (8 bits): 
+   // 0x80 => not text
+   // 0x01 => CR+LF transform
+   private static int computeStats(byte[] block, final int srcIdx, final int srcEnd, int[] freqs)
    {
-      for (int i=0; i<256; i++)
+      for (int i=0; i<65536; i++)
          freqs[i] = 0;
 
-      for (int i=srcIdx; i<srcEnd; i++)
-         freqs[block[i]&0xFF]++;
-
+      int prv = 0;
+      freqs[65536+block[srcIdx]&0xFF]++;
+      freqs[block[srcIdx]&0xFF]++;
+      
+      for (int i=srcIdx+1; i<srcEnd; i++)
+      {
+         final int cur = block[i] & 0xFF;
+         freqs[65536+cur]++;
+         freqs[(prv<<8)+cur]++;
+         prv = cur;
+      }
+      
       int nbTextChars = 0;
 
       for (int i=32; i<128; i++)
       {
          if (isText((byte) i) == true)
-            nbTextChars += freqs[i];
+            nbTextChars += freqs[65536+i];
       }
 
-      if (8*nbTextChars < 3*(srcEnd-srcIdx))
-         return false;
+      // Not text
+      if (2*nbTextChars < (srcEnd-srcIdx))
+         return 0x80;
 
       int nbBinChars = 0;
 
       for (int i=128; i<256; i++)
-         nbBinChars += freqs[i];
+         nbBinChars += freqs[65536+i];
 
-      return 4*nbBinChars <= srcEnd-srcIdx;
+      // Not text
+      if (4*nbBinChars > srcEnd-srcIdx)
+         return 0x80;
+      
+      // Check CR+LF matches
+      int res = 0;
+      
+      if ((freqs[65536+CR] != 0) && (freqs[65536+CR] == freqs[65536+LF]))
+      {
+         res = 1;
+         
+         for (int i=0; i<256; i++)
+         {
+            if ((i != LF) && (freqs[(CR<<8)+i]) != 0)
+            {
+               res = 0;
+               break;
+            }
+         }
+      }
+      
+      return res;
    }
    
    
@@ -929,10 +964,10 @@ public final class TextCodec implements ByteFunction
    
   
    private int emitSymbols(byte[] src, final int srcIdx, byte[] dst, int dstIdx, final int srcEnd, final int dstEnd)
-   {
+   {     
       if (srcIdx == srcEnd)
          return 0;
-         
+       
       return ((srcEnd-srcIdx)<<2 < (dstEnd-dstIdx)) ?
          this.emitFast(src, srcIdx, dst, dstIdx, srcEnd, dstEnd) :
          this.emitSlow(src, srcIdx, dst, dstIdx, srcEnd, dstEnd);
@@ -1019,7 +1054,7 @@ public final class TextCodec implements ByteFunction
       return dstIdx;
    }
 
-
+   
    private static int emitWordIndex(byte[] dst, int dstIdx, int val)
    {
       // Emit word index (varint 5 bits + 7 bits + 7 bits)
@@ -1096,7 +1131,7 @@ public final class TextCodec implements ByteFunction
       int anchor = srcIdx - 1;
       int words = this.staticDictSize;
       boolean wordRun = false;
-      final boolean _isCRLF = src[srcIdx++] != 0;
+      final boolean _isCRLF = (src[srcIdx++] & 0x01) != 0;
       this.isCRLF = _isCRLF;
 
       while ((srcIdx < srcEnd) && (dstIdx < dstEnd))
