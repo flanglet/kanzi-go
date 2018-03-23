@@ -15,9 +15,11 @@ limitations under the License.
 
 
 #if defined(_MSC_VER)
-#include <intrin.h>  
+   #include <intrin.h>  
 #elif defined(__clang__)
-#include <lzcntintrin.h>
+   #ifdef __x86_64__
+      #include <x86intrin.h>
+   #endif
 #endif
 
 #include "Global.hpp"
