@@ -64,7 +64,7 @@ public class CompressedInputStream extends InputStream
    private final SliceByteArray sa; // for all blocks
    private final SliceByteArray[] buffers; // input & output per block
    private int entropyType;
-   private int transformType;
+   private long transformType;
    private final InputBitStream ibs;
    private final AtomicBoolean initialized;
    private final AtomicBoolean closed;
@@ -139,8 +139,8 @@ public class CompressedInputStream extends InputStream
       // Read entropy codec
       this.entropyType = (int) this.ibs.readBits(5);
 
-      // Read transforms: 8*4 bits
-      this.transformType = (int) this.ibs.readBits(32);
+      // Read transforms: 8*6 bits
+      this.transformType = this.ibs.readBits(48);
 
       // Read block size
       this.blockSize = (int) this.ibs.readBits(26) << 4;
@@ -182,7 +182,7 @@ public class CompressedInputStream extends InputStream
 
         try
          {
-            String w2 = new EntropyCodecFactory().getName(this.entropyType);
+            String w2 = EntropyCodecFactory.getName(this.entropyType);
 
             if ("NONE".equals(w2))
                w2 = "no";
@@ -533,7 +533,7 @@ public class CompressedInputStream extends InputStream
       private final SliceByteArray data;
       private final SliceByteArray buffer;
       private final int blockSize;
-      private final int transformType;
+      private final long transformType;
       private final int entropyType;
       private final int blockId;
       private final InputBitStream ibs;
@@ -544,7 +544,7 @@ public class CompressedInputStream extends InputStream
 
 
       DecodingTask(SliceByteArray iBuffer, SliceByteArray oBuffer, int blockSize,
-              int transformType, int entropyType, int blockId,
+              long transformType, int entropyType, int blockId,
               InputBitStream ibs, XXHash32 hasher,
               AtomicInteger processedBlockId, Listener[] listeners,
               Map<String, Object> ctx)
@@ -581,7 +581,7 @@ public class CompressedInputStream extends InputStream
       //      | 0b00000000
       //      then 0byyyyyyyy => transform sequence skip flags (1 means skip)
       private Status decodeBlock(SliceByteArray data, SliceByteArray buffer,
-         int blockTransformType, int blockEntropyType, int currentBlockId)
+         long blockTransformType, int blockEntropyType, int currentBlockId)
       {
          int taskId = this.processedBlockId.get();
 

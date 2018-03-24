@@ -118,8 +118,8 @@ void CompressedInputStream::readHeader() THROW
     // Read entropy codec
     _entropyType = uint32(_ibs->readBits(5));
 
-    // Read transform: 8*4 bits
-    _transformType = int32(_ibs->readBits(32));
+    // Read transform: 8*6 bits
+    _transformType = _ibs->readBits(48);
 
     // Read block size
     _blockSize = int(_ibs->readBits(26)) << 4;
@@ -519,7 +519,7 @@ void CompressedInputStream::notifyListeners(vector<Listener*>& listeners, const 
 
 template <class T>
 DecodingTask<T>::DecodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuffer, int blockSize,
-    uint32 transformType, uint32 entropyType, int blockId,
+    uint64 transformType, uint32 entropyType, int blockId,
     InputBitStream* ibs, XXHash32* hasher,
     atomic_int* processedBlockId, vector<Listener*>& listeners,
     map<string, string>& ctx)

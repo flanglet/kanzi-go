@@ -24,7 +24,11 @@ import kanzi.transform.SBRT;
 
 public class ByteFunctionFactory
 {
-   // Up to 15 transforms can be declared (4 bit index)
+   private static final int ONE_SHIFT = 6; // bits per transform
+   private static final int MAX_SHIFT = (8-1) * ONE_SHIFT; // 8 transforms
+   private static final int MASK = (1<<ONE_SHIFT) - 1;
+   
+   // Up to 64 transforms can be declared (6 bit index)
    public static final short NONE_TYPE    = 0;  // copy
    public static final short BWT_TYPE     = 1;  // Burrows Wheeler
    public static final short BWTS_TYPE    = 2;  // Burrows Wheeler Scott
@@ -38,11 +42,11 @@ public class ByteFunctionFactory
    public static final short DICT_TYPE    = 10; // Text codec
  
 
-   // The returned type contains 8 (nibble based) transform values
-   public int getType(String name)
+   // The returned type contains 8 transform values
+   public long getType(String name)
    {
       if (name.indexOf('+') < 0)
-         return this.getTypeToken(name) << 28;
+         return this.getTypeToken(name) << MAX_SHIFT;
       
       String[] tokens = name.split("\\+");
       
@@ -52,18 +56,18 @@ public class ByteFunctionFactory
       if (tokens.length > 8)
          throw new IllegalArgumentException("Only 8 transforms allowed: " + name);
 
-      int res = 0;
-      int shift = 28;
+      long res = 0;
+      int shift = MAX_SHIFT;
       
       for (String token: tokens)
       {
-         final int typeTk = this.getTypeToken(token);
+         final long typeTk = this.getTypeToken(token);
          
          // Skip null transform
          if (typeTk != NONE_TYPE)
          {
             res |= (typeTk << shift);
-            shift -= 4;
+            shift -= ONE_SHIFT;
          }
       }
       
@@ -71,7 +75,7 @@ public class ByteFunctionFactory
    }
    
    
-   private int getTypeToken(String name)
+   private long getTypeToken(String name)
    {
       // Strings in switch not supported in JDK 6
       name = String.valueOf(name).toUpperCase();
@@ -117,14 +121,14 @@ public class ByteFunctionFactory
    }
    
    
-   public ByteTransformSequence newFunction(Map<String, Object> ctx, int functionType)
+   public ByteTransformSequence newFunction(Map<String, Object> ctx, long functionType)
    {      
       int nbtr = 0;
       
       // Several transforms
       for (int i=0; i<8; i++)
       {
-         if (((functionType >>> (28-4*i)) & 0x0F) != NONE_TYPE)
+         if (((functionType >>> (MAX_SHIFT-ONE_SHIFT*i)) & MASK) != NONE_TYPE)
             nbtr++;
       }
     
@@ -137,7 +141,7 @@ public class ByteFunctionFactory
       
       for (int i=0; i<transforms.length; i++)
       {
-         int t = (functionType >>> (28-4*i)) & 0x0F;
+         final int t = (int) ((functionType >>> (MAX_SHIFT-ONE_SHIFT*i)) & MASK);
 
          if ((t != NONE_TYPE) || (i == 0))
             transforms[nbtr++] = newFunctionToken(ctx, t);
@@ -149,7 +153,7 @@ public class ByteFunctionFactory
    
    private static ByteTransform newFunctionToken(Map<String, Object> ctx, int functionType)
    {
-      switch (functionType & 0x0F)
+      switch (functionType)
       {
          case SNAPPY_TYPE:
             return new SnappyCodec();
@@ -190,15 +194,15 @@ public class ByteFunctionFactory
    }
 
    
-   public String getName(int functionType)
+   public String getName(long functionType)
    {              
       StringBuilder sb = new StringBuilder();
 
       for (int i=0; i<8; i++)
       {
-         final int t = functionType >>> (28-4*i);
+         final int t = (int) (functionType >>> (MAX_SHIFT-ONE_SHIFT*i)) & MASK;
 
-         if ((t & 0x0F) == NONE_TYPE)
+         if (t == NONE_TYPE)
             continue;
 
          String name = getNameToken(t);
@@ -218,7 +222,7 @@ public class ByteFunctionFactory
    
    private static String getNameToken(int functionType)
    {
-      switch (functionType & 0x0F)
+      switch (functionType)
       {
          case LZ4_TYPE:
             return "LZ4";

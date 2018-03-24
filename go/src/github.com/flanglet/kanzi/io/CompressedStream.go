@@ -86,7 +86,7 @@ type CompressedOutputStream struct {
 	data          []byte
 	buffers       []blockBuffer
 	entropyType   uint32
-	transformType uint32
+	transformType uint64
 	obs           kanzi.OutputBitStream
 	initialized   int32
 	closed        int32
@@ -103,7 +103,7 @@ type EncodingTask struct {
 	oBuffer            *blockBuffer
 	hasher             *hash.XXHash32
 	blockLength        uint
-	blockTransformType uint32
+	blockTransformType uint64
 	blockEntropyType   uint32
 	currentBlockId     int
 	input              chan error
@@ -265,7 +265,7 @@ func (this *CompressedOutputStream) writeHeader() *IOError {
 		return NewIOError("Cannot write entropy type to header", kanzi.ERR_WRITE_FILE)
 	}
 
-	if this.obs.WriteBits(uint64(this.transformType), 32) != 32 {
+	if this.obs.WriteBits(uint64(this.transformType), 48) != 48 {
 		return NewIOError("Cannot write transform types to header", kanzi.ERR_WRITE_FILE)
 	}
 
@@ -632,7 +632,7 @@ type CompressedInputStream struct {
 	data          []byte
 	buffers       []blockBuffer
 	entropyType   uint32
-	transformType uint32
+	transformType uint64
 	ibs           kanzi.InputBitStream
 	initialized   int32
 	closed        int32
@@ -651,7 +651,7 @@ type DecodingTask struct {
 	oBuffer            *blockBuffer
 	hasher             *hash.XXHash32
 	blockLength        uint
-	blockTransformType uint32
+	blockTransformType uint64
 	blockEntropyType   uint32
 	currentBlockId     int
 	input              chan bool
@@ -766,8 +766,8 @@ func (this *CompressedInputStream) readHeader() error {
 	// Read entropy codec
 	this.entropyType = uint32(this.ibs.ReadBits(5))
 
-	// Read transforms: 8*4 bits
-	this.transformType = uint32(this.ibs.ReadBits(32))
+	// Read transforms: 8*6 bits
+	this.transformType = this.ibs.ReadBits(48)
 
 	// Read block size
 	this.blockSize = uint(this.ibs.ReadBits(26)) << 4

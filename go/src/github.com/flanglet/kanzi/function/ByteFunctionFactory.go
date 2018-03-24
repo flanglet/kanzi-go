@@ -23,26 +23,30 @@ import (
 )
 
 const (
-	// Up to 15 transforms can be declared (4 bit index)
-	NONE_TYPE   = uint32(0)  // copy
-	BWT_TYPE    = uint32(1)  // Burrows Wheeler
-	BWTS_TYPE   = uint32(2)  // Burrows Wheeler Scott
-	LZ4_TYPE    = uint32(3)  // LZ4
-	SNAPPY_TYPE = uint32(4)  // Snappy
-	RLT_TYPE    = uint32(5)  // Run Length
-	ZRLT_TYPE   = uint32(6)  // Zero Run Length
-	MTFT_TYPE   = uint32(7)  // Move To Front
-	RANK_TYPE   = uint32(8)  // Rank
-	X86_TYPE    = uint32(9)  // X86 codec
-	DICT_TYPE   = uint32(10) // Text codec
+	BFF_ONE_SHIFT = uint(6)                 // bits per transform
+	BFF_MAX_SHIFT = (8 - 1) * BFF_ONE_SHIFT // 8 transforms
+	BFF_MASK      = (1 << BFF_ONE_SHIFT) - 1
+
+	// Up to 64 transforms can be declared (6 bit index)
+	NONE_TYPE   = uint64(0)  // copy
+	BWT_TYPE    = uint64(1)  // Burrows Wheeler
+	BWTS_TYPE   = uint64(2)  // Burrows Wheeler Scott
+	LZ4_TYPE    = uint64(3)  // LZ4
+	SNAPPY_TYPE = uint64(4)  // Snappy
+	RLT_TYPE    = uint64(5)  // Run Length
+	ZRLT_TYPE   = uint64(6)  // Zero Run Length
+	MTFT_TYPE   = uint64(7)  // Move To Front
+	RANK_TYPE   = uint64(8)  // Rank
+	X86_TYPE    = uint64(9)  // X86 codec
+	DICT_TYPE   = uint64(10) // Text codec
 )
 
-func NewByteFunction(ctx map[string]interface{}, functionType uint32) (*ByteTransformSequence, error) {
+func NewByteFunction(ctx map[string]interface{}, functionType uint64) (*ByteTransformSequence, error) {
 	nbtr := 0
 
 	// Several transforms
 	for i := uint(0); i < 8; i++ {
-		if (functionType>>(28-4*i))&0x0F != NONE_TYPE {
+		if (functionType>>(BFF_MAX_SHIFT-BFF_ONE_SHIFT*i))&BFF_MASK != NONE_TYPE {
 			nbtr++
 		}
 	}
@@ -57,7 +61,7 @@ func NewByteFunction(ctx map[string]interface{}, functionType uint32) (*ByteTran
 	var err error
 
 	for i := range transforms {
-		t := (functionType >> (28 - uint(4*i))) & 0x0F
+		t := (functionType >> (BFF_MAX_SHIFT - BFF_ONE_SHIFT*uint(i))) & BFF_MASK
 
 		if t != NONE_TYPE || i == 0 {
 			if transforms[nbtr], err = newByteFunctionToken(ctx, t); err != nil {
@@ -71,8 +75,8 @@ func NewByteFunction(ctx map[string]interface{}, functionType uint32) (*ByteTran
 	return NewByteTransformSequence(transforms)
 }
 
-func newByteFunctionToken(ctx map[string]interface{}, functionType uint32) (kanzi.ByteTransform, error) {
-	switch functionType & 0x0F {
+func newByteFunctionToken(ctx map[string]interface{}, functionType uint64) (kanzi.ByteTransform, error) {
+	switch functionType {
 
 	case SNAPPY_TYPE:
 		return NewSnappyCodec()
@@ -112,13 +116,13 @@ func newByteFunctionToken(ctx map[string]interface{}, functionType uint32) (kanz
 	}
 }
 
-func GetName(functionType uint32) string {
+func GetName(functionType uint64) string {
 	var s string
 
 	for i := uint(0); i < 8; i++ {
-		t := functionType >> (28 - 4*i)
+		t := (functionType >> (BFF_MAX_SHIFT - BFF_ONE_SHIFT*i)) & BFF_MASK
 
-		if t&0x0F == NONE_TYPE {
+		if t == NONE_TYPE {
 			continue
 		}
 
@@ -138,8 +142,8 @@ func GetName(functionType uint32) string {
 	return s
 }
 
-func getByteFunctionNameToken(functionType uint32) string {
-	switch functionType & 0x0F {
+func getByteFunctionNameToken(functionType uint64) string {
+	switch functionType {
 
 	case LZ4_TYPE:
 		return "LZ4"
@@ -179,10 +183,10 @@ func getByteFunctionNameToken(functionType uint32) string {
 	}
 }
 
-// The returned type contains 8 (nibble based) transform values
-func GetType(name string) uint32 {
+// The returned type contains 8  transform values
+func GetType(name string) uint64 {
 	if strings.IndexByte(name, byte('+')) < 0 {
-		return getByteFunctionTypeToken(name) << 28
+		return getByteFunctionTypeToken(name) << BFF_MAX_SHIFT
 	}
 
 	tokens := strings.Split(name, "+")
@@ -195,8 +199,8 @@ func GetType(name string) uint32 {
 		panic(fmt.Errorf("Only 4 transforms allowed: '%v'", name))
 	}
 
-	res := uint32(0)
-	shift := uint(28)
+	res := uint64(0)
+	shift := BFF_MAX_SHIFT
 
 	for _, token := range tokens {
 		tkType := getByteFunctionTypeToken(token)
@@ -204,14 +208,14 @@ func GetType(name string) uint32 {
 		// Skip null transform
 		if tkType != NONE_TYPE {
 			res |= (tkType << shift)
-			shift -= 4
+			shift -= BFF_ONE_SHIFT
 		}
 	}
 
 	return res
 }
 
-func getByteFunctionTypeToken(name string) uint32 {
+func getByteFunctionTypeToken(name string) uint64 {
 	name = strings.ToUpper(name)
 
 	switch name {

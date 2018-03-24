@@ -65,7 +65,7 @@ public class CompressedOutputStream extends OutputStream
    private final SliceByteArray sa; // for all blocks
    private final SliceByteArray[] buffers; // input & output per block
    private final int entropyType;
-   private final int transformType;
+   private final long transformType;
    private final OutputBitStream obs;
    private final AtomicBoolean initialized;
    private final AtomicBoolean closed;
@@ -137,7 +137,7 @@ public class CompressedOutputStream extends OutputStream
       this.hasher = (checksum == true) ? new XXHash32(BITSTREAM_TYPE) : null;
       this.jobs = tasks;
       this.pool = threadPool;
-      this.sa = new SliceByteArray(new byte[this.blockSize], 0); // initally 1 blockSize
+      this.sa = new SliceByteArray(new byte[this.blockSize], 0); // initially 1 blockSize
       this.buffers = new SliceByteArray[2*this.jobs];
       this.closed = new AtomicBoolean(false);
       this.initialized = new AtomicBoolean(false);
@@ -165,7 +165,7 @@ public class CompressedOutputStream extends OutputStream
       if (this.obs.writeBits(this.entropyType, 5) != 5)
          throw new kanzi.io.IOException("Cannot write entropy type to header", Error.ERR_WRITE_FILE);
 
-      if (this.obs.writeBits(this.transformType, 32) != 32)
+      if (this.obs.writeBits(this.transformType, 48) != 48)
          throw new kanzi.io.IOException("Cannot write transform types to header", Error.ERR_WRITE_FILE);
 
       if (this.obs.writeBits(this.blockSize >>> 4, 26) != 26)
@@ -491,7 +491,7 @@ public class CompressedOutputStream extends OutputStream
       private final SliceByteArray data;
       private final SliceByteArray buffer;
       private final int length;
-      private final int transformType;
+      private final long transformType;
       private final int entropyType;
       private final int blockId;
       private final OutputBitStream obs;
@@ -502,7 +502,7 @@ public class CompressedOutputStream extends OutputStream
 
 
       EncodingTask(SliceByteArray iBuffer, SliceByteArray oBuffer, int length,
-              int transformType, int entropyType, int blockId,
+              long transformType, int entropyType, int blockId,
               OutputBitStream obs, XXHash32 hasher,
               AtomicInteger processedBlockId, Listener[] listeners,
               Map<String, Object> ctx)
@@ -539,7 +539,7 @@ public class CompressedOutputStream extends OutputStream
       //      | 0b00000000
       //      then 0byyyyyyyy => transform sequence skip flags (1 means skip)
       private Status encodeBlock(SliceByteArray data, SliceByteArray buffer,
-           int blockLength, int blockTransformType,
+           int blockLength, long blockTransformType,
            int blockEntropyType, int currentBlockId)
       {
          EntropyEncoder ee = null;
@@ -547,7 +547,7 @@ public class CompressedOutputStream extends OutputStream
          try
          {
             byte mode = 0;
-            int postTransformLength = blockLength;
+            int postTransformLength;
             int checksum = 0;
 
             // Compute block checksum

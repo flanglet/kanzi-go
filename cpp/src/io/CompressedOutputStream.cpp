@@ -144,7 +144,7 @@ void CompressedOutputStream::writeHeader() THROW
     if (_obs->writeBits(_entropyType, 5) != 5)
         throw IOException("Cannot write entropy type to header", Error::ERR_WRITE_FILE);
 
-    if (_obs->writeBits(_transformType, 32) != 32)
+    if (_obs->writeBits(_transformType, 48) != 48)
         throw IOException("Cannot write transform types to header", Error::ERR_WRITE_FILE);
 
     if (_obs->writeBits(_blockSize >> 4, 26) != 26)
@@ -406,7 +406,7 @@ void CompressedOutputStream::notifyListeners(vector<Listener*>& listeners, const
 
 template <class T>
 EncodingTask<T>::EncodingTask(SliceArray<byte>* iBuffer, SliceArray<byte>* oBuffer, int length,
-    uint32 transformType, uint32 entropyType, int blockId,
+    uint64 transformType, uint32 entropyType, int blockId,
     OutputBitStream* obs, XXHash32* hasher,
     atomic_int* processedBlockId, vector<Listener*>& listeners,
     map<string, string>& ctx)
