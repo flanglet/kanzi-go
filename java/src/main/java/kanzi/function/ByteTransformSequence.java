@@ -80,10 +80,10 @@ public class ByteTransformSequence implements ByteFunction
          // Check that the output buffer has enough room. If not, allocate a new one.
          if (sa2.length < requiredSize)
          {
-             sa2.length = requiredSize;
-             
-             if (sa2.array.length < sa2.length)
-                sa2.array = new byte[sa2.length];
+            sa2.length = requiredSize;
+            
+            if (sa2.array.length < sa2.length)
+               sa2.array = new byte[sa2.length];
          }
          
          final int savedIIdx = sa1.index;

@@ -368,7 +368,7 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 	for i, b := range buckets_ {
 		buckets_[i] = sum
 		sum += b
-   }
+	}
 
 	idx := count - 1
 

@@ -29,7 +29,6 @@ public class TPAQPredictor implements Predictor
    private static final int BUFFER_SIZE = 64*1024*1024;
    private static final int HASH_SIZE = 16*1024*1024;
    private static final int MASK_BUFFER = BUFFER_SIZE - 1;
-   private static final int MASK_HASH = HASH_SIZE - 1;
    private static final int MASK_80808080 = 0x80808080;
    private static final int MASK_F0F0F0F0 = 0xF0F0F0F0;
    private static final int HASH = 200002979;

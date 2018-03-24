@@ -141,7 +141,7 @@ public class BlockDecompressor implements Runnable, Callable<Integer>
       // Limit verbosity level when files are processed concurrently
       if ((this.jobs > 1) && (nbFiles > 1) && (this.verbosity > 1)) {
          printOut("Warning: limiting verbosity to 1 due to concurrent processing of input files.\n", true);
-         this.verbosity = 1;;
+         this.verbosity = 1;
       }
       
       if (this.verbosity > 2)

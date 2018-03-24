@@ -199,7 +199,7 @@ func NewCompressedOutputStream(os io.WriteCloser, ctx map[string]interface{}) (*
 	}
 
 	this.jobs = int(tasks)
-	this.data = make([]byte, int(this.blockSize)) // initally 1 blockSize
+	this.data = make([]byte, int(this.blockSize)) // initially 1 blockSize
 	this.buffers = make([]blockBuffer, 2*this.jobs)
 
 	for i := range this.buffers {

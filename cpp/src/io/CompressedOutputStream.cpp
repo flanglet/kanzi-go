@@ -100,7 +100,7 @@ CompressedOutputStream::CompressedOutputStream(OutputStream& os, map<string, str
     bool checksum = str == "TRUE";
     _hasher = (checksum == true) ? new XXHash32(BITSTREAM_TYPE) : nullptr;
     _jobs = tasks;
-    _sa = new SliceArray<byte>(new byte[_blockSize], _blockSize, 0); // initally 1 blockSize
+    _sa = new SliceArray<byte>(new byte[_blockSize], _blockSize, 0); // initially 1 blockSize
     _buffers = new SliceArray<byte>*[2 * _jobs];
 
     for (int i = 0; i < 2 * _jobs; i++)
