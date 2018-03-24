@@ -136,10 +136,7 @@ public class X86Codec implements ByteFunction
         
       final int count = input.length;
       
-      if (output.length < count)
-         return false;
-
-      if (output.index + count > output.array.length)
+      if (input.index + count > input.array.length)
          return false;
 
       // Aliasing
