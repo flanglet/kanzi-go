@@ -158,12 +158,10 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 
 			if dstIdx >= dstEnd4 {
 				if run >= RLT_RUN_LEN_ENCODE2 {
-					err = errors.New("Not enough space in destination buffer")
 					break
 				}
 
 				if run >= RLT_RUN_LEN_ENCODE1 && dstIdx > dstEnd4 {
-					err = errors.New("Not enough space in destination buffer")
 					break
 				}
 			}
@@ -289,10 +287,18 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 				srcIdx++
 
 				if run == 0xFF {
+					if srcIdx+1 >= srcEnd {
+						break
+					}
+
 					run = (uint(src[srcIdx]) << 8) | uint(src[srcIdx+1])
 					srcIdx += 2
 					run += RLT_RUN_LEN_ENCODE2
 				} else if run >= RLT_RUN_LEN_ENCODE1 {
+					if srcIdx >= srcEnd {
+						break
+					}
+
 					run = ((run - RLT_RUN_LEN_ENCODE1) << 8) | uint(src[srcIdx])
 					run += RLT_RUN_LEN_ENCODE1
 					srcIdx++

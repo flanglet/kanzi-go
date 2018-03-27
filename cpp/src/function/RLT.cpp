@@ -106,12 +106,10 @@ bool RLT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int length)
 
             if (dstIdx >= dstEnd4) {
                 if (run >= RUN_LEN_ENCODE2) {
-                    res = false;
                     break;
                 }
 
                 if ((run >= RUN_LEN_ENCODE1) && (dstIdx > dstEnd4)) {
-                    res = false;
                     break;
                 }
             }
@@ -220,11 +218,17 @@ bool RLT::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int length)
                 run = src[srcIdx++] & 0xFF;
 
                 if (run == 0xFF) {
+                    if (srcIdx + 1 >= srcEnd)
+                        break;
+
                     run = ((src[srcIdx] & 0xFF) << 8) | (src[srcIdx + 1] & 0xFF);
                     srcIdx += 2;
                     run += RUN_LEN_ENCODE2;
                 }
                 else if (run >= RUN_LEN_ENCODE1) {
+                    if (srcIdx >= srcEnd)
+                        break;
+
                     run = ((run - RUN_LEN_ENCODE1) << 8) | (src[srcIdx++] & 0xFF);
                     run += RUN_LEN_ENCODE1;
                 }
@@ -245,15 +249,14 @@ bool RLT::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int length)
             prev = val;
             run = 1;
         }
-        
+
         if (dstIdx >= dstEnd)
             break;
 
         dst[dstIdx++] = val;
     }
 
-    res &= (srcIdx == srcEnd);
     input._index = srcIdx;
     output._index = dstIdx;
-    return res;
+    return res & (srcIdx == srcEnd);
 }
