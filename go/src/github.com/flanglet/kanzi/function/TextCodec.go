@@ -916,9 +916,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	// Emit last symbols
-	if emitAnchor != delimAnchor {
-		dstIdx += this.emitSymbols(src[emitAnchor:delimAnchor+1], dst[dstIdx:dstEnd])
-	}
+	dstIdx += this.emitSymbols(src[emitAnchor:srcEnd], dst[dstIdx:dstEnd])
 
 	err := error(nil)
 
@@ -1216,14 +1214,12 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 				srcIdx++
 
 				if idx2 >= 0x80 {
-					idx2 &= 0x7F
-					idx &= 0x1F
-					idx = (idx << 7) | idx2
-					idx2 = int(src[srcIdx] & 0x7F)
+					idx = ((idx & 0x1F) << 7) | (idx2 & 0x7F)
+					idx2 = int(src[srcIdx])
 					srcIdx++
 				}
 
-				idx = (idx << 7) | idx2
+				idx = (idx << 7) | (idx2 & 0x7F)
 
 				if idx >= this.dictSize {
 					break

@@ -836,8 +836,7 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
     }
 
     // Emit last symbols
-    if (emitAnchor != delimAnchor)
-        dstIdx += emitSymbols(&src[emitAnchor], &dst[dstIdx], delimAnchor - emitAnchor, dstEnd - dstIdx);
+    dstIdx += emitSymbols(&src[emitAnchor], &dst[dstIdx], srcEnd - 1 - emitAnchor, dstEnd - dstIdx);
 
     output._index += dstIdx;
     input._index += srcIdx;
@@ -1114,18 +1113,16 @@ bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int c
             // Read word index (varint 5 bits + 7 bits + 7 bits)
             int idx = src[srcIdx++] & 0xFF;
 
-            if (idx >= 0x80) {
+            if ((idx & 0x80) != 0) {
                 idx &= 0x7F;
-                int idx2 = src[srcIdx++] & 0xFF;
+                int idx2 = src[srcIdx++];
 
-                if (idx2 >= 0x80) {
-                    idx2 &= 0x7F;
-                    idx &= 0x1F;
-                    idx = (idx << 7) | idx2;
-                    idx2 = src[srcIdx++] & 0x7F;
+                if ((idx2 & 0x80) != 0) {
+                    idx = ((idx & 0x1F) << 7) | (idx2 & 0x7F);
+                    idx2 = src[srcIdx++];
                 }
 
-                idx = (idx << 7) | idx2;
+                idx = (idx << 7) | (idx2 & 0x7F);
 
                 if (idx >= _dictSize)
                     break;

@@ -869,8 +869,7 @@ public final class TextCodec implements ByteFunction
       }
 
       // Emit last symbols
-      if (emitAnchor != delimAnchor)
-         dstIdx = this.emitSymbols(src, emitAnchor, dst, dstIdx, delimAnchor, dstEnd);
+      dstIdx = this.emitSymbols(src, emitAnchor, dst, dstIdx, srcEnd-1, dstEnd);
 
       output.index = dstIdx;
       input.index = srcIdx;
@@ -907,7 +906,7 @@ public final class TextCodec implements ByteFunction
       }
 
       // Not text
-      if (2*nbTextChars < (srcEnd-srcIdx))
+      if (2*nbTextChars < srcEnd-srcIdx)
          return 0x80;
 
       int nbBinChars = 0;
@@ -1152,20 +1151,18 @@ public final class TextCodec implements ByteFunction
             // Read word index (varint 5 bits + 7 bits + 7 bits)
             int idx = src[srcIdx++] & 0xFF;
 
-            if (idx >= 0x80)
+            if ((idx&0x80) != 0)
             {
                idx &= 0x7F;
-               int idx2 = src[srcIdx++] & 0xFF;
+               int idx2 = src[srcIdx++];
 
-               if (idx2 >= 0x80)
+               if ((idx2&0x80) != 0)
                {
-                  idx2 &= 0x7F;
-                  idx  &= 0x1F;
-                  idx = (idx << 7) | idx2;
-                  idx2 = src[srcIdx++] & 0x7F;
+                  idx = ((idx&0x1F) << 7) | (idx2&0x7F);
+                  idx2 = src[srcIdx++];
                }
 
-               idx = (idx << 7) | idx2;
+               idx = (idx<<7) | (idx2&0x7F);
 
                if (idx >= this.dictSize) 
                   break;
