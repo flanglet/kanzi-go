@@ -772,15 +772,14 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 	srcEnd := count
 	dstEnd := this.MaxEncodedLen(count)
 	dstEnd3 := dstEnd - 3
-	var anchor int // previous delimiter
+	var delimAnchor int // previous delimiter
 
 	if isText(src[srcIdx]) {
-		anchor = -1
+		delimAnchor = srcIdx - 1
 	} else {
-		anchor = 0
+		delimAnchor = srcIdx
 	}
 
-	endWordIdx := ^anchor
 	emitAnchor := 0 // never negative
 	words := this.staticDictSize
 	mode := computeStats(src[srcIdx:srcIdx+count], this.freqs)
@@ -803,13 +802,11 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 			continue
 		}
 
-		mustEmit := emitAnchor < srcIdx
-
-		if (srcIdx > anchor+2) && (isDelimiter(cur) || cur == TC_ESCAPE_TOKEN1 || cur == TC_ESCAPE_TOKEN2) { // At least 2 letters
+		if (srcIdx > delimAnchor+2) && (isDelimiter(cur)) { // At least 2 letters
 			// Compute hashes
 			// h1 -> hash of word chars
 			// h2 -> hash of word chars with first char case flipped
-			val := src[anchor+1]
+			val := src[delimAnchor+1]
 			var caseFlag int32
 
 			if isUpperCase(val) {
@@ -820,17 +817,17 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 			h1 := TC_HASH1
 			h2 := TC_HASH1
-			h1 = h1*TC_HASH1 ^ (int32(val) * TC_HASH2)
-			h2 = h2*TC_HASH1 ^ ((int32(val) + caseFlag) * TC_HASH2)
+			h1 = h1*TC_HASH1 ^ int32(val)*TC_HASH2
+			h2 = h2*TC_HASH1 ^ (int32(val)+caseFlag)*TC_HASH2
 
-			for i := anchor + 2; i < srcIdx; i++ {
+			for i := delimAnchor + 2; i < srcIdx; i++ {
 				h := int32(src[i]) * TC_HASH2
 				h1 = h1*TC_HASH1 ^ h
 				h2 = h2*TC_HASH1 ^ h
 			}
 
 			// Check word in dictionary
-			length := srcIdx - anchor - 1
+			length := srcIdx - delimAnchor - 1
 			pe1 := this.dictMap[h1&this.hashMask]
 			var pe2 *DictEntry = nil
 
@@ -856,7 +853,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 			}
 
 			if pe != nil {
-				if !sameWords(pe.buf[pe.pos+1:pe.pos+length], src[anchor+2:anchor+2+length]) {
+				if !sameWords(pe.buf[pe.pos+1:pe.pos+length], src[delimAnchor+2:srcEnd]) {
 					pe = nil
 				}
 			}
@@ -871,7 +868,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 						// Evict and reuse old entry
 						this.dictMap[pe.hash&this.hashMask] = nil
 						pe.buf = src
-						pe.pos = anchor + 1
+						pe.pos = delimAnchor + 1
 						pe.hash = h1
 						pe.idx = int32(words)
 						pe.length = int16(length)
@@ -891,9 +888,11 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 			} else {
 				// Word found in the dictionary
 				// Skip space if only delimiter between 2 word references
-				if endWordIdx != anchor || src[emitAnchor] != ' ' {
-					dstIdx += this.emitSymbols(src[emitAnchor:anchor+1], dst[dstIdx:dstEnd])
+				if (emitAnchor != delimAnchor) || (src[delimAnchor] != ' ') {
+					dstIdx += this.emitSymbols(src[emitAnchor:delimAnchor+1], dst[dstIdx:dstEnd])
 				}
+
+				emitAnchor = delimAnchor + 1
 
 				if dstIdx >= dstEnd3 {
 					break
@@ -907,24 +906,19 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 				dstIdx++
 				dstIdx += emitWordIndex(dst[dstIdx:dstIdx+3], int(pe.idx))
-				endWordIdx = srcIdx
-				mustEmit = false
+				emitAnchor += int(pe.length)
 			}
 		}
 
-		if mustEmit == true {
-			// Emit all symbols since last delimiter
-			dstIdx += this.emitSymbols(src[emitAnchor:srcIdx], dst[dstIdx:dstEnd])
-		}
-
 		// Reset delimiter position
-		anchor = srcIdx
-		emitAnchor = anchor
+		delimAnchor = srcIdx
 		srcIdx++
 	}
 
 	// Emit last symbols
-	dstIdx += this.emitSymbols(src[emitAnchor:srcEnd], dst[dstIdx:dstEnd])
+	if emitAnchor != delimAnchor {
+		dstIdx += this.emitSymbols(src[emitAnchor:delimAnchor+1], dst[dstIdx:dstEnd])
+	}
 
 	err := error(nil)
 
@@ -1015,78 +1009,23 @@ func (this *TextCodec) expandDictionary() bool {
 }
 
 func (this *TextCodec) emitSymbols(src, dst []byte) int {
-	if len(src) == 0 {
-		return 0
-	}
-
-	if len(src)<<2 < len(dst) {
-		return this.emitFast(src, dst)
-	} else {
-		return this.emitSlow(src, dst)
-	}
-}
-
-func (this *TextCodec) emitFast(src, dst []byte) int {
-	// Fast path
-	dstIdx := 0
-
-	if src[0] == TC_ESCAPE_TOKEN1 || src[0] == TC_ESCAPE_TOKEN2 {
-		// Emit special word
-		var idx int
-
-		if src[0] == TC_ESCAPE_TOKEN1 {
-			idx = this.staticDictSize - 1
-		} else {
-			idx = this.staticDictSize - 2
-		}
-
-		dst[dstIdx] = TC_ESCAPE_TOKEN1
-		dstIdx++
-		dstIdx += emitWordIndex(dst[dstIdx:], idx)
-	} else {
-		if (src[0] != CR) || (this.isCRLF == false) {
-			dst[dstIdx] = src[0]
-			dstIdx++
-		}
-	}
-
-	if this.isCRLF == true {
-		for i := 1; i < len(src); i++ {
-			if src[i] != CR {
-				dst[dstIdx] = src[i]
-				dstIdx++
-			}
-		}
-	} else {
-		for i := 1; i < len(src); i++ {
-			dst[dstIdx] = src[i]
-			dstIdx++
-		}
-	}
-
-	return dstIdx
-}
-
-func (this *TextCodec) emitSlow(src, dst []byte) int {
-	// Slow path
 	dstIdx := 0
 	dstEnd := len(dst)
 
 	for i := range src {
 		cur := src[i]
 
-		if cur == TC_ESCAPE_TOKEN1 || cur == TC_ESCAPE_TOKEN2 {
+		if (cur == TC_ESCAPE_TOKEN1) || (cur == TC_ESCAPE_TOKEN2) {
 			// Emit special word
+			dst[dstIdx] = TC_ESCAPE_TOKEN1
+			dstIdx++
 			var idx int
 
-			if src[i] == TC_ESCAPE_TOKEN1 {
+			if cur == TC_ESCAPE_TOKEN1 {
 				idx = this.staticDictSize - 1
 			} else {
 				idx = this.staticDictSize - 2
 			}
-
-			dst[dstIdx] = TC_ESCAPE_TOKEN1
-			dstIdx++
 
 			if idx >= TC_THRESHOLD2 {
 				if dstIdx+4 > dstEnd {
@@ -1100,9 +1039,9 @@ func (this *TextCodec) emitSlow(src, dst []byte) int {
 				if dstIdx+2 > dstEnd {
 					break
 				}
-
-				dstIdx += emitWordIndex(dst[dstIdx:dstIdx+3], idx)
 			}
+
+			dstIdx += emitWordIndex(dst[dstIdx:dstIdx+3], idx)
 		} else {
 			if (cur != CR) || (this.isCRLF == false) {
 				if dstIdx >= dstEnd {
@@ -1119,23 +1058,22 @@ func (this *TextCodec) emitSlow(src, dst []byte) int {
 }
 
 func emitWordIndex(dst []byte, val int) int {
-	dstIdx := 0
-
 	// Emit word index (varint 5 bits + 7 bits + 7 bits)
 	if val >= TC_THRESHOLD1 {
+		dstIdx := 0
+
 		if val >= TC_THRESHOLD2 {
 			dst[dstIdx] = byte(0xE0 | (val >> 14))
 			dstIdx++
 		}
 
 		dst[dstIdx] = byte(0x80 | (val >> 7))
-		dstIdx++
-		dst[dstIdx] = byte(0x7F & val)
-	} else {
-		dst[dstIdx] = byte(val)
+		dst[dstIdx+1] = byte(0x7F & val)
+		return dstIdx + 2
 	}
 
-	return dstIdx + 1
+	dst[0] = byte(val)
+	return 1
 }
 
 func sameWords(buf, src []byte) bool {
@@ -1189,7 +1127,14 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 	srcEnd := len(src)
 	dstEnd := len(dst)
-	anchor := -1
+	var delimAnchor int // previous delimiter
+
+	if isText(src[srcIdx]) {
+		delimAnchor = srcIdx - 1
+	} else {
+		delimAnchor = srcIdx
+	}
+
 	words := this.staticDictSize
 	wordRun := false
 	err := error(nil)
@@ -1198,23 +1143,23 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 	for srcIdx < srcEnd && dstIdx < dstEnd {
 		cur := src[srcIdx]
-		srcIdx++
 
 		if isText(cur) {
 			dst[dstIdx] = cur
+			srcIdx++
 			dstIdx++
 			continue
 		}
 
-		if (srcIdx > anchor+3) && (cur == TC_ESCAPE_TOKEN1 || cur == TC_ESCAPE_TOKEN2 || isDelimiter(cur)) { // At least 2 letters
-			length := srcIdx - anchor - 2
+		if (srcIdx > delimAnchor+2) && isDelimiter(cur) {
 			h1 := TC_HASH1
 
-			for i := 1; i <= length; i++ {
-				h1 = h1*TC_HASH1 ^ int32(src[anchor+i])*TC_HASH2
+			for i := delimAnchor + 1; i < srcIdx; i++ {
+				h1 = h1*TC_HASH1 ^ int32(src[i])*TC_HASH2
 			}
 
 			// Lookup word in dictionary
+			length := srcIdx - delimAnchor - 1
 			pe := this.dictMap[h1&this.hashMask]
 
 			// Check for hash collisions
@@ -1223,7 +1168,7 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			if pe != nil {
-				if !sameWords(pe.buf[pe.pos+1:pe.pos+length], src[anchor+2:anchor+2+length]) {
+				if !sameWords(pe.buf[pe.pos+1:pe.pos+length], src[delimAnchor+2:delimAnchor+2+length]) {
 					pe = nil
 				}
 			}
@@ -1238,7 +1183,7 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 						// Evict and reuse old entry
 						this.dictMap[pe.hash&this.hashMask] = nil
 						pe.buf = src
-						pe.pos = anchor + 1
+						pe.pos = delimAnchor + 1
 						pe.hash = h1
 						pe.idx = int32(words)
 						pe.length = int16(length)
@@ -1256,6 +1201,8 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 				}
 			}
 		}
+
+		srcIdx++
 
 		if cur == TC_ESCAPE_TOKEN1 || cur == TC_ESCAPE_TOKEN2 {
 			// Word in dictionary
@@ -1297,39 +1244,40 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 				dstIdx++
 			}
 
-			caseFlag := byte(0)
-
-			// Flip case of first character
-			if cur == TC_ESCAPE_TOKEN2 {
+			// Emit word
+			if cur != TC_ESCAPE_TOKEN2 {
+				dst[dstIdx] = pe.buf[pe.pos]
+				dstIdx++
+			} else {
+				// Flip case of first character
 				if isUpperCase(pe.buf[pe.pos]) {
-					caseFlag = 32
+					dst[dstIdx] = pe.buf[pe.pos] + 32
 				} else {
-					caseFlag = 256 - 32
+					dst[dstIdx] = pe.buf[pe.pos] - 32
 				}
+
+				dstIdx++
 			}
 
-			// Emit word
-			dst[dstIdx] = pe.buf[pe.pos] + caseFlag
-			dstIdx++
 			buf := pe.buf[pe.pos+1 : pe.pos+int(pe.length)]
 
-			for n := range buf {
-				dst[dstIdx] = buf[n]
+			for _, c := range buf {
+				dst[dstIdx] = c
 				dstIdx++
 			}
 
 			if pe.length > 1 {
 				// Regular word entry
 				wordRun = true
-				anchor = srcIdx
+				delimAnchor = srcIdx
 			} else {
 				// Escape entry
 				wordRun = false
-				anchor = srcIdx - 1
+				delimAnchor = srcIdx - 1
 			}
 		} else {
 			wordRun = false
-			anchor = srcIdx - 1
+			delimAnchor = srcIdx - 1
 
 			if (this.isCRLF == true) && (cur == LF) {
 				dst[dstIdx] = CR

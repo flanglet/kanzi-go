@@ -724,8 +724,7 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
     const int srcEnd = count;
     const int dstEnd = getMaxEncodedLength(count);
     const int dstEnd3 = dstEnd - 3;
-    int anchor = isText(src[srcIdx]) ? srcIdx - 1 : srcIdx; // previous delimiter
-    int endWordIdx = ~anchor;
+    int delimAnchor = isText(src[srcIdx]) ? srcIdx - 1 : srcIdx; // previous delimiter
     int emitAnchor = 0; // never less than 0
     int words = _staticDictSize;
     byte mode = computeStats(&src[srcIdx], count, _freqs);
@@ -746,30 +745,27 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
             continue;
         }
 
-        bool mustEmit = emitAnchor < srcIdx;
-
-        if (((srcIdx > anchor + 2)) && (isDelimiter(cur) || (cur == ESCAPE_TOKEN1) || (cur == ESCAPE_TOKEN2))) // At least 2 letters
-        {
+        if ((srcIdx > delimAnchor + 2) && isDelimiter(cur)) { // At least 2 letters
             // Compute hashes
             // h1 -> hash of word chars
             // h2 -> hash of word chars with first char case flipped
-            byte val = src[anchor + 1];
-            const int caseFlag = isUpperCase(val) ? 32 : -32;
+            byte val = src[delimAnchor + 1];
+            const byte caseFlag = isUpperCase(val) ? 32 : -32;
             int32 h1 = HASH1;
             int32 h2 = HASH1;
             h1 = h1 * HASH1 ^ int32(val) * HASH2;
             h2 = h2 * HASH1 ^ int32(val + caseFlag) * HASH2;
 
-            for (int i = anchor + 2; i < srcIdx; i++) {
-                const int h = int32(src[i]) * HASH2;
+            for (int i = delimAnchor + 2; i < srcIdx; i++) {
+                const int32 h = int32(src[i]) * HASH2;
                 h1 = h1 * HASH1 ^ h;
                 h2 = h2 * HASH1 ^ h;
             }
 
             // Check word in dictionary
-            const int length = srcIdx - anchor - 1;
+            const int length = srcIdx - delimAnchor - 1;
             DictEntry* pe1 = _dictMap[h1 & _hashMask];
-            DictEntry* pe2 = nullptr; // _dictMap[h2 & _hashMask];
+            DictEntry* pe2 = nullptr;
 
             // Check for hash collisions
             if ((pe1 != nullptr) && ((pe1->_length != length) || (pe1->_hash != h1)))
@@ -783,10 +779,10 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
                     pe2 = nullptr;
             }
 
-            DictEntry* pe = (pe2 == nullptr) ? pe1 : pe2;
+            DictEntry* pe = (pe1 != nullptr) ? pe1 : pe2;
 
             if (pe != nullptr) {
-                if (!sameWords(&pe->_buf[pe->_pos + 1], &src[anchor + 2], length - 1))
+                if (!sameWords(&pe->_buf[pe->_pos + 1], &src[delimAnchor + 2], length - 1))
                     pe = nullptr;
             }
 
@@ -800,7 +796,7 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
                         // Evict and reuse old entry
                         _dictMap[pe->_hash & _hashMask] = nullptr;
                         pe->_buf = src;
-                        pe->_pos = anchor + 1;
+                        pe->_pos = delimAnchor + 1;
                         pe->_hash = h1;
                         pe->_idx = int32(words);
                         pe->_length = int16(length);
@@ -820,32 +816,28 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
             else {
                 // Word found in the dictionary
                 // Skip space if only delimiter between 2 word references
-                if ((endWordIdx != anchor) || (src[emitAnchor] != ' '))
-                    dstIdx += emitSymbols(&src[emitAnchor], &dst[dstIdx], anchor + 1 - emitAnchor, dstEnd - dstIdx);
+                if ((emitAnchor != delimAnchor) || (src[delimAnchor] != ' '))
+                    dstIdx += emitSymbols(&src[emitAnchor], &dst[dstIdx], delimAnchor - emitAnchor, dstEnd - dstIdx);
+
+                emitAnchor = delimAnchor + 1;
 
                 if (dstIdx >= dstEnd3)
                     break;
 
                 dst[dstIdx++] = (pe == pe1) ? ESCAPE_TOKEN1 : ESCAPE_TOKEN2;
                 dstIdx += emitWordIndex(&dst[dstIdx], pe->_idx);
-                endWordIdx = srcIdx;
-                mustEmit = false;
+                emitAnchor += pe->_length;
             }
         }
 
-        if (mustEmit == true) {
-            // Emit all symbols since last delimiter
-            dstIdx += emitSymbols(&src[emitAnchor], &dst[dstIdx], srcIdx - emitAnchor, dstEnd - dstIdx);
-        }
-
         // Reset delimiter position
-        anchor = srcIdx;
-        emitAnchor = anchor;
+        delimAnchor = srcIdx;
         srcIdx++;
     }
 
     // Emit last symbols
-    dstIdx += emitSymbols(&src[emitAnchor], &dst[dstIdx], srcEnd - emitAnchor, dstEnd - dstIdx);
+    if (emitAnchor != delimAnchor)
+        dstIdx += emitSymbols(&src[emitAnchor], &dst[dstIdx], delimAnchor - emitAnchor, dstEnd - dstIdx);
 
     output._index += dstIdx;
     input._index += srcIdx;
@@ -854,52 +846,52 @@ bool TextCodec::forward(SliceArray<byte>& input, SliceArray<byte>& output, int c
 
 byte TextCodec::computeStats(byte block[], int count, int freqs[])
 {
-    memset(freqs, 0, sizeof(int)*257*256);
+    memset(freqs, 0, sizeof(int) * 257 * 256);
     int prv = 0;
-    freqs[65536+uint8(block[0])]++;
+    freqs[65536 + uint8(block[0])]++;
     freqs[uint8(block[0])]++;
-   
+
     for (int i = 1; i < count; i++) {
-       const uint8 cur = uint8(block[i]);
-       freqs[65536+cur]++;
-       freqs[(prv<<8)+cur]++;
-       prv = cur;
+        const uint8 cur = uint8(block[i]);
+        freqs[65536 + cur]++;
+        freqs[(prv << 8) + cur]++;
+        prv = cur;
     }
-    
+
     int nbTextChars = 0;
 
     for (int i = 32; i < 128; i++) {
-       if (isText(byte(i)) == true)
-          nbTextChars += freqs[65536+i];
+        if (isText(byte(i)) == true)
+            nbTextChars += freqs[65536 + i];
     }
-    
+
     // Not text
     if (2 * nbTextChars < count)
-       return byte(0x80);
-    
+        return byte(0x80);
+
     int nbBinChars = 0;
 
     for (int i = 128; i < 256; i++)
-       nbBinChars += freqs[65536 + i];
+        nbBinChars += freqs[65536 + i];
 
     // Not text
     if (4 * nbBinChars > count)
-       return byte(0x80);
-   
+        return byte(0x80);
+
     // Check CR+LF matches
     int res = 0;
-   
+
     if ((freqs[65536 + CR] != 0) && (freqs[65536 + CR] == freqs[65536 + LF])) {
-       res = 1;
-      
-       for (int i = 0; i < 256; i++) {
-          if ((i != LF) && (freqs[(CR << 8) + i]) != 0) {
-             res = 0;
-             break;
-          }
-       }
+        res = 1;
+
+        for (int i = 0; i < 256; i++) {
+            if ((i != LF) && (freqs[(CR << 8) + i]) != 0) {
+                res = 0;
+                break;
+            }
+        }
     }
-    
+
     return res;
 }
 
@@ -928,54 +920,15 @@ bool TextCodec::expandDictionary()
 
 inline int TextCodec::emitSymbols(byte src[], byte dst[], const int srcEnd, const int dstEnd)
 {
-    if (srcEnd == 0)
-        return 0;
-
-    return ((srcEnd << 2) < dstEnd) ? emitFast(src, dst, srcEnd, dstEnd) : emitSlow(src, dst, srcEnd, dstEnd);
-}
-
-int TextCodec::emitFast(byte src[], byte dst[], const int srcEnd, const int)
-{
-    // Fast path
     int dstIdx = 0;
 
-    if ((src[0] == ESCAPE_TOKEN1) || (src[0] == ESCAPE_TOKEN2)) {
-        // Emit special word
-        const int idx = (src[0] == ESCAPE_TOKEN1) ? _staticDictSize - 1 : _staticDictSize - 2;
-        dst[dstIdx++] = ESCAPE_TOKEN1;
-        dstIdx += emitWordIndex(&dst[dstIdx], idx);
-    }
-    else {
-        if ((src[0] != CR) || (_isCRLF == false))
-            dst[dstIdx++] = src[0];
-    }
-
-    if (_isCRLF == true) {
-       for (int i = 1; i < srcEnd; i++) {
-           if (src[i] != CR)
-               dst[dstIdx++] = src[i];
-       }
-    } else {
-       for (int i = 1; i < srcEnd; i++, dstIdx++)       
-            dst[dstIdx] = src[i];
-    }
-
-    return dstIdx;
-}
-
-int TextCodec::emitSlow(byte src[], byte dst[], int const srcEnd, int const dstEnd)
-{
-    // Slow path
-    int dstIdx = 0;
-
-    for (int i = 0; i < srcEnd; i++) {
+    for (int i = 0; i <= srcEnd; i++) {
         const byte cur = src[i];
 
         if ((cur == ESCAPE_TOKEN1) || (cur == ESCAPE_TOKEN2)) {
             // Emit special word
-            const int idx = (src[i] == ESCAPE_TOKEN1) ? _staticDictSize - 1 : _staticDictSize - 2;
-            dst[dstIdx] = ESCAPE_TOKEN1;
-            dstIdx++;
+            dst[dstIdx++] = ESCAPE_TOKEN1;
+            const int idx = (cur == ESCAPE_TOKEN1) ? _staticDictSize - 1 : _staticDictSize - 2;
 
             if (idx >= THRESHOLD2) {
                 if (dstIdx + 4 > dstEnd)
@@ -994,8 +947,8 @@ int TextCodec::emitSlow(byte src[], byte dst[], int const srcEnd, int const dstE
         }
         else {
             if ((cur != CR) || (_isCRLF == false)) {
-               if (dstIdx >= dstEnd)
-                  break;
+                if (dstIdx >= dstEnd)
+                    break;
 
                 dst[dstIdx++] = cur;
             }
@@ -1007,21 +960,20 @@ int TextCodec::emitSlow(byte src[], byte dst[], int const srcEnd, int const dstE
 
 inline int TextCodec::emitWordIndex(byte dst[], int val)
 {
-    int dstIdx = 0;
-
     // Emit word index (varint 5 bits + 7 bits + 7 bits)
     if (val >= THRESHOLD1) {
+        int dstIdx = 0;
+
         if (val >= THRESHOLD2)
             dst[dstIdx++] = byte(0xE0 | (val >> 14));
 
-        dst[dstIdx++] = byte(0x80 | (val >> 7));
-        dst[dstIdx] = byte(0x7F & val);
-    }
-    else {
-        dst[dstIdx] = byte(val);
+        dst[dstIdx] = byte(0x80 | (val >> 7));
+        dst[dstIdx + 1] = byte(0x7F & val);
+        return dstIdx + 2;
     }
 
-    return dstIdx + 1;
+    dst[0] = byte(val);
+    return 1;
 }
 
 inline bool TextCodec::sameWords(const byte src[], byte dst[], const int length)
@@ -1038,9 +990,9 @@ inline bool TextCodec::sameWords(const byte src[], byte dst[], const int length)
             l -= 4;
         }
 
-        for (int i = length-l; i < length; i++) {
-           if (dst[i] != src[i]) 
-              return false;
+        for (int i = length - l; i < length; i++) {
+            if (dst[i] != src[i])
+                return false;
         }
 
         return true;
@@ -1093,29 +1045,30 @@ bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int c
 
     const int srcEnd = count;
     const int dstEnd = output._length;
-    int anchor = -1;
+    int delimAnchor = isText(src[srcIdx]) ? srcIdx - 1 : srcIdx; // previous delimiter
     int words = _staticDictSize;
     bool wordRun = false;
     const bool isCRLF = (src[srcIdx++] & 0x01) != 0;
     _isCRLF = isCRLF;
 
     while ((srcIdx < srcEnd) && (dstIdx < dstEnd)) {
-        byte cur = src[srcIdx++];
+        byte cur = src[srcIdx];
 
         if (isText(cur)) {
-            dst[dstIdx++] = cur;
+            dst[dstIdx] = cur;
+            srcIdx++;
+            dstIdx++;
             continue;
         }
 
-        if ((srcIdx > anchor + 3) && ((cur == ESCAPE_TOKEN1) || (cur == ESCAPE_TOKEN2) || (isDelimiter(cur)))) // At least 2 letters
-        {
-            int length = srcIdx - anchor - 2;
-            int h1 = HASH1;
+        if ((srcIdx > delimAnchor + 2) && isDelimiter(cur)) {
+            int32 h1 = HASH1;
 
-            for (int i = 1; i <= length; i++)
-                h1 = h1 * HASH1 ^ int32(src[anchor + i]) * HASH2;
+            for (int i = delimAnchor + 1; i < srcIdx; i++)
+                h1 = h1 * HASH1 ^ int32(src[i]) * HASH2;
 
             // Lookup word in dictionary
+            const int length = srcIdx - delimAnchor - 1;
             DictEntry* pe = _dictMap[h1 & _hashMask];
 
             // Check for hash collisions
@@ -1123,7 +1076,7 @@ bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int c
                 pe = nullptr;
 
             if (pe != nullptr) {
-                if (!sameWords(&pe->_buf[pe->_pos + 1], &src[anchor + 2], length - 1))
+                if (!sameWords(&pe->_buf[pe->_pos + 1], &src[delimAnchor + 2], length - 1))
                     pe = nullptr;
             }
 
@@ -1136,7 +1089,7 @@ bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int c
                         // Evict and reuse old entry
                         _dictMap[e._hash & _hashMask] = nullptr;
                         e._buf = src;
-                        e._pos = anchor + 1;
+                        e._pos = delimAnchor + 1;
                         e._hash = h1;
                         e._idx = int32(words);
                         e._length = int16(length);
@@ -1153,6 +1106,8 @@ bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int c
                 }
             }
         }
+
+        srcIdx++;
 
         if ((cur == ESCAPE_TOKEN1) || (cur == ESCAPE_TOKEN2)) {
             // Word in dictionary
@@ -1186,13 +1141,16 @@ bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int c
             if ((wordRun == true) && (e._length > 1))
                 dst[dstIdx++] = ' ';
 
-            int32 caseFlag = 0;
+            // Emit word
+            if (cur != ESCAPE_TOKEN2) {
+                dst[dstIdx++] = e._buf[e._pos];
+            }
+            else {
+                // Flip case of first character
+                const byte caseFlag = isUpperCase(e._buf[e._pos]) ? 32 : -32;
+                dst[dstIdx++] = e._buf[e._pos] + caseFlag;
+            }
 
-            // Flip case of first character
-            if (cur == ESCAPE_TOKEN2)
-                caseFlag = isUpperCase(e._buf[e._pos]) ? 32 : -32;
-
-            dst[dstIdx++] = byte(e._buf[e._pos] + caseFlag);
             const byte* buf = &e._buf[e._pos];
 
             for (int n = 1, l = e._length; n < l; n++, dstIdx++)
@@ -1201,21 +1159,21 @@ bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int c
             if (e._length > 1) {
                 // Regular word entry
                 wordRun = true;
-                anchor = srcIdx;
+                delimAnchor = srcIdx;
             }
             else {
                 // Escape entry
                 wordRun = false;
-                anchor = srcIdx - 1;
+                delimAnchor = srcIdx - 1;
             }
         }
         else {
             wordRun = false;
-            anchor = srcIdx - 1;
+            delimAnchor = srcIdx - 1;
 
             if ((_isCRLF == true) && (cur == LF))
-               dst[dstIdx++] = CR;
-            
+                dst[dstIdx++] = CR;
+
             dst[dstIdx++] = cur;
         }
     }
@@ -1228,7 +1186,7 @@ bool TextCodec::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int c
 // Create dictionary from array of words
 int TextCodec::createDictionary(SliceArray<byte> input, DictEntry dict[], int maxWords, int startWord)
 {
-    int anchor = 0;
+    int delimAnchor = 0;
     int32 h = HASH1;
     int nbWords = startWord;
     int dictSize = input._length;
@@ -1242,12 +1200,12 @@ int TextCodec::createDictionary(SliceArray<byte> input, DictEntry dict[], int ma
             continue;
         }
 
-        if ((isDelimiter(cur)) && (nbWords < maxWords) && (i >= anchor + 1)) { // At least 2 letters
-            dict[nbWords] = DictEntry(words, anchor, h, nbWords, i - anchor);
+        if ((isDelimiter(cur)) && (nbWords < maxWords) && (i >= delimAnchor + 1)) { // At least 2 letters
+            dict[nbWords] = DictEntry(words, delimAnchor, h, nbWords, i - delimAnchor);
             nbWords++;
         }
 
-        anchor = i + 1;
+        delimAnchor = i + 1;
         h = HASH1;
     }
 

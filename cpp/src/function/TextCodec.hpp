@@ -127,8 +127,6 @@ namespace kanzi {
 
        int emitWordIndex(byte dst[], int val);
        int emitSymbols(byte src[], byte dst[], const int srcEnd, const int dstEnd);
-       int emitFast(byte src[], byte dst[], const int srcEnd, const int dstEnd);
-       int emitSlow(byte src[], byte dst[], const int srcEnd, const int dstEnd);
    };
 
    inline DictEntry::DictEntry()

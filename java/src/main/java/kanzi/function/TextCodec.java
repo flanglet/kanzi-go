@@ -50,7 +50,7 @@ public final class TextCodec implements ByteFunction
       boolean[] res = new boolean[256];
 
       for (int i=0; i<256; i++)
-      {
+      { 
          if ((i >= ' ') && (i <= '/')) // [ !"#$%&'()*+,-./]
             res[i] = true;
          else if ((i >= ':') && (i <= '?')) // [:;<=>?]
@@ -75,7 +75,7 @@ public final class TextCodec implements ByteFunction
             }
          }
       }
-
+      
       return res;
    }
 
@@ -749,20 +749,19 @@ public final class TextCodec implements ByteFunction
       final int srcEnd = input.index + count;
       final int dstEnd = output.index + this.getMaxEncodedLength(count);
       final int dstEnd3 = dstEnd - 3;
-      int anchor = isText(src[srcIdx]) ? srcIdx - 1 : srcIdx; // previous delimiter
-      int endWordIdx = ~anchor;
+      int delimAnchor = isText(src[srcIdx]) ? srcIdx - 1 : srcIdx; // previous delimiter
       int emitAnchor = input.index; // never less than input.index
-      int words = this.staticDictSize;       
+      int words = this.staticDictSize;
       int mode = computeStats(src, srcIdx, srcEnd, this.freqs);
-      
+
       // Not text ?
       if ((mode & 0x80) != 0)
          return false;
-      
+
       // DOS encoded end of line (CR+LF) ?
       this.isCRLF = (mode & 0x01) != 0;
       dst[dstIdx++] = (byte) mode;
-      
+
       while ((srcIdx < srcEnd) && (dstIdx < dstEnd))
       {
          byte cur = src[srcIdx];
@@ -773,21 +772,19 @@ public final class TextCodec implements ByteFunction
             continue;
          }
 
-         boolean mustEmit = emitAnchor < srcIdx;
-
-         if (((srcIdx > anchor+2)) && (isDelimiter(cur) || (cur == ESCAPE_TOKEN1) || (cur == ESCAPE_TOKEN2))) // At least 2 letters
+         if ((srcIdx > delimAnchor+2) && isDelimiter(cur)) // At least 2 letters
          {
             // Compute hashes
             // h1 -> hash of word chars
             // h2 -> hash of word chars with first char case flipped
-            byte val = src[anchor+1];
+            byte val = src[delimAnchor+1];
             final int caseFlag = isUpperCase(val) ? 32 : -32;
             int h1 = HASH1;
             int h2 = HASH1;
             h1 = h1 * HASH1 ^ val * HASH2;
             h2 = h2 * HASH1 ^ (val + caseFlag) * HASH2;
 
-            for (int i=anchor+2; i<srcIdx; i++) 
+            for (int i=delimAnchor+2; i<srcIdx; i++)
             {
                final int h = src[i] * HASH2;
                h1 = h1 * HASH1 ^ h;
@@ -795,7 +792,7 @@ public final class TextCodec implements ByteFunction
             }
 
             // Check word in dictionary
-            final int length = srcIdx - anchor - 1;
+            final int length = srcIdx - delimAnchor - 1;
             DictEntry e1 = this.dictMap[h1 & this.hashMask];
             DictEntry e2 = null;
 
@@ -812,10 +809,10 @@ public final class TextCodec implements ByteFunction
             }
 
             DictEntry e = (e1 != null) ? e1 : e2;
-            
+
             if (e != null)
             {
-               if (sameWords(e, src, anchor, length) == false)
+               if (sameWords(e, src, delimAnchor+2, length-1) == false)
                   e = null;
             }
 
@@ -831,7 +828,7 @@ public final class TextCodec implements ByteFunction
                      // Evict and reuse old entry
                      this.dictMap[e.hash & this.hashMask] = null;
                      e.buf = src;
-                     e.pos = anchor+1;
+                     e.pos = delimAnchor + 1;
                      e.hash = h1;
                      e.idx = words;
                      e.length = (short) length;
@@ -843,7 +840,7 @@ public final class TextCodec implements ByteFunction
                   // Dictionary full ? Expand or reset index to end of static dictionary
                   if (words >= this.dictSize)
                   {
-                     if (this.expandDictionary() == false)                     
+                     if (this.expandDictionary() == false)
                         words = this.staticDictSize;
                   }
                }
@@ -852,39 +849,36 @@ public final class TextCodec implements ByteFunction
             {
                // Word found in the dictionary
                // Skip space if only delimiter between 2 word references
-               if ((endWordIdx != anchor) || (src[emitAnchor] != ' '))
-                  dstIdx = this.emitSymbols(src, emitAnchor, dst, dstIdx, anchor+1, dstEnd);
+               if ((emitAnchor != delimAnchor) || (src[delimAnchor] != ' '))
+                  dstIdx = this.emitSymbols(src, emitAnchor, dst, dstIdx, delimAnchor, dstEnd);
+
+               emitAnchor = delimAnchor + 1;
 
                if (dstIdx >= dstEnd3)
                   break;
 
                dst[dstIdx++] = (e == e1) ? ESCAPE_TOKEN1 : ESCAPE_TOKEN2;
-               dstIdx = emitWordIndex(dst, dstIdx, e.idx);               
-               endWordIdx = srcIdx;
-               mustEmit = false;
+               dstIdx = emitWordIndex(dst, dstIdx, e.idx);
+               emitAnchor += e.length;
             }
          }
 
-         // Emit all symbols since last delimiter
-         if (mustEmit == true)
-            dstIdx = this.emitSymbols(src, emitAnchor, dst, dstIdx, srcIdx, dstEnd);
-         
          // Reset delimiter position
-         anchor = srcIdx;
-         emitAnchor = anchor;
+         delimAnchor = srcIdx;
          srcIdx++;
       }
 
       // Emit last symbols
-      dstIdx = this.emitSymbols(src, emitAnchor, dst, dstIdx, srcIdx, dstEnd);
+      if (emitAnchor != delimAnchor)
+         dstIdx = this.emitSymbols(src, emitAnchor, dst, dstIdx, delimAnchor, dstEnd);
 
       output.index = dstIdx;
       input.index = srcIdx;
       return srcIdx == srcEnd;
    }
 
-   
-   // return status (8 bits): 
+
+   // return status (8 bits):
    // 0x80 => not text
    // 0x01 => CR+LF transform
    private static int computeStats(byte[] block, final int srcIdx, final int srcEnd, int[] freqs)
@@ -895,7 +889,7 @@ public final class TextCodec implements ByteFunction
       int prv = 0;
       freqs[65536+block[srcIdx]&0xFF]++;
       freqs[block[srcIdx]&0xFF]++;
-      
+
       for (int i=srcIdx+1; i<srcEnd; i++)
       {
          final int cur = block[i] & 0xFF;
@@ -903,7 +897,7 @@ public final class TextCodec implements ByteFunction
          freqs[(prv<<8)+cur]++;
          prv = cur;
       }
-      
+
       int nbTextChars = 0;
 
       for (int i=32; i<128; i++)
@@ -924,14 +918,14 @@ public final class TextCodec implements ByteFunction
       // Not text
       if (4*nbBinChars > srcEnd-srcIdx)
          return 0x80;
-      
+
       // Check CR+LF matches
       int res = 0;
-      
+
       if ((freqs[65536+CR] != 0) && (freqs[65536+CR] == freqs[65536+LF]))
       {
          res = 1;
-         
+
          for (int i=0; i<256; i++)
          {
             if ((i != LF) && (freqs[(CR<<8)+i]) != 0)
@@ -941,85 +935,39 @@ public final class TextCodec implements ByteFunction
             }
          }
       }
-      
+
       return res;
    }
-   
-   
+
+
    private boolean expandDictionary()
    {
       if (this.dictSize >= MAX_DICT_SIZE)
          return false;
-  
+
       DictEntry[] newDict = new DictEntry[this.dictSize*2];
       System.arraycopy(this.dictList, 0, newDict, 0, this.dictSize);
 
       for (int i=this.dictSize; i<this.dictSize*2; i++)
          newDict[i] = new DictEntry(null, -1, 0, i, 0);
-      
+
       this.dictList = newDict;
       this.dictSize <<= 1;
-      return true;  
+      return true;
    }
-   
-  
+
+
    private int emitSymbols(byte[] src, final int srcIdx, byte[] dst, int dstIdx, final int srcEnd, final int dstEnd)
-   {     
-      if (srcIdx == srcEnd)
-         return 0;
-       
-      return ((srcEnd-srcIdx)<<2 < (dstEnd-dstIdx)) ?
-         this.emitFast(src, srcIdx, dst, dstIdx, srcEnd, dstEnd) :
-         this.emitSlow(src, srcIdx, dst, dstIdx, srcEnd, dstEnd);
-   }
-
-
-   private int emitFast(byte[] src, final int srcIdx, byte[] dst, int dstIdx, final int srcEnd, final int dstEnd)
    {
-      // Fast path
-      if ((src[srcIdx] == ESCAPE_TOKEN1) || (src[srcIdx] == ESCAPE_TOKEN2))
-      {
-         // Emit special word
-         final int idx = (src[srcIdx] == ESCAPE_TOKEN1) ? this.staticDictSize-1 : this.staticDictSize-2;
-         dst[dstIdx++] = ESCAPE_TOKEN1;
-         dstIdx = emitWordIndex(dst, dstIdx, idx);
-      }
-      else
-      {
-         if ((src[srcIdx] != CR) || (this.isCRLF == false))
-            dst[dstIdx++] = src[srcIdx];
-      }
-
-      if (this.isCRLF == true)
-      {
-         for (int i=srcIdx+1; i<srcEnd; i++)
-         {
-            if (src[i] != CR)
-               dst[dstIdx++] = src[i];
-         }
-      }
-      else
-      {
-         for (int i=srcIdx+1; i<srcEnd; i++, dstIdx++)
-            dst[dstIdx] = src[i];        
-      }
-      
-      return dstIdx;
-   }
-
-
-   private int emitSlow(byte[] src, final int srcIdx, byte[] dst, int dstIdx, final int srcEnd, final int dstEnd)
-   {
-      // Slow path
-      for (int i=srcIdx; i<srcEnd; i++)
+      for (int i=srcIdx; i<=srcEnd; i++)
       {
          final byte cur = src[i];
 
          if ((cur == ESCAPE_TOKEN1) || (cur == ESCAPE_TOKEN2))
          {
             // Emit special word
+            dst[dstIdx++] = ESCAPE_TOKEN1;
             final int idx = (cur == ESCAPE_TOKEN1) ? this.staticDictSize-1 : this.staticDictSize-2;
-            dst[dstIdx] = ESCAPE_TOKEN1;
 
             if (idx >= THRESHOLD2)
             {
@@ -1054,7 +1002,7 @@ public final class TextCodec implements ByteFunction
       return dstIdx;
    }
 
-   
+
    private static int emitWordIndex(byte[] dst, int dstIdx, int val)
    {
       // Emit word index (varint 5 bits + 7 bits + 7 bits)
@@ -1062,15 +1010,13 @@ public final class TextCodec implements ByteFunction
       {
          if (val >= THRESHOLD2)
             dst[dstIdx++] = (byte) (0xE0 | (val>>14));
-         
-         dst[dstIdx++] = (byte) (0x80 | (val>>7));
-         dst[dstIdx] = (byte) (0x7F & val);
+
+         dst[dstIdx]   = (byte) (0x80 | (val>>7));
+         dst[dstIdx+1] = (byte) (0x7F & val);
+         return dstIdx + 2;
       }
-      else
-      {
-         dst[dstIdx] = (byte) val;
-      }
-         
+     
+      dst[dstIdx] = (byte) val;
       return dstIdx + 1;
    }
 
@@ -1080,7 +1026,7 @@ public final class TextCodec implements ByteFunction
       final byte[] buf = e.buf;
 
       // Skip first position (same result)
-      for (int i=e.pos+1, j=anchor+2, l=e.pos+length; i<l; i++, j++)
+      for (int i=e.pos+1, j=anchor, l=e.pos+length; i<=l; i++, j++)
       {
          if (buf[i] != src[j])
             return false;
@@ -1128,7 +1074,7 @@ public final class TextCodec implements ByteFunction
 
       final int srcEnd = input.index + count;
       final int dstEnd = dst.length;
-      int anchor = srcIdx - 1;
+      int delimAnchor = isText(src[srcIdx]) ? srcIdx - 1 : srcIdx; // previous delimiter
       int words = this.staticDictSize;
       boolean wordRun = false;
       final boolean _isCRLF = (src[srcIdx++] & 0x01) != 0;
@@ -1136,23 +1082,25 @@ public final class TextCodec implements ByteFunction
 
       while ((srcIdx < srcEnd) && (dstIdx < dstEnd))
       {
-         byte cur = src[srcIdx++];
+         byte cur = src[srcIdx];
 
          if (isText(cur))
          {
-            dst[dstIdx++] = cur;
+            dst[dstIdx] = cur;
+            srcIdx++;
+            dstIdx++;
             continue;
          }
 
-         if ((srcIdx > anchor+3) && ((cur == ESCAPE_TOKEN1) || (cur == ESCAPE_TOKEN2) || (isDelimiter(cur))))
+         if ((srcIdx > delimAnchor+2) && isDelimiter(cur))
          {
-            int length = srcIdx - anchor - 2;
             int h1 = HASH1;
 
-            for (int i=1; i<=length; i++)
-               h1 = h1*HASH1 ^ src[anchor+i]*HASH2;
+            for (int i=delimAnchor+1; i<srcIdx; i++)
+               h1 = h1*HASH1 ^ src[i]*HASH2;
 
             // Lookup word in dictionary
+            final int length = srcIdx - delimAnchor - 1;
             DictEntry e = this.dictMap[h1 & this.hashMask];
 
             // Check for hash collisions
@@ -1161,7 +1109,7 @@ public final class TextCodec implements ByteFunction
 
             if (e != null)
             {
-               if (sameWords(e, src, anchor, length) == false)
+               if (sameWords(e, src, delimAnchor+2, length-1) == false)
                   e = null;
             }
 
@@ -1177,7 +1125,7 @@ public final class TextCodec implements ByteFunction
                      // Evict and reuse old entry
                      this.dictMap[e.hash & this.hashMask] = null;
                      e.buf = src;
-                     e.pos = anchor+1;
+                     e.pos = delimAnchor + 1;
                      e.hash = h1;
                      e.idx = words;
                      e.length = (short) length;
@@ -1189,13 +1137,15 @@ public final class TextCodec implements ByteFunction
                   // Dictionary full ? Expand or reset index to end of static dictionary
                   if (words >= this.dictSize)
                   {
-                     if (this.expandDictionary() == false)                     
+                     if (this.expandDictionary() == false)
                         words = this.staticDictSize;
                   }
                }
             }
          }
 
+         srcIdx++;
+         
          if ((cur == ESCAPE_TOKEN1) || (cur == ESCAPE_TOKEN2))
          {
             // Word in dictionary
@@ -1217,7 +1167,7 @@ public final class TextCodec implements ByteFunction
 
                idx = (idx << 7) | idx2;
 
-               if (idx >= this.dictSize)
+               if (idx >= this.dictSize) 
                   break;
             }
 
@@ -1226,20 +1176,23 @@ public final class TextCodec implements ByteFunction
             // Sanity check
             if ((e.pos < 0) || (dstIdx+e.length >= dstEnd))
                break;
-           
-            // Add space if only delimiter between 2 words (not an escaped delimiter) 
+
+            // Add space if only delimiter between 2 words (not an escaped delimiter)
             if ((wordRun == true) && (e.length > 1))
                dst[dstIdx++] = ' ';
 
-            int caseFlag = 0;
-
-            // Flip case of first character
-            if (cur == ESCAPE_TOKEN2)
-               caseFlag = isUpperCase(e.buf[e.pos]) ? 32 : -32;
-
             // Emit word
-            dst[dstIdx++] = (byte) (e.buf[e.pos] + caseFlag);
-
+            if (cur != ESCAPE_TOKEN2)
+            {
+               dst[dstIdx++] = (byte) e.buf[e.pos];
+            }
+            else
+            {
+               // Flip case of first character
+               final int caseFlag = isUpperCase(e.buf[e.pos]) ? 32 : -32;
+               dst[dstIdx++] = (byte) (e.buf[e.pos] + caseFlag);
+            }
+            
             for (int n=e.pos+1, l=e.pos+e.length; n<l; n++, dstIdx++)
                dst[dstIdx] = e.buf[n];
 
@@ -1247,23 +1200,23 @@ public final class TextCodec implements ByteFunction
             {
                // Regular word entry
                wordRun = true;
-               anchor = srcIdx;
+               delimAnchor = srcIdx;
             }
             else
             {
                // Escape entry
                wordRun = false;
-               anchor = srcIdx - 1;
+               delimAnchor = srcIdx - 1;
             }
          }
          else
          {
             wordRun = false;
-            anchor = srcIdx - 1;
-            
+            delimAnchor = srcIdx - 1;
+
             if ((_isCRLF == true) && (cur == LF))
                dst[dstIdx++] = CR;
-            
+
             dst[dstIdx++] = cur;
          }
       }
@@ -1294,7 +1247,7 @@ public final class TextCodec implements ByteFunction
       for (int i=0; ((i<words.length) && (nbWords<maxWords)); i++)
       {
          byte cur = words[i];
-         
+
          if (isText(cur))
          {
             h = h*HASH1 ^ cur*HASH2;
@@ -1338,7 +1291,7 @@ public final class TextCodec implements ByteFunction
       return DELIMITER_CHARS[val&0xFF];
    }
 
-
+   
    // Unpack dictionary with 32 symbols (all lowercase except first word char)
    private static byte[] unpackDictionary32(byte[] dict)
    {
