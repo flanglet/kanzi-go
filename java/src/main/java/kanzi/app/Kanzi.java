@@ -32,7 +32,7 @@ public class Kanzi
 {
    private static final String[] CMD_LINE_ARGS = new String[]
    {
-      "-c", "-d", "-i", "-o", "-b", "-t", "-e", "-j", "-v", "-l", "-x", "-f", "-h"
+      "-c", "-d", "-i", "-o", "-b", "-t", "-e", "-j", "-v", "-l", "-s", "-x", "-f", "-h"
    };
 
    //private static final int ARG_IDX_COMPRESS = 0;
@@ -110,6 +110,7 @@ public class Kanzi
         int verbose = 1;
         boolean overwrite = false;
         boolean checksum = false;
+        boolean skip = false;
         String inputName = null;
         String outputName = null;
         String codec = null;
@@ -229,7 +230,7 @@ public class Kanzi
                   printOut("        optional name of the output file or directory (defaults to", true);
                   printOut("        <inputName.bak>) or 'none' or 'stdout'. 'stdout' is not valid", true);
                   printOut("        when the number of jobs is greater than 1.\n", true);
-                }
+               }
                else
                {
                   printOut("        optional name of the output file or 'none' or 'stdout'.\n", true);
@@ -252,6 +253,8 @@ public class Kanzi
                   printOut("        EG: BWT+RANK or BWTS+MTFT (default is BWT+RANK+ZRLT)\n", true);
                   printOut("   -x, --checksum", true);
                   printOut("        enable block checksum\n", true);
+                  printOut("   -s, --skip", true);
+                  printOut("        copy blocks with high entropy instead of compressing them.\n", true);
                }
 
                printOut("   -j, --jobs=<jobs>", true);
@@ -262,7 +265,7 @@ public class Kanzi
                if (mode != 'd')
                {
                   printOut("EG. java -cp kanzi.jar kanzi.app.Kanzi -c -i foo.txt -o none -b 4m -l 4 -v 3\n", true);
-                  printOut("EG. java -cp kanzi.jar kanzi.app.Kanzi -c -i foo.txt -o foo.knz -f ", true);
+                  printOut("EG. java -cp kanzi.jar kanzi.app.Kanzi -c -i foo.txt -f ", true);
                   printOut("    -t BWT+MTFT+ZRLT -b 4m -e FPAQ -v 3 -j 4\n", true);
                   printOut("EG. java -cp kanzi.jar kanzi.app.Kanzi --compress --input=foo.txt --force ", true);
                   printOut("    --output=foo.knz --transform=BWT+MTFT+ZRLT --block=4m --entropy=FPAQ ", true);
@@ -293,6 +296,16 @@ public class Kanzi
                   printOut("Warning: ignoring option [" + CMD_LINE_ARGS[ctx] + "] with no value.", verbose>0);
 
                overwrite = true;
+               ctx = -1;
+               continue;
+           }
+
+           if (arg.equals("--skip") || arg.equals("-s"))
+           {
+               if (ctx != -1)
+                  printOut("Warning: ignoring option [" + CMD_LINE_ARGS[ctx] + "] with no value.", verbose>0);
+
+               skip = true;
                ctx = -1;
                continue;
            }
@@ -484,6 +497,9 @@ public class Kanzi
 
         if (checksum == true)
            map.put("checksum", checksum);
+
+        if (skip == true)
+           map.put("skipBlocks", skip);
 
         map.put("jobs", tasks);
     }

@@ -99,6 +99,7 @@ namespace kanzi {
        int _verbosity;
        bool _overwrite;
        bool _checksum;
+       bool _skipBlocks;
        string _inputName;
        string _outputName;
        string _codec;

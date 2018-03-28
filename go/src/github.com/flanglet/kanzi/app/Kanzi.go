@@ -40,14 +40,14 @@ const (
 	ARG_IDX_JOBS      = 7
 	ARG_IDX_VERBOSE   = 8
 	ARG_IDX_LEVEL     = 9
-	ARG_IDX_PROFILE   = 13
+	ARG_IDX_PROFILE   = 14
 	APP_HEADER        = "Kanzi 1.3 (C) 2018,  Frederic Langlet"
 )
 
 var (
 	CMD_LINE_ARGS = []string{
 		"-c", "-d", "-i", "-o", "-b", "-t", "-e", "-j",
-		"-v", "-l", "-x", "-f", "-h", "-p",
+		"-v", "-l", "-s", "-x", "-f", "-h", "-p",
 	}
 	mutex sync.Mutex
 	log   = Printer{os: bufio.NewWriter(os.Stdout)}
@@ -150,6 +150,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 	verbose := 1
 	overwrite := false
 	checksum := false
+	skip := false
 	inputName := ""
 	outputName := ""
 	codec := ""
@@ -301,6 +302,8 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 				log.Println("        EG: BWT+RANK or BWTS+MTFT (default is BWT+RANK+ZRLT)\n", true)
 				log.Println("   -x, --checksum", true)
 				log.Println("        enable block checksum\n", true)
+				log.Println("   -s, --skip", true)
+				log.Println("        copy blocks with high entropy instead of compressing them.\n", true)
 			}
 
 			log.Println("   -j, --jobs=<jobs>", true)
@@ -310,7 +313,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 
 			if mode != "d" {
 				log.Println("EG. Kanzi -c -i foo.txt -o none -b 4m -l 4 -v 3\n", true)
-				log.Println("EG. Kanzi -c -i foo.txt -o foo.knz -f -t BWT+MTFT+ZRLT -b 4m -e FPAQ -v 3 -j 4\n", true)
+				log.Println("EG. Kanzi -c -i foo.txt -f -t BWT+MTFT+ZRLT -b 4m -e FPAQ -v 3 -j 4\n", true)
 				log.Println("EG. Kanzi --compress --input=foo.txt --output=foo.knz --block=4m --force", true)
 				log.Println("          --transform=BWT+MTFT+ZRLT --entropy=FPAQ --verbose=3 --jobs=4\n", true)
 			}
@@ -338,6 +341,16 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 			}
 
 			overwrite = true
+			ctx = -1
+			continue
+		}
+
+		if arg == "--skip" || arg == "-s" {
+			if ctx != -1 {
+				log.Println("Warning: ignoring option ["+CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
+			}
+
+			skip = true
 			ctx = -1
 			continue
 		}
@@ -556,6 +569,10 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 
 	if checksum == true {
 		argsMap["checksum"] = checksum
+	}
+
+	if skip == true {
+		argsMap["skipBlocks"] = skip
 	}
 
 	argsMap["jobs"] = uint(tasks)

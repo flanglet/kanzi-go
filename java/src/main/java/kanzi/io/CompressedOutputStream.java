@@ -571,15 +571,20 @@ public class CompressedOutputStream extends OutputStream
             }            
             else 
             {
-               int[] histo = new int[256];
-               final int entropy = EntropyUtils.computeFirstOrderEntropy1024(data.array, data.index, blockLength, histo);
-               //this.ctx.put("histo0", histo);
-               
-               if (entropy >= EntropyUtils.INCOMPRESSIBLE_THRESHOLD)
+               boolean skipHighEntropyBlocks = (Boolean) this.ctx.getOrDefault("skipBlocks", false);
+          
+               if (skipHighEntropyBlocks == true)
                {
-                  blockTransformType = ByteFunctionFactory.NONE_TYPE;
-                  blockEntropyType = EntropyCodecFactory.NONE_TYPE;
-                  mode |= COPY_BLOCK_MASK;
+                  int[] histo = new int[256];
+                  final int entropy = EntropyUtils.computeFirstOrderEntropy1024(data.array, data.index, blockLength, histo);
+                  //this.ctx.put("histo0", histo);
+
+                  if (entropy >= EntropyUtils.INCOMPRESSIBLE_THRESHOLD)
+                  {
+                     blockTransformType = ByteFunctionFactory.NONE_TYPE;
+                     blockEntropyType = EntropyCodecFactory.NONE_TYPE;
+                     mode |= COPY_BLOCK_MASK;
+                  }
                }
             }
 

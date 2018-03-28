@@ -55,6 +55,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
    private int verbosity;
    private final boolean overwrite;
    private final boolean checksum;
+   private final boolean skipBlocks;
    private final String inputName;
    private final String outputName;
    private final String codec;
@@ -71,6 +72,8 @@ public class BlockCompressor implements Runnable, Callable<Integer>
       this.level = (Integer) map.remove("level");
       Boolean bForce = (Boolean) map.remove("overwrite");
       this.overwrite = (bForce == null) ? false : bForce;
+      Boolean bSkip = (Boolean) map.remove("skipBlocks"); 
+      this.skipBlocks = (bSkip == null) ? false : bSkip;
       this.inputName = (String) map.remove("inputName");
       this.outputName = (String) map.remove("outputName");
       String strTransf;
@@ -246,6 +249,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
          Map<String, Object> ctx = new HashMap<>();
          ctx.put("verbosity", this.verbosity);
          ctx.put("overwrite", this.overwrite);
+         ctx.put("skipBlocks", this.skipBlocks);
          ctx.put("blockSize", this.blockSize);
          ctx.put("checksum", this.checksum);
          ctx.put("pool", this.pool);

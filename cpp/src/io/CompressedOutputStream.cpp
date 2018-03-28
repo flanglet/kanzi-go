@@ -437,7 +437,6 @@ template <class T>
 T EncodingTask<T>::call() THROW
 {
     EntropyEncoder* ee = nullptr;
-    int histo[256];
 
     try {
         byte mode = 0;
@@ -462,13 +461,25 @@ T EncodingTask<T>::call() THROW
             mode |= CompressedOutputStream::COPY_BLOCK_MASK;
         }
         else {
-            const int entropy = EntropyUtils::computeFirstOrderEntropy1024(&_data->_array[_data->_index], _blockLength, histo);
-            //_ctx["histo0"] = toString(histo, 256);
+            bool skipHighEntropyBlocks = false;
+            map<string, string>::iterator it = _ctx.find("skipBlocks");
 
-            if (entropy >= EntropyUtils::INCOMPRESSIBLE_THRESHOLD) {
-                _transformType = FunctionFactory<byte>::NONE_TYPE;
-                _entropyType = EntropyCodecFactory::NONE_TYPE;
-                mode |= CompressedOutputStream::COPY_BLOCK_MASK;
+            if (it != _ctx.end()) {
+                string str = it->second;
+                transform(str.begin(), str.end(), str.begin(), ::toupper);
+                skipHighEntropyBlocks = str == "TRUE";
+            }
+
+            if (skipHighEntropyBlocks == true) {
+                int histo[256];
+                const int entropy = EntropyUtils::computeFirstOrderEntropy1024(&_data->_array[_data->_index], _blockLength, histo);
+                //_ctx["histo0"] = toString(histo, 256);
+
+                if (entropy >= EntropyUtils::INCOMPRESSIBLE_THRESHOLD) {
+                    _transformType = FunctionFactory<byte>::NONE_TYPE;
+                    _entropyType = EntropyCodecFactory::NONE_TYPE;
+                    mode |= CompressedOutputStream::COPY_BLOCK_MASK;
+                }
             }
         }
 
@@ -489,7 +500,7 @@ T EncodingTask<T>::call() THROW
         _data->_length = _blockLength;
         transform->forward(*_data, *_buffer, _data->_length);
         postTransformLength = _buffer->_index;
-        
+
         if (postTransformLength < 0)
             return T(_blockId, Error::ERR_WRITE_FILE, "Invalid transform size");
 

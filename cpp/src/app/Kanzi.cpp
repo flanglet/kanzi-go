@@ -24,8 +24,8 @@ limitations under the License.
 
 using namespace kanzi;
 
-static const string CMD_LINE_ARGS[13] = {
-    "-c", "-d", "-i", "-o", "-b", "-t", "-e", "-j", "-v", "-l", "-x", "-f", "-h"
+static const string CMD_LINE_ARGS[14] = {
+    "-c", "-d", "-i", "-o", "-b", "-t", "-e", "-j", "-v", "-l", "-s", "-x", "-f", "-h"
 };
 
 //static const int ARG_IDX_COMPRESS = 0;
@@ -57,6 +57,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
     string strBlockSize = "";
     string strOverwrite = "false";
     string strChecksum = "false";
+    string strSkip = "false";
     string codec = "";
     string transf = "";
     int verbose = 1;
@@ -194,6 +195,8 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
                 log.println("        EG: BWT+RANK or BWTS+MTFT (default is BWT+RANK+ZRLT)\n", true);
                 log.println("   -x, --checksum", true);
                 log.println("        enable block checksum\n", true);
+                log.println("   -s, --skip", true);
+                log.println("        copy blocks with high entropy instead of compressing them.\n", true);
             }
 
             log.println("   -j, --jobs=<jobs>", true);
@@ -203,7 +206,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
 
             if (mode.compare(0, 1, "d") != 0) {
                 log.println("EG. Kanzi -c -i foo.txt -o none -b 4m -l 4 -v 3\n", true);
-                log.println("EG. Kanzi -c -i foo.txt -o foo.knz -f -t BWT+MTFT+ZRLT -b 4m -e FPAQ -v 3 -j 4\n", true);
+                log.println("EG. Kanzi -c -i foo.txt -f -t BWT+MTFT+ZRLT -b 4m -e FPAQ -v 3 -j 4\n", true);
                 log.println("EG. Kanzi --compress --input=foo.txt --output=foo.knz --force", true);
                 log.println("          --transform=BWT+MTFT+ZRLT --block=4m --entropy=FPAQ --verbose=3 --jobs=4\n", true);
             }
@@ -235,6 +238,18 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
             }
 
             strOverwrite = "true";
+            ctx = -1;
+            continue;
+        }
+
+        if ((arg == "--skip") || (arg == "-s")) {
+            if (ctx != -1) {
+                stringstream ss;
+                ss << "Warning: ignoring option [" << CMD_LINE_ARGS[ctx] << "] with no value.";
+                log.println(ss.str().c_str(), verbose > 0);
+            }
+
+            strSkip = "true";
             ctx = -1;
             continue;
         }
@@ -408,6 +423,9 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
 
     if (strChecksum == "true")
         map["checksum"] = strChecksum;
+
+    if (strSkip == "true")
+        map["skipBlocks"] = strSkip;
 
     map["jobs"] = strTasks;
 }

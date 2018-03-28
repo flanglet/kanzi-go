@@ -41,6 +41,7 @@ type BlockCompressor struct {
 	verbosity    uint
 	overwrite    bool
 	checksum     bool
+	skipBlocks   bool
 	inputName    string
 	outputName   string
 	entropyCodec string
@@ -69,6 +70,13 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 		delete(argsMap, "overwrite")
 	} else {
 		this.overwrite = false
+	}
+
+	if skip, prst := argsMap["skipBlocks"]; prst == true {
+		this.skipBlocks = skip.(bool)
+		delete(argsMap, "skipBlocks")
+	} else {
+		this.skipBlocks = false
 	}
 
 	this.inputName = argsMap["inputName"].(string)
@@ -345,6 +353,7 @@ func (this *BlockCompressor) Call() (int, uint64) {
 	ctx := make(map[string]interface{})
 	ctx["verbosity"] = this.verbosity
 	ctx["overwrite"] = this.overwrite
+	ctx["skipBlocks"] = this.skipBlocks
 	ctx["blockSize"] = this.blockSize
 	ctx["checksum"] = this.checksum
 	ctx["codec"] = this.entropyCodec

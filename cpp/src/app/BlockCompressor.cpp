@@ -59,6 +59,18 @@ BlockCompressor::BlockCompressor(map<string, string>& args)
         args.erase(it);
     }
 
+    it = args.find("skipBlocks");
+
+    if (it == args.end()) {
+        _skipBlocks = false;
+    }
+    else {
+        string str = it->second;
+        transform(str.begin(), str.end(), str.begin(), ::toupper);
+        _skipBlocks = str == "TRUE";
+        args.erase(it);
+    }
+
     it = args.find("inputName");
     _inputName = it->second;
     args.erase(it);
@@ -312,6 +324,7 @@ int BlockCompressor::call()
     ss.str(string());
     ss << _blockSize;
     ctx["blockSize"] = ss.str();
+    ctx["skipBlocks"] = (_skipBlocks == true) ? "TRUE" : "FALSE";
     ctx["checksum"] = (_checksum == true) ? "TRUE" : "FALSE";
     ctx["codec"] = _codec;
     ctx["transform"] = _transform;
