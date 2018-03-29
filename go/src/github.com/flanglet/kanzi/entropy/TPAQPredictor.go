@@ -302,18 +302,18 @@ func (this *TPAQPredictor) Update(bit byte) {
 			if this.c4&TPAQ_MASK_80808080 == 0 {
 				h1 = this.c4
 			} else {
-				h1 = this.c4 >> 16
+				h1 = this.c4 & TPAQ_MASK_80808080
 			}
 
 			if this.c8&TPAQ_MASK_80808080 == 0 {
 				h2 = this.c8
 			} else {
-				h2 = this.c8 >> 16
+				h2 = this.c8 & TPAQ_MASK_80808080
 			}
 
 			this.ctx4 = createContext(4, this.c4^(this.c8&0xFFFF))
 			this.ctx5 = hashTPAQ(h1, h2)
-			this.ctx6 = hashTPAQ(TPAQ_HASH, this.c4&TPAQ_MASK_F0F0F0F0)
+			this.ctx6 = hashTPAQ(this.c8&TPAQ_MASK_F0F0F0F0, this.c4&TPAQ_MASK_F0F0F0F0)
 		} else {
 			// Mostly binary
 			this.ctx4 = createContext(4, this.c4^(this.c4&0xFFFF))

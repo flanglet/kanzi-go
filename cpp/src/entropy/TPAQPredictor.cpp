@@ -243,13 +243,13 @@ void TPAQPredictor::update(int bit)
         _ctx2 = createContext(2, _c4 & 0x00FFFFFF);
         _ctx3 = createContext(3, _c4);
 
-        if (_binCount < (_pos >> 2)) {
+        if (_binCount < _pos >> 2) {
             // Mostly text or mixed
-            int32 h1 = ((_c4 & MASK_80808080) == 0) ? _c4 : _c4 >> 16;
-            int32 h2 = ((_c8 & MASK_80808080) == 0) ? _c8 : _c8 >> 16;
+            int32 h1 = ((_c4 & MASK_80808080) == 0) ? _c4 : _c4 & MASK_80808080;
+            int32 h2 = ((_c8 & MASK_80808080) == 0) ? _c8 : _c8 & MASK_80808080;
             _ctx4 = createContext(4, _c4 ^ (_c8 & 0xFFFF));
             _ctx5 = hash(h1, h2);
-            _ctx6 = hash(HASH, _c4 & MASK_F0F0F0F0);
+            _ctx6 = hash(_c8 & MASK_F0F0F0F0, _c4 & MASK_F0F0F0F0);
         }
         else {
             // Mostly binary

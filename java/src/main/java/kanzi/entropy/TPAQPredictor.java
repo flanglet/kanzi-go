@@ -253,7 +253,7 @@ public class TPAQPredictor implements Predictor
       this.sse1 = new LogisticAdaptiveProbMap(65536, 7);
    }
 
-
+ 
    // Update the probability model
    @Override
    public void update(int bit)
@@ -270,7 +270,7 @@ public class TPAQPredictor implements Predictor
         this.c4 = (this.c4<<8) | (this.c0&0xFF);
         this.hash = (((this.hash*43707) << 4) + this.c4) & this.hashMask;
         this.c0 = 1;
-        this.bpos = 0;
+        this.bpos = 0;       
         this.binCount += ((this.c4>>7) & 1);
         
         // Select Neural Net
@@ -282,14 +282,14 @@ public class TPAQPredictor implements Predictor
         this.ctx2 = createContext(2, this.c4&0x00FFFFFF);
         this.ctx3 = createContext(3, this.c4);
         
-        if (this.binCount < (this.pos>>2))
+        if (this.binCount < this.pos>>2)
         {
            // Mostly text or mixed
-           final int h1 = ((this.c4&MASK_80808080) == 0) ? this.c4 : this.c4>>16;
-           final int h2 = ((this.c8&MASK_80808080) == 0) ? this.c8 : this.c8>>16;
+           final int h1 = ((this.c4&MASK_80808080) == 0) ? this.c4 : this.c4&MASK_80808080;
+           final int h2 = ((this.c8&MASK_80808080) == 0) ? this.c8 : this.c8&MASK_80808080;
            this.ctx4 = createContext(4, this.c4^(this.c8&0xFFFF));
            this.ctx5 = hash(h1, h2); 
-           this.ctx6 = hash(HASH, this.c4&MASK_F0F0F0F0);
+           this.ctx6 = hash(this.c8&MASK_F0F0F0F0, this.c4&MASK_F0F0F0F0);
         }
         else
         {
