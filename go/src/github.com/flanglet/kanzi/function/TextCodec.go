@@ -646,7 +646,18 @@ func NewTextCodecWithArgs(dictSize int, dict []byte, logHashSize uint) (*TextCod
 
 func NewTextCodecFromMap(ctx map[string]interface{}) (*TextCodec, error) {
 	this := new(TextCodec)
+
+	// Actual block size
 	blockSize := ctx["size"].(uint)
+	var log uint32
+
+	if blockSize >= 1<<28 {
+		log = 28
+	} else if blockSize < 1<<10 {
+		log = 10
+	} else {
+		log, _ = kanzi.Log2(uint32(3 * blockSize / 2))
+	}
 
 	// Select an appropriate initial dictionary size
 	dSize := 1 << 12
@@ -657,7 +668,18 @@ func NewTextCodecFromMap(ctx map[string]interface{}) (*TextCodec, error) {
 		}
 	}
 
-	this.logHashSize = TC_LOG_HASHES_SIZE
+	extraPerf := false
+	extraMem := uint(0)
+
+	if _, containsKey := ctx["extra"]; containsKey {
+		extraPerf = ctx["extra"].(bool)
+	}
+
+	if extraPerf == true {
+		extraMem = 1
+	}
+
+	this.logHashSize = uint(log) + extraMem
 	this.dictSize = dSize
 	this.dictMap = make([]*DictEntry, 1<<this.logHashSize)
 	this.dictList = make([]DictEntry, this.dictSize)

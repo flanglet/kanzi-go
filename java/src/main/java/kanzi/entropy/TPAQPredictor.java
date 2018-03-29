@@ -203,9 +203,7 @@ public class TPAQPredictor implements Predictor
       {
          // If extra mode, add more memory for states table, hash table
          // and add second SSE
-         if (ctx.containsKey("extra"))
-            extraPerf = (Boolean) ctx.get("extra");
-            
+         extraPerf = (Boolean) ctx.getOrDefault("extra", false);
          extraMem = (extraPerf == true) ? 1 : 0;
          
          // Block size requested by the user

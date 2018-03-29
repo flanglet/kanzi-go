@@ -1,3 +1,4 @@
+
 /*
 Copyright 2011-2017 Frederic Langlet
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -608,9 +609,19 @@ TextCodec::TextCodec(int dictSize)
 
 TextCodec::TextCodec(map<string, string>& ctx)
 {
+    // Actual block size
     map<string, string>::iterator it;
     it = ctx.find("size");
     const int blockSize = atoi(it->second.c_str());
+    int log;
+
+    if (blockSize >= 1<<28) {
+       log = 28;
+    } else if (blockSize < 1<<10) {
+       log = 10;
+    } else {
+       log = Global::log2(3 * blockSize / 2);
+    }
 
     // Select an appropriate initial dictionary size
     int dSize = 1 << 12;
@@ -620,7 +631,16 @@ TextCodec::TextCodec(map<string, string>& ctx)
             dSize <<= 1;
     }
 
-    _logHashSize = LOG_HASHES_SIZE;
+    bool extra = false;
+    uint extraMem = 0;
+
+    if (ctx.find("extra") != ctx.end()) {
+        string strExtra = ctx["extra"];
+        extra = strExtra.compare(0, 5, "true") == 0;
+    }
+
+    extraMem = (extra == true) ? 1 : 0;
+    _logHashSize = log + extraMem;
     _dictSize = dSize;
     const int32 mapSize = 1 << _logHashSize;
     _dictMap = new DictEntry*[mapSize];
