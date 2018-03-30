@@ -658,9 +658,6 @@ T DecodingTask<T>::call() THROW
             CompressedInputStream::notifyListeners(_listeners, evt);
         }
 
-        ss.str(string());
-        ss << _blockLength;
-        _ctx["size"] = ss.str();
         TransformSequence<byte>* transform = FunctionFactory<byte>::newFunction(_ctx, _transformType);
         transform->setSkipFlags(skipFlags);
         _buffer->_index = 0;
