@@ -751,7 +751,7 @@ public final class TextCodec implements ByteFunction
       for (int i=0; i<this.staticDictSize; i++)
       {
          DictEntry e = this.dictList[i];
-         this.dictMap[e.hash & hashMask] = e;
+         this.dictMap[e.hash & this.hashMask] = e;
       }
 
       // Pre-allocate all dictionary entries
@@ -773,7 +773,14 @@ public final class TextCodec implements ByteFunction
       // DOS encoded end of line (CR+LF) ?
       this.isCRLF = (mode & 0x01) != 0;
       dst[dstIdx++] = (byte) mode;
-
+     
+      if (src[srcIdx] == ' ')
+      {
+         dst[dstIdx++] = ' ';
+         srcIdx++;
+         emitAnchor++;
+      }
+      
       while ((srcIdx < srcEnd) && (dstIdx < dstEnd))
       {
          byte cur = src[srcIdx];
@@ -972,48 +979,38 @@ public final class TextCodec implements ByteFunction
    {
       for (int i=srcIdx; i<=srcEnd; i++)
       {
+         if (dstIdx >= dstEnd) 
+            break;
+		   
          final byte cur = src[i];
 
-         if ((cur == ESCAPE_TOKEN1) || (cur == ESCAPE_TOKEN2))
+         switch (cur)
          {
-            // Emit special word
-            dst[dstIdx++] = ESCAPE_TOKEN1;
-            final int idx = (cur == ESCAPE_TOKEN1) ? this.staticDictSize-1 : this.staticDictSize-2;
+            case ESCAPE_TOKEN1 :
+            case ESCAPE_TOKEN2 :
+               // Emit special word
+               dst[dstIdx++] = ESCAPE_TOKEN1;
+               final int idx = (cur == ESCAPE_TOKEN1) ? this.staticDictSize-1 : this.staticDictSize-2;
+               int lenIdx = 2;
 
-            if (idx >= THRESHOLD2)
-            {
-               if (dstIdx+4 > dstEnd)
-                  break;
-            }
-            else if (idx >= THRESHOLD1)
-            {
-               if (dstIdx+3 > dstEnd)
-                  break;
-            }
-            else
-            {
-               if (dstIdx+2 > dstEnd)
-                  break;
-            }
+               if (idx >= THRESHOLD2)
+                  lenIdx = 3;
+               else if (idx < THRESHOLD1)
+                  lenIdx = 1;
 
-            dstIdx = emitWordIndex(dst, dstIdx, idx);
-         }
-         else
-         {
-            if ((cur != CR) || (this.isCRLF == false))
-            {
-               if (dstIdx >= dstEnd)
-                  break;
-
-//               if ((i>srcIdx) && (i<srcEnd) && (src[i] == ' ') && (src[i+1] == ' ') && (src[i-1] == '.'))
-//               {
-//                  dst[dstIdx++] = '!';
-//                  i++;
-//                  continue;
-//               }
-//                  
+               if (dstIdx + lenIdx < dstEnd)
+                  dstIdx = emitWordIndex(dst, dstIdx, idx);
+               
+               break;
+               
+            case CR :
+               if (this.isCRLF == false)
+                  dst[dstIdx++] = cur;
+               
+               break;               
+               
+            default:
                dst[dstIdx++] = cur;
-            }
          }
       }
 
@@ -1083,7 +1080,7 @@ public final class TextCodec implements ByteFunction
       for (int i=0; i<this.staticDictSize; i++)
       {
          DictEntry e = this.dictList[i];
-         this.dictMap[e.hash & hashMask] = e;
+         this.dictMap[e.hash & this.hashMask] = e;
       }
 
       // Pre-allocate all dictionary entries
@@ -1097,7 +1094,7 @@ public final class TextCodec implements ByteFunction
       boolean wordRun = false;
       final boolean _isCRLF = (src[srcIdx++] & 0x01) != 0;
       this.isCRLF = _isCRLF;
-
+          
       while ((srcIdx < srcEnd) && (dstIdx < dstEnd))
       {
          byte cur = src[srcIdx];
@@ -1122,12 +1119,11 @@ public final class TextCodec implements ByteFunction
             DictEntry e = this.dictMap[h1 & this.hashMask];
 
             // Check for hash collisions
-            if ((e != null) && ((e.length != length) || (e.hash != h1)))
-               e = null;
-
             if (e != null)
             {
-               if (sameWords(e, src, delimAnchor+2, length-1) == false)
+               if ((e.length != length) || (e.hash != h1))
+                  e = null;
+               else if (sameWords(e, src, delimAnchor+2, length-1) == false)
                   e = null;
             }
 
@@ -1205,8 +1201,7 @@ public final class TextCodec implements ByteFunction
             else
             {
                // Flip case of first character
-               final int caseFlag = isUpperCase(e.buf[e.pos]) ? 32 : -32;
-               dst[dstIdx++] = (byte) (e.buf[e.pos] + caseFlag);
+               dst[dstIdx++] = isUpperCase(e.buf[e.pos]) ? (byte) (e.buf[e.pos]+32) : (byte) (e.buf[e.pos]-32);
             }
             
             for (int n=e.pos+1, l=e.pos+e.length; n<l; n++, dstIdx++)

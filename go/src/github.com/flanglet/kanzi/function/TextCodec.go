@@ -816,6 +816,13 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 	dst[dstIdx] = mode
 	dstIdx++
 
+	if src[srcIdx] == ' ' {
+		dst[dstIdx] = ' '
+		srcIdx++
+		dstIdx++
+		emitAnchor++
+	}
+
 	for srcIdx < srcEnd && dstIdx < dstEnd {
 		cur := src[srcIdx]
 
@@ -1033,13 +1040,21 @@ func (this *TextCodec) emitSymbols(src, dst []byte) int {
 	dstEnd := len(dst)
 
 	for i := range src {
+		if dstIdx >= dstEnd {
+			break
+		}
+
 		cur := src[i]
 
-		if (cur == TC_ESCAPE_TOKEN1) || (cur == TC_ESCAPE_TOKEN2) {
+		switch cur {
+		case TC_ESCAPE_TOKEN1:
+			fallthrough
+		case TC_ESCAPE_TOKEN2:
 			// Emit special word
 			dst[dstIdx] = TC_ESCAPE_TOKEN1
 			dstIdx++
 			var idx int
+			lenIdx := 2
 
 			if cur == TC_ESCAPE_TOKEN1 {
 				idx = this.staticDictSize - 1
@@ -1048,29 +1063,24 @@ func (this *TextCodec) emitSymbols(src, dst []byte) int {
 			}
 
 			if idx >= TC_THRESHOLD2 {
-				if dstIdx+4 > dstEnd {
-					break
-				}
-			} else if idx >= TC_THRESHOLD1 {
-				if dstIdx+3 > dstEnd {
-					break
-				}
-			} else {
-				if dstIdx+2 > dstEnd {
-					break
-				}
+				lenIdx = 3
+			} else if idx < TC_THRESHOLD1 {
+				lenIdx = 1
 			}
 
-			dstIdx += emitWordIndex(dst[dstIdx:dstIdx+3], idx)
-		} else {
-			if (cur != CR) || (this.isCRLF == false) {
-				if dstIdx >= dstEnd {
-					break
-				}
+			if dstIdx+lenIdx < dstEnd {
+				dstIdx += emitWordIndex(dst[dstIdx:dstIdx+lenIdx], idx)
+			}
 
+		case CR:
+			if this.isCRLF == false {
 				dst[dstIdx] = cur
 				dstIdx++
 			}
+
+		default:
+			dst[dstIdx] = cur
+			dstIdx++
 		}
 	}
 
@@ -1183,12 +1193,10 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			pe := this.dictMap[h1&this.hashMask]
 
 			// Check for hash collisions
-			if (pe != nil) && (pe.length != int16(length) || pe.hash != h1) {
-				pe = nil
-			}
-
 			if pe != nil {
-				if !sameWords(pe.buf[pe.pos+1:pe.pos+length], src[delimAnchor+2:delimAnchor+2+length]) {
+				if pe.length != int16(length) || pe.hash != h1 {
+					pe = nil
+				} else if !sameWords(pe.buf[pe.pos+1:pe.pos+length], src[delimAnchor+2:delimAnchor+2+length]) {
 					pe = nil
 				}
 			}
