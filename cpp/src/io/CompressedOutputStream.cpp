@@ -34,10 +34,6 @@ CompressedOutputStream::CompressedOutputStream(OutputStream& os, map<string, str
     , _ctx(ctx)
 {
     map<string, string>::iterator it;
-    it = ctx.find("codec");
-    string entropyCodec = it->second.c_str();
-    it = ctx.find("transform");
-    string transform = it->second.c_str();
     it = ctx.find("jobs");
     int tasks = atoi(it->second.c_str());
 
@@ -52,6 +48,10 @@ CompressedOutputStream::CompressedOutputStream(OutputStream& os, map<string, str
         throw IllegalArgumentException("The number of jobs is limited to 1 in this version");
 #endif
 
+    it = ctx.find("codec");
+    string entropyCodec = it->second.c_str();
+    it = ctx.find("transform");
+    string transform = it->second.c_str();
     it = ctx.find("blockSize");
     int bSize = atoi(it->second.c_str());
 
@@ -93,8 +93,7 @@ CompressedOutputStream::CompressedOutputStream(OutputStream& os, map<string, str
     const int bufferSize = (bSize <= 65536) ? bSize : 65536;
     _obs = new DefaultOutputBitStream(os, bufferSize);
     _entropyType = EntropyCodecFactory::getType(entropyCodec.c_str());
-    FunctionFactory<byte> ff;
-    _transformType = ff.getType(transform.c_str());
+    _transformType = FunctionFactory<byte>::getType(transform.c_str());
     it = ctx.find("checksum");
     string str = it->second;
     bool checksum = str == "TRUE";

@@ -39,19 +39,19 @@ template <class T>
        static const uint64 X86_TYPE = 9; // X86 codec
        static const uint64 DICT_TYPE = 10; // Text codec
 
-       FunctionFactory() {}
+       static uint64 getType(const char* name) THROW;
 
-       ~FunctionFactory() {}
+       static uint64 getTypeToken(const char* name) THROW;
 
-       uint64 getType(const char* name) const THROW;
-
-       uint64 getTypeToken(const char* name) const THROW;
-
-       string getName(uint64 functionType) const THROW;
+       static string getName(uint64 functionType) THROW;
 
        static TransformSequence<T>* newFunction(map<string, string>& ctx, uint64 functionType) THROW;
 
    private:
+       FunctionFactory() {}
+
+       ~FunctionFactory() {}
+
        static const int ONE_SHIFT = 6; // bits per transform
        static const int MAX_SHIFT = (8-1) * ONE_SHIFT; // 8 transforms
        static const int MASK = (1 << ONE_SHIFT) - 1;
@@ -63,31 +63,23 @@ template <class T>
 
    // The returned type contains 8 transform values
    template <class T>
-   uint64 FunctionFactory<T>::getType(const char* cname) const THROW
+   uint64 FunctionFactory<T>::getType(const char* cname) THROW
    {
        string name(cname);
+       size_t pos = name.find('+');
 
-       if (name.find("+") == string::npos)
+       if (pos == string::npos)
            return getTypeToken(name.c_str()) << MAX_SHIFT;
-
-       char buf[64];
-       int length = (name.length() < 63) ? int(name.length()) : 63;
-       memcpy(buf, name.c_str(), length);
-       buf[length] = 0;
-       const char* token = strtok(buf, "+");
-
-       if (token == nullptr) {
-           stringstream ss;
-           ss << "Unknown transform type: " << name;
-           throw IllegalArgumentException(ss.str());
-       }
-
+       
+       int prv = 0;
+       int n = 0;
        uint64 res = 0;
        int shift = MAX_SHIFT;
-       int n = 0;
+       name += '+';
 
-       while (token != nullptr) {
-           uint64 typeTk = getTypeToken(token);
+       while (pos != string::npos) {
+           string token = name.substr(prv, pos-prv);
+           uint64 typeTk = getTypeToken(token.c_str());
            n++;
 
            if (n > 8) {
@@ -102,14 +94,16 @@ template <class T>
                shift -= ONE_SHIFT;
            }
 
-           token = strtok(nullptr, "+");
+           pos++;
+           prv = pos;
+           pos = name.find('+', pos);
        }
 
        return res;
    }
 
    template <class T>
-   uint64 FunctionFactory<T>::getTypeToken(const char* cname) const THROW
+   uint64 FunctionFactory<T>::getTypeToken(const char* cname) THROW
    {
        string name(cname);
        transform(name.begin(), name.end(), name.begin(), ::toupper);
@@ -226,7 +220,7 @@ template <class T>
    }
 
    template <class T>
-   string FunctionFactory<T>::getName(uint64 functionType) const THROW
+   string FunctionFactory<T>::getName(uint64 functionType) THROW
    {
        stringstream ss;
 

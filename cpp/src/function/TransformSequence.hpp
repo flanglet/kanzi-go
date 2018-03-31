@@ -26,7 +26,7 @@ namespace kanzi
    template <class T>
    class TransformSequence : public Function<T> {
    public:
-       TransformSequence(Transform<T>* transforms[4], bool deallocate = true) THROW;
+       TransformSequence(Transform<T>* transforms[8], bool deallocate = true) THROW;
 
        ~TransformSequence();
 

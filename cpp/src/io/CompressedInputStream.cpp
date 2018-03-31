@@ -150,8 +150,7 @@ void CompressedInputStream::readHeader() THROW
         ss << "Block size set to " << _blockSize << " bytes" << endl;
 
         try {
-            FunctionFactory<byte> ff;
-            string w1 = ff.getName(_transformType);
+            string w1 = FunctionFactory<byte>::getName(_transformType);
 
             if (w1 == "NONE")
                 w1 = "no";

@@ -122,8 +122,7 @@ BlockCompressor::BlockCompressor(map<string, string>& args)
     }
 
     // Extract transform names. Curate input (EG. NONE+NONE+xxxx => xxxx)
-    FunctionFactory<byte> bff;
-    _transform = bff.getName(bff.getType(strTransf.c_str()));
+    _transform = FunctionFactory<byte>::getName(FunctionFactory<byte>::getType(strTransf.c_str()));
     it = args.find("checksum");
 
     if (it == args.end()) {
