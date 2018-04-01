@@ -353,6 +353,10 @@ int BlockCompressor::call()
         res = fcr._code;
         read = fcr._read;
         written = fcr._written;
+
+        if (res != 0) {
+           cerr << fcr._errMsg << endl;
+        }
     }
     else {
         vector<FileCompressTask<FileCompressResult>*> tasks;
@@ -409,9 +413,9 @@ int BlockCompressor::call()
                 written += fcr._written;
 
                 if (res != 0) {
+                    cerr << fcr._errMsg << endl;
                     // Exit early by telling the workers that the queue is empty
                     queue.clear();
-                    break;
                 }
             }
 
@@ -427,8 +431,10 @@ int BlockCompressor::call()
                 read += fcr._read;
                 written += fcr._written;
 
-                if (res != 0)
+                if (res != 0) {
+                    cerr << fcr._errMsg << endl;
                     break;
+                }
             }
         }
 
@@ -574,8 +580,9 @@ T FileCompressTask<T>::call()
         }
         else {
             if (samePaths(inputName, outputName)) {
-                cerr << "The input and output files must be different" << endl;
-                return T(Error::ERR_CREATE_FILE, 0, 0);
+                stringstream sserr;
+                sserr << "The input and output files must be different" << endl;
+                return T(Error::ERR_CREATE_FILE, 0, 0, sserr.str().c_str());
             }
 
             struct stat buffer;
@@ -584,14 +591,14 @@ T FileCompressTask<T>::call()
 
             if (stat(outputName.c_str(), &buffer) == 0) {
                 if ((buffer.st_mode & S_IFDIR) != 0) {
-                    cerr << "The output file is a directory" << endl;
-                    return T(Error::ERR_OUTPUT_IS_DIR, 0, 0);
+                    return T(Error::ERR_OUTPUT_IS_DIR, 0, 0, "The output file is a directory");
                 }
 
                 if (overwrite == false) {
-                    cerr << "File '" << outputName << "' exists and the 'force' command "
-                         << "line option has not been provided" << endl;
-                    return T(Error::ERR_OVERWRITE_FILE, 0, 0);
+                    stringstream sserr;
+                    sserr << "File '" << outputName << "' exists and the 'force' command "
+                         << "line option has not been provided";
+                    return T(Error::ERR_OVERWRITE_FILE, 0, 0, sserr.str().c_str());
                 }
             }
 
@@ -613,8 +620,9 @@ T FileCompressTask<T>::call()
                 }
 
                 if (!*os) {
-                    cerr << "Cannot open output file '" << outputName << "' for writing." << endl;
-                    return T(Error::ERR_CREATE_FILE, 0, 0);
+                    stringstream sserr;
+                    sserr << "Cannot open output file '" << outputName << "' for writing";
+                    return T(Error::ERR_CREATE_FILE, 0, 0, sserr.str().c_str());
                 }
             }
         }
@@ -626,13 +634,15 @@ T FileCompressTask<T>::call()
                 _cos->addListener(*_listeners[i]);
         }
         catch (IllegalArgumentException& e) {
-            cerr << "Cannot create compressed stream: " << e.what() << endl;
-            return T(Error::ERR_CREATE_COMPRESSOR, 0, 0);
+            stringstream sserr;
+            sserr << "Cannot create compressed stream: " << e.what();
+            return T(Error::ERR_CREATE_COMPRESSOR, 0, 0, sserr.str().c_str());
         }
     }
     catch (exception& e) {
-        cerr << "Cannot open output file '" << outputName << "' for writing: " << e.what() << endl;
-        return T(Error::ERR_CREATE_FILE, 0, 0);
+        stringstream sserr;
+        sserr << "Cannot open output file '" << outputName << "' for writing: " << e.what();
+        return T(Error::ERR_CREATE_FILE, 0, 0, sserr.str().c_str());
     }
 
     try {
@@ -646,16 +656,18 @@ T FileCompressTask<T>::call()
             ifstream* ifs = new ifstream(inputName.c_str(), ifstream::in | ifstream::binary);
 
             if (!*ifs) {
-                cerr << "Cannot open input file '" << inputName << "'" << endl;
-                return T(Error::ERR_OPEN_FILE, 0, 0);
+                stringstream sserr;
+                sserr << "Cannot open input file '" << inputName << "'";
+                return T(Error::ERR_OPEN_FILE, 0, 0, sserr.str().c_str());
             }
 
             _is = ifs;
         }
     }
     catch (exception& e) {
-        cerr << "Cannot open input file '" << inputName << "': " << e.what() << endl;
-        return T(Error::ERR_OPEN_FILE, 0, 0);
+        stringstream sserr;
+        sserr << "Cannot open input file '" << inputName << "': " << e.what();
+        return T(Error::ERR_OPEN_FILE, 0, 0, sserr.str().c_str());
     }
 
     // Encode
@@ -682,9 +694,10 @@ T FileCompressTask<T>::call()
                 len = (*_is) ? sa._length : int(_is->gcount());
             }
             catch (exception& e) {
-                cerr << "Failed to read block from file '" << inputName << "': " << endl;
-                cerr << e.what() << endl;
-                return T(Error::ERR_READ_FILE, read, _cos->getWritten());
+                stringstream sserr;
+                sserr << "Failed to read block from file '" << inputName << "': ";
+                sserr << e.what() << endl;
+                return T(Error::ERR_READ_FILE, read, _cos->getWritten(), sserr.str().c_str());
             }
 
             if (len <= 0)
@@ -697,14 +710,13 @@ T FileCompressTask<T>::call()
     }
     catch (IOException ioe) {
         delete[] buf;
-        cerr << ioe.what() << endl;
-        return T(ioe.error(), _cos->getWritten());
+        return T(ioe.error(), read, _cos->getWritten(), ioe.what());
     }
     catch (exception& e) {
         delete[] buf;
-        cerr << "An unexpected condition happened. Exiting ..." << endl;
-        cerr << e.what() << endl;
-        return T(Error::ERR_UNKNOWN, read, _cos->getWritten());
+        stringstream sserr;
+        sserr << "An unexpected condition happened. Exiting ..." << endl << e.what();
+        return T(Error::ERR_UNKNOWN, read, _cos->getWritten(), sserr.str().c_str());
     }
 
     // Close streams to ensure all data are flushed
@@ -728,10 +740,10 @@ T FileCompressTask<T>::call()
 
     if (read == 0) {
         delete[] buf;
-        ss.str(string());
-        ss << "Input file " << inputName << " is empty ... nothing to do";
+        stringstream sserr;
+        sserr << "Input file " << inputName << " is empty ... nothing to do";
         log.println(ss.str().c_str(), verbosity > 0);
-        return T(0, read, _cos->getWritten());
+        return T(0, read, _cos->getWritten(), sserr.str().c_str());
     }
 
     stopClock.stop();
@@ -786,7 +798,7 @@ T FileCompressTask<T>::call()
     }
 
     delete[] buf;
-    return T(0, read, _cos->getWritten());
+    return T(0, read, _cos->getWritten(), "");
 }
 
 template <class T>
@@ -846,6 +858,7 @@ R FileCompressWorker<T, R>::call()
     int res = 0;
     uint64 read = 0;
     uint64 written = 0;
+    string errMsg;
 
     while (res == 0) {
         T* task = _queue->get();
@@ -857,8 +870,12 @@ R FileCompressWorker<T, R>::call()
         res = result._code;
         read += result._read;
         written += result._written;
+
+        if (res != 0) {
+            errMsg += result._errMsg;
+        }
     }
 
-    return R(res, read, written);
+    return R(res, read, written, errMsg);
 }
 #endif

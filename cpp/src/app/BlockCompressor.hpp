@@ -30,12 +30,14 @@ namespace kanzi {
        int _code;
        uint64 _read;
        uint64 _written;
+       string _errMsg;
 
-       FileCompressResult(int code = 0, uint64 read = 0, uint64 written = 0)
+       FileCompressResult(int code, uint64 read, uint64 written, const string& errMsg)
        {
            _code = code;
            _read = read;
-           _written = written;
+           _written = written; 
+           _errMsg = errMsg;
        }
 
        ~FileCompressResult() {}

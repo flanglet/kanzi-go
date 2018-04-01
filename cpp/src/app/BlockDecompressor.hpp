@@ -28,11 +28,13 @@ namespace kanzi {
    public:
        int _code;
        uint64 _read;
+       string _errMsg;
 
-       FileDecompressResult(int code = 0, uint64 read = 0)
+       FileDecompressResult(int code, uint64 read, const string& errMsg)
        {
            _code = code;
            _read = read;
+           _errMsg = errMsg;
        }
 
        ~FileDecompressResult() {}
