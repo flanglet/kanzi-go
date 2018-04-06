@@ -39,10 +39,6 @@ namespace kanzi
        bool _deallocate;
 
    protected:
-       void encodeByte(byte val);
-
-       virtual void encodeBit(int bit);
-
        virtual void flush();
 
    public:
@@ -55,7 +51,11 @@ namespace kanzi
        OutputBitStream& getBitStream() const { return _bitstream; };
 
        virtual void dispose();
-   };
+
+       void encodeByte(byte val);
+
+       virtual void encodeBit(int bit);
+  };
 
 }
 #endif

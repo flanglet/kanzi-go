@@ -40,10 +40,6 @@ namespace kanzi
        bool _deallocate;
 
    protected:
-       byte decodeByte();
-
-       virtual int decodeBit();
-
        virtual void initialize();
 
        void read();
@@ -60,6 +56,10 @@ namespace kanzi
        bool isInitialized() const { return _initialized; };
 
        virtual void dispose();
+
+       byte decodeByte();
+
+       virtual int decodeBit();
    };
 
 }
