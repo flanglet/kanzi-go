@@ -31,7 +31,7 @@ import (
 const (
 	DECOMP_DEFAULT_BUFFER_SIZE = 32768
 	DECOMP_DEFAULT_CONCURRENCY = 1
-	DECOMP_MAX_CONCURRENCY     = 32
+	DECOMP_MAX_CONCURRENCY     = 64
 )
 
 // Main block decompressor struct
@@ -67,12 +67,17 @@ func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, e
 	delete(argsMap, "outputName")
 	concurrency := argsMap["jobs"].(uint)
 	delete(argsMap, "jobs")
+	this.verbosity = argsMap["verbose"].(uint)
+	delete(argsMap, "verbose")
 
 	if concurrency == 0 {
 		this.jobs = DECOMP_DEFAULT_CONCURRENCY
 	} else {
 		if concurrency > DECOMP_MAX_CONCURRENCY {
-			fmt.Printf("Warning: the number of jobs is too high, defaulting to %v\n", DECOMP_MAX_CONCURRENCY)
+			if this.verbosity > 0 {
+				fmt.Printf("Warning: the number of jobs is too high, defaulting to %v\n", DECOMP_MAX_CONCURRENCY)
+			}
+
 			concurrency = DECOMP_MAX_CONCURRENCY
 		}
 		this.jobs = concurrency
@@ -84,9 +89,6 @@ func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, e
 	} else {
 		this.cpuProf = ""
 	}
-
-	this.verbosity = argsMap["verbose"].(uint)
-	delete(argsMap, "verbose")
 
 	if this.verbosity > 0 && len(argsMap) > 0 {
 		for k, _ := range argsMap {

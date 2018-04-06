@@ -50,7 +50,7 @@ public class BlockCompressor implements Runnable, Callable<Integer>
    private static final int DEFAULT_BUFFER_SIZE = 65536;
    private static final int DEFAULT_BLOCK_SIZE  = 1024*1024; 
    private static final int DEFAULT_CONCURRENCY = 1;
-   private static final int MAX_CONCURRENCY = 32;   
+   private static final int MAX_CONCURRENCY = 64;   
    
    private int verbosity;
    private final boolean overwrite;
@@ -101,18 +101,20 @@ public class BlockCompressor implements Runnable, Callable<Integer>
       this.transform = (strTransf == null) ? "BWT+RANK+ZRLT" : bff.getName(bff.getType(strTransf));
       Boolean bChecksum = (Boolean) map.remove("checksum");
       this.checksum = (bChecksum == null) ? false : bChecksum;
+      this.verbosity = (Integer) map.remove("verbose");
       int concurrency = (Integer) map.remove("jobs");
 
       if (concurrency > MAX_CONCURRENCY)
       {
-         System.err.println("Warning: the number of jobs is too high, defaulting to "+MAX_CONCURRENCY);
+         if (this.verbosity > 0)
+            System.err.println("Warning: the number of jobs is too high, defaulting to "+MAX_CONCURRENCY);
+         
          concurrency = MAX_CONCURRENCY;
       }
    
       this.jobs = (concurrency == 0) ? DEFAULT_CONCURRENCY : concurrency;
       this.pool = Executors.newFixedThreadPool(this.jobs);
       this.listeners = new ArrayList<>(10);
-      this.verbosity = (Integer) map.remove("verbose");
 
       if ((this.verbosity > 0) && (map.size() > 0))
       {

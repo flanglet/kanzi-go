@@ -43,7 +43,7 @@ const (
 	MIN_BITSTREAM_BLOCK_SIZE   = 1024
 	MAX_BITSTREAM_BLOCK_SIZE   = 1024 * 1024 * 1024
 	SMALL_BLOCK_SIZE           = 15
-	MAX_CONCURRENCY            = 32
+	MAX_CONCURRENCY            = 64
 )
 
 var (

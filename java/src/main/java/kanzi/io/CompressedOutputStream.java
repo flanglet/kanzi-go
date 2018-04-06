@@ -57,7 +57,7 @@ public class CompressedOutputStream extends OutputStream
    private static final int MAX_BITSTREAM_BLOCK_SIZE = 1024*1024*1024;
    private static final int SMALL_BLOCK_SIZE         = 15;
    private static final byte[] EMPTY_BYTE_ARRAY      = new byte[0];
-   private static final int MAX_CONCURRENCY          = 32;
+   private static final int MAX_CONCURRENCY          = 64;
 
    private final int blockSize;
    private final int nbInputBlocks;

@@ -33,7 +33,7 @@ const (
 	COMP_DEFAULT_BUFFER_SIZE = 65536
 	COMP_DEFAULT_BLOCK_SIZE  = 1024 * 1024
 	COMP_DEFAULT_CONCURRENCY = 1
-	COMP_MAX_CONCURRENCY     = 32
+	COMP_MAX_CONCURRENCY     = 64
 )
 
 // Main block compressor struct
@@ -128,6 +128,8 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 		this.checksum = false
 	}
 
+	this.verbosity = argsMap["verbose"].(uint)
+	delete(argsMap, "verbose")
 	concurrency := argsMap["jobs"].(uint)
 	delete(argsMap, "jobs")
 
@@ -135,7 +137,10 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 		this.jobs = COMP_DEFAULT_CONCURRENCY
 	} else {
 		if concurrency > COMP_MAX_CONCURRENCY {
-			fmt.Printf("Warning: the number of jobs is too high, defaulting to %v\n", COMP_MAX_CONCURRENCY)
+			if this.verbosity > 0 {
+				fmt.Printf("Warning: the number of jobs is too high, defaulting to %v\n", COMP_MAX_CONCURRENCY)
+			}
+
 			concurrency = COMP_MAX_CONCURRENCY
 		}
 
@@ -148,9 +153,6 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 	} else {
 		this.cpuProf = ""
 	}
-
-	this.verbosity = argsMap["verbose"].(uint)
-	delete(argsMap, "verbose")
 
 	if this.verbosity > 0 && len(argsMap) > 0 {
 		for k, _ := range argsMap {

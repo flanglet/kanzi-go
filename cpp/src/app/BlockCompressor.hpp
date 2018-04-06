@@ -32,6 +32,14 @@ namespace kanzi {
        uint64 _written;
        string _errMsg;
 
+       FileCompressResult()
+       {
+           _code = 0;
+           _read = 0;
+           _written = 0; 
+           _errMsg = "";
+       }
+
        FileCompressResult(int code, uint64 read, uint64 written, const string& errMsg)
        {
            _code = code;
@@ -97,6 +105,7 @@ namespace kanzi {
    private:
        static const int DEFAULT_BLOCK_SIZE = 1024 * 1024;
        static const int DEFAULT_CONCURRENCY = 1;
+       static const int MAX_CONCURRENCY = 64;  
 
        int _verbosity;
        bool _overwrite;

@@ -71,7 +71,7 @@ template <class T>
        if (pos == string::npos)
            return getTypeToken(name.c_str()) << MAX_SHIFT;
        
-       int prv = 0;
+       size_t prv = 0;
        int n = 0;
        uint64 res = 0;
        int shift = MAX_SHIFT;

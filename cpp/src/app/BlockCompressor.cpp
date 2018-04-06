@@ -135,18 +135,26 @@ BlockCompressor::BlockCompressor(map<string, string>& args)
         args.erase(it);
     }
 
-    it = args.find("jobs");
-    int concurrency = atoi(it->second.c_str());
-    _jobs = (concurrency == 0) ? DEFAULT_CONCURRENCY : concurrency;
-    args.erase(it);
-
-#ifndef CONCURRENCY_ENABLED
-    if (_jobs > 1)
-        throw IllegalArgumentException("The number of jobs is limited to 1 in this version");
-#endif
-
     it = args.find("verbose");
     _verbosity = atoi(it->second.c_str());
+    args.erase(it);
+    it = args.find("jobs");
+    int concurrency = atoi(it->second.c_str());
+
+#ifndef CONCURRENCY_ENABLED
+    if (concurrency > 1)
+        throw IllegalArgumentException("The number of jobs is limited to 1 in this version");
+#else
+    if (concurrency > MAX_CONCURRENCY) {
+        stringstream ss;
+        ss << "Warning: the number of jobs is too high, defaulting to " << MAX_CONCURRENCY << endl;
+        Printer log(&cerr);
+        log.println(ss.str().c_str(), _verbosity > 0);
+        concurrency = MAX_CONCURRENCY;
+    }
+#endif
+
+    _jobs = (concurrency == 0) ? DEFAULT_CONCURRENCY : concurrency;
     args.erase(it);
 
     if ((_verbosity > 0) && (args.size() > 0)) {
@@ -355,7 +363,7 @@ int BlockCompressor::call()
         written = fcr._written;
 
         if (res != 0) {
-           cerr << fcr._errMsg << endl;
+            cerr << fcr._errMsg << endl;
         }
     }
     else {
@@ -597,7 +605,7 @@ T FileCompressTask<T>::call()
                 if (overwrite == false) {
                     stringstream sserr;
                     sserr << "File '" << outputName << "' exists and the 'force' command "
-                         << "line option has not been provided";
+                          << "line option has not been provided";
                     return T(Error::ERR_OVERWRITE_FILE, 0, 0, sserr.str().c_str());
                 }
             }
@@ -715,7 +723,8 @@ T FileCompressTask<T>::call()
     catch (exception& e) {
         delete[] buf;
         stringstream sserr;
-        sserr << "An unexpected condition happened. Exiting ..." << endl << e.what();
+        sserr << "An unexpected condition happened. Exiting ..." << endl
+              << e.what();
         return T(Error::ERR_UNKNOWN, read, _cos->getWritten(), sserr.str().c_str());
     }
 
@@ -753,11 +762,12 @@ T FileCompressTask<T>::call()
     char buffer[32];
 
     if (delta >= 1e5) {
-       sprintf(buffer, "%.1f s", delta/1000);
-       ss << "Encoding:          " << buffer; 
-    } else {
-       sprintf(buffer, "%.0f ms", delta);
-       ss << "Encoding:          " << buffer;
+        sprintf(buffer, "%.1f s", delta / 1000);
+        ss << "Encoding:          " << buffer;
+    }
+    else {
+        sprintf(buffer, "%.0f ms", delta);
+        ss << "Encoding:          " << buffer;
     }
 
     log.println(ss.str().c_str(), printFlag);
@@ -774,11 +784,12 @@ T FileCompressTask<T>::call()
     ss << "Encoding " << inputName << ": " << read << " => " << _cos->getWritten();
 
     if (delta >= 1e5) {
-       sprintf(buffer, "%.1f s", delta/1000);
-       ss << " bytes in " << buffer;
-    } else {
-       sprintf(buffer, "%.0f ms", delta);
-       ss << " bytes in " << buffer;
+        sprintf(buffer, "%.1f s", delta / 1000);
+        ss << " bytes in " << buffer;
+    }
+    else {
+        sprintf(buffer, "%.0f ms", delta);
+        ss << " bytes in " << buffer;
     }
 
     log.println(ss.str().c_str(), verbosity == 1);
