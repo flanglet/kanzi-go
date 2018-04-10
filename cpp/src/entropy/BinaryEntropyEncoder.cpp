@@ -49,7 +49,7 @@ int BinaryEntropyEncoder::encode(byte block[], uint blkptr, uint len)
     return len;
 }
 
-void BinaryEntropyEncoder::encodeByte(byte val)
+inline void BinaryEntropyEncoder::encodeByte(byte val)
 {
     encodeBit((val >> 7) & 1);
     encodeBit((val >> 6) & 1);

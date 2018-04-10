@@ -422,7 +422,7 @@ func (this *TPAQPredictor) getMatchContextPred() int32 {
 		} else {
 			this.matchLen = 0
 		}
-	} 
+	}
 
 	return p
 }

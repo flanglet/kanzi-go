@@ -270,11 +270,12 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 			st = st + sym.bias + q*sym.cmplFreq
 		}
 	} else { // order 1
+		symb := this.symbols
 		prv := int(block[len(block)-1])
 
 		for i := len(block) - 2; i >= 0; i-- {
 			cur := int(block[i])
-			sym := this.symbols[(cur<<8)+prv]
+			sym := symb[(cur<<8)+prv]
 			max := sym.xMax
 
 			for st >= max {
@@ -292,7 +293,7 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 		}
 
 		// Last symbol
-		sym := this.symbols[prv]
+		sym := symb[prv]
 		max := sym.xMax
 
 		for st >= max {
@@ -337,10 +338,6 @@ func (this *ANSRangeEncoder) rebuildStatistics(block []byte, lr uint) (int, erro
 			this.freqs[prv+int(cur)]++
 			this.freqs[prv+256]++
 			prv = 257 * int(cur)
-			//f := this.freqs[257*prv:257*(prv+1)]
-			//	f[cur]++
-			//	f[256]++
-			//	prv = int(cur)
 		}
 	}
 
@@ -600,7 +597,8 @@ func (this *ANSRangeDecoder) Decode(block []byte) (int, error) {
 func (this *ANSRangeDecoder) decodeChunk(block []byte) {
 	// Read initial ANS state
 	st := int(this.bitstream.ReadBits(32))
-	mask := (1 << this.logRange) - 1
+	lr := this.logRange
+	mask := (1 << lr) - 1
 
 	if this.order == 0 {
 		freq2sym := this.f2s[0 : mask+1]
@@ -613,7 +611,7 @@ func (this *ANSRangeDecoder) decodeChunk(block []byte) {
 
 			// Compute next ANS state
 			// D(x) = (s, q_s (x/M) + mod(x,M) - b_s) where s is such b_s <= x mod M < b_{s+1}
-			st = sym.freq*(st>>this.logRange) + (st & mask) - sym.cumFreq
+			st = sym.freq*(st>>lr) + (st & mask) - sym.cumFreq
 
 			// Normalize
 			for st < ANS_TOP {
@@ -621,16 +619,17 @@ func (this *ANSRangeDecoder) decodeChunk(block []byte) {
 			}
 		}
 	} else {
+		symb := this.symbols
 		prv := int(0)
 
 		for i := range block {
-			cur := this.f2s[int(prv<<this.logRange)+(st&mask)]
+			cur := this.f2s[(prv<<lr)+(st&mask)]
 			block[i] = cur
-			sym := this.symbols[(prv<<8)+int(cur)]
+			sym := symb[(prv<<8)+int(cur)]
 
 			// Compute next ANS state
 			// D(x) = (s, q_s (x/M) + mod(x,M) - b_s) where s is such b_s <= x mod M < b_{s+1}
-			st = sym.freq*(st>>this.logRange) + (st & mask) - sym.cumFreq
+			st = sym.freq*(st>>lr) + (st & mask) - sym.cumFreq
 
 			// Normalize
 			for st < ANS_TOP {

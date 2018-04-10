@@ -168,7 +168,7 @@ int ANSRangeEncoder::encode(byte block[], uint blkptr, uint len)
 
 void ANSRangeEncoder::encodeChunk(byte block[], int start, int end)
 {
-    uint st = ANS_TOP;
+    int st = ANS_TOP;
     int n = 0;
 
     if (_order == 0) {
@@ -176,7 +176,7 @@ void ANSRangeEncoder::encodeChunk(byte block[], int start, int end)
 
         for (int i = end - 1; i >= start; i--) {
             const ANSEncSymbol sym = symb[block[i] & 0xFF];
-            const uint max = sym._xMax;
+            const int max = sym._xMax;
 
             while (st >= max) {
                 _buffer[n++] = byte(st);
@@ -196,7 +196,7 @@ void ANSRangeEncoder::encodeChunk(byte block[], int start, int end)
         for (int i = end - 2; i >= start; i--) {
             const int cur = block[i] & 0xFF;
             const ANSEncSymbol sym = _symbols[(cur << 8) + prv];
-            const uint max = sym._xMax;
+            const int max = sym._xMax;
 
             while (st >= max) {
                 _buffer[n++] = byte(st);
@@ -213,7 +213,7 @@ void ANSRangeEncoder::encodeChunk(byte block[], int start, int end)
 
         // Last symbol
         const ANSEncSymbol sym = _symbols[prv];
-        const uint max = sym._xMax;
+        const int max = sym._xMax;
 
         while (st >= max) {
             _buffer[n++] = byte(st);

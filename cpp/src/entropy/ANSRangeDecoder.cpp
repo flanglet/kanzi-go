@@ -174,7 +174,7 @@ int ANSRangeDecoder::decode(byte block[], uint blkptr, uint len)
 void ANSRangeDecoder::decodeChunk(byte block[], int start, int end)
 {
     // Read initial ANS state
-    uint st = uint(_bitstream.readBits(32));
+    int st = uint(_bitstream.readBits(32));
     const uint mask = (1 << _logRange) - 1;
 
     if (_order == 0) {
@@ -188,11 +188,11 @@ void ANSRangeDecoder::decodeChunk(byte block[], int start, int end)
 
             // Compute next ANS state
             // D(x) = (s, q_s (x/M) + mod(x,M) - b_s) where s is such b_s <= x mod M < b_{s+1}
-            st = sym._freq * (st >> _logRange) + (st & mask) - sym._cumFreq;
+            st = int(sym._freq * (st >> _logRange) + (st & mask) - sym._cumFreq);
 
             // Normalize
             while (st < ANS_TOP)
-                st = (st << 8) | uint(_bitstream.readBits(8));
+                st = (st << 8) | int(_bitstream.readBits(8));
         }
     }
     else {
@@ -205,11 +205,11 @@ void ANSRangeDecoder::decodeChunk(byte block[], int start, int end)
 
             // Compute next ANS state
             // D(x) = (s, q_s (x/M) + mod(x,M) - b_s) where s is such b_s <= x mod M < b_{s+1}
-            st = sym._freq * (st >> _logRange) + (st & mask) - sym._cumFreq;
+            st = int(sym._freq * (st >> _logRange) + (st & mask) - sym._cumFreq);
 
             // Normalize
             while (st < ANS_TOP)
-                st = (st << 8) | uint(_bitstream.readBits(8));
+                st = (st << 8) | int(_bitstream.readBits(8));
 
             prv = cur & 0xFF;
         }

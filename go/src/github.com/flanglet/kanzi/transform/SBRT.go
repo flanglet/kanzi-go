@@ -132,7 +132,7 @@ func (this *SBRT) Forward(src, dst []byte) (uint, uint, error) {
 			r--
 		}
 
-		r2s[r] = c 
+		r2s[r] = c
 		s2r[c] = r
 	}
 
@@ -209,7 +209,7 @@ func (this *SBRT) Inverse(src, dst []byte) (uint, uint, error) {
 			r--
 		}
 
-		r2s[r] = c 
+		r2s[r] = c
 	}
 
 	return uint(count), uint(count), nil

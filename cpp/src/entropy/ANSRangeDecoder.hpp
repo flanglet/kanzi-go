@@ -42,7 +42,7 @@ namespace kanzi
 
    class ANSRangeDecoder : public EntropyDecoder {
    public:
-	   static const uint ANS_TOP = 1 << 23;
+	   static const int ANS_TOP = 1 << 23;
 
       ANSRangeDecoder(InputBitStream& bitstream, int order = 0, int chunkSize = -1) THROW;
 

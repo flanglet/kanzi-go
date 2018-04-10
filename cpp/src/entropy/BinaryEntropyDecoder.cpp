@@ -52,9 +52,9 @@ int BinaryEntropyDecoder::decode(byte block[], uint blkptr, uint len)
     return len;
 }
 
-byte BinaryEntropyDecoder::decodeByte()
+inline byte BinaryEntropyDecoder::decodeByte()
 {
-    return (byte)((decodeBit() << 7)
+    return byte((decodeBit() << 7)
         | (decodeBit() << 6)
         | (decodeBit() << 5)
         | (decodeBit() << 4)

@@ -27,7 +27,6 @@ const (
 	MASK_0_32          = uint64(0x00000000FFFFFFFF)
 )
 
-
 type BinaryEntropyEncoder struct {
 	predictor kanzi.Predictor
 	low       uint64

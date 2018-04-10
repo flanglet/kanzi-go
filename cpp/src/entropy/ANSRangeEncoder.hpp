@@ -55,7 +55,7 @@ namespace kanzi
    class ANSRangeEncoder : public EntropyEncoder
    {
    public:
-	   static const uint ANS_TOP = 1 << 23;
+	   static const int ANS_TOP = 1 << 23;
 
       ANSRangeEncoder(OutputBitStream& bitstream, 
                       int order = 0, 

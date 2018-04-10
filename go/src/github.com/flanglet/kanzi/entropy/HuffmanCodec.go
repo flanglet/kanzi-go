@@ -384,25 +384,27 @@ func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
 
 		// Rebuild Huffman codes
 		this.UpdateFrequencies(frequencies)
+		c := this.codes
+		bs := this.bitstream
 
 		for i := startChunk; i < endChunk8; i += 8 {
 			var val uint
-			val = this.codes[block[i]]
-			this.bitstream.WriteBits(uint64(val), val>>24)
-			val = this.codes[block[i+1]]
-			this.bitstream.WriteBits(uint64(val), val>>24)
-			val = this.codes[block[i+2]]
-			this.bitstream.WriteBits(uint64(val), val>>24)
-			val = this.codes[block[i+3]]
-			this.bitstream.WriteBits(uint64(val), val>>24)
-			val = this.codes[block[i+4]]
-			this.bitstream.WriteBits(uint64(val), val>>24)
-			val = this.codes[block[i+5]]
-			this.bitstream.WriteBits(uint64(val), val>>24)
-			val = this.codes[block[i+6]]
-			this.bitstream.WriteBits(uint64(val), val>>24)
-			val = this.codes[block[i+7]]
-			this.bitstream.WriteBits(uint64(val), val>>24)
+			val = c[block[i]]
+			bs.WriteBits(uint64(val), val>>24)
+			val = c[block[i+1]]
+			bs.WriteBits(uint64(val), val>>24)
+			val = c[block[i+2]]
+			bs.WriteBits(uint64(val), val>>24)
+			val = c[block[i+3]]
+			bs.WriteBits(uint64(val), val>>24)
+			val = c[block[i+4]]
+			bs.WriteBits(uint64(val), val>>24)
+			val = c[block[i+5]]
+			bs.WriteBits(uint64(val), val>>24)
+			val = c[block[i+6]]
+			bs.WriteBits(uint64(val), val>>24)
+			val = c[block[i+7]]
+			bs.WriteBits(uint64(val), val>>24)
 		}
 
 		for i := endChunk8; i < endChunk; i++ {
