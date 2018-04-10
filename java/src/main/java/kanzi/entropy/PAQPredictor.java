@@ -16,6 +16,9 @@ package kanzi.entropy;
 
 // http://code.google.com/p/dcs-bwt-compressor/(itself based on PAQ coders)
 
+import kanzi.Predictor;
+
+
 //// It was originally written by Matt Mahoney as
 //// bbb.cpp - big block BWT compressor version 1, Aug. 31, 2006.
 //// http://cs.fit.edu/~mmahoney/compression/bbb.cpp

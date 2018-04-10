@@ -14,6 +14,8 @@ limitations under the License.
 */
 package kanzi.entropy;
 
+import kanzi.Predictor;
+
 
 // Derived from fpaq0r by Matt Mahoney & Alexander Ratushnyak.
 // See http://mattmahoney.net/dc/#fpaq0.

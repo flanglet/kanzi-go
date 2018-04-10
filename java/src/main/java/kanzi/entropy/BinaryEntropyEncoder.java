@@ -16,6 +16,7 @@ limitations under the License.
 package kanzi.entropy;
 
 
+import kanzi.Predictor;
 import kanzi.EntropyEncoder;
 import kanzi.OutputBitStream;
 

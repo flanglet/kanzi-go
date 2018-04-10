@@ -17,9 +17,9 @@ limitations under the License.
 #define _TPAQPredictor_
 
 #include <map>
-#include "AdaptiveProbMap.hpp"
 #include "../Global.hpp"
-#include "Predictor.hpp"
+#include "../Predictor.hpp"
+#include "AdaptiveProbMap.hpp"
 
 
 namespace kanzi

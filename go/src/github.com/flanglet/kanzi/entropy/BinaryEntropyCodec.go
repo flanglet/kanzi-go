@@ -27,24 +27,16 @@ const (
 	MASK_0_32          = uint64(0x00000000FFFFFFFF)
 )
 
-type Predictor interface {
-	// Update the probability model
-	Update(bit byte)
-
-	// Return the split value representing the probability of 1 in the [0..4095] range.
-	// E.G. 410 represents roughly a probability of 10% for 1
-	Get() int
-}
 
 type BinaryEntropyEncoder struct {
-	predictor Predictor
+	predictor kanzi.Predictor
 	low       uint64
 	high      uint64
 	bitstream kanzi.OutputBitStream
 	disposed  bool
 }
 
-func NewBinaryEntropyEncoder(bs kanzi.OutputBitStream, predictor Predictor) (*BinaryEntropyEncoder, error) {
+func NewBinaryEntropyEncoder(bs kanzi.OutputBitStream, predictor kanzi.Predictor) (*BinaryEntropyEncoder, error) {
 	if bs == nil {
 		return nil, errors.New("Invalid null bitstream parameter")
 	}
@@ -119,7 +111,7 @@ func (this *BinaryEntropyEncoder) Dispose() {
 }
 
 type BinaryEntropyDecoder struct {
-	predictor   Predictor
+	predictor   kanzi.Predictor
 	low         uint64
 	high        uint64
 	current     uint64
@@ -127,7 +119,7 @@ type BinaryEntropyDecoder struct {
 	bitstream   kanzi.InputBitStream
 }
 
-func NewBinaryEntropyDecoder(bs kanzi.InputBitStream, predictor Predictor) (*BinaryEntropyDecoder, error) {
+func NewBinaryEntropyDecoder(bs kanzi.InputBitStream, predictor kanzi.Predictor) (*BinaryEntropyDecoder, error) {
 	if bs == nil {
 		return nil, errors.New("Invalid null bitstream parameter")
 	}

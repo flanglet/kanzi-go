@@ -16,7 +16,7 @@ limitations under the License.
 #ifndef _FPAQPredictor_
 #define _FPAQPredictor_
 
-#include "Predictor.hpp"
+#include "../Predictor.hpp"
 
 namespace kanzi 
 {

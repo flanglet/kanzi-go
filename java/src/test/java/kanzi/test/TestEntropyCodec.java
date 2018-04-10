@@ -37,7 +37,7 @@ import kanzi.entropy.FPAQPredictor;
 import kanzi.entropy.HuffmanDecoder;
 import kanzi.entropy.HuffmanEncoder;
 import kanzi.entropy.PAQPredictor;
-import kanzi.entropy.Predictor;
+import kanzi.Predictor;
 import kanzi.entropy.RangeDecoder;
 import kanzi.entropy.RangeEncoder;
 import kanzi.entropy.RiceGolombDecoder;

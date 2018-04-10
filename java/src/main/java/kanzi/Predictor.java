@@ -12,7 +12,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package kanzi.entropy;
+package kanzi;
 
 
 // Interface used by the binary entropy coder to predict probabilities of 0 and 1

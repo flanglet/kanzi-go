@@ -15,6 +15,8 @@ limitations under the License.
 
 package kanzi.entropy;
 
+import kanzi.Predictor;
+
 
 // Context model predictor based on BCM by Ilya Muravyov. 
 // See https://github.com/encode84/bcm

@@ -17,7 +17,7 @@ limitations under the License.
 #define _BinaryEntropyEncoder_
 
 #include "../EntropyEncoder.hpp"
-#include "Predictor.hpp"
+#include "../Predictor.hpp"
 
 namespace kanzi 
 {

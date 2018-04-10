@@ -17,8 +17,8 @@ limitations under the License.
 #define _PAQPredictor_
 
 #include "../Global.hpp"
+#include "../Predictor.hpp"
 #include "AdaptiveProbMap.hpp"
-#include "Predictor.hpp"
 
 namespace kanzi 
 {

@@ -113,6 +113,15 @@ type OutputBitStream interface {
 	Written() uint64 // number of bits written so far
 }
 
+type Predictor interface {
+	// Update the probability model
+	Update(bit byte)
+
+	// Return the split value representing the probability of 1 in the [0..4095] range.
+	// E.G. 410 represents roughly a probability of 10% for 1
+	Get() int
+}
+
 type EntropyEncoder interface {
 	// Encode the array provided into the bitstream. Return the number of byte
 	// written to the bitstream

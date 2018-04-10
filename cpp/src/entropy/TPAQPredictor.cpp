@@ -245,8 +245,8 @@ void TPAQPredictor::update(int bit)
 
         if (_binCount < _pos >> 2) {
             // Mostly text or mixed
-            int32 h1 = ((_c4 & MASK_80808080) == 0) ? _c4 : _c4 & MASK_80808080;
-            int32 h2 = ((_c8 & MASK_80808080) == 0) ? _c8 : _c8 & MASK_80808080;
+            const int32 h1 = ((_c4 & MASK_80808080) == 0) ? _c4 : _c4 & MASK_80808080;
+            const int32 h2 = ((_c8 & MASK_80808080) == 0) ? _c8 : _c8 & MASK_80808080;
             _ctx4 = createContext(4, _c4 ^ (_c8 & 0xFFFF));
             _ctx5 = hash(h1, h2);
             _ctx6 = hash(_c8 & MASK_F0F0F0F0, _c4 & MASK_F0F0F0F0);
@@ -411,7 +411,7 @@ inline int TPAQMixer::get(int32 p0, int32 p1, int32 p2, int32 p3, int32 p4, int3
     _p7 = p7;
 
     // Neural Network dot product (sum weights*inputs)
-    const int32 p = (p0 * _w0) + (p1 * _w1) + (p2 * _w2) + (p3 * _w3) + 
+    const int32 p = (p0 * _w0) + (p1 * _w1) + (p2 * _w2) + (p3 * _w3) +
                     (p4 * _w4) + (p5 * _w5) + (p6 * _w6) + (p7 * _w7) + _skew;
 
     _pr = Global::squash((p + 65536) >> 17);

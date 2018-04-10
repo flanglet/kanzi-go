@@ -14,6 +14,7 @@ limitations under the License.
 */
 package kanzi.entropy;
 
+import kanzi.Predictor;
 import java.util.Map;
 import kanzi.Global;
 
