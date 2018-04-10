@@ -73,7 +73,7 @@ func main() {
 	}
 }
 
-func getPredictor(name string) entropy.Predictor {
+func getPredictor(name string) kanzi.Predictor {
 	switch name {
 	case "PAQ":
 		res, _ := entropy.NewPAQPredictor()
