@@ -14,7 +14,7 @@ limitations under the License.
 */
 
 
-#include < cstring > 
+#include <cstring> 
 #include "../IllegalArgumentException.hpp"
 #include "DWT_CDF_9_7.hpp"
 
