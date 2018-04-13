@@ -174,7 +174,7 @@ int ANSRangeDecoder::decode(byte block[], uint blkptr, uint len)
 void ANSRangeDecoder::decodeChunk(byte block[], int start, int end)
 {
     // Read initial ANS state
-    int st = uint(_bitstream.readBits(32));
+    int st = int(_bitstream.readBits(32));
     const uint mask = (1 << _logRange) - 1;
 
     if (_order == 0) {

@@ -196,7 +196,7 @@ func GetType(name string) uint64 {
 	}
 
 	if len(tokens) > 8 {
-		panic(fmt.Errorf("Only 4 transforms allowed: '%v'", name))
+		panic(fmt.Errorf("Only 8 transforms allowed: '%v'", name))
 	}
 
 	res := uint64(0)

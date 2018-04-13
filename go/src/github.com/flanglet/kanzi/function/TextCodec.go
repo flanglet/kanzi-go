@@ -972,7 +972,7 @@ func computeStats(block []byte, freqs []int) byte {
 
 	for i := 1; i < len(block); i++ {
 		freqs0[block[i]]++
-		freqs1[(prv<<8)+block[i]]++
+		freqs1[(int(prv)<<8)+int(block[i])]++
 		prv = block[i]
 	}
 
