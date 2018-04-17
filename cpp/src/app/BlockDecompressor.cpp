@@ -68,6 +68,7 @@ BlockDecompressor::BlockDecompressor(map<string, string>& args)
     args.erase(it);
     it = args.find("jobs");
     int concurrency = atoi(it->second.c_str());
+    _jobs = (concurrency == 0) ? DEFAULT_CONCURRENCY : concurrency;
 
 #ifndef CONCURRENCY_ENABLED
     if (_jobs > 1)
@@ -81,7 +82,6 @@ BlockDecompressor::BlockDecompressor(map<string, string>& args)
     }
 #endif
 
-    _jobs = (concurrency == 0) ? DEFAULT_CONCURRENCY : concurrency;
     args.erase(it);
     _cis = nullptr;
     _os = nullptr;
