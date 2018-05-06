@@ -21,6 +21,7 @@ import kanzi.ByteFunction;
 import kanzi.SliceByteArray;
 import kanzi.function.LZ4Codec;
 import kanzi.function.RLT;
+import kanzi.function.ROLZCodec;
 import kanzi.function.SnappyCodec;
 import kanzi.function.ZRLT;
 import org.junit.Assert;
@@ -51,6 +52,12 @@ public class TestFunctions
                 System.exit(1);
              
              testSpeed("LZ4");
+             System.out.println("\n\nTestROLZ");
+             
+             if (testCorrectness("ROLZ") == false)
+                System.exit(1);
+             
+             testSpeed("ROLZ"); 
              System.out.println("\n\nTestSnappy");
              
              if (testCorrectness("SNAPPY") == false)
@@ -68,7 +75,7 @@ public class TestFunctions
              if (testCorrectness("RLT") == false)
                 System.exit(1);
              
-             testSpeed("RLT");         
+             testSpeed("RLT");                 
            }
           else
           {
@@ -89,6 +96,9 @@ public class TestFunctions
       System.out.println("\n\nTestLZ4");
       Assert.assertTrue(testCorrectness("LZ4"));
       //testSpeed("LZ4");
+      System.out.println("\n\nTestROLZ");
+      Assert.assertTrue(testCorrectness("ROLZ"));
+      //testSpeed("ROLZ");   
       System.out.println("\n\nTestSnappy");
       Assert.assertTrue(testCorrectness("SNAPPY"));
       //testSpeed("SNAPPY");
@@ -116,6 +126,9 @@ public class TestFunctions
 
          case "RLT":
             return new RLT();
+
+         case "ROLZ":
+            return new ROLZCodec();
 
          default:
             System.out.println("No such byte function: "+name);
@@ -301,7 +314,7 @@ public class TestFunctions
       byte[] output;
       byte[] reverse;
       Random rnd = new Random();
-      final int iter = 50000;
+      final int iter = name.equals("ROLZ") ? 2000 : 50000;
       final int size = 50000;
       System.out.println("\n\nSpeed test for " + name);
       System.out.println("Iterations: " + iter);

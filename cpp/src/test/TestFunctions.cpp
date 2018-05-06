@@ -24,6 +24,7 @@ limitations under the License.
 #include "../function/RLT.hpp"
 #include "../function/ZRLT.hpp"
 #include "../function/LZ4Codec.hpp"
+#include "../function/ROLZCodec.hpp"
 #include "../function/SnappyCodec.hpp"
 
 using namespace std;
@@ -43,6 +44,9 @@ static Function<byte>* getByteFunction(string name)
     if (name.compare("SNAPPY") == 0)
         return new SnappyCodec();
 
+    if (name.compare("ROLZ") == 0)
+        return new ROLZCodec();
+
     cout << "No such byte function: " << name << endl;
     return nullptr;
 }
@@ -53,7 +57,7 @@ int testFunctionsCorrectness(const string& name)
 
     cout << endl
          << "Correctness for " << name << endl;
-    int mod = (name== "ZRLT") ? 5 : 256;
+    int mod = (name == "ZRLT") ? 5 : 256;
 
     for (int ii = 0; ii < 20; ii++) {
         cout << endl
@@ -255,7 +259,7 @@ int testFunctionsSpeed(const string& name)
 {
     // Test speed
     srand((uint)time(nullptr));
-    int iter = 50000;
+    int iter = (name == "ROLZ") ? 5000 : 50000;
     int size = 30000;
     cout << endl
          << endl
@@ -269,7 +273,7 @@ int testFunctionsSpeed(const string& name)
     SliceArray<byte> iba1(input, size, 0);
     SliceArray<byte> iba2(output, f->getMaxEncodedLength(size), 0);
     SliceArray<byte> iba3(reverse, size, 0);
-    int mod = (name== "ZRLT") ? 5 : 256;
+    int mod = (name == "ZRLT") ? 5 : 256;
     delete f;
 
     for (int jj = 0; jj < 3; jj++) {
@@ -381,6 +385,11 @@ int TestFunctions_main(int argc, const char* argv[])
                  << "TestLZ4" << endl;
             testFunctionsCorrectness("LZ4");
             testFunctionsSpeed("LZ4");
+            cout << endl
+                 << endl
+                 << "TestROLZ" << endl;
+            testFunctionsCorrectness("ROLZ");
+            testFunctionsSpeed("ROLZ");
             cout << endl
                  << endl
                  << "TestSnappy" << endl;

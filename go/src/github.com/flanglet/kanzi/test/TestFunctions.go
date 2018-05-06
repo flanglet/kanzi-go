@@ -27,7 +27,7 @@ import (
 )
 
 func main() {
-	var name = flag.String("type", "ALL", "Type of function (all, LZ4, SNAPPY, RLT or ZRLT)")
+	var name = flag.String("type", "ALL", "Type of function (all, LZ4, ROLZ, SNAPPY, RLT or ZRLT)")
 
 	// Parse
 	flag.Parse()
@@ -36,48 +36,79 @@ func main() {
 
 	if name_ == "ALL" {
 		fmt.Printf("\n\nTestLZ4")
-		TestCorrectness("LZ4")
+
+		if err := TestCorrectness("LZ4"); err != nil {
+			os.Exit(1)
+		}
+
 		TestSpeed("LZ4")
+		fmt.Printf("\n\nTestROLZ")
+
+		if err := TestCorrectness("ROLZ"); err != nil {
+			os.Exit(1)
+		}
+
+		TestSpeed("ROLZ")
 		fmt.Printf("\n\nTestSnappy")
-		TestCorrectness("SNAPPY")
+
+		if err := TestCorrectness("SNAPPY"); err != nil {
+			os.Exit(1)
+		}
+
 		TestSpeed("SNAPPY")
 		fmt.Printf("\n\nTestZRLT")
-		TestCorrectness("ZRLT")
+
+		if err := TestCorrectness("ZRLT"); err != nil {
+			os.Exit(1)
+		}
+
 		TestSpeed("ZRLT")
 		fmt.Printf("\n\nTestRLT")
-		TestCorrectness("RLT")
+
+		if err := TestCorrectness("RLT"); err != nil {
+			os.Exit(1)
+		}
+
 		TestSpeed("RLT")
 	} else if name_ != "" {
 		fmt.Printf("Test%v", name_)
-		TestCorrectness(name_)
+
+		if err := TestCorrectness(name_); err != nil {
+			os.Exit(1)
+		}
+
 		TestSpeed(name_)
 	}
 }
 
-func getByteFunction(name string) kanzi.ByteFunction {
+func getByteFunction(name string) (kanzi.ByteFunction, error) {
 	switch name {
 	case "LZ4":
-		res, _ := function.NewLZ4Codec()
-		return res
+		res, err := function.NewLZ4Codec()
+		return res, err
+
+	case "ROLZ":
+		res, err := function.NewROLZCodec(function.ROLZ_LOG_POS_CHECKS)
+		return res, err
 
 	case "SNAPPY":
-		res, _ := function.NewSnappyCodec()
-		return res
+		res, err := function.NewSnappyCodec()
+		return res, err
 
 	case "ZRLT":
-		res, _ := function.NewZRLT()
-		return res
+		res, err := function.NewZRLT()
+		return res, err
 
 	case "RLT":
-		res, _ := function.NewRLT(3)
-		return res
+		res, err := function.NewRLT(3)
+		return res, err
 
 	default:
 		panic(fmt.Errorf("No such byte function: '%s'", name))
 	}
 }
 
-func TestCorrectness(name string) {
+func TestCorrectness(name string) error {
 	fmt.Printf("Correctness test for %v\n", name)
 	rng := 256
 
@@ -153,7 +184,13 @@ func TestCorrectness(name string) {
 		}
 
 		size := len(arr)
-		f := getByteFunction(name)
+		f, err := getByteFunction(name)
+
+		if err != nil {
+			fmt.Printf("\nCannot create transform '%v': %v\n", name, err)
+			return err
+		}
+
 		input := make([]byte, size)
 		output := make([]byte, f.MaxEncodedLen(size))
 		reverse := make([]byte, size)
@@ -166,7 +203,13 @@ func TestCorrectness(name string) {
 			input[i] = byte(arr[i])
 		}
 
-		f = getByteFunction(name)
+		f, err = getByteFunction(name)
+
+		if err != nil {
+			fmt.Printf("\nCannot create transform '%v': %v\n", name, err)
+			return err
+		}
+
 		fmt.Printf("\nOriginal: \n")
 
 		for i := range arr {
@@ -183,7 +226,7 @@ func TestCorrectness(name string) {
 			}
 
 			fmt.Printf("\nEncoding error : %v\n", err)
-			os.Exit(1)
+			return err
 		}
 
 		if srcIdx != uint(size) {
@@ -198,13 +241,19 @@ func TestCorrectness(name string) {
 		}
 
 		fmt.Printf(" (Compression ratio: %v%%)\n", int(dstIdx)*100/size)
-		f = getByteFunction(name)
+
+		f, err = getByteFunction(name)
+
+		if err != nil {
+			fmt.Printf("\nCannot create transform '%v': %v\n", name, err)
+			return err
+		}
 
 		_, _, err = f.Inverse(output[0:dstIdx], reverse)
 
 		if err != nil {
 			fmt.Printf("Decoding error : %v\n", err)
-			os.Exit(1)
+			return err
 		}
 
 		fmt.Printf("Decoded: \n")
@@ -219,16 +268,23 @@ func TestCorrectness(name string) {
 		for i := range reverse {
 			if input[i] != reverse[i] {
 				fmt.Printf("Different (index %v - %v)\n", input[i], reverse[i])
-				os.Exit(1)
+				return err
 			}
 		}
 
 		fmt.Printf("Identical\n")
 	}
+
+	return error(nil)
 }
 
 func TestSpeed(name string) {
 	iter := 50000
+
+	if name == "ROLZ" {
+		iter = 2000
+	}
+
 	size := 50000
 	fmt.Printf("\n\nSpeed test for %v\n", name)
 	fmt.Printf("Iterations: %v\n", iter)
@@ -239,7 +295,13 @@ func TestSpeed(name string) {
 	}
 
 	for jj := 0; jj < 3; jj++ {
-		bf := getByteFunction(name)
+		bf, err2 := getByteFunction(name)
+
+		if err2 != nil {
+			fmt.Printf("\nCannot create transform '%v': %v\n", name, err2)
+			return
+		}
+
 		input := make([]byte, size)
 		output := make([]byte, bf.MaxEncodedLen(size))
 		reverse := make([]byte, size)
@@ -264,11 +326,17 @@ func TestSpeed(name string) {
 			}
 		}
 
-		var dstIdx uint
 		var err error
+		var dstIdx uint
 
 		for ii := 0; ii < iter; ii++ {
-			f := getByteFunction(name)
+			f, err2 := getByteFunction(name)
+
+			if err2 != nil {
+				fmt.Printf("\nCannot create transform '%v': %v\n", name, err2)
+				return
+			}
+
 			before := time.Now()
 
 			_, dstIdx, err = f.Forward(input, output)
@@ -283,7 +351,13 @@ func TestSpeed(name string) {
 		}
 
 		for ii := 0; ii < iter; ii++ {
-			f := getByteFunction(name)
+			f, err2 := getByteFunction(name)
+
+			if err2 != nil {
+				fmt.Printf("\nCannot create transform '%v': %v\n", name, err2)
+				return
+			}
+
 			before := time.Now()
 
 			if _, _, err = f.Inverse(output[0:dstIdx], reverse); err != nil {

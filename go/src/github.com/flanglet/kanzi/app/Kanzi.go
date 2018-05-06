@@ -298,7 +298,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 				log.Println("        entropy codec [None|Huffman|ANS0|ANS1|Range|PAQ|FPAQ|TPAQ|CM]", true)
 				log.Println("        (default is ANS0)\n", true)
 				log.Println("   -t, --transform=<codec>", true)
-				log.Println("        transform [None|BWT|BWTS|SNAPPY|LZ4|RLT|ZRLT|MTFT|RANK|TEXT|X86]", true)
+				log.Println("        transform [None|BWT|BWTS|SNAPPY|LZ4|ROLZ|RLT|ZRLT|MTFT|RANK|TEXT|X86]", true)
 				log.Println("        EG: BWT+RANK or BWTS+MTFT (default is BWT+RANK+ZRLT)\n", true)
 				log.Println("   -x, --checksum", true)
 				log.Println("        enable block checksum\n", true)

@@ -13,281 +13,292 @@
 #include "../transform/SBRT.hpp"
 #include "TransformSequence.hpp"
 #include "BWTBlockCodec.hpp"
-#include "SnappyCodec.hpp"
 #include "LZ4Codec.hpp"
-#include "ZRLT.hpp"
-#include "RLT.hpp"
 #include "NullFunction.hpp"
+#include "ROLZCodec.hpp"
+#include "RLT.hpp"
+#include "SnappyCodec.hpp"
 #include "TextCodec.hpp"
 #include "X86Codec.hpp"
+#include "ZRLT.hpp"
 
 namespace kanzi {
 
-template <class T>
-   class FunctionFactory {
-   public:
-       // Up to 64 transforms can be declared (6 bit index)
-       static const uint64 NONE_TYPE = 0; // copy
-       static const uint64 BWT_TYPE = 1; // Burrows Wheeler
-       static const uint64 BWTS_TYPE = 2; // Burrows Wheeler Scott
-       static const uint64 LZ4_TYPE = 3; // LZ4
-       static const uint64 SNAPPY_TYPE = 4; // Snappy
-       static const uint64 RLT_TYPE = 5; // Run Length
-       static const uint64 ZRLT_TYPE = 6; // Zero Run Length
-       static const uint64 MTFT_TYPE = 7; // Move To Front
-       static const uint64 RANK_TYPE = 8; // Rank
-       static const uint64 X86_TYPE = 9; // X86 codec
-       static const uint64 DICT_TYPE = 10; // Text codec
-
-       static uint64 getType(const char* name) THROW;
-
-       static uint64 getTypeToken(const char* name) THROW;
-
-       static string getName(uint64 functionType) THROW;
-
-       static TransformSequence<T>* newFunction(map<string, string>& ctx, uint64 functionType) THROW;
-
-   private:
-       FunctionFactory() {}
-
-       ~FunctionFactory() {}
-
-       static const int ONE_SHIFT = 6; // bits per transform
-       static const int MAX_SHIFT = (8-1) * ONE_SHIFT; // 8 transforms
-       static const int MASK = (1 << ONE_SHIFT) - 1;
-
-       static Transform<T>* newFunctionToken(map<string, string>& ctx, uint64 functionType) THROW;
-
-       static const char* getNameToken(uint64 functionType) THROW;
-   };
-
-   // The returned type contains 8 transform values
-   template <class T>
-   uint64 FunctionFactory<T>::getType(const char* cname) THROW
-   {
-       string name(cname);
-       size_t pos = name.find('+');
-
-       if (pos == string::npos)
-           return getTypeToken(name.c_str()) << MAX_SHIFT;
-       
-       size_t prv = 0;
-       int n = 0;
-       uint64 res = 0;
-       int shift = MAX_SHIFT;
-       name += '+';
-
-       while (pos != string::npos) {
-           string token = name.substr(prv, pos-prv);
-           uint64 typeTk = getTypeToken(token.c_str());
-           n++;
-
-           if (n > 8) {
-               stringstream ss;
-               ss << "Only 8 transforms allowed: " << name;
-               throw IllegalArgumentException(ss.str());
-           }
-
-           // Skip null transform
-           if (typeTk != NONE_TYPE) {
-               res |= (typeTk << shift);
-               shift -= ONE_SHIFT;
-           }
-
-           pos++;
-           prv = pos;
-           pos = name.find('+', pos);
-       }
-
-       return res;
-   }
-
-   template <class T>
-   uint64 FunctionFactory<T>::getTypeToken(const char* cname) THROW
-   {
-       string name(cname);
-       transform(name.begin(), name.end(), name.begin(), ::toupper);
+	template <class T>
+	class FunctionFactory {
+	public:
+		// Up to 64 transforms can be declared (6 bit index)
+		static const uint64 NONE_TYPE = 0; // copy
+		static const uint64 BWT_TYPE = 1; // Burrows Wheeler
+		static const uint64 BWTS_TYPE = 2; // Burrows Wheeler Scott
+		static const uint64 LZ4_TYPE = 3; // LZ4
+		static const uint64 SNAPPY_TYPE = 4; // Snappy
+		static const uint64 RLT_TYPE = 5; // Run Length
+		static const uint64 ZRLT_TYPE = 6; // Zero Run Length
+		static const uint64 MTFT_TYPE = 7; // Move To Front
+		static const uint64 RANK_TYPE = 8; // Rank
+		static const uint64 X86_TYPE = 9; // X86 codec
+		static const uint64 DICT_TYPE = 10; // Text codec
+		static const uint64 ROLZ_TYPE = 11; // ROLZ codec
 
-       if (name.compare("BWT") == 0)
-           return BWT_TYPE;
+		static uint64 getType(const char* name) THROW;
+
+		static uint64 getTypeToken(const char* name) THROW;
 
-       if (name.compare("BWTS") == 0)
-           return BWTS_TYPE;
+		static string getName(uint64 functionType) THROW;
 
-       if (name.compare("SNAPPY") == 0)
-           return SNAPPY_TYPE;
-
-       if (name.compare("LZ4") == 0)
-           return LZ4_TYPE;
+		static TransformSequence<T>* newFunction(map<string, string>& ctx, uint64 functionType) THROW;
 
-       if (name.compare("MTFT") == 0)
-           return MTFT_TYPE;
-
-       if (name.compare("ZRLT") == 0)
-           return ZRLT_TYPE;
+	private:
+		FunctionFactory() {}
 
-       if (name.compare("RLT") == 0)
-           return RLT_TYPE;
+		~FunctionFactory() {}
+
+		static const int ONE_SHIFT = 6; // bits per transform
+		static const int MAX_SHIFT = (8 - 1) * ONE_SHIFT; // 8 transforms
+		static const int MASK = (1 << ONE_SHIFT) - 1;
+
+		static Transform<T>* newFunctionToken(map<string, string>& ctx, uint64 functionType) THROW;
+
+		static const char* getNameToken(uint64 functionType) THROW;
+	};
+
+	// The returned type contains 8 transform values
+	template <class T>
+	uint64 FunctionFactory<T>::getType(const char* cname) THROW
+	{
+		string name(cname);
+		size_t pos = name.find('+');
+
+		if (pos == string::npos)
+			return getTypeToken(name.c_str()) << MAX_SHIFT;
+
+		size_t prv = 0;
+		int n = 0;
+		uint64 res = 0;
+		int shift = MAX_SHIFT;
+		name += '+';
+
+		while (pos != string::npos) {
+			string token = name.substr(prv, pos - prv);
+			uint64 typeTk = getTypeToken(token.c_str());
+			n++;
+
+			if (n > 8) {
+				stringstream ss;
+				ss << "Only 8 transforms allowed: " << name;
+				throw IllegalArgumentException(ss.str());
+			}
+
+			// Skip null transform
+			if (typeTk != NONE_TYPE) {
+				res |= (typeTk << shift);
+				shift -= ONE_SHIFT;
+			}
+
+			pos++;
+			prv = pos;
+			pos = name.find('+', pos);
+		}
 
-       if (name.compare("RANK") == 0)
-           return RANK_TYPE;
+		return res;
+	}
 
-       if (name.compare("TEXT") == 0)
-           return DICT_TYPE;
+	template <class T>
+	uint64 FunctionFactory<T>::getTypeToken(const char* cname) THROW
+	{
+		string name(cname);
+		transform(name.begin(), name.end(), name.begin(), ::toupper);
 
-       if (name.compare("X86") == 0)
-           return X86_TYPE;
+		if (name.compare("BWT") == 0)
+			return BWT_TYPE;
 
-       if (name.compare("NONE") == 0)
-           return NONE_TYPE;
+		if (name.compare("BWTS") == 0)
+			return BWTS_TYPE;
 
-       stringstream ss;
-       ss << "Unknown transform type: " << name;
-       throw IllegalArgumentException(ss.str());
-   }
+		if (name.compare("SNAPPY") == 0)
+			return SNAPPY_TYPE;
 
-   template <class T>
-   TransformSequence<T>* FunctionFactory<T>::newFunction(map<string, string>& ctx, uint64 functionType) THROW
-   {
-       int nbtr = 0;
+		if (name.compare("LZ4") == 0)
+			return LZ4_TYPE;
 
-       // Several transforms
-       for (int i = 0; i < 8; i++) {
-           if (((functionType >> (MAX_SHIFT - ONE_SHIFT * i)) & MASK) != NONE_TYPE)
-               nbtr++;
-       }
+		if (name.compare("ROLZ") == 0)
+			return ROLZ_TYPE;
 
-       // Only null transforms ? Keep first.
-       if (nbtr == 0)
-           nbtr = 1;
+		if (name.compare("MTFT") == 0)
+			return MTFT_TYPE;
 
-       Transform<T>* transforms[8];
-       nbtr = 0;
+		if (name.compare("ZRLT") == 0)
+			return ZRLT_TYPE;
 
-       for (int i = 0; i < 8; i++) {
-           transforms[i] = nullptr;
-           uint64 t = (functionType >> (MAX_SHIFT - ONE_SHIFT * i)) & MASK;
+		if (name.compare("RLT") == 0)
+			return RLT_TYPE;
 
-           if ((t != NONE_TYPE) || (i == 0))
-               transforms[nbtr++] = newFunctionToken(ctx, t);
-       }
+		if (name.compare("RANK") == 0)
+			return RANK_TYPE;
 
-       return new TransformSequence<T>(transforms, true);
-   }
+		if (name.compare("TEXT") == 0)
+			return DICT_TYPE;
 
-   template <class T>
-   Transform<T>* FunctionFactory<T>::newFunctionToken(map<string, string>& ctx, uint64 functionType) THROW
-   {
-       switch (functionType) {
-       case SNAPPY_TYPE:
-           return new SnappyCodec();
+		if (name.compare("X86") == 0)
+			return X86_TYPE;
 
-       case LZ4_TYPE:
-           return new LZ4Codec();
+		if (name.compare("NONE") == 0)
+			return NONE_TYPE;
 
-       case BWT_TYPE:
-           return new BWTBlockCodec();
+		stringstream ss;
+		ss << "Unknown transform type: " << name;
+		throw IllegalArgumentException(ss.str());
+	}
 
-       case BWTS_TYPE:
-           return new BWTS();
+	template <class T>
+	TransformSequence<T>* FunctionFactory<T>::newFunction(map<string, string>& ctx, uint64 functionType) THROW
+	{
+		int nbtr = 0;
 
-       case MTFT_TYPE:
-           return new MTFT();
+		// Several transforms
+		for (int i = 0; i < 8; i++) {
+			if (((functionType >> (MAX_SHIFT - ONE_SHIFT * i)) & MASK) != NONE_TYPE)
+				nbtr++;
+		}
 
-       case ZRLT_TYPE:
-           return new ZRLT();
+		// Only null transforms ? Keep first.
+		if (nbtr == 0)
+			nbtr = 1;
 
-       case RLT_TYPE:
-           return new RLT();
+		Transform<T>* transforms[8];
+		nbtr = 0;
 
-       case RANK_TYPE:
-           return new SBRT(SBRT::MODE_RANK);
+		for (int i = 0; i < 8; i++) {
+			transforms[i] = nullptr;
+			uint64 t = (functionType >> (MAX_SHIFT - ONE_SHIFT * i)) & MASK;
 
-       case DICT_TYPE:
-           return new TextCodec(ctx);
+			if ((t != NONE_TYPE) || (i == 0))
+				transforms[nbtr++] = newFunctionToken(ctx, t);
+		}
 
-       case X86_TYPE:
-           return new X86Codec();
+		return new TransformSequence<T>(transforms, true);
+	}
 
-       case NONE_TYPE:
-           return new NullFunction<T>();
+	template <class T>
+	Transform<T>* FunctionFactory<T>::newFunctionToken(map<string, string>& ctx, uint64 functionType) THROW
+	{
+		switch (functionType) {
+		case SNAPPY_TYPE:
+			return new SnappyCodec();
 
-       default:
-           stringstream ss;
-           ss << "Unknown transform type: " << functionType;
-           throw IllegalArgumentException(ss.str());
-       }
-   }
+		case LZ4_TYPE:
+			return new LZ4Codec();
 
-   template <class T>
-   string FunctionFactory<T>::getName(uint64 functionType) THROW
-   {
-       stringstream ss;
+		case ROLZ_TYPE:
+			return new ROLZCodec();
 
-       for (int i = 0; i < 8; i++) {
-           uint64 t = (functionType >> (MAX_SHIFT - ONE_SHIFT * i)) & MASK;
+		case BWT_TYPE:
+			return new BWTBlockCodec();
 
-           if (t == NONE_TYPE)
-               continue;
+		case BWTS_TYPE:
+			return new BWTS();
 
-           string name = getNameToken(t);
+		case MTFT_TYPE:
+			return new MTFT();
 
-           if (ss.str().length() != 0)
-               ss << "+";
+		case ZRLT_TYPE:
+			return new ZRLT();
 
-           ss << name;
-       }
+		case RLT_TYPE:
+			return new RLT();
 
-       if (ss.str().length() == 0) {
-           ss << getNameToken(NONE_TYPE);
-       }
+		case RANK_TYPE:
+			return new SBRT(SBRT::MODE_RANK);
 
-       return ss.str();
-   }
+		case DICT_TYPE:
+			return new TextCodec(ctx);
 
-   template <class T>
-   const char* FunctionFactory<T>::getNameToken(uint64 functionType) THROW
-   {
-       switch (functionType) {
-       case LZ4_TYPE:
-           return "LZ4";
+		case X86_TYPE:
+			return new X86Codec();
 
-       case BWT_TYPE:
-           return "BWT";
+		case NONE_TYPE:
+			return new NullFunction<T>();
 
-       case BWTS_TYPE:
-           return "BWTS";
+		default:
+			stringstream ss;
+			ss << "Unknown transform type: " << functionType;
+			throw IllegalArgumentException(ss.str());
+		}
+	}
 
-       case SNAPPY_TYPE:
-           return "SNAPPY";
+	template <class T>
+	string FunctionFactory<T>::getName(uint64 functionType) THROW
+	{
+		stringstream ss;
 
-       case MTFT_TYPE:
-           return "MTFT";
+		for (int i = 0; i < 8; i++) {
+			uint64 t = (functionType >> (MAX_SHIFT - ONE_SHIFT * i)) & MASK;
 
-       case ZRLT_TYPE:
-           return "ZRLT";
+			if (t == NONE_TYPE)
+				continue;
 
-       case RLT_TYPE:
-           return "RLT";
+			string name = getNameToken(t);
 
-       case RANK_TYPE:
-           return "RANK";
+			if (ss.str().length() != 0)
+				ss << "+";
 
-       case DICT_TYPE:
-           return "TEXT";
+			ss << name;
+		}
 
-       case X86_TYPE:
-           return "X86";
+		if (ss.str().length() == 0) {
+			ss << getNameToken(NONE_TYPE);
+		}
 
-       case NONE_TYPE:
-           return "NONE";
+		return ss.str();
+	}
 
-       default:
-           stringstream ss;
-           ss << "Unknown transform type: " << functionType;
-           throw IllegalArgumentException(ss.str());
-       }
-   }
+	template <class T>
+	const char* FunctionFactory<T>::getNameToken(uint64 functionType) THROW
+	{
+		switch (functionType) {
+		case LZ4_TYPE:
+			return "LZ4";
+
+		case BWT_TYPE:
+			return "BWT";
+
+		case BWTS_TYPE:
+			return "BWTS";
+
+		case SNAPPY_TYPE:
+			return "SNAPPY";
+
+		case MTFT_TYPE:
+			return "MTFT";
+
+		case ROLZ_TYPE:
+			return "ROLZ";
+
+		case ZRLT_TYPE:
+			return "ZRLT";
+
+		case RLT_TYPE:
+			return "RLT";
+
+		case RANK_TYPE:
+			return "RANK";
+
+		case DICT_TYPE:
+			return "TEXT";
+
+		case X86_TYPE:
+			return "X86";
+
+		case NONE_TYPE:
+			return "NONE";
+
+		default:
+			stringstream ss;
+			ss << "Unknown transform type: " << functionType;
+			throw IllegalArgumentException(ss.str());
+		}
+	}
 }
 
 #endif

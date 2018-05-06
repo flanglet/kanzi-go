@@ -191,7 +191,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
                 log.println("        entropy codec [None|Huffman|ANS0|ANS1|Range|PAQ|FPAQ|TPAQ|CM]", true);
                 log.println("        (default is ANS0)\n", true);
                 log.println("   -t, --transform=<codec>", true);
-                log.println("        transform [None|BWT|BWTS|SNAPPY|LZ4|RLT|ZRLT|MTFT|RANK|TEXT|X86]", true);
+                log.println("        transform [None|BWT|BWTS|SNAPPY|LZ4|ROLZ|RLT|ZRLT|MTFT|RANK|TEXT|X86]", true);
                 log.println("        EG: BWT+RANK or BWTS+MTFT (default is BWT+RANK+ZRLT)\n", true);
                 log.println("   -x, --checksum", true);
                 log.println("        enable block checksum\n", true);

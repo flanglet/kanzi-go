@@ -4,17 +4,17 @@ CFLAGS=-c -std=c++11 -Wall -Wextra -O3 -fomit-frame-pointer -msse2
 LDFLAGS=-lpthread
 LIB_SOURCES=Global.cpp \
 	Event.cpp \
+	transform/BWT.cpp \
+	transform/BWTS.cpp \
 	transform/DCT16.cpp \
 	transform/DCT32.cpp \
 	transform/DCT4.cpp \
 	transform/DCT8.cpp \
 	transform/DST4.cpp \
+	transform/DivSufSort.cpp \
 	transform/DWT_CDF_9_7.cpp \
-	transform/BWT.cpp \
-	transform/BWTS.cpp \
 	transform/MTFT.cpp \
 	transform/SBRT.cpp \
-	transform/DivSufSort.cpp \
 	bitstream/DebugInputBitStream.cpp \
 	bitstream/DebugOutputBitStream.cpp \
 	bitstream/DefaultInputBitStream.cpp \
@@ -23,36 +23,37 @@ LIB_SOURCES=Global.cpp \
 	io/CompressedOutputStream.cpp \
 	entropy/ANSRangeDecoder.cpp \
 	entropy/ANSRangeEncoder.cpp \
+	entropy/BinaryEntropyDecoder.cpp \
+	entropy/BinaryEntropyEncoder.cpp \
 	entropy/EntropyUtils.cpp \
 	entropy/ExpGolombDecoder.cpp \
 	entropy/ExpGolombEncoder.cpp \
-	entropy/RiceGolombEncoder.cpp \
-	entropy/RiceGolombDecoder.cpp \
+	entropy/HuffmanCommon.cpp \
 	entropy/HuffmanDecoder.cpp \
 	entropy/HuffmanEncoder.cpp \
 	entropy/RangeDecoder.cpp \
 	entropy/RangeEncoder.cpp \
-	entropy/HuffmanCommon.cpp \
-	entropy/BinaryEntropyDecoder.cpp \
-	entropy/BinaryEntropyEncoder.cpp \
+	entropy/RiceGolombEncoder.cpp \
+	entropy/RiceGolombDecoder.cpp \
+	entropy/CMPredictor.cpp \
 	entropy/FPAQPredictor.cpp \
 	entropy/PAQPredictor.cpp \
 	entropy/TPAQPredictor.cpp \
-	entropy/CMPredictor.cpp \
 	function/BWTBlockCodec.cpp \
 	function/LZ4Codec.cpp \
-	function/SnappyCodec.cpp \
+	function/ROLZCodec.cpp \
 	function/RLT.cpp \
+	function/SnappyCodec.cpp \
 	function/TextCodec.cpp \
 	function/X86Codec.cpp \
 	function/ZRLT.cpp 
 LIB_OBJECTS=$(LIB_SOURCES:.cpp=.o)
 
 TEST_SOURCES=test/TestEntropyCodec.cpp \
+	test/TestBWT.cpp \
 	test/TestDefaultBitStream.cpp \
 	test/TestFunctions.cpp \
 	test/TestMTFT.cpp \
-	test/TestBWT.cpp \
 	test/TestTransforms.cpp
 TEST_OBJECTS=$(TEST_SOURCES:.cpp=.o)
 
