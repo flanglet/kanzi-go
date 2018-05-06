@@ -103,7 +103,7 @@ void processCommandLine(int argc, const char* argv[], map<string, string>& map)
 
         if ((arg.compare(0, 10, "--verbose=") == 0) || (ctx == ARG_IDX_VERBOSE)) {
             strVerbose = (arg.compare(0, 10, "--verbose=") == 0) ? arg.substr(10) : arg;
-            int verbose = atoi(strVerbose.c_str());
+            verbose = atoi(strVerbose.c_str());
 
             if ((verbose < 0) || (verbose > 5)) {
                 cerr << "Invalid verbosity level provided on command line: " << arg << endl;
