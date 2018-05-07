@@ -107,6 +107,9 @@
                     <optimize>true</optimize>
                     <showDeprecation>true</showDeprecation>
                     <showWarnings>true</showWarnings>
+                <archive>
+                    <manifestFile>MANIFEST.MF</manifestFile>
+                </archive>
                 </configuration>
             </plugin>
         </plugins>

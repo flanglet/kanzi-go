@@ -31,7 +31,7 @@
    </target>
    
    <target name="build_all" depends="compile_all">
-     <jar destfile="${build.dir}/kanzi.jar" basedir="${build.dir}/classes" />
+     <jar destfile="${build.dir}/kanzi.jar" manifest="MANIFEST.MF" basedir="${build.dir}/classes" />
    </target>
     
    <target name="compile_all" depends="clean">
