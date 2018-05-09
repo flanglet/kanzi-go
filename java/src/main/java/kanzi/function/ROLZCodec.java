@@ -30,7 +30,7 @@ public final class ROLZCodec implements ByteFunction
    private static final int HASH_SIZE = 1 << 16;
    private static final int MIN_MATCH = 3;
    private static final int MAX_MATCH = MIN_MATCH + 255;
-   private static final int LOG_POS_CHECKS = 6;
+   private static final int LOG_POS_CHECKS = 5;
    private static final int CHUNK_SIZE = 1 << 26;
    private static final int LITERAL_FLAG = 0;
    private static final int MATCH_FLAG = 1;
@@ -214,7 +214,7 @@ public final class ROLZCodec implements ByteFunction
                final int matchIdx = match >> 8;
                this.matchPredictor.setContext(src[srcIdx-1]);
                re.setContext(MATCH_FLAG);
-
+                             
                for (int shift=this.logPosChecks-1; shift>=0; shift--)
                   re.encodeBit((matchIdx>>shift) & 1);
 
@@ -227,7 +227,7 @@ public final class ROLZCodec implements ByteFunction
 
       // Last literals
       re.setContext(LITERAL_FLAG);
-
+      
       for (int i=0; i<4; i++, srcIdx++)
       {
          this.litPredictor.setContext(src[srcIdx-1]);
@@ -550,7 +550,7 @@ public final class ROLZCodec implements ByteFunction
       private final int logSize;
       private int c1;
       private int ctx;
-
+      
       ROLZPredictor(int logPosChecks)
       {
          this.logSize = logPosChecks;
@@ -581,19 +581,10 @@ public final class ROLZCodec implements ByteFunction
       public  void update(int bit)
       {
          final int idx = this.ctx + this.c1;
+         this.p1[idx] -= (((this.p1[idx] - (-bit&0xFFFF)) >> 3) + bit);
+         this.p2[idx] -= (((this.p2[idx] - (-bit&0xFFFF)) >> 6) + bit);
          this.c1 <<= 1;
-
-         if (bit == 0)
-         {
-            this.p1[idx] -= (this.p1[idx] >> 3);
-            this.p2[idx] -= (this.p2[idx] >> 6);
-         }
-         else
-         {
-            this.p1[idx] += ((this.p1[idx] ^ 0xFFFF) >> 3);
-            this.p2[idx] += ((this.p2[idx] ^ 0xFFFF) >> 6);
-            this.c1++;
-         }
+         this.c1 += bit;
 
          if (this.c1 >= this.size)
             this.c1 = 1;

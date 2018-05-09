@@ -30,7 +30,7 @@ const (
 	ROLZ_HASH_SIZE      = 1 << 16
 	ROLZ_MIN_MATCH      = 3
 	ROLZ_MAX_MATCH      = ROLZ_MIN_MATCH + 255
-	ROLZ_LOG_POS_CHECKS = 6
+	ROLZ_LOG_POS_CHECKS = 5
 	ROLZ_CHUNK_SIZE     = 1 << 26
 	ROLZ_HASH_MASK      = int32(^(ROLZ_CHUNK_SIZE - 1))
 	ROLZ_LITERAL_FLAG   = 0
@@ -44,8 +44,8 @@ const (
 )
 
 type ROLZPredictor struct {
-	p1      []uint16
-	p2      []uint16
+	p1      []int32
+	p2      []int32
 	logSize uint
 	size    int32
 	c1      int32
@@ -56,8 +56,8 @@ func newROLZPredictor(logPosChecks uint) (*ROLZPredictor, error) {
 	this := new(ROLZPredictor)
 	this.logSize = logPosChecks
 	this.size = 1 << logPosChecks
-	this.p1 = make([]uint16, 256*this.size)
-	this.p2 = make([]uint16, 256*this.size)
+	this.p1 = make([]int32, 256*this.size)
+	this.p2 = make([]int32, 256*this.size)
 	this.reset()
 	return this, nil
 }
@@ -74,16 +74,11 @@ func (this *ROLZPredictor) reset() {
 
 func (this *ROLZPredictor) Update(bit byte) {
 	idx := this.ctx + this.c1
+	b := int32(bit)
+	this.p1[idx] -= (((this.p1[idx] - (-b & 0xFFFF)) >> 3) + b)
+	this.p2[idx] -= (((this.p2[idx] - (-b & 0xFFFF)) >> 6) + b)
 	this.c1 <<= 1
-
-	if bit == 0 {
-		this.p1[idx] -= (this.p1[idx] >> 3)
-		this.p2[idx] -= (this.p2[idx] >> 6)
-	} else {
-		this.p1[idx] += ((this.p1[idx] ^ 0xFFFF) >> 3)
-		this.p2[idx] += ((this.p2[idx] ^ 0xFFFF) >> 6)
-		this.c1++
-	}
+	this.c1 += b
 
 	if this.c1 >= this.size {
 		this.c1 = 1
@@ -92,7 +87,7 @@ func (this *ROLZPredictor) Update(bit byte) {
 
 func (this *ROLZPredictor) Get() int {
 	idx := this.ctx + this.c1
-	return (int(this.p1[idx]) + int(this.p2[idx])) >> 5
+	return int(this.p1[idx]+this.p2[idx]) >> 5
 }
 
 func (this *ROLZPredictor) setContext(ctx byte) {
@@ -304,7 +299,7 @@ func (this *ROLZCodec) findMatch(buf []byte, pos int) (int, int) {
 		ref &= ^ROLZ_HASH_MASK
 		refBuf := buf[ref:]
 
-		if (refBuf[0] != curBuf[0]) {
+		if refBuf[0] != curBuf[0] {
 			continue
 		}
 

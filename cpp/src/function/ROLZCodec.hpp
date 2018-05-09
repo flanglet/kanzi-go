@@ -133,7 +133,7 @@ namespace kanzi
 		static const int HASH_SIZE = 1 << 16;
 		static const int MIN_MATCH = 3;
 		static const int MAX_MATCH = MIN_MATCH + 255;
-		static const int LOG_POS_CHECKS = 6;
+		static const int LOG_POS_CHECKS = 5;
 		static const int CHUNK_SIZE = 1 << 26;
 		static const int LITERAL_FLAG = 0;
 		static const int MATCH_FLAG = 1;
