@@ -516,21 +516,26 @@ void BlockCompressor::getTransformAndCodec(int level, string tranformAndCodec[2]
         return;
 
     case 2:
-        tranformAndCodec[0] = "BWT+RANK+ZRLT";
-        tranformAndCodec[1] = "ANS0";
+        tranformAndCodec[0] = "TEXT+ROLZ";
+        tranformAndCodec[1] = "NONE";
         return;
 
     case 3:
         tranformAndCodec[0] = "BWT+RANK+ZRLT";
-        tranformAndCodec[1] = "FPAQ";
+        tranformAndCodec[1] = "ANS0";
         return;
 
     case 4:
+        tranformAndCodec[0] = "BWT+RANK+ZRLT";
+        tranformAndCodec[1] = "FPAQ";
+        return;
+
+    case 5:
         tranformAndCodec[0] = "BWT";
         tranformAndCodec[1] = "CM";
         return;
 
-    case 5:
+    case 6:
         tranformAndCodec[0] = "X86+RLT+TEXT";
         tranformAndCodec[1] = "TPAQ";
         return;
