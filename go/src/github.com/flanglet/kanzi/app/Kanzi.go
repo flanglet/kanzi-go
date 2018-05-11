@@ -434,7 +434,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 				os.Exit(kanzi.ERR_INVALID_PARAM)
 			}
 
-			if level < 0 || level > 5 {
+			if level < 0 || level > 6 {
 				fmt.Printf("Invalid compression level provided on command line: %v\n", arg)
 				os.Exit(kanzi.ERR_INVALID_PARAM)
 			}

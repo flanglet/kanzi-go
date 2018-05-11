@@ -379,7 +379,7 @@ public class Kanzi
                   System.exit(kanzi.Error.ERR_INVALID_PARAM);
                }
 
-               if ((level < 0) || (level > 5))
+               if ((level < 0) || (level > 6))
                {
                   System.err.println("Invalid compression level provided on command line: "+arg);
                   System.exit(kanzi.Error.ERR_INVALID_PARAM);                  
