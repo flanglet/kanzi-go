@@ -34,7 +34,6 @@ const (
 type BWTS struct {
 	buffer1 []int
 	buffer2 []int
-	buckets []int
 	saAlgo  *DivSufSort
 }
 
@@ -42,7 +41,6 @@ func NewBWTS() (*BWTS, error) {
 	this := new(BWTS)
 	this.buffer1 = make([]int, 0)
 	this.buffer2 = make([]int, 0)
-	this.buckets = make([]int, 256)
 	return this, nil
 }
 
@@ -240,29 +238,26 @@ func (this *BWTS) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	// Aliasing
-	buckets_ := this.buckets
 	lf := this.buffer1
 
-	// Initialize histogram
-	for i := range this.buckets {
-		buckets_[i] = 0
-	}
+	buckets := [256]int{}
 
+	// Initialize histogram
 	for i := 0; i < count; i++ {
-		buckets_[src[i]]++
+		buckets[src[i]]++
 	}
 
 	sum := 0
 
 	// Histogram
-	for i := range buckets_ {
-		sum += buckets_[i]
-		buckets_[i] = sum - buckets_[i]
+	for i := range buckets {
+		sum += buckets[i]
+		buckets[i] = sum - buckets[i]
 	}
 
 	for i := 0; i < count; i++ {
-		lf[i] = buckets_[src[i]]
-		buckets_[src[i]]++
+		lf[i] = buckets[src[i]]
+		buckets[src[i]]++
 	}
 
 	// Build inverse

@@ -213,7 +213,7 @@ func Ten_log10(x uint32) (uint32, error) {
 	}
 
 	log2, err := Log2_1024(x)
-	return uint32(log2 * 6165) >> 11, err // 10 * 1/log2(10)
+	return uint32(log2*6165) >> 11, err // 10 * 1/log2(10)
 }
 
 // Return 1024 * sin(1024*x) [x in radians]

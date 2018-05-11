@@ -68,8 +68,7 @@ type BWT struct {
 	buffer1        []uint32
 	buffer2        []byte // Only used for big blocks (size >= 1<<24)
 	buffer3        []int
-	buckets        []uint32
-	primaryIndexes []uint
+	primaryIndexes [9]uint
 	saAlgo         *DivSufSort
 }
 
@@ -78,8 +77,7 @@ func NewBWT() (*BWT, error) {
 	this.buffer1 = make([]uint32, 0) // Allocate empty: only used in inverse
 	this.buffer2 = make([]byte, 0)   // Allocate empty: only used for big blocks (size >= 1<<24)
 	this.buffer3 = make([]int, 0)    // Allocate empty: only used in forward
-	this.buckets = make([]uint32, 256)
-	this.primaryIndexes = make([]uint, 9)
+	this.primaryIndexes = [9]uint{}
 	return this, nil
 }
 
@@ -245,14 +243,9 @@ func (this *BWT) inverseRegularBlock(src, dst []byte, count int) (uint, uint, er
 	}
 
 	// Aliasing
-	buckets_ := this.buckets
 	data := this.buffer1
 
-	// Create histogram
-	for i := range this.buckets {
-		buckets_[i] = 0
-	}
-
+	buckets := [256]uint32{}
 	chunks := GetBWTChunks(count)
 
 	// Build array of packed index + value (assumes block size < 2^24)
@@ -260,24 +253,24 @@ func (this *BWT) inverseRegularBlock(src, dst []byte, count int) (uint, uint, er
 	pIdx := int(this.PrimaryIndex(0))
 	val0 := uint32(src[pIdx])
 	data[pIdx] = val0
-	buckets_[val0]++
+	buckets[val0]++
 
 	for i := 0; i < pIdx; i++ {
 		val := uint32(src[i])
-		data[i] = (buckets_[val] << 8) | val
-		buckets_[val]++
+		data[i] = (buckets[val] << 8) | val
+		buckets[val]++
 	}
 
 	for i := pIdx + 1; i < count; i++ {
 		val := uint32(src[i])
-		data[i] = (buckets_[val] << 8) | val
-		buckets_[val]++
+		data[i] = (buckets[val] << 8) | val
+		buckets[val]++
 	}
 
 	sum := uint32(0)
 
-	for i, b := range buckets_ {
-		buckets_[i] = sum
+	for i, b := range buckets {
+		buckets[i] = sum
 		sum += b
 	}
 
@@ -290,7 +283,7 @@ func (this *BWT) inverseRegularBlock(src, dst []byte, count int) (uint, uint, er
 		idx--
 
 		for idx >= 0 {
-			ptr = data[(ptr>>8)+buckets_[ptr&0xFF]]
+			ptr = data[(ptr>>8)+buckets[ptr&0xFF]]
 			dst[idx] = byte(ptr)
 			idx--
 		}
@@ -304,7 +297,7 @@ func (this *BWT) inverseRegularBlock(src, dst []byte, count int) (uint, uint, er
 			endChunk := i * step
 
 			for idx >= endChunk {
-				ptr = data[(ptr>>8)+buckets_[ptr&0xFF]]
+				ptr = data[(ptr>>8)+buckets[ptr&0xFF]]
 				dst[idx] = byte(ptr)
 				idx--
 			}
@@ -329,44 +322,39 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 	}
 
 	// Aliasing
-	buckets_ := this.buckets
 	data1 := this.buffer1
 	data2 := this.buffer2
 
-	// Create histogram
-	for i := range this.buckets {
-		buckets_[i] = 0
-	}
-
+	buckets := [256]uint32{}
 	chunks := GetBWTChunks(count)
 
 	// Build arrays
 	// Start with the primary index position
 	pIdx := int(this.PrimaryIndex(0))
 	val0 := src[pIdx]
-	data1[pIdx] = buckets_[val0]
+	data1[pIdx] = buckets[val0]
 	data2[pIdx] = val0
-	buckets_[val0]++
+	buckets[val0]++
 
 	for i := 0; i < pIdx; i++ {
 		val := src[i]
-		data1[i] = buckets_[val]
+		data1[i] = buckets[val]
 		data2[i] = val
-		buckets_[val]++
+		buckets[val]++
 	}
 
 	for i := pIdx + 1; i < count; i++ {
 		val := src[i]
-		data1[i] = buckets_[val]
+		data1[i] = buckets[val]
 		data2[i] = val
-		buckets_[val]++
+		buckets[val]++
 	}
 
 	sum := uint32(0)
 
 	// Create cumulative histogram
-	for i, b := range buckets_ {
-		buckets_[i] = sum
+	for i, b := range buckets {
+		buckets[i] = sum
 		sum += b
 	}
 
@@ -380,7 +368,7 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 		idx--
 
 		for idx >= 0 {
-			n := val1 + buckets_[val2]
+			n := val1 + buckets[val2]
 			val1 = data1[n]
 			val2 = data2[n]
 			dst[idx] = val2
@@ -397,7 +385,7 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 			endChunk := i * step
 
 			for idx >= endChunk {
-				n := val1 + buckets_[val2]
+				n := val1 + buckets[val2]
 				val1 = data1[n]
 				val2 = data2[n]
 				dst[idx] = val2

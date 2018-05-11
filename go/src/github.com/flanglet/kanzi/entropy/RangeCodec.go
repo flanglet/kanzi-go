@@ -37,9 +37,9 @@ const (
 type RangeEncoder struct {
 	low       uint64
 	range_    uint64
-	alphabet  []int
-	freqs     []int
-	cumFreqs  []uint64
+	alphabet  [256]int
+	freqs     [256]int
+	cumFreqs  [257]uint64
 	eu        *EntropyUtils
 	bitstream kanzi.OutputBitStream
 	chunkSize uint
@@ -84,9 +84,9 @@ func NewRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*RangeEncoder, err
 
 	this := new(RangeEncoder)
 	this.bitstream = bs
-	this.alphabet = make([]int, 256)
-	this.freqs = make([]int, 256)
-	this.cumFreqs = make([]uint64, 257)
+	this.alphabet = [256]int{}
+	this.freqs = [256]int{}
+	this.cumFreqs = [257]uint64{}
 	this.logRange = logRange
 	this.chunkSize = chkSize
 	var err error
@@ -99,7 +99,7 @@ func (this *RangeEncoder) updateFrequencies(frequencies []int, size int, lr uint
 		return 0, errors.New("Invalid frequencies parameter")
 	}
 
-	alphabetSize, err := this.eu.NormalizeFrequencies(frequencies, this.alphabet, size, 1<<lr)
+	alphabetSize, err := this.eu.NormalizeFrequencies(frequencies, this.alphabet[:], size, 1<<lr)
 
 	if err != nil {
 		return alphabetSize, err
@@ -114,7 +114,7 @@ func (this *RangeEncoder) updateFrequencies(frequencies []int, size int, lr uint
 		}
 	}
 
-	this.encodeHeader(alphabetSize, this.alphabet, frequencies, lr)
+	this.encodeHeader(alphabetSize, this.alphabet[:], frequencies, lr)
 	return alphabetSize, nil
 }
 
@@ -233,7 +233,7 @@ func (this *RangeEncoder) rebuildStatistics(block []byte, lr uint) error {
 	}
 
 	// Rebuild statistics
-	_, err := this.updateFrequencies(this.freqs, len(block), lr)
+	_, err := this.updateFrequencies(this.freqs[:], len(block), lr)
 	return err
 }
 
@@ -275,9 +275,9 @@ type RangeDecoder struct {
 	code      uint64
 	low       uint64
 	range_    uint64
-	alphabet  []int
-	freqs     []int
-	cumFreqs  []uint64
+	alphabet  [256]int
+	freqs     [256]int
+	cumFreqs  [257]uint64
 	f2s       []uint16 // mapping frequency -> symbol
 	bitstream kanzi.InputBitStream
 	chunkSize uint
@@ -315,16 +315,16 @@ func NewRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*RangeDecoder, erro
 
 	this := new(RangeDecoder)
 	this.bitstream = bs
-	this.alphabet = make([]int, 256)
-	this.freqs = make([]int, 256)
-	this.cumFreqs = make([]uint64, 257)
+	this.alphabet = [256]int{}
+	this.freqs = [256]int{}
+	this.cumFreqs = [257]uint64{}
 	this.f2s = make([]uint16, 0)
 	this.chunkSize = chkSize
 	return this, nil
 }
 
 func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
-	alphabetSize, err := DecodeAlphabet(this.bitstream, this.alphabet)
+	alphabetSize, err := DecodeAlphabet(this.bitstream, this.alphabet[:])
 
 	if err != nil || alphabetSize == 0 {
 		return alphabetSize, nil
@@ -417,7 +417,7 @@ func (this *RangeDecoder) Decode(block []byte) (int, error) {
 	}
 
 	for startChunk < end {
-		alphabetSize, err := this.decodeHeader(this.freqs)
+		alphabetSize, err := this.decodeHeader(this.freqs[:])
 
 		if err != nil || alphabetSize == 0 {
 			return startChunk, err

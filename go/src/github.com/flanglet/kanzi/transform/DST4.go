@@ -32,16 +32,14 @@ const (
 )
 
 type DST4 struct {
-	fShift uint  // default 8
-	iShift uint  // default 20
-	data   []int // int[16]
+	fShift uint // default 8
+	iShift uint // default 20
 }
 
 func NewDST4() (*DST4, error) {
 	this := new(DST4)
 	this.fShift = 8
 	this.iShift = 20
-	this.data = make([]int, 16)
 	return this, nil
 }
 
@@ -54,8 +52,9 @@ func (this *DST4) Forward(src, dst []int) (uint, uint, error) {
 		return 0, 0, errors.New("Output size must be at least 16")
 	}
 
-	computeForwardDST4(src, this.data, 4)
-	computeForwardDST4(this.data, dst, this.fShift-4)
+	data := [16]int{}
+	computeForwardDST4(src, data[:], 4)
+	computeForwardDST4(data[:], dst, this.fShift-4)
 	return 16, 16, nil
 }
 
@@ -124,9 +123,9 @@ func (this *DST4) Inverse(src, dst []int) (uint, uint, error) {
 	if len(dst) < 16 {
 		return 0, 0, errors.New("Output size must be at least 16")
 	}
-
-	computeInverseDST4(src, this.data, 10)
-	computeInverseDST4(this.data, dst, this.iShift-10)
+	data := [16]int{}
+	computeInverseDST4(src, data[:], 10)
+	computeInverseDST4(data[:], dst, this.iShift-10)
 	return 16, 16, nil
 }
 

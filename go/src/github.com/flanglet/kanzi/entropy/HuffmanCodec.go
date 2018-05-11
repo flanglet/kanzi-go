@@ -130,12 +130,12 @@ func generateCanonicalCodes(sizes []byte, codes []uint, ranks []int) int {
 // Uses in place generation of canonical codes instead of a tree
 type HuffmanEncoder struct {
 	bitstream kanzi.OutputBitStream
-	freqs     []uint
-	codes     []uint
-	sizes     []byte
-	ranks     []int
-	sranks    []int
-	buffer    []uint
+	freqs     [256]uint
+	codes     [256]uint
+	sizes     [256]byte
+	ranks     [256]int
+	sranks    [256]int
+	buffer    [256]uint
 	chunkSize int
 }
 
@@ -170,12 +170,12 @@ func NewHuffmanEncoder(bs kanzi.OutputBitStream, args ...uint) (*HuffmanEncoder,
 
 	this := new(HuffmanEncoder)
 	this.bitstream = bs
-	this.freqs = make([]uint, 256)
-	this.codes = make([]uint, 256)
-	this.sizes = make([]byte, 256)
-	this.ranks = make([]int, 256)
-	this.sranks = make([]int, 256)
-	this.buffer = make([]uint, 256)
+	this.freqs = [256]uint{}
+	this.codes = [256]uint{}
+	this.sizes = [256]byte{}
+	this.ranks = [256]int{}
+	this.sranks = [256]int{}
+	this.buffer = [256]uint{}
 	this.chunkSize = int(chkSize)
 
 	// Default frequencies, sizes and codes
@@ -235,7 +235,7 @@ func (this *HuffmanEncoder) UpdateFrequencies(frequencies []uint) error {
 	}
 
 	// Create canonical codes
-	if generateCanonicalCodes(this.sizes, this.codes, this.sranks[0:count]) < 0 {
+	if generateCanonicalCodes(this.sizes[:], this.codes[:], this.sranks[0:count]) < 0 {
 		return fmt.Errorf("Could not generate codes: max code length (%v bits) exceeded", MAX_SYMBOL_SIZE)
 	}
 
@@ -253,7 +253,7 @@ func (this *HuffmanEncoder) UpdateFrequencies(frequencies []uint) error {
 // count > 1 by design
 func (this *HuffmanEncoder) computeCodeLengths(frequencies []uint, count int) error {
 	// Sort ranks by increasing frequency
-	copy(this.sranks, this.ranks[0:count])
+	copy(this.sranks[:], this.ranks[0:count])
 
 	// Sort by increasing frequencies (first key) and increasing value (second key)
 	sort.Sort(ByIncreasingFrequency(this.sranks[0:count], frequencies))
@@ -383,7 +383,7 @@ func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
 		}
 
 		// Rebuild Huffman codes
-		this.UpdateFrequencies(frequencies)
+		this.UpdateFrequencies(frequencies[:])
 		c := this.codes
 		bs := this.bitstream
 
@@ -429,9 +429,9 @@ func (this *HuffmanEncoder) BitStream() kanzi.OutputBitStream {
 // Uses tables to decode symbols instead of a tree
 type HuffmanDecoder struct {
 	bitstream  kanzi.InputBitStream
-	codes      []uint
-	ranks      []int
-	sizes      []byte
+	codes      [256]uint
+	ranks      [256]int
+	sizes      [256]byte
 	fdTable    []uint // Fast decoding table
 	sdTable    []uint // Slow decoding table
 	sdtIndexes []int  // Indexes for slow decoding table (can be negative)
@@ -472,9 +472,9 @@ func NewHuffmanDecoder(bs kanzi.InputBitStream, args ...uint) (*HuffmanDecoder, 
 
 	this := new(HuffmanDecoder)
 	this.bitstream = bs
-	this.sizes = make([]byte, 256)
-	this.codes = make([]uint, 256)
-	this.ranks = make([]int, 256)
+	this.sizes = [256]byte{}
+	this.codes = [256]uint{}
+	this.ranks = [256]int{}
 	this.fdTable = make([]uint, 1<<DECODING_BATCH_SIZE)
 	this.sdTable = make([]uint, 256)
 	this.sdtIndexes = make([]int, MAX_SYMBOL_SIZE+1)
@@ -491,7 +491,7 @@ func NewHuffmanDecoder(bs kanzi.InputBitStream, args ...uint) (*HuffmanDecoder, 
 }
 
 func (this *HuffmanDecoder) ReadLengths() (int, error) {
-	count, err := DecodeAlphabet(this.bitstream, this.ranks)
+	count, err := DecodeAlphabet(this.bitstream, this.ranks[:])
 
 	if err != nil {
 		return 0, err
@@ -536,7 +536,7 @@ func (this *HuffmanDecoder) ReadLengths() (int, error) {
 	}
 
 	// Create canonical codes
-	if generateCanonicalCodes(this.sizes, this.codes, this.ranks[0:count]) < 0 {
+	if generateCanonicalCodes(this.sizes[:], this.codes[:], this.ranks[0:count]) < 0 {
 		return 0, errors.New("Could not generate codes: max code length (24 bits) exceeded")
 	}
 

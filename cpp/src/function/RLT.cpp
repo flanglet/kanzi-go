@@ -34,6 +34,9 @@ bool RLT::forward(SliceArray<byte>& input, SliceArray<byte>& output, int length)
     if (output._length - output._index < getMaxEncodedLength(length))
         return false;
 
+    int _counters[256];
+    byte _flags[32];
+
     for (int i = 0; i < 32; i++)
         _flags[i] = 0;
 
@@ -190,10 +193,11 @@ bool RLT::inverse(SliceArray<byte>& input, SliceArray<byte>& output, int length)
     const int maxRun = MAX_RUN + _runThreshold;
     bool res = true;
 
+    int _counters[256];
+
     // Read compression flags from input
     for (int i = 0, j = 0; i < 32; i++, j += 8) {
         const byte flag = src[srcIdx++];
-        _flags[i] = flag;
         _counters[j] = (flag >> 7) & 1;
         _counters[j + 1] = (flag >> 6) & 1;
         _counters[j + 2] = (flag >> 5) & 1;

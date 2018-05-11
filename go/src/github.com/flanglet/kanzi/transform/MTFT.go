@@ -33,17 +33,17 @@ type Payload struct {
 }
 
 type MTFT struct {
-	lengths []int      // size 16
-	buckets []byte     // size 256
-	heads   []*Payload // size 16
+	lengths [16]int
+	buckets [256]byte
+	heads   [16]*Payload
 	anchor  *Payload
 }
 
 func NewMTFT() (*MTFT, error) {
 	this := new(MTFT)
-	this.heads = make([]*Payload, 16)
-	this.lengths = make([]int, 16)
-	this.buckets = make([]byte, 256)
+	this.heads = [16]*Payload{}
+	this.lengths = [16]int{}
+	this.buckets = [256]byte{}
 	return this, nil
 }
 

@@ -158,7 +158,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) int {
 	if alphabetSize == 256 && count >= 32 && count <= 224 {
 		// Regular alphabet of symbols less than 256
 		obs.WriteBit(BIT_ENCODED_ALPHABET_256)
-		masks := make([]uint64, 4)
+		masks := [4]uint64{}
 
 		for i := 0; i < count; i++ {
 			masks[alphabet[i]>>6] |= (1 << uint(alphabet[i]&63))
@@ -540,7 +540,7 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, tota
 				inc = 1
 			}
 
-			queue := make(FreqSortPriorityQueue, 0)
+			queue := make(FreqSortPriorityQueue, 0, alphabetSize)
 
 			// Create sorted queue of present symbols (except those with 'quantum frequency')
 			for i := 0; i < alphabetSize; i++ {

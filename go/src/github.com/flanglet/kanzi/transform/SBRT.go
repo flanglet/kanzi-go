@@ -38,11 +38,7 @@ const (
 )
 
 type SBRT struct {
-	prev    []int // size 256
-	curr    []int // size 256
-	symbols []int // size 256
-	ranks   []int // size 256
-	mode    int
+	mode int
 }
 
 func NewSBRT(mode int) (*SBRT, error) {
@@ -52,10 +48,6 @@ func NewSBRT(mode int) (*SBRT, error) {
 
 	this := new(SBRT)
 	this.mode = mode
-	this.prev = make([]int, 256)
-	this.curr = make([]int, 256)
-	this.symbols = make([]int, 256)
-	this.ranks = make([]int, 256)
 	return this, nil
 }
 
@@ -83,12 +75,6 @@ func (this *SBRT) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New(errMsg)
 	}
 
-	// Aliasing
-	p := this.prev
-	q := this.curr
-	s2r := this.symbols
-	r2s := this.ranks
-
 	var mask1, mask2 int
 	var shift uint
 
@@ -110,9 +96,12 @@ func (this *SBRT) Forward(src, dst []byte) (uint, uint, error) {
 		shift = 0
 	}
 
+	p := [256]int{}
+	q := [256]int{}
+	s2r := [256]int{}
+	r2s := [256]int{}
+
 	for i := 0; i < 256; i++ {
-		p[i] = 0
-		q[i] = 0
 		s2r[i] = i
 		r2s[i] = i
 	}
@@ -163,11 +152,6 @@ func (this *SBRT) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New(errMsg)
 	}
 
-	// Aliasing
-	p := this.prev
-	q := this.curr
-	r2s := this.ranks
-
 	var mask1, mask2 int
 	var shift uint
 
@@ -189,9 +173,11 @@ func (this *SBRT) Inverse(src, dst []byte) (uint, uint, error) {
 		shift = 0
 	}
 
+	p := [256]int{}
+	q := [256]int{}
+	r2s := [256]int{}
+
 	for i := 0; i < 256; i++ {
-		p[i] = 0
-		q[i] = 0
 		r2s[i] = i
 	}
 

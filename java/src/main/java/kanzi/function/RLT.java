@@ -253,7 +253,6 @@ public class RLT implements ByteFunction
       for (int i=0, j=0; i<32; i++, j+=8)
       {
          final byte flag = src[srcIdx++];
-         this.flags[i] = flag;
          this.counters[j]   = (flag>>7) & 1;
          this.counters[j+1] = (flag>>6) & 1;
          this.counters[j+2] = (flag>>5) & 1;

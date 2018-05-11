@@ -488,8 +488,8 @@ func (this *EncodingTask) encode() {
 		}
 
 		if skipHighEntropyBlocks == true {
-			histo := make([]int, 256)
-			entropy1024 := entropy.ComputeFirstOrderEntropy1024(data[0:this.blockLength], histo)
+			histo := [256]int{}
+			entropy1024 := entropy.ComputeFirstOrderEntropy1024(data[0:this.blockLength], histo[:])
 			//this.ctx["histo0"] = histo
 
 			if entropy1024 >= entropy.INCOMPRESSIBLE_THRESHOLD {

@@ -37,8 +37,6 @@ const (
 
 type RLT struct {
 	runThreshold uint
-	counters     []int
-	flags        []byte
 }
 
 func NewRLT(threshold uint) (*RLT, error) {
@@ -48,8 +46,6 @@ func NewRLT(threshold uint) (*RLT, error) {
 
 	this := new(RLT)
 	this.runThreshold = threshold
-	this.counters = make([]int, 256)
-	this.flags = make([]byte, 32)
 	return this, nil
 }
 
@@ -74,14 +70,8 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
 	}
 
-	for i := range this.flags {
-		this.flags[i] = 0
-	}
-
-	for i := range this.counters {
-		this.counters[i] = 0
-	}
-
+	counters := [256]int{}
+	flags := [32]byte{}
 	srcIdx := uint(0)
 	dstIdx := uint(0)
 	srcEnd := uint(len(src))
@@ -107,7 +97,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		if run >= threshold {
-			this.counters[prev] += (run - threshold - 1)
+			counters[prev] += (run - threshold - 1)
 		}
 
 		prev = val
@@ -115,18 +105,18 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	if run >= threshold {
-		this.counters[prev] += (run - threshold - 1)
+		counters[prev] += (run - threshold - 1)
 	}
 
-	for i := range this.counters {
-		if this.counters[i] > 0 {
-			this.flags[i>>3] |= (1 << uint(7-(i&7)))
+	for i := range counters {
+		if counters[i] > 0 {
+			flags[i>>3] |= (1 << uint(7-(i&7)))
 		}
 	}
 
 	// Write flags to output
-	for i := range this.flags {
-		dst[dstIdx] = this.flags[i]
+	for i := range flags {
+		dst[dstIdx] = flags[i]
 		dstIdx++
 	}
 
@@ -142,7 +132,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 		srcIdx++
 
 		// Encode up to 0x7FFF repetitions in the 'length' information
-		if prev == val && run < maxRun && this.counters[prev] > 0 {
+		if prev == val && run < maxRun && counters[prev] > 0 {
 			run++
 
 			if run < threshold {
@@ -246,6 +236,7 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
+	counters := [256]int{}
 	srcIdx := uint(0)
 	dstIdx := uint(0)
 	srcEnd := uint(len(src))
@@ -259,15 +250,14 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 	for i, j := 0, 0; i < 32; i++ {
 		flag := src[srcIdx]
 		srcIdx++
-		this.flags[i] = flag
-		this.counters[j] = int(flag>>7) & 1
-		this.counters[j+1] = int(flag>>6) & 1
-		this.counters[j+2] = int(flag>>5) & 1
-		this.counters[j+3] = int(flag>>4) & 1
-		this.counters[j+4] = int(flag>>3) & 1
-		this.counters[j+5] = int(flag>>2) & 1
-		this.counters[j+6] = int(flag>>1) & 1
-		this.counters[j+7] = int(flag) & 1
+		counters[j] = int(flag>>7) & 1
+		counters[j+1] = int(flag>>6) & 1
+		counters[j+2] = int(flag>>5) & 1
+		counters[j+3] = int(flag>>4) & 1
+		counters[j+4] = int(flag>>3) & 1
+		counters[j+5] = int(flag>>2) & 1
+		counters[j+6] = int(flag>>1) & 1
+		counters[j+7] = int(flag) & 1
 		j += 8
 	}
 
@@ -278,7 +268,7 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 		val := src[srcIdx]
 		srcIdx++
 
-		if prev == val && this.counters[prev] > 0 {
+		if prev == val && counters[prev] > 0 {
 			run++
 
 			if run >= threshold {

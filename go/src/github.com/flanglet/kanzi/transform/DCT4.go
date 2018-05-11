@@ -37,16 +37,14 @@ const (
 )
 
 type DCT4 struct {
-	fShift uint  // default 8
-	iShift uint  // default 20
-	data   []int // int[16]
+	fShift uint // default 8
+	iShift uint // default 20
 }
 
 func NewDCT4() (*DCT4, error) {
 	this := new(DCT4)
 	this.fShift = 8
 	this.iShift = 20
-	this.data = make([]int, 16)
 	return this, nil
 }
 
@@ -59,8 +57,9 @@ func (this *DCT4) Forward(src, dst []int) (uint, uint, error) {
 		return 0, 0, errors.New("Output size must be at least 16")
 	}
 
-	computeForwardDCT4(src, this.data, 4)
-	computeForwardDCT4(this.data, dst, this.fShift-4)
+	data := [16]int{}
+	computeForwardDCT4(src, data[:], 4)
+	computeForwardDCT4(data[:], dst, this.fShift-4)
 	return 16, 16, nil
 }
 
@@ -130,8 +129,9 @@ func (this *DCT4) Inverse(src, dst []int) (uint, uint, error) {
 		return 0, 0, errors.New("Output size must be at least 16")
 	}
 
-	computeInverseDCT4(src, this.data, 10)
-	computeInverseDCT4(this.data, dst, this.iShift-10)
+	data := [16]int{}
+	computeInverseDCT4(src, data[:], 10)
+	computeInverseDCT4(data[:], dst, this.iShift-10)
 	return 16, 16, nil
 }
 

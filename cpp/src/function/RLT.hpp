@@ -51,8 +51,6 @@ namespace kanzi
        static const int MAX_RUN = 0xFFFF + RUN_LEN_ENCODE2; 
 
        int _runThreshold;
-       int _counters[256];
-       byte _flags[32];
    };
 
 }

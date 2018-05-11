@@ -32,7 +32,7 @@ const (
 
 type IntBTNode struct {
 	base   int // range base
-	counts []uint
+	counts [NODE_BUFFER_SIZE]uint
 	left   *IntBTNode
 	right  *IntBTNode
 }
@@ -58,9 +58,9 @@ func (this *IntBTNode) Values(values []int, idx int, reverse bool) int {
 }
 
 func newIntBTNode(val int) *IntBTNode {
-	this := new(IntBTNode)
+	this := &IntBTNode{}
 	this.base = val & -NODE_BUFFER_SIZE
-	this.counts = make([]uint, NODE_BUFFER_SIZE)
+	this.counts = [NODE_BUFFER_SIZE]uint{}
 	this.counts[val&MASK_NODE_BUFFER]++
 	return this
 }
