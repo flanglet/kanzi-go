@@ -39,7 +39,7 @@ static const int ARG_IDX_JOBS = 7;
 static const int ARG_IDX_VERBOSE = 8;
 static const int ARG_IDX_LEVEL = 9;
 
-static const char* APP_HEADER = "Kanzi 1.3 (C) 2018,  Frederic Langlet";
+static const char* APP_HEADER = "Kanzi 1.4 (C) 2018,  Frederic Langlet";
 
 
 #ifdef CONCURRENCY_ENABLED

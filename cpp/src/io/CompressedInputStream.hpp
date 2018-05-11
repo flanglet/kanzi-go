@@ -27,7 +27,7 @@ limitations under the License.
 #include "../SliceArray.hpp"
 #include "../util/XXHash32.hpp"
 
-namespace kanzi 
+namespace kanzi
 {
 
    class DecodingTaskResult {
@@ -111,7 +111,7 @@ namespace kanzi
 
    private:
        static const int BITSTREAM_TYPE = 0x4B414E5A; // "KANZ"
-       static const int BITSTREAM_FORMAT_VERSION = 5;
+       static const int BITSTREAM_FORMAT_VERSION = 6;
        static const int DEFAULT_BUFFER_SIZE = 1024 * 1024;
        static const int EXTRA_BUFFER_SIZE = 256;
        static const int COPY_BLOCK_MASK = 0x80;

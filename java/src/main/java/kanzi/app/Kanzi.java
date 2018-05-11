@@ -46,7 +46,7 @@ public class Kanzi
    private static final int ARG_IDX_VERBOSE = 8;
    private static final int ARG_IDX_LEVEL = 9;
    
-   private static final String APP_HEADER = "Kanzi 1.3 (C) 2018,  Frederic Langlet";
+   private static final String APP_HEADER = "Kanzi 1.4 (C) 2018,  Frederic Langlet";
    
   
    public static void main(String[] args)
