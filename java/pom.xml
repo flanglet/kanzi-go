@@ -10,7 +10,7 @@
 
     <groupId>io.github.flanglet</groupId>
     <artifactId>kanzi</artifactId>
-    <version>1.4.0-SNAPSHOT</version>
+    <version>1.4.0</version>
 
     <name>Kanzi Compression</name>
     <description>Block compressor in Java</description>
