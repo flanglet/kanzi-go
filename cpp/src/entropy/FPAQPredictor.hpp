@@ -17,19 +17,20 @@ limitations under the License.
 #define _FPAQPredictor_
 
 #include "../Predictor.hpp"
+#include "../types.hpp"
 
-namespace kanzi 
+namespace kanzi
 {
 
    // Derived from fpaq0r by Matt Mahoney & Alexander Ratushnyak.
    // See http://mattmahoney.net/dc/#fpaq0.
    // Simple (and fast) adaptive order 0 entropy coder predictor
-   class FPAQPredictor : public Predictor 
+   class FPAQPredictor : public Predictor
    {
    private:
-       static const int PSCALE = 8 * 4096;
+       static const int PSCALE = 16 * 4096;
 
-       short _probs[256]; // probability of bit=1
+       uint16 _probs[256]; // probability of bit=1
        int _ctxIdx; // previous bits
 
    public:
@@ -39,7 +40,7 @@ namespace kanzi
 
        void update(int bit);
 
-       int get() { return _probs[_ctxIdx] >> 3; }
+       int get() { return int(_probs[_ctxIdx] >> 4); }
    };
 
 }

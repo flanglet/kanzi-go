@@ -22,15 +22,15 @@ import kanzi.Predictor;
 // Simple (and fast) adaptive order 0 entropy coder predictor
 public class FPAQPredictor implements Predictor
 { 
-   private static final int PSCALE = 1<<15;
-   private final short[] probs; // probability of bit=1
+   private static final int PSCALE = 1<<16;
+   private final int[] probs; // probability of bit=1
    private int ctxIdx; // previous bits
    
    
    public FPAQPredictor()
    {
       this.ctxIdx = 1;
-      this.probs = new short[256];  
+      this.probs = new int[256];  
  
       for (int i=0; i<256; i++)
          this.probs[i] = PSCALE >> 1;
@@ -54,6 +54,6 @@ public class FPAQPredictor implements Predictor
    @Override
    public int get()
    {
-      return this.probs[this.ctxIdx] >>> 3;
+      return this.probs[this.ctxIdx] >>> 4;
    }
 }   

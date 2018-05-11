@@ -16,7 +16,7 @@ limitations under the License.
 package entropy
 
 const (
-	PSCALE = 1 << 15
+	PSCALE = 1 << 16
 )
 
 // Derived from fpaq0r by Matt Mahoney & Alexander Ratushnyak.
@@ -54,5 +54,5 @@ func (this *FPAQPredictor) Update(bit byte) {
 
 // Return the split value representing the probability of 1 in the [0..4095] range.
 func (this *FPAQPredictor) Get() int {
-	return this.probs[this.ctxIdx] >> 3
+	return this.probs[this.ctxIdx] >> 4
 }
