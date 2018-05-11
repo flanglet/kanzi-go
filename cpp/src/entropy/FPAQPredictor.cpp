@@ -26,11 +26,11 @@ FPAQPredictor::FPAQPredictor()
 }
 
 // Update the probability model
-// bit == 1 -> prob += (3*(PSCALE+32-prob)) >> 7;
-// bit == 0 -> prob -= (3*(prob-16)) >> 7;
+// bit == 1 -> prob += ((PSCALE-prob) >> 6);
+// bit == 0 -> prob -= (prob >> 6);
 inline void FPAQPredictor::update(int bit)
 {
-    _probs[_ctxIdx] -= (((3 * (_probs[_ctxIdx] - (-bit & (PSCALE - 48)))) >> 7) + bit);
+    _probs[_ctxIdx] -= ((((_probs[_ctxIdx]) - (-bit & PSCALE)) >> 6) + bit);
 
     // Update context by registering the current bit (or wrapping after 8 bits)
     _ctxIdx = (_ctxIdx < 128) ? (_ctxIdx << 1) + bit : 1;

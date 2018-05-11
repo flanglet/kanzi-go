@@ -16,7 +16,7 @@ limitations under the License.
 package entropy
 
 const (
-	PSCALE = 8 * 4096
+	PSCALE = 1 << 15
 )
 
 // Derived from fpaq0r by Matt Mahoney & Alexander Ratushnyak.
@@ -39,10 +39,10 @@ func NewFPAQPredictor() (*FPAQPredictor, error) {
 }
 
 // Update the probability model
-// bit == 1 -> prob += (3*(PSCALE+32-prob)) >> 7
-// bit == 0 -> prob -= (3*(prob-16)) >> 7
+// bit == 1 -> prob += ((PSCALE-prob) >> 6);
+// bit == 0 -> prob -= (prob >> 6);
 func (this *FPAQPredictor) Update(bit byte) {
-	this.probs[this.ctxIdx] -= (((3 * (this.probs[this.ctxIdx] - (-int(bit) & (PSCALE - 48)))) >> 7) + int(bit))
+	this.probs[this.ctxIdx] -= (((this.probs[this.ctxIdx] - (-int(bit) & PSCALE)) >> 6) + int(bit))
 
 	// Update context by registering the current bit (or wrapping after 8 bits)
 	if this.ctxIdx < 128 {
