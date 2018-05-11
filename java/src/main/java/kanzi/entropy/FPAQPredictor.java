@@ -43,7 +43,7 @@ public class FPAQPredictor implements Predictor
    @Override
    public void update(int bit)
    {
-      this.probs[this.ctxIdx] -= ((((this.probs[this.ctxIdx]) - (-bit&PSCALE)) >> 6) + bit);
+      this.probs[this.ctxIdx] -= (((this.probs[this.ctxIdx] - (-bit&PSCALE)) >> 6) + bit);
 
       // Update context by registering the current bit (or wrapping after 8 bits)
       this.ctxIdx = (this.ctxIdx < 128) ? (this.ctxIdx << 1) + bit : 1;
