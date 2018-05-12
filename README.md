@@ -2,7 +2,7 @@ kanzi
 =====
 
 
-This project offers Java, C++ and Go lossless data compression.
+Lossless data compression in Go.
 The goal is to provide clean APIs and really fast implementation.
 It includes compression codecs (Run Length coding, Exp Golomb coding, Huffman, Range, LZ4, Snappy, ANS, Context Mixers, PAQ derivatives), bit stream manipulation, and transforms such as Burrows-Wheeler (BWT) and Move-To-Front, etc ...
 
