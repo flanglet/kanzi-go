@@ -1,3 +1,0 @@
-manifest-Version: 1.0
-Built-By: flanglet
-Main-Class: kanzi.app.Kanzi
