@@ -343,22 +343,22 @@ public class Kanzi
 
            if (arg.startsWith("--input=") || (ctx == ARG_IDX_INPUT))
            {
-              inputName = arg.startsWith("--input=") ? arg.substring(8).trim() : arg;
-              ctx = -1;
-              continue;
+               inputName = arg.startsWith("--input=") ? arg.substring(8).trim() : arg;
+               ctx = -1;
+               continue;
            }
 
            if (arg.startsWith("--entropy=") || (ctx == ARG_IDX_ENTROPY))
            {
-              codec = arg.startsWith("--entropy=") ? arg.substring(10).trim().toUpperCase() :
+               codec = arg.startsWith("--entropy=") ? arg.substring(10).trim().toUpperCase() :
                  arg.toUpperCase();
-              ctx = -1;
-              continue;
+               ctx = -1;
+               continue;
            }
 
            if (arg.startsWith("--transform=") || (ctx == ARG_IDX_TRANSFORM))
            {
-              transform = arg.startsWith("--transform=") ? arg.substring(12).trim().toUpperCase() :
+               transform = arg.startsWith("--transform=") ? arg.substring(12).trim().toUpperCase() :
                  arg.toUpperCase();
                ctx = -1;
                continue;
@@ -366,7 +366,7 @@ public class Kanzi
 
            if (arg.startsWith("--level=") || (ctx == ARG_IDX_LEVEL))
            {
-              String str = arg.startsWith("--level=") ? arg.substring(8).trim().toUpperCase() :
+               String str = arg.startsWith("--level=") ? arg.substring(8).trim().toUpperCase() :
                  arg.toUpperCase();
               
                try
@@ -391,28 +391,28 @@ public class Kanzi
 
            if (arg.startsWith("--block=") || (ctx == ARG_IDX_BLOCK))
            {
-              String str = arg.startsWith("--block=") ? arg.substring(8).toUpperCase().trim() :
-                 arg.toUpperCase();
-              char lastChar = (str.length() == 0) ? ' ' : str.charAt(str.length()-1);
-              int scale = 1;
+               String str = arg.startsWith("--block=") ? arg.substring(8).toUpperCase().trim() :
+                  arg.toUpperCase();
+               char lastChar = (str.length() == 0) ? ' ' : str.charAt(str.length()-1);
+               int scale = 1;
 
               try
               {
                  // Process K or M or G suffix
                  if ('K' == lastChar)
                  {
-                    scale = 1024;
-                    str = str.substring(0, str.length()-1);
+                     scale = 1024;
+                     str = str.substring(0, str.length()-1);
                  }
                  else if ('M' == lastChar)
                  {
-                    scale = 1024 * 1024;
-                    str = str.substring(0, str.length()-1);
+                     scale = 1024 * 1024;
+                     str = str.substring(0, str.length()-1);
                  }
                  else if ('G' == lastChar)
                  {
-                    scale = 1024 * 1024 * 1024;
-                    str = str.substring(0, str.length()-1);
+                     scale = 1024 * 1024 * 1024;
+                     str = str.substring(0, str.length()-1);
                  }
 
                  blockSize = scale * Integer.parseInt(str);
@@ -432,24 +432,24 @@ public class Kanzi
 
               try
               {
-                 tasks = Integer.parseInt(arg);
+                  tasks = Integer.parseInt(arg);
 
-                 if (tasks < 1)
-                    throw new NumberFormatException();
+                  if (tasks < 1)
+                     throw new NumberFormatException();
 
-                 ctx = -1;
-                 continue;
+                  ctx = -1;
+                  continue;
               }
               catch (NumberFormatException e)
               {
-                 System.err.println("Invalid number of jobs provided on command line: "+arg);
-                 System.exit(kanzi.Error.ERR_INVALID_PARAM);
+                  System.err.println("Invalid number of jobs provided on command line: "+arg);
+                  System.exit(kanzi.Error.ERR_INVALID_PARAM);
               }
            }
 
            if (!arg.startsWith("--verbose=") && (ctx == -1) && !arg.startsWith("--output="))
            {
-              printOut("Warning: ignoring unknown option ["+ arg + "]", verbose>0);
+               printOut("Warning: ignoring unknown option ["+ arg + "]", verbose>0);
            }
 
            ctx = -1;

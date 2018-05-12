@@ -123,6 +123,7 @@ func (this *DST4) Inverse(src, dst []int) (uint, uint, error) {
 	if len(dst) < 16 {
 		return 0, 0, errors.New("Output size must be at least 16")
 	}
+	
 	data := [16]int{}
 	computeInverseDST4(src, data[:], 10)
 	computeInverseDST4(data[:], dst, this.iShift-10)
