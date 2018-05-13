@@ -555,5 +555,5 @@ func (this *FileDecompressTask) Call() (int, uint64) {
 		bd_notifyListeners(this.listeners, evt)
 	}
 
-	return 0, cis.GetRead()
+	return 0, uint64(read)
 }
