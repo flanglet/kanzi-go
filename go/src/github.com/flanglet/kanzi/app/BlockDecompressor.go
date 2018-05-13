@@ -313,7 +313,7 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 			taskCtx["outputName"] = oName
 			taskCtx["jobs"] = jobsPerTask[n]
 			n++
-			task := FileDecompressTask{ctx: ctx, listeners: this.listeners}
+			task := FileDecompressTask{ctx: taskCtx, listeners: this.listeners}
 
 			// Push task to channel. The workers are the consumers.
 			tasks <- task
