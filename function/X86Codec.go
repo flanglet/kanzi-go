@@ -18,7 +18,7 @@ package function
 import (
 	"errors"
 	"fmt"
-	kanzi "github.com/flanglet/kanzi"
+	kanzi "github.com/flanglet/kanzi-go"
 )
 
 const (

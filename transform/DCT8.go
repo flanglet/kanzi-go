@@ -17,7 +17,7 @@ package transform
 
 import (
 	"errors"
-	kanzi "github.com/flanglet/kanzi"
+	kanzi "github.com/flanglet/kanzi-go"
 )
 
 // Implementation of Discrete Cosine Transform of dimension 8

@@ -17,7 +17,7 @@ package entropy
 
 import (
 	"errors"
-	kanzi "github.com/flanglet/kanzi"
+	kanzi "github.com/flanglet/kanzi-go"
 )
 
 var CACHE = [2][256]uint{

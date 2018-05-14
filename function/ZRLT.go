@@ -18,7 +18,7 @@ package function
 import (
 	"errors"
 	"fmt"
-	kanzi "github.com/flanglet/kanzi"
+	kanzi "github.com/flanglet/kanzi-go"
 )
 
 // Zero Length Encoding is a simple encoding algorithm by Wheeler

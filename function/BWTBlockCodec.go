@@ -18,7 +18,7 @@ package function
 import (
 	"errors"
 	"fmt"
-	"github.com/flanglet/kanzi/transform"
+	"github.com/flanglet/kanzi-go/transform"
 )
 
 // Utility class to en/de-code a BWT data block and its associated primary index(es)

@@ -19,7 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	kanzi "github.com/flanglet/kanzi"
+	kanzi "github.com/flanglet/kanzi-go"
 )
 
 type DebugInputBitStream struct {

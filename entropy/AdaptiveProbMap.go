@@ -16,7 +16,7 @@ limitations under the License.
 package entropy
 
 import (
-	kanzi "github.com/flanglet/kanzi"
+	kanzi "github.com/flanglet/kanzi-go"
 )
 
 // APM maps a probability and a context into a new probability

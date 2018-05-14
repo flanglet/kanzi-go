@@ -17,11 +17,11 @@ package io
 
 import (
 	"fmt"
-	kanzi "github.com/flanglet/kanzi"
-	"github.com/flanglet/kanzi/bitstream"
-	"github.com/flanglet/kanzi/entropy"
-	"github.com/flanglet/kanzi/function"
-	"github.com/flanglet/kanzi/util/hash"
+	kanzi "github.com/flanglet/kanzi-go"
+	"github.com/flanglet/kanzi-go/bitstream"
+	"github.com/flanglet/kanzi-go/entropy"
+	"github.com/flanglet/kanzi-go/function"
+	"github.com/flanglet/kanzi-go/util/hash"
 	"io"
 	"sync/atomic"
 	"time"

@@ -18,7 +18,7 @@ package main
 import (
 	"bufio"
 	"fmt"
-	kanzi "github.com/flanglet/kanzi"
+	kanzi "github.com/flanglet/kanzi-go"
 	"io/ioutil"
 	"os"
 	"path/filepath"

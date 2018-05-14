@@ -18,7 +18,7 @@ package entropy
 import (
 	"errors"
 	"fmt"
-	kanzi "github.com/flanglet/kanzi"
+	kanzi "github.com/flanglet/kanzi-go"
 )
 
 // Implementation of an Asymmetric Numeral System codec.

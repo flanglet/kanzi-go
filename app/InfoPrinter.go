@@ -18,7 +18,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	kanzi "github.com/flanglet/kanzi"
+	kanzi "github.com/flanglet/kanzi-go"
 	"io"
 	"sync"
 	"time"

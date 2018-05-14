@@ -18,7 +18,7 @@ package transform
 import (
 	"errors"
 	"fmt"
-	kanzi "github.com/flanglet/kanzi"
+	kanzi "github.com/flanglet/kanzi-go"
 )
 
 // Hybrid Discrete Wavelet Transform / Discrete Cosine Transform for 2D signals

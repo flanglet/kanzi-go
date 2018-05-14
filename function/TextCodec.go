@@ -18,7 +18,7 @@ package function
 import (
 	"errors"
 	"fmt"
-	kanzi "github.com/flanglet/kanzi"
+	kanzi "github.com/flanglet/kanzi-go"
 )
 
 // Simple one-pass text codec. Uses a default (small) static dictionary

@@ -18,9 +18,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	kanzi "github.com/flanglet/kanzi"
-	"github.com/flanglet/kanzi/bitstream"
-	"github.com/flanglet/kanzi/io"
+	kanzi "github.com/flanglet/kanzi-go"
+	"github.com/flanglet/kanzi-go/bitstream"
+	"github.com/flanglet/kanzi-go/io"
 	"math/rand"
 	"os"
 	"time"

@@ -17,7 +17,7 @@ package function
 
 import (
 	"errors"
-	kanzi "github.com/flanglet/kanzi"
+	kanzi "github.com/flanglet/kanzi-go"
 )
 
 type NullFunction struct {

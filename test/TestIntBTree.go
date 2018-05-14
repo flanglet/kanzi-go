@@ -17,7 +17,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/flanglet/kanzi/util"
+	"github.com/flanglet/kanzi-go/util"
 	"math/rand"
 	"os"
 	"time"

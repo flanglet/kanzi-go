@@ -17,8 +17,8 @@ package main
 
 import (
 	"fmt"
-	kanzi "github.com/flanglet/kanzi"
-	"github.com/flanglet/kanzi/transform"
+	kanzi "github.com/flanglet/kanzi-go"
+	"github.com/flanglet/kanzi-go/transform"
 	"math"
 	"math/rand"
 	"time"

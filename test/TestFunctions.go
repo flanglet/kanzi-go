@@ -18,8 +18,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	kanzi "github.com/flanglet/kanzi"
-	"github.com/flanglet/kanzi/function"
+	kanzi "github.com/flanglet/kanzi-go"
+	"github.com/flanglet/kanzi-go/function"
 	"math/rand"
 	"os"
 	"strings"

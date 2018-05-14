@@ -17,9 +17,9 @@ package benchmark
 
 import (
 	"fmt"
-	"github.com/flanglet/kanzi/bitstream"
-	"github.com/flanglet/kanzi/entropy"
-	"github.com/flanglet/kanzi/io"
+	"github.com/flanglet/kanzi-go/bitstream"
+	"github.com/flanglet/kanzi-go/entropy"
+	"github.com/flanglet/kanzi-go/io"
 	"math/rand"
 	"testing"
 )

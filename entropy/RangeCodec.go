@@ -18,7 +18,7 @@ package entropy
 import (
 	"errors"
 	"fmt"
-	kanzi "github.com/flanglet/kanzi"
+	kanzi "github.com/flanglet/kanzi-go"
 )
 
 // Based on Order 0 range coder by Dmitry Subbotin itself derived from the algorithm

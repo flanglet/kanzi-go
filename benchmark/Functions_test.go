@@ -17,7 +17,7 @@ package benchmark
 
 import (
 	"fmt"
-	"github.com/flanglet/kanzi/function"
+	"github.com/flanglet/kanzi-go/function"
 	"math/rand"
 	"testing"
 )

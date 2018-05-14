@@ -16,7 +16,7 @@ limitations under the License.
 package benchmark
 
 import (
-	"github.com/flanglet/kanzi/transform"
+	"github.com/flanglet/kanzi-go/transform"
 	"math/rand"
 	"testing"
 )

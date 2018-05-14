@@ -18,7 +18,7 @@ package transform
 import (
 	"errors"
 	"fmt"
-	kanzi "github.com/flanglet/kanzi"
+	kanzi "github.com/flanglet/kanzi-go"
 )
 
 // Discrete Wavelet Transform Cohen-Daubechies-Fauveau 9/7 for 2D signals

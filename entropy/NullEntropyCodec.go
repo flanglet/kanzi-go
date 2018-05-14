@@ -17,7 +17,7 @@ package entropy
 
 import (
 	"encoding/binary"
-	kanzi "github.com/flanglet/kanzi"
+	kanzi "github.com/flanglet/kanzi-go"
 )
 
 // Null entropy encoder and decoder

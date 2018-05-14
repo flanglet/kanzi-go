@@ -16,7 +16,7 @@ limitations under the License.
 package entropy
 
 import (
-	kanzi "github.com/flanglet/kanzi"
+	kanzi "github.com/flanglet/kanzi-go"
 )
 
 // TPAQ predictor

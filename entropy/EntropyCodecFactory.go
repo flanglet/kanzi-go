@@ -17,7 +17,7 @@ package entropy
 
 import (
 	"fmt"
-	kanzi "github.com/flanglet/kanzi"
+	kanzi "github.com/flanglet/kanzi-go"
 	"strings"
 )
 

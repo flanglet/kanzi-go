@@ -18,7 +18,7 @@ package entropy
 import (
 	"container/heap"
 	"fmt"
-	kanzi "github.com/flanglet/kanzi"
+	kanzi "github.com/flanglet/kanzi-go"
 )
 
 const (
