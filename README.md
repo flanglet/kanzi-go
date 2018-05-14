@@ -66,3 +66,12 @@ All corpus files compressed one by one sequentially (1 job).
 |**Kanzi -l 6 -j 12**         |     **39.7**	  |    **40.0**     |  **41,144,431**  |
 |zpaq v7.14 m5 t1             |	     343.1	    |     352.0       |    39,112,924    |
 |zpaq v7.14 m5 t12            |	     344.3	    |     350.4       |    39,112,924    |
+
+
+
+Build
+-----
+
+cd app
+
+go build -gcflags=-B Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
