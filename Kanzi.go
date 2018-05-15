@@ -216,7 +216,7 @@ func SameByteSlices(slice1, slice2 []byte, deepCheck bool) bool {
 }
 
 func DifferentInts(src, dst []byte) bool {
-	p := uintptr(unsafe.Pointer(&src[0]))
-	q := uintptr(unsafe.Pointer(&dst[0]))
-	return *(*uint32)(unsafe.Pointer(p)) != *(*uint32)(unsafe.Pointer(q))
+	p := unsafe.Pointer(&src[0])
+	q := unsafe.Pointer(&dst[0])
+	return *(*uint32)(unsafe.Pointer(uintptr(p))) != *(*uint32)(unsafe.Pointer(uintptr(q)))
 }
