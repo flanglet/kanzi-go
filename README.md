@@ -94,7 +94,7 @@ mkdir github.com; cd github.com
 
 mkdir flanglet; cd flanglet
 
-git clone https://github.com/flanglet/kanizo-go.git
+git clone https://github.com/flanglet/kanzi-go.git
 
 cd kanzi-go/app
 
