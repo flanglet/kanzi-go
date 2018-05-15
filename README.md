@@ -73,6 +73,7 @@ Build
 
 **Option 1: go get** 
 
+~~~
 cd $GOPATH
 
 go get github.com/flanglet/kanzi-go
@@ -80,13 +81,13 @@ go get github.com/flanglet/kanzi-go
 cd src/github.com/flanglet/kanzi-go/app
 
 go build -gcflags=-B Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
-
-
+~~~
 
 
 
 **Option 2: git clone** 
 
+~~~
 cd $GOPATH/src
 
 mkdir github.com; cd github.com
@@ -98,3 +99,4 @@ git clone https://github.com/flanglet/kanizo-go.git
 cd kanzi-go/app
 
 go build -gcflags=-B Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
+~~~
