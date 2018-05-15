@@ -1343,7 +1343,7 @@ func createDictionary(words []byte, dict []DictEntry, maxWords, startWord int) i
 			continue
 		}
 
-		if isDelimiter(cur) && (nbWords < maxWords) && (i >= anchor+1) { // At least 2 letters
+		if isDelimiter(cur) && (i >= anchor+1) { // At least 2 letters
 			dict[nbWords] = DictEntry{buf: words, pos: anchor, hash: h, idx: int32(nbWords), length: int16(i - anchor)}
 			nbWords++
 		}
