@@ -71,7 +71,7 @@ Kanzi version 1.4 Go implementation. Block size is 100 MB.
 Build
 -----
 
-**Option 1: go get ** 
+**Option 1: go get** 
 
 cd $GOPATH
 
@@ -82,7 +82,10 @@ cd src/github.com/flanglet/kanzi-go/app
 go build -gcflags=-B Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
 
 
-**Option 2: git clone ** 
+
+
+
+**Option 2: git clone** 
 
 cd $GOPATH/src
 
