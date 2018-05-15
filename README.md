@@ -35,7 +35,6 @@ i7-7700K @4.20GHz, 32GB RAM, Ubuntu 18.04
 go 1.10.1
 
 Kanzi version 1.4 Go implementation. Block size is 100 MB. 
-All corpus files compressed one by one sequentially (1 job).
 
 
 |        Compressor           | Encoding (sec)  | Decoding (sec)  |    Size          |
@@ -72,6 +71,27 @@ All corpus files compressed one by one sequentially (1 job).
 Build
 -----
 
-cd app
+**Option 1: go get ** 
+
+cd $GOPATH
+
+go get github.com/flanglet/kanzi-go
+
+cd src/github.com/flanglet/kanzi-go/app
+
+go build -gcflags=-B Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
+
+
+**Option 2: git clone ** 
+
+cd $GOPATH/src
+
+mkdir github.com; cd github.com
+
+mkdir flanglet; cd flanglet
+
+git clone https://github.com/flanglet/kanizo-go.git
+
+cd kanzi-go/app
 
 go build -gcflags=-B Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
