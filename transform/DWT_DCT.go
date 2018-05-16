@@ -69,7 +69,7 @@ func (this *DWT_DCT) Forward(src, dst []int) (uint, uint, error) {
 		return 0, 0, errors.New("Output buffer cannot be null")
 	}
 
-	if kanzi.SameIntSlices(src, dst, false) {
+	if &src[0] == &dst[0] {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
@@ -118,7 +118,7 @@ func (this *DWT_DCT) Inverse(src, dst []int) (uint, uint, error) {
 		return 0, 0, errors.New("Output buffer cannot be null")
 	}
 
-	if kanzi.SameIntSlices(src, dst, false) {
+	if &src[0] == &dst[0] {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 

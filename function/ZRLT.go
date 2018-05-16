@@ -48,7 +48,7 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 		return uint(0), uint(0), errors.New("Invalid null destination buffer")
 	}
 
-	if kanzi.SameByteSlices(src, dst, false) {
+	if &src[0] == &dst[0] {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
@@ -133,7 +133,7 @@ func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 		return uint(0), uint(0), errors.New("Invalid null destination buffer")
 	}
 
-	if kanzi.SameByteSlices(src, dst, false) {
+	if &src[0] == &dst[0] {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 

@@ -134,7 +134,7 @@ func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) 
 	length := uint(blockSize)
 
 	if this.skipFlags == TRANSFORM_SKIP_MASK {
-		if !kanzi.SameByteSlices(src, dst, false) {
+		if &src[0] != &dst[0] {
 			copy(dst, src)
 		}
 

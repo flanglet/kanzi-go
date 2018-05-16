@@ -18,7 +18,6 @@ package transform
 import (
 	"errors"
 	"fmt"
-	kanzi "github.com/flanglet/kanzi-go"
 )
 
 // Sort by Rank Transform is a family of transforms typically used after
@@ -64,7 +63,7 @@ func (this *SBRT) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, nil
 	}
 
-	if kanzi.SameByteSlices(src, dst, false) {
+	if &src[0] == &dst[0] {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
@@ -141,7 +140,7 @@ func (this *SBRT) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, nil
 	}
 
-	if kanzi.SameByteSlices(src, dst, false) {
+	if &src[0] == &dst[0] {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 

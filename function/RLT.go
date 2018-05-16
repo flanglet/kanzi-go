@@ -26,7 +26,6 @@ package function
 import (
 	"errors"
 	"fmt"
-	kanzi "github.com/flanglet/kanzi-go"
 )
 
 const (
@@ -62,7 +61,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 		return uint(0), uint(0), errors.New("Invalid null destination buffer")
 	}
 
-	if kanzi.SameByteSlices(src, dst, false) {
+	if &src[0] == &dst[0] {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
@@ -232,7 +231,7 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 		return uint(0), uint(0), errors.New("Invalid null destination buffer")
 	}
 
-	if kanzi.SameByteSlices(src, dst, false) {
+	if &src[0] == &dst[0] {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 

@@ -17,7 +17,6 @@ package function
 
 import (
 	"errors"
-	kanzi "github.com/flanglet/kanzi-go"
 )
 
 type NullFunction struct {
@@ -45,7 +44,7 @@ func doCopy(src, dst []byte) (uint, uint, error) {
 		return uint(0), uint(0), errors.New("Destination buffer too small")
 	}
 
-	if kanzi.SameByteSlices(src, dst, false) == false {
+	if &src[0] != &dst[0] {
 		copy(dst, src)
 	}
 

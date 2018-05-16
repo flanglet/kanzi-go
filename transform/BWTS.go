@@ -18,7 +18,6 @@ package transform
 import (
 	"errors"
 	"fmt"
-	kanzi "github.com/flanglet/kanzi-go"
 )
 
 // Bijective version of the Burrows-Wheeler Transform
@@ -53,7 +52,7 @@ func (this *BWTS) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Output buffer cannot be null")
 	}
 
-	if kanzi.SameByteSlices(src, dst, false) {
+	if &src[0] == &dst[0] {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
@@ -208,7 +207,7 @@ func (this *BWTS) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Output buffer cannot be null")
 	}
 
-	if kanzi.SameByteSlices(src, dst, false) {
+	if &src[0] == &dst[0] {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 

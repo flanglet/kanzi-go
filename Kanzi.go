@@ -16,7 +16,6 @@ limitations under the License.
 package kanzi
 
 import (
-	"bytes"
 	"unsafe"
 )
 
@@ -153,67 +152,6 @@ type Sizeable interface {
 	SetSize(sz uint) bool
 }
 
-func SameIntSlices(slice1, slice2 []int, deepCheck bool) bool {
-	if slice2 == nil {
-		return slice1 == nil
-	}
-
-	if slice1 == nil {
-		return false
-	}
-
-	if len(slice1) != len(slice2) {
-		return false
-	}
-
-	if &slice1 == &slice2 {
-		return true
-	}
-
-	if slice2[0] != slice1[0] {
-		return false
-	}
-
-	if deepCheck == true {
-		for i := range slice1 {
-			if slice2[i] != slice1[i] {
-				return false
-			}
-		}
-
-		return true
-	}
-
-	return false
-}
-
-func SameByteSlices(slice1, slice2 []byte, deepCheck bool) bool {
-	if slice2 == nil {
-		return slice1 == nil
-	}
-
-	if slice1 == nil {
-		return false
-	}
-
-	if len(slice1) != len(slice2) {
-		return false
-	}
-
-	if &slice1 == &slice2 {
-		return true
-	}
-
-	if slice2[0] != slice1[0] {
-		return false
-	}
-
-	if deepCheck == true {
-		return bytes.Equal(slice1, slice2)
-	}
-
-	return false
-}
 
 func DifferentInts(src, dst []byte) bool {
 	p := unsafe.Pointer(&src[0])

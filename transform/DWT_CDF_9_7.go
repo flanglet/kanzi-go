@@ -18,7 +18,6 @@ package transform
 import (
 	"errors"
 	"fmt"
-	kanzi "github.com/flanglet/kanzi-go"
 )
 
 // Discrete Wavelet Transform Cohen-Daubechies-Fauveau 9/7 for 2D signals
@@ -100,7 +99,7 @@ func (this *DWT_CDF_9_7) Forward(src, dst []int) (uint, uint, error) {
 		return 0, 0, errors.New("The output buffer is too small")
 	}
 
-	if kanzi.SameIntSlices(src, dst, false) == false {
+	if &src[0] != &dst[0] {
 		copy(dst, src)
 	}
 
@@ -212,7 +211,7 @@ func (this *DWT_CDF_9_7) Inverse(src, dst []int) (uint, uint, error) {
 		return 0, 0, errors.New("The output buffer is too small")
 	}
 
-	if kanzi.SameIntSlices(src, dst, false) == false {
+	if &src[0] != &dst[0] {
 		copy(dst, src)
 	}
 
