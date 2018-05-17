@@ -152,7 +152,6 @@ type Sizeable interface {
 	SetSize(sz uint) bool
 }
 
-
 func DifferentInts(src, dst []byte) bool {
 	p := unsafe.Pointer(&src[0])
 	q := unsafe.Pointer(&dst[0])

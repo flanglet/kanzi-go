@@ -459,7 +459,7 @@ func (this *EncodingTask) encode() {
 	data := this.iBuffer.Buf
 	buffer := this.oBuffer.Buf
 	mode := byte(0)
-	postTransformLength := this.blockLength
+	var postTransformLength uint
 	checksum := uint32(0)
 
 	// Compute block checksum
@@ -968,6 +968,8 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 		for k, v := range this.ctx {
 			copyCtx[k] = v
 		}
+
+		copyCtx["jobs"] = jobsPerTask[jobId]
 
 		task := DecodingTask{
 			iBuffer:            &this.buffers[2*jobId],
