@@ -34,8 +34,8 @@ const (
 	TC_LOG_THRESHOLD1  = 7
 	TC_THRESHOLD1      = 1 << TC_LOG_THRESHOLD1
 	TC_THRESHOLD2      = TC_THRESHOLD1 * TC_THRESHOLD1
-	TC_MAX_DICT_SIZE   = 1 << 19
-	TC_MAX_WORD_LENGTH = 32
+	TC_MAX_DICT_SIZE   = 1 << 19    // must be less than 1<<24
+	TC_MAX_WORD_LENGTH = 32         // must be less than 128
 	TC_LOG_HASHES_SIZE = 24         // 16 MB
 	TC_ESCAPE_TOKEN1   = byte(0x0F) // dictionary word preceded by space symbol
 	TC_ESCAPE_TOKEN2   = byte(0x0E) // toggle upper/lower case of first word char
@@ -46,11 +46,9 @@ const (
 )
 
 type DictEntry struct {
-	hash   int32  // full word hash
-	pos    int    // position in text
-	idx    int32  // index in dictionary
-	length int16  // length in text
-	buf    []byte // text data
+	hash int32  // full word hash
+	data int    // packed word length (8 MSB) + index in dictionary (24 LSB)
+	ptr  []byte // text data
 }
 
 type TextCodec struct {
@@ -638,8 +636,8 @@ func NewTextCodecWithArgs(dictSize int, dict []byte, logHashSize uint) (*TextCod
 	}
 
 	// Add special entries at end of static dictionary
-	this.dictList[nbWords] = DictEntry{buf: []byte{TC_ESCAPE_TOKEN2}, pos: 0, hash: 0, idx: int32(nbWords), length: int16(1)}
-	this.dictList[nbWords+1] = DictEntry{buf: []byte{TC_ESCAPE_TOKEN1}, pos: 0, hash: 0, idx: int32(nbWords + 1), length: int16(1)}
+	this.dictList[nbWords] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN2}, hash: 0, data: (1 << 24) | nbWords}
+	this.dictList[nbWords+1] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN1}, hash: 0, data: (1 << 24) | (nbWords + 1)}
 	this.staticDictSize = nbWords + 2
 	return this, nil
 }
@@ -695,8 +693,8 @@ func NewTextCodecFromMap(ctx map[string]interface{}) (*TextCodec, error) {
 	nbWords := TC_STATIC_DICT_WORDS
 
 	// Add special entries at end of static dictionary
-	this.dictList[nbWords] = DictEntry{buf: []byte{TC_ESCAPE_TOKEN2}, pos: 0, hash: 0, idx: int32(nbWords), length: int16(1)}
-	this.dictList[nbWords+1] = DictEntry{buf: []byte{TC_ESCAPE_TOKEN1}, pos: 0, hash: 0, idx: int32(nbWords + 1), length: int16(1)}
+	this.dictList[nbWords] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN2}, hash: 0, data: (1 << 24) | (nbWords)}
+	this.dictList[nbWords+1] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN1}, hash: 0, data: (1 << 24) | (nbWords + 1)}
 	this.staticDictSize = nbWords + 2
 	return this, nil
 }
@@ -788,7 +786,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Pre-allocate all dictionary entries
 	for i := this.staticDictSize; i < this.dictSize; i++ {
-		this.dictList[i] = DictEntry{buf: nil, pos: -1, hash: 0, idx: int32(i), length: int16(0)}
+		this.dictList[i] = DictEntry{ptr: nil, hash: 0, data: i}
 	}
 
 	srcEnd := count
@@ -861,14 +859,14 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 			var pe2 *DictEntry = nil
 
 			// Check for hash collisions
-			if (pe1 != nil) && (pe1.length != int16(length) || pe1.hash != h1) {
+			if (pe1 != nil) && (pe1.data>>24 != length || pe1.hash != h1) {
 				pe1 = nil
 			}
 
 			if pe1 == nil {
 				pe2 = this.dictMap[h2&this.hashMask]
 
-				if (pe2 != nil) && (pe2.length != int16(length) || pe2.hash != h2) {
+				if (pe2 != nil) && (pe2.data>>24 != length || pe2.hash != h2) {
 					pe2 = nil
 				}
 			}
@@ -882,7 +880,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 			}
 
 			if pe != nil {
-				if !sameWords(pe.buf[pe.pos+1:pe.pos+length], src[delimAnchor+2:srcEnd]) {
+				if !sameWords(pe.ptr[1:length], src[delimAnchor+2:srcEnd]) {
 					pe = nil
 				}
 			}
@@ -891,16 +889,13 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 				// Word not found in the dictionary or hash collision: add or replace word
 				if ((length > 3) || (length > 2 && words < TC_THRESHOLD2)) && length < TC_MAX_WORD_LENGTH {
 					pe := &this.dictList[words]
-					peidx := int(pe.idx)
 
-					if peidx >= this.staticDictSize {
+					if pe.data & 0x00FFFFFF >= this.staticDictSize {
 						// Evict and reuse old entry
 						this.dictMap[pe.hash&this.hashMask] = nil
-						pe.buf = src
-						pe.pos = delimAnchor + 1
+						pe.ptr = src[delimAnchor+1:]
 						pe.hash = h1
-						pe.idx = int32(words)
-						pe.length = int16(length)
+						pe.data = (length << 24) | words
 					}
 
 					// Update hash map
@@ -934,8 +929,8 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 				}
 
 				dstIdx++
-				dstIdx += emitWordIndex(dst[dstIdx:dstIdx+3], int(pe.idx))
-				emitAnchor += int(pe.length)
+				dstIdx += emitWordIndex(dst[dstIdx:dstIdx+3], pe.data&0x00FFFFFF)
+				emitAnchor += (pe.data >> 24)
 			}
 		}
 
@@ -1027,7 +1022,7 @@ func (this *TextCodec) expandDictionary() bool {
 	copy(newDict, this.dictList)
 
 	for i := this.dictSize; i < this.dictSize*2; i++ {
-		newDict[i] = DictEntry{buf: nil, pos: -1, hash: 0, idx: int32(i), length: int16(0)}
+		newDict[i] = DictEntry{ptr: nil, hash: 0, data: i}
 	}
 
 	this.dictList = newDict
@@ -1152,7 +1147,7 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 	// Pre-allocate all dictionary entries
 	for i := this.staticDictSize; i < this.dictSize; i++ {
-		this.dictList[i] = DictEntry{buf: nil, pos: -1, hash: 0, idx: int32(i), length: int16(0)}
+		this.dictList[i] = DictEntry{ptr: nil, hash: 0, data: i}
 	}
 
 	srcEnd := len(src)
@@ -1194,9 +1189,9 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 			// Check for hash collisions
 			if pe != nil {
-				if pe.length != int16(length) || pe.hash != h1 {
+				if pe.data>>24 != length || pe.hash != h1 {
 					pe = nil
-				} else if !sameWords(pe.buf[pe.pos+1:pe.pos+length], src[delimAnchor+2:delimAnchor+2+length]) {
+				} else if !sameWords(pe.ptr[1:length], src[delimAnchor+2:delimAnchor+2+length]) {
 					pe = nil
 				}
 			}
@@ -1205,16 +1200,13 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 				// Word not found in the dictionary or hash collision: add or replace word
 				if ((length > 3) || (length > 2 && words < TC_THRESHOLD2)) && length < TC_MAX_WORD_LENGTH {
 					pe = &this.dictList[words]
-					peidx := int(pe.idx)
 
-					if peidx >= this.staticDictSize {
+					if pe.data & 0x00FFFFFF >= this.staticDictSize {
 						// Evict and reuse old entry
 						this.dictMap[pe.hash&this.hashMask] = nil
-						pe.buf = src
-						pe.pos = delimAnchor + 1
+						pe.ptr = src[delimAnchor+1:]
 						pe.hash = h1
-						pe.idx = int32(words)
-						pe.length = int16(length)
+						pe.data = (length << 24) | words
 					}
 
 					this.dictMap[h1&this.hashMask] = pe
@@ -1257,42 +1249,43 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			pe := &this.dictList[idx]
+			length := pe.data >> 24
 
 			// Sanity check
-			if pe.pos < 0 || dstIdx+int(pe.length) >= dstEnd {
+			if pe.ptr == nil || dstIdx+length >= dstEnd {
 				err = fmt.Errorf("Invalid input data")
 				break
 			}
 
 			// Add space if only delimiter between 2 words (not an escaped delimiter)
-			if wordRun == true && pe.length > 1 {
+			if wordRun == true && length > 1 {
 				dst[dstIdx] = ' '
 				dstIdx++
 			}
 
 			// Emit word
 			if cur != TC_ESCAPE_TOKEN2 {
-				dst[dstIdx] = pe.buf[pe.pos]
+				dst[dstIdx] = pe.ptr[0]
 				dstIdx++
 			} else {
 				// Flip case of first character
-				if isUpperCase(pe.buf[pe.pos]) {
-					dst[dstIdx] = pe.buf[pe.pos] + 32
+				if isUpperCase(pe.ptr[0]) {
+					dst[dstIdx] = pe.ptr[0] + 32
 				} else {
-					dst[dstIdx] = pe.buf[pe.pos] - 32
+					dst[dstIdx] = pe.ptr[0] - 32
 				}
 
 				dstIdx++
 			}
 
-			buf := pe.buf[pe.pos+1 : pe.pos+int(pe.length)]
+			buf := pe.ptr[1:length]
 
 			for _, c := range buf {
 				dst[dstIdx] = c
 				dstIdx++
 			}
 
-			if pe.length > 1 {
+			if length > 1 {
 				// Regular word entry
 				wordRun = true
 				delimAnchor = srcIdx
@@ -1344,7 +1337,7 @@ func createDictionary(words []byte, dict []DictEntry, maxWords, startWord int) i
 		}
 
 		if isDelimiter(cur) && (i >= anchor+1) { // At least 2 letters
-			dict[nbWords] = DictEntry{buf: words, pos: anchor, hash: h, idx: int32(nbWords), length: int16(i - anchor)}
+			dict[nbWords] = DictEntry{ptr: words[anchor:i], hash: h, data: ((i - anchor) << 24) | nbWords}
 			nbWords++
 		}
 
