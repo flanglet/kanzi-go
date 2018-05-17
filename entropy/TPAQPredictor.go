@@ -458,14 +458,13 @@ func (this *TPAQMixer) init() {
 
 // Adjust weights to minimize coding cost of last prediction
 func (this *TPAQMixer) update(bit int) {
-	err := int32((bit << 12) - this.pr)
+	err := (int32((bit << 12) - this.pr) * this.learnRate) >> 7
 
 	if err == 0 {
 		return
 	}
 
 	// Quickly decaying learn rate
-	err = (err * this.learnRate) >> 7
 	this.learnRate += ((TPAQ_END_LEARN_RATE - this.learnRate) >> 31)
 	this.skew += err
 
@@ -491,10 +490,9 @@ func (this *TPAQMixer) get(p0, p1, p2, p3, p4, p5, p6, p7 int32) int {
 	this.p7 = p7
 
 	// Neural Network dot product (sum weights*inputs)
-	p := this.w0*p0 + this.w1*p1 + this.w2*p2 + this.w3*p3 +
+	this.pr = kanzi.Squash(int((this.w0*p0 + this.w1*p1 + this.w2*p2 + this.w3*p3 +
 		this.w4*p4 + this.w5*p5 + this.w6*p6 + this.w7*p7 +
-		this.skew
-
-	this.pr = kanzi.Squash(int((p + 65536) >> 17))
+		this.skew + 65536) >> 17))
+		
 	return this.pr
 }
