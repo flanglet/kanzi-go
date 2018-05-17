@@ -47,7 +47,7 @@ const (
 
 type DictEntry struct {
 	hash int32  // full word hash
-	data int    // packed word length (8 MSB) + index in dictionary (24 LSB)
+	data int32  // packed word length (8 MSB) + index in dictionary (24 LSB)
 	ptr  []byte // text data
 }
 
@@ -636,8 +636,8 @@ func NewTextCodecWithArgs(dictSize int, dict []byte, logHashSize uint) (*TextCod
 	}
 
 	// Add special entries at end of static dictionary
-	this.dictList[nbWords] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN2}, hash: 0, data: (1 << 24) | nbWords}
-	this.dictList[nbWords+1] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN1}, hash: 0, data: (1 << 24) | (nbWords + 1)}
+	this.dictList[nbWords] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN2}, hash: 0, data: int32((1 << 24) | nbWords)}
+	this.dictList[nbWords+1] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN1}, hash: 0, data: int32((1 << 24) | (nbWords + 1))}
 	this.staticDictSize = nbWords + 2
 	return this, nil
 }
@@ -650,11 +650,11 @@ func NewTextCodecFromMap(ctx map[string]interface{}) (*TextCodec, error) {
 	var log uint32
 
 	if blockSize >= 1<<28 {
-		log = 28
+		log = 26
 	} else if blockSize < 1<<10 {
-		log = 10
+		log = 8
 	} else {
-		log, _ = kanzi.Log2(uint32(3 * blockSize / 2))
+		log, _ = kanzi.Log2(uint32(blockSize/4))
 	}
 
 	// Select an appropriate initial dictionary size
@@ -693,8 +693,8 @@ func NewTextCodecFromMap(ctx map[string]interface{}) (*TextCodec, error) {
 	nbWords := TC_STATIC_DICT_WORDS
 
 	// Add special entries at end of static dictionary
-	this.dictList[nbWords] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN2}, hash: 0, data: (1 << 24) | (nbWords)}
-	this.dictList[nbWords+1] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN1}, hash: 0, data: (1 << 24) | (nbWords + 1)}
+	this.dictList[nbWords] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN2}, hash: 0, data: int32((1 << 24) | (nbWords))}
+	this.dictList[nbWords+1] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN1}, hash: 0, data: int32((1 << 24) | (nbWords + 1))}
 	this.staticDictSize = nbWords + 2
 	return this, nil
 }
@@ -786,7 +786,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Pre-allocate all dictionary entries
 	for i := this.staticDictSize; i < this.dictSize; i++ {
-		this.dictList[i] = DictEntry{ptr: nil, hash: 0, data: i}
+		this.dictList[i] = DictEntry{ptr: nil, hash: 0, data: int32(i)}
 	}
 
 	srcEnd := count
@@ -859,14 +859,14 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 			var pe2 *DictEntry = nil
 
 			// Check for hash collisions
-			if (pe1 != nil) && (pe1.data>>24 != length || pe1.hash != h1) {
+			if (pe1 != nil) && (pe1.data>>24 != int32(length) || pe1.hash != h1) {
 				pe1 = nil
 			}
 
 			if pe1 == nil {
 				pe2 = this.dictMap[h2&this.hashMask]
 
-				if (pe2 != nil) && (pe2.data>>24 != length || pe2.hash != h2) {
+				if (pe2 != nil) && (pe2.data>>24 != int32(length) || pe2.hash != h2) {
 					pe2 = nil
 				}
 			}
@@ -890,12 +890,12 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 				if ((length > 3) || (length > 2 && words < TC_THRESHOLD2)) && length < TC_MAX_WORD_LENGTH {
 					pe := &this.dictList[words]
 
-					if pe.data & 0x00FFFFFF >= this.staticDictSize {
+					if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
 						// Evict and reuse old entry
 						this.dictMap[pe.hash&this.hashMask] = nil
 						pe.ptr = src[delimAnchor+1:]
 						pe.hash = h1
-						pe.data = (length << 24) | words
+						pe.data = int32((length << 24) | words)
 					}
 
 					// Update hash map
@@ -929,8 +929,8 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 				}
 
 				dstIdx++
-				dstIdx += emitWordIndex(dst[dstIdx:dstIdx+3], pe.data&0x00FFFFFF)
-				emitAnchor += (pe.data >> 24)
+				dstIdx += emitWordIndex(dst[dstIdx:dstIdx+3], int(pe.data&0x00FFFFFF))
+				emitAnchor += int(pe.data >> 24)
 			}
 		}
 
@@ -1022,7 +1022,7 @@ func (this *TextCodec) expandDictionary() bool {
 	copy(newDict, this.dictList)
 
 	for i := this.dictSize; i < this.dictSize*2; i++ {
-		newDict[i] = DictEntry{ptr: nil, hash: 0, data: i}
+		newDict[i] = DictEntry{ptr: nil, hash: 0, data: int32(i)}
 	}
 
 	this.dictList = newDict
@@ -1147,7 +1147,7 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 	// Pre-allocate all dictionary entries
 	for i := this.staticDictSize; i < this.dictSize; i++ {
-		this.dictList[i] = DictEntry{ptr: nil, hash: 0, data: i}
+		this.dictList[i] = DictEntry{ptr: nil, hash: 0, data: int32(i)}
 	}
 
 	srcEnd := len(src)
@@ -1189,7 +1189,7 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 			// Check for hash collisions
 			if pe != nil {
-				if pe.data>>24 != length || pe.hash != h1 {
+				if pe.data>>24 != int32(length) || pe.hash != h1 {
 					pe = nil
 				} else if !sameWords(pe.ptr[1:length], src[delimAnchor+2:delimAnchor+2+length]) {
 					pe = nil
@@ -1201,12 +1201,12 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 				if ((length > 3) || (length > 2 && words < TC_THRESHOLD2)) && length < TC_MAX_WORD_LENGTH {
 					pe = &this.dictList[words]
 
-					if pe.data & 0x00FFFFFF >= this.staticDictSize {
+					if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
 						// Evict and reuse old entry
 						this.dictMap[pe.hash&this.hashMask] = nil
 						pe.ptr = src[delimAnchor+1:]
 						pe.hash = h1
-						pe.data = (length << 24) | words
+						pe.data = int32((length << 24) | words)
 					}
 
 					this.dictMap[h1&this.hashMask] = pe
@@ -1249,7 +1249,7 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			pe := &this.dictList[idx]
-			length := pe.data >> 24
+			length := int(pe.data >> 24)
 
 			// Sanity check
 			if pe.ptr == nil || dstIdx+length >= dstEnd {
@@ -1337,7 +1337,7 @@ func createDictionary(words []byte, dict []DictEntry, maxWords, startWord int) i
 		}
 
 		if isDelimiter(cur) && (i >= anchor+1) { // At least 2 letters
-			dict[nbWords] = DictEntry{ptr: words[anchor:i], hash: h, data: ((i - anchor) << 24) | nbWords}
+			dict[nbWords] = DictEntry{ptr: words[anchor:i], hash: h, data: int32(((i - anchor) << 24) | nbWords)}
 			nbWords++
 		}
 
