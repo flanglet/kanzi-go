@@ -1002,7 +1002,7 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 	results := make([]Message, nbJobs)
 
 	// Wait for completion of all concurrent tasks
-	for _ = range results {
+	for range results {
 		// Listen for results on the shared channel
 		res := <-this.resChan
 

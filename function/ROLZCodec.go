@@ -349,10 +349,7 @@ func (this *ROLZCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	if len(src) <= 16 {
-		for i := range src {
-			dst[i] = src[i]
-		}
-
+		copy(dst, src)
 		return uint(len(src)), uint(len(src)), nil
 	}
 
@@ -462,10 +459,7 @@ func (this *ROLZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	if len(src) <= 16 {
-		for i := range src {
-			dst[i] = src[i]
-		}
-
+		copy(dst, src)
 		return uint(len(src)), uint(len(src)), nil
 	}
 
