@@ -154,13 +154,7 @@ func NewCompressedOutputStream(os io.WriteCloser, ctx map[string]interface{}) (*
 	this := new(CompressedOutputStream)
 	var err error
 
-	bufferSize := bSize
-
-	if bufferSize > 65536 {
-		bufferSize = 65536
-	}
-
-	if this.obs, err = bitstream.NewDefaultOutputBitStream(os, bufferSize); err != nil {
+	if this.obs, err = bitstream.NewDefaultOutputBitStream(os, STREAM_DEFAULT_BUFFER_SIZE); err != nil {
 		return nil, err
 	}
 
