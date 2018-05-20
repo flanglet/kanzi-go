@@ -309,28 +309,28 @@ func computeInPlaceSizesPhase1(data []uint) {
 
 func computeInPlaceSizesPhase2(data []uint) {
 	n := len(data)
-	level_top := uint(n - 2) //root
+	levelTop := uint(n - 2) //root
 	depth := uint(1)
 	i := n
-	total_nodes_at_level := uint(2)
+	totalNodesAtLevel := uint(2)
 
 	for i > 0 {
-		k := level_top
+		k := levelTop
 
-		for k > 0 && data[k-1] >= level_top {
+		for k > 0 && data[k-1] >= levelTop {
 			k--
 		}
 
-		internal_nodes_at_level := uint(level_top - k)
-		leaves_at_level := total_nodes_at_level - internal_nodes_at_level
+		internalNodesAtLevel := uint(levelTop - k)
+		leavesAtLevel := totalNodesAtLevel - internalNodesAtLevel
 
-		for j := uint(0); j < leaves_at_level; j++ {
+		for j := uint(0); j < leavesAtLevel; j++ {
 			i--
 			data[i] = depth
 		}
 
-		total_nodes_at_level = internal_nodes_at_level << 1
-		level_top = k
+		totalNodesAtLevel = internalNodesAtLevel << 1
+		levelTop = k
 		depth++
 	}
 }
@@ -408,8 +408,8 @@ func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
 		}
 
 		for i := endChunk8; i < endChunk; i++ {
-			val := this.codes[block[i]]
-			this.bitstream.WriteBits(uint64(val), val>>24)
+			val := c[block[i]]
+			bs.WriteBits(uint64(val), val>>24)
 		}
 
 		startChunk = endChunk
