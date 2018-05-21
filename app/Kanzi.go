@@ -309,7 +309,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 
 			log.Println("   -j, --jobs=<jobs>", true)
 			log.Println("        maximum number of jobs the program may start concurrently", true)
-			log.Println("        (default is 1, maximum is 32).\n", true)
+			log.Println("        (default is 1, maximum is 64).\n", true)
 			log.Println("", true)
 
 			if mode != "d" {
