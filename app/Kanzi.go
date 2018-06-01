@@ -665,8 +665,12 @@ type Printer struct {
 func (this *Printer) Println(msg string, print bool) {
 	if print == true {
 		mutex.Lock()
-		this.os.Write([]byte(msg + "\n"))
-		this.os.Flush()
+
+		// Best effort, ignore error
+		if w, _ := this.os.Write([]byte(msg + "\n")); w > 0 {
+			_ = this.os.Flush()
+		}
+
 		mutex.Unlock()
 	}
 }
