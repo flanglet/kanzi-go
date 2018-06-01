@@ -545,7 +545,7 @@ func (this *FileDecompressTask) Call() (int, uint64) {
 	log.Println(msg, verbosity == 1)
 
 	if delta > 0 {
-		msg = fmt.Sprintf("Throughput (KB/s): %d", ((read*int64(1000))>>10)/int64(delta))
+		msg = fmt.Sprintf("Throughput (KB/s): %d", ((read*int64(1000))>>10)/delta)
 		log.Println(msg, printFlag)
 	}
 
