@@ -458,7 +458,7 @@ func (this *TPAQMixer) init() {
 
 // Adjust weights to minimize coding cost of last prediction
 func (this *TPAQMixer) update(bit int) {
-	err := (int32((bit << 12) - this.pr) * this.learnRate) >> 7
+	err := (int32((bit<<12)-this.pr) * this.learnRate) >> 7
 
 	if err == 0 {
 		return
@@ -493,6 +493,6 @@ func (this *TPAQMixer) get(p0, p1, p2, p3, p4, p5, p6, p7 int32) int {
 	this.pr = kanzi.Squash(int((this.w0*p0 + this.w1*p1 + this.w2*p2 + this.w3*p3 +
 		this.w4*p4 + this.w5*p5 + this.w6*p6 + this.w7*p7 +
 		this.skew + 65536) >> 17))
-		
+
 	return this.pr
 }

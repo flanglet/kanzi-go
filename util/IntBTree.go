@@ -206,7 +206,7 @@ func (this *IntBTree) Remove(value int) bool {
 
 func (this *IntBTree) removeNode(value int) *IntBTNode {
 	current := this.root
-	var prev *IntBTNode = nil
+	var prev *IntBTNode
 
 	for {
 		if value < current.base {

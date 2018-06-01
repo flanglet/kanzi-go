@@ -307,7 +307,7 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 
 		// Full alphabet
 		for i := 0; i < alphabetSize; i++ {
-			alphabet[i] = int(i)
+			alphabet[i] = i
 		}
 
 		return alphabetSize, nil
@@ -323,7 +323,7 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 
 			for j := 0; j < 64; j++ {
 				if val&(uint64(1)<<uint(j)) != 0 {
-					alphabet[count] = int(i + j)
+					alphabet[count] = i + j
 					count++
 				}
 			}
@@ -459,7 +459,7 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, tota
 	if totalFreq == scale {
 		for i := 0; i < 256; i++ {
 			if freqs[i] != 0 {
-				alphabet[alphabetSize] = int(i)
+				alphabet[alphabetSize] = i
 				alphabetSize++
 			}
 		}

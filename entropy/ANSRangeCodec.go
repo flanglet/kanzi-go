@@ -463,8 +463,8 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, error) {
 
 	for k := 0; k < dim; k++ {
 		f := frequencies[k<<8 : (k+1)<<8]
-		alphabet_ := this.alphabet[k<<8 : (k+1)<<8]
-		alphabetSize, err := DecodeAlphabet(this.bitstream, alphabet_)
+		alphabet := this.alphabet[k<<8 : (k+1)<<8]
+		alphabetSize, err := DecodeAlphabet(this.bitstream, alphabet)
 
 		if err != nil {
 			return alphabetSize, err
@@ -492,7 +492,7 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, error) {
 			llr++
 		}
 
-		// Decode all frequencies (but the first one) by chunks of size 'inc'
+		// Decode all frequencies (but the first one) by chunks
 		for i := 1; i < alphabetSize; i += chkSize {
 			// Read frequencies size for current chunk
 			logMax := uint(1 + this.bitstream.ReadBits(llr))
@@ -513,22 +513,22 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, error) {
 				freq := int(this.bitstream.ReadBits(logMax))
 
 				if freq <= 0 || freq >= scale {
-					error := fmt.Errorf("Invalid bitstream: incorrect frequency %v for symbol '%v' in ANS range decoder", freq, alphabet_[j])
+					error := fmt.Errorf("Invalid bitstream: incorrect frequency %v for symbol '%v' in ANS range decoder", freq, alphabet[j])
 					return alphabetSize, error
 				}
 
-				f[alphabet_[j]] = freq
+				f[alphabet[j]] = freq
 				sum += freq
 			}
 		}
 
 		// Infer first frequency
 		if scale <= sum {
-			error := fmt.Errorf("Invalid bitstream: incorrect frequency %v for symbol '%v' in ANS range decoder", frequencies[alphabet_[0]], this.alphabet[0])
+			error := fmt.Errorf("Invalid bitstream: incorrect frequency %v for symbol '%v' in ANS range decoder", frequencies[alphabet[0]], this.alphabet[0])
 			return alphabetSize, error
 		}
 
-		f[alphabet_[0]] = scale - sum
+		f[alphabet[0]] = scale - sum
 		sum = 0
 		symb := this.symbols[k<<8 : (k+1)<<8]
 		freq2sym := this.f2s[k<<this.logRange : (k+1)<<this.logRange]

@@ -654,7 +654,7 @@ func NewTextCodecFromMap(ctx map[string]interface{}) (*TextCodec, error) {
 	} else if blockSize < 1<<10 {
 		log = 8
 	} else {
-		log, _ = kanzi.Log2(uint32(blockSize/4))
+		log, _ = kanzi.Log2(uint32(blockSize / 4))
 	}
 
 	// Select an appropriate initial dictionary size
@@ -856,7 +856,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 			// Check word in dictionary
 			length := srcIdx - delimAnchor - 1
 			pe1 := this.dictMap[h1&this.hashMask]
-			var pe2 *DictEntry = nil
+			var pe2 *DictEntry
 
 			// Check for hash collisions
 			if (pe1 != nil) && (pe1.data>>24 != int32(length) || pe1.hash != h1) {

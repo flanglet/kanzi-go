@@ -365,7 +365,7 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 	return res, read
 }
 
-func bd_notifyListeners(listeners []kanzi.Listener, evt *kanzi.Event) {
+func notifyBDListeners(listeners []kanzi.Listener, evt *kanzi.Event) {
 	defer func() {
 		if r := recover(); r != nil {
 			// Ignore exceptions in listeners
@@ -449,7 +449,7 @@ func (this *FileDecompressTask) Call() (int, uint64) {
 
 	if len(this.listeners) > 0 {
 		evt := kanzi.NewEvent(kanzi.EVT_DECOMPRESSION_START, -1, 0, 0, false, time.Now())
-		bd_notifyListeners(this.listeners, evt)
+		notifyBDListeners(this.listeners, evt)
 	}
 
 	if strings.ToUpper(inputName) == "STDIN" {
@@ -553,7 +553,7 @@ func (this *FileDecompressTask) Call() (int, uint64) {
 
 	if len(this.listeners) > 0 {
 		evt := kanzi.NewEvent(kanzi.EVT_DECOMPRESSION_END, -1, int64(cis.GetRead()), 0, false, time.Now())
-		bd_notifyListeners(this.listeners, evt)
+		notifyBDListeners(this.listeners, evt)
 	}
 
 	return 0, uint64(read)
