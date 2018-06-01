@@ -95,8 +95,9 @@ func compress(argsMap map[string]interface{}) int {
 		if f, err := os.Create(bc.CpuProf()); err != nil {
 			fmt.Printf("Warning: cpu profile unavailable: %v\n", err)
 		} else {
-			pprof.StartCPUProfile(f)
-
+			if err := pprof.StartCPUProfile(f); err != nil {
+				fmt.Printf("Warning: cpu profile unavailable: %v\n", err)
+			}
 			defer func() {
 				pprof.StopCPUProfile()
 				f.Close()
@@ -132,7 +133,9 @@ func decompress(argsMap map[string]interface{}) int {
 		if f, err := os.Create(bd.CpuProf()); err != nil {
 			fmt.Printf("Warning: cpu profile unavailable: %v\n", err)
 		} else {
-			pprof.StartCPUProfile(f)
+			if err := pprof.StartCPUProfile(f); err != nil {
+				fmt.Printf("Warning: cpu profile unavailable: %v\n", err)
+			}
 
 			defer func() {
 				pprof.StopCPUProfile()
