@@ -620,7 +620,6 @@ type Message struct {
 	data           []byte
 	decoded        int
 	blockId        int
-	text           string
 	checksum       uint32
 	completionTime time.Time
 }

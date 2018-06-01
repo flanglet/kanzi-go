@@ -510,7 +510,6 @@ func getTransformAndCodec(level int) string {
 type FileCompressTask struct {
 	ctx       map[string]interface{}
 	listeners []kanzi.Listener
-	cpuProf   string
 }
 
 func (this *FileCompressTask) Call() (int, uint64, uint64) {

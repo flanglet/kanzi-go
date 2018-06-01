@@ -379,7 +379,6 @@ func bd_notifyListeners(listeners []kanzi.Listener, evt *kanzi.Event) {
 
 type FileDecompressTask struct {
 	ctx       map[string]interface{}
-	jobs      uint
 	listeners []kanzi.Listener
 }
 
