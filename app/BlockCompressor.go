@@ -34,6 +34,8 @@ const (
 	COMP_DEFAULT_BLOCK_SIZE  = 1024 * 1024
 	COMP_DEFAULT_CONCURRENCY = 1
 	COMP_MAX_CONCURRENCY     = 64
+	COMP_NONE                = "NONE"
+	COMP_STDOUT              = "STDOUT"
 )
 
 // Main block compressor struct
@@ -253,7 +255,7 @@ func (this *BlockCompressor) Call() (int, uint64) {
 	if this.level < 0 {
 		w1 := "no"
 
-		if this.transform != "NONE" {
+		if this.transform != COMP_NONE {
 			w1 = this.transform
 		}
 
@@ -261,7 +263,7 @@ func (this *BlockCompressor) Call() (int, uint64) {
 		log.Println(msg, printFlag)
 		w2 := "no"
 
-		if this.entropyCodec != "NONE" {
+		if this.entropyCodec != COMP_NONE {
 			w2 = this.entropyCodec
 		}
 
@@ -276,7 +278,7 @@ func (this *BlockCompressor) Call() (int, uint64) {
 		msg = fmt.Sprintf("Using %d jobs", this.jobs)
 		log.Println(msg, printFlag)
 
-		if strings.ToUpper(this.outputName) == "STDOUT" {
+		if strings.ToUpper(this.outputName) == COMP_STDOUT {
 			fmt.Println("Cannot output to STDOUT with multiple jobs")
 			return kanzi.ERR_CREATE_FILE, 0
 		}
@@ -302,7 +304,7 @@ func (this *BlockCompressor) Call() (int, uint64) {
 	var inputIsDir bool
 	formattedOutName := this.outputName
 	formattedInName := this.inputName
-	specialOutput := strings.ToUpper(formattedOutName) == "NONE" || strings.ToUpper(formattedOutName) == "STDOUT"
+	specialOutput := strings.ToUpper(formattedOutName) == COMP_NONE || strings.ToUpper(formattedOutName) == COMP_STDOUT
 
 	fi, err := os.Stat(this.inputName)
 
@@ -523,9 +525,9 @@ func (this *FileCompressTask) Call() (int, uint64, uint64) {
 
 	var output io.WriteCloser
 
-	if strings.ToUpper(outputName) == "NONE" {
+	if strings.ToUpper(outputName) == COMP_NONE {
 		output, _ = kio.NewNullOutputStream()
-	} else if strings.ToUpper(outputName) == "STDOUT" {
+	} else if strings.ToUpper(outputName) == COMP_STDOUT {
 		output = os.Stdout
 	} else {
 		var err error

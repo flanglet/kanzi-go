@@ -32,6 +32,8 @@ const (
 	DECOMP_DEFAULT_BUFFER_SIZE = 32768
 	DECOMP_DEFAULT_CONCURRENCY = 1
 	DECOMP_MAX_CONCURRENCY     = 64
+	DECOMP_NONE                = "NONE"
+	DECOMP_STDOUT              = "STDOUT"
 )
 
 // Main block decompressor struct
@@ -186,7 +188,7 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 		msg = fmt.Sprintf("Using %d jobs", this.jobs)
 		log.Println(msg, printFlag)
 
-		if strings.ToUpper(this.outputName) == "STDOUT" {
+		if strings.ToUpper(this.outputName) == DECOMP_STDOUT {
 			fmt.Println("Cannot output to STDOUT with multiple jobs")
 			return kanzi.ERR_CREATE_FILE, 0
 		}
@@ -211,7 +213,7 @@ func (this *BlockDecompressor) Call() (int, uint64) {
 	var inputIsDir bool
 	formattedOutName := this.outputName
 	formattedInName := this.inputName
-	specialOutput := strings.ToUpper(formattedOutName) == "NONE" || strings.ToUpper(formattedOutName) == "STDOUT"
+	specialOutput := strings.ToUpper(formattedOutName) == DECOMP_NONE || strings.ToUpper(formattedOutName) == DECOMP_STDOUT
 
 	fi, err := os.Stat(this.inputName)
 
@@ -393,9 +395,9 @@ func (this *FileDecompressTask) Call() (int, uint64) {
 
 	var output io.WriteCloser
 
-	if strings.ToUpper(outputName) == "NONE" {
+	if strings.ToUpper(outputName) == DECOMP_NONE {
 		output, _ = kio.NewNullOutputStream()
-	} else if strings.ToUpper(outputName) == "STDOUT" {
+	} else if strings.ToUpper(outputName) == DECOMP_STDOUT {
 		output = os.Stdout
 	} else {
 		var err error
