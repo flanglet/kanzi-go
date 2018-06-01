@@ -112,7 +112,7 @@ func (this *X86Codec) Forward(src, dst []byte) (uint, uint, error) {
 			(int32(src[srcIdx+2]) << 16) | (int32(sgn) << 24)
 
 		addr += int32(srcIdx)
-		dst[dstIdx] = byte(sgn + 1)
+		dst[dstIdx] = sgn + 1
 		dst[dstIdx+1] = X86_ADDRESS_MASK ^ byte(addr>>16)
 		dst[dstIdx+2] = X86_ADDRESS_MASK ^ byte(addr>>8)
 		dst[dstIdx+3] = X86_ADDRESS_MASK ^ byte(addr)

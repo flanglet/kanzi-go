@@ -612,7 +612,7 @@ func NewTextCodecWithArgs(dictSize int, dict []byte, logHashSize uint) (*TextCod
 	}
 
 	this := new(TextCodec)
-	this.logHashSize = uint(logHashSize)
+	this.logHashSize = logHashSize
 	this.dictSize = dictSize
 	this.dictMap = make([]*DictEntry, 1<<this.logHashSize)
 	this.dictList = make([]DictEntry, this.dictSize)
