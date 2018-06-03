@@ -238,7 +238,10 @@ func (this *ANSRangeEncoder) Encode(block []byte) (int, error) {
 			lr--
 		}
 
-		this.rebuildStatistics(block[startChunk:endChunk], lr)
+		if _, err := this.rebuildStatistics(block[startChunk:endChunk], lr); err != nil {
+			return end, err
+		}
+
 		this.encodeChunk(block[startChunk:endChunk])
 		startChunk = endChunk
 	}

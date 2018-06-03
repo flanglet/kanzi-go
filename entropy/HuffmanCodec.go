@@ -189,9 +189,9 @@ func NewHuffmanEncoder(bs kanzi.OutputBitStream, args ...uint) (*HuffmanEncoder,
 }
 
 // Rebuild Huffman codes
-func (this *HuffmanEncoder) UpdateFrequencies(frequencies []uint) error {
+func (this *HuffmanEncoder) updateFrequencies(frequencies []uint) (int, error) {
 	if frequencies == nil || len(frequencies) != 256 {
-		return errors.New("Invalid frequencies parameter")
+		return 0, errors.New("Invalid frequencies parameter")
 	}
 
 	count := 0
@@ -211,7 +211,7 @@ func (this *HuffmanEncoder) UpdateFrequencies(frequencies []uint) error {
 		this.sizes[this.ranks[0]] = 1
 	} else {
 		if err := this.computeCodeLengths(frequencies, count); err != nil {
-			return err
+			return count, err
 		}
 	}
 
@@ -223,7 +223,7 @@ func (this *HuffmanEncoder) UpdateFrequencies(frequencies []uint) error {
 	egenc, err := NewExpGolombEncoder(this.bitstream, true)
 
 	if err != nil {
-		return err
+		return count, err
 	}
 
 	prevSize := byte(2)
@@ -236,7 +236,7 @@ func (this *HuffmanEncoder) UpdateFrequencies(frequencies []uint) error {
 
 	// Create canonical codes
 	if generateCanonicalCodes(this.sizes[:], this.codes[:], this.sranks[0:count]) < 0 {
-		return fmt.Errorf("Could not generate codes: max code length (%v bits) exceeded", MAX_SYMBOL_SIZE)
+		return count, fmt.Errorf("Could not generate codes: max code length (%v bits) exceeded", MAX_SYMBOL_SIZE)
 	}
 
 	// Pack size and code (size <= MAX_SYMBOL_SIZE bits)
@@ -245,7 +245,7 @@ func (this *HuffmanEncoder) UpdateFrequencies(frequencies []uint) error {
 		this.codes[r] |= (uint(this.sizes[r]) << 24)
 	}
 
-	return nil
+	return count, nil
 }
 
 // See [In-Place Calculation of Minimum-Redundancy Codes]
@@ -321,7 +321,7 @@ func computeInPlaceSizesPhase2(data []uint) {
 			k--
 		}
 
-		internalNodesAtLevel := uint(levelTop - k)
+		internalNodesAtLevel := levelTop - k
 		leavesAtLevel := totalNodesAtLevel - internalNodesAtLevel
 
 		for j := uint(0); j < leavesAtLevel; j++ {
@@ -383,7 +383,10 @@ func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
 		}
 
 		// Rebuild Huffman codes
-		this.UpdateFrequencies(frequencies[:])
+		if _, err := this.updateFrequencies(frequencies[:]); err != nil {
+			return 0, err
+		}
+
 		c := this.codes
 		bs := this.bitstream
 
@@ -512,7 +515,7 @@ func (this *HuffmanDecoder) ReadLengths() (int, error) {
 	for i := range rr {
 		r := rr[i]
 
-		if int(r) > len(this.codes) {
+		if r > len(this.codes) {
 			return 0, fmt.Errorf("Invalid bitstream: incorrect Huffman symbol %v", r)
 		}
 

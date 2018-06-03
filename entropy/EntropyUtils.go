@@ -240,7 +240,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) int {
 
 		// Create deltas of present symbols
 		for i := 0; i < count; i++ {
-			diffs[i] = int(alphabet[i]) - int(previous)
+			diffs[i] = int(alphabet[i]) - previous
 			previous = alphabet[i] + 1
 		}
 	}
