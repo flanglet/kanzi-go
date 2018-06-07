@@ -181,9 +181,10 @@ func main() {
 	delta2 := int64(0)
 	iter := 500000
 
-	for times := 0; times < 100; times++ {
+	for jj := 0; jj < 100; jj++ {
 		data := make([][]int, 1000)
 		dct8, _ := transform.NewDCT8()
+		rand.Seed(int64(jj))
 
 		for i := 0; i < 1000; i++ {
 			data[i] = make([]int, 64)

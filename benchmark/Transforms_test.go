@@ -27,6 +27,7 @@ func BenchmarkDCT4(b *testing.B) {
 			iter := b.N
 
 			for times := 0; times < 10; times++ {
+				rand.Seed(int64(times))
 				data := make([][]int, 1000)
 				dct4, _ := transform.NewDCT4()
 
@@ -59,6 +60,7 @@ func BenchmarkDCT8(b *testing.B) {
 			iter := b.N
 
 			for times := 0; times < 10; times++ {
+				rand.Seed(int64(times))
 				data := make([][]int, 1000)
 				dct8, _ := transform.NewDCT8()
 
@@ -91,6 +93,7 @@ func BenchmarkDCT16(b *testing.B) {
 			iter := b.N
 
 			for times := 0; times < 10; times++ {
+				rand.Seed(int64(times))
 				data := make([][]int, 1000)
 				dct16, _ := transform.NewDCT16()
 
@@ -123,6 +126,7 @@ func BenchmarkDCT32(b *testing.B) {
 			iter := b.N
 
 			for times := 0; times < 10; times++ {
+				rand.Seed(int64(times))
 				data := make([][]int, 1000)
 				dct32, _ := transform.NewDCT32()
 
@@ -155,6 +159,7 @@ func BenchmarkDST4(b *testing.B) {
 			iter := b.N
 
 			for times := 0; times < 10; times++ {
+				rand.Seed(int64(times))
 				data := make([][]int, 1000)
 				dst4, _ := transform.NewDST4()
 
@@ -187,6 +192,7 @@ func BenchmarkWHT4(b *testing.B) {
 			iter := b.N
 
 			for times := 0; times < 10; times++ {
+				rand.Seed(int64(times))
 				data := make([][]int, 1000)
 				wht4, _ := transform.NewWHT4(true)
 
@@ -219,6 +225,7 @@ func BenchmarkWHT8(b *testing.B) {
 			iter := b.N
 
 			for times := 0; times < 10; times++ {
+				rand.Seed(int64(times))
 				data := make([][]int, 1000)
 				wht8, _ := transform.NewWHT8(true)
 
@@ -251,6 +258,7 @@ func BenchmarkWHT16(b *testing.B) {
 			iter := b.N
 
 			for times := 0; times < 10; times++ {
+				rand.Seed(int64(times))
 				data := make([][]int, 1000)
 				wht16, _ := transform.NewWHT16(true)
 
@@ -283,6 +291,7 @@ func BenchmarkWHT32(b *testing.B) {
 			iter := b.N
 
 			for times := 0; times < 10; times++ {
+				rand.Seed(int64(times))
 				data := make([][]int, 1000)
 				wht32, _ := transform.NewWHT32(true)
 
@@ -315,6 +324,7 @@ func BenchmarkDWT8(b *testing.B) {
 			iter := b.N
 
 			for times := 0; times < 10; times++ {
+				rand.Seed(int64(times))
 				data := make([][]int, 1000)
 				dwt8, _ := transform.NewDWT(8, 8, 1)
 

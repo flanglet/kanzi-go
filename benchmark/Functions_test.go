@@ -31,6 +31,7 @@ func BenchmarkLZ4(b *testing.B) {
 		input := make([]byte, size)
 		output := make([]byte, bf.MaxEncodedLen(size))
 		reverse := make([]byte, size)
+		rand.Seed(int64(jj))
 		n := 0
 
 		for n < len(input) {
@@ -97,6 +98,7 @@ func BenchmarkSnappy(b *testing.B) {
 		input := make([]byte, size)
 		output := make([]byte, bf.MaxEncodedLen(size))
 		reverse := make([]byte, size)
+		rand.Seed(int64(jj))
 		n := 0
 
 		for n < len(input) {
@@ -162,6 +164,7 @@ func BenchmarkZRLT(b *testing.B) {
 		input := make([]byte, size)
 		output := make([]byte, 8*size)
 		reverse := make([]byte, size)
+		rand.Seed(int64(jj))
 
 		// Generate random data with runs
 		// Leave zeros at the beginning for ZRLT to succeed
@@ -236,6 +239,7 @@ func BenchmarkRLT(b *testing.B) {
 		input := make([]byte, size)
 		output := make([]byte, bf.MaxEncodedLen(size))
 		reverse := make([]byte, size)
+		rand.Seed(int64(jj))
 		n := 0
 
 		for n < len(input) {
@@ -289,6 +293,5 @@ func BenchmarkRLT(b *testing.B) {
 			msg := fmt.Sprintf("Failure at index %v (%v <-> %v)\n", idx, input[idx], reverse[idx])
 			b.Fatalf(msg)
 		}
-
 	}
 }

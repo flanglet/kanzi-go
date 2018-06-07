@@ -138,8 +138,12 @@ func TestCorrectness(name string) error {
 			// Lots of zeros
 			arr = make([]int, 1<<uint(ii+6))
 
+			if rng > 100 {
+				rng = 100
+			}
+
 			for i := range arr {
-				val := rand.Intn(100)
+				val := rand.Intn(rng)
 
 				if val >= 33 {
 					val = 0
@@ -305,6 +309,7 @@ func TestSpeed(name string) {
 		input := make([]byte, size)
 		output := make([]byte, bf.MaxEncodedLen(size))
 		reverse := make([]byte, size)
+		rand.Seed(int64(jj))
 
 		// Generate random data with runs
 		// Leave zeros at the beginning for ZRLT to succeed

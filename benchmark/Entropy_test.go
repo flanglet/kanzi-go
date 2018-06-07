@@ -32,6 +32,7 @@ func BenchmarkExpGolomb(b *testing.B) {
 		size := 50000
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
+		rand.Seed(int64(jj))
 		var bs io.BufferStream
 
 		for ii := 0; ii < iter; ii++ {
@@ -99,6 +100,7 @@ func BenchmarkHuffman(b *testing.B) {
 		size := 50000
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
+		rand.Seed(int64(jj))
 		var bs io.BufferStream
 
 		for ii := 0; ii < iter; ii++ {
@@ -166,6 +168,7 @@ func BenchmarkANS0(b *testing.B) {
 		size := 50000
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
+		rand.Seed(int64(jj))
 		var bs io.BufferStream
 
 		for ii := 0; ii < iter; ii++ {
@@ -233,6 +236,7 @@ func BenchmarkANS1(b *testing.B) {
 		size := 50000
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
+		rand.Seed(int64(jj))
 		var bs io.BufferStream
 
 		for ii := 0; ii < iter; ii++ {
@@ -300,6 +304,7 @@ func BenchmarkRange(b *testing.B) {
 		size := 50000
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
+		rand.Seed(int64(jj))
 		var bs io.BufferStream
 
 		for ii := 0; ii < iter; ii++ {
@@ -367,6 +372,7 @@ func BenchmarkFPAQ(b *testing.B) {
 		size := 50000
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
+		rand.Seed(int64(jj))
 		var bs io.BufferStream
 
 		for ii := 0; ii < iter; ii++ {
@@ -436,6 +442,7 @@ func BenchmarkCM(b *testing.B) {
 		size := 50000
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
+		rand.Seed(int64(jj))
 		var bs io.BufferStream
 
 		for ii := 0; ii < iter; ii++ {
@@ -505,6 +512,7 @@ func BenchmarkPAQ(b *testing.B) {
 		size := 50000
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
+		rand.Seed(int64(jj))
 		var bs io.BufferStream
 
 		for ii := 0; ii < iter; ii++ {
@@ -574,6 +582,7 @@ func BenchmarkTPAQ(b *testing.B) {
 		size := 50000
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
+		rand.Seed(int64(jj))
 		var bs io.BufferStream
 
 		for ii := 0; ii < iter; ii++ {

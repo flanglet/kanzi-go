@@ -332,6 +332,7 @@ func TestSpeed(name string) {
 		size := 500000
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
+		rand.Seed(int64(jj))
 		var bs io.BufferStream
 
 		for ii := 0; ii < iter; ii++ {
