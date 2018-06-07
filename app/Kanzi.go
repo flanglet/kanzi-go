@@ -297,9 +297,9 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 				log.Println("        Providing this option forces entropy and transform.", true)
 				log.Println("        0=None&None (store), 1=TEXT+LZ4&HUFFMAN, 2=TEXT+ROLZ", true)
 				log.Println("        3=BWT+RANK+ZRLT&ANS0, 4=BWT+RANK+ZRLT&FPAQ, 5=BWT&CM", true)
-				log.Println("        6=X86+RLT+TEXT&TPAQ\n", true)
+				log.Println("        6=X86+RLT+TEXT&TPAQ, 7=X86+RLT+TEXT&TPAQX\n", true)
 				log.Println("   -e, --entropy=<codec>", true)
-				log.Println("        entropy codec [None|Huffman|ANS0|ANS1|Range|PAQ|FPAQ|TPAQ|CM]", true)
+				log.Println("        entropy codec [None|Huffman|ANS0|ANS1|Range|PAQ|FPAQ|TPAQ|TPAQX|CM]", true)
 				log.Println("        (default is ANS0)\n", true)
 				log.Println("   -t, --transform=<codec>", true)
 				log.Println("        transform [None|BWT|BWTS|SNAPPY|LZ4|ROLZ|RLT|ZRLT|MTFT|RANK|TEXT|X86]", true)
@@ -437,7 +437,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 				os.Exit(kanzi.ERR_INVALID_PARAM)
 			}
 
-			if level < 0 || level > 6 {
+			if level < 0 || level > 7 {
 				fmt.Printf("Invalid compression level provided on command line: %v\n", arg)
 				os.Exit(kanzi.ERR_INVALID_PARAM)
 			}

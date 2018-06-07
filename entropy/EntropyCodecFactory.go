@@ -189,6 +189,9 @@ func GetType(entropyName string) uint32 {
 	case "TPAQ":
 		return TPAQ_TYPE
 
+	case "TPAQX":
+		return TPAQX_TYPE
+
 	case "NONE":
 		return NONE_TYPE
 

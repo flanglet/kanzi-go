@@ -377,6 +377,7 @@ func (this *BlockCompressor) Call() (int, uint64) {
 		ctx["inputName"] = iName
 		ctx["outputName"] = oName
 		ctx["jobs"] = this.jobs
+		ctx["extra"] = this.entropyCodec == "TPAQX"
 		task := FileCompressTask{ctx: ctx, listeners: this.listeners}
 		res, read, written = task.Call()
 	} else {
@@ -501,6 +502,9 @@ func getTransformAndCodec(level int) string {
 
 	case 6:
 		return "X86+RLT+TEXT&TPAQ"
+
+	case 7:
+		return "X86+RLT+TEXT&TPAQX"
 
 	default:
 		return "Unknown&Unknown"
