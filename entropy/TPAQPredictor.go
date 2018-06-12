@@ -367,15 +367,17 @@ func (this *TPAQPredictor) Update(bit byte) {
 	p := this.mixer.get(p0, p1, p2, p3, p4, p5, p6, p7)
 
 	// SSE (Secondary Symbol Estimation)
-	if this.sse0 == nil || this.binCount < (this.pos>>2) {
+	if this.sse0 == nil || this.binCount < (this.pos>>3) {
 		p = this.sse1.get(y, p, int(c|(this.c4&0xFF00)))
 	} else {
-		p = this.sse0.get(y, p, int(this.c0))
+		if this.binCount >= (this.pos >> 2) {
+			p = this.sse0.get(y, p, int(this.c0))
+		}
+
 		p = (3*this.sse1.get(y, p, int(this.c0|(this.c4&0xFF00))) + p + 2) >> 2
 	}
 
-	p32 := uint32(p)
-	this.pr = p + int((p32-2048)>>31)
+	this.pr = p + int((uint32(p)-2048)>>31)
 }
 
 // Return the split value representing the probability of 1 in the [0..4095] range.

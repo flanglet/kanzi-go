@@ -67,8 +67,8 @@ func NewCMPredictor() (*CMPredictor, error) {
 // Update the probability model
 func (this *CMPredictor) Update(bit byte) {
 	pc1 := this.counter1[this.ctx]
-	this.ctx <<= 1
 	pc2 := this.counter2[this.ctx|this.runMask]
+	this.ctx <<= 1
 
 	if bit == 0 {
 		pc1[256] -= (pc1[256] >> FAST_RATE)
@@ -90,7 +90,7 @@ func (this *CMPredictor) Update(bit byte) {
 
 		if this.c1 == this.c2 {
 			this.run++
-			this.runMask = int((2 - this.run) >> 31)
+			this.runMask = int((2-this.run)>>31) << 8
 		} else {
 			this.run = 0
 			this.runMask = 0
@@ -103,7 +103,7 @@ func (this *CMPredictor) Get() int {
 	pc1 := this.counter1[this.ctx]
 	p := (13*pc1[256] + 14*pc1[this.c1] + 5*pc1[this.c2]) >> 5
 	this.idx = p >> 12
-	pc2 := this.counter2[(this.ctx<<1)|this.runMask]
+	pc2 := this.counter2[this.ctx|this.runMask]
 	x2 := pc2[this.idx+1]
 	x1 := pc2[this.idx]
 	ssep := x1 + (((x2 - x1) * (p & 4095)) >> 12)
