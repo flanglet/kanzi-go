@@ -25,8 +25,8 @@ import (
 type DefaultInputBitStream struct {
 	closed      bool
 	read        uint64
-	position    int  // index of current byte (consumed if bitIndex == 63)
-	bitIndex    uint // index of current bit to read
+	position    int // index of current byte (consumed if bitIndex == -1)
+	bitIndex    int // index of current bit to read
 	is          io.ReadCloser
 	buffer      []byte
 	maxPosition int
@@ -60,12 +60,12 @@ func NewDefaultInputBitStream(stream io.ReadCloser, bufferSize uint) (*DefaultIn
 
 // Return 1 or 0
 func (this *DefaultInputBitStream) ReadBit() int {
-	if this.bitIndex == 63 {
+	if this.bitIndex < 0 {
 		this.pullCurrent() // Panic if stream is closed
 	}
 
-	bit := int(this.current>>this.bitIndex) & 1
-	this.bitIndex = (this.bitIndex + 63) & 63
+	bit := int(this.current>>uint(this.bitIndex)) & 1
+	this.bitIndex--
 	return bit
 }
 
@@ -75,26 +75,24 @@ func (this *DefaultInputBitStream) ReadBits(count uint) uint64 {
 	}
 
 	var res uint64
+	remaining := int(count) - this.bitIndex - 1
 
-	if count <= this.bitIndex+1 {
+	if remaining <= 0 {
 		// Enough spots available in 'current'
-		shift := this.bitIndex + 1 - count
-
-		if this.bitIndex == 63 {
+		if this.bitIndex < 0 {
 			this.pullCurrent()
-			shift += (this.bitIndex - 63) // adjust if bitIndex != 63 (end of stream)
+			remaining -= (this.bitIndex - 63) // adjust if bitIndex != 63 (end of stream)
 		}
 
-		res = (this.current >> shift) & (0xFFFFFFFFFFFFFFFF >> (64 - count))
-		this.bitIndex = (this.bitIndex - count) & 63
+		res = (this.current >> uint(-remaining)) & (0xFFFFFFFFFFFFFFFF >> (64 - count))
+		this.bitIndex -= int(count)
 	} else {
 		// Not enough spots available in 'current'
-		remaining := count - this.bitIndex - 1
-		res = this.current & (0xFFFFFFFFFFFFFFFF >> (63 - this.bitIndex))
+		res = this.current & ((uint64(1) << uint(this.bitIndex+1)) - 1)
 		this.pullCurrent()
-		res <<= remaining
+		res <<= uint(remaining)
 		this.bitIndex -= remaining
-		res |= (this.current >> (this.bitIndex + 1))
+		res |= (this.current >> uint(this.bitIndex+1))
 	}
 
 	return res
@@ -131,7 +129,7 @@ func (this *DefaultInputBitStream) HasMoreToRead() (bool, error) {
 		return false, errors.New("Stream closed")
 	}
 
-	if this.position < this.maxPosition || this.bitIndex != 63 {
+	if this.position < this.maxPosition || this.bitIndex >= 0 {
 		return true, nil
 	}
 
@@ -147,27 +145,26 @@ func (this *DefaultInputBitStream) pullCurrent() {
 		}
 	}
 
-	var val uint64
-
 	if this.position+7 > this.maxPosition {
 		// End of stream: overshoot max position => adjust bit index
 		shift := uint(this.maxPosition-this.position) << 3
-		this.bitIndex = shift + 7
-		val = 0
+		this.bitIndex = int(shift) + 7
+		val := uint64(0)
 
 		for this.position <= this.maxPosition {
 			val |= (uint64(this.buffer[this.position]) << shift)
 			this.position++
 			shift -= 8
 		}
+
+		this.current = val
 	} else {
 		// Regular processing, buffer length is multiple of 8
-		val = binary.BigEndian.Uint64(this.buffer[this.position : this.position+8])
+		this.current = binary.BigEndian.Uint64(this.buffer[this.position : this.position+8])
 		this.bitIndex = 63
 		this.position += 8
 	}
 
-	this.current = val
 }
 
 func (this *DefaultInputBitStream) Close() (bool, error) {
@@ -176,18 +173,17 @@ func (this *DefaultInputBitStream) Close() (bool, error) {
 	}
 
 	this.closed = true
-	this.read += uint64(63)
 
 	// Reset fields to force a readFromInputStream() and trigger an error
 	// on ReadBit() or ReadBits()
-	this.bitIndex = 63
+	this.bitIndex = -1
 	this.maxPosition = -1
 	return true, nil
 }
 
 // Return number of bits read so far
 func (this *DefaultInputBitStream) Read() uint64 {
-	return this.read + uint64(this.position)<<3 - uint64(this.bitIndex)
+	return this.read + uint64(this.position)<<3 - uint64(this.bitIndex+1)
 }
 
 func (this *DefaultInputBitStream) Closed() bool {

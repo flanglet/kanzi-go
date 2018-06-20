@@ -37,7 +37,31 @@ func testCorrectnessAligned() {
 	values := make([]int, 100)
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	for test := 0; test < 10; test++ {
+	// Check correctness of read() and written()
+	for t := 1; t <= 32; t++ {
+		var bs io.BufferStream
+		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
+		fmt.Println()
+		obs.WriteBits(0x0123456789ABCDEF, uint(t))
+		fmt.Printf("Written (before close): %v\n", obs.Written())
+		obs.Close()
+		fmt.Printf("Written (after close): %v\n", obs.Written())
+
+		ibs, _ := bitstream.NewDefaultInputBitStream(&bs, 16384)
+		ibs.ReadBits(uint(t))
+
+		if ibs.Read() == uint64(t) {
+			fmt.Println("OK")
+		} else {
+			fmt.Println("KO")
+		}
+
+		fmt.Printf("Read (before close): %v\n", ibs.Read())
+		ibs.Close()
+		fmt.Printf("Read (after close): %v\n", ibs.Read())
+	}
+
+	for test := 1; test <= 10; test++ {
 		var bs io.BufferStream
 		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
 		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
@@ -53,7 +77,7 @@ func testCorrectnessAligned() {
 
 			fmt.Printf("%v ", values[i])
 
-			if i%50 == 49 {
+			if i%20 == 19 {
 				println()
 			}
 		}
@@ -83,7 +107,7 @@ func testCorrectnessAligned() {
 				ok = false
 			}
 
-			if i%50 == 49 {
+			if i%20 == 19 {
 				println()
 			}
 		}
@@ -112,7 +136,29 @@ func testCorrectnessMisaligned() {
 	values := make([]int, 100)
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	for test := 0; test < 10; test++ {
+	// Check correctness of read() and written()
+	for t := 1; t <= 32; t++ {
+		var bs io.BufferStream
+		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
+		fmt.Println()
+		obs.WriteBit(1)
+		obs.WriteBits(0x0123456789ABCDEF, uint(t))
+		fmt.Printf("Written (before close): %v\n", obs.Written())
+		obs.Close()
+		fmt.Printf("Written (after close): %v\n", obs.Written())
+
+		ibs, _ := bitstream.NewDefaultInputBitStream(&bs, 16384)
+		ibs.ReadBit()
+		ibs.ReadBits(uint(t))
+
+		if ibs.Read() == uint64(t+1) {
+			fmt.Println("OK")
+		} else {
+			fmt.Println("KO")
+		}
+	}
+
+	for test := 1; test <= 10; test++ {
 		var bs io.BufferStream
 		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
 		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
@@ -130,7 +176,7 @@ func testCorrectnessMisaligned() {
 			values[i] &= mask
 			fmt.Printf("%v ", values[i])
 
-			if i%50 == 49 {
+			if i%20 == 19 {
 				println()
 			}
 		}
@@ -161,7 +207,7 @@ func testCorrectnessMisaligned() {
 				ok = false
 			}
 
-			if i%50 == 49 {
+			if i%20 == 19 {
 				println()
 			}
 		}
