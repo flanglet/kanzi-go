@@ -53,7 +53,7 @@ func NewDefaultInputBitStream(stream io.ReadCloser, bufferSize uint) (*DefaultIn
 	this := new(DefaultInputBitStream)
 	this.buffer = make([]byte, bufferSize)
 	this.is = stream
-	this.bitIndex = 63
+	this.bitIndex = -1
 	this.maxPosition = -1
 	return this, nil
 }
@@ -96,6 +96,73 @@ func (this *DefaultInputBitStream) ReadBits(count uint) uint64 {
 	}
 
 	return res
+}
+
+func (this *DefaultInputBitStream) ReadArray(bits []byte, count uint) uint {
+	if this.Closed() {
+		panic(errors.New("Stream closed"))
+	}
+
+	remaining := int(count)
+	start := 0
+
+	// Byte aligned cursor ?
+	if (this.bitIndex+1)&7 == 0 {
+		if this.bitIndex < 0 {
+			this.pullCurrent()
+		}
+
+		// Empty this.current
+		for this.bitIndex >= 0 && remaining >= 8 {
+			bits[start] = byte(this.ReadBits(8))
+			start++
+			remaining -= 8
+		}
+
+		// Copy internal buffer to bits array
+		for (remaining >> 3) > this.maxPosition+1-this.position {
+			copy(bits[start:], this.buffer[this.position:this.maxPosition+1])
+			start += (this.maxPosition + 1 - this.position)
+			remaining -= ((this.maxPosition + 1 - this.position) << 3)
+			this.readFromInputStream(len(this.buffer))
+		}
+
+		r := (remaining >> 6) << 3
+
+		if r > 0 {
+			copy(bits[start:start+r], this.buffer[this.position:this.position+r])
+			this.position += r
+			start += r
+			remaining -= (r << 3)
+		}
+	} else {
+		// Not byte aligned
+		r := 63 - this.bitIndex
+
+		for remaining >= 64 {
+			v := this.current & ((uint64(1) << uint(this.bitIndex+1)) - 1)
+			this.pullCurrent()
+			v <<= uint(r)
+			this.bitIndex -= r
+			v |= (this.current >> uint(this.bitIndex+1))
+			binary.BigEndian.PutUint64(bits[start:start+8], v)
+			start += 8
+			remaining -= 64
+		}
+	}
+
+	// Last bytes
+	for remaining >= 8 {
+		bits[start] = byte(this.ReadBits(8))
+		start++
+		remaining -= 8
+	}
+
+	if remaining > 0 {
+		bits[start] = byte(this.ReadBits(uint(remaining)) << uint(8-remaining))
+	}
+
+	return count
 }
 
 func (this *DefaultInputBitStream) readFromInputStream(count int) (int, error) {
@@ -152,7 +219,7 @@ func (this *DefaultInputBitStream) pullCurrent() {
 		val := uint64(0)
 
 		for this.position <= this.maxPosition {
-			val |= (uint64(this.buffer[this.position]) << shift)
+			val |= (uint64(this.buffer[this.position]&0xFF) << shift)
 			this.position++
 			shift -= 8
 		}

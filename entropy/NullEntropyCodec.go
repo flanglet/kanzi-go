@@ -16,7 +16,6 @@ limitations under the License.
 package entropy
 
 import (
-	"encoding/binary"
 	kanzi "github.com/flanglet/kanzi-go"
 )
 
@@ -33,21 +32,7 @@ func NewNullEntropyEncoder(bs kanzi.OutputBitStream) (*NullEntropyEncoder, error
 }
 
 func (this *NullEntropyEncoder) Encode(block []byte) (int, error) {
-	len8 := len(block) & -8
-
-	for i := 0; i < len8; i += 8 {
-		this.bitstream.WriteBits(binary.BigEndian.Uint64(block[i:]), 64)
-	}
-
-	for i := len8; i < len(block); i++ {
-		this.bitstream.WriteBits(uint64(block[i]), 8)
-	}
-
-	return len(block), nil
-}
-
-func (this *NullEntropyEncoder) EncodeByte(val byte) {
-	this.bitstream.WriteBits(uint64(val), 8)
+	return int(this.bitstream.WriteArray(block, uint(8*len(block))) >> 3), nil
 }
 
 func (this *NullEntropyEncoder) BitStream() kanzi.OutputBitStream {
@@ -68,17 +53,7 @@ func NewNullEntropyDecoder(bs kanzi.InputBitStream) (*NullEntropyDecoder, error)
 }
 
 func (this *NullEntropyDecoder) Decode(block []byte) (int, error) {
-	len8 := len(block) & -8
-
-	for i := 0; i < len8; i += 8 {
-		binary.BigEndian.PutUint64(block[i:], this.bitstream.ReadBits(64))
-	}
-
-	for i := len8; i < len(block); i++ {
-		block[i] = byte(this.bitstream.ReadBits(8))
-	}
-
-	return len(block), nil
+	return int(this.bitstream.ReadArray(block, uint(8*len(block))) >> 3), nil
 }
 
 func (this *NullEntropyDecoder) DecodeByte() byte {

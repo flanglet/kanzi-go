@@ -126,6 +126,49 @@ func (this *DebugOutputBitStream) WriteBits(bits uint64, length uint) uint {
 	return res
 }
 
+func (this *DebugOutputBitStream) WriteArray(bits []byte, count uint) uint {
+	res := this.delegate.WriteArray(bits, count)
+
+	for i := uint(0); i <= (count >> 3); i++ {
+		for j := uint(8); j > 0; j-- {
+			bit := (bits[i] >> (j - 1)) & 1
+			this.current <<= 1
+			this.current |= byte(bit)
+			this.lineIndex++
+			fmt.Fprintf(this.out, "%d", bit)
+
+			if this.mark == true && i == count {
+				fmt.Fprintf(this.out, "w")
+			}
+
+			if this.width > 7 {
+				if this.lineIndex%this.width == 0 {
+					if this.hexa == true {
+						this.printByte(this.current)
+					}
+
+					fmt.Fprintf(this.out, "\n")
+					this.lineIndex = 0
+				} else if this.lineIndex&7 == 0 {
+					if this.hexa == true {
+						this.printByte(this.current)
+					} else {
+						fmt.Fprintf(this.out, " ")
+					}
+				}
+			} else if this.lineIndex&7 == 0 {
+				if this.hexa == true {
+					this.printByte(this.current)
+				} else {
+					fmt.Fprintf(this.out, " ")
+				}
+			}
+		}
+	}
+
+	return res
+}
+
 func (this *DebugOutputBitStream) printByte(val byte) {
 	if val < 10 {
 		fmt.Fprintf(this.out, " [00%1d] ", val)

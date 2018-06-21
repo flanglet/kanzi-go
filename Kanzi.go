@@ -91,25 +91,45 @@ type ByteFunction interface {
 }
 
 type InputBitStream interface {
-	ReadBit() int // panic if error
+	// Return 1 or 0
+	// Panic if error
+	ReadBit() int
 
-	ReadBits(length uint) uint64 // panic if error
+	// Length is the number of bits in [1..64]. Return the bits read as an uint64
+	// Panic if error
+	ReadBits(length uint) uint64
+
+	// Read bits and put them in the byte array. Length is the number of bits
+	// Return the number of bits read.
+	// Panic if error
+	ReadArray(bits []byte, length uint) uint
 
 	Close() (bool, error)
 
-	Read() uint64 // number of bits read so far
+	// Number of bits read
+	Read() uint64
 
+	// Return false when the bitstream is closed or the End-Of-Stream has been reached
 	HasMoreToRead() (bool, error)
 }
 
 type OutputBitStream interface {
-	WriteBit(bit int) // panic if error
+	// Write the least significant bit of the input integer
+	// Panic if error
+	WriteBit(bit int)
 
-	WriteBits(bits uint64, length uint) uint // panic if error
+	// Length is the number of bits in [1..64]. Return the number of bits written.
+	WriteBits(bits uint64, length uint) uint
+
+	// Write bits ouf of the byte array. Length is the number of bits.
+	// Return the number of bits written.
+	// Panic if error
+	WriteArray(bits []byte, length uint) uint
 
 	Close() (bool, error)
 
-	Written() uint64 // number of bits written so far
+	// Number of bits written
+	Written() uint64
 }
 
 type Predictor interface {

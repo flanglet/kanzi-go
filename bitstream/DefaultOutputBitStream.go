@@ -103,6 +103,77 @@ func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) uint {
 	return count
 }
 
+func (this *DefaultOutputBitStream) WriteArray(bits []byte, count uint) uint {
+	if this.Closed() {
+		panic(errors.New("Stream closed"))
+	}
+
+	if count == 0 {
+		return 0
+	}
+
+	if count > uint(len(bits)<<3) {
+		panic(fmt.Errorf("Invalid length: %v (must be in [1..%v])", count, len(bits)<<3))
+	}
+
+	remaining := int(count)
+	start := 0
+
+	// Byte aligned cursor ?
+	if (this.bitIndex+1)&7 == 0 {
+		// Fill up this.current
+		for (this.bitIndex != 63) && (remaining >= 8) {
+			this.WriteBits(uint64(bits[start]), 8)
+			start++
+			remaining -= 8
+		}
+
+		// Copy bits array to internal buffer
+		for remaining>>3 >= len(this.buffer)-this.position {
+			copy(this.buffer[this.position:], bits[start:start+len(this.buffer)-this.position])
+			start += (len(this.buffer) - this.position)
+			remaining -= ((len(this.buffer) - this.position) << 3)
+			this.position = len(this.buffer)
+			this.flush()
+		}
+
+		r := (remaining >> 6) << 3
+
+		if r > 0 {
+			copy(this.buffer[this.position:], bits[start:start+r])
+			start += r
+			this.position += r
+			remaining -= (r << 3)
+		}
+	} else {
+		// Not byte aligned
+		r := 63 - this.bitIndex
+
+		for remaining >= 64 {
+			value := binary.BigEndian.Uint64(bits[start : start+8])
+			this.current |= (value >> uint(r))
+			this.pushCurrent()
+			this.current = (value << uint(64-r))
+			this.bitIndex -= r
+			start += 8
+			remaining -= 64
+		}
+	}
+
+	// Last bytes
+	for remaining >= 8 {
+		this.WriteBits(uint64(bits[start]), 8)
+		start++
+		remaining -= 8
+	}
+
+	if remaining > 0 {
+		this.WriteBits(uint64(bits[start])>>uint(8-remaining), uint(remaining))
+	}
+
+	return count
+}
+
 // Push 64 bits of current value into buffer.
 func (this *DefaultOutputBitStream) pushCurrent() {
 	binary.BigEndian.PutUint64(this.buffer[this.position:this.position+8], this.current)

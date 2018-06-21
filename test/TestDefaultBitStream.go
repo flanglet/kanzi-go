@@ -27,13 +27,18 @@ import (
 )
 
 func main() {
-	testCorrectnessAligned()
-	testCorrectnessMisaligned()
-	testSpeed() // Writes big output.bin file to local dir !!!
+	testCorrectnessAligned1()
+	testCorrectnessAligned2()
+	testCorrectnessMisaligned1()
+	testCorrectnessMisaligned2()
+	var filename = flag.String("filename", "r:\\output.bin", "Ouput file name for speed test")
+	flag.Parse()
+	testSpeed1(filename) // Writes big output.bin file to local dir !!!
+	testSpeed2(filename) // Writes big output.bin file to local dir !!!
 }
 
-func testCorrectnessAligned() {
-	fmt.Printf("Correctness Test - byte aligned\n")
+func testCorrectnessAligned1() {
+	fmt.Printf("Correctness Test - write long - byte aligned\n")
 	values := make([]int, 100)
 	rand.Seed(time.Now().UTC().UnixNano())
 
@@ -131,8 +136,8 @@ func testCorrectnessAligned() {
 
 }
 
-func testCorrectnessMisaligned() {
-	fmt.Printf("Correctness Test - not byte aligned\n")
+func testCorrectnessMisaligned1() {
+	fmt.Printf("Correctness Test - write long - not byte aligned\n")
 	values := make([]int, 100)
 	rand.Seed(time.Now().UTC().UnixNano())
 
@@ -231,6 +236,160 @@ func testCorrectnessMisaligned() {
 		println()
 	}
 }
+func testCorrectnessAligned2() {
+	fmt.Printf("Correctness Test - write array - byte aligned\n")
+	input := make([]byte, 100)
+	output := make([]byte, 100)
+	rand.Seed(time.Now().UTC().UnixNano())
+
+	for test := 1; test <= 10; test++ {
+		var bs io.BufferStream
+		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
+		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
+		dbgbs.ShowByte(true)
+		dbgbs.Mark(true)
+		println()
+
+		for i := range input {
+			if test < 5 {
+				input[i] = byte(rand.Intn(test*1000 + 100))
+			} else {
+				input[i] = byte(rand.Intn(1 << 31))
+			}
+
+			fmt.Printf("%v ", input[i])
+
+			if i%20 == 19 {
+				println()
+			}
+		}
+
+		count := uint(8 + test*(20+(test&1)) + (test & 3))
+		println()
+		println()
+		dbgbs.WriteArray(input, count)
+
+		// Close first to force flush()
+		dbgbs.Close()
+
+		ibs, _ := bitstream.NewDefaultInputBitStream(&bs, 16384)
+		fmt.Printf("\nRead:\n")
+		r := ibs.ReadArray(output, count)
+		ok := r == count
+
+		if ok == true {
+			for i := 1; i < 1+int(r>>3); i++ {
+				fmt.Printf("%v", output[i])
+
+				if output[i] == input[i] {
+					fmt.Printf(" ")
+				} else {
+					fmt.Printf("* ")
+					ok = false
+				}
+
+				if i%20 == 19 {
+					println()
+				}
+			}
+		}
+
+		ibs.Close()
+		bs.Close()
+		println()
+		println()
+		fmt.Printf("Bits written: %v\n", dbgbs.Written())
+		fmt.Printf("Bits read: %v\n", ibs.Read())
+
+		if ok {
+			fmt.Printf("\nSuccess\n")
+		} else {
+			fmt.Printf("\nFailure\n")
+		}
+
+		println()
+		println()
+	}
+
+}
+
+func testCorrectnessMisaligned2() {
+	fmt.Printf("Correctness Test - write array - not byte aligned\n")
+	input := make([]byte, 100)
+	output := make([]byte, 100)
+	rand.Seed(time.Now().UTC().UnixNano())
+
+	for test := 1; test <= 10; test++ {
+		var bs io.BufferStream
+		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
+		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
+		dbgbs.ShowByte(true)
+		dbgbs.Mark(true)
+		println()
+
+		for i := range input {
+			if test < 5 {
+				input[i] = byte(rand.Intn(test*1000 + 100))
+			} else {
+				input[i] = byte(rand.Intn(1 << 31))
+			}
+
+			fmt.Printf("%v ", input[i])
+
+			if i%20 == 19 {
+				println()
+			}
+		}
+
+		count := uint(8 + test*(20+(test&1)) + (test & 3))
+		println()
+		println()
+		dbgbs.WriteBit(0)
+		dbgbs.WriteArray(input[1:], count)
+
+		// Close first to force flush()
+		dbgbs.Close()
+
+		ibs, _ := bitstream.NewDefaultInputBitStream(&bs, 16384)
+		fmt.Printf("\nRead:\n")
+		ibs.ReadBit()
+		r := ibs.ReadArray(output[1:], count)
+		ok := r == count
+
+		if ok == true {
+			for i := 1; i < 1+int(r>>3); i++ {
+				fmt.Printf("%v", output[i])
+
+				if output[i] == input[i] {
+					fmt.Printf(" ")
+				} else {
+					fmt.Printf("* ")
+					ok = false
+				}
+
+				if i%20 == 19 {
+					println()
+				}
+			}
+		}
+
+		ibs.Close()
+		bs.Close()
+		println()
+		println()
+		fmt.Printf("Bits written: %v\n", dbgbs.Written())
+		fmt.Printf("Bits read: %v\n", ibs.Read())
+
+		if ok {
+			fmt.Printf("\nSuccess\n")
+		} else {
+			fmt.Printf("\nFailure\n")
+		}
+
+		println()
+		println()
+	}
+}
 
 func testWritePostClose(obs kanzi.OutputBitStream) {
 	defer func() {
@@ -254,10 +413,8 @@ func testReadPostClose(ibs kanzi.InputBitStream) {
 	ibs.ReadBit()
 }
 
-func testSpeed() {
-	fmt.Printf("Speed Test\n")
-	var filename = flag.String("filename", "r:\\output.bin", "Ouput file name for speed test")
-	flag.Parse()
+func testSpeed1(filename *string) {
+	fmt.Printf("Speed Test 1\n")
 
 	values := []uint64{3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9, 3,
 		31, 14, 41, 15, 59, 92, 26, 65, 53, 35, 58, 89, 97, 79, 93, 32}
@@ -321,4 +478,76 @@ func testSpeed() {
 	fmt.Printf("Throughput [MB/s] : %d\n", (written/1024*1000/8192)/uint64(delta1/1000000))
 	fmt.Printf("Read [ms]         : %v\n", delta2/1000000)
 	fmt.Printf("Throughput [MB/s] : %d\n", (read/1024*1000/8192)/uint64(delta2/1000000))
+	println()
+	println()
+}
+
+func testSpeed2(filename *string) {
+	fmt.Printf("Speed Test2\n")
+
+	values := []byte{3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9, 3,
+		31, 14, 41, 15, 59, 92, 26, 65, 53, 35, 58, 89, 97, 79, 93, 32}
+	iter := 150
+	read := uint64(0)
+	written := uint64(0)
+	delta1 := int64(0)
+	delta2 := int64(0)
+	nn := 3250000 * len(values)
+	defer os.Remove(*filename)
+	input := make([]byte, nn)
+	output := make([]byte, nn)
+
+	for i := 0; i < 3250000; i++ {
+		copy(input[i*len(values):], values)
+	}
+
+	for test := 0; test < iter; test++ {
+		file1, err := os.Create(*filename)
+
+		if err != nil {
+			fmt.Printf("Cannot create %s", *filename)
+
+			return
+		}
+
+		bos := file1
+		obs, _ := bitstream.NewDefaultOutputBitStream(bos, 16*1024)
+		before := time.Now()
+		obs.WriteArray(input, uint(len(input)))
+
+		// Close first to force flush()
+		obs.Close()
+		delta1 += time.Now().Sub(before).Nanoseconds()
+		written += obs.Written()
+		file1.Close()
+
+		file2, err := os.Open(*filename)
+
+		if err != nil {
+			fmt.Printf("Cannot open %s", *filename)
+
+			return
+		}
+
+		bis := file2
+		ibs, _ := bitstream.NewDefaultInputBitStream(bis, 1024*1024)
+		before = time.Now()
+		ibs.ReadArray(output, uint(len(output)))
+
+		ibs.Close()
+		delta2 += time.Now().Sub(before).Nanoseconds()
+		read += ibs.Read()
+		file2.Close()
+	}
+
+	println()
+	fmt.Printf("%v bits written (%v MB)\n", written, written/1024/8192)
+	fmt.Printf("%v bits read (%v MB)\n", read, read/1024/8192)
+	println()
+	fmt.Printf("Write [ms]        : %v\n", delta1/1000000)
+	fmt.Printf("Throughput [MB/s] : %d\n", (written/1024*1000/8192)/uint64(delta1/1000000))
+	fmt.Printf("Read [ms]         : %v\n", delta2/1000000)
+	fmt.Printf("Throughput [MB/s] : %d\n", (read/1024*1000/8192)/uint64(delta2/1000000))
+	println()
+	println()
 }
