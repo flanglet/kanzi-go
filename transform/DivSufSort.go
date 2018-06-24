@@ -634,14 +634,15 @@ func (this *DivSufSort) ssCompare3(p1, p2, depth int) int {
 	u1 := this.sa[p1] + depth
 	u2n := this.sa[p2+1] + 2
 	u2 := this.sa[p2] + depth
+	buf := this.buffer
 
 	if u1n-u1 > u2n-u2 {
-		for u2 < u2n && this.buffer[u1] == this.buffer[u2] {
+		for u2 < u2n && buf[u1] == buf[u2] {
 			u1++
 			u2++
 		}
 	} else {
-		for u1 < u1n && this.buffer[u1] == this.buffer[u2] {
+		for u1 < u1n && buf[u1] == buf[u2] {
 			u1++
 			u2++
 		}
@@ -649,7 +650,7 @@ func (this *DivSufSort) ssCompare3(p1, p2, depth int) int {
 
 	if u1 < u1n {
 		if u2 < u2n {
-			return this.buffer[u1] - this.buffer[u2]
+			return buf[u1] - buf[u2]
 		}
 
 		return 1

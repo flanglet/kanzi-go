@@ -802,7 +802,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	emitAnchor := 0 // never negative
 	words := this.staticDictSize
-	mode := computeStats(src[srcIdx:srcIdx+count], this.freqs)
+	mode := computeStats(src[0:count], this.freqs)
 
 	// Not text ?
 	if mode&0x80 != 0 {
@@ -854,19 +854,19 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 			}
 
 			// Check word in dictionary
-			length := srcIdx - delimAnchor - 1
+			length := int32(srcIdx - delimAnchor - 1)
 			pe1 := this.dictMap[h1&this.hashMask]
 			var pe2 *DictEntry
 
 			// Check for hash collisions
-			if (pe1 != nil) && (pe1.data>>24 != int32(length) || pe1.hash != h1) {
+			if (pe1 != nil) && (pe1.data>>24 != length || pe1.hash != h1) {
 				pe1 = nil
 			}
 
 			if pe1 == nil {
 				pe2 = this.dictMap[h2&this.hashMask]
 
-				if (pe2 != nil) && (pe2.data>>24 != int32(length) || pe2.hash != h2) {
+				if (pe2 != nil) && (pe2.data>>24 != length || pe2.hash != h2) {
 					pe2 = nil
 				}
 			}
@@ -895,7 +895,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 						this.dictMap[pe.hash&this.hashMask] = nil
 						pe.ptr = src[delimAnchor+1:]
 						pe.hash = h1
-						pe.data = int32((length << 24) | words)
+						pe.data = (length << 24) | int32(words)
 					}
 
 					// Update hash map
@@ -962,13 +962,28 @@ func computeStats(block []byte, freqs []int) byte {
 	prv := byte(0)
 	freqs1 := freqs[0:65536]
 	freqs0 := freqs[65536:]
-	freqs0[block[0]]++
-	freqs1[block[0]]++
+	end4 := len(block) & -4
 
-	for i := 1; i < len(block); i++ {
-		freqs0[block[i]]++
+	// Unroll loop
+	for i := 0; i < end4; i += 4 {
 		freqs1[(int(prv)<<8)+int(block[i])]++
 		prv = block[i]
+		freqs0[prv]++
+		freqs1[(int(prv)<<8)+int(block[i+1])]++
+		prv = block[i+1]
+		freqs0[prv]++
+		freqs1[(int(prv)<<8)+int(block[i+2])]++
+		prv = block[i+2]
+		freqs0[prv]++
+		freqs1[(int(prv)<<8)+int(block[i+3])]++
+		prv = block[i+3]
+		freqs0[prv]++
+	}
+
+	for i := end4; i < len(block); i++ {
+		freqs1[(int(prv)<<8)+int(block[i])]++
+		prv = block[i]
+		freqs0[prv]++
 	}
 
 	nbTextChars := 0
@@ -1018,14 +1033,12 @@ func (this *TextCodec) expandDictionary() bool {
 		return false
 	}
 
-	newDict := make([]DictEntry, this.dictSize*2)
-	copy(newDict, this.dictList)
+	this.dictList = append(this.dictList, make([]DictEntry, this.dictSize)...)
 
 	for i := this.dictSize; i < this.dictSize*2; i++ {
-		newDict[i] = DictEntry{ptr: nil, hash: 0, data: int32(i)}
+		this.dictList[i] = DictEntry{ptr: nil, hash: 0, data: int32(i)}
 	}
 
-	this.dictList = newDict
 	this.dictSize <<= 1
 	return true
 }
@@ -1184,14 +1197,14 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			// Lookup word in dictionary
-			length := srcIdx - delimAnchor - 1
+			length := int32(srcIdx - delimAnchor - 1)
 			pe := this.dictMap[h1&this.hashMask]
 
 			// Check for hash collisions
 			if pe != nil {
-				if pe.data>>24 != int32(length) || pe.hash != h1 {
+				if pe.data>>24 != length || pe.hash != h1 {
 					pe = nil
-				} else if !sameWords(pe.ptr[1:length], src[delimAnchor+2:delimAnchor+2+length]) {
+				} else if !sameWords(pe.ptr[1:length], src[delimAnchor+2:delimAnchor+2+int(length)]) {
 					pe = nil
 				}
 			}
@@ -1206,7 +1219,7 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 						this.dictMap[pe.hash&this.hashMask] = nil
 						pe.ptr = src[delimAnchor+1:]
 						pe.hash = h1
-						pe.data = int32((length << 24) | words)
+						pe.data = (length << 24) | int32(words)
 					}
 
 					this.dictMap[h1&this.hashMask] = pe
