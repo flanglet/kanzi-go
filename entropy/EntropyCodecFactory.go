@@ -25,7 +25,7 @@ const (
 	NONE_TYPE    = uint32(0) // No compression
 	HUFFMAN_TYPE = uint32(1) // Huffman
 	FPAQ_TYPE    = uint32(2) // Fast PAQ (order 0)
-	PAQ_TYPE     = uint32(3) // PAQ (stripped from many models for speed)
+	PAQ_TYPE     = uint32(3) // Obsolete
 	RANGE_TYPE   = uint32(4) // Range
 	ANS0_TYPE    = uint32(5) // Asymmetric Numerical System order 0
 	CM_TYPE      = uint32(6) // Context Model
@@ -49,10 +49,6 @@ func NewEntropyDecoder(ibs kanzi.InputBitStream, ctx map[string]interface{},
 
 	case RANGE_TYPE:
 		return NewRangeDecoder(ibs)
-
-	case PAQ_TYPE:
-		predictor, _ := NewPAQPredictor()
-		return NewBinaryEntropyDecoder(ibs, predictor)
 
 	case FPAQ_TYPE:
 		predictor, _ := NewFPAQPredictor()
@@ -95,10 +91,6 @@ func NewEntropyEncoder(obs kanzi.OutputBitStream, ctx map[string]interface{},
 	case RANGE_TYPE:
 		return NewRangeEncoder(obs)
 
-	case PAQ_TYPE:
-		predictor, _ := NewPAQPredictor()
-		return NewBinaryEntropyEncoder(obs, predictor)
-
 	case FPAQ_TYPE:
 		predictor, _ := NewFPAQPredictor()
 		return NewBinaryEntropyEncoder(obs, predictor)
@@ -139,9 +131,6 @@ func GetName(entropyType uint32) string {
 	case RANGE_TYPE:
 		return "RANGE"
 
-	case PAQ_TYPE:
-		return "PAQ"
-
 	case FPAQ_TYPE:
 		return "FPAQ"
 
@@ -176,9 +165,6 @@ func GetType(entropyName string) uint32 {
 
 	case "RANGE":
 		return RANGE_TYPE
-
-	case "PAQ":
-		return PAQ_TYPE
 
 	case "FPAQ":
 		return FPAQ_TYPE

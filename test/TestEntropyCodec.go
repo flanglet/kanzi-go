@@ -29,7 +29,7 @@ import (
 )
 
 func main() {
-	var name = flag.String("type", "ALL", "Type of codec (all, Huffman, ANS, Range, FPAQ, CM, PAQ, TPAQ, ExpGolomg or RiceGolomb)")
+	var name = flag.String("type", "ALL", "Type of codec (all, Huffman, ANS, Range, FPAQ, CM, TPAQ, ExpGolomg or RiceGolomb)")
 
 	// Parse
 	flag.Parse()
@@ -54,9 +54,6 @@ func main() {
 		fmt.Printf("\n\nTestCMEntropyCoder")
 		TestCorrectness("CM")
 		TestSpeed("CM")
-		fmt.Printf("\n\nTestPAQEntropyCoder")
-		TestCorrectness("PAQ")
-		TestSpeed("PAQ")
 		fmt.Printf("\n\nTestTPAQEntropyCoder")
 		TestCorrectness("TPAQ")
 		TestSpeed("TPAQ")
@@ -75,10 +72,6 @@ func main() {
 
 func getPredictor(name string) kanzi.Predictor {
 	switch name {
-	case "PAQ":
-		res, _ := entropy.NewPAQPredictor()
-		return res
-
 	case "FPAQ":
 		res, _ := entropy.NewFPAQPredictor()
 		return res
@@ -98,10 +91,6 @@ func getPredictor(name string) kanzi.Predictor {
 
 func getEncoder(name string, obs kanzi.OutputBitStream) kanzi.EntropyEncoder {
 	switch name {
-	case "PAQ":
-		res, _ := entropy.NewBinaryEntropyEncoder(obs, getPredictor(name))
-		return res
-
 	case "FPAQ":
 		res, _ := entropy.NewBinaryEntropyEncoder(obs, getPredictor(name))
 		return res
@@ -147,16 +136,6 @@ func getEncoder(name string, obs kanzi.OutputBitStream) kanzi.EntropyEncoder {
 
 func getDecoder(name string, ibs kanzi.InputBitStream) kanzi.EntropyDecoder {
 	switch name {
-	case "PAQ":
-		pred := getPredictor(name)
-
-		if pred == nil {
-			panic(fmt.Errorf("No such entropy decoder: '%s'", name))
-		}
-
-		res, _ := entropy.NewBinaryEntropyDecoder(ibs, pred)
-		return res
-
 	case "FPAQ":
 		pred := getPredictor(name)
 
