@@ -26,7 +26,7 @@ type DefaultInputBitStream struct {
 	closed      bool
 	read        uint64
 	position    int // index of current byte (consumed if bitIndex == -1)
-	availBits   int // bits not consumed in _current
+	availBits   int // bits not consumed in current
 	is          io.ReadCloser
 	buffer      []byte
 	maxPosition int
@@ -141,8 +141,7 @@ func (this *DefaultInputBitStream) ReadArray(bits []byte, count uint) uint {
 			v := this.current & ((uint64(1) << uint(this.availBits)) - 1)
 			this.pullCurrent()
 			this.availBits -= r
-			v = (v << uint(r)) | (this.current >> uint(this.availBits))
-			binary.BigEndian.PutUint64(bits[start:start+8], v)
+			binary.BigEndian.PutUint64(bits[start:start+8], (v<<uint(r))|(this.current>>uint(this.availBits)))
 			start += 8
 			remaining -= 64
 		}

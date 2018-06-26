@@ -23,13 +23,13 @@ import (
 )
 
 type DefaultOutputBitStream struct {
-	closed   bool
-	written  uint64
-	position int    // index of current byte in buffer
-	bitIndex int    // index of current bit to write
-	current  uint64 // cached bits
-	os       io.WriteCloser
-	buffer   []byte
+	closed    bool
+	written   uint64
+	position  int    // index of current byte in buffer
+	availBits int    // bits not consumed in current
+	current   uint64 // cached bits
+	os        io.WriteCloser
+	buffer    []byte
 }
 
 func NewDefaultOutputBitStream(stream io.WriteCloser, bufferSize uint) (*DefaultOutputBitStream, error) {
@@ -52,18 +52,18 @@ func NewDefaultOutputBitStream(stream io.WriteCloser, bufferSize uint) (*Default
 	this := new(DefaultOutputBitStream)
 	this.buffer = make([]byte, bufferSize)
 	this.os = stream
-	this.bitIndex = 63
+	this.availBits = 64
 	return this, nil
 }
 
 // Write least significant bit of the input integer. Panics if stream is closed
 func (this *DefaultOutputBitStream) WriteBit(bit int) {
-	if this.bitIndex <= 0 { // bitIndex = -1 if stream is closed => force pushCurrent() => panic
+	if this.availBits <= 1 { // availBits = 0 if stream is closed => force pushCurrent() => panic
 		this.current |= uint64(bit & 1)
 		this.pushCurrent()
 	} else {
-		this.current |= (uint64(bit&1) << uint(this.bitIndex))
-		this.bitIndex--
+		this.availBits--
+		this.current |= (uint64(bit&1) << uint(this.availBits))
 	}
 
 }
@@ -80,14 +80,13 @@ func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) uint {
 	}
 
 	value &= (0xFFFFFFFFFFFFFFFF >> (64 - count))
-	bi := uint(this.bitIndex + 1)
+	bi := uint(this.availBits)
 
 	// Pad the current position in buffer
 	if count < bi {
 		// Enough spots available in 'current'
-		remaining := bi - count
-		this.current |= (value << remaining)
-		this.bitIndex -= int(count)
+		this.current |= (value << (bi - count))
+		this.availBits -= int(count)
 	} else {
 		// Not enough spots available in 'current'
 		remaining := count - bi
@@ -96,7 +95,7 @@ func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) uint {
 
 		if remaining != 0 {
 			this.current = (value << (64 - remaining))
-			this.bitIndex -= int(remaining)
+			this.availBits -= int(remaining)
 		}
 	}
 
@@ -120,9 +119,9 @@ func (this *DefaultOutputBitStream) WriteArray(bits []byte, count uint) uint {
 	start := 0
 
 	// Byte aligned cursor ?
-	if (this.bitIndex+1)&7 == 0 {
+	if this.availBits&7 == 0 {
 		// Fill up this.current
-		for (this.bitIndex != 63) && (remaining >= 8) {
+		for (this.availBits != 64) && (remaining >= 8) {
 			this.WriteBits(uint64(bits[start]), 8)
 			start++
 			remaining -= 8
@@ -147,14 +146,14 @@ func (this *DefaultOutputBitStream) WriteArray(bits []byte, count uint) uint {
 		}
 	} else {
 		// Not byte aligned
-		r := 63 - this.bitIndex
+		r := 64 - this.availBits
 
 		for remaining >= 64 {
 			value := binary.BigEndian.Uint64(bits[start : start+8])
 			this.current |= (value >> uint(r))
 			this.pushCurrent()
 			this.current = (value << uint(64-r))
-			this.bitIndex -= r
+			this.availBits -= r
 			start += 8
 			remaining -= 64
 		}
@@ -177,7 +176,7 @@ func (this *DefaultOutputBitStream) WriteArray(bits []byte, count uint) uint {
 // Push 64 bits of current value into buffer.
 func (this *DefaultOutputBitStream) pushCurrent() {
 	binary.BigEndian.PutUint64(this.buffer[this.position:this.position+8], this.current)
-	this.bitIndex = 63
+	this.availBits = 64
 	this.current = 0
 	this.position += 8
 
@@ -211,18 +210,18 @@ func (this *DefaultOutputBitStream) Close() (bool, error) {
 		return true, nil
 	}
 
-	savedBitIndex := this.bitIndex
+	savedBitIndex := this.availBits
 	savedPosition := this.position
 	savedCurrent := this.current
 
 	// Push last bytes (the very last byte may be incomplete)
-	size := int((63-this.bitIndex)+7) >> 3
+	size := int((64-this.availBits)+7) >> 3
 	this.pushCurrent()
 	this.position -= (8 - size)
 
 	if err := this.flush(); err != nil {
 		// Revert fields to allow subsequent attempts in case of transient failure
-		this.bitIndex = savedBitIndex
+		this.availBits = savedBitIndex
 		this.position = savedPosition
 		this.current = savedCurrent
 		return false, err
@@ -233,7 +232,7 @@ func (this *DefaultOutputBitStream) Close() (bool, error) {
 
 	// Reset fields to force a flush() and trigger an error
 	// on WriteBit() or WriteBits()
-	this.bitIndex = -1
+	this.availBits = 0
 	this.buffer = make([]byte, 8)
 	this.written -= 64 // adjust for method Written()
 	return true, nil
@@ -242,7 +241,7 @@ func (this *DefaultOutputBitStream) Close() (bool, error) {
 // Return number of bits written so far
 func (this *DefaultOutputBitStream) Written() uint64 {
 	// Number of bits flushed + bytes written in memory + bits written in memory
-	return this.written + uint64(this.position<<3) + uint64(63-this.bitIndex)
+	return this.written + uint64(this.position<<3) + uint64(64-this.availBits)
 }
 
 func (this *DefaultOutputBitStream) Closed() bool {

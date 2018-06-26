@@ -278,7 +278,7 @@ func testCorrectnessAligned2() {
 		ok := r == count
 
 		if ok == true {
-			for i := 1; i < 1+int(r>>3); i++ {
+			for i := 0; i < int(r>>3); i++ {
 				fmt.Printf("%v", output[i])
 
 				if output[i] == input[i] {
