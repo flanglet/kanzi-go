@@ -25,13 +25,14 @@ const (
 // See https://github.com/encode84/bcm
 type CMPredictor struct {
 	c1       byte
-	c2       byte
-	ctx      int
+	c2       byte 
+	ctx      int32 
 	run      uint32
 	idx      int
-	runMask  int
-	counter1 [][]int
-	counter2 [][]int
+	runMask  int32
+	counter1 [256][]int
+	counter2 [512][]int
+	p        int
 }
 
 func NewCMPredictor() (*CMPredictor, error) {
@@ -40,8 +41,6 @@ func NewCMPredictor() (*CMPredictor, error) {
 	this.run = 1
 	this.runMask = 0
 	this.idx = 8
-	this.counter1 = make([][]int, 256)
-	this.counter2 = make([][]int, 512)
 
 	for i := 0; i < 256; i++ {
 		this.counter1[i] = make([]int, 257)
@@ -61,6 +60,8 @@ func NewCMPredictor() (*CMPredictor, error) {
 		this.counter2[i+i+1][16] -= 16
 	}
 
+	pc1 := this.counter1[this.ctx]
+	this.p = (13*pc1[256] + 14*pc1[this.c1] + 5*pc1[this.c2]) >> 5
 	return this, nil
 }
 
@@ -90,22 +91,23 @@ func (this *CMPredictor) Update(bit byte) {
 
 		if this.c1 == this.c2 {
 			this.run++
-			this.runMask = int((2-this.run)>>31) << 8
+			this.runMask = int32((2-this.run)>>31) << 8
 		} else {
 			this.run = 0
 			this.runMask = 0
 		}
 	}
+
+	pc1 = this.counter1[this.ctx]
+	this.p = (13*pc1[256] + 14*pc1[this.c1] + 5*pc1[this.c2]) >> 5
 }
 
 // Return the split value representing the probability of 1 in the [0..4095] range.
 func (this *CMPredictor) Get() int {
-	pc1 := this.counter1[this.ctx]
-	p := (13*pc1[256] + 14*pc1[this.c1] + 5*pc1[this.c2]) >> 5
-	this.idx = p >> 12
+	this.idx = this.p >> 12
 	pc2 := this.counter2[this.ctx|this.runMask]
 	x2 := pc2[this.idx+1]
 	x1 := pc2[this.idx]
-	ssep := x1 + (((x2 - x1) * (p & 4095)) >> 12)
-	return (p + ssep + ssep + ssep + 32) >> 6 // rescale to [0..4095]
+	ssep := x1 + (((x2 - x1) * (this.p & 4095)) >> 12)
+	return (this.p + ssep + ssep + ssep + 32) >> 6 // rescale to [0..4095]
 }
