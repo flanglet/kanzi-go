@@ -25,8 +25,8 @@ const (
 // See https://github.com/encode84/bcm
 type CMPredictor struct {
 	c1       byte
-	c2       byte 
-	ctx      int32 
+	c2       byte
+	ctx      int32
 	run      uint32
 	idx      int
 	runMask  int32

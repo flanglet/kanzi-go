@@ -69,9 +69,11 @@ func (this *BinaryEntropyEncoder) EncodeBit(bit byte) {
 	split := (((this.high - this.low) >> 4) * uint64(this.predictor.Get())) >> 8
 
 	// Update fields with new interval bounds
-	b := -uint64(bit)
-	this.high -= (b & (this.high - this.low - split))
-	this.low += (^b & -^split)
+	if bit == 0 {
+		this.low = this.low + split + 1
+	} else {
+		this.high = this.low + split
+	}
 
 	// Update predictor
 	this.predictor.Update(bit)
