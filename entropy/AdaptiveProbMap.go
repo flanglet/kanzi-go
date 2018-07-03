@@ -52,7 +52,7 @@ func newLogisticAdaptiveProbMap(n, rate uint) (*LogisticAdaptiveProbMap, error) 
 // Return improved prediction given current bit, prediction and context
 func (this *LogisticAdaptiveProbMap) get(bit int, pr int, ctx int) int {
 	// Update probability based on error and learning rate
-	g := int32((bit * 65528) + (bit << this.rate))
+	g := int32((-bit & 65528) + (bit << this.rate))
 	this.data[this.index+1] += ((g - this.data[this.index+1]) >> this.rate)
 	this.data[this.index] += ((g - this.data[this.index]) >> this.rate)
 	pr = kanzi.STRETCH[pr]
@@ -84,7 +84,7 @@ func newFastLogisticAdaptiveProbMap(n, rate uint) (*FastLogisticAdaptiveProbMap,
 // Return improved prediction given current bit, prediction and context
 func (this *FastLogisticAdaptiveProbMap) get(bit int, pr int, ctx int) int {
 	// Update probability based on error and learning rate
-	g := int32((bit * 65528) + (bit << this.rate))
+	g := int32((-bit & 65528) + (bit << this.rate))
 	this.data[this.index] += ((g - this.data[this.index]) >> this.rate)
 	this.index = ((kanzi.STRETCH[pr] + 2048) >> 7) + 33*ctx
 	return int(this.data[this.index]) >> 4
@@ -109,7 +109,7 @@ func newLinearAdaptiveProbMap(n, rate uint) (*LinearAdaptiveProbMap, error) {
 // Return improved prediction given current bit, prediction and context
 func (this *LinearAdaptiveProbMap) get(bit int, pr int, ctx int) int {
 	// Update probability based on error and learning rate
-	g := int32((bit * 65528) + (bit << this.rate))
+	g := int32((-bit & 65528) + (bit << this.rate))
 	this.data[this.index+1] += ((g - this.data[this.index+1]) >> this.rate)
 	this.data[this.index] += ((g - this.data[this.index]) >> this.rate)
 	pr = kanzi.STRETCH[pr]
