@@ -33,7 +33,7 @@ const (
 	TPAQ_MASK_F0F0F0F0    = int32(-252645136)  // 0xF0F0F0F0
 	TPAQ_HASH             = int32(200002979)
 	TPAQ_BEGIN_LEARN_RATE = 60 << 7
-	TPAQ_END_LEARN_RATE   = 14 << 7
+	TPAQ_END_LEARN_RATE   = 11 << 7
 )
 
 ///////////////////////// state table ////////////////////////
