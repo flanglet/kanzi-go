@@ -569,3 +569,51 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, tota
 
 	return alphabetSize, nil
 }
+
+func WriteVarInt(bs kanzi.OutputBitStream, value int) int {
+	if bs == nil {
+		panic("Invalid null bitstream parameter")
+	}
+
+	w := 0
+
+	for {
+		if value >= 128 {
+			bs.WriteBits(uint64(0x80|(value&0x7F)), 8)
+		} else {
+			bs.WriteBits(uint64(value), 8)
+		}
+
+		more := value >= 128
+		value >>= 7
+		w++
+
+		if more == false || w >= 4 {
+			break
+		}
+	}
+
+	return w
+}
+
+func ReadVarInt(bs kanzi.InputBitStream) int {
+	if bs == nil {
+		panic("Invalid null bitstream parameter")
+	}
+
+	res := 0
+	shift := uint(0)
+
+	for {
+		val := int(bs.ReadBits(8))
+		res = ((val & 0x7F) << shift) | res
+		more := val >= 128
+		shift += 7
+
+		if more == false || shift >= 28 {
+			break
+		}
+	}
+
+	return res
+}

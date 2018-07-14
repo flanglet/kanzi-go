@@ -16,6 +16,7 @@ limitations under the License.
 package entropy
 
 import (
+	"encoding/binary"
 	"errors"
 	kanzi "github.com/flanglet/kanzi-go"
 )
@@ -23,6 +24,7 @@ import (
 const (
 	BINARY_ENTROPY_TOP = uint64(0x00FFFFFFFFFFFFFF)
 	MASK_24_56         = uint64(0x00FFFFFFFF000000)
+	MASK_0_56          = uint64(0x00FFFFFFFFFFFFFF)
 	MASK_0_24          = uint64(0x0000000000FFFFFF)
 	MASK_0_32          = uint64(0x00000000FFFFFFFF)
 )
@@ -33,6 +35,8 @@ type BinaryEntropyEncoder struct {
 	high      uint64
 	bitstream kanzi.OutputBitStream
 	disposed  bool
+	buffer    []byte
+	index     int
 }
 
 func NewBinaryEntropyEncoder(bs kanzi.OutputBitStream, predictor kanzi.Predictor) (*BinaryEntropyEncoder, error) {
@@ -49,6 +53,8 @@ func NewBinaryEntropyEncoder(bs kanzi.OutputBitStream, predictor kanzi.Predictor
 	this.low = 0
 	this.high = BINARY_ENTROPY_TOP
 	this.bitstream = bs
+	this.buffer = make([]byte, 0)
+	this.index = 0
 	return this, nil
 }
 
@@ -69,11 +75,9 @@ func (this *BinaryEntropyEncoder) EncodeBit(bit byte) {
 	split := (((this.high - this.low) >> 4) * uint64(this.predictor.Get())) >> 8
 
 	// Update fields with new interval bounds
-	if bit == 0 {
-		this.low = this.low + split + 1
-	} else {
-		this.high = this.low + split
-	}
+	b := -uint64(bit)
+	this.high -= (b & (this.high - this.low - split))
+	this.low += (^b & -^split)
 
 	// Update predictor
 	this.predictor.Update(bit)
@@ -85,15 +89,63 @@ func (this *BinaryEntropyEncoder) EncodeBit(bit byte) {
 }
 
 func (this *BinaryEntropyEncoder) Encode(block []byte) (int, error) {
-	for i := range block {
-		this.EncodeByte(block[i])
+	count := len(block)
+
+	if count > 1<<30 {
+		return -1, errors.New("Invalid block size parameter (max is 1<<30)")
 	}
 
-	return len(block), nil
+	startChunk := 0
+	end := count
+	length := count
+	err := error(nil)
+
+	if count >= 1<<26 {
+		// If the block is big (>=64MB), split the encoding to avoid allocating
+		// too much memory.
+		if count < 1<<29 {
+			length = count >> 3
+		} else {
+			length = count >> 4
+		}
+	} else if count < 64 {
+		length = 64
+	}
+
+	// Split block into chunks, read bit array from bitstream and decode chunk
+	for startChunk < end {
+		chunkSize := length
+
+		if startChunk+length >= end {
+			chunkSize = end - startChunk
+		}
+
+		if len(this.buffer) < (chunkSize*9)>>3 {
+			this.buffer = make([]byte, (chunkSize*9)>>3)
+		}
+
+		this.index = 0
+		buf := block[startChunk : startChunk+chunkSize]
+
+		for i := range buf {
+			this.EncodeByte(buf[i])
+		}
+
+		WriteVarInt(this.bitstream, this.index)
+		this.bitstream.WriteArray(this.buffer, uint(8*this.index))
+		startChunk += chunkSize
+
+		if startChunk < end {
+			this.bitstream.WriteBits(this.low|MASK_0_24, 56)
+		}
+	}
+
+	return count, err
 }
 
 func (this *BinaryEntropyEncoder) flush() {
-	this.bitstream.WriteBits(this.high>>24, 32)
+	binary.BigEndian.PutUint32(this.buffer[this.index:], uint32(this.high>>24))
+	this.index += 4
 	this.low <<= 32
 	this.high = (this.high << 32) | MASK_0_32
 }
@@ -118,6 +170,8 @@ type BinaryEntropyDecoder struct {
 	current     uint64
 	initialized bool
 	bitstream   kanzi.InputBitStream
+	buffer      []byte
+	index       int
 }
 
 func NewBinaryEntropyDecoder(bs kanzi.InputBitStream, predictor kanzi.Predictor) (*BinaryEntropyDecoder, error) {
@@ -135,6 +189,8 @@ func NewBinaryEntropyDecoder(bs kanzi.InputBitStream, predictor kanzi.Predictor)
 	this.low = 0
 	this.high = BINARY_ENTROPY_TOP
 	this.bitstream = bs
+	this.buffer = make([]byte, 0)
+	this.index = 0
 	return this, nil
 }
 
@@ -188,25 +244,65 @@ func (this *BinaryEntropyDecoder) DecodeBit() byte {
 }
 
 func (this *BinaryEntropyDecoder) read() {
-	this.low = this.low << 32
-	this.high = (this.high << 32) | MASK_0_32
-	this.current = (this.current << 32) | this.bitstream.ReadBits(32)
+	this.low = (this.low << 32) & MASK_0_56
+	this.high = ((this.high << 32) | MASK_0_32) & MASK_0_56
+	val := uint64(binary.BigEndian.Uint32(this.buffer[this.index:])) & 0xFFFFFFFF
+	this.current = ((this.current << 32) | val) & MASK_0_56
+	this.index += 4
 }
 
 func (this *BinaryEntropyDecoder) Decode(block []byte) (int, error) {
+	count := len(block)
+
+	if count > 1<<30 {
+		return -1, errors.New("Invalid block size parameter (max is 1<<30)")
+	}
+
+	startChunk := 0
+	end := count
+	length := count
 	err := error(nil)
 
-	// Deferred initialization: the bitstream may not be ready at build time
-	// Initialize 'current' with bytes read from the bitstream
-	if this.Initialized() == false {
-		this.Initialize()
+	if count >= 1<<26 {
+		// If the block is big (>=64MB), split the decoding to avoid allocating
+		// too much memory.
+		if count < 1<<29 {
+			length = count >> 3
+		} else {
+			length = count >> 4
+		}
+	} else if count < 64 {
+		length = 64
 	}
 
-	for i := range block {
-		block[i] = this.DecodeByte()
+	// Split block into chunks, read bit array from bitstream and decode chunk
+	for startChunk < end {
+		chunkSize := length
+
+		if startChunk+length >= end {
+			chunkSize = end - startChunk
+		}
+
+		if len(this.buffer) < (chunkSize*9)>>3 {
+			this.buffer = make([]byte, (chunkSize*9)>>3)
+		}
+
+		szBytes := ReadVarInt(this.bitstream)
+		this.current = this.bitstream.ReadBits(56)
+
+		this.initialized = true
+		this.bitstream.ReadArray(this.buffer, uint(8*szBytes))
+		this.index = 0
+		buf := block[startChunk : startChunk+chunkSize]
+
+		for i := range buf {
+			buf[i] = this.DecodeByte()
+		}
+
+		startChunk += chunkSize
 	}
 
-	return len(block), err
+	return count, err
 }
 
 func (this *BinaryEntropyDecoder) BitStream() kanzi.InputBitStream {
