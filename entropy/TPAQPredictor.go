@@ -186,6 +186,7 @@ type TPAQPredictor struct {
 	ctx4            int32
 	ctx5            int32
 	ctx6            int32
+	extra           bool
 }
 
 func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
@@ -193,17 +194,17 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 	statesSize := 1 << 28
 	mixersSize := 1 << 12
 	hashSize := TPAQ_HASH_SIZE
-	extraPerf := false
+	this.extra = false
 	extraMem := uint(0)
 
 	if ctx != nil {
 		// If extra mode, add more memory for states table, hash table
 		// and add second SSE
 		if _, containsKey := (*ctx)["extra"]; containsKey {
-			extraPerf = (*ctx)["extra"].(bool)
+			this.extra = (*ctx)["extra"].(bool)
 		}
 
-		if extraPerf == true {
+		if this.extra == true {
 			extraMem = 1
 		}
 
@@ -268,10 +269,13 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 	this.cp6 = &this.bigStatesMap[0]
 
 	var err error
-	this.sse1, err = newLogisticAdaptiveProbMap(65536, 7)
 
-	if extraPerf == true && err == nil {
+	if this.extra == true {
 		this.sse0, err = newLogisticAdaptiveProbMap(256, 7)
+
+		if err == nil {
+			this.sse1, err = newLogisticAdaptiveProbMap(65536, 7)
+		}
 	}
 
 	return this, err
@@ -367,14 +371,16 @@ func (this *TPAQPredictor) Update(bit byte) {
 	p := this.mixer.get(p0, p1, p2, p3, p4, p5, p6, p7)
 
 	// SSE (Secondary Symbol Estimation)
-	if this.sse0 == nil || this.binCount < (this.pos>>3) {
-		p = this.sse1.get(y, p, int(c|(this.c4&0xFF00)))
-	} else {
-		if this.binCount >= (this.pos >> 2) {
-			p = this.sse0.get(y, p, int(this.c0))
-		}
+	if this.extra == true {
+		if this.binCount < (this.pos >> 3) {
+			p = this.sse1.get(y, p, int(c|(this.c4&0xFF00)))
+		} else {
+			if this.binCount >= (this.pos >> 2) {
+				p = this.sse0.get(y, p, int(this.c0))
+			}
 
-		p = (3*this.sse1.get(y, p, int(this.c0|(this.c4&0xFF00))) + p + 2) >> 2
+			p = (3*this.sse1.get(y, p, int(this.c0|(this.c4&0xFF00))) + p + 2) >> 2
+		}
 	}
 
 	this.pr = p + int((uint32(p)-2048)>>31)
