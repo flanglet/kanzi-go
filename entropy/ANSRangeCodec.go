@@ -30,6 +30,7 @@ const (
 	ANS_TOP                 = 1 << 23
 	DEFAULT_ANS0_CHUNK_SIZE = uint(1 << 15) // 32 KB by default
 	DEFAULT_ANS_LOG_RANGE   = uint(13)      // max possible for ANS_TOP=1<23
+	ANS_MAX_CHUNK_SIZE      = 1 << 27       // 8*MAX_CHUNK_SIZE must not overflow
 )
 
 type ANSRangeEncoder struct {
@@ -87,8 +88,8 @@ func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncode
 		return nil, errors.New("The chunk size must be at least 1024")
 	}
 
-	if chkSize > 1<<30 {
-		return nil, errors.New("The chunk size must be at most 2^30")
+	if chkSize > ANS_MAX_CHUNK_SIZE {
+		return nil, errors.New("The chunk size must be at most 2^27")
 	}
 
 	if logRange < 8 || logRange > 16 {
@@ -115,14 +116,15 @@ func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, lr uint) (int,
 	res := 0
 	endk := int(255*this.order + 1)
 	this.bitstream.WriteBits(uint64(lr-8), 3) // logRange
+	var err error
 
 	for k := 0; k < endk; k++ {
 		f := frequencies[257*k : 257*(k+1)]
 		symb := this.symbols[k<<8 : (k+1)<<8]
 		curAlphabet := this.alphabet[k<<8 : (k+1)<<8]
-		alphabetSize, err := this.eu.NormalizeFrequencies(f, curAlphabet, f[256], 1<<lr)
+		var alphabetSize int
 
-		if err != nil {
+		if alphabetSize, err = this.eu.NormalizeFrequencies(f, curAlphabet, f[256], 1<<lr); err != nil {
 			break
 		}
 
@@ -143,7 +145,7 @@ func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, lr uint) (int,
 		res += alphabetSize
 	}
 
-	return res, nil
+	return res, err
 }
 
 // Encode alphabet and frequencies
@@ -214,24 +216,31 @@ func (this *ANSRangeEncoder) Encode(block []byte) (int, error) {
 		sizeChunk = len(block)
 	}
 
-	end := len(block)
-	startChunk := 0
+	if sizeChunk >= ANS_MAX_CHUNK_SIZE {
+		sizeChunk = ANS_MAX_CHUNK_SIZE
+	}
 
 	for i := range this.symbols {
 		this.symbols[i] = EncSymbol{}
 	}
 
-	if len(this.buffer) < 2*sizeChunk {
-		this.buffer = make([]byte, 2*sizeChunk)
+	// Add some padding
+	if len(this.buffer) < sizeChunk+(sizeChunk>>3) {
+		this.buffer = make([]byte, sizeChunk+(sizeChunk>>3))
 	}
+
+	end := len(block)
+	startChunk := 0
 
 	for startChunk < end {
 		endChunk := startChunk + sizeChunk
-		lr := this.logRange
 
-		if endChunk > end {
+		if endChunk >= end {
 			endChunk = end
+			sizeChunk = endChunk - startChunk
 		}
+
+		lr := this.logRange
 
 		// Lower log range if the size of the data block is small
 		for lr > 8 && 1<<lr > endChunk-startChunk {
@@ -251,7 +260,7 @@ func (this *ANSRangeEncoder) Encode(block []byte) (int, error) {
 
 func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 	st := ANS_TOP
-	n := 0
+	n := len(this.buffer) - 1
 
 	if this.order == 0 {
 		symb := this.symbols[0:256]
@@ -262,7 +271,7 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 
 			for st >= max {
 				this.buffer[n] = byte(st)
-				n++
+				n--
 				st >>= 8
 			}
 
@@ -283,7 +292,7 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 
 			for st >= max {
 				this.buffer[n] = byte(st)
-				n++
+				n--
 				st >>= 8
 			}
 
@@ -301,7 +310,7 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 
 		for st >= max {
 			this.buffer[n] = byte(st)
-			n++
+			n--
 			st >>= 8
 		}
 
@@ -312,13 +321,16 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 		st = st + sym.bias + q*sym.cmplFreq
 	}
 
+	n++
+
+	// Write chunk size
+	WriteVarInt(this.bitstream, len(this.buffer)-n)
+
 	// Write final ANS state
 	this.bitstream.WriteBits(uint64(st), 32)
 
 	// Write encoded data to bitstream
-	for n--; n >= 0; n-- {
-		this.bitstream.WriteBits(uint64(this.buffer[n]), 8)
-	}
+	this.bitstream.WriteArray(this.buffer[n:], 8*uint(len(this.buffer)-n))
 }
 
 // Compute chunk frequencies, cumulated frequencies and encode chunk header
@@ -395,6 +407,7 @@ type ANSRangeDecoder struct {
 	symbols   []DecSymbol
 	f2s       []byte // mapping frequency -> symbol
 	alphabet  []int
+	buffer    []byte
 	chunkSize int
 	logRange  uint
 	order     uint
@@ -437,8 +450,8 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 		return nil, errors.New("The chunk size must be at least 1024")
 	}
 
-	if chkSize > 1<<30 {
-		return nil, errors.New("The chunk size must be at most 2^30")
+	if chkSize > ANS_MAX_CHUNK_SIZE {
+		return nil, errors.New("The chunk size must be at most 2^27")
 	}
 
 	this := new(ANSRangeDecoder)
@@ -448,6 +461,7 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 	dim := int(255*order + 1)
 	this.alphabet = make([]int, dim*256)
 	this.freqs = make([]int, dim*256) // freqs[x][256] = total(freqs[x][0..255])
+	this.buffer = make([]byte, 0)
 	this.f2s = make([]byte, 0)
 	this.symbols = make([]DecSymbol, dim*256)
 	return this, nil
@@ -565,16 +579,26 @@ func (this *ANSRangeDecoder) Decode(block []byte) (int, error) {
 		return 0, nil
 	}
 
-	end := len(block)
-	startChunk := 0
 	sizeChunk := this.chunkSize
 
 	if sizeChunk == 0 {
 		sizeChunk = len(block)
 	}
 
+	if sizeChunk >= ANS_MAX_CHUNK_SIZE {
+		sizeChunk = ANS_MAX_CHUNK_SIZE
+	}
+
+	end := len(block)
+	startChunk := 0
+
 	for i := range this.symbols {
 		this.symbols[i] = DecSymbol{}
+	}
+
+	// Add some padding
+	if len(this.buffer) < sizeChunk+(sizeChunk>>3) {
+		this.buffer = make([]byte, sizeChunk+(sizeChunk>>3))
 	}
 
 	for startChunk < end {
@@ -586,8 +610,9 @@ func (this *ANSRangeDecoder) Decode(block []byte) (int, error) {
 
 		endChunk := startChunk + sizeChunk
 
-		if endChunk > end {
+		if endChunk >= end {
 			endChunk = end
+			sizeChunk = end - startChunk
 		}
 
 		this.decodeChunk(block[startChunk:endChunk])
@@ -598,8 +623,13 @@ func (this *ANSRangeDecoder) Decode(block []byte) (int, error) {
 }
 
 func (this *ANSRangeDecoder) decodeChunk(block []byte) {
+	// Read chunk size
+	sz := ReadVarInt(this.bitstream) & (ANS_MAX_CHUNK_SIZE - 1)
+
 	// Read initial ANS state
 	st := int(this.bitstream.ReadBits(32))
+	this.bitstream.ReadArray(this.buffer[0:sz], uint(8*sz))
+	n := 0
 	lr := this.logRange
 	mask := (1 << lr) - 1
 
@@ -618,7 +648,8 @@ func (this *ANSRangeDecoder) decodeChunk(block []byte) {
 
 			// Normalize
 			for st < ANS_TOP {
-				st = (st << 8) | int(this.bitstream.ReadBits(8))
+				st = (st << 8) | int(this.buffer[n]&0xFF)
+				n++
 			}
 		}
 	} else {
@@ -636,7 +667,8 @@ func (this *ANSRangeDecoder) decodeChunk(block []byte) {
 
 			// Normalize
 			for st < ANS_TOP {
-				st = (st << 8) | int(this.bitstream.ReadBits(8))
+				st = (st << 8) | int(this.buffer[n]&0xFF)
+				n++
 			}
 
 			prv = int(cur)
