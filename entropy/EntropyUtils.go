@@ -352,6 +352,10 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 	if ibs.ReadBit() == ABSENT_SYMBOLS_MASK {
 		alphabetSize := 1 << uint(ibs.ReadBits(5))
 
+		if alphabetSize > len(alphabet) {
+			return alphabetSize, fmt.Errorf("Invalid bitstream: incorrect alphabet size: %v", alphabetSize)
+		}
+
 		// Read missing symbols
 		for i := 0; i < count; i += ckSize {
 			log = uint(1 + ibs.ReadBits(4))
