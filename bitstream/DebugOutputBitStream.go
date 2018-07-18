@@ -129,7 +129,7 @@ func (this *DebugOutputBitStream) WriteBits(bits uint64, length uint) uint {
 func (this *DebugOutputBitStream) WriteArray(bits []byte, count uint) uint {
 	res := this.delegate.WriteArray(bits, count)
 
-	for i := uint(0); i <= (count >> 3); i++ {
+	for i := uint(0); i < (count >> 3); i++ {
 		for j := uint(8); j > 0; j-- {
 			bit := (bits[i] >> (j - 1)) & 1
 			this.current <<= 1

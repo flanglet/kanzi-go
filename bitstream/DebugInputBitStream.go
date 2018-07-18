@@ -135,7 +135,7 @@ func (this *DebugInputBitStream) ReadBits(length uint) uint64 {
 func (this *DebugInputBitStream) ReadArray(bits []byte, count uint) uint {
 	count = this.delegate.ReadArray(bits, count)
 
-	for i := uint(1); i <= count>>3; i++ {
+	for i := uint(0); i < count>>3; i++ {
 		for j := 7; j >= 0; j-- {
 			bit := (bits[i] >> uint(j)) & 1
 			this.current <<= 1
