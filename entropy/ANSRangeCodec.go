@@ -342,9 +342,21 @@ func (this *ANSRangeEncoder) rebuildStatistics(block []byte, lr uint) (int, erro
 	if this.order == 0 {
 		f := this.freqs[0:257]
 		f[256] = len(block)
+		end8 := len(block) & -8
 
-		for _, cur := range block {
-			f[cur]++
+		for i := 0; i < end8; i += 8 {
+			f[block[i]]++
+			f[block[i+1]]++
+			f[block[i+2]]++
+			f[block[i+3]]++
+			f[block[i+4]]++
+			f[block[i+5]]++
+			f[block[i+6]]++
+			f[block[i+7]]++
+		}
+
+		for i := end8; i < len(block); i++ {
+			f[block[i]]++
 		}
 	} else {
 		prv := int(0)
