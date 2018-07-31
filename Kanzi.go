@@ -166,11 +166,6 @@ type EntropyDecoder interface {
 	Dispose()
 }
 
-type Sizeable interface {
-	Size() uint
-
-	SetSize(sz uint) bool
-}
 
 func DifferentInts(src, dst []byte) bool {
 	p := unsafe.Pointer(&src[0])

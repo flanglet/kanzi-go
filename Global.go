@@ -21,20 +21,6 @@ import (
 
 const (
 	INFINITE_VALUE       = 0
-	PI_1024              = 3217
-	PI_1024_MULT2        = PI_1024 << 1
-	SMALL_RAD_ANGLE_1024 = 256 // arbitrarily set to 0.25 rad
-	CONST1               = 326 // 326 >> 12 === 1/(4*Math.PI)
-
-	SQRT_THRESHOLD0 = 1 << 8
-	SQRT_THRESHOLD1 = 1 << 16
-	SQRT_THRESHOLD2 = (1 << 10) - 3
-	SQRT_THRESHOLD3 = (1 << 14) - 28
-	SQRT_THRESHOLD4 = 1 << 24
-	SQRT_THRESHOLD5 = 1 << 20
-	SQRT_THRESHOLD6 = 1 << 28
-	SQRT_THRESHOLD7 = 1 << 26
-	SQRT_THRESHOLD8 = 1 << 30
 )
 
 // array with 256 elements: int(Math.log2(x-1))
@@ -202,64 +188,6 @@ func initStretch() []int {
 	return res
 }
 
-// Return 1024 * 10 * log10(x)
-func Ten_log10(x uint32) (uint32, error) {
-	if x == 0 {
-		return 0, errors.New("Cannot calculate log of a negative or null value")
-	}
-
-	if x < 100 {
-		return (TEN_LOG10_100[x] + 2) >> 2, nil
-	}
-
-	log2, err := Log2_1024(x)
-	return log2 * 6165 >> 11, err // 10 * 1/log2(10)
-}
-
-// Return 1024 * sin(1024*x) [x in radians]
-// Max error is less than 1.5%
-func Sin(rad1024 int) int {
-	if rad1024 >= PI_1024_MULT2 || rad1024 <= -PI_1024_MULT2 {
-		rad1024 %= PI_1024_MULT2
-	}
-
-	// If x is small enough, return sin(x) === x
-	if rad1024 < SMALL_RAD_ANGLE_1024 && -rad1024 < SMALL_RAD_ANGLE_1024 {
-		return rad1024
-	}
-
-	x := int32(rad1024)
-	x = (x + (x >> 31)) ^ (x >> 31) // abs(rad1024)
-
-	if x >= PI_1024 {
-		return -(((rad1024 >> 31) ^ SIN_1024[((x-PI_1024)*CONST1)>>12]) - (rad1024 >> 31))
-	}
-
-	return ((rad1024 >> 31) ^ SIN_1024[(x*CONST1)>>12]) - (rad1024 >> 31)
-}
-
-// Return 1024 * cos(1024*x) [x in radians]
-// Max error is less than 1.5%
-func Cos(rad1024 int) int {
-	if rad1024 >= PI_1024_MULT2 || rad1024 <= -PI_1024_MULT2 {
-		rad1024 %= PI_1024_MULT2
-	}
-
-	// If x is small enough, return cos(x) === 1 - (x*x)/2
-	if rad1024 < SMALL_RAD_ANGLE_1024 && -rad1024 < SMALL_RAD_ANGLE_1024 {
-		return 1024 - ((rad1024 * rad1024) >> 11)
-	}
-
-	x := int32(rad1024)
-	x = (x + (x >> 31)) ^ (x >> 31) // abs(rad1024)
-
-	if x >= PI_1024 {
-		return -COS_1024[((x-PI_1024)*CONST1)>>12]
-	}
-
-	return COS_1024[(x*CONST1)>>12]
-}
-
 func Log2(x uint32) (uint32, error) {
 	if x == 0 {
 		return 0, errors.New("Cannot calculate log of a negative or null value")
@@ -318,10 +246,6 @@ func Clamp(x, min, max int) int {
 	return max
 }
 
-func IsIn(x, a, b int) bool {
-	return x-a < b-a
-}
-
 func Max(x, y int32) int32 {
 	return x - (((x - y) >> 31) & (x - y))
 }
@@ -348,16 +272,16 @@ func PositiveOrNull(x int32) int32 {
 	return x & ^(x >> 31)
 }
 
-func IsPowerOf2(x int) bool {
+func IsPowerOf2(x int32) bool {
 	return (x & (x - 1)) == 0
 }
 
-func ResetLSB(x int) int {
+func ResetLsb(x int32) int32 {
 	return x & (x - 1)
 }
 
 // Least significant bit
-func Lsb(x int) int {
+func Lsb(x int32) int32 {
 	return x & -x
 }
 
@@ -379,94 +303,6 @@ func RoundUpPowerOfTwo(x int32) int32 {
 	x |= (x >> 8)
 	x |= (x >> 16)
 	return x + 1
-}
-
-var SQRT = [...]int{
-	0, 16, 23, 28, 32, 36, 39, 42, 45, 48, 51, 53, 55, 58, 60, 62,
-	64, 66, 68, 70, 72, 73, 75, 77, 78, 80, 82, 83, 85, 86, 88, 89,
-	91, 92, 93, 95, 96, 97, 99, 100, 101, 102, 104, 105, 106, 107, 109, 110,
-	111, 112, 113, 114, 115, 116, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127,
-	128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 139, 140, 141, 142,
-	143, 144, 145, 146, 147, 148, 148, 149, 150, 151, 152, 153, 153, 154, 155, 156,
-	157, 158, 158, 159, 160, 161, 162, 162, 163, 164, 165, 166, 166, 167, 168, 169,
-	169, 170, 171, 172, 172, 173, 174, 175, 175, 176, 177, 177, 178, 179, 180, 180,
-	181, 182, 182, 183, 184, 185, 185, 186, 187, 187, 188, 189, 189, 190, 191, 191,
-	192, 193, 193, 194, 195, 195, 196, 197, 197, 198, 199, 199, 200, 200, 201, 202,
-	202, 203, 204, 204, 205, 206, 206, 207, 207, 208, 209, 209, 210, 210, 211, 212,
-	212, 213, 213, 214, 215, 215, 216, 216, 217, 218, 218, 219, 219, 220, 221, 221,
-	222, 222, 223, 223, 224, 225, 225, 226, 226, 227, 227, 228, 229, 229, 230, 230,
-	231, 231, 232, 232, 233, 234, 234, 235, 235, 236, 236, 237, 237, 238, 238, 239,
-	239, 240, 241, 241, 242, 242, 243, 243, 244, 244, 245, 245, 246, 246, 247, 247,
-	248, 248, 249, 249, 250, 250, 251, 251, 252, 252, 253, 253, 254, 254, 255, 255,
-}
-
-// Integer SQRT implementation based on algorithm at
-// http://guru.multimedia.cx/fast-integer-square-root/
-// Return 1024*sqrt(x) with a precision higher than 0.1%
-func sqrt(x int) (int, error) {
-	if x < 0 {
-		return x, errors.New("Cannot calculate sqrt of a negative value")
-	}
-
-	if x <= 1 {
-		return x << 10, nil
-	}
-
-	shift := uint(0)
-
-	if x < SQRT_THRESHOLD5 {
-		if x < SQRT_THRESHOLD0 {
-			shift = 16
-		} else {
-			shift = 10
-		}
-	}
-
-	x <<= shift // scale up for better precision
-	val := 0
-
-	if x < SQRT_THRESHOLD1 {
-		if x < SQRT_THRESHOLD2 {
-			val = SQRT[(x+3)>>2] >> 3
-		} else {
-			if x < SQRT_THRESHOLD3 {
-				val = SQRT[(x+28)>>6] >> 1
-			} else {
-				val = SQRT[x>>8]
-			}
-		}
-	} else {
-		if x < SQRT_THRESHOLD4 {
-			if x < SQRT_THRESHOLD5 {
-				val = SQRT[x>>12]
-				val = ((x / val) >> 3) + (val << 1)
-			} else {
-				val = SQRT[x>>16]
-				val = ((x / val) >> 5) + (val << 3)
-			}
-		} else {
-			if x < SQRT_THRESHOLD6 {
-				if x < SQRT_THRESHOLD7 {
-					val = SQRT[x>>18]
-					val = ((x / val) >> 6) + (val << 4)
-				} else {
-					val = SQRT[x>>20]
-					val = ((x / val) >> 7) + (val << 5)
-				}
-			} else {
-				if x < SQRT_THRESHOLD8 {
-					val = SQRT[x>>22]
-					val = ((x / val) >> 8) + (val << 6)
-				} else {
-					val = SQRT[x>>24]
-					val = ((x / val) >> 9) + (val << 7)
-				}
-			}
-		}
-	}
-
-	// return 1024 * sqrt(x)
-	return (val - ((x - (val * val)) >> 31)) << (10 - (shift >> 1)), nil
 }
 
 func ComputeJobsPerTask(jobsPerTask []uint, jobs, tasks uint) []uint {
