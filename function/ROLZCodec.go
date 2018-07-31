@@ -284,8 +284,8 @@ func (this *ROLZCodec) findMatch(buf []byte, pos int) (int, int) {
 	}
 
 	// Check all recorded positions
-	for i := int32(0); i < this.posChecks; i++ {
-		ref := m[(counter-i)&this.maskChecks]
+	for i := counter; i > counter-this.posChecks; i-- {
+		ref := m[i&this.maskChecks]
 
 		if ref == 0 {
 			break
@@ -310,7 +310,7 @@ func (this *ROLZCodec) findMatch(buf []byte, pos int) (int, int) {
 		}
 
 		if n > bestLen {
-			bestIdx = int(i)
+			bestIdx = int(counter - i)
 			bestLen = n
 
 			if bestLen == maxMatch {

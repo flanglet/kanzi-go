@@ -299,6 +299,15 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 				}
 
 				// Emit length times the previous byte
+				for run > 3 {
+					dst[dstIdx] = prev
+					dst[dstIdx+1] = prev
+					dst[dstIdx+2] = prev
+					dst[dstIdx+3] = prev
+					dstIdx += 4
+					run -= 4
+				}
+
 				for run > 0 {
 					dst[dstIdx] = prev
 					dstIdx++
