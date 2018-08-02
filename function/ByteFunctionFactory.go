@@ -42,7 +42,7 @@ const (
 	ROLZ_TYPE   = uint64(11) // ROLZ codec
 )
 
-func NewByteFunction(ctx map[string]interface{}, functionType uint64) (*ByteTransformSequence, error) {
+func NewByteFunction(ctx *map[string]interface{}, functionType uint64) (*ByteTransformSequence, error) {
 	nbtr := 0
 
 	// Several transforms
@@ -76,7 +76,7 @@ func NewByteFunction(ctx map[string]interface{}, functionType uint64) (*ByteTran
 	return NewByteTransformSequence(transforms)
 }
 
-func newByteFunctionToken(ctx map[string]interface{}, functionType uint64) (kanzi.ByteTransform, error) {
+func newByteFunctionToken(ctx *map[string]interface{}, functionType uint64) (kanzi.ByteTransform, error) {
 	switch functionType {
 
 	case SNAPPY_TYPE:
@@ -89,7 +89,7 @@ func newByteFunctionToken(ctx map[string]interface{}, functionType uint64) (kanz
 		return NewROLZCodec(ROLZ_LOG_POS_CHECKS)
 
 	case BWT_TYPE:
-		return NewBWTBlockCodec()
+		return NewBWTBlockCodec(ctx)
 
 	case BWTS_TYPE:
 		return transform.NewBWTS()
@@ -107,7 +107,7 @@ func newByteFunctionToken(ctx map[string]interface{}, functionType uint64) (kanz
 		return transform.NewSBRT(transform.SBRT_MODE_RANK)
 
 	case DICT_TYPE:
-		return NewTextCodecFromMap(ctx)
+		return NewTextCodecWithCtx(ctx)
 
 	case X86_TYPE:
 		return NewX86Codec()

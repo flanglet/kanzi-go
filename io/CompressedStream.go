@@ -495,7 +495,7 @@ func (this *EncodingTask) encode() {
 	}
 
 	this.ctx["size"] = this.blockLength
-	t, err := function.NewByteFunction(this.ctx, this.blockTransformType)
+	t, err := function.NewByteFunction(&this.ctx, this.blockTransformType)
 
 	if err != nil {
 		<-this.input
@@ -1193,7 +1193,7 @@ func (this *DecodingTask) decode() {
 	}
 
 	this.ctx["size"] = preTransformLength
-	transform, err := function.NewByteFunction(this.ctx, this.blockTransformType)
+	transform, err := function.NewByteFunction(&this.ctx, this.blockTransformType)
 
 	if err != nil {
 		// Error => return

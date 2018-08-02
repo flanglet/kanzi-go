@@ -18,11 +18,14 @@ package transform
 import (
 	"errors"
 	"fmt"
+	kanzi "github.com/flanglet/kanzi-go"
+	"sync"
 )
 
 const (
 	BWT_MAX_BLOCK_SIZE  = 1024 * 1024 * 1024 // 1 GB (30 bits)
 	BWT_MAX_HEADER_SIZE = 4
+	BWT_MAX_CHUNKS      = 8
 )
 
 // The Burrows-Wheeler Transform is a reversible transform based on
@@ -38,9 +41,6 @@ const (
 // This implementation replaces the 'slow' sorting of permutation strings
 // with the construction of a suffix array (faster but more complex).
 // The suffix array contains the indexes of the sorted suffixes.
-// The BWT may be split in chunks (depending of block size). In this case,
-// several 'primary indexes' (one for each chunk) is kept and the inverse
-// can be processed in parallel; each chunk being inverted concurrently.
 //
 // E.G.    0123456789A
 // Source: mississippi\0
@@ -62,13 +62,18 @@ const (
 //
 // See https://code.google.com/p/libdivsufsort/source/browse/wiki/SACA_Benchmarks.wiki
 // for respective performance of different suffix sorting algorithms.
+//
+// This implementation extends the canonical algorithm to use up to MAX_CHUNKS primary
+// indexes (based on input block size). Each primary index corresponds to a data chunk.
+// Chunks may be inverted concurrently.
 
 type BWT struct {
 	buffer1        []uint32
 	buffer2        []byte // Only used for big blocks (size >= 1<<24)
 	buffer3        []int
-	primaryIndexes [9]uint
+	primaryIndexes [8]uint
 	saAlgo         *DivSufSort
+	jobs           uint
 }
 
 func NewBWT() (*BWT, error) {
@@ -76,7 +81,22 @@ func NewBWT() (*BWT, error) {
 	this.buffer1 = make([]uint32, 0) // Allocate empty: only used in inverse
 	this.buffer2 = make([]byte, 0)   // Allocate empty: only used for big blocks (size >= 1<<24)
 	this.buffer3 = make([]int, 0)    // Allocate empty: only used in forward
-	this.primaryIndexes = [9]uint{}
+	this.primaryIndexes = [8]uint{}
+	this.jobs = 1
+	return this, nil
+}
+
+func NewBWTWithCtx(ctx *map[string]interface{}) (*BWT, error) {
+	this := new(BWT)
+	this.buffer1 = make([]uint32, 0) // Allocate empty: only used in inverse
+	this.buffer2 = make([]byte, 0)   // Allocate empty: only used for big blocks (size >= 1<<24)
+	this.buffer3 = make([]int, 0)    // Allocate empty: only used in forward
+	this.primaryIndexes = [8]uint{}
+
+	if _, containsKey := (*ctx)["jobs"]; containsKey {
+		this.jobs = (*ctx)["jobs"].(uint)
+	}
+
 	return this, nil
 }
 
@@ -276,7 +296,8 @@ func (this *BWT) inverseRegularBlock(src, dst []byte, count int) (uint, uint, er
 	idx := count - 1
 
 	// Build inverse
-	if chunks == 1 {
+	if chunks == 1 || this.jobs == 1 {
+		// Shortcut for 1 chunk scenario
 		ptr := data[pIdx]
 		dst[idx] = byte(ptr)
 		idx--
@@ -287,23 +308,37 @@ func (this *BWT) inverseRegularBlock(src, dst []byte, count int) (uint, uint, er
 			idx--
 		}
 	} else {
+		// Several chunks may be decoded concurrently (depending on the availaibility
+		// of jobs for this block).
 		step := count / chunks
+		nbTasks := int(this.jobs)
 
-		for i := chunks - 1; i >= 0; i-- {
-			ptr := data[pIdx]
-			dst[idx] = byte(ptr)
-			idx--
-			endChunk := i * step
-
-			for idx >= endChunk {
-				ptr = data[(ptr>>8)+buckets[ptr&0xFF]]
-				dst[idx] = byte(ptr)
-				idx--
-			}
-
-			pIdx = int(this.PrimaryIndex(i))
-			idx = endChunk - 1
+		if nbTasks > chunks {
+			nbTasks = chunks
 		}
+
+		jobsPerTask := kanzi.ComputeJobsPerTask(make([]uint, nbTasks), uint(chunks), uint(nbTasks))
+		c := chunks
+		var wg sync.WaitGroup
+
+		// Create one task per job
+		for j := 0; j < nbTasks; j++ {
+			// Each task decodes jobsPerTask[j] chunks
+			wg.Add(1)
+			nc := c - int(jobsPerTask[j])
+			end := nc * step
+
+			go func(dst []byte, buckets []uint32, pIdx, idx, step, startChunk, endChunk int) {
+				this.inverseChunkRegularBlock(dst, buckets, pIdx, idx, step, startChunk, endChunk)
+				wg.Done()
+			}(dst, buckets[:], pIdx, idx, step, c-1, nc-1)
+
+			c = nc
+			pIdx = int(this.PrimaryIndex(c))
+			idx = end - 1
+		}
+
+		wg.Wait()
 	}
 
 	return uint(count), uint(count), nil
@@ -360,7 +395,8 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 	idx := count - 1
 
 	// Build inverse
-	if chunks == 1 {
+	if chunks == 1 || this.jobs == 1 {
+		// Shortcut for 1 chunk scenario
 		val1 := data1[pIdx]
 		val2 := data2[pIdx]
 		dst[idx] = val2
@@ -374,26 +410,35 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 			idx--
 		}
 	} else {
+		// Several chunks may be decoded concurrently (depending on the availaibility
+		// of jobs for this block).
 		step := count / chunks
+		nbTasks := int(this.jobs)
 
-		for i := chunks - 1; i >= 0; i-- {
-			val1 := data1[pIdx]
-			val2 := data2[pIdx]
-			dst[idx] = val2
-			idx--
-			endChunk := i * step
-
-			for idx >= endChunk {
-				n := val1 + buckets[val2]
-				val1 = data1[n]
-				val2 = data2[n]
-				dst[idx] = val2
-				idx--
-			}
-
-			pIdx = int(this.PrimaryIndex(i))
-			idx = endChunk - 1
+		if nbTasks > chunks {
+			nbTasks = chunks
 		}
+
+		jobsPerTask := kanzi.ComputeJobsPerTask(make([]uint, nbTasks), uint(chunks), uint(nbTasks))
+		c := chunks
+		var wg sync.WaitGroup
+
+		for j := 0; j < nbTasks; j++ {
+			wg.Add(1)
+			nc := c - int(jobsPerTask[j])
+			end := nc * step
+
+			go func(dst []byte, buckets []uint32, pIdx, idx, step, startChunk, endChunk int) {
+				this.inverseChunkBigBlock(dst, buckets, pIdx, idx, step, startChunk, endChunk)
+				wg.Done()
+			}(dst, buckets[:], pIdx, idx, step, c-1, nc-1)
+
+			c = nc
+			pIdx = int(this.PrimaryIndex(c))
+			idx = end - 1
+		}
+
+		wg.Wait()
 	}
 
 	return uint(count), uint(count), nil
@@ -403,16 +448,58 @@ func maxBWTBlockSize() int {
 	return BWT_MAX_BLOCK_SIZE - BWT_MAX_HEADER_SIZE
 }
 
+func (this *BWT) inverseChunkRegularBlock(dst []byte, buckets []uint32, pIdx, idx, step, startChunk, endChunk int) {
+	data := this.buffer1
+
+	for i := startChunk; i > endChunk; i-- {
+		endIdx := i * step
+		ptr := data[pIdx]
+		dst[idx] = byte(ptr)
+		idx--
+
+		for idx >= endIdx {
+			ptr = data[(ptr>>8)+buckets[ptr&0xFF]]
+			dst[idx] = byte(ptr)
+			idx--
+		}
+
+		pIdx = int(this.PrimaryIndex(i))
+	}
+}
+
+func (this *BWT) inverseChunkBigBlock(dst []byte, buckets []uint32, pIdx, idx, step, startChunk, endChunk int) {
+	data1 := this.buffer1
+	data2 := this.buffer2
+
+	for i := startChunk; i > endChunk; i-- {
+		endIdx := i * step
+		val1 := data1[pIdx]
+		val2 := data2[pIdx]
+		dst[idx] = val2
+		idx--
+
+		for idx >= endIdx {
+			n := val1 + buckets[val2]
+			val1 = data1[n]
+			val2 = data2[n]
+			dst[idx] = val2
+			idx--
+		}
+
+		pIdx = int(this.PrimaryIndex(i))
+	}
+}
+
 func GetBWTChunks(size int) int {
-	// For now, return 1 always !!!!
-	return 1
-	//       log := 0
-	//       size >>= 10
-	//
-	//       for size>0 && log<3 {
-	//          size >>= 2
-	//          log++
-	//       }
-	//
-	//       return 1<<log
+	if size < 1<<23 { // 8 MB
+		return 1
+	}
+
+	res := (size + (1 << 22)) >> 23
+
+	if res > BWT_MAX_CHUNKS {
+		return BWT_MAX_CHUNKS
+	}
+
+	return res
 }

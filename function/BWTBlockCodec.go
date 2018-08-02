@@ -38,11 +38,11 @@ type BWTBlockCodec struct {
 	bwt *transform.BWT
 }
 
-func NewBWTBlockCodec() (*BWTBlockCodec, error) {
+func NewBWTBlockCodec(ctx *map[string]interface{}) (*BWTBlockCodec, error) {
 
 	this := new(BWTBlockCodec)
 	var err error
-	this.bwt, err = transform.NewBWT()
+	this.bwt, err = transform.NewBWTWithCtx(ctx)
 	return this, err
 }
 
@@ -69,10 +69,8 @@ func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 		log++
 	}
 
-	log--
-
 	// Estimate header size based on block size
-	headerSizeBytes1 := (uint(chunks)*(2+log) + 7) >> 3
+	headerSizeBytes1 := uint(chunks) * ((2 + log + 7) >> 3)
 
 	// Apply forward Transform
 	iIdx, oIdx, err := this.bwt.Forward(src, dst[headerSizeBytes1:])
@@ -92,10 +90,8 @@ func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		// Compute block size based on primary index
-		headerSizeBytes2 += (2 + pIndexSizeBits)
+		headerSizeBytes2 += ((2 + pIndexSizeBits + 7) >> 3)
 	}
-
-	headerSizeBytes2 = (headerSizeBytes2 + 7) >> 3
 
 	if headerSizeBytes2 != headerSizeBytes1 {
 		// Adjust space for header

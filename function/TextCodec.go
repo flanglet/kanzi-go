@@ -642,11 +642,11 @@ func NewTextCodecWithArgs(dictSize int, dict []byte, logHashSize uint) (*TextCod
 	return this, nil
 }
 
-func NewTextCodecFromMap(ctx map[string]interface{}) (*TextCodec, error) {
+func NewTextCodecWithCtx(ctx *map[string]interface{}) (*TextCodec, error) {
 	this := new(TextCodec)
 
 	// Actual block size
-	blockSize := ctx["size"].(uint)
+	blockSize := (*ctx)["size"].(uint)
 	var log uint32
 
 	if blockSize >= 1<<28 {
@@ -669,8 +669,8 @@ func NewTextCodecFromMap(ctx map[string]interface{}) (*TextCodec, error) {
 	extraPerf := false
 	extraMem := uint(0)
 
-	if _, containsKey := ctx["extra"]; containsKey {
-		extraPerf = ctx["extra"].(bool)
+	if _, containsKey := (*ctx)["extra"]; containsKey {
+		extraPerf = (*ctx)["extra"].(bool)
 	}
 
 	if extraPerf == true {
