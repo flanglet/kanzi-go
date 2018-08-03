@@ -298,8 +298,8 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 					break
 				}
 
-				// Emit length times the previous byte
-				for run > 3 {
+				// Emit 'run' times the previous byte
+				for run >= 4 {
 					dst[dstIdx] = prev
 					dst[dstIdx+1] = prev
 					dst[dstIdx+2] = prev

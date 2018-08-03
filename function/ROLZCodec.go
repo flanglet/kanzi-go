@@ -204,19 +204,19 @@ func (this *ROLZDecoder) decodeByte() byte {
 
 func (this *ROLZDecoder) decodeBit() byte {
 	// Calculate interval split
-	mid := this.low + ((((this.high - this.low) >> 4) * uint64(this.predictor.Get())) >> 8)
+	split := this.low + ((((this.high - this.low) >> 4) * uint64(this.predictor.Get())) >> 8)
 	var bit byte
 
-	if mid >= this.current {
+	// Update predictor
+	if split >= this.current {
 		bit = 1
-		this.high = mid
+		this.high = split
+		this.predictor.Update(1)
 	} else {
 		bit = 0
-		this.low = -^mid
+		this.low = -^split
+		this.predictor.Update(0)
 	}
-
-	// Update predictor
-	this.predictor.Update(bit)
 
 	// Read 32 bits from bitstream
 	for (this.low^this.high)&MASK_24_56 == 0 {
@@ -532,7 +532,7 @@ func (this *ROLZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 				matchLen := int(rd.decodeByte())
 
 				// Sanity check
-				if matchLen > dstEnd {
+				if matchLen+3 > dstEnd {
 					dstIdx += startChunk
 					break
 				}
@@ -554,8 +554,15 @@ func (this *ROLZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 				dstIdx += 3
 				ref += 3
 
-				//while (matchLen >= 4)
-				// dst[dstIdx] = src[ref];
+				for matchLen >= 4 {
+					buf[dstIdx] = buf[ref]
+					buf[dstIdx+1] = buf[ref+1]
+					buf[dstIdx+2] = buf[ref+2]
+					buf[dstIdx+3] = buf[ref+3]
+					dstIdx += 4
+					ref += 4
+					matchLen -= 4
+				}
 
 				for matchLen != 0 {
 					buf[dstIdx] = buf[ref]

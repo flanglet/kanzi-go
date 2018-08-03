@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	INFINITE_VALUE       = 0
+	INFINITE_VALUE = 0
 )
 
 // array with 256 elements: int(Math.log2(x-1))

@@ -224,16 +224,16 @@ func (this *BinaryEntropyDecoder) DecodeBit() byte {
 	split := ((((this.high - this.low) >> 4) * uint64(this.predictor.Get())) >> 8) + this.low
 	var bit byte
 
+	// Update predictor
 	if split >= this.current {
 		bit = 1
 		this.high = split
+		this.predictor.Update(1)
 	} else {
 		bit = 0
 		this.low = -^split
+		this.predictor.Update(0)
 	}
-
-	// Update predictor
-	this.predictor.Update(bit)
 
 	// Read 32 bits from bitstream
 	for (this.low^this.high)&MASK_24_56 == 0 {
