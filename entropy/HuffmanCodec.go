@@ -391,8 +391,7 @@ func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
 		bs := this.bitstream
 
 		for i := startChunk; i < endChunk8; i += 8 {
-			var val uint
-			val = c[block[i]]
+			val := c[block[i]]
 			bs.WriteBits(uint64(val), val>>24)
 			val = c[block[i+1]]
 			bs.WriteBits(uint64(val), val>>24)

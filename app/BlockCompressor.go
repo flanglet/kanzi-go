@@ -470,8 +470,9 @@ func (this *BlockCompressor) Call() (int, uint64) {
 
 func notifyBCListeners(listeners []kanzi.Listener, evt *kanzi.Event) {
 	defer func() {
+		//lint:ignore SA9003 ignore panics in listeners
 		if r := recover(); r != nil {
-			// Ignore exceptions in listeners
+			// Ignore panics in listeners
 		}
 	}()
 
