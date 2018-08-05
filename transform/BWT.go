@@ -397,17 +397,16 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 	// Build inverse
 	if chunks == 1 || this.jobs == 1 {
 		// Shortcut for 1 chunk scenario
-		val1 := data1[pIdx]
-		val2 := data2[pIdx]
-		dst[idx] = val2
+		val := data2[pIdx]
+		dst[idx] = val
 		idx--
+		n := data1[pIdx] + buckets[val]
 
 		for idx >= 0 {
-			n := val1 + buckets[val2]
-			val1 = data1[n]
-			val2 = data2[n]
-			dst[idx] = val2
+			val = data2[n]
+			dst[idx] = val
 			idx--
+			n = data1[n] + buckets[val]
 		}
 	} else {
 		// Several chunks may be decoded concurrently (depending on the availaibility
@@ -473,17 +472,16 @@ func (this *BWT) inverseChunkBigBlock(dst []byte, buckets []uint32, pIdx, idx, s
 
 	for i := startChunk; i > endChunk; i-- {
 		endIdx := i * step
-		val1 := data1[pIdx]
-		val2 := data2[pIdx]
-		dst[idx] = val2
+		val := data2[pIdx]
+		dst[idx] = val
 		idx--
+		n := data1[pIdx] + buckets[val]
 
 		for idx >= endIdx {
-			n := val1 + buckets[val2]
-			val1 = data1[n]
-			val2 = data2[n]
-			dst[idx] = val2
+			val = data2[n]
+			dst[idx] = val
 			idx--
+			n = data1[n] + buckets[val]
 		}
 
 		pIdx = int(this.PrimaryIndex(i))
