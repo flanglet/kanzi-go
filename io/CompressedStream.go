@@ -743,8 +743,7 @@ func (this *CompressedInputStream) readHeader() error {
 
 	// Sanity check
 	if fileType != BITSTREAM_TYPE {
-		errMsg := fmt.Sprintf("Invalid stream type")
-		return NewIOError(errMsg, kanzi.ERR_INVALID_FILE)
+		return NewIOError("Invalid stream type", kanzi.ERR_INVALID_FILE)
 	}
 
 	version := this.ibs.ReadBits(5)

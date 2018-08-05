@@ -89,7 +89,6 @@ func BenchmarkLZ4(b *testing.B) {
 	}
 }
 
-
 func BenchmarkSnappy(b *testing.B) {
 	iter := b.N
 	size := 50000
@@ -363,4 +362,3 @@ func BenchmarkROLZ(b *testing.B) {
 
 	}
 }
-
