@@ -79,6 +79,7 @@ func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return iIdx, oIdx, err
 	}
 
+	oIdx += headerSizeBytes1
 	headerSizeBytes2 := uint(0)
 
 	for i := 0; i < chunks; i++ {
@@ -95,7 +96,8 @@ func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	if headerSizeBytes2 != headerSizeBytes1 {
 		// Adjust space for header
-		copy(dst[headerSizeBytes2:], dst[headerSizeBytes1:headerSizeBytes1+oIdx])
+		copy(dst[headerSizeBytes2:], dst[headerSizeBytes1:headerSizeBytes1+uint(blockSize)])
+		oIdx = oIdx - headerSizeBytes1 + headerSizeBytes2
 	}
 
 	idx := 0
@@ -117,8 +119,7 @@ func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 		blockMode = (blockMode << 6) | ((primaryIndex >> shift) & 0x3F)
 		dst[idx] = byte(blockMode)
 		idx++
-		oIdx += headerSizeBytes2
-
+		
 		for i := uint(1); i < pIndexSizeBytes; i++ {
 			shift -= 8
 			dst[idx] = byte(primaryIndex >> shift)
