@@ -16,6 +16,7 @@ limitations under the License.
 package transform
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	kanzi "github.com/flanglet/kanzi-go"
@@ -347,17 +348,12 @@ func (this *BWT) inverseRegularBlock(src, dst []byte, count int) (uint, uint, er
 // When count >= 1<<24
 func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error) {
 	// Lazy dynamic memory allocations
-	if len(this.buffer1) < count {
-		this.buffer1 = make([]uint32, count)
-	}
-
 	if len(this.buffer2) < count {
-		this.buffer2 = make([]byte, count)
+		this.buffer2 = make([]byte, 5*count)
 	}
 
 	// Aliasing
-	data1 := this.buffer1
-	data2 := this.buffer2
+	data := this.buffer2
 
 	buckets := [256]uint32{}
 	chunks := GetBWTChunks(count)
@@ -366,21 +362,21 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 	// Start with the primary index position
 	pIdx := int(this.PrimaryIndex(0))
 	val0 := src[pIdx]
-	data1[pIdx] = buckets[val0]
-	data2[pIdx] = val0
+	binary.LittleEndian.PutUint32(data[pIdx*5:], buckets[val0])
+	data[pIdx*5+4] = val0
 	buckets[val0]++
 
 	for i := 0; i < pIdx; i++ {
 		val := src[i]
-		data1[i] = buckets[val]
-		data2[i] = val
+		binary.LittleEndian.PutUint32(data[i*5:], buckets[val])
+		data[i*5+4] = val
 		buckets[val]++
 	}
 
 	for i := pIdx + 1; i < count; i++ {
 		val := src[i]
-		data1[i] = buckets[val]
-		data2[i] = val
+		binary.LittleEndian.PutUint32(data[i*5:], buckets[val])
+		data[i*5+4] = val
 		buckets[val]++
 	}
 
@@ -397,16 +393,16 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 	// Build inverse
 	if chunks == 1 || this.jobs == 1 {
 		// Shortcut for 1 chunk scenario
-		val := data2[pIdx]
+		val := data[pIdx*5+4]
 		dst[idx] = val
 		idx--
-		n := data1[pIdx] + buckets[val]
+		n := binary.LittleEndian.Uint32(data[pIdx*5:]) + buckets[val]
 
 		for idx >= 0 {
-			val = data2[n]
+			val = data[n*5+4]
 			dst[idx] = val
 			idx--
-			n = data1[n] + buckets[val]
+			n = binary.LittleEndian.Uint32(data[n*5:]) + buckets[val]
 		}
 	} else {
 		// Several chunks may be decoded concurrently (depending on the availaibility
@@ -467,21 +463,20 @@ func (this *BWT) inverseChunkRegularBlock(dst []byte, buckets []uint32, pIdx, id
 }
 
 func (this *BWT) inverseChunkBigBlock(dst []byte, buckets []uint32, pIdx, idx, step, startChunk, endChunk int) {
-	data1 := this.buffer1
-	data2 := this.buffer2
+	data := this.buffer2
 
 	for i := startChunk; i > endChunk; i-- {
 		endIdx := i * step
-		val := data2[pIdx]
+		val := data[pIdx*5+4]
 		dst[idx] = val
 		idx--
-		n := data1[pIdx] + buckets[val]
+		n := binary.LittleEndian.Uint32(data[pIdx*5:]) + buckets[val]
 
 		for idx >= endIdx {
-			val = data2[n]
+			val = data[n*5+4]
 			dst[idx] = val
 			idx--
-			n = data1[n] + buckets[val]
+			n = binary.LittleEndian.Uint32(data[n*5:]) + buckets[val]
 		}
 
 		pIdx = int(this.PrimaryIndex(i))
