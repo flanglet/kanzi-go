@@ -188,15 +188,17 @@ func initStretch() []int {
 	return res
 }
 
+// fast, integer rounded
 func Log2(x uint32) (uint32, error) {
 	if x == 0 {
 		return 0, errors.New("Cannot calculate log of a negative or null value")
 	}
 
-	return log2(x), nil
+	return Log2NoCheck(x), nil
 }
 
-func log2(x uint32) uint32 {
+// same as Log2 minus check on input value
+func Log2NoCheck(x uint32) uint32 {
 	var res uint32
 
 	if x >= 1<<16 {
@@ -225,7 +227,7 @@ func Log2_1024(x uint32) (uint32, error) {
 		return (LOG2_4096[x] + 2) >> 2, nil
 	}
 
-	log := log2(x)
+	log := Log2NoCheck(x)
 
 	if x&(x-1) == 0 {
 		return log << 10, nil

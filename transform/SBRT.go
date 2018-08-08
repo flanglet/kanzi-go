@@ -37,7 +37,10 @@ const (
 )
 
 type SBRT struct {
-	mode int
+	mode  int
+	mask1 int
+	mask2 int
+	shift uint
 }
 
 func NewSBRT(mode int) (*SBRT, error) {
@@ -47,6 +50,25 @@ func NewSBRT(mode int) (*SBRT, error) {
 
 	this := new(SBRT)
 	this.mode = mode
+
+	if this.mode == SBRT_MODE_TIMESTAMP {
+		this.mask1 = 0
+	} else {
+		this.mask1 = -1
+	}
+
+	if this.mode == SBRT_MODE_MTF {
+		this.mask2 = 0
+	} else {
+		this.mask2 = -1
+	}
+
+	if this.mode == SBRT_MODE_RANK {
+		this.shift = 1
+	} else {
+		this.shift = 0
+	}
+
 	return this, nil
 }
 
@@ -74,27 +96,9 @@ func (this *SBRT) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New(errMsg)
 	}
 
-	var mask1, mask2 int
-	var shift uint
-
-	if this.mode == SBRT_MODE_TIMESTAMP {
-		mask1 = 0
-	} else {
-		mask1 = -1
-	}
-
-	if this.mode == SBRT_MODE_MTF {
-		mask2 = 0
-	} else {
-		mask2 = -1
-	}
-
-	if this.mode == SBRT_MODE_RANK {
-		shift = 1
-	} else {
-		shift = 0
-	}
-
+	m1 := this.mask1
+	m2 := this.mask2
+	s := this.shift
 	p := [256]int{}
 	q := [256]int{}
 	s2r := [256]int{}
@@ -109,12 +113,12 @@ func (this *SBRT) Forward(src, dst []byte) (uint, uint, error) {
 		c := int(src[i])
 		r := s2r[c]
 		dst[i] = byte(r)
-		q[c] = ((i & mask1) + (p[c] & mask2)) >> shift
+		qc := ((i & m1) + (p[c] & m2)) >> s
 		p[c] = i
-		curVal := q[c]
+		q[c] = qc
 
 		// Move up symbol to correct rank
-		for r > 0 && q[r2s[r-1]] <= curVal {
+		for r > 0 && q[r2s[r-1]] <= qc {
 			r2s[r] = r2s[r-1]
 			s2r[r2s[r]] = r
 			r--
@@ -151,27 +155,9 @@ func (this *SBRT) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New(errMsg)
 	}
 
-	var mask1, mask2 int
-	var shift uint
-
-	if this.mode == SBRT_MODE_TIMESTAMP {
-		mask1 = 0
-	} else {
-		mask1 = -1
-	}
-
-	if this.mode == SBRT_MODE_MTF {
-		mask2 = 0
-	} else {
-		mask2 = -1
-	}
-
-	if this.mode == SBRT_MODE_RANK {
-		shift = 1
-	} else {
-		shift = 0
-	}
-
+	m1 := this.mask1
+	m2 := this.mask2
+	s := this.shift
 	p := [256]int{}
 	q := [256]int{}
 	r2s := [256]int{}
@@ -184,12 +170,12 @@ func (this *SBRT) Inverse(src, dst []byte) (uint, uint, error) {
 		r := int(src[i])
 		c := r2s[r]
 		dst[i] = byte(c)
-		q[c] = ((i & mask1) + (p[c] & mask2)) >> shift
+		qc := ((i & m1) + (p[c] & m2)) >> s
 		p[c] = i
-		curVal := q[c]
+		q[c] = qc
 
 		// Move up symbol to correct rank
-		for r > 0 && q[r2s[r-1]] <= curVal {
+		for r > 0 && q[r2s[r-1]] <= qc {
 			r2s[r] = r2s[r-1]
 			r--
 		}
