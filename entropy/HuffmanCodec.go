@@ -705,12 +705,11 @@ func (this *HuffmanDecoder) fastDecodeByte() byte {
 	}
 
 	// Retrieve symbol from fast decoding table
-	idx := int(this.state>>(this.bits-DECODING_BATCH_SIZE)) & DECODING_MASK
-	val := this.fdTable[idx]
+	val := this.fdTable[int(this.state>>(this.bits-DECODING_BATCH_SIZE)) & DECODING_MASK]
 
 	if val > MAX_DECODING_INDEX {
 		this.bits -= DECODING_BATCH_SIZE
-		return this.slowDecodeByte(idx, DECODING_BATCH_SIZE)
+		return this.slowDecodeByte(int(this.state>>this.bits) & DECODING_MASK, DECODING_BATCH_SIZE)
 	}
 
 	this.bits -= (val >> 8)

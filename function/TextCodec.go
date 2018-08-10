@@ -1278,8 +1278,7 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 			// Emit word
 			if cur != TC_ESCAPE_TOKEN2 {
-				dst[dstIdx] = pe.ptr[0]
-				dstIdx++
+				copy(dst[dstIdx:], pe.ptr[0:length])
 			} else {
 				// Flip case of first character
 				if isUpperCase(pe.ptr[0]) {
@@ -1287,16 +1286,11 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 				} else {
 					dst[dstIdx] = pe.ptr[0] - 32
 				}
-
-				dstIdx++
+				
+				copy(dst[dstIdx+1:], pe.ptr[1:length])
 			}
-
-			buf := pe.ptr[1:length]
-
-			for _, c := range buf {
-				dst[dstIdx] = c
-				dstIdx++
-			}
+			
+			dstIdx += length
 
 			if length > 1 {
 				// Regular word entry

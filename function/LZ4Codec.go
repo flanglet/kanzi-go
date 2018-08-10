@@ -238,7 +238,7 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 				match = table[h32]
 				table[h32] = srcIdx
 
-				if kanzi.DifferentInts(src[srcIdx:], src[match:]) || match <= srcIdx-MAX_DISTANCE {
+				if kanzi.DifferentInts(src[srcIdx:], src[match:]) == true || match <= srcIdx-MAX_DISTANCE {
 					break
 				}
 
