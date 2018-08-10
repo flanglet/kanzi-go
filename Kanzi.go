@@ -16,7 +16,6 @@ limitations under the License.
 package kanzi
 
 import (
-	"unsafe"
 )
 
 const (
@@ -166,8 +165,3 @@ type EntropyDecoder interface {
 	Dispose()
 }
 
-func DifferentInts(src, dst []byte) bool {
-	p := unsafe.Pointer(&src[0])
-	q := unsafe.Pointer(&dst[0])
-	return *(*uint32)(unsafe.Pointer(uintptr(p))) != *(*uint32)(unsafe.Pointer(uintptr(q)))
-}

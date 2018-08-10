@@ -17,6 +17,7 @@ package kanzi
 
 import (
 	"errors"
+	"unsafe"
 )
 
 const (
@@ -305,6 +306,12 @@ func RoundUpPowerOfTwo(x int32) int32 {
 	x |= (x >> 8)
 	x |= (x >> 16)
 	return x + 1
+}
+
+func DifferentInts(src, dst []byte) bool {
+	p := unsafe.Pointer(&src[0])
+	q := unsafe.Pointer(&dst[0])
+	return *(*uint32)(unsafe.Pointer(uintptr(p))) != *(*uint32)(unsafe.Pointer(uintptr(q)))
 }
 
 func ComputeJobsPerTask(jobsPerTask []uint, jobs, tasks uint) []uint {
