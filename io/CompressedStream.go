@@ -766,9 +766,11 @@ func (this *CompressedInputStream) readHeader() error {
 
 	// Read entropy codec
 	this.entropyType = uint32(this.ibs.ReadBits(5))
+	this.ctx["codec"] = entropy.GetName(this.entropyType)
 
 	// Read transforms: 8*6 bits
 	this.transformType = this.ibs.ReadBits(48)
+	this.ctx["transform"] = function.GetName(this.transformType)
 
 	// Read block size
 	this.blockSize = uint(this.ibs.ReadBits(26)) << 4
