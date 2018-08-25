@@ -32,12 +32,12 @@ func doCopy(src, dst []byte) (uint, uint, error) {
 		return uint(0), uint(0), errors.New("Invalid null source buffer")
 	}
 
-	if dst == nil {
-		return uint(0), uint(0), errors.New("Invalid null destination buffer")
-	}
-
 	if len(src) == 0 {
 		return uint(0), uint(0), nil
+	}
+
+	if dst == nil {
+		return uint(0), uint(0), errors.New("Invalid null destination buffer")
 	}
 
 	if len(src) > len(dst) {

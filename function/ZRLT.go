@@ -44,8 +44,12 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 		return uint(0), uint(0), errors.New("Invalid null source buffer")
 	}
 
-	if dst == nil {
-		return uint(0), uint(0), errors.New("Invalid null destination buffer")
+	if len(src) == 0 {
+		return uint(0), uint(0), nil
+	}
+
+	if dst == nil || len(dst) == 0 {
+		return uint(0), uint(0), errors.New("Invalid null or empty destination buffer")
 	}
 
 	if &src[0] == &dst[0] {
@@ -131,8 +135,12 @@ func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 		return uint(0), uint(0), errors.New("Invalid null source buffer")
 	}
 
-	if dst == nil {
-		return uint(0), uint(0), errors.New("Invalid null destination buffer")
+	if len(src) == 0 {
+		return uint(0), uint(0), nil
+	}
+
+	if dst == nil || len(dst) == 0 {
+		return uint(0), uint(0), errors.New("Invalid null or empty destination buffer")
 	}
 
 	if &src[0] == &dst[0] {
