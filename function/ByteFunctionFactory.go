@@ -107,6 +107,19 @@ func newByteFunctionToken(ctx *map[string]interface{}, functionType uint64) (kan
 		return transform.NewSBRT(transform.SBRT_MODE_RANK)
 
 	case DICT_TYPE:
+		textCodecType := 1
+
+		if val, containsKey := (*ctx)["codec"]; containsKey {
+			entropyType := strings.ToUpper(val.(string))
+
+			// Select text encoding based on entropy codec.
+			if entropyType == "NONE" || entropyType == "ANS0" ||
+				entropyType == "HUFFMAN" || entropyType == "RANGE" {
+				textCodecType = 2
+			}
+		}
+
+		(*ctx)["textcodec"] = textCodecType
 		return NewTextCodecWithCtx(ctx)
 
 	case X86_TYPE:

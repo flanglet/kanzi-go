@@ -23,17 +23,12 @@ import (
 
 // Simple one-pass text codec. Uses a default (small) static dictionary
 // or potentially larger custom one. Generates a dynamic dictionary.
-// Encoding: tokenize text into words. If word is in dictionary, emit escape
-// and word index (varint encode -> max 2 bytes). Otherwise, emit
-// word and add entry in dictionary with word position and length.
-// Decoding: If symbol is an escape, read word index (varint decode).
-// If current word is not in dictionary, add new entry. Otherwise,
-// emit current symbol.
 
 const (
-	TC_LOG_THRESHOLD1  = 7
-	TC_THRESHOLD1      = 1 << TC_LOG_THRESHOLD1
+	TC_THRESHOLD1      = 128
 	TC_THRESHOLD2      = TC_THRESHOLD1 * TC_THRESHOLD1
+	TC_THRESHOLD3      = 32
+	TC_THRESHOLD4      = TC_THRESHOLD3 * 128
 	TC_MAX_DICT_SIZE   = 1 << 19    // must be less than 1<<24
 	TC_MAX_WORD_LENGTH = 32         // must be less than 128
 	TC_LOG_HASHES_SIZE = 24         // 16 MB
@@ -41,8 +36,8 @@ const (
 	TC_ESCAPE_TOKEN2   = byte(0x0E) // toggle upper/lower case of first word char
 	LF                 = byte(0x0A)
 	CR                 = byte(0x0D)
-	TC_HASH1           = int32(200002979)
-	TC_HASH2           = int32(50004239)
+	TC_HASH1           = int32(2146121005)  // 0x7FEB352D
+	TC_HASH2           = int32(-2073254261) // 0x846CA68B
 )
 
 type DictEntry struct {
@@ -52,9 +47,24 @@ type DictEntry struct {
 }
 
 type TextCodec struct {
+	delegate kanzi.ByteFunction
+}
+
+type textCodec1 struct {
 	dictMap        []*DictEntry
 	dictList       []DictEntry
-	freqs          []int
+	freqs          [257][256]int
+	staticDictSize int
+	dictSize       int
+	logHashSize    uint
+	hashMask       int32
+	isCRLF         bool // EOL = CR+LF ?
+}
+
+type textCodec2 struct {
+	dictMap        []*DictEntry
+	dictList       []DictEntry
+	freqs          [257][256]int
 	staticDictSize int
 	dictSize       int
 	logHashSize    uint
@@ -74,27 +84,27 @@ var (
 	// TheBeAndOfInToHaveItThatFor...
 	TC_DICT_EN_1024 = []byte{
 		byte(0xCC), byte(0x71), byte(0x21), byte(0x12), byte(0x03), byte(0x43), byte(0xB8), byte(0x5A),
-		byte(0x0D), byte(0xCC), byte(0xE9), byte(0xC0), byte(0x54), byte(0x4A), byte(0x13), byte(0xCC),
+		byte(0x0D), byte(0xCC), byte(0xED), byte(0x88), byte(0x4C), byte(0x7A), byte(0x13), byte(0xCC),
 		byte(0x70), byte(0x13), byte(0x94), byte(0xE4), byte(0x78), byte(0x39), byte(0x49), byte(0xC4),
-		byte(0xD8), byte(0x84), byte(0xC7), byte(0xB8), byte(0xDC), byte(0x80), byte(0x20), byte(0x3C),
+		byte(0x9C), byte(0x05), byte(0x44), byte(0xB8), byte(0xDC), byte(0x80), byte(0x20), byte(0x3C),
 		byte(0x80), byte(0x62), byte(0x04), byte(0xE1), byte(0x51), byte(0x3D), byte(0x84), byte(0x85),
 		byte(0x89), byte(0xC0), byte(0x0F), byte(0x31), byte(0xC4), byte(0x62), byte(0x04), byte(0xB6),
 		byte(0x39), byte(0x42), byte(0xC3), byte(0xD8), byte(0x73), byte(0xAE), byte(0x46), byte(0x20),
 		byte(0x0D), byte(0xB0), byte(0x06), byte(0x23), byte(0x3B), byte(0x31), byte(0xC8), byte(0x4B),
 		byte(0x60), byte(0x12), byte(0xA1), byte(0x2B), byte(0x14), byte(0x08), byte(0x78), byte(0x0D),
 		byte(0x62), byte(0x54), byte(0x4E), byte(0x32), byte(0xD3), byte(0x93), byte(0xC8), byte(0x71),
-		byte(0x36), byte(0x1C), byte(0x04), byte(0xF3), byte(0x1C), byte(0x42), byte(0x11), byte(0xB8),
-		byte(0xB0), byte(0xE6), byte(0x11), byte(0x39), byte(0x88), byte(0x54), byte(0x49), byte(0xC0),
-		byte(0x4A), byte(0x04), byte(0x44), byte(0x9C), byte(0x83), byte(0x27), byte(0x11), byte(0x18),
-		byte(0x8E), byte(0x30), byte(0x4B), byte(0x18), byte(0xB9), byte(0x44), byte(0x76), byte(0x11),
-		byte(0x11), byte(0x36), byte(0x20), byte(0xB2), byte(0xF2), byte(0x38), byte(0xC1), byte(0x21),
-		byte(0x10), byte(0x20), byte(0x14), byte(0x48), byte(0x4C), byte(0xC7), byte(0x11), byte(0x11),
-		byte(0x33), byte(0x1D), byte(0x13), byte(0x94), byte(0x18), byte(0x7C), byte(0xC4), byte(0x2C),
-		byte(0xBD), byte(0x87), byte(0x10), byte(0xDD), byte(0x8E), byte(0x44), byte(0xAC), byte(0xC7),
-		byte(0x10), byte(0xCE), byte(0x04), byte(0x4F), byte(0x43), byte(0xEE), byte(0x58), byte(0xDB),
-		byte(0x94), byte(0x4E), byte(0x83), byte(0x53), byte(0x3A), byte(0x95), byte(0x12), byte(0x4E),
-		byte(0x23), byte(0x94), byte(0x2C), byte(0x3B), byte(0x95), byte(0x11), byte(0x1D), byte(0x87),
-		byte(0x20), byte(0x21), byte(0xF3), byte(0x1C), byte(0x83), byte(0x4A), byte(0x8C), byte(0x06),
+		byte(0x36), byte(0x1C), byte(0x04), byte(0xF3), byte(0x1C), byte(0x42), byte(0x11), byte(0xD8),
+		byte(0x72), byte(0x02), byte(0x1E), byte(0x61), byte(0x13), byte(0x98), byte(0x85), byte(0x44),
+		byte(0x9C), byte(0x04), byte(0xA0), byte(0x44), byte(0x49), byte(0xC8), byte(0x32), byte(0x71),
+		byte(0x11), byte(0x88), byte(0xE3), byte(0x04), byte(0xB1), byte(0x8B), byte(0x94), byte(0x47),
+		byte(0x61), byte(0x11), byte(0x13), byte(0x62), byte(0x0B), byte(0x2F), byte(0x23), byte(0x8C),
+		byte(0x12), byte(0x11), byte(0x02), byte(0x01), byte(0x44), byte(0x84), byte(0xCC), byte(0x71),
+		byte(0x11), byte(0x13), byte(0x31), byte(0xD1), byte(0x39), byte(0x41), byte(0x87), byte(0xCC),
+		byte(0x42), byte(0xCB), byte(0xD8), byte(0x71), byte(0x0D), byte(0xD8), byte(0xE4), byte(0x4A),
+		byte(0xCC), byte(0x71), byte(0x0C), byte(0xE0), byte(0x44), byte(0xF4), byte(0x3E), byte(0xE5),
+		byte(0x8D), byte(0xB9), byte(0x44), byte(0xE8), byte(0x35), byte(0x33), byte(0xA9), byte(0x51),
+		byte(0x24), byte(0xE2), byte(0x39), byte(0x42), byte(0xC3), byte(0xB9), byte(0x51), byte(0x11),
+		byte(0xB8), byte(0xB0), byte(0xF3), byte(0x1C), byte(0x83), byte(0x4A), byte(0x8C), byte(0x06),
 		byte(0x36), byte(0x01), byte(0x8C), byte(0xC7), byte(0x00), byte(0xDA), byte(0xC8), byte(0x28),
 		byte(0x4B), byte(0x93), byte(0x1C), byte(0x44), byte(0x67), byte(0x39), byte(0x6C), byte(0xC7),
 		byte(0x10), byte(0xDA), byte(0x13), byte(0x4A), byte(0xF1), byte(0x0E), byte(0x3C), byte(0xB1),
@@ -579,124 +589,99 @@ var (
 		byte(0x51), byte(0x11), byte(0x88), byte(0xE3), byte(0x45), byte(0x21), byte(0x13), byte(0x22),
 		byte(0x38), byte(0xC3), byte(0x04), byte(0x35), byte(0x38), byte(0x88), byte(0x4D), byte(0x88),
 		byte(0x0D), byte(0x61), byte(0x61), byte(0xC4), byte(0x44), byte(0x4C), byte(0x8E), byte(0x30),
-		byte(0x45), byte(0x84), byte(0x1C), byte(0x44), byte(0x44), byte(0x8C), byte(0x40), byte(0x40),
-		byte(0x4C), byte(0x48), byte(0xD1), byte(0x21), byte(0x51), byte(0x27), byte(0x20), byte(0x61),
-		byte(0xC4), byte(0x46), byte(0x11), byte(0x00), byte(0x51), byte(0x32), byte(0x05), byte(0x50),
-		byte(0xBB), byte(0x8D), byte(0x2C), byte(0x83), byte(0x44), byte(0xD8), byte(0xE3), byte(0x00),
-		byte(0x36), byte(0xF4), byte(0x48), byte(0x39), byte(0x12), byte(0x13), byte(0x63), byte(0x34),
-		byte(0x40), byte(0x0C), byte(0x84), byte(0xC8), byte(0x38), byte(0xD0), byte(0x0B), byte(0x94),
-		byte(0xE5), byte(0x11), byte(0x94), byte(0x83), byte(0x40), byte(0x34), byte(0x22), byte(0x00),
-		byte(0x2D), byte(0xE7), byte(0x9E),
+		byte(0x45), byte(0x87), byte(0x11), byte(0x11), byte(0x23), byte(0x10), byte(0x10), byte(0x13),
+		byte(0x12), byte(0x34), byte(0x48), byte(0x54), byte(0x49), byte(0xC8), byte(0x18), byte(0x71),
+		byte(0x11), byte(0x84), byte(0x40), byte(0x14), byte(0x4C), byte(0x81), byte(0x54), byte(0x2E),
+		byte(0xE3), byte(0x4B), byte(0x20), byte(0xD1), byte(0x36), byte(0x38), byte(0xC0), byte(0x0D),
+		byte(0xBD), byte(0x12), byte(0x0E), byte(0x44), byte(0x84), byte(0xD8), byte(0xCD), byte(0x10),
+		byte(0x03), byte(0x21), byte(0x32), byte(0x0E), byte(0x34), byte(0x02), byte(0xE5), byte(0x39),
+		byte(0x44), byte(0x65), byte(0x20), byte(0xD0), byte(0x0D), byte(0x08), byte(0x80), byte(0x0B),
+		byte(0x79), byte(0xE7), byte(0x9E),
 	}
 )
 
-func NewTextCodec(args ...int) (*TextCodec, error) {
-	dictSize := TC_THRESHOLD2 * 4
+// return status (8 bits):
+// 0x80 => not text
+// 0x01 => CR+LF transform
+func computeStats(block []byte, f *[257][256]int) byte {
+	prv := 0
+	freqs0 := f[256]
+	freqs1 := f[0:256]
+	end4 := len(block) & -4
 
-	if len(args) == 1 {
-		dictSize = args[0]
+	// Unroll loop
+	for i := 0; i < end4; i += 4 {
+		cur0 := int(block[i])
+		cur1 := int(block[i+1])
+		cur2 := int(block[i+2])
+		cur3 := int(block[i+3])
+		freqs0[cur0]++
+		freqs0[cur1]++
+		freqs0[cur2]++
+		freqs0[cur3]++
+		freqs1[prv][cur0]++
+		freqs1[cur0][cur1]++
+		freqs1[cur1][cur2]++
+		freqs1[cur2][cur3]++
+		prv = cur3
 	}
 
-	return NewTextCodecWithArgs(dictSize, nil, TC_LOG_HASHES_SIZE)
-}
-
-// dictSize (in words) = number of dictionary entries
-func NewTextCodecWithArgs(dictSize int, dict []byte, logHashSize uint) (*TextCodec, error) {
-	if logHashSize < 10 || logHashSize > 28 {
-		return nil, errors.New("The hash table size log must be in [10..28]")
+	for i := end4; i < len(block); i++ {
+		cur := int(block[i])
+		freqs0[cur]++
+		freqs1[prv][cur]++
+		prv = cur
 	}
 
-	if dictSize < TC_STATIC_DICT_WORDS+128 || dictSize > 1<<logHashSize {
-		return nil, fmt.Errorf("The number of words in the dictionary must be in [%v..%v]",
-			TC_STATIC_DICT_WORDS+128, 1<<logHashSize)
-	}
+	nbTextChars := 0
 
-	this := new(TextCodec)
-	this.logHashSize = logHashSize
-	this.dictSize = dictSize
-	this.dictMap = make([]*DictEntry, 1<<this.logHashSize)
-	this.dictList = make([]DictEntry, this.dictSize)
-	this.hashMask = int32(1<<this.logHashSize) - 1
-	this.freqs = make([]int, 256*257)
-	nbWords := 0
-
-	// Replace default dictionary ?
-	if dict != nil && &dict != &TC_DICT_EN_1024 {
-		// Keep at least 20% space for dynamic dictionary
-		nbWords = createDictionary(dict, this.dictList, this.dictSize*4/5, 0)
-	} else {
-		size := len(TC_STATIC_DICTIONARY)
-
-		if size >= this.dictSize {
-			size = this.dictSize
-		}
-
-		copy(this.dictList, TC_STATIC_DICTIONARY[0:size])
-		nbWords = TC_STATIC_DICT_WORDS
-	}
-
-	// Add special entries at end of static dictionary
-	this.dictList[nbWords] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN2}, hash: 0, data: int32((1 << 24) | nbWords)}
-	this.dictList[nbWords+1] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN1}, hash: 0, data: int32((1 << 24) | (nbWords + 1))}
-	this.staticDictSize = nbWords + 2
-	return this, nil
-}
-
-func NewTextCodecWithCtx(ctx *map[string]interface{}) (*TextCodec, error) {
-	this := new(TextCodec)
-
-	// Actual block size
-	blockSize := (*ctx)["size"].(uint)
-	var log uint32
-
-	if blockSize >= 1<<28 {
-		log = 26
-	} else if blockSize < 1<<10 {
-		log = 8
-	} else {
-		log, _ = kanzi.Log2(uint32(blockSize / 4))
-	}
-
-	// Select an appropriate initial dictionary size
-	dSize := 1 << 12
-
-	for i := uint(14); i <= 24; i += 2 {
-		if blockSize >= 1<<i {
-			dSize <<= 1
+	for i := 32; i < 128; i++ {
+		if isText(byte(i)) {
+			nbTextChars += freqs0[i]
 		}
 	}
 
-	extraPerf := false
-	extraMem := uint(0)
-
-	if _, containsKey := (*ctx)["extra"]; containsKey {
-		extraPerf = (*ctx)["extra"].(bool)
+	// Not text (crude threshold)
+	if 2*nbTextChars < len(block) {
+		return 0x80
 	}
 
-	if extraPerf == true {
-		extraMem = 1
+	nbBinChars := 0
+
+	for i := 128; i < 256; i++ {
+		nbBinChars += freqs0[i]
 	}
 
-	this.logHashSize = uint(log) + extraMem
-	this.dictSize = dSize
-	this.dictMap = make([]*DictEntry, 1<<this.logHashSize)
-	this.dictList = make([]DictEntry, this.dictSize)
-	this.hashMask = int32(1<<this.logHashSize) - 1
-	this.freqs = make([]int, 256*257)
-	size := len(TC_STATIC_DICTIONARY)
-
-	if size >= this.dictSize {
-		size = this.dictSize
+	// Not text (crude threshold)
+	if 4*nbBinChars > len(block) {
+		return 0x80
 	}
 
-	copy(this.dictList, TC_STATIC_DICTIONARY[0:size])
-	nbWords := TC_STATIC_DICT_WORDS
+	// Check CR+LF matches
+	res := byte(0)
 
-	// Add special entries at end of static dictionary
-	this.dictList[nbWords] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN2}, hash: 0, data: int32((1 << 24) | (nbWords))}
-	this.dictList[nbWords+1] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN1}, hash: 0, data: int32((1 << 24) | (nbWords + 1))}
-	this.staticDictSize = nbWords + 2
-	return this, nil
+	if (freqs0[CR] != 0) && (freqs0[CR] == freqs0[LF]) {
+		res = 1
+
+		for i := 0; i < 256; i++ {
+			if (i != int(LF)) && (freqs1[CR][i] != 0) {
+				res = 0
+				break
+			}
+		}
+	}
+
+	return res
+}
+
+func sameWords(buf1, buf2 []byte) bool {
+	for i := range buf1 {
+		if buf1[i] != buf2[i] {
+			return false
+		}
+	}
+
+	return true
 }
 
 func initDelimiterChars() []bool {
@@ -746,7 +731,204 @@ func initTextChars() []bool {
 	return res
 }
 
+// Create dictionary from array of words
+func createDictionary(words []byte, dict []DictEntry, maxWords, startWord int) int {
+	anchor := 0
+	h := TC_HASH1
+	nbWords := startWord
+
+	for i := 0; (i < len(words)) && (nbWords < maxWords); i++ {
+		cur := words[i]
+
+		if isText(cur) {
+			h = h*TC_HASH1 ^ int32(cur)*TC_HASH2
+			continue
+		}
+
+		if isDelimiter(cur) && (i >= anchor+1) { // At least 2 letters
+			dict[nbWords] = DictEntry{ptr: words[anchor:i], hash: h, data: int32(((i - anchor) << 24) | nbWords)}
+			nbWords++
+		}
+
+		anchor = i + 1
+		h = TC_HASH1
+	}
+
+	return nbWords
+}
+
+func isText(val byte) bool {
+	return TC_TEXT_CHARS[val]
+}
+
+func isLowerCase(val byte) bool {
+	return (val >= 'a') && (val <= 'z')
+}
+
+func isUpperCase(val byte) bool {
+	return (val >= 'A') && (val <= 'Z')
+}
+
+func isDelimiter(val byte) bool {
+	return TC_DELIMITER_CHARS[val]
+}
+
+// Unpack dictionary with 32 symbols (all lowercase except first word char)
+func unpackDictionary32(dict []byte) []byte {
+	buf := make([]byte, len(dict)*2)
+	d := 0
+	val := 0
+
+	// Unpack 3 bytes into 4 6-bit symbols
+	for i := range dict {
+		val = (val << 8) | int(dict[i]&0xFF)
+
+		if (i % 3) == 2 {
+			for ii := 18; ii >= 0; ii -= 6 {
+				c := (val >> uint(ii)) & 0x3F
+
+				if c >= 32 {
+					buf[d] = ' '
+					d++
+				}
+
+				c &= 0x1F
+
+				// Ignore padding symbols (> 26 and <= 31)
+				if c <= 26 {
+					buf[d] = byte(c + 'a')
+					d++
+				}
+			}
+
+			val = 0
+		}
+	}
+
+	buf[d] = ' ' // End
+	return buf[1 : d+1]
+}
+
+func NewTextCodec() (*TextCodec, error) {
+	this := new(TextCodec)
+	d, err := newTextCodec1()
+	this.delegate = d
+	return this, err
+}
+
+func NewTextCodecWithCtx(ctx *map[string]interface{}) (*TextCodec, error) {
+	this := new(TextCodec)
+
+	var err error
+	var d kanzi.ByteFunction
+
+	if val, containsKey := (*ctx)["textcodec"]; containsKey {
+		encodingType := val.(int)
+
+		if encodingType == 2 {
+			d, err = newTextCodec2WithCtx(ctx)
+			this.delegate = d
+		}
+	}
+
+	if this.delegate == nil && err == nil {
+		d, err = newTextCodec1WithCtx(ctx)
+		this.delegate = d
+	}
+
+	return this, err
+}
+
 func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
+	return this.delegate.Forward(src, dst)
+}
+
+func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
+	return this.delegate.Inverse(src, dst)
+}
+
+func (this *TextCodec) MaxEncodedLen(srcLen int) int {
+	return this.delegate.MaxEncodedLen(srcLen)
+}
+
+func newTextCodec1() (*textCodec1, error) {
+	this := new(textCodec1)
+	this.logHashSize = TC_LOG_HASHES_SIZE
+	this.dictSize = TC_THRESHOLD2 * 4
+	this.dictMap = make([]*DictEntry, 1<<this.logHashSize)
+	this.dictList = make([]DictEntry, this.dictSize)
+	this.hashMask = int32(1<<this.logHashSize) - 1
+	size := len(TC_STATIC_DICTIONARY)
+
+	if size >= this.dictSize {
+		size = this.dictSize
+	}
+
+	copy(this.dictList, TC_STATIC_DICTIONARY[0:size])
+	nbWords := TC_STATIC_DICT_WORDS
+
+	// Add special entries at end of static dictionary
+	this.dictList[nbWords] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN2}, hash: 0, data: int32((1 << 24) | nbWords)}
+	this.dictList[nbWords+1] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN1}, hash: 0, data: int32((1 << 24) | (nbWords + 1))}
+	this.staticDictSize = nbWords + 2
+	return this, nil
+}
+
+func newTextCodec1WithCtx(ctx *map[string]interface{}) (*textCodec1, error) {
+	this := new(textCodec1)
+	log := uint32(8)
+	blockSize := uint(0)
+
+	if val, containsKey := (*ctx)["size"]; containsKey {
+		// Actual block size
+		blockSize = val.(uint)
+
+		if blockSize >= 1<<28 {
+			log = 26
+		} else if blockSize >= 1<<10 {
+			log, _ = kanzi.Log2(uint32(blockSize / 4))
+		}
+	}
+
+	// Select an appropriate initial dictionary size
+	dSize := 1 << 12
+
+	for i := uint(14); i <= 24; i += 2 {
+		if blockSize >= 1<<i {
+			dSize <<= 1
+		}
+	}
+
+	extraMem := uint(0)
+
+	if val, containsKey := (*ctx)["extra"]; containsKey {
+		if val.(bool) == true {
+			extraMem = 1
+		}
+	}
+
+	this.logHashSize = uint(log) + extraMem
+	this.dictSize = dSize
+	this.dictMap = make([]*DictEntry, 1<<this.logHashSize)
+	this.dictList = make([]DictEntry, this.dictSize)
+	this.hashMask = int32(1<<this.logHashSize) - 1
+	size := len(TC_STATIC_DICTIONARY)
+
+	if size >= this.dictSize {
+		size = this.dictSize
+	}
+
+	copy(this.dictList, TC_STATIC_DICTIONARY[0:size])
+	nbWords := TC_STATIC_DICT_WORDS
+
+	// Add special entries at end of static dictionary
+	this.dictList[nbWords] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN2}, hash: 0, data: int32((1 << 24) | (nbWords))}
+	this.dictList[nbWords+1] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN1}, hash: 0, data: int32((1 << 24) | (nbWords + 1))}
+	this.staticDictSize = nbWords + 2
+	return this, nil
+}
+
+func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	if src == nil {
 		return uint(0), uint(0), errors.New("Invalid nil source buffer")
 	}
@@ -767,6 +949,12 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	srcIdx := 0
 	dstIdx := 0
+	mode := computeStats(src[0:count], &this.freqs)
+
+	// Not text ?
+	if mode&0x80 != 0 {
+		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skipping")
+	}
 
 	if count <= 16 {
 		for i := 0; i < count; i++ {
@@ -802,12 +990,6 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	emitAnchor := 0 // never negative
 	words := this.staticDictSize
-	mode := computeStats(src[0:count], this.freqs)
-
-	// Not text ?
-	if mode&0x80 != 0 {
-		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skipping")
-	}
 
 	// DOS encoded end of line (CR+LF) ?
 	this.isCRLF = mode&0x01 != 0
@@ -856,31 +1038,24 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 			// Check word in dictionary
 			length := int32(srcIdx - delimAnchor - 1)
 			pe1 := this.dictMap[h1&this.hashMask]
-			var pe2 *DictEntry
 
 			// Check for hash collisions
 			if (pe1 != nil) && (pe1.data>>24 != length || pe1.hash != h1) {
 				pe1 = nil
 			}
 
-			if pe1 == nil {
-				pe2 = this.dictMap[h2&this.hashMask]
+			pe := pe1
 
-				if (pe2 != nil) && (pe2.data>>24 != length || pe2.hash != h2) {
-					pe2 = nil
+			if pe == nil {
+				pe2 := this.dictMap[h2&this.hashMask]
+
+				if (pe2 == nil) || (pe2.data>>24 == length && pe2.hash == h2) {
+					pe = pe2
 				}
 			}
 
-			var pe *DictEntry
-
-			if pe1 != nil {
-				pe = pe1
-			} else {
-				pe = pe2
-			}
-
 			if pe != nil {
-				if !sameWords(pe.ptr[1:length], src[delimAnchor+2:srcEnd]) {
+				if !sameWords(pe.ptr[1:length], src[delimAnchor+2:]) {
 					pe = nil
 				}
 			}
@@ -929,7 +1104,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 				}
 
 				dstIdx++
-				dstIdx += emitWordIndex(dst[dstIdx:dstIdx+3], int(pe.data&0x00FFFFFF))
+				dstIdx += emitWordIndex1(dst[dstIdx:dstIdx+3], int(pe.data&0x00FFFFFF))
 				emitAnchor += int(pe.data >> 24)
 			}
 		}
@@ -951,84 +1126,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 	return uint(srcIdx), uint(dstIdx), err
 }
 
-// return status (8 bits):
-// 0x80 => not text
-// 0x01 => CR+LF transform
-func computeStats(block []byte, freqs []int) byte {
-	for i := range freqs {
-		freqs[i] = 0
-	}
-
-	prv := byte(0)
-	freqs1 := freqs[0:65536]
-	freqs0 := freqs[65536:]
-	end4 := len(block) & -4
-
-	// Unroll loop
-	for i := 0; i < end4; i += 4 {
-		freqs1[(int(prv)<<8)+int(block[i])]++
-		prv = block[i]
-		freqs0[prv]++
-		freqs1[(int(prv)<<8)+int(block[i+1])]++
-		prv = block[i+1]
-		freqs0[prv]++
-		freqs1[(int(prv)<<8)+int(block[i+2])]++
-		prv = block[i+2]
-		freqs0[prv]++
-		freqs1[(int(prv)<<8)+int(block[i+3])]++
-		prv = block[i+3]
-		freqs0[prv]++
-	}
-
-	for i := end4; i < len(block); i++ {
-		freqs1[(int(prv)<<8)+int(block[i])]++
-		prv = block[i]
-		freqs0[prv]++
-	}
-
-	nbTextChars := 0
-
-	for i := 32; i < 128; i++ {
-		if isText(byte(i)) {
-			nbTextChars += freqs0[i]
-		}
-	}
-
-	// Not text
-	if 2*nbTextChars < len(block) {
-		return 0x80
-	}
-
-	nbBinChars := 0
-
-	for i := 128; i < 256; i++ {
-		nbBinChars += freqs0[i]
-	}
-
-	// Not text
-	if 4*nbBinChars > len(block) {
-		return 0x80
-	}
-
-	// Check CR+LF matches
-	res := byte(0)
-
-	if (freqs0[CR] != 0) && (freqs0[CR] == freqs0[LF]) {
-		res = 1
-		base := int(CR) << 8
-
-		for i := 0; i < 256; i++ {
-			if (i != int(LF)) && (freqs1[base+i] != 0) {
-				res = 0
-				break
-			}
-		}
-	}
-
-	return res
-}
-
-func (this *TextCodec) expandDictionary() bool {
+func (this *textCodec1) expandDictionary() bool {
 	if this.dictSize >= TC_MAX_DICT_SIZE {
 		return false
 	}
@@ -1043,7 +1141,7 @@ func (this *TextCodec) expandDictionary() bool {
 	return true
 }
 
-func (this *TextCodec) emitSymbols(src, dst []byte) int {
+func (this *textCodec1) emitSymbols(src, dst []byte) int {
 	dstIdx := 0
 	dstEnd := len(dst)
 
@@ -1077,7 +1175,7 @@ func (this *TextCodec) emitSymbols(src, dst []byte) int {
 			}
 
 			if dstIdx+lenIdx < dstEnd {
-				dstIdx += emitWordIndex(dst[dstIdx:dstIdx+lenIdx], idx)
+				dstIdx += emitWordIndex1(dst[dstIdx:dstIdx+lenIdx], idx)
 			}
 
 		case CR:
@@ -1095,37 +1193,26 @@ func (this *TextCodec) emitSymbols(src, dst []byte) int {
 	return dstIdx
 }
 
-func emitWordIndex(dst []byte, val int) int {
+func emitWordIndex1(dst []byte, val int) int {
 	// Emit word index (varint 5 bits + 7 bits + 7 bits)
 	if val >= TC_THRESHOLD1 {
-		dstIdx := 0
-
 		if val >= TC_THRESHOLD2 {
-			dst[dstIdx] = byte(0xE0 | (val >> 14))
-			dstIdx++
+			dst[0] = byte(0xE0 | (val >> 14))
+			dst[1] = byte(0x80 | (val >> 7))
+			dst[2] = byte(0x7F & val)
+			return 3
 		}
 
-		dst[dstIdx] = byte(0x80 | (val >> 7))
-		dst[dstIdx+1] = byte(0x7F & val)
-		return dstIdx + 2
+		dst[0] = byte(0x80 | (val >> 7))
+		dst[1] = byte(0x7F & val)
+		return 2
 	}
 
 	dst[0] = byte(val)
 	return 1
 }
 
-func sameWords(buf, src []byte) bool {
-	// Skip first position (same result)
-	for i := range buf {
-		if buf[i] != src[i] {
-			return false
-		}
-	}
-
-	return true
-}
-
-func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
+func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	if src == nil {
 		return uint(0), uint(0), errors.New("Invalid nil source buffer")
 	}
@@ -1204,7 +1291,7 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			if pe != nil {
 				if pe.data>>24 != length || pe.hash != h1 {
 					pe = nil
-				} else if !sameWords(pe.ptr[1:length], src[delimAnchor+2:delimAnchor+2+int(length)]) {
+				} else if !sameWords(pe.ptr[1:length], src[delimAnchor+2:]) {
 					pe = nil
 				}
 			}
@@ -1286,10 +1373,10 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 				} else {
 					dst[dstIdx] = pe.ptr[0] - 32
 				}
-				
+
 				copy(dst[dstIdx+1:], pe.ptr[1:length])
 			}
-			
+
 			dstIdx += length
 
 			if length > 1 {
@@ -1322,87 +1409,556 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	return uint(srcIdx), uint(dstIdx), err
 }
 
-func (this TextCodec) MaxEncodedLen(srcLen int) int {
-	// Space needed by destination buffer could be 3 x srcLength (if input data
-	// is all delimiters). Limit to 1 x srcLength and let the caller deal with
+func (this textCodec1) MaxEncodedLen(srcLen int) int {
+	// Limit to 1 x srcLength and let the caller deal with
 	// a failure when the output is not smaller than the input
 	return srcLen
 }
 
-// Create dictionary from array of words
-func createDictionary(words []byte, dict []DictEntry, maxWords, startWord int) int {
-	anchor := 0
-	h := TC_HASH1
-	nbWords := startWord
+func newTextCodec2() (*textCodec2, error) {
+	this := new(textCodec2)
+	this.logHashSize = TC_LOG_HASHES_SIZE
+	this.dictSize = TC_THRESHOLD2 * 4
+	this.dictMap = make([]*DictEntry, 1<<this.logHashSize)
+	this.dictList = make([]DictEntry, this.dictSize)
+	this.hashMask = int32(1<<this.logHashSize) - 1
+	size := len(TC_STATIC_DICTIONARY)
 
-	for i := 0; (i < len(words)) && (nbWords < maxWords); i++ {
-		cur := words[i]
+	if size >= this.dictSize {
+		size = this.dictSize
+	}
+
+	copy(this.dictList, TC_STATIC_DICTIONARY[0:size])
+	this.staticDictSize = TC_STATIC_DICT_WORDS
+	return this, nil
+}
+
+func newTextCodec2WithCtx(ctx *map[string]interface{}) (*textCodec2, error) {
+	this := new(textCodec2)
+	log := uint32(8)
+	blockSize := uint(0)
+
+	if val, containsKey := (*ctx)["size"]; containsKey {
+		// Actual block size
+		blockSize = val.(uint)
+
+		if blockSize >= 1<<28 {
+			log = 26
+		} else if blockSize >= 1<<10 {
+			log, _ = kanzi.Log2(uint32(blockSize / 4))
+		}
+	}
+
+	// Select an appropriate initial dictionary size
+	dSize := 1 << 12
+
+	for i := uint(14); i <= 24; i += 2 {
+		if blockSize >= 1<<i {
+			dSize <<= 1
+		}
+	}
+
+	extraMem := uint(0)
+
+	if val, containsKey := (*ctx)["extra"]; containsKey {
+		if val.(bool) == true {
+			extraMem = 1
+		}
+	}
+
+	this.logHashSize = uint(log) + extraMem
+	this.dictSize = dSize
+	this.dictMap = make([]*DictEntry, 1<<this.logHashSize)
+	this.dictList = make([]DictEntry, this.dictSize)
+	this.hashMask = int32(1<<this.logHashSize) - 1
+	size := len(TC_STATIC_DICTIONARY)
+
+	if size >= this.dictSize {
+		size = this.dictSize
+	}
+
+	copy(this.dictList, TC_STATIC_DICTIONARY[0:size])
+	this.staticDictSize = TC_STATIC_DICT_WORDS
+	return this, nil
+}
+
+func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
+	if src == nil {
+		return uint(0), uint(0), errors.New("Invalid nil source buffer")
+	}
+
+	if dst == nil {
+		return uint(0), uint(0), errors.New("Invalid nil destination buffer")
+	}
+
+	if &src[0] == &dst[0] {
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
+	}
+
+	count := len(src)
+
+	if n := this.MaxEncodedLen(count); len(dst) < n {
+		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
+	}
+
+	srcIdx := 0
+	dstIdx := 0
+
+	mode := computeStats(src[0:count], &this.freqs)
+
+	// Not text ?
+	if mode&0x80 != 0 {
+		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skipping")
+	}
+
+	if count <= 16 {
+		for i := 0; i < count; i++ {
+			dst[dstIdx] = src[srcIdx]
+			srcIdx++
+			dstIdx++
+		}
+
+		return uint(srcIdx), uint(dstIdx), nil
+	}
+
+	// Populate hash map
+	for i := 0; i < this.staticDictSize; i++ {
+		e := this.dictList[i]
+		this.dictMap[e.hash&this.hashMask] = &e
+	}
+
+	// Pre-allocate all dictionary entries
+	for i := this.staticDictSize; i < this.dictSize; i++ {
+		this.dictList[i] = DictEntry{ptr: nil, hash: 0, data: int32(i)}
+	}
+
+	srcEnd := count
+	dstEnd := this.MaxEncodedLen(count)
+	dstEnd3 := dstEnd - 3
+	var delimAnchor int // previous delimiter
+
+	if isText(src[srcIdx]) {
+		delimAnchor = srcIdx - 1
+	} else {
+		delimAnchor = srcIdx
+	}
+
+	emitAnchor := 0 // never negative
+	words := this.staticDictSize
+
+	// DOS encoded end of line (CR+LF) ?
+	this.isCRLF = mode&0x01 != 0
+	dst[dstIdx] = mode
+	dstIdx++
+
+	if src[srcIdx] == ' ' {
+		dst[dstIdx] = ' '
+		srcIdx++
+		dstIdx++
+		emitAnchor++
+	}
+
+	for srcIdx < srcEnd && dstIdx < dstEnd {
+		cur := src[srcIdx]
 
 		if isText(cur) {
-			h = h*TC_HASH1 ^ int32(cur)*TC_HASH2
+			srcIdx++
 			continue
 		}
 
-		if isDelimiter(cur) && (i >= anchor+1) { // At least 2 letters
-			dict[nbWords] = DictEntry{ptr: words[anchor:i], hash: h, data: int32(((i - anchor) << 24) | nbWords)}
-			nbWords++
-		}
+		if (srcIdx > delimAnchor+2) && (isDelimiter(cur)) { // At least 2 letters
+			// Compute hashes
+			// h1 -> hash of word chars
+			// h2 -> hash of word chars with first char case flipped
+			val := src[delimAnchor+1]
+			var caseFlag int32
 
-		anchor = i + 1
-		h = TC_HASH1
-	}
+			if isUpperCase(val) {
+				caseFlag = 32
+			} else {
+				caseFlag = -32
+			}
 
-	return nbWords
-}
+			h1 := TC_HASH1
+			h2 := TC_HASH1
+			h1 = h1*TC_HASH1 ^ int32(val)*TC_HASH2
+			h2 = h2*TC_HASH1 ^ (int32(val)+caseFlag)*TC_HASH2
 
-func isText(val byte) bool {
-	return TC_TEXT_CHARS[val&0xFF]
-}
+			for i := delimAnchor + 2; i < srcIdx; i++ {
+				h := int32(src[i]) * TC_HASH2
+				h1 = h1*TC_HASH1 ^ h
+				h2 = h2*TC_HASH1 ^ h
+			}
 
-func isLowerCase(val byte) bool {
-	return (val >= 'a') && (val <= 'z')
-}
+			// Check word in dictionary
+			length := int32(srcIdx - delimAnchor - 1)
+			pe1 := this.dictMap[h1&this.hashMask]
 
-func isUpperCase(val byte) bool {
-	return (val >= 'A') && (val <= 'Z')
-}
+			// Check for hash collisions
+			if (pe1 != nil) && (pe1.data>>24 != length || pe1.hash != h1) {
+				pe1 = nil
+			}
 
-func isDelimiter(val byte) bool {
-	return TC_DELIMITER_CHARS[val&0xFF]
-}
+			pe := pe1
 
-// Unpack dictionary with 32 symbols (all lowercase except first word char)
-func unpackDictionary32(dict []byte) []byte {
-	buf := make([]byte, len(dict)*2)
-	d := 0
-	val := 0
+			if pe == nil {
+				pe2 := this.dictMap[h2&this.hashMask]
 
-	// Unpack 3 bytes into 4 6-bit symbols
-	for i := range dict {
-		val = (val << 8) | int(dict[i]&0xFF)
-
-		if (i % 3) == 2 {
-			for ii := 18; ii >= 0; ii -= 6 {
-				c := (val >> uint(ii)) & 0x3F
-
-				if c >= 32 {
-					buf[d] = ' '
-					d++
-				}
-
-				c &= 0x1F
-
-				// Ignore padding symbols (> 26 and <= 31)
-				if c <= 26 {
-					buf[d] = byte(c + 'a')
-					d++
+				if (pe2 == nil) || (pe2.data>>24 == length && pe2.hash == h2) {
+					pe = pe2
 				}
 			}
 
-			val = 0
+			if pe != nil {
+				if !sameWords(pe.ptr[1:length], src[delimAnchor+2:]) {
+					pe = nil
+				}
+			}
+
+			if pe == nil {
+				// Word not found in the dictionary or hash collision: add or replace word
+				if ((length > 3) || (length > 2 && words < TC_THRESHOLD2)) && length < TC_MAX_WORD_LENGTH {
+					pe := &this.dictList[words]
+
+					if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
+						// Evict and reuse old entry
+						this.dictMap[pe.hash&this.hashMask] = nil
+						pe.ptr = src[delimAnchor+1:]
+						pe.hash = h1
+						pe.data = (length << 24) | int32(words)
+					}
+
+					// Update hash map
+					this.dictMap[h1&this.hashMask] = pe
+					words++
+
+					// Dictionary full ? Expand or reset index to end of static dictionary
+					if words >= this.dictSize {
+						if this.expandDictionary() == false {
+							words = this.staticDictSize
+						}
+					}
+				}
+			} else {
+				// Word found in the dictionary
+				// Skip space if only delimiter between 2 word references
+				if (emitAnchor != delimAnchor) || (src[delimAnchor] != ' ') {
+					dstIdx += this.emitSymbols(src[emitAnchor:delimAnchor+1], dst[dstIdx:dstEnd])
+				}
+
+				if dstIdx >= dstEnd3 {
+					break
+				}
+
+				emitAnchor = delimAnchor + 1
+				mask := 0
+
+				if pe != pe1 {
+					mask = 32
+				}
+
+				dstIdx += emitWordIndex2(dst[dstIdx:dstIdx+3], int(pe.data&0x00FFFFFF), mask)
+				emitAnchor += int(pe.data >> 24)
+			}
+		}
+
+		// Reset delimiter position
+		delimAnchor = srcIdx
+		srcIdx++
+	}
+
+	// Emit last symbols
+	dstIdx += this.emitSymbols(src[emitAnchor:srcEnd], dst[dstIdx:dstEnd])
+
+	err := error(nil)
+
+	if srcIdx != srcEnd {
+		err = fmt.Errorf("Forward transform failed. Source index: %v, expected: %v", srcIdx, srcEnd)
+	}
+
+	return uint(srcIdx), uint(dstIdx), err
+}
+
+func (this *textCodec2) expandDictionary() bool {
+	if this.dictSize >= TC_MAX_DICT_SIZE {
+		return false
+	}
+
+	this.dictList = append(this.dictList, make([]DictEntry, this.dictSize)...)
+
+	for i := this.dictSize; i < this.dictSize*2; i++ {
+		this.dictList[i] = DictEntry{ptr: nil, hash: 0, data: int32(i)}
+	}
+
+	this.dictSize <<= 1
+	return true
+}
+
+func (this *textCodec2) emitSymbols(src, dst []byte) int {
+	dstIdx := 0
+	dstEnd := len(dst)
+
+	for i := range src {
+		if dstIdx >= dstEnd {
+			break
+		}
+
+		cur := src[i]
+
+		switch cur {
+		case TC_ESCAPE_TOKEN1:
+			dst[dstIdx] = TC_ESCAPE_TOKEN1
+			dstIdx++
+			dst[dstIdx] = TC_ESCAPE_TOKEN1
+			dstIdx++
+
+		case CR:
+			if this.isCRLF == false {
+				dst[dstIdx] = cur
+				dstIdx++
+			}
+
+		default:
+			if cur&0x80 != 0 {
+				dst[dstIdx] = TC_ESCAPE_TOKEN1
+				dstIdx++
+			}
+
+			dst[dstIdx] = cur
+			dstIdx++
 		}
 	}
 
-	buf[d] = ' ' // End
-	return buf[1 : d+1]
+	return dstIdx
+}
+
+func emitWordIndex2(dst []byte, val, mask int) int {
+	// Emit word index (varint 5 bits + 7 bits + 7 bits)
+	// 1st byte: 0x80 => word idx, 0x40 => more bytes, 0x20 => toggle case 1st symbol
+	// 2nd byte: 0x80 => 1 more byte
+	if val >= TC_THRESHOLD3 {
+		if val >= TC_THRESHOLD4 {
+			// 5 + 7 + 7 => 2^19
+			dst[0] = byte(0xC0 | mask | ((val >> 14) & 0x1F))
+			dst[1] = byte(0x80 | ((val >> 7) & 0x7F))
+			dst[2] = byte(val & 0x7F)
+			return 3
+		} else {
+			// 5 + 7 => 2^12 = 32*128
+			dst[0] = byte(0xC0 | mask | ((val >> 7) & 0x1F))
+			dst[1] = byte(val & 0x7F)
+			return 2
+		}
+	}
+
+	dst[0] = byte(0x80 | mask | val)
+	return 1
+}
+
+func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
+	if src == nil {
+		return uint(0), uint(0), errors.New("Invalid nil source buffer")
+	}
+
+	if dst == nil {
+		return uint(0), uint(0), errors.New("Invalid nil destination buffer")
+	}
+
+	if &src[0] == &dst[0] {
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
+	}
+
+	srcIdx := 0
+	dstIdx := 0
+	count := len(src)
+
+	if count <= 16 {
+		for i := 0; i < count; i++ {
+			dst[dstIdx] = src[srcIdx]
+			srcIdx++
+			dstIdx++
+		}
+
+		return uint(srcIdx), uint(dstIdx), nil
+	}
+
+	// Populate hash map
+	for i := 0; i < this.staticDictSize; i++ {
+		e := this.dictList[i]
+		this.dictMap[e.hash&this.hashMask] = &e
+	}
+
+	// Pre-allocate all dictionary entries
+	for i := this.staticDictSize; i < this.dictSize; i++ {
+		this.dictList[i] = DictEntry{ptr: nil, hash: 0, data: int32(i)}
+	}
+
+	srcEnd := len(src)
+	dstEnd := len(dst)
+	var delimAnchor int // previous delimiter
+
+	if isText(src[srcIdx]) {
+		delimAnchor = srcIdx - 1
+	} else {
+		delimAnchor = srcIdx
+	}
+
+	words := this.staticDictSize
+	wordRun := false
+	err := error(nil)
+	this.isCRLF = src[srcIdx]&0x01 != 0
+	srcIdx++
+
+	for srcIdx < srcEnd && dstIdx < dstEnd {
+		cur := src[srcIdx]
+
+		if isText(cur) {
+			dst[dstIdx] = cur
+			srcIdx++
+			dstIdx++
+			continue
+		}
+
+		if (srcIdx > delimAnchor+2) && isDelimiter(cur) {
+			h1 := TC_HASH1
+
+			for i := delimAnchor + 1; i < srcIdx; i++ {
+				h1 = h1*TC_HASH1 ^ int32(src[i])*TC_HASH2
+			}
+
+			// Lookup word in dictionary
+			length := int32(srcIdx - delimAnchor - 1)
+			pe := this.dictMap[h1&this.hashMask]
+
+			// Check for hash collisions
+			if pe != nil {
+				if pe.data>>24 != length || pe.hash != h1 {
+					pe = nil
+				} else if !sameWords(pe.ptr[1:length], src[delimAnchor+2:]) {
+					pe = nil
+				}
+			}
+
+			if pe == nil {
+				// Word not found in the dictionary or hash collision: add or replace word
+				if ((length > 3) || (length > 2 && words < TC_THRESHOLD2)) && length < TC_MAX_WORD_LENGTH {
+					pe = &this.dictList[words]
+
+					if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
+						// Evict and reuse old entry
+						this.dictMap[pe.hash&this.hashMask] = nil
+						pe.ptr = src[delimAnchor+1:]
+						pe.hash = h1
+						pe.data = (length << 24) | int32(words)
+					}
+
+					this.dictMap[h1&this.hashMask] = pe
+					words++
+
+					// Dictionary full ? Expand or reset index to end of static dictionary
+					if words >= this.dictSize {
+						if this.expandDictionary() == false {
+							words = this.staticDictSize
+						}
+					}
+				}
+			}
+		}
+
+		srcIdx++
+
+		if cur&0x80 != 0 {
+			// Word in dictionary
+			// Read word index (varint 5 bits + 7 bits + 7 bits)
+			idx := int(cur & 0x1F)
+
+			if cur&0x40 != 0 {
+				idx2 := int(src[srcIdx])
+				srcIdx++
+
+				if idx2&0x80 != 0 {
+					idx = (idx << 7) | (idx2 & 0x7F)
+					idx2 = int(src[srcIdx])
+					srcIdx++
+				}
+
+				idx = (idx << 7) | (idx2 & 0x7F)
+
+				if idx >= this.dictSize {
+					break
+				}
+			}
+
+			pe := &this.dictList[idx]
+			length := int(pe.data >> 24)
+
+			// Sanity check
+			if pe.ptr == nil || dstIdx+length >= dstEnd {
+				err = fmt.Errorf("Invalid input data")
+				break
+			}
+
+			// Add space if only delimiter between 2 words (not an escaped delimiter)
+			if wordRun == true && length > 1 {
+				dst[dstIdx] = ' '
+				dstIdx++
+			}
+
+			// Emit word
+			if cur&0x20 == 0 {
+				copy(dst[dstIdx:], pe.ptr[0:length])
+			} else {
+				// Flip case of first character
+				if isUpperCase(pe.ptr[0]) {
+					dst[dstIdx] = pe.ptr[0] + 32
+				} else {
+					dst[dstIdx] = pe.ptr[0] - 32
+				}
+
+				copy(dst[dstIdx+1:], pe.ptr[1:length])
+			}
+
+			dstIdx += length
+
+			if length > 1 {
+				// Regular word entry
+				wordRun = true
+				delimAnchor = srcIdx
+			} else {
+				// Escape entry
+				wordRun = false
+				delimAnchor = srcIdx - 1
+			}
+		} else {
+
+			if cur == TC_ESCAPE_TOKEN1 {
+				dst[dstIdx] = src[srcIdx]
+				srcIdx++
+				dstIdx++
+			} else {
+				if (this.isCRLF == true) && (cur == LF) {
+					dst[dstIdx] = CR
+					dstIdx++
+				}
+
+				dst[dstIdx] = cur
+				dstIdx++
+			}
+
+			wordRun = false
+			delimAnchor = srcIdx - 1
+		}
+	}
+
+	if (err == nil) && (srcIdx != srcEnd) {
+		err = fmt.Errorf("Forward transform failed. Source index: %v, expected: %v", srcIdx, srcEnd)
+	}
+
+	return uint(srcIdx), uint(dstIdx), err
+}
+
+func (this textCodec2) MaxEncodedLen(srcLen int) int {
+	// Limit to 1 x srcLength and let the caller deal with
+	// a failure when the output is not smaller than the input
+	return srcLen
 }
