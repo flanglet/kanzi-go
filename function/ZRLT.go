@@ -88,14 +88,10 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 				}
 
 				// Write every bit as a byte except the most significant one
-				for {
+				for log2 > 0 {
 					log2--
 					dst[dstIdx] = byte((runLength >> log2) & 1)
 					dstIdx++
-
-					if log2 == 0 {
-						break
-					}
 				}
 
 				runLength = 0
