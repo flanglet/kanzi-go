@@ -76,7 +76,6 @@ var (
 	TC_STATIC_DICTIONARY = make([]DictEntry, 1024)
 	TC_STATIC_DICT_WORDS = createDictionary(unpackDictionary32(TC_DICT_EN_1024), TC_STATIC_DICTIONARY, 1024, 0)
 	TC_DELIMITER_CHARS   = initDelimiterChars()
-	TC_TEXT_CHARS        = initTextChars()
 
 	// Default dictionary
 	// 1024 of the most common English words with at least 2 chars.
@@ -685,7 +684,7 @@ func sameWords(buf1, buf2 []byte) bool {
 }
 
 func initDelimiterChars() []bool {
-	res := make([]bool, 256)
+	var res [256]bool
 
 	for i := range res {
 		if (i >= ' ') && (i <= '/') { // [ !"#$%&'()*+,-./]
@@ -718,17 +717,7 @@ func initDelimiterChars() []bool {
 		}
 	}
 
-	return res
-}
-
-func initTextChars() []bool {
-	res := make([]bool, 256)
-
-	for i := range res {
-		res[i] = isLowerCase(byte(i)) || isUpperCase(byte(i))
-	}
-
-	return res
+	return res[:]
 }
 
 // Create dictionary from array of words
@@ -758,7 +747,7 @@ func createDictionary(words []byte, dict []DictEntry, maxWords, startWord int) i
 }
 
 func isText(val byte) bool {
-	return TC_TEXT_CHARS[val]
+	return isLowerCase(val) || isUpperCase(val)
 }
 
 func isLowerCase(val byte) bool {
@@ -1006,16 +995,19 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	for srcIdx < srcEnd && dstIdx < dstEnd {
 		cur := src[srcIdx]
 
-		if isText(cur) {
+		// Should be 'if isText(cur) {', but compiler issues slow code (bad inlining?)
+		if isLowerCase(cur) || isUpperCase(cur) {
 			srcIdx++
 			continue
 		}
 
-		if (srcIdx > delimAnchor+2) && (isDelimiter(cur)) { // At least 2 letters
+		if (srcIdx > delimAnchor+2) && isDelimiter(cur) { // At least 2 letters
 			// Compute hashes
 			// h1 -> hash of word chars
 			// h2 -> hash of word chars with first char case flipped
 			val := src[delimAnchor+1]
+			h1 := TC_HASH1
+			h1 = h1*TC_HASH1 ^ int32(val)*TC_HASH2
 			var caseFlag int32
 
 			if isUpperCase(val) {
@@ -1024,9 +1016,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 				caseFlag = -32
 			}
 
-			h1 := TC_HASH1
 			h2 := TC_HASH1
-			h1 = h1*TC_HASH1 ^ int32(val)*TC_HASH2
 			h2 = h2*TC_HASH1 ^ (int32(val)+caseFlag)*TC_HASH2
 
 			for i := delimAnchor + 2; i < srcIdx; i++ {
@@ -1047,9 +1037,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			pe := pe1
 
 			if pe == nil {
-				pe2 := this.dictMap[h2&this.hashMask]
-
-				if (pe2 == nil) || (pe2.data>>24 == length && pe2.hash == h2) {
+				if pe2 := this.dictMap[h2&this.hashMask]; pe2 != nil && pe2.data>>24 == length && pe2.hash == h2 {
 					pe = pe2
 				}
 			}
@@ -1561,16 +1549,19 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	for srcIdx < srcEnd && dstIdx < dstEnd {
 		cur := src[srcIdx]
 
-		if isText(cur) {
+		// Should be 'if isText(cur) {', but compiler issues slow code (bad inlining?)
+		if isLowerCase(cur) || isUpperCase(cur) {
 			srcIdx++
 			continue
 		}
 
-		if (srcIdx > delimAnchor+2) && (isDelimiter(cur)) { // At least 2 letters
+		if (srcIdx > delimAnchor+2) && isDelimiter(cur) { // At least 2 letters
 			// Compute hashes
 			// h1 -> hash of word chars
 			// h2 -> hash of word chars with first char case flipped
 			val := src[delimAnchor+1]
+			h1 := TC_HASH1
+			h1 = h1*TC_HASH1 ^ int32(val)*TC_HASH2
 			var caseFlag int32
 
 			if isUpperCase(val) {
@@ -1579,9 +1570,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 				caseFlag = -32
 			}
 
-			h1 := TC_HASH1
 			h2 := TC_HASH1
-			h1 = h1*TC_HASH1 ^ int32(val)*TC_HASH2
 			h2 = h2*TC_HASH1 ^ (int32(val)+caseFlag)*TC_HASH2
 
 			for i := delimAnchor + 2; i < srcIdx; i++ {
@@ -1602,9 +1591,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 			pe := pe1
 
 			if pe == nil {
-				pe2 := this.dictMap[h2&this.hashMask]
-
-				if (pe2 == nil) || (pe2.data>>24 == length && pe2.hash == h2) {
+				if pe2 := this.dictMap[h2&this.hashMask]; pe2 != nil && pe2.data>>24 == length && pe2.hash == h2 {
 					pe = pe2
 				}
 			}

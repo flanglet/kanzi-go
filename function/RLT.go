@@ -53,7 +53,7 @@ func (this *RLT) RunTheshold() uint {
 }
 
 func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
-	if src == nil  {
+	if src == nil {
 		return uint(0), uint(0), errors.New("Invalid null source buffer")
 	}
 
@@ -227,7 +227,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 }
 
 func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
-	if src == nil  {
+	if src == nil {
 		return uint(0), uint(0), errors.New("Invalid null source buffer")
 	}
 
