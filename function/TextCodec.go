@@ -995,7 +995,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	for srcIdx < srcEnd && dstIdx < dstEnd {
 		cur := src[srcIdx]
 
-		// Should be 'if isText(cur) {', but compiler issues slow code (bad inlining?)
+		// Should be 'if isText(cur) {', but compiler (1.11) issues slow code (bad inlining?)
 		if isLowerCase(cur) || isUpperCase(cur) {
 			srcIdx++
 			continue
@@ -1549,7 +1549,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	for srcIdx < srcEnd && dstIdx < dstEnd {
 		cur := src[srcIdx]
 
-		// Should be 'if isText(cur) {', but compiler issues slow code (bad inlining?)
+		// Should be 'if isText(cur) {', but compiler (1.11) issues slow code (bad inlining?)
 		if isLowerCase(cur) || isUpperCase(cur) {
 			srcIdx++
 			continue

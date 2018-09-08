@@ -272,19 +272,12 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) int {
 
 		// Write deltas for this chunk
 		for j := i; j < count && j < i+ckSize; j++ {
-			encodeSize(obs, log, uint64(diffs[j]))
+			// Encode size
+			obs.WriteBits(uint64(diffs[j]), log)
 		}
 	}
 
 	return alphabetSize
-}
-
-func encodeSize(obs kanzi.OutputBitStream, log uint, val uint64) {
-	obs.WriteBits(val, log)
-}
-
-func decodeSize(ibs kanzi.InputBitStream, log uint) uint64 {
-	return ibs.ReadBits(log)
 }
 
 func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
@@ -362,7 +355,7 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 
 			// Read deltas for this chunk
 			for j := i; j < count && j < i+ckSize; j++ {
-				next := symbol + int(decodeSize(ibs, log))
+				next := symbol + int(ibs.ReadBits(log))
 
 				for symbol < next && n < alphabetSize {
 					alphabet[n] = symbol
@@ -389,7 +382,7 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 
 			// Read deltas for this chunk
 			for j := i; j < count && j < i+ckSize; j++ {
-				symbol += int(decodeSize(ibs, log))
+				symbol += int(ibs.ReadBits(log))
 				alphabet[j] = symbol
 				symbol++
 			}

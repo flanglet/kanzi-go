@@ -62,8 +62,8 @@ var LOG_TABLE = []int{
 type DivSufSort struct {
 	sa         []int
 	buffer     []int
-	bucketA    []int
-	bucketB    []int
+	bucketA    [256]int
+	bucketB    [65536]int
 	ssStack    *Stack
 	trStack    *Stack
 	mergeStack *Stack
@@ -71,8 +71,6 @@ type DivSufSort struct {
 
 func NewDivSufSort() (*DivSufSort, error) {
 	this := new(DivSufSort)
-	this.bucketA = make([]int, 256)
-	this.bucketB = make([]int, 65536)
 	this.sa = make([]int, 0)
 	this.buffer = make([]int, 0)
 	this.ssStack = newStack(SS_MISORT_STACKSIZE)
@@ -103,14 +101,14 @@ func (this *DivSufSort) ComputeSuffixArray(src []byte, sa []int) {
 		this.buffer = make([]int, length+1)
 	}
 
-	for i := 0; i < length; i++ {
+	for i := range src {
 		this.buffer[i] = int(src[i])
 	}
 
 	this.sa = sa
 	this.reset()
-	m := this.sortTypeBstar(this.bucketA, this.bucketB, length)
-	this.constructSuffixArray(this.bucketA, this.bucketB, length, m)
+	m := this.sortTypeBstar(this.bucketA[:], this.bucketB[:], length)
+	this.constructSuffixArray(this.bucketA[:], this.bucketB[:], length, m)
 }
 
 func (this *DivSufSort) constructSuffixArray(bucket_A, bucket_B []int, n, m int) {
@@ -204,8 +202,8 @@ func (this *DivSufSort) ComputeBWT(src []byte, sa []int) int {
 
 	this.sa = sa
 	this.reset()
-	m := this.sortTypeBstar(this.bucketA, this.bucketB, length)
-	return this.constructBWT(this.bucketA, this.bucketB, length, m)
+	m := this.sortTypeBstar(this.bucketA[:], this.bucketB[:], length)
+	return this.constructBWT(this.bucketA[:], this.bucketB[:], length, m)
 }
 
 func (this *DivSufSort) constructBWT(bucket_A, bucket_B []int, n, m int) int {
