@@ -133,7 +133,10 @@ func (this *DefaultOutputBitStream) WriteArray(bits []byte, count uint) uint {
 			start += (len(this.buffer) - this.position)
 			remaining -= ((len(this.buffer) - this.position) << 3)
 			this.position = len(this.buffer)
-			this.flush()
+
+			if err := this.flush(); err != nil {
+				panic(err)
+			}
 		}
 
 		r := (remaining >> 6) << 3

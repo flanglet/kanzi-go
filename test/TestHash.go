@@ -93,7 +93,7 @@ func main() {
 
 		defer file.Close()
 		buffer := make([]byte, 16384)
-		hash, err := hash.NewXXHash64(0)
+		hh, err := hash.NewXXHash64(0)
 
 		if err != nil {
 			fmt.Printf("Failed to create hash: %v\n", err)
@@ -114,8 +114,8 @@ func main() {
 			before := time.Now()
 
 			for i := 0; i < iter; i++ {
-				hash.SetSeed(0)
-				res += hash.Hash(buffer[0:length])
+				hh.SetSeed(0)
+				res += hh.Hash(buffer[0:length])
 			}
 
 			after := time.Now()
@@ -144,7 +144,7 @@ func main() {
 
 		defer file.Close()
 		buffer := make([]byte, 16384)
-		hash, err := hash.NewMurMurHash3(uint32(0))
+		hh, err := hash.NewMurMurHash3(uint32(0))
 
 		if err != nil {
 			fmt.Printf("Failed to create hash: %v\n", err)
@@ -165,8 +165,8 @@ func main() {
 			before := time.Now()
 
 			for i := 0; i < iter; i++ {
-				hash.SetSeed(0)
-				res += hash.Hash(buffer[0:length])
+				hh.SetSeed(0)
+				res += hh.Hash(buffer[0:length])
 			}
 
 			after := time.Now()
@@ -195,7 +195,7 @@ func main() {
 
 		defer file.Close()
 		buffer := make([]byte, 16384)
-		hash, err := hash.NewSipHash()
+		hh, err := hash.NewSipHash()
 
 		if err != nil {
 			fmt.Printf("Failed to create hash: %v\n", err)
@@ -216,8 +216,8 @@ func main() {
 			before := time.Now()
 
 			for i := 0; i < iter; i++ {
-				hash.SetSeedFromLongs(0, 0)
-				res += hash.Hash(buffer[0:length])
+				hh.SetSeedFromLongs(0, 0)
+				res += hh.Hash(buffer[0:length])
 			}
 
 			after := time.Now()

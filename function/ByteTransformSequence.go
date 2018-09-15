@@ -73,8 +73,8 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 
 		// Check that the output buffer has enough room. If not, allocate a new one.
 		if len(out) < requiredSize {
-			dst := make([]byte, requiredSize)
-			sa[saIdx^1] = &dst
+			buf := make([]byte, requiredSize)
+			sa[saIdx^1] = &buf
 			out = *sa[saIdx^1]
 		}
 

@@ -63,7 +63,6 @@ func TestCorrectness(isBWT bool) {
 		fmt.Printf("\nTest %v\n", ii)
 		rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-		size := uint(0)
 		var buf1 []byte
 		var buf2 []byte
 		var buf3 []byte
@@ -75,8 +74,7 @@ func TestCorrectness(isBWT bool) {
 		} else if ii == 3 {
 			buf1 = []byte("SIX.MIXED.PIXIES.SIFT.SIXTY.PIXIE.DUST.BOXES")
 		} else {
-			size = 128
-			buf1 = make([]byte, size)
+			buf1 = make([]byte, 128)
 
 			for i := 0; i < len(buf1); i++ {
 				buf1[i] = byte(65 + rnd.Intn(4*ii))

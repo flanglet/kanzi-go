@@ -126,7 +126,10 @@ func (this *DefaultInputBitStream) ReadArray(bits []byte, count uint) uint {
 			copy(bits[start:], this.buffer[this.position:this.maxPosition+1])
 			start += (this.maxPosition + 1 - this.position)
 			remaining -= ((this.maxPosition + 1 - this.position) << 3)
-			this.readFromInputStream(len(this.buffer))
+
+			if _, err := this.readFromInputStream(len(this.buffer)); err != nil {
+				panic(err)
+			}
 		}
 
 		r := (remaining >> 6) << 3

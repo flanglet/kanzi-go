@@ -91,8 +91,8 @@ func compress(argsMap map[string]interface{}) int {
 		return kanzi.ERR_CREATE_COMPRESSOR
 	}
 
-	if len(bc.CpuProf()) != 0 {
-		if f, err := os.Create(bc.CpuProf()); err != nil {
+	if len(bc.CPUProf()) != 0 {
+		if f, err := os.Create(bc.CPUProf()); err != nil {
 			fmt.Printf("Warning: cpu profile unavailable: %v\n", err)
 		} else {
 			if err := pprof.StartCPUProfile(f); err != nil {
@@ -129,8 +129,8 @@ func decompress(argsMap map[string]interface{}) int {
 		return kanzi.ERR_CREATE_DECOMPRESSOR
 	}
 
-	if len(bd.CpuProf()) != 0 {
-		if f, err := os.Create(bd.CpuProf()); err != nil {
+	if len(bd.CPUProf()) != 0 {
+		if f, err := os.Create(bd.CPUProf()); err != nil {
 			fmt.Printf("Warning: cpu profile unavailable: %v\n", err)
 		} else {
 			if err := pprof.StartCPUProfile(f); err != nil {

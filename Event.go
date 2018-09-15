@@ -38,7 +38,7 @@ type Event struct {
 	size      int64
 	hash      uint32
 	hashing   bool
-	time_     time.Time
+	eventTime time.Time
 	msg       string
 }
 
@@ -47,7 +47,7 @@ func NewEventFromString(evtType, id int, msg string, evtTime time.Time) *Event {
 		evtTime = time.Now()
 	}
 
-	return &Event{eventType: evtType, id: id, size: 0, msg: msg, time_: evtTime}
+	return &Event{eventType: evtType, id: id, size: 0, msg: msg, eventTime: evtTime}
 }
 
 func NewEvent(evtType, id int, size int64, hash uint32, hashing bool, evtTime time.Time) *Event {
@@ -56,7 +56,7 @@ func NewEvent(evtType, id int, size int64, hash uint32, hashing bool, evtTime ti
 	}
 
 	return &Event{eventType: evtType, id: id, size: size, hash: hash,
-		hashing: hashing, time_: evtTime}
+		hashing: hashing, eventTime: evtTime}
 }
 
 func (this *Event) EventType() int {
@@ -68,7 +68,7 @@ func (this *Event) Id() int {
 }
 
 func (this *Event) Time() time.Time {
-	return this.time_
+	return this.eventTime
 }
 
 func (this *Event) Size() int64 {
@@ -89,37 +89,45 @@ func (this *Event) String() string {
 	}
 
 	hash := ""
-	type_ := ""
-	id_ := ""
+	t := ""
+	id := ""
 
 	if this.hashing == true {
 		hash = fmt.Sprintf(", \"hash\": %x", this.hash)
 	}
 
 	if this.id >= 0 {
-		id_ = fmt.Sprintf(", \"id\": %d", this.id)
+		id = fmt.Sprintf(", \"id\": %d", this.id)
 	}
 
-	if this.eventType == EVT_BEFORE_TRANSFORM {
-		type_ = "BEFORE_TRANSFORM"
-	} else if this.eventType == EVT_AFTER_TRANSFORM {
-		type_ = "AFTER_TRANSFORM"
-	} else if this.eventType == EVT_BEFORE_ENTROPY {
-		type_ = "BEFORE_ENTROPY"
-	} else if this.eventType == EVT_AFTER_ENTROPY {
-		type_ = "AFTER_ENTROPY"
-	} else if this.eventType == EVT_COMPRESSION_START {
-		type_ = "EVT_COMPRESSION_START"
-	} else if this.eventType == EVT_DECOMPRESSION_START {
-		type_ = "EVT_DECOMPRESSION_START"
-	} else if this.eventType == EVT_COMPRESSION_END {
-		type_ = "EVT_COMPRESSION_END"
-	} else if this.eventType == EVT_DECOMPRESSION_END {
-		type_ = "EVT_DECOMPRESSION_END"
+	switch this.eventType {
+	case EVT_BEFORE_TRANSFORM:
+		t = "BEFORE_TRANSFORM"
+
+	case EVT_AFTER_TRANSFORM:
+		t = "AFTER_TRANSFORM"
+
+	case EVT_BEFORE_ENTROPY:
+		t = "BEFORE_ENTROPY"
+
+	case EVT_AFTER_ENTROPY:
+		t = "AFTER_ENTROPY"
+
+	case EVT_COMPRESSION_START:
+		t = "EVT_COMPRESSION_START"
+
+	case EVT_DECOMPRESSION_START:
+		t = "EVT_DECOMPRESSION_START"
+
+	case EVT_COMPRESSION_END:
+		t = "EVT_COMPRESSION_END"
+
+	case EVT_DECOMPRESSION_END:
+		t = "EVT_DECOMPRESSION_END"
 	}
 
-	return fmt.Sprintf("{ \"type\":\"%s\"%s, \"size\":%d, \"time\":%d%s }", type_, id_, this.size,
-		this.time_.UnixNano()/1000000, hash)
+	return fmt.Sprintf("{ \"type\":\"%s\"%s, \"size\":%d, \"time\":%d%s }", t, id, this.size,
+		this.eventTime.UnixNano()/1000000, hash)
 }
 
 type Listener interface {

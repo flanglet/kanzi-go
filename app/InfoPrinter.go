@@ -119,8 +119,8 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 			this.lock.Unlock()
 
 			if this.level >= 5 {
-				duration_ms := bi.time1.Sub(bi.time0).Nanoseconds() / int64(time.Millisecond)
-				fmt.Fprintln(this.writer, fmt.Sprintf("%s [%d ms]", evt, duration_ms))
+				durationMS := bi.time1.Sub(bi.time0).Nanoseconds() / int64(time.Millisecond)
+				fmt.Fprintln(this.writer, fmt.Sprintf("%s [%d ms]", evt, durationMS))
 			}
 		}
 	} else if evt.EventType() == this.thresholds[3] {
@@ -136,8 +136,8 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 			this.lock.Unlock()
 
 			if this.level >= 5 {
-				duration_ms := bi.time2.Sub(bi.time1).Nanoseconds() / int64(time.Millisecond)
-				fmt.Fprintln(this.writer, fmt.Sprintf("%s [%d ms]", evt, duration_ms))
+				durationMS := bi.time2.Sub(bi.time1).Nanoseconds() / int64(time.Millisecond)
+				fmt.Fprintln(this.writer, fmt.Sprintf("%s [%d ms]", evt, durationMS))
 			}
 		}
 	} else if evt.EventType() == this.thresholds[4] {

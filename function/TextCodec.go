@@ -1051,7 +1051,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			if pe == nil {
 				// Word not found in the dictionary or hash collision: add or replace word
 				if ((length > 3) || (length > 2 && words < TC_THRESHOLD2)) && length < TC_MAX_WORD_LENGTH {
-					pe := &this.dictList[words]
+					pe = &this.dictList[words]
 
 					if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
 						// Evict and reuse old entry
@@ -1605,7 +1605,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 			if pe == nil {
 				// Word not found in the dictionary or hash collision: add or replace word
 				if ((length > 3) || (length > 2 && words < TC_THRESHOLD2)) && length < TC_MAX_WORD_LENGTH {
-					pe := &this.dictList[words]
+					pe = &this.dictList[words]
 
 					if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
 						// Evict and reuse old entry
@@ -1730,12 +1730,12 @@ func emitWordIndex2(dst []byte, val, mask int) int {
 			dst[1] = byte(0x80 | ((val >> 7) & 0x7F))
 			dst[2] = byte(val & 0x7F)
 			return 3
-		} else {
-			// 5 + 7 => 2^12 = 32*128
-			dst[0] = byte(0xC0 | mask | ((val >> 7) & 0x1F))
-			dst[1] = byte(val & 0x7F)
-			return 2
 		}
+
+		// 5 + 7 => 2^12 = 32*128
+		dst[0] = byte(0xC0 | mask | ((val >> 7) & 0x1F))
+		dst[1] = byte(val & 0x7F)
+		return 2
 	}
 
 	dst[0] = byte(0x80 | mask | val)

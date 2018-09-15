@@ -157,7 +157,7 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 	}
 
 	if this.verbosity > 0 && len(argsMap) > 0 {
-		for k, _ := range argsMap {
+		for k := range argsMap {
 			log.Println("Ignoring invalid option ["+k+"]", this.verbosity > 0)
 		}
 	}
@@ -185,7 +185,7 @@ func (this *BlockCompressor) RemoveListener(bl kanzi.Listener) bool {
 	return false
 }
 
-func (this *BlockCompressor) CpuProf() string {
+func (this *BlockCompressor) CPUProf() string {
 	return this.cpuProf
 }
 
@@ -293,7 +293,7 @@ func (this *BlockCompressor) Call() (int, uint64) {
 	}
 
 	if this.verbosity > 2 {
-		if listener, err := NewInfoPrinter(this.verbosity, ENCODING, os.Stdout); err == nil {
+		if listener, err2 := NewInfoPrinter(this.verbosity, ENCODING, os.Stdout); err2 == nil {
 			this.AddListener(listener)
 		}
 	}

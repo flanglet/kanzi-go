@@ -36,7 +36,7 @@ const (
 
 type RangeEncoder struct {
 	low       uint64
-	range_    uint64
+	rng       uint64
 	alphabet  [256]int
 	freqs     [256]int
 	cumFreqs  [257]uint64
@@ -189,7 +189,7 @@ func (this *RangeEncoder) Encode(block []byte) (int, error) {
 	end := len(block)
 
 	for startChunk < end {
-		this.range_ = TOP_RANGE
+		this.rng = TOP_RANGE
 		this.low = 0
 		lr := this.logRange
 
@@ -242,23 +242,23 @@ func (this *RangeEncoder) encodeByte(b byte) {
 	symbol := int(b)
 	cumFreq := this.cumFreqs[symbol]
 	freq := this.cumFreqs[symbol+1] - cumFreq
-	this.range_ >>= this.shift
-	this.low += (cumFreq * this.range_)
-	this.range_ *= freq
+	this.rng >>= this.shift
+	this.low += (cumFreq * this.rng)
+	this.rng *= freq
 
 	// If the left-most digits are the same throughout the range, write bits to bitstream
 	for {
-		if (this.low^(this.low+this.range_))&RANGE_MASK != 0 {
-			if this.range_ > BOTTOM_RANGE {
+		if (this.low^(this.low+this.rng))&RANGE_MASK != 0 {
+			if this.rng > BOTTOM_RANGE {
 				break
 			}
 
 			// Normalize
-			this.range_ = -this.low & BOTTOM_RANGE
+			this.rng = -this.low & BOTTOM_RANGE
 		}
 
 		this.bitstream.WriteBits(this.low>>32, 28)
-		this.range_ <<= 28
+		this.rng <<= 28
 		this.low <<= 28
 	}
 
@@ -274,7 +274,7 @@ func (this *RangeEncoder) Dispose() {
 type RangeDecoder struct {
 	code      uint64
 	low       uint64
-	range_    uint64
+	rng       uint64
 	alphabet  [256]int
 	freqs     [256]int
 	cumFreqs  [257]uint64
@@ -423,7 +423,7 @@ func (this *RangeDecoder) Decode(block []byte) (int, error) {
 			return startChunk, err
 		}
 
-		this.range_ = TOP_RANGE
+		this.rng = TOP_RANGE
 		this.low = 0
 		this.code = this.bitstream.ReadBits(60)
 		endChunk := startChunk + sizeChunk
@@ -444,27 +444,27 @@ func (this *RangeDecoder) Decode(block []byte) (int, error) {
 
 func (this *RangeDecoder) decodeByte() byte {
 	// Compute next low and range
-	this.range_ >>= this.shift
-	count := int((this.code - this.low) / this.range_)
+	this.rng >>= this.shift
+	count := int((this.code - this.low) / this.rng)
 	symbol := this.f2s[count]
 	cumFreq := this.cumFreqs[symbol]
 	freq := this.cumFreqs[symbol+1] - cumFreq
-	this.low += (cumFreq * this.range_)
-	this.range_ *= freq
+	this.low += (cumFreq * this.rng)
+	this.rng *= freq
 
 	// If the left-most digits are the same throughout the range, read bits from bitstream
 	for {
-		if (this.low^(this.low+this.range_))&RANGE_MASK != 0 {
-			if this.range_ > BOTTOM_RANGE {
+		if (this.low^(this.low+this.rng))&RANGE_MASK != 0 {
+			if this.rng > BOTTOM_RANGE {
 				break
 			}
 
 			// Normalize
-			this.range_ = -this.low & BOTTOM_RANGE
+			this.rng = -this.low & BOTTOM_RANGE
 		}
 
 		this.code = (this.code << 28) | this.bitstream.ReadBits(28)
-		this.range_ <<= 28
+		this.rng <<= 28
 		this.low <<= 28
 	}
 

@@ -129,7 +129,7 @@ var COS_1024 = [256]int{
 }
 
 //  65536/(1 + exp(-alpha*x))
-var INV_EXP = []int{
+var INV_EXP = [33]int{
 	// alpha = 0.55
 	0, 17, 30, 51, 89, 154, 267, 461, 795, 1366,
 	2331, 3938, 6537, 10558, 16367, 23977, 32768, 41559, 49169, 54978,
@@ -139,10 +139,8 @@ var INV_EXP = []int{
 
 var SQUASH = initSquash()
 
-// Inverse of squash. d = ln(p/(1-p)), d scaled by 8 bits, p by 12 bits.
-// d has range -2047 to 2047 representing -8 to 8.  p has range 0 to 4095.
 func initSquash() []int {
-	res := make([]int, 4096)
+	var res [4096]int
 
 	for x := -2047; x <= 2047; x++ {
 		w := x & 127
@@ -150,7 +148,7 @@ func initSquash() []int {
 		res[x+2047] = (INV_EXP[y]*(128-w) + INV_EXP[y+1]*w) >> 11
 	}
 
-	return res
+	return res[:]
 }
 
 // return p = 1/(1 + exp(-d)), d scaled by 8 bits, p scaled by 12 bits
@@ -166,14 +164,12 @@ func Squash(d int) int {
 	return SQUASH[d+2047]
 }
 
-// Inverse of squash. d = ln(p/(1-p)), d scaled by 8 bits, p by 12 bits.
-// d has range -2047 to 2047 representing -8 to 8.  p has range 0 to 4095.
 var STRETCH = initStretch()
 
 // Inverse of squash. d = ln(p/(1-p)), d scaled by 8 bits, p by 12 bits.
 // d has range -2047 to 2047 representing -8 to 8.  p has range 0 to 4095.
 func initStretch() []int {
-	res := make([]int, 4096)
+	var res [4096]int
 	pi := 0
 
 	for x := -2047; x <= 2047; x++ {
@@ -186,7 +182,7 @@ func initStretch() []int {
 	}
 
 	res[4095] = 2047
-	return res
+	return res[:]
 }
 
 // fast, integer rounded
@@ -260,9 +256,9 @@ func Min(x, y int32) int32 {
 func Clip0_255(x int32) int32 {
 	if x >= 255 {
 		return 255
-	} else {
-		return x & ^(x >> 31)
 	}
+
+	return x & ^(x >> 31)
 }
 
 func Abs(x int32) int32 {

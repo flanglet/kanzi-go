@@ -1312,9 +1312,9 @@ func ssIsqrt(x int) int {
 
 	if x < y*y {
 		return y - 1
-	} else {
-		return y
 	}
+
+	return y
 }
 
 func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
@@ -2596,13 +2596,13 @@ func trIlg(n int) int {
 		}
 
 		return 16 + LOG_TABLE[(n>>16)&0xFF]
-	} else {
-		if n&MASK_0000FF00 != 0 {
-			return 8 + LOG_TABLE[(n>>8)&0xFF]
-		}
-
-		return LOG_TABLE[n&0xFF]
 	}
+
+	if n&MASK_0000FF00 != 0 {
+		return 8 + LOG_TABLE[(n>>8)&0xFF]
+	}
+
+	return LOG_TABLE[n&0xFF]
 }
 
 type StackElement struct {

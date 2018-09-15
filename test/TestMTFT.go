@@ -122,7 +122,6 @@ func main() {
 
 					p := (rand.Intn(rng) - rng/2 + n) & 0xFF
 					input[i] = byte(p)
-					n = p
 				}
 			}
 

@@ -15,9 +15,6 @@ limitations under the License.
 
 package kanzi
 
-import (
-)
-
 const (
 	ERR_MISSING_PARAM       = 1
 	ERR_BLOCK_SIZE          = 2
@@ -164,4 +161,3 @@ type EntropyDecoder interface {
 	// Trying to encode after a call to dispose gives undefined behavior
 	Dispose()
 }
-
