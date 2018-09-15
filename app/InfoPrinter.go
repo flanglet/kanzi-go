@@ -43,25 +43,25 @@ type BlockInfo struct {
 
 type InfoPrinter struct {
 	writer     io.Writer
-	type_      uint
-	map_       map[int32]BlockInfo
+	infoType   uint
+	infos      map[int32]BlockInfo
 	thresholds []int
 	lock       sync.RWMutex
 	level      uint
 }
 
-func NewInfoPrinter(infoLevel, type_ uint, writer io.Writer) (*InfoPrinter, error) {
+func NewInfoPrinter(infoLevel, infoType uint, writer io.Writer) (*InfoPrinter, error) {
 	if writer == nil {
 		return nil, errors.New("Invalid null writer parameter")
 	}
 
 	this := new(InfoPrinter)
-	this.type_ = type_ & 1
+	this.infoType = infoType & 1
 	this.level = infoLevel
 	this.writer = writer
-	this.map_ = make(map[int32]BlockInfo)
+	this.infos = make(map[int32]BlockInfo)
 
-	if this.type_ == ENCODING {
+	if this.infoType == ENCODING {
 		this.thresholds = []int{
 			kanzi.EVT_COMPRESSION_START,
 			kanzi.EVT_BEFORE_TRANSFORM,
@@ -91,12 +91,12 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 		// Register initial block size
 		bi := BlockInfo{time0: evt.Time()}
 
-		if this.type_ == ENCODING {
+		if this.infoType == ENCODING {
 			bi.stage0Size = evt.Size()
 		}
 
 		this.lock.Lock()
-		this.map_[currentBlockId] = bi
+		this.infos[currentBlockId] = bi
 		this.lock.Unlock()
 
 		if this.level >= 5 {
@@ -104,18 +104,18 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 		}
 	} else if evt.EventType() == this.thresholds[2] {
 		this.lock.RLock()
-		bi, exists := this.map_[currentBlockId]
+		bi, exists := this.infos[currentBlockId]
 		this.lock.RUnlock()
 
 		if exists == true {
 			bi.time1 = evt.Time()
 
-			if this.type_ == DECODING {
+			if this.infoType == DECODING {
 				bi.stage0Size = evt.Size()
 			}
 
 			this.lock.Lock()
-			this.map_[currentBlockId] = bi
+			this.infos[currentBlockId] = bi
 			this.lock.Unlock()
 
 			if this.level >= 5 {
@@ -125,14 +125,14 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 		}
 	} else if evt.EventType() == this.thresholds[3] {
 		this.lock.RLock()
-		bi, exists := this.map_[currentBlockId]
+		bi, exists := this.infos[currentBlockId]
 		this.lock.RUnlock()
 
 		if exists == true {
 			bi.time2 = evt.Time()
 			bi.stage1Size = evt.Size()
 			this.lock.Lock()
-			this.map_[currentBlockId] = bi
+			this.infos[currentBlockId] = bi
 			this.lock.Unlock()
 
 			if this.level >= 5 {
@@ -142,7 +142,7 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 		}
 	} else if evt.EventType() == this.thresholds[4] {
 		this.lock.RLock()
-		bi, exists := this.map_[currentBlockId]
+		bi, exists := this.infos[currentBlockId]
 		this.lock.RUnlock()
 
 		if exists == false || this.level < 3 {
@@ -150,11 +150,11 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 		}
 
 		this.lock.Lock()
-		delete(this.map_, currentBlockId)
+		delete(this.infos, currentBlockId)
 		this.lock.Unlock()
 		bi.time3 = evt.Time()
-		duration1_ms := bi.time1.Sub(bi.time0).Nanoseconds() / int64(time.Millisecond)
-		duration2_ms := bi.time3.Sub(bi.time2).Nanoseconds() / int64(time.Millisecond)
+		duration1MS := bi.time1.Sub(bi.time0).Nanoseconds() / int64(time.Millisecond)
+		duration2MS := bi.time3.Sub(bi.time2).Nanoseconds() / int64(time.Millisecond)
 
 		// Get block size after stage 2
 		stage2Size := evt.Size()
@@ -163,16 +163,16 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 		var msg string
 
 		if this.level >= 5 {
-			fmt.Fprintln(this.writer, fmt.Sprintf("%s [%d ms]", evt, duration2_ms))
+			fmt.Fprintln(this.writer, fmt.Sprintf("%s [%d ms]", evt, duration2MS))
 		}
 
 		// Display block info
 		if this.level >= 4 {
 			msg = fmt.Sprintf("Block %d: %d => %d [%d ms] => %d [%d ms]", currentBlockId,
-				bi.stage0Size, bi.stage1Size, duration1_ms, stage2Size, duration2_ms)
+				bi.stage0Size, bi.stage1Size, duration1MS, stage2Size, duration2MS)
 
 			// Add compression ratio for encoding
-			if this.type_ == ENCODING {
+			if this.infoType == ENCODING {
 				if bi.stage0Size != 0 {
 					msg += fmt.Sprintf(" (%d%%)", uint64(stage2Size)*100/uint64(bi.stage0Size))
 				}

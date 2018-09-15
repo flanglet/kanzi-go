@@ -233,18 +233,6 @@ func Log2_1024(x uint32) (uint32, error) {
 	return ((log - 7) * 1024) + ((LOG2_4096[x>>(log-7)] + 2) >> 2), nil
 }
 
-func Clamp(x, min, max int) int {
-	if x < max {
-		if x > min {
-			return x
-		} else {
-			return min
-		}
-	}
-
-	return max
-}
-
 func Max(x, y int32) int32 {
 	return x - (((x - y) >> 31) & (x - y))
 }
