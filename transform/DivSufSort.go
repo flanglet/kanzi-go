@@ -78,6 +78,12 @@ func NewDivSufSort() (*DivSufSort, error) {
 	return this, nil
 }
 
+func (this *DivSufSort) reset() {
+	this.ssStack.index = 0
+	this.trStack.index = 0
+	this.mergeStack.index = 0
+}
+
 func (this *DivSufSort) ComputeSuffixArray(src []byte, sa []int) {
 	length := len(src)
 
@@ -91,6 +97,7 @@ func (this *DivSufSort) ComputeSuffixArray(src []byte, sa []int) {
 	}
 
 	this.sa = sa
+	this.reset()
 	var bucketA [256]int
 	var bucketB [65536]int
 	m := this.sortTypeBstar(bucketA[:], bucketB[:], length)
@@ -187,6 +194,7 @@ func (this *DivSufSort) ComputeBWT(src []byte, sa []int) int {
 	}
 
 	this.sa = sa
+	this.reset()
 	var bucketA [256]int
 	var bucketB [65536]int
 	m := this.sortTypeBstar(bucketA[:], bucketB[:], length)
