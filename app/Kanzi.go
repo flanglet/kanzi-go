@@ -98,6 +98,7 @@ func compress(argsMap map[string]interface{}) int {
 			if err := pprof.StartCPUProfile(f); err != nil {
 				fmt.Printf("Warning: cpu profile unavailable: %v\n", err)
 			}
+
 			defer func() {
 				pprof.StopCPUProfile()
 				f.Close()

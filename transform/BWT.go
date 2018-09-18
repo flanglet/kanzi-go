@@ -264,7 +264,6 @@ func (this *BWT) inverseRegularBlock(src, dst []byte, count int) (uint, uint, er
 
 	// Aliasing
 	data := this.buffer1
-
 	buckets := [256]uint32{}
 	chunks := GetBWTChunks(count)
 

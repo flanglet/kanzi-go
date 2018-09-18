@@ -205,13 +205,14 @@ func (this *RangeEncoder) Encode(block []byte) (int, error) {
 		}
 
 		this.shift = lr
+		buf := block[startChunk:endChunk]
 
-		if err := this.rebuildStatistics(block[startChunk:endChunk], lr); err != nil {
+		if err := this.rebuildStatistics(buf, lr); err != nil {
 			return startChunk, err
 		}
 
-		for i := startChunk; i < endChunk; i++ {
-			this.encodeByte(block[i])
+		for i := range buf {
+			this.encodeByte(buf[i])
 		}
 
 		// Flush 'low'
@@ -432,8 +433,10 @@ func (this *RangeDecoder) Decode(block []byte) (int, error) {
 			endChunk = end
 		}
 
-		for i := startChunk; i < endChunk; i++ {
-			block[i] = this.decodeByte()
+		buf := block[startChunk:endChunk]
+
+		for i := range buf {
+			buf[i] = this.decodeByte()
 		}
 
 		startChunk = endChunk
