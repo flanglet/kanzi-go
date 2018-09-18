@@ -252,7 +252,7 @@ func (this *BlockCompressor) Call() (int, uint64) {
 	msg = fmt.Sprintf("Checksum set to %t", this.checksum)
 	log.Println(msg, printFlag)
 
-	if this.level < 0 {
+	if printFlag == true {
 		w1 := "no"
 
 		if this.transform != COMP_NONE {
@@ -268,8 +268,6 @@ func (this *BlockCompressor) Call() (int, uint64) {
 		}
 
 		msg = fmt.Sprintf("Using %s entropy codec (stage 2)", w2)
-	} else {
-		msg = fmt.Sprintf("Compression level set to %v", this.level)
 	}
 
 	log.Println(msg, printFlag)

@@ -795,20 +795,20 @@ func (this *CompressedInputStream) readHeader() error {
 		msg := ""
 		msg += fmt.Sprintf("Checksum set to %v\n", this.hasher != nil)
 		msg += fmt.Sprintf("Block size set to %d bytes\n", this.blockSize)
-		w1 := function.GetName(this.transformType)
+		w1 := entropy.GetName(this.entropyType)
 
 		if w1 == "NONE" {
 			w1 = "no"
 		}
 
-		msg += fmt.Sprintf("Using %v transform (stage 1)\n", w1)
-		w2 := entropy.GetName(this.entropyType)
+		msg += fmt.Sprintf("Using %v entropy codec (stage 1)\n", w1)
+		w2 := function.GetName(this.transformType)
 
 		if w2 == "NONE" {
 			w2 = "no"
 		}
 
-		msg += fmt.Sprintf("Using %v entropy codec (stage 2)", w2)
+		msg += fmt.Sprintf("Using %v transform (stage 2)\n", w2)
 		evt := kanzi.NewEventFromString(kanzi.EVT_AFTER_HEADER_DECODING, 0, msg, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
