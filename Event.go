@@ -59,7 +59,7 @@ func NewEvent(evtType, id int, size int64, hash uint32, hashing bool, evtTime ti
 		hashing: hashing, eventTime: evtTime}
 }
 
-func (this *Event) EventType() int {
+func (this *Event) Type() int {
 	return this.eventType
 }
 
