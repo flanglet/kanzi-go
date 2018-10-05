@@ -603,5 +603,11 @@ func (this *ROLZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 }
 
 func (this ROLZCodec) MaxEncodedLen(srcLen int) int {
-	return srcLen * 5 / 4
+	res := (srcLen * 5) >> 2
+
+	if res >= 32 {
+		return res
+	}
+
+	return 32
 }
