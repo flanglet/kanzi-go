@@ -71,10 +71,6 @@ func (this *DefaultOutputBitStream) WriteBit(bit int) {
 // Write 'count' (in [1..64]) bits. Panics if stream is closed.
 // Return number of written bits
 func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) uint {
-	if count == 0 {
-		return 0
-	}
-
 	if count > 64 {
 		panic(fmt.Errorf("Invalid length: %v (must be in [1..64])", count))
 	}
@@ -105,10 +101,6 @@ func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) uint {
 func (this *DefaultOutputBitStream) WriteArray(bits []byte, count uint) uint {
 	if this.Closed() {
 		panic(errors.New("Stream closed"))
-	}
-
-	if count == 0 {
-		return 0
 	}
 
 	if count > uint(len(bits)<<3) {
