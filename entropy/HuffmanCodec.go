@@ -130,7 +130,6 @@ func generateCanonicalCodes(sizes []byte, codes []uint, ranks []int) int {
 // Uses in place generation of canonical codes instead of a tree
 type HuffmanEncoder struct {
 	bitstream kanzi.OutputBitStream
-	freqs     [256]uint
 	codes     [256]uint
 	sizes     [256]byte
 	ranks     [256]int
@@ -170,7 +169,6 @@ func NewHuffmanEncoder(bs kanzi.OutputBitStream, args ...uint) (*HuffmanEncoder,
 
 	this := new(HuffmanEncoder)
 	this.bitstream = bs
-	this.freqs = [256]uint{}
 	this.codes = [256]uint{}
 	this.sizes = [256]byte{}
 	this.ranks = [256]int{}
@@ -180,7 +178,6 @@ func NewHuffmanEncoder(bs kanzi.OutputBitStream, args ...uint) (*HuffmanEncoder,
 
 	// Default frequencies, sizes and codes
 	for i := 0; i < 256; i++ {
-		this.freqs[i] = 1
 		this.sizes[i] = 8
 		this.codes[i] = uint(i)
 	}
@@ -345,7 +342,6 @@ func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
 		return 0, nil
 	}
 
-	frequencies := this.freqs // aliasing
 	end := len(block)
 	startChunk := 0
 	sizeChunk := this.chunkSize
@@ -362,10 +358,7 @@ func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
 		}
 
 		endChunk8 := ((endChunk - startChunk) & -8) + startChunk
-
-		for i := range frequencies {
-			frequencies[i] = 0
-		}
+		var frequencies [256]uint
 
 		for i := startChunk; i < endChunk8; i += 8 {
 			frequencies[block[i]]++
@@ -577,24 +570,24 @@ func (this *HuffmanDecoder) buildDecodingTables(count int) {
 		// Fill slow decoding table
 		val := (uint(this.sizes[r]) << 8) | r
 		this.sdTable[i] = val
-		var idx, end uint
 
 		// Fill fast decoding table
 		// Find location index in table
 		if length < DECODING_BATCH_SIZE {
-			idx = code << (DECODING_BATCH_SIZE - length)
-			end = idx + (1 << (DECODING_BATCH_SIZE - length))
+			idx := code << (DECODING_BATCH_SIZE - length)
+			end := idx + (1 << (DECODING_BATCH_SIZE - length))
+
+			// All DECODING_BATCH_SIZE bit values read from the bit stream and
+			// starting with the same prefix point to symbol r
+			for idx < end {
+				this.fdTable[idx] = val
+				idx++
+			}
 		} else {
-			idx = code >> (length - DECODING_BATCH_SIZE)
-			end = idx + 1
+			idx := code >> (length - DECODING_BATCH_SIZE)
+			this.fdTable[idx] = val
 		}
 
-		// All DECODING_BATCH_SIZE bit values read from the bit stream and
-		// starting with the same prefix point to symbol r
-		for idx < end {
-			this.fdTable[idx] = val
-			idx++
-		}
 	}
 }
 

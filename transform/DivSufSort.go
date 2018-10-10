@@ -62,7 +62,6 @@ var LOG_TABLE = []int{
 type DivSufSort struct {
 	sa     []int
 	buffer []int
-
 	ssStack    *Stack
 	trStack    *Stack
 	mergeStack *Stack
