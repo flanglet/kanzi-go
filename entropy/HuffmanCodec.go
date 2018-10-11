@@ -632,10 +632,9 @@ func (this *HuffmanDecoder) Decode(block []byte) (int, error) {
 			endPaddingSize++
 		}
 
-		endChunk1 := (endChunk - endPaddingSize) & -8
-		i := startChunk
+		endChunk8 := (endChunk - endPaddingSize) & -8
 
-		for i < endChunk1 {
+		for i := startChunk; i < endChunk8; i += 8 {
 			// Fast decoding (read DECODING_BATCH_SIZE bits at a time)
 			block[i] = this.fastDecodeByte()
 			block[i+1] = this.fastDecodeByte()
@@ -645,13 +644,11 @@ func (this *HuffmanDecoder) Decode(block []byte) (int, error) {
 			block[i+5] = this.fastDecodeByte()
 			block[i+6] = this.fastDecodeByte()
 			block[i+7] = this.fastDecodeByte()
-			i += 8
 		}
 
-		for i < endChunk {
+		for i := endChunk8; i < endChunk; i++ {
 			// Fallback to regular decoding (read one bit at a time)
 			block[i] = this.slowDecodeByte(0, 0)
-			i++
 		}
 
 		startChunk = endChunk
