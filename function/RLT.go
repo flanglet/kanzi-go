@@ -257,13 +257,13 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 	for i, j := 0, 0; i < 32; i++ {
 		flag := int(src[srcIdx])
 		srcIdx++
-		counters[j] = (flag>>7) & 1
-		counters[j+1] = (flag>>6) & 1
-		counters[j+2] = (flag>>5) & 1
-		counters[j+3] = (flag>>4) & 1
-		counters[j+4] = (flag>>3) & 1
-		counters[j+5] = (flag>>2) & 1
-		counters[j+6] = (flag>>1) & 1
+		counters[j] = (flag >> 7) & 1
+		counters[j+1] = (flag >> 6) & 1
+		counters[j+2] = (flag >> 5) & 1
+		counters[j+3] = (flag >> 4) & 1
+		counters[j+4] = (flag >> 3) & 1
+		counters[j+5] = (flag >> 2) & 1
+		counters[j+6] = (flag >> 1) & 1
 		counters[j+7] = (flag) & 1
 		j += 8
 	}

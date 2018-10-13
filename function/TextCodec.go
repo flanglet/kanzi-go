@@ -1338,9 +1338,10 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 			pe := &this.dictList[idx]
 			length := int(pe.data >> 24)
+			buf := pe.ptr
 
 			// Sanity check
-			if pe.ptr == nil || dstIdx+length >= dstEnd {
+			if buf == nil || dstIdx+length >= dstEnd {
 				err = fmt.Errorf("Invalid input data")
 				break
 			}
@@ -1353,16 +1354,16 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 			// Emit word
 			if cur != TC_ESCAPE_TOKEN2 {
-				copy(dst[dstIdx:], pe.ptr[0:length])
+				copy(dst[dstIdx:], buf[0:length])
 			} else {
 				// Flip case of first character
-				if isUpperCase(pe.ptr[0]) {
-					dst[dstIdx] = pe.ptr[0] + 32
+				if isUpperCase(buf[0]) {
+					dst[dstIdx] = buf[0] + 32
 				} else {
-					dst[dstIdx] = pe.ptr[0] - 32
+					dst[dstIdx] = buf[0] - 32
 				}
 
-				copy(dst[dstIdx+1:], pe.ptr[1:length])
+				copy(dst[dstIdx+1:], buf[1:length])
 			}
 
 			dstIdx += length
@@ -1878,9 +1879,10 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 			pe := &this.dictList[idx]
 			length := int(pe.data >> 24)
+			buf := pe.ptr
 
 			// Sanity check
-			if pe.ptr == nil || dstIdx+length >= dstEnd {
+			if buf == nil || dstIdx+length >= dstEnd {
 				err = fmt.Errorf("Invalid input data")
 				break
 			}
@@ -1893,16 +1895,16 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 			// Emit word
 			if cur&0x20 == 0 {
-				copy(dst[dstIdx:], pe.ptr[0:length])
+				copy(dst[dstIdx:], buf[0:length])
 			} else {
 				// Flip case of first character
-				if isUpperCase(pe.ptr[0]) {
-					dst[dstIdx] = pe.ptr[0] + 32
+				if isUpperCase(buf[0]) {
+					dst[dstIdx] = buf[0] + 32
 				} else {
-					dst[dstIdx] = pe.ptr[0] - 32
+					dst[dstIdx] = buf[0] - 32
 				}
 
-				copy(dst[dstIdx+1:], pe.ptr[1:length])
+				copy(dst[dstIdx+1:], buf[1:length])
 			}
 
 			dstIdx += length
