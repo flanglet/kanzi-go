@@ -40,7 +40,7 @@ const (
 	TC_HASH2           = int32(-2073254261) // 0x846CA68B
 )
 
-type DictEntry struct {
+type dictEntry struct {
 	hash int32  // full word hash
 	data int32  // packed word length (8 MSB) + index in dictionary (24 LSB)
 	ptr  []byte // text data
@@ -51,8 +51,8 @@ type TextCodec struct {
 }
 
 type textCodec1 struct {
-	dictMap        []*DictEntry
-	dictList       []DictEntry
+	dictMap        []*dictEntry
+	dictList       []dictEntry
 	freqs          [257][256]int
 	staticDictSize int
 	dictSize       int
@@ -62,8 +62,8 @@ type textCodec1 struct {
 }
 
 type textCodec2 struct {
-	dictMap        []*DictEntry
-	dictList       []DictEntry
+	dictMap        []*dictEntry
+	dictList       []dictEntry
 	freqs          [257][256]int
 	staticDictSize int
 	dictSize       int
@@ -73,7 +73,7 @@ type textCodec2 struct {
 }
 
 var (
-	TC_STATIC_DICTIONARY = make([]DictEntry, 1024)
+	TC_STATIC_DICTIONARY = make([]dictEntry, 1024)
 	TC_STATIC_DICT_WORDS = createDictionary(unpackDictionary32(TC_DICT_EN_1024), TC_STATIC_DICTIONARY, 1024, 0)
 	TC_DELIMITER_CHARS   = initDelimiterChars()
 
@@ -721,7 +721,7 @@ func initDelimiterChars() []bool {
 }
 
 // Create dictionary from array of words
-func createDictionary(words []byte, dict []DictEntry, maxWords, startWord int) int {
+func createDictionary(words []byte, dict []dictEntry, maxWords, startWord int) int {
 	anchor := 0
 	h := TC_HASH1
 	nbWords := startWord
@@ -735,7 +735,7 @@ func createDictionary(words []byte, dict []DictEntry, maxWords, startWord int) i
 		}
 
 		if isDelimiter(cur) && (i >= anchor+1) { // At least 2 letters
-			dict[nbWords] = DictEntry{ptr: words[anchor:i], hash: h, data: int32(((i - anchor) << 24) | nbWords)}
+			dict[nbWords] = dictEntry{ptr: words[anchor:i], hash: h, data: int32(((i - anchor) << 24) | nbWords)}
 			nbWords++
 		}
 
@@ -844,8 +844,8 @@ func newTextCodec1() (*textCodec1, error) {
 	this := new(textCodec1)
 	this.logHashSize = TC_LOG_HASHES_SIZE
 	this.dictSize = TC_THRESHOLD2 * 4
-	this.dictMap = make([]*DictEntry, 1<<this.logHashSize)
-	this.dictList = make([]DictEntry, this.dictSize)
+	this.dictMap = make([]*dictEntry, 1<<this.logHashSize)
+	this.dictList = make([]dictEntry, this.dictSize)
 	this.hashMask = int32(1<<this.logHashSize) - 1
 	size := len(TC_STATIC_DICTIONARY)
 
@@ -857,8 +857,8 @@ func newTextCodec1() (*textCodec1, error) {
 	nbWords := TC_STATIC_DICT_WORDS
 
 	// Add special entries at end of static dictionary
-	this.dictList[nbWords] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN2}, hash: 0, data: int32((1 << 24) | nbWords)}
-	this.dictList[nbWords+1] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN1}, hash: 0, data: int32((1 << 24) | (nbWords + 1))}
+	this.dictList[nbWords] = dictEntry{ptr: []byte{TC_ESCAPE_TOKEN2}, hash: 0, data: int32((1 << 24) | nbWords)}
+	this.dictList[nbWords+1] = dictEntry{ptr: []byte{TC_ESCAPE_TOKEN1}, hash: 0, data: int32((1 << 24) | (nbWords + 1))}
 	this.staticDictSize = nbWords + 2
 	return this, nil
 }
@@ -898,8 +898,8 @@ func newTextCodec1WithCtx(ctx *map[string]interface{}) (*textCodec1, error) {
 
 	this.logHashSize = uint(log) + extraMem
 	this.dictSize = dSize
-	this.dictMap = make([]*DictEntry, 1<<this.logHashSize)
-	this.dictList = make([]DictEntry, this.dictSize)
+	this.dictMap = make([]*dictEntry, 1<<this.logHashSize)
+	this.dictList = make([]dictEntry, this.dictSize)
 	this.hashMask = int32(1<<this.logHashSize) - 1
 	size := len(TC_STATIC_DICTIONARY)
 
@@ -911,8 +911,8 @@ func newTextCodec1WithCtx(ctx *map[string]interface{}) (*textCodec1, error) {
 	nbWords := TC_STATIC_DICT_WORDS
 
 	// Add special entries at end of static dictionary
-	this.dictList[nbWords] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN2}, hash: 0, data: int32((1 << 24) | (nbWords))}
-	this.dictList[nbWords+1] = DictEntry{ptr: []byte{TC_ESCAPE_TOKEN1}, hash: 0, data: int32((1 << 24) | (nbWords + 1))}
+	this.dictList[nbWords] = dictEntry{ptr: []byte{TC_ESCAPE_TOKEN2}, hash: 0, data: int32((1 << 24) | (nbWords))}
+	this.dictList[nbWords+1] = dictEntry{ptr: []byte{TC_ESCAPE_TOKEN1}, hash: 0, data: int32((1 << 24) | (nbWords + 1))}
 	this.staticDictSize = nbWords + 2
 	return this, nil
 }
@@ -963,7 +963,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Pre-allocate all dictionary entries
 	for i := this.staticDictSize; i < this.dictSize; i++ {
-		this.dictList[i] = DictEntry{ptr: nil, hash: 0, data: int32(i)}
+		this.dictList[i] = dictEntry{ptr: nil, hash: 0, data: int32(i)}
 	}
 
 	srcEnd := count
@@ -1119,10 +1119,10 @@ func (this *textCodec1) expandDictionary() bool {
 		return false
 	}
 
-	this.dictList = append(this.dictList, make([]DictEntry, this.dictSize)...)
+	this.dictList = append(this.dictList, make([]dictEntry, this.dictSize)...)
 
 	for i := this.dictSize; i < this.dictSize*2; i++ {
-		this.dictList[i] = DictEntry{ptr: nil, hash: 0, data: int32(i)}
+		this.dictList[i] = dictEntry{ptr: nil, hash: 0, data: int32(i)}
 	}
 
 	this.dictSize <<= 1
@@ -1235,7 +1235,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 	// Pre-allocate all dictionary entries
 	for i := this.staticDictSize; i < this.dictSize; i++ {
-		this.dictList[i] = DictEntry{ptr: nil, hash: 0, data: int32(i)}
+		this.dictList[i] = dictEntry{ptr: nil, hash: 0, data: int32(i)}
 	}
 
 	srcEnd := len(src)
@@ -1408,8 +1408,8 @@ func newTextCodec2() (*textCodec2, error) {
 	this := new(textCodec2)
 	this.logHashSize = TC_LOG_HASHES_SIZE
 	this.dictSize = TC_THRESHOLD2 * 4
-	this.dictMap = make([]*DictEntry, 1<<this.logHashSize)
-	this.dictList = make([]DictEntry, this.dictSize)
+	this.dictMap = make([]*dictEntry, 1<<this.logHashSize)
+	this.dictList = make([]dictEntry, this.dictSize)
 	this.hashMask = int32(1<<this.logHashSize) - 1
 	size := len(TC_STATIC_DICTIONARY)
 
@@ -1457,8 +1457,8 @@ func newTextCodec2WithCtx(ctx *map[string]interface{}) (*textCodec2, error) {
 
 	this.logHashSize = uint(log) + extraMem
 	this.dictSize = dSize
-	this.dictMap = make([]*DictEntry, 1<<this.logHashSize)
-	this.dictList = make([]DictEntry, this.dictSize)
+	this.dictMap = make([]*dictEntry, 1<<this.logHashSize)
+	this.dictList = make([]dictEntry, this.dictSize)
 	this.hashMask = int32(1<<this.logHashSize) - 1
 	size := len(TC_STATIC_DICTIONARY)
 
@@ -1518,7 +1518,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Pre-allocate all dictionary entries
 	for i := this.staticDictSize; i < this.dictSize; i++ {
-		this.dictList[i] = DictEntry{ptr: nil, hash: 0, data: int32(i)}
+		this.dictList[i] = dictEntry{ptr: nil, hash: 0, data: int32(i)}
 	}
 
 	srcEnd := count
@@ -1672,10 +1672,10 @@ func (this *textCodec2) expandDictionary() bool {
 		return false
 	}
 
-	this.dictList = append(this.dictList, make([]DictEntry, this.dictSize)...)
+	this.dictList = append(this.dictList, make([]dictEntry, this.dictSize)...)
 
 	for i := this.dictSize; i < this.dictSize*2; i++ {
-		this.dictList[i] = DictEntry{ptr: nil, hash: 0, data: int32(i)}
+		this.dictList[i] = dictEntry{ptr: nil, hash: 0, data: int32(i)}
 	}
 
 	this.dictSize <<= 1
@@ -1778,7 +1778,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 	// Pre-allocate all dictionary entries
 	for i := this.staticDictSize; i < this.dictSize; i++ {
-		this.dictList[i] = DictEntry{ptr: nil, hash: 0, data: int32(i)}
+		this.dictList[i] = dictEntry{ptr: nil, hash: 0, data: int32(i)}
 	}
 
 	srcEnd := len(src)
