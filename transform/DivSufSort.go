@@ -673,7 +673,7 @@ func (this *DivSufSort) ssInplaceMerge(pa, first, middle, last, depth int) {
 		r := -1
 		half := (middle - first) >> 1
 
-		for len := middle - first; len > 0; len = half {
+		for length := middle - first; length > 0; length = half {
 			b := a + half
 			var c int
 
@@ -687,7 +687,7 @@ func (this *DivSufSort) ssInplaceMerge(pa, first, middle, last, depth int) {
 
 			if q < 0 {
 				a = b + 1
-				half -= ((len & 1) ^ 1)
+				half -= ((length & 1) ^ 1)
 			} else {
 				r = q
 			}
@@ -867,18 +867,18 @@ func (this *DivSufSort) ssSwapMerge(pa, first, middle, last, buf, bufSize, depth
 		}
 
 		m := 0
-		var len int
+		var length int
 
 		if middle-first < last-middle {
-			len = middle - first
+			length = middle - first
 		} else {
-			len = last - middle
+			length = last - middle
 		}
 
-		for half := len >> 1; len > 0; len, half = half, half>>1 {
+		for half := length >> 1; length > 0; length, half = half, half>>1 {
 			if this.ssCompare3(pa+getIndex(arr[middle+m+half]), pa+getIndex(arr[middle-m-half-1]), depth) < 0 {
 				m += (half + 1)
-				half -= ((len & 1) ^ 1)
+				half -= ((length & 1) ^ 1)
 			}
 		}
 
