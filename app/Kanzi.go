@@ -666,8 +666,8 @@ type Printer struct {
 	os *bufio.Writer
 }
 
-func (this *Printer) Println(msg string, print bool) {
-	if print == true {
+func (this *Printer) Println(msg string, printFlag bool) {
+	if printFlag == true {
 		mutex.Lock()
 
 		// Best effort, ignore error

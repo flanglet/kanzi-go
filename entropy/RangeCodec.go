@@ -367,8 +367,8 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
 			val := int(this.bitstream.ReadBits(logMax))
 
 			if val <= 0 || val >= scale {
-				error := fmt.Errorf("Invalid bitstream: incorrect frequency %v  for symbol '%v' in range decoder", val, this.alphabet[j])
-				return alphabetSize, error
+				err := fmt.Errorf("Invalid bitstream: incorrect frequency %v  for symbol '%v' in range decoder", val, this.alphabet[j])
+				return alphabetSize, err
 			}
 
 			frequencies[this.alphabet[j]] = val
@@ -378,8 +378,8 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
 
 	// Infer first frequency
 	if scale <= sum {
-		error := fmt.Errorf("Invalid bitstream: incorrect frequency %v  for symbol '%v' in range decoder", frequencies[this.alphabet[0]], this.alphabet[0])
-		return alphabetSize, error
+		err := fmt.Errorf("Invalid bitstream: incorrect frequency %v  for symbol '%v' in range decoder", frequencies[this.alphabet[0]], this.alphabet[0])
+		return alphabetSize, err
 	}
 
 	frequencies[this.alphabet[0]] = scale - sum
