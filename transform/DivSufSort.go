@@ -2612,23 +2612,18 @@ type TRBudget struct {
 
 // A stack of pre-allocated elements
 type Stack struct {
-	array []*StackElement
+	elts []StackElement
 	index int
 }
 
 func newStack(size int) *Stack {
-	this := new(Stack)
-	this.array = make([]*StackElement, size)
-
-	for i := range this.array {
-		this.array[i] = &StackElement{0, 0, 0, 0, 0}
-	}
-
+	this := &Stack{}
+	this.elts = make([]StackElement, size)
 	return this
 }
 
 func (this *Stack) get(idx int) *StackElement {
-	return this.array[idx]
+	return &this.elts[idx]
 }
 
 func (this *Stack) size() int {
@@ -2636,7 +2631,7 @@ func (this *Stack) size() int {
 }
 
 func (this *Stack) push(a, b, c, d, e int) {
-	elt := this.array[this.index]
+	elt := this.elts[this.index]
 	elt.a = a
 	elt.b = b
 	elt.c = c
@@ -2651,7 +2646,7 @@ func (this *Stack) pop() *StackElement {
 	}
 
 	this.index--
-	return this.array[this.index]
+	return &this.elts[this.index]
 }
 
 func (this *TRBudget) check(size int) bool {
