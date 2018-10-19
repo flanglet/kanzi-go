@@ -288,7 +288,7 @@ func (this *BWT) inverseRegularBlock(src, dst []byte, count int) (uint, uint, er
 
 	sum := uint32(0)
 
-	for i, b := range buckets {
+	for i, b := range &buckets {
 		buckets[i] = sum
 		sum += b
 	}
@@ -382,7 +382,7 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 	sum := uint32(0)
 
 	// Create cumulative histogram
-	for i, b := range buckets {
+	for i, b := range &buckets {
 		buckets[i] = sum
 		sum += b
 	}
