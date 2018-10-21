@@ -572,25 +572,15 @@ func WriteVarInt(bs kanzi.OutputBitStream, value int) int {
 		panic("Invalid null bitstream parameter")
 	}
 
-	w := 0
+	res := 0
 
-	for {
-		if value >= 128 {
-			bs.WriteBits(uint64(0x80|(value&0x7F)), 8)
-		} else {
-			bs.WriteBits(uint64(value), 8)
-		}
-
-		more := value >= 128
+	for value >= 128 && res < 4 {
+		bs.WriteBits(uint64(0x80|(value&0x7F)), 8)
 		value >>= 7
-		w++
-
-		if more == false || w >= 4 {
-			break
-		}
+		res++
 	}
 
-	return w
+	return res
 }
 
 func ReadVarInt(bs kanzi.InputBitStream) int {
@@ -598,18 +588,14 @@ func ReadVarInt(bs kanzi.InputBitStream) int {
 		panic("Invalid null bitstream parameter")
 	}
 
-	res := 0
-	shift := uint(0)
+	val := int(bs.ReadBits(8))
+	res := val & 0x7F
+	shift := uint(7)
 
-	for {
-		val := int(bs.ReadBits(8))
-		res = ((val & 0x7F) << shift) | res
-		more := val >= 128
+	for val >= 128 && shift < 28 {
+		val = int(bs.ReadBits(8))
+		res |= ((val & 0x7F) << shift)
 		shift += 7
-
-		if more == false || shift >= 28 {
-			break
-		}
 	}
 
 	return res
