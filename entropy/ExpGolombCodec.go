@@ -20,7 +20,7 @@ import (
 	kanzi "github.com/flanglet/kanzi-go"
 )
 
-var CACHE = [2][256]uint{
+var EXPG_VALUES = [2][256]uint{
 	// Unsigned
 	[256]uint{
 		513, 1538, 1539, 2564, 2565, 2566, 2567, 3592, 3593, 3594, 3595, 3596, 3597, 3598, 3599, 4624,
@@ -63,12 +63,13 @@ var CACHE = [2][256]uint{
 
 type ExpGolombEncoder struct {
 	signed    int
+	cache     *[256]uint
 	bitstream kanzi.OutputBitStream
 }
 
 // If sgn is true, the input value is turned into an int8
 // Managing sign improves compression ratio for distributions centered on 0 (E.G. Gaussian)
-// Example: -1 is better compressed as int8 (1 followed by -) than as byte (-1 & 255 = 255)
+// Example: -1 is better compressed as int8 (1 followed by '-') than as byte (-1 & 255 = 255)
 func NewExpGolombEncoder(bs kanzi.OutputBitStream, sgn bool) (*ExpGolombEncoder, error) {
 	if bs == nil {
 		return nil, errors.New("Invalid null bitstream parameter")
@@ -83,6 +84,7 @@ func NewExpGolombEncoder(bs kanzi.OutputBitStream, sgn bool) (*ExpGolombEncoder,
 		this.signed = 0
 	}
 
+	this.cache = &EXPG_VALUES[this.signed]
 	return this, nil
 }
 
@@ -99,7 +101,7 @@ func (this *ExpGolombEncoder) EncodeByte(val byte) {
 		return
 	}
 
-	emit := CACHE[this.signed][val]
+	emit := this.cache[val]
 	this.bitstream.WriteBits(uint64(emit&0x1FF), emit>>9)
 }
 
