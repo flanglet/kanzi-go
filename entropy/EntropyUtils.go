@@ -576,6 +576,7 @@ func WriteVarInt(bs kanzi.OutputBitStream, value int) int {
 		res++
 	}
 
+	bs.WriteBits(uint64(value), 8)
 	return res
 }
 
