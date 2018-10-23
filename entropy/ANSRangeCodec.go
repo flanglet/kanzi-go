@@ -37,7 +37,7 @@ type ANSRangeEncoder struct {
 	bitstream kanzi.OutputBitStream
 	alphabet  []int
 	freqs     []int
-	symbols   []EncSymbol
+	symbols   []encSymbol
 	buffer    []byte
 	eu        *EntropyUtils
 	chunkSize int
@@ -102,7 +102,7 @@ func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncode
 	dim := int(255*order + 1)
 	this.alphabet = make([]int, dim*256)
 	this.freqs = make([]int, dim*257) // freqs[x][256] = total(freqs[x][0..255])
-	this.symbols = make([]EncSymbol, dim*256)
+	this.symbols = make([]encSymbol, dim*256)
 	this.buffer = make([]byte, 0)
 	this.logRange = logRange
 	this.chunkSize = int(chkSize)
@@ -221,7 +221,7 @@ func (this *ANSRangeEncoder) Encode(block []byte) (int, error) {
 	}
 
 	for i := range this.symbols {
-		this.symbols[i] = EncSymbol{}
+		this.symbols[i] = encSymbol{}
 	}
 
 	// Add some padding
@@ -378,7 +378,7 @@ func (this *ANSRangeEncoder) BitStream() kanzi.OutputBitStream {
 	return this.bitstream
 }
 
-type EncSymbol struct {
+type encSymbol struct {
 	xMax     int    // (Exclusive) upper bound of pre-normalization interval
 	bias     int    // Bias
 	cmplFreq int    // Complement of frequency: (1 << scale_bits) - freq
@@ -386,7 +386,7 @@ type EncSymbol struct {
 	invFreq  uint64 // Fixed-point reciprocal frequency
 }
 
-func (this *EncSymbol) reset(cumFreq, freq int, logRange uint) {
+func (this *encSymbol) reset(cumFreq, freq int, logRange uint) {
 	// Make sure xMax is a positive int32. Compatibility with Java implementation
 	if freq >= 1<<logRange {
 		freq = (1 << logRange) - 1
@@ -416,7 +416,7 @@ func (this *EncSymbol) reset(cumFreq, freq int, logRange uint) {
 type ANSRangeDecoder struct {
 	bitstream kanzi.InputBitStream
 	freqs     []int
-	symbols   []DecSymbol
+	symbols   []decSymbol
 	f2s       []byte // mapping frequency -> symbol
 	alphabet  []int
 	buffer    []byte
@@ -475,7 +475,7 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 	this.freqs = make([]int, dim*256) // freqs[x][256] = total(freqs[x][0..255])
 	this.buffer = make([]byte, 0)
 	this.f2s = make([]byte, 0)
-	this.symbols = make([]DecSymbol, dim*256)
+	this.symbols = make([]decSymbol, dim*256)
 	return this, nil
 }
 
@@ -605,7 +605,7 @@ func (this *ANSRangeDecoder) Decode(block []byte) (int, error) {
 	startChunk := 0
 
 	for i := range this.symbols {
-		this.symbols[i] = DecSymbol{}
+		this.symbols[i] = decSymbol{}
 	}
 
 	// Add some padding
@@ -695,12 +695,12 @@ func (this *ANSRangeDecoder) BitStream() kanzi.InputBitStream {
 func (this *ANSRangeDecoder) Dispose() {
 }
 
-type DecSymbol struct {
+type decSymbol struct {
 	cumFreq int
 	freq    int
 }
 
-func (this *DecSymbol) reset(cumFreq, freq int, logRange uint) {
+func (this *decSymbol) reset(cumFreq, freq int, logRange uint) {
 	// Mirror encoder
 	if freq >= 1<<logRange {
 		freq = (1 << logRange) - 1

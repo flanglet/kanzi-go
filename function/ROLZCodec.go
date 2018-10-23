@@ -43,7 +43,7 @@ const (
 	MASK_0_32           = uint64(0x00000000FFFFFFFF)
 )
 
-type ROLZPredictor struct {
+type rolzPredictor struct {
 	p1      []int32
 	p2      []int32
 	logSize uint
@@ -52,8 +52,8 @@ type ROLZPredictor struct {
 	ctx     int32
 }
 
-func newROLZPredictor(logPosChecks uint) (*ROLZPredictor, error) {
-	this := new(ROLZPredictor)
+func newRolzPredictor(logPosChecks uint) (*rolzPredictor, error) {
+	this := new(rolzPredictor)
 	this.logSize = logPosChecks
 	this.size = 1 << logPosChecks
 	this.p1 = make([]int32, 256*this.size)
@@ -62,7 +62,7 @@ func newROLZPredictor(logPosChecks uint) (*ROLZPredictor, error) {
 	return this, nil
 }
 
-func (this *ROLZPredictor) reset() {
+func (this *rolzPredictor) reset() {
 	this.c1 = 1
 	this.ctx = 0
 
@@ -72,7 +72,7 @@ func (this *ROLZPredictor) reset() {
 	}
 }
 
-func (this *ROLZPredictor) Update(bit byte) {
+func (this *rolzPredictor) Update(bit byte) {
 	idx := this.ctx + this.c1
 	b := int32(bit)
 	this.p1[idx] -= (((this.p1[idx] - (-b & 0xFFFF)) >> 3) + b)
@@ -85,16 +85,16 @@ func (this *ROLZPredictor) Update(bit byte) {
 	}
 }
 
-func (this *ROLZPredictor) Get() int {
+func (this *rolzPredictor) Get() int {
 	idx := this.ctx + this.c1
 	return int(this.p1[idx]+this.p2[idx]) >> 5
 }
 
-func (this *ROLZPredictor) setContext(ctx byte) {
+func (this *rolzPredictor) setContext(ctx byte) {
 	this.ctx = int32(ctx) << this.logSize
 }
 
-type ROLZEncoder struct {
+type rolzEncoder struct {
 	predictors []kanzi.Predictor
 	predictor  kanzi.Predictor
 	buf        []byte
@@ -103,8 +103,8 @@ type ROLZEncoder struct {
 	high       uint64
 }
 
-func newROLZEncoder(predictors []kanzi.Predictor, buf []byte, idx *int) (*ROLZEncoder, error) {
-	this := new(ROLZEncoder)
+func newRolzEncoder(predictors []kanzi.Predictor, buf []byte, idx *int) (*rolzEncoder, error) {
+	this := new(rolzEncoder)
 	this.low = 0
 	this.high = ROLZ_TOP
 	this.buf = buf
@@ -114,11 +114,11 @@ func newROLZEncoder(predictors []kanzi.Predictor, buf []byte, idx *int) (*ROLZEn
 	return this, nil
 }
 
-func (this *ROLZEncoder) setContext(n int) {
+func (this *rolzEncoder) setContext(n int) {
 	this.predictor = this.predictors[n]
 }
 
-func (this *ROLZEncoder) encodeByte(val byte) {
+func (this *rolzEncoder) encodeByte(val byte) {
 	this.encodeBit((val >> 7) & 1)
 	this.encodeBit((val >> 6) & 1)
 	this.encodeBit((val >> 5) & 1)
@@ -129,7 +129,7 @@ func (this *ROLZEncoder) encodeByte(val byte) {
 	this.encodeBit(val & 1)
 }
 
-func (this *ROLZEncoder) encodeBit(bit byte) {
+func (this *rolzEncoder) encodeBit(bit byte) {
 	// Calculate interval split
 	split := (((this.high - this.low) >> 4) * uint64(this.predictor.Get())) >> 8
 
@@ -150,7 +150,7 @@ func (this *ROLZEncoder) encodeBit(bit byte) {
 	}
 }
 
-func (this *ROLZEncoder) dispose() {
+func (this *rolzEncoder) dispose() {
 	for i := 0; i < 8; i++ {
 		this.buf[*this.idx+i] = byte(this.low >> 56)
 		this.low <<= 8
@@ -159,7 +159,7 @@ func (this *ROLZEncoder) dispose() {
 	*this.idx += 8
 }
 
-type ROLZDecoder struct {
+type rolzDecoder struct {
 	predictors []kanzi.Predictor
 	predictor  kanzi.Predictor
 	buf        []byte
@@ -169,8 +169,8 @@ type ROLZDecoder struct {
 	current    uint64
 }
 
-func newROLZDecoder(predictors []kanzi.Predictor, buf []byte, idx *int) (*ROLZDecoder, error) {
-	this := new(ROLZDecoder)
+func newRolzDecoder(predictors []kanzi.Predictor, buf []byte, idx *int) (*rolzDecoder, error) {
+	this := new(rolzDecoder)
 	this.low = 0
 	this.high = ROLZ_TOP
 	this.buf = buf
@@ -187,11 +187,11 @@ func newROLZDecoder(predictors []kanzi.Predictor, buf []byte, idx *int) (*ROLZDe
 	return this, nil
 }
 
-func (this *ROLZDecoder) setContext(n int) {
+func (this *rolzDecoder) setContext(n int) {
 	this.predictor = this.predictors[n]
 }
 
-func (this *ROLZDecoder) decodeByte() byte {
+func (this *rolzDecoder) decodeByte() byte {
 	return (this.decodeBit() << 7) |
 		(this.decodeBit() << 6) |
 		(this.decodeBit() << 5) |
@@ -202,7 +202,7 @@ func (this *ROLZDecoder) decodeByte() byte {
 		this.decodeBit()
 }
 
-func (this *ROLZDecoder) decodeBit() byte {
+func (this *rolzDecoder) decodeBit() byte {
 	// Calculate interval split
 	split := this.low + ((((this.high - this.low) >> 4) * uint64(this.predictor.Get())) >> 8)
 	var bit byte
@@ -230,7 +230,7 @@ func (this *ROLZDecoder) decodeBit() byte {
 	return bit
 }
 
-func (this *ROLZDecoder) dispose() {
+func (this *rolzDecoder) dispose() {
 }
 
 type ROLZCodec struct {
@@ -239,8 +239,8 @@ type ROLZCodec struct {
 	logPosChecks   uint
 	maskChecks     int32
 	posChecks      int32
-	litPredictor   *ROLZPredictor
-	matchPredictor *ROLZPredictor
+	litPredictor   *rolzPredictor
+	matchPredictor *rolzPredictor
 }
 
 func NewROLZCodec(logPosChecks uint) (*ROLZCodec, error) {
@@ -255,8 +255,8 @@ func NewROLZCodec(logPosChecks uint) (*ROLZCodec, error) {
 	this.maskChecks = this.posChecks - 1
 	this.counters = make([]int32, 1<<16)
 	this.matches = make([]int32, ROLZ_HASH_SIZE<<logPosChecks)
-	this.litPredictor, _ = newROLZPredictor(9)
-	this.matchPredictor, _ = newROLZPredictor(logPosChecks)
+	this.litPredictor, _ = newRolzPredictor(9)
+	this.matchPredictor, _ = newRolzPredictor(logPosChecks)
 	return this, nil
 }
 
@@ -371,7 +371,7 @@ func (this *ROLZCodec) Forward(src, dst []byte) (uint, uint, error) {
 	this.litPredictor.reset()
 	this.matchPredictor.reset()
 	predictors := [2]kanzi.Predictor{this.litPredictor, this.matchPredictor}
-	re, _ := newROLZEncoder(predictors[:], dst, &dstIdx)
+	re, _ := newRolzEncoder(predictors[:], dst, &dstIdx)
 
 	for i := range this.counters {
 		this.counters[i] = 0
@@ -485,7 +485,7 @@ func (this *ROLZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	this.litPredictor.reset()
 	this.matchPredictor.reset()
 	predictors := [2]kanzi.Predictor{this.litPredictor, this.matchPredictor}
-	rd, _ := newROLZDecoder(predictors[:], src, &srcIdx)
+	rd, _ := newRolzDecoder(predictors[:], src, &srcIdx)
 
 	for i := range this.counters {
 		this.counters[i] = 0

@@ -62,25 +62,25 @@ var LOG_TABLE = []int{
 type DivSufSort struct {
 	sa     []int
 	buffer []int
-	ssStack    *Stack
-	trStack    *Stack
-	mergeStack *Stack
+	ssstack    *stack
+	trstack    *stack
+	mergestack *stack
 }
 
 func NewDivSufSort() (*DivSufSort, error) {
 	this := new(DivSufSort)
 	this.sa = make([]int, 0)
 	this.buffer = make([]int, 0)
-	this.ssStack = newStack(SS_MISORT_STACKSIZE)
-	this.trStack = newStack(TR_STACKSIZE)
-	this.mergeStack = newStack(SS_SMERGE_STACKSIZE)
+	this.ssstack = newstack(SS_MISORT_STACKSIZE)
+	this.trstack = newstack(TR_STACKSIZE)
+	this.mergestack = newstack(SS_SMERGE_STACKSIZE)
 	return this, nil
 }
 
 func (this *DivSufSort) reset() {
-	this.ssStack.index = 0
-	this.trStack.index = 0
-	this.mergeStack.index = 0
+	this.ssstack.index = 0
+	this.trstack.index = 0
+	this.mergestack.index = 0
 }
 
 func (this *DivSufSort) ComputeSuffixArray(src []byte, sa []int) {
@@ -826,7 +826,7 @@ func (this *DivSufSort) ssSwapMerge(pa, first, middle, last, buf, bufSize, depth
 				arr[last] = ^arr[last]
 			}
 
-			se := this.mergeStack.pop()
+			se := this.mergestack.pop()
 
 			if se == nil {
 				return
@@ -853,7 +853,7 @@ func (this *DivSufSort) ssSwapMerge(pa, first, middle, last, buf, bufSize, depth
 				arr[last] = ^arr[last]
 			}
 
-			se := this.mergeStack.pop()
+			se := this.mergestack.pop()
 
 			if se == nil {
 				return
@@ -915,7 +915,7 @@ func (this *DivSufSort) ssSwapMerge(pa, first, middle, last, buf, bufSize, depth
 			}
 
 			if l-first <= last-r {
-				this.mergeStack.push(r, rm, last, (next&3)|(check&4), 0)
+				this.mergestack.push(r, rm, last, (next&3)|(check&4), 0)
 				middle = lm
 				last = l
 				check = (check & 3) | (next & 4)
@@ -924,7 +924,7 @@ func (this *DivSufSort) ssSwapMerge(pa, first, middle, last, buf, bufSize, depth
 					next ^= 6
 				}
 
-				this.mergeStack.push(first, lm, l, (check&3)|(next&4), 0)
+				this.mergestack.push(first, lm, l, (check&3)|(next&4), 0)
 				first = r
 				middle = rm
 				check = (next & 3) | (check & 4)
@@ -943,7 +943,7 @@ func (this *DivSufSort) ssSwapMerge(pa, first, middle, last, buf, bufSize, depth
 				arr[last] = ^arr[last]
 			}
 
-			se := this.mergeStack.pop()
+			se := this.mergestack.pop()
 
 			if se == nil {
 				return
@@ -1321,7 +1321,7 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 				this.ssInsertionSort(pa, first, last, depth)
 			}
 
-			se := this.ssStack.pop()
+			se := this.ssstack.pop()
 
 			if se == nil {
 				return
@@ -1369,7 +1369,7 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 
 			if a-first <= last-a {
 				if a-first > 1 {
-					this.ssStack.push(a, last, depth, -1, 0)
+					this.ssstack.push(a, last, depth, -1, 0)
 					last = a
 					depth++
 					limit = ssIlg(a - first)
@@ -1379,7 +1379,7 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 				}
 			} else {
 				if last-a > 1 {
-					this.ssStack.push(first, a, depth+1, ssIlg(a-first), 0)
+					this.ssstack.push(first, a, depth+1, ssIlg(a-first), 0)
 					first = a
 					limit = -1
 				} else {
@@ -1527,16 +1527,16 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 
 			if a-first <= last-c {
 				if last-c <= c-b {
-					this.ssStack.push(b, c, depth+1, ssIlg(c-b), 0)
-					this.ssStack.push(c, last, depth, limit, 0)
+					this.ssstack.push(b, c, depth+1, ssIlg(c-b), 0)
+					this.ssstack.push(c, last, depth, limit, 0)
 					last = a
 				} else if a-first <= c-b {
-					this.ssStack.push(c, last, depth, limit, 0)
-					this.ssStack.push(b, c, depth+1, ssIlg(c-b), 0)
+					this.ssstack.push(c, last, depth, limit, 0)
+					this.ssstack.push(b, c, depth+1, ssIlg(c-b), 0)
 					last = a
 				} else {
-					this.ssStack.push(c, last, depth, limit, 0)
-					this.ssStack.push(first, a, depth, limit, 0)
+					this.ssstack.push(c, last, depth, limit, 0)
+					this.ssstack.push(first, a, depth, limit, 0)
 					first = b
 					last = c
 					depth++
@@ -1544,16 +1544,16 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int) {
 				}
 			} else {
 				if a-first <= c-b {
-					this.ssStack.push(b, c, depth+1, ssIlg(c-b), 0)
-					this.ssStack.push(first, a, depth, limit, 0)
+					this.ssstack.push(b, c, depth+1, ssIlg(c-b), 0)
+					this.ssstack.push(first, a, depth, limit, 0)
 					first = c
 				} else if last-c <= c-b {
-					this.ssStack.push(first, a, depth, limit, 0)
-					this.ssStack.push(b, c, depth+1, ssIlg(c-b), 0)
+					this.ssstack.push(first, a, depth, limit, 0)
+					this.ssstack.push(b, c, depth+1, ssIlg(c-b), 0)
 					first = c
 				} else {
-					this.ssStack.push(first, a, depth, limit, 0)
-					this.ssStack.push(c, last, depth, limit, 0)
+					this.ssstack.push(first, a, depth, limit, 0)
+					this.ssstack.push(c, last, depth, limit, 0)
 					first = b
 					last = c
 					depth++
@@ -1748,7 +1748,7 @@ func ssIlg(n int) int {
 // Tandem Repeat Sort
 func (this *DivSufSort) trSort(n, depth int) {
 	arr := this.sa
-	budget := &TRBudget{chance: trIlg(n) * 2 / 3, remain: n, incVal: n}
+	budget := &trBudget{chance: trIlg(n) * 2 / 3, remain: n, incVal: n}
 
 	for isad := n + depth; arr[0] > -n; isad += (isad - n) {
 		first := 0
@@ -1927,7 +1927,7 @@ func (this *DivSufSort) trPartition(isad, first, middle, last, v int) (int, int)
 	return first, last
 }
 
-func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *TRBudget) {
+func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *trBudget) {
 	incr := isad - isa
 	arr := this.sa
 	limit := trIlg(last - first)
@@ -1954,21 +1954,21 @@ func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *TRBudget
 
 				// push
 				if b-a > 1 {
-					this.trStack.push(0, a, b, 0, 0)
-					this.trStack.push(isad-incr, first, last, -2, trlink)
-					trlink = this.trStack.size() - 2
+					this.trstack.push(0, a, b, 0, 0)
+					this.trstack.push(isad-incr, first, last, -2, trlink)
+					trlink = this.trstack.size() - 2
 				}
 
 				if a-first <= last-b {
 					if a-first > 1 {
-						this.trStack.push(isad, b, last, trIlg(last-b), trlink)
+						this.trstack.push(isad, b, last, trIlg(last-b), trlink)
 						last = a
 						limit = trIlg(a - first)
 					} else if last-b > 1 {
 						first = b
 						limit = trIlg(last - b)
 					} else {
-						se := this.trStack.pop()
+						se := this.trstack.pop()
 
 						if se == nil {
 							return
@@ -1982,14 +1982,14 @@ func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *TRBudget
 					}
 				} else {
 					if last-b > 1 {
-						this.trStack.push(isad, first, a, trIlg(a-first), trlink)
+						this.trstack.push(isad, first, a, trIlg(a-first), trlink)
 						first = b
 						limit = trIlg(last - b)
 					} else if a-first > 1 {
 						last = a
 						limit = trIlg(a - first)
 					} else {
-						se := this.trStack.pop()
+						se := this.trstack.pop()
 
 						if se == nil {
 							return
@@ -2004,19 +2004,19 @@ func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *TRBudget
 				}
 			} else if limit == -2 {
 				// tandem repeat copy
-				se := this.trStack.pop()
+				se := this.trstack.pop()
 
 				if se.d == 0 {
 					this.trCopy(isa, first, se.b, se.c, last, isad-isa)
 				} else {
 					if trlink >= 0 {
-						this.trStack.get(trlink).d = -1
+						this.trstack.get(trlink).d = -1
 					}
 
 					this.trPartialCopy(isa, first, se.b, se.c, last, isad-isa)
 				}
 
-				if se = this.trStack.pop(); se == nil {
+				if se = this.trstack.pop(); se == nil {
 					return
 				}
 
@@ -2073,13 +2073,13 @@ func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *TRBudget
 					// push
 					if budget.check(a-first) == true {
 						if a-first <= last-a {
-							this.trStack.push(isad, a, last, -3, trlink)
+							this.trstack.push(isad, a, last, -3, trlink)
 							isad += incr
 							last = a
 							limit = next
 						} else {
 							if last-a > 1 {
-								this.trStack.push(isad+incr, first, a, next, trlink)
+								this.trstack.push(isad+incr, first, a, next, trlink)
 								first = a
 								limit = -3
 							} else {
@@ -2090,14 +2090,14 @@ func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *TRBudget
 						}
 					} else {
 						if trlink >= 0 {
-							this.trStack.get(trlink).d = -1
+							this.trstack.get(trlink).d = -1
 						}
 
 						if last-a > 1 {
 							first = a
 							limit = -3
 						} else {
-							se := this.trStack.pop()
+							se := this.trstack.pop()
 
 							if se == nil {
 								return
@@ -2111,7 +2111,7 @@ func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *TRBudget
 						}
 					}
 				} else {
-					se := this.trStack.pop()
+					se := this.trstack.pop()
 
 					if se == nil {
 						return
@@ -2192,11 +2192,11 @@ func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *TRBudget
 				if a-first <= last-b {
 					if last-b <= b-a {
 						if a-first > 1 {
-							this.trStack.push(isad+incr, a, b, next, trlink)
-							this.trStack.push(isad, b, last, limit, trlink)
+							this.trstack.push(isad+incr, a, b, next, trlink)
+							this.trstack.push(isad, b, last, limit, trlink)
 							last = a
 						} else if last-b > 1 {
-							this.trStack.push(isad+incr, a, b, next, trlink)
+							this.trstack.push(isad+incr, a, b, next, trlink)
 							first = b
 						} else {
 							isad += incr
@@ -2206,19 +2206,19 @@ func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *TRBudget
 						}
 					} else if a-first <= b-a {
 						if a-first > 1 {
-							this.trStack.push(isad, b, last, limit, trlink)
-							this.trStack.push(isad+incr, a, b, next, trlink)
+							this.trstack.push(isad, b, last, limit, trlink)
+							this.trstack.push(isad+incr, a, b, next, trlink)
 							last = a
 						} else {
-							this.trStack.push(isad, b, last, limit, trlink)
+							this.trstack.push(isad, b, last, limit, trlink)
 							isad += incr
 							first = a
 							last = b
 							limit = next
 						}
 					} else {
-						this.trStack.push(isad, b, last, limit, trlink)
-						this.trStack.push(isad, first, a, limit, trlink)
+						this.trstack.push(isad, b, last, limit, trlink)
+						this.trstack.push(isad, first, a, limit, trlink)
 						isad += incr
 						first = a
 						last = b
@@ -2227,11 +2227,11 @@ func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *TRBudget
 				} else {
 					if a-first <= b-a {
 						if last-b > 1 {
-							this.trStack.push(isad+incr, a, b, next, trlink)
-							this.trStack.push(isad, first, a, limit, trlink)
+							this.trstack.push(isad+incr, a, b, next, trlink)
+							this.trstack.push(isad, first, a, limit, trlink)
 							first = b
 						} else if a-first > 1 {
-							this.trStack.push(isad+incr, a, b, next, trlink)
+							this.trstack.push(isad+incr, a, b, next, trlink)
 							last = a
 						} else {
 							isad += incr
@@ -2241,19 +2241,19 @@ func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *TRBudget
 						}
 					} else if last-b <= b-a {
 						if last-b > 1 {
-							this.trStack.push(isad, first, a, limit, trlink)
-							this.trStack.push(isad+incr, a, b, next, trlink)
+							this.trstack.push(isad, first, a, limit, trlink)
+							this.trstack.push(isad+incr, a, b, next, trlink)
 							first = b
 						} else {
-							this.trStack.push(isad, first, a, limit, trlink)
+							this.trstack.push(isad, first, a, limit, trlink)
 							isad += incr
 							first = a
 							last = b
 							limit = next
 						}
 					} else {
-						this.trStack.push(isad, first, a, limit, trlink)
-						this.trStack.push(isad, b, last, limit, trlink)
+						this.trstack.push(isad, first, a, limit, trlink)
+						this.trstack.push(isad, b, last, limit, trlink)
 						isad += incr
 						first = a
 						last = b
@@ -2262,17 +2262,17 @@ func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *TRBudget
 				}
 			} else {
 				if b-a > 1 && trlink >= 0 {
-					this.trStack.get(trlink).d = -1
+					this.trstack.get(trlink).d = -1
 				}
 
 				if a-first <= last-b {
 					if a-first > 1 {
-						this.trStack.push(isad, b, last, limit, trlink)
+						this.trstack.push(isad, b, last, limit, trlink)
 						last = a
 					} else if last-b > 1 {
 						first = b
 					} else {
-						se := this.trStack.pop()
+						se := this.trstack.pop()
 
 						if se == nil {
 							return
@@ -2286,12 +2286,12 @@ func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *TRBudget
 					}
 				} else {
 					if last-b > 1 {
-						this.trStack.push(isad, first, a, limit, trlink)
+						this.trstack.push(isad, first, a, limit, trlink)
 						first = b
 					} else if a-first > 1 {
 						last = a
 					} else {
-						se := this.trStack.pop()
+						se := this.trstack.pop()
 
 						if se == nil {
 							return
@@ -2311,10 +2311,10 @@ func (this *DivSufSort) trIntroSort(isa, isad, first, last int, budget *TRBudget
 				isad += incr
 			} else {
 				if trlink >= 0 {
-					this.trStack.get(trlink).d = -1
+					this.trstack.get(trlink).d = -1
 				}
 
-				se := this.trStack.pop()
+				se := this.trstack.pop()
 
 				if se == nil {
 					return
@@ -2599,11 +2599,11 @@ func trIlg(n int) int {
 	return LOG_TABLE[n&0xFF]
 }
 
-type StackElement struct {
+type stackElement struct {
 	a, b, c, d, e int
 }
 
-type TRBudget struct {
+type trBudget struct {
 	chance int
 	remain int
 	incVal int
@@ -2611,26 +2611,26 @@ type TRBudget struct {
 }
 
 // A stack of pre-allocated elements
-type Stack struct {
-	elts []StackElement
+type stack struct {
+	elts []stackElement
 	index int
 }
 
-func newStack(size int) *Stack {
-	this := &Stack{}
-	this.elts = make([]StackElement, size)
+func newstack(size int) *stack {
+	this := &stack{}
+	this.elts = make([]stackElement, size)
 	return this
 }
 
-func (this *Stack) get(idx int) *StackElement {
+func (this *stack) get(idx int) *stackElement {
 	return &this.elts[idx]
 }
 
-func (this *Stack) size() int {
+func (this *stack) size() int {
 	return this.index
 }
 
-func (this *Stack) push(a, b, c, d, e int) {
+func (this *stack) push(a, b, c, d, e int) {
 	elt := this.elts[this.index]
 	elt.a = a
 	elt.b = b
@@ -2640,7 +2640,7 @@ func (this *Stack) push(a, b, c, d, e int) {
 	this.index++
 }
 
-func (this *Stack) pop() *StackElement {
+func (this *stack) pop() *stackElement {
 	if this.index == 0 {
 		return nil
 	}
@@ -2649,7 +2649,7 @@ func (this *Stack) pop() *StackElement {
 	return &this.elts[this.index]
 }
 
-func (this *TRBudget) check(size int) bool {
+func (this *trBudget) check(size int) bool {
 	if size <= this.remain {
 		this.remain -= size
 		return true

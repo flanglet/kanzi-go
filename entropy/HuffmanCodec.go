@@ -31,18 +31,18 @@ const (
 	MAX_SYMBOL_SIZE            = 24
 )
 
-// ---- Utilities
+// Utilities
 
-type CodeLengthComparator struct {
+type codeLengthComparator struct {
 	ranks []int
 	sizes []byte
 }
 
-func ByIncreasingCodeLength(ranks []int, sizes []byte) CodeLengthComparator {
-	return CodeLengthComparator{ranks: ranks, sizes: sizes}
+func byIncreasingCodeLength(ranks []int, sizes []byte) codeLengthComparator {
+	return codeLengthComparator{ranks: ranks, sizes: sizes}
 }
 
-func (this CodeLengthComparator) Less(i, j int) bool {
+func (this codeLengthComparator) Less(i, j int) bool {
 	// Check size (natural order) as first key
 	ri := this.ranks[i]
 	rj := this.ranks[j]
@@ -55,24 +55,24 @@ func (this CodeLengthComparator) Less(i, j int) bool {
 	return ri < rj
 }
 
-func (this CodeLengthComparator) Len() int {
+func (this codeLengthComparator) Len() int {
 	return len(this.ranks)
 }
 
-func (this CodeLengthComparator) Swap(i, j int) {
+func (this codeLengthComparator) Swap(i, j int) {
 	this.ranks[i], this.ranks[j] = this.ranks[j], this.ranks[i]
 }
 
-func ByIncreasingFrequency(ranks []int, frequencies []uint) FrequencyComparator {
-	return FrequencyComparator{ranks: ranks, frequencies: frequencies}
+func byIncreasingFrequency(ranks []int, frequencies []uint) frequencyComparator {
+	return frequencyComparator{ranks: ranks, frequencies: frequencies}
 }
 
-type FrequencyComparator struct {
+type frequencyComparator struct {
 	ranks       []int
 	frequencies []uint
 }
 
-func (this FrequencyComparator) Less(i, j int) bool {
+func (this frequencyComparator) Less(i, j int) bool {
 	// Check frequency (natural order) as first key
 	ri := this.ranks[i]
 	rj := this.ranks[j]
@@ -85,11 +85,11 @@ func (this FrequencyComparator) Less(i, j int) bool {
 	return ri < rj
 }
 
-func (this FrequencyComparator) Len() int {
+func (this frequencyComparator) Len() int {
 	return len(this.ranks)
 }
 
-func (this FrequencyComparator) Swap(i, j int) {
+func (this frequencyComparator) Swap(i, j int) {
 	this.ranks[i], this.ranks[j] = this.ranks[j], this.ranks[i]
 }
 
@@ -99,7 +99,7 @@ func generateCanonicalCodes(sizes []byte, codes []uint, ranks []int) int {
 
 	// Sort by increasing size (first key) and increasing value (second key)
 	if count > 1 {
-		sort.Sort(ByIncreasingCodeLength(ranks, sizes))
+		sort.Sort(byIncreasingCodeLength(ranks, sizes))
 	}
 
 	code := uint(0)
@@ -125,7 +125,7 @@ func generateCanonicalCodes(sizes []byte, codes []uint, ranks []int) int {
 	return count
 }
 
-// ---- Encoder
+// Encoder
 // Implementation of a static Huffman encoder.
 // Uses in place generation of canonical codes instead of a tree
 type HuffmanEncoder struct {
@@ -253,7 +253,7 @@ func (this *HuffmanEncoder) computeCodeLengths(frequencies []uint, count int) er
 	copy(this.sranks[:], this.ranks[0:count])
 
 	// Sort by increasing frequencies (first key) and increasing value (second key)
-	sort.Sort(ByIncreasingFrequency(this.sranks[0:count], frequencies))
+	sort.Sort(byIncreasingFrequency(this.sranks[0:count], frequencies))
 	buf := this.buffer[0:count]
 
 	for i := range buf {
@@ -420,7 +420,8 @@ func (this *HuffmanEncoder) BitStream() kanzi.OutputBitStream {
 	return this.bitstream
 }
 
-// ---- Decoder
+// Decoder
+// Implementation of a static Huffman decoder.
 // Uses tables to decode symbols instead of a tree
 type HuffmanDecoder struct {
 	bitstream  kanzi.InputBitStream

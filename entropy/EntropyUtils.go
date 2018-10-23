@@ -33,16 +33,12 @@ const (
 	ABSENT_SYMBOLS_MASK      = 1
 )
 
-type ErrorComparator struct {
+type errorComparator struct {
 	symbols []int
 	errors  []int
 }
 
-func ByIncreasingError(symbols []int, errors []int) ErrorComparator {
-	return ErrorComparator{symbols: symbols, errors: errors}
-}
-
-func (this ErrorComparator) Less(i, j int) bool {
+func (this errorComparator) Less(i, j int) bool {
 	// Check errors (natural order) as first key
 	ri := this.symbols[i]
 	rj := this.symbols[j]
@@ -55,27 +51,27 @@ func (this ErrorComparator) Less(i, j int) bool {
 	return ri < rj
 }
 
-func (this ErrorComparator) Len() int {
+func (this errorComparator) Len() int {
 	return len(this.symbols)
 }
 
-func (this ErrorComparator) Swap(i, j int) {
+func (this errorComparator) Swap(i, j int) {
 	this.symbols[i], this.symbols[j] = this.symbols[j], this.symbols[i]
 }
 
-type FreqSortData struct {
+type freqSortData struct {
 	frequencies []int
 	errors      []int
 	symbol      int
 }
 
-type FreqSortPriorityQueue []*FreqSortData
+type freqSortPriorityQueue []*freqSortData
 
-func (this FreqSortPriorityQueue) Len() int {
+func (this freqSortPriorityQueue) Len() int {
 	return len(this)
 }
 
-func (this FreqSortPriorityQueue) Less(i, j int) bool {
+func (this freqSortPriorityQueue) Less(i, j int) bool {
 	di := this[i]
 	dj := this[j]
 
@@ -93,15 +89,15 @@ func (this FreqSortPriorityQueue) Less(i, j int) bool {
 	return dj.symbol < di.symbol
 }
 
-func (this FreqSortPriorityQueue) Swap(i, j int) {
+func (this freqSortPriorityQueue) Swap(i, j int) {
 	this[i], this[j] = this[j], this[i]
 }
 
-func (this *FreqSortPriorityQueue) Push(data interface{}) {
-	*this = append(*this, data.(*FreqSortData))
+func (this *freqSortPriorityQueue) Push(data interface{}) {
+	*this = append(*this, data.(*freqSortData))
 }
 
-func (this *FreqSortPriorityQueue) Pop() interface{} {
+func (this *freqSortPriorityQueue) Pop() interface{} {
 	old := *this
 	n := len(old)
 	data := old[n-1]
@@ -537,18 +533,18 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, tota
 				inc = 1
 			}
 
-			queue := make(FreqSortPriorityQueue, 0, alphabetSize)
+			queue := make(freqSortPriorityQueue, 0, alphabetSize)
 
 			// Create sorted queue of present symbols (except those with 'quantum frequency')
 			for i := 0; i < alphabetSize; i++ {
 				if errors[alphabet[i]] > 0 && freqs[alphabet[i]] != -inc {
-					heap.Push(&queue, &FreqSortData{errors: errors, frequencies: freqs, symbol: alphabet[i]})
+					heap.Push(&queue, &freqSortData{errors: errors, frequencies: freqs, symbol: alphabet[i]})
 				}
 			}
 
 			for sumScaledFreq != scale && len(queue) > 0 {
 				// Remove symbol with highest error
-				fsd := heap.Pop(&queue).(*FreqSortData)
+				fsd := heap.Pop(&queue).(*freqSortData)
 
 				// Do not zero out any frequency
 				if freqs[fsd.symbol] == -inc {
