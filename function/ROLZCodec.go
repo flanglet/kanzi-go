@@ -390,15 +390,17 @@ func (this *ROLZCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 		sizeChunk = endChunk - startChunk
 		buf := src[startChunk:endChunk]
-		srcIdx = 2
+		srcIdx = 0
 		this.litPredictor.setContext(0)
 		re.setContext(ROLZ_LITERAL_FLAG)
 		re.encodeBit(ROLZ_LITERAL_FLAG)
-		re.encodeByte(buf[0])
+		re.encodeByte(buf[srcIdx])
+		srcIdx++
 
 		if startChunk+1 < srcEnd {
 			re.encodeBit(ROLZ_LITERAL_FLAG)
-			re.encodeByte(buf[1])
+			re.encodeByte(buf[srcIdx])
+			srcIdx++
 		}
 
 		for srcIdx < sizeChunk {
@@ -504,19 +506,21 @@ func (this *ROLZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 		sizeChunk = endChunk - startChunk
 		buf := dst[startChunk:endChunk]
-		dstIdx = 2
+		dstIdx = 0
 		this.litPredictor.setContext(0)
 		rd.setContext(ROLZ_LITERAL_FLAG)
 		bit := rd.decodeBit()
 
 		if bit == ROLZ_LITERAL_FLAG {
-			buf[0] = rd.decodeByte()
+			buf[dstIdx] = rd.decodeByte()
+			dstIdx++
 
 			if startChunk+1 < dstEnd {
 				bit = rd.decodeBit()
 
 				if bit == ROLZ_LITERAL_FLAG {
-					buf[1] = rd.decodeByte()
+					buf[dstIdx] = rd.decodeByte()
+					dstIdx++
 				}
 			}
 		}
