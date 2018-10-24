@@ -246,7 +246,7 @@ func (this *BinaryEntropyDecoder) DecodeBit() byte {
 func (this *BinaryEntropyDecoder) read() {
 	this.low = (this.low << 32) & MASK_0_56
 	this.high = ((this.high << 32) | MASK_0_32) & MASK_0_56
-	val := uint64(binary.BigEndian.Uint32(this.buffer[this.index:])) & 0xFFFFFFFF
+	val := uint64(binary.BigEndian.Uint32(this.buffer[this.index:]))
 	this.current = ((this.current << 32) | val) & MASK_0_56
 	this.index += 4
 }
