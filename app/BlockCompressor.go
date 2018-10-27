@@ -107,6 +107,11 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 	if block, prst := argsMap["block"]; prst == true {
 		this.blockSize = block.(uint)
 		delete(argsMap, "block")
+
+		if this.blockSize > 1024*1024*1024 {
+			return nil, fmt.Errorf("Maximum block size is 1 GB (1073741824 bytes), got %v bytes", this.blockSize)
+		}
+
 	} else {
 		this.blockSize = COMP_DEFAULT_BLOCK_SIZE
 	}
