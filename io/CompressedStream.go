@@ -263,7 +263,7 @@ func (this *CompressedOutputStream) writeHeader() *IOError {
 		return NewIOError("Cannot write transform types to header", kanzi.ERR_WRITE_FILE)
 	}
 
-	if this.obs.WriteBits(uint64(this.blockSize>>4), 26) != 26 {
+	if this.obs.WriteBits(uint64(this.blockSize>>4), 28) != 28 {
 		return NewIOError("Cannot write block size to header", kanzi.ERR_WRITE_FILE)
 	}
 
@@ -271,7 +271,7 @@ func (this *CompressedOutputStream) writeHeader() *IOError {
 		return NewIOError("Cannot write number of blocks to header", kanzi.ERR_WRITE_FILE)
 	}
 
-	if this.obs.WriteBits(0, 5) != 5 {
+	if this.obs.WriteBits(0, 3) != 3 {
 		return NewIOError("Cannot write reserved bits to header", kanzi.ERR_WRITE_FILE)
 	}
 
@@ -773,7 +773,7 @@ func (this *CompressedInputStream) readHeader() error {
 	this.ctx["transform"] = function.GetName(this.transformType)
 
 	// Read block size
-	this.blockSize = uint(this.ibs.ReadBits(26)) << 4
+	this.blockSize = uint(this.ibs.ReadBits(28)) << 4
 	this.ctx["blockSize"] = this.blockSize
 
 	if this.blockSize < MIN_BITSTREAM_BLOCK_SIZE || this.blockSize > MAX_BITSTREAM_BLOCK_SIZE {
@@ -789,7 +789,7 @@ func (this *CompressedInputStream) readHeader() error {
 	this.nbInputBlocks = uint8(this.ibs.ReadBits(6))
 
 	// Read reserved bits
-	this.ibs.ReadBits(5)
+	this.ibs.ReadBits(3)
 
 	if len(this.listeners) > 0 {
 		msg := ""
