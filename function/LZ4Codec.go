@@ -51,12 +51,12 @@ const (
 )
 
 type LZ4Codec struct {
-	buffer []int
+	buffer []int32
 }
 
 func NewLZ4Codec() (*LZ4Codec, error) {
 	this := new(LZ4Codec)
-	this.buffer = make([]int, 1<<HASH_LOG_64K)
+	this.buffer = make([]int32, 1<<HASH_LOG_64K)
 	return this, nil
 }
 
@@ -145,7 +145,7 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 
 		// First byte
 		h32 := (binary.LittleEndian.Uint32(src[srcIdx:]) * LZ4_HASH_SEED) >> hashShift
-		table[h32] = srcIdx
+		table[h32] = int32(srcIdx)
 		srcIdx++
 		h32 = (binary.LittleEndian.Uint32(src[srcIdx:]) * LZ4_HASH_SEED) >> hashShift
 
@@ -168,8 +168,8 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 
 				step = searchMatchNb >> SKIP_STRENGTH
 				searchMatchNb++
-				match = table[h32]
-				table[h32] = srcIdx
+				match = int(table[h32])
+				table[h32] = int32(srcIdx)
 				h32 = (binary.LittleEndian.Uint32(src[fwdIdx:]) * LZ4_HASH_SEED) >> hashShift
 
 				if kanzi.DifferentInts(src[srcIdx:], src[match:]) == false && match > srcIdx-MAX_DISTANCE {
@@ -235,12 +235,12 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 
 				// Fill table
 				h32 = (binary.LittleEndian.Uint32(src[srcIdx-2:]) * LZ4_HASH_SEED) >> hashShift
-				table[h32] = srcIdx - 2
+				table[h32] = int32(srcIdx - 2)
 
 				// Test next position
 				h32 = (binary.LittleEndian.Uint32(src[srcIdx:]) * LZ4_HASH_SEED) >> hashShift
-				match = table[h32]
-				table[h32] = srcIdx
+				match = int(table[h32])
+				table[h32] = int32(srcIdx)
 
 				if kanzi.DifferentInts(src[srcIdx:], src[match:]) == true || match <= srcIdx-MAX_DISTANCE {
 					break
