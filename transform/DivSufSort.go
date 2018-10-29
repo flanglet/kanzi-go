@@ -60,8 +60,8 @@ var LOG_TABLE = []int{
 }
 
 type DivSufSort struct {
-	sa     []int
-	buffer []int
+	sa         []int
+	buffer     []int
 	ssstack    *stack
 	trstack    *stack
 	mergestack *stack
@@ -71,9 +71,9 @@ func NewDivSufSort() (*DivSufSort, error) {
 	this := new(DivSufSort)
 	this.sa = make([]int, 0)
 	this.buffer = make([]int, 0)
-	this.ssstack = newstack(SS_MISORT_STACKSIZE)
-	this.trstack = newstack(TR_STACKSIZE)
-	this.mergestack = newstack(SS_SMERGE_STACKSIZE)
+	this.ssstack = newStack(SS_MISORT_STACKSIZE)
+	this.trstack = newStack(TR_STACKSIZE)
+	this.mergestack = newStack(SS_SMERGE_STACKSIZE)
 	return this, nil
 }
 
@@ -2612,18 +2612,23 @@ type trBudget struct {
 
 // A stack of pre-allocated elements
 type stack struct {
-	elts []stackElement
+	elts  []*stackElement
 	index int
 }
 
-func newstack(size int) *stack {
-	this := &stack{}
-	this.elts = make([]stackElement, size)
+func newStack(size int) *stack {
+	this := new(stack)
+	this.elts = make([]*stackElement, size)
+
+	for i := range this.elts {
+		this.elts[i] = &stackElement{0, 0, 0, 0, 0}
+	}
+
 	return this
 }
 
 func (this *stack) get(idx int) *stackElement {
-	return &this.elts[idx]
+	return this.elts[idx]
 }
 
 func (this *stack) size() int {
@@ -2646,7 +2651,7 @@ func (this *stack) pop() *stackElement {
 	}
 
 	this.index--
-	return &this.elts[this.index]
+	return this.elts[this.index]
 }
 
 func (this *trBudget) check(size int) bool {
