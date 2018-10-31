@@ -34,6 +34,7 @@ func NewNullEntropyEncoder(bs kanzi.OutputBitStream) (*NullEntropyEncoder, error
 func (this *NullEntropyEncoder) Encode(block []byte) (int, error) {
 	res := 0
 	count := len(block)
+	idx := 0
 
 	for count > 0 {
 		ckSize := count
@@ -42,7 +43,8 @@ func (this *NullEntropyEncoder) Encode(block []byte) (int, error) {
 			ckSize = 1 << 23
 		}
 
-		res += int(this.bitstream.WriteArray(block, uint(8*ckSize)) >> 3)
+		res += int(this.bitstream.WriteArray(block[idx:], uint(8*ckSize)) >> 3)
+		idx += ckSize
 		count -= ckSize
 	}
 
@@ -69,6 +71,7 @@ func NewNullEntropyDecoder(bs kanzi.InputBitStream) (*NullEntropyDecoder, error)
 func (this *NullEntropyDecoder) Decode(block []byte) (int, error) {
 	res := 0
 	count := len(block)
+	idx := 0
 
 	for count > 0 {
 		ckSize := count
@@ -77,7 +80,8 @@ func (this *NullEntropyDecoder) Decode(block []byte) (int, error) {
 			ckSize = 1 << 23
 		}
 
-		res += int(this.bitstream.ReadArray(block, uint(8*ckSize)) >> 3)
+		res += int(this.bitstream.ReadArray(block[idx:], uint(8*ckSize)) >> 3)
+		idx += ckSize
 		count -= ckSize
 	}
 
