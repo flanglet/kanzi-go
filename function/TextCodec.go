@@ -32,6 +32,7 @@ const (
 	TC_MAX_DICT_SIZE   = 1 << 19    // must be less than 1<<24
 	TC_MAX_WORD_LENGTH = 32         // must be less than 128
 	TC_LOG_HASHES_SIZE = 24         // 16 MB
+	TC_CHUNK_SIZE      = 1 << 28    // 256 MB
 	TC_ESCAPE_TOKEN1   = byte(0x0F) // dictionary word preceded by space symbol
 	TC_ESCAPE_TOKEN2   = byte(0x0E) // toggle upper/lower case of first word char
 	LF                 = byte(0x0A)
@@ -53,7 +54,6 @@ type TextCodec struct {
 type textCodec1 struct {
 	dictMap        []*dictEntry
 	dictList       []dictEntry
-	freqs          [257][256]int
 	staticDictSize int
 	dictSize       int
 	logHashSize    uint
@@ -64,7 +64,6 @@ type textCodec1 struct {
 type textCodec2 struct {
 	dictMap        []*dictEntry
 	dictList       []dictEntry
-	freqs          [257][256]int
 	staticDictSize int
 	dictSize       int
 	logHashSize    uint
@@ -602,11 +601,12 @@ var (
 // return status (8 bits):
 // 0x80 => not text
 // 0x01 => CR+LF transform
-func computeStats(block []byte, f *[257][256]int) byte {
-	prv := 0
-	freqs0 := f[256]
-	freqs1 := f[0:256]
+func computeStats(block []byte) byte {
+	var freqs [257][256]int
+	freqs0 := freqs[256]
+	freqs1 := freqs[0:256]
 	end4 := len(block) & -4
+	prv := 0
 
 	// Unroll loop
 	for i := 0; i < end4; i += 4 {
@@ -829,11 +829,55 @@ func NewTextCodecWithCtx(ctx *map[string]interface{}) (*TextCodec, error) {
 }
 
 func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
-	return this.delegate.Forward(src, dst)
+	srcIdx := uint(0)
+	dstIdx := uint(0)
+	length := len(src)
+
+	for length > 0 {
+		count := length
+
+		if count > TC_CHUNK_SIZE {
+			count = TC_CHUNK_SIZE
+		}
+
+		sIdx, dIdx, err := this.delegate.Forward(src[srcIdx:srcIdx+uint(count)], dst)
+		srcIdx += sIdx
+		dstIdx += dIdx
+
+		if err != nil {
+			return srcIdx, dstIdx, err
+		}
+
+		length -= count
+	}
+
+	return srcIdx, dstIdx, nil
 }
 
 func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
-	return this.delegate.Inverse(src, dst)
+	srcIdx := uint(0)
+	dstIdx := uint(0)
+	length := len(src)
+
+	for length > 0 {
+		count := length
+
+		if count > TC_CHUNK_SIZE {
+			count = TC_CHUNK_SIZE
+		}
+
+		sIdx, dIdx, err := this.delegate.Inverse(src[srcIdx:srcIdx+uint(count)], dst)
+		srcIdx += sIdx
+		dstIdx += dIdx
+
+		if err != nil {
+			return srcIdx, dstIdx, err
+		}
+
+		length -= count
+	}
+
+	return srcIdx, dstIdx, nil
 }
 
 func (this *TextCodec) MaxEncodedLen(srcLen int) int {
@@ -917,6 +961,23 @@ func newTextCodec1WithCtx(ctx *map[string]interface{}) (*textCodec1, error) {
 	return this, nil
 }
 
+func (this *textCodec1) reset() {
+	// Clear and populate hash map
+	for i := range this.dictMap {
+		this.dictMap[i] = nil
+	}
+
+	for i := range this.dictList[0:this.staticDictSize] {
+		e := this.dictList[i]
+		this.dictMap[e.hash&this.hashMask] = &e
+	}
+
+	// Pre-allocate all dictionary entries
+	for i := this.staticDictSize; i < this.dictSize; i++ {
+		this.dictList[i] = dictEntry{ptr: nil, hash: 0, data: int32(i)}
+	}
+}
+
 func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	if src == nil {
 		return uint(0), uint(0), errors.New("Invalid nil source buffer")
@@ -938,7 +999,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 	srcIdx := 0
 	dstIdx := 0
-	mode := computeStats(src[0:count], &this.freqs)
+	mode := computeStats(src[0:count])
 
 	// Not text ?
 	if mode&0x80 != 0 {
@@ -955,17 +1016,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		return uint(srcIdx), uint(dstIdx), nil
 	}
 
-	// Populate hash map
-	for i := 0; i < this.staticDictSize; i++ {
-		e := this.dictList[i]
-		this.dictMap[e.hash&this.hashMask] = &e
-	}
-
-	// Pre-allocate all dictionary entries
-	for i := this.staticDictSize; i < this.dictSize; i++ {
-		this.dictList[i] = dictEntry{ptr: nil, hash: 0, data: int32(i)}
-	}
-
+	this.reset()
 	srcEnd := count
 	dstEnd := this.MaxEncodedLen(count)
 	dstEnd3 := dstEnd - 3
@@ -1104,8 +1155,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Emit last symbols
 	dstIdx += this.emitSymbols(src[emitAnchor:srcEnd], dst[dstIdx:dstEnd])
-
-	err := error(nil)
+	var err error
 
 	if srcIdx != srcEnd {
 		err = fmt.Errorf("Forward transform failed. Source index: %v, expected: %v", srcIdx, srcEnd)
@@ -1227,17 +1277,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		return uint(srcIdx), uint(dstIdx), nil
 	}
 
-	// Populate hash map
-	for i := 0; i < this.staticDictSize; i++ {
-		e := this.dictList[i]
-		this.dictMap[e.hash&this.hashMask] = &e
-	}
-
-	// Pre-allocate all dictionary entries
-	for i := this.staticDictSize; i < this.dictSize; i++ {
-		this.dictList[i] = dictEntry{ptr: nil, hash: 0, data: int32(i)}
-	}
-
+	this.reset()
 	srcEnd := len(src)
 	dstEnd := len(dst)
 	var delimAnchor int // previous delimiter
@@ -1471,6 +1511,23 @@ func newTextCodec2WithCtx(ctx *map[string]interface{}) (*textCodec2, error) {
 	return this, nil
 }
 
+func (this *textCodec2) reset() {
+	// Clear and populate hash map
+	for i := range this.dictMap {
+		this.dictMap[i] = nil
+	}
+
+	for i := range this.dictList[0:this.staticDictSize] {
+		e := this.dictList[i]
+		this.dictMap[e.hash&this.hashMask] = &e
+	}
+
+	// Pre-allocate all dictionary entries
+	for i := this.staticDictSize; i < this.dictSize; i++ {
+		this.dictList[i] = dictEntry{ptr: nil, hash: 0, data: int32(i)}
+	}
+}
+
 func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	if src == nil {
 		return uint(0), uint(0), errors.New("Invalid nil source buffer")
@@ -1492,8 +1549,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 
 	srcIdx := 0
 	dstIdx := 0
-
-	mode := computeStats(src[0:count], &this.freqs)
+	mode := computeStats(src[0:count])
 
 	// Not text ?
 	if mode&0x80 != 0 {
@@ -1510,17 +1566,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		return uint(srcIdx), uint(dstIdx), nil
 	}
 
-	// Populate hash map
-	for i := 0; i < this.staticDictSize; i++ {
-		e := this.dictList[i]
-		this.dictMap[e.hash&this.hashMask] = &e
-	}
-
-	// Pre-allocate all dictionary entries
-	for i := this.staticDictSize; i < this.dictSize; i++ {
-		this.dictList[i] = dictEntry{ptr: nil, hash: 0, data: int32(i)}
-	}
-
+	this.reset()
 	srcEnd := count
 	dstEnd := this.MaxEncodedLen(count)
 	dstEnd3 := dstEnd - 3
@@ -1657,8 +1703,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Emit last symbols
 	dstIdx += this.emitSymbols(src[emitAnchor:srcEnd], dst[dstIdx:dstEnd])
-
-	err := error(nil)
+	var err error
 
 	if srcIdx != srcEnd {
 		err = fmt.Errorf("Forward transform failed. Source index: %v, expected: %v", srcIdx, srcEnd)
@@ -1684,7 +1729,7 @@ func (this *textCodec2) expandDictionary() bool {
 
 func (this *textCodec2) emitSymbols(src, dst []byte) int {
 	dstIdx := 0
-	dstEnd := len(dst)
+	dstEnd := len(dst) - 1
 
 	for i := range src {
 		if dstIdx >= dstEnd {
@@ -1770,17 +1815,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 		return uint(srcIdx), uint(dstIdx), nil
 	}
 
-	// Populate hash map
-	for i := 0; i < this.staticDictSize; i++ {
-		e := this.dictList[i]
-		this.dictMap[e.hash&this.hashMask] = &e
-	}
-
-	// Pre-allocate all dictionary entries
-	for i := this.staticDictSize; i < this.dictSize; i++ {
-		this.dictList[i] = dictEntry{ptr: nil, hash: 0, data: int32(i)}
-	}
-
+	this.reset()
 	srcEnd := len(src)
 	dstEnd := len(dst)
 	var delimAnchor int // previous delimiter
