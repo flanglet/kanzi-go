@@ -32,7 +32,7 @@ const (
 	TC_MAX_DICT_SIZE   = 1 << 19    // must be less than 1<<24
 	TC_MAX_WORD_LENGTH = 32         // must be less than 128
 	TC_LOG_HASHES_SIZE = 24         // 16 MB
-	TC_CHUNK_SIZE      = 1 << 28    // 256 MB
+	TC_MAX_BLOCK_SIZE  = 1 << 30    // 1 GB
 	TC_ESCAPE_TOKEN1   = byte(0x0F) // dictionary word preceded by space symbol
 	TC_ESCAPE_TOKEN2   = byte(0x0E) // toggle upper/lower case of first word char
 	LF                 = byte(0x0A)
@@ -829,55 +829,26 @@ func NewTextCodecWithCtx(ctx *map[string]interface{}) (*TextCodec, error) {
 }
 
 func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
-	srcIdx := uint(0)
-	dstIdx := uint(0)
-	length := len(src)
-
-	for length > 0 {
-		count := length
-
-		if count > TC_CHUNK_SIZE {
-			count = TC_CHUNK_SIZE
-		}
-
-		sIdx, dIdx, err := this.delegate.Forward(src[srcIdx:srcIdx+uint(count)], dst)
-		srcIdx += sIdx
-		dstIdx += dIdx
-
-		if err != nil {
-			return srcIdx, dstIdx, err
-		}
-
-		length -= count
+	if len(src) > TC_MAX_BLOCK_SIZE {
+		// Not a recoverable error: instead of silently fail the transform,
+		// issue a fatal error.
+		errMsg := fmt.Sprintf("The max TextCodec block size is %v, got %v", TC_MAX_BLOCK_SIZE, count)
+		panic(errors.New(errMsg))
 	}
 
-	return srcIdx, dstIdx, nil
+	return this.delegate.Forward(src, dst)
 }
 
 func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
-	srcIdx := uint(0)
-	dstIdx := uint(0)
-	length := len(src)
-
-	for length > 0 {
-		count := length
-
-		if count > TC_CHUNK_SIZE {
-			count = TC_CHUNK_SIZE
-		}
-
-		sIdx, dIdx, err := this.delegate.Inverse(src[srcIdx:srcIdx+uint(count)], dst)
-		srcIdx += sIdx
-		dstIdx += dIdx
-
-		if err != nil {
-			return srcIdx, dstIdx, err
-		}
-
-		length -= count
+	if len(src) > TC_MAX_BLOCK_SIZE {
+		// Not a recoverable error: instead of silently fail the transform,
+		// issue a fatal error.
+		errMsg := fmt.Sprintf("The max TextCodec block size is %v, got %v", TC_MAX_BLOCK_SIZE, count)
+		panic(errors.New(errMsg))
 	}
 
-	return srcIdx, dstIdx, nil
+	return this.delegate.Inverse(src, dst)
+
 }
 
 func (this *TextCodec) MaxEncodedLen(srcLen int) int {
