@@ -468,6 +468,18 @@ func (this *EncodingTask) encode() {
 		notifyListeners(this.listeners, evt)
 	}
 
+	inputReceived := false
+
+	defer func() {
+		if r := recover(); r != nil {
+			if inputReceived == false {
+				<-this.input
+			}
+
+			this.output <- NewIOError(r.(error).Error(), kanzi.ERR_PROCESS_BLOCK)
+		}
+	}()
+
 	if this.blockLength <= SMALL_BLOCK_SIZE {
 		if this.blockLength == 0 {
 			this.blockTransformType = function.NONE_TYPE
@@ -540,6 +552,7 @@ func (this *EncodingTask) encode() {
 	// entropy encoding. Entropy encoding must happen sequentially (and
 	// in the correct block order) in the bitstream.
 	err2 := <-this.input
+	inputReceived = true
 
 	if err2 != nil {
 		this.output <- err2

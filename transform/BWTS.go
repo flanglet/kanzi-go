@@ -27,7 +27,7 @@ import (
 // by Neal Burns and DivSufSort (port of libDivSufSort by Yuta Mori)
 
 const (
-	BWTS_MAX_BLOCK_SIZE = 1024 * 1024 * 1024 // 1 GB (30 bits)
+	BWTS_MAX_BLOCK_SIZE = 512 * 1024 * 1024 // 512 MB (libsufsort limit)
 )
 
 type BWTS struct {
@@ -58,9 +58,11 @@ func (this *BWTS) Forward(src, dst []byte) (uint, uint, error) {
 
 	count := len(src)
 
-	if count > maxBWTSBlockSize() {
-		errMsg := fmt.Sprintf("Block size is %v, max value is %v", count, maxBWTSBlockSize())
-		return 0, 0, errors.New(errMsg)
+	if count > MaxBWTSBlockSize() {
+		// Not a recoverable error: instead of silently fail the transform,
+		// issue a fatal error.
+		errMsg := fmt.Sprintf("The max BWTS block size is %v, got %v", MaxBWTSBlockSize(), count)
+		panic(errors.New(errMsg))
 	}
 
 	if count > len(dst) {
@@ -213,9 +215,11 @@ func (this *BWTS) Inverse(src, dst []byte) (uint, uint, error) {
 
 	count := len(src)
 
-	if count > maxBWTSBlockSize() {
-		errMsg := fmt.Sprintf("Block size is %v, max value is %v", count, maxBWTSBlockSize())
-		return 0, 0, errors.New(errMsg)
+	if count > MaxBWTSBlockSize() {
+		// Not a recoverable error: instead of silently fail the transform,
+		// issue a fatal error.
+		errMsg := fmt.Sprintf("The max BWTS block size is %v, got %v", MaxBWTSBlockSize(), count)
+		panic(errors.New(errMsg))
 	}
 
 	if count > len(dst) {
@@ -283,6 +287,6 @@ func (this *BWTS) Inverse(src, dst []byte) (uint, uint, error) {
 	return uint(count), uint(count), nil
 }
 
-func maxBWTSBlockSize() int {
+func MaxBWTSBlockSize() int {
 	return BWTS_MAX_BLOCK_SIZE
 }

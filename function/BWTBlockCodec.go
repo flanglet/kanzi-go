@@ -21,6 +21,10 @@ import (
 	"github.com/flanglet/kanzi-go/transform"
 )
 
+const (
+	BWT_MAX_HEADER_SIZE = 8 * 4
+)
+
 // Utility class to en/de-code a BWT data block and its associated primary index(es)
 
 // BWT stream format: Header (m bytes) Data (n bytes)
@@ -150,7 +154,7 @@ func (this *BWTBlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		pIndexSizeBytes := 1 + ((blockMode >> 6) & 0x03)
 
 		if blockSize < pIndexSizeBytes {
-			return 0, 0, errors.New("Invalid compressed length in stream")
+			return 0, 0, errors.New("Invalid compressed length in bitstream")
 		}
 
 		blockSize -= pIndexSizeBytes
@@ -164,7 +168,9 @@ func (this *BWTBlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			srcIdx++
 		}
 
-		this.bwt.SetPrimaryIndex(i, primaryIndex)
+		if this.bwt.SetPrimaryIndex(i, primaryIndex) == false {
+			return 0, 0, errors.New("Invalid primary index in bitstream")
+		}
 	}
 
 	// Apply inverse Transform
@@ -173,5 +179,5 @@ func (this *BWTBlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 func (this BWTBlockCodec) MaxEncodedLen(srcLen int) int {
 	// Return input buffer size + max header size
-	return srcLen + 4*8
+	return srcLen + BWT_MAX_HEADER_SIZE
 }

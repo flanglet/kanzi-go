@@ -24,9 +24,8 @@ import (
 )
 
 const (
-	BWT_MAX_BLOCK_SIZE  = 1024 * 1024 * 1024 // 1 GB (30 bits)
-	BWT_MAX_HEADER_SIZE = 4
-	BWT_MAX_CHUNKS      = 8
+	BWT_MAX_BLOCK_SIZE = 512 * 1024 * 1024 // 512 MB
+	BWT_MAX_CHUNKS     = 8
 )
 
 // The Burrows-Wheeler Transform is a reversible transform based on
@@ -129,9 +128,11 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 
 	count := len(src)
 
-	if count > maxBWTBlockSize() {
-		errMsg := fmt.Sprintf("Block size is %v, max value is %v", count, maxBWTBlockSize())
-		return 0, 0, errors.New(errMsg)
+	if count > MaxBWTBlockSize() {
+		// Not a recoverable error: instead of silently fail the transform,
+		// issue a fatal error.
+		errMsg := fmt.Sprintf("The max BWT block size is %v, got %v", MaxBWTBlockSize(), count)
+		panic(errors.New(errMsg))
 	}
 
 	if count > len(dst) {
@@ -230,9 +231,11 @@ func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 
 	count := len(src)
 
-	if count > maxBWTBlockSize() {
-		errMsg := fmt.Sprintf("Block size is %v, max value is %v", count, maxBWTBlockSize())
-		return 0, 0, errors.New(errMsg)
+	if count > MaxBWTBlockSize() {
+		// Not a recoverable error: instead of silently fail the transform,
+		// issue a fatal error.
+		errMsg := fmt.Sprintf("The max BWT block size is %v, got %v", MaxBWTSBlockSize(), count)
+		panic(errors.New(errMsg))
 	}
 
 	if count > len(dst) {
@@ -248,11 +251,16 @@ func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 		return uint(count), uint(count), nil
 	}
 
-	if count >= 1<<24 {
-		return this.inverseBigBlock(src, dst, count)
+	// Find the fastest way to implement inverse based on block size
+	if count < 1<<24 {
+		return this.inverseRegularBlock(src, dst, count)
 	}
 
-	return this.inverseRegularBlock(src, dst, count)
+	if 5*uint32(count) >= uint32(1<<31) {
+		return this.inverseHugeBlock(src, dst, count)
+	}
+
+	return this.inverseBigBlock(src, dst, count)
 }
 
 // When count < 1<<24
@@ -344,7 +352,7 @@ func (this *BWT) inverseRegularBlock(src, dst []byte, count int) (uint, uint, er
 	return uint(count), uint(count), nil
 }
 
-// When count >= 1<<24
+// When count >= 1<<24 and 5*count < 1<<31
 func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error) {
 	// Lazy dynamic memory allocations
 	if len(this.buffer2) < count {
@@ -438,8 +446,107 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 	return uint(count), uint(count), nil
 }
 
-func maxBWTBlockSize() int {
-	return BWT_MAX_BLOCK_SIZE - BWT_MAX_HEADER_SIZE
+// When 5*count >= 1<<31
+func (this *BWT) inverseHugeBlock(src, dst []byte, count int) (uint, uint, error) {
+	// Lazy dynamic memory allocations
+	if len(this.buffer1) < count {
+		this.buffer1 = make([]uint32, count)
+	}
+
+	if len(this.buffer2) < count {
+		this.buffer2 = make([]byte, count)
+	}
+
+	// Aliasing
+	data1 := this.buffer1
+	data2 := this.buffer2
+
+	buckets := [256]uint32{}
+	chunks := GetBWTChunks(count)
+
+	// Build arrays
+	// Start with the primary index position
+	pIdx := int(this.PrimaryIndex(0))
+	val0 := src[pIdx]
+	data1[pIdx] = buckets[val0]
+	data2[pIdx] = val0
+	buckets[val0]++
+
+	for i := 0; i < pIdx; i++ {
+		val := src[i]
+		data1[i] = buckets[val]
+		data2[i] = val
+		buckets[val]++
+	}
+
+	for i := pIdx + 1; i < count; i++ {
+		val := src[i]
+		data1[i] = buckets[val]
+		data2[i] = val
+		buckets[val]++
+	}
+
+	sum := uint32(0)
+
+	// Create cumulative histogram
+	for i, b := range buckets {
+		buckets[i] = sum
+		sum += b
+	}
+
+	idx := count - 1
+
+	// Build inverse
+	if chunks == 1 || this.jobs == 1 {
+		// Shortcut for 1 chunk scenario
+		val := data2[pIdx]
+		dst[idx] = val
+		idx--
+		n := data1[pIdx] + buckets[val]
+
+		for idx >= 0 {
+			val = data2[n]
+			dst[idx] = val
+			idx--
+			n = data1[n] + buckets[val]
+		}
+	} else {
+		// Several chunks may be decoded concurrently (depending on the availaibility
+		// of jobs for this block).
+		step := count / chunks
+		nbTasks := int(this.jobs)
+
+		if nbTasks > chunks {
+			nbTasks = chunks
+		}
+
+		jobsPerTask := kanzi.ComputeJobsPerTask(make([]uint, nbTasks), uint(chunks), uint(nbTasks))
+		c := chunks
+		var wg sync.WaitGroup
+
+		for j := 0; j < nbTasks; j++ {
+			wg.Add(1)
+			nc := c - int(jobsPerTask[j])
+			end := nc * step
+
+			go func(dst []byte, buckets []uint32, pIdx, idx, step, startChunk, endChunk int) {
+				this.inverseChunkHugeBlock(dst, buckets, pIdx, idx, step, startChunk, endChunk)
+				wg.Done()
+			}(dst, buckets[:], pIdx, idx, step, c-1, nc-1)
+
+			c = nc
+			pIdx = int(this.PrimaryIndex(c))
+			idx = end - 1
+		}
+
+		wg.Wait()
+	}
+
+	return uint(count), uint(count), nil
+}
+
+func MaxBWTBlockSize() int {
+	return BWT_MAX_BLOCK_SIZE
 }
 
 func (this *BWT) inverseChunkRegularBlock(dst []byte, buckets []uint32, pIdx, idx, step, startChunk, endChunk int) {
@@ -476,6 +583,28 @@ func (this *BWT) inverseChunkBigBlock(dst []byte, buckets []uint32, pIdx, idx, s
 			dst[idx] = val
 			idx--
 			n = binary.LittleEndian.Uint32(data[n*5:]) + buckets[val]
+		}
+
+		pIdx = int(this.PrimaryIndex(i))
+	}
+}
+
+func (this *BWT) inverseChunkHugeBlock(dst []byte, buckets []uint32, pIdx, idx, step, startChunk, endChunk int) {
+	data1 := this.buffer1
+	data2 := this.buffer2
+
+	for i := startChunk; i > endChunk; i-- {
+		endIdx := i * step
+		val := data2[pIdx]
+		dst[idx] = val
+		idx--
+		n := data1[pIdx] + buckets[val]
+
+		for idx >= endIdx {
+			val = data2[n]
+			dst[idx] = val
+			idx--
+			n = data1[n] + buckets[val]
 		}
 
 		pIdx = int(this.PrimaryIndex(i))
