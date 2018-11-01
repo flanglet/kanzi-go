@@ -28,7 +28,7 @@ import (
 // This algorithm is well adapted to process post BWT/MTFT data
 
 const (
-	ZRLT_MAX_RUN = 0x7FFFFFFF
+	ZRLT_MAX_RUN = 0x7FFFFFFE
 )
 
 type ZRLT struct {
