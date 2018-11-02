@@ -27,7 +27,7 @@ import (
 // by Neal Burns and DivSufSort (port of libDivSufSort by Yuta Mori)
 
 const (
-	BWTS_MAX_BLOCK_SIZE = 512 * 1024 * 1024 // 512 MB (libsufsort limit)
+	BWTS_MAX_BLOCK_SIZE = 1024 * 1024 * 1024 // 1 GB
 )
 
 type BWTS struct {

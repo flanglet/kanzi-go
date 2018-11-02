@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	BWT_MAX_BLOCK_SIZE = 512 * 1024 * 1024 // 512 MB
+	BWT_MAX_BLOCK_SIZE = 1024 * 1024 * 1024 // 1 GB
 	BWT_MAX_CHUNKS     = 8
 )
 
@@ -256,7 +256,7 @@ func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 		return this.inverseRegularBlock(src, dst, count)
 	}
 
-	if 5*uint32(count) >= uint32(1<<31) {
+	if 5*uint64(count) >= uint64(1)<<31 {
 		return this.inverseHugeBlock(src, dst, count)
 	}
 
@@ -319,6 +319,11 @@ func (this *BWT) inverseRegularBlock(src, dst []byte, count int) (uint, uint, er
 		// Several chunks may be decoded concurrently (depending on the availaibility
 		// of jobs for this block).
 		step := count / chunks
+
+		if step*chunks != count {
+			step++
+		}
+
 		nbTasks := int(this.jobs)
 
 		if nbTasks > chunks {
