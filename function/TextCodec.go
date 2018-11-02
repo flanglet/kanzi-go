@@ -832,7 +832,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 	if len(src) > TC_MAX_BLOCK_SIZE {
 		// Not a recoverable error: instead of silently fail the transform,
 		// issue a fatal error.
-		errMsg := fmt.Sprintf("The max TextCodec block size is %v, got %v", TC_MAX_BLOCK_SIZE, count)
+		errMsg := fmt.Sprintf("The max TextCodec block size is %v, got %v", TC_MAX_BLOCK_SIZE, len(src))
 		panic(errors.New(errMsg))
 	}
 
@@ -843,7 +843,7 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	if len(src) > TC_MAX_BLOCK_SIZE {
 		// Not a recoverable error: instead of silently fail the transform,
 		// issue a fatal error.
-		errMsg := fmt.Sprintf("The max TextCodec block size is %v, got %v", TC_MAX_BLOCK_SIZE, count)
+		errMsg := fmt.Sprintf("The max TextCodec block size is %v, got %v", TC_MAX_BLOCK_SIZE, len(src))
 		panic(errors.New(errMsg))
 	}
 
