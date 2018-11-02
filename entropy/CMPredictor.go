@@ -30,8 +30,8 @@ type CMPredictor struct {
 	run      uint32
 	idx      int
 	runMask  int32
-	counter1 [256][]int
-	counter2 [512][]int
+	counter1 [256][]int32
+	counter2 [512][]int32
 	p        int
 }
 
@@ -43,17 +43,17 @@ func NewCMPredictor() (*CMPredictor, error) {
 	this.idx = 8
 
 	for i := 0; i < 256; i++ {
-		this.counter1[i] = make([]int, 257)
-		this.counter2[i+i] = make([]int, 17)
-		this.counter2[i+i+1] = make([]int, 17)
+		this.counter1[i] = make([]int32, 257)
+		this.counter2[i+i] = make([]int32, 17)
+		this.counter2[i+i+1] = make([]int32, 17)
 
 		for j := 0; j <= 256; j++ {
 			this.counter1[i][j] = 32768
 		}
 
 		for j := 0; j <= 16; j++ {
-			this.counter2[i+i][j] = j << 12
-			this.counter2[i+i+1][j] = j << 12
+			this.counter2[i+i][j] = int32(j << 12)
+			this.counter2[i+i+1][j] = int32(j << 12)
 		}
 
 		this.counter2[i+i][16] -= 16
@@ -61,7 +61,7 @@ func NewCMPredictor() (*CMPredictor, error) {
 	}
 
 	pc1 := this.counter1[this.ctx]
-	this.p = (13*pc1[256] + 14*pc1[this.c1] + 5*pc1[this.c2]) >> 5
+	this.p = int(13*pc1[256]+14*pc1[this.c1]+5*pc1[this.c2]) >> 5
 	return this, nil
 }
 
@@ -99,15 +99,15 @@ func (this *CMPredictor) Update(bit byte) {
 	}
 
 	pc1 = this.counter1[this.ctx]
-	this.p = (13*pc1[256] + 14*pc1[this.c1] + 5*pc1[this.c2]) >> 5
+	this.p = int(13*pc1[256]+14*pc1[this.c1]+5*pc1[this.c2]) >> 5
 }
 
 // Return the split value representing the probability of 1 in the [0..4095] range.
 func (this *CMPredictor) Get() int {
 	this.idx = this.p >> 12
 	pc2 := this.counter2[this.ctx|this.runMask]
-	x2 := pc2[this.idx+1]
-	x1 := pc2[this.idx]
+	x2 := int(pc2[this.idx+1])
+	x1 := int(pc2[this.idx])
 	ssep := x1 + (((x2 - x1) * (this.p & 4095)) >> 12)
 	return (this.p + ssep + ssep + ssep + 32) >> 6 // rescale to [0..4095]
 }

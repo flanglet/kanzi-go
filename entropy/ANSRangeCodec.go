@@ -640,6 +640,8 @@ func (this *ANSRangeDecoder) decodeChunk(block []byte) {
 
 	// Read initial ANS state
 	st := int(this.bitstream.ReadBits(32))
+
+	// Read encoded data
 	this.bitstream.ReadArray(this.buffer[0:sz], uint(8*sz))
 	n := 0
 	lr := this.logRange
