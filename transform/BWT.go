@@ -187,6 +187,10 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 	} else {
 		step := count / chunks
 
+		if step*chunks != count {
+			step++
+		}
+
 		for n < count {
 			if sa[n]%step == 0 {
 				this.SetPrimaryIndex(sa[n]/step, uint(n))
@@ -420,6 +424,11 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 		// Several chunks may be decoded concurrently (depending on the availaibility
 		// of jobs for this block).
 		step := count / chunks
+
+		if step*chunks != count {
+			step++
+		}
+
 		nbTasks := int(this.jobs)
 
 		if nbTasks > chunks {
@@ -519,6 +528,11 @@ func (this *BWT) inverseHugeBlock(src, dst []byte, count int) (uint, uint, error
 		// Several chunks may be decoded concurrently (depending on the availaibility
 		// of jobs for this block).
 		step := count / chunks
+
+		if step*chunks != count {
+			step++
+		}
+
 		nbTasks := int(this.jobs)
 
 		if nbTasks > chunks {
