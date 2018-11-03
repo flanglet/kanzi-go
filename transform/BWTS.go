@@ -31,15 +31,15 @@ const (
 )
 
 type BWTS struct {
-	buffer1 []int
-	buffer2 []int
+	buffer1 []int32
+	buffer2 []int32
 	saAlgo  *DivSufSort
 }
 
 func NewBWTS() (*BWTS, error) {
 	this := new(BWTS)
-	this.buffer1 = make([]int, 0)
-	this.buffer2 = make([]int, 0)
+	this.buffer1 = make([]int32, 0)
+	this.buffer2 = make([]int32, 0)
 	return this, nil
 }
 
@@ -57,6 +57,7 @@ func (this *BWTS) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	count := len(src)
+	count32 := int32(count)
 
 	if count > MaxBWTSBlockSize() {
 		// Not a recoverable error: instead of silently fail the transform,
@@ -88,11 +89,11 @@ func (this *BWTS) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Lazy dynamic memory allocations
 	if len(this.buffer1) < count {
-		this.buffer1 = make([]int, count)
+		this.buffer1 = make([]int32, count)
 	}
 
 	if len(this.buffer2) < count {
-		this.buffer2 = make([]int, count)
+		this.buffer2 = make([]int32, count)
 	}
 
 	// Aliasing
@@ -102,25 +103,25 @@ func (this *BWTS) Forward(src, dst []byte) (uint, uint, error) {
 	this.saAlgo.ComputeSuffixArray(src[0:count], sa)
 
 	for i := range isa {
-		isa[sa[i]] = i
+		isa[sa[i]] = int32(i)
 	}
 
 	min := isa[0]
-	idxMin := 0
+	idxMin := int32(0)
 
-	for i := 1; i < count && min > 0; i++ {
+	for i := int32(1); i < count32 && min > 0; i++ {
 		if isa[i] >= min {
 			continue
 		}
 
-		refRank := this.moveLyndonWordHead(sa, isa, src, count, idxMin, i-idxMin, min)
+		refRank := this.moveLyndonWordHead(sa, isa, src, count32, idxMin, i-idxMin, min)
 
 		for j := i - 1; j > idxMin; j-- {
 			// iterate through the new lyndon word from end to start
 			testRank := isa[j]
 			startRank := testRank
 
-			for testRank < count-1 {
+			for testRank < count32-1 {
 				nextRankStart := sa[testRank+1]
 
 				if j > nextRankStart || src[j] != src[nextRankStart] || refRank < isa[nextRankStart+1] {
@@ -132,7 +133,7 @@ func (this *BWTS) Forward(src, dst []byte) (uint, uint, error) {
 				testRank++
 			}
 
-			sa[testRank] = j
+			sa[testRank] = int32(j)
 			isa[j] = testRank
 			refRank = testRank
 
@@ -145,7 +146,7 @@ func (this *BWTS) Forward(src, dst []byte) (uint, uint, error) {
 		idxMin = i
 	}
 
-	min = count
+	min = count32
 
 	for i := 0; i < count; i++ {
 		if isa[i] >= min {
@@ -153,7 +154,7 @@ func (this *BWTS) Forward(src, dst []byte) (uint, uint, error) {
 			continue
 		}
 
-		if min < count {
+		if min < count32 {
 			dst[min] = src[i-1]
 		}
 
@@ -164,7 +165,7 @@ func (this *BWTS) Forward(src, dst []byte) (uint, uint, error) {
 	return uint(count), uint(count), nil
 }
 
-func (this *BWTS) moveLyndonWordHead(sa, isa []int, data []byte, count, start, size, rank int) int {
+func (this *BWTS) moveLyndonWordHead(sa, isa []int32, data []byte, count, start, size, rank int32) int32 {
 	end := start + size
 
 	for rank+1 < count {
@@ -175,7 +176,7 @@ func (this *BWTS) moveLyndonWordHead(sa, isa []int, data []byte, count, start, s
 		}
 
 		nextStart := nextStart0
-		k := 0
+		k := int32(0)
 
 		for k < size && nextStart < count && data[start+k] == data[nextStart] {
 			k++
@@ -237,20 +238,20 @@ func (this *BWTS) Inverse(src, dst []byte) (uint, uint, error) {
 
 	// Lazy dynamic memory allocation
 	if len(this.buffer1) < count {
-		this.buffer1 = make([]int, count)
+		this.buffer1 = make([]int32, count)
 	}
 
 	// Aliasing
 	lf := this.buffer1
 
-	buckets := [256]int{}
+	buckets := [256]int32{}
 
 	// Initialize histogram
 	for i := 0; i < count; i++ {
 		buckets[src[i]]++
 	}
 
-	sum := 0
+	sum := int32(0)
 
 	// Histogram
 	for i := range buckets {
@@ -269,7 +270,7 @@ func (this *BWTS) Inverse(src, dst []byte) (uint, uint, error) {
 			continue
 		}
 
-		p := i
+		p := int32(i)
 
 		for {
 			dst[j] = src[p]

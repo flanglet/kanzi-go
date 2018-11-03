@@ -75,9 +75,9 @@ func (this *LyndonWords) Split(s string) []string {
 	return res
 }
 
-func (this *LyndonWords) GetPositions(s string) []int {
+func (this *LyndonWords) GetPositions(s string) []int32 {
 	l := this.chenFoxLyndonBreakpoints(s)
-	res := make([]int, l.Len())
+	res := make([]int32, l.Len())
 	n := 0
 
 	for bp := l.Front(); bp != nil; bp = bp.Next() {

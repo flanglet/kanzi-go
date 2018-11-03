@@ -68,9 +68,9 @@ const (
 // Chunks may be inverted concurrently.
 
 type BWT struct {
-	buffer1        []uint32
-	buffer2        []byte // Only used for big blocks (size >= 1<<24)
-	buffer3        []int
+	buffer1        []uint32 // inverse regular blocks
+	buffer2        []byte   // inverse big blocks
+	buffer3        []int32  // forward
 	primaryIndexes [8]uint
 	saAlgo         *DivSufSort
 	jobs           uint
@@ -78,9 +78,9 @@ type BWT struct {
 
 func NewBWT() (*BWT, error) {
 	this := new(BWT)
-	this.buffer1 = make([]uint32, 0) // Allocate empty: only used in inverse
-	this.buffer2 = make([]byte, 0)   // Allocate empty: only used for big blocks (size >= 1<<24)
-	this.buffer3 = make([]int, 0)    // Allocate empty: only used in forward
+	this.buffer1 = make([]uint32, 0)
+	this.buffer2 = make([]byte, 0)
+	this.buffer3 = make([]int32, 0)
 	this.primaryIndexes = [8]uint{}
 	this.jobs = 1
 	return this, nil
@@ -88,9 +88,9 @@ func NewBWT() (*BWT, error) {
 
 func NewBWTWithCtx(ctx *map[string]interface{}) (*BWT, error) {
 	this := new(BWT)
-	this.buffer1 = make([]uint32, 0) // Allocate empty: only used in inverse
-	this.buffer2 = make([]byte, 0)   // Allocate empty: only used for big blocks (size >= 1<<24)
-	this.buffer3 = make([]int, 0)    // Allocate empty: only used in forward
+	this.buffer1 = make([]uint32, 0)
+	this.buffer2 = make([]byte, 0)
+	this.buffer3 = make([]int32, 0)
 	this.primaryIndexes = [8]uint{}
 
 	if _, containsKey := (*ctx)["jobs"]; containsKey {
@@ -158,7 +158,7 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Lazy dynamic memory allocation
 	if len(this.buffer3) < count {
-		this.buffer3 = make([]int, count)
+		this.buffer3 = make([]int32, count)
 	}
 
 	sa := this.buffer3
@@ -185,15 +185,15 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 			n++
 		}
 	} else {
-		step := count / chunks
+		step := int32(count / chunks)
 
-		if step*chunks != count {
+		if int(step)*chunks != count {
 			step++
 		}
 
 		for n < count {
 			if sa[n]%step == 0 {
-				this.SetPrimaryIndex(sa[n]/step, uint(n))
+				this.SetPrimaryIndex(int(sa[n]/step), uint(n))
 
 				if sa[n] == 0 {
 					break
@@ -209,7 +209,7 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 
 		for n < count {
 			if sa[n]%step == 0 {
-				this.SetPrimaryIndex(sa[n]/step, uint(n))
+				this.SetPrimaryIndex(int(sa[n]/step), uint(n))
 			}
 
 			dst[n] = src[sa[n]-1]
