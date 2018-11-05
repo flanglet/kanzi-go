@@ -71,9 +71,9 @@ func NewDivSufSort() (*DivSufSort, error) {
 	this := new(DivSufSort)
 	this.sa = make([]int32, 0)
 	this.buffer = make([]int32, 0)
-	this.ssStack = newstack(SS_MISORT_STACKSIZE)
-	this.trstack = newstack(TR_STACKSIZE)
-	this.mergestack = newstack(SS_SMERGE_STACKSIZE)
+	this.ssStack = newStack(SS_MISORT_STACKSIZE)
+	this.trstack = newStack(TR_STACKSIZE)
+	this.mergestack = newStack(SS_SMERGE_STACKSIZE)
 	return this, nil
 }
 
@@ -2615,7 +2615,7 @@ type stack struct {
 	index int32
 }
 
-func newstack(size int32) *stack {
+func newStack(size int32) *stack {
 	this := &stack{}
 	this.elts = make([]stackElement, size)
 	return this
