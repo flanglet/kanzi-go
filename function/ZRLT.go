@@ -61,27 +61,24 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	srcEnd, dstEnd := uint(len(src)), uint(len(dst))
-	runLength := uint32(0)
+	runLength := uint(0)
 	srcIdx, dstIdx := uint(0), uint(0)
 	var err error
 
 	if dstIdx < dstEnd {
 		for srcIdx < srcEnd {
-			val := src[srcIdx]
+			if src[srcIdx] == 0 {
+				runLength = 1
 
-			if val == 0 {
-				runLength++
-				srcIdx++
-
-				if srcIdx < srcEnd && runLength < ZRLT_MAX_RUN {
-					continue
+				for srcIdx+runLength < srcEnd && src[srcIdx+runLength] == src[srcIdx] && runLength < ZRLT_MAX_RUN {
+					runLength++
 				}
-			}
 
-			if runLength > 0 {
+				srcIdx += runLength
+
 				// Encode length
 				runLength++
-				log2 := kanzi.Log2NoCheck(runLength)
+				log2 := kanzi.Log2NoCheck(uint32(runLength))
 
 				if dstIdx >= dstEnd-uint(log2) {
 					break
@@ -98,20 +95,16 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 				continue
 			}
 
-			if val >= 0xFE {
+			if src[srcIdx] >= 0xFE {
 				if dstIdx >= dstEnd-1 {
 					break
 				}
 
 				dst[dstIdx] = 0xFF
 				dstIdx++
-				dst[dstIdx] = val - 0xFE
+				dst[dstIdx] = src[srcIdx] - 0xFE
 			} else {
-				if dstIdx >= dstEnd {
-					break
-				}
-
-				dst[dstIdx] = val + 1
+				dst[dstIdx] = src[srcIdx] + 1
 			}
 
 			srcIdx++
@@ -157,10 +150,6 @@ func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 				continue
 			}
 
-			if srcIdx >= srcEnd {
-				break
-			}
-
 			if src[srcIdx] <= 1 {
 				// Generate the run length bit by bit (but force MSB)
 				runLength = 1
@@ -192,6 +181,10 @@ func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 
 			srcIdx++
 			dstIdx++
+
+			if srcIdx >= srcEnd {
+				break
+			}
 		}
 	}
 
