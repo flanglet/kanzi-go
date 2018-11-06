@@ -27,9 +27,6 @@ import (
 // encoded in a different way (each digit in a different byte)
 // This algorithm is well adapted to process post BWT/MTFT data
 
-const (
-	ZRLT_MAX_RUN = 0x7FFFFFFE
-)
 
 type ZRLT struct {
 }
@@ -70,7 +67,7 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 			if src[srcIdx] == 0 {
 				runLength = 1
 
-				for srcIdx+runLength < srcEnd && src[srcIdx+runLength] == src[srcIdx] && runLength < ZRLT_MAX_RUN {
+				for srcIdx+runLength < srcEnd && src[srcIdx+runLength] == src[srcIdx] {
 					runLength++
 				}
 
