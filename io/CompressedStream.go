@@ -487,21 +487,18 @@ func (this *EncodingTask) encode() {
 			mode |= byte(COPY_BLOCK_MASK)
 		}
 	} else {
-		skipHighEntropyBlocks := false
 
 		if skip, prst := this.ctx["skipBlocks"]; prst == true {
-			skipHighEntropyBlocks = skip.(bool)
-		}
+			if skip.(bool) == true {
+				histo := [256]int{}
+				entropy1024 := entropy.ComputeFirstOrderEntropy1024(data[0:this.blockLength], histo[:])
+				//this.ctx["histo0"] = histo
 
-		if skipHighEntropyBlocks == true {
-			histo := [256]int{}
-			entropy1024 := entropy.ComputeFirstOrderEntropy1024(data[0:this.blockLength], histo[:])
-			//this.ctx["histo0"] = histo
-
-			if entropy1024 >= entropy.INCOMPRESSIBLE_THRESHOLD {
-				this.blockTransformType = function.NONE_TYPE
-				this.blockEntropyType = entropy.NONE_TYPE
-				mode |= COPY_BLOCK_MASK
+				if entropy1024 >= entropy.INCOMPRESSIBLE_THRESHOLD {
+					this.blockTransformType = function.NONE_TYPE
+					this.blockEntropyType = entropy.NONE_TYPE
+					mode |= COPY_BLOCK_MASK
+				}
 			}
 		}
 	}
