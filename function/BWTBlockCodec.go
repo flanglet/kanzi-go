@@ -51,12 +51,12 @@ func NewBWTBlockCodec(ctx *map[string]interface{}) (*BWTBlockCodec, error) {
 }
 
 func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
-	if src == nil {
-		return 0, 0, errors.New("Input buffer cannot be null")
+	if len(src) == 0 {
+		return 0, 0, nil
 	}
 
-	if dst == nil {
-		return 0, 0, errors.New("Output buffer cannot be null")
+	if &src[0] == &dst[0] {
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
 	blockSize := len(src)
@@ -135,12 +135,12 @@ func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 }
 
 func (this *BWTBlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
-	if src == nil {
-		return 0, 0, errors.New("Input buffer cannot be null")
+	if len(src) == 0 {
+		return 0, 0, nil
 	}
 
-	if dst == nil {
-		return 0, 0, errors.New("Output buffer cannot be null")
+	if &src[0] == &dst[0] {
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
 	srcIdx := uint(0)

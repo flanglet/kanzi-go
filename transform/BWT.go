@@ -114,12 +114,8 @@ func (this *BWT) SetPrimaryIndex(n int, primaryIndex uint) bool {
 }
 
 func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
-	if src == nil {
-		return 0, 0, errors.New("Input buffer cannot be null")
-	}
-
-	if dst == nil {
-		return 0, 0, errors.New("Output buffer cannot be null")
+	if len(src) == 0 {
+		return 0, 0, nil
 	}
 
 	if &src[0] == &dst[0] {
@@ -221,12 +217,8 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 }
 
 func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
-	if src == nil {
-		return 0, 0, errors.New("Input buffer cannot be null")
-	}
-
-	if dst == nil {
-		return 0, 0, errors.New("Output buffer cannot be null")
+	if len(src) == 0 {
+		return 0, 0, nil
 	}
 
 	if &src[0] == &dst[0] {

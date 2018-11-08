@@ -28,16 +28,8 @@ func NewNullFunction() (*NullFunction, error) {
 }
 
 func doCopy(src, dst []byte) (uint, uint, error) {
-	if src == nil {
-		return uint(0), uint(0), errors.New("Invalid null source buffer")
-	}
-
 	if len(src) == 0 {
-		return uint(0), uint(0), nil
-	}
-
-	if dst == nil {
-		return uint(0), uint(0), errors.New("Invalid null destination buffer")
+		return 0, 0, nil
 	}
 
 	if len(src) > len(dst) {

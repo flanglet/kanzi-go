@@ -46,15 +46,6 @@ func NewByteTransformSequence(transforms []kanzi.ByteTransform) (*ByteTransformS
 }
 
 func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) {
-	// Check for null buffers. Let individual transforms decide on buffer equality
-	if src == nil {
-		return 0, 0, errors.New("Input buffer cannot be null")
-	}
-
-	if dst == nil {
-		return 0, 0, errors.New("Output buffer cannot be null")
-	}
-
 	if len(src) == 0 {
 		return 0, 0, nil
 	}
@@ -118,14 +109,6 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 }
 
 func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) {
-	if src == nil {
-		return 0, 0, errors.New("Input buffer cannot be null")
-	}
-
-	if dst == nil {
-		return 0, 0, errors.New("Output buffer cannot be null")
-	}
-
 	if len(src) == 0 {
 		return 0, 0, nil
 	}

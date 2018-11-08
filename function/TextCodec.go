@@ -950,12 +950,8 @@ func (this *textCodec1) reset() {
 }
 
 func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
-	if src == nil {
-		return uint(0), uint(0), errors.New("Invalid nil source buffer")
-	}
-
-	if dst == nil {
-		return uint(0), uint(0), errors.New("Invalid nil destination buffer")
+	if len(src) == 0 {
+		return 0, 0, nil
 	}
 
 	if &src[0] == &dst[0] {
@@ -1222,12 +1218,8 @@ func emitWordIndex1(dst []byte, val int) int {
 }
 
 func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
-	if src == nil {
-		return uint(0), uint(0), errors.New("Invalid nil source buffer")
-	}
-
-	if dst == nil {
-		return uint(0), uint(0), errors.New("Invalid nil destination buffer")
+	if len(src) == 0 {
+		return 0, 0, nil
 	}
 
 	if &src[0] == &dst[0] {
@@ -1500,12 +1492,8 @@ func (this *textCodec2) reset() {
 }
 
 func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
-	if src == nil {
-		return uint(0), uint(0), errors.New("Invalid nil source buffer")
-	}
-
-	if dst == nil {
-		return uint(0), uint(0), errors.New("Invalid nil destination buffer")
+	if len(src) == 0 {
+		return 0, 0, nil
 	}
 
 	if &src[0] == &dst[0] {
@@ -1760,12 +1748,8 @@ func emitWordIndex2(dst []byte, val, mask int) int {
 }
 
 func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
-	if src == nil {
-		return uint(0), uint(0), errors.New("Invalid nil source buffer")
-	}
-
-	if dst == nil {
-		return uint(0), uint(0), errors.New("Invalid nil destination buffer")
+	if len(src) == 0 {
+		return 0, 0, nil
 	}
 
 	if &src[0] == &dst[0] {

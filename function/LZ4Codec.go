@@ -98,16 +98,8 @@ func writeLastLiterals(src, dst []byte) int {
 // Generates same byte output as LZ4_compress_generic in LZ4 r131 (7/15)
 // for a 32 bit architecture.
 func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
-	if src == nil {
-		return uint(0), uint(0), errors.New("Invalid null source buffer")
-	}
-
 	if len(src) == 0 {
-		return uint(0), uint(0), nil
-	}
-
-	if dst == nil || len(dst) == 0 {
-		return uint(0), uint(0), errors.New("Invalid null or empty destination buffer")
+		return 0, 0, nil
 	}
 
 	if &src[0] == &dst[0] {
@@ -265,16 +257,8 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 // Reads same byte input as LZ4_decompress_generic in LZ4 r131 (7/15)
 // for a 32 bit architecture.
 func (this *LZ4Codec) Inverse(src, dst []byte) (uint, uint, error) {
-	if src == nil {
-		return uint(0), uint(0), errors.New("Invalid null source buffer")
-	}
-
 	if len(src) == 0 {
-		return uint(0), uint(0), nil
-	}
-
-	if dst == nil || len(dst) == 0 {
-		return uint(0), uint(0), errors.New("Invalid null or empty destination buffer")
+		return 0, 0, nil
 	}
 
 	if &src[0] == &dst[0] {

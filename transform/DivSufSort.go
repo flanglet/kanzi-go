@@ -484,7 +484,6 @@ func (this *DivSufSort) sortTypeBstar(bucketA, bucketB []int32, n int32) int32 {
 	return m
 }
 
-
 // Sub String Sort
 func (this *DivSufSort) ssSort(pa, first, last, buf, bufSize, depth, n int32, lastSuffix bool) {
 	if lastSuffix == true {

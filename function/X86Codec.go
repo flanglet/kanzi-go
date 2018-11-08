@@ -37,18 +37,6 @@ func NewX86Codec() (*X86Codec, error) {
 }
 
 func (this *X86Codec) Forward(src, dst []byte) (uint, uint, error) {
-	if src == nil {
-		return uint(0), uint(0), errors.New("Invalid null source buffer")
-	}
-
-	if len(src) == 0 {
-		return uint(0), uint(0), nil
-	}
-
-	if dst == nil || len(dst) == 0 {
-		return uint(0), uint(0), errors.New("Invalid null or empty destination buffer")
-	}
-
 	if &src[0] == &dst[0] {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
@@ -134,18 +122,6 @@ func (this *X86Codec) Forward(src, dst []byte) (uint, uint, error) {
 }
 
 func (this *X86Codec) Inverse(src, dst []byte) (uint, uint, error) {
-	if src == nil {
-		return uint(0), uint(0), errors.New("Invalid null source buffer")
-	}
-
-	if len(src) == 0 {
-		return uint(0), uint(0), nil
-	}
-
-	if dst == nil || len(dst) == 0 {
-		return uint(0), uint(0), errors.New("Invalid null or empty destination buffer")
-	}
-
 	if &src[0] == &dst[0] {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}

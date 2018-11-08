@@ -47,14 +47,6 @@ func NewMTFT() (*MTFT, error) {
 }
 
 func (this *MTFT) Inverse(src, dst []byte) (uint, uint, error) {
-	if src == nil {
-		return 0, 0, errors.New("Input buffer cannot be null")
-	}
-
-	if dst == nil {
-		return 0, 0, errors.New("Output buffer cannot be null")
-	}
-
 	if len(src) == 0 {
 		return 0, 0, nil
 	}
@@ -164,14 +156,6 @@ func (this *MTFT) balanceLists(resetValues bool) {
 }
 
 func (this *MTFT) Forward(src, dst []byte) (uint, uint, error) {
-	if src == nil {
-		return 0, 0, errors.New("Input buffer cannot be null")
-	}
-
-	if dst == nil {
-		return 0, 0, errors.New("Output buffer cannot be null")
-	}
-
 	if len(src) == 0 {
 		return 0, 0, nil
 	}
