@@ -27,7 +27,6 @@ import (
 // encoded in a different way (each digit in a different byte)
 // This algorithm is well adapted to process post BWT/MTFT data
 
-
 type ZRLT struct {
 }
 
@@ -101,6 +100,10 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 				dstIdx++
 				dst[dstIdx] = src[srcIdx] - 0xFE
 			} else {
+				if dstIdx >= dstEnd {
+					break
+				}
+
 				dst[dstIdx] = src[srcIdx] + 1
 			}
 
