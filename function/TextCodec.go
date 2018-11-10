@@ -829,6 +829,14 @@ func NewTextCodecWithCtx(ctx *map[string]interface{}) (*TextCodec, error) {
 }
 
 func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
+	if len(src) == 0 {
+		return 0, 0, nil
+	}
+
+	if &src[0] == &dst[0] {
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
+	}
+
 	if len(src) > TC_MAX_BLOCK_SIZE {
 		// Not a recoverable error: instead of silently fail the transform,
 		// issue a fatal error.
@@ -840,6 +848,14 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 }
 
 func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
+	if len(src) == 0 {
+		return 0, 0, nil
+	}
+
+	if &src[0] == &dst[0] {
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
+	}
+
 	if len(src) > TC_MAX_BLOCK_SIZE {
 		// Not a recoverable error: instead of silently fail the transform,
 		// issue a fatal error.
@@ -950,14 +966,6 @@ func (this *textCodec1) reset() {
 }
 
 func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
-		return 0, 0, nil
-	}
-
-	if &src[0] == &dst[0] {
-		return 0, 0, errors.New("Input and output buffers cannot be equal")
-	}
-
 	count := len(src)
 
 	if n := this.MaxEncodedLen(count); len(dst) < n {
@@ -1218,14 +1226,6 @@ func emitWordIndex1(dst []byte, val int) int {
 }
 
 func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
-		return 0, 0, nil
-	}
-
-	if &src[0] == &dst[0] {
-		return 0, 0, errors.New("Input and output buffers cannot be equal")
-	}
-
 	srcIdx := 0
 	dstIdx := 0
 	count := len(src)
@@ -1492,14 +1492,6 @@ func (this *textCodec2) reset() {
 }
 
 func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
-		return 0, 0, nil
-	}
-
-	if &src[0] == &dst[0] {
-		return 0, 0, errors.New("Input and output buffers cannot be equal")
-	}
-
 	count := len(src)
 
 	if n := this.MaxEncodedLen(count); len(dst) < n {
@@ -1748,14 +1740,6 @@ func emitWordIndex2(dst []byte, val, mask int) int {
 }
 
 func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
-		return 0, 0, nil
-	}
-
-	if &src[0] == &dst[0] {
-		return 0, 0, errors.New("Input and output buffers cannot be equal")
-	}
-
 	srcIdx := 0
 	dstIdx := 0
 	count := len(src)
