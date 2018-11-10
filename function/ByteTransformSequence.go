@@ -74,7 +74,8 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 
 		// Apply forward transform
 		if _, oIdx, err1 = t.Forward(in[0:length], out); err1 != nil {
-			// Transform failed (probably due to lack of space in output). Revert
+			// Transform failed. Either it does not apply to this type
+			// of data or a recoverable error occured => revert
 			if &src != &dst {
 				copy(out[0:length], in[0:length])
 			}
