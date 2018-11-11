@@ -267,9 +267,8 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 
 		for i := len(block) - 1; i >= 0; i-- {
 			sym := symb[block[i]]
-			max := sym.xMax
 
-			for st >= max {
+			for st >= sym.xMax {
 				this.buffer[n] = byte(st)
 				n--
 				st >>= 8
@@ -288,9 +287,8 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 		for i := len(block) - 2; i >= 0; i-- {
 			cur := int(block[i])
 			sym := symb[(cur<<8)+prv]
-			max := sym.xMax
 
-			for st >= max {
+			for st >= sym.xMax {
 				this.buffer[n] = byte(st)
 				n--
 				st >>= 8
