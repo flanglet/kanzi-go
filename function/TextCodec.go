@@ -981,20 +981,17 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skipping")
 	}
 
-	if count <= 16 {
-		for i := 0; i < count; i++ {
-			dst[dstIdx] = src[srcIdx]
-			srcIdx++
-			dstIdx++
-		}
-
+	if count <= 64 {
+		copy(dst[dstIdx:], src[srcIdx:srcIdx+count])
+		srcIdx += count
+		dstIdx += count
 		return uint(srcIdx), uint(dstIdx), nil
 	}
 
 	this.reset()
 	srcEnd := count
 	dstEnd := this.MaxEncodedLen(count)
-	dstEnd3 := dstEnd - 3
+	dstEnd4 := dstEnd - 4
 	var delimAnchor int // previous delimiter
 
 	if isText(src[srcIdx]) {
@@ -1018,7 +1015,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		emitAnchor++
 	}
 
-	for srcIdx < srcEnd && dstIdx < dstEnd {
+	for srcIdx < srcEnd {
 		cur := src[srcIdx]
 
 		// Should be 'if isText(cur) {', but compiler (1.11) issues slow code (bad inlining?)
@@ -1056,7 +1053,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			pe1 := this.dictMap[h1&this.hashMask]
 
 			// Check for hash collisions
-			if (pe1 != nil) && (pe1.data>>24 != length || pe1.hash != h1) {
+			if (pe1 != nil) && (pe1.hash != h1 || pe1.data>>24 != length) {
 				pe1 = nil
 			}
 
@@ -1105,9 +1102,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 					dstIdx += this.emitSymbols(src[emitAnchor:delimAnchor+1], dst[dstIdx:dstEnd])
 				}
 
-				emitAnchor = delimAnchor + 1
-
-				if dstIdx >= dstEnd3 {
+				if dstIdx >= dstEnd4 {
 					break
 				}
 
@@ -1119,7 +1114,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 				dstIdx++
 				dstIdx += emitWordIndex1(dst[dstIdx:dstIdx+3], int(pe.data&0x00FFFFFF))
-				emitAnchor += int(pe.data >> 24)
+				emitAnchor = delimAnchor + 1 + int(pe.data>>24)
 			}
 		}
 
@@ -1230,13 +1225,10 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	dstIdx := 0
 	count := len(src)
 
-	if count <= 16 {
-		for i := 0; i < count; i++ {
-			dst[dstIdx] = src[srcIdx]
-			srcIdx++
-			dstIdx++
-		}
-
+	if count <= 64 {
+		copy(dst[dstIdx:], src[srcIdx:srcIdx+count])
+		srcIdx += count
+		dstIdx += count
 		return uint(srcIdx), uint(dstIdx), nil
 	}
 
@@ -1280,7 +1272,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 			// Check for hash collisions
 			if pe != nil {
-				if pe.data>>24 != length || pe.hash != h1 {
+				if pe.hash != h1 || pe.data>>24 != length {
 					pe = nil
 				} else if !sameWords(pe.ptr[1:length], src[delimAnchor+2:]) {
 					pe = nil
@@ -1507,13 +1499,10 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skipping")
 	}
 
-	if count <= 16 {
-		for i := 0; i < count; i++ {
-			dst[dstIdx] = src[srcIdx]
-			srcIdx++
-			dstIdx++
-		}
-
+	if count <= 64 {
+		copy(dst[dstIdx:], src[srcIdx:srcIdx+count])
+		srcIdx += count
+		dstIdx += count
 		return uint(srcIdx), uint(dstIdx), nil
 	}
 
@@ -1544,7 +1533,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		emitAnchor++
 	}
 
-	for srcIdx < srcEnd && dstIdx < dstEnd {
+	for srcIdx < srcEnd {
 		cur := src[srcIdx]
 
 		// Should be 'if isText(cur) {', but compiler (1.11) issues slow code (bad inlining?)
@@ -1582,7 +1571,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 			pe1 := this.dictMap[h1&this.hashMask]
 
 			// Check for hash collisions
-			if (pe1 != nil) && (pe1.data>>24 != length || pe1.hash != h1) {
+			if (pe1 != nil) && (pe1.hash != h1 || pe1.data>>24 != length) {
 				pe1 = nil
 			}
 
@@ -1635,7 +1624,6 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 					break
 				}
 
-				emitAnchor = delimAnchor + 1
 				mask := 0
 
 				if pe != pe1 {
@@ -1643,7 +1631,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 				}
 
 				dstIdx += emitWordIndex2(dst[dstIdx:dstIdx+3], int(pe.data&0x00FFFFFF), mask)
-				emitAnchor += int(pe.data >> 24)
+				emitAnchor = delimAnchor + 1 + int(pe.data>>24)
 			}
 		}
 
@@ -1744,13 +1732,10 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	dstIdx := 0
 	count := len(src)
 
-	if count <= 16 {
-		for i := 0; i < count; i++ {
-			dst[dstIdx] = src[srcIdx]
-			srcIdx++
-			dstIdx++
-		}
-
+	if count <= 64 {
+		copy(dst[dstIdx:], src[srcIdx:srcIdx+count])
+		srcIdx += count
+		dstIdx += count
 		return uint(srcIdx), uint(dstIdx), nil
 	}
 
@@ -1794,7 +1779,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 			// Check for hash collisions
 			if pe != nil {
-				if pe.data>>24 != length || pe.hash != h1 {
+				if pe.hash != h1 || pe.data>>24 != length {
 					pe = nil
 				} else if !sameWords(pe.ptr[1:length], src[delimAnchor+2:]) {
 					pe = nil
