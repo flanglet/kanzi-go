@@ -131,10 +131,8 @@ func generateCanonicalCodes(sizes []byte, codes []uint, ranks []int) int {
 type HuffmanEncoder struct {
 	bitstream kanzi.OutputBitStream
 	codes     [256]uint
-	sizes     [256]byte
 	ranks     [256]int
 	sranks    [256]int
-	buffer    [256]uint
 	chunkSize int
 }
 
@@ -170,15 +168,12 @@ func NewHuffmanEncoder(bs kanzi.OutputBitStream, args ...uint) (*HuffmanEncoder,
 	this := new(HuffmanEncoder)
 	this.bitstream = bs
 	this.codes = [256]uint{}
-	this.sizes = [256]byte{}
 	this.ranks = [256]int{}
 	this.sranks = [256]int{}
-	this.buffer = [256]uint{}
 	this.chunkSize = int(chkSize)
 
 	// Default frequencies, sizes and codes
 	for i := 0; i < 256; i++ {
-		this.sizes[i] = 8
 		this.codes[i] = uint(i)
 	}
 
@@ -192,9 +187,9 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []uint) (int, error) {
 	}
 
 	count := 0
+	var sizes [256]byte
 
-	for i := range this.sizes {
-		this.sizes[i] = 0
+	for i := range this.codes {
 		this.codes[i] = 0
 
 		if frequencies[i] > 0 {
@@ -205,9 +200,9 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []uint) (int, error) {
 
 	if count == 1 {
 		this.sranks[0] = this.ranks[0]
-		this.sizes[this.ranks[0]] = 1
+		sizes[this.ranks[0]] = 1
 	} else {
-		if err := this.computeCodeLengths(frequencies, count); err != nil {
+		if err := this.computeCodeLengths(frequencies, sizes[:], count); err != nil {
 			return count, err
 		}
 	}
@@ -225,21 +220,20 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []uint) (int, error) {
 
 	prevSize := byte(2)
 
-	for i := range rr {
-		currSize := this.sizes[rr[i]]
+	for _, r := range rr {
+		currSize := sizes[r]
 		egenc.EncodeByte(currSize - prevSize)
 		prevSize = currSize
 	}
 
 	// Create canonical codes
-	if generateCanonicalCodes(this.sizes[:], this.codes[:], this.sranks[0:count]) < 0 {
+	if generateCanonicalCodes(sizes[:], this.codes[:], this.sranks[0:count]) < 0 {
 		return count, fmt.Errorf("Could not generate codes: max code length (%v bits) exceeded", HUF_MAX_SYMBOL_SIZE)
 	}
 
 	// Pack size and code (size <= HUF_MAX_SYMBOL_SIZE bits)
-	for i := range rr {
-		r := rr[i]
-		this.codes[r] |= (uint(this.sizes[r]) << 24)
+	for _, r := range rr {
+		this.codes[r] |= (uint(sizes[r]) << 24)
 	}
 
 	return count, nil
@@ -248,13 +242,14 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []uint) (int, error) {
 // See [In-Place Calculation of Minimum-Redundancy Codes]
 // by Alistair Moffat & Jyrki Katajainen
 // count > 1 by design
-func (this *HuffmanEncoder) computeCodeLengths(frequencies []uint, count int) error {
+func (this *HuffmanEncoder) computeCodeLengths(frequencies []uint, sizes []byte, count int) error {
 	// Sort ranks by increasing frequency
 	copy(this.sranks[:], this.ranks[0:count])
 
 	// Sort by increasing frequencies (first key) and increasing value (second key)
 	sort.Sort(byIncreasingFrequency(this.sranks[0:count], frequencies))
-	buf := this.buffer[0:count]
+	var buffer [256]uint
+	buf := buffer[0:count]
 
 	for i := range buf {
 		buf[i] = frequencies[this.sranks[i]]
@@ -272,7 +267,7 @@ func (this *HuffmanEncoder) computeCodeLengths(frequencies []uint, count int) er
 			break
 		}
 
-		this.sizes[this.sranks[i]] = codeLen
+		sizes[this.sranks[i]] = codeLen
 	}
 
 	return err
