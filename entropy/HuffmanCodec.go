@@ -23,12 +23,12 @@ import (
 )
 
 const (
-	HUF_DECODING_BATCH_SIZE        = 12 // in bits
-	HUF_DECODING_MASK              = (1 << HUF_DECODING_BATCH_SIZE) - 1
-	HUF_MAX_DECODING_INDEX         = (HUF_DECODING_BATCH_SIZE << 8) | 0xFF
-	HUF_DEFAULT_CHUNK_SIZE = uint(1 << 16) // 64 KB by default
-	HUF_SYMBOL_ABSENT              = (1 << 31) - 1
-	HUF_MAX_SYMBOL_SIZE            = 24
+	HUF_DECODING_BATCH_SIZE = 12 // in bits
+	HUF_DECODING_MASK       = (1 << HUF_DECODING_BATCH_SIZE) - 1
+	HUF_MAX_DECODING_INDEX  = (HUF_DECODING_BATCH_SIZE << 8) | 0xFF
+	HUF_DEFAULT_CHUNK_SIZE  = uint(1 << 16) // 64 KB by default
+	HUF_SYMBOL_ABSENT       = (1 << 31) - 1
+	HUF_MAX_SYMBOL_SIZE     = 24
 )
 
 // Utilities
@@ -423,9 +423,9 @@ type HuffmanDecoder struct {
 	codes      [256]uint
 	ranks      [256]int
 	sizes      [256]byte
-	fdTable    []uint // Fast decoding table
-	sdTable    []uint // Slow decoding table
-	sdtIndexes []int  // Indexes for slow decoding table (can be negative)
+	fdTable    []uint    // Fast decoding table
+	sdTable    [256]uint // Slow decoding table
+	sdtIndexes []int     // Indexes for slow decoding table (can be negative)
 	chunkSize  int
 	state      uint64 // holds bits read from bitstream
 	bits       uint   // holds number of unused bits in 'state'
@@ -467,7 +467,7 @@ func NewHuffmanDecoder(bs kanzi.InputBitStream, args ...uint) (*HuffmanDecoder, 
 	this.codes = [256]uint{}
 	this.ranks = [256]int{}
 	this.fdTable = make([]uint, 1<<HUF_DECODING_BATCH_SIZE)
-	this.sdTable = make([]uint, 256)
+	this.sdTable = [256]uint{}
 	this.sdtIndexes = make([]int, HUF_MAX_SYMBOL_SIZE+1)
 	this.chunkSize = int(chkSize)
 	this.minCodeLen = 8
