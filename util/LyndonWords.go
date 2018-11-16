@@ -81,7 +81,7 @@ func (this *LyndonWords) GetPositions(s string) []int32 {
 	n := 0
 
 	for bp := l.Front(); bp != nil; bp = bp.Next() {
-		res[n] = bp.Value.(int)
+		res[n] = bp.Value.(int32)
 		n++
 	}
 
