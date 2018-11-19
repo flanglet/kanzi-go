@@ -21,7 +21,7 @@ import (
 	kanzi "github.com/flanglet/kanzi-go"
 	"github.com/flanglet/kanzi-go/bitstream"
 	"github.com/flanglet/kanzi-go/entropy"
-	"github.com/flanglet/kanzi-go/io"
+	"github.com/flanglet/kanzi-go/util"
 	"math/rand"
 	"os"
 	"strings"
@@ -240,7 +240,7 @@ func TestCorrectness(name string) {
 
 		println()
 		fmt.Printf("\nEncoded: \n")
-		var bs io.BufferStream
+		var bs util.BufferStream
 		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
 		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
 		dbgbs.ShowByte(true)
@@ -312,7 +312,7 @@ func TestSpeed(name string) {
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
 		rand.Seed(int64(jj))
-		var bs io.BufferStream
+		var bs util.BufferStream
 
 		for ii := 0; ii < iter; ii++ {
 			idx := jj

@@ -20,7 +20,7 @@ import (
 	"fmt"
 	kanzi "github.com/flanglet/kanzi-go"
 	"github.com/flanglet/kanzi-go/bitstream"
-	"github.com/flanglet/kanzi-go/io"
+	"github.com/flanglet/kanzi-go/util"
 	"math/rand"
 	"os"
 	"time"
@@ -44,7 +44,7 @@ func testCorrectnessAligned1() {
 
 	// Check correctness of read() and written()
 	for t := 1; t <= 32; t++ {
-		var bs io.BufferStream
+		var bs util.BufferStream
 		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
 		fmt.Println()
 		obs.WriteBits(0x0123456789ABCDEF, uint(t))
@@ -67,7 +67,7 @@ func testCorrectnessAligned1() {
 	}
 
 	for test := 1; test <= 10; test++ {
-		var bs io.BufferStream
+		var bs util.BufferStream
 		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
 		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
 		dbgbs.ShowByte(true)
@@ -143,7 +143,7 @@ func testCorrectnessMisaligned1() {
 
 	// Check correctness of read() and written()
 	for t := 1; t <= 32; t++ {
-		var bs io.BufferStream
+		var bs util.BufferStream
 		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
 		fmt.Println()
 		obs.WriteBit(1)
@@ -164,7 +164,7 @@ func testCorrectnessMisaligned1() {
 	}
 
 	for test := 1; test <= 10; test++ {
-		var bs io.BufferStream
+		var bs util.BufferStream
 		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
 		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
 		dbgbs.ShowByte(true)
@@ -243,7 +243,7 @@ func testCorrectnessAligned2() {
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	for test := 1; test <= 10; test++ {
-		var bs io.BufferStream
+		var bs util.BufferStream
 		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
 		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
 		dbgbs.ShowByte(true)
@@ -320,7 +320,7 @@ func testCorrectnessMisaligned2() {
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	for test := 1; test <= 10; test++ {
-		var bs io.BufferStream
+		var bs util.BufferStream
 		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
 		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
 		dbgbs.ShowByte(true)

@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package io
+package util
 
 import (
 	"bytes"
@@ -23,11 +23,6 @@ import (
 type BufferStream struct {
 	buf    bytes.Buffer
 	closed bool
-}
-
-func NewBufferStream(buffer []byte) (*BufferStream, error) {
-	this := new(BufferStream)
-	return this, nil
 }
 
 func (this *BufferStream) Write(b []byte) (int, error) {
@@ -49,4 +44,8 @@ func (this *BufferStream) Read(b []byte) (int, error) {
 func (this *BufferStream) Close() error {
 	this.closed = true
 	return nil
+}
+
+func (this *BufferStream) Len() int {
+	return this.buf.Len()
 }
