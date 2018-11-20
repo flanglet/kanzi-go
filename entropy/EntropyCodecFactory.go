@@ -63,7 +63,6 @@ func NewEntropyDecoder(ibs kanzi.InputBitStream, ctx map[string]interface{},
 		return NewBinaryEntropyDecoder(ibs, predictor)
 
 	case TPAQX_TYPE:
-		ctx["extra"] = true
 		predictor, _ := NewTPAQPredictor(&ctx)
 		return NewBinaryEntropyDecoder(ibs, predictor)
 
@@ -104,7 +103,6 @@ func NewEntropyEncoder(obs kanzi.OutputBitStream, ctx map[string]interface{},
 		return NewBinaryEntropyEncoder(obs, predictor)
 
 	case TPAQX_TYPE:
-		ctx["extra"] = true
 		predictor, _ := NewTPAQPredictor(&ctx)
 		return NewBinaryEntropyEncoder(obs, predictor)
 

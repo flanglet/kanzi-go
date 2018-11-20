@@ -200,8 +200,9 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 	if ctx != nil {
 		// If extra mode, add more memory for states table, hash table
 		// and add second SSE
-		if _, containsKey := (*ctx)["extra"]; containsKey {
-			this.extra = (*ctx)["extra"].(bool)
+		if _, containsKey := (*ctx)["codec"]; containsKey {
+			codec := (*ctx)["codec"].(string)
+			this.extra = codec == "TPAQX"
 		}
 
 		if this.extra == true {
