@@ -496,18 +496,21 @@ func getTransformAndCodec(level int) string {
 		return "TEXT+ROLZ&NONE"
 
 	case 3:
-		return "TEXT+BWT+RANK+ZRLT&ANS0"
+		return "TEXT+ROLZX&NONE"
 
 	case 4:
-		return "TEXT+BWT+RANK+ZRLT&FPAQ"
+		return "TEXT+BWT+RANK+ZRLT&ANS0"
 
 	case 5:
-		return "BWT&CM"
+		return "TEXT+BWT+RANK+ZRLT&FPAQ"
 
 	case 6:
-		return "X86+RLT+TEXT&TPAQ"
+		return "BWT&CM"
 
 	case 7:
+		return "X86+RLT+TEXT&TPAQ"
+
+	case 8:
 		return "X86+RLT+TEXT&TPAQX"
 
 	default:

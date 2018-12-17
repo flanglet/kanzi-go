@@ -40,6 +40,7 @@ const (
 	X86_TYPE    = uint64(9)  // X86 codec
 	DICT_TYPE   = uint64(10) // Text codec
 	ROLZ_TYPE   = uint64(11) // ROLZ codec
+	ROLZX_TYPE  = uint64(12) // ROLZ Extra codec
 )
 
 func NewByteFunction(ctx *map[string]interface{}, functionType uint64) (*ByteTransformSequence, error) {
@@ -86,7 +87,10 @@ func newByteFunctionToken(ctx *map[string]interface{}, functionType uint64) (kan
 		return NewLZ4Codec()
 
 	case ROLZ_TYPE:
-		return NewROLZCodec(ROLZ_LOG_POS_CHECKS)
+		return NewROLZCodecWithCtx(ctx)
+
+	case ROLZX_TYPE:
+		return NewROLZCodecWithCtx(ctx)
 
 	case BWT_TYPE:
 		return NewBWTBlockCodec(ctx)
@@ -167,6 +171,9 @@ func getByteFunctionNameToken(functionType uint64) string {
 
 	case ROLZ_TYPE:
 		return "ROLZ"
+
+	case ROLZX_TYPE:
+		return "ROLZX"
 
 	case BWT_TYPE:
 		return "BWT"
@@ -254,6 +261,9 @@ func getByteFunctionTypeToken(name string) uint64 {
 
 	case "ROLZ":
 		return ROLZ_TYPE
+
+	case "ROLZX":
+		return ROLZX_TYPE
 
 	case "MTFT":
 		return MTFT_TYPE
