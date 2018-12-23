@@ -992,14 +992,6 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	srcEnd := count
 	dstEnd := this.MaxEncodedLen(count)
 	dstEnd4 := dstEnd - 4
-	var delimAnchor int // previous delimiter
-
-	if isText(src[srcIdx]) {
-		delimAnchor = srcIdx - 1
-	} else {
-		delimAnchor = srcIdx
-	}
-
 	emitAnchor := 0 // never negative
 	words := this.staticDictSize
 
@@ -1008,11 +1000,19 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	dst[dstIdx] = mode
 	dstIdx++
 
-	if src[srcIdx] == ' ' {
+	for srcIdx < srcEnd && src[srcIdx] == ' ' {
 		dst[dstIdx] = ' '
 		srcIdx++
 		dstIdx++
 		emitAnchor++
+	}
+
+	var delimAnchor int // previous delimiter
+
+	if isText(src[srcIdx]) {
+		delimAnchor = srcIdx - 1
+	} else {
+		delimAnchor = srcIdx
 	}
 
 	for srcIdx < srcEnd {
@@ -1395,7 +1395,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 func (this textCodec1) MaxEncodedLen(srcLen int) int {
 	// Limit to 1 x srcLength and let the caller deal with
-	// a failure when the output is not smaller than the input
+	// a failure when the output is too small
 	return srcLen
 }
 
@@ -1510,14 +1510,6 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	srcEnd := count
 	dstEnd := this.MaxEncodedLen(count)
 	dstEnd3 := dstEnd - 3
-	var delimAnchor int // previous delimiter
-
-	if isText(src[srcIdx]) {
-		delimAnchor = srcIdx - 1
-	} else {
-		delimAnchor = srcIdx
-	}
-
 	emitAnchor := 0 // never negative
 	words := this.staticDictSize
 
@@ -1526,11 +1518,19 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	dst[dstIdx] = mode
 	dstIdx++
 
-	if src[srcIdx] == ' ' {
+	for srcIdx < srcEnd && src[srcIdx] == ' ' {
 		dst[dstIdx] = ' '
 		srcIdx++
 		dstIdx++
 		emitAnchor++
+	}
+
+	var delimAnchor int // previous delimiter
+
+	if isText(src[srcIdx]) {
+		delimAnchor = srcIdx - 1
+	} else {
+		delimAnchor = srcIdx
 	}
 
 	for srcIdx < srcEnd {
@@ -1907,6 +1907,6 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 func (this textCodec2) MaxEncodedLen(srcLen int) int {
 	// Limit to 1 x srcLength and let the caller deal with
-	// a failure when the output is not smaller than the input
+	// a failure when the output is too small
 	return srcLen
 }
