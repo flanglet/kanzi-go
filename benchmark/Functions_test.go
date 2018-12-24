@@ -17,9 +17,10 @@ package benchmark
 
 import (
 	"fmt"
-	"github.com/flanglet/kanzi-go/function"
 	"math/rand"
 	"testing"
+
+	"github.com/flanglet/kanzi-go/function"
 )
 
 func BenchmarkLZ4(b *testing.B) {
@@ -301,7 +302,75 @@ func BenchmarkROLZ(b *testing.B) {
 	size := 50000
 
 	for jj := 0; jj < 3; jj++ {
-		bf, _ := function.NewROLZCodec(5)
+		bf, _ := function.NewROLZCodecWithFlag(false)
+		input := make([]byte, size)
+		output := make([]byte, bf.MaxEncodedLen(size))
+		reverse := make([]byte, size)
+		rand.Seed(int64(jj))
+		n := 0
+
+		for n < len(input) {
+
+			val := byte(rand.Intn(255))
+			input[n] = val
+			n++
+			run := rand.Intn(55)
+			run -= 20
+
+			for run > 0 && n < len(input) {
+				input[n] = val
+				n++
+				run--
+			}
+		}
+
+		var dstIdx uint
+		var err error
+
+		for ii := 0; ii < iter; ii++ {
+			f, _ := function.NewROLZCodec(5)
+
+			_, dstIdx, err = f.Forward(input, output)
+
+			if err != nil {
+				msg := fmt.Sprintf("Encoding error : %v\n", err)
+				b.Fatalf(msg)
+			}
+		}
+
+		for ii := 0; ii < iter; ii++ {
+			f, _ := function.NewROLZCodec(5)
+
+			if _, _, err = f.Inverse(output[0:dstIdx], reverse); err != nil {
+				msg := fmt.Sprintf("Decoding error : %v\n", err)
+				b.Fatalf(msg)
+			}
+		}
+
+		idx := -1
+
+		// Sanity check
+		for i := range input {
+			if input[i] != reverse[i] {
+				idx = i
+				break
+			}
+		}
+
+		if idx >= 0 {
+			msg := fmt.Sprintf("Failure at index %v (%v <-> %v)\n", idx, input[idx], reverse[idx])
+			b.Fatalf(msg)
+		}
+
+	}
+}
+
+func BenchmarkROLZX(b *testing.B) {
+	iter := b.N
+	size := 50000
+
+	for jj := 0; jj < 3; jj++ {
+		bf, _ := function.NewROLZCodecWithFlag(true)
 		input := make([]byte, size)
 		output := make([]byte, bf.MaxEncodedLen(size))
 		reverse := make([]byte, size)
