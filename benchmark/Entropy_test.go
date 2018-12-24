@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"github.com/flanglet/kanzi-go/bitstream"
 	"github.com/flanglet/kanzi-go/entropy"
-	"github.com/flanglet/kanzi-go/io"
+	"github.com/flanglet/kanzi-go/util"
 	"math/rand"
 	"testing"
 )
@@ -33,7 +33,7 @@ func BenchmarkExpGolomb(b *testing.B) {
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
 		rand.Seed(int64(jj))
-		var bs io.BufferStream
+		var bs util.BufferStream
 
 		for ii := 0; ii < iter; ii++ {
 			idx := jj
@@ -101,7 +101,7 @@ func BenchmarkHuffman(b *testing.B) {
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
 		rand.Seed(int64(jj))
-		var bs io.BufferStream
+		var bs util.BufferStream
 
 		for ii := 0; ii < iter; ii++ {
 			idx := jj
@@ -169,7 +169,7 @@ func BenchmarkANS0(b *testing.B) {
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
 		rand.Seed(int64(jj))
-		var bs io.BufferStream
+		var bs util.BufferStream
 
 		for ii := 0; ii < iter; ii++ {
 			idx := jj
@@ -237,7 +237,7 @@ func BenchmarkANS1(b *testing.B) {
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
 		rand.Seed(int64(jj))
-		var bs io.BufferStream
+		var bs util.BufferStream
 
 		for ii := 0; ii < iter; ii++ {
 			idx := jj
@@ -305,7 +305,7 @@ func BenchmarkRange(b *testing.B) {
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
 		rand.Seed(int64(jj))
-		var bs io.BufferStream
+		var bs util.BufferStream
 
 		for ii := 0; ii < iter; ii++ {
 			idx := jj
@@ -373,7 +373,7 @@ func BenchmarkFPAQ(b *testing.B) {
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
 		rand.Seed(int64(jj))
-		var bs io.BufferStream
+		var bs util.BufferStream
 
 		for ii := 0; ii < iter; ii++ {
 			idx := jj
@@ -443,7 +443,7 @@ func BenchmarkCM(b *testing.B) {
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
 		rand.Seed(int64(jj))
-		var bs io.BufferStream
+		var bs util.BufferStream
 
 		for ii := 0; ii < iter; ii++ {
 			idx := jj
@@ -513,7 +513,7 @@ func BenchmarkTPAQ(b *testing.B) {
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
 		rand.Seed(int64(jj))
-		var bs io.BufferStream
+		var bs util.BufferStream
 
 		for ii := 0; ii < iter; ii++ {
 			idx := jj
