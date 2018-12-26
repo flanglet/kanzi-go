@@ -18,6 +18,7 @@ package entropy
 import (
 	"errors"
 	"fmt"
+
 	kanzi "github.com/flanglet/kanzi-go"
 )
 
@@ -156,10 +157,10 @@ func (this *ANSRangeEncoder) encodeHeader(alphabetSize int, alphabet []int, freq
 		return true
 	}
 
-	chkSize := 16
+	chkSize := 6
 
-	if alphabetSize <= 64 {
-		chkSize = 8
+	if alphabetSize < 64 {
+		chkSize = 4
 	}
 
 	llr := uint(3)
