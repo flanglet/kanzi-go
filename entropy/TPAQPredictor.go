@@ -444,10 +444,10 @@ func (this *TPAQPredictor) getMatchContextPred() int32 {
 	return p
 }
 
-func createContext(ctxId, cx int32) int32 {
-	cx = cx*987654323 + ctxId
+func createContext(ctxID, cx int32) int32 {
+	cx = cx*987654323 + ctxID
 	cx = (cx << 16) | int32(uint32(cx)>>16)
-	return cx*123456791 + ctxId
+	return cx*123456791 + ctxID
 }
 
 // Mixer combines models using neural networks with 8 inputs.
