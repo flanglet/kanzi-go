@@ -17,9 +17,6 @@ package main
 
 import (
 	"fmt"
-	kanzi "github.com/flanglet/kanzi-go"
-	"github.com/flanglet/kanzi-go/function"
-	kio "github.com/flanglet/kanzi-go/io"
 	"io"
 	"os"
 	"path"
@@ -27,6 +24,10 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	kanzi "github.com/flanglet/kanzi-go"
+	"github.com/flanglet/kanzi-go/function"
+	kio "github.com/flanglet/kanzi-go/io"
 )
 
 const (
@@ -365,6 +366,7 @@ func (this *BlockCompressor) Call() (int, uint64) {
 	ctx["checksum"] = this.checksum
 	ctx["codec"] = this.entropyCodec
 	ctx["transform"] = this.transform
+	ctx["extra"] = this.entropyCodec == "TPAQX"
 
 	if nbFiles == 1 {
 		oName := formattedOutName
@@ -380,7 +382,6 @@ func (this *BlockCompressor) Call() (int, uint64) {
 		ctx["inputName"] = iName
 		ctx["outputName"] = oName
 		ctx["jobs"] = this.jobs
-		ctx["extra"] = this.entropyCodec == "TPAQX"
 		task := FileCompressTask{ctx: ctx, listeners: this.listeners}
 		res, read, written = task.Call()
 	} else {
