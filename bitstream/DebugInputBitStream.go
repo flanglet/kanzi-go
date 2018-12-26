@@ -18,8 +18,9 @@ package bitstream
 import (
 	"errors"
 	"fmt"
-	kanzi "github.com/flanglet/kanzi-go"
 	"io"
+
+	kanzi "github.com/flanglet/kanzi-go"
 )
 
 type DebugInputBitStream struct {

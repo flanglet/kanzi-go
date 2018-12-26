@@ -17,6 +17,7 @@ package entropy
 
 import (
 	"errors"
+
 	kanzi "github.com/flanglet/kanzi-go"
 )
 

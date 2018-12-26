@@ -18,6 +18,7 @@ package entropy
 import (
 	"errors"
 	"fmt"
+
 	kanzi "github.com/flanglet/kanzi-go"
 )
 

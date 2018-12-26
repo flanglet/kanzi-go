@@ -18,6 +18,7 @@ package entropy
 import (
 	"encoding/binary"
 	"errors"
+
 	kanzi "github.com/flanglet/kanzi-go"
 )
 

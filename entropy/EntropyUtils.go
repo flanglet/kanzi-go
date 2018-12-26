@@ -18,6 +18,7 @@ package entropy
 import (
 	"container/heap"
 	"fmt"
+
 	kanzi "github.com/flanglet/kanzi-go"
 )
 

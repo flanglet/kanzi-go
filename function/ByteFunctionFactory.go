@@ -17,9 +17,10 @@ package function
 
 import (
 	"fmt"
+	"strings"
+
 	kanzi "github.com/flanglet/kanzi-go"
 	"github.com/flanglet/kanzi-go/transform"
-	"strings"
 )
 
 const (

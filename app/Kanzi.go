@@ -18,7 +18,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	kanzi "github.com/flanglet/kanzi-go"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -27,6 +26,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	kanzi "github.com/flanglet/kanzi-go"
 )
 
 const (

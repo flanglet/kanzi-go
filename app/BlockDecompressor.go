@@ -17,8 +17,6 @@ package main
 
 import (
 	"fmt"
-	kanzi "github.com/flanglet/kanzi-go"
-	kio "github.com/flanglet/kanzi-go/io"
 	"io"
 	"os"
 	"path"
@@ -26,6 +24,9 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	kanzi "github.com/flanglet/kanzi-go"
+	kio "github.com/flanglet/kanzi-go/io"
 )
 
 const (

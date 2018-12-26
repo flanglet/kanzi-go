@@ -18,6 +18,7 @@ package function
 import (
 	"errors"
 	"fmt"
+
 	"github.com/flanglet/kanzi-go/transform"
 )
 

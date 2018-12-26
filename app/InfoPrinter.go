@@ -18,10 +18,11 @@ package main
 import (
 	"errors"
 	"fmt"
-	kanzi "github.com/flanglet/kanzi-go"
 	"io"
 	"sync"
 	"time"
+
+	kanzi "github.com/flanglet/kanzi-go"
 )
 
 // An implementation of BlockListener to display block information (verbose option

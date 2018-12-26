@@ -19,11 +19,12 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"strings"
+
 	kanzi "github.com/flanglet/kanzi-go"
 	"github.com/flanglet/kanzi-go/bitstream"
 	"github.com/flanglet/kanzi-go/entropy"
 	"github.com/flanglet/kanzi-go/util"
-	"strings"
 )
 
 // Implementation of a Reduced Offset Lempel Ziv transform
@@ -526,7 +527,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 				mIdxDec.Decode(mIdxBuf[0:length])
 				mIdxDec.Dispose()
-				srcIdx += int((ibs.Read()+7)>>3)
+				srcIdx += int((ibs.Read() + 7) >> 3)
 			}
 
 			ibs.Close()
@@ -669,7 +670,7 @@ func (this rolzCodec1) emitLiterals(litBuf, dst []byte, dstIdx int) (int, int) {
 		m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
 		dst[dstIdx+n] = litBuf[idx+n]
 		this.counters[key]++
-		m[this.counters[key]&this.maskChecks] = int32(dstIdx+n)
+		m[this.counters[key]&this.maskChecks] = int32(dstIdx + n)
 		n++
 	}
 
