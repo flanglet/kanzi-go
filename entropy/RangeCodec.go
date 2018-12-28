@@ -127,10 +127,10 @@ func (this *RangeEncoder) encodeHeader(alphabetSize int, alphabet []int, frequen
 	}
 
 	this.bitstream.WriteBits(uint64(lr-8), 3) // logRange
-	inc := 16
+	chkSize := 6
 
-	if alphabetSize <= 64 {
-		inc = 8
+	if alphabetSize < 64 {
+		chkSize = 4
 	}
 
 	llr := uint(3)
@@ -140,10 +140,10 @@ func (this *RangeEncoder) encodeHeader(alphabetSize int, alphabet []int, frequen
 	}
 
 	/// Encode all frequencies (but the first one) by chunks of size 'inc'
-	for i := 1; i < alphabetSize; i += inc {
+	for i := 1; i < alphabetSize; i += chkSize {
 		max := 0
 		logMax := uint(1)
-		endj := i + inc
+		endj := i + chkSize
 
 		if endj > alphabetSize {
 			endj = alphabetSize
