@@ -127,10 +127,10 @@ func (this *RangeEncoder) encodeHeader(alphabetSize int, alphabet []int, frequen
 	}
 
 	this.bitstream.WriteBits(uint64(lr-8), 3) // logRange
-	chkSize := 6
+	chkSize := 12
 
 	if alphabetSize < 64 {
-		chkSize = 4
+		chkSize = 6
 	}
 
 	llr := uint(3)
@@ -335,10 +335,10 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
 	scale := 1 << logRange
 	this.shift = logRange
 	sum := 0
-	chkSize := 6
+	chkSize := 12
 
 	if alphabetSize < 64 {
-		chkSize = 4
+		chkSize = 6
 	}
 
 	llr := uint(3)

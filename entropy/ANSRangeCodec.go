@@ -157,10 +157,10 @@ func (this *ANSRangeEncoder) encodeHeader(alphabetSize int, alphabet []int, freq
 		return true
 	}
 
-	chkSize := 6
+	chkSize := 12
 
 	if alphabetSize < 64 {
-		chkSize = 4
+		chkSize = 6
 	}
 
 	llr := uint(3)
@@ -476,10 +476,10 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, error) {
 			}
 		}
 
-		chkSize := 6
+		chkSize := 12
 
 		if alphabetSize < 64 {
-			chkSize = 4
+			chkSize = 6
 		}
 
 		llr := uint(3)
