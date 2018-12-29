@@ -226,15 +226,7 @@ func (this *RangeEncoder) Encode(block []byte) (int, error) {
 
 // Compute chunk frequencies, cumulated frequencies and encode chunk header
 func (this *RangeEncoder) rebuildStatistics(block []byte, lr uint) error {
-	for i := range this.freqs {
-		this.freqs[i] = 0
-	}
-
-	for i := range block {
-		this.freqs[block[i]]++
-	}
-
-	// Rebuild statistics
+	kanzi.ComputeHistogram(block, this.freqs[:], true, false)
 	_, err := this.updateFrequencies(this.freqs[:], len(block), lr)
 	return err
 }
@@ -343,21 +335,22 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
 	scale := 1 << logRange
 	this.shift = logRange
 	sum := 0
-	inc := 16
-	llr := uint(3)
+	chkSize := 6
 
-	if alphabetSize <= 64 {
-		inc = 8
+	if alphabetSize < 64 {
+		chkSize = 4
 	}
+
+	llr := uint(3)
 
 	for 1<<llr <= logRange {
 		llr++
 	}
 
 	// Decode all frequencies (but the first one) by chunks of size 'inc'
-	for i := 1; i < alphabetSize; i += inc {
+	for i := 1; i < alphabetSize; i += chkSize {
 		logMax := uint(1 + this.bitstream.ReadBits(llr))
-		endj := i + inc
+		endj := i + chkSize
 
 		if endj > alphabetSize {
 			endj = alphabetSize

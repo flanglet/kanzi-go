@@ -334,39 +334,7 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 
 // Compute chunk frequencies, cumulated frequencies and encode chunk header
 func (this *ANSRangeEncoder) rebuildStatistics(block []byte, lr uint) (int, error) {
-	for i := range this.freqs {
-		this.freqs[i] = 0
-	}
-
-	if this.order == 0 {
-		f := this.freqs[0:257]
-		f[256] = len(block)
-		end8 := len(block) & -8
-
-		for i := 0; i < end8; i += 8 {
-			f[block[i]]++
-			f[block[i+1]]++
-			f[block[i+2]]++
-			f[block[i+3]]++
-			f[block[i+4]]++
-			f[block[i+5]]++
-			f[block[i+6]]++
-			f[block[i+7]]++
-		}
-
-		for i := end8; i < len(block); i++ {
-			f[block[i]]++
-		}
-	} else {
-		prv := int(0)
-
-		for _, cur := range block {
-			this.freqs[prv+int(cur)]++
-			this.freqs[prv+256]++
-			prv = 257 * int(cur)
-		}
-	}
-
+	kanzi.ComputeHistogram(block, this.freqs, this.order == 0, true)
 	return this.updateFrequencies(this.freqs, lr)
 }
 
@@ -508,17 +476,19 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, error) {
 			}
 		}
 
-		chkSize := 16
-		sum := 0
-		llr := uint(3)
+		chkSize := 6
 
-		if alphabetSize <= 64 {
-			chkSize = 8
+		if alphabetSize < 64 {
+			chkSize = 4
 		}
+
+		llr := uint(3)
 
 		for 1<<llr <= this.logRange {
 			llr++
 		}
+
+		sum := 0
 
 		// Decode all frequencies (but the first one) by chunks
 		for i := 1; i < alphabetSize; i += chkSize {

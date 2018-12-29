@@ -64,13 +64,13 @@ func (this codeLengthComparator) Swap(i, j int) {
 	this.ranks[i], this.ranks[j] = this.ranks[j], this.ranks[i]
 }
 
-func byIncreasingFrequency(ranks []int, frequencies []uint) frequencyComparator {
+func byIncreasingFrequency(ranks []int, frequencies []int) frequencyComparator {
 	return frequencyComparator{ranks: ranks, frequencies: frequencies}
 }
 
 type frequencyComparator struct {
 	ranks       []int
-	frequencies []uint
+	frequencies []int
 }
 
 func (this frequencyComparator) Less(i, j int) bool {
@@ -182,7 +182,7 @@ func NewHuffmanEncoder(bs kanzi.OutputBitStream, args ...uint) (*HuffmanEncoder,
 }
 
 // Rebuild Huffman codes
-func (this *HuffmanEncoder) updateFrequencies(frequencies []uint) (int, error) {
+func (this *HuffmanEncoder) updateFrequencies(frequencies []int) (int, error) {
 	if frequencies == nil || len(frequencies) != 256 {
 		return 0, errors.New("Invalid frequencies parameter")
 	}
@@ -243,13 +243,13 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []uint) (int, error) {
 // See [In-Place Calculation of Minimum-Redundancy Codes]
 // by Alistair Moffat & Jyrki Katajainen
 // count > 1 by design
-func (this *HuffmanEncoder) computeCodeLengths(frequencies []uint, sizes []byte, count int) error {
+func (this *HuffmanEncoder) computeCodeLengths(frequencies []int, sizes []byte, count int) error {
 	// Sort ranks by increasing frequency
 	copy(this.sranks[:], this.ranks[0:count])
 
 	// Sort by increasing frequencies (first key) and increasing value (second key)
 	sort.Sort(byIncreasingFrequency(this.sranks[0:count], frequencies))
-	var buffer [256]uint
+	var buffer [256]int
 	buf := buffer[0:count]
 
 	for i := range buf {
@@ -274,16 +274,16 @@ func (this *HuffmanEncoder) computeCodeLengths(frequencies []uint, sizes []byte,
 	return err
 }
 
-func computeInPlaceSizesPhase1(data []uint) {
+func computeInPlaceSizesPhase1(data []int) {
 	n := len(data)
 
 	for s, r, t := 0, 0, 0; t < n-1; t++ {
-		sum := uint(0)
+		sum := 0
 
 		for i := 0; i < 2; i++ {
 			if s >= n || (r < t && data[r] < data[s]) {
 				sum += data[r]
-				data[r] = uint(t)
+				data[r] = t
 				r++
 			} else {
 				sum += data[s]
@@ -300,12 +300,12 @@ func computeInPlaceSizesPhase1(data []uint) {
 	}
 }
 
-func computeInPlaceSizesPhase2(data []uint) {
+func computeInPlaceSizesPhase2(data []int) {
 	n := len(data)
-	levelTop := uint(n - 2) //root
-	depth := uint(1)
+	levelTop := n - 2 //root
+	depth := 1
 	i := n
-	totalNodesAtLevel := uint(2)
+	totalNodesAtLevel := 2
 
 	for i > 0 {
 		k := levelTop
@@ -317,7 +317,7 @@ func computeInPlaceSizesPhase2(data []uint) {
 		internalNodesAtLevel := levelTop - k
 		leavesAtLevel := totalNodesAtLevel - internalNodesAtLevel
 
-		for j := uint(0); j < leavesAtLevel; j++ {
+		for j := 0; j < leavesAtLevel; j++ {
 			i--
 			data[i] = depth
 		}
@@ -353,23 +353,8 @@ func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
 			endChunk = len(block)
 		}
 
-		endChunk8 := ((endChunk - startChunk) & -8) + startChunk
-		var frequencies [256]uint
-
-		for i := startChunk; i < endChunk8; i += 8 {
-			frequencies[block[i]]++
-			frequencies[block[i+1]]++
-			frequencies[block[i+2]]++
-			frequencies[block[i+3]]++
-			frequencies[block[i+4]]++
-			frequencies[block[i+5]]++
-			frequencies[block[i+6]]++
-			frequencies[block[i+7]]++
-		}
-
-		for i := endChunk8; i < endChunk; i++ {
-			frequencies[block[i]]++
-		}
+		var frequencies [256]int
+		kanzi.ComputeHistogram(block, frequencies[:], true, false)
 
 		// Rebuild Huffman codes
 		if _, err := this.updateFrequencies(frequencies[:]); err != nil {
@@ -378,6 +363,7 @@ func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
 
 		c := this.codes
 		bs := this.bitstream
+		endChunk8 := ((endChunk - startChunk) & -8) + startChunk
 
 		for i := startChunk; i < endChunk8; i += 8 {
 			val := c[block[i]]

@@ -240,6 +240,51 @@ func DifferentInts(src, dst []byte) bool {
 	return *(*uint32)(unsafe.Pointer(uintptr(p))) != *(*uint32)(unsafe.Pointer(uintptr(q)))
 }
 
+// If withTotal is true, the last spot in each frequencies order 0 array is for the total
+func ComputeHistogram(block []byte, freqs []int, isOrder0, withTotal bool) {
+	for i := range freqs {
+		freqs[i] = 0
+	}
+
+	if isOrder0 == true {
+		if withTotal == true {
+			freqs[256] = len(block)
+		}
+
+		end8 := len(block) & -8
+
+		for i := 0; i < end8; i += 8 {
+			freqs[block[i]]++
+			freqs[block[i+1]]++
+			freqs[block[i+2]]++
+			freqs[block[i+3]]++
+			freqs[block[i+4]]++
+			freqs[block[i+5]]++
+			freqs[block[i+6]]++
+			freqs[block[i+7]]++
+		}
+
+		for i := end8; i < len(block); i++ {
+			freqs[block[i]]++
+		}
+	} else { // Order 1
+		prv := int(0)
+
+		if withTotal == true {
+			for _, cur := range block {
+				freqs[prv+int(cur)]++
+				freqs[prv+256]++
+				prv = 257 * int(cur)
+			}
+		} else {
+			for _, cur := range block {
+				freqs[prv+int(cur)]++
+				prv = 256 * int(cur)
+			}
+		}
+	}
+}
+
 func ComputeJobsPerTask(jobsPerTask []uint, jobs, tasks uint) []uint {
 	var q, r uint
 
