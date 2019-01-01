@@ -452,7 +452,14 @@ func (this *BlockCompressor) Call() (int, uint64) {
 	if nbFiles > 1 {
 		delta := after.Sub(before).Nanoseconds() / 1000000 // convert to ms
 		log.Println("", this.verbosity > 0)
-		msg = fmt.Sprintf("Total encoding time: %d ms", delta)
+
+		if delta >= 100000 {
+			msg = fmt.Sprintf("%.1f s", float64(delta)/1000)
+		} else {
+			msg = fmt.Sprintf("%.0f ms", float64(delta))
+		}
+
+		msg = fmt.Sprintf("Total encoding time: %v", msg)
 		log.Println(msg, this.verbosity > 0)
 
 		if written > 1 {
