@@ -169,7 +169,6 @@ func (this *ROLZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	return this.delegate.Inverse(src, dst)
-
 }
 
 func (this *ROLZCodec) MaxEncodedLen(srcLen int) int {
@@ -336,8 +335,10 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			litIdx += emitLiteralLength(litBuf[litIdx:], length)
 
 			// Emit literals
-			copy(litBuf[litIdx:], src[firstLitIdx:firstLitIdx+length])
-			litIdx += length
+			if length > 0 {
+				copy(litBuf[litIdx:], buf[firstLitIdx:firstLitIdx+length])
+				litIdx += length
+			}
 
 			// Emit match
 			mLenBuf[mIdx] = byte(matchLen)
@@ -418,6 +419,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 End:
 	if err == nil {
 		// Emit last literals
+		srcIdx += (startChunk - sizeChunk)
 		dst[dstIdx] = src[srcIdx]
 		dst[dstIdx+1] = src[srcIdx+1]
 		dst[dstIdx+2] = src[srcIdx+2]
@@ -439,10 +441,6 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		return uint(len(src)), uint(len(src)), nil
 	}
 
-	srcIdx := 0
-	dstIdx := 0
-	dstEnd := int(binary.BigEndian.Uint32(src[srcIdx:])) - 4
-	srcIdx += 4
 	sizeChunk := len(dst)
 
 	if sizeChunk > ROLZ_CHUNK_SIZE {
@@ -451,11 +449,14 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 	startChunk := 0
 	var is util.BufferStream
+	dstEnd := int(binary.BigEndian.Uint32(src[0:])) - 4
 
-	if _, err := is.Write(src[srcIdx:]); err != nil {
+	if _, err := is.Write(src[4:]); err != nil {
 		return 0, 0, err
 	}
 
+	srcIdx := 4
+	dstIdx := 0
 	litBuf := make([]byte, this.MaxEncodedLen(sizeChunk))
 	mLenBuf := make([]byte, sizeChunk/2)
 	mIdxBuf := make([]byte, sizeChunk/2)
@@ -482,12 +483,12 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 		sizeChunk = endChunk - startChunk
 		buf := dst[startChunk:endChunk]
-		dstIdx = 0
 
 		// Scope to deallocate resources early
 		{
 			// Decode literal, match length and match index buffers
 			var ibs kanzi.InputBitStream
+			is.SetOffset(srcIdx - 4)
 
 			if ibs, err = bitstream.NewDefaultInputBitStream(&is, 65536); err != nil {
 				break
@@ -527,9 +528,9 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 				mIdxDec.Decode(mIdxBuf[0:length])
 				mIdxDec.Dispose()
-				srcIdx += int((ibs.Read() + 7) >> 3)
 			}
 
+			srcIdx += int((ibs.Read() + 7) >> 3)
 			ibs.Close()
 
 			if length > sizeChunk {
@@ -538,6 +539,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 		}
 
+		dstIdx = 0
 		buf[dstIdx] = litBuf[litIdx]
 		dstIdx++
 		litIdx++
@@ -549,7 +551,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 
 		// Next chunk
-		for dstIdx < endChunk {
+		for dstIdx < sizeChunk {
 			length, litDelta := this.emitLiterals(litBuf[litIdx:], buf, dstIdx)
 
 			litIdx += (length + litDelta)
@@ -565,9 +567,6 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 				goto End
 			}
 
-			savedIdx := dstIdx
-			key := getKey(buf[dstIdx-2:])
-			m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
 			matchLen := int(mLenBuf[mIdx] & 0xFF)
 
 			// Sanity check
@@ -578,7 +577,10 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 			matchIdx := int32(mIdxBuf[mIdx] & 0xFF)
 			mIdx++
+			key := getKey(buf[dstIdx-2:])
+			m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
 			ref := m[(this.counters[key]-matchIdx)&this.maskChecks]
+			savedIdx := dstIdx
 			dstIdx = emitCopy(buf, dstIdx, int(ref), matchLen)
 			this.counters[key]++
 			m[this.counters[key]&this.maskChecks] = int32(savedIdx)
@@ -589,9 +591,8 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 End:
 	if err == nil {
-		dstIdx += (startChunk - sizeChunk)
-
 		// Emit last literals
+		dstIdx += (startChunk - sizeChunk)
 		dst[dstIdx] = src[srcIdx]
 		dst[dstIdx+1] = src[srcIdx+1]
 		dst[dstIdx+2] = src[srcIdx+2]
@@ -662,16 +663,15 @@ func (this rolzCodec1) emitLiterals(litBuf, dst []byte, dstIdx int) (int, int) {
 			}
 		}
 	}
-	// Emit literal bytes
-	n := 0
 
-	for n < length {
+	// Emit literal bytes
+	copy(dst[dstIdx:], litBuf[idx:idx+length])
+
+	for n := 0; n < length; n++ {
 		key := getKey(dst[dstIdx+n-2:])
 		m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
-		dst[dstIdx+n] = litBuf[idx+n]
 		this.counters[key]++
 		m[this.counters[key]&this.maskChecks] = int32(dstIdx + n)
-		n++
 	}
 
 	return length, idx

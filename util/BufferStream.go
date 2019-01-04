@@ -16,29 +16,44 @@ limitations under the License.
 package util
 
 import (
-	"bytes"
 	"errors"
 )
 
 type BufferStream struct {
-	buf    bytes.Buffer
+	buf    []byte
+	off    int
 	closed bool
 }
 
 func (this *BufferStream) Write(b []byte) (int, error) {
-	if this.closed {
+	if this.closed == true {
 		return 0, errors.New("Stream closed")
 	}
 
-	return this.buf.Write(b)
+	// Write to len(this.buf)
+	newBuf := make([]byte, len(this.buf)+len(b))
+	copy(newBuf, this.buf)
+	copy(newBuf[len(this.buf):], b)
+	this.buf = newBuf
+	return len(b), nil
 }
 
 func (this *BufferStream) Read(b []byte) (int, error) {
-	if this.closed {
+	if this.closed == true {
 		return 0, errors.New("Stream closed")
 	}
 
-	return this.buf.Read(b)
+	// Read from this.off
+	if len(b) < len(this.buf[this.off:]) {
+		copy(b, this.buf[this.off:this.off+len(b)])
+		this.off += len(b)
+		return len(b), nil
+	}
+
+	copy(b, this.buf[this.off:])
+	old := this.off
+	this.off = len(this.buf)
+	return len(this.buf) - old, nil
 }
 
 func (this *BufferStream) Close() error {
@@ -47,5 +62,22 @@ func (this *BufferStream) Close() error {
 }
 
 func (this *BufferStream) Len() int {
-	return this.buf.Len()
+	return len(this.buf)
+}
+
+func (this *BufferStream) Offset() int {
+	return this.off
+}
+
+func (this *BufferStream) SetOffset(off int) error {
+	if this.closed == true {
+		return errors.New("Stream closed")
+	}
+
+	if off < 0 || off >= this.Len() {
+		return errors.New("Invalid offset")
+	}
+
+	this.off = off
+	return nil
 }
