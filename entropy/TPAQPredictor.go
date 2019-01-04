@@ -31,6 +31,8 @@ const (
 	TPAQ_MASK_BUFFER      = TPAQ_BUFFER_SIZE - 1
 	TPAQ_MASK_80808080    = int32(-2139062144) // 0x80808080
 	TPAQ_MASK_F0F0F0F0    = int32(-252645136)  // 0xF0F0F0F0
+	TPAQ_MASK_4F4FFFFF    = int32(1330642943)  // 0x4F4FFFFF
+	TPAQ_MASK_FFFF0000    = int32(-65536)      // 0xFFFF0000
 	TPAQ_HASH             = int32(0x7FEB352D)
 	TPAQ_BEGIN_LEARN_RATE = 60 << 7
 	TPAQ_END_LEARN_RATE   = 11 << 7
@@ -313,25 +315,25 @@ func (this *TPAQPredictor) Update(bit byte) {
 			var h1, h2 int32
 
 			if this.c4&TPAQ_MASK_80808080 == 0 {
-				h1 = this.c4
+				h1 = this.c4 & TPAQ_MASK_4F4FFFFF
 			} else {
 				h1 = this.c4 & TPAQ_MASK_80808080
 			}
 
 			if this.c8&TPAQ_MASK_80808080 == 0 {
-				h2 = this.c8
+				h2 = this.c8 & TPAQ_MASK_4F4FFFFF
 			} else {
 				h2 = this.c8 & TPAQ_MASK_80808080
 			}
 
-			this.ctx4 = createContext(4, this.c4^(this.c8&0xFFFF))
+			this.ctx4 = createContext(this.c4&0xFFFF, this.c4^(this.c8&0xFFFF))
 			this.ctx5 = hashTPAQ(h1, h2)
 			this.ctx6 = hashTPAQ(this.c8&TPAQ_MASK_F0F0F0F0, this.c4&TPAQ_MASK_F0F0F0F0)
 		} else {
 			// Mostly binary
-			this.ctx4 = createContext(4, this.c4^(this.c4&0xFFFF))
-			this.ctx5 = hashTPAQ(this.c4>>16, this.c8>>16)
-			this.ctx6 = ((this.c4 & 0xFF) << 8) | ((this.c8 & 0xFFFF) << 16)
+			this.ctx4 = createContext(TPAQ_HASH, this.c4^(this.c4&0xFFFF))
+			this.ctx5 = hashTPAQ(this.c4&TPAQ_MASK_FFFF0000, this.c8>>16)
+			this.ctx6 = this.ctx0 | (this.c8 << 16)
 		}
 
 		// Find match
