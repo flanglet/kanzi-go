@@ -266,11 +266,6 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
 	}
 
-	if len(src) <= 16 {
-		copy(dst, src)
-		return uint(len(src)), uint(len(src)), nil
-	}
-
 	srcIdx := 0
 	dstIdx := 0
 	srcEnd := len(src) - 4
@@ -436,11 +431,6 @@ End:
 }
 
 func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
-	if len(src) <= 16 {
-		copy(dst, src)
-		return uint(len(src)), uint(len(src)), nil
-	}
-
 	sizeChunk := len(dst)
 
 	if sizeChunk > ROLZ_CHUNK_SIZE {
@@ -609,13 +599,11 @@ End:
 }
 
 func (this rolzCodec1) MaxEncodedLen(srcLen int) int {
-	res := (srcLen * 5) >> 2
-
-	if res >= 32 {
-		return res
+	if srcLen <= 512 {
+		return srcLen + 32
 	}
 
-	return 32
+	return srcLen
 }
 
 func emitLiteralLength(litBuf []byte, length int) int {
@@ -772,11 +760,6 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
 	}
 
-	if len(src) <= 16 {
-		copy(dst, src)
-		return uint(len(src)), uint(len(src)), nil
-	}
-
 	srcIdx := 0
 	dstIdx := 0
 	srcEnd := len(src) - 4
@@ -874,11 +857,6 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 }
 
 func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
-	if len(src) <= 16 {
-		copy(dst, src)
-		return uint(len(src)), uint(len(src)), nil
-	}
-
 	srcIdx := 0
 	dstIdx := 0
 	dstEnd := int(binary.BigEndian.Uint32(src[srcIdx:]))
@@ -993,13 +971,17 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 }
 
 func (this rolzCodec2) MaxEncodedLen(srcLen int) int {
-	res := (srcLen * 5) >> 2
-
-	if res >= 32 {
-		return res
+	// Since we do not check the dst index for each byte (for speed purpose)
+	// allocate some extra buffer for incompressible data.
+	if srcLen >= ROLZ_CHUNK_SIZE {
+		return srcLen
 	}
 
-	return 32
+	if srcLen <= 512 {
+		return srcLen + 32
+	}
+
+	return srcLen + srcLen/8
 }
 
 type rolzPredictor struct {

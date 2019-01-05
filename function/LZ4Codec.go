@@ -389,5 +389,9 @@ func (this *LZ4Codec) Inverse(src, dst []byte) (uint, uint, error) {
 }
 
 func (this LZ4Codec) MaxEncodedLen(srcLen int) int {
+	if srcLen >= 1<<30 {
+		return srcLen
+	}
+
 	return srcLen + (srcLen / 255) + 16
 }

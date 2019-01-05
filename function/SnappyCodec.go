@@ -418,5 +418,9 @@ func (this SnappyCodec) getDecodedLength(buf []byte) (uint, int, error) {
 //
 // This last factor dominates the blowup, so the final estimate is:
 func (this SnappyCodec) MaxEncodedLen(srcLen int) int {
+	if srcLen >= 1<<30 {
+		return srcLen
+	}
+
 	return 32 + srcLen + srcLen/6
 }

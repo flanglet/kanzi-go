@@ -178,5 +178,15 @@ func (this *X86Codec) Inverse(src, dst []byte) (uint, uint, error) {
 }
 
 func (this X86Codec) MaxEncodedLen(srcLen int) int {
-	return (srcLen * 5) >> 2
+	// Since we do not check the dst index for each byte (for speed purpose)
+	// allocate some extra buffer for incompressible data.
+	if srcLen >= 1<<30 {
+		return srcLen
+	}
+
+	if srcLen <= 512 {
+		return srcLen + 32
+	}
+
+	return srcLen + srcLen/16
 }

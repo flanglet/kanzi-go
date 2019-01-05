@@ -982,13 +982,6 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skipping")
 	}
 
-	if count <= 64 {
-		copy(dst[dstIdx:], src[srcIdx:srcIdx+count])
-		srcIdx += count
-		dstIdx += count
-		return uint(srcIdx), uint(dstIdx), nil
-	}
-
 	this.reset()
 	srcEnd := count
 	dstEnd := this.MaxEncodedLen(count)
@@ -1224,15 +1217,6 @@ func emitWordIndex1(dst []byte, val int) int {
 func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	srcIdx := 0
 	dstIdx := 0
-	count := len(src)
-
-	if count <= 64 {
-		copy(dst[dstIdx:], src[srcIdx:srcIdx+count])
-		srcIdx += count
-		dstIdx += count
-		return uint(srcIdx), uint(dstIdx), nil
-	}
-
 	this.reset()
 	srcEnd := len(src)
 	dstEnd := len(dst)
@@ -1500,13 +1484,6 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skipping")
 	}
 
-	if count <= 64 {
-		copy(dst[dstIdx:], src[srcIdx:srcIdx+count])
-		srcIdx += count
-		dstIdx += count
-		return uint(srcIdx), uint(dstIdx), nil
-	}
-
 	this.reset()
 	srcEnd := count
 	dstEnd := this.MaxEncodedLen(count)
@@ -1731,15 +1708,6 @@ func emitWordIndex2(dst []byte, val, mask int) int {
 func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	srcIdx := 0
 	dstIdx := 0
-	count := len(src)
-
-	if count <= 64 {
-		copy(dst[dstIdx:], src[srcIdx:srcIdx+count])
-		srcIdx += count
-		dstIdx += count
-		return uint(srcIdx), uint(dstIdx), nil
-	}
-
 	this.reset()
 	srcEnd := len(src)
 	dstEnd := len(dst)
