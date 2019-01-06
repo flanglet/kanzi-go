@@ -354,7 +354,7 @@ func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
 		}
 
 		var frequencies [256]int
-		kanzi.ComputeHistogram(block, frequencies[:], true, false)
+		kanzi.ComputeHistogram(block[startChunk:endChunk], frequencies[:], true, false)
 
 		// Rebuild Huffman codes
 		if _, err := this.updateFrequencies(frequencies[:]); err != nil {
