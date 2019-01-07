@@ -464,20 +464,20 @@ type TPAQMixer struct {
 func (this *TPAQMixer) init() {
 	this.pr = 2048
 	this.skew = 0
-	this.w0 = 2048
-	this.w1 = 2048
-	this.w2 = 2048
-	this.w3 = 2048
-	this.w4 = 2048
-	this.w5 = 2048
-	this.w6 = 2048
-	this.w7 = 2048
+	this.w0 = 32768
+	this.w1 = 32768
+	this.w2 = 32768
+	this.w3 = 32768
+	this.w4 = 32768
+	this.w5 = 32768
+	this.w6 = 32768
+	this.w7 = 32768
 	this.learnRate = TPAQ_BEGIN_LEARN_RATE
 }
 
 // Adjust weights to minimize coding cost of last prediction
 func (this *TPAQMixer) update(bit int) {
-	err := (int32((bit<<12)-this.pr) * this.learnRate) >> 7
+	err := (int32((bit<<12)-this.pr) * this.learnRate) >> 10
 
 	if err == 0 {
 		return
@@ -488,14 +488,14 @@ func (this *TPAQMixer) update(bit int) {
 	this.skew += err
 
 	// Train Neural Network: update weights
-	this.w0 += ((this.p0*err + 0) >> 15)
-	this.w1 += ((this.p1*err + 0) >> 15)
-	this.w2 += ((this.p2*err + 0) >> 15)
-	this.w3 += ((this.p3*err + 0) >> 15)
-	this.w4 += ((this.p4*err + 0) >> 15)
-	this.w5 += ((this.p5*err + 0) >> 15)
-	this.w6 += ((this.p6*err + 0) >> 15)
-	this.w7 += ((this.p7*err + 0) >> 15)
+	this.w0 += ((this.p0*err + 0) >> 12)
+	this.w1 += ((this.p1*err + 0) >> 12)
+	this.w2 += ((this.p2*err + 0) >> 12)
+	this.w3 += ((this.p3*err + 0) >> 12)
+	this.w4 += ((this.p4*err + 0) >> 12)
+	this.w5 += ((this.p5*err + 0) >> 12)
+	this.w6 += ((this.p6*err + 0) >> 12)
+	this.w7 += ((this.p7*err + 0) >> 12)
 }
 
 func (this *TPAQMixer) get(p0, p1, p2, p3, p4, p5, p6, p7 int32) int {
