@@ -106,7 +106,7 @@ func newByteFunctionToken(ctx *map[string]interface{}, functionType uint64) (kan
 		return NewZRLT()
 
 	case RLT_TYPE:
-		return NewRLT(2)
+		return NewRLT()
 
 	case RANK_TYPE:
 		return transform.NewSBRT(transform.SBRT_MODE_RANK)

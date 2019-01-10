@@ -15,41 +15,34 @@ limitations under the License.
 
 package function
 
-// Implementation of Mespotine RLE
-// See [An overhead-reduced and improved Run-Length-Encoding Method] by Meo Mespotine
-// Length is transmitted as 1 to 3 bytes. The run threshold can be provided.
-// EG. runThreshold = 2 and RUN_LEN_ENCODE1 = 239 => RUN_LEN_ENCODE2 = 4096
-// 2    <= runLen < 239+2      -> 1 byte
-// 241  <= runLen < 4096+2     -> 2 bytes
-// 4098 <= runLen < 65536+4098 -> 3 bytes
+// Implementation of an escaped RLE
+// Run length encoding:
+// RUN_LEN_ENCODE1 = 224 => RUN_LEN_ENCODE2 = 31*224 = 6944
+// 4    <= runLen < 224+4      -> 1 byte
+// 228  <= runLen < 6944+228   -> 2 bytes
+// 7172 <= runLen < 65535+7172 -> 3 bytes
 
 import (
 	"errors"
 	"fmt"
+
+	kanzi "github.com/flanglet/kanzi-go"
 )
 
 const (
-	RLT_RUN_LEN_ENCODE1 = 224                                  // used to encode run length
-	RLT_RUN_LEN_ENCODE2 = (256 - 1 - RLT_RUN_LEN_ENCODE1) << 8 // used to encode run length
-	RLT_MAX_RUN         = 0xFFFF + RLT_RUN_LEN_ENCODE2
+	RLT_RUN_LEN_ENCODE1 = 224                              // used to encode run length
+	RLT_RUN_LEN_ENCODE2 = (255 - RLT_RUN_LEN_ENCODE1) << 8 // used to encode run length
+	RLT_RUN_THRESHOLD   = 3
+	RLT_MAX_RUN         = 0xFFFF + RLT_RUN_LEN_ENCODE2 + RLT_RUN_THRESHOLD - 1
+	RLT_MAX_RUN4        = RLT_MAX_RUN - 4
 )
 
 type RLT struct {
-	runThreshold uint
 }
 
-func NewRLT(threshold uint) (*RLT, error) {
-	if threshold < 2 {
-		return nil, errors.New("Invalid run threshold parameter (must be at least 2)")
-	}
-
-	this := new(RLT)
-	this.runThreshold = threshold
+func NewRLT() (*RLT, error) {
+	this := &RLT{}
 	return this, nil
-}
-
-func (this *RLT) RunTheshold() uint {
-	return this.runThreshold
 }
 
 func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
@@ -65,157 +58,196 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
 	}
 
-	counters := [256]int{}
-	flags := [32]byte{}
-	srcIdx := uint(0)
-	dstIdx := uint(0)
-	srcEnd := uint(len(src))
-	dstEnd := uint(len(dst))
-	dstEnd4 := dstEnd - 4
+	srcIdx := 0
+	dstIdx := 0
+	srcEnd := len(src)
+	srcEnd4 := srcEnd - 4
+	dstEnd := len(dst)
+	freqs := [256]int{}
+	kanzi.ComputeHistogram(src[srcIdx:srcEnd], freqs[:], true, false)
+
+	minIdx := 0
+
+	// Select escape symbol
+	if freqs[minIdx] > 0 {
+		for i, f := range freqs {
+			if f < freqs[minIdx] {
+				minIdx = i
+
+				if f == 0 {
+					break
+				}
+			}
+		}
+	}
+
+	escape := byte(minIdx)
 	run := 0
-	threshold := int(this.runThreshold)
-	maxRun := RLT_MAX_RUN + int(this.runThreshold)
 	var err error
+	prev := src[srcIdx]
+	srcIdx++
+	dst[dstIdx] = escape
+	dstIdx++
+	dst[dstIdx] = prev
+	dstIdx++
 
-	// Initialize with a value different from the first data
-	prev := ^src[srcIdx]
-
-	// Step 1: create counters and set compression flags
-	for srcIdx < srcEnd {
-		val := src[srcIdx]
-		srcIdx++
-
-		// Encode up to 0x7FFF repetitions in the 'length' information
-		if prev == val && run < RLT_MAX_RUN {
-			run++
-			continue
-		}
-
-		if run >= threshold {
-			counters[prev] += (run - threshold - 1)
-		}
-
-		prev = val
-		run = 1
-	}
-
-	if run >= threshold {
-		counters[prev] += (run - threshold - 1)
-	}
-
-	for i := range counters {
-		if counters[i] > 0 {
-			flags[i>>3] |= (1 << uint(7-(i&7)))
-		}
-	}
-
-	// Write flags to output
-	for i := range flags {
-		dst[dstIdx] = flags[i]
+	if prev == escape {
+		dst[dstIdx] = 0
 		dstIdx++
 	}
 
-	srcIdx = 0
-	prev = ^src[srcIdx]
-	run = 0
-
-	// Step 2: output run lengths and literals
-	// Note that it is possible to output runs over the threshold (for symbols
-	// with an unset compression flag)
-	for srcIdx < srcEnd && dstIdx < dstEnd {
-		val := src[srcIdx]
-		srcIdx++
-
-		// Encode up to 0x7FFF repetitions in the 'length' information
-		if prev == val && run < maxRun && counters[prev] > 0 {
+	// Main loop
+	for srcIdx < srcEnd4 {
+		if prev == src[srcIdx] {
+			srcIdx++
 			run++
 
-			if run < threshold {
+			if prev == src[srcIdx] {
+				srcIdx++
+				run++
+
+				if prev == src[srcIdx] {
+					srcIdx++
+					run++
+
+					if prev == src[srcIdx] {
+						srcIdx++
+						run++
+
+						if run < RLT_MAX_RUN4 {
+							continue
+						}
+					}
+				}
+			}
+		}
+
+		if run > RLT_RUN_THRESHOLD {
+			dIdx, err2 := emitRunLength(dst[dstIdx:dstEnd], run, escape, prev)
+
+			if err2 != nil {
+				err = err2
+				break
+			}
+
+			dstIdx += dIdx
+		} else if prev != escape {
+			if dstIdx+run >= dstEnd {
+				err = errors.New("Output buffer is too small")
+				break
+			}
+
+			if run > 0 {
 				dst[dstIdx] = prev
 				dstIdx++
+				run--
 			}
 
-			continue
+			for run > 0 {
+				dst[dstIdx] = prev
+				dstIdx++
+				run--
+			}
+		} else { // escape literal
+			if dstIdx+2*run >= dstEnd {
+				err = errors.New("Output buffer is too small")
+				break
+			}
+
+			for run > 0 {
+				dst[dstIdx] = escape
+				dst[dstIdx+1] = 0
+				dstIdx += 2
+				run--
+			}
 		}
 
-		if run >= threshold {
-			run -= threshold
-
-			if dstIdx >= dstEnd4 {
-				if run >= RLT_RUN_LEN_ENCODE2 {
-					break
-				}
-
-				if run >= RLT_RUN_LEN_ENCODE1 && dstIdx > dstEnd4 {
-					break
-				}
-			}
-
-			dst[dstIdx] = prev
-			dstIdx++
-
-			// Encode run length
-			if run >= RLT_RUN_LEN_ENCODE1 {
-				if run < RLT_RUN_LEN_ENCODE2 {
-					run -= RLT_RUN_LEN_ENCODE1
-					dst[dstIdx] = byte(RLT_RUN_LEN_ENCODE1 + (run >> 8))
-					dstIdx++
-				} else {
-					run -= RLT_RUN_LEN_ENCODE2
-					dst[dstIdx] = byte(0xFF)
-					dst[dstIdx+1] = byte(run >> 8)
-					dstIdx += 2
-				}
-			}
-
-			dst[dstIdx] = byte(run)
-			dstIdx++
-		}
-
-		dst[dstIdx] = val
-		dstIdx++
-		prev = val
+		prev = src[srcIdx]
+		srcIdx++
 		run = 1
 	}
 
-	// Fill up the destination array
-	if run >= threshold {
-		run -= threshold
+	if err == nil {
+		// Process any remaining run
+		if run > RLT_RUN_THRESHOLD {
+			dIdx, err2 := emitRunLength(dst[dstIdx:dstEnd], run, escape, prev)
 
-		if dstIdx >= dstEnd4 {
-			if run >= RLT_RUN_LEN_ENCODE2 {
-				err = errors.New("Not enough space in destination buffer")
-			} else if run >= RLT_RUN_LEN_ENCODE1 && dstIdx > dstEnd4 {
-				err = errors.New("Not enough space in destination buffer")
+			if err2 != nil {
+				err = err2
+			} else {
+				dstIdx += dIdx
 			}
-		} else {
-			dst[dstIdx] = prev
-			dstIdx++
-
-			// Encode run length
-			if run >= RLT_RUN_LEN_ENCODE1 {
-				if run < RLT_RUN_LEN_ENCODE2 {
-					run -= RLT_RUN_LEN_ENCODE1
-					dst[dstIdx] = byte(RLT_RUN_LEN_ENCODE1 + (run >> 8))
+		} else if prev != escape {
+			if dstIdx+run < dstEnd {
+				for run > 0 {
+					dst[dstIdx] = prev
 					dstIdx++
-				} else {
-					run -= RLT_RUN_LEN_ENCODE2
-					dst[dstIdx] = byte(0xFF)
-					dst[dstIdx+1] = byte(run >> 8)
-					dstIdx += 2
+					run--
 				}
 			}
+		} else { // escape literal
+			if dstIdx+2*run < dstEnd {
+				for run > 0 {
+					dst[dstIdx] = escape
+					dst[dstIdx+1] = 0
+					dstIdx += 2
+					run--
+				}
+			}
+		}
 
-			dst[dstIdx] = byte(run)
+		// Copy the last few bytes
+		for srcIdx < srcEnd && dstIdx < dstEnd {
+			dst[dstIdx] = src[srcIdx]
+			srcIdx++
 			dstIdx++
+		}
+
+		if srcIdx != srcEnd {
+			err = errors.New("Output buffer is too small")
 		}
 	}
 
-	if srcIdx != srcEnd {
-		err = errors.New("Not enough space in destination buffer")
+	return uint(srcIdx), uint(dstIdx), err
+}
+
+func emitRunLength(dst []byte, run int, escape, val byte) (int, error) {
+	dst[0] = val
+	dstIdx := 1
+
+	if val == escape {
+		dst[1] = 0
+		dstIdx = 2
 	}
 
-	return srcIdx, dstIdx, err
+	dst[dstIdx] = escape
+	dstIdx++
+	run -= RLT_RUN_THRESHOLD
+
+	// Encode run length
+	if run >= RLT_RUN_LEN_ENCODE1 {
+		if run < RLT_RUN_LEN_ENCODE2 {
+			if dstIdx >= len(dst)-2 {
+				return dstIdx, errors.New("Output buffer too small")
+			}
+
+			run -= RLT_RUN_LEN_ENCODE1
+			dst[dstIdx] = byte(RLT_RUN_LEN_ENCODE1 + (run >> 8))
+			dstIdx++
+		} else {
+			if dstIdx >= len(dst)-3 {
+				return dstIdx, errors.New("Output buffer too small")
+			}
+
+			run -= RLT_RUN_LEN_ENCODE2
+			dst[dstIdx] = byte(0xFF)
+			dst[dstIdx+1] = byte(run >> 8)
+			dstIdx += 2
+		}
+	}
+
+	dst[dstIdx] = byte(run)
+	return dstIdx + 1, nil
 }
 
 func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
@@ -227,106 +259,122 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	counters := [256]int{}
-	srcIdx := uint(0)
-	dstIdx := uint(0)
-	srcEnd := uint(len(src))
-	dstEnd := uint(len(dst))
-	run := uint(0)
-	threshold := this.runThreshold
-	maxRun := RLT_MAX_RUN + this.runThreshold
+	srcIdx := 0
+	dstIdx := 0
+	srcEnd := len(src)
+	dstEnd := len(dst)
+	escape := src[srcIdx]
+	srcIdx++
 	var err error
 
-	// Read compression flags from input
-	for i, j := 0, 0; i < 32; i++ {
-		flag := int(src[srcIdx])
-		srcIdx++
-		counters[j] = (flag >> 7) & 1
-		counters[j+1] = (flag >> 6) & 1
-		counters[j+2] = (flag >> 5) & 1
-		counters[j+3] = (flag >> 4) & 1
-		counters[j+4] = (flag >> 3) & 1
-		counters[j+5] = (flag >> 2) & 1
-		counters[j+6] = (flag >> 1) & 1
-		counters[j+7] = (flag) & 1
-		j += 8
-	}
-
-	// Initialize with a value different from the first data
-	prev := ^src[srcIdx]
-
-	for srcIdx < srcEnd {
-		val := src[srcIdx]
+	if src[srcIdx] == escape {
 		srcIdx++
 
-		if prev == val && counters[prev] > 0 {
-			run++
-
-			if run >= threshold {
-				// Decode the length
-				run = uint(src[srcIdx])
-				srcIdx++
-
-				if run == 0xFF {
-					if srcIdx+1 >= srcEnd {
-						break
-					}
-
-					run = (uint(src[srcIdx]) << 8) | uint(src[srcIdx+1])
-					srcIdx += 2
-					run += RLT_RUN_LEN_ENCODE2
-				} else if run >= RLT_RUN_LEN_ENCODE1 {
-					if srcIdx >= srcEnd {
-						break
-					}
-
-					run = ((run - RLT_RUN_LEN_ENCODE1) << 8) | uint(src[srcIdx])
-					run += RLT_RUN_LEN_ENCODE1
-					srcIdx++
-				}
-
-				if dstIdx >= dstEnd+run || run > maxRun {
-					err = errors.New("Not enough space in destination buffer")
-					break
-				}
-
-				// Emit 'run' times the previous byte
-				for run >= 4 {
-					dst[dstIdx] = prev
-					dst[dstIdx+1] = prev
-					dst[dstIdx+2] = prev
-					dst[dstIdx+3] = prev
-					dstIdx += 4
-					run -= 4
-				}
-
-				for run > 0 {
-					dst[dstIdx] = prev
-					dstIdx++
-					run--
-				}
-			}
-		} else {
-			prev = val
-			run = 1
+		// The data cannot start with a run but may start with an escape literal
+		if srcIdx < srcEnd && src[srcIdx] != 0 {
+			return uint(srcIdx), uint(dstIdx), errors.New("Invalid input data: input starts with a run")
 		}
 
-		if dstIdx >= dstEnd {
-			break
-		}
-
-		dst[dstIdx] = val
+		srcIdx++
+		dst[dstIdx] = escape
 		dstIdx++
 	}
 
-	if srcIdx != srcEnd {
-		err = errors.New("Not enough space in destination buffer")
+	// Main loop
+	for srcIdx < srcEnd {
+		if src[srcIdx] != escape {
+			// Literal
+			if dstIdx >= dstEnd {
+				err = errors.New("Invalid input data")
+				break
+			}
+
+			dst[dstIdx] = src[srcIdx]
+			srcIdx++
+			dstIdx++
+			continue
+		}
+
+		srcIdx++
+
+		if srcIdx >= srcEnd {
+			err = errors.New("Invalid input data")
+			break
+		}
+
+		val := dst[dstIdx-1]
+		run := int(src[srcIdx])
+		srcIdx++
+
+		if run == 0 {
+			// Just an escape symbol, not a run
+			if dstIdx >= dstEnd {
+				err = errors.New("Invalid input data")
+				break
+			}
+
+			dst[dstIdx] = escape
+			dstIdx++
+			continue
+		}
+
+		// Decode the length
+		if run == 0xFF {
+			if srcIdx+1 >= srcEnd {
+				err = errors.New("Invalid input data")
+				break
+			}
+
+			run = (int(src[srcIdx]) << 8) | int(src[srcIdx+1])
+			srcIdx += 2
+			run += RLT_RUN_LEN_ENCODE2
+		} else if run >= RLT_RUN_LEN_ENCODE1 {
+			if srcIdx >= srcEnd {
+				err = errors.New("Invalid input data")
+				break
+			}
+
+			run = ((run - RLT_RUN_LEN_ENCODE1) << 8) | int(src[srcIdx])
+			run += RLT_RUN_LEN_ENCODE1
+			srcIdx++
+		}
+
+		run += (RLT_RUN_THRESHOLD - 1)
+
+		// Sanity check
+		if dstIdx+run >= dstEnd || run > RLT_MAX_RUN {
+			err = errors.New("Invalid run length")
+			break
+		}
+
+		// Emit 'run' times the previous byte
+		for run >= 4 {
+			dst[dstIdx] = val
+			dst[dstIdx+1] = val
+			dst[dstIdx+2] = val
+			dst[dstIdx+3] = val
+			dstIdx += 4
+			run -= 4
+		}
+
+		for run > 0 {
+			dst[dstIdx] = val
+			dstIdx++
+			run--
+		}
 	}
 
-	return srcIdx, dstIdx, err
+	if srcIdx != srcEnd && err == nil {
+		err = errors.New("Invalid input data")
+	}
+
+	return uint(srcIdx), uint(dstIdx), err
 }
 
-// Required encoding output buffer size unknown => guess
 func (this RLT) MaxEncodedLen(srcLen int) int {
-	return srcLen + 32
+	if srcLen <= 512 {
+		return srcLen + 32
+	}
+
+	return srcLen
 }

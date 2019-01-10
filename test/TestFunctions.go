@@ -18,12 +18,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	kanzi "github.com/flanglet/kanzi-go"
-	"github.com/flanglet/kanzi-go/function"
 	"math/rand"
 	"os"
 	"strings"
 	"time"
+
+	kanzi "github.com/flanglet/kanzi-go"
+	"github.com/flanglet/kanzi-go/function"
 )
 
 func main() {
@@ -100,7 +101,7 @@ func getByteFunction(name string) (kanzi.ByteFunction, error) {
 		return res, err
 
 	case "RLT":
-		res, err := function.NewRLT(3)
+		res, err := function.NewRLT()
 		return res, err
 
 	default:

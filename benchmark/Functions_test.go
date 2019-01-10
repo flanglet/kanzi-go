@@ -236,7 +236,7 @@ func BenchmarkRLT(b *testing.B) {
 	size := 50000
 
 	for jj := 0; jj < 3; jj++ {
-		bf, _ := function.NewRLT(3)
+		bf, _ := function.NewRLT()
 		input := make([]byte, size)
 		output := make([]byte, bf.MaxEncodedLen(size))
 		reverse := make([]byte, size)
@@ -261,7 +261,7 @@ func BenchmarkRLT(b *testing.B) {
 		var err error
 
 		for ii := 0; ii < iter; ii++ {
-			f, _ := function.NewRLT(3)
+			f, _ := function.NewRLT()
 
 			_, dstIdx, err = f.Forward(input, output)
 
@@ -272,7 +272,7 @@ func BenchmarkRLT(b *testing.B) {
 		}
 
 		for ii := 0; ii < iter; ii++ {
-			f, _ := function.NewRLT(3)
+			f, _ := function.NewRLT()
 
 			if _, _, err = f.Inverse(output[0:dstIdx], reverse); err != nil {
 				msg := fmt.Sprintf("Decoding error : %v\n", err)
