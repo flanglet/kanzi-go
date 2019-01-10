@@ -17,10 +17,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/flanglet/kanzi-go/transform"
 	"math/rand"
 	"os"
 	"time"
+
+	"github.com/flanglet/kanzi-go/transform"
 )
 
 func main() {

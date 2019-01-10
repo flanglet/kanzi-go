@@ -18,11 +18,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	kanzi "github.com/flanglet/kanzi-go"
-	"github.com/flanglet/kanzi-go/transform"
 	"math/rand"
 	"os"
 	"time"
+
+	kanzi "github.com/flanglet/kanzi-go"
+	"github.com/flanglet/kanzi-go/transform"
 )
 
 func main() {

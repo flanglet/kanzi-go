@@ -18,14 +18,15 @@ package main
 import (
 	"flag"
 	"fmt"
-	kanzi "github.com/flanglet/kanzi-go"
-	"github.com/flanglet/kanzi-go/bitstream"
-	"github.com/flanglet/kanzi-go/entropy"
-	"github.com/flanglet/kanzi-go/util"
 	"math/rand"
 	"os"
 	"strings"
 	"time"
+
+	kanzi "github.com/flanglet/kanzi-go"
+	"github.com/flanglet/kanzi-go/bitstream"
+	"github.com/flanglet/kanzi-go/entropy"
+	"github.com/flanglet/kanzi-go/util"
 )
 
 func main() {

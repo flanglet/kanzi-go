@@ -18,9 +18,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/flanglet/kanzi-go/util/hash"
 	"os"
 	"time"
+
+	"github.com/flanglet/kanzi-go/util/hash"
 )
 
 func main() {
