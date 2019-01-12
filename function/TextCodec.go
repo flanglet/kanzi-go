@@ -26,20 +26,25 @@ import (
 // or potentially larger custom one. Generates a dynamic dictionary.
 
 const (
-	TC_THRESHOLD1      = 128
-	TC_THRESHOLD2      = TC_THRESHOLD1 * TC_THRESHOLD1
-	TC_THRESHOLD3      = 32
-	TC_THRESHOLD4      = TC_THRESHOLD3 * 128
-	TC_MAX_DICT_SIZE   = 1 << 19    // must be less than 1<<24
-	TC_MAX_WORD_LENGTH = 32         // must be less than 128
-	TC_LOG_HASHES_SIZE = 24         // 16 MB
-	TC_MAX_BLOCK_SIZE  = 1 << 30    // 1 GB
-	TC_ESCAPE_TOKEN1   = byte(0x0F) // dictionary word preceded by space symbol
-	TC_ESCAPE_TOKEN2   = byte(0x0E) // toggle upper/lower case of first word char
-	LF                 = byte(0x0A)
-	CR                 = byte(0x0D)
-	TC_HASH1           = int32(2146121005)  // 0x7FEB352D
-	TC_HASH2           = int32(-2073254261) // 0x846CA68B
+	TC_THRESHOLD1             = 128
+	TC_THRESHOLD2             = TC_THRESHOLD1 * TC_THRESHOLD1
+	TC_THRESHOLD3             = 32
+	TC_THRESHOLD4             = TC_THRESHOLD3 * 128
+	TC_MAX_DICT_SIZE          = 1 << 19    // must be less than 1<<24
+	TC_MAX_WORD_LENGTH        = 32         // must be less than 128
+	TC_LOG_HASHES_SIZE        = 24         // 16 MB
+	TC_MAX_BLOCK_SIZE         = 1 << 30    // 1 GB
+	TC_ESCAPE_TOKEN1          = byte(0x0F) // dictionary word preceded by space symbol
+	TC_ESCAPE_TOKEN2          = byte(0x0E) // toggle upper/lower case of first word char
+	LF                        = byte(0x0A)
+	CR                        = byte(0x0D)
+	TC_MASK_NOT_TEXT          = 0x80
+	TC_MASK_ALMOST_FULL_ASCII = 0x08
+	TC_MASK_FULL_ASCII        = 0x04
+	TC_MASK_XML_HTML          = 0x02
+	TC_MASK_CRLF              = 0x01
+	TC_HASH1                  = int32(2146121005)  // 0x7FEB352D
+	TC_HASH2                  = int32(-2073254261) // 0x846CA68B
 )
 
 type dictEntry struct {
@@ -599,22 +604,20 @@ var (
 	}
 )
 
-// return status (8 bits):
-// 0x80 => not text
-// 0x01 => CR+LF transform
-func computeStats(block []byte) byte {
-	var freqs [257][256]int
-	freqs0 := freqs[256]
+// return 8-bit status (see MASK flags constants)
+func computeStats(block []byte, freqs0 []int32) byte {
+	var freqs [256][256]int32
 	freqs1 := freqs[0:256]
-	end4 := len(block) & -4
-	prv := 0
+	length := len(block)
+	end4 := length & -4
+	prv := int32(0)
 
 	// Unroll loop
 	for i := 0; i < end4; i += 4 {
-		cur0 := int(block[i])
-		cur1 := int(block[i+1])
-		cur2 := int(block[i+2])
-		cur3 := int(block[i+3])
+		cur0 := int32(block[i])
+		cur1 := int32(block[i+1])
+		cur2 := int32(block[i+2])
+		cur3 := int32(block[i+3])
 		freqs0[cur0]++
 		freqs0[cur1]++
 		freqs0[cur2]++
@@ -626,8 +629,8 @@ func computeStats(block []byte) byte {
 		prv = cur3
 	}
 
-	for i := end4; i < len(block); i++ {
-		cur := int(block[i])
+	for i := end4; i < length; i++ {
+		cur := int32(block[i])
 		freqs0[cur]++
 		freqs1[prv][cur]++
 		prv = cur
@@ -637,37 +640,76 @@ func computeStats(block []byte) byte {
 
 	for i := 32; i < 128; i++ {
 		if isText(byte(i)) {
-			nbTextChars += freqs0[i]
+			nbTextChars += int(freqs0[i])
 		}
 	}
 
 	// Not text (crude threshold)
-	if 2*nbTextChars < len(block) {
-		return 0x80
+	if 2*nbTextChars < length {
+		return TC_MASK_NOT_TEXT
 	}
 
 	nbBinChars := 0
 
 	for i := 128; i < 256; i++ {
-		nbBinChars += freqs0[i]
+		nbBinChars += int(freqs0[i])
 	}
 
 	// Not text (crude threshold)
-	if 4*nbBinChars > len(block) {
-		return 0x80
+	if 4*nbBinChars > length {
+		return TC_MASK_NOT_TEXT
+	}
+
+	res := byte(0)
+
+	if nbBinChars == 0 {
+		res |= TC_MASK_FULL_ASCII
+	} else if nbBinChars <= length/100 {
+		res |= TC_MASK_ALMOST_FULL_ASCII
+	}
+
+	if nbBinChars <= length-length/10 {
+		// Check if likely XML/HTML
+		// Another crude test: check that the frequencies of < and > are similar
+		// and 'high enough'. Also check it is worth to attempt replacing ampersand sequences.
+		// Getting this flag wrong results in a very small compression speed degradation.
+		f1 := freqs0['<']
+		f2 := freqs0['>']
+		f3 := freqs['&']['a'] + freqs['&']['g'] + freqs['&']['l'] + freqs['&']['q']
+		minFreq := int32(length-nbBinChars) >> 9
+
+		if minFreq < 2 {
+			minFreq = 2
+		}
+
+		if (f1 >= minFreq) && (f2 >= minFreq) && (f3 > 0) {
+			if f1 < f2 {
+				if f1 >= f2-f2/100 {
+					res |= TC_MASK_XML_HTML
+				}
+			} else if f2 < f1 {
+				if f2 >= f1-f1/100 {
+					res |= TC_MASK_XML_HTML
+				}
+			} else {
+				res |= TC_MASK_XML_HTML
+			}
+		}
 	}
 
 	// Check CR+LF matches
-	res := byte(0)
-
 	if (freqs0[CR] != 0) && (freqs0[CR] == freqs0[LF]) {
-		res = 1
+		isCRLF := true
 
 		for i := 0; i < 256; i++ {
 			if (i != int(LF)) && (freqs1[CR][i] != 0) {
-				res = 0
+				isCRLF = false
 				break
 			}
+		}
+
+		if isCRLF == true {
+			res |= TC_MASK_CRLF
 		}
 	}
 
@@ -841,7 +883,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 	if len(src) > TC_MAX_BLOCK_SIZE {
 		// Not a recoverable error: instead of silently fail the transform,
 		// issue a fatal error.
-		errMsg := fmt.Sprintf("The max TextCodec block size is %v, got %v", TC_MAX_BLOCK_SIZE, len(src))
+		errMsg := fmt.Sprintf("The max text transform block size is %v, got %v", TC_MAX_BLOCK_SIZE, len(src))
 		panic(errors.New(errMsg))
 	}
 
@@ -860,7 +902,7 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	if len(src) > TC_MAX_BLOCK_SIZE {
 		// Not a recoverable error: instead of silently fail the transform,
 		// issue a fatal error.
-		errMsg := fmt.Sprintf("The max TextCodec block size is %v, got %v", TC_MAX_BLOCK_SIZE, len(src))
+		errMsg := fmt.Sprintf("The max text transform block size is %v, got %v", TC_MAX_BLOCK_SIZE, len(src))
 		panic(errors.New(errMsg))
 	}
 
@@ -975,10 +1017,11 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 	srcIdx := 0
 	dstIdx := 0
-	mode := computeStats(src[0:count])
+	freqs0 := [256]int32{}
+	mode := computeStats(src[0:count], freqs0[:])
 
 	// Not text ?
-	if mode&0x80 != 0 {
+	if mode&TC_MASK_NOT_TEXT != 0 {
 		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skipping")
 	}
 
@@ -990,9 +1033,10 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	words := this.staticDictSize
 
 	// DOS encoded end of line (CR+LF) ?
-	this.isCRLF = mode&0x01 != 0
+	this.isCRLF = mode&TC_MASK_CRLF != 0
 	dst[dstIdx] = mode
 	dstIdx++
+	var err error
 
 	for srcIdx < srcEnd && src[srcIdx] == ' ' {
 		dst[dstIdx] = ' '
@@ -1093,10 +1137,18 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 				// Word found in the dictionary
 				// Skip space if only delimiter between 2 word references
 				if (emitAnchor != delimAnchor) || (src[delimAnchor] != ' ') {
-					dstIdx += this.emitSymbols(src[emitAnchor:delimAnchor+1], dst[dstIdx:dstEnd])
+					dIdx := this.emitSymbols(src[emitAnchor:delimAnchor+1], dst[dstIdx:dstEnd])
+
+					if dIdx < 0 {
+						err = errors.New("Text transform failed. Output buffer too small")
+						break
+					}
+
+					dstIdx += dIdx
 				}
 
 				if dstIdx >= dstEnd4 {
+					err = errors.New("Text transform failed. Output buffer too small")
 					break
 				}
 
@@ -1117,12 +1169,19 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		srcIdx++
 	}
 
-	// Emit last symbols
-	dstIdx += this.emitSymbols(src[emitAnchor:srcEnd], dst[dstIdx:dstEnd])
-	var err error
+	if err == nil {
+		// Emit last symbols
+		dIdx := this.emitSymbols(src[emitAnchor:srcEnd], dst[dstIdx:dstEnd])
 
-	if srcIdx != srcEnd {
-		err = fmt.Errorf("Forward transform failed. Source index: %v, expected: %v", srcIdx, srcEnd)
+		if dIdx < 0 {
+			err = errors.New("Text transform failed. Output buffer too small")
+		} else {
+			dstIdx += dIdx
+		}
+	}
+
+	if err == nil && srcIdx != srcEnd {
+		err = fmt.Errorf("Text transform failed. Source index: %v, expected: %v", srcIdx, srcEnd)
 	}
 
 	return uint(srcIdx), uint(dstIdx), err
@@ -1149,7 +1208,7 @@ func (this *textCodec1) emitSymbols(src, dst []byte) int {
 
 	for i := range src {
 		if dstIdx >= dstEnd {
-			break
+			return -1
 		}
 
 		cur := src[i]
@@ -1176,9 +1235,11 @@ func (this *textCodec1) emitSymbols(src, dst []byte) int {
 				lenIdx = 1
 			}
 
-			if dstIdx+lenIdx < dstEnd {
-				dstIdx += emitWordIndex1(dst[dstIdx:dstIdx+lenIdx], idx)
+			if dstIdx+lenIdx >= dstEnd {
+				return -1
 			}
+
+			dstIdx += emitWordIndex1(dst[dstIdx:dstIdx+lenIdx], idx)
 
 		case CR:
 			if this.isCRLF == false {
@@ -1371,8 +1432,8 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
-	if (err == nil) && (srcIdx != srcEnd) {
-		err = fmt.Errorf("Forward transform failed. Source index: %v, expected: %v", srcIdx, srcEnd)
+	if err == nil && srcIdx != srcEnd {
+		err = fmt.Errorf("Text transform failed. Source index: %v, expected: %v", srcIdx, srcEnd)
 	}
 
 	return uint(srcIdx), uint(dstIdx), err
@@ -1477,10 +1538,11 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 
 	srcIdx := 0
 	dstIdx := 0
-	mode := computeStats(src[0:count])
+	freqs0 := [256]int32{}
+	mode := computeStats(src[0:count], freqs0[:])
 
 	// Not text ?
-	if mode&0x80 != 0 {
+	if mode&TC_MASK_NOT_TEXT != 0 {
 		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skipping")
 	}
 
@@ -1492,9 +1554,10 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	words := this.staticDictSize
 
 	// DOS encoded end of line (CR+LF) ?
-	this.isCRLF = mode&0x01 != 0
+	this.isCRLF = mode&TC_MASK_CRLF != 0
 	dst[dstIdx] = mode
 	dstIdx++
+	var err error
 
 	for srcIdx < srcEnd && src[srcIdx] == ' ' {
 		dst[dstIdx] = ' '
@@ -1595,10 +1658,18 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 				// Word found in the dictionary
 				// Skip space if only delimiter between 2 word references
 				if (emitAnchor != delimAnchor) || (src[delimAnchor] != ' ') {
-					dstIdx += this.emitSymbols(src[emitAnchor:delimAnchor+1], dst[dstIdx:dstEnd])
+					dIdx := this.emitSymbols(src[emitAnchor:delimAnchor+1], dst[dstIdx:dstEnd])
+
+					if dIdx < 0 {
+						err = errors.New("Text transform failed. Output buffer too small")
+						break
+					}
+
+					dstIdx += dIdx
 				}
 
 				if dstIdx >= dstEnd3 {
+					err = errors.New("Text transform failed. Output buffer too small")
 					break
 				}
 
@@ -1618,12 +1689,19 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		srcIdx++
 	}
 
-	// Emit last symbols
-	dstIdx += this.emitSymbols(src[emitAnchor:srcEnd], dst[dstIdx:dstEnd])
-	var err error
+	if err == nil {
+		// Emit last symbols
+		dIdx := this.emitSymbols(src[emitAnchor:srcEnd], dst[dstIdx:dstEnd])
 
-	if srcIdx != srcEnd {
-		err = fmt.Errorf("Forward transform failed. Source index: %v, expected: %v", srcIdx, srcEnd)
+		if dIdx < 0 {
+			err = errors.New("Text transform failed. Output buffer too small")
+		} else {
+			dstIdx += dIdx
+		}
+	}
+
+	if err == nil && srcIdx != srcEnd {
+		err = fmt.Errorf("Text transform failed. Source index: %v, expected: %v", srcIdx, srcEnd)
 	}
 
 	return uint(srcIdx), uint(dstIdx), err
@@ -1646,36 +1724,76 @@ func (this *textCodec2) expandDictionary() bool {
 
 func (this *textCodec2) emitSymbols(src, dst []byte) int {
 	dstIdx := 0
-	dstEnd := len(dst) - 1
 
-	for i := range src {
-		if dstIdx >= dstEnd {
-			break
-		}
+	if 2*len(src) < len(dst) {
+		for i := range src {
+			cur := src[i]
 
-		cur := src[i]
+			switch cur {
+			case TC_ESCAPE_TOKEN1:
+				dst[dstIdx] = TC_ESCAPE_TOKEN1
+				dstIdx++
+				dst[dstIdx] = TC_ESCAPE_TOKEN1
+				dstIdx++
 
-		switch cur {
-		case TC_ESCAPE_TOKEN1:
-			dst[dstIdx] = TC_ESCAPE_TOKEN1
-			dstIdx++
-			dst[dstIdx] = TC_ESCAPE_TOKEN1
-			dstIdx++
+			case CR:
+				if this.isCRLF == false {
+					dst[dstIdx] = cur
+					dstIdx++
+				}
 
-		case CR:
-			if this.isCRLF == false {
+			default:
+				if cur&0x80 != 0 {
+					dst[dstIdx] = TC_ESCAPE_TOKEN1
+					dstIdx++
+				}
+
 				dst[dstIdx] = cur
 				dstIdx++
 			}
+		}
+	} else {
+		for i := range src {
+			cur := src[i]
 
-		default:
-			if cur&0x80 != 0 {
+			switch cur {
+			case TC_ESCAPE_TOKEN1:
+				if dstIdx+1 >= len(dst) {
+					return -1
+				}
+
 				dst[dstIdx] = TC_ESCAPE_TOKEN1
 				dstIdx++
-			}
+				dst[dstIdx] = TC_ESCAPE_TOKEN1
+				dstIdx++
 
-			dst[dstIdx] = cur
-			dstIdx++
+			case CR:
+				if this.isCRLF == false {
+					if dstIdx >= len(dst) {
+						return -1
+					}
+
+					dst[dstIdx] = cur
+					dstIdx++
+				}
+
+			default:
+				if cur&0x80 != 0 {
+					if dstIdx >= len(dst) {
+						return -1
+					}
+
+					dst[dstIdx] = TC_ESCAPE_TOKEN1
+					dstIdx++
+				}
+
+				if dstIdx >= len(dst) {
+					return -1
+				}
+
+				dst[dstIdx] = cur
+				dstIdx++
+			}
 		}
 	}
 
@@ -1867,8 +1985,8 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
-	if (err == nil) && (srcIdx != srcEnd) {
-		err = fmt.Errorf("Forward transform failed. Source index: %v, expected: %v", srcIdx, srcEnd)
+	if err == nil && srcIdx != srcEnd {
+		err = fmt.Errorf("Text transform failed. Source index: %v, expected: %v", srcIdx, srcEnd)
 	}
 
 	return uint(srcIdx), uint(dstIdx), err
