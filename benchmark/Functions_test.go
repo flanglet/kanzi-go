@@ -431,3 +431,77 @@ func BenchmarkROLZX(b *testing.B) {
 
 	}
 }
+
+func BenchmarkBRT(b *testing.B) {
+	iter := b.N
+	size := 50000
+
+	for jj := 0; jj < 3; jj++ {
+		input := make([]byte, size)
+		output := make([]byte, 8*size)
+		reverse := make([]byte, size)
+		rand.Seed(int64(jj))
+
+		// Generate random data with runs
+		// Leave zeros at the beginning for ZRLT to succeed
+		n := iter / 20
+
+		for n < len(input) {
+			val := byte(rand.Intn(4))
+
+			if val%7 == 0 {
+				val = 0
+			}
+
+			input[n] = val
+			n++
+			run := rand.Intn(55)
+			run -= 20
+
+			for run > 0 && n < len(input) {
+				input[n] = val
+				n++
+				run--
+			}
+		}
+
+		var dstIdx uint
+		var err error
+
+		for ii := 0; ii < iter; ii++ {
+			f, _ := function.NewBRT()
+
+			_, dstIdx, err = f.Forward(input, output)
+
+			if err != nil {
+				msg := fmt.Sprintf("Encoding error : %v\n", err)
+				b.Fatalf(msg)
+			}
+		}
+
+		for ii := 0; ii < iter; ii++ {
+			f, _ := function.NewBRT()
+
+			if _, _, err = f.Inverse(output[0:dstIdx], reverse); err != nil {
+				msg := fmt.Sprintf("Decoding error : %v\n", err)
+				b.Fatalf(msg)
+			}
+		}
+
+		idx := -1
+
+		// Sanity check
+		for i := range input {
+			if input[i] != reverse[i] {
+				idx = i
+				break
+			}
+		}
+
+		if idx >= 0 {
+			msg := fmt.Sprintf("Failure at index %v (%v <-> %v)\n", idx, input[idx], reverse[idx])
+			b.Fatalf(msg)
+		}
+
+	}
+}

@@ -28,7 +28,7 @@ import (
 )
 
 func main() {
-	var name = flag.String("type", "ALL", "Type of function (all, LZ4, ROLZ, SNAPPY, RLT or ZRLT)")
+	var name = flag.String("type", "ALL", "Type of function (all, LZ4, ROLZ, SNAPPY, RLT, BRT or ZRLT)")
 
 	// Parse
 	flag.Parse()
@@ -71,6 +71,12 @@ func main() {
 		}
 
 		TestSpeed("RLT")
+		fmt.Printf("\n\nTestBRT")
+
+		if err := TestCorrectness("BRT"); err != nil {
+			os.Exit(1)
+		}
+		TestSpeed("BRT")
 	} else if name_ != "" {
 		fmt.Printf("Test%v", name_)
 
@@ -102,6 +108,10 @@ func getByteFunction(name string) (kanzi.ByteFunction, error) {
 
 	case "RLT":
 		res, err := function.NewRLT()
+		return res, err
+
+	case "BRT":
+		res, err := function.NewBRT()
 		return res, err
 
 	default:
@@ -286,8 +296,8 @@ func TestCorrectness(name string) error {
 func TestSpeed(name string) {
 	iter := 50000
 
-	if name == "ROLZ" {
-		iter = 2000
+	if name == "ROLZ" || name == "ROLZX" || name == "BRT" {
+		iter = 500
 	}
 
 	size := 50000

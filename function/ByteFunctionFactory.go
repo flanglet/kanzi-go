@@ -42,6 +42,7 @@ const (
 	DICT_TYPE   = uint64(10) // Text codec
 	ROLZ_TYPE   = uint64(11) // ROLZ codec
 	ROLZX_TYPE  = uint64(12) // ROLZ Extra codec
+	BRT_TYPE    = uint64(13) // Behemoth Rank
 )
 
 func NewByteFunction(ctx *map[string]interface{}, functionType uint64) (*ByteTransformSequence, error) {
@@ -81,36 +82,6 @@ func NewByteFunction(ctx *map[string]interface{}, functionType uint64) (*ByteTra
 func newByteFunctionToken(ctx *map[string]interface{}, functionType uint64) (kanzi.ByteTransform, error) {
 	switch functionType {
 
-	case SNAPPY_TYPE:
-		return NewSnappyCodec()
-
-	case LZ4_TYPE:
-		return NewLZ4Codec()
-
-	case ROLZ_TYPE:
-		return NewROLZCodecWithCtx(ctx)
-
-	case ROLZX_TYPE:
-		return NewROLZCodecWithCtx(ctx)
-
-	case BWT_TYPE:
-		return NewBWTBlockCodec(ctx)
-
-	case BWTS_TYPE:
-		return transform.NewBWTS()
-
-	case MTFT_TYPE:
-		return transform.NewMTFT()
-
-	case ZRLT_TYPE:
-		return NewZRLT()
-
-	case RLT_TYPE:
-		return NewRLT()
-
-	case RANK_TYPE:
-		return transform.NewSBRT(transform.SBRT_MODE_RANK)
-
 	case DICT_TYPE:
 		textCodecType := 1
 
@@ -126,6 +97,39 @@ func newByteFunctionToken(ctx *map[string]interface{}, functionType uint64) (kan
 
 		(*ctx)["textcodec"] = textCodecType
 		return NewTextCodecWithCtx(ctx)
+
+	case ROLZ_TYPE:
+		return NewROLZCodecWithCtx(ctx)
+
+	case ROLZX_TYPE:
+		return NewROLZCodecWithCtx(ctx)
+
+	case BWT_TYPE:
+		return NewBWTBlockCodec(ctx)
+
+	case BWTS_TYPE:
+		return transform.NewBWTS()
+
+	case BRT_TYPE:
+		return NewBRT()
+
+	case RANK_TYPE:
+		return transform.NewSBRT(transform.SBRT_MODE_RANK)
+
+	case MTFT_TYPE:
+		return transform.NewSBRT(transform.SBRT_MODE_MTF)
+
+	case ZRLT_TYPE:
+		return NewZRLT()
+
+	case RLT_TYPE:
+		return NewRLT()
+
+	case SNAPPY_TYPE:
+		return NewSnappyCodec()
+
+	case LZ4_TYPE:
+		return NewLZ4Codec()
 
 	case X86_TYPE:
 		return NewX86Codec()
@@ -167,8 +171,8 @@ func GetName(functionType uint64) string {
 func getByteFunctionNameToken(functionType uint64) string {
 	switch functionType {
 
-	case LZ4_TYPE:
-		return "LZ4"
+	case DICT_TYPE:
+		return "TEXT"
 
 	case ROLZ_TYPE:
 		return "ROLZ"
@@ -182,26 +186,29 @@ func getByteFunctionNameToken(functionType uint64) string {
 	case BWTS_TYPE:
 		return "BWTS"
 
-	case SNAPPY_TYPE:
-		return "SNAPPY"
-
-	case MTFT_TYPE:
-		return "MTFT"
-
 	case ZRLT_TYPE:
 		return "ZRLT"
 
 	case RLT_TYPE:
 		return "RLT"
 
+	case BRT_TYPE:
+		return "BRT"
+
 	case RANK_TYPE:
 		return "RANK"
 
+	case MTFT_TYPE:
+		return "MTFT"
+
+	case LZ4_TYPE:
+		return "LZ4"
+
+	case SNAPPY_TYPE:
+		return "SNAPPY"
+
 	case X86_TYPE:
 		return "X86"
-
-	case DICT_TYPE:
-		return "TEXT"
 
 	case NONE_TYPE:
 		return "NONE"
@@ -248,23 +255,26 @@ func getByteFunctionTypeToken(name string) uint64 {
 
 	switch name {
 
+	case "TEXT":
+		return DICT_TYPE
+
 	case "BWT":
 		return BWT_TYPE
 
 	case "BWTS":
 		return BWTS_TYPE
 
-	case "SNAPPY":
-		return SNAPPY_TYPE
-
-	case "LZ4":
-		return LZ4_TYPE
-
 	case "ROLZ":
 		return ROLZ_TYPE
 
 	case "ROLZX":
 		return ROLZX_TYPE
+
+	case "BRT":
+		return BRT_TYPE
+
+	case "RANK":
+		return RANK_TYPE
 
 	case "MTFT":
 		return MTFT_TYPE
@@ -275,14 +285,14 @@ func getByteFunctionTypeToken(name string) uint64 {
 	case "RLT":
 		return RLT_TYPE
 
-	case "RANK":
-		return RANK_TYPE
-
 	case "X86":
 		return X86_TYPE
 
-	case "TEXT":
-		return DICT_TYPE
+	case "SNAPPY":
+		return SNAPPY_TYPE
+
+	case "LZ4":
+		return LZ4_TYPE
 
 	case "NONE":
 		return NONE_TYPE

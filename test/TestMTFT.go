@@ -41,7 +41,7 @@ func main() {
 		}
 
 		size := len(input)
-		mtft, _ := transform.NewMTFT()
+		mtft, _ := transform.NewSBRT(transform.SBRT_MODE_MTF)
 		transform := make([]byte, size+20)
 		reverse := make([]byte, size)
 
@@ -94,7 +94,7 @@ func main() {
 		input := make([]byte, size)
 		output := make([]byte, size)
 		reverse := make([]byte, size)
-		mtft, _ := transform.NewMTFT()
+		mtft, _ := transform.NewSBRT(transform.SBRT_MODE_MTF)
 		delta1 := int64(0)
 		delta2 := int64(0)
 
