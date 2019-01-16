@@ -63,7 +63,7 @@ func (this *BWTS) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	if count > len(dst) {
-		errMsg := fmt.Sprintf("Block size is %v, output buffer length is %v", count, len(src))
+		errMsg := fmt.Sprintf("Block size is %v, output buffer length is %v", count, len(dst))
 		return 0, 0, errors.New(errMsg)
 	}
 
@@ -216,7 +216,7 @@ func (this *BWTS) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	if count > len(dst) {
-		errMsg := fmt.Sprintf("Block size is %v, output buffer length is %v", count, len(src))
+		errMsg := fmt.Sprintf("Block size is %v, output buffer length is %v", count, len(dst))
 		return 0, 0, errors.New(errMsg)
 	}
 
