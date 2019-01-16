@@ -212,15 +212,8 @@ func (this *SRT) Inverse(src, dst []byte) (uint, uint, error) {
 				continue
 			}
 
-			s := byte(0)
-
-			for {
+			for s := byte(0); s < r; s++ {
 				r2s[s] = r2s[s+1]
-				s++
-
-				if s >= r {
-					break
-				}
 			}
 
 			r2s[r] = c
@@ -228,19 +221,12 @@ func (this *SRT) Inverse(src, dst []byte) (uint, uint, error) {
 		} else {
 			nbSymbols--
 
-			if nbSymbols == 0 {
+			if nbSymbols <= 0 {
 				continue
 			}
 
-			s := 0
-
-			for {
+			for s := 0; s < nbSymbols; s++ {
 				r2s[s] = r2s[s+1]
-				s++
-
-				if s >= nbSymbols {
-					break
-				}
 			}
 
 			c = r2s[0]
