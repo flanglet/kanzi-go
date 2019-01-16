@@ -277,6 +277,11 @@ func (this *BWT) inverseRegularBlock(src, dst []byte, count int) (uint, uint, er
 	// Build array of packed index + value (assumes block size < 2^24)
 	// Start with the primary index position
 	pIdx := int(this.PrimaryIndex(0))
+
+	if pIdx >= len(src) {
+		return 0, 0, errors.New("Invalid input: corrupted BWT primary index")
+	}
+
 	val0 := uint32(src[pIdx])
 	data[pIdx] = val0
 	buckets[val0]++
@@ -372,6 +377,11 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 	// Build arrays
 	// Start with the primary index position
 	pIdx := int(this.PrimaryIndex(0))
+
+	if pIdx >= len(src) {
+		return 0, 0, errors.New("Invalid input: corrupted BWT primary index")
+	}
+
 	val0 := src[pIdx]
 	binary.LittleEndian.PutUint32(data[pIdx*5:], buckets[val0])
 	data[pIdx*5+4] = val0
@@ -476,6 +486,11 @@ func (this *BWT) inverseHugeBlock(src, dst []byte, count int) (uint, uint, error
 	// Build arrays
 	// Start with the primary index position
 	pIdx := int(this.PrimaryIndex(0))
+
+	if pIdx >= len(src) {
+		return 0, 0, errors.New("Invalid input: corrupted BWT primary index")
+	}
+
 	val0 := src[pIdx]
 	data1[pIdx] = buckets[val0]
 	data2[pIdx] = val0
