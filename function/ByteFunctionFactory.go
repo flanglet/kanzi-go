@@ -42,7 +42,7 @@ const (
 	DICT_TYPE   = uint64(10) // Text codec
 	ROLZ_TYPE   = uint64(11) // ROLZ codec
 	ROLZX_TYPE  = uint64(12) // ROLZ Extra codec
-	BRT_TYPE    = uint64(13) // Behemoth Rank
+	SRT_TYPE    = uint64(13) // Sorted Rank
 )
 
 func NewByteFunction(ctx *map[string]interface{}, functionType uint64) (*ByteTransformSequence, error) {
@@ -110,8 +110,8 @@ func newByteFunctionToken(ctx *map[string]interface{}, functionType uint64) (kan
 	case BWTS_TYPE:
 		return transform.NewBWTS()
 
-	case BRT_TYPE:
-		return NewBRT()
+	case SRT_TYPE:
+		return NewSRT()
 
 	case RANK_TYPE:
 		return transform.NewSBRT(transform.SBRT_MODE_RANK)
@@ -192,8 +192,8 @@ func getByteFunctionNameToken(functionType uint64) string {
 	case RLT_TYPE:
 		return "RLT"
 
-	case BRT_TYPE:
-		return "BRT"
+	case SRT_TYPE:
+		return "SRT"
 
 	case RANK_TYPE:
 		return "RANK"
@@ -270,8 +270,8 @@ func getByteFunctionTypeToken(name string) uint64 {
 	case "ROLZX":
 		return ROLZX_TYPE
 
-	case "BRT":
-		return BRT_TYPE
+	case "SRT":
+		return SRT_TYPE
 
 	case "RANK":
 		return RANK_TYPE

@@ -432,7 +432,7 @@ func BenchmarkROLZX(b *testing.B) {
 	}
 }
 
-func BenchmarkBRT(b *testing.B) {
+func BenchmarkSRT(b *testing.B) {
 	iter := b.N
 	size := 50000
 
@@ -469,7 +469,7 @@ func BenchmarkBRT(b *testing.B) {
 		var err error
 
 		for ii := 0; ii < iter; ii++ {
-			f, _ := function.NewBRT()
+			f, _ := function.NewSRT()
 
 			_, dstIdx, err = f.Forward(input, output)
 
@@ -480,7 +480,7 @@ func BenchmarkBRT(b *testing.B) {
 		}
 
 		for ii := 0; ii < iter; ii++ {
-			f, _ := function.NewBRT()
+			f, _ := function.NewSRT()
 
 			if _, _, err = f.Inverse(output[0:dstIdx], reverse); err != nil {
 				msg := fmt.Sprintf("Decoding error : %v\n", err)

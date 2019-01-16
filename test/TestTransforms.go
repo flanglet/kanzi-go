@@ -24,11 +24,11 @@ import (
 	"time"
 
 	kanzi "github.com/flanglet/kanzi-go"
-	"github.com/flanglet/kanzi-go/function"
+	"github.com/flanglet/kanzi-go/transform"
 )
 
 func main() {
-	var name = flag.String("type", "ALL", "Type of function (all, LZ4, ROLZ, SNAPPY, RLT, SRT or ZRLT)")
+	var name = flag.String("type", "ALL", "Type of transform (all, RANK, MTFT, BWTS)")
 
 	// Parse
 	flag.Parse()
@@ -36,47 +36,27 @@ func main() {
 	fmt.Printf("Transform %v", name)
 
 	if name_ == "ALL" {
-		fmt.Printf("\n\nTestLZ4")
+		fmt.Printf("\n\nTestRANK")
 
-		if err := TestCorrectness("LZ4"); err != nil {
+		if err := TestCorrectness("RANK"); err != nil {
 			os.Exit(1)
 		}
 
-		TestSpeed("LZ4")
-		fmt.Printf("\n\nTestROLZ")
+		TestSpeed("RANK")
+		fmt.Printf("\n\nTestMTFT")
 
-		if err := TestCorrectness("ROLZ"); err != nil {
+		if err := TestCorrectness("MTFT"); err != nil {
 			os.Exit(1)
 		}
 
-		TestSpeed("ROLZ")
-		fmt.Printf("\n\nTestSnappy")
+		TestSpeed("MTFT")
+		fmt.Printf("\n\nTestBWTS")
 
-		if err := TestCorrectness("SNAPPY"); err != nil {
+		if err := TestCorrectness("BWTS"); err != nil {
 			os.Exit(1)
 		}
 
-		TestSpeed("SNAPPY")
-		fmt.Printf("\n\nTestZRLT")
-
-		if err := TestCorrectness("ZRLT"); err != nil {
-			os.Exit(1)
-		}
-
-		TestSpeed("ZRLT")
-		fmt.Printf("\n\nTestRLT")
-
-		if err := TestCorrectness("RLT"); err != nil {
-			os.Exit(1)
-		}
-
-		TestSpeed("RLT")
-		fmt.Printf("\n\nTestSRT")
-
-		if err := TestCorrectness("SRT"); err != nil {
-			os.Exit(1)
-		}
-		TestSpeed("SRT")
+		TestSpeed("BWTS")
 	} else if name_ != "" {
 		fmt.Printf("Test%v", name_)
 
@@ -88,44 +68,28 @@ func main() {
 	}
 }
 
-func getByteFunction(name string) (kanzi.ByteFunction, error) {
+func getByteTransform(name string) (kanzi.ByteTransform, error) {
 	switch name {
-	case "LZ4":
-		res, err := function.NewLZ4Codec()
+	case "RANK":
+		res, err := transform.NewSBRT(transform.SBRT_MODE_RANK)
 		return res, err
 
-	case "ROLZ":
-		res, err := function.NewROLZCodec(function.ROLZ_LOG_POS_CHECKS)
+	case "MTFT":
+		res, err := transform.NewSBRT(transform.SBRT_MODE_MTF)
 		return res, err
 
-	case "SNAPPY":
-		res, err := function.NewSnappyCodec()
-		return res, err
-
-	case "ZRLT":
-		res, err := function.NewZRLT()
-		return res, err
-
-	case "RLT":
-		res, err := function.NewRLT()
-		return res, err
-
-	case "SRT":
-		res, err := function.NewSRT()
+	case "BWTS":
+		res, err := transform.NewBWTS()
 		return res, err
 
 	default:
-		panic(fmt.Errorf("No such byte function: '%s'", name))
+		panic(fmt.Errorf("No such byte transform: '%s'", name))
 	}
 }
 
 func TestCorrectness(name string) error {
 	fmt.Printf("Correctness test for %v\n", name)
 	rng := 256
-
-	if name == "ZRLT" {
-		rng = 5
-	}
 
 	for ii := 0; ii < 20; ii++ {
 		rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -166,13 +130,13 @@ func TestCorrectness(name string) error {
 			// Totally random
 			arr = make([]int, 512)
 
-			// Leave zeros at the beginning for ZRLT to succeed
+			// Leave zeros at the beginning
 			for i := 20; i < len(arr); i++ {
 				arr[i] = rand.Intn(rng)
 			}
 		} else {
 			arr = make([]int, 1024)
-			// Leave zeros at the beginning for ZRLT to succeed
+			// Leave zeros at the beginning
 			idx := 20
 
 			for idx < len(arr) {
@@ -199,7 +163,7 @@ func TestCorrectness(name string) error {
 		}
 
 		size := len(arr)
-		f, err := getByteFunction(name)
+		f, err := getByteTransform(name)
 
 		if err != nil {
 			fmt.Printf("\nCannot create transform '%v': %v\n", name, err)
@@ -207,7 +171,7 @@ func TestCorrectness(name string) error {
 		}
 
 		input := make([]byte, size)
-		output := make([]byte, f.MaxEncodedLen(size))
+		output := make([]byte, size)
 		reverse := make([]byte, size)
 
 		for i := range output {
@@ -218,7 +182,7 @@ func TestCorrectness(name string) error {
 			input[i] = byte(arr[i])
 		}
 
-		f, err = getByteFunction(name)
+		f, err = getByteTransform(name)
 
 		if err != nil {
 			fmt.Printf("\nCannot create transform '%v': %v\n", name, err)
@@ -234,7 +198,6 @@ func TestCorrectness(name string) error {
 		srcIdx, dstIdx, err := f.Forward(input, output)
 
 		if err != nil {
-			// ZRLT may fail if the input data has too few 0s
 			if srcIdx != uint(size) {
 				fmt.Printf("\nNo compression (ratio > 1.0), skip reverse")
 				continue
@@ -257,7 +220,7 @@ func TestCorrectness(name string) error {
 
 		fmt.Printf(" (Compression ratio: %v%%)\n", int(dstIdx)*100/size)
 
-		f, err = getByteFunction(name)
+		f, err = getByteTransform(name)
 
 		if err != nil {
 			fmt.Printf("\nCannot create transform '%v': %v\n", name, err)
@@ -294,25 +257,14 @@ func TestCorrectness(name string) error {
 }
 
 func TestSpeed(name string) {
-	iter := 50000
-
-	if name == "ROLZ" || name == "ROLZX" {
-		iter = 500
-	} else if name == "SRT" {
-		iter = 4000
-	}
-
+	iter := 4000
 	size := 50000
 	fmt.Printf("\n\nSpeed test for %v\n", name)
 	fmt.Printf("Iterations: %v\n", iter)
 	rng := 256
 
-	if name == "ZRLT" {
-		rng = 5
-	}
-
 	for jj := 0; jj < 3; jj++ {
-		bf, err2 := getByteFunction(name)
+		_, err2 := getByteTransform(name)
 
 		if err2 != nil {
 			fmt.Printf("\nCannot create transform '%v': %v\n", name, err2)
@@ -320,12 +272,12 @@ func TestSpeed(name string) {
 		}
 
 		input := make([]byte, size)
-		output := make([]byte, bf.MaxEncodedLen(size))
+		output := make([]byte, size)
 		reverse := make([]byte, size)
 		rand.Seed(int64(jj))
 
 		// Generate random data with runs
-		// Leave zeros at the beginning for ZRLT to succeed
+		// Leave zeros at the beginning
 		n := iter / 20
 		delta1 := int64(0)
 		delta2 := int64(0)
@@ -348,7 +300,7 @@ func TestSpeed(name string) {
 		var dstIdx uint
 
 		for ii := 0; ii < iter; ii++ {
-			f, err2 := getByteFunction(name)
+			f, err2 := getByteTransform(name)
 
 			if err2 != nil {
 				fmt.Printf("\nCannot create transform '%v': %v\n", name, err2)
@@ -369,7 +321,7 @@ func TestSpeed(name string) {
 		}
 
 		for ii := 0; ii < iter; ii++ {
-			f, err2 := getByteFunction(name)
+			f, err2 := getByteTransform(name)
 
 			if err2 != nil {
 				fmt.Printf("\nCannot create transform '%v': %v\n", name, err2)
