@@ -243,6 +243,7 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 		}
 	}
 
+	mixersSize <<= extraMem
 	statesSize <<= extraMem
 	hashSize <<= (2 * extraMem)
 
