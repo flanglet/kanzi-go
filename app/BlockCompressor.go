@@ -510,7 +510,7 @@ func getTransformAndCodec(level int) string {
 		return "TEXT+BWT+RANK+ZRLT&ANS0"
 
 	case 5:
-		return "TEXT+BWT+RANK+ZRLT&FPAQ"
+		return "TEXT+BWT+SRT+ZRLT&FPAQ"
 
 	case 6:
 		return "BWT&CM"
