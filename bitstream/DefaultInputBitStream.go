@@ -70,7 +70,7 @@ func (this *DefaultInputBitStream) ReadBit() int {
 
 func (this *DefaultInputBitStream) ReadBits(count uint) uint64 {
 	if count == 0 || count > 64 {
-		panic(fmt.Errorf("Invalid count: %v (must be in [1..64])", count))
+		panic(fmt.Errorf("Invalid bit count: %v (must be in [1..64])", count))
 	}
 
 	var res uint64
@@ -99,10 +99,6 @@ func (this *DefaultInputBitStream) ReadBits(count uint) uint64 {
 func (this *DefaultInputBitStream) ReadArray(bits []byte, count uint) uint {
 	if this.Closed() {
 		panic(errors.New("Stream closed"))
-	}
-
-	if count == 0 {
-		return 0
 	}
 
 	remaining := int(count)
