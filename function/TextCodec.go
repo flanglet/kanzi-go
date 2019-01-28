@@ -78,8 +78,8 @@ type textCodec2 struct {
 }
 
 var (
-	TC_STATIC_DICTIONARY = make([]dictEntry, 1024)
-	TC_STATIC_DICT_WORDS = createDictionary(unpackDictionary32(TC_DICT_EN_1024), TC_STATIC_DICTIONARY, 1024, 0)
+	TC_STATIC_DICTIONARY = [1024]dictEntry{}
+	TC_STATIC_DICT_WORDS = createDictionary(unpackDictionary32(TC_DICT_EN_1024), TC_STATIC_DICTIONARY[:], 1024, 0)
 	TC_DELIMITER_CHARS   = initDelimiterChars()
 
 	// Default dictionary
@@ -842,7 +842,7 @@ func unpackDictionary32(dict []byte) []byte {
 }
 
 func NewTextCodec() (*TextCodec, error) {
-	this := new(TextCodec)
+	this := &TextCodec{}
 	d, err := newTextCodec1()
 	this.delegate = d
 	return this, err
@@ -1383,7 +1383,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 			// Sanity check
 			if buf == nil || dstIdx+length >= dstEnd {
-				err = fmt.Errorf("Invalid input data")
+				err = fmt.Errorf("Text transform failed. Invalid input data")
 				break
 			}
 
@@ -1394,17 +1394,15 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			// Emit word
-			if cur != TC_ESCAPE_TOKEN2 {
-				copy(dst[dstIdx:], buf[0:length])
-			} else {
+			copy(dst[dstIdx:], buf[0:length])
+
+			if cur == TC_ESCAPE_TOKEN2 {
 				// Flip case of first character
 				if isUpperCase(buf[0]) {
 					dst[dstIdx] = buf[0] + 32
 				} else {
 					dst[dstIdx] = buf[0] - 32
 				}
-
-				copy(dst[dstIdx+1:], buf[1:length])
 			}
 
 			dstIdx += length
@@ -1929,7 +1927,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 			// Sanity check
 			if buf == nil || dstIdx+length >= dstEnd {
-				err = fmt.Errorf("Invalid input data")
+				err = fmt.Errorf("Text transform failed. Invalid input data")
 				break
 			}
 
@@ -1940,17 +1938,15 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			// Emit word
-			if cur&0x20 == 0 {
-				copy(dst[dstIdx:], buf[0:length])
-			} else {
+			copy(dst[dstIdx:], buf[0:length])
+
+			if cur&0x20 != 0 {
 				// Flip case of first character
 				if isUpperCase(buf[0]) {
 					dst[dstIdx] = buf[0] + 32
 				} else {
 					dst[dstIdx] = buf[0] - 32
 				}
-
-				copy(dst[dstIdx+1:], buf[1:length])
 			}
 
 			dstIdx += length

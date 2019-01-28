@@ -56,11 +56,11 @@ type ANSRangeEncoder struct {
 // chunkSize = 0 means 'use input buffer length' during decoding
 func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncoder, error) {
 	if bs == nil {
-		return nil, errors.New("Invalid null bitstream parameter")
+		return nil, errors.New("ANS Codec: Invalid null bitstream parameter")
 	}
 
 	if len(args) > 3 {
-		return nil, errors.New("At most order, chunk size and log range can be provided")
+		return nil, errors.New("ANS Codec: At most order, chunk size and log range can be provided")
 	}
 
 	chkSize := DEFAULT_ANS0_CHUNK_SIZE
@@ -82,19 +82,19 @@ func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncode
 	}
 
 	if order != 0 && order != 1 {
-		return nil, errors.New("The order must be 0 or 1")
+		return nil, errors.New("ANS Codec: The order must be 0 or 1")
 	}
 
 	if chkSize != 0 && chkSize < 1024 {
-		return nil, errors.New("The chunk size must be at least 1024")
+		return nil, errors.New("ANS Codec: The chunk size must be at least 1024")
 	}
 
 	if chkSize > ANS_MAX_CHUNK_SIZE {
-		return nil, errors.New("The chunk size must be at most 2^27")
+		return nil, fmt.Errorf("ANS Codec: The chunk size must be at most %d", ANS_MAX_CHUNK_SIZE)
 	}
 
 	if logRange < 8 || logRange > 16 {
-		return nil, fmt.Errorf("Invalid range: %v (must be in [8..16])", logRange)
+		return nil, fmt.Errorf("ANS Codec: Invalid range: %v (must be in [8..16])", logRange)
 	}
 
 	this := new(ANSRangeEncoder)
@@ -287,7 +287,7 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 
 		for i := len(block) - 2; i >= 0; i-- {
 			cur := int(block[i])
-			sym := symb[(cur<<8)+prv]
+			sym := symb[(cur<<8)|prv]
 
 			for st >= sym.xMax {
 				this.buffer[n] = byte(st)
@@ -401,11 +401,11 @@ type ANSRangeDecoder struct {
 // chunkSize = 0 means 'use input buffer length' during decoding
 func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder, error) {
 	if bs == nil {
-		return nil, errors.New("Invalid null bitstream parameter")
+		return nil, errors.New("ANS Codec: Invalid null bitstream parameter")
 	}
 
 	if len(args) > 2 {
-		return nil, errors.New("At most order and chunk size can be provided")
+		return nil, errors.New("ANS Codec: At most order and chunk size can be provided")
 	}
 
 	chkSize := DEFAULT_ANS0_CHUNK_SIZE
@@ -422,15 +422,15 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 	}
 
 	if order != 0 && order != 1 {
-		return nil, errors.New("The order must be 0 or 1")
+		return nil, errors.New("ANS Codec: The order must be 0 or 1")
 	}
 
 	if chkSize != 0 && chkSize < 1024 {
-		return nil, errors.New("The chunk size must be at least 1024")
+		return nil, errors.New("ANS Codec: The chunk size must be at least 1024")
 	}
 
 	if chkSize > ANS_MAX_CHUNK_SIZE {
-		return nil, errors.New("The chunk size must be at most 2^27")
+		return nil, fmt.Errorf("ANS Codec: The chunk size must be at most %d", ANS_MAX_CHUNK_SIZE)
 	}
 
 	this := new(ANSRangeDecoder)
@@ -439,7 +439,7 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 	this.order = order
 	dim := int(255*order + 1)
 	this.alphabet = make([]int, dim*256)
-	this.freqs = make([]int, dim*256) // freqs[x][256] = total(freqs[x][0..255])
+	this.freqs = make([]int, dim*256)
 	this.buffer = make([]byte, 0)
 	this.f2s = make([]byte, 0)
 	this.symbols = make([]decSymbol, dim*256)
@@ -448,9 +448,14 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 
 // Decode alphabet and frequencies
 func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, error) {
+	this.logRange = uint(8 + this.bitstream.ReadBits(3))
+
+	if this.logRange < 8 || this.logRange > 16 {
+		return 0, fmt.Errorf("ANS Codec: Invalid range: %v (must be in [8..16])", this.logRange)
+	}
+
 	res := 0
 	dim := int(255*this.order + 1)
-	this.logRange = uint(8 + this.bitstream.ReadBits(3))
 	scale := 1 << this.logRange
 
 	if len(this.f2s) < dim*scale {
@@ -631,7 +636,7 @@ func (this *ANSRangeDecoder) decodeChunk(block []byte) {
 
 			// Normalize
 			for st < ANS_TOP {
-				st = (st << 8) | int(this.buffer[n]&0xFF)
+				st = (st << 8) | int(this.buffer[n])
 				n++
 			}
 		}
@@ -640,9 +645,9 @@ func (this *ANSRangeDecoder) decodeChunk(block []byte) {
 		prv := int(0)
 
 		for i := range block {
-			cur := this.f2s[(prv<<lr)+(st&mask)]
+			cur := this.f2s[(prv<<lr)|(st&mask)]
 			block[i] = cur
-			sym := symb[(prv<<8)+int(cur)]
+			sym := symb[(prv<<8)|int(cur)]
 
 			// Compute next ANS state
 			// D(x) = (s, q_s (x/M) + mod(x,M) - b_s) where s is such b_s <= x mod M < b_{s+1}
@@ -650,7 +655,7 @@ func (this *ANSRangeDecoder) decodeChunk(block []byte) {
 
 			// Normalize
 			for st < ANS_TOP {
-				st = (st << 8) | int(this.buffer[n]&0xFF)
+				st = (st << 8) | int(this.buffer[n])
 				n++
 			}
 
