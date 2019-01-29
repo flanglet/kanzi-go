@@ -31,10 +31,7 @@ func (this *BufferStream) Write(b []byte) (int, error) {
 	}
 
 	// Write to len(this.buf)
-	newBuf := make([]byte, len(this.buf)+len(b))
-	copy(newBuf, this.buf)
-	copy(newBuf[len(this.buf):], b)
-	this.buf = newBuf
+	this.buf = append(this.buf, b...)
 	return len(b), nil
 }
 
