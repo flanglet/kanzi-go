@@ -328,14 +328,9 @@ func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
 
 	end := len(block)
 	startChunk := 0
-	sizeChunk := this.chunkSize
-
-	if sizeChunk == 0 {
-		sizeChunk = end
-	}
 
 	for startChunk < end {
-		endChunk := startChunk + sizeChunk
+		endChunk := startChunk + this.chunkSize
 
 		if endChunk > len(block) {
 			endChunk = len(block)
@@ -563,11 +558,6 @@ func (this *HuffmanDecoder) Decode(block []byte) (int, error) {
 
 	end := len(block)
 	startChunk := 0
-	sizeChunk := this.chunkSize
-
-	if sizeChunk == 0 {
-		sizeChunk = len(block)
-	}
 
 	for startChunk < end {
 		// Reinitialize the Huffman tables
@@ -575,7 +565,7 @@ func (this *HuffmanDecoder) Decode(block []byte) (int, error) {
 			return startChunk, err
 		}
 
-		endChunk := startChunk + sizeChunk
+		endChunk := startChunk + this.chunkSize
 
 		if endChunk > end {
 			endChunk = end
