@@ -78,16 +78,11 @@ func (this *DefaultInputBitStream) ReadBits(count uint) uint64 {
 
 	if remaining <= 0 {
 		// Enough spots available in 'current'
-		if this.availBits == 0 {
-			this.pullCurrent()
-			remaining -= (this.availBits - 64) // adjust if availBits != 64 (end of stream)
-		}
-
 		res = (this.current >> uint(-remaining)) & (0xFFFFFFFFFFFFFFFF >> (64 - count))
 		this.availBits -= int(count)
 	} else {
 		// Not enough spots available in 'current'
-		res = this.current & ((uint64(1) << uint(this.availBits)) - 1)
+		res = this.current & (0xFFFFFFFFFFFFFFFF >> uint(64-this.availBits))
 		this.pullCurrent()
 		this.availBits -= remaining
 		res = (res << uint(remaining)) | (this.current >> uint(this.availBits))

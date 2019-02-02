@@ -350,7 +350,7 @@ type HuffmanDecoder struct {
 	table1     []uint16 // big decoding table: code -> size, symbol
 	chunkSize  int
 	state      uint64 // holds bits read from bitstream
-	bits       uint   // holds number of unused bits in 'state'
+	bits       uint16 // holds number of unused bits in 'state'
 	minCodeLen byte
 }
 
@@ -438,9 +438,6 @@ func (this *HuffmanDecoder) ReadLengths() (int, error) {
 	return count, nil
 }
 
-// Build decoding tables
-// The slow decoding table contains the codes in natural order.
-// The fast decoding table contains all the prefixes with DECODING_BATCH_SIZE bits.
 func (this *HuffmanDecoder) buildDecodingTables(count int) {
 	for i := range this.table0 {
 		this.table0[i] = 0
@@ -581,7 +578,7 @@ func (this *HuffmanDecoder) slowDecodeByte() byte {
 
 func (this *HuffmanDecoder) fastDecodeByte() byte {
 	if this.bits < HUF_DECODING_BATCH_SIZE {
-		read := this.bitstream.ReadBits(64 - this.bits)
+		read := this.bitstream.ReadBits(uint(64 - this.bits))
 		this.state = (this.state << (64 - this.bits)) | read
 		this.bits = 64
 	}
@@ -591,7 +588,7 @@ func (this *HuffmanDecoder) fastDecodeByte() byte {
 
 	if val == 0 {
 		if this.bits < HUF_MAX_SYMBOL_SIZE+1 {
-			read := this.bitstream.ReadBits(64 - this.bits)
+			read := this.bitstream.ReadBits(uint(64 - this.bits))
 			this.state = (this.state << (64 - this.bits)) | read
 			this.bits = 64
 		}
@@ -600,7 +597,7 @@ func (this *HuffmanDecoder) fastDecodeByte() byte {
 		val = this.table1[int(this.state>>(this.bits-HUF_MAX_SYMBOL_SIZE-1))&HUF_DECODING_MASK1]
 	}
 
-	this.bits -= uint(val >> 8)
+	this.bits -= (val >> 8)
 	return byte(val)
 }
 
