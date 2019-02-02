@@ -34,32 +34,6 @@ const (
 	ABSENT_SYMBOLS_MASK      = 1
 )
 
-type errorComparator struct {
-	symbols []int
-	errors  []int
-}
-
-func (this errorComparator) Less(i, j int) bool {
-	// Check errors (natural order) as first key
-	ri := this.symbols[i]
-	rj := this.symbols[j]
-
-	if this.errors[ri] != this.errors[rj] {
-		return this.errors[ri] < this.errors[rj]
-	}
-
-	// Check index (natural order) as second key
-	return ri < rj
-}
-
-func (this errorComparator) Len() int {
-	return len(this.symbols)
-}
-
-func (this errorComparator) Swap(i, j int) {
-	this.symbols[i], this.symbols[j] = this.symbols[j], this.symbols[i]
-}
-
 type freqSortData struct {
 	frequencies []int
 	errors      []int
@@ -269,7 +243,6 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) int {
 
 		// Write deltas for this chunk
 		for j := i; j < count && j < i+ckSize; j++ {
-			// Encode size
 			obs.WriteBits(uint64(diffs[j]), log)
 		}
 	}
