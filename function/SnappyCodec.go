@@ -285,7 +285,7 @@ func (this *SnappyCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 				length = x + 1
 
-				if (length <= 0) || (length > endd-d) || (length > ends-s) {
+				if (length > endd-d) || (length > ends-s) {
 					break
 				}
 
