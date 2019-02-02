@@ -371,7 +371,10 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 				goto End
 			}
 
-			litEnc.Encode(litBuf[0:litIdx])
+			if _, err = litEnc.Encode(litBuf[0:litIdx]); err != nil {
+				goto End
+			}
+
 			litEnc.Dispose()
 
 			obs.WriteBits(uint64(mIdx), 32)
@@ -382,7 +385,10 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 				goto End
 			}
 
-			mLenEnc.Encode(mLenBuf[0:mIdx])
+			if _, err = mLenEnc.Encode(mLenBuf[0:mIdx]); err != nil {
+				goto End
+			}
+
 			mLenEnc.Dispose()
 
 			//obs.WriteBits(uint64(mIdx), 32)
@@ -393,7 +399,10 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 				goto End
 			}
 
-			mIdxEnc.Encode(mIdxBuf[0:mIdx])
+			if _, err = mIdxEnc.Encode(mIdxBuf[0:mIdx]); err != nil {
+				goto End
+			}
+
 			mIdxEnc.Dispose()
 			obs.Close()
 		}
@@ -494,7 +503,10 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 					goto End
 				}
 
-				litDec.Decode(litBuf[0:length])
+				if _, err = litDec.Decode(litBuf[0:length]); err != nil {
+					goto End
+				}
+
 				litDec.Dispose()
 				length = int(ibs.ReadBits(32))
 			}
@@ -507,7 +519,10 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 					goto End
 				}
 
-				mLenDec.Decode(mLenBuf[0:length])
+				if _, err = mLenDec.Decode(mLenBuf[0:length]); err != nil {
+					goto End
+				}
+
 				mLenDec.Dispose()
 				var mIdxDec *entropy.ANSRangeDecoder
 				mIdxDec, err = entropy.NewANSRangeDecoder(ibs, 0)
@@ -516,7 +531,10 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 					goto End
 				}
 
-				mIdxDec.Decode(mIdxBuf[0:length])
+				if _, err = mIdxDec.Decode(mIdxBuf[0:length]); err != nil {
+					goto End
+				}
+
 				mIdxDec.Dispose()
 			}
 
