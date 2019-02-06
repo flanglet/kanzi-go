@@ -102,13 +102,12 @@ func TestCorrectness(isBWT bool) {
 		}
 
 		str2 := string(buf2)
-		fmt.Printf("Encoded: %s", str2)
 
 		if isBWT {
 			primaryIndex := bwt.(*transform.BWT).PrimaryIndex(0)
-			fmt.Printf("  (Primary index=%v)\n", primaryIndex)
+			fmt.Printf("Encoded: %s  (Primary index=%v)\n", str2, primaryIndex)
 		} else {
-			println()
+			fmt.Printf("Encoded: %s\n", str2)
 		}
 
 		_, _, err2 := bwt.Inverse(buf2, buf3)
