@@ -96,6 +96,10 @@ func (this *DefaultInputBitStream) ReadArray(bits []byte, count uint) uint {
 		panic(errors.New("Stream closed"))
 	}
 
+	if count == 0 {
+		return 0
+	}
+
 	remaining := int(count)
 	start := 0
 

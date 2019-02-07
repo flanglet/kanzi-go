@@ -290,9 +290,12 @@ func (this *BinaryEntropyDecoder) Read(block []byte) (int, error) {
 
 		szBytes := ReadVarInt(this.bitstream)
 		this.current = this.bitstream.ReadBits(56)
-
 		this.initialized = true
-		this.bitstream.ReadArray(this.buffer, uint(8*szBytes))
+
+		if szBytes != 0 {
+			this.bitstream.ReadArray(this.buffer, uint(8*szBytes))
+		}
+
 		this.index = 0
 		buf := block[startChunk : startChunk+chunkSize]
 

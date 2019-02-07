@@ -211,8 +211,6 @@ func TestCorrectness(name string) {
 			values = []byte{0, 0, 32, 15, -4 & 0xFF, 16, 0, 16, 0, 7, -1 & 0xFF, -4 & 0xFF, -32 & 0xFF, 0, 31, -1 & 0xFF}
 		} else if ii == 2 {
 			values = []byte{0x3d, 0x4d, 0x54, 0x47, 0x5a, 0x36, 0x39, 0x26, 0x72, 0x6f, 0x6c, 0x65, 0x3d, 0x70, 0x72, 0x65}
-		} else if ii == 4 {
-			values = []byte{65, 71, 74, 66, 76, 65, 69, 77, 74, 79, 68, 75, 73, 72, 77, 68, 78, 65, 79, 79, 78, 66, 77, 71, 64, 70, 74, 77, 64, 67, 71, 64}
 		} else if ii == 1 {
 			values = make([]byte, 32)
 
@@ -226,10 +224,10 @@ func TestCorrectness(name string) {
 				values[i] = byte(2 + (i & 1)) // 2 symbols
 			}
 		} else {
-			values = make([]byte, 32)
+			values = make([]byte, 256)
 
 			for i := range values {
-				values[i] = byte(64 + 3*ii + rand.Intn(ii+1))
+				values[i] = byte(64 + 4*ii + rand.Intn(8*ii+1))
 			}
 		}
 
