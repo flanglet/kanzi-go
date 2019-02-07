@@ -88,7 +88,7 @@ func (this *RiceGolombEncoder) BitStream() kanzi.OutputBitStream {
 	return this.bitstream
 }
 
-func (this *RiceGolombEncoder) Encode(block []byte) (int, error) {
+func (this *RiceGolombEncoder) Write(block []byte) (int, error) {
 	for i := range block {
 		this.EncodeByte(block[i])
 	}
@@ -151,7 +151,7 @@ func (this *RiceGolombDecoder) BitStream() kanzi.InputBitStream {
 	return this.bitstream
 }
 
-func (this *RiceGolombDecoder) Decode(block []byte) (int, error) {
+func (this *RiceGolombDecoder) Read(block []byte) (int, error) {
 	for i := range block {
 		block[i] = this.DecodeByte()
 	}

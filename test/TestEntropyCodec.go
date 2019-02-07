@@ -252,7 +252,7 @@ func TestCorrectness(name string) {
 			os.Exit(1)
 		}
 
-		if _, err := ec.Encode(values); err != nil {
+		if _, err := ec.Write(values); err != nil {
 			fmt.Printf("Error during encoding: %s", err)
 			os.Exit(1)
 		}
@@ -272,7 +272,7 @@ func TestCorrectness(name string) {
 		ok := true
 		values2 := make([]byte, len(values))
 
-		if _, err := ed.Decode(values2); err != nil {
+		if _, err := ed.Read(values2); err != nil {
 			fmt.Printf("Error during decoding: %s", err)
 			os.Exit(1)
 		}
@@ -345,7 +345,7 @@ func TestSpeed(name string) {
 			// Encode
 			before1 := time.Now()
 
-			if _, err := ec.Encode(values1); err != nil {
+			if _, err := ec.Write(values1); err != nil {
 				fmt.Printf("An error occured during encoding: %v\n", err)
 				os.Exit(1)
 			}
@@ -369,7 +369,7 @@ func TestSpeed(name string) {
 			// Decode
 			before2 := time.Now()
 
-			if _, err := ed.Decode(values2); err != nil {
+			if _, err := ed.Read(values2); err != nil {
 				fmt.Printf("An error occured during decoding: %v\n", err)
 				os.Exit(1)
 			}

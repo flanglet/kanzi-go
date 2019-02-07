@@ -17,11 +17,12 @@ package benchmark
 
 import (
 	"fmt"
+	"math/rand"
+	"testing"
+
 	"github.com/flanglet/kanzi-go/bitstream"
 	"github.com/flanglet/kanzi-go/entropy"
 	"github.com/flanglet/kanzi-go/util"
-	"math/rand"
-	"testing"
 )
 
 func BenchmarkExpGolomb(b *testing.B) {
@@ -59,7 +60,7 @@ func BenchmarkExpGolomb(b *testing.B) {
 			ec, _ := entropy.NewExpGolombEncoder(obs, true)
 
 			// Encode
-			if _, err := ec.Encode(values1); err != nil {
+			if _, err := ec.Write(values1); err != nil {
 				msg := fmt.Sprintf("An error occured during encoding: %v\n", err)
 				b.Fatalf(msg)
 			}
@@ -75,7 +76,7 @@ func BenchmarkExpGolomb(b *testing.B) {
 			ed, _ := entropy.NewExpGolombDecoder(ibs, true)
 
 			// Decode
-			if _, err := ed.Decode(values2); err != nil {
+			if _, err := ed.Read(values2); err != nil {
 				msg := fmt.Sprintf("An error occured during decoding: %v\n", err)
 				b.Fatalf(msg)
 			}
@@ -127,7 +128,7 @@ func BenchmarkHuffman(b *testing.B) {
 			ec, _ := entropy.NewHuffmanEncoder(obs)
 
 			// Encode
-			if _, err := ec.Encode(values1); err != nil {
+			if _, err := ec.Write(values1); err != nil {
 				msg := fmt.Sprintf("An error occured during encoding: %v\n", err)
 				b.Fatalf(msg)
 			}
@@ -143,7 +144,7 @@ func BenchmarkHuffman(b *testing.B) {
 			ed, _ := entropy.NewHuffmanDecoder(ibs)
 
 			// Decode
-			if _, err := ed.Decode(values2); err != nil {
+			if _, err := ed.Read(values2); err != nil {
 				msg := fmt.Sprintf("An error occured during decoding: %v\n", err)
 				b.Fatalf(msg)
 			}
@@ -195,7 +196,7 @@ func BenchmarkANS0(b *testing.B) {
 			ec, _ := entropy.NewANSRangeEncoder(obs, 0)
 
 			// Encode
-			if _, err := ec.Encode(values1); err != nil {
+			if _, err := ec.Write(values1); err != nil {
 				msg := fmt.Sprintf("An error occured during encoding: %v\n", err)
 				b.Fatalf(msg)
 			}
@@ -211,7 +212,7 @@ func BenchmarkANS0(b *testing.B) {
 			ed, _ := entropy.NewANSRangeDecoder(ibs, 0)
 
 			// Decode
-			if _, err := ed.Decode(values2); err != nil {
+			if _, err := ed.Read(values2); err != nil {
 				msg := fmt.Sprintf("An error occured during decoding: %v\n", err)
 				b.Fatalf(msg)
 			}
@@ -263,7 +264,7 @@ func BenchmarkANS1(b *testing.B) {
 			ec, _ := entropy.NewANSRangeEncoder(obs, 1)
 
 			// Encode
-			if _, err := ec.Encode(values1); err != nil {
+			if _, err := ec.Write(values1); err != nil {
 				msg := fmt.Sprintf("An error occured during encoding: %v\n", err)
 				b.Fatalf(msg)
 			}
@@ -279,7 +280,7 @@ func BenchmarkANS1(b *testing.B) {
 			ed, _ := entropy.NewANSRangeDecoder(ibs, 1)
 
 			// Decode
-			if _, err := ed.Decode(values2); err != nil {
+			if _, err := ed.Read(values2); err != nil {
 				msg := fmt.Sprintf("An error occured during decoding: %v\n", err)
 				b.Fatalf(msg)
 			}
@@ -331,7 +332,7 @@ func BenchmarkRange(b *testing.B) {
 			ec, _ := entropy.NewRangeEncoder(obs)
 
 			// Encode
-			if _, err := ec.Encode(values1); err != nil {
+			if _, err := ec.Write(values1); err != nil {
 				msg := fmt.Sprintf("An error occured during encoding: %v\n", err)
 				b.Fatalf(msg)
 			}
@@ -347,7 +348,7 @@ func BenchmarkRange(b *testing.B) {
 			ed, _ := entropy.NewRangeDecoder(ibs)
 
 			// Decode
-			if _, err := ed.Decode(values2); err != nil {
+			if _, err := ed.Read(values2); err != nil {
 				msg := fmt.Sprintf("An error occured during decoding: %v\n", err)
 				b.Fatalf(msg)
 			}
@@ -400,7 +401,7 @@ func BenchmarkFPAQ(b *testing.B) {
 			ec, _ := entropy.NewBinaryEntropyEncoder(obs, predictor)
 
 			// Encode
-			if _, err := ec.Encode(values1); err != nil {
+			if _, err := ec.Write(values1); err != nil {
 				msg := fmt.Sprintf("An error occured during encoding: %v\n", err)
 				b.Fatalf(msg)
 			}
@@ -417,7 +418,7 @@ func BenchmarkFPAQ(b *testing.B) {
 			ed, _ := entropy.NewBinaryEntropyDecoder(ibs, predictor)
 
 			// Decode
-			if _, err := ed.Decode(values2); err != nil {
+			if _, err := ed.Read(values2); err != nil {
 				msg := fmt.Sprintf("An error occured during decoding: %v\n", err)
 				b.Fatalf(msg)
 			}
@@ -470,7 +471,7 @@ func BenchmarkCM(b *testing.B) {
 			ec, _ := entropy.NewBinaryEntropyEncoder(obs, predictor)
 
 			// Encode
-			if _, err := ec.Encode(values1); err != nil {
+			if _, err := ec.Write(values1); err != nil {
 				msg := fmt.Sprintf("An error occured during encoding: %v\n", err)
 				b.Fatalf(msg)
 			}
@@ -487,7 +488,7 @@ func BenchmarkCM(b *testing.B) {
 			ed, _ := entropy.NewBinaryEntropyDecoder(ibs, predictor)
 
 			// Decode
-			if _, err := ed.Decode(values2); err != nil {
+			if _, err := ed.Read(values2); err != nil {
 				msg := fmt.Sprintf("An error occured during decoding: %v\n", err)
 				b.Fatalf(msg)
 			}
@@ -540,7 +541,7 @@ func BenchmarkTPAQ(b *testing.B) {
 			ec, _ := entropy.NewBinaryEntropyEncoder(obs, predictor)
 
 			// Encode
-			if _, err := ec.Encode(values1); err != nil {
+			if _, err := ec.Write(values1); err != nil {
 				msg := fmt.Sprintf("An error occured during encoding: %v\n", err)
 				b.Fatalf(msg)
 			}
@@ -557,7 +558,7 @@ func BenchmarkTPAQ(b *testing.B) {
 			ed, _ := entropy.NewBinaryEntropyDecoder(ibs, predictor)
 
 			// Decode
-			if _, err := ed.Decode(values2); err != nil {
+			if _, err := ed.Read(values2); err != nil {
 				msg := fmt.Sprintf("An error occured during decoding: %v\n", err)
 				b.Fatalf(msg)
 			}

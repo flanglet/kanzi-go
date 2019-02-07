@@ -276,7 +276,7 @@ func computeInPlaceSizesPhase2(data []int) {
 }
 
 // Dynamically compute the frequencies for every chunk of data in the block
-func (this *HuffmanEncoder) Encode(block []byte) (int, error) {
+func (this *HuffmanEncoder) Write(block []byte) (int, error) {
 	if block == nil {
 		return 0, errors.New("Huffman codec: Invalid null block parameter")
 	}
@@ -489,7 +489,7 @@ func (this *HuffmanDecoder) buildDecodingTables(count int) {
 }
 
 // Use fastDecodeByte until the near end of chunk or block.
-func (this *HuffmanDecoder) Decode(block []byte) (int, error) {
+func (this *HuffmanDecoder) Read(block []byte) (int, error) {
 	if block == nil {
 		return 0, errors.New("Huffman codec: Invalid null block parameter")
 	}

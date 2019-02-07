@@ -89,7 +89,7 @@ func (this *BinaryEntropyEncoder) EncodeBit(bit byte) {
 	}
 }
 
-func (this *BinaryEntropyEncoder) Encode(block []byte) (int, error) {
+func (this *BinaryEntropyEncoder) Write(block []byte) (int, error) {
 	count := len(block)
 
 	if count > 1<<30 {
@@ -252,7 +252,7 @@ func (this *BinaryEntropyDecoder) read() {
 	this.index += 4
 }
 
-func (this *BinaryEntropyDecoder) Decode(block []byte) (int, error) {
+func (this *BinaryEntropyDecoder) Read(block []byte) (int, error) {
 	count := len(block)
 
 	if count > 1<<30 {

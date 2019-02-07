@@ -31,7 +31,7 @@ func NewNullEntropyEncoder(bs kanzi.OutputBitStream) (*NullEntropyEncoder, error
 	return this, nil
 }
 
-func (this *NullEntropyEncoder) Encode(block []byte) (int, error) {
+func (this *NullEntropyEncoder) Write(block []byte) (int, error) {
 	res := 0
 	count := len(block)
 	idx := 0
@@ -68,7 +68,7 @@ func NewNullEntropyDecoder(bs kanzi.InputBitStream) (*NullEntropyDecoder, error)
 	return this, nil
 }
 
-func (this *NullEntropyDecoder) Decode(block []byte) (int, error) {
+func (this *NullEntropyDecoder) Read(block []byte) (int, error) {
 	res := 0
 	count := len(block)
 	idx := 0

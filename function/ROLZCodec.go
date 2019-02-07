@@ -371,7 +371,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 				goto End
 			}
 
-			if _, err = litEnc.Encode(litBuf[0:litIdx]); err != nil {
+			if _, err = litEnc.Write(litBuf[0:litIdx]); err != nil {
 				goto End
 			}
 
@@ -385,7 +385,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 				goto End
 			}
 
-			if _, err = mLenEnc.Encode(mLenBuf[0:mIdx]); err != nil {
+			if _, err = mLenEnc.Write(mLenBuf[0:mIdx]); err != nil {
 				goto End
 			}
 
@@ -399,7 +399,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 				goto End
 			}
 
-			if _, err = mIdxEnc.Encode(mIdxBuf[0:mIdx]); err != nil {
+			if _, err = mIdxEnc.Write(mIdxBuf[0:mIdx]); err != nil {
 				goto End
 			}
 
@@ -503,7 +503,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 					goto End
 				}
 
-				if _, err = litDec.Decode(litBuf[0:length]); err != nil {
+				if _, err = litDec.Read(litBuf[0:length]); err != nil {
 					goto End
 				}
 
@@ -519,7 +519,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 					goto End
 				}
 
-				if _, err = mLenDec.Decode(mLenBuf[0:length]); err != nil {
+				if _, err = mLenDec.Read(mLenBuf[0:length]); err != nil {
 					goto End
 				}
 
@@ -531,7 +531,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 					goto End
 				}
 
-				if _, err = mIdxDec.Decode(mIdxBuf[0:length]); err != nil {
+				if _, err = mIdxDec.Read(mIdxBuf[0:length]); err != nil {
 					goto End
 				}
 

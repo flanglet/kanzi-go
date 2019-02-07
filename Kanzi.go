@@ -140,7 +140,7 @@ type Predictor interface {
 type EntropyEncoder interface {
 	// Encode the array provided into the bitstream. Return the number of byte
 	// written to the bitstream
-	Encode(block []byte) (int, error)
+	Write(block []byte) (int, error)
 
 	// Return the underlying bitstream
 	BitStream() OutputBitStream
@@ -152,7 +152,7 @@ type EntropyEncoder interface {
 type EntropyDecoder interface {
 	// Decode the next chunk of data from the bitstream and return in the
 	// provided buffer.
-	Decode(block []byte) (int, error)
+	Read(block []byte) (int, error)
 
 	// Return the underlying bitstream
 	BitStream() InputBitStream

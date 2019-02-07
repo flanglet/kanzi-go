@@ -202,7 +202,7 @@ func (this *ANSRangeEncoder) encodeHeader(alphabetSize int, alphabet []int, freq
 }
 
 // Dynamically compute the frequencies for every chunk of data in the block
-func (this *ANSRangeEncoder) Encode(block []byte) (int, error) {
+func (this *ANSRangeEncoder) Write(block []byte) (int, error) {
 	if block == nil {
 		return 0, errors.New("Invalid null block parameter")
 	}
@@ -556,7 +556,7 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, error) {
 	return res, nil
 }
 
-func (this *ANSRangeDecoder) Decode(block []byte) (int, error) {
+func (this *ANSRangeDecoder) Read(block []byte) (int, error) {
 	if block == nil {
 		return 0, errors.New("Invalid null block parameter")
 	}

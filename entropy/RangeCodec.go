@@ -171,7 +171,7 @@ func (this *RangeEncoder) encodeHeader(alphabetSize int, alphabet []int, frequen
 	return true
 }
 
-func (this *RangeEncoder) Encode(block []byte) (int, error) {
+func (this *RangeEncoder) Write(block []byte) (int, error) {
 	if block == nil {
 		return 0, errors.New("Invalid null block parameter")
 	}
@@ -398,7 +398,7 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
 
 // Initialize once (if necessary) at the beginning, the use the faster decodeByte_()
 // Reset frequency stats for each chunk of data in the block
-func (this *RangeDecoder) Decode(block []byte) (int, error) {
+func (this *RangeDecoder) Read(block []byte) (int, error) {
 	if block == nil {
 		return 0, errors.New("Invalid null block parameter")
 	}

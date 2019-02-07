@@ -110,7 +110,7 @@ func (this *ExpGolombEncoder) BitStream() kanzi.OutputBitStream {
 	return this.bitstream
 }
 
-func (this *ExpGolombEncoder) Encode(block []byte) (int, error) {
+func (this *ExpGolombEncoder) Write(block []byte) (int, error) {
 	for i := range block {
 		this.EncodeByte(block[i])
 	}
@@ -180,7 +180,7 @@ func (this *ExpGolombDecoder) BitStream() kanzi.InputBitStream {
 	return this.bitstream
 }
 
-func (this *ExpGolombDecoder) Decode(block []byte) (int, error) {
+func (this *ExpGolombDecoder) Read(block []byte) (int, error) {
 	for i := range block {
 		block[i] = this.DecodeByte()
 	}

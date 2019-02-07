@@ -17,14 +17,15 @@ package io
 
 import (
 	"fmt"
+	"io"
+	"sync/atomic"
+	"time"
+
 	kanzi "github.com/flanglet/kanzi-go"
 	"github.com/flanglet/kanzi-go/bitstream"
 	"github.com/flanglet/kanzi-go/entropy"
 	"github.com/flanglet/kanzi-go/function"
 	"github.com/flanglet/kanzi-go/util/hash"
-	"io"
-	"sync/atomic"
-	"time"
 )
 
 // Write to/read from stream using a 2 step process:
@@ -592,7 +593,7 @@ func (this *EncodingTask) encode() {
 	}
 
 	// Entropy encode block
-	_, err = ee.Encode(buffer[0:postTransformLength])
+	_, err = ee.Write(buffer[0:postTransformLength])
 
 	if err != nil {
 		this.output <- NewIOError(err.Error(), kanzi.ERR_PROCESS_BLOCK)
@@ -1179,7 +1180,7 @@ func (this *DecodingTask) decode() {
 	defer ed.Dispose()
 
 	// Block entropy decode
-	if _, err = ed.Decode(buffer[0:preTransformLength]); err != nil {
+	if _, err = ed.Read(buffer[0:preTransformLength]); err != nil {
 		// Error => cancel concurrent decoding tasks
 		res.err = NewIOError(err.Error(), kanzi.ERR_PROCESS_BLOCK)
 		notify(this.output, this.result, false, res)
