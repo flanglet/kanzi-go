@@ -73,22 +73,18 @@ func (this *DefaultInputBitStream) ReadBits(count uint) uint64 {
 		panic(fmt.Errorf("Invalid bit count: %v (must be in [1..64])", count))
 	}
 
-	var res uint64
-	remaining := int(count) - this.availBits
-
-	if remaining <= 0 {
+	if int(count) <= this.availBits {
 		// Enough spots available in 'current'
-		res = (this.current >> uint(-remaining)) & (0xFFFFFFFFFFFFFFFF >> (64 - count))
 		this.availBits -= int(count)
-	} else {
-		// Not enough spots available in 'current'
-		res = this.current & (0xFFFFFFFFFFFFFFFF >> uint(64-this.availBits))
-		this.pullCurrent()
-		this.availBits -= remaining
-		res = (res << uint(remaining)) | (this.current >> uint(this.availBits))
+		return (this.current >> uint(this.availBits)) & (0xFFFFFFFFFFFFFFFF >> (64 - count))
 	}
 
-	return res
+	// Not enough spots available in 'current'
+	count -= uint(this.availBits)
+	res := this.current & (0xFFFFFFFFFFFFFFFF >> uint(64-this.availBits))
+	this.pullCurrent()
+	this.availBits -= int(count)
+	return (res << count) | (this.current >> uint(this.availBits))
 }
 
 func (this *DefaultInputBitStream) ReadArray(bits []byte, count uint) uint {
