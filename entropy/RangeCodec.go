@@ -396,7 +396,6 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
 	return alphabetSize, nil
 }
 
-// Initialize once (if necessary) at the beginning, the use the faster decodeByte_()
 // Reset frequency stats for each chunk of data in the block
 func (this *RangeDecoder) Read(block []byte) (int, error) {
 	if block == nil {

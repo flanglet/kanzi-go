@@ -32,7 +32,7 @@ type ZRLT struct {
 }
 
 func NewZRLT() (*ZRLT, error) {
-	this := new(ZRLT)
+	this := &ZRLT{}
 	return this, nil
 }
 

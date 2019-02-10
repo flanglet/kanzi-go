@@ -45,7 +45,7 @@ type BWTBlockCodec struct {
 
 func NewBWTBlockCodec(ctx *map[string]interface{}) (*BWTBlockCodec, error) {
 
-	this := new(BWTBlockCodec)
+	this := &BWTBlockCodec{}
 	var err error
 	this.bwt, err = transform.NewBWTWithCtx(ctx)
 	return this, err

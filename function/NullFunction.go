@@ -23,7 +23,7 @@ type NullFunction struct {
 }
 
 func NewNullFunction() (*NullFunction, error) {
-	this := new(NullFunction)
+	this := &NullFunction{}
 	return this, nil
 }
 

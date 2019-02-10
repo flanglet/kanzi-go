@@ -89,14 +89,14 @@ type ROLZCodec struct {
 }
 
 func NewROLZCodec(logPosChecks uint) (*ROLZCodec, error) {
-	this := new(ROLZCodec)
+	this := &ROLZCodec{}
 	d, err := newROLZCodec1(logPosChecks)
 	this.delegate = d
 	return this, err
 }
 
 func NewROLZCodecWithFlag(extra bool) (*ROLZCodec, error) {
-	this := new(ROLZCodec)
+	this := &ROLZCodec{}
 	var err error
 	var d kanzi.ByteFunction
 
@@ -111,7 +111,7 @@ func NewROLZCodecWithFlag(extra bool) (*ROLZCodec, error) {
 }
 
 func NewROLZCodecWithCtx(ctx *map[string]interface{}) (*ROLZCodec, error) {
-	this := new(ROLZCodec)
+	this := &ROLZCodec{}
 
 	var err error
 	var d kanzi.ByteFunction
@@ -185,7 +185,7 @@ type rolzCodec1 struct {
 
 // Use ANS to encode/decode literals and matches
 func newROLZCodec1(logPosChecks uint) (*rolzCodec1, error) {
-	this := new(rolzCodec1)
+	this := &rolzCodec1{}
 
 	if (logPosChecks < 2) || (logPosChecks > 8) {
 		return nil, fmt.Errorf("Invalid logPosChecks parameter: %v (must be in [2..8])", logPosChecks)
@@ -695,7 +695,7 @@ type rolzCodec2 struct {
 }
 
 func newROLZCodec2(logPosChecks uint) (*rolzCodec2, error) {
-	this := new(rolzCodec2)
+	this := &rolzCodec2{}
 
 	if (logPosChecks < 2) || (logPosChecks > 8) {
 		return nil, fmt.Errorf("Invalid logPosChecks parameter: %v (must be in [2..8])", logPosChecks)
@@ -1012,7 +1012,7 @@ type rolzPredictor struct {
 }
 
 func newRolzPredictor(logPosChecks uint) (*rolzPredictor, error) {
-	this := new(rolzPredictor)
+	this := &rolzPredictor{}
 	this.logSize = logPosChecks
 	this.size = 1 << logPosChecks
 	this.p1 = make([]int32, 256*this.size)
@@ -1063,7 +1063,7 @@ type rolzEncoder struct {
 }
 
 func newRolzEncoder(predictors []kanzi.Predictor, buf []byte, idx *int) (*rolzEncoder, error) {
-	this := new(rolzEncoder)
+	this := &rolzEncoder{}
 	this.low = 0
 	this.high = ROLZ_TOP
 	this.buf = buf
@@ -1095,7 +1095,7 @@ func (this *rolzEncoder) encodeBit(bit byte) {
 	// Update fields with new interval bounds
 	b := -uint64(bit)
 	this.high -= (b & (this.high - this.low - split))
-	this.low += (^b & -^split)
+	this.low += (^b & (split + 1))
 
 	// Update predictor
 	this.predictor.Update(bit)

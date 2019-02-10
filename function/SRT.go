@@ -32,7 +32,7 @@ type SRT struct {
 }
 
 func NewSRT() (*SRT, error) {
-	this := new(SRT)
+	this := &SRT{}
 	return this, nil
 }
 

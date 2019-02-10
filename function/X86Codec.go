@@ -32,7 +32,7 @@ type X86Codec struct {
 }
 
 func NewX86Codec() (*X86Codec, error) {
-	this := new(X86Codec)
+	this := &X86Codec{}
 	return this, nil
 }
 

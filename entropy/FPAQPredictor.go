@@ -28,7 +28,7 @@ type FPAQPredictor struct {
 }
 
 func NewFPAQPredictor() (*FPAQPredictor, error) {
-	this := new(FPAQPredictor)
+	this := &FPAQPredictor{}
 	this.ctxIdx = 1
 
 	for i := range this.probs {

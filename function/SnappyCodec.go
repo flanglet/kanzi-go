@@ -48,7 +48,7 @@ type SnappyCodec struct {
 }
 
 func NewSnappyCodec() (*SnappyCodec, error) {
-	this := new(SnappyCodec)
+	this := &SnappyCodec{}
 	this.buffer = make([]int32, MAX_TABLE_SIZE)
 	return this, nil
 }
