@@ -462,10 +462,10 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 			wg.Add(1)
 			start := c * ckSize
 
-			go func(dst []byte, buckets []int, fastBits []uint16, total, start, ckSize, firstChunk, lastChunk int) {
-				this.inverseChunkTask(dst, buckets, fastBits, total, start, ckSize, firstChunk, lastChunk)
+			go func(dst []byte, buckets []int, fastBits []uint16, indexes []uint, total, start, ckSize, firstChunk, lastChunk int) {
+				this.inverseChunkTask(dst, buckets, fastBits, indexes, total, start, ckSize, firstChunk, lastChunk)
 				wg.Done()
-			}(dst, buckets[:], fastBits, count, start, ckSize, c, c+int(jobsPerTask[j]))
+			}(dst, buckets[:], fastBits, this.primaryIndexes[:], count, start, ckSize, c, c+int(jobsPerTask[j]))
 
 			c += int(jobsPerTask[j])
 		}
@@ -477,7 +477,7 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 	return uint(count), uint(count), nil
 }
 
-func (this *BWT) inverseChunkTask(dst []byte, buckets []int, fastBits []uint16, total, start, ckSize, firstChunk, lastChunk int) {
+func (this *BWT) inverseChunkTask(dst []byte, buckets []int, fastBits []uint16, indexes []uint, total, start, ckSize, firstChunk, lastChunk int) {
 	data := this.buffer1
 	shift := uint(0)
 
@@ -492,7 +492,7 @@ func (this *BWT) inverseChunkTask(dst []byte, buckets []int, fastBits []uint16, 
 			end = total - 1
 		}
 
-		p := int(this.PrimaryIndex(c))
+		p := int(indexes[c])
 
 		for i := start + 1; i <= end; i += 2 {
 			s := fastBits[p>>shift]
