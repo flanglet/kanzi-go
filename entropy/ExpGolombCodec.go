@@ -73,7 +73,7 @@ type ExpGolombEncoder struct {
 // Example: -1 is better compressed as int8 (1 followed by '-') than as byte (-1 & 255 = 255)
 func NewExpGolombEncoder(bs kanzi.OutputBitStream, sgn bool) (*ExpGolombEncoder, error) {
 	if bs == nil {
-		return nil, errors.New("Invalid null bitstream parameter")
+		return nil, errors.New("ExpGolomb codec: Invalid null bitstream parameter")
 	}
 
 	this := new(ExpGolombEncoder)
@@ -126,7 +126,7 @@ type ExpGolombDecoder struct {
 // If sgn is true, the extracted value is treated as an int8
 func NewExpGolombDecoder(bs kanzi.InputBitStream, sgn bool) (*ExpGolombDecoder, error) {
 	if bs == nil {
-		return nil, errors.New("Invalid null bitstream parameter")
+		return nil, errors.New("ExpGolomb codec: Invalid null bitstream parameter")
 	}
 
 	this := new(ExpGolombDecoder)

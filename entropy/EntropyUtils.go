@@ -17,6 +17,7 @@ package entropy
 
 import (
 	"container/heap"
+	"errors"
 	"fmt"
 
 	kanzi "github.com/flanglet/kanzi-go"
@@ -80,25 +81,17 @@ func (this *freqSortPriorityQueue) Pop() interface{} {
 	return data
 }
 
-type EntropyUtils struct {
-	buffer []int
-}
-
-func NewEntropyUtils() (*EntropyUtils, error) {
-	this := new(EntropyUtils)
-	this.buffer = make([]int, 0)
-	return this, nil
-}
-
+// EncodeAlphabet  Write the alphabet to the bitstream and return the number
+// of symbols written or an error.
 // alphabet must be sorted in increasing order
 // alphabet length must be a power of 2
-func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) int {
+func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 	alphabetSize := cap(alphabet)
 	count := len(alphabet)
 
 	// Alphabet length must be a power of 2
 	if alphabetSize&(alphabetSize-1) != 0 {
-		return -1
+		return 0, errors.New("The alphabet length must be a power of 2")
 	}
 
 	// First, push alphabet encoding mode
@@ -121,7 +114,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) int {
 			obs.WriteBits(uint64(count), log)
 		}
 
-		return count
+		return count, nil
 	}
 
 	obs.WriteBit(PARTIAL_ALPHABET)
@@ -139,7 +132,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) int {
 			obs.WriteBits(masks[i], 64)
 		}
 
-		return count
+		return count, nil
 	}
 
 	obs.WriteBit(DELTA_ENCODED_ALPHABET)
@@ -159,7 +152,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) int {
 		obs.WriteBits(uint64(count), log)
 
 		if count == 0 {
-			return 0
+			return 0, nil
 		}
 
 		obs.WriteBit(ABSENT_SYMBOLS_MASK)
@@ -203,7 +196,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) int {
 		obs.WriteBits(uint64(count), log)
 
 		if count == 0 {
-			return 0
+			return 0, nil
 		}
 
 		obs.WriteBit(PRESENT_SYMBOLS_MASK)
@@ -247,9 +240,11 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) int {
 		}
 	}
 
-	return alphabetSize
+	return alphabetSize, nil
 }
 
+// DecodeAlphabet  Read the alphabet from the bitstream and return the number of symbols
+// read or an error
 func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 	// Read encoding mode from bitstream
 	alphabetType := ibs.ReadBit()
@@ -362,8 +357,9 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 	return count, nil
 }
 
-// Return the first order entropy in the [0..1024] range
-// Fills in the histogram with order 0 frequencies. Incoming array size must be 256
+// ComputeFirstOrderEntropy1024  Compute the entropy 0 of the block
+// and scale the result by 1024 (result in the [0..1024] range)
+// Fills in the histogram with order 0 frequencies. Incoming array size must be at least 256
 func ComputeFirstOrderEntropy1024(block []byte, histo []int) int {
 	if len(block) == 0 {
 		return 0
@@ -385,14 +381,15 @@ func ComputeFirstOrderEntropy1024(block []byte, histo []int) int {
 	return int(sum / uint64(len(block)))
 }
 
-// Return the size of the alphabet
-// The alphabet and freqs parameters are updated
-func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (int, error) {
-	if len(alphabet) > 1<<8 {
+// NormalizeFrequencies  Scale the frequencies so that their sum equals 'scale'.
+// Return the size of the alphabet or an error.
+// The alphabet and freqs parameters are updated.
+func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (int, error) {
+	if len(alphabet) > 256 {
 		return 0, fmt.Errorf("Invalid alphabet size parameter: %v (must be less than or equal to 256)", len(alphabet))
 	}
 
-	if scale < 1<<8 || scale > 1<<16 {
+	if scale < 256 || scale > 65536 {
 		return 0, fmt.Errorf("Invalid range parameter: %v (must be in [256..65536])", scale)
 	}
 
@@ -402,7 +399,7 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, tota
 
 	alphabetSize := 0
 
-	// shortcut
+	// Shortcut
 	if totalFreq == scale {
 		for i := 0; i < 256; i++ {
 			if freqs[i] != 0 {
@@ -414,11 +411,7 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, tota
 		return alphabetSize, nil
 	}
 
-	if len(this.buffer) < len(alphabet) {
-		this.buffer = make([]int, len(alphabet))
-	}
-
-	errors := this.buffer
+	var errors [256]int
 	sumScaledFreq := 0
 	freqMax := 0
 	idxMax := -1
@@ -492,7 +485,7 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, tota
 			// Create sorted queue of present symbols (except those with 'quantum frequency')
 			for i := 0; i < alphabetSize; i++ {
 				if errors[alphabet[i]] > 0 && freqs[alphabet[i]] != -inc {
-					heap.Push(&queue, &freqSortData{errors: errors, frequencies: freqs, symbol: alphabet[i]})
+					heap.Push(&queue, &freqSortData{errors: errors[:], frequencies: freqs, symbol: alphabet[i]})
 				}
 			}
 
@@ -517,6 +510,8 @@ func (this *EntropyUtils) NormalizeFrequencies(freqs []int, alphabet []int, tota
 	return alphabetSize, nil
 }
 
+// WriteVarInt  Write the provided value to the bitstream as a VarInt.
+// Return the number of bytes written.
 func WriteVarInt(bs kanzi.OutputBitStream, value int) int {
 	if bs == nil {
 		panic("Invalid null bitstream parameter")
@@ -534,6 +529,7 @@ func WriteVarInt(bs kanzi.OutputBitStream, value int) int {
 	return res
 }
 
+// ReadVarInt  Read a VarInt from the bitsream and return is as an int.
 func ReadVarInt(bs kanzi.InputBitStream) int {
 	if bs == nil {
 		panic("Invalid null bitstream parameter")

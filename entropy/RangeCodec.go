@@ -41,7 +41,6 @@ type RangeEncoder struct {
 	alphabet  [256]int
 	freqs     [256]int
 	cumFreqs  [257]uint64
-	eu        *EntropyUtils
 	bitstream kanzi.OutputBitStream
 	chunkSize uint
 	logRange  uint
@@ -56,11 +55,11 @@ type RangeEncoder struct {
 // The default chunk size is 65536 bytes.
 func NewRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*RangeEncoder, error) {
 	if bs == nil {
-		return nil, errors.New("Invalid null bitstream parameter")
+		return nil, errors.New("Range codec: Invalid null bitstream parameter")
 	}
 
 	if len(args) > 2 {
-		return nil, errors.New("At most one chunk size and one log range can be provided")
+		return nil, errors.New("Range codec: At most one chunk size and one log range can be provided")
 	}
 
 	chkSize := DEFAULT_RANGE_CHUNK_SIZE
@@ -72,15 +71,15 @@ func NewRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*RangeEncoder, err
 	}
 
 	if chkSize != 0 && chkSize < 1024 {
-		return nil, errors.New("The chunk size must be at least 1024")
+		return nil, errors.New("Range codec: The chunk size must be at least 1024")
 	}
 
 	if chkSize > 1<<30 {
-		return nil, errors.New("The chunk size must be at most 2^30")
+		return nil, errors.New("Range codec: The chunk size must be at most 2^30")
 	}
 
 	if logRange < 8 || logRange > 16 {
-		return nil, fmt.Errorf("Invalid range parameter: %v (must be in [8..16])", logRange)
+		return nil, fmt.Errorf("Range codec: Invalid range parameter: %v (must be in [8..16])", logRange)
 	}
 
 	this := new(RangeEncoder)
@@ -90,17 +89,15 @@ func NewRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*RangeEncoder, err
 	this.cumFreqs = [257]uint64{}
 	this.logRange = logRange
 	this.chunkSize = chkSize
-	var err error
-	this.eu, err = NewEntropyUtils()
-	return this, err
+	return this, nil
 }
 
 func (this *RangeEncoder) updateFrequencies(frequencies []int, size int, lr uint) (int, error) {
 	if frequencies == nil || len(frequencies) != 256 {
-		return 0, errors.New("Invalid frequencies parameter")
+		return 0, errors.New("Range codec: Invalid frequencies parameter")
 	}
 
-	alphabetSize, err := this.eu.NormalizeFrequencies(frequencies, this.alphabet[:], size, 1<<lr)
+	alphabetSize, err := NormalizeFrequencies(frequencies, this.alphabet[:], size, 1<<lr)
 
 	if err != nil {
 		return alphabetSize, err
@@ -115,15 +112,17 @@ func (this *RangeEncoder) updateFrequencies(frequencies []int, size int, lr uint
 		}
 	}
 
-	this.encodeHeader(alphabetSize, this.alphabet[:], frequencies, lr)
-	return alphabetSize, nil
+	err = this.encodeHeader(alphabetSize, this.alphabet[:], frequencies, lr)
+	return alphabetSize, err
 }
 
-func (this *RangeEncoder) encodeHeader(alphabetSize int, alphabet []int, frequencies []int, lr uint) bool {
-	EncodeAlphabet(this.bitstream, alphabet[0:alphabetSize])
+func (this *RangeEncoder) encodeHeader(alphabetSize int, alphabet []int, frequencies []int, lr uint) error {
+	if _, err := EncodeAlphabet(this.bitstream, alphabet[0:alphabetSize]); err != nil {
+		return err
+	}
 
 	if alphabetSize == 0 {
-		return true
+		return nil
 	}
 
 	this.bitstream.WriteBits(uint64(lr-8), 3) // logRange
@@ -168,12 +167,12 @@ func (this *RangeEncoder) encodeHeader(alphabetSize int, alphabet []int, frequen
 		}
 	}
 
-	return true
+	return nil
 }
 
 func (this *RangeEncoder) Write(block []byte) (int, error) {
 	if block == nil {
-		return 0, errors.New("Invalid null block parameter")
+		return 0, errors.New("Range codec: Invalid null block parameter")
 	}
 
 	if len(block) == 0 {
@@ -286,11 +285,11 @@ type RangeDecoder struct {
 // The default chunk size is 65536 bytes.
 func NewRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*RangeDecoder, error) {
 	if bs == nil {
-		return nil, errors.New("Invalid null bitstream parameter")
+		return nil, errors.New("Range codec: Invalid null bitstream parameter")
 	}
 
 	if len(args) > 1 {
-		return nil, errors.New("At most one chunk size can be provided")
+		return nil, errors.New("Range codec: At most one chunk size can be provided")
 	}
 
 	chkSize := DEFAULT_RANGE_CHUNK_SIZE
@@ -300,11 +299,11 @@ func NewRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*RangeDecoder, erro
 	}
 
 	if chkSize != 0 && chkSize < 1024 {
-		return nil, errors.New("The chunk size must be at least 1024")
+		return nil, errors.New("Range codec: The chunk size must be at least 1024")
 	}
 
 	if chkSize > 1<<30 {
-		return nil, errors.New("The chunk size must be at most 2^30")
+		return nil, errors.New("Range codec: The chunk size must be at most 2^30")
 	}
 
 	this := new(RangeDecoder)
@@ -361,7 +360,7 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
 			val := int(this.bitstream.ReadBits(logMax))
 
 			if val <= 0 || val >= scale {
-				err := fmt.Errorf("Invalid bitstream: incorrect frequency %v  for symbol '%v' in range decoder", val, this.alphabet[j])
+				err := fmt.Errorf("Invalid bitstream: incorrect frequency %v for symbol '%v' in range decoder", val, this.alphabet[j])
 				return alphabetSize, err
 			}
 
@@ -372,7 +371,7 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
 
 	// Infer first frequency
 	if scale <= sum {
-		err := fmt.Errorf("Invalid bitstream: incorrect frequency %v  for symbol '%v' in range decoder", frequencies[this.alphabet[0]], this.alphabet[0])
+		err := fmt.Errorf("Invalid bitstream: incorrect frequency %v for symbol '%v' in range decoder", frequencies[this.alphabet[0]], this.alphabet[0])
 		return alphabetSize, err
 	}
 
@@ -399,7 +398,7 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
 // Reset frequency stats for each chunk of data in the block
 func (this *RangeDecoder) Read(block []byte) (int, error) {
 	if block == nil {
-		return 0, errors.New("Invalid null block parameter")
+		return 0, errors.New("Range codec: Invalid null block parameter")
 	}
 
 	end := len(block)

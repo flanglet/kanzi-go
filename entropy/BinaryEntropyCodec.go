@@ -42,11 +42,11 @@ type BinaryEntropyEncoder struct {
 
 func NewBinaryEntropyEncoder(bs kanzi.OutputBitStream, predictor kanzi.Predictor) (*BinaryEntropyEncoder, error) {
 	if bs == nil {
-		return nil, errors.New("Invalid null bitstream parameter")
+		return nil, errors.New("Binary entropy codec: Invalid null bitstream parameter")
 	}
 
 	if predictor == nil {
-		return nil, errors.New("Invalid null predictor parameter")
+		return nil, errors.New("Binary entropy codec: Invalid null predictor parameter")
 	}
 
 	this := new(BinaryEntropyEncoder)
@@ -93,7 +93,7 @@ func (this *BinaryEntropyEncoder) Write(block []byte) (int, error) {
 	count := len(block)
 
 	if count > 1<<30 {
-		return -1, errors.New("Invalid block size parameter (max is 1<<30)")
+		return -1, errors.New("Binary entropy codec: Invalid block size parameter (max is 1<<30)")
 	}
 
 	startChunk := 0
@@ -177,11 +177,11 @@ type BinaryEntropyDecoder struct {
 
 func NewBinaryEntropyDecoder(bs kanzi.InputBitStream, predictor kanzi.Predictor) (*BinaryEntropyDecoder, error) {
 	if bs == nil {
-		return nil, errors.New("Invalid null bitstream parameter")
+		return nil, errors.New("Binary entropy codec: Invalid null bitstream parameter")
 	}
 
 	if predictor == nil {
-		return nil, errors.New("Invalid null predictor parameter")
+		return nil, errors.New("Binary entropy codec: Invalid null predictor parameter")
 	}
 
 	// Defer stream reading. We are creating the object, we should not do any I/O
@@ -256,7 +256,7 @@ func (this *BinaryEntropyDecoder) Read(block []byte) (int, error) {
 	count := len(block)
 
 	if count > 1<<30 {
-		return -1, errors.New("Invalid block size parameter (max is 1<<30)")
+		return -1, errors.New("Binary entropy codec: Invalid block size parameter (max is 1<<30)")
 	}
 
 	startChunk := 0

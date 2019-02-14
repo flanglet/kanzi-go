@@ -147,7 +147,9 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []int) (int, error) {
 	}
 
 	symbols := this.alphabet[0:count]
-	EncodeAlphabet(this.bitstream, symbols)
+	if _, err := EncodeAlphabet(this.bitstream, symbols); err != nil {
+		return count, err
+	}
 
 	// Transmit code lengths only, frequencies and codes do not matter
 	// Unary encode the length differences
