@@ -377,13 +377,13 @@ func (this *TPAQPredictor) Update(bit byte) {
 	// SSE (Secondary Symbol Estimation)
 	if this.extra == true {
 		if this.binCount < (this.pos >> 3) {
-			p = this.sse1.get(y, p, int(c|(this.c4&0xFF00)))
+			p = this.sse1.get(y, p, int(this.ctx0+c))
 		} else {
 			if this.binCount >= (this.pos >> 2) {
 				p = this.sse0.get(y, p, int(this.c0))
 			}
 
-			p = (3*this.sse1.get(y, p, int(this.c0|(this.c4&0xFF00))) + p + 2) >> 2
+			p = (3*this.sse1.get(y, p, int(this.ctx0+c)) + p + 2) >> 2
 		}
 	}
 
