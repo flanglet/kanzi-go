@@ -1292,7 +1292,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	words := this.staticDictSize
 	wordRun := false
 	err := error(nil)
-	this.isCRLF = src[srcIdx]&0x01 != 0
+	this.isCRLF = src[srcIdx]&TC_MASK_CRLF != 0
 	srcIdx++
 
 	for srcIdx < srcEnd && dstIdx < dstEnd {
@@ -1838,7 +1838,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	words := this.staticDictSize
 	wordRun := false
 	err := error(nil)
-	this.isCRLF = src[srcIdx]&0x01 != 0
+	this.isCRLF = src[srcIdx]&TC_MASK_CRLF != 0
 	srcIdx++
 
 	for srcIdx < srcEnd && dstIdx < dstEnd {
