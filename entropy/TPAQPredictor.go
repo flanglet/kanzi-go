@@ -297,7 +297,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.pos++
 		this.c8 = (this.c8 << 8) | ((this.c4 >> 24) & 0xFF)
 		this.c4 = (this.c4 << 8) | (this.c0 & 0xFF)
-		this.hash = (((this.hash * 43707) << 4) + this.c4) & this.hashMask
+		this.hash = (((this.hash * TPAQ_HASH) << 4) + this.c4) & this.hashMask
 		this.c0 = 1
 		this.bpos = 0
 		this.binCount += ((this.c4 >> 7) & 1)
@@ -332,12 +332,11 @@ func (this *TPAQPredictor) Update(bit byte) {
 			this.ctx6 = hashTPAQ(this.c8&TPAQ_MASK_F0F0F0F0, this.c4&TPAQ_MASK_F0F0F0F0)
 		} else {
 			// Mostly binary
-			this.ctx4 = createContext(TPAQ_HASH, this.c4^(this.c4&0xFFFF))
-			this.ctx5 = hashTPAQ(this.c4&TPAQ_MASK_FFFF0000, this.c8>>16)
+			this.ctx4 = createContext(TPAQ_HASH, this.c4^(this.c4&0x000FFFFF))
+			this.ctx5 = hashTPAQ(this.ctx1, this.c8>>16)
 			this.ctx6 = this.ctx0 | (this.c8 << 16)
 		}
 
-		// Find match
 		this.findMatch()
 
 		// Keep track of current position
