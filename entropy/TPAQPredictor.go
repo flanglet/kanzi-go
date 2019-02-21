@@ -327,13 +327,13 @@ func (this *TPAQPredictor) Update(bit byte) {
 				h2 = this.c8 & TPAQ_MASK_80808080
 			}
 
-			this.ctx4 = createContext(this.c4&0xFFFF, this.c4^(this.c8&0xFFFF))
+			this.ctx4 = createContext(this.ctx1, this.c4^(this.c8&0xFFFF))
 			this.ctx5 = hashTPAQ(h1, h2)
 			this.ctx6 = hashTPAQ(this.c8&TPAQ_MASK_F0F0F0F0, this.c4&TPAQ_MASK_F0F0F0F0)
 		} else {
 			// Mostly binary
 			this.ctx4 = createContext(TPAQ_HASH, this.c4^(this.c4&0x000FFFFF))
-			this.ctx5 = hashTPAQ(this.ctx1, this.c8>>16)
+			this.ctx5 = hashTPAQ(this.c4&TPAQ_MASK_FFFF0000, this.c8>>16)
 			this.ctx6 = this.ctx0 | (this.c8 << 16)
 		}
 
@@ -379,10 +379,10 @@ func (this *TPAQPredictor) Update(bit byte) {
 			p = this.sse1.get(y, p, int(this.ctx0+c))
 		} else {
 			if this.binCount >= (this.pos >> 2) {
-				p = this.sse0.get(y, p, int(this.c0))
+				p = (3*this.sse0.get(y, p, int(this.c0)) + p) >> 2
 			}
 
-			p = (3*this.sse1.get(y, p, int(this.ctx0+c)) + p + 2) >> 2
+			p = (3*this.sse1.get(y, p, int(this.ctx0+c)) + p) >> 2
 		}
 	}
 
