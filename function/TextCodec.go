@@ -939,17 +939,21 @@ func newTextCodec1() (*textCodec1, error) {
 
 func newTextCodec1WithCtx(ctx *map[string]interface{}) (*textCodec1, error) {
 	this := new(textCodec1)
-	log := uint32(8)
+	log := uint32(13)
 	blockSize := uint(0)
 
 	if val, containsKey := (*ctx)["size"]; containsKey {
 		// Actual block size
 		blockSize = val.(uint)
 
-		if blockSize >= 1<<28 {
-			log = 26
-		} else if blockSize >= 1<<10 {
+		if blockSize >= 4 {
 			log, _ = kanzi.Log2(uint32(blockSize / 4))
+
+			if log > 26 {
+				log = 26
+			} else if log < 13 {
+				log = 13
+			}
 		}
 	}
 
@@ -1098,7 +1102,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			pe := pe1
 
 			if pe == nil {
-				if pe2 := this.dictMap[h2&this.hashMask]; pe2 != nil && pe2.data>>24 == length && pe2.hash == h2 {
+				if pe2 := this.dictMap[h2&this.hashMask]; pe2 != nil && pe2.hash == h2 && pe2.data>>24 == length {
 					pe = pe2
 				}
 			}
@@ -1116,7 +1120,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 					if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
 						// Evict and reuse old entry
-						this.dictMap[pe.hash&this.hashMask] = nil
+						//this.dictMap[pe.hash&this.hashMask] = nil
 						pe.ptr = src[delimAnchor+1:]
 						pe.hash = h1
 						pe.data = (length << 24) | int32(words)
@@ -1332,7 +1336,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 					if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
 						// Evict and reuse old entry
-						this.dictMap[pe.hash&this.hashMask] = nil
+						//this.dictMap[pe.hash&this.hashMask] = nil
 						pe.ptr = src[delimAnchor+1:]
 						pe.hash = h1
 						pe.data = (length << 24) | int32(words)
@@ -1463,17 +1467,21 @@ func newTextCodec2() (*textCodec2, error) {
 
 func newTextCodec2WithCtx(ctx *map[string]interface{}) (*textCodec2, error) {
 	this := new(textCodec2)
-	log := uint32(8)
+	log := uint32(13)
 	blockSize := uint(0)
 
 	if val, containsKey := (*ctx)["size"]; containsKey {
 		// Actual block size
 		blockSize = val.(uint)
 
-		if blockSize >= 1<<28 {
-			log = 26
-		} else if blockSize >= 1<<10 {
+		if blockSize >= 4 {
 			log, _ = kanzi.Log2(uint32(blockSize / 4))
+
+			if log > 26 {
+				log = 26
+			} else if log < 13 {
+				log = 13
+			}
 		}
 	}
 
@@ -1617,7 +1625,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 			pe := pe1
 
 			if pe == nil {
-				if pe2 := this.dictMap[h2&this.hashMask]; pe2 != nil && pe2.data>>24 == length && pe2.hash == h2 {
+				if pe2 := this.dictMap[h2&this.hashMask]; pe2 != nil && pe2.hash == h2 && pe2.data>>24 == length {
 					pe = pe2
 				}
 			}
@@ -1635,7 +1643,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 
 					if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
 						// Evict and reuse old entry
-						this.dictMap[pe.hash&this.hashMask] = nil
+						//this.dictMap[pe.hash&this.hashMask] = nil
 						pe.ptr = src[delimAnchor+1:]
 						pe.hash = h1
 						pe.data = (length << 24) | int32(words)
@@ -1878,7 +1886,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 					if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
 						// Evict and reuse old entry
-						this.dictMap[pe.hash&this.hashMask] = nil
+						//this.dictMap[pe.hash&this.hashMask] = nil
 						pe.ptr = src[delimAnchor+1:]
 						pe.hash = h1
 						pe.data = (length << 24) | int32(words)
