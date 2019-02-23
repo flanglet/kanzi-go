@@ -30,7 +30,7 @@ const (
 	TPAQ_HASH_SIZE        = 16 * 1024 * 1024
 	TPAQ_MASK_BUFFER      = TPAQ_BUFFER_SIZE - 1
 	TPAQ_MASK_80808080    = int32(-2139062144) // 0x80808080
-	TPAQ_MASK_F0F0F0F0    = int32(-252645136)  // 0xF0F0F0F0
+	TPAQ_MASK_F0F0F000    = int32(-252645376)  // 0xF0F0F000
 	TPAQ_MASK_4F4FFFFF    = int32(1330642943)  // 0x4F4FFFFF
 	TPAQ_MASK_FFFF0000    = int32(-65536)      // 0xFFFF0000
 	TPAQ_HASH             = int32(0x7FEB352D)
@@ -324,12 +324,12 @@ func (this *TPAQPredictor) Update(bit byte) {
 			if this.c8&TPAQ_MASK_80808080 == 0 {
 				h2 = this.c8 & TPAQ_MASK_4F4FFFFF
 			} else {
-				h2 = this.c8 & TPAQ_MASK_80808080
+				h2 = (this.c8 & TPAQ_MASK_80808080) >> 4
 			}
 
 			this.ctx4 = createContext(this.ctx1, this.c4^(this.c8&0xFFFF))
 			this.ctx5 = hashTPAQ(h1, h2)
-			this.ctx6 = hashTPAQ(this.c8&TPAQ_MASK_F0F0F0F0, this.c4&TPAQ_MASK_F0F0F0F0)
+			this.ctx6 = (this.c8 & TPAQ_MASK_F0F0F000) | ((this.c4 & TPAQ_MASK_F0F0F000) >> 4)
 		} else {
 			// Mostly binary
 			this.ctx4 = createContext(TPAQ_HASH, this.c4^(this.c4&0x000FFFFF))
@@ -344,28 +344,32 @@ func (this *TPAQPredictor) Update(bit byte) {
 	}
 
 	// Get initial predictions
+	// It has been observed that accessing memory via [ctx ^ c] is significantly faster
+	// on SandyBridge/Windows and slower on SkyLake/Linux except when [ctx & 255 == 0]
+	// (with c < 256). So, use XOR for _ctx6 which is the only context that fullfills
+	// the condition.
 	c := this.c0
 	table := TPAQ_STATE_TRANSITIONS[bit]
 	*this.cp0 = table[*this.cp0]
+	*this.cp1 = table[*this.cp1]
+	*this.cp2 = table[*this.cp2]
+	*this.cp3 = table[*this.cp3]
+	*this.cp4 = table[*this.cp4]
+	*this.cp5 = table[*this.cp5]
+	*this.cp6 = table[*this.cp6]
 	this.cp0 = &this.smallStatesMap0[this.ctx0+c]
 	p0 := TPAQ_STATE_MAP[*this.cp0]
-	*this.cp1 = table[*this.cp1]
 	this.cp1 = &this.smallStatesMap1[this.ctx1+c]
 	p1 := TPAQ_STATE_MAP[*this.cp1]
-	*this.cp2 = table[*this.cp2]
 	this.cp2 = &this.bigStatesMap[(this.ctx2+c)&this.statesMask]
 	p2 := TPAQ_STATE_MAP[*this.cp2]
-	*this.cp3 = table[*this.cp3]
 	this.cp3 = &this.bigStatesMap[(this.ctx3+c)&this.statesMask]
 	p3 := TPAQ_STATE_MAP[*this.cp3]
-	*this.cp4 = table[*this.cp4]
 	this.cp4 = &this.bigStatesMap[(this.ctx4+c)&this.statesMask]
 	p4 := TPAQ_STATE_MAP[*this.cp4]
-	*this.cp5 = table[*this.cp5]
 	this.cp5 = &this.bigStatesMap[(this.ctx5+c)&this.statesMask]
 	p5 := TPAQ_STATE_MAP[*this.cp5]
-	*this.cp6 = table[*this.cp6]
-	this.cp6 = &this.bigStatesMap[(this.ctx6+c)&this.statesMask]
+	this.cp6 = &this.bigStatesMap[(this.ctx6^c)&this.statesMask]
 	p6 := TPAQ_STATE_MAP[*this.cp6]
 
 	p7 := this.getMatchContextPred()
@@ -386,7 +390,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 		}
 	}
 
-	this.pr = p + int((uint32(p)-2048)>>31)
+	this.pr = p + int(uint32(p-2048)>>31)
 }
 
 // Return the split value representing the probability of 1 in the [0..4095] range.
