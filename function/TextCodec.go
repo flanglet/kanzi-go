@@ -1119,8 +1119,8 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 					pe = &this.dictList[words]
 
 					if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
-						// Evict and reuse old entry
-						//this.dictMap[pe.hash&this.hashMask] = nil
+						// Reuse old entry
+						this.dictMap[pe.hash&this.hashMask] = nil
 						pe.ptr = src[delimAnchor+1:]
 						pe.hash = h1
 						pe.data = (length << 24) | int32(words)
@@ -1335,8 +1335,8 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 					pe = &this.dictList[words]
 
 					if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
-						// Evict and reuse old entry
-						//this.dictMap[pe.hash&this.hashMask] = nil
+						// Reuse old entry
+						this.dictMap[pe.hash&this.hashMask] = nil
 						pe.ptr = src[delimAnchor+1:]
 						pe.hash = h1
 						pe.data = (length << 24) | int32(words)
@@ -1642,8 +1642,8 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 					pe = &this.dictList[words]
 
 					if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
-						// Evict and reuse old entry
-						//this.dictMap[pe.hash&this.hashMask] = nil
+						// Reuse old entry
+						this.dictMap[pe.hash&this.hashMask] = nil
 						pe.ptr = src[delimAnchor+1:]
 						pe.hash = h1
 						pe.data = (length << 24) | int32(words)
@@ -1885,8 +1885,8 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 					pe = &this.dictList[words]
 
 					if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
-						// Evict and reuse old entry
-						//this.dictMap[pe.hash&this.hashMask] = nil
+						// Reuse old entry
+						this.dictMap[pe.hash&this.hashMask] = nil
 						pe.ptr = src[delimAnchor+1:]
 						pe.hash = h1
 						pe.data = (length << 24) | int32(words)
