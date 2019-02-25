@@ -107,6 +107,7 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 
 	if block, prst := argsMap["block"]; prst == true {
 		this.blockSize = block.(uint)
+		this.blockSize = ((this.blockSize + 15) >> 4) << 4
 		delete(argsMap, "block")
 
 		if this.blockSize > 1024*1024*1024 {
