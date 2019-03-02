@@ -275,7 +275,7 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 	var err error
 
 	if this.extra == true {
-		this.sse0, err = newLogisticAdaptiveProbMap(256, 7)
+		this.sse0, err = newLogisticAdaptiveProbMap(256, 6)
 
 		if err == nil {
 			this.sse1, err = newLogisticAdaptiveProbMap(65536, 7)
