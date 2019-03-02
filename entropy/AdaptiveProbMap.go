@@ -67,15 +67,15 @@ func (this *LogisticAdaptiveProbMap) get(bit int, pr int, ctx int) int {
 
 func newFastLogisticAdaptiveProbMap(n, rate uint) (*FastLogisticAdaptiveProbMap, error) {
 	this := &FastLogisticAdaptiveProbMap{}
-	this.data = make([]uint16, n*33)
+	this.data = make([]uint16, n*32)
 	this.rate = rate
 
-	for j := 0; j <= 32; j++ {
+	for j := 0; j < 32; j++ {
 		this.data[j] = uint16(kanzi.Squash((j-16)<<7) << 4)
 	}
 
 	for i := uint(1); i < n; i++ {
-		copy(this.data[i*33:(i+1)*33], this.data[0:33])
+		copy(this.data[i*32:(i+1)*32], this.data[0:32])
 	}
 
 	return this, nil
@@ -86,7 +86,7 @@ func (this *FastLogisticAdaptiveProbMap) get(bit int, pr int, ctx int) int {
 	// Update probability based on error and learning rate
 	g := (-bit & 65528) + (bit << this.rate)
 	this.data[this.index] += uint16((g - int(this.data[this.index])) >> this.rate)
-	this.index = ((kanzi.STRETCH[pr] + 2048) >> 7) + 33*ctx
+	this.index = ((kanzi.STRETCH[pr] + 2048) >> 7) + 32*ctx
 	return int(this.data[this.index]) >> 4
 }
 
