@@ -28,7 +28,7 @@ import (
 )
 
 func main() {
-	var name = flag.String("type", "ALL", "Type of function (all, LZ4, ROLZ, SNAPPY, RLT, SRT or ZRLT)")
+	var name = flag.String("type", "ALL", "Type of function (all, LZ, ROLZ, ROLZX, RLT, SRT or ZRLT)")
 
 	// Parse
 	flag.Parse()
@@ -36,27 +36,13 @@ func main() {
 	fmt.Printf("Transform %v", name)
 
 	if name_ == "ALL" {
-		fmt.Printf("\n\nTestLZ4")
+		fmt.Printf("\n\nTestLZ")
 
-		if err := TestCorrectness("LZ4"); err != nil {
+		if err := TestCorrectness("LZ"); err != nil {
 			os.Exit(1)
 		}
 
-		TestSpeed("LZ4")
-		fmt.Printf("\n\nTestROLZ")
-
-		if err := TestCorrectness("ROLZ"); err != nil {
-			os.Exit(1)
-		}
-
-		TestSpeed("ROLZ")
-		fmt.Printf("\n\nTestSnappy")
-
-		if err := TestCorrectness("SNAPPY"); err != nil {
-			os.Exit(1)
-		}
-
-		TestSpeed("SNAPPY")
+		TestSpeed("LZ")
 		fmt.Printf("\n\nTestZRLT")
 
 		if err := TestCorrectness("ZRLT"); err != nil {
@@ -77,6 +63,20 @@ func main() {
 			os.Exit(1)
 		}
 		TestSpeed("SRT")
+		fmt.Printf("\n\nTestROLZ")
+
+		if err := TestCorrectness("ROLZ"); err != nil {
+			os.Exit(1)
+		}
+
+		TestSpeed("ROLZ")
+		// fmt.Printf("\n\nTestROLZX")
+
+		// if err := TestCorrectness("ROLZX"); err != nil {
+		// 	os.Exit(1)
+		// }
+
+		// TestSpeed("ROLZX")
 	} else if name_ != "" {
 		fmt.Printf("Test%v", name_)
 
@@ -90,16 +90,16 @@ func main() {
 
 func getByteFunction(name string) (kanzi.ByteFunction, error) {
 	switch name {
-	case "LZ4":
+	case "LZ":
 		res, err := function.NewLZ4Codec()
 		return res, err
 
 	case "ROLZ":
-		res, err := function.NewROLZCodec(function.ROLZ_LOG_POS_CHECKS)
+		res, err := function.NewROLZCodecWithFlag(false)
 		return res, err
 
-	case "SNAPPY":
-		res, err := function.NewSnappyCodec()
+	case "ROLZX":
+		res, err := function.NewROLZCodecWithFlag(true)
 		return res, err
 
 	case "ZRLT":

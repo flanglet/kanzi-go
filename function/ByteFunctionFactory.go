@@ -32,8 +32,8 @@ const (
 	NONE_TYPE   = uint64(0)  // copy
 	BWT_TYPE    = uint64(1)  // Burrows Wheeler
 	BWTS_TYPE   = uint64(2)  // Burrows Wheeler Scott
-	LZ4_TYPE    = uint64(3)  // LZ4
-	SNAPPY_TYPE = uint64(4)  // Snappy
+	LZ_TYPE     = uint64(3)  // Lempel Ziv
+	SNAPPY_TYPE = uint64(4)  // Snappy (obsolete)
 	RLT_TYPE    = uint64(5)  // Run Length
 	ZRLT_TYPE   = uint64(6)  // Zero Run Length
 	MTFT_TYPE   = uint64(7)  // Move To Front
@@ -125,10 +125,7 @@ func newByteFunctionToken(ctx *map[string]interface{}, functionType uint64) (kan
 	case RLT_TYPE:
 		return NewRLT()
 
-	case SNAPPY_TYPE:
-		return NewSnappyCodec()
-
-	case LZ4_TYPE:
+	case LZ_TYPE:
 		return NewLZ4Codec()
 
 	case X86_TYPE:
@@ -201,11 +198,8 @@ func getByteFunctionNameToken(functionType uint64) string {
 	case MTFT_TYPE:
 		return "MTFT"
 
-	case LZ4_TYPE:
-		return "LZ4"
-
-	case SNAPPY_TYPE:
-		return "SNAPPY"
+	case LZ_TYPE:
+		return "LZ"
 
 	case X86_TYPE:
 		return "X86"
@@ -288,11 +282,8 @@ func getByteFunctionTypeToken(name string) uint64 {
 	case "X86":
 		return X86_TYPE
 
-	case "SNAPPY":
-		return SNAPPY_TYPE
-
-	case "LZ4":
-		return LZ4_TYPE
+	case "LZ":
+		return LZ_TYPE
 
 	case "NONE":
 		return NONE_TYPE

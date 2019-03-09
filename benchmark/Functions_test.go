@@ -23,7 +23,7 @@ import (
 	"github.com/flanglet/kanzi-go/function"
 )
 
-func BenchmarkLZ4(b *testing.B) {
+func BenchmarkLZ(b *testing.B) {
 	iter := b.N
 	size := 50000
 
