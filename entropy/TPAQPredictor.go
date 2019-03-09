@@ -256,6 +256,7 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 	this.mixer = &this.mixers[0]
 	this.pr = 2048
 	this.c0 = 1
+	this.bpos = 8
 	this.bigStatesMap = make([]uint8, statesSize)
 	this.smallStatesMap0 = make([]uint8, 1<<16)
 	this.smallStatesMap1 = make([]uint8, 1<<24)
@@ -289,7 +290,7 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 func (this *TPAQPredictor) Update(bit byte) {
 	y := int(bit)
 	this.mixer.update(y)
-	this.bpos++
+	this.bpos--
 	this.c0 = (this.c0 << 1) | int32(bit)
 
 	if this.c0 > 255 {
@@ -299,7 +300,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.c4 = (this.c4 << 8) | (this.c0 & 0xFF)
 		this.hash = (((this.hash * TPAQ_HASH) << 4) + this.c4) & this.hashMask
 		this.c0 = 1
-		this.bpos = 0
+		this.bpos = 8
 		this.binCount += ((this.c4 >> 7) & 1)
 
 		// Select Neural Net
@@ -372,7 +373,11 @@ func (this *TPAQPredictor) Update(bit byte) {
 	this.cp6 = &this.bigStatesMap[(this.ctx6^c)&this.statesMask]
 	p6 := TPAQ_STATE_MAP[*this.cp6]
 
-	p7 := this.getMatchContextPred()
+	p7 := int32(0)
+
+	if this.matchLen != 0 {
+		p7 = this.getMatchContextPred()
+	}
 
 	// Mix predictions using NN
 	p := this.mixer.get(p0, p1, p2, p3, p4, p5, p6, p7)
@@ -425,29 +430,24 @@ func (this *TPAQPredictor) findMatch() {
 
 // Get a prediction from the match model in [-2047..2048]
 func (this *TPAQPredictor) getMatchContextPred() int32 {
-	p := int32(0)
+	if this.c0 == ((int32(this.buffer[this.matchPos&TPAQ_MASK_BUFFER])&0xFF)|256)>>this.bpos {
+		var p int32
 
-	if this.matchLen > 0 {
-		if this.c0 == ((int32(this.buffer[this.matchPos&TPAQ_MASK_BUFFER])&0xFF)|256)>>(8-this.bpos) {
-			// Add match length to NN inputs. Compute input based on run length
-
-			if this.matchLen <= 24 {
-				p = this.matchLen
-			} else {
-				p = (24 + ((this.matchLen - 24) >> 3))
-			}
-
-			if ((this.buffer[this.matchPos&TPAQ_MASK_BUFFER] >> (7 - this.bpos)) & 1) == 0 {
-				p = -p
-			}
-
-			p <<= 6
+		if this.matchLen <= 24 {
+			p = this.matchLen
 		} else {
-			this.matchLen = 0
+			p = (24 + ((this.matchLen - 24) >> 3))
 		}
+
+		if ((this.buffer[this.matchPos&TPAQ_MASK_BUFFER] >> (this.bpos - 1)) & 1) == 0 {
+			p = -p
+		}
+
+		return p << 6
 	}
 
-	return p
+	this.matchLen = 0
+	return 0
 }
 
 func createContext(ctxID, cx int32) int32 {
