@@ -28,25 +28,25 @@ import (
 )
 
 // Implementation of a Reduced Offset Lempel Ziv transform
-// Code loosely based on 'balz' by Ilya Muravyov
 // More information about ROLZ at http://ezcodesample.com/rolz/rolz_article.html
 
 const (
-	ROLZ_HASH_SIZE      = 1 << 16
-	ROLZ_MIN_MATCH      = 3
-	ROLZ_MAX_MATCH      = ROLZ_MIN_MATCH + 255
-	ROLZ_LOG_POS_CHECKS = 5
-	ROLZ_CHUNK_SIZE     = 1 << 26 // 64 MB
-	ROLZ_HASH_MASK      = int32(^(ROLZ_CHUNK_SIZE - 1))
-	ROLZ_LITERAL_FLAG   = 0
-	ROLZ_MATCH_FLAG     = 1
-	ROLZ_HASH           = int32(200002979)
-	ROLZ_TOP            = uint64(0x00FFFFFFFFFFFFFF)
-	MASK_24_56          = uint64(0x00FFFFFFFF000000)
-	MASK_0_24           = uint64(0x0000000000FFFFFF)
-	MASK_0_56           = uint64(0x00FFFFFFFFFFFFFF)
-	MASK_0_32           = uint64(0x00000000FFFFFFFF)
-	MAX_BLOCK_SIZE      = 1 << 27 // 128 MB
+	ROLZ_HASH_SIZE       = 1 << 16
+	ROLZ_MIN_MATCH       = 3
+	ROLZ_MAX_MATCH       = ROLZ_MIN_MATCH + 255
+	ROLZ_LOG_POS_CHECKS1 = 4
+	ROLZ_LOG_POS_CHECKS2 = 5
+	ROLZ_CHUNK_SIZE      = 1 << 26 // 64 MB
+	ROLZ_HASH_MASK       = int32(^(ROLZ_CHUNK_SIZE - 1))
+	ROLZ_LITERAL_FLAG    = 0
+	ROLZ_MATCH_FLAG      = 1
+	ROLZ_HASH            = int32(200002979)
+	ROLZ_TOP             = uint64(0x00FFFFFFFFFFFFFF)
+	MASK_24_56           = uint64(0x00FFFFFFFF000000)
+	MASK_0_24            = uint64(0x0000000000FFFFFF)
+	MASK_0_56            = uint64(0x00FFFFFFFFFFFFFF)
+	MASK_0_32            = uint64(0x00000000FFFFFFFF)
+	MAX_BLOCK_SIZE       = 1 << 27 // 128 MB
 )
 
 func getKey(p []byte) uint32 {
@@ -101,9 +101,9 @@ func NewROLZCodecWithFlag(extra bool) (*ROLZCodec, error) {
 	var d kanzi.ByteFunction
 
 	if extra {
-		d, err = newROLZCodec2(ROLZ_LOG_POS_CHECKS)
+		d, err = newROLZCodec2(ROLZ_LOG_POS_CHECKS2)
 	} else {
-		d, err = newROLZCodec1(ROLZ_LOG_POS_CHECKS - 1)
+		d, err = newROLZCodec1(ROLZ_LOG_POS_CHECKS1)
 	}
 
 	this.delegate = d
@@ -112,7 +112,6 @@ func NewROLZCodecWithFlag(extra bool) (*ROLZCodec, error) {
 
 func NewROLZCodecWithCtx(ctx *map[string]interface{}) (*ROLZCodec, error) {
 	this := &ROLZCodec{}
-
 	var err error
 	var d kanzi.ByteFunction
 
@@ -120,13 +119,13 @@ func NewROLZCodecWithCtx(ctx *map[string]interface{}) (*ROLZCodec, error) {
 		transform := val.(string)
 
 		if strings.Contains(transform, "ROLZX") {
-			d, err = newROLZCodec2(ROLZ_LOG_POS_CHECKS)
+			d, err = newROLZCodec2(ROLZ_LOG_POS_CHECKS2)
 			this.delegate = d
 		}
 	}
 
 	if this.delegate == nil && err == nil {
-		d, err = newROLZCodec1(ROLZ_LOG_POS_CHECKS - 1)
+		d, err = newROLZCodec1(ROLZ_LOG_POS_CHECKS1)
 		this.delegate = d
 	}
 
@@ -139,13 +138,13 @@ func (this *ROLZCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	if &src[0] == &dst[0] {
-		return 0, 0, errors.New("Input and output buffers cannot be equal")
+		return 0, 0, errors.New("ROLZ codec: Input and output buffers cannot be equal")
 	}
 
 	if len(src) > TC_MAX_BLOCK_SIZE {
 		// Not a recoverable error: instead of silently fail the transform,
 		// issue a fatal error.
-		errMsg := fmt.Sprintf("The max NewROLZCodec block size is %v, got %v", TC_MAX_BLOCK_SIZE, len(src))
+		errMsg := fmt.Sprintf("The max ROLZ codec block size is %v, got %v", TC_MAX_BLOCK_SIZE, len(src))
 		panic(errors.New(errMsg))
 	}
 
@@ -158,13 +157,13 @@ func (this *ROLZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	if &src[0] == &dst[0] {
-		return 0, 0, errors.New("Input and output buffers cannot be equal")
+		return 0, 0, errors.New("ROLZ codec: Input and output buffers cannot be equal")
 	}
 
 	if len(src) > TC_MAX_BLOCK_SIZE {
 		// Not a recoverable error: instead of silently fail the transform,
 		// issue a fatal error.
-		errMsg := fmt.Sprintf("The max NewROLZCodec block size is %v, got %v", TC_MAX_BLOCK_SIZE, len(src))
+		errMsg := fmt.Sprintf("The max ROLZ codec block size is %v, got %v", TC_MAX_BLOCK_SIZE, len(src))
 		panic(errors.New(errMsg))
 	}
 
@@ -188,7 +187,7 @@ func newROLZCodec1(logPosChecks uint) (*rolzCodec1, error) {
 	this := &rolzCodec1{}
 
 	if (logPosChecks < 2) || (logPosChecks > 8) {
-		return nil, fmt.Errorf("Invalid logPosChecks parameter: %v (must be in [2..8])", logPosChecks)
+		return nil, fmt.Errorf("ROLZ codec: Invalid logPosChecks parameter: %v (must be in [2..8])", logPosChecks)
 	}
 
 	this.logPosChecks = logPosChecks
@@ -202,6 +201,14 @@ func newROLZCodec1(logPosChecks uint) (*rolzCodec1, error) {
 // return position index (logPosChecks bits) + length (8 bits) or -1
 func (this *rolzCodec1) findMatch(buf []byte, pos int) (int, int) {
 	key := getKey(buf[pos-2:])
+
+	if this.posChecks == 0 {
+		// Ahem terrible hack ... Do not try this at home, kids.
+		// This impossible branch speeds up the code (due to speculative
+		// memory fetch in the other branch probably)
+		return -1, -1
+	}
+
 	m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
 	hash32 := hash(buf[pos : pos+4])
 	counter := this.counters[key]
@@ -263,7 +270,7 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int) (int, int) {
 
 func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	if n := this.MaxEncodedLen(len(src)); len(dst) < n {
-		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
+		return 0, 0, fmt.Errorf("ROLZ codec: Output buffer is too small - size: %d, required %d", len(dst), n)
 	}
 
 	srcIdx := 0
@@ -279,7 +286,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 	startChunk := 0
 	litBuf := make([]byte, this.MaxEncodedLen(sizeChunk))
-	mLenBuf := make([]byte, sizeChunk/2)
+	lenBuf := make([]byte, sizeChunk/2)
 	mIdxBuf := make([]byte, sizeChunk/2)
 	var err error
 
@@ -290,6 +297,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	// Main loop
 	for startChunk < srcEnd {
 		litIdx := 0
+		lenIdx := 0
 		mIdx := 0
 
 		for i := range this.matches {
@@ -326,17 +334,16 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 				continue
 			}
 
-			length := srcIdx - firstLitIdx
-			litIdx += emitLiteralLength(litBuf[litIdx:], length)
+			litLen := srcIdx - firstLitIdx
+			lenIdx += emitLengths(lenBuf[lenIdx:], litLen, matchLen)
 
 			// Emit literals
-			if length > 0 {
-				copy(litBuf[litIdx:], buf[firstLitIdx:firstLitIdx+length])
-				litIdx += length
+			if litLen > 0 {
+				copy(litBuf[litIdx:], buf[firstLitIdx:firstLitIdx+litLen])
+				litIdx += litLen
 			}
 
-			// Emit match
-			mLenBuf[mIdx] = byte(matchLen)
+			// Emit match index
 			mIdxBuf[mIdx] = byte(matchIdx)
 			mIdx++
 			srcIdx += (matchLen + ROLZ_MIN_MATCH)
@@ -344,19 +351,19 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		// Emit last chunk literals
-		length := srcIdx - firstLitIdx
-		litIdx += emitLiteralLength(litBuf[litIdx:], length)
+		litLen := srcIdx - firstLitIdx
+		lenIdx += emitLengths(lenBuf[lenIdx:], litLen, 0)
 
-		for i := 0; i < length; i++ {
+		for i := 0; i < litLen; i++ {
 			litBuf[litIdx+i] = buf[firstLitIdx+i]
 		}
 
-		litIdx += length
+		litIdx += litLen
 		var os util.BufferStream
 
 		// Scope to deallocate resources early
 		{
-			// Encode literal, match length and match index buffers
+			// Encode literal, length and match index buffers
 			var obs kanzi.OutputBitStream
 
 			if obs, err = bitstream.NewDefaultOutputBitStream(&os, 65536); err != nil {
@@ -377,21 +384,21 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 			litEnc.Dispose()
 
-			obs.WriteBits(uint64(mIdx), 32)
-			var mLenEnc *entropy.ANSRangeEncoder
-			mLenEnc, err = entropy.NewANSRangeEncoder(obs, 0)
+			obs.WriteBits(uint64(lenIdx), 32)
+			var lenEnc *entropy.ANSRangeEncoder
+			lenEnc, err = entropy.NewANSRangeEncoder(obs, 0)
 
 			if err != nil {
 				goto End
 			}
 
-			if _, err = mLenEnc.Write(mLenBuf[0:mIdx]); err != nil {
+			if _, err = lenEnc.Write(lenBuf[0:lenIdx]); err != nil {
 				goto End
 			}
 
-			mLenEnc.Dispose()
+			lenEnc.Dispose()
 
-			//obs.WriteBits(uint64(mIdx), 32)
+			obs.WriteBits(uint64(mIdx), 32)
 			var mIdxEnc *entropy.ANSRangeEncoder
 			mIdxEnc, err = entropy.NewANSRangeEncoder(obs, 0)
 
@@ -411,7 +418,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		bufSize := os.Len()
 
 		if dstIdx+bufSize > len(dst) {
-			err = errors.New("Destination buffer too small")
+			err = errors.New("ROLZ codec: Destination buffer too small")
 			break
 		}
 
@@ -432,7 +439,7 @@ End:
 		dstIdx += 4
 
 		if srcIdx != len(src) {
-			err = errors.New("Destination buffer too small")
+			err = errors.New("ROLZ codec: Destination buffer too small")
 		}
 	}
 
@@ -457,7 +464,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	srcIdx := 4
 	dstIdx := 0
 	litBuf := make([]byte, this.MaxEncodedLen(sizeChunk))
-	mLenBuf := make([]byte, sizeChunk/2)
+	lenBuf := make([]byte, sizeChunk/2)
 	mIdxBuf := make([]byte, sizeChunk/2)
 	var err error
 
@@ -468,6 +475,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	// Main loop
 	for startChunk < dstEnd {
 		mIdx := 0
+		lenIdx := 0
 		litIdx := 0
 
 		for i := range this.matches {
@@ -512,18 +520,22 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			if length <= sizeChunk {
-				var mLenDec *entropy.ANSRangeDecoder
-				mLenDec, err = entropy.NewANSRangeDecoder(ibs, 0)
+				var lenDec *entropy.ANSRangeDecoder
+				lenDec, err = entropy.NewANSRangeDecoder(ibs, 0)
 
 				if err != nil {
 					goto End
 				}
 
-				if _, err = mLenDec.Read(mLenBuf[0:length]); err != nil {
+				if _, err = lenDec.Read(lenBuf[0:length]); err != nil {
 					goto End
 				}
 
-				mLenDec.Dispose()
+				lenDec.Dispose()
+				length = int(ibs.ReadBits(32))
+			}
+
+			if length <= sizeChunk {
 				var mIdxDec *entropy.ANSRangeDecoder
 				mIdxDec, err = entropy.NewANSRangeDecoder(ibs, 0)
 
@@ -542,7 +554,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			ibs.Close()
 
 			if length > sizeChunk {
-				err = fmt.Errorf("Invalid length: got %v, must be less than or equal to %v", length, sizeChunk)
+				err = fmt.Errorf("ROLZ codec: Invalid length: got %v, must be less than or equal to %v", length, sizeChunk)
 				goto End
 			}
 		}
@@ -560,10 +572,11 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 		// Next chunk
 		for dstIdx < sizeChunk {
-			length, litDelta := this.emitLiterals(litBuf[litIdx:], buf, dstIdx)
-
-			litIdx += (length + litDelta)
-			dstIdx += length
+			litLen, matchLen, deltaIdx := this.readLengths(lenBuf[lenIdx:])
+			lenIdx += deltaIdx
+			this.emitLiterals(litBuf[litIdx:litIdx+litLen], buf, dstIdx)
+			litIdx += litLen
+			dstIdx += litLen
 
 			if dstIdx >= endChunk {
 				// Last chunk literals not followed by match
@@ -571,15 +584,13 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 					break
 				}
 
-				err = errors.New("Invalid input data")
+				err = errors.New("ROLZ codec: Invalid input data")
 				goto End
 			}
 
-			matchLen := int(mLenBuf[mIdx] & 0xFF)
-
 			// Sanity check
-			if dstIdx+matchLen+3 > dstEnd {
-				err = errors.New("Invalid input data")
+			if dstIdx+matchLen+ROLZ_MIN_MATCH > dstEnd {
+				err = errors.New("ROLZ codec: Invalid input data")
 				goto End
 			}
 
@@ -609,7 +620,7 @@ End:
 		dstIdx += 4
 
 		if srcIdx != len(src) {
-			err = errors.New("Invalid input data")
+			err = errors.New("ROLZ codec: Invalid input data")
 		}
 	}
 
@@ -624,66 +635,105 @@ func (this rolzCodec1) MaxEncodedLen(srcLen int) int {
 	return srcLen
 }
 
-func emitLiteralLength(litBuf []byte, length int) int {
-	idx := 0
+func emitLengths(litBuf []byte, litLen, mLen int) int {
+	// mode LLLLLMMM -> L lit length, M match length
+	var mode byte
 
-	if length >= 1<<7 {
-		if length >= 1<<21 {
-			litBuf[idx] = byte(0x80 | ((length >> 21) & 0x7F))
+	if litLen < 31 {
+		mode = byte(litLen << 3)
+	} else {
+		mode = 0xF8
+	}
+
+	var idx int
+
+	if mLen >= 7 {
+		litBuf[0] = mode | 0x07
+		litBuf[1] = byte(mLen - 7)
+		idx = 2
+	} else {
+		litBuf[0] = mode | byte(mLen)
+		idx = 1
+	}
+
+	if litLen >= 31 {
+		litLen -= 31
+
+		if litLen >= 1<<7 {
+			if litLen >= 1<<14 {
+				if litLen >= 1<<21 {
+					litBuf[idx] = byte(0x80 | ((litLen >> 21) & 0x7F))
+					idx++
+				}
+
+				litBuf[idx] = byte(0x80 | ((litLen >> 14) & 0x7F))
+				idx++
+			}
+
+			litBuf[idx] = byte(0x80 | ((litLen >> 7) & 0x7F))
 			idx++
 		}
 
-		if length >= 1<<14 {
-			litBuf[idx] = byte(0x80 | ((length >> 14) & 0x7F))
-			idx++
-		}
-
-		litBuf[idx] = byte(0x80 | ((length >> 7) & 0x7F))
+		litBuf[idx] = byte(litLen & 0x7F)
 		idx++
 	}
 
-	litBuf[idx] = byte(length & 0x7F)
-	return idx + 1
+	return idx
 }
 
-func (this rolzCodec1) emitLiterals(litBuf, dst []byte, dstIdx int) (int, int) {
-	// Read length
-	litLen := int(litBuf[0])
+func (this rolzCodec1) readLengths(lenBuf []byte) (int, int, int) {
+	// mode LLLLLMMM -> L lit length, M match length
+	mode := lenBuf[0]
 	idx := 1
-	length := litLen & 0x7F
+	mLen := int(mode & 0x07)
 
-	if litLen&0x80 != 0 {
-		litLen = int(litBuf[idx])
+	if mLen == 7 {
+		mLen += int(lenBuf[1])
+		idx = 2
+	}
+
+	if mode < 0xF8 {
+		return int(mode >> 3), mLen, idx
+	}
+
+	next := lenBuf[idx]
+	idx++
+	litLen := int(next & 0x7F)
+
+	if next&0x80 != 0 {
+		next = lenBuf[idx]
 		idx++
-		length = (length << 7) | (litLen & 0x7F)
+		litLen = (litLen << 7) | int(next&0x7F)
 
-		if litLen&0x80 != 0 {
-			litLen = int(litBuf[idx])
+		if next&0x80 != 0 {
+			next = lenBuf[idx]
 			idx++
-			length = (length << 7) | (litLen & 0x7F)
+			litLen = (litLen << 7) | int(next&0x7F)
 
-			if litLen&0x80 != 0 {
-				litLen = int(litBuf[idx])
+			if next&0x80 != 0 {
+				next = lenBuf[idx]
 				idx++
-				length = (length << 7) | (litLen & 0x7F)
+				litLen = (litLen << 7) | int(next&0x7F)
 			}
 		}
 	}
 
-	// Emit literal bytes
-	copy(dst[dstIdx:], litBuf[idx:idx+length])
+	return litLen + 31, mLen, idx
+}
 
-	for n := 0; n < length; n++ {
+func (this rolzCodec1) emitLiterals(litBuf, dst []byte, dstIdx int) {
+	copy(dst[dstIdx:], litBuf)
+
+	for n := 0; n < len(litBuf); n++ {
 		key := getKey(dst[dstIdx+n-2:])
 		m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
 		this.counters[key]++
 		m[this.counters[key]&this.maskChecks] = int32(dstIdx + n)
 	}
-
-	return length, idx
 }
 
 // Use CM (ROLZEncoder/ROLZDecoder) to encode/decode literals and matches
+// Code loosely based on 'balz' by Ilya Muravyov
 type rolzCodec2 struct {
 	matches        []int32
 	counters       []int32
@@ -698,7 +748,7 @@ func newROLZCodec2(logPosChecks uint) (*rolzCodec2, error) {
 	this := &rolzCodec2{}
 
 	if (logPosChecks < 2) || (logPosChecks > 8) {
-		return nil, fmt.Errorf("Invalid logPosChecks parameter: %v (must be in [2..8])", logPosChecks)
+		return nil, fmt.Errorf("ROLZX codec: Invalid logPosChecks parameter: %v (must be in [2..8])", logPosChecks)
 	}
 
 	this.logPosChecks = logPosChecks
@@ -711,9 +761,17 @@ func newROLZCodec2(logPosChecks uint) (*rolzCodec2, error) {
 	return this, nil
 }
 
-// return position index (logPosChecks bits) + length (8 bits) or -1
+// return position index and length  or -1
 func (this *rolzCodec2) findMatch(buf []byte, pos int) (int, int) {
 	key := getKey(buf[pos-2:])
+
+	if this.posChecks == 0 {
+		// Ahem terrible hack ... Do not try this at home, kids.
+		// This impossible branch speeds up the code (due to speculative
+		// memory fetch in the other branch probably)
+		return -1, -1
+	}
+
 	m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
 	hash32 := hash(buf[pos : pos+4])
 	counter := this.counters[key]
@@ -775,7 +833,7 @@ func (this *rolzCodec2) findMatch(buf []byte, pos int) (int, int) {
 
 func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	if n := this.MaxEncodedLen(len(src)); len(dst) < n {
-		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
+		return 0, 0, fmt.Errorf("ROLZX codec: Output buffer is too small - size: %d, required %d", len(dst), n)
 	}
 
 	srcIdx := 0
@@ -868,7 +926,7 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	var err error
 
 	if srcIdx != len(src) {
-		err = errors.New("Destination buffer too small")
+		err = errors.New("ROLZX codec: Destination buffer too small")
 	}
 
 	return uint(srcIdx), uint(dstIdx), err
@@ -982,7 +1040,7 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	dstIdx += (startChunk - sizeChunk)
 
 	if srcIdx != len(src) {
-		err = errors.New("Invalid input data")
+		err = errors.New("ROLZX codec: Invalid input data")
 	}
 
 	return uint(srcIdx), uint(dstIdx), err
@@ -1003,8 +1061,7 @@ func (this rolzCodec2) MaxEncodedLen(srcLen int) int {
 }
 
 type rolzPredictor struct {
-	p1      []int32
-	p2      []int32
+	probs   []int32
 	logSize uint
 	size    int32
 	c1      int32
@@ -1015,8 +1072,7 @@ func newRolzPredictor(logPosChecks uint) (*rolzPredictor, error) {
 	this := &rolzPredictor{}
 	this.logSize = logPosChecks
 	this.size = 1 << logPosChecks
-	this.p1 = make([]int32, 256*this.size)
-	this.p2 = make([]int32, 256*this.size)
+	this.probs = make([]int32, 256*this.size)
 	this.reset()
 	return this, nil
 }
@@ -1025,19 +1081,16 @@ func (this *rolzPredictor) reset() {
 	this.c1 = 1
 	this.ctx = 0
 
-	for i := range this.p1 {
-		this.p1[i] = 1 << 15
-		this.p2[i] = 1 << 15
+	for i := range this.probs {
+		this.probs[i] = 1 << 15
 	}
 }
 
 func (this *rolzPredictor) Update(bit byte) {
 	idx := this.ctx + this.c1
 	b := int32(bit)
-	this.p1[idx] -= (((this.p1[idx] - (-b & 0xFFFF)) >> 3) + b)
-	this.p2[idx] -= (((this.p2[idx] - (-b & 0xFFFF)) >> 6) + b)
-	this.c1 <<= 1
-	this.c1 += b
+	this.probs[idx] -= (((this.probs[idx] - (-b & 0xFFFF)) >> 5) + b)
+	this.c1 = (this.c1 << 1) + b
 
 	if this.c1 >= this.size {
 		this.c1 = 1
@@ -1046,7 +1099,7 @@ func (this *rolzPredictor) Update(bit byte) {
 
 func (this *rolzPredictor) Get() int {
 	idx := this.ctx + this.c1
-	return int(this.p1[idx]+this.p2[idx]) >> 5
+	return int(this.probs[idx]) >> 4
 }
 
 func (this *rolzPredictor) setContext(ctx byte) {
