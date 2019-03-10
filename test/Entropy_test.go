@@ -16,11 +16,11 @@ limitations under the License.
 package main
 
 import (
-	"flag"
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
-	"strings"
+	"testing"
 	"time"
 
 	kanzi "github.com/flanglet/kanzi-go"
@@ -29,45 +29,50 @@ import (
 	"github.com/flanglet/kanzi-go/util"
 )
 
-func main() {
-	var name = flag.String("type", "ALL", "Type of codec (all, Huffman, ANS, Range, FPAQ, CM, TPAQ, ExpGolomg or RiceGolomb)")
+func TestHuffman(b *testing.T) {
+	if err := testEntropyCorrectness("HUFFMAN"); err != nil {
+		b.Errorf(err.Error())
+	}
+}
 
-	// Parse
-	flag.Parse()
-	name_ := strings.ToUpper(*name)
-
-	if name_ == "ALL" {
-		fmt.Printf("\n\nTestHuffmanCodec")
-		TestCorrectness("HUFFMAN")
-		TestSpeed("HUFFMAN")
-		fmt.Printf("\n\nTestANS0Codec")
-		TestCorrectness("ANS0")
-		TestSpeed("ANS0")
-		fmt.Printf("\n\nTestANS1Codec")
-		TestCorrectness("ANS1")
-		TestSpeed("ANS1")
-		fmt.Printf("\n\nTestRangeCodec")
-		TestCorrectness("RANGE")
-		TestSpeed("RANGE")
-		fmt.Printf("\n\nTestFPAQEntropyCoder")
-		TestCorrectness("FPAQ")
-		TestSpeed("FPAQ")
-		fmt.Printf("\n\nTestCMEntropyCoder")
-		TestCorrectness("CM")
-		TestSpeed("CM")
-		fmt.Printf("\n\nTestTPAQEntropyCoder")
-		TestCorrectness("TPAQ")
-		TestSpeed("TPAQ")
-		fmt.Printf("\n\nTestExpGolombCodec")
-		TestCorrectness("EXPGOLOMB")
-		TestSpeed("EXPGOLOMB")
-		fmt.Printf("\n\nTestRiceGolombCodec")
-		TestCorrectness("RICEGOLOMB")
-		TestSpeed("RICEGOLOMB")
-	} else if name_ != "" {
-		fmt.Printf("\n\nTest%vCodec", name_)
-		TestCorrectness(name_)
-		TestSpeed(name_)
+func TestANS0(b *testing.T) {
+	if err := testEntropyCorrectness("ANS0"); err != nil {
+		b.Errorf(err.Error())
+	}
+}
+func TestANS1(b *testing.T) {
+	if err := testEntropyCorrectness("ANS1"); err != nil {
+		b.Errorf(err.Error())
+	}
+}
+func TestRange(b *testing.T) {
+	if err := testEntropyCorrectness("RANGE"); err != nil {
+		b.Errorf(err.Error())
+	}
+}
+func TestFPAQ(b *testing.T) {
+	if err := testEntropyCorrectness("FPAQ"); err != nil {
+		b.Errorf(err.Error())
+	}
+}
+func TestCM(b *testing.T) {
+	if err := testEntropyCorrectness("CM"); err != nil {
+		b.Errorf(err.Error())
+	}
+}
+func TestTPAQ(b *testing.T) {
+	if err := testEntropyCorrectness("TPAQ"); err != nil {
+		b.Errorf(err.Error())
+	}
+}
+func TestExpGolomb(b *testing.T) {
+	if err := testEntropyCorrectness("EXPGOLOMB"); err != nil {
+		b.Errorf(err.Error())
+	}
+}
+func TestRiceGolomb(b *testing.T) {
+	if err := testEntropyCorrectness("RICEGOLOMB"); err != nil {
+		b.Errorf(err.Error())
 	}
 }
 
@@ -131,8 +136,6 @@ func getEncoder(name string, obs kanzi.OutputBitStream) kanzi.EntropyEncoder {
 	default:
 		panic(fmt.Errorf("No such entropy encoder: '%s'", name))
 	}
-
-	return nil
 }
 
 func getDecoder(name string, ibs kanzi.InputBitStream) kanzi.EntropyDecoder {
@@ -194,11 +197,9 @@ func getDecoder(name string, ibs kanzi.InputBitStream) kanzi.EntropyDecoder {
 	default:
 		panic(fmt.Errorf("No such entropy decoder: '%s'", name))
 	}
-
-	return nil
 }
 
-func TestCorrectness(name string) {
+func testEntropyCorrectness(name string) error {
 	fmt.Printf("\n\nCorrectness test for %v\n", name)
 
 	// Test behavior
@@ -247,12 +248,12 @@ func TestCorrectness(name string) {
 		ec := getEncoder(name, dbgbs)
 
 		if ec == nil {
-			os.Exit(1)
+			return errors.New("Cannot create entropy encoder")
 		}
 
 		if _, err := ec.Write(values); err != nil {
 			fmt.Printf("Error during encoding: %s", err)
-			os.Exit(1)
+			return err
 		}
 
 		ec.Dispose()
@@ -264,7 +265,7 @@ func TestCorrectness(name string) {
 		ed := getDecoder(name, ibs)
 
 		if ed == nil {
-			os.Exit(1)
+			return errors.New("Cannot create entropy decoder")
 		}
 
 		ok := true
@@ -272,7 +273,7 @@ func TestCorrectness(name string) {
 
 		if _, err := ed.Read(values2); err != nil {
 			fmt.Printf("Error during decoding: %s", err)
-			os.Exit(1)
+			return err
 		}
 
 		ed.Dispose()
@@ -289,113 +290,13 @@ func TestCorrectness(name string) {
 			fmt.Printf("\nIdentical")
 		} else {
 			fmt.Printf("\n! *** Different *** !")
-			os.Exit(1)
+			return errors.New("Input and inverse are different")
 		}
 
 		ibs.Close()
 		bs.Close()
 		println()
 	}
-}
 
-func TestSpeed(name string) {
-	fmt.Printf("\n\nSpeed test for %v\n", name)
-	repeats := []int{3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9, 3}
-
-	for jj := 0; jj < 3; jj++ {
-		fmt.Printf("\nTest %v\n", jj+1)
-		delta1 := int64(0)
-		delta2 := int64(0)
-		iter := 100
-		size := 500000
-		values1 := make([]byte, size)
-		values2 := make([]byte, size)
-		rand.Seed(int64(jj))
-		var bs util.BufferStream
-
-		for ii := 0; ii < iter; ii++ {
-			idx := jj
-
-			for i := 0; i < size; i++ {
-				i0 := i
-
-				length := repeats[idx]
-				idx = (idx + 1) & 0x0F
-				b := byte(rand.Intn(256))
-
-				if i0+length >= size {
-					length = size - i0 - 1
-				}
-
-				for j := i0; j < i0+length; j++ {
-					values1[j] = b
-					i++
-				}
-			}
-
-			obs, _ := bitstream.NewDefaultOutputBitStream(&bs, uint(size))
-			ec := getEncoder(name, obs)
-
-			if ec == nil {
-				os.Exit(1)
-			}
-
-			// Encode
-			before1 := time.Now()
-
-			if _, err := ec.Write(values1); err != nil {
-				fmt.Printf("An error occured during encoding: %v\n", err)
-				os.Exit(1)
-			}
-
-			ec.Dispose()
-
-			after1 := time.Now()
-			delta1 += after1.Sub(before1).Nanoseconds()
-
-			if _, err := obs.Close(); err != nil {
-				fmt.Printf("Error during close: %v\n", err)
-				os.Exit(1)
-			}
-
-			ibs, _ := bitstream.NewDefaultInputBitStream(&bs, uint(size))
-			ed := getDecoder(name, ibs)
-
-			if ed == nil {
-				os.Exit(1)
-			}
-			// Decode
-			before2 := time.Now()
-
-			if _, err := ed.Read(values2); err != nil {
-				fmt.Printf("An error occured during decoding: %v\n", err)
-				os.Exit(1)
-			}
-
-			ed.Dispose()
-
-			after2 := time.Now()
-			delta2 += after2.Sub(before2).Nanoseconds()
-
-			if _, err := ibs.Close(); err != nil {
-				fmt.Printf("Error during close: %v\n", err)
-				os.Exit(1)
-			}
-
-			// Sanity check
-			for i := 0; i < size; i++ {
-				if values1[i] != values2[i] {
-					fmt.Printf("Error at index %v (%v<->%v)\n", i, values1[i], values2[i])
-					break
-				}
-			}
-		}
-
-		bs.Close()
-
-		fmt.Printf("Encode [ms]      : %d\n", delta1/1000000)
-		fmt.Printf("Throughput [KB/s]: %d\n", (int64(iter*size))*1000000/delta1*1000/1024)
-		fmt.Printf("Decode [ms]      : %d\n", delta2/1000000)
-		fmt.Printf("Throughput [KB/s]: %d\n", (int64(iter*size))*1000000/delta2*1000/1024)
-	}
+	return error(nil)
 }

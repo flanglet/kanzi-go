@@ -16,57 +16,14 @@ limitations under the License.
 package main
 
 import (
-	"flag"
 	"fmt"
 	"math/rand"
-	"os"
-	"strings"
+	"testing"
 	"time"
 
 	kanzi "github.com/flanglet/kanzi-go"
 	"github.com/flanglet/kanzi-go/transform"
 )
-
-func main() {
-	var name = flag.String("type", "ALL", "Type of transform (all, RANK, MTFT, BWTS)")
-
-	// Parse
-	flag.Parse()
-	name_ := strings.ToUpper(*name)
-	fmt.Printf("Transform %v", name)
-
-	if name_ == "ALL" {
-		fmt.Printf("\n\nTestRANK")
-
-		if err := TestCorrectness("RANK"); err != nil {
-			os.Exit(1)
-		}
-
-		TestSpeed("RANK")
-		fmt.Printf("\n\nTestMTFT")
-
-		if err := TestCorrectness("MTFT"); err != nil {
-			os.Exit(1)
-		}
-
-		TestSpeed("MTFT")
-		fmt.Printf("\n\nTestBWTS")
-
-		if err := TestCorrectness("BWTS"); err != nil {
-			os.Exit(1)
-		}
-
-		TestSpeed("BWTS")
-	} else if name_ != "" {
-		fmt.Printf("Test%v", name_)
-
-		if err := TestCorrectness(name_); err != nil {
-			os.Exit(1)
-		}
-
-		TestSpeed(name_)
-	}
-}
 
 func getByteTransform(name string) (kanzi.ByteTransform, error) {
 	switch name {
@@ -87,7 +44,19 @@ func getByteTransform(name string) (kanzi.ByteTransform, error) {
 	}
 }
 
-func TestCorrectness(name string) error {
+func TestRank(b *testing.T) {
+	if err := testTransformCorrectness("RANK"); err != nil {
+		b.Errorf(err.Error())
+	}
+}
+
+func TestMTFT(b *testing.T) {
+	if err := testTransformCorrectness("MTFT"); err != nil {
+		b.Errorf(err.Error())
+	}
+}
+
+func testTransformCorrectness(name string) error {
 	fmt.Printf("Correctness test for %v\n", name)
 	rng := 256
 
@@ -254,111 +223,4 @@ func TestCorrectness(name string) error {
 	}
 
 	return error(nil)
-}
-
-func TestSpeed(name string) {
-	iter := 4000
-	size := 50000
-	fmt.Printf("\n\nSpeed test for %v\n", name)
-	fmt.Printf("Iterations: %v\n", iter)
-	rng := 256
-
-	for jj := 0; jj < 3; jj++ {
-		_, err2 := getByteTransform(name)
-
-		if err2 != nil {
-			fmt.Printf("\nCannot create transform '%v': %v\n", name, err2)
-			return
-		}
-
-		input := make([]byte, size)
-		output := make([]byte, size)
-		reverse := make([]byte, size)
-		rand.Seed(int64(jj))
-
-		// Generate random data with runs
-		// Leave zeros at the beginning
-		n := iter / 20
-		delta1 := int64(0)
-		delta2 := int64(0)
-
-		for n < len(input) {
-			val := byte(rand.Intn(rng))
-			input[n] = val
-			n++
-			run := rand.Intn(256)
-			run -= 220
-
-			for run > 0 && n < len(input) {
-				input[n] = val
-				n++
-				run--
-			}
-		}
-
-		var err error
-		var dstIdx uint
-
-		for ii := 0; ii < iter; ii++ {
-			f, err2 := getByteTransform(name)
-
-			if err2 != nil {
-				fmt.Printf("\nCannot create transform '%v': %v\n", name, err2)
-				return
-			}
-
-			before := time.Now()
-
-			_, dstIdx, err = f.Forward(input, output)
-
-			if err != nil {
-				fmt.Printf("Encoding error : %v\n", err)
-				continue
-			}
-
-			after := time.Now()
-			delta1 += after.Sub(before).Nanoseconds()
-		}
-
-		for ii := 0; ii < iter; ii++ {
-			f, err2 := getByteTransform(name)
-
-			if err2 != nil {
-				fmt.Printf("\nCannot create transform '%v': %v\n", name, err2)
-				return
-			}
-
-			before := time.Now()
-
-			if _, _, err = f.Inverse(output[0:dstIdx], reverse); err != nil {
-				fmt.Printf("Decoding error : %v\n", err)
-				os.Exit(1)
-			}
-
-			after := time.Now()
-			delta2 += after.Sub(before).Nanoseconds()
-		}
-
-		idx := -1
-
-		// Sanity check
-		for i := range input {
-			if input[i] != reverse[i] {
-				idx = i
-				break
-			}
-		}
-
-		if idx >= 0 {
-			fmt.Printf("Failure at index %v (%v <-> %v)\n", idx, input[idx], reverse[idx])
-			os.Exit(1)
-		}
-
-		fmt.Printf("\n%v encoding [ms]: %v", name, delta1/1000000)
-		fmt.Printf("\nThroughput [MB/s]: %d", (int64(iter*size))*1000000/delta1*1000/(1024*1024))
-		fmt.Printf("\n%v decoding [ms]: %v", name, delta2/1000000)
-		fmt.Printf("\nThroughput [MB/s]: %d", (int64(iter*size))*1000000/delta2*1000/(1024*1024))
-	}
-
-	println()
 }

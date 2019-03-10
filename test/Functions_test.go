@@ -16,90 +16,19 @@ limitations under the License.
 package main
 
 import (
-	"flag"
 	"fmt"
 	"math/rand"
-	"os"
-	"strings"
+	"testing"
 	"time"
 
 	kanzi "github.com/flanglet/kanzi-go"
 	"github.com/flanglet/kanzi-go/function"
 )
 
-func main() {
-	var name = flag.String("type", "ALL", "Type of function (all, LZ, ROLZ, ROLZX, RLT, SRT or ZRLT)")
-
-	// Parse
-	flag.Parse()
-	name_ := strings.ToUpper(*name)
-	fmt.Printf("Transform %v", name)
-
-	if name_ == "ALL" {
-		fmt.Printf("\n\nTestLZ")
-
-		if err := TestCorrectness("LZ"); err != nil {
-			os.Exit(1)
-		}
-
-		TestSpeed("LZ")
-		fmt.Printf("\n\nTestZRLT")
-
-		if err := TestCorrectness("ZRLT"); err != nil {
-			os.Exit(1)
-		}
-
-		TestSpeed("ZRLT")
-		fmt.Printf("\n\nTestRLT")
-
-		if err := TestCorrectness("RLT"); err != nil {
-			os.Exit(1)
-		}
-
-		TestSpeed("RLT")
-		fmt.Printf("\n\nTestSRT")
-
-		if err := TestCorrectness("SRT"); err != nil {
-			os.Exit(1)
-		}
-		TestSpeed("SRT")
-		fmt.Printf("\n\nTestROLZ")
-
-		if err := TestCorrectness("ROLZ"); err != nil {
-			os.Exit(1)
-		}
-
-		TestSpeed("ROLZ")
-		// fmt.Printf("\n\nTestROLZX")
-
-		// if err := TestCorrectness("ROLZX"); err != nil {
-		// 	os.Exit(1)
-		// }
-
-		// TestSpeed("ROLZX")
-	} else if name_ != "" {
-		fmt.Printf("Test%v", name_)
-
-		if err := TestCorrectness(name_); err != nil {
-			os.Exit(1)
-		}
-
-		TestSpeed(name_)
-	}
-}
-
 func getByteFunction(name string) (kanzi.ByteFunction, error) {
 	switch name {
 	case "LZ":
 		res, err := function.NewLZ4Codec()
-		return res, err
-
-	case "ROLZ":
-		res, err := function.NewROLZCodecWithFlag(false)
-		return res, err
-
-	case "ROLZX":
-		res, err := function.NewROLZCodecWithFlag(true)
 		return res, err
 
 	case "ZRLT":
@@ -114,13 +43,56 @@ func getByteFunction(name string) (kanzi.ByteFunction, error) {
 		res, err := function.NewSRT()
 		return res, err
 
+	case "ROLZ":
+		res, err := function.NewROLZCodecWithFlag(false)
+		return res, err
+
+	case "ROLZX":
+		res, err := function.NewROLZCodecWithFlag(true)
+		return res, err
+
 	default:
 		panic(fmt.Errorf("No such byte function: '%s'", name))
 	}
 }
 
-func TestCorrectness(name string) error {
-	fmt.Printf("Correctness test for %v\n", name)
+func TestLZ(b *testing.T) {
+	if err := testFunctionCorrectness("LZ"); err != nil {
+		b.Errorf(err.Error())
+	}
+}
+
+func TestROLZ(b *testing.T) {
+	if err := testFunctionCorrectness("ROLZ"); err != nil {
+		b.Errorf(err.Error())
+	}
+}
+
+func TestZRLT(b *testing.T) {
+	if err := testFunctionCorrectness("ZRLT"); err != nil {
+		b.Errorf(err.Error())
+	}
+}
+
+func TestRLT(b *testing.T) {
+	if err := testFunctionCorrectness("RLT"); err != nil {
+		b.Errorf(err.Error())
+	}
+}
+
+func TestSRT(b *testing.T) {
+	if err := testFunctionCorrectness("SRT"); err != nil {
+		b.Errorf(err.Error())
+	}
+}
+
+// func TestROLZX(b *testing.T) {
+// 	if err := testFunctionCorrectness("ROLZX"); err != nil {
+// 		b.Errorf(err.Error())
+// 	}
+// }
+
+func testFunctionCorrectness(name string) error {
 	rng := 256
 
 	if name == "ZRLT" {
@@ -291,122 +263,4 @@ func TestCorrectness(name string) error {
 	}
 
 	return error(nil)
-}
-
-func TestSpeed(name string) {
-	iter := 50000
-
-	if name == "ROLZ" || name == "ROLZX" {
-		iter = 500
-	} else if name == "SRT" {
-		iter = 4000
-	}
-
-	size := 50000
-	fmt.Printf("\n\nSpeed test for %v\n", name)
-	fmt.Printf("Iterations: %v\n", iter)
-	rng := 256
-
-	if name == "ZRLT" {
-		rng = 5
-	}
-
-	for jj := 0; jj < 3; jj++ {
-		bf, err2 := getByteFunction(name)
-
-		if err2 != nil {
-			fmt.Printf("\nCannot create transform '%v': %v\n", name, err2)
-			return
-		}
-
-		input := make([]byte, size)
-		output := make([]byte, bf.MaxEncodedLen(size))
-		reverse := make([]byte, size)
-		rand.Seed(int64(jj))
-
-		// Generate random data with runs
-		// Leave zeros at the beginning for ZRLT to succeed
-		n := iter / 20
-		delta1 := int64(0)
-		delta2 := int64(0)
-
-		for n < len(input) {
-			val := byte(rand.Intn(rng))
-			input[n] = val
-			n++
-			run := rand.Intn(256)
-			run -= 220
-
-			for run > 0 && n < len(input) {
-				input[n] = val
-				n++
-				run--
-			}
-		}
-
-		var err error
-		var dstIdx uint
-
-		for ii := 0; ii < iter; ii++ {
-			f, err2 := getByteFunction(name)
-
-			if err2 != nil {
-				fmt.Printf("\nCannot create transform '%v': %v\n", name, err2)
-				return
-			}
-
-			before := time.Now()
-
-			_, dstIdx, err = f.Forward(input, output)
-
-			if err != nil {
-				fmt.Printf("Encoding error : %v\n", err)
-				continue
-			}
-
-			after := time.Now()
-			delta1 += after.Sub(before).Nanoseconds()
-		}
-
-		for ii := 0; ii < iter; ii++ {
-			f, err2 := getByteFunction(name)
-
-			if err2 != nil {
-				fmt.Printf("\nCannot create transform '%v': %v\n", name, err2)
-				return
-			}
-
-			before := time.Now()
-
-			if _, _, err = f.Inverse(output[0:dstIdx], reverse); err != nil {
-				fmt.Printf("Decoding error : %v\n", err)
-				os.Exit(1)
-			}
-
-			after := time.Now()
-			delta2 += after.Sub(before).Nanoseconds()
-		}
-
-		idx := -1
-
-		// Sanity check
-		for i := range input {
-			if input[i] != reverse[i] {
-				idx = i
-				break
-			}
-		}
-
-		if idx >= 0 {
-			fmt.Printf("Failure at index %v (%v <-> %v)\n", idx, input[idx], reverse[idx])
-			os.Exit(1)
-		}
-
-		fmt.Printf("\n%v encoding [ms]: %v", name, delta1/1000000)
-		fmt.Printf("\nThroughput [MB/s]: %d", (int64(iter*size))*1000000/delta1*1000/(1024*1024))
-		fmt.Printf("\n%v decoding [ms]: %v", name, delta2/1000000)
-		fmt.Printf("\nThroughput [MB/s]: %d", (int64(iter*size))*1000000/delta2*1000/(1024*1024))
-	}
-
-	println()
 }
