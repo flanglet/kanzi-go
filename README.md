@@ -4,7 +4,7 @@ kanzi
 
 State-of-the-art lossless data compression in Go.
 The goal is to provide clean APIs and really fast implementation.
-It includes compression codecs (Run Length coding, Exp Golomb coding, Huffman, Range, LZ4, Snappy, ANS, Context Mixers, PAQ derivatives), bit stream manipulation, and transforms such as Burrows-Wheeler (BWT) and Move-To-Front, etc ...
+It includes compression codecs (Run Length coding, Exp Golomb coding, Huffman, Range, LZ, ANS, Context Mixers, PAQ derivatives), bit stream manipulation, and transforms such as Burrows-Wheeler (BWT) and Move-To-Front, etc ...
 
 
 
@@ -109,7 +109,7 @@ go get github.com/flanglet/kanzi-go
 
 cd src/github.com/flanglet/kanzi-go/app
 
-go build -gcflags=-B Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
+go build Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
 ~~~
 
 
@@ -127,5 +127,5 @@ git clone https://github.com/flanglet/kanzi-go.git
 
 cd kanzi-go/app
 
-go build -gcflags=-B Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
+go build Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
 ~~~
