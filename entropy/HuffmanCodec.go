@@ -82,11 +82,12 @@ func generateCanonicalCodes(sizes []byte, codes []uint, symbols []int) int {
 // HuffmanEncoder  Implementation of a static Huffman encoder.
 // Uses in place generation of canonical codes instead of a tree
 type HuffmanEncoder struct {
-	bitstream kanzi.OutputBitStream
-	codes     [256]uint
-	alphabet  [256]int
-	sranks    [256]int
-	chunkSize int
+	bitstream     kanzi.OutputBitStream
+	codes         [256]uint
+	alphabet      [256]int
+	sranks        [256]int
+	chunkSize     int
+	maxCodeLength int
 }
 
 // The chunk size indicates how many bytes are encoded (per block) before
@@ -208,6 +209,7 @@ func (this *HuffmanEncoder) computeCodeLengths(frequencies []int, sizes []byte, 
 	computeInPlaceSizesPhase1(buf)
 	computeInPlaceSizesPhase2(buf)
 	var err error
+	this.maxCodeLength = 0
 
 	for i := range buf {
 		codeLen := byte(buf[i])
@@ -215,6 +217,10 @@ func (this *HuffmanEncoder) computeCodeLengths(frequencies []int, sizes []byte, 
 		if codeLen == 0 || codeLen > HUF_MAX_SYMBOL_SIZE {
 			err = fmt.Errorf("Could not generate Huffman codes: max code length (%v bits) exceeded", HUF_MAX_SYMBOL_SIZE)
 			break
+		}
+
+		if this.maxCodeLength > buf[i] {
+			this.maxCodeLength = buf[i]
 		}
 
 		sizes[this.sranks[i]] = codeLen
@@ -307,25 +313,52 @@ func (this *HuffmanEncoder) Write(block []byte) (int, error) {
 
 		c := this.codes
 		bs := this.bitstream
-		endChunk3 := 3*((endChunk-startChunk)/3) + startChunk
 
-		for i := startChunk; i < endChunk3; i += 3 {
-			// Pack 3 codes into 1 uint64
-			code1 := c[block[i]]
-			codeLen1 := uint(code1 >> 24)
-			code2 := c[block[i+1]]
-			codeLen2 := uint(code2 >> 24)
-			code3 := c[block[i+2]]
-			codeLen3 := uint(code3 >> 24)
-			st := (uint64(code1&0xFFFFFF) << (codeLen2 + codeLen3)) |
-				(uint64(code2&((1<<codeLen2)-1)) << codeLen3) |
-				uint64(code3&((1<<codeLen3)-1))
-			bs.WriteBits(st, codeLen1+codeLen2+codeLen3)
-		}
+		if this.maxCodeLength <= 16 {
+			endChunk4 := 4*((endChunk-startChunk)/4) + startChunk
 
-		for i := endChunk3; i < endChunk; i++ {
-			code := c[block[i]]
-			bs.WriteBits(uint64(code), code>>24)
+			for i := startChunk; i < endChunk4; i += 4 {
+				// Pack 3 codes into 1 uint64
+				code1 := c[block[i]]
+				codeLen1 := uint(code1 >> 24)
+				code2 := c[block[i+1]]
+				codeLen2 := uint(code2 >> 24)
+				code3 := c[block[i+2]]
+				codeLen3 := uint(code3 >> 24)
+				code4 := c[block[i+3]]
+				codeLen4 := uint(code4 >> 24)
+				st := (uint64(code1&0xFFFF) << (codeLen2 + codeLen3 + codeLen4)) |
+					(uint64(code2&((1<<codeLen2)-1)) << (codeLen3 + codeLen4)) |
+					(uint64(code3&((1<<codeLen3)-1)) << codeLen4) |
+					uint64(code4&((1<<codeLen4)-1))
+				bs.WriteBits(st, codeLen1+codeLen2+codeLen3+codeLen4)
+			}
+
+			for i := endChunk4; i < endChunk; i++ {
+				code := c[block[i]]
+				bs.WriteBits(uint64(code), code>>24)
+			}
+		} else {
+			endChunk3 := 3*((endChunk-startChunk)/3) + startChunk
+
+			for i := startChunk; i < endChunk3; i += 3 {
+				// Pack 3 codes into 1 uint64
+				code1 := c[block[i]]
+				codeLen1 := uint(code1 >> 24)
+				code2 := c[block[i+1]]
+				codeLen2 := uint(code2 >> 24)
+				code3 := c[block[i+2]]
+				codeLen3 := uint(code3 >> 24)
+				st := (uint64(code1&0xFFFFFF) << (codeLen2 + codeLen3)) |
+					(uint64(code2&((1<<codeLen2)-1)) << codeLen3) |
+					uint64(code3&((1<<codeLen3)-1))
+				bs.WriteBits(st, codeLen1+codeLen2+codeLen3)
+			}
+
+			for i := endChunk3; i < endChunk; i++ {
+				code := c[block[i]]
+				bs.WriteBits(uint64(code), code>>24)
+			}
 		}
 
 		startChunk = endChunk
