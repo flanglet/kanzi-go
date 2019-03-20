@@ -63,8 +63,8 @@ var EXPG_VALUES = [2][256]uint{
 }
 
 type ExpGolombEncoder struct {
-	signed    int
-	cache     *[256]uint
+	signed    bool
+	cache     []uint
 	bitstream kanzi.OutputBitStream
 }
 
@@ -78,19 +78,19 @@ func NewExpGolombEncoder(bs kanzi.OutputBitStream, sgn bool) (*ExpGolombEncoder,
 
 	this := new(ExpGolombEncoder)
 	this.bitstream = bs
+	this.signed = sgn
 
 	if sgn {
-		this.signed = 1
+		this.cache = EXPG_VALUES[1][:]
 	} else {
-		this.signed = 0
+		this.cache = EXPG_VALUES[0][:]
 	}
 
-	this.cache = &EXPG_VALUES[this.signed]
 	return this, nil
 }
 
 func (this *ExpGolombEncoder) Signed() bool {
-	return this.signed == 1
+	return this.signed
 }
 
 func (this *ExpGolombEncoder) Dispose() {
@@ -148,7 +148,6 @@ func (this *ExpGolombDecoder) DecodeByte() byte {
 		return 0
 	}
 
-	// Decode unsigned
 	log2 := uint(1)
 
 	for {
@@ -165,7 +164,7 @@ func (this *ExpGolombDecoder) DecodeByte() byte {
 		res := val>>1 + 1<<log2 - 1
 
 		if val&1 == 1 {
-			return byte(^res + 1)
+			res = ^res + 1
 		}
 
 		return byte(res)
