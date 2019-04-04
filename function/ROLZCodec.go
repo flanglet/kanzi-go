@@ -895,7 +895,7 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 			re.setContext(ROLZ_LITERAL_FLAG)
 			matchIdx, matchLen := this.findMatch(buf, srcIdx)
 
-			if matchIdx == -1 {
+			if matchIdx < 0 {
 				re.encodeBit(ROLZ_LITERAL_FLAG)
 				re.encodeByte(buf[srcIdx])
 				srcIdx++
@@ -1065,18 +1065,18 @@ func (this rolzCodec2) MaxEncodedLen(srcLen int) int {
 }
 
 type rolzPredictor struct {
-	probs   []int32
+	probs   []int
 	logSize uint
-	size    int32
-	c1      int32
-	ctx     int32
+	size    int
+	c1      int
+	ctx     int
 }
 
 func newRolzPredictor(logPosChecks uint) (*rolzPredictor, error) {
 	this := &rolzPredictor{}
 	this.logSize = logPosChecks
 	this.size = 1 << logPosChecks
-	this.probs = make([]int32, 256*this.size)
+	this.probs = make([]int, 256*this.size)
 	this.reset()
 	return this, nil
 }
@@ -1091,8 +1091,8 @@ func (this *rolzPredictor) reset() {
 }
 
 func (this *rolzPredictor) Update(bit byte) {
-	idx := this.ctx + this.c1
-	b := int32(bit)
+	idx := this.ctx | this.c1
+	b := int(bit)
 	this.probs[idx] -= (((this.probs[idx] - (-b & 0xFFFF)) >> 5) + b)
 	this.c1 = (this.c1 << 1) + b
 
@@ -1102,11 +1102,11 @@ func (this *rolzPredictor) Update(bit byte) {
 }
 
 func (this *rolzPredictor) Get() int {
-	return int(this.probs[this.ctx+this.c1]) >> 4
+	return this.probs[this.ctx|this.c1] >> 4
 }
 
 func (this *rolzPredictor) setContext(ctx byte) {
-	this.ctx = int32(ctx) << this.logSize
+	this.ctx = int(ctx) << this.logSize
 }
 
 type rolzEncoder struct {
