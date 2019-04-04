@@ -64,14 +64,18 @@ func emitCopy(buf []byte, dstIdx, ref, matchLen int) int {
 	dstIdx += 3
 	ref += 3
 
-	for matchLen >= 4 {
+	for matchLen >= 8 {
 		buf[dstIdx] = buf[ref]
 		buf[dstIdx+1] = buf[ref+1]
 		buf[dstIdx+2] = buf[ref+2]
 		buf[dstIdx+3] = buf[ref+3]
-		dstIdx += 4
-		ref += 4
-		matchLen -= 4
+		buf[dstIdx+4] = buf[ref+4]
+		buf[dstIdx+5] = buf[ref+5]
+		buf[dstIdx+6] = buf[ref+6]
+		buf[dstIdx+7] = buf[ref+7]
+		dstIdx += 8
+		ref += 8
+		matchLen -= 8
 	}
 
 	for matchLen != 0 {
@@ -723,7 +727,7 @@ func (this rolzCodec1) readLengths(lenBuf []byte) (int, int, int) {
 
 func (this rolzCodec1) emitLiterals(litBuf, dst []byte, dstIdx int) {
 	d := dst[dstIdx-2:]
-	copy(dst[2:], litBuf)
+	copy(d[2:], litBuf)
 
 	for n := range litBuf {
 		key := getKey(d[n:])
@@ -1098,8 +1102,7 @@ func (this *rolzPredictor) Update(bit byte) {
 }
 
 func (this *rolzPredictor) Get() int {
-	idx := this.ctx + this.c1
-	return int(this.probs[idx]) >> 4
+	return int(this.probs[this.ctx+this.c1]) >> 4
 }
 
 func (this *rolzPredictor) setContext(ctx byte) {
