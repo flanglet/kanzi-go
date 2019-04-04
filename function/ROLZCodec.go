@@ -308,9 +308,9 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 		if endChunk >= srcEnd {
 			endChunk = srcEnd
+			sizeChunk = endChunk - startChunk
 		}
 
-		sizeChunk = endChunk - startChunk
 		buf := src[startChunk:endChunk]
 		srcIdx = 0
 		litBuf[litIdx] = buf[srcIdx]
@@ -722,10 +722,11 @@ func (this rolzCodec1) readLengths(lenBuf []byte) (int, int, int) {
 }
 
 func (this rolzCodec1) emitLiterals(litBuf, dst []byte, dstIdx int) {
-	copy(dst[dstIdx:], litBuf)
+	d := dst[dstIdx-2:]
+	copy(dst[2:], litBuf)
 
-	for n := 0; n < len(litBuf); n++ {
-		key := getKey(dst[dstIdx+n-2:])
+	for n := range litBuf {
+		key := getKey(d[n:])
 		m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
 		this.counters[key]++
 		m[this.counters[key]&this.maskChecks] = int32(dstIdx + n)
@@ -964,9 +965,9 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 		if endChunk > dstEnd {
 			endChunk = dstEnd
+			sizeChunk = endChunk - startChunk
 		}
 
-		sizeChunk = endChunk - startChunk
 		buf := dst[startChunk:endChunk]
 		dstIdx = 0
 		this.litPredictor.setContext(0)
@@ -1004,7 +1005,6 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			if rd.decodeBit() == ROLZ_MATCH_FLAG {
 				// Match flag
 				matchLen := int(rd.decodeByte())
-
 				// Sanity check
 				if matchLen+3 > dstEnd {
 					dstIdx += startChunk
@@ -1015,12 +1015,12 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 				rd.setContext(ROLZ_MATCH_FLAG)
 				matchIdx := int32(0)
 
-				for shift := this.logPosChecks; shift > 0; shift-- {
+				for shift := this.logPosChecks; shift != 0; shift-- {
 					matchIdx |= int32(rd.decodeBit() << (shift - 1))
 				}
 
 				ref := m[(this.counters[key]-matchIdx)&this.maskChecks]
-				dstIdx = emitCopy(dst, dstIdx, int(ref), matchLen)
+				dstIdx = emitCopy(buf, dstIdx, int(ref), matchLen)
 			} else {
 				// Literal flag
 				buf[dstIdx] = rd.decodeByte()
