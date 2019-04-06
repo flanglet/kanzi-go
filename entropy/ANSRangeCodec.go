@@ -28,12 +28,13 @@ import (
 // For an alternate C implementation example, see https://github.com/Cyan4973/FiniteStateEntropy
 
 const (
-	ANS_TOP                 = 1 << 23
+	ANS_TOP                 = 1 << 15
 	DEFAULT_ANS0_CHUNK_SIZE = uint(1 << 15) // 32 KB by default
 	DEFAULT_ANS_LOG_RANGE   = uint(13)      // max possible for ANS_TOP=1<23
 	ANS_MAX_CHUNK_SIZE      = 1 << 27       // 8*MAX_CHUNK_SIZE must not overflow
 )
 
+// ANSRangeEncoder  Asymmetric Numeral System encoder
 type ANSRangeEncoder struct {
 	bitstream kanzi.OutputBitStream
 	alphabet  []int
@@ -45,13 +46,13 @@ type ANSRangeEncoder struct {
 	logRange  uint
 }
 
+// NewANSRangeEncoder create an instance of ANS encoder.
 // The chunk size indicates how many bytes are encoded (per block) before
 // resetting the frequency stats. 0 means that frequencies calculated at the
 // beginning of the block apply to the whole block
 // Since the number of args is variable, this function can be called like this:
 // NewANSRangeEncoder(bs) or NewANSRangeEncoder(bs, 0, 16384, 12)
 // Arguments are order, chunk size and log range.
-// The default chunk size is 65536 bytes.
 // chunkSize = 0 means 'use input buffer length' during decoding
 func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncoder, error) {
 	if bs == nil {
@@ -203,7 +204,8 @@ func (this *ANSRangeEncoder) encodeHeader(alphabetSize int, alphabet []int, freq
 	return nil
 }
 
-// Dynamically compute the frequencies for every chunk of data in the block
+// Write  Dynamically compute the frequencies for every chunk of data in the block
+// and encode each chunk of the block sequentially
 func (this *ANSRangeEncoder) Write(block []byte) (int, error) {
 	if block == nil {
 		return 0, errors.New("Invalid null block parameter")
@@ -273,15 +275,16 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 
 			for st >= sym.xMax {
 				this.buffer[n] = byte(st)
-				n--
 				st >>= 8
+				this.buffer[n-1] = byte(st)
+				st >>= 8
+				n -= 2
 			}
 
 			// Compute next ANS state
 			// C(s,x) = M floor(x/q_s) + mod(x,q_s) + b_s where b_s = q_0 + ... + q_{s-1}
 			// st = ((st / freq) << lr) + (st % freq) + cumFreq[prv];
-			q := int((uint64(st) * sym.invFreq) >> sym.invShift)
-			st = st + sym.bias + q*sym.cmplFreq
+			st = st + sym.bias + int((uint64(st)*sym.invFreq)>>sym.invShift)*sym.cmplFreq
 		}
 	} else { // order 1
 		symb := this.symbols
@@ -293,33 +296,34 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 
 			for st >= sym.xMax {
 				this.buffer[n] = byte(st)
-				n--
 				st >>= 8
+				this.buffer[n-1] = byte(st)
+				st >>= 8
+				n -= 2
 			}
 
 			// Compute next ANS state
 			// C(s,x) = M floor(x/q_s) + mod(x,q_s) + b_s where b_s = q_0 + ... + q_{s-1}
 			// st = ((st / freq) << lr) + (st % freq) + cumFreq[prv];
-			q := int((uint64(st) * sym.invFreq) >> sym.invShift)
-			st = st + sym.bias + q*sym.cmplFreq
+			st = st + sym.bias + int((uint64(st)*sym.invFreq)>>sym.invShift)*sym.cmplFreq
 			prv = cur
 		}
 
 		// Last symbol
 		sym := symb[prv]
-		max := sym.xMax
 
-		for st >= max {
+		for st >= sym.xMax {
 			this.buffer[n] = byte(st)
-			n--
 			st >>= 8
+			this.buffer[n-1] = byte(st)
+			st >>= 8
+			n -= 2
 		}
 
 		// Compute next ANS state
 		// C(s,x) = M floor(x/q_s) + mod(x,q_s) + b_s where b_s = q_0 + ... + q_{s-1}
 		// st = ((st / freq) << lr) + (st % freq) + cumFreq[prv];
-		q := int((uint64(st) * sym.invFreq) >> sym.invShift)
-		st = st + sym.bias + q*sym.cmplFreq
+		st = st + sym.bias + int((uint64(st)*sym.invFreq)>>sym.invShift)*sym.cmplFreq
 	}
 
 	n++
@@ -330,8 +334,10 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 	// Write final ANS state
 	this.bitstream.WriteBits(uint64(st), 32)
 
-	// Write encoded data to bitstream
-	this.bitstream.WriteArray(this.buffer[n:], 8*uint(len(this.buffer)-n))
+	if len(this.buffer) != n {
+		// Write encoded data to bitstream
+		this.bitstream.WriteArray(this.buffer[n:], 8*uint(len(this.buffer)-n))
+	}
 }
 
 // Compute chunk frequencies, cumulated frequencies and encode chunk header
@@ -340,9 +346,11 @@ func (this *ANSRangeEncoder) rebuildStatistics(block []byte, lr uint) (int, erro
 	return this.updateFrequencies(this.freqs, lr)
 }
 
+// Dispose  this implementation does nothing
 func (this *ANSRangeEncoder) Dispose() {
 }
 
+// BitStream  return the underlying bitstream
 func (this *ANSRangeEncoder) BitStream() kanzi.OutputBitStream {
 	return this.bitstream
 }
@@ -361,7 +369,7 @@ func (this *encSymbol) reset(cumFreq, freq int, logRange uint) {
 		freq = (1 << logRange) - 1
 	}
 
-	this.xMax = ((ANS_TOP >> logRange) << 8) * freq
+	this.xMax = ((ANS_TOP >> logRange) << 16) * freq
 	this.cmplFreq = (1 << logRange) - freq
 
 	if freq < 2 {
@@ -382,6 +390,7 @@ func (this *encSymbol) reset(cumFreq, freq int, logRange uint) {
 	}
 }
 
+// ANSRangeDecoder  Asymmetric Numeral System decoder
 type ANSRangeDecoder struct {
 	bitstream kanzi.InputBitStream
 	freqs     []int
@@ -394,12 +403,12 @@ type ANSRangeDecoder struct {
 	order     uint
 }
 
+// NewANSRangeDecoder create an instance of ANS decoder.
 // The chunk size indicates how many bytes are encoded (per block) before
 // resetting the frequency stats.
 // Since the number of args is variable, this function can be called like this:
 // NewANSRangeDecoder(bs) or NewANSRangeDecoder(bs, 0, 16384, 12)
 // Arguments are order and chunk size
-// The default chunk size is 65536 bytes.
 // chunkSize = 0 means 'use input buffer length' during decoding
 func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder, error) {
 	if bs == nil {
@@ -558,6 +567,8 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, error) {
 	return res, nil
 }
 
+// Decode data from the bitstream and write them, chunk by chunk,
+// into the block.
 func (this *ANSRangeDecoder) Read(block []byte) (int, error) {
 	if block == nil {
 		return 0, errors.New("Invalid null block parameter")
@@ -642,7 +653,8 @@ func (this *ANSRangeDecoder) decodeChunk(block []byte) {
 			// Normalize
 			for st < ANS_TOP {
 				st = (st << 8) | int(this.buffer[n])
-				n++
+				st = (st << 8) | int(this.buffer[n+1])
+				n += 2
 			}
 		}
 	} else {
@@ -661,7 +673,8 @@ func (this *ANSRangeDecoder) decodeChunk(block []byte) {
 			// Normalize
 			for st < ANS_TOP {
 				st = (st << 8) | int(this.buffer[n])
-				n++
+				st = (st << 8) | int(this.buffer[n+1])
+				n += 2
 			}
 
 			prv = int(cur)
@@ -669,10 +682,12 @@ func (this *ANSRangeDecoder) decodeChunk(block []byte) {
 	}
 }
 
+// BitStream  return the underlying bitstream
 func (this *ANSRangeDecoder) BitStream() kanzi.InputBitStream {
 	return this.bitstream
 }
 
+// Dispose  ths implementation does nothing
 func (this *ANSRangeDecoder) Dispose() {
 }
 
