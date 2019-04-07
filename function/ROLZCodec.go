@@ -247,6 +247,10 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int) (int, int) {
 
 		n := 1
 
+		for (n < maxMatch-4) && (binary.LittleEndian.Uint32(refBuf[n:]) == binary.LittleEndian.Uint32(curBuf[n:])) {
+			n += 4
+		}
+
 		for (n < maxMatch) && (refBuf[n] == curBuf[n]) {
 			n++
 		}
@@ -810,6 +814,10 @@ func (this *rolzCodec2) findMatch(buf []byte, pos int) (int, int) {
 		}
 
 		n := 1
+
+		for (n < maxMatch-4) && (binary.LittleEndian.Uint32(refBuf[n:]) == binary.LittleEndian.Uint32(curBuf[n:])) {
+			n += 4
+		}
 
 		for (n < maxMatch) && (refBuf[n] == curBuf[n]) {
 			n++
