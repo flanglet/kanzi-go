@@ -239,15 +239,15 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int) (int, int) {
 		}
 
 		ref &= ^ROLZ_HASH_MASK
-		refBuf := buf[ref:]
 
-		if refBuf[0] != curBuf[0] {
+		if buf[ref] != curBuf[0] {
 			continue
 		}
 
+		refBuf := buf[ref:]
 		n := 1
 
-		for (n < maxMatch-4) && (binary.LittleEndian.Uint32(refBuf[n:]) == binary.LittleEndian.Uint32(curBuf[n:])) {
+		if (n < maxMatch-4) && (binary.LittleEndian.Uint32(refBuf[n:]) == binary.LittleEndian.Uint32(curBuf[n:])) {
 			n += 4
 		}
 
@@ -807,15 +807,15 @@ func (this *rolzCodec2) findMatch(buf []byte, pos int) (int, int) {
 		}
 
 		ref &= ^ROLZ_HASH_MASK
-		refBuf := buf[ref:]
 
-		if refBuf[0] != curBuf[0] {
+		if buf[ref] != curBuf[0] {
 			continue
 		}
 
+		refBuf := buf[ref:]
 		n := 1
 
-		for (n < maxMatch-4) && (binary.LittleEndian.Uint32(refBuf[n:]) == binary.LittleEndian.Uint32(curBuf[n:])) {
+		if (n < maxMatch-4) && (binary.LittleEndian.Uint32(refBuf[n:]) == binary.LittleEndian.Uint32(curBuf[n:])) {
 			n += 4
 		}
 
