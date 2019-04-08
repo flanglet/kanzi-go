@@ -26,7 +26,7 @@ type DefaultOutputBitStream struct {
 	closed    bool
 	written   uint64
 	position  int    // index of current byte in buffer
-	availBits int    // bits not consumed in current
+	availBits uint   // bits not consumed in current
 	current   uint64 // cached bits
 	os        io.WriteCloser
 	buffer    []byte
@@ -132,7 +132,7 @@ func (this *DefaultOutputBitStream) WriteBit(bit int) {
 		this.pushCurrent()
 	} else {
 		this.availBits--
-		this.current |= (uint64(bit&1) << uint(this.availBits))
+		this.current |= (uint64(bit&1) << this.availBits)
 	}
 
 }
@@ -147,16 +147,16 @@ func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) uint {
 	// Pad the current position in buffer
 	if uint(this.availBits) > count {
 		// Enough spots available in 'current'
-		this.availBits -= int(count)
-		this.current |= ((value & OBS_MASKS[count]) << uint(this.availBits))
+		this.availBits -= count
+		this.current |= ((value & OBS_MASKS[count]) << this.availBits)
 	} else {
 		// Not enough spots available in 'current'
 		value &= OBS_MASKS[count]
-		remaining := count - uint(this.availBits)
+		remaining := count - this.availBits
 		this.current |= (value >> remaining)
 		this.pushCurrent()
 		this.current = (value << (64 - remaining))
-		this.availBits -= int(remaining)
+		this.availBits -= remaining
 	}
 
 	return count

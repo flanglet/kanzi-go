@@ -25,8 +25,8 @@ import (
 type DefaultInputBitStream struct {
 	closed      bool
 	read        uint64
-	position    int // index of current byte (consumed if bitIndex == -1)
-	availBits   int // bits not consumed in current
+	position    int  // index of current byte (consumed if bitIndex == -1)
+	availBits   uint // bits not consumed in current
 	is          io.ReadCloser
 	buffer      []byte
 	maxPosition int
@@ -65,7 +65,7 @@ func (this *DefaultInputBitStream) ReadBit() int {
 	}
 
 	this.availBits--
-	return int(this.current>>uint(this.availBits)) & 1
+	return int(this.current>>this.availBits) & 1
 }
 
 func (this *DefaultInputBitStream) ReadBits(count uint) uint64 {
@@ -73,18 +73,18 @@ func (this *DefaultInputBitStream) ReadBits(count uint) uint64 {
 		panic(fmt.Errorf("Invalid bit count: %v (must be in [1..64])", count))
 	}
 
-	if int(count) <= this.availBits {
+	if count <= this.availBits {
 		// Enough spots available in 'current'
-		this.availBits -= int(count)
-		return (this.current >> uint(this.availBits)) & (0xFFFFFFFFFFFFFFFF >> (64 - count))
+		this.availBits -= count
+		return (this.current >> this.availBits) & (0xFFFFFFFFFFFFFFFF >> (64 - count))
 	}
 
 	// Not enough spots available in 'current'
-	count -= uint(this.availBits)
-	res := this.current & (0xFFFFFFFFFFFFFFFF >> uint(64-this.availBits))
+	count -= this.availBits
+	res := this.current & (0xFFFFFFFFFFFFFFFF >> (64 - this.availBits))
 	this.pullCurrent()
-	this.availBits -= int(count)
-	return (res << count) | (this.current >> uint(this.availBits))
+	this.availBits -= count
+	return (res << count) | (this.current >> this.availBits)
 }
 
 func (this *DefaultInputBitStream) ReadArray(bits []byte, count uint) uint {
@@ -106,7 +106,7 @@ func (this *DefaultInputBitStream) ReadArray(bits []byte, count uint) uint {
 		}
 
 		// Empty this.current
-		for this.availBits > 0 && remaining >= 8 {
+		for this.availBits != 0 && remaining >= 8 {
 			bits[start] = byte(this.ReadBits(8))
 			start++
 			remaining -= 8
@@ -136,7 +136,7 @@ func (this *DefaultInputBitStream) ReadArray(bits []byte, count uint) uint {
 		r := 64 - this.availBits
 
 		for remaining >= 64 {
-			v := this.current & ((uint64(1) << uint(this.availBits)) - 1)
+			v := this.current & ((uint64(1) << this.availBits) - 1)
 			this.pullCurrent()
 			this.availBits -= r
 			binary.BigEndian.PutUint64(bits[start:start+8], (v<<uint(r))|(this.current>>uint(this.availBits)))
@@ -190,7 +190,7 @@ func (this *DefaultInputBitStream) HasMoreToRead() (bool, error) {
 		return false, errors.New("Stream closed")
 	}
 
-	if this.position < this.maxPosition || this.availBits > 0 {
+	if this.position < this.maxPosition || this.availBits != 0 {
 		return true, nil
 	}
 
@@ -209,7 +209,7 @@ func (this *DefaultInputBitStream) pullCurrent() {
 	if this.position+7 > this.maxPosition {
 		// End of stream: overshoot max position => adjust bit index
 		shift := uint(this.maxPosition-this.position) << 3
-		this.availBits = int(shift) + 8
+		this.availBits = shift + 8
 		val := uint64(0)
 
 		for this.position <= this.maxPosition {
