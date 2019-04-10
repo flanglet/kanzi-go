@@ -23,6 +23,7 @@ import (
 	kanzi "github.com/flanglet/kanzi-go"
 )
 
+// DebugOutputBitStream is an implementation of OutputBitStream used for debugging.
 type DebugOutputBitStream struct {
 	delegate  kanzi.OutputBitStream
 	out       io.Writer
@@ -33,6 +34,9 @@ type DebugOutputBitStream struct {
 	lineIndex int
 }
 
+// NewDebugOutputBitStream creates a DebugOutputBitStream wrapped around 'obs'.
+// All calls are delegated to the 'obs' OutputBitStream and written bits are logged
+// to the provided io.Writer.
 func NewDebugOutputBitStream(obs kanzi.OutputBitStream, writer io.Writer) (*DebugOutputBitStream, error) {
 	if obs == nil {
 		return nil, errors.New("The delegate cannot be null")

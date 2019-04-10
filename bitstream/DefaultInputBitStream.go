@@ -22,6 +22,7 @@ import (
 	"io"
 )
 
+// DefaultInputBitStream is the default implementation of InputBitStream
 type DefaultInputBitStream struct {
 	closed      bool
 	read        uint64
@@ -33,6 +34,8 @@ type DefaultInputBitStream struct {
 	current     uint64 // cached bits
 }
 
+// NewDefaultInputBitStream creates a bitstream for reading, using the provided stream as
+// the underlying I/O object.
 func NewDefaultInputBitStream(stream io.ReadCloser, bufferSize uint) (*DefaultInputBitStream, error) {
 	if stream == nil {
 		return nil, errors.New("Invalid null input stream parameter")
@@ -58,7 +61,7 @@ func NewDefaultInputBitStream(stream io.ReadCloser, bufferSize uint) (*DefaultIn
 	return this, nil
 }
 
-// Return 1 or 0
+// ReadBit returns the next bit
 func (this *DefaultInputBitStream) ReadBit() int {
 	if this.availBits == 0 {
 		this.pullCurrent() // Panic if stream is closed
@@ -68,6 +71,9 @@ func (this *DefaultInputBitStream) ReadBit() int {
 	return int(this.current>>this.availBits) & 1
 }
 
+// ReadBits reads 'count' bits from the stream and returns them as an uint64.
+// It panics if the count is outside of the [1..64] range or the stream is closed.
+// Returns the number of bits read.
 func (this *DefaultInputBitStream) ReadBits(count uint) uint64 {
 	if count == 0 || count > 64 {
 		panic(fmt.Errorf("Invalid bit count: %v (must be in [1..64])", count))
@@ -87,6 +93,9 @@ func (this *DefaultInputBitStream) ReadBits(count uint) uint64 {
 	return (res << count) | (this.current >> this.availBits)
 }
 
+// ReadArray reads 'count' bits from the stream and returns them to the 'bits'
+// slice. It panics if the stream is closed or the number of bits to read exceeds
+// the length of the 'bits' slice. Returns the number of bits read.
 func (this *DefaultInputBitStream) ReadArray(bits []byte, count uint) uint {
 	if this.Closed() {
 		panic(errors.New("Stream closed"))
@@ -185,6 +194,8 @@ func (this *DefaultInputBitStream) readFromInputStream(count int) (int, error) {
 	return size, nil
 }
 
+// HasMoreToRead returns false is the stream is closed or there is no
+// more bit to read.
 func (this *DefaultInputBitStream) HasMoreToRead() (bool, error) {
 	if this.Closed() {
 		return false, errors.New("Stream closed")
@@ -228,6 +239,7 @@ func (this *DefaultInputBitStream) pullCurrent() {
 
 }
 
+// Close prevents further reads (beyond the available bits)
 func (this *DefaultInputBitStream) Close() (bool, error) {
 	if this.Closed() {
 		return true, nil
@@ -242,11 +254,12 @@ func (this *DefaultInputBitStream) Close() (bool, error) {
 	return true, nil
 }
 
-// Return number of bits read so far
+// Read returns the number of bits read so far
 func (this *DefaultInputBitStream) Read() uint64 {
 	return this.read + uint64(this.position)<<3 - uint64(this.availBits)
 }
 
+// Closed says whether this stream can be read from
 func (this *DefaultInputBitStream) Closed() bool {
 	return this.closed
 }

@@ -23,6 +23,7 @@ import (
 	kanzi "github.com/flanglet/kanzi-go"
 )
 
+// DebugInputBitStream is an implementation of InputBitStream used for debugging.
 type DebugInputBitStream struct {
 	delegate  kanzi.InputBitStream
 	out       io.Writer
@@ -33,6 +34,9 @@ type DebugInputBitStream struct {
 	lineIndex int
 }
 
+// NewDebugInputBitStream creates a DebugInputBitStream wrapped around 'ibs'.
+// All calls are delegated to the 'ibs' InputBitStream and read bits are logged
+// to the provided io.Writer.
 func NewDebugInputBitStream(ibs kanzi.InputBitStream, writer io.Writer) (*DebugInputBitStream, error) {
 	if ibs == nil {
 		return nil, errors.New("The delegate cannot be null")

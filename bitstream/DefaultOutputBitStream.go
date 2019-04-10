@@ -22,6 +22,7 @@ import (
 	"io"
 )
 
+// DefaultOutputBitStream is the default implementation of OutputBitStream
 type DefaultOutputBitStream struct {
 	closed    bool
 	written   uint64
@@ -100,6 +101,8 @@ var OBS_MASKS = [...]uint64{
 	0xFFFFFFFFFFFFFFFF,
 }
 
+// NewDefaultOutputBitStream creates a bitstream for writing, using the provided stream as
+// the underlying I/O object.
 func NewDefaultOutputBitStream(stream io.WriteCloser, bufferSize uint) (*DefaultOutputBitStream, error) {
 	if stream == nil {
 		return nil, errors.New("Invalid null output stream parameter")
@@ -125,7 +128,7 @@ func NewDefaultOutputBitStream(stream io.WriteCloser, bufferSize uint) (*Default
 	return this, nil
 }
 
-// Write least significant bit of the input integer. Panics if stream is closed
+// WriteBit writes the least significant bit of the input integer. Panics if the bitstream is closed
 func (this *DefaultOutputBitStream) WriteBit(bit int) {
 	if this.availBits <= 1 { // availBits = 0 if stream is closed => force pushCurrent() => panic
 		this.current |= uint64(bit & 1)
@@ -137,8 +140,9 @@ func (this *DefaultOutputBitStream) WriteBit(bit int) {
 
 }
 
-// Write 'count' (in [1..64]) bits. Panics if stream is closed.
-// Return number of written bits
+// WriteBits writes 'count' from 'value' to the bitstream.
+// Panics if the bitstream is closed or 'count' is outside of [1..64].
+// Returns the number of written bits.
 func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) uint {
 	if count > 64 {
 		panic(fmt.Errorf("Invalid bit count: %v (must be in [1..64])", count))
@@ -162,6 +166,9 @@ func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) uint {
 	return count
 }
 
+// WriteArray writes 'count' bits from 'bits' to the bitstream.
+// Panics if the bitstream is closed or 'count' bigger than the number of bits
+// in the 'bits' slice. Returns the number of written bits.
 func (this *DefaultOutputBitStream) WriteArray(bits []byte, count uint) uint {
 	if this.Closed() {
 		panic(errors.New("Stream closed"))
@@ -264,6 +271,7 @@ func (this *DefaultOutputBitStream) flush() error {
 	return nil
 }
 
+// Close prevents further writes
 func (this *DefaultOutputBitStream) Close() (bool, error) {
 	if this.Closed() {
 		return true, nil
@@ -297,12 +305,13 @@ func (this *DefaultOutputBitStream) Close() (bool, error) {
 	return true, nil
 }
 
-// Return number of bits written so far
+// Written returns the number of bits written so far
 func (this *DefaultOutputBitStream) Written() uint64 {
 	// Number of bits flushed + bytes written in memory + bits written in memory
 	return this.written + uint64(this.position<<3) + uint64(64-this.availBits)
 }
 
+// Closed says whether this stream can be written to
 func (this *DefaultOutputBitStream) Closed() bool {
 	return this.closed
 }
