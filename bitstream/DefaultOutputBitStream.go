@@ -149,7 +149,7 @@ func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) uint {
 	}
 
 	// Pad the current position in buffer
-	if uint(this.availBits) > count {
+	if this.availBits > count {
 		// Enough spots available in 'current'
 		this.availBits -= count
 		this.current |= ((value & OBS_MASKS[count]) << this.availBits)
@@ -216,9 +216,9 @@ func (this *DefaultOutputBitStream) WriteArray(bits []byte, count uint) uint {
 
 		for remaining >= 64 {
 			value := binary.BigEndian.Uint64(bits[start : start+8])
-			this.current |= (value >> uint(r))
+			this.current |= (value >> r)
 			this.pushCurrent()
-			this.current = (value << uint(64-r))
+			this.current = (value << (64 - r))
 			this.availBits -= r
 			start += 8
 			remaining -= 64
