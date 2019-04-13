@@ -16,6 +16,8 @@ limitations under the License.
 package entropy
 
 import (
+	"math/bits"
+
 	kanzi "github.com/flanglet/kanzi-go"
 )
 
@@ -451,9 +453,9 @@ func (this *TPAQPredictor) getMatchContextPred() int32 {
 }
 
 func createContext(ctxID, cx int32) int32 {
-	cx = cx*987654323 + ctxID
-	cx = (cx << 16) | int32(uint32(cx)>>16)
-	return cx*123456791 + ctxID
+	c := uint32(cx*987654323 + ctxID)
+	c = bits.RotateLeft32(c, 16)
+	return int32(c*123456791) + ctxID
 }
 
 // Mixer combines models using neural networks with 8 inputs.
