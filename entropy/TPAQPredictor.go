@@ -331,7 +331,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 			}
 
 			this.ctx4 = createContext(this.ctx1, this.c4^(this.c8&0xFFFF))
-			this.ctx5 = hashTPAQ(h1 << 4, h2)
+			this.ctx5 = hashTPAQ(h1<<4, h2)
 			this.ctx6 = (this.c8 & TPAQ_MASK_F0F0F000) | ((this.c4 & TPAQ_MASK_F0F0F000) >> 4)
 		} else {
 			// Mostly binary
@@ -419,13 +419,25 @@ func (this *TPAQPredictor) findMatch() {
 
 		// Detect match
 		if this.matchPos != 0 && this.pos-this.matchPos <= TPAQ_MASK_BUFFER {
-			r := this.matchLen + 1
+			r := this.matchLen + 2
+			s := this.pos - r
+			t := this.matchPos - r
 
-			for r <= TPAQ_MAX_LENGTH && this.buffer[(this.pos-r)&TPAQ_MASK_BUFFER] == this.buffer[(this.matchPos-r)&TPAQ_MASK_BUFFER] {
-				r++
+			for r <= TPAQ_MAX_LENGTH {
+				if this.buffer[s&TPAQ_MASK_BUFFER] != this.buffer[t&TPAQ_MASK_BUFFER] {
+					break
+				}
+
+				if this.buffer[(s-1)&TPAQ_MASK_BUFFER] != this.buffer[(t-1)&TPAQ_MASK_BUFFER] {
+					break
+				}
+
+				r += 2
+				s -= 2
+				t -= 2
 			}
 
-			this.matchLen = r - 1
+			this.matchLen = r - 2
 		}
 	}
 }
