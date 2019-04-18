@@ -81,7 +81,7 @@ func (this *freqSortPriorityQueue) Pop() interface{} {
 	return data
 }
 
-// EncodeAlphabet  Write the alphabet to the bitstream and return the number
+// EncodeAlphabet writes the alphabet to the bitstream and return the number
 // of symbols written or an error.
 // alphabet must be sorted in increasing order
 // alphabet length must be a power of 2
@@ -243,7 +243,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 	return alphabetSize, nil
 }
 
-// DecodeAlphabet  Read the alphabet from the bitstream and return the number of symbols
+// DecodeAlphabet reads the alphabet from the bitstream and return the number of symbols
 // read or an error
 func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 	// Read encoding mode from bitstream
@@ -357,8 +357,8 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 	return count, nil
 }
 
-// ComputeFirstOrderEntropy1024  Compute the entropy 0 of the block
-// and scale the result by 1024 (result in the [0..1024] range)
+// ComputeFirstOrderEntropy1024 computes the order 0 entropy of the block
+// and scales the result by 1024 (result in the [0..1024] range)
 // Fills in the histogram with order 0 frequencies. Incoming array size must be at least 256
 func ComputeFirstOrderEntropy1024(block []byte, histo []int) int {
 	if len(block) == 0 {
@@ -381,8 +381,8 @@ func ComputeFirstOrderEntropy1024(block []byte, histo []int) int {
 	return int(sum / uint64(len(block)))
 }
 
-// NormalizeFrequencies  Scale the frequencies so that their sum equals 'scale'.
-// Return the size of the alphabet or an error.
+// NormalizeFrequencies scales the frequencies so that their sum equals 'scale'.
+// Returns the size of the alphabet or an error.
 // The alphabet and freqs parameters are updated.
 func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (int, error) {
 	if len(alphabet) > 256 {
@@ -510,16 +510,12 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 	return alphabetSize, nil
 }
 
-// WriteVarInt  Write the provided value to the bitstream as a VarInt.
-// Return the number of bytes written.
-func WriteVarInt(bs kanzi.OutputBitStream, value int) int {
-	if bs == nil {
-		panic("Invalid null bitstream parameter")
-	}
-
+// WriteVarInt writes the provided value to the bitstream as a VarInt.
+// Returns the number of bytes written.
+func WriteVarInt(bs kanzi.OutputBitStream, value uint32) int {
 	res := 0
 
-	for value >= 128 && res < 4 {
+	for value >= 128 {
 		bs.WriteBits(uint64(0x80|(value&0x7F)), 8)
 		value >>= 7
 		res++
@@ -529,19 +525,15 @@ func WriteVarInt(bs kanzi.OutputBitStream, value int) int {
 	return res
 }
 
-// ReadVarInt  Read a VarInt from the bitsream and return is as an int.
-func ReadVarInt(bs kanzi.InputBitStream) int {
-	if bs == nil {
-		panic("Invalid null bitstream parameter")
-	}
-
-	val := int(bs.ReadBits(8))
-	res := val & 0x7F
+// ReadVarInt reads a VarInt from the bitstream and returns it as an int.
+func ReadVarInt(bs kanzi.InputBitStream) uint32 {
+	value := uint32(bs.ReadBits(8))
+	res := value & 0x7F
 	shift := uint(7)
 
-	for val >= 128 && shift < 28 {
-		val = int(bs.ReadBits(8))
-		res |= ((val & 0x7F) << shift)
+	for value >= 128 && shift <= 28 {
+		value = uint32(bs.ReadBits(8))
+		res |= ((value & 0x7F) << shift)
 		shift += 7
 	}
 

@@ -329,7 +329,7 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 	n++
 
 	// Write chunk size
-	WriteVarInt(this.bitstream, len(this.buffer)-n)
+	WriteVarInt(this.bitstream, uint32(len(this.buffer)-n))
 
 	// Write final ANS state
 	this.bitstream.WriteBits(uint64(st), 32)

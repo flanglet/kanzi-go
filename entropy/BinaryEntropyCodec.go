@@ -132,7 +132,7 @@ func (this *BinaryEntropyEncoder) Write(block []byte) (int, error) {
 			this.EncodeByte(buf[i])
 		}
 
-		WriteVarInt(this.bitstream, this.index)
+		WriteVarInt(this.bitstream, uint32(this.index))
 		this.bitstream.WriteArray(this.buffer, uint(8*this.index))
 		startChunk += chunkSize
 
