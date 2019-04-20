@@ -234,10 +234,9 @@ func (this *RangeEncoder) encodeByte(b byte) {
 	// Compute next low and range
 	symbol := int(b)
 	cumFreq := this.cumFreqs[symbol]
-	freq := this.cumFreqs[symbol+1] - cumFreq
 	this.rng >>= this.shift
 	this.low += (cumFreq * this.rng)
-	this.rng *= freq
+	this.rng *= (this.cumFreqs[symbol+1] - cumFreq)
 
 	// If the left-most digits are the same throughout the range, write bits to bitstream
 	for {
@@ -443,9 +442,8 @@ func (this *RangeDecoder) decodeByte() byte {
 	count := int((this.code - this.low) / this.rng)
 	symbol := this.f2s[count]
 	cumFreq := this.cumFreqs[symbol]
-	freq := this.cumFreqs[symbol+1] - cumFreq
 	this.low += (cumFreq * this.rng)
-	this.rng *= freq
+	this.rng *= (this.cumFreqs[symbol+1] - cumFreq)
 
 	// If the left-most digits are the same throughout the range, read bits from bitstream
 	for {
