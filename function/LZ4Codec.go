@@ -19,8 +19,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-
-	kanzi "github.com/flanglet/kanzi-go"
 )
 
 // Go implementation of a LZ4 codec.
@@ -165,7 +163,7 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 				table[h32] = int32(srcIdx)
 				h32 = (binary.LittleEndian.Uint32(src[fwdIdx:]) * LZ4_HASH_SEED) >> hashShift
 
-				if kanzi.DifferentInts(src[srcIdx:], src[match:]) == false && match > srcIdx-MAX_DISTANCE {
+				if binary.LittleEndian.Uint32(src[srcIdx:]) == binary.LittleEndian.Uint32(src[match:]) && match > srcIdx-MAX_DISTANCE {
 					break
 				}
 			}
@@ -235,7 +233,7 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 				match = int(table[h32])
 				table[h32] = int32(srcIdx)
 
-				if kanzi.DifferentInts(src[srcIdx:], src[match:]) == true || match <= srcIdx-MAX_DISTANCE {
+				if binary.LittleEndian.Uint32(src[srcIdx:]) != binary.LittleEndian.Uint32(src[match:]) || match <= srcIdx-MAX_DISTANCE {
 					break
 				}
 
