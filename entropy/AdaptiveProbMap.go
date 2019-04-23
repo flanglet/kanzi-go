@@ -19,18 +19,25 @@ import (
 	kanzi "github.com/flanglet/kanzi-go"
 )
 
-// APM maps a probability and a context into a new probability
+// AdaptiveProbMap maps a probability and a context to a new probability
 // that the next bit will be 1. After each guess, it updates
-// its state to improve future guesses.
-
+// its state to improve future predictions.
 type AdaptiveProbMap struct {
 	index int      // last prob, context
 	rate  uint     // update rate
 	data  []uint16 // prob, context -> prob
 }
 
+// LinearAdaptiveProbMap maps a probability and a context into a new probability
+// using linear interpolation of probabilities
 type LinearAdaptiveProbMap AdaptiveProbMap
+
+// LogisticAdaptiveProbMap maps a probability and a context into a new probability
+// using interpolation in the logistic domain
 type LogisticAdaptiveProbMap AdaptiveProbMap
+
+// FastLogisticAdaptiveProbMap is similar to LogisticAdaptiveProbMap but works
+// faster at the expense of some accuracy
 type FastLogisticAdaptiveProbMap AdaptiveProbMap
 
 func newLogisticAdaptiveProbMap(n, rate uint) (*LogisticAdaptiveProbMap, error) {
@@ -49,7 +56,7 @@ func newLogisticAdaptiveProbMap(n, rate uint) (*LogisticAdaptiveProbMap, error) 
 	return this, nil
 }
 
-// Return improved prediction given current bit, prediction and context
+// get returns improved prediction given current bit, prediction and context
 func (this *LogisticAdaptiveProbMap) get(bit int, pr int, ctx int) int {
 	// Update probability based on error and learning rate
 	g := (-bit & 65528) + (bit << this.rate)
@@ -81,7 +88,7 @@ func newFastLogisticAdaptiveProbMap(n, rate uint) (*FastLogisticAdaptiveProbMap,
 	return this, nil
 }
 
-// Return improved prediction given current bit, prediction and context
+// get returns improved prediction given current bit, prediction and context
 func (this *FastLogisticAdaptiveProbMap) get(bit int, pr int, ctx int) int {
 	// Update probability based on error and learning rate
 	g := (-bit & 65528) + (bit << this.rate)
@@ -106,7 +113,7 @@ func newLinearAdaptiveProbMap(n, rate uint) (*LinearAdaptiveProbMap, error) {
 	return this, nil
 }
 
-// Return improved prediction given current bit, prediction and context
+// get returns improved prediction given current bit, prediction and context
 func (this *LinearAdaptiveProbMap) get(bit int, pr int, ctx int) int {
 	// Update probability based on error and learning rate
 	g := (-bit & 65528) + (bit << this.rate)

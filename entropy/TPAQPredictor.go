@@ -331,13 +331,13 @@ func (this *TPAQPredictor) Update(bit byte) {
 			}
 
 			this.ctx4 = createContext(this.ctx1, this.c4^(this.c8&0xFFFF))
-			this.ctx5 = hashTPAQ(h1<<4, h2)
-			this.ctx6 = (this.c8 & TPAQ_MASK_F0F0F000) | ((this.c4 & TPAQ_MASK_F0F0F000) >> 4)
+			this.ctx5 = (this.c8 & TPAQ_MASK_F0F0F000) | ((this.c4 & TPAQ_MASK_F0F0F000) >> 4)
+			this.ctx6 = hashTPAQ(h1<<4, h2)
 		} else {
 			// Mostly binary
 			this.ctx4 = createContext(TPAQ_HASH, this.c4^(this.c4&0x000FFFFF))
-			this.ctx5 = hashTPAQ(this.c4&TPAQ_MASK_FFFF0000, this.c8>>16)
-			this.ctx6 = this.ctx0 | (this.c8 << 16)
+			this.ctx5 = this.ctx0 | (this.c8 << 16)
+			this.ctx6 = hashTPAQ(this.c4&TPAQ_MASK_FFFF0000, this.c8>>16)
 		}
 
 		this.findMatch()
@@ -349,7 +349,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 	// Get initial predictions
 	// It has been observed that accessing memory via [ctx ^ c] is significantly faster
 	// on SandyBridge/Windows and slower on SkyLake/Linux except when [ctx & 255 == 0]
-	// (with c < 256). So, use XOR for _ctx6 which is the only context that fullfills
+	// (with c < 256). Hence, use XOR for _ctx5 which is the only context that fullfills
 	// the condition.
 	c := this.c0
 	table := TPAQ_STATE_TRANSITIONS[bit]
@@ -359,7 +359,6 @@ func (this *TPAQPredictor) Update(bit byte) {
 	*this.cp3 = table[*this.cp3]
 	*this.cp4 = table[*this.cp4]
 	*this.cp5 = table[*this.cp5]
-	*this.cp6 = table[*this.cp6]
 	this.cp0 = &this.smallStatesMap0[this.ctx0+c]
 	p0 := TPAQ_STATE_MAP[*this.cp0]
 	this.cp1 = &this.smallStatesMap1[this.ctx1+c]
@@ -370,10 +369,8 @@ func (this *TPAQPredictor) Update(bit byte) {
 	p3 := TPAQ_STATE_MAP[*this.cp3]
 	this.cp4 = &this.bigStatesMap[(this.ctx4+c)&this.statesMask]
 	p4 := TPAQ_STATE_MAP[*this.cp4]
-	this.cp5 = &this.bigStatesMap[(this.ctx5+c)&this.statesMask]
+	this.cp5 = &this.bigStatesMap[(this.ctx5^c)&this.statesMask]
 	p5 := TPAQ_STATE_MAP[*this.cp5]
-	this.cp6 = &this.bigStatesMap[(this.ctx6^c)&this.statesMask]
-	p6 := TPAQ_STATE_MAP[*this.cp6]
 
 	p7 := int32(0)
 
@@ -381,11 +378,21 @@ func (this *TPAQPredictor) Update(bit byte) {
 		p7 = this.getMatchContextPred()
 	}
 
-	// Mix predictions using NN
-	p := this.mixer.get(p0, p1, p2, p3, p4, p5, p6, p7)
+	var p int
 
 	// SSE (Secondary Symbol Estimation)
-	if this.extra == true {
+	if this.extra == false {
+		// Mix predictions using NN
+		p = this.mixer.get(p0, p1, p2, p3, p4, p5, (p2+p7)>>1, p7)
+	} else {
+		// One more prediction
+		*this.cp6 = table[*this.cp6]
+		this.cp6 = &this.bigStatesMap[(this.ctx6+c)&this.statesMask]
+		p6 := TPAQ_STATE_MAP[*this.cp6]
+
+		// Mix predictions using NN
+		p = this.mixer.get(p0, p1, p2, p3, p4, p5, p6, p7)
+
 		if this.binCount < (this.pos >> 3) {
 			p = this.sse1.get(y, p, int(this.ctx0+c))
 		} else {
