@@ -56,7 +56,15 @@ var (
 
 func main() {
 	argsMap := make(map[string]interface{})
-	processCommandLine(os.Args, argsMap)
+
+	if status := processCommandLine(os.Args, argsMap); status != 0 {
+		if status < 0 {
+			os.Exit(0)
+		}
+
+		os.Exit(status)
+	}
+
 	mode := argsMap["mode"].(string)
 	delete(argsMap, "mode")
 	status := 1
@@ -150,7 +158,7 @@ func decompress(argsMap map[string]interface{}) int {
 	return code
 }
 
-func processCommandLine(args []string, argsMap map[string]interface{}) {
+func processCommandLine(args []string, argsMap map[string]interface{}) int {
 	blockSize := -1
 	verbose := 1
 	overwrite := false
@@ -187,7 +195,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 		if arg == "--compress" || arg == "-c" {
 			if mode == "d" {
 				fmt.Println("Both compression and decompression options were provided.")
-				os.Exit(kanzi.ERR_INVALID_PARAM)
+				return kanzi.ERR_INVALID_PARAM
 			}
 
 			mode = "c"
@@ -197,7 +205,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 		if arg == "--decompress" || arg == "-d" {
 			if mode == "c" {
 				fmt.Println("Both compression and decompression options were provided.")
-				os.Exit(kanzi.ERR_INVALID_PARAM)
+				return kanzi.ERR_INVALID_PARAM
 			}
 
 			mode = "d"
@@ -218,12 +226,12 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 
 			if verbose, err = strconv.Atoi(verboseLevel); err != nil {
 				fmt.Printf("Invalid verbosity level provided on command line: %v\n", arg)
-				os.Exit(kanzi.ERR_INVALID_PARAM)
+				return kanzi.ERR_INVALID_PARAM
 			}
 
 			if verbose < 0 || verbose > 5 {
 				fmt.Printf("Invalid verbosity level provided on command line: %v\n", arg)
-				os.Exit(kanzi.ERR_INVALID_PARAM)
+				return kanzi.ERR_INVALID_PARAM
 			}
 		} else if strings.HasPrefix(arg, "--output=") || ctx == ARG_IDX_OUTPUT {
 			if strings.HasPrefix(arg, "--output") {
@@ -247,6 +255,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 		log.Println("\n"+APP_HEADER+"\n", true)
 	}
 
+	outputName = ""
 	ctx = -1
 
 	for i, arg := range args {
@@ -330,7 +339,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 				log.Println("EG. Kanzi --decompress --input=foo.knz --force --verbose=2 --jobs=2\n", true)
 			}
 
-			os.Exit(0)
+			return 0
 		}
 
 		if arg == "--compress" || arg == "-c" || arg == "--decompress" || arg == "-d" {
@@ -388,11 +397,38 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 			}
 		}
 
-		if strings.HasPrefix(arg, "--input=") || ctx == ARG_IDX_INPUT {
-			if strings.HasPrefix(arg, "--input=") {
-				inputName = strings.TrimPrefix(arg, "--input=")
+		if strings.HasPrefix(arg, "--output=") || ctx == ARG_IDX_OUTPUT {
+			name := ""
+
+			if strings.HasPrefix(arg, "--output=") {
+				name = strings.TrimPrefix(arg, "--output=")
 			} else {
-				inputName = arg
+				name = arg
+			}
+
+			if outputName != "" {
+				fmt.Printf("Warning: ignoring duplicate output name: %v\n", name)
+			} else {
+				outputName = name
+			}
+
+			ctx = -1
+			continue
+		}
+
+		if strings.HasPrefix(arg, "--input=") || ctx == ARG_IDX_INPUT {
+			name := ""
+
+			if strings.HasPrefix(arg, "--input=") {
+				name = strings.TrimPrefix(arg, "--input=")
+			} else {
+				name = arg
+			}
+
+			if inputName != "" {
+				fmt.Printf("Warning: ignoring duplicate input name: %v\n", name)
+			} else {
+				inputName = name
 			}
 
 			ctx = -1
@@ -400,25 +436,39 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 		}
 
 		if strings.HasPrefix(arg, "--entropy=") || ctx == ARG_IDX_ENTROPY {
+			name := ""
+
 			if strings.HasPrefix(arg, "--entropy=") {
-				codec = strings.TrimPrefix(arg, "--entropy=")
+				name = strings.TrimPrefix(arg, "--entropy=")
 			} else {
-				codec = arg
+				name = arg
 			}
 
-			codec = strings.ToUpper(codec)
+			if codec != "" {
+				fmt.Printf("Warning: ignoring duplicate entropy: %v\n", name)
+			} else {
+				codec = strings.ToUpper(name)
+			}
+
 			ctx = -1
 			continue
 		}
 
 		if strings.HasPrefix(arg, "--transform=") || ctx == ARG_IDX_TRANSFORM {
+			name := ""
+
 			if strings.HasPrefix(arg, "--transform=") {
-				transform = strings.TrimPrefix(arg, "--transform=")
+				name = strings.TrimPrefix(arg, "--transform=")
 			} else {
-				transform = arg
+				name = arg
 			}
 
-			transform = strings.ToUpper(transform)
+			if transform != "" {
+				fmt.Printf("Warning: ignoring duplicate transform: %v\n", name)
+			} else {
+				transform = strings.ToUpper(name)
+			}
+
 			ctx = -1
 			continue
 		}
@@ -435,14 +485,20 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 
 			str = strings.TrimSpace(str)
 
+			if level != -1 {
+				fmt.Printf("Warning: ignoring duplicate level: %v\n", str)
+				ctx = -1
+				continue
+			}
+
 			if level, err = strconv.Atoi(str); err != nil {
 				fmt.Printf("Invalid compression level provided on command line: %v\n", arg)
-				os.Exit(kanzi.ERR_INVALID_PARAM)
+				return kanzi.ERR_INVALID_PARAM
 			}
 
 			if level < 0 || level > 8 {
 				fmt.Printf("Invalid compression level provided on command line: %v\n", arg)
-				os.Exit(kanzi.ERR_INVALID_PARAM)
+				return kanzi.ERR_INVALID_PARAM
 			}
 
 			ctx = -1
@@ -450,10 +506,18 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 		}
 
 		if strings.HasPrefix(arg, "--cpuProf=") || ctx == ARG_IDX_PROFILE {
+			name := ""
+
 			if strings.HasPrefix(arg, "--cpuProf=") {
-				cpuProf = strings.TrimPrefix(arg, "--cpuProf=")
+				name = strings.TrimPrefix(arg, "--cpuProf=")
 			} else {
-				cpuProf = arg
+				name = arg
+			}
+
+			if cpuProf != "" {
+				fmt.Printf("Warning: ignoring duplicate profile file name: %v\n", name)
+			} else {
+				cpuProf = name
 			}
 
 			ctx = -1
@@ -470,6 +534,12 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 			}
 
 			strBlockSize = strings.ToUpper(strBlockSize)
+
+			if blockSize != -1 {
+				fmt.Printf("Warning: ignoring duplicate block size: %v\n", strBlockSize)
+				ctx = -1
+				continue
+			}
 
 			// Process K or M suffix
 			scale := 1
@@ -494,7 +564,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 
 			if blockSize, err = strconv.Atoi(strBlockSize); err != nil || blockSize <= 0 {
 				fmt.Printf("Invalid block size provided on command line: %v\n", strBlockSize)
-				os.Exit(kanzi.ERR_BLOCK_SIZE)
+				return kanzi.ERR_BLOCK_SIZE
 			}
 
 			blockSize = scale * blockSize
@@ -506,15 +576,21 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 			var strTasks string
 			var err error
 
-			if strings.HasPrefix(arg, "-j") {
-				strTasks = strings.TrimPrefix(arg, "-j")
-			} else {
+			if strings.HasPrefix(arg, "--jobs=") {
 				strTasks = strings.TrimPrefix(arg, "--jobs=")
+			} else {
+				strTasks = arg
+			}
+
+			if tasks != 0 {
+				fmt.Printf("Warning: ignoring duplicate jobs: %v\n", strTasks)
+				ctx = -1
+				continue
 			}
 
 			if tasks, err = strconv.Atoi(strTasks); err != nil || tasks < 1 {
 				fmt.Printf("Invalid number of jobs provided on command line: %v\n", strTasks)
-				os.Exit(kanzi.ERR_BLOCK_SIZE)
+				return kanzi.ERR_BLOCK_SIZE
 			}
 
 			ctx = -1
@@ -531,7 +607,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 
 	if inputName == "" {
 		fmt.Printf("Missing input file name, exiting ...\n")
-		os.Exit(kanzi.ERR_MISSING_PARAM)
+		return kanzi.ERR_MISSING_PARAM
 	}
 
 	if ctx != -1 {
@@ -587,6 +663,8 @@ func processCommandLine(args []string, argsMap map[string]interface{}) {
 	if len(cpuProf) > 0 {
 		argsMap["cpuProf"] = cpuProf
 	}
+
+	return 0
 }
 
 type FileData struct {
