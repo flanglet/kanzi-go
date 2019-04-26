@@ -430,7 +430,10 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			break
 		}
 
-		os.Read(dst[dstIdx : dstIdx+bufSize])
+		if _, err = os.Read(dst[dstIdx : dstIdx+bufSize]); err != nil {
+			break
+		}
+
 		dstIdx += bufSize
 		startChunk = endChunk
 	}
@@ -503,7 +506,10 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		{
 			// Decode literal, match length and match index buffers
 			var ibs kanzi.InputBitStream
-			is.SetOffset(srcIdx - 4)
+
+			if err = is.SetOffset(srcIdx - 4); err != nil {
+				break
+			}
 
 			if ibs, err = bitstream.NewDefaultInputBitStream(&is, 65536); err != nil {
 				break
