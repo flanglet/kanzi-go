@@ -345,7 +345,7 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
 		llr++
 	}
 
-	// Decode all frequencies (but the first one) by chunks of size 'inc'
+	// Decode all frequencies (but the first one)
 	for i := 1; i < alphabetSize; i += chkSize {
 		logMax := uint(1 + this.bitstream.ReadBits(llr))
 		endj := i + chkSize
@@ -381,7 +381,7 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
 		this.f2s = make([]uint16, scale)
 	}
 
-	// Create histogram of frequencies scaled to 'range' and reverse mapping
+	// Create reverse mapping
 	for i := range frequencies {
 		this.cumFreqs[i+1] = this.cumFreqs[i] + uint64(frequencies[i])
 		base := int(this.cumFreqs[i])

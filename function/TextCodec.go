@@ -22,8 +22,8 @@ import (
 	kanzi "github.com/flanglet/kanzi-go"
 )
 
-// Simple one-pass text codec. Uses a default (small) static dictionary
-// or potentially larger custom one. Generates a dynamic dictionary.
+// TextCodec is a simple one-pass text codec that replaces words with indexes.
+// Uses a default (small) static dictionary. Generates a dynamic dictionary.
 
 const (
 	TC_THRESHOLD1             = 128

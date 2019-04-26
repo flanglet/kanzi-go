@@ -380,9 +380,8 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 			obs.WriteBits(uint64(litIdx), 32)
 			var litEnc *entropy.ANSRangeEncoder
-			litEnc, err = entropy.NewANSRangeEncoder(obs, 1)
 
-			if err != nil {
+			if litEnc, err = entropy.NewANSRangeEncoder(obs, 1); err != nil {
 				goto End
 			}
 
@@ -394,9 +393,8 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 			obs.WriteBits(uint64(lenIdx), 32)
 			var lenEnc *entropy.ANSRangeEncoder
-			lenEnc, err = entropy.NewANSRangeEncoder(obs, 0)
 
-			if err != nil {
+			if lenEnc, err = entropy.NewANSRangeEncoder(obs, 0); err != nil {
 				goto End
 			}
 
@@ -408,9 +406,8 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 			obs.WriteBits(uint64(mIdx), 32)
 			var mIdxEnc *entropy.ANSRangeEncoder
-			mIdxEnc, err = entropy.NewANSRangeEncoder(obs, 0)
 
-			if err != nil {
+			if mIdxEnc, err = entropy.NewANSRangeEncoder(obs, 0); err != nil {
 				goto End
 			}
 
@@ -519,9 +516,8 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 			if length <= sizeChunk {
 				var litDec *entropy.ANSRangeDecoder
-				litDec, err = entropy.NewANSRangeDecoder(ibs, 1)
 
-				if err != nil {
+				if litDec, err = entropy.NewANSRangeDecoder(ibs, 1); err != nil {
 					goto End
 				}
 
@@ -535,9 +531,8 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 			if length <= sizeChunk {
 				var lenDec *entropy.ANSRangeDecoder
-				lenDec, err = entropy.NewANSRangeDecoder(ibs, 0)
 
-				if err != nil {
+				if lenDec, err = entropy.NewANSRangeDecoder(ibs, 0); err != nil {
 					goto End
 				}
 
@@ -551,9 +546,8 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 			if length <= sizeChunk {
 				var mIdxDec *entropy.ANSRangeDecoder
-				mIdxDec, err = entropy.NewANSRangeDecoder(ibs, 0)
 
-				if err != nil {
+				if mIdxDec, err = entropy.NewANSRangeDecoder(ibs, 0); err != nil {
 					goto End
 				}
 
