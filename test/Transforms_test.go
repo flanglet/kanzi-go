@@ -132,13 +132,6 @@ func testTransformCorrectness(name string) error {
 		}
 
 		size := len(arr)
-		f, err := getByteTransform(name)
-
-		if err != nil {
-			fmt.Printf("\nCannot create transform '%v': %v\n", name, err)
-			return err
-		}
-
 		input := make([]byte, size)
 		output := make([]byte, size)
 		reverse := make([]byte, size)
@@ -151,7 +144,7 @@ func testTransformCorrectness(name string) error {
 			input[i] = byte(arr[i])
 		}
 
-		f, err = getByteTransform(name)
+		f, err := getByteTransform(name)
 
 		if err != nil {
 			fmt.Printf("\nCannot create transform '%v': %v\n", name, err)
