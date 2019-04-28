@@ -42,26 +42,42 @@ const (
 // and turns it into another slice of integers of the same size.
 // Return index in src, index in dst and error
 type IntTransform interface {
+	// Forward applies the function to the src and writes the result
+	// to the destination. Returns number of bytes read, number of bytes
+	// written and possibly an error.
 	Forward(src, dst []int) (uint, uint, error)
 
+	// Inverse applies the reverse function to the src and writes the result
+	// to the destination. Returns number of bytes read, number of bytes
+	// written and possibly an error.
 	Inverse(src, dst []int) (uint, uint, error)
 }
 
 // ByteTransform is a function that takes an slice of bytes as input and
 // turns it into another slice of bytes of the same size.
-// Return index in src, index in dst and error
 type ByteTransform interface {
+	// Forward applies the function to the src and writes the result
+	// to the destination. Returns number of bytes read, number of bytes
+	// written and possibly an error.
 	Forward(src, dst []byte) (uint, uint, error)
 
+	// Inverse applies the reverse function to the src and writes the result
+	// to the destination. Returns number of bytes read, number of bytes
+	// written and possibly an error.
 	Inverse(src, dst []byte) (uint, uint, error)
 }
 
 // IntFunction is a function that transforms the input int slice and writes
 // the result in the output int slice. The result may have a different size.
-// Return index in src, index in dst and error
 type IntFunction interface {
+	// Forward applies the function to the src and writes the result
+	// to the destination. Returns number of bytes read, number of bytes
+	// written and possibly an error.
 	Forward(src, dst []int) (uint, uint, error)
 
+	// Inverse applies the reverse function to the src and writes the result
+	// to the destination. Returns number of bytes read, number of bytes
+	// written and possibly an error.
 	Inverse(src, dst []int) (uint, uint, error)
 
 	// MaxEncodedLen returns the max size required for the encoding output buffer
@@ -70,10 +86,16 @@ type IntFunction interface {
 }
 
 // ByteFunction is a function that transforms the input byte slice and writes
-// the result in the output byte slice.
+// the result in the output byte slice. The result may have a different size.
 type ByteFunction interface {
+	// Forward applies the function to the src and writes the result
+	// to the destination. Returns number of bytes read, number of bytes
+	// written and possibly an error.
 	Forward(src, dst []byte) (uint, uint, error)
 
+	// Inverse applies the reverse function to the src and writes the result
+	// to the destination. Returns number of bytes read, number of bytes
+	// written and possibly an error.
 	Inverse(src, dst []byte) (uint, uint, error)
 
 	//MaxEncodedLen returns the max size required for the encoding output buffer
@@ -85,12 +107,12 @@ type InputBitStream interface {
 	// ReadBit returns the next bit in the bitstream. Panics if closed or EOS is reached.
 	ReadBit() int
 
-	// ReadBits read 'length' (in [1..64]) bits from the bitstream .
+	// ReadBits reads 'length' (in [1..64]) bits from the bitstream .
 	// Returns the bits read as an uint64.
 	// Panics if closed or EOS is reached.
 	ReadBits(length uint) uint64
 
-	// ReadArray read 'length' bits from the bitstream and put them in the byte slice.
+	// ReadArray reads 'length' bits from the bitstream and put them in the byte slice.
 	// Returns the number of bits read.
 	// Panics if closed or EOS is reached.
 	ReadArray(bits []byte, length uint) uint
@@ -107,8 +129,8 @@ type InputBitStream interface {
 
 // OutputBitStream is a bitstream writer
 type OutputBitStream interface {
-	// WriteBit  Write the least significant bit of the input integer
-	// Panic if closed or an IO error is received.
+	// WriteBit writes the least significant bit of the input integer
+	// Panics if closed or an IO error is received.
 	WriteBit(bit int)
 
 	// WriteBits writes the least significant bits of 'bits' to the bitstream.
@@ -131,7 +153,7 @@ type OutputBitStream interface {
 
 // Predictor predicts the probability of the next bit being 1.
 type Predictor interface {
-	// Update updates the probability model
+	// Update updates the internal probability model based on the observed bit
 	Update(bit byte)
 
 	// Get returns the value representing the probability of the next bit being 1
@@ -159,7 +181,7 @@ type EntropyDecoder interface {
 	// Read decodes data from the bitstream and return it in the provided buffer.
 	Read(block []byte) (int, error)
 
-	// BitStream rreturns the underlying bitstream
+	// BitStream returns the underlying bitstream
 	BitStream() InputBitStream
 
 	// Dispose must be called before getting rid of the entropy decoder

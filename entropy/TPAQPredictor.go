@@ -21,11 +21,6 @@ import (
 	kanzi "github.com/flanglet/kanzi-go"
 )
 
-// TPAQ predictor
-// Derived from a heavily modified version of Tangelo 2.4 (by Jan Ondrus).
-// PAQ8 is written by Matt Mahoney.
-// See http://encode.ru/threads/1738-TANGELO-new-compressor-(derived-from-PAQ8-FP8)
-
 const (
 	TPAQ_MAX_LENGTH       = 88
 	TPAQ_BUFFER_SIZE      = 64 * 1024 * 1024
@@ -153,6 +148,10 @@ func hashTPAQ(x, y int32) int32 {
 	return h>>1 ^ h>>9 ^ x>>2 ^ y>>3 ^ TPAQ_HASH
 }
 
+// TPAQPredictor is a bit predictor for binary entropy codecs ,derived from
+// a heavily modified version of Tangelo 2.4 (by Jan Ondrus).
+// PAQ8 is written by Matt Mahoney.
+// See http://encode.ru/threads/1738-TANGELO-new-compressor-(derived-from-PAQ8-FP8)
 type TPAQPredictor struct {
 	pr              int   // next predicted value (0-4095)
 	c0              int32 // bitwise context: last 0-7 bits with a leading 1 (1-255)
@@ -193,6 +192,8 @@ type TPAQPredictor struct {
 	extra           bool
 }
 
+// NewTPAQPredictor create a new instance of TPAQPredictor using the provided
+// map of options to select the sizes of internal structures.
 func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 	this := new(TPAQPredictor)
 	statesSize := 1 << 28
@@ -288,7 +289,7 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 	return this, err
 }
 
-// Update the probability model
+// Update updates the internal probability model based on the observed bit
 func (this *TPAQPredictor) Update(bit byte) {
 	y := int(bit)
 	this.mixer.update(y)
@@ -407,7 +408,8 @@ func (this *TPAQPredictor) Update(bit byte) {
 	this.pr = p + int(uint32(p-2048)>>31)
 }
 
-// Return the split value representing the probability of 1 in the [0..4095] range.
+// Get returns the value representing the probability of the next bit being
+// 1 (in the [0..4095] range).
 func (this *TPAQPredictor) Get() int {
 	return this.pr
 }
@@ -449,7 +451,7 @@ func (this *TPAQPredictor) findMatch() {
 	}
 }
 
-// Get a prediction from the match model in [-2047..2048]
+// Get a squashed prediction (in [-2047..2048]) from the match model
 func (this *TPAQPredictor) getMatchContextPred() int32 {
 	if this.c0 == ((int32(this.buffer[this.matchPos&TPAQ_MASK_BUFFER])&0xFF)|256)>>this.bpos {
 		var p int32
@@ -477,7 +479,7 @@ func createContext(ctxID, cx int32) int32 {
 	return int32(c*123456791) + ctxID
 }
 
-// Mixer combines models using neural networks with 8 inputs.
+// TPAQMixer combines models using neural networks with 8 inputs.
 type TPAQMixer struct {
 	pr                             int // squashed prediction
 	skew                           int32
@@ -523,6 +525,7 @@ func (this *TPAQMixer) update(bit int) {
 	this.w7 += ((this.p7*err + 0) >> 12)
 }
 
+// Returns a prediction by mixing the predictions provided as input
 func (this *TPAQMixer) get(p0, p1, p2, p3, p4, p5, p6, p7 int32) int {
 	this.p0 = p0
 	this.p1 = p1
