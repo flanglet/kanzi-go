@@ -284,6 +284,8 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 		if err == nil {
 			this.sse1, err = newLogisticAdaptiveProbMap(65536, 7)
 		}
+	} else {
+		this.sse0, err = newLogisticAdaptiveProbMap(256, 7)
 	}
 
 	return this, err
@@ -381,10 +383,14 @@ func (this *TPAQPredictor) Update(bit byte) {
 
 	var p int
 
-	// SSE (Secondary Symbol Estimation)
 	if this.extra == false {
 		// Mix predictions using NN
 		p = this.mixer.get(p0, p1, p2, p3, p4, p5, (p2+p7)>>1, p7)
+
+		// SSE (Secondary Symbol Estimation)
+		if this.binCount < (this.pos >> 3) {
+			p = this.sse0.get(y, p, int(this.c0))
+		}
 	} else {
 		// One more prediction
 		*this.cp6 = table[*this.cp6]
@@ -394,6 +400,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 		// Mix predictions using NN
 		p = this.mixer.get(p0, p1, p2, p3, p4, p5, p6, p7)
 
+		// SSE (Secondary Symbol Estimation)
 		if this.binCount < (this.pos >> 3) {
 			p = this.sse1.get(y, p, int(this.ctx0+c))
 		} else {
