@@ -164,17 +164,18 @@ func NewCompressedOutputStream(os io.WriteCloser, ctx map[string]interface{}) (*
 
 	// Check transform type validity (panic on error)
 	this.transformType = function.GetType(transform)
-	nbBlocks := uint8(0)
 
 	this.blockSize = bSize
+	nbBlocks := uint8(0)
 
 	// If input size has been provided, calculate the number of blocks
 	// in the input data else use 0. A value of 63 means '63 or more blocks'.
 	// This value is written to the bitstream header to let the decoder make
 	// better decisions about memory usage and job allocation in concurrent
 	// decompression scenario.
-	if fileSize, ok := ctx["fileSize"].(int64); ok {
-		nbBlocks = uint8((uint(fileSize) + (bSize - 1)) / bSize)
+	if val, containsKey := ctx["fileSize"]; containsKey {
+		fileSize := val.(int64)
+		nbBlocks = uint8((fileSize + int64(bSize-1)) / int64(bSize))
 	}
 
 	if nbBlocks > 63 {
