@@ -108,7 +108,7 @@ func testFunctionCorrectness(name string) error {
 			arr = []int{0, 1, 2, 2, 2, 2, 7, 9, 9, 16, 16, 16, 1, 3,
 				3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3}
 		} else if ii == 1 {
-			arr = make([]int, 66000)
+			arr = make([]int, 80000)
 
 			for i := range arr {
 				arr[i] = 8
@@ -199,8 +199,12 @@ func testFunctionCorrectness(name string) error {
 
 		fmt.Printf("\nOriginal: \n")
 
-		for i := range arr {
-			fmt.Printf("%v ", input[i])
+		if ii == 1 {
+			fmt.Printf("1 8 (%v times)", len(input)-2)
+		} else {
+			for i := range arr {
+				fmt.Printf("%v ", input[i])
+			}
 		}
 
 		srcIdx, dstIdx, err := f.Forward(input, output)
@@ -244,19 +248,29 @@ func testFunctionCorrectness(name string) error {
 		}
 
 		fmt.Printf("Decoded: \n")
-
-		for i := range reverse {
-			fmt.Printf("%v ", reverse[i])
-		}
-
-		fmt.Printf("\n")
+		idx := -1
 
 		// Check
 		for i := range reverse {
 			if input[i] != reverse[i] {
-				fmt.Printf("Different (index %v - %v)\n", input[i], reverse[i])
-				return err
+				idx = i
+				break
 			}
+		}
+
+		if idx == -1 {
+			if ii == 1 {
+				fmt.Printf("1 8 (%v times)", len(input)-2)
+			} else {
+				for i := range reverse {
+					fmt.Printf("%v ", reverse[i])
+				}
+			}
+
+			fmt.Printf("\n")
+		} else {
+			fmt.Printf("Different (index %v - %v)\n", input[idx], reverse[idx])
+			return err
 		}
 
 		fmt.Printf("Identical\n")
