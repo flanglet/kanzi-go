@@ -1,2 +1,5 @@
 language: go
-install: cd app && go build -gcflags='all=-B' Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
+install: 
+   - cd app 
+   - go build -gcflags='all=-B' Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
+   - cd ..
