@@ -637,7 +637,7 @@ End:
 
 func (this rolzCodec1) MaxEncodedLen(srcLen int) int {
 	if srcLen <= 512 {
-		return srcLen + 32
+		return srcLen + 64
 	}
 
 	return srcLen
@@ -1066,7 +1066,7 @@ func (this rolzCodec2) MaxEncodedLen(srcLen int) int {
 	}
 
 	if srcLen <= 512 {
-		return srcLen + 32
+		return srcLen + 64
 	}
 
 	return srcLen + srcLen/8
