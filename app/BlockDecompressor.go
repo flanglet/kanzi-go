@@ -412,10 +412,14 @@ func (this *FileDecompressTask) Call() (int, uint64) {
 
 		if output, err = os.OpenFile(outputName, os.O_RDWR, 0666); err == nil {
 			// File exists
+			if err = output.Close(); err != nil {
+				fmt.Printf("Cannot create output file '%v': error closing existing file\n", outputName)
+				return kanzi.ERR_OVERWRITE_FILE, 0
+			}
+
 			if overwrite == false {
-				fmt.Printf("File '%v' exists and the 'overwrite' command ", outputName)
+				fmt.Printf("File '%v' exists and the 'force' command ", outputName)
 				fmt.Println("line option has not been provided")
-				output.Close()
 				return kanzi.ERR_OVERWRITE_FILE, 0
 			}
 

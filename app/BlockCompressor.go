@@ -553,7 +553,10 @@ func (this *FileCompressTask) Call() (int, uint64, uint64) {
 
 		if output, err = os.OpenFile(outputName, os.O_RDWR, 0666); err == nil {
 			// File exists
-			output.Close()
+			if err = output.Close(); err != nil {
+				fmt.Printf("Cannot create output file '%v': error closing existing file\n", outputName)
+				return kanzi.ERR_OVERWRITE_FILE, 0, 0
+			}
 
 			if overwrite == false {
 				fmt.Printf("File '%v' exists and the 'force' command ", outputName)
