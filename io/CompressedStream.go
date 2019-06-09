@@ -915,8 +915,12 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 
 	blkSize := int(this.blockSize)
 
-	// Add a padding area to manage any block with header (of size <= EXTRA_BUFFER_SIZE)
-	blkSize += EXTRA_BUFFER_SIZE
+	// Add a padding area to manage any block with header or temporarily expanded
+	if blkSize+EXTRA_BUFFER_SIZE >= (blkSize*17)>>4 {
+		blkSize += EXTRA_BUFFER_SIZE
+	} else {
+		blkSize = (blkSize * 17) >> 4
+	}
 
 	// Protect against future concurrent modification of the list of block listeners
 	listeners := make([]kanzi.Listener, len(this.listeners))
