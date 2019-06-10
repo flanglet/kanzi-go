@@ -218,7 +218,7 @@ func fileCompressWorker(tasks <-chan FileCompressTask, cancel <-chan bool, resul
 }
 
 // Return exit code, number of bits written
-func (this *BlockCompressor) Call() (int, uint64) {
+func (this *BlockCompressor) Compress() (int, uint64) {
 	var err error
 	before := time.Now()
 	files := make([]FileData, 0, 256)
@@ -595,7 +595,7 @@ func (this *FileCompressTask) Call() (int, uint64, uint64) {
 
 	}
 
-	cos, err := kio.NewCompressedOutputStream(output, this.ctx)
+	cos, err := kio.NewCompressedOutputStreamWithCtx(output, this.ctx)
 
 	if err != nil {
 		if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {

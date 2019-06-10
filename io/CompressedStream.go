@@ -91,7 +91,7 @@ type CompressedOutputStream struct {
 	obs           kanzi.OutputBitStream
 	initialized   int32
 	closed        int32
-	blockId       int
+	blockID       int
 	curIdx        int
 	jobs          int
 	channels      []chan error
@@ -106,7 +106,7 @@ type EncodingTask struct {
 	blockLength        uint
 	blockTransformType uint64
 	blockEntropyType   uint32
-	currentBlockId     int
+	currentBlockID     int
 	input              chan error
 	output             chan error
 	listeners          []kanzi.Listener
@@ -114,7 +114,17 @@ type EncodingTask struct {
 	ctx                map[string]interface{}
 }
 
-func NewCompressedOutputStream(os io.WriteCloser, ctx map[string]interface{}) (*CompressedOutputStream, error) {
+func NewCompressedOutputStream(os io.WriteCloser, codec, transform string, blockSize, jobs uint, checksum bool) (*CompressedOutputStream, error) {
+	var ctx map[string]interface{}
+	ctx["codec"] = codec
+	ctx["transform"] = transform
+	ctx["blockSize"] = blockSize
+	ctx["jobs"] = jobs
+	ctx["checksum"] = checksum
+	return NewCompressedOutputStreamWithCtx(os, ctx)
+}
+
+func NewCompressedOutputStreamWithCtx(os io.WriteCloser, ctx map[string]interface{}) (*CompressedOutputStream, error) {
 	if os == nil {
 		return nil, NewIOError("Invalid null writer parameter", kanzi.ERR_CREATE_STREAM)
 	}
@@ -202,7 +212,7 @@ func NewCompressedOutputStream(os io.WriteCloser, ctx map[string]interface{}) (*
 		this.buffers[i] = blockBuffer{Buf: EMPTY_BYTE_SLICE}
 	}
 
-	this.blockId = 0
+	this.blockID = 0
 	this.channels = make([]chan error, this.jobs+1)
 
 	for i := range this.channels {
@@ -411,7 +421,7 @@ func (this *CompressedOutputStream) processBlock(force bool) error {
 			blockLength:        sz,
 			blockTransformType: this.transformType,
 			blockEntropyType:   this.entropyType,
-			currentBlockId:     this.blockId + jobId + 1,
+			currentBlockID:     this.blockID + jobId + 1,
 			input:              this.channels[jobId],
 			output:             this.channels[jobId+1],
 			obs:                this.obs,
@@ -433,7 +443,7 @@ func (this *CompressedOutputStream) processBlock(force bool) error {
 	// Wait for completion of last task
 	err := <-this.channels[nbJobs]
 
-	this.blockId += this.jobs
+	this.blockID += this.jobs
 	return err
 }
 
@@ -465,7 +475,7 @@ func (this *EncodingTask) encode() {
 
 	if len(this.listeners) > 0 {
 		// Notify before transform
-		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_TRANSFORM, this.currentBlockId,
+		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_TRANSFORM, this.currentBlockID,
 			int64(this.blockLength), checksum, this.hasher != nil, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
@@ -542,7 +552,7 @@ func (this *EncodingTask) encode() {
 
 	if len(this.listeners) > 0 {
 		// Notify after transform
-		evt := kanzi.NewEvent(kanzi.EVT_AFTER_TRANSFORM, this.currentBlockId,
+		evt := kanzi.NewEvent(kanzi.EVT_AFTER_TRANSFORM, this.currentBlockID,
 			int64(postTransformLength), checksum, this.hasher != nil, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
@@ -579,7 +589,7 @@ func (this *EncodingTask) encode() {
 
 	if len(this.listeners) > 0 {
 		// Notify before entropy
-		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_ENTROPY, this.currentBlockId,
+		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_ENTROPY, this.currentBlockID,
 			int64(postTransformLength), checksum, this.hasher != nil, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
@@ -606,7 +616,7 @@ func (this *EncodingTask) encode() {
 
 	if len(this.listeners) > 0 {
 		// Notify after entropy
-		evt := kanzi.NewEvent(kanzi.EVT_AFTER_ENTROPY, this.currentBlockId,
+		evt := kanzi.NewEvent(kanzi.EVT_AFTER_ENTROPY, this.currentBlockID,
 			int64(this.obs.Written()-written)/8, checksum, this.hasher != nil, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
@@ -632,7 +642,7 @@ type Message struct {
 	err            *IOError
 	data           []byte
 	decoded        int
-	blockId        int
+	blockID        int
 	checksum       uint32
 	completionTime time.Time
 }
@@ -650,7 +660,7 @@ type CompressedInputStream struct {
 	ibs           kanzi.InputBitStream
 	initialized   int32
 	closed        int32
-	blockId       int
+	blockID       int
 	maxIdx        int
 	curIdx        int
 	jobs          int
@@ -667,7 +677,7 @@ type DecodingTask struct {
 	blockLength        uint
 	blockTransformType uint64
 	blockEntropyType   uint32
-	currentBlockId     int
+	currentBlockID     int
 	input              chan bool
 	output             chan bool
 	result             chan Message
@@ -676,7 +686,13 @@ type DecodingTask struct {
 	ctx                map[string]interface{}
 }
 
-func NewCompressedInputStream(is io.ReadCloser, ctx map[string]interface{}) (*CompressedInputStream, error) {
+func NewCompressedInputStream(is io.ReadCloser, jobs uint) (*CompressedInputStream, error) {
+	var ctx map[string]interface{}
+	ctx["jobs"] = jobs
+	return NewCompressedInputStreamWithCtx(is, ctx)
+}
+
+func NewCompressedInputStreamWithCtx(is io.ReadCloser, ctx map[string]interface{}) (*CompressedInputStream, error) {
 	if is == nil {
 		return nil, NewIOError("Invalid null reader parameter", kanzi.ERR_CREATE_STREAM)
 	}
@@ -695,7 +711,7 @@ func NewCompressedInputStream(is io.ReadCloser, ctx map[string]interface{}) (*Co
 	this := new(CompressedInputStream)
 
 	this.jobs = int(tasks)
-	this.blockId = 0
+	this.blockID = 0
 	this.data = EMPTY_BYTE_SLICE
 	this.buffers = make([]blockBuffer, 2*this.jobs)
 
@@ -828,7 +844,7 @@ func (this *CompressedInputStream) readHeader() error {
 	return nil
 }
 
-// Implement kanzi.InputStream interface
+// Implement io.Writer interface
 func (this *CompressedInputStream) Close() error {
 	if atomic.SwapInt32(&this.closed, 1) == 1 {
 		return nil
@@ -850,7 +866,7 @@ func (this *CompressedInputStream) Close() error {
 	return nil
 }
 
-// Implement kanzi.InputStream interface
+// Implement io.Reader interface
 func (this *CompressedInputStream) Read(array []byte) (int, error) {
 	if atomic.LoadInt32(&this.closed) == 1 {
 		return 0, NewIOError("Stream closed", kanzi.ERR_READ_FILE)
@@ -989,7 +1005,7 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 			blockLength:        uint(blkSize),
 			blockTransformType: this.transformType,
 			blockEntropyType:   this.entropyType,
-			currentBlockId:     this.blockId + jobId + 1,
+			currentBlockID:     this.blockID + jobId + 1,
 			input:              syncChan[jobId],
 			output:             syncChan[(jobId+1)%int(nbJobs)],
 			result:             this.resChan,
@@ -1018,7 +1034,7 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 		res := <-this.resChan
 
 		// Order the results based on block ID
-		results[res.blockId-this.blockId-1] = res
+		results[res.blockID-this.blockID-1] = res
 		decoded += res.decoded
 
 		if res.err != nil {
@@ -1041,7 +1057,7 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 
 		if len(listeners) > 0 {
 			// Notify after transform ... in block order !
-			evt := kanzi.NewEvent(kanzi.EVT_AFTER_TRANSFORM, res.blockId,
+			evt := kanzi.NewEvent(kanzi.EVT_AFTER_TRANSFORM, res.blockID,
 				int64(res.decoded), res.checksum, this.hasher != nil, res.completionTime)
 			notifyListeners(listeners, evt)
 		}
@@ -1052,7 +1068,7 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 		}
 	}
 
-	this.blockId += this.jobs
+	this.blockID += this.jobs
 	this.curIdx = 0
 	return decoded, err
 }
@@ -1086,7 +1102,7 @@ func notify(chan1 chan bool, chan2 chan Message, run bool, msg Message) {
 func (this *DecodingTask) decode() {
 	data := this.iBuffer.Buf
 	buffer := this.oBuffer.Buf
-	res := Message{blockId: this.currentBlockId, data: data}
+	res := Message{blockID: this.currentBlockID, data: data}
 
 	// Wait for task processing the previous block to complete
 	if this.input != nil {
@@ -1152,7 +1168,7 @@ func (this *DecodingTask) decode() {
 
 	if len(this.listeners) > 0 {
 		// Notify before entropy (block size in bitstream is unknown)
-		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_ENTROPY, this.currentBlockId,
+		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_ENTROPY, this.currentBlockID,
 			int64(-1), checksum1, this.hasher != nil, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
@@ -1194,7 +1210,7 @@ func (this *DecodingTask) decode() {
 
 	if len(this.listeners) > 0 {
 		// Notify after entropy
-		evt := kanzi.NewEvent(kanzi.EVT_AFTER_ENTROPY, this.currentBlockId,
+		evt := kanzi.NewEvent(kanzi.EVT_AFTER_ENTROPY, this.currentBlockID,
 			int64(this.ibs.Read()-read)/8, checksum1, this.hasher != nil, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
@@ -1205,7 +1221,7 @@ func (this *DecodingTask) decode() {
 
 	if len(this.listeners) > 0 {
 		// Notify before transform
-		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_TRANSFORM, this.currentBlockId,
+		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_TRANSFORM, this.currentBlockID,
 			int64(preTransformLength), checksum1, this.hasher != nil, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
