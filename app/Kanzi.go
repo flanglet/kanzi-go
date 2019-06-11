@@ -86,7 +86,7 @@ func compress(argsMap map[string]interface{}) int {
 
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("An unexpected error occured during compression: %v\n", r.(error))
+			fmt.Printf("An unexpected error occurred during compression: %v\n", r.(error))
 			code = kanzi.ERR_UNKNOWN
 		}
 
@@ -125,7 +125,7 @@ func decompress(argsMap map[string]interface{}) int {
 
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("An unexpected error occured during decompression: %v\n", r.(error))
+			fmt.Printf("An unexpected error occurred during decompression: %v\n", r.(error))
 			code = kanzi.ERR_UNKNOWN
 		}
 

@@ -61,7 +61,7 @@ func BenchmarkExpGolomb(b *testing.B) {
 
 			// Encode
 			if _, err := ec.Write(values1); err != nil {
-				msg := fmt.Sprintf("An error occured during encoding: %v\n", err)
+				msg := fmt.Sprintf("An error occurred during encoding: %v\n", err)
 				b.Fatalf(msg)
 			}
 
@@ -77,7 +77,7 @@ func BenchmarkExpGolomb(b *testing.B) {
 
 			// Decode
 			if _, err := ed.Read(values2); err != nil {
-				msg := fmt.Sprintf("An error occured during decoding: %v\n", err)
+				msg := fmt.Sprintf("An error occurred during decoding: %v\n", err)
 				b.Fatalf(msg)
 			}
 
@@ -129,7 +129,7 @@ func BenchmarkHuffman(b *testing.B) {
 
 			// Encode
 			if _, err := ec.Write(values1); err != nil {
-				msg := fmt.Sprintf("An error occured during encoding: %v\n", err)
+				msg := fmt.Sprintf("An error occurred during encoding: %v\n", err)
 				b.Fatalf(msg)
 			}
 
@@ -145,7 +145,7 @@ func BenchmarkHuffman(b *testing.B) {
 
 			// Decode
 			if _, err := ed.Read(values2); err != nil {
-				msg := fmt.Sprintf("An error occured during decoding: %v\n", err)
+				msg := fmt.Sprintf("An error occurred during decoding: %v\n", err)
 				b.Fatalf(msg)
 			}
 
@@ -197,7 +197,7 @@ func BenchmarkANS0(b *testing.B) {
 
 			// Encode
 			if _, err := ec.Write(values1); err != nil {
-				msg := fmt.Sprintf("An error occured during encoding: %v\n", err)
+				msg := fmt.Sprintf("An error occurred during encoding: %v\n", err)
 				b.Fatalf(msg)
 			}
 
@@ -213,7 +213,7 @@ func BenchmarkANS0(b *testing.B) {
 
 			// Decode
 			if _, err := ed.Read(values2); err != nil {
-				msg := fmt.Sprintf("An error occured during decoding: %v\n", err)
+				msg := fmt.Sprintf("An error occurred during decoding: %v\n", err)
 				b.Fatalf(msg)
 			}
 
@@ -265,7 +265,7 @@ func BenchmarkANS1(b *testing.B) {
 
 			// Encode
 			if _, err := ec.Write(values1); err != nil {
-				msg := fmt.Sprintf("An error occured during encoding: %v\n", err)
+				msg := fmt.Sprintf("An error occurred during encoding: %v\n", err)
 				b.Fatalf(msg)
 			}
 
@@ -281,7 +281,7 @@ func BenchmarkANS1(b *testing.B) {
 
 			// Decode
 			if _, err := ed.Read(values2); err != nil {
-				msg := fmt.Sprintf("An error occured during decoding: %v\n", err)
+				msg := fmt.Sprintf("An error occurred during decoding: %v\n", err)
 				b.Fatalf(msg)
 			}
 
@@ -333,7 +333,7 @@ func BenchmarkRange(b *testing.B) {
 
 			// Encode
 			if _, err := ec.Write(values1); err != nil {
-				msg := fmt.Sprintf("An error occured during encoding: %v\n", err)
+				msg := fmt.Sprintf("An error occurred during encoding: %v\n", err)
 				b.Fatalf(msg)
 			}
 
@@ -349,7 +349,7 @@ func BenchmarkRange(b *testing.B) {
 
 			// Decode
 			if _, err := ed.Read(values2); err != nil {
-				msg := fmt.Sprintf("An error occured during decoding: %v\n", err)
+				msg := fmt.Sprintf("An error occurred during decoding: %v\n", err)
 				b.Fatalf(msg)
 			}
 
@@ -402,7 +402,7 @@ func BenchmarkFPAQ(b *testing.B) {
 
 			// Encode
 			if _, err := ec.Write(values1); err != nil {
-				msg := fmt.Sprintf("An error occured during encoding: %v\n", err)
+				msg := fmt.Sprintf("An error occurred during encoding: %v\n", err)
 				b.Fatalf(msg)
 			}
 
@@ -419,7 +419,7 @@ func BenchmarkFPAQ(b *testing.B) {
 
 			// Decode
 			if _, err := ed.Read(values2); err != nil {
-				msg := fmt.Sprintf("An error occured during decoding: %v\n", err)
+				msg := fmt.Sprintf("An error occurred during decoding: %v\n", err)
 				b.Fatalf(msg)
 			}
 
@@ -472,7 +472,7 @@ func BenchmarkCM(b *testing.B) {
 
 			// Encode
 			if _, err := ec.Write(values1); err != nil {
-				msg := fmt.Sprintf("An error occured during encoding: %v\n", err)
+				msg := fmt.Sprintf("An error occurred during encoding: %v\n", err)
 				b.Fatalf(msg)
 			}
 
@@ -489,7 +489,7 @@ func BenchmarkCM(b *testing.B) {
 
 			// Decode
 			if _, err := ed.Read(values2); err != nil {
-				msg := fmt.Sprintf("An error occured during decoding: %v\n", err)
+				msg := fmt.Sprintf("An error occurred during decoding: %v\n", err)
 				b.Fatalf(msg)
 			}
 
@@ -542,7 +542,7 @@ func BenchmarkTPAQ(b *testing.B) {
 
 			// Encode
 			if _, err := ec.Write(values1); err != nil {
-				msg := fmt.Sprintf("An error occured during encoding: %v\n", err)
+				msg := fmt.Sprintf("An error occurred during encoding: %v\n", err)
 				b.Fatalf(msg)
 			}
 
@@ -559,7 +559,7 @@ func BenchmarkTPAQ(b *testing.B) {
 
 			// Decode
 			if _, err := ed.Read(values2); err != nil {
-				msg := fmt.Sprintf("An error occured during decoding: %v\n", err)
+				msg := fmt.Sprintf("An error occurred during decoding: %v\n", err)
 				b.Fatalf(msg)
 			}
 
