@@ -144,7 +144,7 @@ type OutputBitStream interface {
 	// Panics if closed or an IO error is received.
 	WriteArray(bits []byte, length uint) uint
 
-	// Close makse the bitstream unavailable for further writes.
+	// Close makes the bitstream unavailable for further writes.
 	Close() (bool, error)
 
 	// Written returns the number of bits written

@@ -148,7 +148,7 @@ func fileDecompressWorker(tasks <-chan FileDecompressTask, cancel <-chan bool, r
 }
 
 // Return exit code, number of bits written
-func (this *BlockDecompressor) Call() (int, uint64) {
+func (this *BlockDecompressor) Decompress() (int, uint64) {
 	var err error
 	before := time.Now()
 	files := make([]FileData, 0, 256)
@@ -475,7 +475,7 @@ func (this *FileDecompressTask) Call() (int, uint64) {
 		}()
 	}
 
-	cis, err := kio.NewCompressedInputStream(input, this.ctx)
+	cis, err := kio.NewCompressedInputStreamWithCtx(input, this.ctx)
 
 	if err != nil {
 		if err.(*kio.IOError) != nil {

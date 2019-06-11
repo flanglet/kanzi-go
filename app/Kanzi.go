@@ -115,7 +115,7 @@ func compress(argsMap map[string]interface{}) int {
 		}
 	}
 
-	code, _ = bc.Call()
+	code, _ = bc.Compress()
 	return code
 }
 
@@ -154,7 +154,7 @@ func decompress(argsMap map[string]interface{}) int {
 		}
 	}
 
-	code, _ = bd.Call()
+	code, _ = bd.Decompress()
 	return code
 }
 
