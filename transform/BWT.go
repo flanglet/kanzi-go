@@ -268,7 +268,7 @@ func (this *BWT) inverseSmallBlock(src, dst []byte, count int) (uint, uint, erro
 	// Build array of packed index + value (assumes block size < 2^24)
 	pIdx := int(this.PrimaryIndex(0))
 
-	if pIdx >= len(src) {
+	if pIdx > len(src) {
 		return 0, 0, errors.New("Invalid input: corrupted BWT primary index")
 	}
 
@@ -314,7 +314,7 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 
 	pIdx := int(this.PrimaryIndex(0))
 
-	if pIdx >= len(src) {
+	if pIdx > len(src) {
 		return 0, 0, errors.New("Invalid input: corrupted BWT primary index")
 	}
 
