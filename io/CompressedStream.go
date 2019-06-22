@@ -690,7 +690,7 @@ type decodingTask struct {
 }
 
 func NewCompressedInputStream(is io.ReadCloser, jobs uint) (*CompressedInputStream, error) {
-	var ctx map[string]interface{}
+	ctx := make(map[string]interface{})
 	ctx["jobs"] = jobs
 	return NewCompressedInputStreamWithCtx(is, ctx)
 }
