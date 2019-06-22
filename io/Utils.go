@@ -19,17 +19,19 @@ import (
 	"errors"
 )
 
-// Similar to io.Discard  but implements io.WriteCloser
+// NullOutputStream similar to io.Discard but implements io.WriteCloser
 type NullOutputStream struct {
 	closed bool
 }
 
+// NewNullOutputStream creates an instance of NullOutputStream
 func NewNullOutputStream() (*NullOutputStream, error) {
 	bos := new(NullOutputStream)
 	bos.closed = false
 	return bos, nil
 }
 
+// Write panics if the stream is closed else does nothing.
 func (this *NullOutputStream) Write(b []byte) (n int, err error) {
 	if this.closed == true {
 		panic(errors.New("Stream closed"))
@@ -38,6 +40,7 @@ func (this *NullOutputStream) Write(b []byte) (n int, err error) {
 	return len(b), nil
 }
 
+// Close makes the stream unavailable for further writes
 func (this *NullOutputStream) Close() error {
 	this.closed = true
 	return nil

@@ -522,7 +522,7 @@ func (this *BWT) inverseChunkTask(dst []byte, buckets []int, fastBits []uint16, 
 	}
 }
 
-// MaxBWTBlockSize returns the maximum BWT block size
+// MaxBWTBlockSize returns the maximum size of a block to trasnform
 func MaxBWTBlockSize() int {
 	return BWT_MAX_BLOCK_SIZE
 }

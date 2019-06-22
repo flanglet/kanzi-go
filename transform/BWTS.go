@@ -20,22 +20,22 @@ import (
 	"fmt"
 )
 
-// Bijective version of the Burrows-Wheeler Transform
-// The main advantage over the regular BWT is that there is no need for a primary
-// index (hence the bijectivity). BWTS is about 10% slower than BWT.
-// Forward transform based on the code at https://code.google.com/p/mk-bwts/
-// by Neal Burns and DivSufSort (port of libDivSufSort by Yuta Mori)
-
 const (
 	BWTS_MAX_BLOCK_SIZE = 1024 * 1024 * 1024 // 1 GB
 )
 
+// BWTS Bijective version of the Burrows-Wheeler Transform
+// The main advantage over the regular BWT is that there is no need for a primary
+// index (hence the bijectivity). BWTS is about 10% slower than BWT.
+// Forward transform based on the code at https://code.google.com/p/mk-bwts/
+// by Neal Burns and DivSufSort (port of libDivSufSort by Yuta Mori)
 type BWTS struct {
 	buffer1 []int32
 	buffer2 []int32
 	saAlgo  *DivSufSort
 }
 
+// NewBWTS creates a new instance of BWTS
 func NewBWTS() (*BWTS, error) {
 	this := new(BWTS)
 	this.buffer1 = make([]int32, 0)
@@ -43,6 +43,9 @@ func NewBWTS() (*BWTS, error) {
 	return this, nil
 }
 
+// Forward applies the function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *BWTS) Forward(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
@@ -197,6 +200,9 @@ func (this *BWTS) moveLyndonWordHead(sa, isa []int32, data []byte, count, start,
 	return rank
 }
 
+// Inverse applies the reverse function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *BWTS) Inverse(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
@@ -280,6 +286,7 @@ func (this *BWTS) Inverse(src, dst []byte) (uint, uint, error) {
 	return uint(count), uint(count), nil
 }
 
+// MaxBWTSBlockSize returns the maximum size of a block to transform
 func MaxBWTSBlockSize() int {
 	return BWTS_MAX_BLOCK_SIZE
 }

@@ -33,7 +33,7 @@ type DefaultOutputBitStream struct {
 	buffer    []byte
 }
 
-var OBS_MASKS = [...]uint64{
+var _OBS_MASKS = [...]uint64{
 	0x0,
 	0x1,
 	0x3,
@@ -152,10 +152,10 @@ func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) uint {
 	if this.availBits > count {
 		// Enough spots available in 'current'
 		this.availBits -= count
-		this.current |= ((value & OBS_MASKS[count]) << this.availBits)
+		this.current |= ((value & _OBS_MASKS[count]) << this.availBits)
 	} else {
 		// Not enough spots available in 'current'
-		value &= OBS_MASKS[count]
+		value &= _OBS_MASKS[count]
 		remaining := count - this.availBits
 		this.current |= (value >> remaining)
 		this.pushCurrent()

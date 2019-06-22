@@ -22,10 +22,9 @@ import (
 	kanzi "github.com/flanglet/kanzi-go"
 )
 
-// Based on Order 0 range coder by Dmitry Subbotin itself derived from the algorithm
+// Code based on Order 0 range coder by Dmitry Subbotin itself derived from the algorithm
 // described by G.N.N Martin in his seminal article in 1979.
 // [G.N.N. Martin on the Data Recording Conference, Southampton, 1979]
-// Optimized for speed.
 
 const (
 	TOP_RANGE                = uint64(0x0FFFFFFFFFFFFFFF)
@@ -35,6 +34,7 @@ const (
 	DEFAULT_RANGE_LOG_RANGE  = uint(13)
 )
 
+// RangeEncoder a Order 0 Range Entropy Encoder
 type RangeEncoder struct {
 	low       uint64
 	rng       uint64
@@ -47,11 +47,10 @@ type RangeEncoder struct {
 	shift     uint
 }
 
-// The chunk size indicates how many bytes are encoded (per block) before
-// resetting the frequency stats. 0 means that frequencies calculated at the
-// beginning of the block apply to the whole block.
-// Since the number of args is variable, this function can be called like this:
-// NewRangeEncoder(bs) or NewRangeEncoder(bs, 16384, 14)
+// NewRangeEncoder creates a new instance of RangeEncoder
+// The given arguments are either empty or containing a chunk size and
+// a log range (to specify the precision of the encoding).
+// EG: call NewRangeEncoder(bs) or NewRangeEncoder(bs, 16384, 14)
 // The default chunk size is 65536 bytes.
 func NewRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*RangeEncoder, error) {
 	if bs == nil {
@@ -170,6 +169,9 @@ func (this *RangeEncoder) encodeHeader(alphabetSize int, alphabet []int, frequen
 	return nil
 }
 
+// Write encodes the data provided into the bitstream. Return the number of byte
+// written to the bitstream. Splits the input into chunks and encode chunks
+// sequentially based on local statistics.
 func (this *RangeEncoder) Write(block []byte) (int, error) {
 	if block == nil {
 		return 0, errors.New("Range codec: Invalid null block parameter")
@@ -256,13 +258,16 @@ func (this *RangeEncoder) encodeByte(b byte) {
 
 }
 
+// BitStream returns the underlying bitstream
 func (this *RangeEncoder) BitStream() kanzi.OutputBitStream {
 	return this.bitstream
 }
 
+// Dispose this implementation does nothing
 func (this *RangeEncoder) Dispose() {
 }
 
+// RangeDecoder Order 0 Range Entropy Decoder
 type RangeDecoder struct {
 	code      uint64
 	low       uint64
@@ -276,11 +281,9 @@ type RangeDecoder struct {
 	shift     uint
 }
 
-// The chunk size indicates how many bytes are encoded (per block) before
-// resetting the frequency stats. 0 means that frequencies calculated at the
-// beginning of the block apply to the whole block
-// Since the number of args is variable, this function can be called like this:
-// NewRangeDecoder(bs) or NewRangeDecoder(bs, 16384, 14)
+// NewRangeDecoder creates a new instance of RangeDecoder
+// The given arguments are either empty or containing a chunk size.
+// EG: call NewRangeDecoder(bs) or NewRangeDecoder(bs, 16384)
 // The default chunk size is 65536 bytes.
 func NewRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*RangeDecoder, error) {
 	if bs == nil {
@@ -394,7 +397,9 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
 	return alphabetSize, nil
 }
 
-// Reset frequency stats for each chunk of data in the block
+// Read decodes data from the bitstream and return it in the provided buffer.
+// Decode the data chunk by chunk seuentially.
+// Return the number of bytes read from the bitstream.
 func (this *RangeDecoder) Read(block []byte) (int, error) {
 	if block == nil {
 		return 0, errors.New("Range codec: Invalid null block parameter")
@@ -464,9 +469,11 @@ func (this *RangeDecoder) decodeByte() byte {
 	return byte(symbol)
 }
 
+// BitStream returns the underlying bitstream
 func (this *RangeDecoder) BitStream() kanzi.InputBitStream {
 	return this.bitstream
 }
 
+// Dispose this implementation does nothing
 func (this *RangeDecoder) Dispose() {
 }

@@ -48,9 +48,10 @@ const (
 )
 
 var (
-	EMPTY_BYTE_SLICE = make([]byte, 0)
+	_EMPTY_BYTE_SLICE = make([]byte, 0)
 )
 
+// IOError an extended error containing a message and a code value
 type IOError struct {
 	msg  string
 	code int
@@ -60,15 +61,17 @@ func NewIOError(msg string, code int) *IOError {
 	return &IOError{msg: msg, code: code}
 }
 
-// Implement error interface
+// Error returns the underlying error
 func (this IOError) Error() string {
 	return fmt.Sprintf("%v (code %v)", this.msg, this.code)
 }
 
+// Message return the message string associated with the error
 func (this IOError) Message() string {
 	return this.msg
 }
 
+// ErrorCode returns the code value associated with the error
 func (this IOError) ErrorCode() int {
 	return this.code
 }
@@ -99,7 +102,7 @@ type CompressedOutputStream struct {
 	ctx           map[string]interface{}
 }
 
-type EncodingTask struct {
+type encodingTask struct {
 	iBuffer            *blockBuffer
 	oBuffer            *blockBuffer
 	hasher             *hash.XXHash32
@@ -209,7 +212,7 @@ func NewCompressedOutputStreamWithCtx(os io.WriteCloser, ctx map[string]interfac
 	this.buffers = make([]blockBuffer, 2*this.jobs)
 
 	for i := range this.buffers {
-		this.buffers[i] = blockBuffer{Buf: EMPTY_BYTE_SLICE}
+		this.buffers[i] = blockBuffer{Buf: _EMPTY_BYTE_SLICE}
 	}
 
 	this.blockID = 0
@@ -351,10 +354,10 @@ func (this *CompressedOutputStream) Close() error {
 	}
 
 	// Release resources
-	this.data = EMPTY_BYTE_SLICE
+	this.data = _EMPTY_BYTE_SLICE
 
 	for i := range this.buffers {
-		this.buffers[i] = blockBuffer{Buf: EMPTY_BYTE_SLICE}
+		this.buffers[i] = blockBuffer{Buf: _EMPTY_BYTE_SLICE}
 	}
 
 	for _, c := range this.channels {
@@ -414,7 +417,7 @@ func (this *CompressedOutputStream) processBlock(force bool) error {
 			copyCtx[k] = v
 		}
 
-		task := EncodingTask{
+		task := encodingTask{
 			iBuffer:            &this.buffers[2*jobId],
 			oBuffer:            &this.buffers[2*jobId+1],
 			hasher:             this.hasher,
@@ -461,7 +464,7 @@ func (this *CompressedOutputStream) GetWritten() uint64 {
 //  case more than 4 transforms
 //      | 0b00000000
 //      then 0byyyyyyyy => transform sequence skip flags (1 means skip)
-func (this *EncodingTask) encode() {
+func (this *encodingTask) encode() {
 	data := this.iBuffer.Buf
 	buffer := this.oBuffer.Buf
 	mode := byte(0)
@@ -670,7 +673,7 @@ type CompressedInputStream struct {
 	ctx           map[string]interface{}
 }
 
-type DecodingTask struct {
+type decodingTask struct {
 	iBuffer            *blockBuffer
 	oBuffer            *blockBuffer
 	hasher             *hash.XXHash32
@@ -712,11 +715,11 @@ func NewCompressedInputStreamWithCtx(is io.ReadCloser, ctx map[string]interface{
 
 	this.jobs = int(tasks)
 	this.blockID = 0
-	this.data = EMPTY_BYTE_SLICE
+	this.data = _EMPTY_BYTE_SLICE
 	this.buffers = make([]blockBuffer, 2*this.jobs)
 
 	for i := range this.buffers {
-		this.buffers[i] = blockBuffer{Buf: EMPTY_BYTE_SLICE}
+		this.buffers[i] = blockBuffer{Buf: _EMPTY_BYTE_SLICE}
 	}
 
 	this.resChan = make(chan Message)
@@ -856,10 +859,10 @@ func (this *CompressedInputStream) Close() error {
 
 	// Release resources
 	this.maxIdx = 0
-	this.data = EMPTY_BYTE_SLICE
+	this.data = _EMPTY_BYTE_SLICE
 
 	for i := range this.buffers {
-		this.buffers[i] = blockBuffer{Buf: EMPTY_BYTE_SLICE}
+		this.buffers[i] = blockBuffer{Buf: _EMPTY_BYTE_SLICE}
 	}
 
 	close(this.resChan)
@@ -998,7 +1001,7 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 
 		copyCtx["jobs"] = jobsPerTask[jobId]
 
-		task := DecodingTask{
+		task := decodingTask{
 			iBuffer:            &this.buffers[2*jobId],
 			oBuffer:            &this.buffers[2*jobId+1],
 			hasher:             this.hasher,
@@ -1099,7 +1102,7 @@ func notify(chan1 chan bool, chan2 chan Message, run bool, msg Message) {
 //  case more than 4 transforms
 //      | 0b00000000
 //      then 0byyyyyyyy => transform sequence skip flags (1 means skip)
-func (this *DecodingTask) decode() {
+func (this *decodingTask) decode() {
 	data := this.iBuffer.Buf
 	buffer := this.oBuffer.Buf
 	res := Message{blockID: this.currentBlockID, data: data}
