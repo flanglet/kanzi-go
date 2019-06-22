@@ -19,12 +19,16 @@ import (
 	"errors"
 )
 
+// BufferStream a closable read/write stream of bytes backed by a slice
 type BufferStream struct {
 	buf    []byte
 	off    int
 	closed bool
 }
 
+// Write returns an error if the stream is closed, otherwise writes the given
+// data to the internal buffer (growing the buffer as needed).
+// Returns the number of bytes written.
 func (this *BufferStream) Write(b []byte) (int, error) {
 	if this.closed == true {
 		return 0, errors.New("Stream closed")
@@ -35,6 +39,9 @@ func (this *BufferStream) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
+// Read returns an error if the stream is closed, otherwise reads data from
+// the internal buffer at the read offset position.
+// Returns the number of bytes read.
 func (this *BufferStream) Read(b []byte) (int, error) {
 	if this.closed == true {
 		return 0, errors.New("Stream closed")
@@ -53,19 +60,24 @@ func (this *BufferStream) Read(b []byte) (int, error) {
 	return len(this.buf) - old, nil
 }
 
+// Close makes the stream unavailable for further reads or writes.
 func (this *BufferStream) Close() error {
 	this.closed = true
 	return nil
 }
 
+// Len returns the size of the stream
 func (this *BufferStream) Len() int {
 	return len(this.buf)
 }
 
+// Offset returns the offset of the read pointer
 func (this *BufferStream) Offset() int {
 	return this.off
 }
 
+// SetOffset sets the offset of the read pointer.
+// Returns an error if the offset value is invalid otr the stream is closed.
 func (this *BufferStream) SetOffset(off int) error {
 	if this.closed == true {
 		return errors.New("Stream closed")

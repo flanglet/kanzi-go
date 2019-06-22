@@ -21,12 +21,14 @@ import (
 
 // Utility class to decompose a string into Lyndon words using the Chen-Fox-Lyndon algorithm
 
+// LyndonWords main structure used to decompose a string into Lyndon words
 type LyndonWords struct {
 	breakpoints *list.List
 }
 
+// NewLyndonWords creates a new instance of LyndonWords
 func NewLyndonWords() (*LyndonWords, error) {
-	this := new(LyndonWords)
+	this := &LyndonWords{}
 	this.breakpoints = list.New()
 	return this, nil
 }
@@ -59,6 +61,7 @@ func (this *LyndonWords) chenFoxLyndonBreakpoints(s string) *list.List {
 	return this.breakpoints
 }
 
+// Split partitions the given sting into Lyndon words
 func (this *LyndonWords) Split(s string) []string {
 	l := this.chenFoxLyndonBreakpoints(s)
 	res := make([]string, l.Len())
@@ -75,6 +78,7 @@ func (this *LyndonWords) Split(s string) []string {
 	return res
 }
 
+// GetPositions reutrns the start index of each Lyndon word in the given string
 func (this *LyndonWords) GetPositions(s string) []int32 {
 	l := this.chenFoxLyndonBreakpoints(s)
 	res := make([]int32, l.Len())

@@ -31,22 +31,22 @@ import (
 )
 
 const (
-	//ARG_IDX_COMPRESS   = 0
-	//ARG_IDX_DECOMPRESS = 1
-	ARG_IDX_INPUT     = 2
-	ARG_IDX_OUTPUT    = 3
-	ARG_IDX_BLOCK     = 4
-	ARG_IDX_TRANSFORM = 5
-	ARG_IDX_ENTROPY   = 6
-	ARG_IDX_JOBS      = 7
-	ARG_IDX_VERBOSE   = 8
-	ARG_IDX_LEVEL     = 9
-	ARG_IDX_PROFILE   = 14
-	APP_HEADER        = "Kanzi 1.5 (C) 2019,  Frederic Langlet"
+	//_ARG_IDX_COMPRESS   = 0
+	//_ARG_IDX_DECOMPRESS = 1
+	_ARG_IDX_INPUT     = 2
+	_ARG_IDX_OUTPUT    = 3
+	_ARG_IDX_BLOCK     = 4
+	_ARG_IDX_TRANSFORM = 5
+	_ARG_IDX_ENTROPY   = 6
+	_ARG_IDX_JOBS      = 7
+	_ARG_IDX_VERBOSE   = 8
+	_ARG_IDX_LEVEL     = 9
+	_ARG_IDX_PROFILE   = 14
+	_APP_HEADER        = "Kanzi 1.5 (C) 2019,  Frederic Langlet"
 )
 
 var (
-	CMD_LINE_ARGS = []string{
+	_CMD_LINE_ARGS = []string{
 		"-c", "-d", "-i", "-o", "-b", "-t", "-e", "-j",
 		"-v", "-l", "-s", "-x", "-f", "-h", "-p",
 	}
@@ -182,12 +182,12 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 		arg = strings.TrimSpace(arg)
 
 		if arg == "-o" {
-			ctx = ARG_IDX_OUTPUT
+			ctx = _ARG_IDX_OUTPUT
 			continue
 		}
 
 		if arg == "-v" {
-			ctx = ARG_IDX_VERBOSE
+			ctx = _ARG_IDX_VERBOSE
 			continue
 		}
 
@@ -212,7 +212,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, "--verbose=") || ctx == ARG_IDX_VERBOSE {
+		if strings.HasPrefix(arg, "--verbose=") || ctx == _ARG_IDX_VERBOSE {
 			var verboseLevel string
 			var err error
 
@@ -233,7 +233,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 				fmt.Printf("Invalid verbosity level provided on command line: %v\n", arg)
 				return kanzi.ERR_INVALID_PARAM
 			}
-		} else if strings.HasPrefix(arg, "--output=") || ctx == ARG_IDX_OUTPUT {
+		} else if strings.HasPrefix(arg, "--output=") || ctx == _ARG_IDX_OUTPUT {
 			if strings.HasPrefix(arg, "--output") {
 				outputName = strings.TrimPrefix(arg, "--output=")
 			} else {
@@ -252,7 +252,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 	}
 
 	if verbose >= 1 {
-		log.Println("\n"+APP_HEADER+"\n", true)
+		log.Println("\n"+_APP_HEADER+"\n", true)
 	}
 
 	outputName = ""
@@ -344,7 +344,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 
 		if arg == "--compress" || arg == "-c" || arg == "--decompress" || arg == "-d" {
 			if ctx != -1 {
-				log.Println("Warning: ignoring option ["+CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
+				log.Println("Warning: ignoring option ["+_CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
 			}
 
 			ctx = -1
@@ -353,7 +353,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 
 		if arg == "--force" || arg == "-f" {
 			if ctx != -1 {
-				log.Println("Warning: ignoring option ["+CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
+				log.Println("Warning: ignoring option ["+_CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
 			}
 
 			overwrite = true
@@ -363,7 +363,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 
 		if arg == "--skip" || arg == "-s" {
 			if ctx != -1 {
-				log.Println("Warning: ignoring option ["+CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
+				log.Println("Warning: ignoring option ["+_CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
 			}
 
 			skip = true
@@ -373,7 +373,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 
 		if arg == "--checksum" || arg == "-x" {
 			if ctx != -1 {
-				log.Println("Warning: ignoring option ["+CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
+				log.Println("Warning: ignoring option ["+_CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
 			}
 
 			checksum = true
@@ -384,7 +384,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 		if ctx == -1 {
 			idx := -1
 
-			for i, v := range CMD_LINE_ARGS {
+			for i, v := range _CMD_LINE_ARGS {
 				if arg == v {
 					idx = i
 					break
@@ -397,7 +397,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			}
 		}
 
-		if strings.HasPrefix(arg, "--output=") || ctx == ARG_IDX_OUTPUT {
+		if strings.HasPrefix(arg, "--output=") || ctx == _ARG_IDX_OUTPUT {
 			name := ""
 
 			if strings.HasPrefix(arg, "--output=") {
@@ -416,7 +416,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, "--input=") || ctx == ARG_IDX_INPUT {
+		if strings.HasPrefix(arg, "--input=") || ctx == _ARG_IDX_INPUT {
 			name := ""
 
 			if strings.HasPrefix(arg, "--input=") {
@@ -435,7 +435,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, "--entropy=") || ctx == ARG_IDX_ENTROPY {
+		if strings.HasPrefix(arg, "--entropy=") || ctx == _ARG_IDX_ENTROPY {
 			name := ""
 
 			if strings.HasPrefix(arg, "--entropy=") {
@@ -454,7 +454,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, "--transform=") || ctx == ARG_IDX_TRANSFORM {
+		if strings.HasPrefix(arg, "--transform=") || ctx == _ARG_IDX_TRANSFORM {
 			name := ""
 
 			if strings.HasPrefix(arg, "--transform=") {
@@ -473,7 +473,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, "--level=") || ctx == ARG_IDX_LEVEL {
+		if strings.HasPrefix(arg, "--level=") || ctx == _ARG_IDX_LEVEL {
 			var str string
 			var err error
 
@@ -505,7 +505,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, "--cpuProf=") || ctx == ARG_IDX_PROFILE {
+		if strings.HasPrefix(arg, "--cpuProf=") || ctx == _ARG_IDX_PROFILE {
 			name := ""
 
 			if strings.HasPrefix(arg, "--cpuProf=") {
@@ -524,7 +524,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, "--block=") || ctx == ARG_IDX_BLOCK {
+		if strings.HasPrefix(arg, "--block=") || ctx == _ARG_IDX_BLOCK {
 			var strBlockSize string
 
 			if strings.HasPrefix(arg, "--block=") {
@@ -572,7 +572,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, "--jobs=") || ctx == ARG_IDX_JOBS {
+		if strings.HasPrefix(arg, "--jobs=") || ctx == _ARG_IDX_JOBS {
 			var strTasks string
 			var err error
 
@@ -611,7 +611,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 	}
 
 	if ctx != -1 {
-		log.Println("Warning: ignoring option with missing value ["+CMD_LINE_ARGS[ctx]+"]", verbose > 0)
+		log.Println("Warning: ignoring option with missing value ["+_CMD_LINE_ARGS[ctx]+"]", verbose > 0)
 	}
 
 	if level >= 0 {
@@ -667,23 +667,30 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 	return 0
 }
 
+// FileData a basic structure encapsulating a file path and size
 type FileData struct {
 	Path string
 	Size int64
 }
 
+// FileCompareByName a structure used to sort files by name
 type FileCompareByName struct {
 	data []FileData
 }
 
+// Len returns the size of the internal file data buffer
 func (this FileCompareByName) Len() int {
 	return len(this.data)
 }
 
+// Swap swaps two file data in the internal buffer
 func (this FileCompareByName) Swap(i, j int) {
 	this.data[i], this.data[j] = this.data[j], this.data[i]
 }
 
+// Less returns true if the path at index i in the internal
+// file data buffer is less than (lexicographical order)
+// the path at index j.
 func (this FileCompareByName) Less(i, j int) bool {
 	return strings.Compare(this.data[i].Path, this.data[j].Path) < 0
 }
@@ -741,11 +748,12 @@ func createFileList(target string, fileList []FileData) ([]FileData, error) {
 	return fileList, err
 }
 
-// Buffered printer is required in concurrent code
+// Printer a buffered printer (required in concurrent code)
 type Printer struct {
 	os *bufio.Writer
 }
 
+// Println concurrently safe version (order wise) of Println
 func (this *Printer) Println(msg string, printFlag bool) {
 	if printFlag == true {
 		mutex.Lock()
