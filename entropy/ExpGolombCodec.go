@@ -62,15 +62,17 @@ var EXPG_VALUES = [2][256]uint{
 	},
 }
 
+// ExpGolombEncoder Exponential Golomb Entropy Encoder
 type ExpGolombEncoder struct {
 	signed    bool
 	cache     []uint
 	bitstream kanzi.OutputBitStream
 }
 
-// If sgn is true, the input value is turned into an int8
-// Managing sign improves compression ratio for distributions centered on 0 (E.G. Gaussian)
-// Example: -1 is better compressed as int8 (1 followed by '-') than as byte (-1 & 255 = 255)
+// NewExpGolombEncoder creates a new instance of ExpGolombEncoder
+// If sgn is true, values will be encoded as signed (int8) in the bitstream.
+// Using a sign improves compression ratio for distributions centered on 0 (E.G. Gaussian)
+// Example: -1 is better compressed as -1 (1 followed by '-') than as 255
 func NewExpGolombEncoder(bs kanzi.OutputBitStream, sgn bool) (*ExpGolombEncoder, error) {
 	if bs == nil {
 		return nil, errors.New("ExpGolomb codec: Invalid null bitstream parameter")
@@ -89,13 +91,16 @@ func NewExpGolombEncoder(bs kanzi.OutputBitStream, sgn bool) (*ExpGolombEncoder,
 	return this, nil
 }
 
+// Signed returns true if this encoder is sign aware
 func (this *ExpGolombEncoder) Signed() bool {
 	return this.signed
 }
 
+// Dispose this implementation does nothing
 func (this *ExpGolombEncoder) Dispose() {
 }
 
+// EncodeByte encodes the given value into the bitstream
 func (this *ExpGolombEncoder) EncodeByte(val byte) {
 	if val == 0 {
 		this.bitstream.WriteBit(1)
@@ -106,10 +111,13 @@ func (this *ExpGolombEncoder) EncodeByte(val byte) {
 	this.bitstream.WriteBits(uint64(emit&0x1FF), emit>>9)
 }
 
+// BitStream returns the underlying bitstream
 func (this *ExpGolombEncoder) BitStream() kanzi.OutputBitStream {
 	return this.bitstream
 }
 
+// Write encodes the data provided into the bitstream. Return the number of byte
+// written to the bitstream
 func (this *ExpGolombEncoder) Write(block []byte) (int, error) {
 	for i := range block {
 		this.EncodeByte(block[i])
@@ -118,12 +126,14 @@ func (this *ExpGolombEncoder) Write(block []byte) (int, error) {
 	return len(block), nil
 }
 
+// ExpGolombDecoder Exponential Golomb Entropy Decoder
 type ExpGolombDecoder struct {
 	signed    bool
 	bitstream kanzi.InputBitStream
 }
 
-// If sgn is true, the extracted value is treated as an int8
+// NewExpGolombDecoder creates a new instance of ExpGolombDecoder
+// If sgn is true, values from the bitstream will be decoded as signed (int8)
 func NewExpGolombDecoder(bs kanzi.InputBitStream, sgn bool) (*ExpGolombDecoder, error) {
 	if bs == nil {
 		return nil, errors.New("ExpGolomb codec: Invalid null bitstream parameter")
@@ -135,14 +145,17 @@ func NewExpGolombDecoder(bs kanzi.InputBitStream, sgn bool) (*ExpGolombDecoder, 
 	return this, nil
 }
 
+// Signed returns true if this decoder is sign aware
 func (this *ExpGolombDecoder) Signed() bool {
 	return this.signed
 }
 
+// Dispose this implementation does nothing
 func (this *ExpGolombDecoder) Dispose() {
 }
 
-// If the decoder is signed, the returned value is a byte encoded int8
+// DecodeByte decodes one byte from the bitstream
+// If the decoder is sign aware, the returned value is an int8 cast to a byte
 func (this *ExpGolombDecoder) DecodeByte() byte {
 	if this.bitstream.ReadBit() == 1 {
 		return 0
@@ -175,10 +188,13 @@ func (this *ExpGolombDecoder) DecodeByte() byte {
 	return byte((1 << log2) - 1 + val)
 }
 
+// BitStream returns the underlying bitstream
 func (this *ExpGolombDecoder) BitStream() kanzi.InputBitStream {
 	return this.bitstream
 }
 
+// Read decodes data from the bitstream and return it in the provided buffer.
+// Return the number of bytes read from the bitstream
 func (this *ExpGolombDecoder) Read(block []byte) (int, error) {
 	for i := range block {
 		block[i] = this.DecodeByte()

@@ -30,6 +30,8 @@ const (
 	MASK_0_32          = uint64(0x00000000FFFFFFFF)
 )
 
+// BinaryEntropyEncoder entropy encoder based on arithmetic coding and
+// using an external probability predictor.
 type BinaryEntropyEncoder struct {
 	predictor kanzi.Predictor
 	low       uint64
@@ -40,6 +42,9 @@ type BinaryEntropyEncoder struct {
 	index     int
 }
 
+// NewBinaryEntropyEncoder creates an instance of BinaryEntropyEncoder using the
+// given predictor to predict the probability of the next bit to be one. It outputs
+// to the given OutputBitstream
 func NewBinaryEntropyEncoder(bs kanzi.OutputBitStream, predictor kanzi.Predictor) (*BinaryEntropyEncoder, error) {
 	if bs == nil {
 		return nil, errors.New("Binary entropy codec: Invalid null bitstream parameter")
@@ -59,6 +64,7 @@ func NewBinaryEntropyEncoder(bs kanzi.OutputBitStream, predictor kanzi.Predictor
 	return this, nil
 }
 
+// EncodeByte encodes the given value into the bitstream bit by bit
 func (this *BinaryEntropyEncoder) EncodeByte(val byte) {
 	this.EncodeBit((val >> 7) & 1)
 	this.EncodeBit((val >> 6) & 1)
@@ -70,6 +76,8 @@ func (this *BinaryEntropyEncoder) EncodeByte(val byte) {
 	this.EncodeBit(val & 1)
 }
 
+// EncodeBit encodes one bit into the bitstream using arithmetic coding
+// and the probability predictor provided at creation time.
 func (this *BinaryEntropyEncoder) EncodeBit(bit byte) {
 	// Calculate interval split
 	// Written in a way to maximize accuracy of multiplication/division
@@ -89,6 +97,9 @@ func (this *BinaryEntropyEncoder) EncodeBit(bit byte) {
 	}
 }
 
+// Write encodes the data provided into the bitstream. Return the number of byte
+// written to the bitstream. Splits big blocks into chunks and encode the chunks
+// byte by byte sequentially into the bitstream.
 func (this *BinaryEntropyEncoder) Write(block []byte) (int, error) {
 	count := len(block)
 
@@ -151,10 +162,14 @@ func (this *BinaryEntropyEncoder) flush() {
 	this.high = (this.high << 32) | MASK_0_32
 }
 
+// BitStream returns the underlying bitstream
 func (this *BinaryEntropyEncoder) BitStream() kanzi.OutputBitStream {
 	return this.bitstream
 }
 
+// Dispose must be called before getting rid of the entropy encoder
+// This idempotent implmentation writes the last buffered bits into the
+// bitstream.
 func (this *BinaryEntropyEncoder) Dispose() {
 	if this.disposed == true {
 		return
@@ -164,6 +179,8 @@ func (this *BinaryEntropyEncoder) Dispose() {
 	this.bitstream.WriteBits(this.low|MASK_0_24, 56)
 }
 
+// BinaryEntropyDecoder entropy decoder based on arithmetic coding and
+// using an external probability predictor.
 type BinaryEntropyDecoder struct {
 	predictor   kanzi.Predictor
 	low         uint64
@@ -175,6 +192,9 @@ type BinaryEntropyDecoder struct {
 	index       int
 }
 
+// NewBinaryEntropyDecoder creates an instance of BinaryEntropyDecoder using the
+// given predictor to predict the probability of the next bit to be one. It outputs
+// to the given OutputBitstream
 func NewBinaryEntropyDecoder(bs kanzi.InputBitStream, predictor kanzi.Predictor) (*BinaryEntropyDecoder, error) {
 	if bs == nil {
 		return nil, errors.New("Binary entropy codec: Invalid null bitstream parameter")
@@ -195,6 +215,7 @@ func NewBinaryEntropyDecoder(bs kanzi.InputBitStream, predictor kanzi.Predictor)
 	return this, nil
 }
 
+// DecodeByte decodes the given value from the bitstream bit by bit
 func (this *BinaryEntropyDecoder) DecodeByte() byte {
 	return (this.DecodeBit() << 7) |
 		(this.DecodeBit() << 6) |
@@ -206,10 +227,13 @@ func (this *BinaryEntropyDecoder) DecodeByte() byte {
 		this.DecodeBit()
 }
 
+// Initialized returns true if Initialize() has been called at least once
 func (this *BinaryEntropyDecoder) Initialized() bool {
 	return this.initialized
 }
 
+// Initialize initializes the decoder by prefetching the first bits
+// and saving them into a buffer. This code is idempotent.
 func (this *BinaryEntropyDecoder) Initialize() {
 	if this.initialized == true {
 		return
@@ -219,6 +243,8 @@ func (this *BinaryEntropyDecoder) Initialize() {
 	this.initialized = true
 }
 
+// DecodeBit decodes one bit from the bitstream using arithmetic coding
+// and the probability predictor provided at creation time.
 func (this *BinaryEntropyDecoder) DecodeBit() byte {
 	// Calculate interval split
 	// Written in a way to maximize accuracy of multiplication/division
@@ -252,6 +278,9 @@ func (this *BinaryEntropyDecoder) read() {
 	this.index += 4
 }
 
+// Read decodes data from the bitstream and return it in the provided buffer.
+// Return the number of bytes read from the bitstream.
+// Splits big blocks into chunks and decode the chunks byte by byte sequentially from the bitstream.
 func (this *BinaryEntropyDecoder) Read(block []byte) (int, error) {
 	count := len(block)
 
@@ -309,9 +338,12 @@ func (this *BinaryEntropyDecoder) Read(block []byte) (int, error) {
 	return count, err
 }
 
+// BitStream returns the underlying bitstream
 func (this *BinaryEntropyDecoder) BitStream() kanzi.InputBitStream {
 	return this.bitstream
 }
 
+// Dispose must be called before getting rid of the entropy decoder
+// This implementation does nothing.
 func (this *BinaryEntropyDecoder) Dispose() {
 }

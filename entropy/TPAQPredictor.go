@@ -35,7 +35,6 @@ const (
 	TPAQ_END_LEARN_RATE   = 11 << 7
 )
 
-///////////////////////// state table ////////////////////////
 // States represent a bit history within some context.
 // State 0 is the starting state (no bits seen).
 // States 1-30 represent all possible sequences of 1-4 bits.
@@ -148,9 +147,12 @@ func hashTPAQ(x, y int32) int32 {
 	return h>>1 ^ h>>9 ^ x>>2 ^ y>>3 ^ TPAQ_HASH
 }
 
-// TPAQPredictor is a bit predictor for binary entropy codecs ,derived from
-// a heavily modified version of Tangelo 2.4 (by Jan Ondrus).
-// PAQ8 is written by Matt Mahoney.
+// TPAQPredictor bit predictor for binary entropy codecs.
+// It uses a mixer to combine initial predictions derived for several
+// local contexts and a secondary symbol estimation to improve the
+// prediction from the mixer.
+// It is a heavily modified version of Tangelo 2.4 (by Jan Ondrus), itself
+// derived from PAQ8 (by Matt Mahoney).
 // See http://encode.ru/threads/1738-TANGELO-new-compressor-(derived-from-PAQ8-FP8)
 type TPAQPredictor struct {
 	pr              int   // next predicted value (0-4095)
@@ -192,7 +194,7 @@ type TPAQPredictor struct {
 	extra           bool
 }
 
-// NewTPAQPredictor create a new instance of TPAQPredictor using the provided
+// NewTPAQPredictor creates a new instance of TPAQPredictor using the provided
 // map of options to select the sizes of internal structures.
 func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 	this := new(TPAQPredictor)
@@ -486,7 +488,7 @@ func createContext(ctxID, cx int32) int32 {
 	return int32(c*123456791) + ctxID
 }
 
-// TPAQMixer combines models using neural networks with 8 inputs.
+// TPAQMixer a mixer thar combines models using neural networks with 8 inputs.
 type TPAQMixer struct {
 	pr                             int // squashed prediction
 	skew                           int32

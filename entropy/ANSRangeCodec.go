@@ -34,7 +34,7 @@ const (
 	ANS_MAX_CHUNK_SIZE      = 1 << 27       // 8*MAX_CHUNK_SIZE must not overflow
 )
 
-// ANSRangeEncoder  Asymmetric Numeral System encoder
+// ANSRangeEncoder Asymmetric Numeral System Encoder
 type ANSRangeEncoder struct {
 	bitstream kanzi.OutputBitStream
 	alphabet  []int
@@ -46,7 +46,7 @@ type ANSRangeEncoder struct {
 	logRange  uint
 }
 
-// NewANSRangeEncoder create an instance of ANS encoder.
+// NewANSRangeEncoder creates an instance of ANS encoder.
 // The chunk size indicates how many bytes are encoded (per block) before
 // resetting the frequency stats. 0 means that frequencies calculated at the
 // beginning of the block apply to the whole block
@@ -150,7 +150,7 @@ func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, lr uint) (int,
 	return res, err
 }
 
-// Encode alphabet and frequencies
+// Encodes alphabet and frequencies into the bitstream
 func (this *ANSRangeEncoder) encodeHeader(alphabetSize int, alphabet []int, frequencies []int, lr uint) error {
 	if _, err := EncodeAlphabet(this.bitstream, alphabet[0:alphabetSize:256]); err != nil {
 		return err
@@ -346,11 +346,11 @@ func (this *ANSRangeEncoder) rebuildStatistics(block []byte, lr uint) (int, erro
 	return this.updateFrequencies(this.freqs, lr)
 }
 
-// Dispose  this implementation does nothing
+// Dispose this implementation does nothing
 func (this *ANSRangeEncoder) Dispose() {
 }
 
-// BitStream  return the underlying bitstream
+// BitStream returns the underlying bitstream
 func (this *ANSRangeEncoder) BitStream() kanzi.OutputBitStream {
 	return this.bitstream
 }
@@ -390,7 +390,7 @@ func (this *encSymbol) reset(cumFreq, freq int, logRange uint) {
 	}
 }
 
-// ANSRangeDecoder  Asymmetric Numeral System decoder
+// ANSRangeDecoder Asymmetric Numeral System Decoder
 type ANSRangeDecoder struct {
 	bitstream kanzi.InputBitStream
 	freqs     []int
@@ -403,7 +403,7 @@ type ANSRangeDecoder struct {
 	order     uint
 }
 
-// NewANSRangeDecoder create an instance of ANS decoder.
+// NewANSRangeDecoder creates an instance of ANS decoder.
 // The chunk size indicates how many bytes are encoded (per block) before
 // resetting the frequency stats.
 // Since the number of args is variable, this function can be called like this:
@@ -457,7 +457,7 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 	return this, nil
 }
 
-// Decode alphabet and frequencies
+// Decodes alphabet and frequencies from the bitstream
 func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, error) {
 	this.logRange = uint(8 + this.bitstream.ReadBits(3))
 
@@ -682,12 +682,12 @@ func (this *ANSRangeDecoder) decodeChunk(block []byte) {
 	}
 }
 
-// BitStream  return the underlying bitstream
+// BitStream returns the underlying bitstream
 func (this *ANSRangeDecoder) BitStream() kanzi.InputBitStream {
 	return this.bitstream
 }
 
-// Dispose  ths implementation does nothing
+// Dispose this implementation does nothing
 func (this *ANSRangeDecoder) Dispose() {
 }
 

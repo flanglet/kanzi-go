@@ -53,6 +53,8 @@ func NewDebugInputBitStream(ibs kanzi.InputBitStream, writer io.Writer) (*DebugI
 	return this, nil
 }
 
+// ReadBit returns the next bit in the bitstream. Panics if closed or EOS is reached.
+// Calls ReadBit() on the underlying bitstream delegate.
 func (this *DebugInputBitStream) ReadBit() int {
 	res := this.delegate.ReadBit()
 
@@ -96,6 +98,10 @@ func (this *DebugInputBitStream) ReadBit() int {
 	return res
 }
 
+// ReadBits reads 'length' (in [1..64]) bits from the bitstream .
+// Returns the bits read as an uint64.
+// Panics if closed or EOS is reached.
+// Calls ReadBits() on the underlying bitstream delegate.
 func (this *DebugInputBitStream) ReadBits(length uint) uint64 {
 	res := this.delegate.ReadBits(length)
 
@@ -137,6 +143,10 @@ func (this *DebugInputBitStream) ReadBits(length uint) uint64 {
 	return res
 }
 
+// ReadArray reads 'length' bits from the bitstream and put them in the byte slice.
+// Returns the number of bits read.
+// Panics if closed or EOS is reached.
+// Calls ReadArray() on the underlying bitstream delegate.
 func (this *DebugInputBitStream) ReadArray(bits []byte, count uint) uint {
 	count = this.delegate.ReadArray(bits, count)
 
@@ -180,6 +190,8 @@ func (this *DebugInputBitStream) ReadArray(bits []byte, count uint) uint {
 	return count
 }
 
+// HasMoreToRead returns false when the bitstream is closed or the EOS has been reached
+// Calls HasMoreToRead() on the underlying bitstream delegate.
 func (this *DebugInputBitStream) HasMoreToRead() (bool, error) {
 	return this.delegate.HasMoreToRead()
 }
@@ -194,18 +206,26 @@ func (this *DebugInputBitStream) printByte(val byte) {
 	}
 }
 
+// Close makes the bitstream unavailable for further reads.
+// Calls Close() on the underlying bitstream delegate.
 func (this *DebugInputBitStream) Close() (bool, error) {
 	return this.delegate.Close()
 }
 
+// Read returns the number of bits read
+// Calls Read() on the underlying bitstream delegate.
 func (this *DebugInputBitStream) Read() uint64 {
 	return this.delegate.Read()
 }
 
+// Mark sets the internal mark state. When true. displays 'r'
+// after each bit  or bit sequence read from the bitstream delegate.
 func (this *DebugInputBitStream) Mark(mark bool) {
 	this.mark = mark
 }
 
+// ShowByte sets the internal show byte state. When true, displays
+// the hexadecimal value after the bits.
 func (this *DebugInputBitStream) ShowByte(show bool) {
 	this.hexa = show
 }

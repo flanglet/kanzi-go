@@ -66,6 +66,7 @@ const (
 // indexes (based on input block size). Each primary index corresponds to a data chunk.
 // Chunks may be inverted concurrently.
 
+// BWT Burrows Wheeler Transform
 type BWT struct {
 	buffer1        []uint32
 	buffer2        []int32
@@ -74,6 +75,7 @@ type BWT struct {
 	jobs           uint
 }
 
+// NewBWT creates a new BWT instance with 1 job
 func NewBWT() (*BWT, error) {
 	this := new(BWT)
 	this.buffer1 = make([]uint32, 0)
@@ -83,6 +85,8 @@ func NewBWT() (*BWT, error) {
 	return this, nil
 }
 
+// NewBWT creates a new BWT instance. The number of jobs is extracted
+// from the provided map or arguments.
 func NewBWTWithCtx(ctx *map[string]interface{}) (*BWT, error) {
 	this := new(BWT)
 	this.buffer1 = make([]uint32, 0)
@@ -98,10 +102,12 @@ func NewBWTWithCtx(ctx *map[string]interface{}) (*BWT, error) {
 	return this, nil
 }
 
+// PrimaryIndex returns the primary index for the n-th chunk
 func (this *BWT) PrimaryIndex(n int) uint {
 	return this.primaryIndexes[n]
 }
 
+// SetPrimaryIndex sets the primary index for of n-th chunk
 func (this *BWT) SetPrimaryIndex(n int, primaryIndex uint) bool {
 	if n < 0 || n >= len(this.primaryIndexes) {
 		return false
@@ -111,6 +117,9 @@ func (this *BWT) SetPrimaryIndex(n int, primaryIndex uint) bool {
 	return true
 }
 
+// Forward applies the function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
@@ -216,6 +225,9 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 	return uint(count), uint(count), nil
 }
 
+// Inverse applies the reverse function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
@@ -428,7 +440,7 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 
 	// Build inverse
 	if chunks == 1 {
-		// Shortcut for 1 chunk scenariop := pIdx
+		// Shortcut for 1 chunk scenario
 		for i, p := 1, pIdx; i < count; i += 2 {
 			c := fastBits[p>>shift]
 
@@ -510,10 +522,12 @@ func (this *BWT) inverseChunkTask(dst []byte, buckets []int, fastBits []uint16, 
 	}
 }
 
+// MaxBWTBlockSize returns the maximum BWT block size
 func MaxBWTBlockSize() int {
 	return BWT_MAX_BLOCK_SIZE
 }
 
+// GetBWTChunks returns the number of chunks for a given block size
 func GetBWTChunks(size int) int {
 	if size < 4*1024*1024 {
 		return 1

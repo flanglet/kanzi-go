@@ -19,18 +19,21 @@ import (
 	kanzi "github.com/flanglet/kanzi-go"
 )
 
-// Null entropy encoder and decoder
-// Pass through codec that writes the input bytes directly to the bitstream
+// NullEntropyEncoder pass through entropy encoder (writes the input bytes directly
+// to the bitstream)
 type NullEntropyEncoder struct {
 	bitstream kanzi.OutputBitStream
 }
 
+// NewNullEntropyEncoder  creates a new instance of NullEntropyEncoder
 func NewNullEntropyEncoder(bs kanzi.OutputBitStream) (*NullEntropyEncoder, error) {
 	this := new(NullEntropyEncoder)
 	this.bitstream = bs
 	return this, nil
 }
 
+// Write encodes the data provided into the bitstream. Return the number of byte
+// written to the bitstream
 func (this *NullEntropyEncoder) Write(block []byte) (int, error) {
 	res := 0
 	count := len(block)
@@ -51,23 +54,30 @@ func (this *NullEntropyEncoder) Write(block []byte) (int, error) {
 	return res, nil
 }
 
+// BitStream returns the underlying bitstream
 func (this *NullEntropyEncoder) BitStream() kanzi.OutputBitStream {
 	return this.bitstream
 }
 
+// Dispose this implementation does nothing
 func (this *NullEntropyEncoder) Dispose() {
 }
 
+// NullEntropyDecoder pass through entropy decoder (reads the input bytes directly
+// from the bitstream)
 type NullEntropyDecoder struct {
 	bitstream kanzi.InputBitStream
 }
 
+// NewNullEntropyDecoder  creates a new instance of NullEntropyDecoder
 func NewNullEntropyDecoder(bs kanzi.InputBitStream) (*NullEntropyDecoder, error) {
 	this := new(NullEntropyDecoder)
 	this.bitstream = bs
 	return this, nil
 }
 
+// Read decodes data from the bitstream and return it in the provided buffer.
+// Return the number of bytes read from the bitstream
 func (this *NullEntropyDecoder) Read(block []byte) (int, error) {
 	res := 0
 	count := len(block)
@@ -88,13 +98,11 @@ func (this *NullEntropyDecoder) Read(block []byte) (int, error) {
 	return res, nil
 }
 
-func (this *NullEntropyDecoder) DecodeByte() byte {
-	return byte(this.bitstream.ReadBits(8))
-}
-
+// BitStream returns the underlying bitstream
 func (this *NullEntropyDecoder) BitStream() kanzi.InputBitStream {
 	return this.bitstream
 }
 
+// Dispose this implementation does nothing
 func (this *NullEntropyDecoder) Dispose() {
 }

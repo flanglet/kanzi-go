@@ -53,6 +53,9 @@ func NewDebugOutputBitStream(obs kanzi.OutputBitStream, writer io.Writer) (*Debu
 	return this, nil
 }
 
+// WriteBit writes the least significant bit of the input integer
+// Panics if closed or an IO error is received.
+// Calls WriteBit() on the underlying bitstream delegate.
 func (this *DebugOutputBitStream) WriteBit(bit int) {
 	bit &= 1
 	fmt.Fprintf(this.out, "%d", bit)
@@ -90,6 +93,11 @@ func (this *DebugOutputBitStream) WriteBit(bit int) {
 	this.delegate.WriteBit(bit)
 }
 
+// WriteBits writes the least significant bits of 'bits' to the bitstream.
+// Length is the number of bits to write (in [1..64]).
+// Returns the number of bits written.
+// Panics if closed or an IO error is received.
+// Calls WriteBits() on the underlying bitstream delegate.
 func (this *DebugOutputBitStream) WriteBits(bits uint64, length uint) uint {
 	res := this.delegate.WriteBits(bits, length)
 
@@ -131,6 +139,10 @@ func (this *DebugOutputBitStream) WriteBits(bits uint64, length uint) uint {
 	return res
 }
 
+// WriteArray writes bits out of the byte slice. Length is the number of bits.
+// Returns the number of bits written.
+// Panics if closed or an IO error is received.
+// Calls WriteArray() on the underlying bitstream delegate.
 func (this *DebugOutputBitStream) WriteArray(bits []byte, count uint) uint {
 	res := this.delegate.WriteArray(bits, count)
 
@@ -184,18 +196,26 @@ func (this *DebugOutputBitStream) printByte(val byte) {
 	}
 }
 
+// Close makes the bitstream unavailable for further writes.
+// Calls Close() on the underlying bitstream delegate.
 func (this *DebugOutputBitStream) Close() (bool, error) {
 	return this.delegate.Close()
 }
 
+// Written returns the number of bits written
+// Calls Written() on the underlying bitstream delegate.
 func (this *DebugOutputBitStream) Written() uint64 {
 	return this.delegate.Written()
 }
 
+// Mark sets the internal mark state. When true. displays 'w'
+// after each bit  or bit sequence read from the bitstream delegate.
 func (this *DebugOutputBitStream) Mark(mark bool) {
 	this.mark = mark
 }
 
+// ShowByte sets the internal show byte state. When true, displays
+// the hexadecimal value after the bits.
 func (this *DebugOutputBitStream) ShowByte(show bool) {
 	this.hexa = show
 }

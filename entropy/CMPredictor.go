@@ -21,7 +21,7 @@ const (
 	SLOW_RATE   = 6
 )
 
-// Context model predictor based on BCM by Ilya Muravyov.
+// CMPredictor context model predictor based on BCM by Ilya Muravyov.
 // See https://github.com/encode84/bcm
 type CMPredictor struct {
 	c1       byte
@@ -35,6 +35,7 @@ type CMPredictor struct {
 	p        int
 }
 
+// NewCMPredictor creates a new instance of CMPredictor
 func NewCMPredictor() (*CMPredictor, error) {
 	this := new(CMPredictor)
 	this.ctx = 1
@@ -65,7 +66,7 @@ func NewCMPredictor() (*CMPredictor, error) {
 	return this, nil
 }
 
-// Update the probability model
+// Update updates the probability model based on the internal bit counters
 func (this *CMPredictor) Update(bit byte) {
 	pc1 := this.counter1[this.ctx]
 	pc2 := this.counter2[this.ctx|this.runMask]
@@ -102,7 +103,9 @@ func (this *CMPredictor) Update(bit byte) {
 	this.p = int(13*pc1[256]+14*pc1[this.c1]+5*pc1[this.c2]) >> 5
 }
 
-// Return the split value representing the probability of 1 in the [0..4095] range.
+// Get returns the value representing the probability of the next bit being 1
+// in the [0..4095] range. The probability is computed from the internal
+// bit counters.
 func (this *CMPredictor) Get() int {
 	this.idx = this.p >> 12
 	pc2 := this.counter2[this.ctx|this.runMask]

@@ -19,6 +19,7 @@ const (
 	PSCALE = 1 << 16
 )
 
+// FPAQPredictor Fast PAQ Predictor
 // Derived from fpaq0r by Matt Mahoney & Alexander Ratushnyak.
 // See http://mattmahoney.net/dc/#fpaq0.
 // Simple (and fast) adaptive order 0 entropy coder predictor
@@ -27,6 +28,7 @@ type FPAQPredictor struct {
 	ctxIdx byte     // previous bits
 }
 
+// NewFPAQPredictor creates a new instance of FPAQPredictor
 func NewFPAQPredictor() (*FPAQPredictor, error) {
 	this := &FPAQPredictor{}
 	this.ctxIdx = 1
@@ -38,7 +40,7 @@ func NewFPAQPredictor() (*FPAQPredictor, error) {
 	return this, nil
 }
 
-// Update the probability model
+// Update updates the internal probability model based on the observed bit
 // bit == 1 -> prob += ((PSCALE-prob) >> 6);
 // bit == 0 -> prob -= (prob >> 6);
 func (this *FPAQPredictor) Update(bit byte) {
@@ -52,7 +54,9 @@ func (this *FPAQPredictor) Update(bit byte) {
 	}
 }
 
-// Return the split value representing the probability of 1 in the [0..4095] range.
+// Get returns the value representing the probability of the next bit being 1
+// in the [0..4095] range.
+// E.G. 410 represents roughly a probability of 10% for 1
 func (this *FPAQPredictor) Get() int {
 	return this.probs[this.ctxIdx] >> 4
 }
