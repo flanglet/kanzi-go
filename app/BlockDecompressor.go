@@ -30,14 +30,14 @@ import (
 )
 
 const (
-	DECOMP_DEFAULT_BUFFER_SIZE = 32768
-	DECOMP_DEFAULT_CONCURRENCY = 1
-	DECOMP_MAX_CONCURRENCY     = 64
-	DECOMP_NONE                = "NONE"
-	DECOMP_STDOUT              = "STDOUT"
+	_DECOMP_DEFAULT_BUFFER_SIZE = 32768
+	_DECOMP_DEFAULT_CONCURRENCY = 1
+	_DECOMP_MAX_CONCURRENCY     = 64
+	_DECOMP_NONE                = "NONE"
+	_DECOMP_STDOUT              = "STDOUT"
 )
 
-// BlockCompressor main block decompressor struct
+// BlockDecompressor main block decompressor struct
 type BlockDecompressor struct {
 	verbosity  uint
 	overwrite  bool
@@ -76,14 +76,14 @@ func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, e
 	delete(argsMap, "verbose")
 
 	if concurrency == 0 {
-		this.jobs = DECOMP_DEFAULT_CONCURRENCY
+		this.jobs = _DECOMP_DEFAULT_CONCURRENCY
 	} else {
-		if concurrency > DECOMP_MAX_CONCURRENCY {
+		if concurrency > _DECOMP_MAX_CONCURRENCY {
 			if this.verbosity > 0 {
-				fmt.Printf("Warning: the number of jobs is too high, defaulting to %v\n", DECOMP_MAX_CONCURRENCY)
+				fmt.Printf("Warning: the number of jobs is too high, defaulting to %v\n", _DECOMP_MAX_CONCURRENCY)
 			}
 
-			concurrency = DECOMP_MAX_CONCURRENCY
+			concurrency = _DECOMP_MAX_CONCURRENCY
 		}
 		this.jobs = concurrency
 	}
@@ -199,7 +199,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 		msg = fmt.Sprintf("Using %d jobs", this.jobs)
 		log.Println(msg, printFlag)
 
-		if strings.ToUpper(this.outputName) == DECOMP_STDOUT {
+		if strings.ToUpper(this.outputName) == _DECOMP_STDOUT {
 			fmt.Println("Cannot output to STDOUT with multiple jobs")
 			return kanzi.ERR_CREATE_FILE, 0
 		}
@@ -224,7 +224,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	var inputIsDir bool
 	formattedOutName := this.outputName
 	formattedInName := this.inputName
-	specialOutput := strings.ToUpper(formattedOutName) == DECOMP_NONE || strings.ToUpper(formattedOutName) == DECOMP_STDOUT
+	specialOutput := strings.ToUpper(formattedOutName) == _DECOMP_NONE || strings.ToUpper(formattedOutName) == _DECOMP_STDOUT
 
 	fi, err := os.Stat(this.inputName)
 
@@ -413,9 +413,9 @@ func (this *fileDecompressTask) call() (int, uint64) {
 
 	var output io.WriteCloser
 
-	if strings.ToUpper(outputName) == DECOMP_NONE {
+	if strings.ToUpper(outputName) == _DECOMP_NONE {
 		output, _ = kio.NewNullOutputStream()
-	} else if strings.ToUpper(outputName) == DECOMP_STDOUT {
+	} else if strings.ToUpper(outputName) == _DECOMP_STDOUT {
 		output = os.Stdout
 	} else {
 		var err error
@@ -501,7 +501,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 		cis.AddListener(bl)
 	}
 
-	buffer := make([]byte, DECOMP_DEFAULT_BUFFER_SIZE)
+	buffer := make([]byte, _DECOMP_DEFAULT_BUFFER_SIZE)
 	decoded := len(buffer)
 	before := time.Now()
 

@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	BWTS_MAX_BLOCK_SIZE = 1024 * 1024 * 1024 // 1 GB
+	_BWTS_MAX_BLOCK_SIZE = 1024 * 1024 * 1024 // 1 GB
 )
 
 // BWTS Bijective version of the Burrows-Wheeler Transform
@@ -288,5 +288,5 @@ func (this *BWTS) Inverse(src, dst []byte) (uint, uint, error) {
 
 // MaxBWTSBlockSize returns the maximum size of a block to transform
 func MaxBWTSBlockSize() int {
-	return BWTS_MAX_BLOCK_SIZE
+	return _BWTS_MAX_BLOCK_SIZE
 }

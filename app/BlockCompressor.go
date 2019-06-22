@@ -31,12 +31,12 @@ import (
 )
 
 const (
-	COMP_DEFAULT_BUFFER_SIZE = 65536
-	COMP_DEFAULT_BLOCK_SIZE  = 1024 * 1024
-	COMP_DEFAULT_CONCURRENCY = 1
-	COMP_MAX_CONCURRENCY     = 64
-	COMP_NONE                = "NONE"
-	COMP_STDOUT              = "STDOUT"
+	_COMP_DEFAULT_BUFFER_SIZE = 65536
+	_COMP_DEFAULT_BLOCK_SIZE  = 1024 * 1024
+	_COMP_DEFAULT_CONCURRENCY = 1
+	_COMP_MAX_CONCURRENCY     = 64
+	_COMP_NONE                = "NONE"
+	_COMP_STDOUT              = "STDOUT"
 )
 
 // BlockCompressor main block compressor struct
@@ -117,7 +117,7 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 		}
 
 	} else {
-		this.blockSize = COMP_DEFAULT_BLOCK_SIZE
+		this.blockSize = _COMP_DEFAULT_BLOCK_SIZE
 	}
 
 	if len(strTransf) == 0 {
@@ -145,14 +145,14 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 	delete(argsMap, "jobs")
 
 	if concurrency == 0 {
-		this.jobs = COMP_DEFAULT_CONCURRENCY
+		this.jobs = _COMP_DEFAULT_CONCURRENCY
 	} else {
-		if concurrency > COMP_MAX_CONCURRENCY {
+		if concurrency > _COMP_MAX_CONCURRENCY {
 			if this.verbosity > 0 {
-				fmt.Printf("Warning: the number of jobs is too high, defaulting to %v\n", COMP_MAX_CONCURRENCY)
+				fmt.Printf("Warning: the number of jobs is too high, defaulting to %v\n", _COMP_MAX_CONCURRENCY)
 			}
 
-			concurrency = COMP_MAX_CONCURRENCY
+			concurrency = _COMP_MAX_CONCURRENCY
 		}
 
 		this.jobs = concurrency
@@ -272,7 +272,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	if printFlag == true {
 		w1 := "no"
 
-		if this.transform != COMP_NONE {
+		if this.transform != _COMP_NONE {
 			w1 = this.transform
 		}
 
@@ -280,7 +280,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		log.Println(msg, printFlag)
 		w2 := "no"
 
-		if this.entropyCodec != COMP_NONE {
+		if this.entropyCodec != _COMP_NONE {
 			w2 = this.entropyCodec
 		}
 
@@ -293,7 +293,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		msg = fmt.Sprintf("Using %d jobs", this.jobs)
 		log.Println(msg, printFlag)
 
-		if strings.ToUpper(this.outputName) == COMP_STDOUT {
+		if strings.ToUpper(this.outputName) == _COMP_STDOUT {
 			fmt.Println("Cannot output to STDOUT with multiple jobs")
 			return kanzi.ERR_CREATE_FILE, 0
 		}
@@ -319,7 +319,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	var inputIsDir bool
 	formattedOutName := this.outputName
 	formattedInName := this.inputName
-	specialOutput := strings.ToUpper(formattedOutName) == COMP_NONE || strings.ToUpper(formattedOutName) == COMP_STDOUT
+	specialOutput := strings.ToUpper(formattedOutName) == _COMP_NONE || strings.ToUpper(formattedOutName) == _COMP_STDOUT
 
 	fi, err := os.Stat(this.inputName)
 
@@ -554,9 +554,9 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 
 	var output io.WriteCloser
 
-	if strings.ToUpper(outputName) == COMP_NONE {
+	if strings.ToUpper(outputName) == _COMP_NONE {
 		output, _ = kio.NewNullOutputStream()
-	} else if strings.ToUpper(outputName) == COMP_STDOUT {
+	} else if strings.ToUpper(outputName) == _COMP_STDOUT {
 		output = os.Stdout
 	} else {
 		var err error
@@ -649,7 +649,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 	length := 0
 	read := uint64(0)
 
-	buffer := make([]byte, COMP_DEFAULT_BUFFER_SIZE)
+	buffer := make([]byte, _COMP_DEFAULT_BUFFER_SIZE)
 
 	if len(this.listeners) > 0 {
 		evt := kanzi.NewEvent(kanzi.EVT_COMPRESSION_START, -1, 0, 0, false, time.Now())

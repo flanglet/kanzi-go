@@ -445,8 +445,10 @@ func computeBWT(data []int, sa []int, ptrBuf1 *[]int, ptrBuf2 *[]int, n int, k i
 	return pidx
 }
 
-// Find the suffix array sa of data[0..n-1] in {0..k-1}^n
-// Return the primary index if isbwt is true (0 otherwise)
+// ComputeSuffixArray generates the suffix array for the given data and returns it
+// in the 'sa' slice.
+// Finds the suffix array sa of data[0..n-1] in {0..k-1}^n
+// Returns the primary index if isbwt is true (0 otherwise)
 func ComputeSuffixArray(data []int, sa []int, fs int, n int, k int, isbwt bool) uint {
 	var B, C []int
 	var ptrB, ptrC *[]int

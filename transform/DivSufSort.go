@@ -16,18 +16,18 @@ limitations under the License.
 package transform
 
 const (
-	SS_INSERTIONSORT_THRESHOLD = int32(8)
-	SS_BLOCKSIZE               = int32(1024)
-	SS_MISORT_STACKSIZE        = int32(16)
-	SS_SMERGE_STACKSIZE        = int32(32)
-	TR_STACKSIZE               = int32(64)
-	TR_INSERTIONSORT_THRESHOLD = int32(8)
-	MASK_FFFF0000              = -65536    // make 32 bit systems happy
-	MASK_FF000000              = -16777216 // make 32 bit systems happy
-	MASK_0000FF00              = 65280     // make 32 bit systems happy
+	_SS_INSERTIONSORT_THRESHOLD = int32(8)
+	_SS_BLOCKSIZE               = int32(1024)
+	_SS_MISORT_STACKSIZE        = int32(16)
+	_SS_SMERGE_STACKSIZE        = int32(32)
+	_TR_STACKSIZE               = int32(64)
+	_TR_INSERTIONSORT_THRESHOLD = int32(8)
+	_MASK_FFFF0000              = -65536    // make 32 bit systems happy
+	_MASK_FF000000              = -16777216 // make 32 bit systems happy
+	_MASK_0000FF00              = 65280     // make 32 bit systems happy
 )
 
-var SQQ_TABLE = []int32{
+var _SQQ_TABLE = []int32{
 	0, 16, 22, 27, 32, 35, 39, 42, 45, 48, 50, 53, 55, 57, 59, 61, 64, 65, 67, 69,
 	71, 73, 75, 76, 78, 80, 81, 83, 84, 86, 87, 89, 90, 91, 93, 94, 96, 97, 98, 99,
 	101, 102, 103, 104, 106, 107, 108, 109, 110, 112, 113, 114, 115, 116, 117, 118,
@@ -46,7 +46,7 @@ var SQQ_TABLE = []int32{
 	251, 252, 252, 253, 253, 254, 254, 255,
 }
 
-var LOG_TABLE = []int32{
+var _LOG_TABLE = []int32{
 	-1, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
 	4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
 	5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
@@ -59,6 +59,8 @@ var LOG_TABLE = []int32{
 	7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
 }
 
+// DivSufSort main structure to compute suffix array or BWT using the
+// algorithm developed by Yuta Mori.
 type DivSufSort struct {
 	sa         []int32
 	buffer     []byte
@@ -67,11 +69,12 @@ type DivSufSort struct {
 	mergestack *stack
 }
 
+// NewDivSufSort creates a new instance of DivSufSort
 func NewDivSufSort() (*DivSufSort, error) {
 	this := new(DivSufSort)
-	this.ssStack = newStack(SS_MISORT_STACKSIZE)
-	this.trStack = newStack(TR_STACKSIZE)
-	this.mergestack = newStack(SS_SMERGE_STACKSIZE)
+	this.ssStack = newStack(_SS_MISORT_STACKSIZE)
+	this.trStack = newStack(_TR_STACKSIZE)
+	this.mergestack = newStack(_SS_SMERGE_STACKSIZE)
 	return this, nil
 }
 
@@ -81,6 +84,8 @@ func (this *DivSufSort) reset() {
 	this.mergestack.index = 0
 }
 
+// ComputeSuffixArray generates the suffix array for the given data and returns it
+// in the 'sa' slice.
 func (this *DivSufSort) ComputeSuffixArray(src []byte, sa []int32) {
 	this.buffer = src
 	this.sa = sa
@@ -168,6 +173,8 @@ func (this *DivSufSort) constructSuffixArray(bucketA, bucketB []int32, n, m int3
 	}
 }
 
+// ComputeBWT generates the BWT  for the given data and returns it
+// in the 'sa' slice.
 func (this *DivSufSort) ComputeBWT(src []byte, sa []int32) int32 {
 	// Lazy dynamic memory allocation
 	this.buffer = src
@@ -492,12 +499,12 @@ func (this *DivSufSort) ssSort(pa, first, last, buf, bufSize, depth, n int32, la
 
 	limit := int32(0)
 	middle := last
-	if bufSize < SS_BLOCKSIZE && bufSize < last-first {
+	if bufSize < _SS_BLOCKSIZE && bufSize < last-first {
 		limit = ssIsqrt(last - first)
 
 		if bufSize < limit {
-			if limit > SS_BLOCKSIZE {
-				limit = SS_BLOCKSIZE
+			if limit > _SS_BLOCKSIZE {
+				limit = _SS_BLOCKSIZE
 			}
 
 			middle = last - limit
@@ -510,19 +517,20 @@ func (this *DivSufSort) ssSort(pa, first, last, buf, bufSize, depth, n int32, la
 
 	var a int32
 	i := int32(0)
-	for a = first; middle-a > SS_BLOCKSIZE; a += SS_BLOCKSIZE {
-		this.ssMultiKeyIntroSort(pa, a, a+SS_BLOCKSIZE, depth)
-		curBufSize := last - (a + SS_BLOCKSIZE)
+
+	for a = first; middle-a > _SS_BLOCKSIZE; a += _SS_BLOCKSIZE {
+		this.ssMultiKeyIntroSort(pa, a, a+_SS_BLOCKSIZE, depth)
+		curBufSize := last - (a + _SS_BLOCKSIZE)
 		var curBuf int32
 
 		if curBufSize > bufSize {
-			curBuf = a + SS_BLOCKSIZE
+			curBuf = a + _SS_BLOCKSIZE
 		} else {
 			curBufSize = bufSize
 			curBuf = buf
 		}
 
-		k := SS_BLOCKSIZE
+		k := _SS_BLOCKSIZE
 		b := a
 
 		for j := i; j&1 != 0; j >>= 1 {
@@ -535,7 +543,7 @@ func (this *DivSufSort) ssSort(pa, first, last, buf, bufSize, depth, n int32, la
 	}
 
 	this.ssMultiKeyIntroSort(pa, a, middle, depth)
-	k := SS_BLOCKSIZE
+	k := _SS_BLOCKSIZE
 
 	for i != 0 {
 		if i&1 != 0 {
@@ -1243,34 +1251,34 @@ func (this *DivSufSort) ssInsertionSort(pa, first, last, depth int32) {
 }
 
 func ssIsqrt(x int32) int32 {
-	if x >= SS_BLOCKSIZE*SS_BLOCKSIZE {
-		return SS_BLOCKSIZE
+	if x >= _SS_BLOCKSIZE*_SS_BLOCKSIZE {
+		return _SS_BLOCKSIZE
 	}
 
 	var e int32
 
-	if x&MASK_FFFF0000 != 0 {
-		if x&MASK_FF000000 != 0 {
-			e = 24 + LOG_TABLE[(x>>24)&0xFF]
+	if x&_MASK_FFFF0000 != 0 {
+		if x&_MASK_FF000000 != 0 {
+			e = 24 + _LOG_TABLE[(x>>24)&0xFF]
 		} else {
-			e = 16 + LOG_TABLE[(x>>16)&0xFF]
+			e = 16 + _LOG_TABLE[(x>>16)&0xFF]
 		}
 	} else {
-		if x&MASK_0000FF00 != 0 {
-			e = 8 + LOG_TABLE[(x>>8)&0xFF]
+		if x&_MASK_0000FF00 != 0 {
+			e = 8 + _LOG_TABLE[(x>>8)&0xFF]
 		} else {
-			e = LOG_TABLE[x&0xFF]
+			e = _LOG_TABLE[x&0xFF]
 		}
 	}
 
 	if e < 8 {
-		return SQQ_TABLE[x] >> 4
+		return _SQQ_TABLE[x] >> 4
 	}
 
 	var y int32
 
 	if e >= 16 {
-		y = SQQ_TABLE[x>>uint32((e-6)-(e&1))] << uint32((e>>1)-7)
+		y = _SQQ_TABLE[x>>uint32((e-6)-(e&1))] << uint32((e>>1)-7)
 
 		if e >= 24 {
 			y = (y + 1 + x/y) >> 1
@@ -1278,7 +1286,7 @@ func ssIsqrt(x int32) int32 {
 
 		y = (y + 1 + x/y) >> 1
 	} else {
-		y = (SQQ_TABLE[x>>uint32((e-6)-(e&1))] >> uint32(7-(e>>1))) + 1
+		y = (_SQQ_TABLE[x>>uint32((e-6)-(e&1))] >> uint32(7-(e>>1))) + 1
 	}
 
 	if x < y*y {
@@ -1293,7 +1301,7 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int32) {
 	x := byte(0)
 
 	for {
-		if last-first <= SS_INSERTIONSORT_THRESHOLD {
+		if last-first <= _SS_INSERTIONSORT_THRESHOLD {
 			if last-first > 1 {
 				this.ssInsertionSort(pa, first, last, depth)
 			}
@@ -1715,10 +1723,10 @@ func (this *DivSufSort) ssFixDown(buf1 []byte, buf2, buf3 []int32, i, size int32
 
 func ssIlg(n int32) int32 {
 	if n&0xFF00 != 0 {
-		return 8 + LOG_TABLE[(n>>8)&0xFF]
+		return 8 + _LOG_TABLE[(n>>8)&0xFF]
 	}
 
-	return LOG_TABLE[n&0xFF]
+	return _LOG_TABLE[n&0xFF]
 }
 
 // Tandem Repeat Sort
@@ -2104,7 +2112,7 @@ func (this *DivSufSort) trIntroSort(isa, isad, first, last int32, budget *trBudg
 			continue
 		}
 
-		if last-first <= TR_INSERTIONSORT_THRESHOLD {
+		if last-first <= _TR_INSERTIONSORT_THRESHOLD {
 			this.trInsertionSort(isad, first, last)
 			limit = -3
 			continue
@@ -2560,19 +2568,19 @@ func (this *DivSufSort) trCopy(isa, first, a, b, last, depth int32) {
 }
 
 func trIlg(n int32) int32 {
-	if n&MASK_FFFF0000 != 0 {
-		if n&MASK_FF000000 != 0 {
-			return 24 + LOG_TABLE[(n>>24)&0xFF]
+	if n&_MASK_FFFF0000 != 0 {
+		if n&_MASK_FF000000 != 0 {
+			return 24 + _LOG_TABLE[(n>>24)&0xFF]
 		}
 
-		return 16 + LOG_TABLE[(n>>16)&0xFF]
+		return 16 + _LOG_TABLE[(n>>16)&0xFF]
 	}
 
-	if n&MASK_0000FF00 != 0 {
-		return 8 + LOG_TABLE[(n>>8)&0xFF]
+	if n&_MASK_0000FF00 != 0 {
+		return 8 + _LOG_TABLE[(n>>8)&0xFF]
 	}
 
-	return LOG_TABLE[n&0xFF]
+	return _LOG_TABLE[n&0xFF]
 }
 
 type stackElement struct {

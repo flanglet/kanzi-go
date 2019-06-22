@@ -24,10 +24,10 @@ import (
 )
 
 const (
-	BWT_MAX_BLOCK_SIZE = 1024 * 1024 * 1024 // 1 GB
-	BWT_MAX_CHUNKS     = 8
-	BWT_NB_FASTBITS    = 17
-	BWT_MASK_FASTBITS  = 1 << BWT_NB_FASTBITS
+	_BWT_MAX_BLOCK_SIZE = 1024 * 1024 * 1024 // 1 GB
+	_BWT_MAX_CHUNKS     = 8
+	_BWT_NB_FASTBITS    = 17
+	_BWT_MASK_FASTBITS  = 1 << _BWT_NB_FASTBITS
 )
 
 // The Burrows-Wheeler Transform is a reversible transform based on
@@ -85,7 +85,7 @@ func NewBWT() (*BWT, error) {
 	return this, nil
 }
 
-// NewBWT creates a new BWT instance. The number of jobs is extracted
+// NewBWTWithCtx creates a new BWT instance. The number of jobs is extracted
 // from the provided map or arguments.
 func NewBWTWithCtx(ctx *map[string]interface{}) (*BWT, error) {
 	this := new(BWT)
@@ -366,10 +366,10 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 	}
 
 	lastc := int(src[0])
-	fastBits := make([]uint16, BWT_MASK_FASTBITS+1)
+	fastBits := make([]uint16, _BWT_MASK_FASTBITS+1)
 	shift := uint(0)
 
-	for (count >> shift) > BWT_MASK_FASTBITS {
+	for (count >> shift) > _BWT_MASK_FASTBITS {
 		shift++
 	}
 
@@ -493,7 +493,7 @@ func (this *BWT) inverseChunkTask(dst []byte, buckets []int, fastBits []uint16, 
 	data := this.buffer1
 	shift := uint(0)
 
-	for (total >> shift) > BWT_MASK_FASTBITS {
+	for (total >> shift) > _BWT_MASK_FASTBITS {
 		shift++
 	}
 
@@ -524,7 +524,7 @@ func (this *BWT) inverseChunkTask(dst []byte, buckets []int, fastBits []uint16, 
 
 // MaxBWTBlockSize returns the maximum size of a block to transform
 func MaxBWTBlockSize() int {
-	return BWT_MAX_BLOCK_SIZE
+	return _BWT_MAX_BLOCK_SIZE
 }
 
 // GetBWTChunks returns the number of chunks for a given block size
@@ -535,8 +535,8 @@ func GetBWTChunks(size int) int {
 
 	res := (size + (1 << 21)) >> 22
 
-	if res > BWT_MAX_CHUNKS {
-		return BWT_MAX_CHUNKS
+	if res > _BWT_MAX_CHUNKS {
+		return _BWT_MAX_CHUNKS
 	}
 
 	return res
