@@ -21,17 +21,18 @@ import (
 )
 
 const (
-	EVT_COMPRESSION_START     = 0
-	EVT_DECOMPRESSION_START   = 1
-	EVT_BEFORE_TRANSFORM      = 2
-	EVT_AFTER_TRANSFORM       = 3
-	EVT_BEFORE_ENTROPY        = 4
-	EVT_AFTER_ENTROPY         = 5
-	EVT_COMPRESSION_END       = 6
-	EVT_DECOMPRESSION_END     = 7
-	EVT_AFTER_HEADER_DECODING = 8
+	EVT_COMPRESSION_START     = 0 // Compression starts
+	EVT_DECOMPRESSION_START   = 1 // Decompression starts
+	EVT_BEFORE_TRANSFORM      = 2 // Transform forward/inverse starts
+	EVT_AFTER_TRANSFORM       = 3 // Transform forward/inverse ends
+	EVT_BEFORE_ENTROPY        = 4 // Entropy encoding/decoding starts
+	EVT_AFTER_ENTROPY         = 5 // Entropy encoding/decoding ends
+	EVT_COMPRESSION_END       = 6 // Compression ends
+	EVT_DECOMPRESSION_END     = 7 // Decompression ends
+	EVT_AFTER_HEADER_DECODING = 8 // Compression header decoding ends
 )
 
+// Event a compression/decompression event
 type Event struct {
 	eventType int
 	id        int
@@ -42,6 +43,7 @@ type Event struct {
 	msg       string
 }
 
+// NewEventFromString creates a new Event instance that wraps a message
 func NewEventFromString(evtType, id int, msg string, evtTime time.Time) *Event {
 	if evtTime.IsZero() {
 		evtTime = time.Now()
@@ -50,6 +52,7 @@ func NewEventFromString(evtType, id int, msg string, evtTime time.Time) *Event {
 	return &Event{eventType: evtType, id: id, size: 0, msg: msg, eventTime: evtTime}
 }
 
+// NewEvent creates a new Event instance with size and hash info
 func NewEvent(evtType, id int, size int64, hash uint32, hashing bool, evtTime time.Time) *Event {
 	if evtTime.IsZero() {
 		evtTime = time.Now()
@@ -59,30 +62,39 @@ func NewEvent(evtType, id int, size int64, hash uint32, hashing bool, evtTime ti
 		hashing: hashing, eventTime: evtTime}
 }
 
+// Type returns the type info
 func (this *Event) Type() int {
 	return this.eventType
 }
 
+// Id returns the id info
 func (this *Event) Id() int {
 	return this.id
 }
 
+// Time returns the time info
 func (this *Event) Time() time.Time {
 	return this.eventTime
 }
 
+// Size returns the size info
 func (this *Event) Size() int64 {
 	return this.size
 }
 
+// Hash returns the hash info
 func (this *Event) Hash() uint32 {
 	return this.hash
 }
 
+// Hashing returns true if the event contains a hash info
 func (this *Event) Hashing() bool {
 	return this.hashing
 }
 
+// String returns a string representation of this event.
+// If the event wraps a message, the the message is returned.
+// Owtherwise a string is built from the fields.
 func (this *Event) String() string {
 	if len(this.msg) > 0 {
 		return this.msg
@@ -130,6 +142,7 @@ func (this *Event) String() string {
 		this.eventTime.UnixNano()/1000000, hash)
 }
 
+// Listener is an interface implemented by event processors
 type Listener interface {
 	ProcessEvent(evt *Event)
 }

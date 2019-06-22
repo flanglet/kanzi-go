@@ -29,11 +29,11 @@ import (
 // of the BlockCompressor/BlockDecompressor)
 
 const (
-	ENCODING = 0
-	DECODING = 1
+	ENCODING = 0 // encoding event type
+	DECODING = 1 // decoding event type
 )
 
-type BlockInfo struct {
+type blockInfo struct {
 	time0      time.Time
 	time1      time.Time
 	time2      time.Time
@@ -42,25 +42,27 @@ type BlockInfo struct {
 	stage1Size int64
 }
 
+// InfoPrinter contains all the data required to print one event
 type InfoPrinter struct {
 	writer     io.Writer
 	infoType   uint
-	infos      map[int32]BlockInfo
+	infos      map[int32]blockInfo
 	thresholds []int
 	lock       sync.RWMutex
 	level      uint
 }
 
+// NewInfoPrinter creates a new instance of InfoPrinter
 func NewInfoPrinter(infoLevel, infoType uint, writer io.Writer) (*InfoPrinter, error) {
 	if writer == nil {
 		return nil, errors.New("Invalid null writer parameter")
 	}
 
-	this := new(InfoPrinter)
+	this := &InfoPrinter{}
 	this.infoType = infoType & 1
 	this.level = infoLevel
 	this.writer = writer
-	this.infos = make(map[int32]BlockInfo)
+	this.infos = make(map[int32]blockInfo)
 
 	if this.infoType == ENCODING {
 		this.thresholds = []int{
@@ -85,12 +87,13 @@ func NewInfoPrinter(infoLevel, infoType uint, writer io.Writer) (*InfoPrinter, e
 	return this, nil
 }
 
+// ProcessEvent receives an event and writes a log record to the internal writer
 func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 	currentBlockId := int32(evt.Id())
 
 	if evt.Type() == this.thresholds[1] {
 		// Register initial block size
-		bi := BlockInfo{time0: evt.Time()}
+		bi := blockInfo{time0: evt.Time()}
 
 		if this.infoType == ENCODING {
 			bi.stage0Size = evt.Size()

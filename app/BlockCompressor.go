@@ -39,7 +39,7 @@ const (
 	COMP_STDOUT              = "STDOUT"
 )
 
-// Main block compressor struct
+// BlockCompressor main block compressor struct
 type BlockCompressor struct {
 	verbosity    uint
 	overwrite    bool
@@ -56,12 +56,14 @@ type BlockCompressor struct {
 	cpuProf      string
 }
 
-type FileCompressResult struct {
+type fileCompressResult struct {
 	code    int
 	read    uint64
 	written uint64
 }
 
+// NewBlockCompressor creates a new instance of BlockCompressor given
+// a map of argument name/value pairs.
 func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error) {
 	this := new(BlockCompressor)
 	this.listeners = make([]kanzi.Listener, 0)
@@ -172,6 +174,8 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 	return this, nil
 }
 
+// AddListener adds a listener to this compressor
+// Returns true if the listener has been added.
 func (this *BlockCompressor) AddListener(bl kanzi.Listener) bool {
 	if bl == nil {
 		return false
@@ -181,6 +185,8 @@ func (this *BlockCompressor) AddListener(bl kanzi.Listener) bool {
 	return true
 }
 
+// RemoveListener removes a listener from this compressor.
+// Returns true if the listener has been removed.
 func (this *BlockCompressor) RemoveListener(bl kanzi.Listener) bool {
 	for i, e := range this.listeners {
 		if e == bl {
@@ -192,11 +198,12 @@ func (this *BlockCompressor) RemoveListener(bl kanzi.Listener) bool {
 	return false
 }
 
+// CPUProf returns the name of the CPU profile data file (maybe be empty)
 func (this *BlockCompressor) CPUProf() string {
 	return this.cpuProf
 }
 
-func fileCompressWorker(tasks <-chan FileCompressTask, cancel <-chan bool, results chan<- FileCompressResult) {
+func fileCompressWorker(tasks <-chan fileCompressTask, cancel <-chan bool, results chan<- fileCompressResult) {
 	// Pull tasks from channel and run them
 	more := true
 
@@ -206,8 +213,8 @@ func fileCompressWorker(tasks <-chan FileCompressTask, cancel <-chan bool, resul
 			more = m
 
 			if more {
-				res, read, written := t.Call()
-				results <- FileCompressResult{code: res, read: read, written: written}
+				res, read, written := t.call()
+				results <- fileCompressResult{code: res, read: read, written: written}
 				more = res == 0
 			}
 
@@ -217,7 +224,10 @@ func fileCompressWorker(tasks <-chan FileCompressTask, cancel <-chan bool, resul
 	}
 }
 
-// Return exit code, number of bits written
+// Compress is the main function to compress the files or files based on the
+// input name provided at construction. Files may be processed concurrently
+// depending on the number of jobs provided at construction.
+// Returns exit code, number of bits written.
 func (this *BlockCompressor) Compress() (int, uint64) {
 	var err error
 	before := time.Now()
@@ -383,12 +393,12 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		ctx["inputName"] = iName
 		ctx["outputName"] = oName
 		ctx["jobs"] = this.jobs
-		task := FileCompressTask{ctx: ctx, listeners: this.listeners}
-		res, read, written = task.Call()
+		task := fileCompressTask{ctx: ctx, listeners: this.listeners}
+		res, read, written = task.call()
 	} else {
 		// Create channels for task synchronization
-		tasks := make(chan FileCompressTask, nbFiles)
-		results := make(chan FileCompressResult, nbFiles)
+		tasks := make(chan fileCompressTask, nbFiles)
+		results := make(chan fileCompressResult, nbFiles)
 		cancel := make(chan bool, 1)
 
 		jobsPerTask := kanzi.ComputeJobsPerTask(make([]uint, nbFiles), this.jobs, uint(nbFiles))
@@ -417,7 +427,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 			taskCtx["outputName"] = oName
 			taskCtx["jobs"] = jobsPerTask[n]
 			n++
-			task := FileCompressTask{ctx: taskCtx, listeners: this.listeners}
+			task := fileCompressTask{ctx: taskCtx, listeners: this.listeners}
 
 			// Push task to channel. The workers are the consumers.
 			tasks <- task
@@ -527,12 +537,12 @@ func getTransformAndCodec(level int) string {
 	}
 }
 
-type FileCompressTask struct {
+type fileCompressTask struct {
 	ctx       map[string]interface{}
 	listeners []kanzi.Listener
 }
 
-func (this *FileCompressTask) Call() (int, uint64, uint64) {
+func (this *fileCompressTask) call() (int, uint64, uint64) {
 	var msg string
 	verbosity := this.ctx["verbosity"].(uint)
 	inputName := this.ctx["inputName"].(string)

@@ -37,7 +37,7 @@ const (
 	DECOMP_STDOUT              = "STDOUT"
 )
 
-// Main block decompressor struct
+// BlockCompressor main block decompressor struct
 type BlockDecompressor struct {
 	verbosity  uint
 	overwrite  bool
@@ -48,11 +48,13 @@ type BlockDecompressor struct {
 	cpuProf    string
 }
 
-type FileDecompressResult struct {
+type fileDecompressResult struct {
 	code int
 	read uint64
 }
 
+// NewBlockDecompressor creates a new instance of BlockDecompressor given
+// a map of argument name/value pairs.
 func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, error) {
 	this := new(BlockDecompressor)
 	this.listeners = make([]kanzi.Listener, 0)
@@ -102,6 +104,8 @@ func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, e
 	return this, nil
 }
 
+// AddListener adds a listener to this decompressor
+// Returns true if the listener has been added.
 func (this *BlockDecompressor) AddListener(bl kanzi.Listener) bool {
 	if bl == nil {
 		return false
@@ -111,6 +115,8 @@ func (this *BlockDecompressor) AddListener(bl kanzi.Listener) bool {
 	return true
 }
 
+// RemoveListener removes a listener from this decompressor.
+// Returns true if the listener has been removed.
 func (this *BlockDecompressor) RemoveListener(bl kanzi.Listener) bool {
 	for i, e := range this.listeners {
 		if e == bl {
@@ -122,11 +128,12 @@ func (this *BlockDecompressor) RemoveListener(bl kanzi.Listener) bool {
 	return false
 }
 
+// CPUProf returns the name of the CPU profile data file (maybe be empty)
 func (this *BlockDecompressor) CPUProf() string {
 	return this.cpuProf
 }
 
-func fileDecompressWorker(tasks <-chan FileDecompressTask, cancel <-chan bool, results chan<- FileDecompressResult) {
+func fileDecompressWorker(tasks <-chan fileDecompressTask, cancel <-chan bool, results chan<- fileDecompressResult) {
 	// Pull tasks from channel and run them
 	more := true
 
@@ -136,8 +143,8 @@ func fileDecompressWorker(tasks <-chan FileDecompressTask, cancel <-chan bool, r
 			more = m
 
 			if more {
-				res, read := t.Call()
-				results <- FileDecompressResult{code: res, read: read}
+				res, read := t.call()
+				results <- fileDecompressResult{code: res, read: read}
 				more = res == 0
 			}
 
@@ -147,7 +154,10 @@ func fileDecompressWorker(tasks <-chan FileDecompressTask, cancel <-chan bool, r
 	}
 }
 
-// Return exit code, number of bits written
+// DEompress is the main function to decompress the files or files based on the
+// input name provided at construction. Files may be processed concurrently
+// depending on the number of jobs provided at construction.
+// Returns exit code, number of bits read.
 func (this *BlockDecompressor) Decompress() (int, uint64) {
 	var err error
 	before := time.Now()
@@ -282,13 +292,13 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 		ctx["inputName"] = iName
 		ctx["outputName"] = oName
 		ctx["jobs"] = this.jobs
-		task := FileDecompressTask{ctx: ctx, listeners: this.listeners}
+		task := fileDecompressTask{ctx: ctx, listeners: this.listeners}
 
-		res, read = task.Call()
+		res, read = task.call()
 	} else {
 		// Create channels for task synchronization
-		tasks := make(chan FileDecompressTask, nbFiles)
-		results := make(chan FileDecompressResult, nbFiles)
+		tasks := make(chan fileDecompressTask, nbFiles)
+		results := make(chan fileDecompressResult, nbFiles)
 		cancel := make(chan bool, 1)
 
 		jobsPerTask := kanzi.ComputeJobsPerTask(make([]uint, nbFiles), this.jobs, uint(nbFiles))
@@ -316,7 +326,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 			taskCtx["outputName"] = oName
 			taskCtx["jobs"] = jobsPerTask[n]
 			n++
-			task := FileDecompressTask{ctx: taskCtx, listeners: this.listeners}
+			task := fileDecompressTask{ctx: taskCtx, listeners: this.listeners}
 
 			// Push task to channel. The workers are the consumers.
 			tasks <- task
@@ -386,12 +396,12 @@ func notifyBDListeners(listeners []kanzi.Listener, evt *kanzi.Event) {
 	}
 }
 
-type FileDecompressTask struct {
+type fileDecompressTask struct {
 	ctx       map[string]interface{}
 	listeners []kanzi.Listener
 }
 
-func (this *FileDecompressTask) Call() (int, uint64) {
+func (this *fileDecompressTask) call() (int, uint64) {
 	var msg string
 	verbosity := this.ctx["verbosity"].(uint)
 	inputName := this.ctx["inputName"].(string)
