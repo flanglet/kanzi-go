@@ -118,7 +118,7 @@ type encodingTask struct {
 }
 
 func NewCompressedOutputStream(os io.WriteCloser, codec, transform string, blockSize, jobs uint, checksum bool) (*CompressedOutputStream, error) {
-	var ctx map[string]interface{}
+	ctx := make(map[string]interface{})
 	ctx["codec"] = codec
 	ctx["transform"] = transform
 	ctx["blockSize"] = blockSize

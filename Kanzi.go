@@ -179,6 +179,7 @@ type EntropyEncoder interface {
 // EntropyDecoder entropy decodes data from a bitstream
 type EntropyDecoder interface {
 	// Read decodes data from the bitstream and return it in the provided buffer.
+	// Return the number of bytes read from the bitstream
 	Read(block []byte) (int, error)
 
 	// BitStream returns the underlying bitstream

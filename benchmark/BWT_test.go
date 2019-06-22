@@ -61,8 +61,19 @@ func testBWTSpeed(isBWT bool) error {
 				buf1[i] = byte(rnd.Intn(255) + 1)
 			}
 
-			bwt.Forward(buf1, buf2)
-			bwt.Inverse(buf2, buf3)
+			_, _, err1 := bwt.Forward(buf1, buf2)
+
+			if err1 != nil {
+				fmt.Printf("Error: %v\n", err1)
+				return err1
+			}
+
+			_, _, err2 := bwt.Inverse(buf2, buf3)
+
+			if err2 != nil {
+				fmt.Printf("Error: %v\n", err2)
+				return err2
+			}
 
 			// Sanity check
 			for i := range buf1 {
