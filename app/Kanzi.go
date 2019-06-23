@@ -58,11 +58,17 @@ func main() {
 	argsMap := make(map[string]interface{})
 
 	if status := processCommandLine(os.Args, argsMap); status != 0 {
+		// Command line processing error ?
 		if status < 0 {
 			os.Exit(0)
 		}
 
 		os.Exit(status)
+	}
+
+	// Help mode only ?
+	if argsMap["mode"] == nil {
+		os.Exit(0)
 	}
 
 	mode := argsMap["mode"].(string)
