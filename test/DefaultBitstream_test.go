@@ -33,7 +33,7 @@ func TestAligned(b *testing.T) {
 	testCorrectnessAligned2()
 }
 
-func TestMisligned(b *testing.T) {
+func TestMisaligned(b *testing.T) {
 	testCorrectnessMisaligned1()
 	testCorrectnessMisaligned2()
 }
