@@ -24,18 +24,23 @@ import (
 // of the data prior to entropy coding.
 
 const (
-	SRT_HEADER_SIZE = 4 * 256 // freqs
-	SRT_CHUNK_SIZE  = 8 * 1024 * 1024
+	_SRT_HEADER_SIZE = 4 * 256 // freqs
+	_SRT_CHUNK_SIZE  = 8 * 1024 * 1024
 )
 
+// SRT  Sorted Ranks Transform
 type SRT struct {
 }
 
+// NewSRT creates a new instance of SRT
 func NewSRT() (*SRT, error) {
 	this := &SRT{}
 	return this, nil
 }
 
+// Forward applies the function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *SRT) Forward(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
@@ -122,7 +127,7 @@ func (this *SRT) Forward(src, dst []byte) (uint, uint, error) {
 		i = j
 	}
 
-	return uint(count), uint(count + SRT_HEADER_SIZE), nil
+	return uint(count), uint(count + _SRT_HEADER_SIZE), nil
 }
 
 func (this *SRT) preprocess(freqs []int32, symbols []byte) int {
@@ -165,6 +170,9 @@ func (this *SRT) preprocess(freqs []int32, symbols []byte) int {
 	return nbSymbols
 }
 
+// Inverse applies the reverse function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *SRT) Inverse(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
@@ -233,11 +241,11 @@ func (this *SRT) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
-	return uint(count + SRT_HEADER_SIZE), uint(count), nil
+	return uint(count + _SRT_HEADER_SIZE), uint(count), nil
 }
 
 func (this SRT) encodeHeader(freqs []int32, dst []byte) (int, error) {
-	if len(dst) < SRT_HEADER_SIZE {
+	if len(dst) < _SRT_HEADER_SIZE {
 		return 0, errors.New("SRT forward failed: cannot encode header")
 	}
 
@@ -248,11 +256,11 @@ func (this SRT) encodeHeader(freqs []int32, dst []byte) (int, error) {
 		dst[4*i+3] = byte(freqs[i])
 	}
 
-	return SRT_HEADER_SIZE, nil
+	return _SRT_HEADER_SIZE, nil
 }
 
 func (this SRT) decodeHeader(src []byte, freqs []int32) (int, error) {
-	if len(src) < SRT_HEADER_SIZE {
+	if len(src) < _SRT_HEADER_SIZE {
 		return 0, errors.New("SRT inverse failed: cannot decode header")
 	}
 
@@ -264,9 +272,9 @@ func (this SRT) decodeHeader(src []byte, freqs []int32) (int, error) {
 		freqs[i] = (f1 << 24) | (f2 << 16) | (f3 << 8) | f4
 	}
 
-	return SRT_HEADER_SIZE, nil
+	return _SRT_HEADER_SIZE, nil
 }
 
 func (this SRT) MaxEncodedLen(srcLen int) int {
-	return srcLen + SRT_HEADER_SIZE
+	return srcLen + _SRT_HEADER_SIZE
 }

@@ -31,11 +31,13 @@ import (
 // This code implements SBR(0), SBR(1/2) and SBR(1). Code derived from openBWT
 
 const (
-	SBRT_MODE_MTF       = 1 // alpha = 0
-	SBRT_MODE_RANK      = 2 // alpha = 1/2
-	SBRT_MODE_TIMESTAMP = 3 // alpha = 1
+	SBRT_MODE_MTF       = 1 // mode MoveToFront
+	SBRT_MODE_RANK      = 2 // mode Rank
+	SBRT_MODE_TIMESTAMP = 3 // mode TimeStamp
+	_SBRT_CHUNK_SIZE    = 8 * 1024 * 1024
 )
 
+// SBRT Sort By Rank Transform
 type SBRT struct {
 	mode  int
 	mask1 int
@@ -43,6 +45,7 @@ type SBRT struct {
 	shift uint
 }
 
+// NewSBRT creates a new instance of SBRT
 func NewSBRT(mode int) (*SBRT, error) {
 	if mode != SBRT_MODE_MTF && mode != SBRT_MODE_RANK && mode != SBRT_MODE_TIMESTAMP {
 		return nil, errors.New("Invalid mode parameter")
@@ -72,6 +75,9 @@ func NewSBRT(mode int) (*SBRT, error) {
 	return this, nil
 }
 
+// Forward applies the function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *SBRT) Forward(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
@@ -84,7 +90,7 @@ func (this *SBRT) Forward(src, dst []byte) (uint, uint, error) {
 	count := len(src)
 
 	if count > len(dst) {
-		errMsg := fmt.Sprintf("Block size is %v, output buffer length is %v", count, len(src))
+		errMsg := fmt.Sprintf("Block size is %v, output buffer length is %v", count, len(dst))
 		return 0, 0, errors.New(errMsg)
 	}
 
@@ -123,6 +129,9 @@ func (this *SBRT) Forward(src, dst []byte) (uint, uint, error) {
 	return uint(count), uint(count), nil
 }
 
+// Inverse applies the reverse function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *SBRT) Inverse(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
@@ -135,7 +144,7 @@ func (this *SBRT) Inverse(src, dst []byte) (uint, uint, error) {
 	count := len(src)
 
 	if count > len(dst) {
-		errMsg := fmt.Sprintf("Block size is %v, output buffer length is %v", count, len(src))
+		errMsg := fmt.Sprintf("Block size is %v, output buffer length is %v", count, len(dst))
 		return 0, 0, errors.New(errMsg)
 	}
 
