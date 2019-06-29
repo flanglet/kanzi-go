@@ -22,15 +22,17 @@ import (
 )
 
 const (
-	TRANSFORM_SKIP_MASK = 0xFF
+	_TRANSFORM_SKIP_MASK = 0xFF
 )
 
-// Encapsulates a sequence of transforms or functions in a function
+// ByteTransformSequence encapsulates a sequence of transforms or functions in a function
 type ByteTransformSequence struct {
 	transforms []kanzi.ByteTransform // transforms or functions
 	skipFlags  byte                  // skip transforms
 }
 
+// NewByteTransformSequence creates a new instance of NewByteTransformSequence
+// containing the transforms provided as parameter.
 func NewByteTransformSequence(transforms []kanzi.ByteTransform) (*ByteTransformSequence, error) {
 	if transforms == nil {
 		return nil, errors.New("Invalid null transforms parameter")
@@ -46,6 +48,10 @@ func NewByteTransformSequence(transforms []kanzi.ByteTransform) (*ByteTransformS
 	return this, nil
 }
 
+// Forward applies the function to the src and writes the result
+// to the destination. Runs Forward on each transform in the sequence.
+// Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
@@ -103,13 +109,17 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 		copy(out, in[0:length])
 	}
 
-	if this.skipFlags != TRANSFORM_SKIP_MASK {
+	if this.skipFlags != _TRANSFORM_SKIP_MASK {
 		err = nil
 	}
 
 	return uint(blockSize), length, err
 }
 
+// Inverse applies the reverse function to the src and writes the result
+// to the destination. Runs Inverse on each transform in the sequence.
+// Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
@@ -118,7 +128,7 @@ func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) 
 	blockSize := len(src)
 	length := uint(blockSize)
 
-	if this.skipFlags == TRANSFORM_SKIP_MASK {
+	if this.skipFlags == _TRANSFORM_SKIP_MASK {
 		if &src[0] != &dst[0] {
 			copy(dst, src)
 		}
@@ -158,6 +168,7 @@ func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) 
 	return uint(blockSize), length, res
 }
 
+// MaxEncodedLen returns the max size required for the encoding output buffer
 func (this ByteTransformSequence) MaxEncodedLen(srcLen int) int {
 	requiredSize := srcLen
 
@@ -174,14 +185,18 @@ func (this ByteTransformSequence) MaxEncodedLen(srcLen int) int {
 	return requiredSize
 }
 
-func (this *ByteTransformSequence) NbFunctions() int {
+// Len returns the number of functions in the sequence (in [0..8])
+func (this *ByteTransformSequence) Len() int {
 	return len(this.transforms)
 }
 
+// SkipFlags returns the flags describing which function to
+// skip (bit set to 1)
 func (this *ByteTransformSequence) SkipFlags() byte {
 	return this.skipFlags
 }
 
+// SetSkipFlags sets the flags describing which function to skip
 func (this *ByteTransformSequence) SetSkipFlags(flags byte) bool {
 	this.skipFlags = flags
 	return true

@@ -24,9 +24,9 @@ import (
 )
 
 const (
-	BFF_ONE_SHIFT = uint(6)                 // bits per transform
-	BFF_MAX_SHIFT = (8 - 1) * BFF_ONE_SHIFT // 8 transforms
-	BFF_MASK      = (1 << BFF_ONE_SHIFT) - 1
+	_BFF_ONE_SHIFT = uint(6)                  // bits per transform
+	_BFF_MAX_SHIFT = (8 - 1) * _BFF_ONE_SHIFT // 8 transforms
+	_BFF_MASK      = (1 << _BFF_ONE_SHIFT) - 1
 
 	// Up to 64 transforms can be declared (6 bit index)
 	NONE_TYPE   = uint64(0)  // copy
@@ -45,12 +45,14 @@ const (
 	SRT_TYPE    = uint64(13) // Sorted Rank
 )
 
+// NewByteFunction creates a new instance of ByteTransformSequence based on the provided
+// function type.
 func NewByteFunction(ctx *map[string]interface{}, functionType uint64) (*ByteTransformSequence, error) {
 	nbtr := 0
 
 	// Several transforms
 	for i := uint(0); i < 8; i++ {
-		if (functionType>>(BFF_MAX_SHIFT-BFF_ONE_SHIFT*i))&BFF_MASK != NONE_TYPE {
+		if (functionType>>(_BFF_MAX_SHIFT-_BFF_ONE_SHIFT*i))&_BFF_MASK != NONE_TYPE {
 			nbtr++
 		}
 	}
@@ -65,7 +67,7 @@ func NewByteFunction(ctx *map[string]interface{}, functionType uint64) (*ByteTra
 	var err error
 
 	for i := range transforms {
-		t := (functionType >> (BFF_MAX_SHIFT - BFF_ONE_SHIFT*uint(i))) & BFF_MASK
+		t := (functionType >> (_BFF_MAX_SHIFT - _BFF_ONE_SHIFT*uint(i))) & _BFF_MASK
 
 		if t != NONE_TYPE || i == 0 {
 			if transforms[nbtr], err = newByteFunctionToken(ctx, t); err != nil {
@@ -139,11 +141,12 @@ func newByteFunctionToken(ctx *map[string]interface{}, functionType uint64) (kan
 	}
 }
 
+// GetName transforms the function type into a function name
 func GetName(functionType uint64) string {
 	var s string
 
 	for i := uint(0); i < 8; i++ {
-		t := (functionType >> (BFF_MAX_SHIFT - BFF_ONE_SHIFT*i)) & BFF_MASK
+		t := (functionType >> (_BFF_MAX_SHIFT - _BFF_ONE_SHIFT*i)) & _BFF_MASK
 
 		if t == NONE_TYPE {
 			continue
@@ -212,10 +215,11 @@ func getByteFunctionNameToken(functionType uint64) string {
 	}
 }
 
-// The returned type contains 8  transform values
+// GetType transforms the function name into a function type.
+// The returned type contains 8 transform type values (masks).
 func GetType(name string) uint64 {
 	if strings.IndexByte(name, byte('+')) < 0 {
-		return getByteFunctionTypeToken(name) << BFF_MAX_SHIFT
+		return getByteFunctionTypeToken(name) << _BFF_MAX_SHIFT
 	}
 
 	tokens := strings.Split(name, "+")
@@ -229,7 +233,7 @@ func GetType(name string) uint64 {
 	}
 
 	res := uint64(0)
-	shift := BFF_MAX_SHIFT
+	shift := _BFF_MAX_SHIFT
 
 	for _, token := range tokens {
 		tkType := getByteFunctionTypeToken(token)
@@ -237,7 +241,7 @@ func GetType(name string) uint64 {
 		// Skip null transform
 		if tkType != NONE_TYPE {
 			res |= (tkType << shift)
-			shift -= BFF_ONE_SHIFT
+			shift -= _BFF_ONE_SHIFT
 		}
 	}
 
