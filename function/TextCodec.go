@@ -1684,13 +1684,12 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 					break
 				}
 
-				mask := 0
-
-				if pe != pe1 {
-					mask = 32
+				if pe == pe1 {
+					dstIdx += emitWordIndex2(dst[dstIdx:dstIdx+3], int(pe.data&0x00FFFFFF), 0)
+				} else {
+					dstIdx += emitWordIndex2(dst[dstIdx:dstIdx+3], int(pe.data&0x00FFFFFF), 32)
 				}
 
-				dstIdx += emitWordIndex2(dst[dstIdx:dstIdx+3], int(pe.data&0x00FFFFFF), mask)
 				emitAnchor = delimAnchor + 1 + int(pe.data>>24)
 			}
 		}
