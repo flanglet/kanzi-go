@@ -128,7 +128,7 @@ func newByteFunctionToken(ctx *map[string]interface{}, functionType uint64) (kan
 		return NewRLT()
 
 	case LZ_TYPE:
-		return NewLZ4Codec()
+		return NewLZCodec()
 
 	case X86_TYPE:
 		return NewX86Codec()

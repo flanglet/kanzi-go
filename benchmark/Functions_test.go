@@ -28,7 +28,7 @@ func BenchmarkLZ(b *testing.B) {
 	size := 50000
 
 	for jj := 0; jj < 3; jj++ {
-		bf, _ := function.NewLZ4Codec()
+		bf, _ := function.NewLZCodec()
 		input := make([]byte, size)
 		output := make([]byte, bf.MaxEncodedLen(size))
 		reverse := make([]byte, size)
@@ -53,7 +53,7 @@ func BenchmarkLZ(b *testing.B) {
 		var err error
 
 		for ii := 0; ii < iter; ii++ {
-			f, _ := function.NewLZ4Codec()
+			f, _ := function.NewLZCodec()
 
 			_, dstIdx, err = f.Forward(input, output)
 
@@ -64,7 +64,7 @@ func BenchmarkLZ(b *testing.B) {
 		}
 
 		for ii := 0; ii < iter; ii++ {
-			f, _ := function.NewLZ4Codec()
+			f, _ := function.NewLZCodec()
 
 			if _, _, err = f.Inverse(output[0:dstIdx], reverse); err != nil {
 				msg := fmt.Sprintf("Decoding error : %v\n", err)

@@ -21,45 +21,42 @@ import (
 	"fmt"
 )
 
-// Go implementation of a LZ4 codec.
-// LZ4 is a very fast lossless compression algorithm created by Yann Collet.
-// See original code here: https://github.com/lz4/lz4
-// More details on the algorithm are available here:
-// http://fastcompression.blogspot.com/2011/05/lz4-explained.html
+// Simple byte oriented LZ77 codec implementation.
+// It is just LZ4 modified to use a bigger hash map.
 
 const (
-	LZ4_HASH_SEED   = 0x9E3779B1
-	HASH_LOG        = 12
-	HASH_LOG_64K    = 13
-	MAX_DISTANCE    = (1 << 16) - 1
-	SKIP_STRENGTH   = 6
-	LAST_LITERALS   = 5
-	MIN_MATCH       = 4
-	MF_LIMIT        = 12
-	LZ4_64K_LIMIT   = MAX_DISTANCE + MF_LIMIT
-	ML_BITS         = 4
-	ML_MASK         = (1 << ML_BITS) - 1
-	RUN_BITS        = 8 - ML_BITS
-	RUN_MASK        = (1 << RUN_BITS) - 1
-	COPY_LENGTH     = 8
-	MIN_LENGTH      = 14
-	MAX_LENGTH      = (32 * 1024 * 1024) - 4 - MIN_MATCH
-	ACCELERATION    = 1
-	SKIP_TRIGGER    = 6
-	SEARCH_MATCH_NB = ACCELERATION << SKIP_TRIGGER
+	_LZ_HASH_SEED    = 0x9E3779B1
+	_HASH_LOG_SMALL  = 12
+	_HASH_LOG_BIG    = 16
+	_MAX_DISTANCE    = (1 << 16) - 1
+	_SKIP_STRENGTH   = 6
+	_LAST_LITERALS   = 5
+	_MIN_MATCH       = 4
+	_MF_LIMIT        = 12
+	_ML_BITS         = 4
+	_ML_MASK         = (1 << _ML_BITS) - 1
+	_RUN_BITS        = 8 - _ML_BITS
+	_RUN_MASK        = (1 << _RUN_BITS) - 1
+	_COPY_LENGTH     = 8
+	_MIN_LENGTH      = 14
+	_MAX_LENGTH      = (32 * 1024 * 1024) - 4 - _MIN_MATCH
+	_SKIP_TRIGGER    = 6
+	_SEARCH_MATCH_NB = 1 << _SKIP_TRIGGER
 )
 
-type LZ4Codec struct {
+// LZCodec Lempel Ziv (LZ77) codec based on LZ4
+type LZCodec struct {
 	buffer []int32
 }
 
-func NewLZ4Codec() (*LZ4Codec, error) {
-	this := new(LZ4Codec)
-	this.buffer = make([]int32, 1<<HASH_LOG_64K)
+// NewLZCodec creates a new instance of LZCodec
+func NewLZCodec() (*LZCodec, error) {
+	this := new(LZCodec)
+	this.buffer = make([]int32, 0)
 	return this, nil
 }
 
-func writeLength(buf []byte, length int) int {
+func emitLength(buf []byte, length int) int {
 	idx := 0
 
 	for length >= 0x1FE {
@@ -79,24 +76,25 @@ func writeLength(buf []byte, length int) int {
 	return idx + 1
 }
 
-func writeLastLiterals(src, dst []byte) int {
+func emitLastLiterals(src, dst []byte) int {
 	dstIdx := 1
 	runLength := len(src)
 
-	if runLength >= RUN_MASK {
-		dst[0] = byte(RUN_MASK << ML_BITS)
-		dstIdx += writeLength(dst[1:], runLength-RUN_MASK)
+	if runLength >= _RUN_MASK {
+		dst[0] = byte(_RUN_MASK << _ML_BITS)
+		dstIdx += emitLength(dst[1:], runLength-_RUN_MASK)
 	} else {
-		dst[0] = byte(runLength << ML_BITS)
+		dst[0] = byte(runLength << _ML_BITS)
 	}
 
 	copy(dst[dstIdx:], src[0:runLength])
 	return dstIdx + runLength
 }
 
-// Generates same byte output as LZ4_compress_generic in LZ4 r131 (7/15)
-// for a 32 bit architecture.
-func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
+// Forward applies the function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
+func (this *LZCodec) Forward(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
 	}
@@ -113,37 +111,40 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 
 	var hashLog uint
 
-	if count < LZ4_64K_LIMIT {
-		hashLog = HASH_LOG_64K
+	if count < _MAX_DISTANCE {
+		hashLog = _HASH_LOG_SMALL
 	} else {
-		hashLog = HASH_LOG
+		hashLog = _HASH_LOG_BIG
 	}
 
 	hashShift := 32 - hashLog
 	srcEnd := count
-	matchLimit := srcEnd - LAST_LITERALS
-	mfLimit := srcEnd - MF_LIMIT
+	matchLimit := srcEnd - _LAST_LITERALS
+	mfLimit := srcEnd - _MF_LIMIT
 	srcIdx := 0
 	dstIdx := 0
 	anchor := 0
 
-	if count > MIN_LENGTH {
-		table := this.buffer[0 : 1<<hashLog]
-
-		for i := range table {
-			table[i] = 0
+	if count > _MIN_LENGTH {
+		if len(this.buffer) < 1<<hashLog {
+			this.buffer = make([]int32, 1<<hashLog)
+		} else {
+			for i := range this.buffer {
+				this.buffer[i] = 0
+			}
 		}
 
 		// First byte
-		h32 := (binary.LittleEndian.Uint32(src[srcIdx:]) * LZ4_HASH_SEED) >> hashShift
+		table := this.buffer
+		h32 := (binary.LittleEndian.Uint32(src[srcIdx:]) * _LZ_HASH_SEED) >> hashShift
 		table[h32] = int32(srcIdx)
 		srcIdx++
-		h32 = (binary.LittleEndian.Uint32(src[srcIdx:]) * LZ4_HASH_SEED) >> hashShift
+		h32 = (binary.LittleEndian.Uint32(src[srcIdx:]) * _LZ_HASH_SEED) >> hashShift
 
 		for {
 			fwdIdx := srcIdx
 			step := 1
-			searchMatchNb := SEARCH_MATCH_NB
+			searchMatchNb := _SEARCH_MATCH_NB
 			var match int
 
 			// Find a match
@@ -152,18 +153,18 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 				fwdIdx += step
 
 				if fwdIdx > mfLimit {
-					// Encode last literals
-					dstIdx += writeLastLiterals(src[anchor:srcEnd], dst[dstIdx:])
+					// Emit last literals
+					dstIdx += emitLastLiterals(src[anchor:srcEnd], dst[dstIdx:])
 					return uint(srcEnd), uint(dstIdx), error(nil)
 				}
 
-				step = searchMatchNb >> SKIP_STRENGTH
+				step = searchMatchNb >> _SKIP_STRENGTH
 				searchMatchNb++
 				match = int(table[h32])
 				table[h32] = int32(srcIdx)
-				h32 = (binary.LittleEndian.Uint32(src[fwdIdx:]) * LZ4_HASH_SEED) >> hashShift
+				h32 = (binary.LittleEndian.Uint32(src[fwdIdx:]) * _LZ_HASH_SEED) >> hashShift
 
-				if binary.LittleEndian.Uint32(src[srcIdx:]) == binary.LittleEndian.Uint32(src[match:]) && match > srcIdx-MAX_DISTANCE {
+				if binary.LittleEndian.Uint32(src[srcIdx:]) == binary.LittleEndian.Uint32(src[match:]) && match > srcIdx-_MAX_DISTANCE {
 					break
 				}
 			}
@@ -174,16 +175,16 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 				srcIdx--
 			}
 
-			// Encode literal length
+			// Emit literal length
 			litLength := srcIdx - anchor
 			token := dstIdx
 			dstIdx++
 
-			if litLength >= RUN_MASK {
-				dst[token] = byte(RUN_MASK << ML_BITS)
-				dstIdx += writeLength(dst[dstIdx:], litLength-RUN_MASK)
+			if litLength >= _RUN_MASK {
+				dst[token] = byte(_RUN_MASK << _ML_BITS)
+				dstIdx += emitLength(dst[dstIdx:], litLength-_RUN_MASK)
 			} else {
-				dst[token] = byte(litLength << ML_BITS)
+				dst[token] = byte(litLength << _ML_BITS)
 			}
 
 			// Copy literals
@@ -192,14 +193,14 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 
 			// Next match
 			for {
-				// Encode offset
+				// Emit offset
 				dst[dstIdx] = byte(srcIdx - match)
 				dst[dstIdx+1] = byte((srcIdx - match) >> 8)
 				dstIdx += 2
 
-				// Encode match length
-				srcIdx += MIN_MATCH
-				match += MIN_MATCH
+				// Emit match length
+				srcIdx += _MIN_MATCH
+				match += _MIN_MATCH
 				anchor = srcIdx
 
 				for srcIdx < matchLimit && src[srcIdx] == src[match] {
@@ -209,10 +210,10 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 
 				matchLength := srcIdx - anchor
 
-				// Encode match length
-				if matchLength >= ML_MASK {
-					dst[token] += byte(ML_MASK)
-					dstIdx += writeLength(dst[dstIdx:], matchLength-ML_MASK)
+				// Emit match length
+				if matchLength >= _ML_MASK {
+					dst[token] += byte(_ML_MASK)
+					dstIdx += emitLength(dst[dstIdx:], matchLength-_ML_MASK)
 				} else {
 					dst[token] += byte(matchLength)
 				}
@@ -220,20 +221,20 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 				anchor = srcIdx
 
 				if srcIdx > mfLimit {
-					dstIdx += writeLastLiterals(src[anchor:srcEnd], dst[dstIdx:])
+					dstIdx += emitLastLiterals(src[anchor:srcEnd], dst[dstIdx:])
 					return uint(srcEnd), uint(dstIdx), error(nil)
 				}
 
 				// Fill table
-				h32 = (binary.LittleEndian.Uint32(src[srcIdx-2:]) * LZ4_HASH_SEED) >> hashShift
+				h32 = (binary.LittleEndian.Uint32(src[srcIdx-2:]) * _LZ_HASH_SEED) >> hashShift
 				table[h32] = int32(srcIdx - 2)
 
 				// Test next position
-				h32 = (binary.LittleEndian.Uint32(src[srcIdx:]) * LZ4_HASH_SEED) >> hashShift
+				h32 = (binary.LittleEndian.Uint32(src[srcIdx:]) * _LZ_HASH_SEED) >> hashShift
 				match = int(table[h32])
 				table[h32] = int32(srcIdx)
 
-				if binary.LittleEndian.Uint32(src[srcIdx:]) != binary.LittleEndian.Uint32(src[match:]) || match <= srcIdx-MAX_DISTANCE {
+				if binary.LittleEndian.Uint32(src[srcIdx:]) != binary.LittleEndian.Uint32(src[match:]) || match <= srcIdx-_MAX_DISTANCE {
 					break
 				}
 
@@ -244,18 +245,19 @@ func (this *LZ4Codec) Forward(src, dst []byte) (uint, uint, error) {
 
 			// Prepare next loop
 			srcIdx++
-			h32 = (binary.LittleEndian.Uint32(src[srcIdx:]) * LZ4_HASH_SEED) >> hashShift
+			h32 = (binary.LittleEndian.Uint32(src[srcIdx:]) * _LZ_HASH_SEED) >> hashShift
 		}
 	}
 
-	// Encode last literals
-	dstIdx += writeLastLiterals(src[anchor:srcEnd], dst[dstIdx:])
+	// Emit last literals
+	dstIdx += emitLastLiterals(src[anchor:srcEnd], dst[dstIdx:])
 	return uint(srcEnd), uint(dstIdx), error(nil)
 }
 
-// Reads same byte input as LZ4_decompress_generic in LZ4 r131 (7/15)
-// for a 32 bit architecture.
-func (this *LZ4Codec) Inverse(src, dst []byte) (uint, uint, error) {
+// Inverse applies the reverse function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
+func (this *LZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
 	}
@@ -265,8 +267,8 @@ func (this *LZ4Codec) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	count := len(src)
-	srcEnd := count - COPY_LENGTH
-	dstEnd := len(dst) - COPY_LENGTH
+	srcEnd := count - _COPY_LENGTH
+	dstEnd := len(dst) - _COPY_LENGTH
 	srcIdx := 0
 	dstIdx := 0
 
@@ -274,9 +276,9 @@ func (this *LZ4Codec) Inverse(src, dst []byte) (uint, uint, error) {
 		// Get literal length
 		token := int(src[srcIdx])
 		srcIdx++
-		length := token >> ML_BITS
+		length := token >> _ML_BITS
 
-		if length == RUN_MASK {
+		if length == _RUN_MASK {
 			for src[srcIdx] == byte(0xFF) && srcIdx < count {
 				srcIdx++
 				length += 0xFF
@@ -285,7 +287,7 @@ func (this *LZ4Codec) Inverse(src, dst []byte) (uint, uint, error) {
 			length += int(src[srcIdx])
 			srcIdx++
 
-			if length > MAX_LENGTH {
+			if length > _MAX_LENGTH {
 				return 0, 0, fmt.Errorf("Invalid length decoded: %d", length)
 			}
 		}
@@ -318,10 +320,10 @@ func (this *LZ4Codec) Inverse(src, dst []byte) (uint, uint, error) {
 			break
 		}
 
-		length = token & ML_MASK
+		length = token & _ML_MASK
 
 		// Get match length
-		if length == ML_MASK {
+		if length == _ML_MASK {
 			for src[srcIdx] == 0xFF && srcIdx < count {
 				srcIdx++
 				length += 0xFF
@@ -332,12 +334,12 @@ func (this *LZ4Codec) Inverse(src, dst []byte) (uint, uint, error) {
 				srcIdx++
 			}
 
-			if length > MAX_LENGTH || srcIdx == count {
+			if length > _MAX_LENGTH || srcIdx == count {
 				return 0, 0, fmt.Errorf("Invalid length decoded: %d", length)
 			}
 		}
 
-		length += MIN_MATCH
+		length += _MIN_MATCH
 		cpy := dstIdx + length
 
 		if cpy > dstEnd {
@@ -386,7 +388,8 @@ func (this *LZ4Codec) Inverse(src, dst []byte) (uint, uint, error) {
 	return uint(srcIdx), uint(dstIdx), nil
 }
 
-func (this LZ4Codec) MaxEncodedLen(srcLen int) int {
+// MaxEncodedLen returns the max size required for the encoding output buffer
+func (this LZCodec) MaxEncodedLen(srcLen int) int {
 	if srcLen >= 1<<30 {
 		return srcLen
 	}

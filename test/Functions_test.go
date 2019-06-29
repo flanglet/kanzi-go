@@ -28,7 +28,7 @@ import (
 func getByteFunction(name string) (kanzi.ByteFunction, error) {
 	switch name {
 	case "LZ":
-		res, err := function.NewLZ4Codec()
+		res, err := function.NewLZCodec()
 		return res, err
 
 	case "ZRLT":
