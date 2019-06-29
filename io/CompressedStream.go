@@ -574,7 +574,7 @@ func (this *encodingTask) encode() {
 	// Write block 'header' (mode + compressed length)
 	written := this.obs.Written()
 
-	if ((mode & COPY_BLOCK_MASK) != 0) || (t.NbFunctions() <= 4) {
+	if ((mode & COPY_BLOCK_MASK) != 0) || (t.Len() <= 4) {
 		mode |= byte(t.SkipFlags() >> 4)
 		this.obs.WriteBits(uint64(mode), 8)
 	} else {
