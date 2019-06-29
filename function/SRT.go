@@ -28,7 +28,7 @@ const (
 	_SRT_CHUNK_SIZE  = 8 * 1024 * 1024
 )
 
-// SRT  Sorted Ranks Transform
+// SRT Sorted Ranks Transform
 type SRT struct {
 }
 

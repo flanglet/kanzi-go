@@ -20,22 +20,31 @@ import (
 	"fmt"
 )
 
+// X86Codec is a codec that replaces relative jumps addresses with
+// absolute ones in X86 code (to improve entropy coding).
+// Adapted from MCM: https://github.com/mathieuchartier/mcm/blob/master/X86Binary.hpp
+
 const (
-	X86_INSTRUCTION_MASK = 0xFE
-	X86_INSTRUCTION_JUMP = 0xE8
-	X86_ADDRESS_MASK     = 0xD5
-	X86_ESCAPE           = 0x02
+	_X86_INSTRUCTION_MASK = 0xFE
+	_X86_INSTRUCTION_JUMP = 0xE8
+	_X86_ADDRESS_MASK     = 0xD5
+	_X86_ESCAPE           = 0x02
 )
 
-// Adapted from MCM: https://github.com/mathieuchartier/mcm/blob/master/X86Binary.hpp
+// X86Codec a codec for x86 code
 type X86Codec struct {
 }
 
+// NewX86Codec creates a new instance of X86Codec
 func NewX86Codec() (*X86Codec, error) {
 	this := &X86Codec{}
 	return this, nil
 }
 
+// Forward applies the function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error. If the source data does not represent
+// X86 code, an error is returned.
 func (this *X86Codec) Forward(src, dst []byte) (uint, uint, error) {
 	if &src[0] == &dst[0] {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
@@ -51,11 +60,11 @@ func (this *X86Codec) Forward(src, dst []byte) (uint, uint, error) {
 	end := count - 8
 
 	for i := 0; i < end; i++ {
-		if src[i]&X86_INSTRUCTION_MASK == X86_INSTRUCTION_JUMP {
+		if src[i]&_X86_INSTRUCTION_MASK == _X86_INSTRUCTION_JUMP {
 			// Count valid relative jumps (E8/E9 .. .. .. 00/FF)
 			if src[i+4] == 0 || src[i+4] == 255 {
 				// No encoding conflict ?
-				if src[i] != 0 && src[i] != 1 && src[i] != X86_ESCAPE {
+				if src[i] != 0 && src[i] != 1 && src[i] != _X86_ESCAPE {
 					jumps++
 				}
 			}
@@ -78,15 +87,15 @@ func (this *X86Codec) Forward(src, dst []byte) (uint, uint, error) {
 		srcIdx++
 
 		// Relative jump ?
-		if src[srcIdx-1]&X86_INSTRUCTION_MASK != X86_INSTRUCTION_JUMP {
+		if src[srcIdx-1]&_X86_INSTRUCTION_MASK != _X86_INSTRUCTION_JUMP {
 			continue
 		}
 
 		cur := src[srcIdx]
 
-		if cur == 0 || cur == 1 || cur == X86_ESCAPE {
+		if cur == 0 || cur == 1 || cur == _X86_ESCAPE {
 			// Conflict prevents encoding the address. Emit escape symbol
-			dst[dstIdx] = X86_ESCAPE
+			dst[dstIdx] = _X86_ESCAPE
 			dst[dstIdx+1] = cur
 			srcIdx++
 			dstIdx += 2
@@ -105,9 +114,9 @@ func (this *X86Codec) Forward(src, dst []byte) (uint, uint, error) {
 
 		addr += int32(srcIdx)
 		dst[dstIdx] = sgn + 1
-		dst[dstIdx+1] = X86_ADDRESS_MASK ^ byte(addr>>16)
-		dst[dstIdx+2] = X86_ADDRESS_MASK ^ byte(addr>>8)
-		dst[dstIdx+3] = X86_ADDRESS_MASK ^ byte(addr)
+		dst[dstIdx+1] = _X86_ADDRESS_MASK ^ byte(addr>>16)
+		dst[dstIdx+2] = _X86_ADDRESS_MASK ^ byte(addr>>8)
+		dst[dstIdx+3] = _X86_ADDRESS_MASK ^ byte(addr)
 		srcIdx += 4
 		dstIdx += 4
 	}
@@ -121,6 +130,9 @@ func (this *X86Codec) Forward(src, dst []byte) (uint, uint, error) {
 	return uint(srcIdx), uint(dstIdx), nil
 }
 
+// Inverse applies the reverse function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *X86Codec) Inverse(src, dst []byte) (uint, uint, error) {
 	if &src[0] == &dst[0] {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
@@ -137,13 +149,13 @@ func (this *X86Codec) Inverse(src, dst []byte) (uint, uint, error) {
 		srcIdx++
 
 		// Relative jump ?
-		if src[srcIdx-1]&X86_INSTRUCTION_MASK != X86_INSTRUCTION_JUMP {
+		if src[srcIdx-1]&_X86_INSTRUCTION_MASK != _X86_INSTRUCTION_JUMP {
 			continue
 		}
 
 		sgn := src[srcIdx]
 
-		if sgn == X86_ESCAPE {
+		if sgn == _X86_ESCAPE {
 			// Not an encoded address. Skip escape symbol
 			srcIdx++
 			continue
@@ -154,9 +166,9 @@ func (this *X86Codec) Inverse(src, dst []byte) (uint, uint, error) {
 			continue
 		}
 
-		addr := (X86_ADDRESS_MASK ^ int32(src[srcIdx+3])) |
-			((X86_ADDRESS_MASK ^ int32(src[srcIdx+2])) << 8) |
-			((X86_ADDRESS_MASK ^ int32(src[srcIdx+1])) << 16) |
+		addr := (_X86_ADDRESS_MASK ^ int32(src[srcIdx+3])) |
+			((_X86_ADDRESS_MASK ^ int32(src[srcIdx+2])) << 8) |
+			((_X86_ADDRESS_MASK ^ int32(src[srcIdx+1])) << 16) |
 			((0xFF & int32(sgn-1)) << 24)
 
 		addr -= int32(dstIdx)
@@ -177,6 +189,7 @@ func (this *X86Codec) Inverse(src, dst []byte) (uint, uint, error) {
 	return uint(srcIdx), uint(dstIdx), nil
 }
 
+// MaxEncodedLen returns the max size required for the encoding output buffer
 func (this X86Codec) MaxEncodedLen(srcLen int) int {
 	// Since we do not check the dst index for each byte (for speed purpose)
 	// allocate some extra buffer for incompressible data.

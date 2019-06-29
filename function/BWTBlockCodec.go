@@ -39,18 +39,23 @@ const (
 //         bits 5-0 contain 6 most significant bits of primary index
 //   primary index: remaining bits (up to 3 bytes)
 
+// BWTBlockCodec a codec that encapsulates a Burrows Wheeler Transform and
+// takes care of encoding/decoding information about the primary indexes in a header.
 type BWTBlockCodec struct {
 	bwt *transform.BWT
 }
 
+// NewBWTBlockCodec creates a new instance of BWTBlockCodec
 func NewBWTBlockCodec(ctx *map[string]interface{}) (*BWTBlockCodec, error) {
-
 	this := &BWTBlockCodec{}
 	var err error
 	this.bwt, err = transform.NewBWTWithCtx(ctx)
 	return this, err
 }
 
+// Forward applies the function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
@@ -135,6 +140,9 @@ func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 	return iIdx, oIdx, nil
 }
 
+// Inverse applies the reverse function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *BWTBlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
@@ -178,6 +186,7 @@ func (this *BWTBlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	return this.bwt.Inverse(src[srcIdx:srcIdx+blockSize], dst)
 }
 
+// MaxEncodedLen returns the max size required for the encoding output buffer
 func (this BWTBlockCodec) MaxEncodedLen(srcLen int) int {
 	return srcLen + BWT_MAX_HEADER_SIZE + transform.MaxBWTBlockSize()
 }

@@ -30,21 +30,26 @@ import (
 )
 
 const (
-	RLT_RUN_LEN_ENCODE1 = 224                              // used to encode run length
-	RLT_RUN_LEN_ENCODE2 = (255 - RLT_RUN_LEN_ENCODE1) << 8 // used to encode run length
-	RLT_RUN_THRESHOLD   = 3
-	RLT_MAX_RUN         = 0xFFFF + RLT_RUN_LEN_ENCODE2 + RLT_RUN_THRESHOLD - 1
-	RLT_MAX_RUN4        = RLT_MAX_RUN - 4
+	_RLT_RUN_LEN_ENCODE1 = 224                               // used to encode run length
+	_RLT_RUN_LEN_ENCODE2 = (255 - _RLT_RUN_LEN_ENCODE1) << 8 // used to encode run length
+	_RLT_RUN_THRESHOLD   = 3
+	_RLT_MAX_RUN         = 0xFFFF + _RLT_RUN_LEN_ENCODE2 + _RLT_RUN_THRESHOLD - 1
+	_RLT_MAX_RUN4        = _RLT_MAX_RUN - 4
 )
 
+// RLT a Run Length Transform with escape symbol
 type RLT struct {
 }
 
+// NewRLT creates a new instance of RLT
 func NewRLT() (*RLT, error) {
 	this := &RLT{}
 	return this, nil
 }
 
+// Forward applies the function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
@@ -114,7 +119,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 						srcIdx++
 						run++
 
-						if run < RLT_MAX_RUN4 {
+						if run < _RLT_MAX_RUN4 {
 							continue
 						}
 					}
@@ -122,7 +127,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 			}
 		}
 
-		if run > RLT_RUN_THRESHOLD {
+		if run > _RLT_RUN_THRESHOLD {
 			dIdx, err2 := emitRunLength(dst[dstIdx:dstEnd], run, escape, prev)
 
 			if err2 != nil {
@@ -169,7 +174,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 
 	if err == nil {
 		// Process any remaining run
-		if run > RLT_RUN_THRESHOLD {
+		if run > _RLT_RUN_THRESHOLD {
 			dIdx, err2 := emitRunLength(dst[dstIdx:dstEnd], run, escape, prev)
 
 			if err2 != nil {
@@ -222,24 +227,24 @@ func emitRunLength(dst []byte, run int, escape, val byte) (int, error) {
 
 	dst[dstIdx] = escape
 	dstIdx++
-	run -= RLT_RUN_THRESHOLD
+	run -= _RLT_RUN_THRESHOLD
 
 	// Encode run length
-	if run >= RLT_RUN_LEN_ENCODE1 {
-		if run < RLT_RUN_LEN_ENCODE2 {
+	if run >= _RLT_RUN_LEN_ENCODE1 {
+		if run < _RLT_RUN_LEN_ENCODE2 {
 			if dstIdx >= len(dst)-2 {
 				return dstIdx, errors.New("Output buffer too small")
 			}
 
-			run -= RLT_RUN_LEN_ENCODE1
-			dst[dstIdx] = byte(RLT_RUN_LEN_ENCODE1 + (run >> 8))
+			run -= _RLT_RUN_LEN_ENCODE1
+			dst[dstIdx] = byte(_RLT_RUN_LEN_ENCODE1 + (run >> 8))
 			dstIdx++
 		} else {
 			if dstIdx >= len(dst)-3 {
 				return dstIdx, errors.New("Output buffer too small")
 			}
 
-			run -= RLT_RUN_LEN_ENCODE2
+			run -= _RLT_RUN_LEN_ENCODE2
 			dst[dstIdx] = byte(0xFF)
 			dst[dstIdx+1] = byte(run >> 8)
 			dstIdx += 2
@@ -250,6 +255,9 @@ func emitRunLength(dst []byte, run int, escape, val byte) (int, error) {
 	return dstIdx + 1, nil
 }
 
+// Inverse applies the reverse function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
@@ -327,22 +335,22 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 
 			run = (int(src[srcIdx]) << 8) | int(src[srcIdx+1])
 			srcIdx += 2
-			run += RLT_RUN_LEN_ENCODE2
-		} else if run >= RLT_RUN_LEN_ENCODE1 {
+			run += _RLT_RUN_LEN_ENCODE2
+		} else if run >= _RLT_RUN_LEN_ENCODE1 {
 			if srcIdx >= srcEnd {
 				err = errors.New("Invalid input data")
 				break
 			}
 
-			run = ((run - RLT_RUN_LEN_ENCODE1) << 8) | int(src[srcIdx])
-			run += RLT_RUN_LEN_ENCODE1
+			run = ((run - _RLT_RUN_LEN_ENCODE1) << 8) | int(src[srcIdx])
+			run += _RLT_RUN_LEN_ENCODE1
 			srcIdx++
 		}
 
-		run += (RLT_RUN_THRESHOLD - 1)
+		run += (_RLT_RUN_THRESHOLD - 1)
 
 		// Sanity check
-		if dstIdx+run >= dstEnd || run > RLT_MAX_RUN {
+		if dstIdx+run >= dstEnd || run > _RLT_MAX_RUN {
 			err = errors.New("Invalid run length")
 			break
 		}
@@ -371,6 +379,7 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 	return uint(srcIdx), uint(dstIdx), err
 }
 
+// MaxEncodedLen returns the max size required for the encoding output buffer
 func (this RLT) MaxEncodedLen(srcLen int) int {
 	if srcLen <= 512 {
 		return srcLen + 32

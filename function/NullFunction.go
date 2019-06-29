@@ -19,9 +19,11 @@ import (
 	"errors"
 )
 
+// NullFunction is a pass through byte function
 type NullFunction struct {
 }
 
+// NewNullFunction creates a new instance of NullFunction
 func NewNullFunction() (*NullFunction, error) {
 	this := &NullFunction{}
 	return this, nil
@@ -43,14 +45,21 @@ func doCopy(src, dst []byte) (uint, uint, error) {
 	return uint(len(src)), uint(len(src)), nil
 }
 
+// Forward applies the function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *NullFunction) Forward(src, dst []byte) (uint, uint, error) {
 	return doCopy(src, dst)
 }
 
+// Inverse applies the reverse function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *NullFunction) Inverse(src, dst []byte) (uint, uint, error) {
 	return doCopy(src, dst)
 }
 
+// MaxEncodedLen returns the max size required for the encoding output buffer
 func (this NullFunction) MaxEncodedLen(srcLen int) int {
 	return srcLen
 }
