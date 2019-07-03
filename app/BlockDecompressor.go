@@ -104,7 +104,7 @@ func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, e
 	return this, nil
 }
 
-// AddListener adds a listener to this decompressor
+// AddListener adds an event listener to this decompressor.
 // Returns true if the listener has been added.
 func (this *BlockDecompressor) AddListener(bl kanzi.Listener) bool {
 	if bl == nil {
@@ -115,7 +115,7 @@ func (this *BlockDecompressor) AddListener(bl kanzi.Listener) bool {
 	return true
 }
 
-// RemoveListener removes a listener from this decompressor.
+// RemoveListener removes an event listener from this decompressor.
 // Returns true if the listener has been removed.
 func (this *BlockDecompressor) RemoveListener(bl kanzi.Listener) bool {
 	for i, e := range this.listeners {

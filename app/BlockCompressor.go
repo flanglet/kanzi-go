@@ -174,7 +174,7 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 	return this, nil
 }
 
-// AddListener adds a listener to this compressor
+// AddListener adds an event listener to this compressor.
 // Returns true if the listener has been added.
 func (this *BlockCompressor) AddListener(bl kanzi.Listener) bool {
 	if bl == nil {
@@ -185,7 +185,7 @@ func (this *BlockCompressor) AddListener(bl kanzi.Listener) bool {
 	return true
 }
 
-// RemoveListener removes a listener from this compressor.
+// RemoveListener removes an event listener from this compressor.
 // Returns true if the listener has been removed.
 func (this *BlockCompressor) RemoveListener(bl kanzi.Listener) bool {
 	for i, e := range this.listeners {

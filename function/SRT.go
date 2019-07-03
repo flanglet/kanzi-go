@@ -275,6 +275,7 @@ func (this SRT) decodeHeader(src []byte, freqs []int32) (int, error) {
 	return _SRT_HEADER_SIZE, nil
 }
 
+// MaxEncodedLen returns the max size required for the encoding output buffer
 func (this SRT) MaxEncodedLen(srcLen int) int {
 	return srcLen + _SRT_HEADER_SIZE
 }
