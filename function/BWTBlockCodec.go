@@ -130,7 +130,7 @@ func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 		dst[idx] = byte(blockMode)
 		idx++
 
-		for i := uint(1); i < pIndexSizeBytes; i++ {
+		for shift >= 8 {
 			shift -= 8
 			dst[idx] = byte(primaryIndex >> shift)
 			idx++
