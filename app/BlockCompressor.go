@@ -232,34 +232,39 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	var err error
 	before := time.Now()
 	files := make([]FileData, 0, 256)
-	files, err = createFileList(this.inputName, files)
-
-	if err != nil {
-		if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
-			fmt.Printf("%s\n", ioerr.Error())
-			return ioerr.ErrorCode(), 0
-		}
-
-		fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err.Error())
-		return kanzi.ERR_OPEN_FILE, 0
-	}
-
-	if len(files) == 0 {
-		fmt.Printf("Cannot open input file '%v'\n", this.inputName)
-		return kanzi.ERR_OPEN_FILE, 0
-	}
-
-	nbFiles := len(files)
+	nbFiles := 1
 	printFlag := this.verbosity > 2
 	var msg string
 
-	if nbFiles > 1 {
-		msg = fmt.Sprintf("%d files to compress\n", nbFiles)
-	} else {
-		msg = fmt.Sprintf("%d file to compress\n", nbFiles)
+	if strings.ToUpper(this.inputName) != "STDIN" {
+		files, err = createFileList(this.inputName, files)
+
+		if err != nil {
+			if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
+				fmt.Printf("%s\n", ioerr.Error())
+				return ioerr.ErrorCode(), 0
+			}
+
+			fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err.Error())
+			return kanzi.ERR_OPEN_FILE, 0
+		}
+
+		if len(files) == 0 {
+			fmt.Printf("Cannot open input file '%v'\n", this.inputName)
+			return kanzi.ERR_OPEN_FILE, 0
+		}
+
+		nbFiles = len(files)
+
+		if nbFiles > 1 {
+			msg = fmt.Sprintf("%d files to compress\n", nbFiles)
+		} else {
+			msg = fmt.Sprintf("%d file to compress\n", nbFiles)
+		}
+
+		log.Println(msg, this.verbosity > 0)
 	}
 
-	log.Println(msg, this.verbosity > 0)
 	msg = fmt.Sprintf("Block size set to %d bytes", this.blockSize)
 	log.Println(msg, printFlag)
 	msg = fmt.Sprintf("Verbosity set to %v", this.verbosity)
@@ -316,55 +321,55 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	res := 1
 	read := uint64(0)
 	written := uint64(0)
-	var inputIsDir bool
+	inputIsDir := false
 	formattedOutName := this.outputName
 	formattedInName := this.inputName
 	specialOutput := strings.ToUpper(formattedOutName) == _COMP_NONE || strings.ToUpper(formattedOutName) == _COMP_STDOUT
 
-	fi, err := os.Stat(this.inputName)
+	if strings.ToUpper(this.inputName) != "STDIN" {
+		fi, err := os.Stat(this.inputName)
 
-	if err != nil {
-		fmt.Printf("Cannot access %v\n", formattedInName)
-		return kanzi.ERR_OPEN_FILE, 0
-	}
-
-	if fi.IsDir() {
-		inputIsDir = true
-
-		if formattedInName[len(formattedInName)-1] == '.' {
-			formattedInName = formattedInName[0 : len(formattedInName)-1]
+		if err != nil {
+			fmt.Printf("Cannot access %v\n", formattedInName)
+			return kanzi.ERR_OPEN_FILE, 0
 		}
 
-		if formattedInName[len(formattedInName)-1] != os.PathSeparator {
-			formattedInName = formattedInName + string([]byte{os.PathSeparator})
-		}
+		if fi.IsDir() {
+			inputIsDir = true
 
-		if len(formattedOutName) > 0 && specialOutput == false {
-			fi, err = os.Stat(formattedOutName)
-
-			if err != nil {
-				fmt.Println("Output must be an existing directory (or 'NONE')")
-				return kanzi.ERR_OPEN_FILE, 0
+			if formattedInName[len(formattedInName)-1] == '.' {
+				formattedInName = formattedInName[0 : len(formattedInName)-1]
 			}
 
-			if !fi.IsDir() {
-				fmt.Println("Output must be a directory (or 'NONE')")
-				return kanzi.ERR_CREATE_FILE, 0
+			if formattedInName[len(formattedInName)-1] != os.PathSeparator {
+				formattedInName = formattedInName + string([]byte{os.PathSeparator})
 			}
 
-			if formattedOutName[len(formattedOutName)-1] != os.PathSeparator {
-				formattedOutName = formattedOutName + string([]byte{os.PathSeparator})
+			if len(formattedOutName) > 0 && specialOutput == false {
+				fi, err = os.Stat(formattedOutName)
+
+				if err != nil {
+					fmt.Println("Output must be an existing directory (or 'NONE')")
+					return kanzi.ERR_OPEN_FILE, 0
+				}
+
+				if !fi.IsDir() {
+					fmt.Println("Output must be a directory (or 'NONE')")
+					return kanzi.ERR_CREATE_FILE, 0
+				}
+
+				if formattedOutName[len(formattedOutName)-1] != os.PathSeparator {
+					formattedOutName = formattedOutName + string([]byte{os.PathSeparator})
+				}
 			}
-		}
-	} else {
-		inputIsDir = false
+		} else {
+			if len(formattedOutName) > 0 && specialOutput == false {
+				fi, err = os.Stat(formattedOutName)
 
-		if len(formattedOutName) > 0 && specialOutput == false {
-			fi, err = os.Stat(formattedOutName)
-
-			if err == nil && fi.IsDir() {
-				fmt.Println("Output must be a file (or 'NONE')")
-				return kanzi.ERR_CREATE_FILE, 0
+				if err == nil && fi.IsDir() {
+					fmt.Println("Output must be a file (or 'NONE')")
+					return kanzi.ERR_CREATE_FILE, 0
+				}
 			}
 		}
 	}
@@ -381,15 +386,19 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 
 	if nbFiles == 1 {
 		oName := formattedOutName
-		iName := files[0].Path
+		iName := "STDIN"
 
-		if len(oName) == 0 {
-			oName = iName + ".knz"
-		} else if inputIsDir == true && specialOutput == false {
-			oName = formattedOutName + iName[len(formattedInName):] + ".knz"
+		if strings.ToUpper(this.inputName) != "STDIN" {
+			iName = files[0].Path
+			ctx["fileSize"] = files[0].Size
+
+			if len(oName) == 0 {
+				oName = iName + ".knz"
+			} else if inputIsDir == true && specialOutput == false {
+				oName = formattedOutName + iName[len(formattedInName):] + ".knz"
+			}
 		}
 
-		ctx["fileSize"] = files[0].Size
 		ctx["inputName"] = iName
 		ctx["outputName"] = oName
 		ctx["jobs"] = this.jobs
