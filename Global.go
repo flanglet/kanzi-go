@@ -289,6 +289,14 @@ func ComputeHistogram(block []byte, freqs []int, isOrder0, withTotal bool) {
 // given a number of jobs available and a number of tasks to perform.
 // The provided 'jobsPerTask' slice is returned as result.
 func ComputeJobsPerTask(jobsPerTask []uint, jobs, tasks uint) []uint {
+	if tasks == 0 {
+		panic("Invalid number of tasks provided: 0")
+	}
+
+	if jobs == 0 {
+		panic("Invalid number of jobs provided: 0")
+	}
+
 	var q, r uint
 
 	if jobs <= tasks {
