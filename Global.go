@@ -69,8 +69,8 @@ var LOG2_4096 = [...]uint32{
 	32628, 32651, 32675, 32698, 32722, 32745, 32768,
 }
 
-// INV_EXP is an array with 33 elements: 65536/(1 + exp(-alpha*x))
-var INV_EXP = [33]int{
+// array with 33 elements: 65536/(1 + exp(-alpha*x))
+var _INV_EXP = [33]int{
 	// alpha = 0.55
 	0, 17, 30, 51, 89, 154, 267, 461,
 	795, 1366, 2331, 3939, 6538, 10560, 16369, 23981,
@@ -79,18 +79,33 @@ var INV_EXP = [33]int{
 	65536,
 }
 
-var SQUASH = initSquash()
+// SQUASH contains p = 1/(1 + exp(-d)), d scaled by 8 bits, p scaled by 12 bits
+var SQUASH [4096]int
 
-func initSquash() []int {
-	var res [4096]int
+// STRETCH is the inverse of squash. d = ln(p/(1-p)), d scaled by 8 bits, p by 12 bits.
+// d has range -2047 to 2047 representing -8 to 8. p in [0..4095].
+var STRETCH [4096]int
 
+func init() {
+	// Init squash
 	for x := -2047; x <= 2047; x++ {
 		w := x & 127
 		y := (x >> 7) + 16
-		res[x+2047] = (INV_EXP[y]*(128-w) + INV_EXP[y+1]*w) >> 11
+		SQUASH[x+2047] = (_INV_EXP[y]*(128-w) + _INV_EXP[y+1]*w) >> 11
 	}
 
-	return res[:]
+	pi := 0
+
+	for x := -2047; x <= 2047; x++ {
+		i := Squash(x)
+
+		for pi <= i {
+			STRETCH[pi] = x
+			pi++
+		}
+	}
+
+	STRETCH[4095] = 2047
 }
 
 // Squash returns p = 1/(1 + exp(-d)), d scaled by 8 bits, p scaled by 12 bits
@@ -104,27 +119,6 @@ func Squash(d int) int {
 	}
 
 	return SQUASH[d+2047]
-}
-
-var STRETCH = initStretch()
-
-// Inverse of squash. d = ln(p/(1-p)), d scaled by 8 bits, p by 12 bits.
-// d has range -2047 to 2047 representing -8 to 8.  p has range 0 to 4095.
-func initStretch() []int {
-	var res [4096]int
-	pi := 0
-
-	for x := -2047; x <= 2047; x++ {
-		i := Squash(x)
-
-		for pi <= i {
-			res[pi] = x
-			pi++
-		}
-	}
-
-	res[4095] = 2047
-	return res[:]
 }
 
 // Log2 returns a fast, integer rounded value for log2(x)
