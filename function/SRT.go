@@ -105,9 +105,14 @@ func (this *SRT) Forward(src, dst []byte) (uint, uint, error) {
 		p++
 
 		if r > 0 {
-			for r > 0 {
+			for {
 				r2s[r] = r2s[r-1]
 				s2r[r2s[r]] = r
+
+				if r == 1 {
+					break
+				}
+
 				r--
 			}
 
@@ -130,7 +135,7 @@ func (this *SRT) Forward(src, dst []byte) (uint, uint, error) {
 	return uint(count), uint(count + _SRT_HEADER_SIZE), nil
 }
 
-func (this *SRT) preprocess(freqs []int32, symbols []byte) int {
+func (this SRT) preprocess(freqs []int32, symbols []byte) int {
 	nbSymbols := 0
 
 	for i := range freqs {
@@ -227,11 +232,11 @@ func (this *SRT) Inverse(src, dst []byte) (uint, uint, error) {
 			r2s[r] = c
 			c = r2s[0]
 		} else {
-			nbSymbols--
-
-			if nbSymbols <= 0 {
+			if nbSymbols == 1 {
 				continue
 			}
+
+			nbSymbols--
 
 			for s := 0; s < nbSymbols; s++ {
 				r2s[s] = r2s[s+1]

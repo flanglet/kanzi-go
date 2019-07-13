@@ -70,7 +70,7 @@ func NewCMPredictor() (*CMPredictor, error) {
 func (this *CMPredictor) Update(bit byte) {
 	pc1 := this.counter1[this.ctx]
 	pc2 := this.counter2[this.ctx|this.runMask]
-	this.ctx <<= 1
+	this.ctx += (this.ctx + int32(bit))
 
 	if bit == 0 {
 		pc1[256] -= (pc1[256] >> FAST_RATE)
@@ -78,11 +78,10 @@ func (this *CMPredictor) Update(bit byte) {
 		pc2[this.idx+1] -= (pc2[this.idx+1] >> SLOW_RATE)
 		pc2[this.idx] -= (pc2[this.idx] >> SLOW_RATE)
 	} else {
-		pc1[256] += ((pc1[256] ^ 0xFFFF) >> FAST_RATE)
-		pc1[this.c1] += ((pc1[this.c1] ^ 0xFFFF) >> MEDIUM_RATE)
-		pc2[this.idx+1] += ((pc2[this.idx+1] ^ 0xFFFF) >> SLOW_RATE)
-		pc2[this.idx] += ((pc2[this.idx] ^ 0xFFFF) >> SLOW_RATE)
-		this.ctx++
+		pc1[256] += ((0xFFFF - pc1[256]) >> FAST_RATE)
+		pc1[this.c1] += ((0xFFFF - pc1[this.c1]) >> MEDIUM_RATE)
+		pc2[this.idx+1] += ((0xFFFF - pc2[this.idx+1]) >> SLOW_RATE)
+		pc2[this.idx] += ((0xFFFF - pc2[this.idx]) >> SLOW_RATE)
 	}
 
 	if this.ctx > 255 {
@@ -101,16 +100,16 @@ func (this *CMPredictor) Update(bit byte) {
 
 	pc1 = this.counter1[this.ctx]
 	this.p = int(13*pc1[256]+14*pc1[this.c1]+5*pc1[this.c2]) >> 5
+	this.idx = this.p >> 12
 }
 
 // Get returns the value representing the probability of the next bit being 1
 // in the [0..4095] range. The probability is computed from the internal
 // bit counters.
 func (this *CMPredictor) Get() int {
-	this.idx = this.p >> 12
 	pc2 := this.counter2[this.ctx|this.runMask]
 	x2 := int(pc2[this.idx+1])
 	x1 := int(pc2[this.idx])
 	ssep := x1 + (((x2 - x1) * (this.p & 4095)) >> 12)
-	return (this.p + ssep + ssep + ssep + 32) >> 6 // rescale to [0..4095]
+	return (this.p + 3*ssep + 32) >> 6 // rescale to [0..4095]
 }
