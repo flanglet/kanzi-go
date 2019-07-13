@@ -29,7 +29,7 @@ Use at your own risk. Always keep a backup of your files.
 
 [![Build Status](https://travis-ci.org/flanglet/kanzi-go.svg?branch=master)](https://travis-ci.org/flanglet/kanzi-go)
 [![Go Report Card](https://goreportcard.com/badge/github.com/flanglet/kanzi-go)](https://goreportcard.com/badge/github.com/flanglet/kanzi-go)
-[![Documentation](https://godoc.org/github.com/flanglet/kanzi-go?status.svg)](http://godoc.org/github.com/glanglet-kanzi-go)
+[![Documentation](https://godoc.org/github.com/flanglet/kanzi-go?status.svg)](http://godoc.org/github.com/flanglet/kanzi-go)
 
 
 Silesia corpus benchmark
