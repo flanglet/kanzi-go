@@ -24,12 +24,12 @@ import (
 )
 
 const (
-	HUF_DECODING_BATCH_SIZE = 12 // in bits
-	HUF_MAX_CHUNK_SIZE      = uint(1 << 15)
-	HUF_MAX_SYMBOL_SIZE     = 18
-	HUF_BUFFER_SIZE         = (HUF_MAX_SYMBOL_SIZE << 8) + 256
-	HUF_DECODING_MASK0      = (1 << HUF_DECODING_BATCH_SIZE) - 1
-	HUF_DECODING_MASK1      = (1 << (HUF_MAX_SYMBOL_SIZE + 1)) - 1
+	_HUF_DECODING_BATCH_SIZE = 12 // in bits
+	_HUF_MAX_CHUNK_SIZE      = uint(1 << 15)
+	_HUF_MAX_SYMBOL_SIZE     = 18
+	_HUF_BUFFER_SIZE         = (_HUF_MAX_SYMBOL_SIZE << 8) + 256
+	_HUF_DECODING_MASK0      = (1 << _HUF_DECODING_BATCH_SIZE) - 1
+	_HUF_DECODING_MASK1      = (1 << (_HUF_MAX_SYMBOL_SIZE + 1)) - 1
 )
 
 // Return the number of codes generated
@@ -38,7 +38,7 @@ func generateCanonicalCodes(sizes []byte, codes []uint, symbols []int) int {
 
 	// Sort by increasing size (first key) and increasing value (second key)
 	if count > 1 {
-		var buf [HUF_BUFFER_SIZE]byte
+		var buf [_HUF_BUFFER_SIZE]byte
 
 		for i := 0; i < count; i++ {
 			buf[(int(sizes[symbols[i]]-1)<<8)|symbols[i]] = 1
@@ -67,7 +67,7 @@ func generateCanonicalCodes(sizes []byte, codes []uint, symbols []int) int {
 			length = sizes[s]
 
 			// Max length reached
-			if length > HUF_MAX_SYMBOL_SIZE {
+			if length > _HUF_MAX_SYMBOL_SIZE {
 				return -1
 			}
 		}
@@ -103,7 +103,7 @@ func NewHuffmanEncoder(bs kanzi.OutputBitStream, args ...uint) (*HuffmanEncoder,
 		return nil, errors.New("Huffman codec: At most one chunk size can be provided")
 	}
 
-	chkSize := HUF_MAX_CHUNK_SIZE
+	chkSize := _HUF_MAX_CHUNK_SIZE
 
 	if len(args) == 1 {
 		chkSize = args[0]
@@ -112,8 +112,8 @@ func NewHuffmanEncoder(bs kanzi.OutputBitStream, args ...uint) (*HuffmanEncoder,
 			return nil, errors.New("Huffman codec: The chunk size must be at least 1024")
 		}
 
-		if chkSize > HUF_MAX_CHUNK_SIZE {
-			return nil, fmt.Errorf("Huffman codec: The chunk size must be at most %d", HUF_MAX_CHUNK_SIZE)
+		if chkSize > _HUF_MAX_CHUNK_SIZE {
+			return nil, fmt.Errorf("Huffman codec: The chunk size must be at most %d", _HUF_MAX_CHUNK_SIZE)
 		}
 	}
 
@@ -173,10 +173,10 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []int) (int, error) {
 	}
 
 	if generateCanonicalCodes(sizes[:], this.codes[:], this.sranks[0:count]) < 0 {
-		return count, fmt.Errorf("Could not generate Huffman codes: max code length (%v bits) exceeded", HUF_MAX_SYMBOL_SIZE)
+		return count, fmt.Errorf("Could not generate Huffman codes: max code length (%v bits) exceeded", _HUF_MAX_SYMBOL_SIZE)
 	}
 
-	// Pack size and code (size <= HUF_MAX_SYMBOL_SIZE bits)
+	// Pack size and code (size <= _HUF_MAX_SYMBOL_SIZE bits)
 	for _, s := range symbols {
 		this.codes[s] |= (uint(sizes[s]) << 24)
 	}
@@ -214,8 +214,8 @@ func (this *HuffmanEncoder) computeCodeLengths(frequencies []int, sizes []byte, 
 	for i := range buf {
 		codeLen := byte(buf[i])
 
-		if codeLen == 0 || codeLen > HUF_MAX_SYMBOL_SIZE {
-			err = fmt.Errorf("Could not generate Huffman codes: max code length (%v bits) exceeded", HUF_MAX_SYMBOL_SIZE)
+		if codeLen == 0 || codeLen > _HUF_MAX_SYMBOL_SIZE {
+			err = fmt.Errorf("Could not generate Huffman codes: max code length (%v bits) exceeded", _HUF_MAX_SYMBOL_SIZE)
 			break
 		}
 
@@ -402,7 +402,7 @@ func NewHuffmanDecoder(bs kanzi.InputBitStream, args ...uint) (*HuffmanDecoder, 
 		return nil, errors.New("Huffman codec: At most one chunk size can be provided")
 	}
 
-	chkSize := HUF_MAX_CHUNK_SIZE
+	chkSize := _HUF_MAX_CHUNK_SIZE
 
 	if len(args) == 1 {
 		chkSize = args[0]
@@ -411,15 +411,15 @@ func NewHuffmanDecoder(bs kanzi.InputBitStream, args ...uint) (*HuffmanDecoder, 
 			return nil, errors.New("Huffman codec: The chunk size must be at least 1024")
 		}
 
-		if chkSize > HUF_MAX_CHUNK_SIZE {
-			return nil, fmt.Errorf("Huffman codec: The chunk size must be at most %d", HUF_MAX_CHUNK_SIZE)
+		if chkSize > _HUF_MAX_CHUNK_SIZE {
+			return nil, fmt.Errorf("Huffman codec: The chunk size must be at most %d", _HUF_MAX_CHUNK_SIZE)
 		}
 	}
 
 	this := new(HuffmanDecoder)
 	this.bitstream = bs
-	this.table0 = make([]uint16, 1<<HUF_DECODING_BATCH_SIZE)
-	this.table1 = make([]uint16, 1<<(HUF_MAX_SYMBOL_SIZE+1))
+	this.table0 = make([]uint16, 1<<_HUF_DECODING_BATCH_SIZE)
+	this.table1 = make([]uint16, 1<<(_HUF_MAX_SYMBOL_SIZE+1))
 	this.chunkSize = int(chkSize)
 	this.minCodeLen = 8
 
@@ -457,7 +457,7 @@ func (this *HuffmanDecoder) ReadLengths() (int, error) {
 		this.codes[s] = 0
 		currSize := prevSize + int8(egdec.DecodeByte())
 
-		if currSize <= 0 || currSize > HUF_MAX_SYMBOL_SIZE {
+		if currSize <= 0 || currSize > _HUF_MAX_SYMBOL_SIZE {
 			return 0, fmt.Errorf("Invalid bitstream: incorrect size %v for Huffman symbol %v", currSize, i)
 		}
 
@@ -466,7 +466,7 @@ func (this *HuffmanDecoder) ReadLengths() (int, error) {
 	}
 
 	if generateCanonicalCodes(this.sizes[:], this.codes[:], symbols) < 0 {
-		return count, fmt.Errorf("Could not generate Huffman codes: max code length (%v bits) exceeded", HUF_MAX_SYMBOL_SIZE)
+		return count, fmt.Errorf("Could not generate Huffman codes: max code length (%v bits) exceeded", _HUF_MAX_SYMBOL_SIZE)
 	}
 
 	this.buildDecodingTables(count)
@@ -502,17 +502,17 @@ func (this *HuffmanDecoder) buildDecodingTables(count int) {
 
 		// All DECODING_BATCH_SIZE bit values read from the bit stream and
 		// starting with the same prefix point to symbol s
-		if length <= HUF_DECODING_BATCH_SIZE {
-			idx := code << (HUF_DECODING_BATCH_SIZE - length)
-			end := (code + 1) << (HUF_DECODING_BATCH_SIZE - length)
+		if length <= _HUF_DECODING_BATCH_SIZE {
+			idx := code << (_HUF_DECODING_BATCH_SIZE - length)
+			end := (code + 1) << (_HUF_DECODING_BATCH_SIZE - length)
 
 			for idx < end {
 				this.table0[idx] = uint16(val)
 				idx++
 			}
 		} else {
-			idx := code << (HUF_MAX_SYMBOL_SIZE + 1 - length)
-			end := (code + 1) << (HUF_MAX_SYMBOL_SIZE + 1 - length)
+			idx := code << (_HUF_MAX_SYMBOL_SIZE + 1 - length)
+			end := (code + 1) << (_HUF_MAX_SYMBOL_SIZE + 1 - length)
 
 			for idx < end {
 				this.table1[idx] = uint16(val)
@@ -592,7 +592,7 @@ func (this *HuffmanDecoder) slowDecodeByte() byte {
 	code := 0
 	codeLen := uint16(0)
 
-	for codeLen < HUF_MAX_SYMBOL_SIZE {
+	for codeLen < _HUF_MAX_SYMBOL_SIZE {
 		codeLen++
 		code <<= 1
 
@@ -612,24 +612,24 @@ func (this *HuffmanDecoder) slowDecodeByte() byte {
 }
 
 func (this *HuffmanDecoder) fastDecodeByte() byte {
-	if this.bits < HUF_DECODING_BATCH_SIZE {
+	if this.bits < _HUF_DECODING_BATCH_SIZE {
 		read := this.bitstream.ReadBits(uint(64 - this.bits))
 		this.state = (this.state << (64 - this.bits)) | read
 		this.bits = 64
 	}
 
 	// Use small table
-	val := this.table0[int(this.state>>(this.bits-HUF_DECODING_BATCH_SIZE))&HUF_DECODING_MASK0]
+	val := this.table0[int(this.state>>(this.bits-_HUF_DECODING_BATCH_SIZE))&_HUF_DECODING_MASK0]
 
 	if val == 0 {
-		if this.bits < HUF_MAX_SYMBOL_SIZE+1 {
+		if this.bits < _HUF_MAX_SYMBOL_SIZE+1 {
 			read := this.bitstream.ReadBits(uint(64 - this.bits))
 			this.state = (this.state << (64 - this.bits)) | read
 			this.bits = 64
 		}
 
 		// Fallback to big table
-		val = this.table1[int(this.state>>(this.bits-HUF_MAX_SYMBOL_SIZE-1))&HUF_DECODING_MASK1]
+		val = this.table1[int(this.state>>(this.bits-_HUF_MAX_SYMBOL_SIZE-1))&_HUF_DECODING_MASK1]
 	}
 
 	this.bits -= (val >> 8)

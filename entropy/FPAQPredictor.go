@@ -16,7 +16,7 @@ limitations under the License.
 package entropy
 
 const (
-	PSCALE = 1 << 16
+	_PSCALE = 1 << 16
 )
 
 // FPAQPredictor Fast PAQ Predictor
@@ -34,7 +34,7 @@ func NewFPAQPredictor() (*FPAQPredictor, error) {
 	this.ctxIdx = 1
 
 	for i := range this.probs {
-		this.probs[i] = PSCALE >> 1
+		this.probs[i] = _PSCALE >> 1
 	}
 
 	return this, nil
@@ -44,7 +44,7 @@ func NewFPAQPredictor() (*FPAQPredictor, error) {
 // bit == 1 -> prob += ((PSCALE-prob) >> 6);
 // bit == 0 -> prob -= (prob >> 6);
 func (this *FPAQPredictor) Update(bit byte) {
-	this.probs[this.ctxIdx] -= (((this.probs[this.ctxIdx] - (-int(bit) & PSCALE)) >> 6) + int(bit))
+	this.probs[this.ctxIdx] -= (((this.probs[this.ctxIdx] - (-int(bit) & _PSCALE)) >> 6) + int(bit))
 
 	// Update context by registering the current bit (or wrapping after 8 bits)
 	if this.ctxIdx < 128 {

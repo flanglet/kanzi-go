@@ -51,7 +51,7 @@ type LZCodec struct {
 
 // NewLZCodec creates a new instance of LZCodec
 func NewLZCodec() (*LZCodec, error) {
-	this := new(LZCodec)
+	this := &LZCodec{}
 	this.buffer = make([]int32, 0)
 	return this, nil
 }

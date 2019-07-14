@@ -46,7 +46,7 @@ const (
 	MASK_0_24            = uint64(0x0000000000FFFFFF)
 	MASK_0_56            = uint64(0x00FFFFFFFFFFFFFF)
 	MASK_0_32            = uint64(0x00000000FFFFFFFF)
-	MAX_BLOCK_SIZE       = 1 << 27 // 128 MB
+	ROLZ_MAX_BLOCK_SIZE  = 1 << 27 // 128 MB
 )
 
 func getKey(p []byte) uint32 {
@@ -145,10 +145,10 @@ func (this *ROLZCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("ROLZ codec: Input and output buffers cannot be equal")
 	}
 
-	if len(src) > TC_MAX_BLOCK_SIZE {
+	if len(src) > ROLZ_MAX_BLOCK_SIZE {
 		// Not a recoverable error: instead of silently fail the transform,
 		// issue a fatal error.
-		errMsg := fmt.Sprintf("The max ROLZ codec block size is %v, got %v", TC_MAX_BLOCK_SIZE, len(src))
+		errMsg := fmt.Sprintf("The max ROLZ codec block size is %v, got %v", ROLZ_MAX_BLOCK_SIZE, len(src))
 		panic(errors.New(errMsg))
 	}
 
@@ -164,10 +164,10 @@ func (this *ROLZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("ROLZ codec: Input and output buffers cannot be equal")
 	}
 
-	if len(src) > TC_MAX_BLOCK_SIZE {
+	if len(src) > ROLZ_MAX_BLOCK_SIZE {
 		// Not a recoverable error: instead of silently fail the transform,
 		// issue a fatal error.
-		errMsg := fmt.Sprintf("The max ROLZ codec block size is %v, got %v", TC_MAX_BLOCK_SIZE, len(src))
+		errMsg := fmt.Sprintf("The max ROLZ codec block size is %v, got %v", ROLZ_MAX_BLOCK_SIZE, len(src))
 		panic(errors.New(errMsg))
 	}
 
@@ -1157,9 +1157,11 @@ func (this *rolzEncoder) encodeBit(bit byte) {
 	split := (((this.high - this.low) >> 4) * uint64(this.predictor.Get())) >> 8
 
 	// Update fields with new interval bounds
-	b := -uint64(bit)
-	this.high -= (b & (this.high - this.low - split))
-	this.low += (^b & (split + 1))
+	if bit == 0 {
+		this.low += (split + 1)
+	} else {
+		this.high = this.low + split
+	}
 
 	// Update predictor
 	this.predictor.Update(bit)

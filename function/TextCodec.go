@@ -26,25 +26,25 @@ import (
 // Uses a default (small) static dictionary. Generates a dynamic dictionary.
 
 const (
-	TC_THRESHOLD1             = 128
-	TC_THRESHOLD2             = TC_THRESHOLD1 * TC_THRESHOLD1
-	TC_THRESHOLD3             = 32
-	TC_THRESHOLD4             = TC_THRESHOLD3 * 128
-	TC_MAX_DICT_SIZE          = 1 << 19    // must be less than 1<<24
-	TC_MAX_WORD_LENGTH        = 32         // must be less than 128
-	TC_LOG_HASHES_SIZE        = 24         // 16 MB
-	TC_MAX_BLOCK_SIZE         = 1 << 30    // 1 GB
-	TC_ESCAPE_TOKEN1          = byte(0x0F) // dictionary word preceded by space symbol
-	TC_ESCAPE_TOKEN2          = byte(0x0E) // toggle upper/lower case of first word char
-	LF                        = byte(0x0A)
-	CR                        = byte(0x0D)
-	TC_MASK_NOT_TEXT          = 0x80
-	TC_MASK_ALMOST_FULL_ASCII = 0x08
-	TC_MASK_FULL_ASCII        = 0x04
-	TC_MASK_XML_HTML          = 0x02
-	TC_MASK_CRLF              = 0x01
-	TC_HASH1                  = int32(2146121005)  // 0x7FEB352D
-	TC_HASH2                  = int32(-2073254261) // 0x846CA68B
+	_TC_THRESHOLD1             = 128
+	_TC_THRESHOLD2             = _TC_THRESHOLD1 * _TC_THRESHOLD1
+	_TC_THRESHOLD3             = 32
+	_TC_THRESHOLD4             = _TC_THRESHOLD3 * 128
+	_TC_MAX_DICT_SIZE          = 1 << 19    // must be less than 1<<24
+	_TC_MAX_WORD_LENGTH        = 32         // must be less than 128
+	_TC_LOG_HASHES_SIZE        = 24         // 16 MB
+	_TC_MAX_BLOCK_SIZE         = 1 << 30    // 1 GB
+	_TC_ESCAPE_TOKEN1          = byte(0x0F) // dictionary word preceded by space symbol
+	_TC_ESCAPE_TOKEN2          = byte(0x0E) // toggle upper/lower case of first word char
+	LF                         = byte(0x0A)
+	CR                         = byte(0x0D)
+	_TC_MASK_NOT_TEXT          = 0x80
+	_TC_MASK_ALMOST_FULL_ASCII = 0x08
+	_TC_MASK_FULL_ASCII        = 0x04
+	_TC_MASK_XML_HTML          = 0x02
+	_TC_MASK_CRLF              = 0x01
+	_TC_HASH1                  = int32(2146121005)  // 0x7FEB352D
+	_TC_HASH2                  = int32(-2073254261) // 0x846CA68B
 )
 
 type dictEntry struct {
@@ -78,15 +78,15 @@ type textCodec2 struct {
 }
 
 var (
-	TC_STATIC_DICTIONARY = [1024]dictEntry{}
-	TC_STATIC_DICT_WORDS = createDictionary(unpackDictionary32(TC_DICT_EN_1024), TC_STATIC_DICTIONARY[:], 1024, 0)
-	TC_DELIMITER_CHARS   = initDelimiterChars()
+	_TC_STATIC_DICTIONARY = [1024]dictEntry{}
+	_TC_STATIC_DICT_WORDS = createDictionary(unpackDictionary32(_TC_DICT_EN_1024), _TC_STATIC_DICTIONARY[:], 1024, 0)
+	_TC_DELIMITER_CHARS   = initDelimiterChars()
 
 	// Default dictionary
 	// 1024 of the most common English words with at least 2 chars.
 	// Each char is 6 bit encoded: 0 to 31. Add 32 to a letter starting a word (MSB).
 	// TheBeAndOfInToHaveItThatFor...
-	TC_DICT_EN_1024 = []byte{
+	_TC_DICT_EN_1024 = []byte{
 		byte(0xCC), byte(0x71), byte(0x21), byte(0x12), byte(0x03), byte(0x43), byte(0xB8), byte(0x5A),
 		byte(0x0D), byte(0xCC), byte(0xED), byte(0x88), byte(0x4C), byte(0x7A), byte(0x13), byte(0xCC),
 		byte(0x70), byte(0x13), byte(0x94), byte(0xE4), byte(0x78), byte(0x39), byte(0x49), byte(0xC4),
@@ -610,14 +610,14 @@ func computeStats(block []byte, freqs0 []int32) byte {
 	freqs1 := freqs[0:256]
 	length := len(block)
 	end4 := length & -4
-	prv := int32(0)
+	prv := byte(0)
 
 	// Unroll loop
 	for i := 0; i < end4; i += 4 {
-		cur0 := int32(block[i])
-		cur1 := int32(block[i+1])
-		cur2 := int32(block[i+2])
-		cur3 := int32(block[i+3])
+		cur0 := block[i]
+		cur1 := block[i+1]
+		cur2 := block[i+2]
+		cur3 := block[i+3]
 		freqs0[cur0]++
 		freqs0[cur1]++
 		freqs0[cur2]++
@@ -630,7 +630,7 @@ func computeStats(block []byte, freqs0 []int32) byte {
 	}
 
 	for i := end4; i < length; i++ {
-		cur := int32(block[i])
+		cur := block[i]
 		freqs0[cur]++
 		freqs1[prv][cur]++
 		prv = cur
@@ -646,7 +646,7 @@ func computeStats(block []byte, freqs0 []int32) byte {
 
 	// Not text (crude threshold)
 	if 2*nbTextChars < length {
-		return TC_MASK_NOT_TEXT
+		return _TC_MASK_NOT_TEXT
 	}
 
 	nbBinChars := 0
@@ -657,20 +657,20 @@ func computeStats(block []byte, freqs0 []int32) byte {
 
 	// Not text (crude threshold)
 	if 4*nbBinChars > length {
-		return TC_MASK_NOT_TEXT
+		return _TC_MASK_NOT_TEXT
 	}
 
 	// Not text (crude threshold)
 	if int(16*freqs0[32]) < length {
-		return TC_MASK_NOT_TEXT
+		return _TC_MASK_NOT_TEXT
 	}
 
 	res := byte(0)
 
 	if nbBinChars == 0 {
-		res |= TC_MASK_FULL_ASCII
+		res |= _TC_MASK_FULL_ASCII
 	} else if nbBinChars <= length/100 {
-		res |= TC_MASK_ALMOST_FULL_ASCII
+		res |= _TC_MASK_ALMOST_FULL_ASCII
 	}
 
 	if nbBinChars <= length-length/10 {
@@ -690,14 +690,14 @@ func computeStats(block []byte, freqs0 []int32) byte {
 		if (f1 >= minFreq) && (f2 >= minFreq) && (f3 > 0) {
 			if f1 < f2 {
 				if f1 >= f2-f2/100 {
-					res |= TC_MASK_XML_HTML
+					res |= _TC_MASK_XML_HTML
 				}
 			} else if f2 < f1 {
 				if f2 >= f1-f1/100 {
-					res |= TC_MASK_XML_HTML
+					res |= _TC_MASK_XML_HTML
 				}
 			} else {
-				res |= TC_MASK_XML_HTML
+				res |= _TC_MASK_XML_HTML
 			}
 		}
 	}
@@ -714,7 +714,7 @@ func computeStats(block []byte, freqs0 []int32) byte {
 		}
 
 		if isCRLF == true {
-			res |= TC_MASK_CRLF
+			res |= _TC_MASK_CRLF
 		}
 	}
 
@@ -722,7 +722,7 @@ func computeStats(block []byte, freqs0 []int32) byte {
 }
 
 func sameWords(buf1, buf2 []byte) bool {
-	for i := range buf1 {
+	for i := range buf1[1:] {
 		if buf1[i] != buf2[i] {
 			return false
 		}
@@ -771,14 +771,14 @@ func initDelimiterChars() []bool {
 // Create dictionary from array of words
 func createDictionary(words []byte, dict []dictEntry, maxWords, startWord int) int {
 	anchor := 0
-	h := TC_HASH1
+	h := _TC_HASH1
 	nbWords := startWord
 
 	for i := 0; (i < len(words)) && (nbWords < maxWords); i++ {
 		cur := words[i]
 
 		if isText(cur) {
-			h = h*TC_HASH1 ^ int32(cur)*TC_HASH2
+			h = h*_TC_HASH1 ^ int32(cur)*_TC_HASH2
 			continue
 		}
 
@@ -788,7 +788,7 @@ func createDictionary(words []byte, dict []dictEntry, maxWords, startWord int) i
 		}
 
 		anchor = i + 1
-		h = TC_HASH1
+		h = _TC_HASH1
 	}
 
 	return nbWords
@@ -807,7 +807,7 @@ func isUpperCase(val byte) bool {
 }
 
 func isDelimiter(val byte) bool {
-	return TC_DELIMITER_CHARS[val]
+	return _TC_DELIMITER_CHARS[val]
 }
 
 // Unpack dictionary with 32 symbols (all lowercase except first word char)
@@ -885,10 +885,10 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	if len(src) > TC_MAX_BLOCK_SIZE {
+	if len(src) > _TC_MAX_BLOCK_SIZE {
 		// Not a recoverable error: instead of silently fail the transform,
 		// issue a fatal error.
-		errMsg := fmt.Sprintf("The max text transform block size is %v, got %v", TC_MAX_BLOCK_SIZE, len(src))
+		errMsg := fmt.Sprintf("The max text transform block size is %v, got %v", _TC_MAX_BLOCK_SIZE, len(src))
 		panic(errors.New(errMsg))
 	}
 
@@ -904,10 +904,10 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	if len(src) > TC_MAX_BLOCK_SIZE {
+	if len(src) > _TC_MAX_BLOCK_SIZE {
 		// Not a recoverable error: instead of silently fail the transform,
 		// issue a fatal error.
-		errMsg := fmt.Sprintf("The max text transform block size is %v, got %v", TC_MAX_BLOCK_SIZE, len(src))
+		errMsg := fmt.Sprintf("The max text transform block size is %v, got %v", _TC_MAX_BLOCK_SIZE, len(src))
 		panic(errors.New(errMsg))
 	}
 
@@ -921,23 +921,23 @@ func (this *TextCodec) MaxEncodedLen(srcLen int) int {
 
 func newTextCodec1() (*textCodec1, error) {
 	this := new(textCodec1)
-	this.logHashSize = TC_LOG_HASHES_SIZE
-	this.dictSize = TC_THRESHOLD2 * 4
+	this.logHashSize = _TC_LOG_HASHES_SIZE
+	this.dictSize = _TC_THRESHOLD2 * 4
 	this.dictMap = make([]*dictEntry, 1<<this.logHashSize)
 	this.dictList = make([]dictEntry, this.dictSize)
 	this.hashMask = int32(1<<this.logHashSize) - 1
-	size := len(TC_STATIC_DICTIONARY)
+	size := len(_TC_STATIC_DICTIONARY)
 
 	if size >= this.dictSize {
 		size = this.dictSize
 	}
 
-	copy(this.dictList, TC_STATIC_DICTIONARY[0:size])
-	nbWords := TC_STATIC_DICT_WORDS
+	copy(this.dictList, _TC_STATIC_DICTIONARY[0:size])
+	nbWords := _TC_STATIC_DICT_WORDS
 
 	// Add special entries at end of static dictionary
-	this.dictList[nbWords] = dictEntry{ptr: []byte{TC_ESCAPE_TOKEN2}, hash: 0, data: int32((1 << 24) | nbWords)}
-	this.dictList[nbWords+1] = dictEntry{ptr: []byte{TC_ESCAPE_TOKEN1}, hash: 0, data: int32((1 << 24) | (nbWords + 1))}
+	this.dictList[nbWords] = dictEntry{ptr: []byte{_TC_ESCAPE_TOKEN2}, hash: 0, data: int32((1 << 24) | nbWords)}
+	this.dictList[nbWords+1] = dictEntry{ptr: []byte{_TC_ESCAPE_TOKEN1}, hash: 0, data: int32((1 << 24) | (nbWords + 1))}
 	this.staticDictSize = nbWords + 2
 	return this, nil
 }
@@ -984,18 +984,18 @@ func newTextCodec1WithCtx(ctx *map[string]interface{}) (*textCodec1, error) {
 	this.dictMap = make([]*dictEntry, 1<<this.logHashSize)
 	this.dictList = make([]dictEntry, this.dictSize)
 	this.hashMask = int32(1<<this.logHashSize) - 1
-	size := len(TC_STATIC_DICTIONARY)
+	size := len(_TC_STATIC_DICTIONARY)
 
 	if size >= this.dictSize {
 		size = this.dictSize
 	}
 
-	copy(this.dictList, TC_STATIC_DICTIONARY[0:size])
-	nbWords := TC_STATIC_DICT_WORDS
+	copy(this.dictList, _TC_STATIC_DICTIONARY[0:size])
+	nbWords := _TC_STATIC_DICT_WORDS
 
 	// Add special entries at end of static dictionary
-	this.dictList[nbWords] = dictEntry{ptr: []byte{TC_ESCAPE_TOKEN2}, hash: 0, data: int32((1 << 24) | (nbWords))}
-	this.dictList[nbWords+1] = dictEntry{ptr: []byte{TC_ESCAPE_TOKEN1}, hash: 0, data: int32((1 << 24) | (nbWords + 1))}
+	this.dictList[nbWords] = dictEntry{ptr: []byte{_TC_ESCAPE_TOKEN2}, hash: 0, data: int32((1 << 24) | (nbWords))}
+	this.dictList[nbWords+1] = dictEntry{ptr: []byte{_TC_ESCAPE_TOKEN1}, hash: 0, data: int32((1 << 24) | (nbWords + 1))}
 	this.staticDictSize = nbWords + 2
 	return this, nil
 }
@@ -1030,7 +1030,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	mode := computeStats(src[0:count], freqs0[:])
 
 	// Not text ?
-	if mode&TC_MASK_NOT_TEXT != 0 {
+	if mode&_TC_MASK_NOT_TEXT != 0 {
 		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skipping")
 	}
 
@@ -1042,7 +1042,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	words := this.staticDictSize
 
 	// DOS encoded end of line (CR+LF) ?
-	this.isCRLF = mode&TC_MASK_CRLF != 0
+	this.isCRLF = mode&_TC_MASK_CRLF != 0
 	dst[dstIdx] = mode
 	dstIdx++
 	var err error
@@ -1076,8 +1076,8 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			// h1 -> hash of word chars
 			// h2 -> hash of word chars with first char case flipped
 			val := src[delimAnchor+1]
-			h1 := TC_HASH1
-			h1 = h1*TC_HASH1 ^ int32(val)*TC_HASH2
+			h1 := _TC_HASH1
+			h1 = h1*_TC_HASH1 ^ int32(val)*_TC_HASH2
 			var caseFlag int32
 
 			if isUpperCase(val) {
@@ -1086,13 +1086,13 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 				caseFlag = -32
 			}
 
-			h2 := TC_HASH1
-			h2 = h2*TC_HASH1 ^ (int32(val)+caseFlag)*TC_HASH2
+			h2 := _TC_HASH1
+			h2 = h2*_TC_HASH1 ^ (int32(val)+caseFlag)*_TC_HASH2
 
 			for i := delimAnchor + 2; i < srcIdx; i++ {
-				h := int32(src[i]) * TC_HASH2
-				h1 = h1*TC_HASH1 ^ h
-				h2 = h2*TC_HASH1 ^ h
+				h := int32(src[i]) * _TC_HASH2
+				h1 = h1*_TC_HASH1 ^ h
+				h2 = h2*_TC_HASH1 ^ h
 			}
 
 			// Check word in dictionary
@@ -1120,7 +1120,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 			if pe == nil {
 				// Word not found in the dictionary or hash collision: add or replace word
-				if ((length > 3) || (length > 2 && words < TC_THRESHOLD2)) && length < TC_MAX_WORD_LENGTH {
+				if ((length > 3) || (length > 2 && words < _TC_THRESHOLD2)) && length < _TC_MAX_WORD_LENGTH {
 					pe = &this.dictList[words]
 
 					if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
@@ -1162,9 +1162,9 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 				}
 
 				if pe == pe1 {
-					dst[dstIdx] = TC_ESCAPE_TOKEN1
+					dst[dstIdx] = _TC_ESCAPE_TOKEN1
 				} else {
-					dst[dstIdx] = TC_ESCAPE_TOKEN2
+					dst[dstIdx] = _TC_ESCAPE_TOKEN2
 				}
 
 				dstIdx++
@@ -1197,7 +1197,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 }
 
 func (this *textCodec1) expandDictionary() bool {
-	if this.dictSize >= TC_MAX_DICT_SIZE {
+	if this.dictSize >= _TC_MAX_DICT_SIZE {
 		return false
 	}
 
@@ -1223,24 +1223,24 @@ func (this *textCodec1) emitSymbols(src, dst []byte) int {
 		cur := src[i]
 
 		switch cur {
-		case TC_ESCAPE_TOKEN1:
+		case _TC_ESCAPE_TOKEN1:
 			fallthrough
-		case TC_ESCAPE_TOKEN2:
+		case _TC_ESCAPE_TOKEN2:
 			// Emit special word
-			dst[dstIdx] = TC_ESCAPE_TOKEN1
+			dst[dstIdx] = _TC_ESCAPE_TOKEN1
 			dstIdx++
 			var idx int
 			lenIdx := 2
 
-			if cur == TC_ESCAPE_TOKEN1 {
+			if cur == _TC_ESCAPE_TOKEN1 {
 				idx = this.staticDictSize - 1
 			} else {
 				idx = this.staticDictSize - 2
 			}
 
-			if idx >= TC_THRESHOLD2 {
+			if idx >= _TC_THRESHOLD2 {
 				lenIdx = 3
-			} else if idx < TC_THRESHOLD1 {
+			} else if idx < _TC_THRESHOLD1 {
 				lenIdx = 1
 			}
 
@@ -1267,8 +1267,8 @@ func (this *textCodec1) emitSymbols(src, dst []byte) int {
 
 func emitWordIndex1(dst []byte, val int) int {
 	// Emit word index (varint 5 bits + 7 bits + 7 bits)
-	if val >= TC_THRESHOLD1 {
-		if val >= TC_THRESHOLD2 {
+	if val >= _TC_THRESHOLD1 {
+		if val >= _TC_THRESHOLD2 {
 			dst[0] = byte(0xE0 | (val >> 14))
 			dst[1] = byte(0x80 | (val >> 7))
 			dst[2] = byte(0x7F & val)
@@ -1301,7 +1301,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	words := this.staticDictSize
 	wordRun := false
 	err := error(nil)
-	this.isCRLF = src[srcIdx]&TC_MASK_CRLF != 0
+	this.isCRLF = src[srcIdx]&_TC_MASK_CRLF != 0
 	srcIdx++
 
 	for srcIdx < srcEnd && dstIdx < dstEnd {
@@ -1315,10 +1315,10 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 
 		if (srcIdx > delimAnchor+2) && isDelimiter(cur) {
-			h1 := TC_HASH1
+			h1 := _TC_HASH1
 
 			for i := delimAnchor + 1; i < srcIdx; i++ {
-				h1 = h1*TC_HASH1 ^ int32(src[i])*TC_HASH2
+				h1 = h1*_TC_HASH1 ^ int32(src[i])*_TC_HASH2
 			}
 
 			// Lookup word in dictionary
@@ -1336,7 +1336,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 			if pe == nil {
 				// Word not found in the dictionary or hash collision: add or replace word
-				if ((length > 3) || (length > 2 && words < TC_THRESHOLD2)) && length < TC_MAX_WORD_LENGTH {
+				if ((length > 3) || (length > 2 && words < _TC_THRESHOLD2)) && length < _TC_MAX_WORD_LENGTH {
 					pe = &this.dictList[words]
 
 					if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
@@ -1362,7 +1362,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 		srcIdx++
 
-		if cur == TC_ESCAPE_TOKEN1 || cur == TC_ESCAPE_TOKEN2 {
+		if cur == _TC_ESCAPE_TOKEN1 || cur == _TC_ESCAPE_TOKEN2 {
 			// Word in dictionary
 			// Read word index (varint 5 bits + 7 bits + 7 bits)
 			idx := int(src[srcIdx])
@@ -1405,7 +1405,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			// Emit word
 			copy(dst[dstIdx:], buf[0:length])
 
-			if cur == TC_ESCAPE_TOKEN2 {
+			if cur == _TC_ESCAPE_TOKEN2 {
 				// Flip case of first character
 				if isUpperCase(buf[0]) {
 					dst[dstIdx] = buf[0] + 32
@@ -1454,19 +1454,19 @@ func (this textCodec1) MaxEncodedLen(srcLen int) int {
 
 func newTextCodec2() (*textCodec2, error) {
 	this := new(textCodec2)
-	this.logHashSize = TC_LOG_HASHES_SIZE
-	this.dictSize = TC_THRESHOLD2 * 4
+	this.logHashSize = _TC_LOG_HASHES_SIZE
+	this.dictSize = _TC_THRESHOLD2 * 4
 	this.dictMap = make([]*dictEntry, 1<<this.logHashSize)
 	this.dictList = make([]dictEntry, this.dictSize)
 	this.hashMask = int32(1<<this.logHashSize) - 1
-	size := len(TC_STATIC_DICTIONARY)
+	size := len(_TC_STATIC_DICTIONARY)
 
 	if size >= this.dictSize {
 		size = this.dictSize
 	}
 
-	copy(this.dictList, TC_STATIC_DICTIONARY[0:size])
-	this.staticDictSize = TC_STATIC_DICT_WORDS
+	copy(this.dictList, _TC_STATIC_DICTIONARY[0:size])
+	this.staticDictSize = _TC_STATIC_DICT_WORDS
 	return this, nil
 }
 
@@ -1512,14 +1512,14 @@ func newTextCodec2WithCtx(ctx *map[string]interface{}) (*textCodec2, error) {
 	this.dictMap = make([]*dictEntry, 1<<this.logHashSize)
 	this.dictList = make([]dictEntry, this.dictSize)
 	this.hashMask = int32(1<<this.logHashSize) - 1
-	size := len(TC_STATIC_DICTIONARY)
+	size := len(_TC_STATIC_DICTIONARY)
 
 	if size >= this.dictSize {
 		size = this.dictSize
 	}
 
-	copy(this.dictList, TC_STATIC_DICTIONARY[0:size])
-	this.staticDictSize = TC_STATIC_DICT_WORDS
+	copy(this.dictList, _TC_STATIC_DICTIONARY[0:size])
+	this.staticDictSize = _TC_STATIC_DICT_WORDS
 	return this, nil
 }
 
@@ -1553,7 +1553,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	mode := computeStats(src[0:count], freqs0[:])
 
 	// Not text ?
-	if mode&TC_MASK_NOT_TEXT != 0 {
+	if mode&_TC_MASK_NOT_TEXT != 0 {
 		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skipping")
 	}
 
@@ -1565,7 +1565,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	words := this.staticDictSize
 
 	// DOS encoded end of line (CR+LF) ?
-	this.isCRLF = mode&TC_MASK_CRLF != 0
+	this.isCRLF = mode&_TC_MASK_CRLF != 0
 	dst[dstIdx] = mode
 	dstIdx++
 	var err error
@@ -1599,8 +1599,8 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 			// h1 -> hash of word chars
 			// h2 -> hash of word chars with first char case flipped
 			val := src[delimAnchor+1]
-			h1 := TC_HASH1
-			h1 = h1*TC_HASH1 ^ int32(val)*TC_HASH2
+			h1 := _TC_HASH1
+			h1 = h1*_TC_HASH1 ^ int32(val)*_TC_HASH2
 			var caseFlag int32
 
 			if isUpperCase(val) {
@@ -1609,13 +1609,13 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 				caseFlag = -32
 			}
 
-			h2 := TC_HASH1
-			h2 = h2*TC_HASH1 ^ (int32(val)+caseFlag)*TC_HASH2
+			h2 := _TC_HASH1
+			h2 = h2*_TC_HASH1 ^ (int32(val)+caseFlag)*_TC_HASH2
 
 			for i := delimAnchor + 2; i < srcIdx; i++ {
-				h := int32(src[i]) * TC_HASH2
-				h1 = h1*TC_HASH1 ^ h
-				h2 = h2*TC_HASH1 ^ h
+				h := int32(src[i]) * _TC_HASH2
+				h1 = h1*_TC_HASH1 ^ h
+				h2 = h2*_TC_HASH1 ^ h
 			}
 
 			// Check word in dictionary
@@ -1643,7 +1643,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 
 			if pe == nil {
 				// Word not found in the dictionary or hash collision: add or replace word
-				if ((length > 3) || (length > 2 && words < TC_THRESHOLD2)) && length < TC_MAX_WORD_LENGTH {
+				if ((length > 3) || (length > 2 && words < _TC_THRESHOLD2)) && length < _TC_MAX_WORD_LENGTH {
 					pe = &this.dictList[words]
 
 					if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
@@ -1718,7 +1718,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 }
 
 func (this *textCodec2) expandDictionary() bool {
-	if this.dictSize >= TC_MAX_DICT_SIZE {
+	if this.dictSize >= _TC_MAX_DICT_SIZE {
 		return false
 	}
 
@@ -1740,10 +1740,10 @@ func (this *textCodec2) emitSymbols(src, dst []byte) int {
 			cur := src[i]
 
 			switch cur {
-			case TC_ESCAPE_TOKEN1:
-				dst[dstIdx] = TC_ESCAPE_TOKEN1
+			case _TC_ESCAPE_TOKEN1:
+				dst[dstIdx] = _TC_ESCAPE_TOKEN1
 				dstIdx++
-				dst[dstIdx] = TC_ESCAPE_TOKEN1
+				dst[dstIdx] = _TC_ESCAPE_TOKEN1
 				dstIdx++
 
 			case CR:
@@ -1754,7 +1754,7 @@ func (this *textCodec2) emitSymbols(src, dst []byte) int {
 
 			default:
 				if cur&0x80 != 0 {
-					dst[dstIdx] = TC_ESCAPE_TOKEN1
+					dst[dstIdx] = _TC_ESCAPE_TOKEN1
 					dstIdx++
 				}
 
@@ -1767,14 +1767,14 @@ func (this *textCodec2) emitSymbols(src, dst []byte) int {
 			cur := src[i]
 
 			switch cur {
-			case TC_ESCAPE_TOKEN1:
+			case _TC_ESCAPE_TOKEN1:
 				if dstIdx+1 >= len(dst) {
 					return -1
 				}
 
-				dst[dstIdx] = TC_ESCAPE_TOKEN1
+				dst[dstIdx] = _TC_ESCAPE_TOKEN1
 				dstIdx++
-				dst[dstIdx] = TC_ESCAPE_TOKEN1
+				dst[dstIdx] = _TC_ESCAPE_TOKEN1
 				dstIdx++
 
 			case CR:
@@ -1793,7 +1793,7 @@ func (this *textCodec2) emitSymbols(src, dst []byte) int {
 						return -1
 					}
 
-					dst[dstIdx] = TC_ESCAPE_TOKEN1
+					dst[dstIdx] = _TC_ESCAPE_TOKEN1
 					dstIdx++
 				}
 
@@ -1814,8 +1814,8 @@ func emitWordIndex2(dst []byte, val, mask int) int {
 	// Emit word index (varint 5 bits + 7 bits + 7 bits)
 	// 1st byte: 0x80 => word idx, 0x40 => more bytes, 0x20 => toggle case 1st symbol
 	// 2nd byte: 0x80 => 1 more byte
-	if val >= TC_THRESHOLD3 {
-		if val >= TC_THRESHOLD4 {
+	if val >= _TC_THRESHOLD3 {
+		if val >= _TC_THRESHOLD4 {
 			// 5 + 7 + 7 => 2^19
 			dst[0] = byte(0xC0 | mask | ((val >> 14) & 0x1F))
 			dst[1] = byte(0x80 | ((val >> 7) & 0x7F))
@@ -1850,7 +1850,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	words := this.staticDictSize
 	wordRun := false
 	err := error(nil)
-	this.isCRLF = src[srcIdx]&TC_MASK_CRLF != 0
+	this.isCRLF = src[srcIdx]&_TC_MASK_CRLF != 0
 	srcIdx++
 
 	for srcIdx < srcEnd && dstIdx < dstEnd {
@@ -1864,10 +1864,10 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 
 		if (srcIdx > delimAnchor+2) && isDelimiter(cur) {
-			h1 := TC_HASH1
+			h1 := _TC_HASH1
 
 			for i := delimAnchor + 1; i < srcIdx; i++ {
-				h1 = h1*TC_HASH1 ^ int32(src[i])*TC_HASH2
+				h1 = h1*_TC_HASH1 ^ int32(src[i])*_TC_HASH2
 			}
 
 			// Lookup word in dictionary
@@ -1885,7 +1885,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 			if pe == nil {
 				// Word not found in the dictionary or hash collision: add or replace word
-				if ((length > 3) || (length > 2 && words < TC_THRESHOLD2)) && length < TC_MAX_WORD_LENGTH {
+				if ((length > 3) || (length > 2 && words < _TC_THRESHOLD2)) && length < _TC_MAX_WORD_LENGTH {
 					pe = &this.dictList[words]
 
 					if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
@@ -1974,7 +1974,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 		} else {
 
-			if cur == TC_ESCAPE_TOKEN1 {
+			if cur == _TC_ESCAPE_TOKEN1 {
 				dst[dstIdx] = src[srcIdx]
 				srcIdx++
 				dstIdx++

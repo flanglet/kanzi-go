@@ -23,11 +23,11 @@ import (
 )
 
 const (
-	BINARY_ENTROPY_TOP = uint64(0x00FFFFFFFFFFFFFF)
-	MASK_24_56         = uint64(0x00FFFFFFFF000000)
-	MASK_0_56          = uint64(0x00FFFFFFFFFFFFFF)
-	MASK_0_24          = uint64(0x0000000000FFFFFF)
-	MASK_0_32          = uint64(0x00000000FFFFFFFF)
+	_BINARY_ENTROPY_TOP = uint64(0x00FFFFFFFFFFFFFF)
+	_MASK_24_56         = uint64(0x00FFFFFFFF000000)
+	_MASK_0_56          = uint64(0x00FFFFFFFFFFFFFF)
+	_MASK_0_24          = uint64(0x0000000000FFFFFF)
+	_MASK_0_32          = uint64(0x00000000FFFFFFFF)
 )
 
 // BinaryEntropyEncoder entropy encoder based on arithmetic coding and
@@ -57,7 +57,7 @@ func NewBinaryEntropyEncoder(bs kanzi.OutputBitStream, predictor kanzi.Predictor
 	this := new(BinaryEntropyEncoder)
 	this.predictor = predictor
 	this.low = 0
-	this.high = BINARY_ENTROPY_TOP
+	this.high = _BINARY_ENTROPY_TOP
 	this.bitstream = bs
 	this.buffer = make([]byte, 0)
 	this.index = 0
@@ -84,15 +84,17 @@ func (this *BinaryEntropyEncoder) EncodeBit(bit byte) {
 	split := (((this.high - this.low) >> 4) * uint64(this.predictor.Get())) >> 8
 
 	// Update fields with new interval bounds
-	b := -uint64(bit)
-	this.high -= (b & (this.high - this.low - split))
-	this.low += (^b & -^split)
+	if bit == 0 {
+		this.low += (split + 1)
+	} else {
+		this.high = this.low + split
+	}
 
 	// Update predictor
 	this.predictor.Update(bit)
 
 	// Write unchanged first 32 bits to bitstream
-	for (this.low^this.high)&MASK_24_56 == 0 {
+	for (this.low^this.high)&_MASK_24_56 == 0 {
 		this.flush()
 	}
 }
@@ -148,7 +150,7 @@ func (this *BinaryEntropyEncoder) Write(block []byte) (int, error) {
 		startChunk += chunkSize
 
 		if startChunk < end {
-			this.bitstream.WriteBits(this.low|MASK_0_24, 56)
+			this.bitstream.WriteBits(this.low|_MASK_0_24, 56)
 		}
 	}
 
@@ -159,7 +161,7 @@ func (this *BinaryEntropyEncoder) flush() {
 	binary.BigEndian.PutUint32(this.buffer[this.index:], uint32(this.high>>24))
 	this.index += 4
 	this.low <<= 32
-	this.high = (this.high << 32) | MASK_0_32
+	this.high = (this.high << 32) | _MASK_0_32
 }
 
 // BitStream returns the underlying bitstream
@@ -176,7 +178,7 @@ func (this *BinaryEntropyEncoder) Dispose() {
 	}
 
 	this.disposed = true
-	this.bitstream.WriteBits(this.low|MASK_0_24, 56)
+	this.bitstream.WriteBits(this.low|_MASK_0_24, 56)
 }
 
 // BinaryEntropyDecoder entropy decoder based on arithmetic coding and
@@ -208,7 +210,7 @@ func NewBinaryEntropyDecoder(bs kanzi.InputBitStream, predictor kanzi.Predictor)
 	this := new(BinaryEntropyDecoder)
 	this.predictor = predictor
 	this.low = 0
-	this.high = BINARY_ENTROPY_TOP
+	this.high = _BINARY_ENTROPY_TOP
 	this.bitstream = bs
 	this.buffer = make([]byte, 0)
 	this.index = 0
@@ -263,7 +265,7 @@ func (this *BinaryEntropyDecoder) DecodeBit() byte {
 	}
 
 	// Read 32 bits from bitstream
-	for (this.low^this.high)&MASK_24_56 == 0 {
+	for (this.low^this.high)&_MASK_24_56 == 0 {
 		this.read()
 	}
 
@@ -271,10 +273,10 @@ func (this *BinaryEntropyDecoder) DecodeBit() byte {
 }
 
 func (this *BinaryEntropyDecoder) read() {
-	this.low = (this.low << 32) & MASK_0_56
-	this.high = ((this.high << 32) | MASK_0_32) & MASK_0_56
+	this.low = (this.low << 32) & _MASK_0_56
+	this.high = ((this.high << 32) | _MASK_0_32) & _MASK_0_56
 	val := uint64(binary.BigEndian.Uint32(this.buffer[this.index:]))
-	this.current = ((this.current << 32) | val) & MASK_0_56
+	this.current = ((this.current << 32) | val) & _MASK_0_56
 	this.index += 4
 }
 

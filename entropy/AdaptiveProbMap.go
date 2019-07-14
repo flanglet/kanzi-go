@@ -50,7 +50,7 @@ func newLogisticAdaptiveProbMap(n, rate uint) (*LogisticAdaptiveProbMap, error) 
 	}
 
 	for i := uint(1); i < n; i++ {
-		copy(this.data[i*33:(i+1)*33], this.data[0:33])
+		copy(this.data[i*33:], this.data[0:33])
 	}
 
 	return this, nil
@@ -82,7 +82,7 @@ func newFastLogisticAdaptiveProbMap(n, rate uint) (*FastLogisticAdaptiveProbMap,
 	}
 
 	for i := uint(1); i < n; i++ {
-		copy(this.data[i*32:(i+1)*32], this.data[0:32])
+		copy(this.data[i*32:], this.data[0:32])
 	}
 
 	return this, nil
@@ -107,7 +107,7 @@ func newLinearAdaptiveProbMap(n, rate uint) (*LinearAdaptiveProbMap, error) {
 	}
 
 	for i := uint(1); i < n; i++ {
-		copy(this.data[i*65:(i+1)*65], this.data[0:65])
+		copy(this.data[i*65:], this.data[0:65])
 	}
 
 	return this, nil
