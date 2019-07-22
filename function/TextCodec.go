@@ -737,31 +737,35 @@ func initDelimiterChars() []bool {
 	for i := range res {
 		if (i >= ' ') && (i <= '/') { // [ !"#$%&'()*+,-./]
 			res[i] = true
-		} else if (i >= ':') && (i <= '?') { // [:;<=>?]
+			continue
+		}
+
+		if (i >= ':') && (i <= '?') { // [:;<=>?]
 			res[i] = true
-		} else {
-			switch i {
-			case '\n':
-				fallthrough
-			case '\r':
-				fallthrough
-			case '\t':
-				fallthrough
-			case '_':
-				fallthrough
-			case '|':
-				fallthrough
-			case '{':
-				fallthrough
-			case '}':
-				fallthrough
-			case '[':
-				fallthrough
-			case ']':
-				res[i] = true
-			default:
-				res[i] = false
-			}
+			continue
+		}
+
+		switch i {
+		case '\n':
+			res[i] = true
+		case '\r':
+			res[i] = true
+		case '\t':
+			res[i] = true
+		case '_':
+			res[i] = true
+		case '|':
+			res[i] = true
+		case '{':
+			res[i] = true
+		case '}':
+			res[i] = true
+		case '[':
+			res[i] = true
+		case ']':
+			res[i] = true
+		default:
+			res[i] = false
 		}
 	}
 

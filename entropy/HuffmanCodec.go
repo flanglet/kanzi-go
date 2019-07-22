@@ -47,13 +47,15 @@ func generateCanonicalCodes(sizes []byte, codes []uint, symbols []int) int {
 		n := 0
 
 		for i := range buf {
-			if buf[i] != 0 {
-				symbols[n] = i & 0xFF
-				n++
+			if buf[i] == 0 {
+				continue
+			}
 
-				if n == count {
-					break
-				}
+			symbols[n] = i & 0xFF
+			n++
+
+			if n == count {
+				break
 			}
 		}
 	}
@@ -90,10 +92,10 @@ type HuffmanEncoder struct {
 	maxCodeLength int
 }
 
-// The chunk size indicates how many bytes are encoded (per block) before
-// resetting the frequency stats.
+// NewHuffmanEncoder creates an instance of HuffmanEncoder.
 // Since the number of args is variable, this function can be called like this:
-// NewHuffmanEncoder(bs) or NewHuffmanEncoder(bs, 16384)
+// NewHuffmanEncoder(bs) or NewHuffmanEncoder(bs, 16384) (the second argument
+// being the chunk size)
 func NewHuffmanEncoder(bs kanzi.OutputBitStream, args ...uint) (*HuffmanEncoder, error) {
 	if bs == nil {
 		return nil, errors.New("Huffman codec: Invalid null bitstream parameter")
@@ -148,6 +150,7 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []int) (int, error) {
 	}
 
 	symbols := this.alphabet[0:count]
+
 	if _, err := EncodeAlphabet(this.bitstream, symbols); err != nil {
 		return count, err
 	}
@@ -283,7 +286,9 @@ func computeInPlaceSizesPhase2(data []int) {
 	}
 }
 
-// Dynamically compute the frequencies for every chunk of data in the block
+// Write encodes the data provided into the bitstream. Return the number of byte
+// written to the bitstream.  Dynamically compute the frequencies for every
+// chunk of data in the block
 func (this *HuffmanEncoder) Write(block []byte) (int, error) {
 	if block == nil {
 		return 0, errors.New("Huffman codec: Invalid null block parameter")
@@ -367,9 +372,11 @@ func (this *HuffmanEncoder) Write(block []byte) (int, error) {
 	return len(block), nil
 }
 
+// Dispose this implementation does nothing
 func (this *HuffmanEncoder) Dispose() {
 }
 
+// BitStream returns the underlying bitstream
 func (this *HuffmanEncoder) BitStream() kanzi.OutputBitStream {
 	return this.bitstream
 }
@@ -389,10 +396,10 @@ type HuffmanDecoder struct {
 	minCodeLen byte
 }
 
-// The chunk size indicates how many bytes are encoded (per block) before
-// resetting the frequency stats.
+// NewHuffmanDecoder creates an instance of HuffmanDEcoder.
 // Since the number of args is variable, this function can be called like this:
-// NewHuffmanDecoder(bs) or NewHuffmanDecoder(bs, 16384)
+// NewHuffmanDecoder(bs) or NewHuffmanDecoder(bs, 16384) (the second argument
+// being the chunk size)
 func NewHuffmanDecoder(bs kanzi.InputBitStream, args ...uint) (*HuffmanDecoder, error) {
 	if bs == nil {
 		return nil, errors.New("Huffman codec: Invalid null bitstream parameter")
@@ -432,6 +439,8 @@ func NewHuffmanDecoder(bs kanzi.InputBitStream, args ...uint) (*HuffmanDecoder, 
 	return this, nil
 }
 
+// ReadLengths decodes the code lengths from the bitstream and generates
+// the Huffman codes for decoding.
 func (this *HuffmanDecoder) ReadLengths() (int, error) {
 	count, err := DecodeAlphabet(this.bitstream, this.alphabet[:])
 
@@ -523,7 +532,8 @@ func (this *HuffmanDecoder) buildDecodingTables(count int) {
 	}
 }
 
-// Use fastDecodeByte until the near end of chunk or block.
+// Read decodes data from the bitstream and return it in the provided buffer.
+// Return the number of bytes read from the bitstream
 func (this *HuffmanDecoder) Read(block []byte) (int, error) {
 	if block == nil {
 		return 0, errors.New("Huffman codec: Invalid null block parameter")
@@ -636,9 +646,11 @@ func (this *HuffmanDecoder) fastDecodeByte() byte {
 	return byte(val)
 }
 
+// BitStream returns the underlying bitstream
 func (this *HuffmanDecoder) BitStream() kanzi.InputBitStream {
 	return this.bitstream
 }
 
+// Dispose this implementation does nothing
 func (this *HuffmanDecoder) Dispose() {
 }
