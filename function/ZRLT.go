@@ -22,20 +22,24 @@ import (
 	kanzi "github.com/flanglet/kanzi-go"
 )
 
+// ZRLT Zero Run Length Transform
 // Zero Length Encoding is a simple encoding algorithm by Wheeler
 // closely related to Run Length Encoding. The main difference is
 // that only runs of 0 values are processed. Also, the length is
 // encoded in a different way (each digit in a different byte)
 // This algorithm is well adapted to process post BWT/MTFT data
-
 type ZRLT struct {
 }
 
+// NewZRLT creates a new instance of ZRLT
 func NewZRLT() (*ZRLT, error) {
 	this := &ZRLT{}
 	return this, nil
 }
 
+// Forward applies the function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
@@ -112,6 +116,9 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 	return srcIdx, dstIdx, err
 }
 
+// Inverse applies the reverse function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
@@ -193,7 +200,7 @@ End:
 	return uint(srcIdx), uint(dstIdx), err
 }
 
-// Required encoding output buffer size unknown
+// MaxEncodedLen returns the max size required for the encoding output buffer
 func (this ZRLT) MaxEncodedLen(srcLen int) int {
 	return srcLen
 }

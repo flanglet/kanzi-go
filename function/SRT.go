@@ -20,15 +20,14 @@ import (
 	"fmt"
 )
 
-// Sorted Ranks Transform is typically used after a BWT to reduce the variance
-// of the data prior to entropy coding.
-
 const (
 	_SRT_HEADER_SIZE = 4 * 256 // freqs
 	_SRT_CHUNK_SIZE  = 8 * 1024 * 1024
 )
 
 // SRT Sorted Ranks Transform
+// Sorted Ranks Transform is typically used after a BWT to reduce the variance
+// of the data prior to entropy coding.
 type SRT struct {
 }
 
