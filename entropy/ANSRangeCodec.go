@@ -28,10 +28,10 @@ import (
 // For an alternate C implementation example, see https://github.com/Cyan4973/FiniteStateEntropy
 
 const (
-	ANS_TOP                 = 1 << 15
+	ANS_TOP                 = 1 << 15       // max possible for ANS_TOP=1<23
 	DEFAULT_ANS0_CHUNK_SIZE = uint(1 << 15) // 32 KB by default
-	DEFAULT_ANS_LOG_RANGE   = uint(13)      // max possible for ANS_TOP=1<23
 	ANS_MAX_CHUNK_SIZE      = 1 << 27       // 8*MAX_CHUNK_SIZE must not overflow
+	DEFAULT_ANS_LOG_RANGE   = uint(12)
 )
 
 // ANSRangeEncoder Asymmetric Numeral System Encoder
