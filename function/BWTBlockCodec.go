@@ -188,5 +188,5 @@ func (this *BWTBlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
 func (this BWTBlockCodec) MaxEncodedLen(srcLen int) int {
-	return srcLen + BWT_MAX_HEADER_SIZE + transform.MaxBWTBlockSize()
+	return srcLen + BWT_MAX_HEADER_SIZE
 }
