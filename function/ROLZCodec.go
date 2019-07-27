@@ -31,22 +31,22 @@ import (
 // More information about ROLZ at http://ezcodesample.com/rolz/rolz_article.html
 
 const (
-	ROLZ_HASH_SIZE       = 1 << 16
-	ROLZ_MIN_MATCH       = 3
-	ROLZ_MAX_MATCH       = ROLZ_MIN_MATCH + 255
-	ROLZ_LOG_POS_CHECKS1 = 4
-	ROLZ_LOG_POS_CHECKS2 = 5
-	ROLZ_CHUNK_SIZE      = 1 << 26 // 64 MB
-	ROLZ_HASH_MASK       = int32(^(ROLZ_CHUNK_SIZE - 1))
-	ROLZ_LITERAL_FLAG    = 0
-	ROLZ_MATCH_FLAG      = 1
-	ROLZ_HASH            = int32(200002979)
-	ROLZ_TOP             = uint64(0x00FFFFFFFFFFFFFF)
-	MASK_24_56           = uint64(0x00FFFFFFFF000000)
-	MASK_0_24            = uint64(0x0000000000FFFFFF)
-	MASK_0_56            = uint64(0x00FFFFFFFFFFFFFF)
-	MASK_0_32            = uint64(0x00000000FFFFFFFF)
-	ROLZ_MAX_BLOCK_SIZE  = 1 << 27 // 128 MB
+	_ROLZ_HASH_SIZE       = 1 << 16
+	_ROLZ_MIN_MATCH       = 3
+	_ROLZ_MAX_MATCH       = _ROLZ_MIN_MATCH + 255
+	_ROLZ_LOG_POS_CHECKS1 = 4
+	_ROLZ_LOG_POS_CHECKS2 = 5
+	_ROLZ_CHUNK_SIZE      = 1 << 26 // 64 MB
+	_ROLZ_HASH_MASK       = int32(^(_ROLZ_CHUNK_SIZE - 1))
+	_ROLZ_LITERAL_FLAG    = 0
+	_ROLZ_MATCH_FLAG      = 1
+	_ROLZ_HASH            = int32(200002979)
+	_ROLZ_MAX_BLOCK_SIZE  = 1 << 30 // 1 GB
+	_ROLZ_TOP             = uint64(0x00FFFFFFFFFFFFFF)
+	MASK_24_56            = uint64(0x00FFFFFFFF000000)
+	MASK_0_24             = uint64(0x0000000000FFFFFF)
+	MASK_0_56             = uint64(0x00FFFFFFFFFFFFFF)
+	MASK_0_32             = uint64(0x00000000FFFFFFFF)
 )
 
 func getKey(p []byte) uint32 {
@@ -54,7 +54,7 @@ func getKey(p []byte) uint32 {
 }
 
 func hash(p []byte) int32 {
-	return ((int32(binary.LittleEndian.Uint32(p)) & 0x00FFFFFF) * ROLZ_HASH) & ROLZ_HASH_MASK
+	return ((int32(binary.LittleEndian.Uint32(p)) & 0x00FFFFFF) * _ROLZ_HASH) & _ROLZ_HASH_MASK
 }
 
 func emitCopy(buf []byte, dstIdx, ref, matchLen int) int {
@@ -88,10 +88,13 @@ func emitCopy(buf []byte, dstIdx, ref, matchLen int) int {
 	return dstIdx
 }
 
+// ROLZCodec Reduced Offset Lempel Ziv codec
 type ROLZCodec struct {
 	delegate kanzi.ByteFunction
 }
 
+// NewROLZCodec creates a new instance of ROLZCodec providing
+// he log of the number of matches to check for during encoding.
 func NewROLZCodec(logPosChecks uint) (*ROLZCodec, error) {
 	this := &ROLZCodec{}
 	d, err := newROLZCodec1(logPosChecks)
@@ -99,21 +102,29 @@ func NewROLZCodec(logPosChecks uint) (*ROLZCodec, error) {
 	return this, err
 }
 
+// NewROLZCodecWithFlag creates a new instance of ROLZCodec
+// If the bool parameter is false, encode literals and matches using ANS.
+// Otherwise encode literals and matches using CM and check more match
+// positions.
 func NewROLZCodecWithFlag(extra bool) (*ROLZCodec, error) {
 	this := &ROLZCodec{}
 	var err error
 	var d kanzi.ByteFunction
 
 	if extra {
-		d, err = newROLZCodec2(ROLZ_LOG_POS_CHECKS2)
+		d, err = newROLZCodec2(_ROLZ_LOG_POS_CHECKS2)
 	} else {
-		d, err = newROLZCodec1(ROLZ_LOG_POS_CHECKS1)
+		d, err = newROLZCodec1(_ROLZ_LOG_POS_CHECKS1)
 	}
 
 	this.delegate = d
 	return this, err
 }
 
+// NewROLZCodecWithCtx creates a new instance of ROLZCodec providing a
+// context map. If the map contains a transform name set to "ROLZX"
+// encode literals and matches using ANS. Otherwise encode literals
+// and matches using CM and check more match positions.
 func NewROLZCodecWithCtx(ctx *map[string]interface{}) (*ROLZCodec, error) {
 	this := &ROLZCodec{}
 	var err error
@@ -123,19 +134,22 @@ func NewROLZCodecWithCtx(ctx *map[string]interface{}) (*ROLZCodec, error) {
 		transform := val.(string)
 
 		if strings.Contains(transform, "ROLZX") {
-			d, err = newROLZCodec2(ROLZ_LOG_POS_CHECKS2)
+			d, err = newROLZCodec2(_ROLZ_LOG_POS_CHECKS2)
 			this.delegate = d
 		}
 	}
 
 	if this.delegate == nil && err == nil {
-		d, err = newROLZCodec1(ROLZ_LOG_POS_CHECKS1)
+		d, err = newROLZCodec1(_ROLZ_LOG_POS_CHECKS1)
 		this.delegate = d
 	}
 
 	return this, err
 }
 
+// Forward applies the function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *ROLZCodec) Forward(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
@@ -145,16 +159,19 @@ func (this *ROLZCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("ROLZ codec: Input and output buffers cannot be equal")
 	}
 
-	if len(src) > ROLZ_MAX_BLOCK_SIZE {
+	if len(src) > _ROLZ_MAX_BLOCK_SIZE {
 		// Not a recoverable error: instead of silently fail the transform,
 		// issue a fatal error.
-		errMsg := fmt.Sprintf("The max ROLZ codec block size is %v, got %v", ROLZ_MAX_BLOCK_SIZE, len(src))
+		errMsg := fmt.Sprintf("The max ROLZ codec block size is %v, got %v", _ROLZ_MAX_BLOCK_SIZE, len(src))
 		panic(errors.New(errMsg))
 	}
 
 	return this.delegate.Forward(src, dst)
 }
 
+// Inverse applies the reverse function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *ROLZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
@@ -164,10 +181,10 @@ func (this *ROLZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("ROLZ codec: Input and output buffers cannot be equal")
 	}
 
-	if len(src) > ROLZ_MAX_BLOCK_SIZE {
+	if len(src) > _ROLZ_MAX_BLOCK_SIZE {
 		// Not a recoverable error: instead of silently fail the transform,
 		// issue a fatal error.
-		errMsg := fmt.Sprintf("The max ROLZ codec block size is %v, got %v", ROLZ_MAX_BLOCK_SIZE, len(src))
+		errMsg := fmt.Sprintf("The max ROLZ codec block size is %v, got %v", _ROLZ_MAX_BLOCK_SIZE, len(src))
 		panic(errors.New(errMsg))
 	}
 
@@ -178,6 +195,7 @@ func (this *ROLZCodec) MaxEncodedLen(srcLen int) int {
 	return this.delegate.MaxEncodedLen(srcLen)
 }
 
+// Use ANS to encode/decode literals and matches
 type rolzCodec1 struct {
 	matches      []int32
 	counters     []int32
@@ -186,7 +204,6 @@ type rolzCodec1 struct {
 	posChecks    int32
 }
 
-// Use ANS to encode/decode literals and matches
 func newROLZCodec1(logPosChecks uint) (*rolzCodec1, error) {
 	this := &rolzCodec1{}
 
@@ -198,11 +215,11 @@ func newROLZCodec1(logPosChecks uint) (*rolzCodec1, error) {
 	this.posChecks = 1 << logPosChecks
 	this.maskChecks = this.posChecks - 1
 	this.counters = make([]int32, 1<<16)
-	this.matches = make([]int32, ROLZ_HASH_SIZE<<logPosChecks)
+	this.matches = make([]int32, _ROLZ_HASH_SIZE<<logPosChecks)
 	return this, nil
 }
 
-// return position index (logPosChecks bits) + length (8 bits) or -1
+// findMatch returns match position index (logPosChecks bits) + length (8 bits) or -1
 func (this *rolzCodec1) findMatch(buf []byte, pos int) (int, int) {
 	key := getKey(buf[pos-2:])
 
@@ -216,10 +233,10 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int) (int, int) {
 	m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
 	hash32 := hash(buf[pos : pos+4])
 	counter := this.counters[key]
-	bestLen := ROLZ_MIN_MATCH - 1
+	bestLen := _ROLZ_MIN_MATCH - 1
 	bestIdx := -1
 	curBuf := buf[pos:]
-	maxMatch := ROLZ_MAX_MATCH
+	maxMatch := _ROLZ_MAX_MATCH
 
 	if maxMatch > len(buf)-pos {
 		maxMatch = len(buf) - pos
@@ -234,11 +251,11 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int) (int, int) {
 		}
 
 		// Hash check may save a memory access ...
-		if ref&ROLZ_HASH_MASK != hash32 {
+		if ref&_ROLZ_HASH_MASK != hash32 {
 			continue
 		}
 
-		ref &= ^ROLZ_HASH_MASK
+		ref &= ^_ROLZ_HASH_MASK
 
 		if buf[ref] != curBuf[0] {
 			continue
@@ -269,13 +286,16 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int) (int, int) {
 	this.counters[key]++
 	m[(counter+1)&this.maskChecks] = hash32 | int32(pos)
 
-	if bestLen < ROLZ_MIN_MATCH {
+	if bestLen < _ROLZ_MIN_MATCH {
 		return -1, -1
 	}
 
-	return bestIdx, bestLen - ROLZ_MIN_MATCH
+	return bestIdx, bestLen - _ROLZ_MIN_MATCH
 }
 
+// Forward applies the function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	if n := this.MaxEncodedLen(len(src)); len(dst) < n {
 		return 0, 0, fmt.Errorf("ROLZ codec: Output buffer is too small - size: %d, required %d", len(dst), n)
@@ -288,8 +308,8 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	dstIdx += 4
 	sizeChunk := len(src)
 
-	if sizeChunk > ROLZ_CHUNK_SIZE {
-		sizeChunk = ROLZ_CHUNK_SIZE
+	if sizeChunk > _ROLZ_CHUNK_SIZE {
+		sizeChunk = _ROLZ_CHUNK_SIZE
 	}
 
 	startChunk := 0
@@ -342,6 +362,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 				continue
 			}
 
+			// Emit match and literal lengths
 			litLen := srcIdx - firstLitIdx
 			lenIdx += emitLengths(lenBuf[lenIdx:], litLen, matchLen)
 
@@ -354,7 +375,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			// Emit match index
 			mIdxBuf[mIdx] = byte(matchIdx)
 			mIdx++
-			srcIdx += (matchLen + ROLZ_MIN_MATCH)
+			srcIdx += (matchLen + _ROLZ_MIN_MATCH)
 			firstLitIdx = srcIdx
 		}
 
@@ -454,11 +475,14 @@ End:
 	return uint(srcIdx), uint(dstIdx), err
 }
 
+// Inverse applies the reverse function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	sizeChunk := len(dst)
 
-	if sizeChunk > ROLZ_CHUNK_SIZE {
-		sizeChunk = ROLZ_CHUNK_SIZE
+	if sizeChunk > _ROLZ_CHUNK_SIZE {
+		sizeChunk = _ROLZ_CHUNK_SIZE
 	}
 
 	startChunk := 0
@@ -597,7 +621,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			// Sanity check
-			if dstIdx+matchLen+ROLZ_MIN_MATCH > dstEnd {
+			if dstIdx+matchLen+_ROLZ_MIN_MATCH > dstEnd {
 				err = errors.New("ROLZ codec: Invalid input data")
 				goto End
 			}
@@ -635,6 +659,7 @@ End:
 	return uint(srcIdx), uint(dstIdx), err
 }
 
+// MaxEncodedLen returns the max size required for the encoding output buffer
 func (this rolzCodec1) MaxEncodedLen(srcLen int) int {
 	if srcLen <= 512 {
 		return srcLen + 64
@@ -764,13 +789,13 @@ func newROLZCodec2(logPosChecks uint) (*rolzCodec2, error) {
 	this.posChecks = 1 << logPosChecks
 	this.maskChecks = this.posChecks - 1
 	this.counters = make([]int32, 1<<16)
-	this.matches = make([]int32, ROLZ_HASH_SIZE<<logPosChecks)
+	this.matches = make([]int32, _ROLZ_HASH_SIZE<<logPosChecks)
 	this.litPredictor, _ = newRolzPredictor(9)
 	this.matchPredictor, _ = newRolzPredictor(logPosChecks)
 	return this, nil
 }
 
-// return position index and length  or -1
+// findMatch returns match position index and length or -1
 func (this *rolzCodec2) findMatch(buf []byte, pos int) (int, int) {
 	key := getKey(buf[pos-2:])
 
@@ -784,10 +809,10 @@ func (this *rolzCodec2) findMatch(buf []byte, pos int) (int, int) {
 	m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
 	hash32 := hash(buf[pos : pos+4])
 	counter := this.counters[key]
-	bestLen := ROLZ_MIN_MATCH - 1
+	bestLen := _ROLZ_MIN_MATCH - 1
 	bestIdx := -1
 	curBuf := buf[pos:]
-	maxMatch := ROLZ_MAX_MATCH
+	maxMatch := _ROLZ_MAX_MATCH
 
 	if maxMatch > len(buf)-pos {
 		maxMatch = len(buf) - pos
@@ -802,11 +827,11 @@ func (this *rolzCodec2) findMatch(buf []byte, pos int) (int, int) {
 		}
 
 		// Hash check may save a memory access ...
-		if ref&ROLZ_HASH_MASK != hash32 {
+		if ref&_ROLZ_HASH_MASK != hash32 {
 			continue
 		}
 
-		ref &= ^ROLZ_HASH_MASK
+		ref &= ^_ROLZ_HASH_MASK
 
 		if buf[ref] != curBuf[0] {
 			continue
@@ -837,13 +862,16 @@ func (this *rolzCodec2) findMatch(buf []byte, pos int) (int, int) {
 	this.counters[key]++
 	m[(counter+1)&this.maskChecks] = hash32 | int32(pos)
 
-	if bestLen < ROLZ_MIN_MATCH {
+	if bestLen < _ROLZ_MIN_MATCH {
 		return -1, -1
 	}
 
-	return bestIdx, bestLen - ROLZ_MIN_MATCH
+	return bestIdx, bestLen - _ROLZ_MIN_MATCH
 }
 
+// Forward applies the function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	if n := this.MaxEncodedLen(len(src)); len(dst) < n {
 		return 0, 0, fmt.Errorf("ROLZX codec: Output buffer is too small - size: %d, required %d", len(dst), n)
@@ -854,8 +882,8 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	srcEnd := len(src) - 4
 	sizeChunk := len(src)
 
-	if sizeChunk > ROLZ_CHUNK_SIZE {
-		sizeChunk = ROLZ_CHUNK_SIZE
+	if sizeChunk > _ROLZ_CHUNK_SIZE {
+		sizeChunk = _ROLZ_CHUNK_SIZE
 	}
 
 	startChunk := 0
@@ -886,13 +914,13 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		buf := src[startChunk:endChunk]
 		srcIdx = 0
 		this.litPredictor.setContext(0)
-		re.setContext(ROLZ_LITERAL_FLAG)
-		re.encodeBit(ROLZ_LITERAL_FLAG)
+		re.setContext(_ROLZ_LITERAL_FLAG)
+		re.encodeBit(_ROLZ_LITERAL_FLAG)
 		re.encodeByte(buf[srcIdx])
 		srcIdx++
 
 		if startChunk+1 < srcEnd {
-			re.encodeBit(ROLZ_LITERAL_FLAG)
+			re.encodeBit(_ROLZ_LITERAL_FLAG)
 			re.encodeByte(buf[srcIdx])
 			srcIdx++
 		}
@@ -900,24 +928,24 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		// Next chunk
 		for srcIdx < sizeChunk {
 			this.litPredictor.setContext(buf[srcIdx-1])
-			re.setContext(ROLZ_LITERAL_FLAG)
+			re.setContext(_ROLZ_LITERAL_FLAG)
 			matchIdx, matchLen := this.findMatch(buf, srcIdx)
 
 			if matchIdx < 0 {
-				re.encodeBit(ROLZ_LITERAL_FLAG)
+				re.encodeBit(_ROLZ_LITERAL_FLAG)
 				re.encodeByte(buf[srcIdx])
 				srcIdx++
 			} else {
-				re.encodeBit(ROLZ_MATCH_FLAG)
+				re.encodeBit(_ROLZ_MATCH_FLAG)
 				re.encodeByte(byte(matchLen))
 				this.matchPredictor.setContext(buf[srcIdx-1])
-				re.setContext(ROLZ_MATCH_FLAG)
+				re.setContext(_ROLZ_MATCH_FLAG)
 
 				for shift := this.logPosChecks; shift > 0; shift-- {
 					re.encodeBit(byte(matchIdx>>(shift-1)) & 1)
 				}
 
-				srcIdx += (matchLen + ROLZ_MIN_MATCH)
+				srcIdx += (matchLen + _ROLZ_MIN_MATCH)
 			}
 		}
 
@@ -926,11 +954,11 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Emit last literals
 	srcIdx += (startChunk - sizeChunk)
-	re.setContext(ROLZ_LITERAL_FLAG)
+	re.setContext(_ROLZ_LITERAL_FLAG)
 
 	for i := 0; i < 4; i++ {
 		this.litPredictor.setContext(src[srcIdx-1])
-		re.encodeBit(ROLZ_LITERAL_FLAG)
+		re.encodeBit(_ROLZ_LITERAL_FLAG)
 		re.encodeByte(src[srcIdx])
 		srcIdx++
 	}
@@ -945,6 +973,9 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	return uint(srcIdx), uint(dstIdx), err
 }
 
+// Inverse applies the reverse function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	srcIdx := 0
 	dstIdx := 0
@@ -953,8 +984,8 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	srcIdx += 4
 	sizeChunk := len(dst)
 
-	if sizeChunk > ROLZ_CHUNK_SIZE {
-		sizeChunk = ROLZ_CHUNK_SIZE
+	if sizeChunk > _ROLZ_CHUNK_SIZE {
+		sizeChunk = _ROLZ_CHUNK_SIZE
 	}
 
 	startChunk := 0
@@ -983,17 +1014,17 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 		buf := dst[startChunk:endChunk]
 		dstIdx = 0
 		this.litPredictor.setContext(0)
-		rd.setContext(ROLZ_LITERAL_FLAG)
+		rd.setContext(_ROLZ_LITERAL_FLAG)
 		bit := rd.decodeBit()
 
-		if bit == ROLZ_LITERAL_FLAG {
+		if bit == _ROLZ_LITERAL_FLAG {
 			buf[dstIdx] = rd.decodeByte()
 			dstIdx++
 
 			if startChunk+1 < dstEnd {
 				bit = rd.decodeBit()
 
-				if bit == ROLZ_LITERAL_FLAG {
+				if bit == _ROLZ_LITERAL_FLAG {
 					buf[dstIdx] = rd.decodeByte()
 					dstIdx++
 				}
@@ -1001,7 +1032,7 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 
 		// Sanity check
-		if bit == ROLZ_MATCH_FLAG {
+		if bit == _ROLZ_MATCH_FLAG {
 			dstIdx += startChunk
 			break
 		}
@@ -1012,9 +1043,9 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			key := getKey(buf[dstIdx-2:])
 			m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
 			this.litPredictor.setContext(buf[dstIdx-1])
-			rd.setContext(ROLZ_LITERAL_FLAG)
+			rd.setContext(_ROLZ_LITERAL_FLAG)
 
-			if rd.decodeBit() == ROLZ_MATCH_FLAG {
+			if rd.decodeBit() == _ROLZ_MATCH_FLAG {
 				// Match flag
 				matchLen := int(rd.decodeByte())
 				// Sanity check
@@ -1024,7 +1055,7 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 				}
 
 				this.matchPredictor.setContext(buf[dstIdx-1])
-				rd.setContext(ROLZ_MATCH_FLAG)
+				rd.setContext(_ROLZ_MATCH_FLAG)
 				matchIdx := int32(0)
 
 				for shift := this.logPosChecks; shift != 0; shift-- {
@@ -1058,10 +1089,11 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	return uint(srcIdx), uint(dstIdx), err
 }
 
+// MaxEncodedLen returns the max size required for the encoding output buffer
 func (this rolzCodec2) MaxEncodedLen(srcLen int) int {
 	// Since we do not check the dst index for each byte (for speed purpose)
 	// allocate some extra buffer for incompressible data.
-	if srcLen >= ROLZ_CHUNK_SIZE {
+	if srcLen >= _ROLZ_CHUNK_SIZE {
 		return srcLen
 	}
 
@@ -1129,7 +1161,7 @@ type rolzEncoder struct {
 func newRolzEncoder(predictors []kanzi.Predictor, buf []byte, idx *int) (*rolzEncoder, error) {
 	this := &rolzEncoder{}
 	this.low = 0
-	this.high = ROLZ_TOP
+	this.high = _ROLZ_TOP
 	this.buf = buf
 	this.idx = idx
 	this.predictors = predictors
@@ -1197,7 +1229,7 @@ type rolzDecoder struct {
 func newRolzDecoder(predictors []kanzi.Predictor, buf []byte, idx *int) (*rolzDecoder, error) {
 	this := new(rolzDecoder)
 	this.low = 0
-	this.high = ROLZ_TOP
+	this.high = _ROLZ_TOP
 	this.buf = buf
 	this.idx = idx
 	this.current = uint64(0)
