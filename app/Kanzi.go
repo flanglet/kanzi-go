@@ -675,30 +675,65 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 
 // FileData a basic structure encapsulating a file path and size
 type FileData struct {
-	Path string
-	Size int64
+	FullPath string
+	Path     string
+	Name     string
+	Size     int64
 }
 
-// FileCompareByName a structure used to sort files by name
-type FileCompareByName struct {
-	data []FileData
+func NewFileData(fullPath string, size int64) *FileData {
+	this := &FileData{}
+	this.FullPath = fullPath
+	this.Size = size
+
+	idx := strings.LastIndexByte(this.FullPath, byte(os.PathSeparator))
+
+	if idx > 0 {
+		b := []byte(this.FullPath)
+		this.Path = string(b[0 : idx+1])
+		this.Name = string(b[idx+1:])
+	} else {
+		this.Path = ""
+		this.Name = this.FullPath
+	}
+
+	return this
+}
+
+// FileCompare a structure used to sort files by path and size
+type FileCompare struct {
+	data       []FileData
+	sortBySize bool
 }
 
 // Len returns the size of the internal file data buffer
-func (this FileCompareByName) Len() int {
+func (this FileCompare) Len() int {
 	return len(this.data)
 }
 
 // Swap swaps two file data in the internal buffer
-func (this FileCompareByName) Swap(i, j int) {
+func (this FileCompare) Swap(i, j int) {
 	this.data[i], this.data[j] = this.data[j], this.data[i]
 }
 
 // Less returns true if the path at index i in the internal
-// file data buffer is less than (lexicographical order)
-// the path at index j.
-func (this FileCompareByName) Less(i, j int) bool {
-	return strings.Compare(this.data[i].Path, this.data[j].Path) < 0
+// file data buffer is less than file data buffer at index j.
+// The order is defined by lexical order of the parent dirextory
+// path then file size.
+func (this FileCompare) Less(i, j int) bool {
+	if this.sortBySize == false {
+		return strings.Compare(this.data[i].FullPath, this.data[j].FullPath) < 0
+	}
+
+	// First check parent directory path
+	res := strings.Compare(this.data[i].Path, this.data[j].Path)
+
+	if res != 0 {
+		return res < 0
+	}
+
+	// Check file size
+	return this.data[i].Size < this.data[j].Size
 }
 
 func createFileList(target string, fileList []FileData) ([]FileData, error) {
@@ -710,7 +745,7 @@ func createFileList(target string, fileList []FileData) ([]FileData, error) {
 
 	if fi.Mode().IsRegular() {
 		if fi.Name()[0] != '.' {
-			fileList = append(fileList, FileData{Path: target, Size: fi.Size()})
+			fileList = append(fileList, *NewFileData(target, fi.Size()))
 		}
 
 		return fileList, nil
@@ -730,7 +765,7 @@ func createFileList(target string, fileList []FileData) ([]FileData, error) {
 			}
 
 			if fi.Mode().IsRegular() && fi.Name()[0] != '.' {
-				fileList = append(fileList, FileData{Path: path, Size: fi.Size()})
+				fileList = append(fileList, *NewFileData(path, fi.Size()))
 			}
 
 			return err
@@ -745,7 +780,7 @@ func createFileList(target string, fileList []FileData) ([]FileData, error) {
 		if err == nil {
 			for _, fi := range files {
 				if fi.Mode().IsRegular() && fi.Name()[0] != '.' {
-					fileList = append(fileList, FileData{Path: target + fi.Name(), Size: fi.Size()})
+					fileList = append(fileList, *NewFileData(target+fi.Name(), fi.Size()))
 				}
 			}
 		}

@@ -389,7 +389,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		iName := "STDIN"
 
 		if strings.ToUpper(this.inputName) != "STDIN" {
-			iName = files[0].Path
+			iName = files[0].FullPath
 			ctx["fileSize"] = files[0].Size
 
 			if len(oName) == 0 {
@@ -411,12 +411,11 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		cancel := make(chan bool, 1)
 
 		jobsPerTask := kanzi.ComputeJobsPerTask(make([]uint, nbFiles), this.jobs, uint(nbFiles))
-		n := 0
-		sort.Sort(FileCompareByName{data: files})
+		sort.Sort(FileCompare{data: files, sortBySize: false})
 
 		// Create one task per file
-		for _, f := range files {
-			iName := f.Path
+		for i, f := range files {
+			iName := f.FullPath
 			oName := formattedOutName
 
 			if len(oName) == 0 {
@@ -434,8 +433,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 			taskCtx["fileSize"] = f.Size
 			taskCtx["inputName"] = iName
 			taskCtx["outputName"] = oName
-			taskCtx["jobs"] = jobsPerTask[n]
-			n++
+			taskCtx["jobs"] = jobsPerTask[i]
 			task := fileCompressTask{ctx: taskCtx, listeners: this.listeners}
 
 			// Push task to channel. The workers are the consumers.

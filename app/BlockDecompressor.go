@@ -280,7 +280,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 
 	if nbFiles == 1 {
 		oName := formattedOutName
-		iName := files[0].Path
+		iName := files[0].FullPath
 
 		if len(oName) == 0 {
 			oName = iName + ".bak"
@@ -302,11 +302,10 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 		cancel := make(chan bool, 1)
 
 		jobsPerTask := kanzi.ComputeJobsPerTask(make([]uint, nbFiles), this.jobs, uint(nbFiles))
-		n := 0
-		sort.Sort(FileCompareByName{data: files})
+		sort.Sort(FileCompare{data: files, sortBySize: false})
 
-		for _, f := range files {
-			iName := f.Path
+		for i, f := range files {
+			iName := f.FullPath
 			oName := formattedOutName
 
 			if len(oName) == 0 {
@@ -324,8 +323,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 			taskCtx["fileSize"] = f.Size
 			taskCtx["inputName"] = iName
 			taskCtx["outputName"] = oName
-			taskCtx["jobs"] = jobsPerTask[n]
-			n++
+			taskCtx["jobs"] = jobsPerTask[i]
 			task := fileDecompressTask{ctx: taskCtx, listeners: this.listeners}
 
 			// Push task to channel. The workers are the consumers.
