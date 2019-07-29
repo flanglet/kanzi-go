@@ -491,9 +491,9 @@ func (this *TPAQPredictor) getMatchContextPred() int32 {
 }
 
 func createContext(ctxID, cx int32) int32 {
-	c := uint32(cx*TPAQ_HASH + ctxID)
+	c := uint32(cx*987654323 + ctxID)
 	c = bits.RotateLeft32(c, 16)
-	return int32(c*uint32(TPAQ_HASH)) + ctxID
+	return int32(c*123456791) + ctxID
 }
 
 // TPAQMixer a mixer that combines models using neural networks with 8 inputs.
