@@ -25,7 +25,7 @@ import (
 // It is just LZ4 modified to use a bigger hash map.
 
 const (
-	_LZ_HASH_SEED    = 0x9E3779B1
+	_LZ_HASH_SEED    = 0x7FEB352D
 	_HASH_LOG_SMALL  = 12
 	_HASH_LOG_BIG    = 16
 	_MAX_DISTANCE    = (1 << 16) - 1
@@ -40,8 +40,7 @@ const (
 	_COPY_LENGTH     = 8
 	_MIN_LENGTH      = 14
 	_MAX_LENGTH      = (32 * 1024 * 1024) - 4 - _MIN_MATCH
-	_SKIP_TRIGGER    = 6
-	_SEARCH_MATCH_NB = 1 << _SKIP_TRIGGER
+	_SEARCH_MATCH_NB = 1 << 6
 )
 
 // LZCodec Lempel Ziv (LZ77) codec based on LZ4
