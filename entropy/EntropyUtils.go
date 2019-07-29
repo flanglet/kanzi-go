@@ -17,7 +17,6 @@ package entropy
 
 import (
 	"container/heap"
-	"errors"
 	"fmt"
 
 	kanzi "github.com/flanglet/kanzi-go"
@@ -84,14 +83,18 @@ func (this *freqSortPriorityQueue) Pop() interface{} {
 // EncodeAlphabet writes the alphabet to the bitstream and return the number
 // of symbols written or an error.
 // alphabet must be sorted in increasing order
-// alphabet length must be a power of 2
+// alphabet size must be a power of 2 up to 256
 func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 	alphabetSize := cap(alphabet)
 	count := len(alphabet)
 
 	// Alphabet length must be a power of 2
 	if alphabetSize&(alphabetSize-1) != 0 {
-		return 0, errors.New("The alphabet length must be a power of 2")
+		return 0, fmt.Errorf("The alphabet length must be a power of 2, got %v", alphabetSize)
+	}
+
+	if alphabetSize > 256 {
+		return 0, fmt.Errorf("The max alphabet length is 256, got %v", alphabetSize)
 	}
 
 	// First, push alphabet encoding mode
@@ -110,7 +113,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 
 			// Write alphabet size
 			obs.WriteBit(ALPHABET_NOT_256)
-			obs.WriteBits(uint64(log-1), 5)
+			obs.WriteBits(uint64(log-1), 3)
 			obs.WriteBits(uint64(count), log)
 		}
 
@@ -128,10 +131,10 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 			masks[alphabet[i]>>6] |= (1 << uint(alphabet[i]&63))
 		}
 
-		for i := range masks {
-			obs.WriteBits(masks[i], 64)
-		}
-
+		obs.WriteBits(masks[0], 64)
+		obs.WriteBits(masks[1], 64)
+		obs.WriteBits(masks[2], 64)
+		obs.WriteBits(masks[3], 64)
 		return count, nil
 	}
 
@@ -148,7 +151,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 		}
 
 		// Write length
-		obs.WriteBits(uint64(log-1), 4)
+		obs.WriteBits(uint64(log-1), 3)
 		obs.WriteBits(uint64(count), log)
 
 		if count == 0 {
@@ -163,7 +166,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 		}
 
 		// Write log(alphabet size)
-		obs.WriteBits(uint64(log-1), 5)
+		obs.WriteBits(uint64(log-1), 4)
 		symbol := 0
 		previous := 0
 
@@ -192,7 +195,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 		}
 
 		// Write length
-		obs.WriteBits(uint64(log-1), 4)
+		obs.WriteBits(uint64(log-1), 3)
 		obs.WriteBits(uint64(count), log)
 
 		if count == 0 {
@@ -209,11 +212,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 		}
 	}
 
-	ckSize := 16
-
-	if count <= 64 {
-		ckSize = 8
-	}
+	ckSize := (count + 3) >> 2
 
 	// Encode all deltas by chunks
 	for i := 0; i < count; i += ckSize {
@@ -232,7 +231,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 			log++
 		}
 
-		obs.WriteBits(uint64(log-1), 4)
+		obs.WriteBits(uint64(log-1), 3)
 
 		// Write deltas for this chunk
 		for j := i; j < count && j < i+ckSize; j++ {
@@ -255,7 +254,7 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 		if ibs.ReadBit() == ALPHABET_256 {
 			alphabetSize = 256
 		} else {
-			log := uint(1 + ibs.ReadBits(5))
+			log := uint(1 + ibs.ReadBits(3))
 			alphabetSize = int(ibs.ReadBits(log))
 		}
 
@@ -291,24 +290,19 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 	}
 
 	// DELTA_ENCODED_ALPHABET
-	log := uint(1 + ibs.ReadBits(4))
+	log := uint(1 + ibs.ReadBits(3))
 	count = int(ibs.ReadBits(log))
 
 	if count == 0 {
 		return 0, nil
 	}
 
-	ckSize := 16
-
-	if count <= 64 {
-		ckSize = 8
-	}
-
+	ckSize := (count + 3) >> 2
 	n := 0
 	symbol := 0
 
 	if ibs.ReadBit() == ABSENT_SYMBOLS_MASK {
-		alphabetSize := 1 << uint(ibs.ReadBits(5))
+		alphabetSize := 1 << uint(ibs.ReadBits(4))
 
 		if alphabetSize > len(alphabet) {
 			return alphabetSize, fmt.Errorf("Invalid bitstream: incorrect alphabet size: %v", alphabetSize)
@@ -316,7 +310,7 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 
 		// Read missing symbols
 		for i := 0; i < count; i += ckSize {
-			log = uint(1 + ibs.ReadBits(4))
+			log = uint(1 + ibs.ReadBits(3))
 
 			// Read deltas for this chunk
 			for j := i; j < count && j < i+ckSize; j++ {
@@ -343,7 +337,7 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 	} else {
 		// Read present symbols
 		for i := 0; i < count; i += ckSize {
-			log = uint(1 + ibs.ReadBits(4))
+			log = uint(1 + ibs.ReadBits(3))
 
 			// Read deltas for this chunk
 			for j := i; j < count && j < i+ckSize; j++ {
