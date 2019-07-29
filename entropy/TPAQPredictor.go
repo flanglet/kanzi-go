@@ -235,7 +235,9 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 		// Too few mixers hurts compression for big blocks.
 		absz := (*ctx)["size"].(uint)
 
-		if absz >= 16*1024*1024 {
+		if absz >= 32*1024*1024 {
+			mixersSize = 1 << 17
+		} else if absz >= 16*1024*1024 {
 			mixersSize = 1 << 16
 		} else if absz >= 8*1024*1024 {
 			mixersSize = 1 << 14
@@ -321,28 +323,34 @@ func (this *TPAQPredictor) Update(bit byte) {
 
 		if this.binCount < this.pos>>2 {
 			// Mostly text or mixed
-			var h1, h2 int32
-
-			if this.c4&TPAQ_MASK_80808080 == 0 {
-				h1 = this.c4 & TPAQ_MASK_4F4FFFFF
-			} else {
-				h1 = this.c4 & TPAQ_MASK_80808080
-			}
-
-			if this.c8&TPAQ_MASK_80808080 == 0 {
-				h2 = this.c8 & TPAQ_MASK_4F4FFFFF
-			} else {
-				h2 = this.c8 & TPAQ_MASK_80808080
-			}
-
 			this.ctx4 = createContext(this.ctx1, this.c4^(this.c8&0xFFFF))
 			this.ctx5 = (this.c8 & TPAQ_MASK_F0F0F000) | ((this.c4 & TPAQ_MASK_F0F0F000) >> 4)
-			this.ctx6 = hashTPAQ(h1<<4, h2)
+
+			if this.extra == true {
+				var h1, h2 int32
+
+				if this.c4&TPAQ_MASK_80808080 == 0 {
+					h1 = this.c4 & TPAQ_MASK_4F4FFFFF
+				} else {
+					h1 = this.c4 & TPAQ_MASK_80808080
+				}
+
+				if this.c8&TPAQ_MASK_80808080 == 0 {
+					h2 = this.c8 & TPAQ_MASK_4F4FFFFF
+				} else {
+					h2 = this.c8 & TPAQ_MASK_80808080
+				}
+
+				this.ctx6 = hashTPAQ(h1<<2, h2>>2)
+			}
 		} else {
 			// Mostly binary
 			this.ctx4 = createContext(TPAQ_HASH, this.c4^(this.c4&0x000FFFFF))
 			this.ctx5 = this.ctx0 | (this.c8 << 16)
-			this.ctx6 = hashTPAQ(this.c4&TPAQ_MASK_FFFF0000, this.c8>>16)
+
+			if this.extra == true {
+				this.ctx6 = hashTPAQ(this.c4&TPAQ_MASK_FFFF0000, this.c8>>16)
+			}
 		}
 
 		this.findMatch()
@@ -387,7 +395,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 
 	if this.extra == false {
 		// Mix predictions using NN
-		p = this.mixer.get(p0, p1, p2, p3, p4, p5, (p2+p7)>>1, p7)
+		p = this.mixer.get(p0, p1, p2, p3, p4, p5, p7, p7)
 
 		// SSE (Secondary Symbol Estimation)
 		if this.binCount < (this.pos >> 3) {
@@ -472,7 +480,7 @@ func (this *TPAQPredictor) getMatchContextPred() int32 {
 		}
 
 		if ((this.buffer[this.matchPos&TPAQ_MASK_BUFFER] >> (this.bpos - 1)) & 1) == 0 {
-			p = -p
+			return -p << 6
 		}
 
 		return p << 6
@@ -483,12 +491,12 @@ func (this *TPAQPredictor) getMatchContextPred() int32 {
 }
 
 func createContext(ctxID, cx int32) int32 {
-	c := uint32(cx*987654323 + ctxID)
+	c := uint32(cx*TPAQ_HASH + ctxID)
 	c = bits.RotateLeft32(c, 16)
-	return int32(c*123456791) + ctxID
+	return int32(c*uint32(TPAQ_HASH)) + ctxID
 }
 
-// TPAQMixer a mixer thar combines models using neural networks with 8 inputs.
+// TPAQMixer a mixer that combines models using neural networks with 8 inputs.
 type TPAQMixer struct {
 	pr                             int // squashed prediction
 	skew                           int32
