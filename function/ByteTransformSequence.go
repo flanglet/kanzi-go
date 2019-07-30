@@ -174,7 +174,7 @@ func (this ByteTransformSequence) MaxEncodedLen(srcLen int) int {
 
 	for _, t := range this.transforms {
 		if f, isFunction := t.(kanzi.ByteFunction); isFunction == true {
-			reqSize := f.MaxEncodedLen(srcLen)
+			reqSize := f.MaxEncodedLen(requiredSize)
 
 			if reqSize > requiredSize {
 				requiredSize = reqSize
