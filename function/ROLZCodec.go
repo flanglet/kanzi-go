@@ -160,10 +160,9 @@ func (this *ROLZCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	if len(src) > _ROLZ_MAX_BLOCK_SIZE {
-		// Not a recoverable error: instead of silently fail the transform,
+		// Not a recoverable error: instead of a (silent) failure,
 		// issue a fatal error.
-		errMsg := fmt.Sprintf("The max ROLZ codec block size is %v, got %v", _ROLZ_MAX_BLOCK_SIZE, len(src))
-		panic(errors.New(errMsg))
+		panic(fmt.Errorf("The max ROLZ codec block size is %v, got %v", _ROLZ_MAX_BLOCK_SIZE, len(src)))
 	}
 
 	return this.delegate.Forward(src, dst)
@@ -182,10 +181,9 @@ func (this *ROLZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	if len(src) > _ROLZ_MAX_BLOCK_SIZE {
-		// Not a recoverable error: instead of silently fail the transform,
+		// Not a recoverable error: instead of a (silent) failure,
 		// issue a fatal error.
-		errMsg := fmt.Sprintf("The max ROLZ codec block size is %v, got %v", _ROLZ_MAX_BLOCK_SIZE, len(src))
-		panic(errors.New(errMsg))
+		panic(fmt.Errorf("The max ROLZ codec block size is %v, got %v", _ROLZ_MAX_BLOCK_SIZE, len(src)))
 	}
 
 	return this.delegate.Inverse(src, dst)
@@ -610,9 +608,9 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			litIdx += litLen
 			dstIdx += litLen
 
-			if dstIdx >= endChunk {
+			if dstIdx >= sizeChunk {
 				// Last chunk literals not followed by match
-				if dstIdx == endChunk {
+				if dstIdx == sizeChunk {
 					break
 				}
 
@@ -631,10 +629,10 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			key := getKey(buf[dstIdx-2:])
 			m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
 			ref := m[(this.counters[key]-matchIdx)&this.maskChecks]
-			savedIdx := dstIdx
+			savedIdx := int32(dstIdx)
 			dstIdx = emitCopy(buf, dstIdx, int(ref), matchLen)
 			this.counters[key]++
-			m[this.counters[key]&this.maskChecks] = int32(savedIdx)
+			m[this.counters[key]&this.maskChecks] = savedIdx
 		}
 
 		startChunk = endChunk
@@ -672,7 +670,7 @@ func emitLengths(litBuf []byte, litLen, mLen int) int {
 	// mode LLLLLMMM -> L lit length, M match length
 	var mode byte
 
-	if litLen < 31 {
+	if litLen < 0x1F {
 		mode = byte(litLen << 3)
 	} else {
 		mode = 0xF8
@@ -689,8 +687,8 @@ func emitLengths(litBuf []byte, litLen, mLen int) int {
 		idx = 1
 	}
 
-	if litLen >= 31 {
-		litLen -= 31
+	if litLen >= 0x1F {
+		litLen -= 0x1F
 
 		if litLen >= 1<<7 {
 			if litLen >= 1<<14 {
@@ -1105,25 +1103,25 @@ func (this rolzCodec2) MaxEncodedLen(srcLen int) int {
 }
 
 type rolzPredictor struct {
-	probs   []int
-	logSize uint
-	size    int
-	c1      int
-	ctx     int
+	probs     []int
+	p         []int
+	logSize   uint
+	threshold int
+	c1        int
 }
 
 func newRolzPredictor(logPosChecks uint) (*rolzPredictor, error) {
 	this := &rolzPredictor{}
 	this.logSize = logPosChecks
-	this.size = 1 << logPosChecks
-	this.probs = make([]int, 256*this.size)
+	this.threshold = 1 << (logPosChecks - 1)
+	this.probs = make([]int, 256<<logPosChecks)
 	this.reset()
 	return this, nil
 }
 
 func (this *rolzPredictor) reset() {
 	this.c1 = 1
-	this.ctx = 0
+	this.p = this.probs[0:256]
 
 	for i := range this.probs {
 		this.probs[i] = 1 << 15
@@ -1131,22 +1129,22 @@ func (this *rolzPredictor) reset() {
 }
 
 func (this *rolzPredictor) Update(bit byte) {
-	idx := this.ctx | this.c1
 	b := int(bit)
-	this.probs[idx] -= (((this.probs[idx] - (-b & 0xFFFF)) >> 5) + b)
-	this.c1 = (this.c1 << 1) + b
+	this.p[this.c1] -= (((this.p[this.c1] - (-b & 0xFFFF)) >> 5) + b)
 
-	if this.c1 >= this.size {
+	if this.c1 >= this.threshold {
 		this.c1 = 1
+	} else {
+		this.c1 = (this.c1 << 1) + b
 	}
 }
 
 func (this *rolzPredictor) Get() int {
-	return this.probs[this.ctx|this.c1] >> 4
+	return this.p[this.c1] >> 4
 }
 
 func (this *rolzPredictor) setContext(ctx byte) {
-	this.ctx = int(ctx) << this.logSize
+	this.p = this.probs[int(ctx)<<this.logSize:]
 }
 
 type rolzEncoder struct {
