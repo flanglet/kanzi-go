@@ -958,10 +958,10 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 	blkSize := int(this.blockSize)
 
 	// Add a padding area to manage any block with header or temporarily expanded
-	if blkSize+_EXTRA_BUFFER_SIZE >= (blkSize*17)>>4 {
+	if _EXTRA_BUFFER_SIZE >= (blkSize >> 4) {
 		blkSize += _EXTRA_BUFFER_SIZE
 	} else {
-		blkSize = (blkSize * 17) >> 4
+		blkSize += (blkSize >> 4)
 	}
 
 	// Protect against future concurrent modification of the list of block listeners
