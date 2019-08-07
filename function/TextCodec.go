@@ -892,8 +892,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 	if len(src) > _TC_MAX_BLOCK_SIZE {
 		// Not a recoverable error: instead of silently fail the transform,
 		// issue a fatal error.
-		errMsg := fmt.Sprintf("The max text transform block size is %v, got %v", _TC_MAX_BLOCK_SIZE, len(src))
-		panic(errors.New(errMsg))
+		panic(fmt.Errorf("The max text transform block size is %v, got %v", _TC_MAX_BLOCK_SIZE, len(src)))
 	}
 
 	return this.delegate.Forward(src, dst)
@@ -911,8 +910,7 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	if len(src) > _TC_MAX_BLOCK_SIZE {
 		// Not a recoverable error: instead of silently fail the transform,
 		// issue a fatal error.
-		errMsg := fmt.Sprintf("The max text transform block size is %v, got %v", _TC_MAX_BLOCK_SIZE, len(src))
-		panic(errors.New(errMsg))
+		panic(fmt.Errorf("The max text transform block size is %v, got %v", _TC_MAX_BLOCK_SIZE, len(src)))
 	}
 
 	return this.delegate.Inverse(src, dst)
