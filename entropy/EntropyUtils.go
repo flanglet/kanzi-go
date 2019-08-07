@@ -519,16 +519,26 @@ func WriteVarInt(bs kanzi.OutputBitStream, value uint32) int {
 	return res
 }
 
-// ReadVarInt reads a VarInt from the bitstream and returns it as an int.
+// ReadVarInt reads a VarInt from the bitstream and returns it as an uint32.
 func ReadVarInt(bs kanzi.InputBitStream) uint32 {
 	value := uint32(bs.ReadBits(8))
-	res := value & 0x7F
-	shift := uint(7)
 
-	for value >= 128 && shift <= 28 {
+	if value < 128 {
+		return value
+	}
+
+	res := value & 0x7F
+	value = uint32(bs.ReadBits(8))
+	res |= ((value & 0x7F) << 7)
+
+	if value >= 128 {
 		value = uint32(bs.ReadBits(8))
-		res |= ((value & 0x7F) << shift)
-		shift += 7
+		res |= ((value & 0x7F) << 14)
+
+		if value >= 128 {
+			value = uint32(bs.ReadBits(8))
+			res |= ((value & 0x7F) << 21)
+		}
 	}
 
 	return res
