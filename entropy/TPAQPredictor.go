@@ -22,17 +22,17 @@ import (
 )
 
 const (
-	TPAQ_MAX_LENGTH       = 88
-	TPAQ_BUFFER_SIZE      = 64 * 1024 * 1024
-	TPAQ_HASH_SIZE        = 16 * 1024 * 1024
-	TPAQ_MASK_BUFFER      = TPAQ_BUFFER_SIZE - 1
-	TPAQ_MASK_80808080    = int32(-2139062144) // 0x80808080
-	TPAQ_MASK_F0F0F000    = int32(-252645376)  // 0xF0F0F000
-	TPAQ_MASK_4F4FFFFF    = int32(1330642943)  // 0x4F4FFFFF
-	TPAQ_MASK_FFFF0000    = int32(-65536)      // 0xFFFF0000
-	TPAQ_HASH             = int32(0x7FEB352D)
-	TPAQ_BEGIN_LEARN_RATE = 60 << 7
-	TPAQ_END_LEARN_RATE   = 11 << 7
+	_TPAQ_MAX_LENGTH       = 88
+	_TPAQ_BUFFER_SIZE      = 64 * 1024 * 1024
+	_TPAQ_HASH_SIZE        = 16 * 1024 * 1024
+	_TPAQ_MASK_BUFFER      = _TPAQ_BUFFER_SIZE - 1
+	_TPAQ_MASK_80808080    = int32(-2139062144) // 0x80808080
+	_TPAQ_MASK_F0F0F000    = int32(-252645376)  // 0xF0F0F000
+	_TPAQ_MASK_4F4FFFFF    = int32(1330642943)  // 0x4F4FFFFF
+	_TPAQ_MASK_FFFF0000    = int32(-65536)      // 0xFFFF0000
+	_TPAQ_HASH             = int32(0x7FEB352D)
+	_TPAQ_BEGIN_LEARN_RATE = 60 << 7
+	_TPAQ_END_LEARN_RATE   = 11 << 7
 )
 
 // States represent a bit history within some context.
@@ -46,7 +46,7 @@ const (
 // pair, so another state with about the same ratio of n0/n1 is substituted.
 // Also, when a bit is observed and the count of the opposite bit is large,
 // then part of this count is discarded to favor newer data over old.
-var TPAQ_STATE_TRANSITIONS = [][]uint8{
+var _TPAQ_STATE_TRANSITIONS = [][]uint8{
 	// Bit 0
 	{
 		1, 3, 143, 4, 5, 6, 7, 8, 9, 10,
@@ -107,7 +107,7 @@ var TPAQ_STATE_TRANSITIONS = [][]uint8{
 	},
 }
 
-var TPAQ_STATE_MAP = []int32{
+var _TPAQ_STATE_MAP = []int32{
 	-31, -400, 406, -547, -642, -743, -827, -901,
 	-901, -974, -945, -955, -1060, -1031, -1044, -956,
 	-994, -1035, -1147, -1069, -1111, -1145, -1096, -1084,
@@ -143,8 +143,8 @@ var TPAQ_STATE_MAP = []int32{
 }
 
 func hashTPAQ(x, y int32) int32 {
-	h := x*TPAQ_HASH ^ y*TPAQ_HASH
-	return h>>1 ^ h>>9 ^ x>>2 ^ y>>3 ^ TPAQ_HASH
+	h := x*_TPAQ_HASH ^ y*_TPAQ_HASH
+	return h>>1 ^ h>>9 ^ x>>2 ^ y>>3 ^ _TPAQ_HASH
 }
 
 // TPAQPredictor bit predictor for binary entropy codecs.
@@ -200,7 +200,7 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 	this := new(TPAQPredictor)
 	statesSize := 1 << 28
 	mixersSize := 1 << 12
-	hashSize := TPAQ_HASH_SIZE
+	hashSize := _TPAQ_HASH_SIZE
 	this.extra = false
 	extraMem := uint(0)
 
@@ -268,7 +268,7 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 	this.smallStatesMap0 = make([]uint8, 1<<16)
 	this.smallStatesMap1 = make([]uint8, 1<<24)
 	this.hashes = make([]int32, hashSize)
-	this.buffer = make([]int8, TPAQ_BUFFER_SIZE)
+	this.buffer = make([]int8, _TPAQ_BUFFER_SIZE)
 	this.statesMask = int32(statesSize - 1)
 	this.mixersMask = int32(mixersSize - 1)
 	this.hashMask = int32(hashSize - 1)
@@ -303,11 +303,11 @@ func (this *TPAQPredictor) Update(bit byte) {
 	this.c0 = (this.c0 << 1) | int32(bit)
 
 	if this.c0 > 255 {
-		this.buffer[this.pos&TPAQ_MASK_BUFFER] = int8(this.c0)
+		this.buffer[this.pos&_TPAQ_MASK_BUFFER] = int8(this.c0)
 		this.pos++
 		this.c8 = (this.c8 << 8) | ((this.c4 >> 24) & 0xFF)
 		this.c4 = (this.c4 << 8) | (this.c0 & 0xFF)
-		this.hash = (((this.hash * TPAQ_HASH) << 4) + this.c4) & this.hashMask
+		this.hash = (((this.hash * _TPAQ_HASH) << 4) + this.c4) & this.hashMask
 		this.c0 = 1
 		this.bpos = 8
 		this.binCount += ((this.c4 >> 7) & 1)
@@ -324,32 +324,32 @@ func (this *TPAQPredictor) Update(bit byte) {
 		if this.binCount < this.pos>>2 {
 			// Mostly text or mixed
 			this.ctx4 = createContext(this.ctx1, this.c4^(this.c8&0xFFFF))
-			this.ctx5 = (this.c8 & TPAQ_MASK_F0F0F000) | ((this.c4 & TPAQ_MASK_F0F0F000) >> 4)
+			this.ctx5 = (this.c8 & _TPAQ_MASK_F0F0F000) | ((this.c4 & _TPAQ_MASK_F0F0F000) >> 4)
 
 			if this.extra == true {
 				var h1, h2 int32
 
-				if this.c4&TPAQ_MASK_80808080 == 0 {
-					h1 = this.c4 & TPAQ_MASK_4F4FFFFF
+				if this.c4&_TPAQ_MASK_80808080 == 0 {
+					h1 = this.c4 & _TPAQ_MASK_4F4FFFFF
 				} else {
-					h1 = this.c4 & TPAQ_MASK_80808080
+					h1 = this.c4 & _TPAQ_MASK_80808080
 				}
 
-				if this.c8&TPAQ_MASK_80808080 == 0 {
-					h2 = this.c8 & TPAQ_MASK_4F4FFFFF
+				if this.c8&_TPAQ_MASK_80808080 == 0 {
+					h2 = this.c8 & _TPAQ_MASK_4F4FFFFF
 				} else {
-					h2 = this.c8 & TPAQ_MASK_80808080
+					h2 = this.c8 & _TPAQ_MASK_80808080
 				}
 
 				this.ctx6 = hashTPAQ(h1<<2, h2>>2)
 			}
 		} else {
 			// Mostly binary
-			this.ctx4 = createContext(TPAQ_HASH, this.c4^(this.c4&0x000FFFFF))
+			this.ctx4 = createContext(_TPAQ_HASH, this.c4^(this.c4&0x000FFFFF))
 			this.ctx5 = this.ctx0 | (this.c8 << 16)
 
 			if this.extra == true {
-				this.ctx6 = hashTPAQ(this.c4&TPAQ_MASK_FFFF0000, this.c8>>16)
+				this.ctx6 = hashTPAQ(this.c4&_TPAQ_MASK_FFFF0000, this.c8>>16)
 			}
 		}
 
@@ -365,7 +365,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 	// (with c < 256). Hence, use XOR for _ctx5 which is the only context that fullfills
 	// the condition.
 	c := this.c0
-	table := TPAQ_STATE_TRANSITIONS[bit]
+	table := _TPAQ_STATE_TRANSITIONS[bit]
 	*this.cp0 = table[*this.cp0]
 	*this.cp1 = table[*this.cp1]
 	*this.cp2 = table[*this.cp2]
@@ -373,17 +373,17 @@ func (this *TPAQPredictor) Update(bit byte) {
 	*this.cp4 = table[*this.cp4]
 	*this.cp5 = table[*this.cp5]
 	this.cp0 = &this.smallStatesMap0[this.ctx0+c]
-	p0 := TPAQ_STATE_MAP[*this.cp0]
+	p0 := _TPAQ_STATE_MAP[*this.cp0]
 	this.cp1 = &this.smallStatesMap1[this.ctx1+c]
-	p1 := TPAQ_STATE_MAP[*this.cp1]
+	p1 := _TPAQ_STATE_MAP[*this.cp1]
 	this.cp2 = &this.bigStatesMap[(this.ctx2+c)&this.statesMask]
-	p2 := TPAQ_STATE_MAP[*this.cp2]
+	p2 := _TPAQ_STATE_MAP[*this.cp2]
 	this.cp3 = &this.bigStatesMap[(this.ctx3+c)&this.statesMask]
-	p3 := TPAQ_STATE_MAP[*this.cp3]
+	p3 := _TPAQ_STATE_MAP[*this.cp3]
 	this.cp4 = &this.bigStatesMap[(this.ctx4+c)&this.statesMask]
-	p4 := TPAQ_STATE_MAP[*this.cp4]
+	p4 := _TPAQ_STATE_MAP[*this.cp4]
 	this.cp5 = &this.bigStatesMap[(this.ctx5^c)&this.statesMask]
-	p5 := TPAQ_STATE_MAP[*this.cp5]
+	p5 := _TPAQ_STATE_MAP[*this.cp5]
 
 	p7 := int32(0)
 
@@ -405,7 +405,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 		// One more prediction
 		*this.cp6 = table[*this.cp6]
 		this.cp6 = &this.bigStatesMap[(this.ctx6+c)&this.statesMask]
-		p6 := TPAQ_STATE_MAP[*this.cp6]
+		p6 := _TPAQ_STATE_MAP[*this.cp6]
 
 		// Mix predictions using NN
 		p = this.mixer.get(p0, p1, p2, p3, p4, p5, p6, p7)
@@ -434,7 +434,7 @@ func (this *TPAQPredictor) Get() int {
 func (this *TPAQPredictor) findMatch() {
 	// Update ongoing sequence match or detect match in the buffer (LZ like)
 	if this.matchLen > 0 {
-		if this.matchLen < TPAQ_MAX_LENGTH {
+		if this.matchLen < _TPAQ_MAX_LENGTH {
 			this.matchLen++
 		}
 
@@ -444,17 +444,17 @@ func (this *TPAQPredictor) findMatch() {
 		this.matchPos = this.hashes[this.hash]
 
 		// Detect match
-		if this.matchPos != 0 && this.pos-this.matchPos <= TPAQ_MASK_BUFFER {
+		if this.matchPos != 0 && this.pos-this.matchPos <= _TPAQ_MASK_BUFFER {
 			r := this.matchLen + 2
 			s := this.pos - r
 			t := this.matchPos - r
 
-			for r <= TPAQ_MAX_LENGTH {
-				if this.buffer[s&TPAQ_MASK_BUFFER] != this.buffer[t&TPAQ_MASK_BUFFER] {
+			for r <= _TPAQ_MAX_LENGTH {
+				if this.buffer[s&_TPAQ_MASK_BUFFER] != this.buffer[t&_TPAQ_MASK_BUFFER] {
 					break
 				}
 
-				if this.buffer[(s-1)&TPAQ_MASK_BUFFER] != this.buffer[(t-1)&TPAQ_MASK_BUFFER] {
+				if this.buffer[(s-1)&_TPAQ_MASK_BUFFER] != this.buffer[(t-1)&_TPAQ_MASK_BUFFER] {
 					break
 				}
 
@@ -470,7 +470,7 @@ func (this *TPAQPredictor) findMatch() {
 
 // Get a squashed prediction (in [-2047..2048]) from the match model
 func (this *TPAQPredictor) getMatchContextPred() int32 {
-	if this.c0 == ((int32(this.buffer[this.matchPos&TPAQ_MASK_BUFFER])&0xFF)|256)>>this.bpos {
+	if this.c0 == ((int32(this.buffer[this.matchPos&_TPAQ_MASK_BUFFER])&0xFF)|256)>>this.bpos {
 		var p int32
 
 		if this.matchLen <= 24 {
@@ -479,7 +479,7 @@ func (this *TPAQPredictor) getMatchContextPred() int32 {
 			p = (24 + ((this.matchLen - 24) >> 3))
 		}
 
-		if ((this.buffer[this.matchPos&TPAQ_MASK_BUFFER] >> (this.bpos - 1)) & 1) == 0 {
+		if ((this.buffer[this.matchPos&_TPAQ_MASK_BUFFER] >> (this.bpos - 1)) & 1) == 0 {
 			return -p << 6
 		}
 
@@ -516,7 +516,7 @@ func (this *TPAQMixer) init() {
 	this.w5 = 32768
 	this.w6 = 32768
 	this.w7 = 32768
-	this.learnRate = TPAQ_BEGIN_LEARN_RATE
+	this.learnRate = _TPAQ_BEGIN_LEARN_RATE
 }
 
 // Adjust weights to minimize coding cost of last prediction
@@ -528,7 +528,7 @@ func (this *TPAQMixer) update(bit int) {
 	}
 
 	// Quickly decaying learn rate
-	this.learnRate += ((TPAQ_END_LEARN_RATE - this.learnRate) >> 31)
+	this.learnRate += ((_TPAQ_END_LEARN_RATE - this.learnRate) >> 31)
 	this.skew += err
 
 	// Train Neural Network: update weights
