@@ -914,7 +914,6 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	return this.delegate.Inverse(src, dst)
-
 }
 
 func (this *TextCodec) MaxEncodedLen(srcLen int) int {
@@ -925,22 +924,10 @@ func newTextCodec1() (*textCodec1, error) {
 	this := new(textCodec1)
 	this.logHashSize = _TC_LOG_HASHES_SIZE
 	this.dictSize = _TC_THRESHOLD2 * 4
-	this.dictMap = make([]*dictEntry, 1<<this.logHashSize)
-	this.dictList = make([]dictEntry, this.dictSize)
+	this.dictMap = make([]*dictEntry, 0)
+	this.dictList = make([]dictEntry, 0)
 	this.hashMask = int32(1<<this.logHashSize) - 1
-	size := len(_TC_STATIC_DICTIONARY)
-
-	if size >= this.dictSize {
-		size = this.dictSize
-	}
-
-	copy(this.dictList, _TC_STATIC_DICTIONARY[0:size])
-	nbWords := _TC_STATIC_DICT_WORDS
-
-	// Add special entries at end of static dictionary
-	this.dictList[nbWords] = dictEntry{ptr: []byte{_TC_ESCAPE_TOKEN2}, hash: 0, data: int32((1 << 24) | nbWords)}
-	this.dictList[nbWords+1] = dictEntry{ptr: []byte{_TC_ESCAPE_TOKEN1}, hash: 0, data: int32((1 << 24) | (nbWords + 1))}
-	this.staticDictSize = nbWords + 2
+	this.staticDictSize = _TC_STATIC_DICT_WORDS
 	return this, nil
 }
 
@@ -983,29 +970,38 @@ func newTextCodec1WithCtx(ctx *map[string]interface{}) (*textCodec1, error) {
 
 	this.logHashSize = uint(log) + extraMem
 	this.dictSize = dSize
-	this.dictMap = make([]*dictEntry, 1<<this.logHashSize)
-	this.dictList = make([]dictEntry, this.dictSize)
+	this.dictMap = make([]*dictEntry, 0)
+	this.dictList = make([]dictEntry, 0)
 	this.hashMask = int32(1<<this.logHashSize) - 1
-	size := len(_TC_STATIC_DICTIONARY)
-
-	if size >= this.dictSize {
-		size = this.dictSize
-	}
-
-	copy(this.dictList, _TC_STATIC_DICTIONARY[0:size])
-	nbWords := _TC_STATIC_DICT_WORDS
-
-	// Add special entries at end of static dictionary
-	this.dictList[nbWords] = dictEntry{ptr: []byte{_TC_ESCAPE_TOKEN2}, hash: 0, data: int32((1 << 24) | (nbWords))}
-	this.dictList[nbWords+1] = dictEntry{ptr: []byte{_TC_ESCAPE_TOKEN1}, hash: 0, data: int32((1 << 24) | (nbWords + 1))}
-	this.staticDictSize = nbWords + 2
+	this.staticDictSize = _TC_STATIC_DICT_WORDS
 	return this, nil
 }
 
 func (this *textCodec1) reset() {
-	// Clear and populate hash map
-	for i := range this.dictMap {
-		this.dictMap[i] = nil
+	// Allocate lazily (only if text input detected)
+	if len(this.dictMap) == 0 {
+		this.dictMap = make([]*dictEntry, 1<<this.logHashSize)
+	} else {
+		for i := range this.dictMap {
+			this.dictMap[i] = nil
+		}
+	}
+
+	if len(this.dictList) == 0 {
+		this.dictList = make([]dictEntry, this.dictSize)
+
+		size := len(_TC_STATIC_DICTIONARY)
+
+		if size >= this.dictSize {
+			size = this.dictSize
+		}
+
+		copy(this.dictList, _TC_STATIC_DICTIONARY[0:size])
+
+		// Add special entries at end of static dictionary
+		this.dictList[_TC_STATIC_DICT_WORDS] = dictEntry{ptr: []byte{_TC_ESCAPE_TOKEN2}, hash: 0, data: int32((1 << 24) | (_TC_STATIC_DICT_WORDS))}
+		this.dictList[_TC_STATIC_DICT_WORDS+1] = dictEntry{ptr: []byte{_TC_ESCAPE_TOKEN1}, hash: 0, data: int32((1 << 24) | (_TC_STATIC_DICT_WORDS + 1))}
+		this.staticDictSize = _TC_STATIC_DICT_WORDS + 2
 	}
 
 	for i := range this.dictList[0:this.staticDictSize] {
@@ -1458,16 +1454,9 @@ func newTextCodec2() (*textCodec2, error) {
 	this := new(textCodec2)
 	this.logHashSize = _TC_LOG_HASHES_SIZE
 	this.dictSize = _TC_THRESHOLD2 * 4
-	this.dictMap = make([]*dictEntry, 1<<this.logHashSize)
-	this.dictList = make([]dictEntry, this.dictSize)
+	this.dictMap = make([]*dictEntry, 0)
+	this.dictList = make([]dictEntry, 0)
 	this.hashMask = int32(1<<this.logHashSize) - 1
-	size := len(_TC_STATIC_DICTIONARY)
-
-	if size >= this.dictSize {
-		size = this.dictSize
-	}
-
-	copy(this.dictList, _TC_STATIC_DICTIONARY[0:size])
 	this.staticDictSize = _TC_STATIC_DICT_WORDS
 	return this, nil
 }
@@ -1511,24 +1500,33 @@ func newTextCodec2WithCtx(ctx *map[string]interface{}) (*textCodec2, error) {
 
 	this.logHashSize = uint(log) + extraMem
 	this.dictSize = dSize
-	this.dictMap = make([]*dictEntry, 1<<this.logHashSize)
-	this.dictList = make([]dictEntry, this.dictSize)
+	this.dictMap = make([]*dictEntry, 0)
+	this.dictList = make([]dictEntry, 0)
 	this.hashMask = int32(1<<this.logHashSize) - 1
-	size := len(_TC_STATIC_DICTIONARY)
-
-	if size >= this.dictSize {
-		size = this.dictSize
-	}
-
-	copy(this.dictList, _TC_STATIC_DICTIONARY[0:size])
 	this.staticDictSize = _TC_STATIC_DICT_WORDS
 	return this, nil
 }
 
 func (this *textCodec2) reset() {
-	// Clear and populate hash map
-	for i := range this.dictMap {
-		this.dictMap[i] = nil
+	// Allocate lazily (only if text input detected)
+	if len(this.dictMap) == 0 {
+		this.dictMap = make([]*dictEntry, 1<<this.logHashSize)
+	} else {
+		for i := range this.dictMap {
+			this.dictMap[i] = nil
+		}
+	}
+
+	if len(this.dictList) == 0 {
+		this.dictList = make([]dictEntry, this.dictSize)
+
+		size := len(_TC_STATIC_DICTIONARY)
+
+		if size >= this.dictSize {
+			size = this.dictSize
+		}
+
+		copy(this.dictList, _TC_STATIC_DICTIONARY[0:size])
 	}
 
 	for i := range this.dictList[0:this.staticDictSize] {
@@ -1975,7 +1973,6 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 				delimAnchor = srcIdx - 1
 			}
 		} else {
-
 			if cur == _TC_ESCAPE_TOKEN1 {
 				dst[dstIdx] = src[srcIdx]
 				srcIdx++
