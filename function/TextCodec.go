@@ -1070,104 +1070,107 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		if (srcIdx > delimAnchor+2) && isDelimiter(cur) { // At least 2 letters
-			// Compute hashes
-			// h1 -> hash of word chars
-			// h2 -> hash of word chars with first char case flipped
-			val := src[delimAnchor+1]
-			h1 := _TC_HASH1
-			h1 = h1*_TC_HASH1 ^ int32(val)*_TC_HASH2
-			var caseFlag int32
-
-			if isUpperCase(val) {
-				caseFlag = 32
-			} else {
-				caseFlag = -32
-			}
-
-			h2 := _TC_HASH1
-			h2 = h2*_TC_HASH1 ^ (int32(val)+caseFlag)*_TC_HASH2
-
-			for i := delimAnchor + 2; i < srcIdx; i++ {
-				h := int32(src[i]) * _TC_HASH2
-				h1 = h1*_TC_HASH1 ^ h
-				h2 = h2*_TC_HASH1 ^ h
-			}
-
-			// Check word in dictionary
 			length := int32(srcIdx - delimAnchor - 1)
-			pe1 := this.dictMap[h1&this.hashMask]
 
-			// Check for hash collisions
-			if (pe1 != nil) && (pe1.hash != h1 || pe1.data>>24 != length) {
-				pe1 = nil
-			}
+			if length < _TC_MAX_WORD_LENGTH {
+				// Compute hashes
+				// h1 -> hash of word chars
+				// h2 -> hash of word chars with first char case flipped
+				val := src[delimAnchor+1]
+				h1 := _TC_HASH1
+				h1 = h1*_TC_HASH1 ^ int32(val)*_TC_HASH2
+				var caseFlag int32
 
-			pe := pe1
-
-			if pe == nil {
-				if pe2 := this.dictMap[h2&this.hashMask]; pe2 != nil && pe2.hash == h2 && pe2.data>>24 == length {
-					pe = pe2
+				if isUpperCase(val) {
+					caseFlag = 32
+				} else {
+					caseFlag = -32
 				}
-			}
 
-			if pe != nil {
-				if !sameWords(pe.ptr[1:length], src[delimAnchor+2:]) {
-					pe = nil
+				h2 := _TC_HASH1
+				h2 = h2*_TC_HASH1 ^ (int32(val)+caseFlag)*_TC_HASH2
+
+				for i := delimAnchor + 2; i < srcIdx; i++ {
+					h := int32(src[i]) * _TC_HASH2
+					h1 = h1*_TC_HASH1 ^ h
+					h2 = h2*_TC_HASH1 ^ h
 				}
-			}
 
-			if pe == nil {
-				// Word not found in the dictionary or hash collision: add or replace word
-				if ((length > 3) || (length > 2 && words < _TC_THRESHOLD2)) && length < _TC_MAX_WORD_LENGTH {
-					pe = &this.dictList[words]
+				// Check word in dictionary
+				var pe *dictEntry
+				pe1 := this.dictMap[h1&this.hashMask]
 
-					if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
-						// Reuse old entry
-						this.dictMap[pe.hash&this.hashMask] = nil
-						pe.ptr = src[delimAnchor+1:]
-						pe.hash = h1
-						pe.data = (length << 24) | int32(words)
+				// Check for hash collisions
+				if pe1 != nil && pe1.hash == h1 && pe1.data>>24 == length {
+					pe = pe1
+				}
+
+				if pe == nil {
+					if pe2 := this.dictMap[h2&this.hashMask]; pe2 != nil && pe2.hash == h2 && pe2.data>>24 == length {
+						pe = pe2
 					}
+				}
 
-					// Update hash map
-					this.dictMap[h1&this.hashMask] = pe
-					words++
+				if pe != nil {
+					if !sameWords(pe.ptr[1:length], src[delimAnchor+2:]) {
+						pe = nil
+					}
+				}
 
-					// Dictionary full ? Expand or reset index to end of static dictionary
-					if words >= this.dictSize {
-						if this.expandDictionary() == false {
-							words = this.staticDictSize
+				if pe == nil {
+					// Word not found in the dictionary or hash collision (outside of
+					// static dictionary) => replace entry
+					if (length > 3) || (length > 2 && words < _TC_THRESHOLD2) {
+						pe = &this.dictList[words]
+
+						if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
+							// Reuse old entry
+							this.dictMap[pe.hash&this.hashMask] = nil
+							pe.ptr = src[delimAnchor+1:]
+							pe.hash = h1
+							pe.data = (length << 24) | int32(words)
+						}
+
+						// Update hash map
+						this.dictMap[h1&this.hashMask] = pe
+						words++
+
+						// Dictionary full ? Expand or reset index to end of static dictionary
+						if words >= this.dictSize {
+							if this.expandDictionary() == false {
+								words = this.staticDictSize
+							}
 						}
 					}
-				}
-			} else {
-				// Word found in the dictionary
-				// Skip space if only delimiter between 2 word references
-				if (emitAnchor != delimAnchor) || (src[delimAnchor] != ' ') {
-					dIdx := this.emitSymbols(src[emitAnchor:delimAnchor+1], dst[dstIdx:dstEnd])
+				} else {
+					// Word found in the dictionary
+					// Skip space if only delimiter between 2 word references
+					if (emitAnchor != delimAnchor) || (src[delimAnchor] != ' ') {
+						dIdx := this.emitSymbols(src[emitAnchor:delimAnchor+1], dst[dstIdx:dstEnd])
 
-					if dIdx < 0 {
+						if dIdx < 0 {
+							err = errors.New("Text transform failed. Output buffer too small")
+							break
+						}
+
+						dstIdx += dIdx
+					}
+
+					if dstIdx >= dstEnd4 {
 						err = errors.New("Text transform failed. Output buffer too small")
 						break
 					}
 
-					dstIdx += dIdx
-				}
+					if pe == pe1 {
+						dst[dstIdx] = _TC_ESCAPE_TOKEN1
+					} else {
+						dst[dstIdx] = _TC_ESCAPE_TOKEN2
+					}
 
-				if dstIdx >= dstEnd4 {
-					err = errors.New("Text transform failed. Output buffer too small")
-					break
+					dstIdx++
+					dstIdx += emitWordIndex1(dst[dstIdx:dstIdx+3], int(pe.data&0x00FFFFFF))
+					emitAnchor = delimAnchor + 1 + int(pe.data>>24)
 				}
-
-				if pe == pe1 {
-					dst[dstIdx] = _TC_ESCAPE_TOKEN1
-				} else {
-					dst[dstIdx] = _TC_ESCAPE_TOKEN2
-				}
-
-				dstIdx++
-				dstIdx += emitWordIndex1(dst[dstIdx:dstIdx+3], int(pe.data&0x00FFFFFF))
-				emitAnchor = delimAnchor + 1 + int(pe.data>>24)
 			}
 		}
 
@@ -1313,45 +1316,46 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 
 		if (srcIdx > delimAnchor+2) && isDelimiter(cur) {
-			h1 := _TC_HASH1
-
-			for i := delimAnchor + 1; i < srcIdx; i++ {
-				h1 = h1*_TC_HASH1 ^ int32(src[i])*_TC_HASH2
-			}
-
-			// Lookup word in dictionary
 			length := int32(srcIdx - delimAnchor - 1)
-			pe := this.dictMap[h1&this.hashMask]
 
-			// Check for hash collisions
-			if pe != nil {
-				if pe.hash != h1 || pe.data>>24 != length {
-					pe = nil
-				} else if !sameWords(pe.ptr[1:length], src[delimAnchor+2:]) {
-					pe = nil
+			if length < _TC_MAX_WORD_LENGTH {
+				h1 := _TC_HASH1
+
+				for i := delimAnchor + 1; i < srcIdx; i++ {
+					h1 = h1*_TC_HASH1 ^ int32(src[i])*_TC_HASH2
 				}
-			}
 
-			if pe == nil {
-				// Word not found in the dictionary or hash collision: add or replace word
-				if ((length > 3) || (length > 2 && words < _TC_THRESHOLD2)) && length < _TC_MAX_WORD_LENGTH {
-					pe = &this.dictList[words]
+				// Lookup word in dictionary
+				var pe *dictEntry
+				pe1 := this.dictMap[h1&this.hashMask]
 
-					if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
-						// Reuse old entry
-						this.dictMap[pe.hash&this.hashMask] = nil
-						pe.ptr = src[delimAnchor+1:]
-						pe.hash = h1
-						pe.data = (length << 24) | int32(words)
-					}
+				// Check for hash collisions
+				if pe1 != nil && pe1.hash == h1 && pe1.data>>24 == length && sameWords(pe1.ptr[1:length], src[delimAnchor+2:]) {
+					pe = pe1
+				}
 
-					this.dictMap[h1&this.hashMask] = pe
-					words++
+				if pe == nil {
+					// Word not found in the dictionary or hash collision (outside of
+					// static dictionary) => replace entry
+					if (length > 3) || (length > 2 && words < _TC_THRESHOLD2) {
+						pe = &this.dictList[words]
 
-					// Dictionary full ? Expand or reset index to end of static dictionary
-					if words >= this.dictSize {
-						if this.expandDictionary() == false {
-							words = this.staticDictSize
+						if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
+							// Reuse old entry
+							this.dictMap[pe.hash&this.hashMask] = nil
+							pe.ptr = src[delimAnchor+1:]
+							pe.hash = h1
+							pe.data = (length << 24) | int32(words)
+						}
+
+						this.dictMap[h1&this.hashMask] = pe
+						words++
+
+						// Dictionary full ? Expand or reset index to end of static dictionary
+						if words >= this.dictSize {
+							if this.expandDictionary() == false {
+								words = this.staticDictSize
+							}
 						}
 					}
 				}
@@ -1595,102 +1599,106 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		if (srcIdx > delimAnchor+2) && isDelimiter(cur) { // At least 2 letters
-			// Compute hashes
-			// h1 -> hash of word chars
-			// h2 -> hash of word chars with first char case flipped
-			val := src[delimAnchor+1]
-			h1 := _TC_HASH1
-			h1 = h1*_TC_HASH1 ^ int32(val)*_TC_HASH2
-			var caseFlag int32
-
-			if isUpperCase(val) {
-				caseFlag = 32
-			} else {
-				caseFlag = -32
-			}
-
-			h2 := _TC_HASH1
-			h2 = h2*_TC_HASH1 ^ (int32(val)+caseFlag)*_TC_HASH2
-
-			for i := delimAnchor + 2; i < srcIdx; i++ {
-				h := int32(src[i]) * _TC_HASH2
-				h1 = h1*_TC_HASH1 ^ h
-				h2 = h2*_TC_HASH1 ^ h
-			}
-
-			// Check word in dictionary
 			length := int32(srcIdx - delimAnchor - 1)
-			pe1 := this.dictMap[h1&this.hashMask]
 
-			// Check for hash collisions
-			if (pe1 != nil) && (pe1.hash != h1 || pe1.data>>24 != length) {
-				pe1 = nil
-			}
+			if length < _TC_MAX_WORD_LENGTH {
+				// Compute hashes
+				// h1 -> hash of word chars
+				// h2 -> hash of word chars with first char case flipped
+				val := src[delimAnchor+1]
+				h1 := _TC_HASH1
+				h1 = h1*_TC_HASH1 ^ int32(val)*_TC_HASH2
+				var caseFlag int32
 
-			pe := pe1
-
-			if pe == nil {
-				if pe2 := this.dictMap[h2&this.hashMask]; pe2 != nil && pe2.hash == h2 && pe2.data>>24 == length {
-					pe = pe2
+				if isUpperCase(val) {
+					caseFlag = 32
+				} else {
+					caseFlag = -32
 				}
-			}
 
-			if pe != nil {
-				if !sameWords(pe.ptr[1:length], src[delimAnchor+2:]) {
-					pe = nil
+				h2 := _TC_HASH1
+				h2 = h2*_TC_HASH1 ^ (int32(val)+caseFlag)*_TC_HASH2
+
+				for i := delimAnchor + 2; i < srcIdx; i++ {
+					h := int32(src[i]) * _TC_HASH2
+					h1 = h1*_TC_HASH1 ^ h
+					h2 = h2*_TC_HASH1 ^ h
 				}
-			}
 
-			if pe == nil {
-				// Word not found in the dictionary or hash collision: add or replace word
-				if ((length > 3) || (length > 2 && words < _TC_THRESHOLD2)) && length < _TC_MAX_WORD_LENGTH {
-					pe = &this.dictList[words]
+				// Check word in dictionary
+				var pe *dictEntry
+				pe1 := this.dictMap[h1&this.hashMask]
+				var pe2 *dictEntry
 
-					if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
-						// Reuse old entry
-						this.dictMap[pe.hash&this.hashMask] = nil
-						pe.ptr = src[delimAnchor+1:]
-						pe.hash = h1
-						pe.data = (length << 24) | int32(words)
+				// Check for hash collisions
+				if pe1 != nil && pe1.hash == h1 && pe1.data>>24 == length {
+					pe = pe1
+				}
+
+				if pe == nil {
+					if pe2 = this.dictMap[h2&this.hashMask]; pe2 != nil && pe2.hash == h2 && pe2.data>>24 == length {
+						pe = pe2
 					}
+				}
 
-					// Update hash map
-					this.dictMap[h1&this.hashMask] = pe
-					words++
+				if pe != nil {
+					if !sameWords(pe.ptr[1:length], src[delimAnchor+2:]) {
+						pe = nil
+					}
+				}
 
-					// Dictionary full ? Expand or reset index to end of static dictionary
-					if words >= this.dictSize {
-						if this.expandDictionary() == false {
-							words = this.staticDictSize
+				if pe == nil {
+					// Word not found in the dictionary or hash collision (outside of
+					// static dictionary) => replace entry
+					if (length > 3) || (length > 2 && words < _TC_THRESHOLD2) {
+						pe = &this.dictList[words]
+
+						if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
+							// Reuse old entry
+							this.dictMap[pe.hash&this.hashMask] = nil
+							pe.ptr = src[delimAnchor+1:]
+							pe.hash = h1
+							pe.data = (length << 24) | int32(words)
+						}
+
+						// Update hash map
+						this.dictMap[h1&this.hashMask] = pe
+						words++
+
+						// Dictionary full ? Expand or reset index to end of static dictionary
+						if words >= this.dictSize {
+							if this.expandDictionary() == false {
+								words = this.staticDictSize
+							}
 						}
 					}
-				}
-			} else {
-				// Word found in the dictionary
-				// Skip space if only delimiter between 2 word references
-				if (emitAnchor != delimAnchor) || (src[delimAnchor] != ' ') {
-					dIdx := this.emitSymbols(src[emitAnchor:delimAnchor+1], dst[dstIdx:dstEnd])
+				} else {
+					// Word found in the dictionary
+					// Skip space if only delimiter between 2 word references
+					if (emitAnchor != delimAnchor) || (src[delimAnchor] != ' ') {
+						dIdx := this.emitSymbols(src[emitAnchor:delimAnchor+1], dst[dstIdx:dstEnd])
 
-					if dIdx < 0 {
+						if dIdx < 0 {
+							err = errors.New("Text transform failed. Output buffer too small")
+							break
+						}
+
+						dstIdx += dIdx
+					}
+
+					if dstIdx >= dstEnd3 {
 						err = errors.New("Text transform failed. Output buffer too small")
 						break
 					}
 
-					dstIdx += dIdx
-				}
+					if pe == pe1 {
+						dstIdx += emitWordIndex2(dst[dstIdx:dstIdx+3], int(pe.data&0x00FFFFFF), 0)
+					} else {
+						dstIdx += emitWordIndex2(dst[dstIdx:dstIdx+3], int(pe.data&0x00FFFFFF), 32)
+					}
 
-				if dstIdx >= dstEnd3 {
-					err = errors.New("Text transform failed. Output buffer too small")
-					break
+					emitAnchor = delimAnchor + 1 + int(pe.data>>24)
 				}
-
-				if pe == pe1 {
-					dstIdx += emitWordIndex2(dst[dstIdx:dstIdx+3], int(pe.data&0x00FFFFFF), 0)
-				} else {
-					dstIdx += emitWordIndex2(dst[dstIdx:dstIdx+3], int(pe.data&0x00FFFFFF), 32)
-				}
-
-				emitAnchor = delimAnchor + 1 + int(pe.data>>24)
 			}
 		}
 
@@ -1864,45 +1872,49 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 
 		if (srcIdx > delimAnchor+2) && isDelimiter(cur) {
-			h1 := _TC_HASH1
-
-			for i := delimAnchor + 1; i < srcIdx; i++ {
-				h1 = h1*_TC_HASH1 ^ int32(src[i])*_TC_HASH2
-			}
-
-			// Lookup word in dictionary
 			length := int32(srcIdx - delimAnchor - 1)
-			pe := this.dictMap[h1&this.hashMask]
 
-			// Check for hash collisions
-			if pe != nil {
-				if pe.hash != h1 || pe.data>>24 != length {
-					pe = nil
-				} else if !sameWords(pe.ptr[1:length], src[delimAnchor+2:]) {
-					pe = nil
+			if length < _TC_MAX_WORD_LENGTH {
+				h1 := _TC_HASH1
+
+				for i := delimAnchor + 1; i < srcIdx; i++ {
+					h1 = h1*_TC_HASH1 ^ int32(src[i])*_TC_HASH2
 				}
-			}
 
-			if pe == nil {
-				// Word not found in the dictionary or hash collision: add or replace word
-				if ((length > 3) || (length > 2 && words < _TC_THRESHOLD2)) && length < _TC_MAX_WORD_LENGTH {
-					pe = &this.dictList[words]
+				// Lookup word in dictionary
+				pe := this.dictMap[h1&this.hashMask]
 
-					if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
-						// Reuse old entry
-						this.dictMap[pe.hash&this.hashMask] = nil
-						pe.ptr = src[delimAnchor+1:]
-						pe.hash = h1
-						pe.data = (length << 24) | int32(words)
+				// Check for hash collisions
+				if pe != nil {
+					if pe.hash != h1 || pe.data>>24 != length {
+						pe = nil
+					} else if !sameWords(pe.ptr[1:length], src[delimAnchor+2:]) {
+						pe = nil
 					}
+				}
 
-					this.dictMap[h1&this.hashMask] = pe
-					words++
+				if pe == nil {
+					// Word not found in the dictionary or hash collision (outside of
+					// static dictionary) => replace entry
+					if (length > 3) || (length > 2 && words < _TC_THRESHOLD2) {
+						pe = &this.dictList[words]
 
-					// Dictionary full ? Expand or reset index to end of static dictionary
-					if words >= this.dictSize {
-						if this.expandDictionary() == false {
-							words = this.staticDictSize
+						if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
+							// Reuse old entry
+							this.dictMap[pe.hash&this.hashMask] = nil
+							pe.ptr = src[delimAnchor+1:]
+							pe.hash = h1
+							pe.data = (length << 24) | int32(words)
+						}
+
+						this.dictMap[h1&this.hashMask] = pe
+						words++
+
+						// Dictionary full ? Expand or reset index to end of static dictionary
+						if words >= this.dictSize {
+							if this.expandDictionary() == false {
+								words = this.staticDictSize
+							}
 						}
 					}
 				}
