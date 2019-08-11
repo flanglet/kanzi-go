@@ -22,9 +22,6 @@ import (
 	kanzi "github.com/flanglet/kanzi-go"
 )
 
-// TextCodec is a simple one-pass text codec that replaces words with indexes.
-// Uses a default (small) static dictionary. Generates a dynamic dictionary.
-
 const (
 	_TC_THRESHOLD1             = 128
 	_TC_THRESHOLD2             = _TC_THRESHOLD1 * _TC_THRESHOLD1
@@ -53,6 +50,8 @@ type dictEntry struct {
 	ptr  []byte // text data
 }
 
+// TextCodec is a simple one-pass text codec that replaces words with indexes.
+// Uses a default (small) static dictionary. Generates a dynamic dictionary.
 type TextCodec struct {
 	delegate kanzi.ByteFunction
 }
@@ -850,6 +849,7 @@ func unpackDictionary32(dict []byte) []byte {
 	return buf[1 : d+1]
 }
 
+// NewTextCodec creates a new instance of TextCodec
 func NewTextCodec() (*TextCodec, error) {
 	this := &TextCodec{}
 	d, err := newTextCodec1()
@@ -857,6 +857,8 @@ func NewTextCodec() (*TextCodec, error) {
 	return this, err
 }
 
+// NewTextCodecWithCtx creates a new instance of TextCodec using a
+// configuration map as parameter.
 func NewTextCodecWithCtx(ctx *map[string]interface{}) (*TextCodec, error) {
 	this := new(TextCodec)
 
@@ -880,6 +882,9 @@ func NewTextCodecWithCtx(ctx *map[string]interface{}) (*TextCodec, error) {
 	return this, err
 }
 
+// Forward applies the function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
@@ -898,6 +903,9 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 	return this.delegate.Forward(src, dst)
 }
 
+// Inverse applies the reverse function to the src and writes the result
+// to the destination. Returns number of bytes read, number of bytes
+// written and possibly an error.
 func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
@@ -916,6 +924,7 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	return this.delegate.Inverse(src, dst)
 }
 
+// MaxEncodedLen returns the max size required for the encoding output buffer
 func (this *TextCodec) MaxEncodedLen(srcLen int) int {
 	return this.delegate.MaxEncodedLen(srcLen)
 }
@@ -935,28 +944,28 @@ func newTextCodec1WithCtx(ctx *map[string]interface{}) (*textCodec1, error) {
 	this := new(textCodec1)
 	log := uint32(13)
 	blockSize := uint(0)
+	dSize := 1 << 12
 
-	if val, containsKey := (*ctx)["size"]; containsKey {
-		// Actual block size
+	if val, containsKey := (*ctx)["blockSize"]; containsKey {
 		blockSize = val.(uint)
 
-		if blockSize >= 4 {
-			log, _ = kanzi.Log2(uint32(blockSize / 4))
+		if blockSize >= 8 {
+			log, _ = kanzi.Log2(uint32(blockSize / 8))
 
 			if log > 26 {
 				log = 26
 			} else if log < 13 {
 				log = 13
 			}
-		}
-	}
 
-	// Select an appropriate initial dictionary size
-	dSize := 1 << 12
+			// Select an appropriate initial dictionary size
+			dSize = 1 << (log - 4)
 
-	for i := uint(14); i <= 24; i += 2 {
-		if blockSize >= 1<<i {
-			dSize <<= 1
+			if dSize > 1<<18 {
+				dSize = 1 << 18
+			} else if dSize < 1<<12 {
+				dSize = 1 << 12
+			}
 		}
 	}
 
@@ -1469,28 +1478,28 @@ func newTextCodec2WithCtx(ctx *map[string]interface{}) (*textCodec2, error) {
 	this := new(textCodec2)
 	log := uint32(13)
 	blockSize := uint(0)
+	dSize := 1 << 12
 
-	if val, containsKey := (*ctx)["size"]; containsKey {
-		// Actual block size
+	if val, containsKey := (*ctx)["blockSize"]; containsKey {
 		blockSize = val.(uint)
 
-		if blockSize >= 4 {
-			log, _ = kanzi.Log2(uint32(blockSize / 4))
+		if blockSize >= 8 {
+			log, _ = kanzi.Log2(uint32(blockSize / 8))
 
 			if log > 26 {
 				log = 26
 			} else if log < 13 {
 				log = 13
 			}
-		}
-	}
 
-	// Select an appropriate initial dictionary size
-	dSize := 1 << 12
+			// Select an appropriate initial dictionary size
+			dSize = 1 << (log - 4)
 
-	for i := uint(14); i <= 24; i += 2 {
-		if blockSize >= 1<<i {
-			dSize <<= 1
+			if dSize > 1<<18 {
+				dSize = 1 << 18
+			} else if dSize < 1<<12 {
+				dSize = 1 << 12
+			}
 		}
 	}
 
@@ -1882,15 +1891,12 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 				}
 
 				// Lookup word in dictionary
-				pe := this.dictMap[h1&this.hashMask]
+				var pe *dictEntry
+				pe1 := this.dictMap[h1&this.hashMask]
 
 				// Check for hash collisions
-				if pe != nil {
-					if pe.hash != h1 || pe.data>>24 != length {
-						pe = nil
-					} else if !sameWords(pe.ptr[1:length], src[delimAnchor+2:]) {
-						pe = nil
-					}
+				if pe1 != nil && pe1.hash == h1 && pe1.data>>24 == length && sameWords(pe1.ptr[1:length], src[delimAnchor+2:]) {
+					pe = pe1
 				}
 
 				if pe == nil {
