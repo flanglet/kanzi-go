@@ -35,6 +35,7 @@ const (
 	TPAQX_TYPE   = uint32(9) // Tangelo PAQ Extra
 )
 
+// NewEntropyDecoder creates a new entropy decoder using the provided type and bitstream
 func NewEntropyDecoder(ibs kanzi.InputBitStream, ctx map[string]interface{},
 	entropyType uint32) (kanzi.EntropyDecoder, error) {
 	switch entropyType {
@@ -75,6 +76,7 @@ func NewEntropyDecoder(ibs kanzi.InputBitStream, ctx map[string]interface{},
 	}
 }
 
+// NewEntropyEncoder creates a new entropy encoder using the provided type and bitstream
 func NewEntropyEncoder(obs kanzi.OutputBitStream, ctx map[string]interface{},
 	entropyType uint32) (kanzi.EntropyEncoder, error) {
 	switch entropyType {
@@ -115,6 +117,7 @@ func NewEntropyEncoder(obs kanzi.OutputBitStream, ctx map[string]interface{},
 	}
 }
 
+// GetName returns the name of the entropy codec given its type
 func GetName(entropyType uint32) string {
 	switch entropyType {
 
@@ -150,6 +153,7 @@ func GetName(entropyType uint32) string {
 	}
 }
 
+// GetType returns the type of the entropy codec given its name
 func GetType(entropyName string) uint32 {
 	switch strings.ToUpper(entropyName) {
 
