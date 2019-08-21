@@ -46,7 +46,7 @@ func generateCanonicalCodes(sizes []byte, codes []uint, symbols []int) int {
 
 		n := 0
 
-		for i := range buf {
+		for i := range &buf {
 			if buf[i] == 0 {
 				continue
 			}
@@ -140,7 +140,7 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []int) (int, error) {
 	count := 0
 	var sizes [256]byte
 
-	for i := range this.codes {
+	for i := range &this.codes {
 		this.codes[i] = 0
 
 		if frequencies[i] > 0 {

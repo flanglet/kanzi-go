@@ -252,7 +252,7 @@ func (this *BWTS) Inverse(src, dst []byte) (uint, uint, error) {
 	sum := int32(0)
 
 	// Histogram
-	for i := range buckets {
+	for i := range &buckets {
 		sum += buckets[i]
 		buckets[i] = sum - buckets[i]
 	}
