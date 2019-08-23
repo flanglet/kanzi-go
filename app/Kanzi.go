@@ -475,6 +475,14 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 				transform = strings.ToUpper(name)
 			}
 
+			for len(transform) > 0 && transform[0] == '+' {
+				transform = transform[1:]
+			}
+
+			for len(transform) > 0 && transform[len(transform)-1] == '+' {
+				transform = transform[0 : len(transform)-1]
+			}
+
 			ctx = -1
 			continue
 		}
