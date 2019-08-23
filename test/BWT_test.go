@@ -16,7 +16,6 @@ limitations under the License.
 package main
 
 import (
-	"errors"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -60,27 +59,37 @@ func testCorrectnessBWT(isBWT bool) error {
 			buf1 = []byte("3.14159265358979323846264338327950288419716939937510")
 		} else if ii == 3 {
 			buf1 = []byte("SIX.MIXED.PIXIES.SIFT.SIXTY.PIXIE.DUST.BOXES")
-		} else {
+		} else if ii < 20 {
 			buf1 = make([]byte, 128)
 
-			for i := 0; i < len(buf1); i++ {
+			for i := range buf1 {
 				buf1[i] = byte(65 + rnd.Intn(4*ii))
+			}
+		} else {
+			buf1 = make([]byte, 8*1024*1024)
+
+			for i := range buf1 {
+				buf1[i] = byte(i)
 			}
 		}
 
 		buf2 = make([]byte, len(buf1))
 		buf3 = make([]byte, len(buf1))
-		var bwt kanzi.ByteTransform
+		var tf kanzi.ByteTransform
 
 		if isBWT {
-			bwt, _ = transform.NewBWT()
+			tf, _ = transform.NewBWT()
 		} else {
-			bwt, _ = transform.NewBWTS()
+			tf, _ = transform.NewBWTS()
 		}
 
 		str1 := string(buf1)
-		fmt.Printf("Input:   %s\n", str1)
-		_, _, err1 := bwt.Forward(buf1, buf2)
+
+		if len(str1) < 512 {
+			fmt.Printf("Input:   %s\n", str1)
+		}
+
+		_, _, err1 := tf.Forward(buf1, buf2)
 
 		if err1 != nil {
 			fmt.Printf("Error: %v\n", err1)
@@ -89,14 +98,35 @@ func testCorrectnessBWT(isBWT bool) error {
 
 		str2 := string(buf2)
 
-		if isBWT {
-			primaryIndex := bwt.(*transform.BWT).PrimaryIndex(0)
-			fmt.Printf("Encoded: %s  (Primary index=%v)\n", str2, primaryIndex)
-		} else {
-			fmt.Printf("Encoded: %s\n", str2)
+		if len(str2) < 512 {
+			fmt.Printf("Encoded: %s", str2)
 		}
 
-		_, _, err2 := bwt.Inverse(buf2, buf3)
+		if isBWT {
+			bwt := tf.(*transform.BWT)
+			chunks := transform.GetBWTChunks(len(buf1))
+			pi := make([]uint, chunks)
+
+			for i := range pi {
+				pi[i] = bwt.PrimaryIndex(i)
+				fmt.Printf("(Primary index=%v)\n", pi[i])
+			}
+
+			tf, _ = transform.NewBWT()
+			bwt = tf.(*transform.BWT)
+
+			for i := range pi {
+				bwt.SetPrimaryIndex(i, pi[i])
+			}
+		} else {
+			tf, _ = transform.NewBWTS()
+
+			if len(str2) < 512 {
+				fmt.Printf("Encoded: %s\n", str2)
+			}
+		}
+
+		_, _, err2 := tf.Inverse(buf2, buf3)
 
 		if err2 != nil {
 			fmt.Printf("Error: %v\n", err2)
@@ -104,10 +134,22 @@ func testCorrectnessBWT(isBWT bool) error {
 		}
 
 		str3 := string(buf3)
-		fmt.Printf("Output:  %s\n", str3)
+
+		if len(str3) < 512 {
+			fmt.Printf("Output:  %s\n", str3)
+		}
 
 		if str1 != str3 {
-			return errors.New("Input and inverse are different")
+			idx := -1
+
+			for i := range buf1 {
+				if buf1[i] != buf3[i] {
+					idx = i
+					break
+				}
+			}
+
+			return fmt.Errorf("Different at index %v %v <-> %v", idx, buf1[idx], buf3[idx])
 		}
 	}
 
