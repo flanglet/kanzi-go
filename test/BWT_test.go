@@ -139,7 +139,9 @@ func testCorrectnessBWT(isBWT bool) error {
 			fmt.Printf("Output:  %s\n", str3)
 		}
 
-		if str1 != str3 {
+		if str1 == str3 {
+			fmt.Println("Identical")
+		} else {
 			idx := -1
 
 			for i := range buf1 {
