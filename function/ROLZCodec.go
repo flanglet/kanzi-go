@@ -320,6 +320,15 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		this.counters[i] = 0
 	}
 
+	litOrder := uint(1)
+
+	if len(src) < 1<<17 {
+		litOrder = 0
+	}
+
+	dst[dstIdx] = byte(litOrder)
+	dstIdx++
+
 	// Main loop
 	for startChunk < srcEnd {
 		litIdx := 0
@@ -398,9 +407,11 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			}
 
 			obs.WriteBits(uint64(litIdx), 32)
+			obs.WriteBits(uint64(lenIdx), 32)
+			obs.WriteBits(uint64(mIdx), 32)
 			var litEnc *entropy.ANSRangeEncoder
 
-			if litEnc, err = entropy.NewANSRangeEncoder(obs, 1); err != nil {
+			if litEnc, err = entropy.NewANSRangeEncoder(obs, litOrder); err != nil {
 				goto End
 			}
 
@@ -409,8 +420,6 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			}
 
 			litEnc.Dispose()
-
-			obs.WriteBits(uint64(lenIdx), 32)
 			var lenEnc *entropy.ANSRangeEncoder
 
 			if lenEnc, err = entropy.NewANSRangeEncoder(obs, 0); err != nil {
@@ -422,8 +431,6 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			}
 
 			lenEnc.Dispose()
-
-			obs.WriteBits(uint64(mIdx), 32)
 			var mIdxEnc *entropy.ANSRangeEncoder
 
 			if mIdxEnc, err = entropy.NewANSRangeEncoder(obs, 0); err != nil {
@@ -502,6 +509,9 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		this.counters[i] = 0
 	}
 
+	litOrder := uint(src[srcIdx])
+	srcIdx++
+
 	// Main loop
 	for startChunk < dstEnd {
 		mIdx := 0
@@ -534,57 +544,71 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 				break
 			}
 
-			length := int(ibs.ReadBits(32))
+			litLen := int(ibs.ReadBits(32))
+			mLenLen := int(ibs.ReadBits(32))
+			mIdxLen := int(ibs.ReadBits(32))
 
-			if length <= sizeChunk {
-				var litDec *entropy.ANSRangeDecoder
+			if litLen <= sizeChunk {
+				{
+					var litDec *entropy.ANSRangeDecoder
 
-				if litDec, err = entropy.NewANSRangeDecoder(ibs, 1); err != nil {
-					goto End
+					if litDec, err = entropy.NewANSRangeDecoder(ibs, litOrder); err != nil {
+						goto End
+					}
+
+					if _, err = litDec.Read(litBuf[0:litLen]); err != nil {
+						goto End
+					}
+
+					litDec.Dispose()
 				}
 
-				if _, err = litDec.Read(litBuf[0:length]); err != nil {
-					goto End
+				if mLenLen <= sizeChunk {
+					{
+						var lenDec *entropy.ANSRangeDecoder
+
+						if lenDec, err = entropy.NewANSRangeDecoder(ibs, 0); err != nil {
+							goto End
+						}
+
+						if _, err = lenDec.Read(lenBuf[0:mLenLen]); err != nil {
+							goto End
+						}
+
+						lenDec.Dispose()
+					}
+
+					if mIdxLen <= sizeChunk {
+						var mIdxDec *entropy.ANSRangeDecoder
+
+						if mIdxDec, err = entropy.NewANSRangeDecoder(ibs, 0); err != nil {
+							goto End
+						}
+
+						if _, err = mIdxDec.Read(mIdxBuf[0:mIdxLen]); err != nil {
+							goto End
+						}
+
+						mIdxDec.Dispose()
+					}
 				}
-
-				litDec.Dispose()
-				length = int(ibs.ReadBits(32))
-			}
-
-			if length <= sizeChunk {
-				var lenDec *entropy.ANSRangeDecoder
-
-				if lenDec, err = entropy.NewANSRangeDecoder(ibs, 0); err != nil {
-					goto End
-				}
-
-				if _, err = lenDec.Read(lenBuf[0:length]); err != nil {
-					goto End
-				}
-
-				lenDec.Dispose()
-				length = int(ibs.ReadBits(32))
-			}
-
-			if length <= sizeChunk {
-				var mIdxDec *entropy.ANSRangeDecoder
-
-				if mIdxDec, err = entropy.NewANSRangeDecoder(ibs, 0); err != nil {
-					goto End
-				}
-
-				if _, err = mIdxDec.Read(mIdxBuf[0:length]); err != nil {
-					goto End
-				}
-
-				mIdxDec.Dispose()
 			}
 
 			srcIdx += int((ibs.Read() + 7) >> 3)
 			ibs.Close()
 
-			if length > sizeChunk {
-				err = fmt.Errorf("ROLZ codec: Invalid length: got %v, must be less than or equal to %v", length, sizeChunk)
+			if litLen > sizeChunk {
+				err = fmt.Errorf("ROLZ codec: Invalid length: got %v, must be less than or equal to %v", litLen, sizeChunk)
+				goto End
+			}
+
+			if mLenLen > sizeChunk {
+				err = fmt.Errorf("ROLZ codec: Invalid length: got %v, must be less than or equal to %v", mLenLen, sizeChunk)
+				goto End
+			}
+
+			if mIdxLen > sizeChunk {
+				err = fmt.Errorf("ROLZ codec: Invalid length: got %v, must be less than or equal to %v", mIdxLen, sizeChunk)
 				goto End
 			}
 		}
