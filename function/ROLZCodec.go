@@ -33,7 +33,7 @@ import (
 const (
 	_ROLZ_HASH_SIZE       = 1 << 16
 	_ROLZ_MIN_MATCH       = 3
-	_ROLZ_MAX_MATCH       = _ROLZ_MIN_MATCH + 255
+	_ROLZ_MAX_MATCH       = _ROLZ_MIN_MATCH + 255 + 7
 	_ROLZ_LOG_POS_CHECKS1 = 4
 	_ROLZ_LOG_POS_CHECKS2 = 5
 	_ROLZ_CHUNK_SIZE      = 1 << 26 // 64 MB
