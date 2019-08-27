@@ -733,7 +733,7 @@ func sameWords(buf1, buf2 []byte) bool {
 func initDelimiterChars() []bool {
 	var res [256]bool
 
-	for i := range res {
+	for i := range &res {
 		if (i >= ' ') && (i <= '/') { // [ !"#$%&'()*+,-./]
 			res[i] = true
 			continue
@@ -1127,9 +1127,9 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 				}
 
 				if pe == nil {
-					// Word not found in the dictionary or hash collision (outside of
-					// static dictionary) => replace entry
-					if (length > 3) || (length > 2 && words < _TC_THRESHOLD2) {
+					// Word not found in the dictionary or hash collision.
+					// Replace entry if not in static dictionary
+					if ((length > 3) || (length > 2 && words < _TC_THRESHOLD2)) && (pe1 == nil) {
 						pe = &this.dictList[words]
 
 						if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
@@ -1344,9 +1344,9 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 				}
 
 				if pe == nil {
-					// Word not found in the dictionary or hash collision (outside of
-					// static dictionary) => replace entry
-					if (length > 3) || (length > 2 && words < _TC_THRESHOLD2) {
+					// Word not found in the dictionary or hash collision.
+					// Replace entry if not in static dictionary
+					if ((length > 3) || (length > 2 && words < _TC_THRESHOLD2)) && (pe1 == nil) {
 						pe = &this.dictList[words]
 
 						if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
@@ -1399,7 +1399,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 			pe := &this.dictList[idx]
 			length := int(pe.data >> 24)
-			buf := pe.ptr
+			buf := pe.ptr[0:length]
 
 			// Sanity check
 			if buf == nil || dstIdx+length >= dstEnd {
@@ -1414,7 +1414,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			// Emit word
-			copy(dst[dstIdx:], buf[0:length])
+			copy(dst[dstIdx:], buf)
 
 			if cur == _TC_ESCAPE_TOKEN2 {
 				// Flip case of first character
@@ -1657,9 +1657,9 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 				}
 
 				if pe == nil {
-					// Word not found in the dictionary or hash collision (outside of
-					// static dictionary) => replace entry
-					if (length > 3) || (length > 2 && words < _TC_THRESHOLD2) {
+					// Word not found in the dictionary or hash collision.
+					// Replace entry if not in static dictionary
+					if ((length > 3) || (length > 2 && words < _TC_THRESHOLD2)) && (pe1 == nil) {
 						pe = &this.dictList[words]
 
 						if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
@@ -1900,9 +1900,9 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 				}
 
 				if pe == nil {
-					// Word not found in the dictionary or hash collision (outside of
-					// static dictionary) => replace entry
-					if (length > 3) || (length > 2 && words < _TC_THRESHOLD2) {
+					// Word not found in the dictionary or hash collision.
+					// Replace entry if not in static dictionary
+					if ((length > 3) || (length > 2 && words < _TC_THRESHOLD2)) && (pe1 == nil) {
 						pe = &this.dictList[words]
 
 						if int(pe.data&0x00FFFFFF) >= this.staticDictSize {
@@ -1953,7 +1953,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 			pe := &this.dictList[idx]
 			length := int(pe.data >> 24)
-			buf := pe.ptr
+			buf := pe.ptr[0:length]
 
 			// Sanity check
 			if buf == nil || dstIdx+length >= dstEnd {
@@ -1968,7 +1968,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			// Emit word
-			copy(dst[dstIdx:], buf[0:length])
+			copy(dst[dstIdx:], buf)
 
 			if cur&0x20 != 0 {
 				// Flip case of first character
