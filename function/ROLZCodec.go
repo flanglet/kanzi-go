@@ -33,7 +33,8 @@ import (
 const (
 	_ROLZ_HASH_SIZE       = 1 << 16
 	_ROLZ_MIN_MATCH       = 3
-	_ROLZ_MAX_MATCH       = _ROLZ_MIN_MATCH + 255 + 7
+	_ROLZ_MAX_MATCH1      = _ROLZ_MIN_MATCH + 255 + 7
+	_ROLZ_MAX_MATCH2      = _ROLZ_MIN_MATCH + 255
 	_ROLZ_LOG_POS_CHECKS1 = 4
 	_ROLZ_LOG_POS_CHECKS2 = 5
 	_ROLZ_CHUNK_SIZE      = 1 << 26 // 64 MB
@@ -234,7 +235,7 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int) (int, int) {
 	bestLen := _ROLZ_MIN_MATCH - 1
 	bestIdx := -1
 	curBuf := buf[pos:]
-	maxMatch := _ROLZ_MAX_MATCH
+	maxMatch := _ROLZ_MAX_MATCH1
 
 	if maxMatch > len(buf)-pos {
 		maxMatch = len(buf) - pos
@@ -834,7 +835,7 @@ func (this *rolzCodec2) findMatch(buf []byte, pos int) (int, int) {
 	bestLen := _ROLZ_MIN_MATCH - 1
 	bestIdx := -1
 	curBuf := buf[pos:]
-	maxMatch := _ROLZ_MAX_MATCH
+	maxMatch := _ROLZ_MAX_MATCH2
 
 	if maxMatch > len(buf)-pos {
 		maxMatch = len(buf) - pos
