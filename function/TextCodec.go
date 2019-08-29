@@ -33,8 +33,8 @@ const (
 	_TC_MAX_BLOCK_SIZE         = 1 << 30    // 1 GB
 	_TC_ESCAPE_TOKEN1          = byte(0x0F) // dictionary word preceded by space symbol
 	_TC_ESCAPE_TOKEN2          = byte(0x0E) // toggle upper/lower case of first word char
-	LF                         = byte(0x0A)
-	CR                         = byte(0x0D)
+	LF                         = byte(0x0A) // Line Feed symbol
+	CR                         = byte(0x0D) // Carriage Return symbol
 	_TC_MASK_NOT_TEXT          = 0x80
 	_TC_MASK_ALMOST_FULL_ASCII = 0x08
 	_TC_MASK_FULL_ASCII        = 0x04

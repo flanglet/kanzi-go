@@ -23,15 +23,15 @@ import (
 )
 
 const (
-	INCOMPRESSIBLE_THRESHOLD = 973
-	FULL_ALPHABET            = 0
-	PARTIAL_ALPHABET         = 1
-	ALPHABET_256             = 0
-	ALPHABET_NOT_256         = 1
-	DELTA_ENCODED_ALPHABET   = 0
-	BIT_ENCODED_ALPHABET_256 = 1
-	PRESENT_SYMBOLS_MASK     = 0
-	ABSENT_SYMBOLS_MASK      = 1
+	INCOMPRESSIBLE_THRESHOLD = 973 // Any block with entropy*1024 greater than this threshold is considered incompressible
+	FULL_ALPHABET            = 0 // Flag for full alphabet encoding
+	PARTIAL_ALPHABET         = 1 // Flag for partial alphabet encoding
+	ALPHABET_256             = 0 // Flag for alphabet with 256 symbols
+	ALPHABET_NOT_256         = 1 // Flag for alphabet not with 256 symbols
+	DELTA_ENCODED_ALPHABET   = 0 // Flag for full alphabet delta encoding
+	BIT_ENCODED_ALPHABET_256 = 1 // Flag for full alphabet bit encoding
+	PRESENT_SYMBOLS_MASK     = 0 // Flag for present symbol
+	ABSENT_SYMBOLS_MASK      = 1 // Flag for absent symbol
 )
 
 type freqSortData struct {

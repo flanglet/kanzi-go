@@ -28,10 +28,10 @@ import (
 // For an alternate C implementation example, see https://github.com/Cyan4973/FiniteStateEntropy
 
 const (
-	ANS_TOP                 = 1 << 15       // max possible for ANS_TOP=1<23
-	DEFAULT_ANS0_CHUNK_SIZE = uint(1 << 15) // 32 KB by default
-	ANS_MAX_CHUNK_SIZE      = 1 << 27       // 8*MAX_CHUNK_SIZE must not overflow
-	DEFAULT_ANS_LOG_RANGE   = uint(12)
+	_ANS_TOP                 = 1 << 15       // max possible for ANS_TOP=1<23
+	_DEFAULT_ANS0_CHUNK_SIZE = uint(1 << 15) // 32 KB by default
+	_ANS_MAX_CHUNK_SIZE      = 1 << 27       // 8*MAX_CHUNK_SIZE must not overflow
+	_DEFAULT_ANS_LOG_RANGE   = uint(12)
 )
 
 // ANSRangeEncoder Asymmetric Numeral System Encoder
@@ -63,8 +63,8 @@ func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncode
 		return nil, errors.New("ANS codec: At most order, chunk size and log range can be provided")
 	}
 
-	chkSize := DEFAULT_ANS0_CHUNK_SIZE
-	logRange := DEFAULT_ANS_LOG_RANGE
+	chkSize := _DEFAULT_ANS0_CHUNK_SIZE
+	logRange := _DEFAULT_ANS_LOG_RANGE
 	order := uint(0)
 
 	if len(args) > 0 {
@@ -89,8 +89,8 @@ func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncode
 		return nil, errors.New("ANS codec: The chunk size must be at least 1024")
 	}
 
-	if chkSize > ANS_MAX_CHUNK_SIZE {
-		return nil, fmt.Errorf("ANS codec: The chunk size must be at most %d", ANS_MAX_CHUNK_SIZE)
+	if chkSize > _ANS_MAX_CHUNK_SIZE {
+		return nil, fmt.Errorf("ANS codec: The chunk size must be at most %d", _ANS_MAX_CHUNK_SIZE)
 	}
 
 	if logRange < 8 || logRange > 16 {
@@ -221,8 +221,8 @@ func (this *ANSRangeEncoder) Write(block []byte) (int, error) {
 		sizeChunk = len(block)
 	}
 
-	if sizeChunk >= ANS_MAX_CHUNK_SIZE {
-		sizeChunk = ANS_MAX_CHUNK_SIZE
+	if sizeChunk >= _ANS_MAX_CHUNK_SIZE {
+		sizeChunk = _ANS_MAX_CHUNK_SIZE
 	}
 
 	for i := range this.symbols {
@@ -264,7 +264,7 @@ func (this *ANSRangeEncoder) Write(block []byte) (int, error) {
 }
 
 func (this *ANSRangeEncoder) encodeChunk(block []byte) {
-	st := ANS_TOP
+	st := _ANS_TOP
 	n := len(this.buffer) - 1
 
 	if this.order == 0 {
@@ -369,7 +369,7 @@ func (this *encSymbol) reset(cumFreq, freq int, logRange uint) {
 		freq = (1 << logRange) - 1
 	}
 
-	this.xMax = ((ANS_TOP >> logRange) << 16) * freq
+	this.xMax = ((_ANS_TOP >> logRange) << 16) * freq
 	this.cmplFreq = (1 << logRange) - freq
 
 	if freq < 2 {
@@ -419,7 +419,7 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 		return nil, errors.New("ANS codec: At most order and chunk size can be provided")
 	}
 
-	chkSize := DEFAULT_ANS0_CHUNK_SIZE
+	chkSize := _DEFAULT_ANS0_CHUNK_SIZE
 	order := uint(0)
 
 	if len(args) > 0 {
@@ -440,8 +440,8 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 		return nil, errors.New("ANS codec: The chunk size must be at least 1024")
 	}
 
-	if chkSize > ANS_MAX_CHUNK_SIZE {
-		return nil, fmt.Errorf("ANS codec: The chunk size must be at most %d", ANS_MAX_CHUNK_SIZE)
+	if chkSize > _ANS_MAX_CHUNK_SIZE {
+		return nil, fmt.Errorf("ANS codec: The chunk size must be at most %d", _ANS_MAX_CHUNK_SIZE)
 	}
 
 	this := new(ANSRangeDecoder)
@@ -584,8 +584,8 @@ func (this *ANSRangeDecoder) Read(block []byte) (int, error) {
 		sizeChunk = len(block)
 	}
 
-	if sizeChunk >= ANS_MAX_CHUNK_SIZE {
-		sizeChunk = ANS_MAX_CHUNK_SIZE
+	if sizeChunk >= _ANS_MAX_CHUNK_SIZE {
+		sizeChunk = _ANS_MAX_CHUNK_SIZE
 	}
 
 	end := len(block)
@@ -623,7 +623,7 @@ func (this *ANSRangeDecoder) Read(block []byte) (int, error) {
 
 func (this *ANSRangeDecoder) decodeChunk(block []byte) {
 	// Read chunk size
-	sz := ReadVarInt(this.bitstream) & (ANS_MAX_CHUNK_SIZE - 1)
+	sz := ReadVarInt(this.bitstream) & (_ANS_MAX_CHUNK_SIZE - 1)
 
 	// Read initial ANS state
 	st := int(this.bitstream.ReadBits(32))
@@ -651,7 +651,7 @@ func (this *ANSRangeDecoder) decodeChunk(block []byte) {
 			st = sym.freq*(st>>lr) + (st & mask) - sym.cumFreq
 
 			// Normalize
-			for st < ANS_TOP {
+			for st < _ANS_TOP {
 				st = (st << 8) | int(this.buffer[n])
 				st = (st << 8) | int(this.buffer[n+1])
 				n += 2
@@ -671,7 +671,7 @@ func (this *ANSRangeDecoder) decodeChunk(block []byte) {
 			st = sym.freq*(st>>lr) + (st & mask) - sym.cumFreq
 
 			// Normalize
-			for st < ANS_TOP {
+			for st < _ANS_TOP {
 				st = (st << 8) | int(this.buffer[n])
 				st = (st << 8) | int(this.buffer[n+1])
 				n += 2

@@ -345,6 +345,9 @@ func (this *CompressedOutputStream) Write(block []byte) (int, error) {
 	return len(block) - remaining, nil
 }
 
+// Close writes the buffered data to the output stream then writes
+// a final empty block and releases resources.
+// Close makes the bitstream unavailable for further writes. Idempotent.
 func (this *CompressedOutputStream) Close() error {
 	if atomic.SwapInt32(&this.closed, 1) == 1 {
 		return nil
@@ -407,23 +410,23 @@ func (this *CompressedOutputStream) processBlock(force bool) error {
 	nbJobs := 0
 
 	// Invoke as many go routines as required
-	for jobId := 0; jobId < this.jobs; jobId++ {
+	for jobID := 0; jobID < this.jobs; jobID++ {
 		if this.curIdx == 0 {
 			break
 		}
 
-		nbJobs = jobId + 1
+		nbJobs = jobID + 1
 		sz := uint(this.curIdx)
 
 		if sz >= this.blockSize {
 			sz = this.blockSize
 		}
 
-		if len(this.buffers[2*jobId].Buf) < int(sz) {
-			this.buffers[2*jobId].Buf = make([]byte, sz)
+		if len(this.buffers[2*jobID].Buf) < int(sz) {
+			this.buffers[2*jobID].Buf = make([]byte, sz)
 		}
 
-		copy(this.buffers[2*jobId].Buf, this.data[offset:offset+sz])
+		copy(this.buffers[2*jobID].Buf, this.data[offset:offset+sz])
 		copyCtx := make(map[string]interface{})
 
 		for k, v := range this.ctx {
@@ -431,15 +434,15 @@ func (this *CompressedOutputStream) processBlock(force bool) error {
 		}
 
 		task := encodingTask{
-			iBuffer:            &this.buffers[2*jobId],
-			oBuffer:            &this.buffers[2*jobId+1],
+			iBuffer:            &this.buffers[2*jobID],
+			oBuffer:            &this.buffers[2*jobID+1],
 			hasher:             this.hasher,
 			blockLength:        sz,
 			blockTransformType: this.transformType,
 			blockEntropyType:   this.entropyType,
-			currentBlockID:     this.blockID + jobId + 1,
-			input:              this.channels[jobId],
-			output:             this.channels[jobId+1],
+			currentBlockID:     this.blockID + jobID + 1,
+			input:              this.channels[jobID],
+			output:             this.channels[jobID+1],
 			obs:                this.obs,
 			listeners:          listeners,
 			ctx:                copyCtx}
@@ -869,7 +872,8 @@ func (this *CompressedInputStream) readHeader() error {
 	return nil
 }
 
-// Close makes the bitstream unavailable for further reads.
+// Close reads the buffered data intto the input stream and releases resources.
+// Close makes the bitstream unavailable for further reads. Idempotent
 func (this *CompressedInputStream) Close() error {
 	if atomic.SwapInt32(&this.closed, 1) == 1 {
 		return nil
@@ -1008,12 +1012,12 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 	}()
 
 	// Invoke as many go routines as required
-	for jobId := range syncChan {
-		// Lazy instantiation of input buffers this.buffers[2*jobId]
-		// Output buffers this.buffers[2*jobId+1] are lazily instantiated
+	for jobID := range syncChan {
+		// Lazy instantiation of input buffers this.buffers[2*jobID]
+		// Output buffers this.buffers[2*jobID+1] are lazily instantiated
 		// by the decoding tasks.
-		if len(this.buffers[2*jobId].Buf) < blkSize {
-			this.buffers[2*jobId].Buf = make([]byte, blkSize)
+		if len(this.buffers[2*jobID].Buf) < blkSize {
+			this.buffers[2*jobID].Buf = make([]byte, blkSize)
 		}
 
 		copyCtx := make(map[string]interface{})
@@ -1022,18 +1026,18 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 			copyCtx[k] = v
 		}
 
-		copyCtx["jobs"] = jobsPerTask[jobId]
+		copyCtx["jobs"] = jobsPerTask[jobID]
 
 		task := decodingTask{
-			iBuffer:            &this.buffers[2*jobId],
-			oBuffer:            &this.buffers[2*jobId+1],
+			iBuffer:            &this.buffers[2*jobID],
+			oBuffer:            &this.buffers[2*jobID+1],
 			hasher:             this.hasher,
 			blockLength:        uint(blkSize),
 			blockTransformType: this.transformType,
 			blockEntropyType:   this.entropyType,
-			currentBlockID:     this.blockID + jobId + 1,
-			input:              syncChan[jobId],
-			output:             syncChan[(jobId+1)%int(nbJobs)],
+			currentBlockID:     this.blockID + jobID + 1,
+			input:              syncChan[jobID],
+			output:             syncChan[(jobID+1)%int(nbJobs)],
 			result:             this.resChan,
 			listeners:          listeners,
 			ibs:                this.ibs,

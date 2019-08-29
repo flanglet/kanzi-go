@@ -16,9 +16,9 @@ limitations under the License.
 package entropy
 
 const (
-	FAST_RATE   = 2
-	MEDIUM_RATE = 4
-	SLOW_RATE   = 6
+	_FAST_RATE   = 2
+	_MEDIUM_RATE = 4
+	_SLOW_RATE   = 6
 )
 
 // CMPredictor context model predictor based on BCM by Ilya Muravyov.
@@ -73,15 +73,15 @@ func (this *CMPredictor) Update(bit byte) {
 	this.ctx += (this.ctx + int32(bit))
 
 	if bit == 0 {
-		pc1[256] -= (pc1[256] >> FAST_RATE)
-		pc1[this.c1] -= (pc1[this.c1] >> MEDIUM_RATE)
-		pc2[this.idx+1] -= (pc2[this.idx+1] >> SLOW_RATE)
-		pc2[this.idx] -= (pc2[this.idx] >> SLOW_RATE)
+		pc1[256] -= (pc1[256] >> _FAST_RATE)
+		pc1[this.c1] -= (pc1[this.c1] >> _MEDIUM_RATE)
+		pc2[this.idx+1] -= (pc2[this.idx+1] >> _SLOW_RATE)
+		pc2[this.idx] -= (pc2[this.idx] >> _SLOW_RATE)
 	} else {
-		pc1[256] += ((0xFFFF - pc1[256]) >> FAST_RATE)
-		pc1[this.c1] += ((0xFFFF - pc1[this.c1]) >> MEDIUM_RATE)
-		pc2[this.idx+1] += ((0xFFFF - pc2[this.idx+1]) >> SLOW_RATE)
-		pc2[this.idx] += ((0xFFFF - pc2[this.idx]) >> SLOW_RATE)
+		pc1[256] += ((0xFFFF - pc1[256]) >> _FAST_RATE)
+		pc1[this.c1] += ((0xFFFF - pc1[this.c1]) >> _MEDIUM_RATE)
+		pc2[this.idx+1] += ((0xFFFF - pc2[this.idx+1]) >> _SLOW_RATE)
+		pc2[this.idx] += ((0xFFFF - pc2[this.idx]) >> _SLOW_RATE)
 	}
 
 	if this.ctx > 255 {

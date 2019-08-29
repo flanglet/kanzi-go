@@ -154,7 +154,7 @@ func fileDecompressWorker(tasks <-chan fileDecompressTask, cancel <-chan bool, r
 	}
 }
 
-// DEompress is the main function to decompress the files or files based on the
+// Decompress is the main function to decompress the files or files based on the
 // input name provided at construction. Files may be processed concurrently
 // depending on the number of jobs provided at construction.
 // Returns exit code, number of bits read.

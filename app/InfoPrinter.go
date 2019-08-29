@@ -89,7 +89,7 @@ func NewInfoPrinter(infoLevel, infoType uint, writer io.Writer) (*InfoPrinter, e
 
 // ProcessEvent receives an event and writes a log record to the internal writer
 func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
-	currentBlockId := int32(evt.Id())
+	currentBlockID := int32(evt.ID())
 
 	if evt.Type() == this.thresholds[1] {
 		// Register initial block size
@@ -100,7 +100,7 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 		}
 
 		this.lock.Lock()
-		this.infos[currentBlockId] = bi
+		this.infos[currentBlockID] = bi
 		this.lock.Unlock()
 
 		if this.level >= 5 {
@@ -108,7 +108,7 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 		}
 	} else if evt.Type() == this.thresholds[2] {
 		this.lock.RLock()
-		bi, exists := this.infos[currentBlockId]
+		bi, exists := this.infos[currentBlockID]
 		this.lock.RUnlock()
 
 		if exists == true {
@@ -119,7 +119,7 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 			}
 
 			this.lock.Lock()
-			this.infos[currentBlockId] = bi
+			this.infos[currentBlockID] = bi
 			this.lock.Unlock()
 
 			if this.level >= 5 {
@@ -129,14 +129,14 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 		}
 	} else if evt.Type() == this.thresholds[3] {
 		this.lock.RLock()
-		bi, exists := this.infos[currentBlockId]
+		bi, exists := this.infos[currentBlockID]
 		this.lock.RUnlock()
 
 		if exists == true {
 			bi.time2 = evt.Time()
 			bi.stage1Size = evt.Size()
 			this.lock.Lock()
-			this.infos[currentBlockId] = bi
+			this.infos[currentBlockID] = bi
 			this.lock.Unlock()
 
 			if this.level >= 5 {
@@ -146,7 +146,7 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 		}
 	} else if evt.Type() == this.thresholds[4] {
 		this.lock.RLock()
-		bi, exists := this.infos[currentBlockId]
+		bi, exists := this.infos[currentBlockID]
 		this.lock.RUnlock()
 
 		if exists == false || this.level < 3 {
@@ -154,7 +154,7 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 		}
 
 		this.lock.Lock()
-		delete(this.infos, currentBlockId)
+		delete(this.infos, currentBlockID)
 		this.lock.Unlock()
 		bi.time3 = evt.Time()
 		duration1MS := bi.time1.Sub(bi.time0).Nanoseconds() / int64(time.Millisecond)
@@ -172,7 +172,7 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 
 		// Display block info
 		if this.level >= 4 {
-			msg = fmt.Sprintf("Block %d: %d => %d [%d ms] => %d [%d ms]", currentBlockId,
+			msg = fmt.Sprintf("Block %d: %d => %d [%d ms] => %d [%d ms]", currentBlockID,
 				bi.stage0Size, bi.stage1Size, duration1MS, stage2Size, duration2MS)
 
 			// Add compression ratio for encoding

@@ -67,8 +67,8 @@ func (this *Event) Type() int {
 	return this.eventType
 }
 
-// Id returns the id info
-func (this *Event) Id() int {
+// ID returns the id info
+func (this *Event) ID() int {
 	return this.id
 }
 

@@ -726,7 +726,7 @@ func (this FileCompare) Swap(i, j int) {
 
 // Less returns true if the path at index i in the internal
 // file data buffer is less than file data buffer at index j.
-// The order is defined by lexical order of the parent dirextory
+// The order is defined by lexical order of the parent directory
 // path then file size.
 func (this FileCompare) Less(i, j int) bool {
 	if this.sortBySize == false {

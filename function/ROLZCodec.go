@@ -190,6 +190,7 @@ func (this *ROLZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	return this.delegate.Inverse(src, dst)
 }
 
+// MaxEncodedLen returns the max size required for the encoding output buffer
 func (this *ROLZCodec) MaxEncodedLen(srcLen int) int {
 	return this.delegate.MaxEncodedLen(srcLen)
 }
