@@ -29,8 +29,10 @@ import (
 // of the BlockCompressor/BlockDecompressor)
 
 const (
-	ENCODING = 0 // encoding event type
-	DECODING = 1 // decoding event type
+	// ENCODING event type
+	ENCODING = 0
+	// DECODING event type
+	DECODING = 1
 )
 
 type blockInfo struct {

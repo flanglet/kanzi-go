@@ -22,7 +22,6 @@ import (
 
 const (
 	_SRT_HEADER_SIZE = 4 * 256 // freqs
-	_SRT_CHUNK_SIZE  = 8 * 1024 * 1024
 )
 
 // SRT Sorted Ranks Transform

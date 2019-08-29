@@ -31,10 +31,12 @@ import (
 // This code implements SBR(0), SBR(1/2) and SBR(1). Code derived from openBWT
 
 const (
-	SBRT_MODE_MTF       = 1 // mode MoveToFront
-	SBRT_MODE_RANK      = 2 // mode Rank
-	SBRT_MODE_TIMESTAMP = 3 // mode TimeStamp
-	_SBRT_CHUNK_SIZE    = 8 * 1024 * 1024
+	// SBRT_MODE_MTF mode MoveToFront
+	SBRT_MODE_MTF = 1
+	// SBRT_MODE_RANK mode Rank
+	SBRT_MODE_RANK = 2
+	// SBRT_MODE_TIMESTAMP mode TimeStamp
+	SBRT_MODE_TIMESTAMP = 3
 )
 
 // SBRT Sort By Rank Transform

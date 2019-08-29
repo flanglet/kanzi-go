@@ -23,6 +23,11 @@ import (
 )
 
 const (
+	// LF Line Feed symbol
+	LF = byte(0x0A)
+	// CR Carriage Return symbol
+	CR = byte(0x0D)
+
 	_TC_THRESHOLD1             = 128
 	_TC_THRESHOLD2             = _TC_THRESHOLD1 * _TC_THRESHOLD1
 	_TC_THRESHOLD3             = 32
@@ -33,8 +38,6 @@ const (
 	_TC_MAX_BLOCK_SIZE         = 1 << 30    // 1 GB
 	_TC_ESCAPE_TOKEN1          = byte(0x0F) // dictionary word preceded by space symbol
 	_TC_ESCAPE_TOKEN2          = byte(0x0E) // toggle upper/lower case of first word char
-	LF                         = byte(0x0A) // Line Feed symbol
-	CR                         = byte(0x0D) // Carriage Return symbol
 	_TC_MASK_NOT_TEXT          = 0x80
 	_TC_MASK_ALMOST_FULL_ASCII = 0x08
 	_TC_MASK_FULL_ASCII        = 0x04
@@ -943,11 +946,10 @@ func newTextCodec1() (*textCodec1, error) {
 func newTextCodec1WithCtx(ctx *map[string]interface{}) (*textCodec1, error) {
 	this := new(textCodec1)
 	log := uint32(13)
-	blockSize := uint(0)
 	dSize := 1 << 12
 
 	if val, containsKey := (*ctx)["blockSize"]; containsKey {
-		blockSize = val.(uint)
+		blockSize := val.(uint)
 
 		if blockSize >= 8 {
 			log, _ = kanzi.Log2(uint32(blockSize / 8))
@@ -1477,11 +1479,10 @@ func newTextCodec2() (*textCodec2, error) {
 func newTextCodec2WithCtx(ctx *map[string]interface{}) (*textCodec2, error) {
 	this := new(textCodec2)
 	log := uint32(13)
-	blockSize := uint(0)
 	dSize := 1 << 12
 
 	if val, containsKey := (*ctx)["blockSize"]; containsKey {
-		blockSize = val.(uint)
+		blockSize := val.(uint)
 
 		if blockSize >= 8 {
 			log, _ = kanzi.Log2(uint32(blockSize / 8))

@@ -689,6 +689,7 @@ type FileData struct {
 	Size     int64
 }
 
+// NewFileData creates an instance of FileData from a file path and size
 func NewFileData(fullPath string, size int64) *FileData {
 	this := &FileData{}
 	this.FullPath = fullPath
