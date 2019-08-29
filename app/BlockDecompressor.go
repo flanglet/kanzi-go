@@ -34,6 +34,7 @@ const (
 	_DECOMP_DEFAULT_CONCURRENCY = 1
 	_DECOMP_MAX_CONCURRENCY     = 64
 	_DECOMP_NONE                = "NONE"
+	_DECOMP_STDIN               = "STDIN"
 	_DECOMP_STDOUT              = "STDOUT"
 )
 
@@ -468,7 +469,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 		notifyBDListeners(this.listeners, evt)
 	}
 
-	if strings.ToUpper(inputName) == "STDIN" {
+	if strings.ToUpper(inputName) == _DECOMP_STDIN {
 		input = os.Stdin
 	} else {
 		var err error

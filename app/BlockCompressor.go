@@ -36,6 +36,7 @@ const (
 	_COMP_DEFAULT_CONCURRENCY = 1
 	_COMP_MAX_CONCURRENCY     = 64
 	_COMP_NONE                = "NONE"
+	_COMP_STDIN               = "STDIN"
 	_COMP_STDOUT              = "STDOUT"
 )
 
@@ -326,7 +327,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	formattedInName := this.inputName
 	specialOutput := strings.ToUpper(formattedOutName) == _COMP_NONE || strings.ToUpper(formattedOutName) == _COMP_STDOUT
 
-	if strings.ToUpper(this.inputName) != "STDIN" {
+	if strings.ToUpper(this.inputName) != _COMP_STDIN {
 		fi, err := os.Stat(this.inputName)
 
 		if err != nil {
@@ -386,9 +387,9 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 
 	if nbFiles == 1 {
 		oName := formattedOutName
-		iName := "STDIN"
+		iName := _COMP_STDIN
 
-		if strings.ToUpper(this.inputName) != "STDIN" {
+		if strings.ToUpper(this.inputName) != _COMP_STDIN {
 			iName = files[0].FullPath
 			ctx["fileSize"] = files[0].Size
 
@@ -630,7 +631,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 
 	var input io.ReadCloser
 
-	if strings.ToUpper(inputName) == "STDIN" {
+	if strings.ToUpper(inputName) == _COMP_STDIN {
 		input = os.Stdin
 	} else {
 		var err error
