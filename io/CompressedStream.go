@@ -823,6 +823,7 @@ func (this *CompressedInputStream) readHeader() error {
 	// Read entropy codec
 	this.entropyType = uint32(this.ibs.ReadBits(5))
 	this.ctx["codec"] = entropy.GetName(this.entropyType)
+	this.ctx["extra"] = this.entropyType == entropy.TPAQX_TYPE
 
 	// Read transforms: 8*6 bits
 	this.transformType = this.ibs.ReadBits(48)
