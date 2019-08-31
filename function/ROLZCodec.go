@@ -39,15 +39,15 @@ const (
 	_ROLZ_LOG_POS_CHECKS2 = 5
 	_ROLZ_CHUNK_SIZE      = 1 << 26 // 64 MB
 	_ROLZ_HASH_MASK       = int32(^(_ROLZ_CHUNK_SIZE - 1))
-	_ROLZ_LITERAL_FLAG    = 0
-	_ROLZ_MATCH_FLAG      = 1
+	_ROLZ_MATCH_FLAG      = 0
+	_ROLZ_LITERAL_FLAG    = 1
 	_ROLZ_HASH            = int32(200002979)
 	_ROLZ_MAX_BLOCK_SIZE  = 1 << 30 // 1 GB
 	_ROLZ_TOP             = uint64(0x00FFFFFFFFFFFFFF)
-	MASK_24_56            = uint64(0x00FFFFFFFF000000)
-	MASK_0_24             = uint64(0x0000000000FFFFFF)
-	MASK_0_56             = uint64(0x00FFFFFFFFFFFFFF)
-	MASK_0_32             = uint64(0x00000000FFFFFFFF)
+	_MASK_24_56           = uint64(0x00FFFFFFFF000000)
+	_MASK_0_24            = uint64(0x0000000000FFFFFF)
+	_MASK_0_56            = uint64(0x00FFFFFFFFFFFFFF)
+	_MASK_0_32            = uint64(0x00000000FFFFFFFF)
 )
 
 func getKey(p []byte) uint32 {
@@ -422,28 +422,21 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			}
 
 			litEnc.Dispose()
-			var lenEnc *entropy.ANSRangeEncoder
+			var mEnc *entropy.ANSRangeEncoder
 
-			if lenEnc, err = entropy.NewANSRangeEncoder(obs, 0); err != nil {
+			if mEnc, err = entropy.NewANSRangeEncoder(obs, 0); err != nil {
 				goto End
 			}
 
-			if _, err = lenEnc.Write(lenBuf[0:lenIdx]); err != nil {
+			if _, err = mEnc.Write(lenBuf[0:lenIdx]); err != nil {
 				goto End
 			}
 
-			lenEnc.Dispose()
-			var mIdxEnc *entropy.ANSRangeEncoder
-
-			if mIdxEnc, err = entropy.NewANSRangeEncoder(obs, 0); err != nil {
+			if _, err = mEnc.Write(mIdxBuf[0:mIdx]); err != nil {
 				goto End
 			}
 
-			if _, err = mIdxEnc.Write(mIdxBuf[0:mIdx]); err != nil {
-				goto End
-			}
-
-			mIdxEnc.Dispose()
+			mEnc.Dispose()
 			obs.Close()
 		}
 
@@ -539,65 +532,16 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			var ibs kanzi.InputBitStream
 
 			if err = is.SetOffset(srcIdx - 4); err != nil {
-				break
+				goto End
 			}
 
 			if ibs, err = bitstream.NewDefaultInputBitStream(&is, 65536); err != nil {
-				break
+				goto End
 			}
 
 			litLen := int(ibs.ReadBits(32))
 			mLenLen := int(ibs.ReadBits(32))
 			mIdxLen := int(ibs.ReadBits(32))
-
-			if litLen <= sizeChunk {
-				{
-					var litDec *entropy.ANSRangeDecoder
-
-					if litDec, err = entropy.NewANSRangeDecoder(ibs, litOrder); err != nil {
-						goto End
-					}
-
-					if _, err = litDec.Read(litBuf[0:litLen]); err != nil {
-						goto End
-					}
-
-					litDec.Dispose()
-				}
-
-				if mLenLen <= sizeChunk {
-					{
-						var lenDec *entropy.ANSRangeDecoder
-
-						if lenDec, err = entropy.NewANSRangeDecoder(ibs, 0); err != nil {
-							goto End
-						}
-
-						if _, err = lenDec.Read(lenBuf[0:mLenLen]); err != nil {
-							goto End
-						}
-
-						lenDec.Dispose()
-					}
-
-					if mIdxLen <= sizeChunk {
-						var mIdxDec *entropy.ANSRangeDecoder
-
-						if mIdxDec, err = entropy.NewANSRangeDecoder(ibs, 0); err != nil {
-							goto End
-						}
-
-						if _, err = mIdxDec.Read(mIdxBuf[0:mIdxLen]); err != nil {
-							goto End
-						}
-
-						mIdxDec.Dispose()
-					}
-				}
-			}
-
-			srcIdx += int((ibs.Read() + 7) >> 3)
-			ibs.Close()
 
 			if litLen > sizeChunk {
 				err = fmt.Errorf("ROLZ codec: Invalid length: got %v, must be less than or equal to %v", litLen, sizeChunk)
@@ -613,6 +557,35 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 				err = fmt.Errorf("ROLZ codec: Invalid length: got %v, must be less than or equal to %v", mIdxLen, sizeChunk)
 				goto End
 			}
+
+			var litDec *entropy.ANSRangeDecoder
+
+			if litDec, err = entropy.NewANSRangeDecoder(ibs, litOrder); err != nil {
+				goto End
+			}
+
+			if _, err = litDec.Read(litBuf[0:litLen]); err != nil {
+				goto End
+			}
+
+			litDec.Dispose()
+			var mDec *entropy.ANSRangeDecoder
+
+			if mDec, err = entropy.NewANSRangeDecoder(ibs, 0); err != nil {
+				goto End
+			}
+
+			if _, err = mDec.Read(lenBuf[0:mLenLen]); err != nil {
+				goto End
+			}
+
+			if _, err = mDec.Read(mIdxBuf[0:mIdxLen]); err != nil {
+				goto End
+			}
+
+			mDec.Dispose()
+			srcIdx += int((ibs.Read() + 7) >> 3)
+			ibs.Close()
 		}
 
 		dstIdx = 0
@@ -915,7 +888,7 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	dstIdx += 4
 	this.litPredictor.reset()
 	this.matchPredictor.reset()
-	predictors := [2]kanzi.Predictor{this.litPredictor, this.matchPredictor}
+	predictors := [2]kanzi.Predictor{this.matchPredictor, this.litPredictor}
 	re, _ := newRolzEncoder(predictors[:], dst, &dstIdx)
 
 	for i := range this.counters {
@@ -937,6 +910,8 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		sizeChunk = endChunk - startChunk
 		buf := src[startChunk:endChunk]
 		srcIdx = 0
+
+		// First literals
 		this.litPredictor.setContext(0)
 		re.setContext(_ROLZ_LITERAL_FLAG)
 		re.encodeBit(_ROLZ_LITERAL_FLAG)
@@ -956,10 +931,12 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 			matchIdx, matchLen := this.findMatch(buf, srcIdx)
 
 			if matchIdx < 0 {
+				// Emit one literal
 				re.encodeBit(_ROLZ_LITERAL_FLAG)
 				re.encodeByte(buf[srcIdx])
 				srcIdx++
 			} else {
+				// Emit one match length and index
 				re.encodeBit(_ROLZ_MATCH_FLAG)
 				re.encodeByte(byte(matchLen))
 				this.matchPredictor.setContext(buf[srcIdx-1])
@@ -1015,7 +992,7 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	startChunk := 0
 	this.litPredictor.reset()
 	this.matchPredictor.reset()
-	predictors := [2]kanzi.Predictor{this.litPredictor, this.matchPredictor}
+	predictors := [2]kanzi.Predictor{this.matchPredictor, this.litPredictor}
 	rd, _ := newRolzDecoder(predictors[:], src, &srcIdx)
 
 	for i := range this.counters {
@@ -1037,6 +1014,8 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 		buf := dst[startChunk:endChunk]
 		dstIdx = 0
+
+		// First literals
 		this.litPredictor.setContext(0)
 		rd.setContext(_ROLZ_LITERAL_FLAG)
 		bit := rd.decodeBit()
@@ -1070,8 +1049,9 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			rd.setContext(_ROLZ_LITERAL_FLAG)
 
 			if rd.decodeBit() == _ROLZ_MATCH_FLAG {
-				// Match flag
+				// Read one match length and index
 				matchLen := int(rd.decodeByte())
+
 				// Sanity check
 				if matchLen+3 > dstEnd {
 					dstIdx += startChunk
@@ -1089,12 +1069,12 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 				ref := m[(this.counters[key]-matchIdx)&this.maskChecks]
 				dstIdx = emitCopy(buf, dstIdx, int(ref), matchLen)
 			} else {
-				// Literal flag
+				// Read one literal
 				buf[dstIdx] = rd.decodeByte()
 				dstIdx++
 			}
 
-			// Update
+			// Update map
 			this.counters[key]++
 			m[this.counters[key]&this.maskChecks] = int32(savedIdx)
 		}
@@ -1223,11 +1203,11 @@ func (this *rolzEncoder) encodeBit(bit byte) {
 	this.predictor.Update(bit)
 
 	// Write unchanged first 32 bits to bitstream
-	for (this.low^this.high)&MASK_24_56 == 0 {
+	for (this.low^this.high)&_MASK_24_56 == 0 {
 		binary.BigEndian.PutUint32(this.buf[*this.idx:*this.idx+4], uint32(this.high>>32))
 		*this.idx += 4
 		this.low <<= 32
-		this.high = (this.high << 32) | MASK_0_32
+		this.high = (this.high << 32) | _MASK_0_32
 	}
 }
 
@@ -1300,11 +1280,11 @@ func (this *rolzDecoder) decodeBit() byte {
 	}
 
 	// Read 32 bits from bitstream
-	for (this.low^this.high)&MASK_24_56 == 0 {
-		this.low = (this.low << 32) & MASK_0_56
-		this.high = ((this.high << 32) | MASK_0_32) & MASK_0_56
+	for (this.low^this.high)&_MASK_24_56 == 0 {
+		this.low = (this.low << 32) & _MASK_0_56
+		this.high = ((this.high << 32) | _MASK_0_32) & _MASK_0_56
 		val := uint64(binary.BigEndian.Uint32(this.buf[*this.idx : *this.idx+4]))
-		this.current = ((this.current << 32) | val) & MASK_0_56
+		this.current = ((this.current << 32) | val) & _MASK_0_56
 		*this.idx += 4
 	}
 
