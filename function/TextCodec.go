@@ -1279,21 +1279,21 @@ func (this *textCodec1) emitSymbols(src, dst []byte) int {
 
 func emitWordIndex1(dst []byte, val int) int {
 	// Emit word index (varint 5 bits + 7 bits + 7 bits)
-	if val >= _TC_THRESHOLD1 {
-		if val >= _TC_THRESHOLD2 {
-			dst[0] = byte(0xE0 | (val >> 14))
-			dst[1] = byte(0x80 | (val >> 7))
-			dst[2] = byte(0x7F & val)
-			return 3
-		}
+	if val < _TC_THRESHOLD1 {
+		dst[0] = byte(val)
+		return 1
+	}
 
+	if val < _TC_THRESHOLD2 {
 		dst[0] = byte(0x80 | (val >> 7))
 		dst[1] = byte(0x7F & val)
 		return 2
 	}
 
-	dst[0] = byte(val)
-	return 1
+	dst[0] = byte(0xE0 | (val >> 14))
+	dst[1] = byte(0x80 | (val >> 7))
+	dst[2] = byte(0x7F & val)
+	return 3
 }
 
 func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
@@ -1832,23 +1832,23 @@ func emitWordIndex2(dst []byte, val, mask int) int {
 	// Emit word index (varint 5 bits + 7 bits + 7 bits)
 	// 1st byte: 0x80 => word idx, 0x40 => more bytes, 0x20 => toggle case 1st symbol
 	// 2nd byte: 0x80 => 1 more byte
-	if val >= _TC_THRESHOLD3 {
-		if val >= _TC_THRESHOLD4 {
-			// 5 + 7 + 7 => 2^19
-			dst[0] = byte(0xC0 | mask | ((val >> 14) & 0x1F))
-			dst[1] = byte(0x80 | ((val >> 7) & 0x7F))
-			dst[2] = byte(val & 0x7F)
-			return 3
-		}
+	if val < _TC_THRESHOLD3 {
+		dst[0] = byte(0x80 | mask | val)
+		return 1
+	}
 
+	if val < _TC_THRESHOLD4 {
 		// 5 + 7 => 2^12 = 32*128
 		dst[0] = byte(0xC0 | mask | ((val >> 7) & 0x1F))
 		dst[1] = byte(val & 0x7F)
 		return 2
 	}
 
-	dst[0] = byte(0x80 | mask | val)
-	return 1
+	// 5 + 7 + 7 => 2^19
+	dst[0] = byte(0xC0 | mask | ((val >> 14) & 0x1F))
+	dst[1] = byte(0x80 | ((val >> 7) & 0x7F))
+	dst[2] = byte(val & 0x7F)
+	return 3
 }
 
 func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {

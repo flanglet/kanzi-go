@@ -627,9 +627,9 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			mIdx++
 			key := getKey(buf[dstIdx-2:])
 			m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
-			ref := m[(this.counters[key]-matchIdx)&this.maskChecks]
+			ref := int(m[(this.counters[key]-matchIdx)&this.maskChecks])
 			savedIdx := int32(dstIdx)
-			dstIdx = emitCopy(buf, dstIdx, int(ref), matchLen)
+			dstIdx = emitCopy(buf, dstIdx, ref, matchLen)
 			this.counters[key]++
 			m[this.counters[key]&this.maskChecks] = savedIdx
 		}
@@ -1066,8 +1066,8 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 					matchIdx |= int32(rd.decodeBit() << (shift - 1))
 				}
 
-				ref := m[(this.counters[key]-matchIdx)&this.maskChecks]
-				dstIdx = emitCopy(buf, dstIdx, int(ref), matchLen)
+				ref := int(m[(this.counters[key]-matchIdx)&this.maskChecks])
+				dstIdx = emitCopy(buf, dstIdx, ref, matchLen)
 			} else {
 				// Read one literal
 				buf[dstIdx] = rd.decodeByte()
