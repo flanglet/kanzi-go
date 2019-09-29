@@ -373,7 +373,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 			// Emit match and literal lengths
 			litLen := srcIdx - firstLitIdx
-			lenIdx += emitLengths(lenBuf[lenIdx:], litLen, matchLen)
+			lenIdx += emitToken(lenBuf[lenIdx:], litLen, matchLen)
 
 			// Emit literals
 			if litLen > 0 {
@@ -390,13 +390,14 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 		// Emit last chunk literals
 		litLen := srcIdx - firstLitIdx
-		lenIdx += emitLengths(lenBuf[lenIdx:], litLen, 0)
+		lenIdx += emitToken(lenBuf[lenIdx:], litLen, 0)
 
-		for i := 0; i < litLen; i++ {
-			litBuf[litIdx+i] = buf[firstLitIdx+i]
+		// Emit literals
+		if litLen > 0 {
+			copy(litBuf[litIdx:], buf[firstLitIdx:firstLitIdx+litLen])
+			litIdx += litLen
 		}
 
-		litIdx += litLen
 		var os util.BufferStream
 
 		// Scope to deallocate resources early
@@ -603,18 +604,21 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		for dstIdx < sizeChunk {
 			litLen, matchLen, deltaIdx := this.readLengths(lenBuf[lenIdx:])
 			lenIdx += deltaIdx
-			this.emitLiterals(litBuf[litIdx:litIdx+litLen], buf, dstIdx)
-			litIdx += litLen
-			dstIdx += litLen
 
-			if dstIdx >= sizeChunk {
-				// Last chunk literals not followed by match
-				if dstIdx == sizeChunk {
-					break
+			if litLen > 0 {
+				this.emitLiterals(litBuf[litIdx:litIdx+litLen], buf, dstIdx)
+				litIdx += litLen
+				dstIdx += litLen
+
+				if dstIdx >= sizeChunk {
+					// Last chunk literals not followed by match
+					if dstIdx == sizeChunk {
+						break
+					}
+
+					err = errors.New("ROLZ codec: Invalid input data")
+					goto End
 				}
-
-				err = errors.New("ROLZ codec: Invalid input data")
-				goto End
 			}
 
 			// Sanity check
@@ -665,7 +669,7 @@ func (this rolzCodec1) MaxEncodedLen(srcLen int) int {
 	return srcLen
 }
 
-func emitLengths(litBuf []byte, litLen, mLen int) int {
+func emitToken(litBuf []byte, litLen, mLen int) int {
 	// mode LLLLLMMM -> L lit length, M match length
 	var mode byte
 
@@ -692,15 +696,15 @@ func emitLengths(litBuf []byte, litLen, mLen int) int {
 		if litLen >= 1<<7 {
 			if litLen >= 1<<14 {
 				if litLen >= 1<<21 {
-					litBuf[idx] = byte(0x80 | ((litLen >> 21) & 0x7F))
+					litBuf[idx] = byte(0x80 | (litLen >> 21))
 					idx++
 				}
 
-				litBuf[idx] = byte(0x80 | ((litLen >> 14) & 0x7F))
+				litBuf[idx] = byte(0x80 | (litLen >> 14))
 				idx++
 			}
 
-			litBuf[idx] = byte(0x80 | ((litLen >> 7) & 0x7F))
+			litBuf[idx] = byte(0x80 | (litLen >> 7))
 			idx++
 		}
 

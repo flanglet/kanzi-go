@@ -1090,16 +1090,8 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 				val := src[delimAnchor+1]
 				h1 := _TC_HASH1
 				h1 = h1*_TC_HASH1 ^ int32(val)*_TC_HASH2
-				var caseFlag int32
-
-				if isUpperCase(val) {
-					caseFlag = 32
-				} else {
-					caseFlag = -32
-				}
-
 				h2 := _TC_HASH1
-				h2 = h2*_TC_HASH1 ^ (int32(val)+caseFlag)*_TC_HASH2
+				h2 = h2*_TC_HASH1 ^ (int32(val)^0x20)*_TC_HASH2
 
 				for i := delimAnchor + 2; i < srcIdx; i++ {
 					h := int32(src[i]) * _TC_HASH2
@@ -1227,12 +1219,10 @@ func (this *textCodec1) emitSymbols(src, dst []byte) int {
 	dstIdx := 0
 	dstEnd := len(dst)
 
-	for i := range src {
+	for _, cur := range src {
 		if dstIdx >= dstEnd {
 			return -1
 		}
-
-		cur := src[i]
 
 		switch cur {
 		case _TC_ESCAPE_TOKEN1:
@@ -1420,11 +1410,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 			if cur == _TC_ESCAPE_TOKEN2 {
 				// Flip case of first character
-				if isUpperCase(buf[0]) {
-					dst[dstIdx] = buf[0] + 32
-				} else {
-					dst[dstIdx] = buf[0] - 32
-				}
+				dst[dstIdx] ^= 0x20
 			}
 
 			dstIdx += length
@@ -1618,16 +1604,8 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 				val := src[delimAnchor+1]
 				h1 := _TC_HASH1
 				h1 = h1*_TC_HASH1 ^ int32(val)*_TC_HASH2
-				var caseFlag int32
-
-				if isUpperCase(val) {
-					caseFlag = 32
-				} else {
-					caseFlag = -32
-				}
-
 				h2 := _TC_HASH1
-				h2 = h2*_TC_HASH1 ^ (int32(val)+caseFlag)*_TC_HASH2
+				h2 = h2*_TC_HASH1 ^ (int32(val)^0x20)*_TC_HASH2
 
 				for i := delimAnchor + 2; i < srcIdx; i++ {
 					h := int32(src[i]) * _TC_HASH2
@@ -1754,9 +1732,7 @@ func (this *textCodec2) emitSymbols(src, dst []byte) int {
 	dstIdx := 0
 
 	if 2*len(src) < len(dst) {
-		for i := range src {
-			cur := src[i]
-
+		for _, cur := range src {
 			switch cur {
 			case _TC_ESCAPE_TOKEN1:
 				dst[dstIdx] = _TC_ESCAPE_TOKEN1
@@ -1771,7 +1747,7 @@ func (this *textCodec2) emitSymbols(src, dst []byte) int {
 				}
 
 			default:
-				if cur&0x80 != 0 {
+				if cur >= 0x80 {
 					dst[dstIdx] = _TC_ESCAPE_TOKEN1
 					dstIdx++
 				}
@@ -1781,9 +1757,7 @@ func (this *textCodec2) emitSymbols(src, dst []byte) int {
 			}
 		}
 	} else {
-		for i := range src {
-			cur := src[i]
-
+		for _, cur := range src {
 			switch cur {
 			case _TC_ESCAPE_TOKEN1:
 				if dstIdx+1 >= len(dst) {
@@ -1806,7 +1780,7 @@ func (this *textCodec2) emitSymbols(src, dst []byte) int {
 				}
 
 			default:
-				if cur&0x80 != 0 {
+				if cur >= 0x80 {
 					if dstIdx >= len(dst) {
 						return -1
 					}
@@ -1973,11 +1947,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 			if cur&0x20 != 0 {
 				// Flip case of first character
-				if isUpperCase(buf[0]) {
-					dst[dstIdx] = buf[0] + 32
-				} else {
-					dst[dstIdx] = buf[0] - 32
-				}
+				dst[dstIdx] ^= 0x20
 			}
 
 			dstIdx += length
