@@ -27,11 +27,11 @@ import (
 // [G.N.N. Martin on the Data Recording Conference, Southampton, 1979]
 
 const (
-	TOP_RANGE                = uint64(0x0FFFFFFFFFFFFFFF)
-	BOTTOM_RANGE             = uint64(0x000000000000FFFF)
-	RANGE_MASK               = uint64(0x0FFFFFFF00000000)
-	DEFAULT_RANGE_CHUNK_SIZE = uint(1 << 16) // 64 KB by default
-	DEFAULT_RANGE_LOG_RANGE  = uint(13)
+	_TOP_RANGE                = uint64(0x0FFFFFFFFFFFFFFF)
+	_BOTTOM_RANGE             = uint64(0x000000000000FFFF)
+	_RANGE_MASK               = uint64(0x0FFFFFFF00000000)
+	_DEFAULT_RANGE_CHUNK_SIZE = uint(1 << 16) // 64 KB by default
+	_DEFAULT_RANGE_LOG_RANGE  = uint(13)
 )
 
 // RangeEncoder a Order 0 Range Entropy Encoder
@@ -61,8 +61,8 @@ func NewRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*RangeEncoder, err
 		return nil, errors.New("Range codec: At most one chunk size and one log range can be provided")
 	}
 
-	chkSize := DEFAULT_RANGE_CHUNK_SIZE
-	logRange := DEFAULT_RANGE_LOG_RANGE
+	chkSize := _DEFAULT_RANGE_CHUNK_SIZE
+	logRange := _DEFAULT_RANGE_LOG_RANGE
 
 	if len(args) == 2 {
 		chkSize = args[0]
@@ -191,7 +191,7 @@ func (this *RangeEncoder) Write(block []byte) (int, error) {
 	end := len(block)
 
 	for startChunk < end {
-		this.rng = TOP_RANGE
+		this.rng = _TOP_RANGE
 		this.low = 0
 		lr := this.logRange
 
@@ -242,13 +242,13 @@ func (this *RangeEncoder) encodeByte(b byte) {
 
 	// If the left-most digits are the same throughout the range, write bits to bitstream
 	for {
-		if (this.low^(this.low+this.rng))&RANGE_MASK != 0 {
-			if this.rng > BOTTOM_RANGE {
+		if (this.low^(this.low+this.rng))&_RANGE_MASK != 0 {
+			if this.rng > _BOTTOM_RANGE {
 				break
 			}
 
 			// Normalize
-			this.rng = -this.low & BOTTOM_RANGE
+			this.rng = -this.low & _BOTTOM_RANGE
 		}
 
 		this.bitstream.WriteBits(this.low>>32, 28)
@@ -294,7 +294,7 @@ func NewRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*RangeDecoder, erro
 		return nil, errors.New("Range codec: At most one chunk size can be provided")
 	}
 
-	chkSize := DEFAULT_RANGE_CHUNK_SIZE
+	chkSize := _DEFAULT_RANGE_CHUNK_SIZE
 
 	if len(args) == 1 {
 		chkSize = args[0]
@@ -420,7 +420,7 @@ func (this *RangeDecoder) Read(block []byte) (int, error) {
 			return startChunk, err
 		}
 
-		this.rng = TOP_RANGE
+		this.rng = _TOP_RANGE
 		this.low = 0
 		this.code = this.bitstream.ReadBits(60)
 		endChunk := startChunk + sizeChunk
@@ -452,13 +452,13 @@ func (this *RangeDecoder) decodeByte() byte {
 
 	// If the left-most digits are the same throughout the range, read bits from bitstream
 	for {
-		if (this.low^(this.low+this.rng))&RANGE_MASK != 0 {
-			if this.rng > BOTTOM_RANGE {
+		if (this.low^(this.low+this.rng))&_RANGE_MASK != 0 {
+			if this.rng > _BOTTOM_RANGE {
 				break
 			}
 
 			// Normalize
-			this.rng = -this.low & BOTTOM_RANGE
+			this.rng = -this.low & _BOTTOM_RANGE
 		}
 
 		this.code = (this.code << 28) | this.bitstream.ReadBits(28)

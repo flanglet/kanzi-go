@@ -21,7 +21,7 @@ import (
 	kanzi "github.com/flanglet/kanzi-go"
 )
 
-var EXPG_VALUES = [2][256]uint{
+var _EXPG_VALUES = [2][256]uint{
 	// Unsigned
 	{
 		513, 1538, 1539, 2564, 2565, 2566, 2567, 3592, 3593, 3594, 3595, 3596, 3597, 3598, 3599, 4624,
@@ -83,9 +83,9 @@ func NewExpGolombEncoder(bs kanzi.OutputBitStream, sgn bool) (*ExpGolombEncoder,
 	this.signed = sgn
 
 	if sgn {
-		this.cache = EXPG_VALUES[1][:]
+		this.cache = _EXPG_VALUES[1][:]
 	} else {
-		this.cache = EXPG_VALUES[0][:]
+		this.cache = _EXPG_VALUES[0][:]
 	}
 
 	return this, nil

@@ -23,15 +23,17 @@ import (
 )
 
 const (
-	INCOMPRESSIBLE_THRESHOLD = 973 // Any block with entropy*1024 greater than this threshold is considered incompressible
-	FULL_ALPHABET            = 0 // Flag for full alphabet encoding
-	PARTIAL_ALPHABET         = 1 // Flag for partial alphabet encoding
-	ALPHABET_256             = 0 // Flag for alphabet with 256 symbols
-	ALPHABET_NOT_256         = 1 // Flag for alphabet not with 256 symbols
-	DELTA_ENCODED_ALPHABET   = 0 // Flag for full alphabet delta encoding
-	BIT_ENCODED_ALPHABET_256 = 1 // Flag for full alphabet bit encoding
-	PRESENT_SYMBOLS_MASK     = 0 // Flag for present symbol
-	ABSENT_SYMBOLS_MASK      = 1 // Flag for absent symbol
+	// INCOMPRESSIBLE_THRESHOLD Any block with entropy*1024 greater than this threshold is considered incompressible
+	INCOMPRESSIBLE_THRESHOLD = 973
+
+	_FULL_ALPHABET            = 0 // Flag for full alphabet encoding
+	_PARTIAL_ALPHABET         = 1 // Flag for partial alphabet encoding
+	_ALPHABET_256             = 0 // Flag for alphabet with 256 symbols
+	_ALPHABET_NOT_256         = 1 // Flag for alphabet not with 256 symbols
+	_DELTA_ENCODED_ALPHABET   = 0 // Flag for full alphabet delta encoding
+	_BIT_ENCODED_ALPHABET_256 = 1 // Flag for full alphabet bit encoding
+	_PRESENT_SYMBOLS_MASK     = 0 // Flag for present symbol
+	_ABSENT_SYMBOLS_MASK      = 1 // Flag for absent symbol
 )
 
 type freqSortData struct {
@@ -100,10 +102,10 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 	// First, push alphabet encoding mode
 	if alphabetSize > 0 && count == alphabetSize {
 		// Full alphabet
-		obs.WriteBit(FULL_ALPHABET)
+		obs.WriteBit(_FULL_ALPHABET)
 
 		if count == 256 {
-			obs.WriteBit(ALPHABET_256) // shortcut
+			obs.WriteBit(_ALPHABET_256) // shortcut
 		} else {
 			log := uint(1)
 
@@ -112,7 +114,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 			}
 
 			// Write alphabet size
-			obs.WriteBit(ALPHABET_NOT_256)
+			obs.WriteBit(_ALPHABET_NOT_256)
 			obs.WriteBits(uint64(log-1), 3)
 			obs.WriteBits(uint64(count), log)
 		}
@@ -120,11 +122,11 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 		return count, nil
 	}
 
-	obs.WriteBit(PARTIAL_ALPHABET)
+	obs.WriteBit(_PARTIAL_ALPHABET)
 
 	if alphabetSize == 256 && count >= 32 && count <= 224 {
 		// Regular alphabet of symbols less than 256
-		obs.WriteBit(BIT_ENCODED_ALPHABET_256)
+		obs.WriteBit(_BIT_ENCODED_ALPHABET_256)
 		masks := [4]uint64{}
 
 		for i := 0; i < count; i++ {
@@ -138,7 +140,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 		return count, nil
 	}
 
-	obs.WriteBit(DELTA_ENCODED_ALPHABET)
+	obs.WriteBit(_DELTA_ENCODED_ALPHABET)
 	diffs := make([]int, count)
 
 	if alphabetSize-count < count {
@@ -158,7 +160,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 			return 0, nil
 		}
 
-		obs.WriteBit(ABSENT_SYMBOLS_MASK)
+		obs.WriteBit(_ABSENT_SYMBOLS_MASK)
 		log = 1
 
 		for 1<<log <= alphabetSize {
@@ -202,7 +204,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 			return 0, nil
 		}
 
-		obs.WriteBit(PRESENT_SYMBOLS_MASK)
+		obs.WriteBit(_PRESENT_SYMBOLS_MASK)
 		previous := 0
 
 		// Create deltas of present symbols
@@ -248,10 +250,10 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 	// Read encoding mode from bitstream
 	alphabetType := ibs.ReadBit()
 
-	if alphabetType == FULL_ALPHABET {
+	if alphabetType == _FULL_ALPHABET {
 		var alphabetSize int
 
-		if ibs.ReadBit() == ALPHABET_256 {
+		if ibs.ReadBit() == _ALPHABET_256 {
 			alphabetSize = 256
 		} else {
 			log := uint(1 + ibs.ReadBits(3))
@@ -273,7 +275,7 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 	count := 0
 	mode := ibs.ReadBit()
 
-	if mode == BIT_ENCODED_ALPHABET_256 {
+	if mode == _BIT_ENCODED_ALPHABET_256 {
 		// Decode presence flags
 		for i := 0; i < 256; i += 64 {
 			val := ibs.ReadBits(64)
@@ -301,7 +303,7 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 	n := 0
 	symbol := 0
 
-	if ibs.ReadBit() == ABSENT_SYMBOLS_MASK {
+	if ibs.ReadBit() == _ABSENT_SYMBOLS_MASK {
 		alphabetSize := 1 << uint(ibs.ReadBits(4))
 
 		if alphabetSize > len(alphabet) {
