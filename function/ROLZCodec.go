@@ -1101,15 +1101,11 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 func (this rolzCodec2) MaxEncodedLen(srcLen int) int {
 	// Since we do not check the dst index for each byte (for speed purpose)
 	// allocate some extra buffer for incompressible data.
-	if srcLen >= _ROLZ_CHUNK_SIZE {
-		return srcLen
+	if srcLen <= 16384 {
+		return srcLen + 512
 	}
 
-	if srcLen <= 512 {
-		return srcLen + 64
-	}
-
-	return srcLen + srcLen/8
+	return srcLen + srcLen/32
 }
 
 type rolzPredictor struct {

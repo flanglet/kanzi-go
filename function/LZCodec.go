@@ -389,9 +389,9 @@ func (this *LZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
 func (this LZCodec) MaxEncodedLen(srcLen int) int {
-	if srcLen >= 1<<30 {
-		return srcLen
+	if srcLen <= 1024 {
+		return srcLen + 16
 	}
 
-	return srcLen + (srcLen / 255) + 16
+	return srcLen + srcLen/64
 }
