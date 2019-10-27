@@ -78,11 +78,11 @@ func NewExpGolombEncoder(bs kanzi.OutputBitStream, sgn bool) (*ExpGolombEncoder,
 		return nil, errors.New("ExpGolomb codec: Invalid null bitstream parameter")
 	}
 
-	this := new(ExpGolombEncoder)
+	this := &ExpGolombEncoder{}
 	this.bitstream = bs
 	this.signed = sgn
 
-	if sgn {
+	if sgn == true {
 		this.cache = _EXPG_VALUES[1][:]
 	} else {
 		this.cache = _EXPG_VALUES[0][:]
@@ -139,7 +139,7 @@ func NewExpGolombDecoder(bs kanzi.InputBitStream, sgn bool) (*ExpGolombDecoder, 
 		return nil, errors.New("ExpGolomb codec: Invalid null bitstream parameter")
 	}
 
-	this := new(ExpGolombDecoder)
+	this := &ExpGolombDecoder{}
 	this.signed = sgn
 	this.bitstream = bs
 	return this, nil
