@@ -1391,10 +1391,9 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 			pe := &this.dictList[idx]
 			length := int(pe.data >> 24)
-			buf := pe.ptr[0:length]
 
 			// Sanity check
-			if buf == nil || dstIdx+length >= dstEnd {
+			if pe.ptr == nil || dstIdx+length >= dstEnd {
 				err = fmt.Errorf("Text transform failed. Invalid input data")
 				break
 			}
@@ -1406,7 +1405,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			// Emit word
-			copy(dst[dstIdx:], buf)
+			copy(dst[dstIdx:], pe.ptr[0:length])
 
 			if cur == _TC_ESCAPE_TOKEN2 {
 				// Flip case of first character
@@ -1928,10 +1927,9 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 			pe := &this.dictList[idx]
 			length := int(pe.data >> 24)
-			buf := pe.ptr[0:length]
 
 			// Sanity check
-			if buf == nil || dstIdx+length >= dstEnd {
+			if pe.ptr == nil || dstIdx+length >= dstEnd {
 				err = fmt.Errorf("Text transform failed. Invalid input data")
 				break
 			}
@@ -1943,7 +1941,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			// Emit word
-			copy(dst[dstIdx:], buf)
+			copy(dst[dstIdx:], pe.ptr[0:length])
 
 			if cur&0x20 != 0 {
 				// Flip case of first character
