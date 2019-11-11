@@ -651,7 +651,10 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 
 	argsMap["inputName"] = inputName
 	argsMap["outputName"] = outputName
-	argsMap["level"] = level
+
+	if mode == "c" || level != -1 {
+		argsMap["level"] = level
+	}
 
 	if len(codec) > 0 {
 		argsMap["entropy"] = codec
