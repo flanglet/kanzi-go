@@ -86,6 +86,7 @@ func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, e
 
 			concurrency = _DECOMP_MAX_CONCURRENCY
 		}
+
 		this.jobs = concurrency
 	}
 

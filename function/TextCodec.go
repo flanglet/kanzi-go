@@ -33,7 +33,7 @@ const (
 	_TC_THRESHOLD3             = 32
 	_TC_THRESHOLD4             = _TC_THRESHOLD3 * 128
 	_TC_MAX_DICT_SIZE          = 1 << 19    // must be less than 1<<24
-	_TC_MAX_WORD_LENGTH        = 32         // must be less than 128
+	_TC_MAX_WORD_LENGTH        = 31         // must be less than 128
 	_TC_LOG_HASHES_SIZE        = 24         // 16 MB
 	_TC_MAX_BLOCK_SIZE         = 1 << 30    // 1 GB
 	_TC_ESCAPE_TOKEN1          = byte(0x0F) // dictionary word preceded by space symbol
@@ -81,7 +81,7 @@ type textCodec2 struct {
 
 var (
 	_TC_STATIC_DICTIONARY = [1024]dictEntry{}
-	_TC_STATIC_DICT_WORDS = createDictionary(unpackDictionary32(_TC_DICT_EN_1024), _TC_STATIC_DICTIONARY[:], 1024, 0)
+	_TC_STATIC_DICT_WORDS = createDictionary(unpackDictionary32(_TC_DICT_EN_1024[:]), _TC_STATIC_DICTIONARY[:], 1024, 0)
 	_TC_DELIMITER_CHARS   = initDelimiterChars()
 
 	// Default dictionary
@@ -1000,7 +1000,6 @@ func (this *textCodec1) reset() {
 
 	if len(this.dictList) == 0 {
 		this.dictList = make([]dictEntry, this.dictSize)
-
 		size := len(_TC_STATIC_DICTIONARY)
 
 		if size >= this.dictSize {
@@ -1015,7 +1014,7 @@ func (this *textCodec1) reset() {
 		this.staticDictSize = _TC_STATIC_DICT_WORDS + 2
 	}
 
-	for i := range this.dictList[0:this.staticDictSize] {
+	for i := 0; i < this.staticDictSize; i++ {
 		e := this.dictList[i]
 		this.dictMap[e.hash&this.hashMask] = &e
 	}
@@ -1083,7 +1082,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		if (srcIdx > delimAnchor+2) && isDelimiter(cur) { // At least 2 letters
 			length := int32(srcIdx - delimAnchor - 1)
 
-			if length < _TC_MAX_WORD_LENGTH {
+			if length <= _TC_MAX_WORD_LENGTH {
 				// Compute hashes
 				// h1 -> hash of word chars
 				// h2 -> hash of word chars with first char case flipped
@@ -1319,7 +1318,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		if (srcIdx > delimAnchor+2) && isDelimiter(cur) {
 			length := int32(srcIdx - delimAnchor - 1)
 
-			if length < _TC_MAX_WORD_LENGTH {
+			if length <= _TC_MAX_WORD_LENGTH {
 				h1 := _TC_HASH1
 
 				for i := delimAnchor + 1; i < srcIdx; i++ {
@@ -1366,8 +1365,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		srcIdx++
 
 		if cur == _TC_ESCAPE_TOKEN1 || cur == _TC_ESCAPE_TOKEN2 {
-			// Word in dictionary
-			// Read word index (varint 5 bits + 7 bits + 7 bits)
+			// Word in dictionary => read word index (varint 5 bits + 7 bits + 7 bits)
 			idx := int(src[srcIdx])
 			srcIdx++
 
@@ -1393,7 +1391,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			length := int(pe.data >> 24)
 
 			// Sanity check
-			if pe.ptr == nil || dstIdx+length >= dstEnd {
+			if pe.ptr == nil || length > _TC_MAX_WORD_LENGTH || dstIdx+length >= dstEnd {
 				err = fmt.Errorf("Text transform failed. Invalid input data")
 				break
 			}
@@ -1518,7 +1516,6 @@ func (this *textCodec2) reset() {
 
 	if len(this.dictList) == 0 {
 		this.dictList = make([]dictEntry, this.dictSize)
-
 		size := len(_TC_STATIC_DICTIONARY)
 
 		if size >= this.dictSize {
@@ -1528,7 +1525,7 @@ func (this *textCodec2) reset() {
 		copy(this.dictList, _TC_STATIC_DICTIONARY[0:size])
 	}
 
-	for i := range this.dictList[0:this.staticDictSize] {
+	for i := 0; i < this.staticDictSize; i++ {
 		e := this.dictList[i]
 		this.dictMap[e.hash&this.hashMask] = &e
 	}
@@ -1596,7 +1593,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		if (srcIdx > delimAnchor+2) && isDelimiter(cur) { // At least 2 letters
 			length := int32(srcIdx - delimAnchor - 1)
 
-			if length < _TC_MAX_WORD_LENGTH {
+			if length <= _TC_MAX_WORD_LENGTH {
 				// Compute hashes
 				// h1 -> hash of word chars
 				// h2 -> hash of word chars with first char case flipped
@@ -1857,7 +1854,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 		if (srcIdx > delimAnchor+2) && isDelimiter(cur) {
 			length := int32(srcIdx - delimAnchor - 1)
 
-			if length < _TC_MAX_WORD_LENGTH {
+			if length <= _TC_MAX_WORD_LENGTH {
 				h1 := _TC_HASH1
 
 				for i := delimAnchor + 1; i < srcIdx; i++ {
@@ -1904,8 +1901,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 		srcIdx++
 
 		if cur&0x80 != 0 {
-			// Word in dictionary
-			// Read word index (varint 5 bits + 7 bits + 7 bits)
+			// Word in dictionary => read word index (varint 5 bits + 7 bits + 7 bits)
 			idx := int(cur & 0x1F)
 
 			if cur&0x40 != 0 {
@@ -1929,7 +1925,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			length := int(pe.data >> 24)
 
 			// Sanity check
-			if pe.ptr == nil || dstIdx+length >= dstEnd {
+			if pe.ptr == nil || length > _TC_MAX_WORD_LENGTH || dstIdx+length >= dstEnd {
 				err = fmt.Errorf("Text transform failed. Invalid input data")
 				break
 			}
