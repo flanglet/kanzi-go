@@ -1383,6 +1383,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 				idx = (idx << 7) | (idx2 & 0x7F)
 
 				if idx >= this.dictSize {
+					err = fmt.Errorf("Text transform failed. Invalid index")
 					break
 				}
 			}
@@ -1917,6 +1918,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 				idx = (idx << 7) | (idx2 & 0x7F)
 
 				if idx >= this.dictSize {
+					err = fmt.Errorf("Text transform failed. Invalid index")
 					break
 				}
 			}
