@@ -24,7 +24,6 @@ import (
 
 const (
 	_BINARY_ENTROPY_TOP = uint64(0x00FFFFFFFFFFFFFF)
-	_MASK_24_56         = uint64(0x00FFFFFFFF000000)
 	_MASK_0_56          = uint64(0x00FFFFFFFFFFFFFF)
 	_MASK_0_24          = uint64(0x0000000000FFFFFF)
 	_MASK_0_32          = uint64(0x00000000FFFFFFFF)
@@ -94,7 +93,7 @@ func (this *BinaryEntropyEncoder) EncodeBit(bit byte) {
 	this.predictor.Update(bit)
 
 	// Write unchanged first 32 bits to bitstream
-	for (this.low^this.high)&_MASK_24_56 == 0 {
+	for (this.low^this.high)>>24 == 0 {
 		this.flush()
 	}
 }
@@ -134,8 +133,8 @@ func (this *BinaryEntropyEncoder) Write(block []byte) (int, error) {
 			chunkSize = end - startChunk
 		}
 
-		if len(this.buffer) < (chunkSize*9)>>3 {
-			this.buffer = make([]byte, (chunkSize*9)>>3)
+		if len(this.buffer) < (chunkSize + (chunkSize >> 3)) {
+			this.buffer = make([]byte, chunkSize+(chunkSize>>3))
 		}
 
 		this.index = 0
@@ -265,7 +264,7 @@ func (this *BinaryEntropyDecoder) DecodeBit() byte {
 	}
 
 	// Read 32 bits from bitstream
-	for (this.low^this.high)&_MASK_24_56 == 0 {
+	for (this.low^this.high)>>24 == 0 {
 		this.read()
 	}
 
