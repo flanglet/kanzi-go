@@ -44,7 +44,6 @@ const (
 	_ROLZ_HASH            = int32(200002979)
 	_ROLZ_MAX_BLOCK_SIZE  = 1 << 30 // 1 GB
 	_ROLZ_TOP             = uint64(0x00FFFFFFFFFFFFFF)
-	_MASK_24_56           = uint64(0x00FFFFFFFF000000)
 	_MASK_0_24            = uint64(0x0000000000FFFFFF)
 	_MASK_0_56            = uint64(0x00FFFFFFFFFFFFFF)
 	_MASK_0_32            = uint64(0x00000000FFFFFFFF)
@@ -1203,7 +1202,7 @@ func (this *rolzEncoder) encodeBit(bit byte) {
 	this.predictor.Update(bit)
 
 	// Write unchanged first 32 bits to bitstream
-	for (this.low^this.high)&_MASK_24_56 == 0 {
+	for (this.low^this.high)>>24 == 0 {
 		binary.BigEndian.PutUint32(this.buf[*this.idx:*this.idx+4], uint32(this.high>>32))
 		*this.idx += 4
 		this.low <<= 32
@@ -1280,7 +1279,7 @@ func (this *rolzDecoder) decodeBit() byte {
 	}
 
 	// Read 32 bits from bitstream
-	for (this.low^this.high)&_MASK_24_56 == 0 {
+	for (this.low^this.high)>>24 == 0 {
 		this.low = (this.low << 32) & _MASK_0_56
 		this.high = ((this.high << 32) | _MASK_0_32) & _MASK_0_56
 		val := uint64(binary.BigEndian.Uint32(this.buf[*this.idx : *this.idx+4]))
