@@ -210,8 +210,8 @@ func testFunctionCorrectness(name string) error {
 		srcIdx, dstIdx, err := f.Forward(input, output)
 
 		if err != nil {
-			// ZRLT may fail if the input data has too few 0s
-			if srcIdx != uint(size) {
+			// Function may fail when compression ratio > 1.0
+			if srcIdx != uint(size) || srcIdx < dstIdx {
 				fmt.Printf("\nNo compression (ratio > 1.0), skip reverse")
 				continue
 			}

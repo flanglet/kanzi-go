@@ -190,15 +190,21 @@ func BenchmarkRLT(b *testing.B) {
 			}
 		}
 
-		var dstIdx uint
+		var srcIdx, dstIdx uint
 		var err error
 
 		for ii := 0; ii < iter; ii++ {
 			f, _ := function.NewRLT()
 
-			_, dstIdx, err = f.Forward(input, output)
+			srcIdx, dstIdx, err = f.Forward(input, output)
 
 			if err != nil {
+				// Function may fail when compression ratio > 1.0
+				if srcIdx < dstIdx {
+					fmt.Printf("\nNo compression (ratio > 1.0), skip reverse")
+					continue
+				}
+
 				msg := fmt.Sprintf("Encoding error : %v\n", err)
 				b.Fatalf(msg)
 			}
