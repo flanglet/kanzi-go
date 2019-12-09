@@ -38,10 +38,10 @@ const (
 	_ROLZ_LOG_POS_CHECKS1 = 4
 	_ROLZ_LOG_POS_CHECKS2 = 5
 	_ROLZ_CHUNK_SIZE      = 1 << 26 // 64 MB
-	_ROLZ_HASH_MASK       = int32(^(_ROLZ_CHUNK_SIZE - 1))
+	_ROLZ_HASH_MASK       = ^uint32(_ROLZ_CHUNK_SIZE - 1)
 	_ROLZ_MATCH_FLAG      = 0
 	_ROLZ_LITERAL_FLAG    = 1
-	_ROLZ_HASH            = int32(200002979)
+	_ROLZ_HASH            = uint32(200002979)
 	_ROLZ_MAX_BLOCK_SIZE  = 1 << 30 // 1 GB
 	_ROLZ_TOP             = uint64(0x00FFFFFFFFFFFFFF)
 	_MASK_0_24            = uint64(0x0000000000FFFFFF)
@@ -53,8 +53,8 @@ func getKey(p []byte) uint32 {
 	return uint32(binary.LittleEndian.Uint16(p))
 }
 
-func hash(p []byte) int32 {
-	return ((int32(binary.LittleEndian.Uint32(p)) & 0x00FFFFFF) * _ROLZ_HASH) & _ROLZ_HASH_MASK
+func hash(p []byte) uint32 {
+	return ((binary.LittleEndian.Uint32(p) & 0x00FFFFFF) * _ROLZ_HASH) & _ROLZ_HASH_MASK
 }
 
 func emitCopy(buf []byte, dstIdx, ref, matchLen int) int {
@@ -196,7 +196,7 @@ func (this *ROLZCodec) MaxEncodedLen(srcLen int) int {
 
 // Use ANS to encode/decode literals and matches
 type rolzCodec1 struct {
-	matches      []int32
+	matches      []uint32
 	counters     []int32
 	logPosChecks uint
 	maskChecks   int32
@@ -214,7 +214,7 @@ func newROLZCodec1(logPosChecks uint) (*rolzCodec1, error) {
 	this.posChecks = 1 << logPosChecks
 	this.maskChecks = this.posChecks - 1
 	this.counters = make([]int32, 1<<16)
-	this.matches = make([]int32, _ROLZ_HASH_SIZE<<logPosChecks)
+	this.matches = make([]uint32, _ROLZ_HASH_SIZE<<logPosChecks)
 	return this, nil
 }
 
@@ -283,7 +283,7 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int) (int, int) {
 
 	// Register current position
 	this.counters[key]++
-	m[(counter+1)&this.maskChecks] = hash32 | int32(pos)
+	m[(counter+1)&this.maskChecks] = hash32 | uint32(pos)
 
 	if bestLen < _ROLZ_MIN_MATCH {
 		return -1, -1
@@ -631,7 +631,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			key := getKey(buf[dstIdx-2:])
 			m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
 			ref := int(m[(this.counters[key]-matchIdx)&this.maskChecks])
-			savedIdx := int32(dstIdx)
+			savedIdx := uint32(dstIdx)
 			dstIdx = emitCopy(buf, dstIdx, ref, matchLen)
 			this.counters[key]++
 			m[this.counters[key]&this.maskChecks] = savedIdx
@@ -762,14 +762,14 @@ func (this rolzCodec1) emitLiterals(litBuf, dst []byte, dstIdx int) {
 		key := getKey(d[n:])
 		m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
 		this.counters[key]++
-		m[this.counters[key]&this.maskChecks] = int32(dstIdx + n)
+		m[this.counters[key]&this.maskChecks] = uint32(dstIdx + n)
 	}
 }
 
 // Use CM (ROLZEncoder/ROLZDecoder) to encode/decode literals and matches
 // Code loosely based on 'balz' by Ilya Muravyov
 type rolzCodec2 struct {
-	matches        []int32
+	matches        []uint32
 	counters       []int32
 	logPosChecks   uint
 	maskChecks     int32
@@ -789,7 +789,7 @@ func newROLZCodec2(logPosChecks uint) (*rolzCodec2, error) {
 	this.posChecks = 1 << logPosChecks
 	this.maskChecks = this.posChecks - 1
 	this.counters = make([]int32, 1<<16)
-	this.matches = make([]int32, _ROLZ_HASH_SIZE<<logPosChecks)
+	this.matches = make([]uint32, _ROLZ_HASH_SIZE<<logPosChecks)
 	this.litPredictor, _ = newRolzPredictor(9)
 	this.matchPredictor, _ = newRolzPredictor(logPosChecks)
 	return this, nil
@@ -860,7 +860,7 @@ func (this *rolzCodec2) findMatch(buf []byte, pos int) (int, int) {
 
 	// Register current position
 	this.counters[key]++
-	m[(counter+1)&this.maskChecks] = hash32 | int32(pos)
+	m[(counter+1)&this.maskChecks] = hash32 | uint32(pos)
 
 	if bestLen < _ROLZ_MIN_MATCH {
 		return -1, -1
@@ -1079,7 +1079,7 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 			// Update map
 			this.counters[key]++
-			m[this.counters[key]&this.maskChecks] = int32(savedIdx)
+			m[this.counters[key]&this.maskChecks] = uint32(savedIdx)
 		}
 
 		startChunk = endChunk
