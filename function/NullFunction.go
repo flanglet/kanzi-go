@@ -29,6 +29,13 @@ func NewNullFunction() (*NullFunction, error) {
 	return this, nil
 }
 
+// NewNullFunctionWithCtx creates a new instance of NullFunction using a
+// configuration map as parameter.
+func NewNullFunctionWithCtx(ctx *map[string]interface{}) (*NullFunction, error) {
+	this := &NullFunction{}
+	return this, nil
+}
+
 func doCopy(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil

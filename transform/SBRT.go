@@ -53,7 +53,44 @@ func NewSBRT(mode int) (*SBRT, error) {
 		return nil, errors.New("Invalid mode parameter")
 	}
 
-	this := new(SBRT)
+	this := &SBRT{}
+	this.mode = mode
+
+	if this.mode == SBRT_MODE_TIMESTAMP {
+		this.mask1 = 0
+	} else {
+		this.mask1 = -1
+	}
+
+	if this.mode == SBRT_MODE_MTF {
+		this.mask2 = 0
+	} else {
+		this.mask2 = -1
+	}
+
+	if this.mode == SBRT_MODE_RANK {
+		this.shift = 1
+	} else {
+		this.shift = 0
+	}
+
+	return this, nil
+}
+
+// NewSBRTWithCtx creates a new instance of SBRT using a
+// configuration map as parameter.
+func NewSBRTWithCtx(ctx *map[string]interface{}) (*SBRT, error) {
+	mode := SBRT_MODE_MTF
+
+	if _, containsKey := (*ctx)["sbrt"]; containsKey {
+		mode = (*ctx)["sbrt"].(int)
+	}
+
+	if mode != SBRT_MODE_MTF && mode != SBRT_MODE_RANK && mode != SBRT_MODE_TIMESTAMP {
+		return nil, errors.New("Invalid mode parameter")
+	}
+
+	this := &SBRT{}
 	this.mode = mode
 
 	if this.mode == SBRT_MODE_TIMESTAMP {

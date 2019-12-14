@@ -37,6 +37,13 @@ func NewZRLT() (*ZRLT, error) {
 	return this, nil
 }
 
+// NewZRLTWithCtx creates a new instance of ZRLT using a
+// configuration map as parameter.
+func NewZRLTWithCtx(ctx *map[string]interface{}) (*ZRLT, error) {
+	this := &ZRLT{}
+	return this, nil
+}
+
 // Forward applies the function to the src and writes the result
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.

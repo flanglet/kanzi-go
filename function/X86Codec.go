@@ -41,6 +41,13 @@ func NewX86Codec() (*X86Codec, error) {
 	return this, nil
 }
 
+// NewX86CodecWithCtx creates a new instance of X86Codec using a
+// configuration map as parameter.
+func NewX86CodecWithCtx(ctx *map[string]interface{}) (*X86Codec, error) {
+	this := &X86Codec{}
+	return this, nil
+}
+
 // Forward applies the function to the src and writes the result
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error. If the source data does not represent

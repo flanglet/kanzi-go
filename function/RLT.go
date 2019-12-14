@@ -47,6 +47,13 @@ func NewRLT() (*RLT, error) {
 	return this, nil
 }
 
+// NewRLTWithCtx creates a new instance of RLT using a
+// configuration map as parameter.
+func NewRLTWithCtx(ctx *map[string]interface{}) (*RLT, error) {
+	this := &RLT{}
+	return this, nil
+}
+
 // Forward applies the function to the src and writes the result
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.

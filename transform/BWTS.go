@@ -37,7 +37,16 @@ type BWTS struct {
 
 // NewBWTS creates a new instance of BWTS
 func NewBWTS() (*BWTS, error) {
-	this := new(BWTS)
+	this := &BWTS{}
+	this.buffer1 = make([]int32, 0)
+	this.buffer2 = make([]int32, 0)
+	return this, nil
+}
+
+// NewBWTSWithCtx creates a new instance of BWTS using a
+// configuration map as parameter.
+func NewBWTSWithCtx(ctx *map[string]interface{}) (*BWTS, error) {
+	this := &BWTS{}
 	this.buffer1 = make([]int32, 0)
 	this.buffer2 = make([]int32, 0)
 	return this, nil

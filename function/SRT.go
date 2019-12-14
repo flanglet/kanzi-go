@@ -36,6 +36,13 @@ func NewSRT() (*SRT, error) {
 	return this, nil
 }
 
+// NewSRTWithCtx creates a new instance of SRT using a
+// configuration map as parameter.
+func NewSRTWithCtx(ctx *map[string]interface{}) (*SRT, error) {
+	this := &SRT{}
+	return this, nil
+}
+
 // Forward applies the function to the src and writes the result
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.

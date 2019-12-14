@@ -46,7 +46,15 @@ type BWTBlockCodec struct {
 }
 
 // NewBWTBlockCodec creates a new instance of BWTBlockCodec
-func NewBWTBlockCodec(ctx *map[string]interface{}) (*BWTBlockCodec, error) {
+func NewBWTBlockCodec() (*BWTBlockCodec, error) {
+	this := &BWTBlockCodec{}
+	var err error
+	this.bwt, err = transform.NewBWT()
+	return this, err
+}
+
+// NewBWTBlockCodecWithCtx creates a new instance of BWTBlockCodec
+func NewBWTBlockCodecWithCtx(ctx *map[string]interface{}) (*BWTBlockCodec, error) {
 	this := &BWTBlockCodec{}
 	var err error
 	this.bwt, err = transform.NewBWTWithCtx(ctx)

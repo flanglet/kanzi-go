@@ -55,6 +55,14 @@ func NewLZCodec() (*LZCodec, error) {
 	return this, nil
 }
 
+// NewLZCodecWithCtx creates a new instance of LZCodec  using a
+// configuration map as parameter.
+func NewLZCodecWithCtx(ctx *map[string]interface{}) (*LZCodec, error) {
+	this := &LZCodec{}
+	this.buffer = make([]int32, 0)
+	return this, nil
+}
+
 func emitLength(buf []byte, length int) int {
 	idx := 0
 

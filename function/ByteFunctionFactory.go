@@ -107,34 +107,36 @@ func newByteFunctionToken(ctx *map[string]interface{}, functionType uint64) (kan
 		return NewROLZCodecWithCtx(ctx)
 
 	case BWT_TYPE:
-		return NewBWTBlockCodec(ctx)
+		return NewBWTBlockCodecWithCtx(ctx)
 
 	case BWTS_TYPE:
-		return transform.NewBWTS()
+		return transform.NewBWTSWithCtx(ctx)
 
 	case SRT_TYPE:
-		return NewSRT()
+		return NewSRTWithCtx(ctx)
 
 	case RANK_TYPE:
-		return transform.NewSBRT(transform.SBRT_MODE_RANK)
+		(*ctx)["sbrt"] = transform.SBRT_MODE_RANK
+		return transform.NewSBRTWithCtx(ctx)
 
 	case MTFT_TYPE:
-		return transform.NewSBRT(transform.SBRT_MODE_MTF)
+		(*ctx)["sbrt"] = transform.SBRT_MODE_MTF
+		return transform.NewSBRTWithCtx(ctx)
 
 	case ZRLT_TYPE:
-		return NewZRLT()
+		return NewZRLTWithCtx(ctx)
 
 	case RLT_TYPE:
-		return NewRLT()
+		return NewRLTWithCtx(ctx)
 
 	case LZ_TYPE:
-		return NewLZCodec()
+		return NewLZCodecWithCtx(ctx)
 
 	case X86_TYPE:
-		return NewX86Codec()
+		return NewX86CodecWithCtx(ctx)
 
 	case NONE_TYPE:
-		return NewNullFunction()
+		return NewNullFunctionWithCtx(ctx)
 
 	default:
 		return nil, fmt.Errorf("Unknown transform type: '%v'", functionType)
