@@ -214,7 +214,7 @@ func NewCompressedOutputStreamWithCtx(os io.WriteCloser, ctx map[string]interfac
 	}
 
 	this.jobs = int(tasks)
-	this.data = make([]byte, int(this.blockSize)) // initially 1 blockSize
+	this.data = make([]byte, 0)
 	this.buffers = make([]blockBuffer, 2*this.jobs)
 
 	for i := range this.buffers {
@@ -384,15 +384,14 @@ func (this *CompressedOutputStream) Close() error {
 }
 
 func (this *CompressedOutputStream) processBlock(force bool) error {
-	if this.curIdx == 0 {
+	if !force && len(this.data) < int(this.blockSize)*this.jobs {
+		// Grow byte array until max allowed
+		buf := make([]byte, int(this.blockSize)*this.jobs-len(this.data))
+		this.data = append(this.data, buf...)
 		return nil
 	}
 
-	if !force && len(this.data) < int(this.blockSize)*this.jobs {
-		// Grow byte array until max allowed
-		buf := make([]byte, len(this.data)+int(this.blockSize))
-		copy(buf, this.data)
-		this.data = buf
+	if this.curIdx == 0 {
 		return nil
 	}
 
