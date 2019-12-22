@@ -1230,7 +1230,7 @@ type rolzDecoder struct {
 }
 
 func newRolzDecoder(predictors []kanzi.Predictor, buf []byte, idx *int) (*rolzDecoder, error) {
-	this := new(rolzDecoder)
+	this := &rolzDecoder{}
 	this.low = 0
 	this.high = _ROLZ_TOP
 	this.buf = buf
