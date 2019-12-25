@@ -230,10 +230,12 @@ func (this *SRT) Inverse(src, dst []byte) (uint, uint, error) {
 				continue
 			}
 
-			for s := byte(0); s < r; s++ {
+			for s := byte(0); s < r-1; s += 2 {
 				r2s[s] = r2s[s+1]
+				r2s[s+1] = r2s[s+2]
 			}
 
+			r2s[r-1] = r2s[r]
 			r2s[r] = c
 			c = r2s[0]
 		} else {
