@@ -111,8 +111,8 @@ func (this *SRT) Forward(src, dst []byte) (uint, uint, error) {
 
 		if r > 0 {
 			for {
-				r2s[r] = r2s[r-1]
-				s2r[r2s[r]] = r
+				t := r2s[r-1]
+				r2s[r], s2r[t] = t, r
 
 				if r == 1 {
 					break
