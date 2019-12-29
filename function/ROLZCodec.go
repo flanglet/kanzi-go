@@ -313,8 +313,8 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 	startChunk := 0
 	litBuf := make([]byte, this.MaxEncodedLen(sizeChunk))
-	lenBuf := make([]byte, sizeChunk/2)
-	mIdxBuf := make([]byte, sizeChunk/2)
+	lenBuf := make([]byte, sizeChunk/4)
+	mIdxBuf := make([]byte, sizeChunk/4)
 	var err error
 
 	for i := range this.counters {
@@ -365,7 +365,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		for srcIdx < sizeChunk {
 			matchIdx, matchLen := this.findMatch(buf, srcIdx)
 
-			if matchIdx == -1 {
+			if matchIdx < 0 {
 				srcIdx++
 				continue
 			}
@@ -1230,7 +1230,7 @@ type rolzDecoder struct {
 }
 
 func newRolzDecoder(predictors []kanzi.Predictor, buf []byte, idx *int) (*rolzDecoder, error) {
-	this := new(rolzDecoder)
+	this := &rolzDecoder{}
 	this.low = 0
 	this.high = _ROLZ_TOP
 	this.buf = buf

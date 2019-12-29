@@ -133,21 +133,22 @@ func (this *SBRT) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New(errMsg)
 	}
 
+	s2r := [256]uint8{}
+	r2s := [256]uint8{}
+
+	for i := range s2r {
+		s2r[i] = uint8(i)
+		r2s[i] = uint8(i)
+	}
+
 	m1 := this.mask1
 	m2 := this.mask2
 	s := this.shift
 	p := [256]int{}
 	q := [256]int{}
-	s2r := [256]int{}
-	r2s := [256]int{}
-
-	for i := 0; i < 256; i++ {
-		s2r[i] = i
-		r2s[i] = i
-	}
 
 	for i := 0; i < count; i++ {
-		c := int(src[i])
+		c := uint8(src[i])
 		r := s2r[c]
 		dst[i] = byte(r)
 		qc := ((i & m1) + (p[c] & m2)) >> s
@@ -156,8 +157,8 @@ func (this *SBRT) Forward(src, dst []byte) (uint, uint, error) {
 
 		// Move up symbol to correct rank
 		for r > 0 && q[r2s[r-1]] <= qc {
-			r2s[r] = r2s[r-1]
-			s2r[r2s[r]] = r
+			t := r2s[r-1]
+			r2s[r], s2r[t] = t, r
 			r--
 		}
 
@@ -187,19 +188,20 @@ func (this *SBRT) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New(errMsg)
 	}
 
+	r2s := [256]uint8{}
+
+	for i := range r2s {
+		r2s[i] = uint8(i)
+	}
+
 	m1 := this.mask1
 	m2 := this.mask2
 	s := this.shift
 	p := [256]int{}
 	q := [256]int{}
-	r2s := [256]int{}
-
-	for i := 0; i < 256; i++ {
-		r2s[i] = i
-	}
 
 	for i := 0; i < count; i++ {
-		r := int(src[i])
+		r := src[i]
 		c := r2s[r]
 		dst[i] = byte(c)
 		qc := ((i & m1) + (p[c] & m2)) >> s

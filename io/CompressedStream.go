@@ -384,11 +384,21 @@ func (this *CompressedOutputStream) Close() error {
 }
 
 func (this *CompressedOutputStream) processBlock(force bool) error {
-	if !force && len(this.data) < int(this.blockSize)*this.jobs {
-		// Grow byte array until max allowed
-		buf := make([]byte, int(this.blockSize)*this.jobs-len(this.data))
-		this.data = append(this.data, buf...)
-		return nil
+	if force == false {
+		bufSize := this.jobs * int(this.blockSize)
+
+		if this.nbInputBlocks > 0 {
+			if int(this.nbInputBlocks) < this.jobs {
+				bufSize = int(this.nbInputBlocks) * int(this.blockSize)
+			}
+		}
+
+		if len(this.data) < bufSize {
+			// Grow byte array until max allowed
+			buf := make([]byte, bufSize-len(this.data))
+			this.data = append(this.data, buf...)
+			return nil
+		}
 	}
 
 	if this.curIdx == 0 {
