@@ -484,7 +484,7 @@ func (this *TextCodec) MaxEncodedLen(srcLen int) int {
 func newTextCodec1() (*textCodec1, error) {
 	this := new(textCodec1)
 	this.logHashSize = _TC_LOG_HASHES_SIZE
-	this.dictSize = _TC_THRESHOLD2 * 4
+	this.dictSize = 1 << 13
 	this.dictMap = make([]*dictEntry, 0)
 	this.dictList = make([]dictEntry, 0)
 	this.hashMask = int32(1<<this.logHashSize) - 1
@@ -495,7 +495,6 @@ func newTextCodec1() (*textCodec1, error) {
 func newTextCodec1WithCtx(ctx *map[string]interface{}) (*textCodec1, error) {
 	this := new(textCodec1)
 	log := uint32(13)
-	dSize := 1 << 12
 
 	if val, containsKey := (*ctx)["blockSize"]; containsKey {
 		blockSize := val.(uint)
@@ -508,28 +507,17 @@ func newTextCodec1WithCtx(ctx *map[string]interface{}) (*textCodec1, error) {
 			} else if log < 13 {
 				log = 13
 			}
-
-			// Select an appropriate initial dictionary size
-			dSize = 1 << (log - 4)
-
-			if dSize > 1<<18 {
-				dSize = 1 << 18
-			} else if dSize < 1<<12 {
-				dSize = 1 << 12
-			}
 		}
 	}
-
-	extraMem := uint(0)
 
 	if val, containsKey := (*ctx)["extra"]; containsKey {
 		if val.(bool) == true {
-			extraMem = 1
+			log++
 		}
 	}
 
-	this.logHashSize = uint(log) + extraMem
-	this.dictSize = dSize
+	this.logHashSize = uint(log)
+	this.dictSize = 1 << 13
 	this.dictMap = make([]*dictEntry, 0)
 	this.dictList = make([]dictEntry, 0)
 	this.hashMask = int32(1<<this.logHashSize) - 1
@@ -537,7 +525,20 @@ func newTextCodec1WithCtx(ctx *map[string]interface{}) (*textCodec1, error) {
 	return this, nil
 }
 
-func (this *textCodec1) reset() {
+func (this *textCodec1) reset(count int) {
+	if count >= 8 {
+		// Select an appropriate initial dictionary size
+		log, _ := kanzi.Log2(uint32(count / 8))
+
+		if log > 22 {
+			log = 22
+		} else if log < 17 {
+			log = 17
+		}
+
+		this.dictSize = 1 << (log - 4)
+	}
+
 	// Allocate lazily (only if text input detected)
 	if len(this.dictMap) == 0 {
 		this.dictMap = make([]*dictEntry, 1<<this.logHashSize)
@@ -592,7 +593,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skipping")
 	}
 
-	this.reset()
+	this.reset(count)
 	srcEnd := count
 	dstEnd := this.MaxEncodedLen(count)
 	dstEnd4 := dstEnd - 4
@@ -623,7 +624,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	for srcIdx < srcEnd {
 		cur := src[srcIdx]
 
-		// Should be 'if isText(cur) {', but compiler (1.11) issues slow code (bad inlining?)
+		// Should be 'if isText(cur) ...', but compiler (1.11) issues slow code (bad inlining?)
 		if isLowerCase(cur) || isUpperCase(cur) {
 			srcIdx++
 			continue
@@ -838,7 +839,7 @@ func emitWordIndex1(dst []byte, val int) int {
 func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	srcIdx := 0
 	dstIdx := 0
-	this.reset()
+	this.reset(len(dst))
 	srcEnd := len(src)
 	dstEnd := len(dst)
 	var delimAnchor int // previous delimiter
@@ -942,15 +943,25 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			length := int(pe.data >> 24)
 
 			// Sanity check
-			if pe.ptr == nil || length > _TC_MAX_WORD_LENGTH || dstIdx+length >= dstEnd {
+			if pe.ptr == nil || dstIdx+length >= dstEnd {
 				err = fmt.Errorf("Text transform failed. Invalid input data")
 				break
 			}
 
 			// Add space if only delimiter between 2 words (not an escaped delimiter)
-			if wordRun == true && length > 1 {
-				dst[dstIdx] = ' '
-				dstIdx++
+			if length > 1 {
+				if wordRun == true {
+					dst[dstIdx] = ' '
+					dstIdx++
+				}
+
+				// Regular word entry
+				wordRun = true
+				delimAnchor = srcIdx
+			} else {
+				// Escape entry
+				wordRun = false
+				delimAnchor = srcIdx - 1
 			}
 
 			// Emit word
@@ -962,16 +973,6 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			dstIdx += length
-
-			if length > 1 {
-				// Regular word entry
-				wordRun = true
-				delimAnchor = srcIdx
-			} else {
-				// Escape entry
-				wordRun = false
-				delimAnchor = srcIdx - 1
-			}
 		} else {
 			wordRun = false
 			delimAnchor = srcIdx - 1
@@ -1002,7 +1003,7 @@ func (this textCodec1) MaxEncodedLen(srcLen int) int {
 func newTextCodec2() (*textCodec2, error) {
 	this := new(textCodec2)
 	this.logHashSize = _TC_LOG_HASHES_SIZE
-	this.dictSize = _TC_THRESHOLD2 * 4
+	this.dictSize = 1 << 13
 	this.dictMap = make([]*dictEntry, 0)
 	this.dictList = make([]dictEntry, 0)
 	this.hashMask = int32(1<<this.logHashSize) - 1
@@ -1013,7 +1014,6 @@ func newTextCodec2() (*textCodec2, error) {
 func newTextCodec2WithCtx(ctx *map[string]interface{}) (*textCodec2, error) {
 	this := new(textCodec2)
 	log := uint32(13)
-	dSize := 1 << 12
 
 	if val, containsKey := (*ctx)["blockSize"]; containsKey {
 		blockSize := val.(uint)
@@ -1026,28 +1026,17 @@ func newTextCodec2WithCtx(ctx *map[string]interface{}) (*textCodec2, error) {
 			} else if log < 13 {
 				log = 13
 			}
-
-			// Select an appropriate initial dictionary size
-			dSize = 1 << (log - 4)
-
-			if dSize > 1<<18 {
-				dSize = 1 << 18
-			} else if dSize < 1<<12 {
-				dSize = 1 << 12
-			}
 		}
 	}
-
-	extraMem := uint(0)
 
 	if val, containsKey := (*ctx)["extra"]; containsKey {
 		if val.(bool) == true {
-			extraMem = 1
+			log++
 		}
 	}
 
-	this.logHashSize = uint(log) + extraMem
-	this.dictSize = dSize
+	this.logHashSize = uint(log)
+	this.dictSize = 1 << 13
 	this.dictMap = make([]*dictEntry, 0)
 	this.dictList = make([]dictEntry, 0)
 	this.hashMask = int32(1<<this.logHashSize) - 1
@@ -1055,7 +1044,20 @@ func newTextCodec2WithCtx(ctx *map[string]interface{}) (*textCodec2, error) {
 	return this, nil
 }
 
-func (this *textCodec2) reset() {
+func (this *textCodec2) reset(count int) {
+	if count >= 8 {
+		// Select an appropriate initial dictionary size
+		log, _ := kanzi.Log2(uint32(count / 8))
+
+		if log > 22 {
+			log = 22
+		} else if log < 17 {
+			log = 17
+		}
+
+		this.dictSize = 1 << (log - 4)
+	}
+
 	// Allocate lazily (only if text input detected)
 	if len(this.dictMap) == 0 {
 		this.dictMap = make([]*dictEntry, 1<<this.logHashSize)
@@ -1105,7 +1107,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skipping")
 	}
 
-	this.reset()
+	this.reset(count)
 	srcEnd := count
 	dstEnd := this.MaxEncodedLen(count)
 	dstEnd3 := dstEnd - 3
@@ -1136,7 +1138,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	for srcIdx < srcEnd {
 		cur := src[srcIdx]
 
-		// Should be 'if isText(cur) {', but compiler (1.11) issues slow code (bad inlining?)
+		// Should be 'if isText(cur) ...', but compiler (1.11) issues slow code (bad inlining?)
 		if isLowerCase(cur) || isUpperCase(cur) {
 			srcIdx++
 			continue
@@ -1376,7 +1378,7 @@ func emitWordIndex2(dst []byte, val, mask int) int {
 func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	srcIdx := 0
 	dstIdx := 0
-	this.reset()
+	this.reset(len(dst))
 	srcEnd := len(src)
 	dstEnd := len(dst)
 	var delimAnchor int // previous delimiter
@@ -1478,15 +1480,25 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			length := int(pe.data >> 24)
 
 			// Sanity check
-			if pe.ptr == nil || length > _TC_MAX_WORD_LENGTH || dstIdx+length >= dstEnd {
+			if pe.ptr == nil || dstIdx+length >= dstEnd {
 				err = fmt.Errorf("Text transform failed. Invalid input data")
 				break
 			}
 
 			// Add space if only delimiter between 2 words (not an escaped delimiter)
-			if wordRun == true && length > 1 {
-				dst[dstIdx] = ' '
-				dstIdx++
+			if length > 1 {
+				if wordRun == true {
+					dst[dstIdx] = ' '
+					dstIdx++
+				}
+
+				// Regular word entry
+				wordRun = true
+				delimAnchor = srcIdx
+			} else {
+				// Escape entry
+				wordRun = false
+				delimAnchor = srcIdx - 1
 			}
 
 			// Emit word
@@ -1498,16 +1510,6 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			dstIdx += length
-
-			if length > 1 {
-				// Regular word entry
-				wordRun = true
-				delimAnchor = srcIdx
-			} else {
-				// Escape entry
-				wordRun = false
-				delimAnchor = srcIdx - 1
-			}
 		} else {
 			if cur == _TC_ESCAPE_TOKEN1 {
 				dst[dstIdx] = src[srcIdx]
