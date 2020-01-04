@@ -17,6 +17,7 @@ package function
 
 import (
 	"errors"
+	"fmt"
 
 	kanzi "github.com/flanglet/kanzi-go"
 )
@@ -53,67 +54,72 @@ func NewByteTransformSequence(transforms []kanzi.ByteTransform) (*ByteTransformS
 // Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) {
+	this.skipFlags = _TRANSFORM_SKIP_MASK
+
 	if len(src) == 0 {
 		return 0, 0, nil
 	}
 
-	blockSize := len(src)
-	length := uint(blockSize)
-	requiredSize := this.MaxEncodedLen(blockSize)
-	this.skipFlags = 0
-	sa := [2]*[]byte{&src, &dst}
-	saIdx := 0
+	if &src[0] == &dst[0] {
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
+	}
+
+	requiredSize := this.MaxEncodedLen(len(src))
+
+	if len(dst) < requiredSize {
+		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), requiredSize)
+	}
+
+	blockSize := uint(len(src))
+	length := blockSize
+	in, out := src, dst
 	var err error
+	swaps := 0
 
+	// Process transforms sequentially
 	for i, t := range this.transforms {
-		in := *sa[saIdx]
-		out := *sa[saIdx^1]
-
-		// Check that the output buffer has enough room. If not, allocate a new one.
-		if len(out) < requiredSize {
-			buf := make([]byte, requiredSize)
-			sa[saIdx^1] = &buf
-			out = *sa[saIdx^1]
-		}
-
 		var err1 error
-		var oIdx uint
+		savedLength := length
 
 		// Apply forward transform
-		if _, oIdx, err1 = t.Forward(in[0:length], out); err1 != nil {
+		if _, length, err1 = t.Forward((in)[0:length], out); err1 != nil {
 			// Transform failed. Either it does not apply to this type
 			// of data or a recoverable error occurred => revert
-			if &src != &dst {
-				copy(out[0:length], in[0:length])
-			}
-
-			oIdx = length
-			this.skipFlags |= (1 << (7 - uint(i)))
-
 			if err == nil {
 				err = err1
 			}
+
+			length = savedLength
+			continue
 		}
 
-		length = oIdx
-		saIdx ^= 1
+		this.skipFlags &= ^(1 << (7 - uint(i)))
+		in, out = out, in
+		swaps++
+
+		if i == this.Len()-1 {
+			break
+		}
+
+		// Minimize re-allocations
+		if len(out) < requiredSize {
+			if len(out) >= int(length) {
+				copy(out, in[0:length])
+			} else {
+				out = make([]byte, requiredSize)
+			}
+		}
 	}
 
-	for i := len(this.transforms); i < 8; i++ {
-		this.skipFlags |= (1 << (7 - uint(i)))
-	}
-
-	if saIdx != 1 {
-		in := *sa[0]
-		out := *sa[1]
-		copy(out, in[0:length])
+	if swaps&1 == 0 {
+		copy(dst, in[0:length])
 	}
 
 	if this.skipFlags != _TRANSFORM_SKIP_MASK {
 		err = nil
 	}
 
-	return uint(blockSize), length, err
+	return blockSize, length, err
 }
 
 // Inverse applies the reverse function to the src and writes the result
@@ -125,47 +131,57 @@ func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) 
 		return 0, 0, nil
 	}
 
-	blockSize := len(src)
-	length := uint(blockSize)
-
-	if this.skipFlags == _TRANSFORM_SKIP_MASK {
-		if &src[0] != &dst[0] {
-			copy(dst, src)
-		}
-
-		return length, length, nil
+	if &src[0] == &dst[0] {
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	sa := [2]*[]byte{&src, &dst}
-	saIdx := 0
-	var res error
+	blockSize := uint(len(src))
+
+	if this.skipFlags == _TRANSFORM_SKIP_MASK {
+		copy(dst, src)
+
+		return blockSize, blockSize, nil
+	}
+
+	length := blockSize
+	in, out := src, dst
+	var err error
+	swaps := 0
 
 	// Process transforms sequentially in reverse order
-	for i := len(this.transforms) - 1; i >= 0; i-- {
+	for i := this.Len() - 1; i >= 0; i-- {
 		if this.skipFlags&(1<<(7-uint(i))) != 0 {
 			continue
 		}
 
-		t := this.transforms[i]
-		in := *sa[saIdx]
-		saIdx ^= 1
-		out := *sa[saIdx]
-
 		// Apply inverse transform
-		_, length, res = t.Inverse(in[0:length], out[0:cap(out)])
-
-		if res != nil {
+		if _, length, err = this.transforms[i].Inverse(in[0:length], out); err != nil {
+			// All inverse transforms must succeed
 			break
+		}
+
+		in, out = out, in
+		swaps++
+
+		if i == 0 {
+			break
+		}
+
+		// Minimize re-allocations
+		if len(out) < len(dst) {
+			if len(out) >= int(length) {
+				copy(out, in[0:length])
+			} else {
+				out = make([]byte, len(dst))
+			}
 		}
 	}
 
-	if saIdx != 1 {
-		in := *sa[0]
-		out := *sa[1]
-		copy(out, in[0:length])
+	if err == nil && swaps&1 == 0 {
+		copy(dst, in[0:length])
 	}
 
-	return uint(blockSize), length, res
+	return blockSize, length, err
 }
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
