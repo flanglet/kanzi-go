@@ -216,7 +216,7 @@ func computeStats(block []byte, freqs0 []int32) byte {
 	}
 
 	// Not text (crude threshold)
-	if 2*nbTextChars < length {
+	if nbTextChars < (length>>1) || int(freqs0[32]) < (length>>4) {
 		return _TC_MASK_NOT_TEXT
 	}
 
@@ -227,12 +227,7 @@ func computeStats(block []byte, freqs0 []int32) byte {
 	}
 
 	// Not text (crude threshold)
-	if 4*nbBinChars > length {
-		return _TC_MASK_NOT_TEXT
-	}
-
-	// Not text (crude threshold)
-	if int(16*freqs0[32]) < length {
+	if nbBinChars > (length >> 2) {
 		return _TC_MASK_NOT_TEXT
 	}
 
