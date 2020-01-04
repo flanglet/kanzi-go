@@ -65,19 +65,19 @@ func NewBinaryEntropyEncoder(bs kanzi.OutputBitStream, predictor kanzi.Predictor
 
 // EncodeByte encodes the given value into the bitstream bit by bit
 func (this *BinaryEntropyEncoder) EncodeByte(val byte) {
-	this.EncodeBit((val >> 7) & 1)
-	this.EncodeBit((val >> 6) & 1)
-	this.EncodeBit((val >> 5) & 1)
-	this.EncodeBit((val >> 4) & 1)
-	this.EncodeBit((val >> 3) & 1)
-	this.EncodeBit((val >> 2) & 1)
-	this.EncodeBit((val >> 1) & 1)
-	this.EncodeBit(val & 1)
+	this.EncodeBit((val>>7)&1, this.predictor.Get())
+	this.EncodeBit((val>>6)&1, this.predictor.Get())
+	this.EncodeBit((val>>5)&1, this.predictor.Get())
+	this.EncodeBit((val>>4)&1, this.predictor.Get())
+	this.EncodeBit((val>>3)&1, this.predictor.Get())
+	this.EncodeBit((val>>2)&1, this.predictor.Get())
+	this.EncodeBit((val>>1)&1, this.predictor.Get())
+	this.EncodeBit(val&1, this.predictor.Get())
 }
 
 // EncodeBit encodes one bit into the bitstream using arithmetic coding
 // and the probability predictor provided at creation time.
-func (this *BinaryEntropyEncoder) EncodeBit(bit byte) {
+func (this *BinaryEntropyEncoder) EncodeBit(bit byte, pred int) {
 	// Calculate interval split
 	// Written in a way to maximize accuracy of multiplication/division
 	split := (((this.high - this.low) >> 4) * uint64(this.predictor.Get())) >> 8
@@ -218,14 +218,14 @@ func NewBinaryEntropyDecoder(bs kanzi.InputBitStream, predictor kanzi.Predictor)
 
 // DecodeByte decodes the given value from the bitstream bit by bit
 func (this *BinaryEntropyDecoder) DecodeByte() byte {
-	return (this.DecodeBit() << 7) |
-		(this.DecodeBit() << 6) |
-		(this.DecodeBit() << 5) |
-		(this.DecodeBit() << 4) |
-		(this.DecodeBit() << 3) |
-		(this.DecodeBit() << 2) |
-		(this.DecodeBit() << 1) |
-		this.DecodeBit()
+	return (this.DecodeBit(this.predictor.Get()) << 7) |
+		(this.DecodeBit(this.predictor.Get()) << 6) |
+		(this.DecodeBit(this.predictor.Get()) << 5) |
+		(this.DecodeBit(this.predictor.Get()) << 4) |
+		(this.DecodeBit(this.predictor.Get()) << 3) |
+		(this.DecodeBit(this.predictor.Get()) << 2) |
+		(this.DecodeBit(this.predictor.Get()) << 1) |
+		this.DecodeBit(this.predictor.Get())
 }
 
 // Initialized returns true if Initialize() has been called at least once
@@ -246,10 +246,10 @@ func (this *BinaryEntropyDecoder) Initialize() {
 
 // DecodeBit decodes one bit from the bitstream using arithmetic coding
 // and the probability predictor provided at creation time.
-func (this *BinaryEntropyDecoder) DecodeBit() byte {
+func (this *BinaryEntropyDecoder) DecodeBit(pred int) byte {
 	// Calculate interval split
 	// Written in a way to maximize accuracy of multiplication/division
-	split := ((((this.high - this.low) >> 4) * uint64(this.predictor.Get())) >> 8) + this.low
+	split := ((((this.high - this.low) >> 4) * uint64(pred)) >> 8) + this.low
 	var bit byte
 
 	// Update predictor
