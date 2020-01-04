@@ -1370,7 +1370,7 @@ func emitWordIndex2(dst []byte, val, mask int) int {
 
 	// 5 + 7 + 7 => 2^19
 	dst[0] = byte(0xC0 | mask | ((val >> 14) & 0x1F))
-	dst[1] = byte(0x80 | ((val >> 7) & 0x7F))
+	dst[1] = byte(0x80 | (val >> 7))
 	dst[2] = byte(val & 0x7F)
 	return 3
 }
