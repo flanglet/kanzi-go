@@ -69,10 +69,10 @@ func (this *RiceGolombEncoder) EncodeByte(val byte) {
 
 	var emit uint64
 
-	if this.signed == false || val&0x80 == 0 {
-		emit = uint64(val)
+	if this.signed == true && val&0x80 != 0 {
+		emit = uint64(-val)
 	} else {
-		emit = uint64(^val) + 1
+		emit = uint64(val)
 	}
 
 	// quotient is unary encoded, remainder is binary encoded
@@ -149,16 +149,16 @@ func (this *RiceGolombDecoder) DecodeByte() byte {
 	}
 
 	// remainder is binary encoded
-	res := (q << this.logBase) | int(this.bitstream.ReadBits(this.logBase))
+	res := byte((q << this.logBase) | int(this.bitstream.ReadBits(this.logBase)))
 
-	if res != 0 && this.signed == true {
+	if this.signed == true && res != 0 {
 		// If res != 0, Get the 'sign', encoded as 1 for negative values
 		if this.bitstream.ReadBit() == 1 {
-			return byte(^res + 1)
+			return -res
 		}
 	}
 
-	return byte(res)
+	return res
 }
 
 // BitStream returns the underlying bitstream

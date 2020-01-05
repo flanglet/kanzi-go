@@ -93,6 +93,74 @@ func BenchmarkExpGolomb(b *testing.B) {
 	}
 }
 
+func BenchmarkRiceGolomb(b *testing.B) {
+	repeats := []int{3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9, 3}
+
+	for jj := 0; jj < 3; jj++ {
+		iter := b.N
+		size := 50000
+		values1 := make([]byte, size)
+		values2 := make([]byte, size)
+		rand.Seed(int64(jj))
+		var bs util.BufferStream
+
+		for ii := 0; ii < iter; ii++ {
+			idx := jj
+
+			for i := 0; i < size; i++ {
+				i0 := i
+
+				length := repeats[idx]
+				idx = (idx + 1) & 0x0F
+				b := byte(rand.Intn(256))
+
+				if i0+length >= size {
+					length = size - i0 - 1
+				}
+
+				for j := i0; j < i0+length; j++ {
+					values1[j] = b
+					i++
+				}
+			}
+
+			obs, _ := bitstream.NewDefaultOutputBitStream(&bs, uint(size))
+			ec, _ := entropy.NewRiceGolombEncoder(obs, true, 4)
+
+			// Encode
+			if _, err := ec.Write(values1); err != nil {
+				msg := fmt.Sprintf("An error occurred during encoding: %v\n", err)
+				b.Fatalf(msg)
+			}
+
+			ec.Dispose()
+
+			if _, err := obs.Close(); err != nil {
+				msg := fmt.Sprintf("Error during close: %v\n", err)
+				b.Fatalf(msg)
+			}
+
+			ibs, _ := bitstream.NewDefaultInputBitStream(&bs, uint(size))
+			ed, _ := entropy.NewRiceGolombDecoder(ibs, true, 4)
+
+			// Decode
+			if _, err := ed.Read(values2); err != nil {
+				msg := fmt.Sprintf("An error occurred during decoding: %v\n", err)
+				b.Fatalf(msg)
+			}
+
+			ed.Dispose()
+
+			if _, err := ibs.Close(); err != nil {
+				msg := fmt.Sprintf("Error during close: %v\n", err)
+				b.Fatalf(msg)
+			}
+		}
+
+		bs.Close()
+	}
+}
+
 func BenchmarkHuffman(b *testing.B) {
 	repeats := []int{3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9, 3}
 
