@@ -444,7 +444,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 	if len(src) > _TC_MAX_BLOCK_SIZE {
 		// Not a recoverable error: instead of silently fail the transform,
 		// issue a fatal error.
-		panic(fmt.Errorf("The max text transform block size is %v, got %v", _TC_MAX_BLOCK_SIZE, len(src)))
+		panic(fmt.Errorf("The max text transform block size is %d, got %d", _TC_MAX_BLOCK_SIZE, len(src)))
 	}
 
 	return this.delegate.Forward(src, dst)
@@ -465,7 +465,7 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	if len(src) > _TC_MAX_BLOCK_SIZE {
 		// Not a recoverable error: instead of silently fail the transform,
 		// issue a fatal error.
-		panic(fmt.Errorf("The max text transform block size is %v, got %v", _TC_MAX_BLOCK_SIZE, len(src)))
+		panic(fmt.Errorf("The max text transform block size is %d, got %d", _TC_MAX_BLOCK_SIZE, len(src)))
 	}
 
 	return this.delegate.Inverse(src, dst)
@@ -739,7 +739,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	if err == nil && srcIdx != srcEnd {
-		err = fmt.Errorf("Text transform failed. Source index: %v, expected: %v", srcIdx, srcEnd)
+		err = fmt.Errorf("Text transform failed. Source index: %d, expected: %d", srcIdx, srcEnd)
 	}
 
 	return uint(srcIdx), uint(dstIdx), err
@@ -929,7 +929,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 				idx = (idx << 7) | (idx2 & 0x7F)
 
 				if idx >= this.dictSize {
-					err = fmt.Errorf("Text transform failed. Invalid index")
+					err = errors.New("Text transform failed. Invalid index")
 					break
 				}
 			}
@@ -939,7 +939,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 			// Sanity check
 			if pe.ptr == nil || dstIdx+length >= dstEnd {
-				err = fmt.Errorf("Text transform failed. Invalid input data")
+				err = errors.New("Text transform failed. Invalid input data")
 				break
 			}
 
@@ -983,7 +983,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	if err == nil && srcIdx != srcEnd {
-		err = fmt.Errorf("Text transform failed. Source index: %v, expected: %v", srcIdx, srcEnd)
+		err = fmt.Errorf("Text transform failed. Source index: %d, expected: %d", srcIdx, srcEnd)
 	}
 
 	return uint(srcIdx), uint(dstIdx), err
@@ -1252,7 +1252,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	if err == nil && srcIdx != srcEnd {
-		err = fmt.Errorf("Text transform failed. Source index: %v, expected: %v", srcIdx, srcEnd)
+		err = fmt.Errorf("Text transform failed. Source index: %d, expected: %d", srcIdx, srcEnd)
 	}
 
 	return uint(srcIdx), uint(dstIdx), err
@@ -1466,7 +1466,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 				idx = (idx << 7) | (idx2 & 0x7F)
 
 				if idx >= this.dictSize {
-					err = fmt.Errorf("Text transform failed. Invalid index")
+					err = errors.New("Text transform failed. Invalid index")
 					break
 				}
 			}
@@ -1476,7 +1476,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 			// Sanity check
 			if pe.ptr == nil || dstIdx+length >= dstEnd {
-				err = fmt.Errorf("Text transform failed. Invalid input data")
+				err = errors.New("Text transform failed. Invalid input data")
 				break
 			}
 
@@ -1526,7 +1526,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	if err == nil && srcIdx != srcEnd {
-		err = fmt.Errorf("Text transform failed. Source index: %v, expected: %v", srcIdx, srcEnd)
+		err = fmt.Errorf("Text transform failed. Source index: %d, expected: %d", srcIdx, srcEnd)
 	}
 
 	return uint(srcIdx), uint(dstIdx), err
