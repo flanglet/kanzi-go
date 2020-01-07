@@ -374,7 +374,7 @@ type HuffmanDecoder struct {
 	sizes     [256]byte
 	table     []uint16 // decoding table: code -> size, symbol
 	state     uint64   // holds bits read from bitstream
-	bits      uint16   // holds number of unused bits in 'state'
+	bits      byte     // holds number of unused bits in 'state'
 	chunkSize int
 }
 
@@ -477,16 +477,25 @@ func (this *HuffmanDecoder) buildDecodingTable(count int) {
 		}
 
 		// code -> size, symbol
-		val := (uint16(this.sizes[s]) << 8) | uint16(s)
+		val := (uint16(s) << 8) | uint16(this.sizes[s])
 		code := this.codes[s]
 
 		// All DECODING_BATCH_SIZE bit values read from the bit stream and
 		// starting with the same prefix point to symbol s
 		idx := code << (_HUF_DECODING_BATCH_SIZE - length)
 		end := (code + 1) << (_HUF_DECODING_BATCH_SIZE - length)
+		t := this.table[0:end]
+
+		for idx+4 < end {
+			t[idx] = val
+			t[idx+1] = val
+			t[idx+2] = val
+			t[idx+3] = val
+			idx += 4
+		}
 
 		for idx < end {
-			this.table[idx] = val
+			t[idx] = val
 			idx++
 		}
 
@@ -557,7 +566,7 @@ func (this *HuffmanDecoder) Read(block []byte) (int, error) {
 func (this *HuffmanDecoder) slowDecodeByte() byte {
 	code := 0
 
-	for codeLen := uint16(1); codeLen < _HUF_MAX_SYMBOL_SIZE; codeLen++ {
+	for codeLen := uint8(1); codeLen < _HUF_MAX_SYMBOL_SIZE; codeLen++ {
 		if this.bits == 0 {
 			code = (code << 1) | this.bitstream.ReadBit()
 		} else {
@@ -567,8 +576,8 @@ func (this *HuffmanDecoder) slowDecodeByte() byte {
 
 		idx := code << (_HUF_DECODING_BATCH_SIZE - codeLen)
 
-		if (this.table[idx] >> 8) == codeLen {
-			return byte(this.table[idx])
+		if uint8(this.table[idx]) == codeLen {
+			return byte(this.table[idx] >> 8)
 		}
 	}
 
@@ -583,8 +592,8 @@ func (this *HuffmanDecoder) fetchBits() {
 
 func (this *HuffmanDecoder) decodeByte() byte {
 	val := this.table[int(this.state>>(this.bits-_HUF_DECODING_BATCH_SIZE))&_HUF_DECODING_MASK]
-	this.bits -= (val >> 8)
-	return byte(val)
+	this.bits -= byte(val)
+	return byte(val >> 8)
 }
 
 // BitStream returns the underlying bitstream
