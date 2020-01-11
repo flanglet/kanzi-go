@@ -496,8 +496,8 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	srcIdx := 4
 	dstIdx := 0
 	litBuf := make([]byte, this.MaxEncodedLen(sizeChunk))
-	lenBuf := make([]byte, sizeChunk/2)
-	mIdxBuf := make([]byte, sizeChunk/2)
+	lenBuf := make([]byte, sizeChunk/4)
+	mIdxBuf := make([]byte, sizeChunk/4)
 	var err error
 
 	for i := range this.counters {
