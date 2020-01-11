@@ -43,8 +43,13 @@ func generateCanonicalCodes(sizes []byte, codes []uint, symbols []int) (int, err
 		for i := 0; i < count; i++ {
 			s := symbols[i]
 
-			if s&0xFF != s {
-				return -1, errors.New("Invalid code length")
+			if s > 255 {
+				return -1, errors.New("Could not generate Huffman codes: invalid code length")
+			}
+
+			// Max length reached
+			if sizes[s] > _HUF_MAX_SYMBOL_SIZE {
+				return -1, fmt.Errorf("Could not generate Huffman codes: max code length (%d bits) exceeded", _HUF_MAX_SYMBOL_SIZE)
 			}
 
 			buf[(int(sizes[s]-1)<<8)|s] = 1
@@ -73,11 +78,6 @@ func generateCanonicalCodes(sizes []byte, codes []uint, symbols []int) (int, err
 		if sizes[s] > length {
 			code <<= (sizes[s] - length)
 			length = sizes[s]
-
-			// Max length reached
-			if length > _HUF_MAX_SYMBOL_SIZE {
-				return -1, fmt.Errorf("Could not generate Huffman codes: max code length (%d bits) exceeded", _HUF_MAX_SYMBOL_SIZE)
-			}
 		}
 
 		codes[s] = code
@@ -161,12 +161,39 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []int) (int, error) {
 		return count, err
 	}
 
-	// Transmit code lengths only, frequencies and codes do not matter
-	// Unary encode the length differences
-	if err := this.computeCodeLengths(frequencies, sizes[:], count); err != nil {
-		return count, err
+	retries := 0
+
+	for {
+		this.computeCodeLengths(frequencies, sizes[:], count)
+
+		if this.maxCodeLen <= _HUF_MAX_SYMBOL_SIZE {
+			// Usual case
+			if _, err := generateCanonicalCodes(sizes[:], this.codes[:], this.sranks[0:count]); err != nil {
+				return count, err
+			}
+			break
+		}
+
+		// Rare: some codes exceed the budget for the max code length => normalize
+		// frequencies (it boosts the smallest frequencies) and try once more.
+		if retries > 1 {
+			return count, fmt.Errorf("Could not generate Huffman codes: max code length (%d bits) exceeded, ", _HUF_MAX_SYMBOL_SIZE)
+		}
+
+		totalFreq := 0
+
+		for i := 0; i < count; i++ {
+			totalFreq += frequencies[this.alphabet[i]]
+		}
+
+		// Copy alphabet (modified by normalizeFrequencies)
+		var alphabet [256]int
+		copy(alphabet[:], this.alphabet[:count])
+		NormalizeFrequencies(frequencies, alphabet[:count], totalFreq, 1<<12)
+		retries++
 	}
 
+	// Transmit code lengths only, frequencies and codes do not matter
 	egenc, err := NewExpGolombEncoder(this.bitstream, true)
 
 	if err != nil {
@@ -175,20 +202,13 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []int) (int, error) {
 
 	prevSize := byte(2)
 
+	// Pack size and code (size <= _HUF_MAX_SYMBOL_SIZE bits)
+	// Unary encode the length differences
 	for _, s := range symbols {
 		currSize := sizes[s]
+		this.codes[s] |= (uint(currSize) << 24)
 		egenc.EncodeByte(currSize - prevSize)
 		prevSize = currSize
-	}
-
-	// Create canonical codes
-	if _, err := generateCanonicalCodes(sizes[:], this.codes[:], this.sranks[0:count]); err != nil {
-		return count, err
-	}
-
-	// Pack size and code (size <= _HUF_MAX_SYMBOL_SIZE bits)
-	for _, s := range symbols {
-		this.codes[s] |= (uint(sizes[s]) << 24)
 	}
 
 	return count, nil
@@ -198,6 +218,7 @@ func (this *HuffmanEncoder) computeCodeLengths(frequencies []int, sizes []byte, 
 	if count == 1 {
 		this.sranks[0] = this.alphabet[0]
 		sizes[this.alphabet[0]] = 1
+		this.maxCodeLen = 1
 		return nil
 	}
 
@@ -222,18 +243,18 @@ func (this *HuffmanEncoder) computeCodeLengths(frequencies []int, sizes []byte, 
 	var err error
 
 	for i := range buf {
-		codeLen := byte(buf[i])
+		codeLen := buf[i]
 
-		if codeLen == 0 || codeLen > _HUF_MAX_SYMBOL_SIZE {
+		if codeLen == 0 {
 			err = errors.New("Could not generate Huffman codes: invalid code length 0")
 			break
 		}
 
-		if this.maxCodeLen < buf[i] {
-			this.maxCodeLen = buf[i]
+		if this.maxCodeLen < codeLen {
+			this.maxCodeLen = codeLen
 		}
 
-		sizes[this.sranks[i]] = codeLen
+		sizes[this.sranks[i]] = byte(buf[i])
 	}
 
 	return err
@@ -524,18 +545,18 @@ func (this *HuffmanDecoder) Read(block []byte) (int, error) {
 			return startChunk, err
 		}
 
-		endChunk := startChunk + this.chunkSize
-
-		if endChunk > end {
-			endChunk = end
-		}
-
 		// Compute minimum number of bits required in bitstream for fast decoding
 		minCodeLen := int(this.sizes[this.alphabet[0]]) // not 0
 		padding := 64 / minCodeLen
 
 		if minCodeLen*padding != 64 {
 			padding++
+		}
+
+		endChunk := startChunk + this.chunkSize
+
+		if endChunk > end {
+			endChunk = end
 		}
 
 		endChunk4 := startChunk
@@ -565,8 +586,11 @@ func (this *HuffmanDecoder) Read(block []byte) (int, error) {
 
 func (this *HuffmanDecoder) slowDecodeByte() byte {
 	code := 0
+	codeLen := uint8(0)
 
-	for codeLen := uint8(1); codeLen < _HUF_MAX_SYMBOL_SIZE; codeLen++ {
+	for codeLen < _HUF_MAX_SYMBOL_SIZE {
+		codeLen++
+
 		if this.bits == 0 {
 			code = (code << 1) | this.bitstream.ReadBit()
 		} else {
