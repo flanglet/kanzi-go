@@ -161,7 +161,7 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []int) (int, error) {
 		return count, err
 	}
 
-	retries := 0
+	retries := uint(0)
 
 	for {
 		this.computeCodeLengths(frequencies, sizes[:], count)
@@ -176,7 +176,7 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []int) (int, error) {
 
 		// Rare: some codes exceed the budget for the max code length => normalize
 		// frequencies (it boosts the smallest frequencies) and try once more.
-		if retries > 1 {
+		if retries > 2 {
 			return count, fmt.Errorf("Could not generate Huffman codes: max code length (%d bits) exceeded, ", _HUF_MAX_SYMBOL_SIZE)
 		}
 
@@ -189,8 +189,8 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []int) (int, error) {
 		// Copy alphabet (modified by normalizeFrequencies)
 		var alphabet [256]int
 		copy(alphabet[:], this.alphabet[:count])
-		NormalizeFrequencies(frequencies, alphabet[:count], totalFreq, 1<<12)
 		retries++
+		NormalizeFrequencies(frequencies, alphabet[:count], totalFreq, int(_HUF_MAX_CHUNK_SIZE>>(2*retries)))
 	}
 
 	// Transmit code lengths only, frequencies and codes do not matter
