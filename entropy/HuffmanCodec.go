@@ -26,8 +26,8 @@ import (
 const (
 	_HUF_LOG_MAX_CHUNK_SIZE  = 14
 	_HUF_MAX_CHUNK_SIZE      = uint(1 << _HUF_LOG_MAX_CHUNK_SIZE)
-	_HUF_MAX_SYMBOL_SIZE     = _HUF_LOG_MAX_CHUNK_SIZE + 1
-	_HUF_DECODING_BATCH_SIZE = 15 // ensures decoding table fits in L1 cache
+	_HUF_MAX_SYMBOL_SIZE     = _HUF_LOG_MAX_CHUNK_SIZE
+	_HUF_DECODING_BATCH_SIZE = 14 // ensures decoding table fits in L1 cache
 	_HUF_BUFFER_SIZE         = uint(_HUF_MAX_SYMBOL_SIZE<<8) + 256
 	_HUF_DECODING_MASK       = (1 << _HUF_DECODING_BATCH_SIZE) - 1
 )
