@@ -125,7 +125,7 @@ func (this *RangeEncoder) encodeHeader(alphabetSize int, alphabet []int, frequen
 	}
 
 	this.bitstream.WriteBits(uint64(lr-8), 3) // logRange
-	chkSize := 12
+	chkSize := 8
 
 	if alphabetSize < 64 {
 		chkSize = 6
@@ -137,9 +137,9 @@ func (this *RangeEncoder) encodeHeader(alphabetSize int, alphabet []int, frequen
 		llr++
 	}
 
-	/// Encode all frequencies (but the first one) by chunks of size 'inc'
+	// Encode all frequencies (but the first one) by chunks
 	for i := 1; i < alphabetSize; i += chkSize {
-		max := 0
+		max := frequencies[alphabet[i]] - 1
 		logMax := uint(1)
 		endj := i + chkSize
 
@@ -148,9 +148,9 @@ func (this *RangeEncoder) encodeHeader(alphabetSize int, alphabet []int, frequen
 		}
 
 		// Search for max frequency log size in next chunk
-		for j := i; j < endj; j++ {
-			if frequencies[alphabet[j]] > max {
-				max = frequencies[alphabet[j]]
+		for j := i + 1; j < endj; j++ {
+			if frequencies[alphabet[j]]-1 > max {
+				max = frequencies[alphabet[j]] - 1
 			}
 		}
 
@@ -162,7 +162,7 @@ func (this *RangeEncoder) encodeHeader(alphabetSize int, alphabet []int, frequen
 
 		// Write frequencies
 		for j := i; j < endj; j++ {
-			this.bitstream.WriteBits(uint64(frequencies[alphabet[j]]), logMax)
+			this.bitstream.WriteBits(uint64(frequencies[alphabet[j]]-1), logMax)
 		}
 	}
 
@@ -336,7 +336,7 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
 	scale := 1 << logRange
 	this.shift = logRange
 	sum := 0
-	chkSize := 12
+	chkSize := 8
 
 	if alphabetSize < 64 {
 		chkSize = 6
@@ -359,7 +359,7 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
 
 		// Read frequencies
 		for j := i; j < endj; j++ {
-			val := int(this.bitstream.ReadBits(logMax))
+			val := int(1 + this.bitstream.ReadBits(logMax))
 
 			if val <= 0 || val >= scale {
 				err := fmt.Errorf("Invalid bitstream: incorrect frequency %v for symbol '%v' in range decoder", val, this.alphabet[j])

@@ -160,7 +160,7 @@ func (this *ANSRangeEncoder) encodeHeader(alphabetSize int, alphabet []int, freq
 		return nil
 	}
 
-	chkSize := 12
+	chkSize := 8
 
 	if alphabetSize < 64 {
 		chkSize = 6
@@ -172,9 +172,9 @@ func (this *ANSRangeEncoder) encodeHeader(alphabetSize int, alphabet []int, freq
 		llr++
 	}
 
-	/// Encode all frequencies (but the first one) by chunks
+	// Encode all frequencies (but the first one) by chunks
 	for i := 1; i < alphabetSize; i += chkSize {
-		max := 0
+		max := frequencies[alphabet[i]] - 1
 		logMax := uint(1)
 		endj := i + chkSize
 
@@ -183,9 +183,9 @@ func (this *ANSRangeEncoder) encodeHeader(alphabetSize int, alphabet []int, freq
 		}
 
 		// Search for max frequency log size in next chunk
-		for j := i; j < endj; j++ {
-			if frequencies[alphabet[j]] > max {
-				max = frequencies[alphabet[j]]
+		for j := i + 1; j < endj; j++ {
+			if frequencies[alphabet[j]]-1 > max {
+				max = frequencies[alphabet[j]] - 1
 			}
 		}
 
@@ -197,7 +197,7 @@ func (this *ANSRangeEncoder) encodeHeader(alphabetSize int, alphabet []int, freq
 
 		// Write frequencies
 		for j := i; j < endj; j++ {
-			this.bitstream.WriteBits(uint64(frequencies[alphabet[j]]), logMax)
+			this.bitstream.WriteBits(uint64(frequencies[alphabet[j]]-1), logMax)
 		}
 	}
 
@@ -492,7 +492,7 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, error) {
 			}
 		}
 
-		chkSize := 12
+		chkSize := 8
 
 		if alphabetSize < 64 {
 			chkSize = 6
@@ -524,7 +524,7 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, error) {
 
 			// Read frequencies
 			for j := i; j < endj; j++ {
-				freq := int(this.bitstream.ReadBits(logMax))
+				freq := int(1 + this.bitstream.ReadBits(logMax))
 
 				if freq <= 0 || freq >= scale {
 					err := fmt.Errorf("Invalid bitstream: incorrect frequency %v for symbol '%v' in ANS range decoder", freq, alphabet[j])
