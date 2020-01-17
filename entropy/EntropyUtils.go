@@ -26,14 +26,10 @@ const (
 	// INCOMPRESSIBLE_THRESHOLD Any block with entropy*1024 greater than this threshold is considered incompressible
 	INCOMPRESSIBLE_THRESHOLD = 973
 
-	_FULL_ALPHABET            = 0 // Flag for full alphabet encoding
-	_PARTIAL_ALPHABET         = 1 // Flag for partial alphabet encoding
-	_ALPHABET_256             = 0 // Flag for alphabet with 256 symbols
-	_ALPHABET_NOT_256         = 1 // Flag for alphabet not with 256 symbols
-	_DELTA_ENCODED_ALPHABET   = 0 // Flag for full alphabet delta encoding
-	_BIT_ENCODED_ALPHABET_256 = 1 // Flag for full alphabet bit encoding
-	_PRESENT_SYMBOLS_MASK     = 0 // Flag for present symbol
-	_ABSENT_SYMBOLS_MASK      = 1 // Flag for absent symbol
+	_FULL_ALPHABET    = 0 // Flag for full alphabet encoding
+	_PARTIAL_ALPHABET = 1 // Flag for partial alphabet encoding
+	_ALPHABET_256     = 0 // Flag for alphabet with 256 symbols
+	_ALPHABET_NOT_256 = 1 // Flag for alphabet not with 256 symbols
 )
 
 type freqSortData struct {
@@ -99,8 +95,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 		return 0, fmt.Errorf("The max alphabet length is 256, got %v", alphabetSize)
 	}
 
-	// First, push alphabet encoding mode
-	if alphabetSize > 0 && count == alphabetSize {
+	if count == 0 || count == alphabetSize {
 		// Full alphabet
 		obs.WriteBit(_FULL_ALPHABET)
 
@@ -118,130 +113,33 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 			obs.WriteBits(uint64(log-1), 3)
 			obs.WriteBits(uint64(count), log)
 		}
-
-		return count, nil
-	}
-
-	obs.WriteBit(_PARTIAL_ALPHABET)
-
-	if alphabetSize == 256 && count >= 32 && count <= 224 {
-		// Regular alphabet of symbols less than 256
-		obs.WriteBit(_BIT_ENCODED_ALPHABET_256)
-		masks := [4]uint64{}
-
-		for i := 0; i < count; i++ {
-			masks[alphabet[i]>>6] |= (1 << uint(alphabet[i]&63))
-		}
-
-		obs.WriteBits(masks[0], 64)
-		obs.WriteBits(masks[1], 64)
-		obs.WriteBits(masks[2], 64)
-		obs.WriteBits(masks[3], 64)
-		return count, nil
-	}
-
-	obs.WriteBit(_DELTA_ENCODED_ALPHABET)
-	diffs := make([]int, count)
-
-	if alphabetSize-count < count {
-		// Encode all missing symbols
-		count = alphabetSize - count
-		log := uint(1)
-
-		for 1<<log <= count {
-			log++
-		}
-
-		// Write length
-		obs.WriteBits(uint64(log-1), 3)
-		obs.WriteBits(uint64(count), log)
-
-		if count == 0 {
-			return 0, nil
-		}
-
-		obs.WriteBit(_ABSENT_SYMBOLS_MASK)
-		log = 1
-
-		for 1<<log <= alphabetSize {
-			log++
-		}
-
-		// Write log(alphabet size)
-		obs.WriteBits(uint64(log-1), 4)
-		symbol := 0
-		previous := 0
-
-		// Create deltas of missing symbols
-		for i, n := 0, 0; n < count; {
-			if symbol == alphabet[i] {
-				if i < alphabetSize-1-count {
-					i++
-				}
-
-				symbol++
-				continue
-			}
-
-			diffs[n] = symbol - previous
-			symbol++
-			previous = symbol
-			n++
-		}
 	} else {
-		// Encode all present symbols
-		log := uint(1)
+		// Partial alphabet
+		obs.WriteBit(_PARTIAL_ALPHABET)
+		masks := [32]uint8{}
 
-		for 1<<log <= count {
-			log++
-		}
-
-		// Write length
-		obs.WriteBits(uint64(log-1), 3)
-		obs.WriteBits(uint64(count), log)
-
-		if count == 0 {
-			return 0, nil
-		}
-
-		obs.WriteBit(_PRESENT_SYMBOLS_MASK)
-		previous := 0
-
-		// Create deltas of present symbols
 		for i := 0; i < count; i++ {
-			diffs[i] = int(alphabet[i]) - previous
-			previous = alphabet[i] + 1
+			masks[alphabet[i]>>3] |= (1 << uint8(alphabet[i]&7))
 		}
-	}
 
-	ckSize := (count + 3) >> 2
+		lastMask := 31
 
-	// Encode all deltas by chunks
-	for i := 0; i < count; i += ckSize {
-		max := 0
-
-		// Find log(max(deltas)) for this chunk
-		for j := i; j < count && j < i+ckSize; j++ {
-			if max < diffs[j] {
-				max = diffs[j]
+		for lastMask > 0 {
+			if masks[lastMask] != 0 {
+				break
 			}
+
+			lastMask--
 		}
 
-		log := uint(1)
+		obs.WriteBits(uint64(lastMask), 5)
 
-		for 1<<log <= max {
-			log++
-		}
-
-		obs.WriteBits(uint64(log-1), 3)
-
-		// Write deltas for this chunk
-		for j := i; j < count && j < i+ckSize; j++ {
-			obs.WriteBits(uint64(diffs[j]), log)
+		for i := 0; i <= lastMask; i++ {
+			obs.WriteBits(uint64(masks[i]), 8)
 		}
 	}
 
-	return alphabetSize, nil
+	return count, nil
 }
 
 // DecodeAlphabet reads the alphabet from the bitstream and return the number of symbols
@@ -272,80 +170,18 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 		return alphabetSize, nil
 	}
 
+	// Partial alphabet
+	lastMask := int(ibs.ReadBits(5))
 	count := 0
-	mode := ibs.ReadBit()
 
-	if mode == _BIT_ENCODED_ALPHABET_256 {
-		// Decode presence flags
-		for i := 0; i < 256; i += 64 {
-			val := ibs.ReadBits(64)
+	// Decode presence flags
+	for i := 0; i <= lastMask; i++ {
+		mask := uint8(ibs.ReadBits(8))
 
-			for j := 0; j < 64; j++ {
-				if val&(uint64(1)<<uint(j)) != 0 {
-					alphabet[count] = i + j
-					count++
-				}
-			}
-		}
-
-		return count, nil
-	}
-
-	// DELTA_ENCODED_ALPHABET
-	log := uint(1 + ibs.ReadBits(3))
-	count = int(ibs.ReadBits(log))
-
-	if count == 0 {
-		return 0, nil
-	}
-
-	ckSize := (count + 3) >> 2
-	n := 0
-	symbol := 0
-
-	if ibs.ReadBit() == _ABSENT_SYMBOLS_MASK {
-		alphabetSize := 1 << uint(ibs.ReadBits(4))
-
-		if alphabetSize > len(alphabet) {
-			return alphabetSize, fmt.Errorf("Invalid bitstream: incorrect alphabet size: %v", alphabetSize)
-		}
-
-		// Read missing symbols
-		for i := 0; i < count; i += ckSize {
-			log = uint(1 + ibs.ReadBits(3))
-
-			// Read deltas for this chunk
-			for j := i; j < count && j < i+ckSize; j++ {
-				next := symbol + int(ibs.ReadBits(log))
-
-				for symbol < next && n < alphabetSize {
-					alphabet[n] = symbol
-					symbol++
-					n++
-				}
-
-				symbol++
-			}
-		}
-
-		count = alphabetSize - count
-
-		for n < count {
-			alphabet[n] = symbol
-			n++
-			symbol++
-		}
-
-	} else {
-		// Read present symbols
-		for i := 0; i < count; i += ckSize {
-			log = uint(1 + ibs.ReadBits(3))
-
-			// Read deltas for this chunk
-			for j := i; j < count && j < i+ckSize; j++ {
-				symbol += int(ibs.ReadBits(log))
-				alphabet[j] = symbol
-				symbol++
+		for j := 0; j < 8; j++ {
+			if mask&(uint8(1)<<uint(j)) != 0 {
+				alphabet[count] = (i << 3) + j
+				count++
 			}
 		}
 	}
