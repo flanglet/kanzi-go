@@ -120,6 +120,10 @@ func (this *LZCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	if len(this.hashes) == 0 {
 		this.hashes = make([]int32, 1<<_LZ_HASH_LOG)
+	} else {
+		for i := range this.hashes {
+			this.hashes[i] = 0
+		}
 	}
 
 	maxDist := _LZ_MAX_DISTANCE2
