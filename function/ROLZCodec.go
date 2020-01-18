@@ -230,7 +230,7 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int) (int, int) {
 	}
 
 	m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
-	hash32 := rolzhash(buf[pos:])
+	hash32 := rolzhash(buf[pos : pos+4])
 	counter := this.counters[key]
 	bestLen := _ROLZ_MIN_MATCH - 1
 	bestIdx := -1
@@ -807,7 +807,7 @@ func (this *rolzCodec2) findMatch(buf []byte, pos int) (int, int) {
 	}
 
 	m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
-	hash32 := rolzhash(buf[pos:])
+	hash32 := rolzhash(buf[pos : pos+4])
 	counter := this.counters[key]
 	bestLen := _ROLZ_MIN_MATCH - 1
 	bestIdx := -1
