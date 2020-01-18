@@ -21,59 +21,42 @@ import (
 	"fmt"
 )
 
-// Simple byte oriented LZ77 codec implementation.
-// It is just LZ4 modified to use a bigger hash map.
-
 const (
-	_LZ_HASH_SEED    = 0x7FEB352D
-	_HASH_LOG_SMALL  = 12
-	_HASH_LOG_BIG    = 16
-	_MAX_DISTANCE    = (1 << 16) - 1
-	_SKIP_STRENGTH   = 6
-	_LAST_LITERALS   = 5
-	_MIN_MATCH       = 4
-	_MF_LIMIT        = 12
-	_ML_BITS         = 4
-	_ML_MASK         = (1 << _ML_BITS) - 1
-	_RUN_BITS        = 8 - _ML_BITS
-	_RUN_MASK        = (1 << _RUN_BITS) - 1
-	_COPY_LENGTH     = 8
-	_MIN_LENGTH      = 14
-	_MAX_LENGTH      = (32 * 1024 * 1024) - 4 - _MIN_MATCH
-	_SEARCH_MATCH_NB = 1 << 6
+	_LZ_HASH_SEED     = 0x7FEB352D
+	_LZ_HASH_LOG      = 18
+	_LZ_HASH_SHIFT    = uint(32 - _LZ_HASH_LOG)
+	_LZ_MAX_DISTANCE1 = (1 << 17) - 1
+	_LZ_MAX_DISTANCE2 = (1 << 24) - 1
+	_LZ_MIN_MATCH     = 4
+	_LZ_MIN_LENGTH    = 16
 )
 
-// LZCodec Lempel Ziv (LZ77) codec based on LZ4
+// LZCodec Simple byte oriented LZ77 implementation.
+// It is a modified LZ4 with a bigger window, a bigger hash map, 3+n*8 bit
+// literal lengths and 17 or 24 bit match lengths.
 type LZCodec struct {
-	buffer []int32
+	hashes []int32
 }
 
 // NewLZCodec creates a new instance of LZCodec
 func NewLZCodec() (*LZCodec, error) {
 	this := &LZCodec{}
-	this.buffer = make([]int32, 0)
+	this.hashes = make([]int32, 0)
 	return this, nil
 }
 
-// NewLZCodecWithCtx creates a new instance of LZCodec  using a
+// NewLZCodecWithCtx creates a new instance of LZCodec using a
 // configuration map as parameter.
 func NewLZCodecWithCtx(ctx *map[string]interface{}) (*LZCodec, error) {
 	this := &LZCodec{}
-	this.buffer = make([]int32, 0)
+	this.hashes = make([]int32, 0)
 	return this, nil
 }
 
 func emitLength(buf []byte, length int) int {
 	idx := 0
 
-	for length >= 0x1FE {
-		buf[idx] = 0xFF
-		buf[idx+1] = 0xFF
-		idx += 2
-		length -= 0x1FE
-	}
-
-	if length >= 0xFF {
+	for length >= 0xFF {
 		buf[idx] = 0xFF
 		idx++
 		length -= 0xFF
@@ -83,19 +66,31 @@ func emitLength(buf []byte, length int) int {
 	return idx + 1
 }
 
+func emitLiterals(src, dst []byte) {
+	length := len(src)
+
+	for i := 0; i < length; i += 8 {
+		copy(dst[i:], src[i:i+8])
+	}
+}
+
 func emitLastLiterals(src, dst []byte) int {
 	dstIdx := 1
-	runLength := len(src)
+	litLen := len(src)
 
-	if runLength >= _RUN_MASK {
-		dst[0] = byte(_RUN_MASK << _ML_BITS)
-		dstIdx += emitLength(dst[1:], runLength-_RUN_MASK)
+	if litLen >= 7 {
+		dst[0] = byte(7 << 5)
+		dstIdx += emitLength(dst[1:], litLen-7)
 	} else {
-		dst[0] = byte(runLength << _ML_BITS)
+		dst[0] = byte(litLen << 5)
 	}
 
-	copy(dst[dstIdx:], src[0:runLength])
-	return dstIdx + runLength
+	copy(dst[dstIdx:], src[0:litLen])
+	return dstIdx + litLen
+}
+
+func lzhash(p []byte) uint32 {
+	return (binary.LittleEndian.Uint32(p) * _LZ_HASH_SEED) >> _LZ_HASH_SHIFT
 }
 
 // Forward applies the function to the src and writes the result
@@ -116,149 +111,136 @@ func (this *LZCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
 	}
 
-	var hashLog uint
-
-	if count < _MAX_DISTANCE {
-		hashLog = _HASH_LOG_SMALL
-	} else {
-		hashLog = _HASH_LOG_BIG
+	// If too small, skip
+	if count < _LZ_MIN_LENGTH {
+		return 0, 0, fmt.Errorf("Block too small, skip")
 	}
 
-	hashShift := 32 - hashLog
-	srcEnd := count
-	matchLimit := srcEnd - _LAST_LITERALS
-	mfLimit := srcEnd - _MF_LIMIT
+	srcEnd := count - 8
+
+	if len(this.hashes) == 0 {
+		this.hashes = make([]int32, 1<<_LZ_HASH_LOG)
+	}
+
+	maxDist := _LZ_MAX_DISTANCE2
+	dst[0] = 1
+
+	if srcEnd < 4*_LZ_MAX_DISTANCE1 {
+		maxDist = _LZ_MAX_DISTANCE1
+		dst[0] = 0
+	}
+
 	srcIdx := 0
-	dstIdx := 0
+	dstIdx := 1
 	anchor := 0
 
-	if count > _MIN_LENGTH {
-		if len(this.buffer) < 1<<hashLog {
-			this.buffer = make([]int32, 1<<hashLog)
+	for srcIdx < srcEnd {
+		var minRef int
+
+		if srcIdx < maxDist {
+			minRef = 0
 		} else {
-			for i := range this.buffer {
-				this.buffer[i] = 0
+			minRef = srcIdx - maxDist
+		}
+
+		h := lzhash(src[srcIdx:])
+		ref := int(this.hashes[h])
+		bestLen := 0
+
+		// Find a match
+		if ref > minRef && binary.LittleEndian.Uint32(src[srcIdx:]) == binary.LittleEndian.Uint32(src[ref:]) {
+			maxMatch := srcEnd - srcIdx
+			bestLen = 4
+
+			for bestLen+4 < maxMatch && binary.LittleEndian.Uint32(src[srcIdx+bestLen:]) == binary.LittleEndian.Uint32(src[ref+bestLen:]) {
+				bestLen += 4
+			}
+
+			for bestLen < maxMatch && src[ref+bestLen] == src[srcIdx+bestLen] {
+				bestLen++
 			}
 		}
 
-		// First byte
-		table := this.buffer
-		h32 := (binary.LittleEndian.Uint32(src[srcIdx:]) * _LZ_HASH_SEED) >> hashShift
-		table[h32] = int32(srcIdx)
-		srcIdx++
-		h32 = (binary.LittleEndian.Uint32(src[srcIdx:]) * _LZ_HASH_SEED) >> hashShift
+		// No good match ?
+		if bestLen < _LZ_MIN_MATCH {
+			this.hashes[h] = int32(srcIdx)
+			srcIdx++
+			continue
+		}
 
-		for {
-			fwdIdx := srcIdx
-			step := 1
-			searchMatchNb := _SEARCH_MATCH_NB
-			var match int
+		// Emit token
+		// Token: 3 bits litLen + 1 bit flag + 4 bits mLen
+		// flag = if maxDist = (1<<17)-1, then highest bit of distance
+		//        else 1 if dist needs 3 bytes (> 0xFFFF) and 0 otherwise
+		mLen := bestLen - _LZ_MIN_MATCH
+		dist := srcIdx - ref
+		var token int
 
-			// Find a match
-			for {
-				srcIdx = fwdIdx
-				fwdIdx += step
+		if dist > 0xFFFF {
+			token = 0x10
+		} else {
+			token = 0
+		}
 
-				if fwdIdx > mfLimit {
-					// Emit last literals
-					dstIdx += emitLastLiterals(src[anchor:srcEnd], dst[dstIdx:])
-					return uint(srcEnd), uint(dstIdx), error(nil)
-				}
+		if mLen < 15 {
+			token += mLen
+		} else {
+			token += 0x0F
+		}
 
-				step = searchMatchNb >> _SKIP_STRENGTH
-				searchMatchNb++
-				match = int(table[h32])
-				table[h32] = int32(srcIdx)
-				h32 = (binary.LittleEndian.Uint32(src[fwdIdx:]) * _LZ_HASH_SEED) >> hashShift
-
-				if binary.LittleEndian.Uint32(src[srcIdx:]) == binary.LittleEndian.Uint32(src[match:]) && match > srcIdx-_MAX_DISTANCE {
-					break
-				}
-			}
-
-			// Catch up
-			for match > 0 && srcIdx > anchor && src[match-1] == src[srcIdx-1] {
-				match--
-				srcIdx--
-			}
+		// Literals to process ?
+		if anchor == srcIdx {
+			dst[dstIdx] = byte(token)
+			dstIdx++
+		} else {
+			// Process match
+			litLen := srcIdx - anchor
 
 			// Emit literal length
-			litLength := srcIdx - anchor
-			token := dstIdx
-			dstIdx++
-
-			if litLength >= _RUN_MASK {
-				dst[token] = byte(_RUN_MASK << _ML_BITS)
-				dstIdx += emitLength(dst[dstIdx:], litLength-_RUN_MASK)
-			} else {
-				dst[token] = byte(litLength << _ML_BITS)
-			}
-
-			// Copy literals
-			copy(dst[dstIdx:], src[anchor:anchor+litLength])
-			dstIdx += litLength
-
-			// Next match
-			for {
-				// Emit offset
-				dst[dstIdx] = byte(srcIdx - match)
-				dst[dstIdx+1] = byte((srcIdx - match) >> 8)
-				dstIdx += 2
-
-				// Emit match length
-				srcIdx += _MIN_MATCH
-				match += _MIN_MATCH
-				anchor = srcIdx
-
-				for srcIdx < matchLimit && src[srcIdx] == src[match] {
-					srcIdx++
-					match++
-				}
-
-				matchLength := srcIdx - anchor
-
-				// Emit match length
-				if matchLength >= _ML_MASK {
-					dst[token] += byte(_ML_MASK)
-					dstIdx += emitLength(dst[dstIdx:], matchLength-_ML_MASK)
-				} else {
-					dst[token] += byte(matchLength)
-				}
-
-				anchor = srcIdx
-
-				if srcIdx > mfLimit {
-					dstIdx += emitLastLiterals(src[anchor:srcEnd], dst[dstIdx:])
-					return uint(srcEnd), uint(dstIdx), error(nil)
-				}
-
-				// Fill table
-				h32 = (binary.LittleEndian.Uint32(src[srcIdx-2:]) * _LZ_HASH_SEED) >> hashShift
-				table[h32] = int32(srcIdx - 2)
-
-				// Test next position
-				h32 = (binary.LittleEndian.Uint32(src[srcIdx:]) * _LZ_HASH_SEED) >> hashShift
-				match = int(table[h32])
-				table[h32] = int32(srcIdx)
-
-				if binary.LittleEndian.Uint32(src[srcIdx:]) != binary.LittleEndian.Uint32(src[match:]) || match <= srcIdx-_MAX_DISTANCE {
-					break
-				}
-
-				token = dstIdx
+			if litLen >= 7 {
+				dst[dstIdx] = byte((7 << 5) | token)
 				dstIdx++
-				dst[token] = 0
+				dstIdx += emitLength(dst[dstIdx:], litLen-7)
+			} else {
+				dst[dstIdx] = byte((litLen << 5) | token)
+				dstIdx++
 			}
 
-			// Prepare next loop
+			// Emit literals
+			emitLiterals(src[anchor:anchor+litLen], dst[dstIdx:])
+			dstIdx += litLen
+		}
+
+		// Emit match length
+		if mLen >= 0x0F {
+			dstIdx += emitLength(dst[dstIdx:], mLen-0x0F)
+		}
+
+		// Emit distance
+		if maxDist == _LZ_MAX_DISTANCE2 && dist > 0xFFFF {
+			dst[dstIdx] = byte(dist >> 16)
+			dstIdx++
+		}
+
+		dst[dstIdx] = byte(dist >> 8)
+		dstIdx++
+		dst[dstIdx] = byte(dist)
+		dstIdx++
+
+		// Fill _hashes and update positions
+		anchor = srcIdx + bestLen
+		this.hashes[h] = int32(srcIdx)
+		srcIdx++
+
+		for srcIdx < anchor {
+			this.hashes[lzhash(src[srcIdx:])] = int32(srcIdx)
 			srcIdx++
-			h32 = (binary.LittleEndian.Uint32(src[srcIdx:]) * _LZ_HASH_SEED) >> hashShift
 		}
 	}
 
 	// Emit last literals
-	dstIdx += emitLastLiterals(src[anchor:srcEnd], dst[dstIdx:])
-	return uint(srcEnd), uint(dstIdx), error(nil)
+	dstIdx += emitLastLiterals(src[anchor:srcEnd+8], dst[dstIdx:])
+	return uint(srcEnd + 8), uint(dstIdx), error(nil)
 }
 
 // Inverse applies the reverse function to the src and writes the result
@@ -274,122 +256,117 @@ func (this *LZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	count := len(src)
-	srcEnd := count - _COPY_LENGTH
-	dstEnd := len(dst) - _COPY_LENGTH
-	srcIdx := 0
+	srcEnd := count - 8
+	dstEnd := len(dst) - 8
 	dstIdx := 0
+	maxDist := _LZ_MAX_DISTANCE2
+
+	if src[0] == 0 {
+		maxDist = _LZ_MAX_DISTANCE1
+	}
+
+	srcIdx := 1
 
 	for {
-		// Get literal length
 		token := int(src[srcIdx])
 		srcIdx++
-		length := token >> _ML_BITS
 
-		if length == _RUN_MASK {
-			for src[srcIdx] == byte(0xFF) && srcIdx < count {
+		if token >= 32 {
+			// Get literal length
+			litLen := token >> 5
+
+			if litLen == 7 {
+				for srcIdx < srcEnd && src[srcIdx] == 0xFF {
+					srcIdx++
+					litLen += 0xFF
+				}
+
+				if srcIdx >= srcEnd+8 {
+					return uint(srcIdx), uint(dstIdx), fmt.Errorf("LZCodec: Invalid literals length decoded: %d", litLen)
+				}
+
+				litLen += int(src[srcIdx])
 				srcIdx++
-				length += 0xFF
 			}
 
-			length += int(src[srcIdx])
-			srcIdx++
-
-			if length > _MAX_LENGTH {
-				return 0, 0, fmt.Errorf("Invalid length decoded: %d", length)
+			// Copy literals and exit ?
+			if dstIdx+litLen > dstEnd || srcIdx+litLen > srcEnd {
+				copy(dst[dstIdx:], src[srcIdx:srcIdx+litLen])
+				srcIdx += litLen
+				dstIdx += litLen
+				break
 			}
+
+			// Emit literals
+			emitLiterals(src[srcIdx:srcIdx+litLen], dst[dstIdx:])
+			srcIdx += litLen
+			dstIdx += litLen
 		}
-
-		// Copy literals
-		if dstIdx+length > dstEnd || srcIdx+length > srcEnd {
-			copy(dst[dstIdx:], src[srcIdx:srcIdx+length])
-			srcIdx += length
-			dstIdx += length
-			break
-		}
-
-		for i := 0; i < length; i++ {
-			dst[dstIdx+i] = src[srcIdx+i]
-		}
-
-		srcIdx += length
-		dstIdx += length
-
-		if dstIdx > dstEnd || srcIdx > srcEnd {
-			break
-		}
-
-		// Get offset
-		delta := int(src[srcIdx]) | (int(src[srcIdx+1]) << 8)
-		srcIdx += 2
-		match := dstIdx - delta
-
-		if match < 0 {
-			break
-		}
-
-		length = token & _ML_MASK
 
 		// Get match length
-		if length == _ML_MASK {
-			for src[srcIdx] == 0xFF && srcIdx < count {
+		mLen := token & 0x0F
+
+		if mLen == 15 {
+			for srcIdx < srcEnd && src[srcIdx] == 0xFF {
 				srcIdx++
-				length += 0xFF
+				mLen += 0xFF
 			}
 
-			if srcIdx < count {
-				length += int(src[srcIdx])
+			if srcIdx < srcEnd {
+				mLen += int(src[srcIdx])
 				srcIdx++
-			}
-
-			if length > _MAX_LENGTH || srcIdx == count {
-				return 0, 0, fmt.Errorf("Invalid length decoded: %d", length)
 			}
 		}
 
-		length += _MIN_MATCH
-		cpy := dstIdx + length
+		mLen += _LZ_MIN_MATCH
+		mEnd := dstIdx + mLen
 
-		if cpy > dstEnd {
-			// Do not use copy on (potentially) overlapping slices
-			for i := 0; i < length; i++ {
-				dst[dstIdx+i] = dst[match+i]
+		// Sanity check
+		if mEnd > dstEnd+8 {
+			return uint(srcIdx), uint(dstIdx), fmt.Errorf("LZCodec: Invalid match length decoded: %d", mLen)
+		}
+
+		// Get distance
+		dist := (int(src[srcIdx]) << 8) | int(src[srcIdx+1])
+		srcIdx += 2
+
+		if (token & 0x10) != 0 {
+			if maxDist == _LZ_MAX_DISTANCE1 {
+				dist += 65536
+			} else {
+				dist = (dist << 8) | int(src[srcIdx])
+				srcIdx++
+			}
+		}
+
+		// Sanity check
+		if dstIdx < dist || dist > maxDist {
+			return uint(srcIdx), uint(dstIdx), fmt.Errorf("LZCodec: Invalid distance decoded: %d", dist)
+		}
+
+		// Copy match
+		if dist > 8 {
+			ref := dstIdx - dist
+
+			for {
+				// No overlap
+				copy(dst[dstIdx:], dst[ref:ref+8])
+				ref += 8
+				dstIdx += 8
+
+				if dstIdx >= mEnd {
+					break
+				}
 			}
 		} else {
-			if dstIdx >= match+8 {
-				for {
-					binary.LittleEndian.PutUint64(dst[dstIdx:], binary.LittleEndian.Uint64(dst[match:]))
-					match += 8
-					dstIdx += 8
+			ref := dstIdx - dist
 
-					if dstIdx >= cpy {
-						break
-					}
-				}
-			} else {
-				// Unroll loop
-				for {
-					s := dst[match : match+8]
-					d := dst[dstIdx : dstIdx+8]
-					d[0] = s[0]
-					d[1] = s[1]
-					d[2] = s[2]
-					d[3] = s[3]
-					d[4] = s[4]
-					d[5] = s[5]
-					d[6] = s[6]
-					d[7] = s[7]
-					match += 8
-					dstIdx += 8
-
-					if dstIdx >= cpy {
-						break
-					}
-				}
+			for i := 0; i < mLen; i++ {
+				dst[dstIdx+i] = dst[ref+i]
 			}
 		}
 
-		// Correction
-		dstIdx = cpy
+		dstIdx = mEnd
 	}
 
 	return uint(srcIdx), uint(dstIdx), nil
