@@ -41,7 +41,7 @@ const (
 	_ROLZ_HASH_MASK       = ^uint32(_ROLZ_CHUNK_SIZE - 1)
 	_ROLZ_MATCH_FLAG      = 0
 	_ROLZ_LITERAL_FLAG    = 1
-	_ROLZ_HASH            = uint32(200002979)
+	_ROLZ_HASH_SEED       = uint32(200002979)
 	_ROLZ_MAX_BLOCK_SIZE  = 1 << 30 // 1 GB
 	_ROLZ_TOP             = uint64(0x00FFFFFFFFFFFFFF)
 	_MASK_0_24            = uint64(0x0000000000FFFFFF)
@@ -53,8 +53,8 @@ func getKey(p []byte) uint32 {
 	return uint32(binary.LittleEndian.Uint16(p))
 }
 
-func hash(p []byte) uint32 {
-	return ((binary.LittleEndian.Uint32(p) & 0x00FFFFFF) * _ROLZ_HASH) & _ROLZ_HASH_MASK
+func rolzhash(p []byte) uint32 {
+	return ((binary.LittleEndian.Uint32(p) & 0x00FFFFFF) * _ROLZ_HASH_SEED) & _ROLZ_HASH_MASK
 }
 
 func emitCopy(buf []byte, dstIdx, ref, matchLen int) int {
@@ -230,7 +230,7 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int) (int, int) {
 	}
 
 	m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
-	hash32 := hash(buf[pos : pos+4])
+	hash32 := rolzhash(buf[pos:])
 	counter := this.counters[key]
 	bestLen := _ROLZ_MIN_MATCH - 1
 	bestIdx := -1
@@ -807,7 +807,7 @@ func (this *rolzCodec2) findMatch(buf []byte, pos int) (int, int) {
 	}
 
 	m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
-	hash32 := hash(buf[pos : pos+4])
+	hash32 := rolzhash(buf[pos:])
 	counter := this.counters[key]
 	bestLen := _ROLZ_MIN_MATCH - 1
 	bestIdx := -1
