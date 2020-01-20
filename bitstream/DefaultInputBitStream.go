@@ -76,7 +76,7 @@ func (this *DefaultInputBitStream) ReadBit() int {
 // Returns the number of bits read.
 func (this *DefaultInputBitStream) ReadBits(count uint) uint64 {
 	if count == 0 || count > 64 {
-		panic(fmt.Errorf("Invalid bit count: %v (must be in [1..64])", count))
+		panic(fmt.Errorf("Invalid bit count: %d (must be in [1..64])", count))
 	}
 
 	if count <= this.availBits {
