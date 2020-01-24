@@ -268,8 +268,10 @@ func computeStats(block []byte, freqs0 []int32) byte {
 		}
 	}
 
-	// Check CR+LF matches
-	if (freqs0[CR] != 0) && (freqs0[CR] == freqs0[LF]) {
+	// Address the corner case where block[0] = LF
+	// In this case, unset the mask because the decoder would not know whether
+	// to add an extra CR or not.
+	if (block[0] != LF) && (freqs0[CR] != 0) && (freqs0[CR] == freqs0[LF]) {
 		isCRLF := true
 
 		for i := 0; i < 256; i++ {
