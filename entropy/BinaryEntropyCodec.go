@@ -89,7 +89,6 @@ func (this *BinaryEntropyEncoder) EncodeBit(bit byte, pred int) {
 		this.high = this.low + split
 	}
 
-	// Update predictor
 	this.predictor.Update(bit)
 
 	// Write unchanged first 32 bits to bitstream
