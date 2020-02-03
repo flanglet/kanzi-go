@@ -81,6 +81,10 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 		var err1 error
 		savedLength := length
 
+		if len(out) < requiredSize {
+			out = make([]byte, requiredSize)
+		}
+
 		// Apply forward transform
 		if _, length, err1 = t.Forward((in)[0:length], out); err1 != nil {
 			// Transform failed. Either it does not apply to this type
@@ -99,15 +103,6 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 
 		if i == this.Len()-1 {
 			break
-		}
-
-		// Minimize re-allocations
-		if len(out) < requiredSize {
-			if len(out) >= int(length) {
-				copy(out, in[0:length])
-			} else {
-				out = make([]byte, requiredSize)
-			}
 		}
 	}
 
