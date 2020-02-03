@@ -273,6 +273,9 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 
 		if arg == "--help" || arg == "-h" {
 			log.Println("", true)
+			log.Println("Credits: Matt Mahoney, Yann Collet, Jan Ondrus, Yuta Mori, Ilya Muravyov,", true)
+			log.Println("         Neal Burns, Fabian Giesen, Jarek Duda, Ilya Grebnov", true)
+			log.Println("", true)
 			log.Println("   -h, --help", true)
 			log.Println("        display this message\n", true)
 			log.Println("   -v, --verbose=<level>", true)
