@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	_SRT_HEADER_SIZE = 4 * 256 // freqs
+	_SRT_MAX_HEADER_SIZE = 4 * 256
 )
 
 // SRT Sorted Ranks Transform
@@ -93,12 +93,7 @@ func (this *SRT) Forward(src, dst []byte) (uint, uint, error) {
 		bucketPos += int(freqs[c])
 	}
 
-	headerSize, err := this.encodeHeader(freqs[:], dst)
-
-	if err != nil {
-		return 0, 0, err
-	}
-
+	headerSize := this.encodeHeader(freqs[:], dst)
 	dst = dst[headerSize:]
 
 	// encoding
@@ -137,7 +132,7 @@ func (this *SRT) Forward(src, dst []byte) (uint, uint, error) {
 		i = j
 	}
 
-	return uint(count), uint(count + _SRT_HEADER_SIZE), nil
+	return uint(count), uint(count + headerSize), nil
 }
 
 func (this SRT) preprocess(freqs []int32, symbols []byte) int {
@@ -194,14 +189,8 @@ func (this *SRT) Inverse(src, dst []byte) (uint, uint, error) {
 
 	// init arrays
 	freqs := [256]int32{}
-	headerSize, err := this.decodeHeader(src, freqs[:])
-
-	if err != nil {
-		return 0, 0, err
-	}
-
+	headerSize := this.decodeHeader(src, freqs[:])
 	src = src[headerSize:]
-	count := len(src)
 	symbols := [256]byte{}
 	nbSymbols := this.preprocess(freqs[:], symbols[:])
 	buckets := [256]int{}
@@ -253,41 +242,62 @@ func (this *SRT) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
-	return uint(count + _SRT_HEADER_SIZE), uint(count), nil
+	return uint(len(src) + headerSize), uint(len(src)), nil
 }
 
-func (this SRT) encodeHeader(freqs []int32, dst []byte) (int, error) {
-	if len(dst) < _SRT_HEADER_SIZE {
-		return 0, errors.New("SRT forward failed: cannot encode header")
+func (this SRT) encodeHeader(freqs []int32, dst []byte) int {
+	n := 0
+
+	for _, f := range freqs {
+		for f >= 128 {
+			dst[n] = byte(0x80 | (f & 0x7F))
+			n++
+			f >>= 7
+		}
+
+		dst[n] = byte(f)
+		n++
 	}
 
-	for i := range freqs {
-		dst[4*i] = byte(freqs[i] >> 24)
-		dst[4*i+1] = byte(freqs[i] >> 16)
-		dst[4*i+2] = byte(freqs[i] >> 8)
-		dst[4*i+3] = byte(freqs[i])
-	}
-
-	return _SRT_HEADER_SIZE, nil
+	return n
 }
 
-func (this SRT) decodeHeader(src []byte, freqs []int32) (int, error) {
-	if len(src) < _SRT_HEADER_SIZE {
-		return 0, errors.New("SRT inverse failed: cannot decode header")
-	}
+func (this SRT) decodeHeader(src []byte, freqs []int32) int {
+	n := 0
 
 	for i := range freqs {
-		f1 := int32(src[4*i])
-		f2 := int32(src[4*i+1])
-		f3 := int32(src[4*i+2])
-		f4 := int32(src[4*i+3])
-		freqs[i] = (f1 << 24) | (f2 << 16) | (f3 << 8) | f4
+		val := int32(src[n])
+		n++
+
+		if val < 128 {
+			freqs[i] = val
+			continue
+		}
+
+		res := val & 0x7F
+		val = int32(src[n])
+		n++
+		res |= ((val & 0x7F) << 7)
+
+		if val >= 128 {
+			val = int32(src[n])
+			n++
+			res |= ((val & 0x7F) << 14)
+
+			if val >= 128 {
+				val = int32(src[n])
+				n++
+				res |= ((val & 0x7F) << 21)
+			}
+		}
+
+		freqs[i] = res
 	}
 
-	return _SRT_HEADER_SIZE, nil
+	return n
 }
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
 func (this SRT) MaxEncodedLen(srcLen int) int {
-	return srcLen + _SRT_HEADER_SIZE
+	return srcLen + _SRT_MAX_HEADER_SIZE
 }
