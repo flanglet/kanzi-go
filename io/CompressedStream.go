@@ -527,7 +527,6 @@ func (this *encodingTask) encode() {
 			mode |= byte(_COPY_BLOCK_MASK)
 		}
 	} else {
-
 		if skip, prst := this.ctx["skipBlocks"]; prst == true {
 			if skip.(bool) == true {
 				histo := [256]int{}
@@ -1026,8 +1025,8 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 		// Lazy instantiation of input buffers this.buffers[2*jobID]
 		// Output buffers this.buffers[2*jobID+1] are lazily instantiated
 		// by the decoding tasks.
-		if len(this.buffers[2*jobID].Buf) < blkSize {
-			this.buffers[2*jobID].Buf = make([]byte, blkSize)
+		if len(this.buffers[2*jobID].Buf) < blkSize+1024 {
+			this.buffers[2*jobID].Buf = make([]byte, blkSize+1024)
 		}
 
 		copyCtx := make(map[string]interface{})
