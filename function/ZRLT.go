@@ -65,55 +65,53 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 	srcIdx, dstIdx := uint(0), uint(0)
 	var err error
 
-	if dstIdx < dstEnd {
-		for srcIdx < srcEnd {
-			if src[srcIdx] == 0 {
-				runLength = 1
+	for srcIdx < srcEnd {
+		if src[srcIdx] == 0 {
+			runLength = 1
 
-				for srcIdx+runLength < srcEnd && src[srcIdx+runLength] == src[srcIdx] {
-					runLength++
-				}
-
-				srcIdx += runLength
-
-				// Encode length
+			for srcIdx+runLength < srcEnd && src[srcIdx+runLength] == src[srcIdx] {
 				runLength++
-				log2 := kanzi.Log2NoCheck(uint32(runLength))
-
-				if dstIdx >= dstEnd-uint(log2) {
-					break
-				}
-
-				// Write every bit as a byte except the most significant one
-				for log2 > 0 {
-					log2--
-					dst[dstIdx] = byte((runLength >> log2) & 1)
-					dstIdx++
-				}
-
-				runLength = 0
-				continue
 			}
 
-			if src[srcIdx] >= 0xFE {
-				if dstIdx >= dstEnd-1 {
-					break
-				}
+			srcIdx += runLength
 
-				dst[dstIdx] = 0xFF
+			// Encode length
+			runLength++
+			log2 := kanzi.Log2NoCheck(uint32(runLength))
+
+			if dstIdx >= dstEnd-uint(log2) {
+				break
+			}
+
+			// Write every bit as a byte except the most significant one
+			for log2 > 0 {
+				log2--
+				dst[dstIdx] = byte((runLength >> log2) & 1)
 				dstIdx++
-				dst[dstIdx] = src[srcIdx] - 0xFE
-			} else {
-				if dstIdx >= dstEnd {
-					break
-				}
-
-				dst[dstIdx] = src[srcIdx] + 1
 			}
 
-			srcIdx++
-			dstIdx++
+			runLength = 0
+			continue
 		}
+
+		if src[srcIdx] >= 0xFE {
+			if dstIdx >= dstEnd-1 {
+				break
+			}
+
+			dst[dstIdx] = 0xFF
+			dstIdx++
+			dst[dstIdx] = src[srcIdx] - 0xFE
+		} else {
+			if dstIdx >= dstEnd {
+				break
+			}
+
+			dst[dstIdx] = src[srcIdx] + 1
+		}
+
+		srcIdx++
+		dstIdx++
 	}
 
 	if srcIdx != srcEnd || runLength != 0 {
@@ -140,50 +138,48 @@ func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 	srcIdx, dstIdx := 0, 0
 	var err error
 
-	if srcIdx < srcEnd {
-		for dstIdx < dstEnd {
-			if runLength > 1 {
-				runLength--
-				dst[dstIdx] = 0
-				dstIdx++
-				continue
-			}
+	for dstIdx < dstEnd {
+		if runLength > 1 {
+			runLength--
+			dst[dstIdx] = 0
+			dstIdx++
+			continue
+		}
 
-			if src[srcIdx] <= 1 {
-				// Generate the run length bit by bit (but force MSB)
-				runLength = 1
+		if src[srcIdx] <= 1 {
+			// Generate the run length bit by bit (but force MSB)
+			runLength = 1
 
-				for src[srcIdx] <= 1 {
-					runLength += (runLength + int(src[srcIdx]))
-					srcIdx++
-
-					if srcIdx >= srcEnd {
-						goto End
-					}
-				}
-
-				continue
-			}
-
-			// Regular data processing
-			if src[srcIdx] == 0xFF {
+			for src[srcIdx] <= 1 {
+				runLength += (runLength + int(src[srcIdx]))
 				srcIdx++
 
 				if srcIdx >= srcEnd {
-					break
+					goto End
 				}
-
-				dst[dstIdx] = 0xFE + src[srcIdx]
-			} else {
-				dst[dstIdx] = src[srcIdx] - 1
 			}
 
+			continue
+		}
+
+		// Regular data processing
+		if src[srcIdx] == 0xFF {
 			srcIdx++
-			dstIdx++
 
 			if srcIdx >= srcEnd {
 				break
 			}
+
+			dst[dstIdx] = 0xFE + src[srcIdx]
+		} else {
+			dst[dstIdx] = src[srcIdx] - 1
+		}
+
+		srcIdx++
+		dstIdx++
+
+		if srcIdx >= srcEnd {
+			break
 		}
 	}
 

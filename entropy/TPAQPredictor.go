@@ -362,7 +362,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 	// Get initial predictions
 	// It has been observed that accessing memory via [ctx ^ c] is significantly faster
 	// on SandyBridge/Windows and slower on SkyLake/Linux except when [ctx & 255 == 0]
-	// (with c < 256). Hence, use XOR for _ctx5 which is the only context that fullfills
+	// (with c < 256). Hence, use XOR for _ctx5 which is the only context that fulfills
 	// the condition.
 	c := this.c0
 	table := _TPAQ_STATE_TRANSITIONS[bit]
