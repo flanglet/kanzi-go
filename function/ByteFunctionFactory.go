@@ -43,6 +43,7 @@ const (
 	ROLZ_TYPE   = uint64(11) // ROLZ codec
 	ROLZX_TYPE  = uint64(12) // ROLZ Extra codec
 	SRT_TYPE    = uint64(13) // Sorted Rank
+	LZP_TYPE    = uint64(14) // Lempel Ziv Predict
 )
 
 // NewByteFunction creates a new instance of ByteTransformSequence based on the provided
@@ -130,6 +131,11 @@ func newByteFunctionToken(ctx *map[string]interface{}, functionType uint64) (kan
 		return NewRLTWithCtx(ctx)
 
 	case LZ_TYPE:
+		(*ctx)["lz"] = LZ_TYPE
+		return NewLZCodecWithCtx(ctx)
+
+	case LZP_TYPE:
+		(*ctx)["lz"] = LZP_TYPE
 		return NewLZCodecWithCtx(ctx)
 
 	case X86_TYPE:
@@ -205,6 +211,9 @@ func getByteFunctionNameToken(functionType uint64) string {
 
 	case LZ_TYPE:
 		return "LZ"
+
+	case LZP_TYPE:
+		return "LZP"
 
 	case X86_TYPE:
 		return "X86"
@@ -290,6 +299,9 @@ func getByteFunctionTypeToken(name string) uint64 {
 
 	case "LZ":
 		return LZ_TYPE
+
+	case "LZP":
+		return LZP_TYPE
 
 	case "NONE":
 		return NONE_TYPE
