@@ -217,7 +217,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 
 		if srcIdx != srcEnd {
 			err = errors.New("Output buffer is too small")
-		} else if dstIdx > srcIdx {
+		} else if dstIdx >= srcIdx {
 			err = errors.New("Input not compressed")
 		}
 	}
