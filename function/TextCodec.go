@@ -279,6 +279,11 @@ func computeStats(block []byte, freqs0 []int32) byte {
 				isCRLF = false
 				break
 			}
+
+			if (i != int(CR)) && (freqs1[i][LF] != 0) {
+				isCRLF = false
+				break
+			}
 		}
 
 		if isCRLF == true {
