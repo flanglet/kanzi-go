@@ -499,6 +499,7 @@ func (this *DivSufSort) ssSort(pa, first, last, buf, bufSize, depth, n int32, la
 
 	limit := int32(0)
 	middle := last
+
 	if bufSize < _SS_BLOCKSIZE && bufSize < last-first {
 		limit = ssIsqrt(last - first)
 
@@ -658,7 +659,7 @@ func (this *DivSufSort) ssInplaceMerge(pa, first, middle, last, depth int32) {
 		r := -1
 		half := (middle - first) >> 1
 
-		for length := middle - first; length > 0; length = half {
+		for length := middle - first; length > 0; half >>= 1 {
 			b := a + half
 			var c int32
 
@@ -668,16 +669,14 @@ func (this *DivSufSort) ssInplaceMerge(pa, first, middle, last, depth int32) {
 				c = ^arr[b]
 			}
 
-			q := this.ssCompare3(pa+c, p, depth)
-
-			if q < 0 {
+			if q := this.ssCompare3(pa+c, p, depth); q >= 0 {
+				r = q
+			} else {
 				a = b + 1
 				half -= ((length & 1) ^ 1)
-			} else {
-				r = q
 			}
 
-			half >>= 1
+			length = half
 		}
 
 		if a < middle {
@@ -905,7 +904,7 @@ func (this *DivSufSort) ssSwapMerge(pa, first, middle, last, buf, bufSize, depth
 				last = l
 				check = (check & 3) | (next & 4)
 			} else {
-				if r == middle && (next&2) != 0 {
+				if r == middle && next&2 != 0 {
 					next ^= 6
 				}
 
