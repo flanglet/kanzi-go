@@ -458,17 +458,21 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 End:
 	if err == nil {
-		// Emit last literals
-		srcIdx += (startChunk - sizeChunk)
-		dst[dstIdx] = src[srcIdx]
-		dst[dstIdx+1] = src[srcIdx+1]
-		dst[dstIdx+2] = src[srcIdx+2]
-		dst[dstIdx+3] = src[srcIdx+3]
-		srcIdx += 4
-		dstIdx += 4
-
-		if srcIdx != len(src) {
+		if dstIdx+4 > len(dst) {
 			err = errors.New("ROLZ codec: Destination buffer too small")
+		} else {
+			// Emit last literals
+			srcIdx += (startChunk - sizeChunk)
+			dst[dstIdx] = src[srcIdx]
+			dst[dstIdx+1] = src[srcIdx+1]
+			dst[dstIdx+2] = src[srcIdx+2]
+			dst[dstIdx+3] = src[srcIdx+3]
+			srcIdx += 4
+			dstIdx += 4
+
+			if srcIdx != len(src) {
+				err = errors.New("ROLZ codec: Destination buffer too small")
+			}
 		}
 	}
 
