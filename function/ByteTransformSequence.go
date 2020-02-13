@@ -149,6 +149,10 @@ func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) 
 			continue
 		}
 
+		if len(out) < len(dst) {
+			out = make([]byte, len(dst))
+		}
+
 		// Apply inverse transform
 		if _, length, err = this.transforms[i].Inverse(in[0:length], out); err != nil {
 			// All inverse transforms must succeed
@@ -157,19 +161,6 @@ func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) 
 
 		in, out = out, in
 		swaps++
-
-		if i == 0 {
-			break
-		}
-
-		// Minimize re-allocations
-		if len(out) < len(dst) {
-			if len(out) >= int(length) {
-				copy(out, in[0:length])
-			} else {
-				out = make([]byte, len(dst))
-			}
-		}
 	}
 
 	if err == nil && swaps&1 == 0 {

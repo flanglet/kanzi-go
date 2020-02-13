@@ -32,7 +32,6 @@ const (
 	_LZX_MIN_MATCH     = 4
 	_LZX_MIN_LENGTH    = 16
 	_LZP_HASH_LOG      = 16
-	_LZP_HASH_MASK     = (1 << _LZP_HASH_LOG) - 1
 	_LZP_HASH_SHIFT    = 32 - _LZP_HASH_LOG
 	_LZP_MIN_MATCH     = 64
 	_LZP_MIN_LENGTH    = 128
