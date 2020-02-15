@@ -42,7 +42,7 @@ const (
 	_ARG_IDX_VERBOSE   = 8
 	_ARG_IDX_LEVEL     = 9
 	_ARG_IDX_PROFILE   = 14
-	_APP_HEADER        = "Kanzi 1.6 (C) 2019,  Frederic Langlet"
+	_APP_HEADER        = "Kanzi 1.7 (C) 2020,  Frederic Langlet"
 )
 
 var (
