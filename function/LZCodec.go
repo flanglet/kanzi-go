@@ -608,7 +608,7 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	var err error
 
-	if (srcIdx != count) || (dstIdx < (count - count>>6)) {
+	if (srcIdx != count) || (dstIdx >= count-(count>>6)) {
 		err = errors.New("LZP forward transform failed: output buffer too small")
 	}
 
