@@ -67,33 +67,30 @@ func NewFPAQEncoder(bs kanzi.OutputBitStream) (*FPAQEncoder, error) {
 
 // EncodeByte encodes the given value into the bitstream bit by bit
 func (this *FPAQEncoder) EncodeByte(val byte) {
-	this.ctxIdx = 1
-	this.encodeBit((val>>7)&1, this.probs[this.ctxIdx]>>4)
-	this.encodeBit((val>>6)&1, this.probs[this.ctxIdx]>>4)
-	this.encodeBit((val>>5)&1, this.probs[this.ctxIdx]>>4)
-	this.encodeBit((val>>4)&1, this.probs[this.ctxIdx]>>4)
-	this.encodeBit((val>>3)&1, this.probs[this.ctxIdx]>>4)
-	this.encodeBit((val>>2)&1, this.probs[this.ctxIdx]>>4)
-	this.encodeBit((val>>1)&1, this.probs[this.ctxIdx]>>4)
-	this.encodeBit(val&1, this.probs[this.ctxIdx]>>4)
+	bits := int(val) + 256
+	this.encodeBit(val&0x80, 1)
+	this.encodeBit(val&0x40, bits>>7)
+	this.encodeBit(val&0x20, bits>>6)
+	this.encodeBit(val&0x10, bits>>5)
+	this.encodeBit(val&0x08, bits>>4)
+	this.encodeBit(val&0x04, bits>>3)
+	this.encodeBit(val&0x02, bits>>2)
+	this.encodeBit(val&0x01, bits>>1)
 }
 
-// encodeBit encodes one bit into the bitstream using arithmetic coding
-// and the probability predictor provided at creation time.
-func (this *FPAQEncoder) encodeBit(bit byte, pred int) {
+// encodeBit encodes one bit
+func (this *FPAQEncoder) encodeBit(bit byte, pIdx int) {
 	// Calculate interval split
 	// Written in a way to maximize accuracy of multiplication/division
-	split := (((this.high - this.low) >> 4) * uint64(pred)) >> 8
+	split := (((this.high - this.low) >> 4) * uint64(this.probs[pIdx]>>4)) >> 8
 
 	// Update probabilities
 	if bit == 0 {
 		this.low += (split + 1)
-		this.probs[this.ctxIdx] -= (this.probs[this.ctxIdx] >> 6)
-		this.ctxIdx = (this.ctxIdx << 1)
+		this.probs[pIdx] -= (this.probs[pIdx] >> 6)
 	} else {
 		this.high = this.low + split
-		this.probs[this.ctxIdx] -= (((this.probs[this.ctxIdx] - _FPAQ_PSCALE) >> 6) + 1)
-		this.ctxIdx = (this.ctxIdx << 1) + 1
+		this.probs[pIdx] -= (((this.probs[pIdx] - _FPAQ_PSCALE) >> 6) + 1)
 	}
 
 	// Write unchanged first 32 bits to bitstream
@@ -196,7 +193,7 @@ type FPAQDecoder struct {
 	buffer      []byte
 	index       int
 	probs       [256]int // probability of bit=1
-	ctxIdx      byte     // previous bits
+	ctx         byte     // previous bits
 }
 
 // NewFPAQDecoder creates an instance of FPAQDecoder
@@ -212,7 +209,7 @@ func NewFPAQDecoder(bs kanzi.InputBitStream) (*FPAQDecoder, error) {
 	this.bitstream = bs
 	this.buffer = make([]byte, 0)
 	this.index = 0
-	this.ctxIdx = 1
+	this.ctx = 1
 
 	for i := range this.probs {
 		this.probs[i] = _FPAQ_PSCALE >> 1
@@ -223,16 +220,16 @@ func NewFPAQDecoder(bs kanzi.InputBitStream) (*FPAQDecoder, error) {
 
 // DecodeByte decodes the given value from the bitstream bit by bit
 func (this *FPAQDecoder) DecodeByte() byte {
-	this.ctxIdx = 1
-
-	return (this.decodeBit(this.probs[this.ctxIdx]>>4) << 7) |
-		(this.decodeBit(this.probs[this.ctxIdx]>>4) << 6) |
-		(this.decodeBit(this.probs[this.ctxIdx]>>4) << 5) |
-		(this.decodeBit(this.probs[this.ctxIdx]>>4) << 4) |
-		(this.decodeBit(this.probs[this.ctxIdx]>>4) << 3) |
-		(this.decodeBit(this.probs[this.ctxIdx]>>4) << 2) |
-		(this.decodeBit(this.probs[this.ctxIdx]>>4) << 1) |
-		this.decodeBit(this.probs[this.ctxIdx]>>4)
+	this.ctx = 1
+	this.decodeBit(this.probs[this.ctx] >> 4)
+	this.decodeBit(this.probs[this.ctx] >> 4)
+	this.decodeBit(this.probs[this.ctx] >> 4)
+	this.decodeBit(this.probs[this.ctx] >> 4)
+	this.decodeBit(this.probs[this.ctx] >> 4)
+	this.decodeBit(this.probs[this.ctx] >> 4)
+	this.decodeBit(this.probs[this.ctx] >> 4)
+	this.decodeBit(this.probs[this.ctx] >> 4)
+	return byte(this.ctx)
 }
 
 // Initialized returns true if Initialize() has been called at least once
@@ -251,8 +248,7 @@ func (this *FPAQDecoder) Initialize() {
 	this.initialized = true
 }
 
-// decodeBit decodes one bit from the bitstream using arithmetic coding
-// and the probability predictor provided at creation time.
+// decodeBit decodes one bit
 func (this *FPAQDecoder) decodeBit(pred int) byte {
 	// Calculate interval split
 	// Written in a way to maximize accuracy of multiplication/division
@@ -263,13 +259,13 @@ func (this *FPAQDecoder) decodeBit(pred int) byte {
 	if split >= this.current {
 		bit = 1
 		this.high = split
-		this.probs[this.ctxIdx] -= (((this.probs[this.ctxIdx] - _FPAQ_PSCALE) >> 6) + 1)
-		this.ctxIdx = (this.ctxIdx << 1) + 1
+		this.probs[this.ctx] -= (((this.probs[this.ctx] - _FPAQ_PSCALE) >> 6) + 1)
+		this.ctx += (this.ctx + 1)
 	} else {
 		bit = 0
 		this.low = -^split
-		this.probs[this.ctxIdx] -= (this.probs[this.ctxIdx] >> 6)
-		this.ctxIdx = (this.ctxIdx << 1)
+		this.probs[this.ctx] -= (this.probs[this.ctx] >> 6)
+		this.ctx += this.ctx
 	}
 
 	// Read 32 bits from bitstream
