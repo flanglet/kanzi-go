@@ -1144,8 +1144,9 @@ func (this *rolzEncoder) setContext(ctx byte) {
 func (this *rolzEncoder) encodeBits(val int, n uint) {
 	this.c1 = 1
 
-	for shift := n; shift != 0; shift-- {
-		this.encodeBit(val >> (shift - 1) & 1)
+	for n != 0 {
+		n--
+		this.encodeBit(val & (1 << n))
 	}
 }
 
@@ -1239,13 +1240,14 @@ func (this *rolzDecoder) setContext(ctx byte) {
 
 func (this *rolzDecoder) decodeBits(n uint) int {
 	this.c1 = 1
-	res := 0
+	mask := (1 << n) - 1
 
-	for shift := n; shift != 0; shift-- {
-		res |= (this.decodeBit() << (shift - 1))
+	for n != 0 {
+		this.decodeBit()
+		n--
 	}
 
-	return res
+	return this.c1 & mask
 }
 
 func (this *rolzDecoder) decodeBit() int {
