@@ -78,10 +78,6 @@ func TestRiceGolomb(b *testing.T) {
 
 func getPredictor(name string) kanzi.Predictor {
 	switch name {
-	case "FPAQ":
-		res, _ := entropy.NewFPAQPredictor()
-		return res
-
 	case "TPAQ":
 		res, _ := entropy.NewTPAQPredictor(nil)
 		return res
@@ -98,7 +94,7 @@ func getPredictor(name string) kanzi.Predictor {
 func getEncoder(name string, obs kanzi.OutputBitStream) kanzi.EntropyEncoder {
 	switch name {
 	case "FPAQ":
-		res, _ := entropy.NewBinaryEntropyEncoder(obs, getPredictor(name))
+		res, _ := entropy.NewFPAQEncoder(obs)
 		return res
 
 	case "TPAQ":
@@ -141,13 +137,7 @@ func getEncoder(name string, obs kanzi.OutputBitStream) kanzi.EntropyEncoder {
 func getDecoder(name string, ibs kanzi.InputBitStream) kanzi.EntropyDecoder {
 	switch name {
 	case "FPAQ":
-		pred := getPredictor(name)
-
-		if pred == nil {
-			panic(fmt.Errorf("No such entropy decoder: '%s'", name))
-		}
-
-		res, _ := entropy.NewBinaryEntropyDecoder(ibs, pred)
+		res, _ := entropy.NewFPAQDecoder(ibs)
 		return res
 
 	case "TPAQ":

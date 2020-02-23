@@ -465,8 +465,7 @@ func BenchmarkFPAQ(b *testing.B) {
 			}
 
 			obs, _ := bitstream.NewDefaultOutputBitStream(&bs, uint(size))
-			predictor, _ := entropy.NewFPAQPredictor()
-			ec, _ := entropy.NewBinaryEntropyEncoder(obs, predictor)
+			ec, _ := entropy.NewFPAQEncoder(obs)
 
 			// Encode
 			if _, err := ec.Write(values1); err != nil {
@@ -482,8 +481,7 @@ func BenchmarkFPAQ(b *testing.B) {
 			}
 
 			ibs, _ := bitstream.NewDefaultInputBitStream(&bs, uint(size))
-			predictor, _ = entropy.NewFPAQPredictor()
-			ed, _ := entropy.NewBinaryEntropyDecoder(ibs, predictor)
+			ed, _ := entropy.NewFPAQDecoder(ibs)
 
 			// Decode
 			if _, err := ed.Read(values2); err != nil {
