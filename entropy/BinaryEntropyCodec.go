@@ -80,7 +80,7 @@ func (this *BinaryEntropyEncoder) EncodeByte(val byte) {
 func (this *BinaryEntropyEncoder) EncodeBit(bit byte, pred int) {
 	// Calculate interval split
 	// Written in a way to maximize accuracy of multiplication/division
-	split := (((this.high - this.low) >> 4) * uint64(this.predictor.Get())) >> 8
+	split := (((this.high - this.low) >> 4) * uint64(pred)) >> 8
 
 	// Update fields with new interval bounds
 	if bit == 0 {
