@@ -351,6 +351,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 			}
 		}
 
+		res = 0
 		cancel <- true
 		close(cancel)
 		close(results)
