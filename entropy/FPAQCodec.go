@@ -90,7 +90,7 @@ func (this *FPAQEncoder) encodeBit(bit byte, pIdx int) {
 		this.probs[pIdx] -= (this.probs[pIdx] >> 6)
 	} else {
 		this.high = this.low + split
-		this.probs[pIdx] -= (((this.probs[pIdx] - _FPAQ_PSCALE) >> 6) + 1)
+		this.probs[pIdx] -= ((this.probs[pIdx] - _FPAQ_PSCALE + 64) >> 6)
 	}
 
 	// Write unchanged first 32 bits to bitstream
@@ -259,7 +259,7 @@ func (this *FPAQDecoder) decodeBit(pred int) byte {
 	if split >= this.current {
 		bit = 1
 		this.high = split
-		this.probs[this.ctx] -= (((this.probs[this.ctx] - _FPAQ_PSCALE) >> 6) + 1)
+		this.probs[this.ctx] -= ((this.probs[this.ctx] - _FPAQ_PSCALE + 64) >> 6)
 		this.ctx += (this.ctx + 1)
 	} else {
 		bit = 0

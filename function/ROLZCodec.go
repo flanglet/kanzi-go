@@ -43,6 +43,7 @@ const (
 	_ROLZ_LITERAL_FLAG    = 1
 	_ROLZ_HASH_SEED       = uint32(200002979)
 	_ROLZ_MAX_BLOCK_SIZE  = 1 << 30 // 1 GB
+	_ROLZ_PSCALE          = 0xFFFF
 	_ROLZ_TOP             = uint64(0x00FFFFFFFFFFFFFF)
 	_MASK_0_24            = uint64(0x0000000000FFFFFF)
 	_MASK_0_56            = uint64(0x00FFFFFFFFFFFFFF)
@@ -1125,11 +1126,11 @@ func newRolzEncoder(litLogSize, mLogSize uint, buf []byte, idx *int) (*rolzEncod
 
 func (this *rolzEncoder) reset() {
 	for i := range this.probs[_ROLZ_MATCH_FLAG] {
-		this.probs[_ROLZ_MATCH_FLAG][i] = 1 << 15
+		this.probs[_ROLZ_MATCH_FLAG][i] = _ROLZ_PSCALE >> 1
 	}
 
 	for i := range this.probs[_ROLZ_LITERAL_FLAG] {
-		this.probs[_ROLZ_LITERAL_FLAG][i] = 1 << 15
+		this.probs[_ROLZ_LITERAL_FLAG][i] = _ROLZ_PSCALE >> 1
 	}
 }
 
@@ -1161,7 +1162,7 @@ func (this *rolzEncoder) encodeBit(bit int) {
 		this.c1 += this.c1
 	} else {
 		this.high = this.low + split
-		this.probs[this.pIdx][this.ctx+this.c1] -= (((this.probs[this.pIdx][this.ctx+this.c1] - 0xFFFF) >> 5) + 1)
+		this.probs[this.pIdx][this.ctx+this.c1] -= ((this.probs[this.pIdx][this.ctx+this.c1] - _ROLZ_PSCALE + 32) >> 5)
 		this.c1 += (this.c1 + 1)
 	}
 
@@ -1222,11 +1223,11 @@ func newRolzDecoder(litLogSize, mLogSize uint, buf []byte, idx *int) (*rolzDecod
 
 func (this *rolzDecoder) reset() {
 	for i := range this.probs[_ROLZ_MATCH_FLAG] {
-		this.probs[_ROLZ_MATCH_FLAG][i] = 1 << 15
+		this.probs[_ROLZ_MATCH_FLAG][i] = _ROLZ_PSCALE >> 1
 	}
 
 	for i := range this.probs[_ROLZ_LITERAL_FLAG] {
-		this.probs[_ROLZ_LITERAL_FLAG][i] = 1 << 15
+		this.probs[_ROLZ_LITERAL_FLAG][i] = _ROLZ_PSCALE >> 1
 	}
 }
 
@@ -1259,7 +1260,7 @@ func (this *rolzDecoder) decodeBit() int {
 	if mid >= this.current {
 		bit = 1
 		this.high = mid
-		this.probs[this.pIdx][this.ctx+this.c1] -= (((this.probs[this.pIdx][this.ctx+this.c1] - 0xFFFF) >> 5) + 1)
+		this.probs[this.pIdx][this.ctx+this.c1] -= ((this.probs[this.pIdx][this.ctx+this.c1] - _ROLZ_PSCALE + 32) >> 5)
 		this.c1 += (this.c1 + 1)
 	} else {
 		bit = 0
