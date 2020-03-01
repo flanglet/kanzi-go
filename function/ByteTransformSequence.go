@@ -78,7 +78,6 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 
 	// Process transforms sequentially
 	for i, t := range this.transforms {
-		var err1 error
 		savedLength := length
 
 		if len(out) < requiredSize {
@@ -86,13 +85,9 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 		}
 
 		// Apply forward transform
-		if _, length, err1 = t.Forward((in)[0:length], out); err1 != nil {
+		if _, length, err = t.Forward((in)[0:length], out); err != nil {
 			// Transform failed. Either it does not apply to this type
 			// of data or a recoverable error occurred => revert
-			if err == nil {
-				err = err1
-			}
-
 			length = savedLength
 			continue
 		}
@@ -110,11 +105,7 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 		copy(dst, in[0:length])
 	}
 
-	if this.skipFlags != _TRANSFORM_SKIP_MASK {
-		err = nil
-	}
-
-	return blockSize, length, err
+	return blockSize, length, nil
 }
 
 // Inverse applies the reverse function to the src and writes the result
