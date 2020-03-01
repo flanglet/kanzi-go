@@ -47,10 +47,6 @@ const (
 	_MAX_CONCURRENCY            = 64
 )
 
-var (
-	_EMPTY_BYTE_SLICE = make([]byte, 0)
-)
-
 // IOError an extended error containing a message and a code value
 type IOError struct {
 	msg  string
@@ -78,9 +74,9 @@ func (this IOError) ErrorCode() int {
 }
 
 type blockBuffer struct {
-	// Enclose a buffer in a struct to share it between stream and tasks
+	// Enclose a slice in a struct to share it between stream and tasks
 	// and reduce memory allocation.
-	// The tasks can re-allocate the buffer as needed.
+	// The tasks can re-allocate the slice as needed.
 	Buf []byte
 }
 
@@ -218,7 +214,7 @@ func NewCompressedOutputStreamWithCtx(os io.WriteCloser, ctx map[string]interfac
 	this.buffers = make([]blockBuffer, 2*this.jobs)
 
 	for i := range this.buffers {
-		this.buffers[i] = blockBuffer{Buf: _EMPTY_BYTE_SLICE}
+		this.buffers[i] = blockBuffer{Buf: make([]byte, 0)}
 	}
 
 	this.blockID = 0
@@ -370,10 +366,10 @@ func (this *CompressedOutputStream) Close() error {
 	}
 
 	// Release resources
-	this.data = _EMPTY_BYTE_SLICE
+	this.data = make([]byte, 0)
 
 	for i := range this.buffers {
-		this.buffers[i] = blockBuffer{Buf: _EMPTY_BYTE_SLICE}
+		this.buffers[i] = blockBuffer{Buf: make([]byte, 0)}
 	}
 
 	for _, c := range this.channels {
@@ -394,9 +390,8 @@ func (this *CompressedOutputStream) processBlock(force bool) error {
 		}
 
 		if len(this.data) < bufSize {
-			// Grow byte array until max allowed
-			buf := make([]byte, bufSize-len(this.data))
-			this.data = append(this.data, buf...)
+			extraBuf := make([]byte, bufSize-len(this.data))
+			this.data = append(this.data, extraBuf...)
 			return nil
 		}
 	}
@@ -493,7 +488,6 @@ func (this *encodingTask) encode() {
 	data := this.iBuffer.Buf
 	buffer := this.oBuffer.Buf
 	mode := byte(0)
-	var postTransformLength uint
 	checksum := uint32(0)
 
 	// Compute block checksum
@@ -553,13 +547,20 @@ func (this *encodingTask) encode() {
 
 	requiredSize := t.MaxEncodedLen(int(this.blockLength))
 
-	if len(buffer) < requiredSize {
-		buffer = make([]byte, requiredSize)
+	if len(this.iBuffer.Buf) < requiredSize {
+		extraBuf := make([]byte, requiredSize-len(this.iBuffer.Buf))
+		data = append(data, extraBuf...)
+		this.iBuffer.Buf = data
+	}
+
+	if len(this.oBuffer.Buf) < requiredSize {
+		extraBuf := make([]byte, requiredSize-len(this.oBuffer.Buf))
+		buffer = append(buffer, extraBuf...)
 		this.oBuffer.Buf = buffer
 	}
 
 	// Forward transform (ignore error, encode skipFlags)
-	_, postTransformLength, _ = t.Forward(data[0:this.blockLength], buffer)
+	_, postTransformLength, _ := t.Forward(data[0:this.blockLength], buffer)
 	this.ctx["size"] = postTransformLength
 	dataSize := uint(0)
 
@@ -744,11 +745,11 @@ func NewCompressedInputStreamWithCtx(is io.ReadCloser, ctx map[string]interface{
 
 	this.jobs = int(tasks)
 	this.blockID = 0
-	this.data = _EMPTY_BYTE_SLICE
+	this.data = make([]byte, 0)
 	this.buffers = make([]blockBuffer, 2*this.jobs)
 
 	for i := range this.buffers {
-		this.buffers[i] = blockBuffer{Buf: _EMPTY_BYTE_SLICE}
+		this.buffers[i] = blockBuffer{Buf: make([]byte, 0)}
 	}
 
 	this.resChan = make(chan message)
@@ -894,10 +895,10 @@ func (this *CompressedInputStream) Close() error {
 
 	// Release resources
 	this.maxIdx = 0
-	this.data = _EMPTY_BYTE_SLICE
+	this.data = make([]byte, 0)
 
 	for i := range this.buffers {
-		this.buffers[i] = blockBuffer{Buf: _EMPTY_BYTE_SLICE}
+		this.buffers[i] = blockBuffer{Buf: make([]byte, 0)}
 	}
 
 	close(this.resChan)
@@ -1086,7 +1087,8 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 	}
 
 	if len(this.data) < decoded {
-		this.data = make([]byte, decoded)
+		extraBuf := make([]byte, decoded-len(this.data))
+		this.data = append(this.data, extraBuf...)
 	}
 
 	// Process results
@@ -1220,7 +1222,8 @@ func (this *decodingTask) decode() {
 	}
 
 	if len(buffer) < int(bufferSize) {
-		buffer = make([]byte, bufferSize)
+		extraBuf := make([]byte, int(bufferSize)-len(buffer))
+		buffer = append(buffer, extraBuf...)
 		this.oBuffer.Buf = buffer
 	}
 

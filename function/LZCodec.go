@@ -323,7 +323,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Emit last literals
 	dstIdx += emitLastLiterals(src[anchor:srcEnd+8], dst[dstIdx:])
-	return uint(srcEnd + 8), uint(dstIdx), error(nil)
+	return uint(srcEnd + 8), uint(dstIdx), nil
 }
 
 // Inverse applies the reverse function to the src and writes the result
