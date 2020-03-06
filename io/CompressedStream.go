@@ -53,11 +53,6 @@ type IOError struct {
 	code int
 }
 
-// NewIOError creates a new instance of IOError
-func NewIOError(msg string, code int) *IOError {
-	return &IOError{msg: msg, code: code}
-}
-
 // Error returns the underlying error
 func (this IOError) Error() string {
 	return fmt.Sprintf("%v (code %v)", this.msg, this.code)
@@ -131,11 +126,11 @@ func NewCompressedOutputStream(os io.WriteCloser, codec, transform string, block
 // map of parameters
 func NewCompressedOutputStreamWithCtx(os io.WriteCloser, ctx map[string]interface{}) (*CompressedOutputStream, error) {
 	if os == nil {
-		return nil, NewIOError("Invalid null writer parameter", kanzi.ERR_CREATE_STREAM)
+		return nil, &IOError{msg: "Invalid null writer parameter", code: kanzi.ERR_CREATE_STREAM}
 	}
 
 	if ctx == nil {
-		return nil, NewIOError("Invalid null context parameter", kanzi.ERR_CREATE_STREAM)
+		return nil, &IOError{msg: "Invalid null context parameter", code: kanzi.ERR_CREATE_STREAM}
 	}
 
 	entropyCodec := ctx["codec"].(string)
@@ -144,23 +139,23 @@ func NewCompressedOutputStreamWithCtx(os io.WriteCloser, ctx map[string]interfac
 
 	if tasks == 0 || tasks > _MAX_CONCURRENCY {
 		errMsg := fmt.Sprintf("The number of jobs must be in [1..%v]", _MAX_CONCURRENCY)
-		return nil, NewIOError(errMsg, kanzi.ERR_CREATE_STREAM)
+		return nil, &IOError{msg: errMsg, code: kanzi.ERR_CREATE_STREAM}
 	}
 
 	bSize := ctx["blockSize"].(uint)
 
 	if bSize > _MAX_BITSTREAM_BLOCK_SIZE {
 		errMsg := fmt.Sprintf("The block size must be at most %d MB", _MAX_BITSTREAM_BLOCK_SIZE>>20)
-		return nil, NewIOError(errMsg, kanzi.ERR_CREATE_STREAM)
+		return nil, &IOError{msg: errMsg, code: kanzi.ERR_CREATE_STREAM}
 	}
 
 	if bSize < _MIN_BITSTREAM_BLOCK_SIZE {
 		errMsg := fmt.Sprintf("The block size must be at least %d", _MIN_BITSTREAM_BLOCK_SIZE)
-		return nil, NewIOError(errMsg, kanzi.ERR_CREATE_STREAM)
+		return nil, &IOError{msg: errMsg, code: kanzi.ERR_CREATE_STREAM}
 	}
 
 	if int(bSize)&-16 != int(bSize) {
-		return nil, NewIOError("The block size must be a multiple of 16", kanzi.ERR_CREATE_STREAM)
+		return nil, &IOError{msg: "The block size must be a multiple of 16", code: kanzi.ERR_CREATE_STREAM}
 	}
 
 	if uint64(bSize)*uint64(tasks) >= uint64(1<<31) {
@@ -265,35 +260,35 @@ func (this *CompressedOutputStream) writeHeader() *IOError {
 	}
 
 	if this.obs.WriteBits(_BITSTREAM_TYPE, 32) != 32 {
-		return NewIOError("Cannot write bitstream type to header", kanzi.ERR_WRITE_FILE)
+		return &IOError{msg: "Cannot write bitstream type to header", code: kanzi.ERR_WRITE_FILE}
 	}
 
 	if this.obs.WriteBits(_BITSTREAM_FORMAT_VERSION, 5) != 5 {
-		return NewIOError("Cannot write bitstream version to header", kanzi.ERR_WRITE_FILE)
+		return &IOError{msg: "Cannot write bitstream version to header", code: kanzi.ERR_WRITE_FILE}
 	}
 
 	if this.obs.WriteBits(uint64(cksum), 1) != 1 {
-		return NewIOError("Cannot write checksum to header", kanzi.ERR_WRITE_FILE)
+		return &IOError{msg: "Cannot write checksum to header", code: kanzi.ERR_WRITE_FILE}
 	}
 
 	if this.obs.WriteBits(uint64(this.entropyType), 5) != 5 {
-		return NewIOError("Cannot write entropy type to header", kanzi.ERR_WRITE_FILE)
+		return &IOError{msg: "Cannot write entropy type to header", code: kanzi.ERR_WRITE_FILE}
 	}
 
 	if this.obs.WriteBits(uint64(this.transformType), 48) != 48 {
-		return NewIOError("Cannot write transform types to header", kanzi.ERR_WRITE_FILE)
+		return &IOError{msg: "Cannot write transform types to header", code: kanzi.ERR_WRITE_FILE}
 	}
 
 	if this.obs.WriteBits(uint64(this.blockSize>>4), 28) != 28 {
-		return NewIOError("Cannot write block size to header", kanzi.ERR_WRITE_FILE)
+		return &IOError{msg: "Cannot write block size to header", code: kanzi.ERR_WRITE_FILE}
 	}
 
 	if this.obs.WriteBits(uint64(this.nbInputBlocks), 6) != 6 {
-		return NewIOError("Cannot write number of blocks to header", kanzi.ERR_WRITE_FILE)
+		return &IOError{msg: "Cannot write number of blocks to header", code: kanzi.ERR_WRITE_FILE}
 	}
 
 	if this.obs.WriteBits(0, 3) != 3 {
-		return NewIOError("Cannot write reserved bits to header", kanzi.ERR_WRITE_FILE)
+		return &IOError{msg: "Cannot write reserved bits to header", code: kanzi.ERR_WRITE_FILE}
 	}
 
 	return nil
@@ -304,7 +299,7 @@ func (this *CompressedOutputStream) writeHeader() *IOError {
 // any error encountered that caused the write to stop early.
 func (this *CompressedOutputStream) Write(block []byte) (int, error) {
 	if atomic.LoadInt32(&this.closed) == 1 {
-		return 0, NewIOError("Stream closed", kanzi.ERR_WRITE_FILE)
+		return 0, &IOError{msg: "Stream closed", code: kanzi.ERR_WRITE_FILE}
 	}
 
 	startChunk := 0
@@ -510,7 +505,7 @@ func (this *encodingTask) encode() {
 				<-this.input
 			}
 
-			this.output <- NewIOError(r.(error).Error(), kanzi.ERR_PROCESS_BLOCK)
+			this.output <- &IOError{msg: r.(error).Error(), code: kanzi.ERR_PROCESS_BLOCK}
 		}
 	}()
 
@@ -541,7 +536,7 @@ func (this *encodingTask) encode() {
 
 	if err != nil {
 		<-this.input
-		this.output <- NewIOError(err.Error(), kanzi.ERR_CREATE_CODEC)
+		this.output <- &IOError{msg: err.Error(), code: kanzi.ERR_CREATE_CODEC}
 		return
 	}
 
@@ -570,7 +565,7 @@ func (this *encodingTask) encode() {
 
 	if dataSize > 3 {
 		<-this.input
-		this.output <- NewIOError("Invalid block data length", kanzi.ERR_WRITE_FILE)
+		this.output <- &IOError{msg: "Invalid block data length", code: kanzi.ERR_WRITE_FILE}
 		return
 	}
 
@@ -627,7 +622,7 @@ func (this *encodingTask) encode() {
 	ee, err := entropy.NewEntropyEncoder(this.obs, this.ctx, this.blockEntropyType)
 
 	if err != nil {
-		this.output <- NewIOError(err.Error(), kanzi.ERR_CREATE_CODEC)
+		this.output <- &IOError{msg: err.Error(), code: kanzi.ERR_CREATE_CODEC}
 		return
 	}
 
@@ -635,7 +630,7 @@ func (this *encodingTask) encode() {
 	_, err = ee.Write(buffer[0:postTransformLength])
 
 	if err != nil {
-		this.output <- NewIOError(err.Error(), kanzi.ERR_PROCESS_BLOCK)
+		this.output <- &IOError{msg: err.Error(), code: kanzi.ERR_PROCESS_BLOCK}
 		return
 	}
 
@@ -727,18 +722,18 @@ func NewCompressedInputStream(is io.ReadCloser, jobs uint) (*CompressedInputStre
 // using a map of parameters
 func NewCompressedInputStreamWithCtx(is io.ReadCloser, ctx map[string]interface{}) (*CompressedInputStream, error) {
 	if is == nil {
-		return nil, NewIOError("Invalid null reader parameter", kanzi.ERR_CREATE_STREAM)
+		return nil, &IOError{msg: "Invalid null reader parameter", code: kanzi.ERR_CREATE_STREAM}
 	}
 
 	if ctx == nil {
-		return nil, NewIOError("Invalid null context parameter", kanzi.ERR_CREATE_STREAM)
+		return nil, &IOError{msg: "Invalid null context parameter", code: kanzi.ERR_CREATE_STREAM}
 	}
 
 	tasks := ctx["jobs"].(uint)
 
 	if tasks == 0 || tasks > _MAX_CONCURRENCY {
 		errMsg := fmt.Sprintf("The number of jobs must be in [1..%v]", _MAX_CONCURRENCY)
-		return nil, NewIOError(errMsg, kanzi.ERR_CREATE_STREAM)
+		return nil, &IOError{msg: errMsg, code: kanzi.ERR_CREATE_STREAM}
 	}
 
 	this := new(CompressedInputStream)
@@ -757,7 +752,7 @@ func NewCompressedInputStreamWithCtx(is io.ReadCloser, ctx map[string]interface{
 
 	if this.ibs, err = bitstream.NewDefaultInputBitStream(is, _STREAM_DEFAULT_BUFFER_SIZE); err != nil {
 		errMsg := fmt.Sprintf("Cannot create input bit stream: %v", err)
-		return nil, NewIOError(errMsg, kanzi.ERR_CREATE_BITSTREAM)
+		return nil, &IOError{msg: errMsg, code: kanzi.ERR_CREATE_BITSTREAM}
 	}
 
 	this.listeners = make([]kanzi.Listener, 0)
@@ -799,7 +794,7 @@ func (this *CompressedInputStream) RemoveListener(bl kanzi.Listener) bool {
 func (this *CompressedInputStream) readHeader() error {
 	defer func() {
 		if r := recover(); r != nil {
-			panic(NewIOError("Cannot read bitstream header: "+r.(error).Error(), kanzi.ERR_READ_FILE))
+			panic(&IOError{msg: "Cannot read bitstream header: " + r.(error).Error(), code: kanzi.ERR_READ_FILE})
 		}
 	}()
 
@@ -808,7 +803,7 @@ func (this *CompressedInputStream) readHeader() error {
 
 	// Sanity check
 	if fileType != _BITSTREAM_TYPE {
-		return NewIOError("Invalid stream type", kanzi.ERR_INVALID_FILE)
+		return &IOError{msg: "Invalid stream type", code: kanzi.ERR_INVALID_FILE}
 	}
 
 	version := this.ibs.ReadBits(5)
@@ -816,7 +811,7 @@ func (this *CompressedInputStream) readHeader() error {
 	// Sanity check
 	if version != _BITSTREAM_FORMAT_VERSION {
 		errMsg := fmt.Sprintf("Invalid bitstream, cannot read this version of the stream: %d", version)
-		return NewIOError(errMsg, kanzi.ERR_STREAM_VERSION)
+		return &IOError{msg: errMsg, code: kanzi.ERR_STREAM_VERSION}
 	}
 
 	// Read block checksum
@@ -844,7 +839,7 @@ func (this *CompressedInputStream) readHeader() error {
 
 	if this.blockSize < _MIN_BITSTREAM_BLOCK_SIZE || this.blockSize > _MAX_BITSTREAM_BLOCK_SIZE {
 		errMsg := fmt.Sprintf("Invalid bitstream, incorrect block size: %d", this.blockSize)
-		return NewIOError(errMsg, kanzi.ERR_BLOCK_SIZE)
+		return &IOError{msg: errMsg, code: kanzi.ERR_BLOCK_SIZE}
 	}
 
 	if uint64(this.blockSize)*uint64(this.jobs) >= uint64(1<<31) {
@@ -909,7 +904,7 @@ func (this *CompressedInputStream) Close() error {
 // It returns the number of bytes read (0 <= n <= len(block)) and any error encountered.
 func (this *CompressedInputStream) Read(block []byte) (int, error) {
 	if atomic.LoadInt32(&this.closed) == 1 {
-		return 0, NewIOError("Stream closed", kanzi.ERR_READ_FILE)
+		return 0, &IOError{msg: "Stream closed", code: kanzi.ERR_READ_FILE}
 	}
 
 	startChunk := 0
@@ -1083,7 +1078,7 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 	}
 
 	if decoded > int(nbJobs)*int(this.blockSize) {
-		return decoded, NewIOError("Invalid data", kanzi.ERR_PROCESS_BLOCK)
+		return decoded, &IOError{msg: "Invalid data", code: kanzi.ERR_PROCESS_BLOCK}
 	}
 
 	if len(this.data) < decoded {
@@ -1159,7 +1154,7 @@ func (this *decodingTask) decode() {
 	defer func() {
 		if r := recover(); r != nil {
 			// Error => cancel concurrent decoding tasks
-			res.err = NewIOError(r.(error).Error(), kanzi.ERR_READ_FILE)
+			res.err = &IOError{msg: r.(error).Error(), code: kanzi.ERR_READ_FILE}
 			notify(this.output, this.result, false, res)
 		}
 	}()
@@ -1195,7 +1190,7 @@ func (this *decodingTask) decode() {
 	if preTransformLength > _MAX_BITSTREAM_BLOCK_SIZE {
 		// Error => cancel concurrent decoding tasks
 		errMsg := fmt.Sprintf("Invalid compressed block length: %d", preTransformLength)
-		res.err = NewIOError(errMsg, kanzi.ERR_BLOCK_SIZE)
+		res.err = &IOError{msg: errMsg, code: kanzi.ERR_BLOCK_SIZE}
 		notify(this.output, this.result, false, res)
 		return
 	}
@@ -1235,7 +1230,7 @@ func (this *decodingTask) decode() {
 
 	if err != nil {
 		// Error => cancel concurrent decoding tasks
-		res.err = NewIOError(err.Error(), kanzi.ERR_INVALID_CODEC)
+		res.err = &IOError{msg: err.Error(), code: kanzi.ERR_INVALID_CODEC}
 		notify(this.output, this.result, false, res)
 		return
 	}
@@ -1245,7 +1240,7 @@ func (this *decodingTask) decode() {
 	// Block entropy decode
 	if _, err = ed.Read(buffer[0:preTransformLength]); err != nil {
 		// Error => cancel concurrent decoding tasks
-		res.err = NewIOError(err.Error(), kanzi.ERR_PROCESS_BLOCK)
+		res.err = &IOError{msg: err.Error(), code: kanzi.ERR_PROCESS_BLOCK}
 		notify(this.output, this.result, false, res)
 		return
 	}
@@ -1273,7 +1268,7 @@ func (this *decodingTask) decode() {
 
 	if err != nil {
 		// Error => return
-		res.err = NewIOError(err.Error(), kanzi.ERR_INVALID_CODEC)
+		res.err = &IOError{msg: err.Error(), code: kanzi.ERR_INVALID_CODEC}
 		notify(nil, this.result, false, res)
 		return
 	}
@@ -1284,7 +1279,7 @@ func (this *decodingTask) decode() {
 	// Inverse transform
 	if _, oIdx, err = transform.Inverse(buffer[0:preTransformLength], data); err != nil {
 		// Error => return
-		res.err = NewIOError(err.Error(), kanzi.ERR_PROCESS_BLOCK)
+		res.err = &IOError{msg: err.Error(), code: kanzi.ERR_PROCESS_BLOCK}
 		notify(nil, this.result, false, res)
 		return
 	}
@@ -1297,7 +1292,7 @@ func (this *decodingTask) decode() {
 
 		if checksum2 != checksum1 {
 			errMsg := fmt.Sprintf("Corrupted bitstream: expected checksum %x, found %x", checksum1, checksum2)
-			res.err = NewIOError(errMsg, kanzi.ERR_CRC_CHECK)
+			res.err = &IOError{msg: errMsg, code: kanzi.ERR_CRC_CHECK}
 			notify(nil, this.result, false, res)
 			return
 		}
