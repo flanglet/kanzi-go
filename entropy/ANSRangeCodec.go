@@ -160,10 +160,10 @@ func (this *ANSRangeEncoder) encodeHeader(alphabetSize int, alphabet []int, freq
 		return nil
 	}
 
-	chkSize := 8
+	chkSize := 6
 
 	if alphabetSize < 64 {
-		chkSize = 6
+		chkSize = 4
 	}
 
 	llr := uint(3)
@@ -492,10 +492,10 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, error) {
 			}
 		}
 
-		chkSize := 8
+		chkSize := 6
 
 		if alphabetSize < 64 {
-			chkSize = 6
+			chkSize = 4
 		}
 
 		llr := uint(3)
@@ -595,9 +595,15 @@ func (this *ANSRangeDecoder) Read(block []byte) (int, error) {
 		this.symbols[i] = decSymbol{}
 	}
 
+	padding := sizeChunk >> 3
+
+	if sizeChunk < 128 {
+		padding = 16
+	}
+
 	// Add some padding
-	if len(this.buffer) < sizeChunk+(sizeChunk>>3) {
-		this.buffer = make([]byte, sizeChunk+(sizeChunk>>3))
+	if len(this.buffer) < sizeChunk+padding {
+		this.buffer = make([]byte, sizeChunk+padding)
 	}
 
 	for startChunk < end {

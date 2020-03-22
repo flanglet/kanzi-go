@@ -164,7 +164,7 @@ type Predictor interface {
 
 // EntropyEncoder entropy encodes data to a bitstream
 type EntropyEncoder interface {
-	// Write encodes the data provided into the bitstream. Return the number of byte
+	// Write encodes the data provided into the bitstream. Return the number of bytes
 	// written to the bitstream
 	Write(block []byte) (int, error)
 
