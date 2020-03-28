@@ -30,8 +30,8 @@ const (
 	_TOP_RANGE                = uint64(0x0FFFFFFFFFFFFFFF)
 	_BOTTOM_RANGE             = uint64(0x000000000000FFFF)
 	_RANGE_MASK               = uint64(0x0FFFFFFF00000000)
-	_DEFAULT_RANGE_CHUNK_SIZE = uint(1 << 16) // 64 KB by default
-	_DEFAULT_RANGE_LOG_RANGE  = uint(13)
+	_DEFAULT_RANGE_CHUNK_SIZE = uint(1 << 15) // 32 KB by default
+	_DEFAULT_RANGE_LOG_RANGE  = uint(12)
 )
 
 // RangeEncoder a Order 0 Range Entropy Encoder
@@ -140,7 +140,7 @@ func (this *RangeEncoder) encodeHeader(alphabetSize int, alphabet []int, frequen
 	// Encode all frequencies (but the first one) by chunks
 	for i := 1; i < alphabetSize; i += chkSize {
 		max := frequencies[alphabet[i]] - 1
-		logMax := uint(1)
+		logMax := uint(0)
 		endj := i + chkSize
 
 		if endj > alphabetSize {
@@ -158,7 +158,12 @@ func (this *RangeEncoder) encodeHeader(alphabetSize int, alphabet []int, frequen
 			logMax++
 		}
 
-		this.bitstream.WriteBits(uint64(logMax-1), llr)
+		this.bitstream.WriteBits(uint64(logMax), llr)
+
+		if logMax == 0 {
+			// all frequencies equal one in this chunk
+			continue
+		}
 
 		// Write frequencies
 		for j := i; j < endj; j++ {
@@ -350,7 +355,13 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
 
 	// Decode all frequencies (but the first one)
 	for i := 1; i < alphabetSize; i += chkSize {
-		logMax := uint(1 + this.bitstream.ReadBits(llr))
+		logMax := uint(this.bitstream.ReadBits(llr))
+
+		if 1<<logMax > scale {
+			err := fmt.Errorf("Invalid bitstream: incorrect frequency size %v in range decoder", logMax)
+			return alphabetSize, err
+		}
+
 		endj := i + chkSize
 
 		if endj > alphabetSize {
@@ -359,15 +370,19 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
 
 		// Read frequencies
 		for j := i; j < endj; j++ {
-			val := int(1 + this.bitstream.ReadBits(logMax))
+			freq := 1
 
-			if val <= 0 || val >= scale {
-				err := fmt.Errorf("Invalid bitstream: incorrect frequency %v for symbol '%v' in range decoder", val, this.alphabet[j])
-				return alphabetSize, err
+			if logMax > 0 {
+				freq = int(1 + this.bitstream.ReadBits(logMax))
+
+				if freq <= 0 || freq >= scale {
+					err := fmt.Errorf("Invalid bitstream: incorrect frequency %v for symbol '%v' in range decoder", freq, this.alphabet[j])
+					return alphabetSize, err
+				}
 			}
 
-			frequencies[this.alphabet[j]] = val
-			sum += val
+			frequencies[this.alphabet[j]] = freq
+			sum += freq
 		}
 	}
 
