@@ -216,7 +216,7 @@ func computeStats(block []byte, freqs0 []int32) byte {
 	}
 
 	// Not text (crude threshold)
-	if nbTextChars < (length>>1) || int(freqs0[32]) < (length>>4) {
+	if nbTextChars < (length>>1) || int(freqs0[32]) < (length>>5) {
 		return _TC_MASK_NOT_TEXT
 	}
 
@@ -268,10 +268,7 @@ func computeStats(block []byte, freqs0 []int32) byte {
 		}
 	}
 
-	// Address the corner case where block[0] = LF
-	// In this case, unset the mask because the decoder would not know whether
-	// to add an extra CR or not.
-	if (block[0] != LF) && (freqs0[CR] != 0) && (freqs0[CR] == freqs0[LF]) {
+	if (freqs0[CR] != 0) && (freqs0[CR] == freqs0[LF]) {
 		isCRLF := true
 
 		for i := 0; i < 256; i++ {
