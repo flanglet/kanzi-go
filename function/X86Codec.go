@@ -25,10 +25,13 @@ import (
 // Adapted from MCM: https://github.com/mathieuchartier/mcm/blob/master/X86Binary.hpp
 
 const (
-	_X86_INSTRUCTION_MASK = 0xFE
+	_X86_MASK_JUMP        = 0xFE
 	_X86_INSTRUCTION_JUMP = 0xE8
-	_X86_ADDRESS_MASK     = 0xD5
-	_X86_ESCAPE           = 0x02
+	_X86_INSTRUCTION_JCC  = 0x80
+	_X86_PREFIX_JCC       = 0x0F
+	_X86_MASK_JCC         = 0xF0
+	_X86_MASK_ADDRESS     = 0xD5
+	_X86_ESCAPE           = 0xF5
 )
 
 // X86Codec a codec for x86 code
@@ -67,14 +70,14 @@ func (this *X86Codec) Forward(src, dst []byte) (uint, uint, error) {
 	end := count - 8
 
 	for i := 0; i < end; i++ {
-		if src[i]&_X86_INSTRUCTION_MASK == _X86_INSTRUCTION_JUMP {
-			// Count valid relative jumps (E8/E9 .. .. .. 00/FF)
-			if src[i+4] == 0 || src[i+4] == 255 {
-				// No encoding conflict ?
-				if src[i] != 0 && src[i] != 1 && src[i] != _X86_ESCAPE {
-					jumps++
-				}
+		if src[i]&_X86_MASK_JUMP == _X86_INSTRUCTION_JUMP {
+			if src[i+4] == 0 || src[i+4] == 0xFF {
+				// Count relative jumps (E8/E9 .. .. .. 00/FF)
+				jumps++
 			}
+		} else if (src[i+1]&_X86_MASK_JCC == _X86_INSTRUCTION_JCC) && (src[i] == _X86_PREFIX_JCC) {
+			// Count relative conditional jumps (0x0F 0x8.)
+			jumps++
 		}
 	}
 
@@ -94,7 +97,7 @@ func (this *X86Codec) Forward(src, dst []byte) (uint, uint, error) {
 		srcIdx++
 
 		// Relative jump ?
-		if src[srcIdx-1]&_X86_INSTRUCTION_MASK != _X86_INSTRUCTION_JUMP {
+		if src[srcIdx-1]&_X86_MASK_JUMP != _X86_INSTRUCTION_JUMP {
 			continue
 		}
 
@@ -112,7 +115,7 @@ func (this *X86Codec) Forward(src, dst []byte) (uint, uint, error) {
 		sgn := src[srcIdx+3]
 
 		// Invalid sign of jump address difference => false positive ?
-		if sgn != 0 && sgn != 255 {
+		if sgn != 0 && sgn != 0xFF {
 			continue
 		}
 
@@ -121,9 +124,9 @@ func (this *X86Codec) Forward(src, dst []byte) (uint, uint, error) {
 
 		addr += int32(srcIdx)
 		dst[dstIdx] = sgn + 1
-		dst[dstIdx+1] = _X86_ADDRESS_MASK ^ byte(addr>>16)
-		dst[dstIdx+2] = _X86_ADDRESS_MASK ^ byte(addr>>8)
-		dst[dstIdx+3] = _X86_ADDRESS_MASK ^ byte(addr)
+		dst[dstIdx+1] = _X86_MASK_ADDRESS ^ byte(addr>>16)
+		dst[dstIdx+2] = _X86_MASK_ADDRESS ^ byte(addr>>8)
+		dst[dstIdx+3] = _X86_MASK_ADDRESS ^ byte(addr)
 		srcIdx += 4
 		dstIdx += 4
 	}
@@ -156,33 +159,33 @@ func (this *X86Codec) Inverse(src, dst []byte) (uint, uint, error) {
 		srcIdx++
 
 		// Relative jump ?
-		if src[srcIdx-1]&_X86_INSTRUCTION_MASK != _X86_INSTRUCTION_JUMP {
+		if src[srcIdx-1]&_X86_MASK_JUMP != _X86_INSTRUCTION_JUMP {
 			continue
 		}
 
-		sgn := src[srcIdx]
-
-		if sgn == _X86_ESCAPE {
+		if src[srcIdx] == _X86_ESCAPE {
 			// Not an encoded address. Skip escape symbol
 			srcIdx++
 			continue
 		}
 
+		sgn := src[srcIdx] - 1
+
 		// Invalid sign of jump address difference => false positive ?
-		if sgn != 1 && sgn != 0 {
+		if sgn != 0 && sgn != 0xFF {
 			continue
 		}
 
-		addr := (_X86_ADDRESS_MASK ^ int32(src[srcIdx+3])) |
-			((_X86_ADDRESS_MASK ^ int32(src[srcIdx+2])) << 8) |
-			((_X86_ADDRESS_MASK ^ int32(src[srcIdx+1])) << 16) |
-			((0xFF & int32(sgn-1)) << 24)
+		addr := (_X86_MASK_ADDRESS ^ int32(src[srcIdx+3])) |
+			((_X86_MASK_ADDRESS ^ int32(src[srcIdx+2])) << 8) |
+			((_X86_MASK_ADDRESS ^ int32(src[srcIdx+1])) << 16) |
+			((0xFF & int32(sgn)) << 24)
 
 		addr -= int32(dstIdx)
 		dst[dstIdx] = byte(addr)
 		dst[dstIdx+1] = byte(addr >> 8)
 		dst[dstIdx+2] = byte(addr >> 16)
-		dst[dstIdx+3] = byte(sgn - 1)
+		dst[dstIdx+3] = sgn
 		srcIdx += 4
 		dstIdx += 4
 	}
