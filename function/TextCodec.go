@@ -176,7 +176,7 @@ var (
 )
 
 // return 8-bit status (see MASK flags constants)
-func computeStats(block []byte, freqs0 []int32) byte {
+func computeStats(block []byte, freqs0 []int32, strict bool) byte {
 	var freqs [256][256]int32
 	freqs1 := freqs[0:256]
 	length := len(block)
@@ -207,17 +207,27 @@ func computeStats(block []byte, freqs0 []int32) byte {
 		prv = cur
 	}
 
-	nbTextChars := 0
+	nbTextChars := int(freqs0[CR]) + int(freqs0[LF])
+	nbASCII := 0
+	nbZeros := int(freqs0[0])
 
-	for i := 32; i < 128; i++ {
-		if isText(byte(i)) {
+	for i := 0; i < 128; i++ {
+		if isText(byte(i)) == true {
 			nbTextChars += int(freqs0[i])
 		}
+
+		nbASCII += int(freqs0[i])
 	}
 
-	// Not text (crude threshold)
-	if nbTextChars < (length>>1) || int(freqs0[32]) < (length>>5) {
-		return _TC_MASK_NOT_TEXT
+	// Not text (crude thresholds)
+	if strict == true {
+		if (nbZeros >= (length / 100)) || nbTextChars < (length>>1) || freqs0[32] < int32(length>>4) {
+			return _TC_MASK_NOT_TEXT
+		}
+	} else {
+		if (nbASCII / 95) < (length / 100) {
+			return _TC_MASK_NOT_TEXT
+		}
 	}
 
 	nbBinChars := 0
@@ -585,7 +595,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	srcIdx := 0
 	dstIdx := 0
 	freqs0 := [256]int32{}
-	mode := computeStats(src[0:count], freqs0[:])
+	mode := computeStats(src[0:count], freqs0[:], true)
 
 	// Not text ?
 	if mode&_TC_MASK_NOT_TEXT != 0 {
@@ -1099,7 +1109,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	srcIdx := 0
 	dstIdx := 0
 	freqs0 := [256]int32{}
-	mode := computeStats(src[0:count], freqs0[:])
+	mode := computeStats(src[0:count], freqs0[:], false)
 
 	// Not text ?
 	if mode&_TC_MASK_NOT_TEXT != 0 {
