@@ -122,16 +122,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 			masks[alphabet[i]>>3] |= (1 << uint8(alphabet[i]&7))
 		}
 
-		lastMask := 31
-
-		for lastMask > 0 {
-			if masks[lastMask] != 0 {
-				break
-			}
-
-			lastMask--
-		}
-
+		lastMask := alphabet[count-1] >> 3
 		obs.WriteBits(uint64(lastMask), 5)
 
 		for i := 0; i <= lastMask; i++ {
