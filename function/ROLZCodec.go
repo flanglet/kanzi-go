@@ -473,6 +473,8 @@ End:
 
 			if srcIdx != len(src) {
 				err = errors.New("ROLZ codec: Destination buffer too small")
+			} else if dstIdx >= len(src) {
+				err = errors.New("ROLZ codec: No compression")
 			}
 		}
 	}
@@ -963,7 +965,7 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	if srcIdx != len(src) {
 		err = errors.New("ROLZX codec: Destination buffer too small")
 	} else if dstIdx >= len(src) {
-		err = errors.New("ROLZX codec: No compression, skipping...")
+		err = errors.New("ROLZX codec: No compression")
 	}
 
 	return uint(srcIdx), uint(dstIdx), err
