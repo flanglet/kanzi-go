@@ -26,6 +26,14 @@ type BufferStream struct {
 	closed bool
 }
 
+// NewBufferStream creates a new instance of BufferStream backed by the
+// provided byte slice.
+func NewBufferStream(buf []byte) *BufferStream {
+	this := &BufferStream{}
+	this.buf = buf
+	return this
+}
+
 // Write returns an error if the stream is closed, otherwise writes the given
 // data to the internal buffer (growing the buffer as needed).
 // Returns the number of bytes written.
