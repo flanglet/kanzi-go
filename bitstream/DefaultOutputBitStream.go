@@ -279,13 +279,16 @@ func (this *DefaultOutputBitStream) Close() (bool, error) {
 	savedBitIndex := this.availBits
 	savedPosition := this.position
 	savedCurrent := this.current
+	avail := int(this.availBits)
 
 	// Push last bytes (the very last byte may be incomplete)
-	for shift := uint(56); this.availBits > 0; shift -= 8 {
+	for shift := uint(56); avail > 0; shift -= 8 {
 		this.buffer[this.position] = byte(this.current >> shift)
 		this.position++
-		this.availBits -= 8
+		avail -= 8
 	}
+
+	this.availBits = 0
 
 	if err := this.flush(); err != nil {
 		// Revert fields to allow subsequent attempts in case of transient failure
