@@ -279,13 +279,12 @@ func (this *DefaultOutputBitStream) Close() (bool, error) {
 	savedBitIndex := this.availBits
 	savedPosition := this.position
 	savedCurrent := this.current
-	avail := int(this.availBits)
 
 	// Push last bytes (the very last byte may be incomplete)
-	for shift := uint(56); avail < 64; shift -= 8 {
+	for shift := uint(56); this.availBits < 64; shift -= 8 {
 		this.buffer[this.position] = byte(this.current >> shift)
 		this.position++
-		avail += 8
+		this.availBits += 8
 	}
 
 	this.written -= uint64(this.availBits - 64)
