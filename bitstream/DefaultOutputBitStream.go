@@ -282,13 +282,14 @@ func (this *DefaultOutputBitStream) Close() (bool, error) {
 	avail := int(this.availBits)
 
 	// Push last bytes (the very last byte may be incomplete)
-	for shift := uint(56); avail > 0; shift -= 8 {
+	for shift := uint(56); avail < 64; shift -= 8 {
 		this.buffer[this.position] = byte(this.current >> shift)
 		this.position++
-		avail -= 8
+		avail += 8
 	}
 
-	this.availBits = 0
+	this.written -= uint64(this.availBits - 64)
+	this.availBits = 64
 
 	if err := this.flush(); err != nil {
 		// Revert fields to allow subsequent attempts in case of transient failure
@@ -303,8 +304,8 @@ func (this *DefaultOutputBitStream) Close() (bool, error) {
 	this.closed = true
 	this.position = 0
 	this.availBits = 0
+	this.written -= 64 // adjust because this.availBits = 0
 	this.buffer = make([]byte, 8)
-	this.written -= 64 // adjust for method Written()
 	return true, nil
 }
 
