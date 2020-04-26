@@ -1148,7 +1148,7 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	checksum1 := uint32(0)
 
 	defer func() {
-		res.data = this.oBuffer.Buf
+		res.data = this.iBuffer.Buf
 		res.decoded = decoded
 		res.blockID = int(this.currentBlockID)
 		res.completionTime = time.Now()
