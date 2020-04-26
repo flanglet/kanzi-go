@@ -698,8 +698,8 @@ func (this *encodingTask) encode(res error) {
 			chkSize = 1 << 31
 		}
 
-		this.obs.WriteArray(data[n:], uint(chkSize))
-		n += chkSize
+		this.obs.WriteArray(data[n:], chkSize)
+		n += ((chkSize + 7) >> 3)
 		written -= uint64(chkSize)
 	}
 }
@@ -1225,7 +1225,7 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 		}
 
 		this.ibs.ReadArray(data[n:], chkSize)
-		n += chkSize
+		n += ((chkSize + 7) >> 3)
 		read -= uint64(chkSize)
 	}
 
