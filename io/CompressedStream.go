@@ -18,6 +18,8 @@ package io
 import (
 	"fmt"
 	"io"
+	"runtime"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -25,6 +27,7 @@ import (
 	"github.com/flanglet/kanzi-go/bitstream"
 	"github.com/flanglet/kanzi-go/entropy"
 	"github.com/flanglet/kanzi-go/function"
+	"github.com/flanglet/kanzi-go/util"
 	"github.com/flanglet/kanzi-go/util/hash"
 )
 
@@ -45,6 +48,7 @@ const (
 	_MAX_BITSTREAM_BLOCK_SIZE   = 1024 * 1024 * 1024
 	_SMALL_BLOCK_SIZE           = 15
 	_MAX_CONCURRENCY            = 64
+	_CANCEL_TASKS_ID            = -1
 )
 
 // IOError an extended error containing a message and a code value
@@ -88,10 +92,9 @@ type CompressedOutputStream struct {
 	obs           kanzi.OutputBitStream
 	initialized   int32
 	closed        int32
-	blockID       int
+	blockID       int32
 	curIdx        int
 	jobs          int
-	channels      []chan error
 	listeners     []kanzi.Listener
 	ctx           map[string]interface{}
 }
@@ -103,9 +106,9 @@ type encodingTask struct {
 	blockLength        uint
 	blockTransformType uint64
 	blockEntropyType   uint32
-	currentBlockID     int
-	input              chan error
-	output             chan error
+	currentBlockID     int32
+	processedBlockID   *int32
+	wg                 *sync.WaitGroup
 	listeners          []kanzi.Listener
 	obs                kanzi.OutputBitStream
 	ctx                map[string]interface{}
@@ -213,12 +216,6 @@ func NewCompressedOutputStreamWithCtx(os io.WriteCloser, ctx map[string]interfac
 	}
 
 	this.blockID = 0
-	this.channels = make([]chan error, this.jobs+1)
-
-	for i := range this.channels {
-		this.channels[i] = make(chan error)
-	}
-
 	this.listeners = make([]kanzi.Listener, 0)
 	this.ctx = ctx
 	return this, nil
@@ -353,22 +350,23 @@ func (this *CompressedOutputStream) Close() error {
 	}
 
 	// Write end block of size 0
-	this.obs.WriteBits(_COPY_BLOCK_MASK, 8)
-	this.obs.WriteBits(0, 8)
+	lw := uint(32)
+
+	if this.blockSize >= 1<<28 {
+		lw = 40
+	}
+
+	this.obs.WriteBits(0, lw)
 
 	if _, err := this.obs.Close(); err != nil {
 		return err
 	}
 
 	// Release resources
-	this.data = make([]byte, 0)
+	this.data = make([]byte, 0, 0)
 
 	for i := range this.buffers {
-		this.buffers[i] = blockBuffer{Buf: make([]byte, 0)}
-	}
-
-	for _, c := range this.channels {
-		close(c)
+		this.buffers[i] = blockBuffer{Buf: make([]byte, 0, 0)}
 	}
 
 	return nil
@@ -401,67 +399,95 @@ func (this *CompressedOutputStream) processBlock(force bool) error {
 		}
 	}
 
-	offset := uint(0)
+	offset := 0
 
 	// Protect against future concurrent modification of the list of block listeners
 	listeners := make([]kanzi.Listener, len(this.listeners))
 	copy(listeners, this.listeners)
-	nbJobs := 0
+
+	nbTasks := this.jobs
+	var jobsPerTask []uint
+
+	// Assign optimal number of tasks and jobs per task
+	if nbTasks > 1 {
+		// If the number of input blocks is available, use it to optimize
+		// memory usage
+		if this.nbInputBlocks != 0 {
+			// Limit the number of jobs if there are fewer blocks that this.jobs
+			// It allows more jobs per task and reduces memory usage.
+			if nbTasks > int(this.nbInputBlocks) {
+				nbTasks = int(this.nbInputBlocks)
+			}
+		}
+
+		jobsPerTask = kanzi.ComputeJobsPerTask(make([]uint, nbTasks), uint(this.jobs), uint(nbTasks))
+	} else {
+		jobsPerTask = []uint{uint(this.jobs)}
+	}
+
+	var err error
+	tasks := 0
+	wg := sync.WaitGroup{}
 
 	// Invoke as many go routines as required
-	for jobID := 0; jobID < this.jobs; jobID++ {
+	for taskID := 0; taskID < nbTasks; taskID++ {
 		if this.curIdx == 0 {
 			break
 		}
 
-		nbJobs = jobID + 1
-		sz := uint(this.curIdx)
+		sz := this.curIdx
 
-		if sz >= this.blockSize {
-			sz = this.blockSize
+		if sz >= int(this.blockSize) {
+			sz = int(this.blockSize)
 		}
 
-		if len(this.buffers[2*jobID].Buf) < int(sz) {
-			this.buffers[2*jobID].Buf = make([]byte, sz)
+		// Add padding for incompressible data
+		length := sz
+
+		if length >= 1024<<6 {
+			length += (length >> 6)
+		} else {
+			length += 1024
 		}
 
-		copy(this.buffers[2*jobID].Buf, this.data[offset:offset+sz])
+		if len(this.buffers[2*taskID].Buf) < length {
+			this.buffers[2*taskID].Buf = make([]byte, length)
+		}
+
+		copy(this.buffers[2*taskID].Buf, this.data[offset:offset+sz])
 		copyCtx := make(map[string]interface{})
 
 		for k, v := range this.ctx {
 			copyCtx[k] = v
 		}
 
+		copyCtx["jobs"] = jobsPerTask[taskID]
+		wg.Add(1)
+		tasks++
+		offset += sz
+		this.curIdx -= sz
+
 		task := encodingTask{
-			iBuffer:            &this.buffers[2*jobID],
-			oBuffer:            &this.buffers[2*jobID+1],
+			iBuffer:            &this.buffers[2*taskID],
+			oBuffer:            &this.buffers[2*taskID+1],
 			hasher:             this.hasher,
-			blockLength:        sz,
+			blockLength:        uint(sz),
 			blockTransformType: this.transformType,
 			blockEntropyType:   this.entropyType,
-			currentBlockID:     this.blockID + jobID + 1,
-			input:              this.channels[jobID],
-			output:             this.channels[jobID+1],
+			currentBlockID:     this.blockID + int32(taskID) + 1,
+			processedBlockID:   &this.blockID,
+			wg:                 &wg,
 			obs:                this.obs,
 			listeners:          listeners,
 			ctx:                copyCtx}
 
 		// Invoke the tasks concurrently
-		// Tasks are chained through channels. Upon completion of transform
-		// (concurrently) the tasks wait for a signal to start entropy encoding
-		go task.encode()
-
-		offset += sz
-		this.curIdx -= int(sz)
+		go task.encode(err)
 	}
 
-	// Allow start of entropy coding for first block
-	this.channels[0] <- error(nil)
+	// Wait for completion of all tasks
+	wg.Wait()
 
-	// Wait for completion of last task
-	err := <-this.channels[nbJobs]
-
-	this.blockID += this.jobs
 	return err
 }
 
@@ -479,11 +505,26 @@ func (this *CompressedOutputStream) GetWritten() uint64 {
 //  case more than 4 transforms
 //      | 0b00000000
 //      then 0byyyyyyyy => transform sequence skip flags (1 means skip)
-func (this *encodingTask) encode() {
+func (this *encodingTask) encode(res error) {
 	data := this.iBuffer.Buf
 	buffer := this.oBuffer.Buf
 	mode := byte(0)
 	checksum := uint32(0)
+
+	defer func() {
+		if r := recover(); r != nil {
+			res = IOError{msg: r.(error).Error(), code: kanzi.ERR_PROCESS_BLOCK}
+		}
+
+		// Unblock other tasks
+		if res != nil {
+			atomic.StoreInt32(this.processedBlockID, _CANCEL_TASKS_ID)
+		} else if atomic.LoadInt32(this.processedBlockID) == this.currentBlockID-1 {
+			atomic.StoreInt32(this.processedBlockID, this.currentBlockID)
+		}
+
+		this.wg.Done()
+	}()
 
 	// Compute block checksum
 	if this.hasher != nil {
@@ -492,22 +533,10 @@ func (this *encodingTask) encode() {
 
 	if len(this.listeners) > 0 {
 		// Notify before transform
-		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_TRANSFORM, this.currentBlockID,
+		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_TRANSFORM, int(this.currentBlockID),
 			int64(this.blockLength), checksum, this.hasher != nil, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
-
-	inputReceived := false
-
-	defer func() {
-		if r := recover(); r != nil {
-			if inputReceived == false {
-				<-this.input
-			}
-
-			this.output <- &IOError{msg: r.(error).Error(), code: kanzi.ERR_PROCESS_BLOCK}
-		}
-	}()
 
 	if this.blockLength <= _SMALL_BLOCK_SIZE {
 		if this.blockLength == 0 {
@@ -535,8 +564,7 @@ func (this *encodingTask) encode() {
 	t, err := function.NewByteFunction(&this.ctx, this.blockTransformType)
 
 	if err != nil {
-		<-this.input
-		this.output <- &IOError{msg: err.Error(), code: kanzi.ERR_CREATE_CODEC}
+		res = IOError{msg: err.Error(), code: kanzi.ERR_CREATE_CODEC}
 		return
 	}
 
@@ -564,8 +592,7 @@ func (this *encodingTask) encode() {
 	}
 
 	if dataSize > 3 {
-		<-this.input
-		this.output <- &IOError{msg: "Invalid block data length", code: kanzi.ERR_WRITE_FILE}
+		res = IOError{msg: "Invalid block data length", code: kanzi.ERR_WRITE_FILE}
 		return
 	}
 
@@ -575,54 +602,45 @@ func (this *encodingTask) encode() {
 
 	if len(this.listeners) > 0 {
 		// Notify after transform
-		evt := kanzi.NewEvent(kanzi.EVT_AFTER_TRANSFORM, this.currentBlockID,
+		evt := kanzi.NewEvent(kanzi.EVT_AFTER_TRANSFORM, int(this.currentBlockID),
 			int64(postTransformLength), checksum, this.hasher != nil, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
 
-	// Wait for the concurrent task processing the previous block to complete
-	// entropy encoding. Entropy encoding must happen sequentially (and
-	// in the correct block order) in the bitstream.
-	err2 := <-this.input
-	inputReceived = true
-
-	if err2 != nil {
-		this.output <- err2
-		return
-	}
+	// Create a bitstream local to the task
+	bufStream := util.NewBufferStream(data[0:0:cap(data)])
+	obs, _ := bitstream.NewDefaultOutputBitStream(bufStream, 16384)
 
 	// Write block 'header' (mode + compressed length)
-	written := this.obs.Written()
-
 	if ((mode & _COPY_BLOCK_MASK) != 0) || (t.Len() <= 4) {
 		mode |= byte(t.SkipFlags() >> 4)
-		this.obs.WriteBits(uint64(mode), 8)
+		obs.WriteBits(uint64(mode), 8)
 	} else {
 		mode |= _TRANSFORMS_MASK
-		this.obs.WriteBits(uint64(mode), 8)
-		this.obs.WriteBits(uint64(t.SkipFlags()), 8)
+		obs.WriteBits(uint64(mode), 8)
+		obs.WriteBits(uint64(t.SkipFlags()), 8)
 	}
 
-	this.obs.WriteBits(uint64(postTransformLength), 8*dataSize)
+	obs.WriteBits(uint64(postTransformLength), 8*dataSize)
 
 	// Write checksum
 	if this.hasher != nil {
-		this.obs.WriteBits(uint64(checksum), 32)
+		obs.WriteBits(uint64(checksum), 32)
 	}
 
 	if len(this.listeners) > 0 {
 		// Notify before entropy
-		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_ENTROPY, this.currentBlockID,
+		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_ENTROPY, int(this.currentBlockID),
 			int64(postTransformLength), checksum, this.hasher != nil, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
 
 	// Each block is encoded separately
 	// Rebuild the entropy encoder to reset block statistics
-	ee, err := entropy.NewEntropyEncoder(this.obs, this.ctx, this.blockEntropyType)
+	ee, err := entropy.NewEntropyEncoder(obs, this.ctx, this.blockEntropyType)
 
 	if err != nil {
-		this.output <- &IOError{msg: err.Error(), code: kanzi.ERR_CREATE_CODEC}
+		res = IOError{msg: err.Error(), code: kanzi.ERR_CREATE_CODEC}
 		return
 	}
 
@@ -630,22 +648,60 @@ func (this *encodingTask) encode() {
 	_, err = ee.Write(buffer[0:postTransformLength])
 
 	if err != nil {
-		this.output <- &IOError{msg: err.Error(), code: kanzi.ERR_PROCESS_BLOCK}
+		res = IOError{msg: err.Error(), code: kanzi.ERR_PROCESS_BLOCK}
 		return
 	}
 
 	// Dispose before displaying statistics. Dispose may write to the bitstream
 	ee.Dispose()
+	obs.Close()
+	written := obs.Written()
+
+	// Lock free synchronization
+	for n := 0; ; n++ {
+		taskID := atomic.LoadInt32(this.processedBlockID)
+
+		if taskID == this.currentBlockID-1 {
+			break
+		}
+
+		if taskID == _CANCEL_TASKS_ID {
+			return
+		}
+
+		if n&7 == 0 {
+			runtime.Gosched()
+		}
+	}
 
 	if len(this.listeners) > 0 {
 		// Notify after entropy
-		evt := kanzi.NewEvent(kanzi.EVT_AFTER_ENTROPY, this.currentBlockID,
-			int64(this.obs.Written()-written)/8, checksum, this.hasher != nil, time.Now())
+		evt := kanzi.NewEvent(kanzi.EVT_AFTER_ENTROPY, int(this.currentBlockID),
+			int64((written+7)>>3), checksum, this.hasher != nil, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
 
-	// Notify of completion of the task
-	this.output <- error(nil)
+	// Emit block size in bits (max size pre-entropy is 1 GB = 1 << 30 bytes)
+	lw := uint(32)
+
+	if this.blockLength >= 1<<28 {
+		lw = 40
+	}
+
+	this.obs.WriteBits(written, lw)
+
+	// Emit data to shared bitstream
+	for n := uint(0); written > 0; {
+		chkSize := uint(written)
+
+		if written >= 1<<31 {
+			chkSize = 1 << 31
+		}
+
+		this.obs.WriteArray(data[n:], uint(chkSize))
+		n += chkSize
+		written -= uint64(chkSize)
+	}
 }
 
 func notifyListeners(listeners []kanzi.Listener, evt *kanzi.Event) {
@@ -661,7 +717,7 @@ func notifyListeners(listeners []kanzi.Listener, evt *kanzi.Event) {
 	}
 }
 
-type message struct {
+type decodingTaskResult struct {
 	err            *IOError
 	data           []byte
 	decoded        int
@@ -669,8 +725,6 @@ type message struct {
 	checksum       uint32
 	completionTime time.Time
 }
-
-type semaphore chan bool
 
 // CompressedInputStream a Reader that reads compressed data
 // from an InputBitStream.
@@ -685,13 +739,11 @@ type CompressedInputStream struct {
 	ibs           kanzi.InputBitStream
 	initialized   int32
 	closed        int32
-	blockID       int
+	blockID       int32
 	maxIdx        int
 	curIdx        int
 	jobs          int
-	resChan       chan message
 	listeners     []kanzi.Listener
-	readLastBlock bool
 	ctx           map[string]interface{}
 }
 
@@ -702,10 +754,9 @@ type decodingTask struct {
 	blockLength        uint
 	blockTransformType uint64
 	blockEntropyType   uint32
-	currentBlockID     int
-	input              chan bool
-	output             chan bool
-	result             chan message
+	currentBlockID     int32
+	processedBlockID   *int32
+	wg                 *sync.WaitGroup
 	listeners          []kanzi.Listener
 	ibs                kanzi.InputBitStream
 	ctx                map[string]interface{}
@@ -747,7 +798,6 @@ func NewCompressedInputStreamWithCtx(is io.ReadCloser, ctx map[string]interface{
 		this.buffers[i] = blockBuffer{Buf: make([]byte, 0)}
 	}
 
-	this.resChan = make(chan message)
 	var err error
 
 	if this.ibs, err = bitstream.NewDefaultInputBitStream(is, _STREAM_DEFAULT_BUFFER_SIZE); err != nil {
@@ -896,7 +946,6 @@ func (this *CompressedInputStream) Close() error {
 		this.buffers[i] = blockBuffer{Buf: make([]byte, 0)}
 	}
 
-	close(this.resChan)
 	return nil
 }
 
@@ -960,7 +1009,7 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 		}
 	}
 
-	if this.readLastBlock == true {
+	if atomic.LoadInt32(&this.blockID) == _CANCEL_TASKS_ID {
 		return 0, nil
 	}
 
@@ -977,52 +1026,37 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 	listeners := make([]kanzi.Listener, len(this.listeners))
 	copy(listeners, this.listeners)
 
-	nbJobs := uint(this.jobs)
+	nbTasks := this.jobs
 	var jobsPerTask []uint
 
 	// Assign optimal number of tasks and jobs per task
-	if nbJobs > 1 {
+	if nbTasks > 1 {
 		// If the number of input blocks is available, use it to optimize
 		// memory usage
 		if this.nbInputBlocks != 0 {
 			// Limit the number of jobs if there are fewer blocks that this.jobs
 			// It allows more jobs per task and reduces memory usage.
-			if nbJobs > uint(this.nbInputBlocks) {
-				nbJobs = uint(this.nbInputBlocks)
+			if nbTasks > int(this.nbInputBlocks) {
+				nbTasks = int(this.nbInputBlocks)
 			}
 		}
 
-		jobsPerTask = kanzi.ComputeJobsPerTask(make([]uint, nbJobs), uint(this.jobs), nbJobs)
+		jobsPerTask = kanzi.ComputeJobsPerTask(make([]uint, nbTasks), uint(this.jobs), uint(nbTasks))
 	} else {
-		jobsPerTask = make([]uint, nbJobs)
-		jobsPerTask[0] = uint(this.jobs)
+		jobsPerTask = []uint{uint(this.jobs)}
 	}
 
-	// Channel of semaphores
-	syncChan := make([]semaphore, nbJobs)
-
-	for i := range syncChan {
-		if i > 0 {
-			// First channel is nil
-			syncChan[i] = make(semaphore)
-		}
-	}
-
-	defer func() {
-		for _, c := range syncChan {
-			if c != nil {
-				close(c)
-			}
-		}
-	}()
+	results := make([]decodingTaskResult, nbTasks)
+	wg := sync.WaitGroup{}
+	firstID := this.blockID
 
 	// Invoke as many go routines as required
-	for jobID := range syncChan {
-		// Lazy instantiation of input buffers this.buffers[2*jobID]
-		// Output buffers this.buffers[2*jobID+1] are lazily instantiated
+	for taskID := 0; taskID < nbTasks; taskID++ {
+		// Lazy instantiation of input buffers this.buffers[2*taskID]
+		// Output buffers this.buffers[2*taskID+1] are lazily instantiated
 		// by the decoding tasks.
-		if len(this.buffers[2*jobID].Buf) < blkSize+1024 {
-			this.buffers[2*jobID].Buf = make([]byte, blkSize+1024)
+		if len(this.buffers[2*taskID].Buf) < blkSize+1024 {
+			this.buffers[2*taskID].Buf = make([]byte, blkSize+1024)
 		}
 
 		copyCtx := make(map[string]interface{})
@@ -1031,53 +1065,42 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 			copyCtx[k] = v
 		}
 
-		copyCtx["jobs"] = jobsPerTask[jobID]
+		copyCtx["jobs"] = jobsPerTask[taskID]
+		results[taskID] = decodingTaskResult{}
+		wg.Add(1)
 
 		task := decodingTask{
-			iBuffer:            &this.buffers[2*jobID],
-			oBuffer:            &this.buffers[2*jobID+1],
+			iBuffer:            &this.buffers[2*taskID],
+			oBuffer:            &this.buffers[2*taskID+1],
 			hasher:             this.hasher,
 			blockLength:        uint(blkSize),
 			blockTransformType: this.transformType,
 			blockEntropyType:   this.entropyType,
-			currentBlockID:     this.blockID + jobID + 1,
-			input:              syncChan[jobID],
-			output:             syncChan[(jobID+1)%int(nbJobs)],
-			result:             this.resChan,
+			currentBlockID:     firstID + int32(taskID) + 1,
+			processedBlockID:   &this.blockID,
+			wg:                 &wg,
 			listeners:          listeners,
 			ibs:                this.ibs,
 			ctx:                copyCtx}
 
 		// Invoke the tasks concurrently
-		// Tasks are daisy chained through channels. All tasks wait for a signal
-		// on the input channel to start entropy decoding and then issue a message
-		// to the next task on the output channel upon entropy decoding completion.
-		// The transform step runs concurrently. The result is returned on the shared
-		// channel. The output channel is nil for the last task and the input channel
-		// is nil for the first task.
-		go task.decode()
+		go task.decode(&results[taskID])
 	}
 
-	var err error
+	// Wait for completion of all tasks
+	wg.Wait()
 	decoded := 0
-	offset := 0
-	results := make([]message, nbJobs)
 
-	// Wait for completion of all concurrent tasks
-	for range results {
-		// Listen for results on the shared channel
-		res := <-this.resChan
+	// Process results
+	for _, r := range results {
+		decoded += r.decoded
 
-		// Order the results based on block ID
-		results[res.blockID-this.blockID-1] = res
-		decoded += res.decoded
-
-		if res.err != nil {
-			return decoded, res.err
+		if r.err != nil {
+			return decoded, r.err
 		}
 	}
 
-	if decoded > int(nbJobs)*int(this.blockSize) {
+	if decoded > nbTasks*int(this.blockSize) {
 		return decoded, &IOError{msg: "Invalid data", code: kanzi.ERR_PROCESS_BLOCK}
 	}
 
@@ -1086,44 +1109,27 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 		this.data = append(this.data, extraBuf...)
 	}
 
-	// Process results
-	for _, res := range results {
-		copy(this.data[offset:], res.data[0:res.decoded])
-		offset += res.decoded
+	offset := 0
+
+	for _, r := range results {
+		copy(this.data[offset:], r.data[0:r.decoded])
+		offset += r.decoded
 
 		if len(listeners) > 0 {
 			// Notify after transform ... in block order !
-			evt := kanzi.NewEvent(kanzi.EVT_AFTER_TRANSFORM, res.blockID,
-				int64(res.decoded), res.checksum, this.hasher != nil, res.completionTime)
+			evt := kanzi.NewEvent(kanzi.EVT_AFTER_TRANSFORM, int(r.blockID),
+				int64(r.decoded), r.checksum, this.hasher != nil, r.completionTime)
 			notifyListeners(listeners, evt)
-		}
-
-		if res.decoded == 0 {
-			this.readLastBlock = true
-			break
 		}
 	}
 
-	this.blockID += this.jobs
 	this.curIdx = 0
-	return decoded, err
+	return decoded, nil
 }
 
 // GetRead returns the number of bytes read so far
 func (this *CompressedInputStream) GetRead() uint64 {
 	return (this.ibs.Read() + 7) >> 3
-}
-
-// Used by block decoding tasks to synchronize and return result
-func notify(chan1 chan bool, chan2 chan message, run bool, msg message) {
-	if chan1 != nil {
-		chan1 <- run
-	}
-
-	if chan2 != nil {
-		msg.completionTime = time.Now()
-		chan2 <- msg
-	}
 }
 
 // Decode mode + transformed entropy coded data
@@ -1135,33 +1141,104 @@ func notify(chan1 chan bool, chan2 chan message, run bool, msg message) {
 //  case more than 4 transforms
 //      | 0b00000000
 //      then 0byyyyyyyy => transform sequence skip flags (1 means skip)
-func (this *decodingTask) decode() {
+func (this *decodingTask) decode(res *decodingTaskResult) {
 	data := this.iBuffer.Buf
 	buffer := this.oBuffer.Buf
-	res := message{blockID: this.currentBlockID, data: data}
+	decoded := 0
+	checksum1 := uint32(0)
 
-	// Wait for task processing the previous block to complete
-	if this.input != nil {
-		run := <-this.input
+	defer func() {
+		res.data = this.oBuffer.Buf
+		res.decoded = decoded
+		res.blockID = int(this.currentBlockID)
+		res.completionTime = time.Now()
+		res.checksum = checksum1
 
-		// If one of the previous tasks failed, skip
-		if run == false {
-			notify(this.output, this.result, false, res)
+		if r := recover(); r != nil {
+			res.err = &IOError{msg: r.(error).Error(), code: kanzi.ERR_PROCESS_BLOCK}
+		}
+
+		// Unblock other tasks
+		if res.err != nil || res.decoded == 0 {
+			atomic.StoreInt32(this.processedBlockID, _CANCEL_TASKS_ID)
+		} else if atomic.LoadInt32(this.processedBlockID) == this.currentBlockID-1 {
+			atomic.StoreInt32(this.processedBlockID, this.currentBlockID)
+		}
+
+		this.wg.Done()
+	}()
+
+	// Lock free synchronization
+	for n := 0; ; n++ {
+		taskID := atomic.LoadInt32(this.processedBlockID)
+
+		if taskID == this.currentBlockID-1 {
+			break
+		}
+
+		if taskID == _CANCEL_TASKS_ID {
 			return
+		}
+
+		if n&7 == 0 {
+			runtime.Gosched()
 		}
 	}
 
-	defer func() {
-		if r := recover(); r != nil {
-			// Error => cancel concurrent decoding tasks
-			res.err = &IOError{msg: r.(error).Error(), code: kanzi.ERR_READ_FILE}
-			notify(this.output, this.result, false, res)
-		}
-	}()
+	// Read shared bitstream sequentially
+	lw := uint(32)
 
-	// Extract block header directly from bitstream
-	read := this.ibs.Read()
-	mode := byte(this.ibs.ReadBits(8))
+	if this.blockLength >= 1<<28 {
+		lw = 40
+	}
+
+	read := this.ibs.ReadBits(lw)
+
+	if read == 0 {
+		return
+	}
+
+	if read > uint64(1)<<34 {
+		res.err = &IOError{msg: "Invalid block size", code: kanzi.ERR_BLOCK_SIZE}
+		return
+	}
+
+	r := int((read + 7) >> 3)
+	maxL := r
+
+	if int(this.blockLength) > r {
+		maxL = int(this.blockLength)
+	}
+
+	if len(data) < maxL {
+		extraBuf := make([]byte, maxL-len(data))
+		buffer = append(data, extraBuf...)
+		this.iBuffer.Buf = data
+	}
+
+	// Read data from shared bitstream
+	for n := uint(0); read > 0; {
+		chkSize := uint(read)
+
+		if read >= 1<<31 {
+			chkSize = 1 << 31
+		}
+
+		this.ibs.ReadArray(data[n:], chkSize)
+		n += chkSize
+		read -= uint64(chkSize)
+	}
+
+	// After completion of the bitstream reading, increment the block id.
+	// It unblocks the task processing the next block (if any)
+	atomic.StoreInt32(this.processedBlockID, this.currentBlockID)
+
+	// All the code below is concurrent
+	// Create a bitstream local to the task
+	bufStream := util.NewBufferStream(data[0:r])
+	ibs, _ := bitstream.NewDefaultInputBitStream(bufStream, 16384)
+
+	mode := byte(ibs.ReadBits(8))
 	skipFlags := byte(0)
 
 	if mode&_COPY_BLOCK_MASK != 0 {
@@ -1169,7 +1246,7 @@ func (this *decodingTask) decode() {
 		this.blockEntropyType = entropy.NONE_TYPE
 	} else {
 		if mode&_TRANSFORMS_MASK != 0 {
-			skipFlags = byte(this.ibs.ReadBits(8))
+			skipFlags = byte(ibs.ReadBits(8))
 		} else {
 			skipFlags = (mode << 4) | 0x0F
 		}
@@ -1178,12 +1255,10 @@ func (this *decodingTask) decode() {
 	dataSize := 1 + uint((mode>>5)&0x03)
 	length := dataSize << 3
 	mask := uint64(1<<length) - 1
-	preTransformLength := uint(this.ibs.ReadBits(length) & mask)
+	preTransformLength := uint(ibs.ReadBits(length) & mask)
 
 	if preTransformLength == 0 {
-		// Last block is empty, return success and cancel pending tasks
-		res.decoded = 0
-		notify(this.output, this.result, false, res)
+		res.err = &IOError{msg: "Invalid block size", code: kanzi.ERR_BLOCK_SIZE}
 		return
 	}
 
@@ -1191,11 +1266,8 @@ func (this *decodingTask) decode() {
 		// Error => cancel concurrent decoding tasks
 		errMsg := fmt.Sprintf("Invalid compressed block length: %d", preTransformLength)
 		res.err = &IOError{msg: errMsg, code: kanzi.ERR_BLOCK_SIZE}
-		notify(this.output, this.result, false, res)
 		return
 	}
-
-	checksum1 := uint32(0)
 
 	// Extract checksum from bit stream (if any)
 	if this.hasher != nil {
@@ -1204,12 +1276,11 @@ func (this *decodingTask) decode() {
 
 	if len(this.listeners) > 0 {
 		// Notify before entropy (block size in bitstream is unknown)
-		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_ENTROPY, this.currentBlockID,
+		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_ENTROPY, int(this.currentBlockID),
 			int64(-1), checksum1, this.hasher != nil, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
 
-	res.checksum = checksum1
 	bufferSize := this.blockLength
 
 	if bufferSize < preTransformLength+_EXTRA_BUFFER_SIZE {
@@ -1226,12 +1297,11 @@ func (this *decodingTask) decode() {
 
 	// Each block is decoded separately
 	// Rebuild the entropy decoder to reset block statistics
-	ed, err := entropy.NewEntropyDecoder(this.ibs, this.ctx, this.blockEntropyType)
+	ed, err := entropy.NewEntropyDecoder(ibs, this.ctx, this.blockEntropyType)
 
 	if err != nil {
 		// Error => cancel concurrent decoding tasks
 		res.err = &IOError{msg: err.Error(), code: kanzi.ERR_INVALID_CODEC}
-		notify(this.output, this.result, false, res)
 		return
 	}
 
@@ -1241,24 +1311,19 @@ func (this *decodingTask) decode() {
 	if _, err = ed.Read(buffer[0:preTransformLength]); err != nil {
 		// Error => cancel concurrent decoding tasks
 		res.err = &IOError{msg: err.Error(), code: kanzi.ERR_PROCESS_BLOCK}
-		notify(this.output, this.result, false, res)
 		return
 	}
 
 	if len(this.listeners) > 0 {
 		// Notify after entropy
-		evt := kanzi.NewEvent(kanzi.EVT_AFTER_ENTROPY, this.currentBlockID,
-			int64(this.ibs.Read()-read)/8, checksum1, this.hasher != nil, time.Now())
+		evt := kanzi.NewEvent(kanzi.EVT_AFTER_ENTROPY, int(this.currentBlockID),
+			int64(ibs.Read())/8, checksum1, this.hasher != nil, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
 
-	// After completion of the entropy decoding, unfreeze the task processing
-	// the next block (if any)
-	notify(this.output, nil, true, res)
-
 	if len(this.listeners) > 0 {
 		// Notify before transform
-		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_TRANSFORM, this.currentBlockID,
+		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_TRANSFORM, int(this.currentBlockID),
 			int64(preTransformLength), checksum1, this.hasher != nil, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
@@ -1269,7 +1334,6 @@ func (this *decodingTask) decode() {
 	if err != nil {
 		// Error => return
 		res.err = &IOError{msg: err.Error(), code: kanzi.ERR_INVALID_CODEC}
-		notify(nil, this.result, false, res)
 		return
 	}
 
@@ -1280,23 +1344,19 @@ func (this *decodingTask) decode() {
 	if _, oIdx, err = transform.Inverse(buffer[0:preTransformLength], data); err != nil {
 		// Error => return
 		res.err = &IOError{msg: err.Error(), code: kanzi.ERR_PROCESS_BLOCK}
-		notify(nil, this.result, false, res)
 		return
 	}
 
-	res.decoded = int(oIdx)
+	decoded = int(oIdx)
 
 	// Verify checksum
 	if this.hasher != nil {
-		checksum2 := this.hasher.Hash(data[0:res.decoded])
+		checksum2 := this.hasher.Hash(data[0:decoded])
 
 		if checksum2 != checksum1 {
 			errMsg := fmt.Sprintf("Corrupted bitstream: expected checksum %x, found %x", checksum1, checksum2)
 			res.err = &IOError{msg: errMsg, code: kanzi.ERR_CRC_CHECK}
-			notify(nil, this.result, false, res)
 			return
 		}
 	}
-
-	notify(nil, this.result, false, res)
 }
