@@ -661,17 +661,15 @@ func (this *encodingTask) encode(res error) {
 	for n := 0; ; n++ {
 		taskID := atomic.LoadInt32(this.processedBlockID)
 
-		if taskID == this.currentBlockID-1 {
-			break
-		}
-
 		if taskID == _CANCEL_TASKS_ID {
 			return
 		}
 
-		if n&7 == 0 {
-			runtime.Gosched()
+		if taskID == this.currentBlockID-1 {
+			break
 		}
+
+		runtime.Gosched()
 	}
 
 	if len(this.listeners) > 0 {
@@ -1172,17 +1170,15 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	for n := 0; ; n++ {
 		taskID := atomic.LoadInt32(this.processedBlockID)
 
-		if taskID == this.currentBlockID-1 {
-			break
-		}
-
 		if taskID == _CANCEL_TASKS_ID {
 			return
 		}
 
-		if n&7 == 0 {
-			runtime.Gosched()
+		if taskID == this.currentBlockID-1 {
+			break
 		}
+
+		runtime.Gosched()
 	}
 
 	// Read shared bitstream sequentially
