@@ -270,7 +270,7 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 	this.hashes = make([]int32, hashSize)
 	this.buffer = make([]int8, _TPAQ_BUFFER_SIZE)
 	this.statesMask = int32(statesSize - 1)
-	this.mixersMask = int32(mixersSize - 1)
+	this.mixersMask = int32(mixersSize-1) & ^1
 	this.hashMask = int32(hashSize - 1)
 	this.cp0 = &this.smallStatesMap0[0]
 	this.cp1 = &this.smallStatesMap1[0]
@@ -313,7 +313,13 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.binCount += ((this.c4 >> 7) & 1)
 
 		// Select Neural Net
-		this.mixer = &this.mixers[this.c4&this.mixersMask]
+		var lenCtx int32 = 0
+
+		if this.matchLen != 0 {
+			lenCtx = 1
+		}
+
+		this.mixer = &this.mixers[(this.c4&this.mixersMask)|lenCtx]
 
 		// Add contexts to NN
 		this.ctx0 = (this.c4 & 0xFF) << 8
