@@ -126,16 +126,16 @@ func (this *Event) String() string {
 		t = "AFTER_ENTROPY"
 
 	case EVT_COMPRESSION_START:
-		t = "EVT_COMPRESSION_START"
+		t = "COMPRESSION_START"
 
 	case EVT_DECOMPRESSION_START:
-		t = "EVT_DECOMPRESSION_START"
+		t = "DECOMPRESSION_START"
 
 	case EVT_COMPRESSION_END:
-		t = "EVT_COMPRESSION_END"
+		t = "COMPRESSION_END"
 
 	case EVT_DECOMPRESSION_END:
-		t = "EVT_DECOMPRESSION_END"
+		t = "DECOMPRESSION_END"
 	}
 
 	return fmt.Sprintf("{ \"type\":\"%s\"%s, \"size\":%d, \"time\":%d%s }", t, id, this.size,
