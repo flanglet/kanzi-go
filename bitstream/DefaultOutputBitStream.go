@@ -137,7 +137,6 @@ func (this *DefaultOutputBitStream) WriteBit(bit int) {
 		this.availBits--
 		this.current |= (uint64(bit&1) << this.availBits)
 	}
-
 }
 
 // WriteBits writes 'count' from 'value' to the bitstream.
@@ -148,20 +147,18 @@ func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) uint {
 		panic(fmt.Errorf("Invalid bit count: %d (must be in [1..64])", count))
 	}
 
-	// Pad the current position in buffer
-	if this.availBits > count {
-		// Enough spots available in 'current'
-		this.availBits -= count
-		this.current |= ((value & _OBS_MASKS[count]) << this.availBits)
-	} else {
+	this.current |= ((value << (64 - count)) >> (64 - this.availBits))
+	remaining := count
+
+	if count >= this.availBits {
 		// Not enough spots available in 'current'
-		remaining := count - this.availBits
-		this.current |= ((value & _OBS_MASKS[count]) >> remaining)
+		remaining -= this.availBits
 		this.pushCurrent()
 		this.current = value << (64 - remaining)
-		this.availBits -= remaining
+
 	}
 
+	this.availBits -= remaining
 	return count
 }
 
