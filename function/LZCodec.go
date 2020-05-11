@@ -24,18 +24,19 @@ import (
 )
 
 const (
-	_LZ_HASH_SEED      = 0x7FEB352D
-	_LZX_HASH_LOG      = 18
-	_LZX_HASH_SHIFT    = uint(32 - _LZX_HASH_LOG)
-	_LZX_MAX_DISTANCE1 = (1 << 17) - 1
-	_LZX_MAX_DISTANCE2 = (1 << 24) - 1
-	_LZX_MIN_MATCH     = 4
-	_LZX_MIN_LENGTH    = 16
-	_LZP_HASH_LOG      = 16
-	_LZP_HASH_SHIFT    = 32 - _LZP_HASH_LOG
-	_LZP_MIN_MATCH     = 64
-	_LZP_MIN_LENGTH    = 128
-	_LZP_MATCH_FLAG    = 0xFC
+	_LZ_HASH_SEED           = 0x7FEB352D
+	_LZX_HASH_LOG           = 18
+	_LZX_HASH_SHIFT         = uint(32 - _LZX_HASH_LOG)
+	_LZX_MAX_DISTANCE1      = (1 << 17) - 1
+	_LZX_MAX_DISTANCE2      = (1 << 24) - 1
+	_LZX_MIN_MATCH          = 4
+	_LZX_MIN_LENGTH         = 16
+	_LZX_MIN_MATCH_MIN_DIST = 1 << 16
+	_LZP_HASH_LOG           = 16
+	_LZP_HASH_SHIFT         = 32 - _LZP_HASH_LOG
+	_LZP_MIN_MATCH          = 64
+	_LZP_MIN_LENGTH         = 128
+	_LZP_MATCH_FLAG         = 0xFC
 )
 
 type LZCodec struct {
@@ -245,7 +246,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		// No good match ?
-		if bestLen < _LZX_MIN_MATCH {
+		if bestLen < _LZX_MIN_MATCH || (bestLen == _LZX_MIN_MATCH && srcIdx-ref >= _LZX_MIN_MATCH_MIN_DIST) {
 			this.hashes[h] = int32(srcIdx)
 			srcIdx++
 			continue
