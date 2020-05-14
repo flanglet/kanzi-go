@@ -155,7 +155,6 @@ func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) uint {
 		remaining -= this.availBits
 		this.pushCurrent()
 		this.current = value << (64 - remaining)
-
 	}
 
 	this.availBits -= remaining

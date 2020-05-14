@@ -175,7 +175,8 @@ var (
 	PriorityTraditionalFourFinancial`)
 )
 
-// return 8-bit status (see MASK flags constants)
+// Analyze the block and return an 8-bit status (see MASK flags constants)
+// The goal is to detect test data amenable to pre-processing.
 func computeStats(block []byte, freqs0 []int32, strict bool) byte {
 	var freqs [256][256]int32
 	freqs1 := freqs[0:256]
@@ -209,7 +210,6 @@ func computeStats(block []byte, freqs0 []int32, strict bool) byte {
 
 	nbTextChars := int(freqs0[CR]) + int(freqs0[LF])
 	nbASCII := 0
-	nbZeros := int(freqs0[0])
 
 	for i := 0; i < 128; i++ {
 		if isText(byte(i)) == true {
@@ -220,21 +220,17 @@ func computeStats(block []byte, freqs0 []int32, strict bool) byte {
 	}
 
 	// Not text (crude thresholds)
+	if nbTextChars < (length>>1) || freqs0[32] < int32(length>>5) {
+		return _TC_MASK_NOT_TEXT
+	}
+
 	if strict == true {
-		if (nbZeros >= (length / 100)) || nbTextChars < (length>>1) || freqs0[32] < int32(length>>4) {
-			return _TC_MASK_NOT_TEXT
-		}
-	} else {
-		if (nbASCII / 95) < (length / 100) {
+		if nbTextChars < (length>>2) || freqs0[0] >= int32(length/100) || (nbASCII/95) < (length/100) {
 			return _TC_MASK_NOT_TEXT
 		}
 	}
 
-	nbBinChars := 0
-
-	for i := 128; i < 256; i++ {
-		nbBinChars += int(freqs0[i])
-	}
+	nbBinChars := length - nbASCII
 
 	// Not text (crude threshold)
 	if nbBinChars > (length >> 2) {
