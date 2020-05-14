@@ -160,7 +160,7 @@ func (this SRT) preprocess(freqs []int32, symbols []byte) int {
 			t := symbols[i]
 			var b int
 
-			for b = i - h; (b >= 0) && ((freqs[symbols[b]] < freqs[t]) || ((freqs[t] == freqs[symbols[b]]) && (t < symbols[b]))); b -= h {
+			for b = i - h; (b >= 0) && (freqs[symbols[b]] < freqs[t] || (t < symbols[b] && freqs[t] == freqs[symbols[b]])); b -= h {
 				symbols[b+h] = symbols[b]
 			}
 
