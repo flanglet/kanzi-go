@@ -26,10 +26,11 @@ import (
 const (
 	_LZ_HASH_SEED           = 0x7FEB352D
 	_LZX_HASH_LOG           = 18
-	_LZX_HASH_SHIFT         = uint(32 - _LZX_HASH_LOG)
+	_LZX_HASH_SHIFT         = 40 - _LZX_HASH_LOG
+	_LZX_HASH_MASK          = (1 << _LZX_HASH_LOG) - 1
 	_LZX_MAX_DISTANCE1      = (1 << 17) - 1
 	_LZX_MAX_DISTANCE2      = (1 << 24) - 1
-	_LZX_MIN_MATCH          = 4
+	_LZX_MIN_MATCH          = 5
 	_LZX_MIN_LENGTH         = 16
 	_LZX_MIN_MATCH_MIN_DIST = 1 << 16
 	_LZP_HASH_LOG           = 16
@@ -170,7 +171,7 @@ func emitLastLiterals(src, dst []byte) int {
 }
 
 func lzhash(p []byte) uint32 {
-	return (binary.LittleEndian.Uint32(p) * _LZ_HASH_SEED) >> _LZX_HASH_SHIFT
+	return uint32((binary.LittleEndian.Uint64(p)*_LZ_HASH_SEED)>>_LZX_HASH_SHIFT) & _LZX_HASH_MASK
 }
 
 // Forward applies the function to the src and writes the result
