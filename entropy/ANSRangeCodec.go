@@ -83,7 +83,7 @@ func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncode
 		return nil, errors.New("ANS codec: The order must be 0 or 1")
 	}
 
-	if chkSize != 0 && chkSize < 1024 {
+	if chkSize < 1024 {
 		return nil, errors.New("ANS codec: The chunk size must be at least 1024")
 	}
 
@@ -219,14 +219,6 @@ func (this *ANSRangeEncoder) Write(block []byte) (int, error) {
 	}
 
 	sizeChunk := this.chunkSize
-
-	if sizeChunk == 0 {
-		sizeChunk = len(block)
-	}
-
-	if sizeChunk >= _ANS_MAX_CHUNK_SIZE {
-		sizeChunk = _ANS_MAX_CHUNK_SIZE
-	}
 
 	for i := range this.symbols {
 		this.symbols[i] = encSymbol{}
@@ -439,7 +431,7 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 		return nil, errors.New("ANS codec: The order must be 0 or 1")
 	}
 
-	if chkSize != 0 && chkSize < 1024 {
+	if chkSize < 1024 {
 		return nil, errors.New("ANS codec: The chunk size must be at least 1024")
 	}
 
@@ -586,15 +578,6 @@ func (this *ANSRangeDecoder) Read(block []byte) (int, error) {
 	}
 
 	sizeChunk := this.chunkSize
-
-	if sizeChunk == 0 {
-		sizeChunk = len(block)
-	}
-
-	if sizeChunk >= _ANS_MAX_CHUNK_SIZE {
-		sizeChunk = _ANS_MAX_CHUNK_SIZE
-	}
-
 	end := len(block)
 	startChunk := 0
 

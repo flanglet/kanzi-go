@@ -32,6 +32,7 @@ const (
 	_RANGE_MASK               = uint64(0x0FFFFFFF00000000)
 	_DEFAULT_RANGE_CHUNK_SIZE = uint(1 << 15) // 32 KB by default
 	_DEFAULT_RANGE_LOG_RANGE  = uint(12)
+	_RANGE_MAX_CHUNK_SIZE     = 1 << 30
 )
 
 // RangeEncoder a Order 0 Range Entropy Encoder
@@ -69,12 +70,12 @@ func NewRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*RangeEncoder, err
 		logRange = args[1]
 	}
 
-	if chkSize != 0 && chkSize < 1024 {
+	if chkSize < 1024 {
 		return nil, errors.New("Range codec: The chunk size must be at least 1024")
 	}
 
-	if chkSize > 1<<30 {
-		return nil, errors.New("Range codec: The chunk size must be at most 2^30")
+	if chkSize > _RANGE_MAX_CHUNK_SIZE {
+		return nil, fmt.Errorf("Range codec: The chunk size must be at most %d", _RANGE_MAX_CHUNK_SIZE)
 	}
 
 	if logRange < 8 || logRange > 16 {
@@ -187,11 +188,6 @@ func (this *RangeEncoder) Write(block []byte) (int, error) {
 	}
 
 	sizeChunk := int(this.chunkSize)
-
-	if sizeChunk == 0 {
-		sizeChunk = len(block)
-	}
-
 	startChunk := 0
 	end := len(block)
 
@@ -305,12 +301,12 @@ func NewRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*RangeDecoder, erro
 		chkSize = args[0]
 	}
 
-	if chkSize != 0 && chkSize < 1024 {
+	if chkSize < 1024 {
 		return nil, errors.New("Range codec: The chunk size must be at least 1024")
 	}
 
-	if chkSize > 1<<30 {
-		return nil, errors.New("Range codec: The chunk size must be at most 2^30")
+	if chkSize > _RANGE_MAX_CHUNK_SIZE {
+		return nil, fmt.Errorf("Range codec: The chunk size must be at most %d", _RANGE_MAX_CHUNK_SIZE)
 	}
 
 	this := new(RangeDecoder)
@@ -423,10 +419,6 @@ func (this *RangeDecoder) Read(block []byte) (int, error) {
 	end := len(block)
 	startChunk := 0
 	sizeChunk := int(this.chunkSize)
-
-	if sizeChunk == 0 {
-		sizeChunk = len(block)
-	}
 
 	for startChunk < end {
 		alphabetSize, err := this.decodeHeader(this.freqs[:])
