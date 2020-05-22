@@ -25,7 +25,7 @@ import (
 
 const (
 	_LZ_HASH_SEED           = 0x7FEB352D
-	_LZX_HASH_LOG           = 18
+	_LZX_HASH_LOG           = 19 // 512K
 	_LZX_HASH_SHIFT         = 40 - _LZX_HASH_LOG
 	_LZX_HASH_MASK          = (1 << _LZX_HASH_LOG) - 1
 	_LZX_MAX_DISTANCE1      = (1 << 17) - 1
@@ -254,7 +254,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		// Emit token
-		// Token: 3 bits litLen + 1 bit flag + 4 bits mLen
+		// Token: 3 bits litLen + 1 bit flag + 4 bits mLen (LLLFMMMM)
 		// flag = if maxDist = (1<<17)-1, then highest bit of distance
 		//        else 1 if dist needs 3 bytes (> 0xFFFF) and 0 otherwise
 		mLen := bestLen - _LZX_MIN_MATCH
