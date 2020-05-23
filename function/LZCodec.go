@@ -31,7 +31,7 @@ const (
 	_LZX_MAX_DISTANCE1      = (1 << 17) - 1
 	_LZX_MAX_DISTANCE2      = (1 << 24) - 1
 	_LZX_MIN_MATCH          = 5
-	_LZX_MIN_LENGTH         = 16
+	_LZX_MIN_LENGTH         = 24
 	_LZX_MIN_MATCH_MIN_DIST = 1 << 16
 	_LZP_HASH_LOG           = 16
 	_LZP_HASH_SHIFT         = 32 - _LZP_HASH_LOG
@@ -197,7 +197,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, fmt.Errorf("Block too small, skip")
 	}
 
-	srcEnd := count - 8
+	srcEnd := count - 16
 
 	if len(this.hashes) == 0 {
 		this.hashes = make([]int32, 1<<_LZX_HASH_LOG)
@@ -324,8 +324,8 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	// Emit last literals
-	dstIdx += emitLastLiterals(src[anchor:srcEnd+8], dst[dstIdx:])
-	return uint(srcEnd + 8), uint(dstIdx), nil
+	dstIdx += emitLastLiterals(src[anchor:srcEnd+16], dst[dstIdx:])
+	return uint(srcEnd + 16), uint(dstIdx), nil
 }
 
 // Inverse applies the reverse function to the src and writes the result
@@ -341,8 +341,8 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	count := len(src)
-	srcEnd := count - 8
-	dstEnd := len(dst) - 8
+	srcEnd := count - 16
+	dstEnd := len(dst) - 16
 	dstIdx := 0
 	maxDist := _LZX_MAX_DISTANCE2
 
@@ -407,7 +407,7 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		mEnd := dstIdx + mLen
 
 		// Sanity check
-		if mEnd > dstEnd+8 {
+		if mEnd > dstEnd+16 {
 			return uint(srcIdx), uint(dstIdx), fmt.Errorf("LZCodec: Invalid match length decoded: %d", mLen)
 		}
 
@@ -429,23 +429,21 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			return uint(srcIdx), uint(dstIdx), fmt.Errorf("LZCodec: Invalid distance decoded: %d", dist)
 		}
 
-		// Copy match
-		if dist > 8 {
-			ref := dstIdx - dist
+		ref := dstIdx - dist
 
+		// Copy match
+		if dist >= 16 {
 			for {
 				// No overlap
-				copy(dst[dstIdx:], dst[ref:ref+8])
-				ref += 8
-				dstIdx += 8
+				copy(dst[dstIdx:], dst[ref:ref+16])
+				ref += 16
+				dstIdx += 16
 
 				if dstIdx >= mEnd {
 					break
 				}
 			}
 		} else {
-			ref := dstIdx - dist
-
 			for i := 0; i < mLen; i++ {
 				dst[dstIdx+i] = dst[ref+i]
 			}
