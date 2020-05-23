@@ -55,7 +55,7 @@ func getKey(p []byte) uint32 {
 }
 
 func rolzhash(p []byte) uint32 {
-	return ((binary.LittleEndian.Uint32(p) & 0x00FFFFFF) * _ROLZ_HASH_SEED) & _ROLZ_HASH_MASK
+	return ((binary.LittleEndian.Uint32(p) << 8) * _ROLZ_HASH_SEED) & _ROLZ_HASH_MASK
 }
 
 func emitCopy(buf []byte, dstIdx, ref, matchLen int) int {
@@ -675,7 +675,7 @@ func (this rolzCodec1) MaxEncodedLen(srcLen int) int {
 	return srcLen
 }
 
-func emitToken(litBuf []byte, litLen, mLen int) int {
+func emitToken(block []byte, litLen, mLen int) int {
 	// mode LLLLLMMM -> L lit length, M match length
 	var mode byte
 
@@ -688,39 +688,40 @@ func emitToken(litBuf []byte, litLen, mLen int) int {
 	var idx int
 
 	if mLen >= 7 {
-		litBuf[0] = mode | 0x07
-		litBuf[1] = byte(mLen - 7)
+		block[0] = mode | 0x07
+		block[1] = byte(mLen - 7)
 		idx = 2
 	} else {
-		litBuf[0] = mode | byte(mLen)
+		block[0] = mode | byte(mLen)
 		idx = 1
 	}
 
-	if litLen >= 0x1F {
-		litLen -= 0x1F
+	if litLen >= 31 {
+		litLen -= 31
 
 		if litLen >= 1<<7 {
 			if litLen >= 1<<14 {
 				if litLen >= 1<<21 {
-					litBuf[idx] = byte(0x80 | (litLen >> 21))
+					block[idx] = byte(0x80 | (litLen >> 21))
 					idx++
 				}
 
-				litBuf[idx] = byte(0x80 | (litLen >> 14))
+				block[idx] = byte(0x80 | (litLen >> 14))
 				idx++
 			}
 
-			litBuf[idx] = byte(0x80 | (litLen >> 7))
+			block[idx] = byte(0x80 | (litLen >> 7))
 			idx++
 		}
 
-		litBuf[idx] = byte(litLen & 0x7F)
+		block[idx] = byte(litLen & 0x7F)
 		idx++
 	}
 
 	return idx
 }
 
+// return litLen, mLen, idx
 func (this rolzCodec1) readLengths(lenBuf []byte) (int, int, int) {
 	// mode LLLLLMMM -> L lit length, M match length
 	mode := lenBuf[0]
@@ -740,17 +741,17 @@ func (this rolzCodec1) readLengths(lenBuf []byte) (int, int, int) {
 	idx++
 	litLen := int(next & 0x7F)
 
-	if next&0x80 != 0 {
+	if next >= 128 {
 		next = lenBuf[idx]
 		idx++
 		litLen = (litLen << 7) | int(next&0x7F)
 
-		if next&0x80 != 0 {
+		if next >= 128 {
 			next = lenBuf[idx]
 			idx++
 			litLen = (litLen << 7) | int(next&0x7F)
 
-			if next&0x80 != 0 {
+			if next >= 128 {
 				next = lenBuf[idx]
 				idx++
 				litLen = (litLen << 7) | int(next&0x7F)
@@ -767,7 +768,7 @@ func (this rolzCodec1) emitLiterals(litBuf, dst []byte, dstIdx int) {
 
 	for n := range litBuf {
 		key := getKey(d[n:])
-		m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
+		m := this.matches[key<<this.logPosChecks:]
 		this.counters[key]++
 		m[this.counters[key]&this.maskChecks] = uint32(dstIdx + n)
 	}
@@ -936,14 +937,15 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 				// Emit one literal
 				re.encodeBits((_ROLZ_LITERAL_FLAG<<8)|int(buf[srcIdx]), 9)
 				srcIdx++
-			} else {
-				// Emit one match length and index
-				re.encodeBits((_ROLZ_MATCH_FLAG<<8)|int(matchLen), 9)
-				re.setMode(_ROLZ_MATCH_FLAG)
-				re.setContext(buf[srcIdx-1])
-				re.encodeBits(matchIdx, this.logPosChecks)
-				srcIdx += (matchLen + _ROLZ_MIN_MATCH)
+				continue
 			}
+
+			// Emit one match length and index
+			re.encodeBits((_ROLZ_MATCH_FLAG<<8)|int(matchLen), 9)
+			re.setMode(_ROLZ_MATCH_FLAG)
+			re.setContext(buf[srcIdx-1])
+			re.encodeBits(matchIdx, this.logPosChecks)
+			srcIdx += (matchLen + _ROLZ_MIN_MATCH)
 		}
 
 		startChunk = endChunk
@@ -1041,7 +1043,7 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 		for dstIdx < sizeChunk {
 			savedIdx := dstIdx
 			key := getKey(buf[dstIdx-2:])
-			m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
+			m := this.matches[key<<this.logPosChecks:]
 			rd.setContext(buf[dstIdx-1])
 			val := rd.decodeBits(9)
 
@@ -1106,6 +1108,7 @@ type rolzEncoder struct {
 	c1      int
 	pIdx    int
 	ctx     int
+	p       []int
 }
 
 func newRolzEncoder(litLogSize, mLogSize uint, buf []byte, idx *int) (*rolzEncoder, error) {
@@ -1146,6 +1149,7 @@ func (this *rolzEncoder) setContext(ctx byte) {
 
 func (this *rolzEncoder) encodeBits(val int, n uint) {
 	this.c1 = 1
+	this.p = this.probs[this.pIdx][this.ctx:]
 
 	for n != 0 {
 		n--
@@ -1155,16 +1159,16 @@ func (this *rolzEncoder) encodeBits(val int, n uint) {
 
 func (this *rolzEncoder) encodeBit(bit int) {
 	// Calculate interval split
-	split := (((this.high - this.low) >> 4) * uint64(this.probs[this.pIdx][this.ctx+this.c1]>>4)) >> 8
+	split := (((this.high - this.low) >> 4) * uint64(this.p[this.c1]>>4)) >> 8
 
 	// Update fields with new interval bounds
 	if bit == 0 {
 		this.low += (split + 1)
-		this.probs[this.pIdx][this.ctx+this.c1] -= (this.probs[this.pIdx][this.ctx+this.c1] >> 5)
+		this.p[this.c1] -= (this.p[this.c1] >> 5)
 		this.c1 += this.c1
 	} else {
 		this.high = this.low + split
-		this.probs[this.pIdx][this.ctx+this.c1] -= ((this.probs[this.pIdx][this.ctx+this.c1] - _ROLZ_PSCALE + 32) >> 5)
+		this.p[this.c1] -= ((this.p[this.c1] - _ROLZ_PSCALE + 32) >> 5)
 		this.c1 += (this.c1 + 1)
 	}
 
@@ -1197,6 +1201,7 @@ type rolzDecoder struct {
 	c1      int
 	pIdx    int
 	ctx     int
+	p       []int
 }
 
 func newRolzDecoder(litLogSize, mLogSize uint, buf []byte, idx *int) (*rolzDecoder, error) {
@@ -1244,6 +1249,7 @@ func (this *rolzDecoder) setContext(ctx byte) {
 func (this *rolzDecoder) decodeBits(n uint) int {
 	this.c1 = 1
 	mask := (1 << n) - 1
+	this.p = this.probs[this.pIdx][this.ctx:]
 
 	for n != 0 {
 		this.decodeBit()
@@ -1255,19 +1261,19 @@ func (this *rolzDecoder) decodeBits(n uint) int {
 
 func (this *rolzDecoder) decodeBit() int {
 	// Calculate interval split
-	mid := this.low + ((((this.high - this.low) >> 4) * uint64(this.probs[this.pIdx][this.ctx+this.c1]>>4)) >> 8)
+	mid := this.low + ((((this.high - this.low) >> 4) * uint64(this.p[this.c1]>>4)) >> 8)
 	var bit int
 
 	// Update bounds and predictor
 	if mid >= this.current {
 		bit = 1
 		this.high = mid
-		this.probs[this.pIdx][this.ctx+this.c1] -= ((this.probs[this.pIdx][this.ctx+this.c1] - _ROLZ_PSCALE + 32) >> 5)
+		this.p[this.c1] -= ((this.p[this.c1] - _ROLZ_PSCALE + 32) >> 5)
 		this.c1 += (this.c1 + 1)
 	} else {
 		bit = 0
 		this.low = mid + 1
-		this.probs[this.pIdx][this.ctx+this.c1] -= (this.probs[this.pIdx][this.ctx+this.c1] >> 5)
+		this.p[this.c1] -= (this.p[this.c1] >> 5)
 		this.c1 += this.c1
 	}
 
