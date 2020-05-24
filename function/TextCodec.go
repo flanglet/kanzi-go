@@ -925,18 +925,18 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			idx := int(src[srcIdx])
 			srcIdx++
 
-			if idx >= 0x80 {
+			if idx >= 128 {
 				idx &= 0x7F
 				idx2 := int(src[srcIdx])
 				srcIdx++
 
 				if idx2 >= 0x80 {
 					idx = ((idx & 0x1F) << 7) | (idx2 & 0x7F)
-					idx2 = int(src[srcIdx])
+					idx2 = int(src[srcIdx]) & 0x7F
 					srcIdx++
 				}
 
-				idx = (idx << 7) | (idx2 & 0x7F)
+				idx = (idx << 7) | idx2
 
 				if idx >= this.dictSize {
 					err = errors.New("Text transform failed. Invalid index")
@@ -1459,7 +1459,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 		srcIdx++
 
-		if cur&0x80 != 0 {
+		if cur >= 128 {
 			// Word in dictionary => read word index (varint 5 bits + 7 bits + 7 bits)
 			idx := int(cur & 0x1F)
 
@@ -1467,13 +1467,13 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 				idx2 := int(src[srcIdx])
 				srcIdx++
 
-				if idx2&0x80 != 0 {
+				if idx2 >= 128 {
 					idx = (idx << 7) | (idx2 & 0x7F)
-					idx2 = int(src[srcIdx])
+					idx2 = int(src[srcIdx]) & 0x7F
 					srcIdx++
 				}
 
-				idx = (idx << 7) | (idx2 & 0x7F)
+				idx = (idx << 7) | idx2
 
 				if idx >= this.dictSize {
 					err = errors.New("Text transform failed. Invalid index")
@@ -1509,11 +1509,8 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			// Emit word
 			copy(dst[dstIdx:], pe.ptr[0:length])
 
-			if cur&0x20 != 0 {
-				// Flip case of first character
-				dst[dstIdx] ^= 0x20
-			}
-
+			// Flip case of first character
+			dst[dstIdx] ^= (cur & 0x20)
 			dstIdx += length
 		} else {
 			if cur == _TC_ESCAPE_TOKEN1 {
