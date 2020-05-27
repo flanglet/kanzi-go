@@ -27,7 +27,6 @@ type CMPredictor struct {
 	c1       byte
 	c2       byte
 	ctx      int32
-	run      uint32
 	idx      int
 	runMask  int32
 	counter1 [256][]int32
@@ -39,7 +38,6 @@ type CMPredictor struct {
 func NewCMPredictor() (*CMPredictor, error) {
 	this := new(CMPredictor)
 	this.ctx = 1
-	this.run = 1
 	this.runMask = 0
 	this.idx = 8
 
@@ -75,12 +73,10 @@ func (this *CMPredictor) Update(bit byte) {
 	if bit == 0 {
 		pc1[256] -= (pc1[256] >> _FAST_RATE)
 		pc1[this.c1] -= (pc1[this.c1] >> _MEDIUM_RATE)
-		pc2[this.idx+1] -= (pc2[this.idx+1] >> _SLOW_RATE)
 		pc2[this.idx] -= (pc2[this.idx] >> _SLOW_RATE)
 	} else {
 		pc1[256] += ((0xFFFF - pc1[256]) >> _FAST_RATE)
 		pc1[this.c1] += ((0xFFFF - pc1[this.c1]) >> _MEDIUM_RATE)
-		pc2[this.idx+1] += ((0xFFFF - pc2[this.idx+1]) >> _SLOW_RATE)
 		pc2[this.idx] += ((0xFFFF - pc2[this.idx]) >> _SLOW_RATE)
 	}
 
@@ -90,10 +86,8 @@ func (this *CMPredictor) Update(bit byte) {
 		this.ctx = 1
 
 		if this.c1 == this.c2 {
-			this.run++
-			this.runMask = int32((2-this.run)>>31) << 8
+			this.runMask = 0x100
 		} else {
-			this.run = 0
 			this.runMask = 0
 		}
 	}
@@ -108,8 +102,5 @@ func (this *CMPredictor) Update(bit byte) {
 // bit counters.
 func (this *CMPredictor) Get() int {
 	pc2 := this.counter2[this.ctx|this.runMask]
-	x2 := int(pc2[this.idx+1])
-	x1 := int(pc2[this.idx])
-	ssep := x1 + (((x2 - x1) * (this.p & 4095)) >> 12)
-	return (this.p + 3*ssep + 32) >> 6 // rescale to [0..4095]
+	return (this.p + 3*int(pc2[this.idx]) + 32) >> 6 // rescale to [0..4095]
 }
