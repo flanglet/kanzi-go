@@ -1167,7 +1167,7 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	}()
 
 	// Lock free synchronization
-	for n := 0; ; n++ {
+	for {
 		taskID := atomic.LoadInt32(this.processedBlockID)
 
 		if taskID == _CANCEL_TASKS_ID {
@@ -1267,7 +1267,7 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 
 	// Extract checksum from bit stream (if any)
 	if this.hasher != nil {
-		checksum1 = uint32(this.ibs.ReadBits(32))
+		checksum1 = uint32(ibs.ReadBits(32))
 	}
 
 	if len(this.listeners) > 0 {
