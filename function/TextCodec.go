@@ -1023,11 +1023,11 @@ func newTextCodec2WithCtx(ctx *map[string]interface{}) (*textCodec2, error) {
 	if val, containsKey := (*ctx)["blockSize"]; containsKey {
 		blockSize := val.(uint)
 
-		if blockSize >= 8 {
-			log, _ = kanzi.Log2(uint32(blockSize / 8))
+		if blockSize >= 32 {
+			log, _ = kanzi.Log2(uint32(blockSize / 32))
 
-			if log > 26 {
-				log = 26
+			if log > 24 {
+				log = 24
 			} else if log < 13 {
 				log = 13
 			}
