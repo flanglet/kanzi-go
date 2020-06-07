@@ -720,6 +720,7 @@ type decodingTaskResult struct {
 	data           []byte
 	decoded        int
 	blockID        int
+	skipped        bool
 	checksum       uint32
 	completionTime time.Time
 }
@@ -1023,101 +1024,113 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 	// Protect against future concurrent modification of the list of block listeners
 	listeners := make([]kanzi.Listener, len(this.listeners))
 	copy(listeners, this.listeners)
+	decoded := 0
 
-	nbTasks := this.jobs
-	var jobsPerTask []uint
+	for {
+		nbTasks := this.jobs
+		var jobsPerTask []uint
 
-	// Assign optimal number of tasks and jobs per task
-	if nbTasks > 1 {
-		// If the number of input blocks is available, use it to optimize
-		// memory usage
-		if this.nbInputBlocks != 0 {
-			// Limit the number of jobs if there are fewer blocks that this.jobs
-			// It allows more jobs per task and reduces memory usage.
-			if nbTasks > int(this.nbInputBlocks) {
-				nbTasks = int(this.nbInputBlocks)
+		// Assign optimal number of tasks and jobs per task
+		if nbTasks > 1 {
+			// If the number of input blocks is available, use it to optimize
+			// memory usage
+			if this.nbInputBlocks != 0 {
+				// Limit the number of jobs if there are fewer blocks that this.jobs
+				// It allows more jobs per task and reduces memory usage.
+				if nbTasks > int(this.nbInputBlocks) {
+					nbTasks = int(this.nbInputBlocks)
+				}
+			}
+
+			jobsPerTask = kanzi.ComputeJobsPerTask(make([]uint, nbTasks), uint(this.jobs), uint(nbTasks))
+		} else {
+			jobsPerTask = []uint{uint(this.jobs)}
+		}
+
+		results := make([]decodingTaskResult, nbTasks)
+		wg := sync.WaitGroup{}
+		firstID := this.blockID
+
+		// Invoke as many go routines as required
+		for taskID := 0; taskID < nbTasks; taskID++ {
+			// Lazy instantiation of input buffers this.buffers[2*taskID]
+			// Output buffers this.buffers[2*taskID+1] are lazily instantiated
+			// by the decoding tasks.
+			if len(this.buffers[2*taskID].Buf) < blkSize+1024 {
+				this.buffers[2*taskID].Buf = make([]byte, blkSize+1024)
+			}
+
+			copyCtx := make(map[string]interface{})
+
+			for k, v := range this.ctx {
+				copyCtx[k] = v
+			}
+
+			copyCtx["jobs"] = jobsPerTask[taskID]
+			results[taskID] = decodingTaskResult{}
+			wg.Add(1)
+
+			task := decodingTask{
+				iBuffer:            &this.buffers[2*taskID],
+				oBuffer:            &this.buffers[2*taskID+1],
+				hasher:             this.hasher,
+				blockLength:        uint(blkSize),
+				blockTransformType: this.transformType,
+				blockEntropyType:   this.entropyType,
+				currentBlockID:     firstID + int32(taskID) + 1,
+				processedBlockID:   &this.blockID,
+				wg:                 &wg,
+				listeners:          listeners,
+				ibs:                this.ibs,
+				ctx:                copyCtx}
+
+			// Invoke the tasks concurrently
+			go task.decode(&results[taskID])
+		}
+
+		// Wait for completion of all tasks
+		wg.Wait()
+		skipped := 0
+
+		// Process results
+		for _, r := range results {
+			decoded += r.decoded
+
+			if r.err != nil {
+				return decoded, r.err
+			}
+
+			if r.skipped == true {
+				skipped++
 			}
 		}
 
-		jobsPerTask = kanzi.ComputeJobsPerTask(make([]uint, nbTasks), uint(this.jobs), uint(nbTasks))
-	} else {
-		jobsPerTask = []uint{uint(this.jobs)}
-	}
-
-	results := make([]decodingTaskResult, nbTasks)
-	wg := sync.WaitGroup{}
-	firstID := this.blockID
-
-	// Invoke as many go routines as required
-	for taskID := 0; taskID < nbTasks; taskID++ {
-		// Lazy instantiation of input buffers this.buffers[2*taskID]
-		// Output buffers this.buffers[2*taskID+1] are lazily instantiated
-		// by the decoding tasks.
-		if len(this.buffers[2*taskID].Buf) < blkSize+1024 {
-			this.buffers[2*taskID].Buf = make([]byte, blkSize+1024)
+		if decoded > nbTasks*int(this.blockSize) {
+			return decoded, &IOError{msg: "Invalid data", code: kanzi.ERR_PROCESS_BLOCK}
 		}
 
-		copyCtx := make(map[string]interface{})
-
-		for k, v := range this.ctx {
-			copyCtx[k] = v
+		if len(this.data) < decoded {
+			extraBuf := make([]byte, decoded-len(this.data))
+			this.data = append(this.data, extraBuf...)
 		}
 
-		copyCtx["jobs"] = jobsPerTask[taskID]
-		results[taskID] = decodingTaskResult{}
-		wg.Add(1)
+		offset := 0
 
-		task := decodingTask{
-			iBuffer:            &this.buffers[2*taskID],
-			oBuffer:            &this.buffers[2*taskID+1],
-			hasher:             this.hasher,
-			blockLength:        uint(blkSize),
-			blockTransformType: this.transformType,
-			blockEntropyType:   this.entropyType,
-			currentBlockID:     firstID + int32(taskID) + 1,
-			processedBlockID:   &this.blockID,
-			wg:                 &wg,
-			listeners:          listeners,
-			ibs:                this.ibs,
-			ctx:                copyCtx}
+		for _, r := range results {
+			copy(this.data[offset:], r.data[0:r.decoded])
+			offset += r.decoded
 
-		// Invoke the tasks concurrently
-		go task.decode(&results[taskID])
-	}
-
-	// Wait for completion of all tasks
-	wg.Wait()
-	decoded := 0
-
-	// Process results
-	for _, r := range results {
-		decoded += r.decoded
-
-		if r.err != nil {
-			return decoded, r.err
+			if len(listeners) > 0 {
+				// Notify after transform ... in block order !
+				evt := kanzi.NewEvent(kanzi.EVT_AFTER_TRANSFORM, int(r.blockID),
+					int64(r.decoded), r.checksum, this.hasher != nil, r.completionTime)
+				notifyListeners(listeners, evt)
+			}
 		}
-	}
 
-	if decoded > nbTasks*int(this.blockSize) {
-		return decoded, &IOError{msg: "Invalid data", code: kanzi.ERR_PROCESS_BLOCK}
-	}
-
-	if len(this.data) < decoded {
-		extraBuf := make([]byte, decoded-len(this.data))
-		this.data = append(this.data, extraBuf...)
-	}
-
-	offset := 0
-
-	for _, r := range results {
-		copy(this.data[offset:], r.data[0:r.decoded])
-		offset += r.decoded
-
-		if len(listeners) > 0 {
-			// Notify after transform ... in block order !
-			evt := kanzi.NewEvent(kanzi.EVT_AFTER_TRANSFORM, int(r.blockID),
-				int64(r.decoded), r.checksum, this.hasher != nil, r.completionTime)
-			notifyListeners(listeners, evt)
+		// Unless all blocks were skipped, exit the loop (usual case)
+		if skipped != nbTasks {
+			break
 		}
 	}
 
@@ -1144,6 +1157,7 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	buffer := this.oBuffer.Buf
 	decoded := 0
 	checksum1 := uint32(0)
+	skipped := false
 
 	defer func() {
 		res.data = this.iBuffer.Buf
@@ -1151,13 +1165,14 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 		res.blockID = int(this.currentBlockID)
 		res.completionTime = time.Now()
 		res.checksum = checksum1
+		res.skipped = skipped
 
 		if r := recover(); r != nil {
 			res.err = &IOError{msg: r.(error).Error(), code: kanzi.ERR_PROCESS_BLOCK}
 		}
 
 		// Unblock other tasks
-		if res.err != nil || res.decoded == 0 {
+		if res.err != nil || (res.decoded == 0 && res.skipped == false) {
 			atomic.StoreInt32(this.processedBlockID, _CANCEL_TASKS_ID)
 		} else if atomic.LoadInt32(this.processedBlockID) == this.currentBlockID-1 {
 			atomic.StoreInt32(this.processedBlockID, this.currentBlockID)
@@ -1228,6 +1243,25 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	// After completion of the bitstream reading, increment the block id.
 	// It unblocks the task processing the next block (if any)
 	atomic.StoreInt32(this.processedBlockID, this.currentBlockID)
+
+	// Check if the block must be skipped
+	if v, hasKey := this.ctx["from"]; hasKey {
+		from := v.(int)
+
+		if int(this.currentBlockID) < from {
+			skipped = true
+			return
+		}
+	}
+
+	if v, hasKey := this.ctx["to"]; hasKey {
+		to := v.(int)
+
+		if int(this.currentBlockID) >= to {
+			skipped = true
+			return
+		}
+	}
 
 	// All the code below is concurrent
 	// Create a bitstream local to the task

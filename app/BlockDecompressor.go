@@ -45,6 +45,8 @@ type BlockDecompressor struct {
 	inputName  string
 	outputName string
 	jobs       uint
+	from       int // start blovk
+	to         int // end block
 	listeners  []kanzi.Listener
 	cpuProf    string
 }
@@ -60,7 +62,7 @@ func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, e
 	this := new(BlockDecompressor)
 	this.listeners = make([]kanzi.Listener, 0)
 
-	if force, prst := argsMap["overwrite"]; prst == true {
+	if force, hasKey := argsMap["overwrite"]; hasKey == true {
 		this.overwrite = force.(bool)
 		delete(argsMap, "overwrite")
 	} else {
@@ -76,6 +78,20 @@ func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, e
 	this.verbosity = argsMap["verbose"].(uint)
 	delete(argsMap, "verbose")
 
+	if v, hasKey := argsMap["from"]; hasKey == true {
+		this.from = v.(int)
+		delete(argsMap, "from")
+	} else {
+		this.from = -1
+	}
+
+	if v, hasKey := argsMap["to"]; hasKey == true {
+		this.to = v.(int)
+		delete(argsMap, "to")
+	} else {
+		this.to = -1
+	}
+
 	if concurrency == 0 {
 		this.jobs = _DECOMP_DEFAULT_CONCURRENCY
 	} else {
@@ -90,7 +106,7 @@ func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, e
 		this.jobs = concurrency
 	}
 
-	if prof, prst := argsMap["cpuProf"]; prst == true {
+	if prof, hasKey := argsMap["cpuProf"]; hasKey == true {
 		this.cpuProf = prof.(string)
 		delete(argsMap, "cpuProf")
 	} else {
@@ -279,6 +295,14 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	ctx := make(map[string]interface{})
 	ctx["verbosity"] = this.verbosity
 	ctx["overwrite"] = this.overwrite
+
+	if this.from >= 0 {
+		ctx["from"] = this.from
+	}
+
+	if this.to >= 0 {
+		ctx["to"] = this.to
+	}
 
 	if nbFiles == 1 {
 		oName := formattedOutName

@@ -41,8 +41,10 @@ const (
 	_ARG_IDX_JOBS      = 7
 	_ARG_IDX_VERBOSE   = 8
 	_ARG_IDX_LEVEL     = 9
-	_ARG_IDX_PROFILE   = 14
-	_APP_HEADER        = "Kanzi 1.7 (C) 2020,  Frederic Langlet"
+	//_ARG_IDX_FROM      = 10
+	//_ARG_IDX_TO        = 11
+	_ARG_IDX_PROFILE = 14
+	_APP_HEADER      = "Kanzi 1.7 (C) 2020,  Frederic Langlet"
 )
 
 var (
@@ -170,6 +172,8 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 	overwrite := false
 	checksum := false
 	skip := false
+	from := -1
+	to := -1
 	inputName := ""
 	outputName := ""
 	codec := ""
@@ -614,6 +618,52 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
+		if strings.HasPrefix(arg, "--from=") && ctx == -1 {
+			var strFrom string
+			var err error
+
+			if strings.HasPrefix(arg, "--from=") {
+				strFrom = strings.TrimPrefix(arg, "--from=")
+			} else {
+				strFrom = arg
+			}
+
+			if from != -1 {
+				fmt.Printf("Warning: ignoring duplicate start block: %v\n", strFrom)
+				continue
+			}
+
+			if from, err = strconv.Atoi(strFrom); err != nil || from < 0 {
+				fmt.Printf("Invalid start block provided on command line: %v\n", strFrom)
+				return kanzi.ERR_INVALID_PARAM
+			}
+
+			continue
+		}
+
+		if strings.HasPrefix(arg, "--to=") && ctx == -1 {
+			var strTo string
+			var err error
+
+			if strings.HasPrefix(arg, "--to=") {
+				strTo = strings.TrimPrefix(arg, "--to=")
+			} else {
+				strTo = arg
+			}
+
+			if to != -1 {
+				fmt.Printf("Warning: ignoring duplicate end block: %v\n", strTo)
+				continue
+			}
+
+			if to, err = strconv.Atoi(strTo); err != nil || to <= 0 {
+				fmt.Printf("Invalid end block provided on command line: %v\n", strTo)
+				return kanzi.ERR_INVALID_PARAM
+			}
+
+			continue
+		}
+
 		if !strings.HasPrefix(arg, "--verbose=") && !strings.HasPrefix(arg, "--output=") &&
 			ctx == -1 && !strings.HasPrefix(arg, "--cpuProf=") {
 			log.Println("Warning: ignoring unknown option ["+arg+"]", verbose > 0)
@@ -638,6 +688,14 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 
 		if len(transform) != 0 {
 			log.Println("Warning: providing the 'level' option forces the transform. Ignoring ["+transform+"]", verbose > 0)
+		}
+	}
+
+	if from >= 0 || to >= 0 {
+		if mode != "d" {
+			log.Println("Warning: ignoring start end block (only valid for decompression)", verbose > 0)
+			from = -1
+			to = -1
 		}
 	}
 
@@ -679,6 +737,14 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 
 	if len(cpuProf) > 0 {
 		argsMap["cpuProf"] = cpuProf
+	}
+
+	if from >= 0 {
+		argsMap["from"] = from
+	}
+
+	if to >= 0 {
+		argsMap["to"] = to
 	}
 
 	return 0
