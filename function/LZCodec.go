@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	_LZ_HASH_SEED           = 0x7FEB352D
+	_LZ_HASH_SEED           = 0x1E35A7BD
 	_LZX_HASH_LOG           = 19 // 512K
 	_LZX_HASH_SHIFT         = 40 - _LZX_HASH_LOG
 	_LZX_HASH_MASK          = (1 << _LZX_HASH_LOG) - 1
