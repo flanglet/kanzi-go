@@ -693,7 +693,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 
 	if from >= 0 || to >= 0 {
 		if mode != "d" {
-			log.Println("Warning: ignoring start end block (only valid for decompression)", verbose > 0)
+			log.Println("Warning: ignoring start/end block (only valid for decompression)", verbose > 0)
 			from = -1
 			to = -1
 		}
