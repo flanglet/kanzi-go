@@ -363,6 +363,8 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 			go fileDecompressWorker(tasks, cancel, results)
 		}
 
+		res = 0
+
 		// Wait for all task results
 		for i := 0; i < nbFiles; i++ {
 			result := <-results
@@ -375,7 +377,6 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 			}
 		}
 
-		res = 0
 		cancel <- true
 		close(cancel)
 		close(results)

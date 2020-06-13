@@ -448,6 +448,8 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 			go fileCompressWorker(tasks, cancel, results)
 		}
 
+		res = 0
+
 		// Wait for all task results
 		for i := 0; i < nbFiles; i++ {
 			result := <-results
@@ -461,7 +463,6 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 			}
 		}
 
-		res = 0
 		cancel <- true
 		close(cancel)
 		close(results)
