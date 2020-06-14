@@ -803,15 +803,15 @@ func (this FileCompare) Less(i, j int) bool {
 		return strings.Compare(this.data[i].FullPath, this.data[j].FullPath) < 0
 	}
 
-	// First check parent directory path
+	// First compare parent directory paths
 	res := strings.Compare(this.data[i].Path, this.data[j].Path)
 
 	if res != 0 {
 		return res < 0
 	}
 
-	// Check file size
-	return this.data[i].Size < this.data[j].Size
+	// Then, compare file sizes (decreasing order)
+	return this.data[i].Size > this.data[j].Size
 }
 
 func createFileList(target string, fileList []FileData) ([]FileData, error) {

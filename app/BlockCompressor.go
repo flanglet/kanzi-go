@@ -412,7 +412,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		cancel := make(chan bool, 1)
 
 		jobsPerTask := kanzi.ComputeJobsPerTask(make([]uint, nbFiles), this.jobs, uint(nbFiles))
-		sort.Sort(FileCompare{data: files, sortBySize: false})
+		sort.Sort(FileCompare{data: files, sortBySize: true})
 
 		// Create one task per file
 		for i, f := range files {
