@@ -678,7 +678,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 				if pe == nil {
 					// Word not found in the dictionary or hash collision.
 					// Replace entry if not in static dictionary
-					if ((length > 3) || (length > 2 && words < _TC_THRESHOLD2)) && (pe1 == nil) {
+					if ((length > 3) || (length == 3 && words < _TC_THRESHOLD2)) && (pe1 == nil) {
 						pe = &this.dictList[words]
 
 						if int(pe.data&_TC_MASK_LENGTH) >= this.staticDictSize {
@@ -871,8 +871,8 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			continue
 		}
 
-		if (srcIdx > delimAnchor+2) && isDelimiter(cur) {
-			length := int32(srcIdx - delimAnchor - 1)
+		if (srcIdx > delimAnchor+3) && isDelimiter(cur) {
+			length := int32(srcIdx - delimAnchor - 1) // length > 2
 
 			if length <= _TC_MAX_WORD_LENGTH {
 				h1 := _TC_HASH1
@@ -893,7 +893,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 				if pe == nil {
 					// Word not found in the dictionary or hash collision.
 					// Replace entry if not in static dictionary
-					if ((length > 3) || (length > 2 && words < _TC_THRESHOLD2)) && (pe1 == nil) {
+					if ((length > 3) || (words < _TC_THRESHOLD2)) && (pe1 == nil) {
 						pe = &this.dictList[words]
 
 						if int(pe.data&_TC_MASK_LENGTH) >= this.staticDictSize {
@@ -1193,7 +1193,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 				if pe == nil {
 					// Word not found in the dictionary or hash collision.
 					// Replace entry if not in static dictionary
-					if ((length > 3) || (length > 2 && words < _TC_THRESHOLD2)) && (pe1 == nil) {
+					if ((length > 3) || (length == 3 && words < _TC_THRESHOLD2)) && (pe1 == nil) {
 						pe = &this.dictList[words]
 
 						if int(pe.data&_TC_MASK_LENGTH) >= this.staticDictSize {
@@ -1410,8 +1410,8 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			continue
 		}
 
-		if (srcIdx > delimAnchor+2) && isDelimiter(cur) {
-			length := int32(srcIdx - delimAnchor - 1)
+		if (srcIdx > delimAnchor+3) && isDelimiter(cur) {
+			length := int32(srcIdx - delimAnchor - 1) // length > 2
 
 			if length <= _TC_MAX_WORD_LENGTH {
 				h1 := _TC_HASH1
@@ -1432,7 +1432,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 				if pe == nil {
 					// Word not found in the dictionary or hash collision.
 					// Replace entry if not in static dictionary
-					if ((length > 3) || (length > 2 && words < _TC_THRESHOLD2)) && (pe1 == nil) {
+					if ((length > 3) || (words < _TC_THRESHOLD2)) && (pe1 == nil) {
 						pe = &this.dictList[words]
 
 						if int(pe.data&_TC_MASK_LENGTH) >= this.staticDictSize {
