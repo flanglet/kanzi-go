@@ -146,10 +146,11 @@ func (this *DefaultOutputBitStream) WriteArray(bits []byte, count uint) uint {
 			this.current |= (value >> r)
 			this.pushCurrent()
 			this.current = (value << (64 - r))
-			this.availBits -= r
 			start += 8
 			remaining -= 64
 		}
+
+		this.availBits -= r
 	}
 
 	// Last bytes

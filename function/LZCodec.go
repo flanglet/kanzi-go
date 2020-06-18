@@ -374,18 +374,14 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 				srcIdx++
 			}
 
-			// Copy literals and exit ?
-			if dstIdx+litLen > dstEnd || srcIdx+litLen > srcEnd {
-				copy(dst[dstIdx:], src[srcIdx:srcIdx+litLen])
-				srcIdx += litLen
-				dstIdx += litLen
-				break
-			}
-
 			// Emit literals
 			emitLiterals(src[srcIdx:srcIdx+litLen], dst[dstIdx:])
 			srcIdx += litLen
 			dstIdx += litLen
+
+			if dstIdx > dstEnd || srcIdx > srcEnd {
+				break
+			}
 		}
 
 		// Get match length
