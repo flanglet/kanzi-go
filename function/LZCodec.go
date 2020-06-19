@@ -297,8 +297,8 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		// Emit match length
-		if mLen >= 0x0F {
-			dstIdx += emitLength(dst[dstIdx:], mLen-0x0F)
+		if mLen >= 15 {
+			dstIdx += emitLength(dst[dstIdx:], mLen-15)
 		}
 
 		// Emit distance
@@ -371,13 +371,16 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			// Emit literals
+			if dstIdx+litLen > dstEnd || srcIdx+litLen > srcEnd {
+				copy(dst[dstIdx:], src[srcIdx:srcIdx+litLen])
+				srcIdx += litLen
+				dstIdx += litLen
+				break
+			}
+
 			emitLiterals(src[srcIdx:srcIdx+litLen], dst[dstIdx:])
 			srcIdx += litLen
 			dstIdx += litLen
-
-			if dstIdx > dstEnd || srcIdx > srcEnd {
-				break
-			}
 		}
 
 		// Get match length

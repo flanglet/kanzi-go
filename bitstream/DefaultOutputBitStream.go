@@ -139,9 +139,9 @@ func (this *DefaultOutputBitStream) WriteArray(bits []byte, count uint) uint {
 		}
 	} else {
 		// Not byte aligned
-		r := 64 - this.availBits
-
 		if remaining >= 64 {
+			r := 64 - this.availBits
+
 			for remaining >= 64 {
 				value := binary.BigEndian.Uint64(bits[start : start+8])
 				this.current |= (value >> r)
