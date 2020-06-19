@@ -366,10 +366,6 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 					litLen += 0xFF
 				}
 
-				if srcIdx >= srcEnd+8 {
-					return uint(srcIdx), uint(dstIdx), fmt.Errorf("LZCodec: Invalid literals length decoded: %d", litLen)
-				}
-
 				litLen += int(src[srcIdx])
 				srcIdx++
 			}
