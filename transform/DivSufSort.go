@@ -1589,7 +1589,7 @@ func (this *DivSufSort) ssMedian5(buf0 []byte, buf1 []int32, v1, v2, v3, v4, v5 
 	}
 
 	if buf0[buf1[this.sa[v2]]] > buf0[buf1[this.sa[v4]]] {
-		v2, v4 = v4, v2
+		_, v4 = v4, v2
 		v3, v5 = v5, v3
 	}
 
@@ -1598,8 +1598,8 @@ func (this *DivSufSort) ssMedian5(buf0 []byte, buf1 []int32, v1, v2, v3, v4, v5 
 	}
 
 	if buf0[buf1[this.sa[v1]]] > buf0[buf1[this.sa[v4]]] {
-		v1, v4 = v4, v1
-		v3, v5 = v5, v3
+		_, v4 = v4, v1
+		v3, _ = v5, v3
 	}
 
 	if buf0[buf1[this.sa[v3]]] > buf0[buf1[this.sa[v4]]] {
@@ -2344,7 +2344,7 @@ func trMedian5(buf1, buf2 []int32, v1, v2, v3, v4, v5 int32) int32 {
 	}
 
 	if buf2[buf1[v2]] > buf2[buf1[v4]] {
-		v2, v4 = v4, v2
+		_, v4 = v4, v2
 		v3, v5 = v5, v3
 	}
 
@@ -2353,8 +2353,8 @@ func trMedian5(buf1, buf2 []int32, v1, v2, v3, v4, v5 int32) int32 {
 	}
 
 	if buf2[buf1[v1]] > buf2[buf1[v4]] {
-		v1, v4 = v4, v1
-		v3, v5 = v5, v3
+		_, v4 = v4, v1
+		v3, _ = v5, v3
 	}
 
 	if buf2[buf1[v3]] > buf2[buf1[v4]] {
