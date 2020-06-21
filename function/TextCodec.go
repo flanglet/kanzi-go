@@ -1005,6 +1005,7 @@ func (this textCodec1) MaxEncodedLen(srcLen int) int {
 	return srcLen
 }
 
+//nolint (remove unused warning)
 func newTextCodec2() (*textCodec2, error) {
 	this := new(textCodec2)
 	this.logHashSize = _TC_LOG_HASHES_SIZE

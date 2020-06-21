@@ -164,13 +164,16 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []int) (int, error) {
 	retries := uint(0)
 
 	for {
-		this.computeCodeLengths(frequencies, sizes[:], count)
+		if err := this.computeCodeLengths(frequencies, sizes[:], count); err != nil {
+			return count, err
+		}
 
 		if this.maxCodeLen <= _HUF_MAX_SYMBOL_SIZE {
 			// Usual case
 			if _, err := generateCanonicalCodes(sizes[:], this.codes[:], this.sranks[0:count]); err != nil {
 				return count, err
 			}
+
 			break
 		}
 
@@ -190,7 +193,10 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []int) (int, error) {
 		var alphabet [256]int
 		copy(alphabet[:], this.alphabet[:count])
 		retries++
-		NormalizeFrequencies(frequencies, alphabet[:count], totalFreq, int(_HUF_MAX_CHUNK_SIZE>>(2*retries)))
+
+		if _, err := NormalizeFrequencies(frequencies, alphabet[:count], totalFreq, int(_HUF_MAX_CHUNK_SIZE>>(2*retries))); err != nil {
+			return count, err
+		}
 	}
 
 	// Transmit code lengths only, frequencies and codes do not matter

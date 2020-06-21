@@ -23,11 +23,7 @@ import (
 )
 
 const (
-	_FPAQ_TOP       = uint64(0x00FFFFFFFFFFFFFF)
-	_FPAQ_MASK_0_56 = uint64(0x00FFFFFFFFFFFFFF)
-	_FPAQ_MASK_0_24 = uint64(0x0000000000FFFFFF)
-	_FPAQ_MASK_0_32 = uint64(0x00000000FFFFFFFF)
-	_FPAQ_PSCALE    = 1 << 16
+	_FPAQ_PSCALE = 1 << 16
 )
 
 // FPAQEncoder entropy encoder derived from fpaq0r by Matt Mahoney & Alexander Ratushnyak.
