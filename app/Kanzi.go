@@ -44,7 +44,7 @@ const (
 	//_ARG_IDX_FROM      = 10
 	//_ARG_IDX_TO        = 11
 	_ARG_IDX_PROFILE = 14
-	_APP_HEADER      = "Kanzi 1.7 (C) 2020,  Frederic Langlet"
+	_APP_HEADER      = "Kanzi 1.8 (C) 2020,  Frederic Langlet"
 )
 
 var (
