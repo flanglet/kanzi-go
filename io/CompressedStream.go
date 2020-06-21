@@ -39,7 +39,7 @@ import (
 
 const (
 	_BITSTREAM_TYPE             = 0x4B414E5A // "KANZ"
-	_BITSTREAM_FORMAT_VERSION   = 10
+	_BITSTREAM_FORMAT_VERSION   = 9
 	_STREAM_DEFAULT_BUFFER_SIZE = 256 * 1024
 	_EXTRA_BUFFER_SIZE          = 256
 	_COPY_BLOCK_MASK            = 0x80
@@ -539,11 +539,9 @@ func (this *encodingTask) encode(res error) {
 	}
 
 	if this.blockLength <= _SMALL_BLOCK_SIZE {
-		if this.blockLength == 0 {
-			this.blockTransformType = function.NONE_TYPE
-			this.blockEntropyType = entropy.NONE_TYPE
-			mode |= byte(_COPY_BLOCK_MASK)
-		}
+		this.blockTransformType = function.NONE_TYPE
+		this.blockEntropyType = entropy.NONE_TYPE
+		mode |= byte(_COPY_BLOCK_MASK)
 	} else {
 		if skip, prst := this.ctx["skipBlocks"]; prst == true {
 			if skip.(bool) == true {
