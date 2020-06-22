@@ -45,7 +45,6 @@ const (
 	_ROLZ_MAX_BLOCK_SIZE  = 1 << 30 // 1 GB
 	_ROLZ_PSCALE          = 0xFFFF
 	_ROLZ_TOP             = uint64(0x00FFFFFFFFFFFFFF)
-	_MASK_0_24            = uint64(0x0000000000FFFFFF)
 	_MASK_0_56            = uint64(0x00FFFFFFFFFFFFFF)
 	_MASK_0_32            = uint64(0x00000000FFFFFFFF)
 )

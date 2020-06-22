@@ -40,6 +40,7 @@ const (
 	_LZP_MATCH_FLAG         = 0xFC
 )
 
+// LZCodec encapsulates an implementation of a Lempel-Ziv codec
 type LZCodec struct {
 	delegate kanzi.ByteFunction
 }

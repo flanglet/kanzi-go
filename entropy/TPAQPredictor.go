@@ -313,7 +313,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.binCount += ((this.c4 >> 7) & 1)
 
 		// Select Neural Net
-		var lenCtx int32 = 0
+		lenCtx := int32(0)
 
 		if this.matchLen != 0 {
 			lenCtx = 1
