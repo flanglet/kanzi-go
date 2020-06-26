@@ -546,7 +546,7 @@ func (this *encodingTask) encode(res error) {
 		if skip, prst := this.ctx["skipBlocks"]; prst == true {
 			if skip.(bool) == true {
 				histo := [256]int{}
-				entropy1024 := entropy.ComputeFirstOrderEntropy1024(data[0:this.blockLength], histo[:])
+				entropy1024 := kanzi.ComputeFirstOrderEntropy1024(data[0:this.blockLength], histo[:])
 				//this.ctx["histo0"] = histo
 
 				if entropy1024 >= entropy.INCOMPRESSIBLE_THRESHOLD {

@@ -180,30 +180,6 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 	return count, nil
 }
 
-// ComputeFirstOrderEntropy1024 computes the order 0 entropy of the block
-// and scales the result by 1024 (result in the [0..1024] range)
-// Fills in the histogram with order 0 frequencies. Incoming array size must be at least 256
-func ComputeFirstOrderEntropy1024(block []byte, histo []int) int {
-	if len(block) == 0 {
-		return 0
-	}
-
-	kanzi.ComputeHistogram(block, histo, true, false)
-	sum := uint64(0)
-	logLength1024, _ := kanzi.Log2_1024(uint32(len(block)))
-
-	for i := 0; i < 256; i++ {
-		if histo[i] == 0 {
-			continue
-		}
-
-		log1024, _ := kanzi.Log2_1024(uint32(histo[i]))
-		sum += ((uint64(histo[i]) * uint64(logLength1024-log1024)) >> 3)
-	}
-
-	return int(sum / uint64(len(block)))
-}
-
 // NormalizeFrequencies scales the frequencies so that their sum equals 'scale'.
 // Returns the size of the alphabet or an error.
 // The alphabet and freqs parameters are updated.

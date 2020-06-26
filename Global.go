@@ -227,6 +227,30 @@ func RoundUpPowerOfTwo(x int32) int32 {
 	return x + 1
 }
 
+// ComputeFirstOrderEntropy1024 computes the order 0 entropy of the block
+// and scales the result by 1024 (result in the [0..1024] range)
+// Fills in the histogram with order 0 frequencies. Incoming array size must be at least 256
+func ComputeFirstOrderEntropy1024(block []byte, histo []int) int {
+	if len(block) == 0 {
+		return 0
+	}
+
+	ComputeHistogram(block, histo, true, false)
+	sum := uint64(0)
+	logLength1024, _ := Log2_1024(uint32(len(block)))
+
+	for i := 0; i < 256; i++ {
+		if histo[i] == 0 {
+			continue
+		}
+
+		log1024, _ := Log2_1024(uint32(histo[i]))
+		sum += ((uint64(histo[i]) * uint64(logLength1024-log1024)) >> 3)
+	}
+
+	return int(sum / uint64(len(block)))
+}
+
 // ComputeHistogram computes the order 0 or order 1 histogram for the input block
 // and returns it in the 'freqs' slice.
 // If withTotal is true, the last spot in each frequencies order 0 array is for the total
