@@ -39,7 +39,7 @@ import (
 
 const (
 	_BITSTREAM_TYPE             = 0x4B414E5A // "KANZ"
-	_BITSTREAM_FORMAT_VERSION   = 9
+	_BITSTREAM_FORMAT_VERSION   = 10
 	_STREAM_DEFAULT_BUFFER_SIZE = 256 * 1024
 	_EXTRA_BUFFER_SIZE          = 256
 	_COPY_BLOCK_MASK            = 0x80
@@ -643,9 +643,7 @@ func (this *encodingTask) encode(res error) {
 	}
 
 	// Entropy encode block
-	_, err = ee.Write(buffer[0:postTransformLength])
-
-	if err != nil {
+	if _, err = ee.Write(buffer[0:postTransformLength]); err != nil {
 		res = IOError{msg: err.Error(), code: kanzi.ERR_PROCESS_BLOCK}
 		return
 	}
@@ -685,18 +683,29 @@ func (this *encodingTask) encode(res error) {
 	}
 
 	this.obs.WriteBits(written, lw)
+	chkSize := int(written)
+
+	if written >= 1<<30 {
+		chkSize = 1 << 30
+	}
+
+	// Protect against pathological cases
+	if len(data) < (chkSize >> 3) {
+		extraBuf := make([]byte, (chkSize>>3)-len(this.iBuffer.Buf))
+		data = append(data, extraBuf...)
+		this.iBuffer.Buf = data
+	}
 
 	// Emit data to shared bitstream
 	for n := uint(0); written > 0; {
-		chkSize := uint(written)
-
-		if written >= 1<<31 {
-			chkSize = 1 << 31
-		}
-
-		this.obs.WriteArray(data[n:], chkSize)
-		n += ((chkSize + 7) >> 3)
+		this.obs.WriteArray(data[n:], uint(chkSize))
+		n += uint((chkSize + 7) >> 3)
 		written -= uint64(chkSize)
+		chkSize = int(written)
+
+		if written >= 1<<30 {
+			chkSize = 1 << 30
+		}
 	}
 }
 
