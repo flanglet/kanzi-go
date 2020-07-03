@@ -321,11 +321,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		this.counters[i] = 0
 	}
 
-	litOrder := uint(1)
-
-	if len(src) < 1<<17 {
-		litOrder = 0
-	}
+	litOrder := uint(0)
 
 	dst[dstIdx] = byte(litOrder)
 	dstIdx++

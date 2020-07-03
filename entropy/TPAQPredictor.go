@@ -224,10 +224,12 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 			statesSize = 1 << 29
 		} else if rbsz >= 16*1024*1024 {
 			statesSize = 1 << 28
-		} else if rbsz >= 1024*1024 {
-			statesSize = 1 << 27
-		} else {
+		} else if rbsz >= 4*1024*1024 {
 			statesSize = 1 << 26
+		} else if rbsz >= 1024*1024 {
+			statesSize = 1 << 24
+		} else {
+			statesSize = 1 << 22
 		}
 
 		// Actual size of the current block
