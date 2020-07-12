@@ -583,20 +583,19 @@ func (this *encodingTask) encode(res error) {
 	// Forward transform (ignore error, encode skipFlags)
 	_, postTransformLength, _ := t.Forward(data[0:this.blockLength], buffer)
 	this.ctx["size"] = postTransformLength
-	dataSize := uint(0)
+	dataSize := uint(1)
 
-	for i := uint64(0xFF); i < uint64(postTransformLength); i <<= 8 {
-		dataSize++
+	if postTransformLength > 2 {
+		dataSize = uint(kanzi.Log2NoCheck(uint32(postTransformLength))+7) >> 3
 	}
 
-	if dataSize > 3 {
+	if dataSize > 4 {
 		res = IOError{msg: "Invalid block data length", code: kanzi.ERR_WRITE_FILE}
 		return
 	}
 
 	// Record size of 'block size' - 1 in bytes
-	mode |= byte((dataSize & 0x03) << 5)
-	dataSize++
+	mode |= byte(((dataSize - 1) & 0x03) << 5)
 
 	if len(this.listeners) > 0 {
 		// Notify after transform
@@ -683,28 +682,28 @@ func (this *encodingTask) encode(res error) {
 	}
 
 	this.obs.WriteBits(written, lw)
-	chkSize := int(written)
+	chkSize := uint(1 << 30)
 
-	if written >= 1<<30 {
-		chkSize = 1 << 30
+	if written < 1<<30 {
+		chkSize = uint(written)
 	}
 
 	// Protect against pathological cases
-	if len(data) < (chkSize >> 3) {
-		extraBuf := make([]byte, (chkSize>>3)-len(this.iBuffer.Buf))
+	if len(data) < int(chkSize>>3) {
+		extraBuf := make([]byte, int(chkSize>>3)-len(this.iBuffer.Buf))
 		data = append(data, extraBuf...)
 		this.iBuffer.Buf = data
 	}
 
 	// Emit data to shared bitstream
 	for n := uint(0); written > 0; {
-		this.obs.WriteArray(data[n:], uint(chkSize))
-		n += uint((chkSize + 7) >> 3)
+		this.obs.WriteArray(data[n:], chkSize)
+		n += (chkSize + 7) >> 3
 		written -= uint64(chkSize)
-		chkSize = int(written)
+		chkSize = uint(1 << 30)
 
-		if written >= 1<<30 {
-			chkSize = 1 << 30
+		if written < 1<<30 {
+			chkSize = uint(written)
 		}
 	}
 }
@@ -1236,10 +1235,10 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 
 	// Read data from shared bitstream
 	for n := uint(0); read > 0; {
-		chkSize := uint(read)
+		chkSize := uint(1 << 30)
 
-		if read >= 1<<31 {
-			chkSize = 1 << 31
+		if read < 1<<30 {
+			chkSize = uint(read)
 		}
 
 		this.ibs.ReadArray(data[n:], chkSize)
