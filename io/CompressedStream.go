@@ -585,8 +585,8 @@ func (this *encodingTask) encode(res error) {
 	this.ctx["size"] = postTransformLength
 	dataSize := uint(1)
 
-	if postTransformLength > 2 {
-		dataSize = uint(kanzi.Log2NoCheck(uint32(postTransformLength))+7) >> 3
+	if postTransformLength >= 256 {
+		dataSize = uint(kanzi.Log2NoCheck(uint32(postTransformLength))>>3) + 1
 	}
 
 	if dataSize > 4 {
