@@ -442,12 +442,10 @@ func (this *CompressedOutputStream) processBlock(force bool) error {
 		}
 
 		// Add padding for incompressible data
-		length := sz
+		length := sz + sz>>6
 
-		if length >= 1024<<6 {
-			length += (length >> 6)
-		} else {
-			length += 1024
+		if length < 32768 {
+			length = 32768
 		}
 
 		if len(this.buffers[2*taskID].Buf) < length {
@@ -686,13 +684,6 @@ func (this *encodingTask) encode(res error) {
 
 	if written < 1<<30 {
 		chkSize = uint(written)
-	}
-
-	// Protect against pathological cases
-	if len(data) < int(chkSize>>3) {
-		extraBuf := make([]byte, int(chkSize>>3)-len(this.iBuffer.Buf))
-		data = append(data, extraBuf...)
-		this.iBuffer.Buf = data
 	}
 
 	// Emit data to shared bitstream

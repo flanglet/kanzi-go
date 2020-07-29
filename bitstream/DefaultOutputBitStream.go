@@ -25,7 +25,7 @@ import (
 // DefaultOutputBitStream is the default implementation of OutputBitStream
 type DefaultOutputBitStream struct {
 	closed    bool
-	written   uint64
+	written   int64
 	position  int    // index of current byte in buffer
 	availBits uint   // bits not consumed in current
 	current   uint64 // cached bits
@@ -194,7 +194,7 @@ func (this *DefaultOutputBitStream) flush() error {
 			return err
 		}
 
-		this.written += (uint64(this.position) << 3)
+		this.written += (int64(this.position) << 3)
 		this.position = 0
 	}
 
@@ -218,7 +218,7 @@ func (this *DefaultOutputBitStream) Close() (bool, error) {
 		this.availBits += 8
 	}
 
-	this.written -= uint64(this.availBits - 64)
+	this.written -= int64(this.availBits - 64) // can be negative
 	this.availBits = 64
 
 	if err := this.flush(); err != nil {
@@ -242,7 +242,7 @@ func (this *DefaultOutputBitStream) Close() (bool, error) {
 // Written returns the number of bits written so far
 func (this *DefaultOutputBitStream) Written() uint64 {
 	// Number of bits flushed + bytes written in memory + bits written in memory
-	return this.written + uint64(this.position<<3) + uint64(64-this.availBits)
+	return uint64(this.written + int64(this.position<<3) + int64(64-this.availBits))
 }
 
 // Closed says whether this stream can be written to
