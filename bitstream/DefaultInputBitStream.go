@@ -25,7 +25,7 @@ import (
 // DefaultInputBitStream is the default implementation of InputBitStream
 type DefaultInputBitStream struct {
 	closed      bool
-	read        uint64
+	read        int64
 	position    int  // index of current byte (consumed if bitIndex == -1)
 	availBits   uint // bits not consumed in current
 	is          io.ReadCloser
@@ -173,7 +173,7 @@ func (this *DefaultInputBitStream) readFromInputStream(count int) (int, error) {
 		return 0, errors.New("Stream closed")
 	}
 
-	this.read += uint64((this.maxPosition + 1) << 3)
+	this.read += int64((this.maxPosition + 1) << 3)
 	size, err := this.is.Read(this.buffer[0:count])
 	this.position = 0
 
@@ -249,6 +249,7 @@ func (this *DefaultInputBitStream) Close() (bool, error) {
 
 	// Reset fields to force a readFromInputStream() and trigger an error
 	// on ReadBit() or ReadBits()
+	this.read -= int64(this.availBits) // can be negative
 	this.availBits = 0
 	this.maxPosition = -1
 	return true, nil
@@ -256,7 +257,7 @@ func (this *DefaultInputBitStream) Close() (bool, error) {
 
 // Read returns the number of bits read so far
 func (this *DefaultInputBitStream) Read() uint64 {
-	return this.read + uint64(this.position)<<3 - uint64(this.availBits)
+	return uint64(this.read + int64(this.position)<<3 - int64(this.availBits))
 }
 
 // Closed says whether this stream can be read from
