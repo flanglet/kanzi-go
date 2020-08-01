@@ -62,6 +62,10 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, nil
 	}
 
+	if len(src) < 16 {
+		return 0, 0, errors.New("Input buffer is too small, skip")
+	}
+
 	if &src[0] == &dst[0] {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
@@ -278,7 +282,7 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 
 	srcIdx := 0
 	dstIdx := 0
-	srcEnd := len(src)
+	srcEnd := len(src) - 4
 	dstEnd := len(dst)
 	escape := src[srcIdx]
 	srcIdx++
@@ -381,8 +385,17 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
-	if srcIdx != srcEnd && err == nil {
-		err = errors.New("Invalid input data")
+	if err == nil {
+		if srcIdx != srcEnd {
+			err = errors.New("Invalid input data")
+		} else {
+			// Copy the last few bytes
+			for srcIdx < srcEnd+4 && dstIdx < dstEnd {
+				dst[dstIdx] = src[srcIdx]
+				srcIdx++
+				dstIdx++
+			}
+		}
 	}
 
 	return uint(srcIdx), uint(dstIdx), err
