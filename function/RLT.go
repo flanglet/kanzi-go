@@ -113,7 +113,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	// Main loop
-	for srcIdx < srcEnd4 {
+	for {
 		if prev == src[srcIdx] {
 			srcIdx++
 			run++
@@ -130,7 +130,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 						srcIdx++
 						run++
 
-						if run < _RLT_MAX_RUN4 {
+						if run < _RLT_MAX_RUN4 && srcIdx < srcEnd4 {
 							continue
 						}
 					}
@@ -181,6 +181,10 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 		prev = src[srcIdx]
 		srcIdx++
 		run = 1
+
+		if srcIdx >= srcEnd4 {
+			break
+		}
 	}
 
 	if err == nil {
@@ -212,8 +216,20 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 			}
 		}
 
-		// Copy the last few bytes
+		// Emit the last few bytes
 		for srcIdx < srcEnd && dstIdx < dstEnd {
+			if src[srcIdx] == escape {
+				if dstIdx+2 >= dstEnd {
+					break
+				}
+
+				dst[dstIdx] = escape
+				dst[dstIdx+1] = 0
+				dstIdx += 2
+				srcIdx++
+				continue
+			}
+
 			dst[dstIdx] = src[srcIdx]
 			srcIdx++
 			dstIdx++
@@ -282,7 +298,7 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 
 	srcIdx := 0
 	dstIdx := 0
-	srcEnd := len(src) - 4
+	srcEnd := len(src)
 	dstEnd := len(dst)
 	escape := src[srcIdx]
 	srcIdx++
@@ -385,17 +401,8 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
-	if err == nil {
-		if srcIdx != srcEnd {
-			err = errors.New("Invalid input data")
-		} else {
-			// Copy the last few bytes
-			for srcIdx < srcEnd+4 && dstIdx < dstEnd {
-				dst[dstIdx] = src[srcIdx]
-				srcIdx++
-				dstIdx++
-			}
-		}
+	if err == nil && srcIdx != srcEnd {
+		err = errors.New("Invalid input data")
 	}
 
 	return uint(srcIdx), uint(dstIdx), err
