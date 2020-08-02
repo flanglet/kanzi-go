@@ -444,8 +444,8 @@ func (this *CompressedOutputStream) processBlock(force bool) error {
 		// Add padding for incompressible data
 		length := sz + sz>>6
 
-		if length < 32768 {
-			length = 32768
+		if length < 65536 {
+			length = 65536
 		}
 
 		if len(this.buffers[2*taskID].Buf) < length {
