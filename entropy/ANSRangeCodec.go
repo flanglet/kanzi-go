@@ -224,9 +224,19 @@ func (this *ANSRangeEncoder) Write(block []byte) (int, error) {
 		this.symbols[i] = encSymbol{}
 	}
 
+	size := 2 * len(block)
+
+	if size > sizeChunk+(sizeChunk>>3) { // min
+		size = sizeChunk + (sizeChunk >> 3)
+	}
+
+	if size < 65536 { // max
+		size = 65536
+	}
+
 	// Add some padding
-	if len(this.buffer) < sizeChunk+(sizeChunk>>3) {
-		this.buffer = make([]byte, sizeChunk+(sizeChunk>>3))
+	if len(this.buffer) < size {
+		this.buffer = make([]byte, size)
 	}
 
 	end := len(block)
@@ -585,15 +595,19 @@ func (this *ANSRangeDecoder) Read(block []byte) (int, error) {
 		this.symbols[i] = decSymbol{}
 	}
 
-	padding := sizeChunk >> 3
+	size := 2 * len(block)
 
-	if sizeChunk < 128 {
-		padding = 16
+	if size > sizeChunk+(sizeChunk>>3) { // min
+		size = sizeChunk + (sizeChunk >> 3)
+	}
+
+	if size < 65536 { // max
+		size = 65536
 	}
 
 	// Add some padding
-	if len(this.buffer) < sizeChunk+padding {
-		this.buffer = make([]byte, sizeChunk+padding)
+	if len(this.buffer) < size {
+		this.buffer = make([]byte, size)
 	}
 
 	for startChunk < end {
