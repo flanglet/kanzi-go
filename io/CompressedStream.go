@@ -350,13 +350,8 @@ func (this *CompressedOutputStream) Close() error {
 	}
 
 	// Write end block of size 0
-	lw := uint(32)
-
-	if this.blockSize >= 1<<28 {
-		lw = 40
-	}
-
-	this.obs.WriteBits(0, lw)
+	this.obs.WriteBits(0, 5) // write length-3 (5 bits max)
+	this.obs.WriteBits(0, 3)
 
 	if _, err := this.obs.Close(); err != nil {
 		return err
@@ -673,12 +668,13 @@ func (this *encodingTask) encode(res error) {
 	}
 
 	// Emit block size in bits (max size pre-entropy is 1 GB = 1 << 30 bytes)
-	lw := uint(32)
+	lw := uint(3)
 
-	if this.blockLength >= 1<<28 {
-		lw = 40
+	if written >= 8 {
+		lw = uint(kanzi.Log2NoCheck(uint32(written>>3)) + 4)
 	}
 
+	this.obs.WriteBits(uint64(lw-3), 5) // write length-3 (5 bits max)
 	this.obs.WriteBits(written, lw)
 	chkSize := uint(1 << 30)
 
@@ -1194,13 +1190,8 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	}
 
 	// Read shared bitstream sequentially
-	lw := uint(32)
-
-	if this.blockLength >= 1<<28 {
-		lw = 40
-	}
-
-	read := this.ibs.ReadBits(lw)
+	lr := uint(this.ibs.ReadBits(5)) + 3
+	read := this.ibs.ReadBits(lr)
 
 	if read == 0 {
 		return
