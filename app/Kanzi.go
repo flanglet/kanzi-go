@@ -317,7 +317,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 				log.Println("   -b, --block=<size>", true)
 				log.Println("        size of blocks, multiple of 16 (default 1 MB, max 1 GB, min 1 KB).\n", true)
 				log.Println("   -l, --level=<compression>", true)
-				log.Println("        set the compression level [0..6]", true)
+				log.Println("        set the compression level [0..8]", true)
 				log.Println("        Providing this option forces entropy and transform.", true)
 				log.Println("        0=None&None (store), 1=TEXT+LZ&HUFFMAN, 2=TEXT+ROLZ", true)
 				log.Println("        3=TEXT+ROLZX, 4=TEXT+BWT+RANK+ZRLT&ANS0, 5=TEXT+BWT+SRT+ZRLT&FPAQ", true)
