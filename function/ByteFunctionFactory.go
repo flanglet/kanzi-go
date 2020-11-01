@@ -44,6 +44,7 @@ const (
 	ROLZX_TYPE  = uint64(12) // ROLZ Extra codec
 	SRT_TYPE    = uint64(13) // Sorted Rank
 	LZP_TYPE    = uint64(14) // Lempel Ziv Predict
+	FSD_TYPE    = uint64(15) // Fixed Shift Delta codec
 )
 
 // NewByteFunction creates a new instance of ByteTransformSequence based on the provided
@@ -138,6 +139,9 @@ func newByteFunctionToken(ctx *map[string]interface{}, functionType uint64) (kan
 		(*ctx)["lz"] = LZP_TYPE
 		return NewLZCodecWithCtx(ctx)
 
+	case FSD_TYPE:
+		return NewFSDCodecWithCtx(ctx)
+
 	case X86_TYPE:
 		return NewX86CodecWithCtx(ctx)
 
@@ -217,6 +221,9 @@ func getByteFunctionNameToken(functionType uint64) string {
 
 	case X86_TYPE:
 		return "X86"
+
+	case FSD_TYPE:
+		return "FSD"
 
 	case NONE_TYPE:
 		return "NONE"
@@ -305,6 +312,9 @@ func getByteFunctionTypeToken(name string) uint64 {
 
 	case "NONE":
 		return NONE_TYPE
+
+	case "FSD":
+		return FSD_TYPE
 
 	default:
 		panic(fmt.Errorf("Unknown transform type: '%v'", name))
