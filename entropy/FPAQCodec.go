@@ -36,7 +36,8 @@ type FPAQEncoder struct {
 	disposed  bool
 	buffer    []byte
 	index     int
-	probs     [256]int // probability of bit=1
+	probs     [4][]int // probability of bit=1
+	p         []int    // pointer to current prob
 	ctxIdx    byte     // previous bits
 }
 
@@ -53,40 +54,31 @@ func NewFPAQEncoder(bs kanzi.OutputBitStream) (*FPAQEncoder, error) {
 	this.buffer = make([]byte, 0)
 	this.index = 0
 	this.ctxIdx = 1
+	this.p = this.probs[0]
 
-	for i := range this.probs {
-		this.probs[i] = _FPAQ_PSCALE >> 1
+	for i := 0; i < 4; i++ {
+		this.probs[i] = make([]int, 256)
+
+		for j := range this.probs[0] {
+			this.probs[i][j] = _FPAQ_PSCALE >> 1
+		}
 	}
 
 	return this, nil
 }
 
-// EncodeByte encodes the given value into the bitstream bit by bit
-func (this *FPAQEncoder) EncodeByte(val byte) {
-	bits := int(val) + 256
-	this.encodeBit(val&0x80, 1)
-	this.encodeBit(val&0x40, bits>>7)
-	this.encodeBit(val&0x20, bits>>6)
-	this.encodeBit(val&0x10, bits>>5)
-	this.encodeBit(val&0x08, bits>>4)
-	this.encodeBit(val&0x04, bits>>3)
-	this.encodeBit(val&0x02, bits>>2)
-	this.encodeBit(val&0x01, bits>>1)
-}
-
-// encodeBit encodes one bit
 func (this *FPAQEncoder) encodeBit(bit byte, pIdx int) {
 	// Calculate interval split
 	// Written in a way to maximize accuracy of multiplication/division
-	split := (((this.high - this.low) >> 4) * uint64(this.probs[pIdx]>>4)) >> 8
+	split := (((this.high - this.low) >> 4) * uint64(this.p[pIdx]>>4)) >> 8
 
 	// Update probabilities
 	if bit == 0 {
 		this.low += (split + 1)
-		this.probs[pIdx] -= (this.probs[pIdx] >> 6)
+		this.p[pIdx] -= (this.p[pIdx] >> 6)
 	} else {
 		this.high = this.low + split
-		this.probs[pIdx] -= ((this.probs[pIdx] - _FPAQ_PSCALE + 64) >> 6)
+		this.p[pIdx] -= ((this.p[pIdx] - _FPAQ_PSCALE + 64) >> 6)
 	}
 
 	// Write unchanged first 32 bits to bitstream
@@ -108,7 +100,6 @@ func (this *FPAQEncoder) Write(block []byte) (int, error) {
 	startChunk := 0
 	end := count
 	length := count
-	err := error(nil)
 
 	if count >= 1<<26 {
 		// If the block is big (>=64MB), split the encoding to avoid allocating
@@ -136,9 +127,19 @@ func (this *FPAQEncoder) Write(block []byte) (int, error) {
 
 		this.index = 0
 		buf := block[startChunk : startChunk+chunkSize]
+		this.p = this.probs[0]
 
-		for i := range buf {
-			this.EncodeByte(buf[i])
+		for _, val := range buf {
+			bits := int(val) + 256
+			this.encodeBit(val&0x80, 1)
+			this.encodeBit(val&0x40, bits>>7)
+			this.encodeBit(val&0x20, bits>>6)
+			this.encodeBit(val&0x10, bits>>5)
+			this.encodeBit(val&0x08, bits>>4)
+			this.encodeBit(val&0x04, bits>>3)
+			this.encodeBit(val&0x02, bits>>2)
+			this.encodeBit(val&0x01, bits>>1)
+			this.p = this.probs[val>>6]
 		}
 
 		WriteVarInt(this.bitstream, uint32(this.index))
@@ -150,7 +151,7 @@ func (this *FPAQEncoder) Write(block []byte) (int, error) {
 		}
 	}
 
-	return count, err
+	return count, nil
 }
 
 func (this *FPAQEncoder) flush() {
@@ -188,7 +189,8 @@ type FPAQDecoder struct {
 	bitstream   kanzi.InputBitStream
 	buffer      []byte
 	index       int
-	probs       [256]int // probability of bit=1
+	probs       [4][]int // probability of bit=1
+	p           []int    // pointer to current prob
 	ctx         byte     // previous bits
 }
 
@@ -206,26 +208,17 @@ func NewFPAQDecoder(bs kanzi.InputBitStream) (*FPAQDecoder, error) {
 	this.buffer = make([]byte, 0)
 	this.index = 0
 	this.ctx = 1
+	this.p = this.probs[0]
 
-	for i := range this.probs {
-		this.probs[i] = _FPAQ_PSCALE >> 1
+	for i := 0; i < 4; i++ {
+		this.probs[i] = make([]int, 256)
+
+		for j := range this.probs[0] {
+			this.probs[i][j] = _FPAQ_PSCALE >> 1
+		}
 	}
 
 	return this, nil
-}
-
-// DecodeByte decodes the given value from the bitstream bit by bit
-func (this *FPAQDecoder) DecodeByte() byte {
-	this.ctx = 1
-	this.decodeBit(this.probs[this.ctx] >> 4)
-	this.decodeBit(this.probs[this.ctx] >> 4)
-	this.decodeBit(this.probs[this.ctx] >> 4)
-	this.decodeBit(this.probs[this.ctx] >> 4)
-	this.decodeBit(this.probs[this.ctx] >> 4)
-	this.decodeBit(this.probs[this.ctx] >> 4)
-	this.decodeBit(this.probs[this.ctx] >> 4)
-	this.decodeBit(this.probs[this.ctx] >> 4)
-	return byte(this.ctx)
 }
 
 // Initialized returns true if Initialize() has been called at least once
@@ -244,7 +237,6 @@ func (this *FPAQDecoder) Initialize() {
 	this.initialized = true
 }
 
-// decodeBit decodes one bit
 func (this *FPAQDecoder) decodeBit(pred int) byte {
 	// Calculate interval split
 	// Written in a way to maximize accuracy of multiplication/division
@@ -255,12 +247,12 @@ func (this *FPAQDecoder) decodeBit(pred int) byte {
 	if split >= this.current {
 		bit = 1
 		this.high = split
-		this.probs[this.ctx] -= ((this.probs[this.ctx] - _FPAQ_PSCALE + 64) >> 6)
+		this.p[this.ctx] -= ((this.p[this.ctx] - _FPAQ_PSCALE + 64) >> 6)
 		this.ctx += (this.ctx + 1)
 	} else {
 		bit = 0
 		this.low = -^split
-		this.probs[this.ctx] -= (this.probs[this.ctx] >> 6)
+		this.p[this.ctx] -= (this.p[this.ctx] >> 6)
 		this.ctx += this.ctx
 	}
 
@@ -293,7 +285,6 @@ func (this *FPAQDecoder) Read(block []byte) (int, error) {
 	startChunk := 0
 	end := count
 	length := count
-	err := error(nil)
 
 	if count >= 1<<26 {
 		// If the block is big (>=64MB), split the decoding to avoid allocating
@@ -329,15 +320,26 @@ func (this *FPAQDecoder) Read(block []byte) (int, error) {
 
 		this.index = 0
 		buf := block[startChunk : startChunk+chunkSize]
+		this.p = this.probs[0]
 
 		for i := range buf {
-			buf[i] = this.DecodeByte()
+			this.ctx = 1
+			this.decodeBit(this.p[this.ctx] >> 4)
+			this.decodeBit(this.p[this.ctx] >> 4)
+			this.decodeBit(this.p[this.ctx] >> 4)
+			this.decodeBit(this.p[this.ctx] >> 4)
+			this.decodeBit(this.p[this.ctx] >> 4)
+			this.decodeBit(this.p[this.ctx] >> 4)
+			this.decodeBit(this.p[this.ctx] >> 4)
+			this.decodeBit(this.p[this.ctx] >> 4)
+			buf[i] = byte(this.ctx)
+			this.p = this.probs[(this.ctx&0xFF)>>6]
 		}
 
 		startChunk += chunkSize
 	}
 
-	return count, err
+	return count, nil
 }
 
 // BitStream returns the underlying bitstream
