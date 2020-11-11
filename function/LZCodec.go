@@ -31,13 +31,14 @@ const (
 	_LZX_MAX_DISTANCE1      = (1 << 17) - 1
 	_LZX_MAX_DISTANCE2      = (1 << 24) - 1
 	_LZX_MIN_MATCH          = 5
-	_LZX_MIN_LENGTH         = 24
+	_LZX_MAX_MATCH          = 32767 + _LZX_MIN_MATCH
+	_LZX_MIN_BLOCK_LENGTH   = 24
 	_LZX_MIN_MATCH_MIN_DIST = 1 << 16
 	_LZP_HASH_LOG           = 16
 	_LZP_HASH_SHIFT         = 32 - _LZP_HASH_LOG
 	_LZP_MIN_MATCH          = 64
-	_LZP_MIN_LENGTH         = 128
 	_LZP_MATCH_FLAG         = 0xFC
+	_LZP_MIN_BLOCK_LENGTH   = 128
 )
 
 // LZCodec encapsulates an implementation of a Lempel-Ziv codec
@@ -118,12 +119,14 @@ func (this *LZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 // literal lengths and 17 or 24 bit match lengths.
 type LZXCodec struct {
 	hashes []int32
+	buffer []byte
 }
 
 // NewLZXCodec creates a new instance of LZXCodec
 func NewLZXCodec() (*LZXCodec, error) {
 	this := &LZXCodec{}
 	this.hashes = make([]int32, 0)
+	this.buffer = make([]byte, 0)
 	return this, nil
 }
 
@@ -132,6 +135,7 @@ func NewLZXCodec() (*LZXCodec, error) {
 func NewLZXCodecWithCtx(ctx *map[string]interface{}) (*LZXCodec, error) {
 	this := &LZXCodec{}
 	this.hashes = make([]int32, 0)
+	this.buffer = make([]byte, 0)
 	return this, nil
 }
 
@@ -194,11 +198,9 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	// If too small, skip
-	if count < _LZX_MIN_LENGTH {
+	if count < _LZX_MIN_BLOCK_LENGTH {
 		return 0, 0, fmt.Errorf("Block too small, skip")
 	}
-
-	srcEnd := count - 16
 
 	if len(this.hashes) == 0 {
 		this.hashes = make([]int32, 1<<_LZX_HASH_LOG)
@@ -208,17 +210,29 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
+	minBufSize := count / 5
+
+	if minBufSize < 256 {
+		minBufSize = 256
+	}
+
+	if len(this.buffer) < minBufSize {
+		this.buffer = make([]byte, minBufSize)
+	}
+
+	srcEnd := count - 16
 	maxDist := _LZX_MAX_DISTANCE2
-	dst[0] = 1
+	dst[4] = 1
 
 	if srcEnd < 4*_LZX_MAX_DISTANCE1 {
 		maxDist = _LZX_MAX_DISTANCE1
-		dst[0] = 0
+		dst[4] = 0
 	}
 
 	srcIdx := 0
-	dstIdx := 1
+	dstIdx := 5
 	anchor := 0
+	mIdx := 0
 
 	for srcIdx < srcEnd {
 		var minRef int
@@ -236,6 +250,11 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		// Find a match
 		if ref > minRef && binary.LittleEndian.Uint32(src[srcIdx:]) == binary.LittleEndian.Uint32(src[ref:]) {
 			maxMatch := srcEnd - srcIdx
+
+			if maxMatch > _LZX_MAX_MATCH {
+				maxMatch = _LZX_MAX_MATCH
+			}
+
 			bestLen = 4
 
 			for bestLen+4 < maxMatch && binary.LittleEndian.Uint32(src[srcIdx+bestLen:]) == binary.LittleEndian.Uint32(src[ref+bestLen:]) {
@@ -299,19 +318,24 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 		// Emit match length
 		if mLen >= 15 {
-			dstIdx += emitLength(dst[dstIdx:], mLen-15)
+			mIdx += emitLength(this.buffer[mIdx:], mLen-15)
 		}
 
 		// Emit distance
 		if maxDist == _LZX_MAX_DISTANCE2 && dist > 0xFFFF {
-			dst[dstIdx] = byte(dist >> 16)
-			dstIdx++
+			this.buffer[mIdx] = byte(dist >> 16)
+			mIdx++
 		}
 
-		dst[dstIdx] = byte(dist >> 8)
-		dstIdx++
-		dst[dstIdx] = byte(dist)
-		dstIdx++
+		this.buffer[mIdx] = byte(dist >> 8)
+		this.buffer[mIdx+1] = byte(dist)
+		mIdx += 2
+
+		if mIdx >= len(this.buffer)-16 {
+			// Expand match buffer
+			extraBuf := make([]byte, len(this.buffer))
+			this.buffer = append(this.buffer, extraBuf...)
+		}
 
 		// Fill _hashes and update positions
 		anchor = srcIdx + bestLen
@@ -326,6 +350,9 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Emit last literals
 	dstIdx += emitLastLiterals(src[anchor:srcEnd+16], dst[dstIdx:])
+	binary.LittleEndian.PutUint32(dst, uint32(dstIdx))
+	copy(dst[dstIdx:], this.buffer[0:mIdx])
+	dstIdx += mIdx
 	return uint(srcEnd + 16), uint(dstIdx), nil
 }
 
@@ -342,16 +369,23 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	count := len(src)
-	srcEnd := count - 16
+	mIdx := int(binary.LittleEndian.Uint32(src))
+
+	if mIdx >= count {
+		return 0, 0, errors.New("LZCodec: inverse transform failed, invalid data")
+	}
+
+	srcEnd := mIdx - 5
+	matchEnd := mIdx + count - 16
 	dstEnd := len(dst) - 16
 	dstIdx := 0
 	maxDist := _LZX_MAX_DISTANCE2
 
-	if src[0] == 0 {
+	if src[4] == 0 {
 		maxDist = _LZX_MAX_DISTANCE1
 	}
 
-	srcIdx := 1
+	srcIdx := 5
 
 	for {
 		token := int(src[srcIdx])
@@ -388,14 +422,14 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		mLen := token & 0x0F
 
 		if mLen == 15 {
-			for srcIdx < srcEnd && src[srcIdx] == 0xFF {
-				srcIdx++
+			for mIdx < matchEnd && src[mIdx] == 0xFF {
+				mIdx++
 				mLen += 0xFF
 			}
 
-			if srcIdx < srcEnd {
-				mLen += int(src[srcIdx])
-				srcIdx++
+			if mIdx < matchEnd {
+				mLen += int(src[mIdx])
+				mIdx++
 			}
 		}
 
@@ -404,25 +438,25 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 		// Sanity check
 		if mEnd > dstEnd+16 {
-			return uint(srcIdx), uint(dstIdx), fmt.Errorf("LZCodec: Invalid match length decoded: %d", mLen)
+			return uint(srcIdx), uint(dstIdx), fmt.Errorf("LZCodec: invalid match length decoded: %d", mLen)
 		}
 
 		// Get distance
-		dist := (int(src[srcIdx]) << 8) | int(src[srcIdx+1])
-		srcIdx += 2
+		dist := (int(src[mIdx]) << 8) | int(src[mIdx+1])
+		mIdx += 2
 
 		if (token & 0x10) != 0 {
 			if maxDist == _LZX_MAX_DISTANCE1 {
 				dist += 65536
 			} else {
-				dist = (dist << 8) | int(src[srcIdx])
-				srcIdx++
+				dist = (dist << 8) | int(src[mIdx])
+				mIdx++
 			}
 		}
 
 		// Sanity check
 		if dstIdx < dist || dist > maxDist {
-			return uint(srcIdx), uint(dstIdx), fmt.Errorf("LZCodec: Invalid distance decoded: %d", dist)
+			return uint(srcIdx), uint(dstIdx), fmt.Errorf("LZCodec: invalid distance decoded: %d", dist)
 		}
 
 		ref := dstIdx - dist
@@ -448,7 +482,13 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		dstIdx = mEnd
 	}
 
-	return uint(srcIdx), uint(dstIdx), nil
+	var err error
+
+	if srcIdx != srcEnd+5 {
+		err = errors.New("LZCodec: inverse transform failed")
+	}
+
+	return uint(srcIdx), uint(mIdx), err
 }
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
@@ -499,7 +539,7 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	// If too small, skip
-	if count < _LZP_MIN_LENGTH {
+	if count < _LZP_MIN_BLOCK_LENGTH {
 		return 0, 0, fmt.Errorf("Block too small, skip")
 	}
 
