@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	BWT_MAX_HEADER_SIZE = 8 * 4
+	_BWT_MAX_HEADER_SIZE = 8 * 4
 )
 
 // Utility class to en/de-code a BWT data block and its associated primary index(es)
@@ -196,5 +196,5 @@ func (this *BWTBlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
 func (this BWTBlockCodec) MaxEncodedLen(srcLen int) int {
-	return srcLen + BWT_MAX_HEADER_SIZE
+	return srcLen + _BWT_MAX_HEADER_SIZE
 }

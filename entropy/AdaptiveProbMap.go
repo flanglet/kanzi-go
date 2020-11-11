@@ -13,9 +13,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-//nolint (remove unused warnings)
 package entropy
 
+//nolint (remove unused warnings)
 import (
 	kanzi "github.com/flanglet/kanzi-go"
 )
