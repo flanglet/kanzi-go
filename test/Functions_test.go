@@ -220,7 +220,7 @@ func testFunctionCorrectness(name string) error {
 			return err
 		}
 
-		if srcIdx != uint(size) {
+		if srcIdx != uint(size) || srcIdx < dstIdx {
 			fmt.Printf("\nNo compression (ratio > 1.0), skip reverse")
 			continue
 		}
