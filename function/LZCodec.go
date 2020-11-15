@@ -488,7 +488,7 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		err = errors.New("LZCodec: inverse transform failed")
 	}
 
-	return uint(srcIdx), uint(mIdx), err
+	return uint(mIdx), uint(dstIdx), err
 }
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
