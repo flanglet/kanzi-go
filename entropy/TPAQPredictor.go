@@ -25,7 +25,6 @@ const (
 	_TPAQ_MAX_LENGTH       = 88
 	_TPAQ_BUFFER_SIZE      = 64 * 1024 * 1024
 	_TPAQ_HASH_SIZE        = 16 * 1024 * 1024
-	_TPAQ_MASK_BUFFER      = _TPAQ_BUFFER_SIZE - 1
 	_TPAQ_MASK_80808080    = int32(-2139062144) // 0x80808080
 	_TPAQ_MASK_F0F0F000    = int32(-252645376)  // 0xF0F0F000
 	_TPAQ_MASK_4F4FFFFF    = int32(1330642943)  // 0x4F4FFFFF
@@ -168,6 +167,7 @@ type TPAQPredictor struct {
 	statesMask      int32
 	mixersMask      int32
 	hashMask        int32
+	bufferMask      int32
 	sse0            *LogisticAdaptiveProbMap
 	sse1            *LogisticAdaptiveProbMap
 	mixers          []TPAQMixer
@@ -203,6 +203,7 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 	hashSize := _TPAQ_HASH_SIZE
 	this.extra = false
 	extraMem := uint(0)
+	bufferSize := uint(_TPAQ_BUFFER_SIZE)
 
 	if ctx != nil {
 		// If extra mode, add more memory for states table, hash table
@@ -218,37 +219,49 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 
 		// Block size requested by the user
 		// The user can request a big block size to force more states
-		rbsz := (*ctx)["blockSize"].(uint)
+		rbsz := uint(32768)
 
-		if rbsz >= 64*1024*1024 {
-			statesSize = 1 << 29
-		} else if rbsz >= 16*1024*1024 {
-			statesSize = 1 << 28
-		} else if rbsz >= 4*1024*1024 {
-			statesSize = 1 << 26
-		} else if rbsz >= 1024*1024 {
-			statesSize = 1 << 24
-		} else {
-			statesSize = 1 << 22
+		if val, containsKey := (*ctx)["blockSize"]; containsKey {
+			rbsz = val.(uint)
+
+			if rbsz >= 64*1024*1024 {
+				statesSize = 1 << 29
+			} else if rbsz >= 16*1024*1024 {
+				statesSize = 1 << 28
+			} else if rbsz >= 4*1024*1024 {
+				statesSize = 1 << 26
+			} else if rbsz >= 1024*1024 {
+				statesSize = 1 << 24
+			} else {
+				statesSize = 1 << 22
+			}
 		}
 
 		// Actual size of the current block
 		// Too many mixers hurts compression for small blocks.
 		// Too few mixers hurts compression for big blocks.
-		absz := (*ctx)["size"].(uint)
+		absz := rbsz
 
-		if absz >= 32*1024*1024 {
-			mixersSize = 1 << 17
-		} else if absz >= 16*1024*1024 {
-			mixersSize = 1 << 16
-		} else if absz >= 8*1024*1024 {
-			mixersSize = 1 << 14
-		} else if absz >= 4*1024*1024 {
-			mixersSize = 1 << 12
-		} else if absz >= 1024*1024 {
-			mixersSize = 1 << 10
-		} else {
-			mixersSize = 1 << 9
+		if val, containsKey := (*ctx)["size"]; containsKey {
+			absz = val.(uint)
+
+			if absz >= 32*1024*1024 {
+				mixersSize = 1 << 17
+			} else if absz >= 16*1024*1024 {
+				mixersSize = 1 << 16
+			} else if absz >= 8*1024*1024 {
+				mixersSize = 1 << 14
+			} else if absz >= 4*1024*1024 {
+				mixersSize = 1 << 12
+			} else if absz >= 1024*1024 {
+				mixersSize = 1 << 10
+			} else {
+				mixersSize = 1 << 9
+			}
+		}
+
+		if bufferSize > rbsz {
+			bufferSize = rbsz
 		}
 	}
 
@@ -270,10 +283,11 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 	this.smallStatesMap0 = make([]uint8, 1<<16)
 	this.smallStatesMap1 = make([]uint8, 1<<24)
 	this.hashes = make([]int32, hashSize)
-	this.buffer = make([]int8, _TPAQ_BUFFER_SIZE)
+	this.buffer = make([]int8, bufferSize)
 	this.statesMask = int32(statesSize - 1)
 	this.mixersMask = int32(mixersSize-1) & ^1
 	this.hashMask = int32(hashSize - 1)
+	this.bufferMask = int32(bufferSize - 1)
 	this.cp0 = &this.smallStatesMap0[0]
 	this.cp1 = &this.smallStatesMap1[0]
 	this.cp2 = &this.bigStatesMap[0]
@@ -305,7 +319,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 	this.c0 = (this.c0 << 1) | int32(bit)
 
 	if this.c0 > 255 {
-		this.buffer[this.pos&_TPAQ_MASK_BUFFER] = int8(this.c0)
+		this.buffer[this.pos&this.bufferMask] = int8(this.c0)
 		this.pos++
 		this.c8 = (this.c8 << 8) | ((this.c4 >> 24) & 0xFF)
 		this.c4 = (this.c4 << 8) | (this.c0 & 0xFF)
@@ -452,17 +466,17 @@ func (this *TPAQPredictor) findMatch() {
 		this.matchPos = this.hashes[this.hash]
 
 		// Detect match
-		if this.matchPos != 0 && this.pos-this.matchPos <= _TPAQ_MASK_BUFFER {
+		if this.matchPos != 0 && this.pos-this.matchPos <= this.bufferMask {
 			r := this.matchLen + 2
 			s := this.pos - r
 			t := this.matchPos - r
 
 			for r <= _TPAQ_MAX_LENGTH {
-				if this.buffer[s&_TPAQ_MASK_BUFFER] != this.buffer[t&_TPAQ_MASK_BUFFER] {
+				if this.buffer[s&this.bufferMask] != this.buffer[t&this.bufferMask] {
 					break
 				}
 
-				if this.buffer[(s-1)&_TPAQ_MASK_BUFFER] != this.buffer[(t-1)&_TPAQ_MASK_BUFFER] {
+				if this.buffer[(s-1)&this.bufferMask] != this.buffer[(t-1)&this.bufferMask] {
 					break
 				}
 
@@ -478,7 +492,7 @@ func (this *TPAQPredictor) findMatch() {
 
 // Get a squashed prediction (in [-2047..2048]) from the match model
 func (this *TPAQPredictor) getMatchContextPred() int32 {
-	if this.c0 == ((int32(this.buffer[this.matchPos&_TPAQ_MASK_BUFFER])&0xFF)|256)>>this.bpos {
+	if this.c0 == ((int32(this.buffer[this.matchPos&this.bufferMask])&0xFF)|256)>>this.bpos {
 		var p int32
 
 		if this.matchLen <= 24 {
@@ -487,7 +501,7 @@ func (this *TPAQPredictor) getMatchContextPred() int32 {
 			p = (24 + ((this.matchLen - 24) >> 3))
 		}
 
-		if ((this.buffer[this.matchPos&_TPAQ_MASK_BUFFER] >> (this.bpos - 1)) & 1) == 0 {
+		if ((this.buffer[this.matchPos&this.bufferMask] >> (this.bpos - 1)) & 1) == 0 {
 			return -p << 6
 		}
 
