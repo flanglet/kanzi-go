@@ -371,7 +371,7 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	count := len(src)
 	mIdx := int(binary.LittleEndian.Uint32(src))
 
-	if mIdx >= count {
+	if mIdx > count {
 		return 0, 0, errors.New("LZCodec: inverse transform failed, invalid data")
 	}
 
