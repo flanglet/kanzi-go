@@ -283,7 +283,7 @@ func (this *FSDCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	if mode == _FSD_DELTA_CODING {
 		for srcIdx < srcEnd && dstIdx < dstEnd {
 			if src[srcIdx] != _FSD_ESCAPE_TOKEN {
-				delta := int32(src[srcIdx]>>1) ^ -int32(src[srcIdx]&1) // zigzag decode
+				delta := int32(src[srcIdx]>>1) ^ -int32(src[srcIdx]&1) // zigzag decode delta
 				dst[dstIdx] = byte(int32(dst[dstIdx-dist]) + delta)
 				srcIdx++
 				dstIdx++
@@ -291,13 +291,13 @@ func (this *FSDCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			srcIdx++
-			dst[dstIdx] = src[srcIdx] ^ src[srcIdx-dist]
+			dst[dstIdx] = src[srcIdx] ^ dst[dstIdx-dist]
 			srcIdx++
 			dstIdx++
 		}
 	} else { // mode == _FSD_XOR_CODING
 		for srcIdx < srcEnd {
-			dst[dstIdx] = src[srcIdx] ^ src[srcIdx-dist]
+			dst[dstIdx] = src[srcIdx] ^ dst[dstIdx-dist]
 			dstIdx++
 			srcIdx++
 		}
