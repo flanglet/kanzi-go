@@ -23,8 +23,10 @@ import (
 )
 
 const (
-	_FSD_MIN_LENGTH   = 4096
+	_FSD_MIN_LENGTH   = 128
 	_FSD_ESCAPE_TOKEN = 0xFF
+	_FSD_DELTA_CODING = byte(0)
+	_FSD_XOR_CODING   = byte(1)
 )
 
 // FSDCodec Fixed Step Delta codec is used to decorrelate values separated
@@ -60,6 +62,7 @@ func NewFSDCodecWithCtx(ctx *map[string]interface{}) (*FSDCodec, error) {
 // MaxEncodedLen returns the max size required for the encoding output buffer
 func (this *FSDCodec) MaxEncodedLen(srcLen int) int {
 	padding := (srcLen >> 4)
+
 	if padding < 32 {
 		padding = 32
 	}
@@ -128,12 +131,18 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 	var histo [256]int
 	var ent [6]int
 	count3 := count / 3
-	ent[0] = kanzi.ComputeFirstOrderEntropy1024(src[count3:2*count3], histo[:])
-	ent[1] = kanzi.ComputeFirstOrderEntropy1024(dst1[0:count5], histo[:])
-	ent[2] = kanzi.ComputeFirstOrderEntropy1024(dst2[0:count5], histo[:])
-	ent[3] = kanzi.ComputeFirstOrderEntropy1024(dst3[0:count5], histo[:])
-	ent[4] = kanzi.ComputeFirstOrderEntropy1024(dst4[0:count5], histo[:])
-	ent[5] = kanzi.ComputeFirstOrderEntropy1024(dst8[0:count5], histo[:])
+	kanzi.ComputeHistogram(src[count3:2*count3], histo[:], true, false)
+	ent[0] = kanzi.ComputeFirstOrderEntropy1024(count3, histo[:])
+	kanzi.ComputeHistogram(dst1[0:count5], histo[:], true, false)
+	ent[1] = kanzi.ComputeFirstOrderEntropy1024(count5, histo[:])
+	kanzi.ComputeHistogram(dst2[0:count5], histo[:], true, false)
+	ent[2] = kanzi.ComputeFirstOrderEntropy1024(count5, histo[:])
+	kanzi.ComputeHistogram(dst3[0:count5], histo[:], true, false)
+	ent[3] = kanzi.ComputeFirstOrderEntropy1024(count5, histo[:])
+	kanzi.ComputeHistogram(dst4[0:count5], histo[:], true, false)
+	ent[4] = kanzi.ComputeFirstOrderEntropy1024(count5, histo[:])
+	kanzi.ComputeHistogram(dst8[0:count5], histo[:], true, false)
+	ent[5] = kanzi.ComputeFirstOrderEntropy1024(count5, histo[:])
 
 	minIdx := 0
 
@@ -148,16 +157,35 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, fmt.Errorf("FSD forward transform skip")
 	}
 
-	// Emit step value
 	dist := minIdx
 
 	if dist > 4 {
 		dist = 8
 	}
 
-	dst[0] = byte(dist)
-	dstIdx := 1
+	largeDeltas := 0
+
+	// Detect best coding by sampling for large deltas
+	for i := 2 * count5; i < 3*count5; i++ {
+		delta := int32(src[i]) - int32(src[i-dist])
+
+		if (delta < -127) || (delta > 127) {
+			largeDeltas++
+		}
+	}
+
+	// Delta coding works better for pictures & xor coding better for wav files
+	// Select xor coding if large deltas are over 3% (ad-hoc threshold)
+	mode := _FSD_DELTA_CODING
+
+	if largeDeltas > (count5 >> 5) {
+		mode = _FSD_XOR_CODING
+	}
+
+	dst[0] = mode
+	dst[1] = byte(dist)
 	srcIdx := 0
+	dstIdx := 2
 
 	// Emit first bytes
 	for i := 0; i < dist; i++ {
@@ -167,21 +195,33 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	// Emit modified bytes
-	for srcIdx < count && dstIdx < dstEnd {
-		delta := int32(src[srcIdx]) - int32(src[srcIdx-dist])
+	if mode == _FSD_DELTA_CODING {
+		for srcIdx < count && dstIdx < dstEnd {
+			delta := int32(src[srcIdx]) - int32(src[srcIdx-dist])
 
-		if delta >= -127 && delta <= 127 {
-			dst[dstIdx] = byte((delta >> 31) ^ (delta << 1)) // zigzag encode delta
+			if delta >= -127 && delta <= 127 {
+				dst[dstIdx] = byte((delta >> 31) ^ (delta << 1)) // zigzag encode delta
+				srcIdx++
+				dstIdx++
+				continue
+			}
+
+			if dstIdx == dstEnd-1 {
+				break
+			}
+
+			// Skip delta, encode with escape
+			dst[dstIdx] = _FSD_ESCAPE_TOKEN
+			dst[dstIdx+1] = src[srcIdx] ^ src[srcIdx-dist]
+			srcIdx++
+			dstIdx += 2
+		}
+	} else { // mode == _FSD_XOR_CODING
+		for srcIdx < count {
+			dst[dstIdx] = src[srcIdx] ^ src[srcIdx-dist]
 			srcIdx++
 			dstIdx++
-			continue
 		}
-
-		// Skip delta, direct encode
-		dst[dstIdx] = _FSD_ESCAPE_TOKEN
-		dst[dstIdx+1] = src[srcIdx] ^ src[srcIdx-dist]
-		srcIdx++
-		dstIdx += 2
 	}
 
 	var err error
@@ -196,9 +236,9 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 			length = dstIdx >> 1
 		}
 
-		entropy := kanzi.ComputeFirstOrderEntropy1024(dst8[(dstIdx-length)>>1:length], histo[:])
+		kanzi.ComputeHistogram(dst8[(dstIdx-length)>>1:(dstIdx+length)>>1], histo[:], true, false)
 
-		if entropy >= ent[0] {
+		if entropy := kanzi.ComputeFirstOrderEntropy1024(length, histo[:]); entropy >= ent[0] {
 			err = errors.New("FSD forward transform skip: no improvement")
 		}
 	}
@@ -218,17 +258,19 @@ func (this *FSDCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	// Retrieve step value
-	dist := int(dst[0])
+	// Retrieve mode & step value
+	mode := src[0]
+	dist := int(dst[1])
 
 	// Sanity check
 	if (dist < 1) || ((dist > 4) && (dist != 8)) {
 		return 0, 0, errors.New("FSD inverse transform failed: invalid data")
 	}
 
+	srcEnd := len(src)
 	dstEnd := len(dst)
-	dstIdx := 1
-	srcIdx := 0
+	srcIdx := 2
+	dstIdx := 0
 
 	// Emit first bytes
 	for i := 0; i < dist; i++ {
@@ -237,24 +279,33 @@ func (this *FSDCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		srcIdx++
 	}
 
-	// Emit modified bytes
-	for dstIdx < dstEnd {
-		if src[srcIdx] != _FSD_ESCAPE_TOKEN {
-			delta := int32(src[srcIdx]>>1) ^ -int32(src[srcIdx]&1)
-			dst[dstIdx] = byte(int32(dst[dstIdx-dist]) + delta)
+	// Recover original bytes
+	if mode == _FSD_DELTA_CODING {
+		for srcIdx < srcEnd && dstIdx < dstEnd {
+			if src[srcIdx] != _FSD_ESCAPE_TOKEN {
+				delta := int32(src[srcIdx]>>1) ^ -int32(src[srcIdx]&1) // zigzag decode
+				dst[dstIdx] = byte(int32(dst[dstIdx-dist]) + delta)
+				srcIdx++
+				dstIdx++
+				continue
+			}
+
+			srcIdx++
+			dst[dstIdx] = src[srcIdx] ^ src[srcIdx-dist]
 			srcIdx++
 			dstIdx++
-			continue
 		}
-
-		dst[dstIdx] = src[srcIdx+1]
-		srcIdx += 2
-		dstIdx++
+	} else { // mode == _FSD_XOR_CODING
+		for srcIdx < srcEnd {
+			dst[dstIdx] = src[srcIdx] ^ src[srcIdx-dist]
+			dstIdx++
+			srcIdx++
+		}
 	}
 
 	var err error
 
-	if dstIdx != dstEnd {
+	if srcIdx != srcEnd {
 		err = errors.New("FSD inverse transform failed: output buffer too small")
 	}
 
