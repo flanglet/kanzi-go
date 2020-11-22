@@ -198,9 +198,9 @@ type TPAQPredictor struct {
 // map of options to select the sizes of internal structures.
 func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 	this := new(TPAQPredictor)
-	statesSize := 1 << 28
-	mixersSize := 1 << 12
-	hashSize := _TPAQ_HASH_SIZE
+	statesSize := uint(1) << 28
+	mixersSize := uint(1) << 12
+	hashSize := uint(_TPAQ_HASH_SIZE)
 	this.extra = false
 	extraMem := uint(0)
 	bufferSize := uint(_TPAQ_BUFFER_SIZE)
@@ -223,45 +223,49 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 
 		if val, containsKey := (*ctx)["blockSize"]; containsKey {
 			rbsz = val.(uint)
-
-			if rbsz >= 64*1024*1024 {
-				statesSize = 1 << 29
-			} else if rbsz >= 16*1024*1024 {
-				statesSize = 1 << 28
-			} else if rbsz >= 4*1024*1024 {
-				statesSize = 1 << 26
-			} else if rbsz >= 1024*1024 {
-				statesSize = 1 << 24
-			} else {
-				statesSize = 1 << 22
-			}
 		}
+
+		if rbsz >= 64*1024*1024 {
+			statesSize = 1 << 29
+		} else if rbsz >= 16*1024*1024 {
+			statesSize = 1 << 28
+		} else if rbsz >= 4*1024*1024 {
+			statesSize = 1 << 26
+		} else if rbsz >= 1024*1024 {
+			statesSize = 1 << 24
+		} else {
+			statesSize = 1 << 22
+		}
+
+		absz := rbsz
 
 		// Actual size of the current block
 		// Too many mixers hurts compression for small blocks.
 		// Too few mixers hurts compression for big blocks.
-		absz := rbsz
-
 		if val, containsKey := (*ctx)["size"]; containsKey {
 			absz = val.(uint)
+		}
 
-			if absz >= 32*1024*1024 {
-				mixersSize = 1 << 17
-			} else if absz >= 16*1024*1024 {
-				mixersSize = 1 << 16
-			} else if absz >= 8*1024*1024 {
-				mixersSize = 1 << 14
-			} else if absz >= 4*1024*1024 {
-				mixersSize = 1 << 12
-			} else if absz >= 1024*1024 {
-				mixersSize = 1 << 10
-			} else {
-				mixersSize = 1 << 9
-			}
+		if absz >= 32*1024*1024 {
+			mixersSize = 1 << 17
+		} else if absz >= 16*1024*1024 {
+			mixersSize = 1 << 16
+		} else if absz >= 8*1024*1024 {
+			mixersSize = 1 << 14
+		} else if absz >= 4*1024*1024 {
+			mixersSize = 1 << 12
+		} else if absz >= 1024*1024 {
+			mixersSize = 1 << 10
+		} else {
+			mixersSize = 1 << 9
 		}
 
 		if bufferSize > rbsz {
 			bufferSize = rbsz
+		}
+
+		if hashSize > 16*absz {
+			hashSize = 16 * absz
 		}
 	}
 
