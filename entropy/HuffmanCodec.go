@@ -183,10 +183,12 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []int) (int, error) {
 			return count, fmt.Errorf("Could not generate Huffman codes: max code length (%d bits) exceeded, ", _HUF_MAX_SYMBOL_SIZE)
 		}
 
+		var f [256]int
 		totalFreq := 0
 
 		for i := 0; i < count; i++ {
-			totalFreq += frequencies[this.alphabet[i]]
+			f[i] = frequencies[this.alphabet[i]]
+			totalFreq += f[i]
 		}
 
 		// Copy alphabet (modified by normalizeFrequencies)
@@ -194,8 +196,13 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []int) (int, error) {
 		copy(alphabet[:], this.alphabet[:count])
 		retries++
 
-		if _, err := NormalizeFrequencies(frequencies, alphabet[:count], totalFreq, int(_HUF_MAX_CHUNK_SIZE>>(2*retries))); err != nil {
+		// Normalize to a smaller scale
+		if _, err := NormalizeFrequencies(f[:count], alphabet[:count], totalFreq, int(_HUF_MAX_CHUNK_SIZE>>(2*retries))); err != nil {
 			return count, err
+		}
+
+		for i := 0; i < count; i++ {
+			frequencies[this.alphabet[i]] = f[i]
 		}
 	}
 
