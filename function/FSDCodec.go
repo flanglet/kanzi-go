@@ -236,7 +236,7 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 			length = dstIdx >> 1
 		}
 
-		kanzi.ComputeHistogram(dst8[(dstIdx-length)>>1:(dstIdx+length)>>1], histo[:], true, false)
+		kanzi.ComputeHistogram(dst[(dstIdx-length)>>1:(dstIdx+length)>>1], histo[:], true, false)
 
 		if entropy := kanzi.ComputeFirstOrderEntropy1024(length, histo[:]); entropy >= ent[0] {
 			err = errors.New("FSD forward transform skip: no improvement")
@@ -260,7 +260,7 @@ func (this *FSDCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 	// Retrieve mode & step value
 	mode := src[0]
-	dist := int(dst[1])
+	dist := int(src[1])
 
 	// Sanity check
 	if (dist < 1) || ((dist > 4) && (dist != 8)) {
