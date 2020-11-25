@@ -522,10 +522,10 @@ func getTransformAndCodec(level int) string {
 		return "TEXT+LZ&HUFFMAN"
 
 	case 2:
-		return "TEXT+ROLZ&NONE"
+		return "TEXT+FSD+ROLZ&NONE"
 
 	case 3:
-		return "TEXT+ROLZX&NONE"
+		return "TEXT+FSD+ROLZX&NONE"
 
 	case 4:
 		return "TEXT+BWT+RANK+ZRLT&ANS0"
