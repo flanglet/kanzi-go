@@ -188,16 +188,8 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	if err == nil {
-		// Process any remaining run
-		if run > _RLT_RUN_THRESHOLD {
-			dIdx, err2 := emitRunLength(dst[dstIdx:dstEnd], run, escape, prev)
-
-			if err2 != nil {
-				err = err2
-			} else {
-				dstIdx += dIdx
-			}
-		} else if prev != escape {
+		// run == 1
+		if prev != escape {
 			if dstIdx+run < dstEnd {
 				for run > 0 {
 					dst[dstIdx] = prev
