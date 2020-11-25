@@ -319,7 +319,6 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		}
 	}
 
-	res := 1
 	read := uint64(0)
 	written := uint64(0)
 	inputIsDir := false
@@ -384,6 +383,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	ctx["codec"] = this.entropyCodec
 	ctx["transform"] = this.transform
 	ctx["extra"] = this.entropyCodec == "TPAQX"
+	var res int
 
 	if nbFiles == 1 {
 		oName := formattedOutName

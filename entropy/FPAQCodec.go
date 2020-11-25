@@ -47,7 +47,7 @@ func NewFPAQEncoder(bs kanzi.OutputBitStream) (*FPAQEncoder, error) {
 		return nil, errors.New("FPAQ codec: Invalid null bitstream parameter")
 	}
 
-	this := new(FPAQEncoder)
+	this := &FPAQEncoder{}
 	this.low = 0
 	this.high = _BINARY_ENTROPY_TOP
 	this.bitstream = bs
@@ -201,7 +201,7 @@ func NewFPAQDecoder(bs kanzi.InputBitStream) (*FPAQDecoder, error) {
 	}
 
 	// Defer stream reading. We are creating the object, we should not do any I/O
-	this := new(FPAQDecoder)
+	this := &FPAQDecoder{}
 	this.low = 0
 	this.high = _BINARY_ENTROPY_TOP
 	this.bitstream = bs

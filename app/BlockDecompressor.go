@@ -237,7 +237,6 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 		}
 	}
 
-	res := 1
 	read := uint64(0)
 	var inputIsDir bool
 	formattedOutName := this.outputName
@@ -292,6 +291,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 		}
 	}
 
+	var res int
 	ctx := make(map[string]interface{})
 	ctx["verbosity"] = this.verbosity
 	ctx["overwrite"] = this.overwrite
