@@ -1333,6 +1333,8 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 		return
 	}
 
+	ibs.Close()
+
 	if len(this.listeners) > 0 {
 		// Notify after entropy
 		evt := kanzi.NewEvent(kanzi.EVT_AFTER_ENTROPY, int(this.currentBlockID),
