@@ -152,6 +152,10 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
+	if minIdx == 0 {
+		return 0, 0, fmt.Errorf("FSD forward transform skip")
+	}
+
 	// If not 'better enough', quick exit
 	if this.isFast == true && ent[minIdx] >= (123*ent[0])>>7 {
 		return 0, 0, fmt.Errorf("FSD forward transform skip")
