@@ -126,10 +126,32 @@ func NewCompressedOutputStream(os io.WriteCloser, codec, transform string, block
 }
 
 // NewCompressedOutputStreamWithCtx creates a new instance of CompressedOutputStream using a
-// map of parameters
+// map of parameters and a writer
 func NewCompressedOutputStreamWithCtx(os io.WriteCloser, ctx map[string]interface{}) (*CompressedOutputStream, error) {
 	if os == nil {
 		return nil, &IOError{msg: "Invalid null writer parameter", code: kanzi.ERR_CREATE_STREAM}
+	}
+
+	var err error
+	var obs kanzi.OutputBitStream
+
+	if obs, err = bitstream.NewDefaultOutputBitStream(os, _STREAM_DEFAULT_BUFFER_SIZE); err != nil {
+		errMsg := fmt.Sprintf("Cannot create output bit stream: %v", err)
+		return nil, &IOError{msg: errMsg, code: kanzi.ERR_CREATE_BITSTREAM}
+	}
+
+	return createCompressedOutputStreamWithCtx(obs, ctx)
+}
+
+// NewCompressedOutputStreamWithCtx2 creates a new instance of CompressedOutputStream using a
+// map of parameters and a custom output bitstream
+func NewCompressedOutputStreamWithCtx2(obs kanzi.OutputBitStream, ctx map[string]interface{}) (*CompressedOutputStream, error) {
+	return createCompressedOutputStreamWithCtx(obs, ctx)
+}
+
+func createCompressedOutputStreamWithCtx(obs kanzi.OutputBitStream, ctx map[string]interface{}) (*CompressedOutputStream, error) {
+	if obs == nil {
+		return nil, &IOError{msg: "Invalid null output bitstream parameter", code: kanzi.ERR_CREATE_STREAM}
 	}
 
 	if ctx == nil {
@@ -166,11 +188,7 @@ func NewCompressedOutputStreamWithCtx(os io.WriteCloser, ctx map[string]interfac
 	}
 
 	this := new(CompressedOutputStream)
-	var err error
-
-	if this.obs, err = bitstream.NewDefaultOutputBitStream(os, _STREAM_DEFAULT_BUFFER_SIZE); err != nil {
-		return nil, err
-	}
+	this.obs = obs
 
 	// Check entropy type validity (panic on error)
 	this.entropyType = entropy.GetType(entropyCodec)
@@ -197,9 +215,8 @@ func NewCompressedOutputStreamWithCtx(os io.WriteCloser, ctx map[string]interfac
 		this.nbInputBlocks = nbBlocks
 	}
 
-	checksum := ctx["checksum"].(bool)
-
-	if checksum == true {
+	if checksum := ctx["checksum"].(bool); checksum == true {
+		var err error
 		this.hasher, err = hash.NewXXHash32(_BITSTREAM_TYPE)
 
 		if err != nil {
@@ -769,6 +786,28 @@ func NewCompressedInputStreamWithCtx(is io.ReadCloser, ctx map[string]interface{
 		return nil, &IOError{msg: "Invalid null reader parameter", code: kanzi.ERR_CREATE_STREAM}
 	}
 
+	var err error
+	var ibs kanzi.InputBitStream
+
+	if ibs, err = bitstream.NewDefaultInputBitStream(is, _STREAM_DEFAULT_BUFFER_SIZE); err != nil {
+		errMsg := fmt.Sprintf("Cannot create input bit stream: %v", err)
+		return nil, &IOError{msg: errMsg, code: kanzi.ERR_CREATE_BITSTREAM}
+	}
+
+	return createCompressedInputStreamWithCtx(ibs, ctx)
+}
+
+// NewCompressedInputStreamWithCtx2 creates a new instance of CompressedInputStream
+// using a map of parameters and a custom input bitstream
+func NewCompressedInputStreamWithCtx2(ibs kanzi.InputBitStream, ctx map[string]interface{}) (*CompressedInputStream, error) {
+	return createCompressedInputStreamWithCtx(ibs, ctx)
+}
+
+func createCompressedInputStreamWithCtx(ibs kanzi.InputBitStream, ctx map[string]interface{}) (*CompressedInputStream, error) {
+	if ibs == nil {
+		return nil, &IOError{msg: "Invalid null input bitstream parameter", code: kanzi.ERR_CREATE_STREAM}
+	}
+
 	if ctx == nil {
 		return nil, &IOError{msg: "Invalid null context parameter", code: kanzi.ERR_CREATE_STREAM}
 	}
@@ -782,6 +821,7 @@ func NewCompressedInputStreamWithCtx(is io.ReadCloser, ctx map[string]interface{
 
 	this := new(CompressedInputStream)
 
+	this.ibs = ibs
 	this.jobs = int(tasks)
 	this.blockID = 0
 	this.data = make([]byte, 0)
@@ -789,13 +829,6 @@ func NewCompressedInputStreamWithCtx(is io.ReadCloser, ctx map[string]interface{
 
 	for i := range this.buffers {
 		this.buffers[i] = blockBuffer{Buf: make([]byte, 0)}
-	}
-
-	var err error
-
-	if this.ibs, err = bitstream.NewDefaultInputBitStream(is, _STREAM_DEFAULT_BUFFER_SIZE); err != nil {
-		errMsg := fmt.Sprintf("Cannot create input bit stream: %v", err)
-		return nil, &IOError{msg: errMsg, code: kanzi.ERR_CREATE_BITSTREAM}
 	}
 
 	this.listeners = make([]kanzi.Listener, 0)
