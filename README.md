@@ -13,7 +13,7 @@ Kanzi supports a wide range of compression ratios and can compress many files mo
 It is not compatible with standard compression formats.
 
 
-For more details, check https://github.com/flanglet/kanzi/wiki.
+For more details, check https://github.com/flanglet/kanzi-go/wiki.
 
 Credits
 
