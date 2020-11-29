@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	_LZ_HASH_SEED           = 0x1E35A7BD
+	_LZX_HASH_SEED          = 0x1E35A7BD
 	_LZX_HASH_LOG           = 19 // 512K
 	_LZX_HASH_SHIFT         = 40 - _LZX_HASH_LOG
 	_LZX_HASH_MASK          = (1 << _LZX_HASH_LOG) - 1
@@ -34,6 +34,7 @@ const (
 	_LZX_MAX_MATCH          = 32767 + _LZX_MIN_MATCH
 	_LZX_MIN_BLOCK_LENGTH   = 24
 	_LZX_MIN_MATCH_MIN_DIST = 1 << 16
+	_LZP_HASH_SEED          = 0x7FEB352D
 	_LZP_HASH_LOG           = 16
 	_LZP_HASH_SHIFT         = 32 - _LZP_HASH_LOG
 	_LZP_MIN_MATCH          = 64
@@ -176,7 +177,7 @@ func emitLastLiterals(src, dst []byte) int {
 }
 
 func lzhash(p []byte) uint32 {
-	return uint32((binary.LittleEndian.Uint64(p)*_LZ_HASH_SEED)>>_LZX_HASH_SHIFT) & _LZX_HASH_MASK
+	return uint32((binary.LittleEndian.Uint64(p)*_LZX_HASH_SEED)>>_LZX_HASH_SHIFT) & _LZX_HASH_MASK
 }
 
 // Forward applies the function to the src and writes the result
@@ -564,7 +565,7 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 	minRef := 4
 
 	for (srcIdx < srcEnd) && (dstIdx < dstEnd) {
-		h := (_LZ_HASH_SEED * ctx) >> _LZP_HASH_SHIFT
+		h := (_LZP_HASH_SEED * ctx) >> _LZP_HASH_SHIFT
 		ref := int(this.hashes[h])
 		this.hashes[h] = int32(srcIdx)
 		bestLen := 0
@@ -627,7 +628,7 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	for (srcIdx < srcEnd+8) && (dstIdx < dstEnd) {
-		h := (_LZ_HASH_SEED * ctx) >> _LZP_HASH_SHIFT
+		h := (_LZP_HASH_SEED * ctx) >> _LZP_HASH_SHIFT
 		ref := this.hashes[h]
 		this.hashes[h] = int32(srcIdx)
 		val := uint32(src[srcIdx])
@@ -685,7 +686,7 @@ func (this *LZPCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	dstIdx := 4
 
 	for srcIdx < srcEnd {
-		h := (_LZ_HASH_SEED * ctx) >> _LZP_HASH_SHIFT
+		h := (_LZP_HASH_SEED * ctx) >> _LZP_HASH_SHIFT
 		ref := int(this.hashes[h])
 		this.hashes[h] = int32(dstIdx)
 
