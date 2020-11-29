@@ -6,7 +6,7 @@ Kanzi is a modern, modular, expendable and efficient lossless data compressor im
 
 * modern: state-of-the-art algorithms are implemented and multi-core CPUs can take advantage of the built-in multi-tasking.
 * modular: entropy codec and a combination of transforms can be provided at runtime to best match the kind of data to compress.
-* expendable: clean design with heavy use of interfaces as contracts makes integrating and expanding the code easy. No dependencies.
+* expandable: clean design with heavy use of interfaces as contracts makes integrating and expanding the code easy. No dependencies.
 * efficient: the code is optimized for efficiency (trade-off between compression ratio and speed).
 
 Kanzi supports a wide range of compression ratios and can compress many files more than most common compressors (at the cost of decompression speed).
