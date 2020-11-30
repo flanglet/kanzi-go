@@ -173,25 +173,21 @@ func (this *DefaultInputBitStream) readFromInputStream(count int) (int, error) {
 		return 0, errors.New("Stream closed")
 	}
 
+	if count == 0 {
+		return 0, nil
+	}
+
 	this.read += int64((this.maxPosition + 1) << 3)
 	size, err := this.is.Read(this.buffer[0:count])
 	this.position = 0
 
 	if size <= 0 {
 		this.maxPosition = -1
-	} else {
-		this.maxPosition = size - 1
+		return 0, errors.New("No more data to read in the bitstream")
 	}
 
-	if err != nil {
-		return size, err
-	}
-
-	if size <= 0 {
-		return size, errors.New("No more data to read in the bitstream")
-	}
-
-	return size, nil
+	this.maxPosition = size - 1
+	return size, err
 }
 
 // HasMoreToRead returns false is the stream is closed or there is no
