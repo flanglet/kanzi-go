@@ -128,10 +128,6 @@ func NewCompressedOutputStream(os io.WriteCloser, codec, transform string, block
 // NewCompressedOutputStreamWithCtx creates a new instance of CompressedOutputStream using a
 // map of parameters and a writer
 func NewCompressedOutputStreamWithCtx(os io.WriteCloser, ctx map[string]interface{}) (*CompressedOutputStream, error) {
-	if os == nil {
-		return nil, &IOError{msg: "Invalid null writer parameter", code: kanzi.ERR_CREATE_STREAM}
-	}
-
 	var err error
 	var obs kanzi.OutputBitStream
 
@@ -782,10 +778,6 @@ func NewCompressedInputStream(is io.ReadCloser, jobs uint) (*CompressedInputStre
 // NewCompressedInputStreamWithCtx creates a new instance of CompressedInputStream
 // using a map of parameters
 func NewCompressedInputStreamWithCtx(is io.ReadCloser, ctx map[string]interface{}) (*CompressedInputStream, error) {
-	if is == nil {
-		return nil, &IOError{msg: "Invalid null reader parameter", code: kanzi.ERR_CREATE_STREAM}
-	}
-
 	var err error
 	var ibs kanzi.InputBitStream
 
