@@ -43,6 +43,7 @@ const (
 	_ROLZ_LITERAL_FLAG    = 1
 	_ROLZ_HASH_SEED       = uint32(200002979)
 	_ROLZ_MAX_BLOCK_SIZE  = 1 << 30 // 1 GB
+	_ROLZ_MIN_BLOCK_SIZE  = 64
 	_ROLZ_PSCALE          = 0xFFFF
 	_ROLZ_TOP             = uint64(0x00FFFFFFFFFFFFFF)
 	_MASK_0_56            = uint64(0x00FFFFFFFFFFFFFF)
@@ -153,6 +154,10 @@ func NewROLZCodecWithCtx(ctx *map[string]interface{}) (*ROLZCodec, error) {
 func (this *ROLZCodec) Forward(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
+	}
+
+	if len(src) < _ROLZ_MIN_BLOCK_SIZE {
+		return 0, 0, errors.New("ROLZ codec: Block too small, skip")
 	}
 
 	if &src[0] == &dst[0] {
