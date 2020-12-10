@@ -102,16 +102,9 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 		if count == 256 {
 			obs.WriteBit(_ALPHABET_256) // shortcut
 		} else {
-			log := uint(1)
-
-			for 1<<log <= count {
-				log++
-			}
-
 			// Write alphabet size
 			obs.WriteBit(_ALPHABET_NOT_256)
-			obs.WriteBits(uint64(log-1), 3)
-			obs.WriteBits(uint64(count), log)
+			obs.WriteBits(uint64(count), 8)
 		}
 	} else {
 		// Partial alphabet
@@ -137,9 +130,7 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 // read or an error
 func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 	// Read encoding mode from bitstream
-	alphabetType := ibs.ReadBit()
-
-	if alphabetType == _FULL_ALPHABET {
+	if ibs.ReadBit() == _FULL_ALPHABET {
 		var alphabetSize int
 
 		if ibs.ReadBit() == _ALPHABET_256 {
