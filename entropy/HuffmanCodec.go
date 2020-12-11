@@ -354,8 +354,16 @@ func (this *HuffmanEncoder) Write(block []byte) (int, error) {
 		kanzi.ComputeHistogram(block[startChunk:endChunk], frequencies[:], true, false)
 
 		// Update frequencies and rebuild Huffman codes
-		if _, err := this.updateFrequencies(frequencies[:]); err != nil {
+		count, err := this.updateFrequencies(frequencies[:])
+
+		if err != nil {
 			return 0, err
+		}
+
+		if count <= 1 {
+			// Skip chunk if only one symbol
+			startChunk = endChunk
+			continue
 		}
 
 		c := this.codes
@@ -551,11 +559,27 @@ func (this *HuffmanDecoder) Read(block []byte) (int, error) {
 	startChunk := 0
 
 	for startChunk < end {
+		endChunk := startChunk + this.chunkSize
+
+		if endChunk > end {
+			endChunk = end
+		}
+
 		// For each chunk, read code lengths, rebuild codes, rebuild decoding table
 		alphabetSize, err := this.readLengths()
 
 		if alphabetSize == 0 || err != nil {
 			return startChunk, err
+		}
+
+		if alphabetSize == 1 {
+			// Shortcut for chunks with only one symbol
+			for i := startChunk; i < endChunk; i++ {
+				block[i] = byte(this.alphabet[0])
+			}
+
+			startChunk = endChunk
+			continue
 		}
 
 		// Compute minimum number of bits required in bitstream for fast decoding
@@ -564,12 +588,6 @@ func (this *HuffmanDecoder) Read(block []byte) (int, error) {
 
 		if minCodeLen*padding != 64 {
 			padding++
-		}
-
-		endChunk := startChunk + this.chunkSize
-
-		if endChunk > end {
-			endChunk = end
 		}
 
 		endChunk4 := startChunk

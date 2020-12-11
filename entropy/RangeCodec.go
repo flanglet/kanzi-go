@@ -210,8 +210,16 @@ func (this *RangeEncoder) Write(block []byte) (int, error) {
 		this.shift = lr
 		buf := block[startChunk:endChunk]
 
-		if err := this.rebuildStatistics(buf, lr); err != nil {
+		alphabetSize, err := this.rebuildStatistics(buf, lr)
+
+		if err != nil {
 			return startChunk, err
+		}
+
+		if alphabetSize <= 1 {
+			// Skip chunk if only one symbol
+			startChunk = endChunk
+			continue
 		}
 
 		for i := range buf {
@@ -227,10 +235,9 @@ func (this *RangeEncoder) Write(block []byte) (int, error) {
 }
 
 // Compute chunk frequencies, cumulated frequencies and encode chunk header
-func (this *RangeEncoder) rebuildStatistics(block []byte, lr uint) error {
+func (this *RangeEncoder) rebuildStatistics(block []byte, lr uint) (int, error) {
 	kanzi.ComputeHistogram(block, this.freqs[:], true, false)
-	_, err := this.updateFrequencies(this.freqs[:], len(block), lr)
-	return err
+	return this.updateFrequencies(this.freqs[:], len(block), lr)
 }
 
 func (this *RangeEncoder) encodeByte(b byte) {
@@ -409,7 +416,7 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
 }
 
 // Read decodes data from the bitstream and return it in the provided buffer.
-// Decode the data chunk by chunk seuentially.
+// Decode the data chunk by chunk sequentially.
 // Return the number of bytes read from the bitstream.
 func (this *RangeDecoder) Read(block []byte) (int, error) {
 	if block == nil {
@@ -421,21 +428,31 @@ func (this *RangeDecoder) Read(block []byte) (int, error) {
 	sizeChunk := int(this.chunkSize)
 
 	for startChunk < end {
-		alphabetSize, err := this.decodeHeader(this.freqs[:])
-
-		if err != nil || alphabetSize == 0 {
-			return startChunk, err
-		}
-
-		this.rng = _TOP_RANGE
-		this.low = 0
-		this.code = this.bitstream.ReadBits(60)
 		endChunk := startChunk + sizeChunk
 
 		if endChunk > end {
 			endChunk = end
 		}
 
+		alphabetSize, err := this.decodeHeader(this.freqs[:])
+
+		if err != nil || alphabetSize == 0 {
+			return startChunk, err
+		}
+
+		if alphabetSize == 1 {
+			// Shortcut for chunks with only one symbol
+			for i := startChunk; i < endChunk; i++ {
+				block[i] = byte(this.alphabet[0])
+			}
+
+			startChunk = endChunk
+			continue
+		}
+
+		this.rng = _TOP_RANGE
+		this.low = 0
+		this.code = this.bitstream.ReadBits(60)
 		buf := block[startChunk:endChunk]
 
 		for i := range buf {

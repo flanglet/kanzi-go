@@ -136,8 +136,7 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 		if ibs.ReadBit() == _ALPHABET_256 {
 			alphabetSize = 256
 		} else {
-			log := uint(1 + ibs.ReadBits(3))
-			alphabetSize = int(ibs.ReadBits(log))
+			alphabetSize = int(ibs.ReadBits(8))
 		}
 
 		if alphabetSize > len(alphabet) {

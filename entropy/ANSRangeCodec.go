@@ -257,11 +257,16 @@ func (this *ANSRangeEncoder) Write(block []byte) (int, error) {
 			lr--
 		}
 
-		if _, err := this.rebuildStatistics(block[startChunk:endChunk], lr); err != nil {
+		alphabetSize, err := this.rebuildStatistics(block[startChunk:endChunk], lr)
+
+		if err != nil {
 			return end, err
 		}
 
-		this.encodeChunk(block[startChunk:endChunk])
+		if this.order == 1 || alphabetSize > 1 {
+			this.encodeChunk(block[startChunk:endChunk])
+		}
+
 		startChunk = endChunk
 	}
 
@@ -611,12 +616,6 @@ func (this *ANSRangeDecoder) Read(block []byte) (int, error) {
 	}
 
 	for startChunk < end {
-		alphabetSize, err := this.decodeHeader(this.freqs)
-
-		if err != nil || alphabetSize == 0 {
-			return startChunk, err
-		}
-
 		endChunk := startChunk + sizeChunk
 
 		if endChunk >= end {
@@ -624,7 +623,21 @@ func (this *ANSRangeDecoder) Read(block []byte) (int, error) {
 			sizeChunk = end - startChunk
 		}
 
-		this.decodeChunk(block[startChunk:endChunk])
+		alphabetSize, err := this.decodeHeader(this.freqs)
+
+		if err != nil || alphabetSize == 0 {
+			return startChunk, err
+		}
+
+		if this.order == 0 && alphabetSize == 1 {
+			// Shortcut for chunks with only one symbol
+			for i := startChunk; i < endChunk; i++ {
+				block[i] = byte(this.alphabet[0])
+			}
+		} else {
+			this.decodeChunk(block[startChunk:endChunk])
+		}
+
 		startChunk = endChunk
 	}
 
