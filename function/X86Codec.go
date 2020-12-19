@@ -66,25 +66,9 @@ func (this *X86Codec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
 	}
 
-	jumps := 0
 	end := count - 8
 
-	for i := 0; i < end; i++ {
-		if src[i]&_X86_MASK_JUMP == _X86_INSTRUCTION_JUMP {
-			if src[i+4] == 0 || src[i+4] == 0xFF {
-				// Count relative jumps (E8/E9 .. .. .. 00/FF)
-				jumps++
-			}
-		} else if (src[i+1]&_X86_MASK_JCC == _X86_INSTRUCTION_JCC) && (src[i] == _X86_PREFIX_JCC) {
-			// Count relative conditional jumps (0x0F 0x8.)
-			jumps++
-		}
-	}
-
-	if jumps < (count >> 7) {
-		// Number of jump instructions too small => either not a binary
-		// or not worth the change => skip. Very crude filter obviously.
-		// Also, binaries usually have a lot of 0x88..0x8C (MOV) instructions.
+	if this.isExeBlock(src[:end], count) == false {
 		return 0, 0, errors.New("Not a binary or not enough jumps")
 	}
 
@@ -212,4 +196,29 @@ func (this X86Codec) MaxEncodedLen(srcLen int) int {
 	}
 
 	return srcLen + srcLen/16
+}
+
+func (this X86Codec) isExeBlock(src []byte, count int) bool {
+	jumps := 0
+
+	for i := range src {
+		if src[i]&_X86_MASK_JUMP == _X86_INSTRUCTION_JUMP {
+			if src[i+4] == 0 || src[i+4] == 0xFF {
+				// Count relative jumps (E8/E9 .. .. .. 00/FF)
+				jumps++
+			}
+		} else if (src[i] == _X86_PREFIX_JCC) && (src[i+1]&_X86_MASK_JCC == _X86_INSTRUCTION_JCC) {
+			// Count relative conditional jumps (0x0F 0x8.)
+			jumps++
+		}
+	}
+
+	if jumps < (count >> 7) {
+		// Number of jump instructions too small => either not a binary
+		// or not worth the change => skip. Very crude filter obviously.
+		// Also, binaries usually have a lot of 0x88..0x8C (MOV) instructions.
+		return false
+	}
+
+	return true
 }
