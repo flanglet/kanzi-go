@@ -250,10 +250,6 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int) (int, int) {
 	for i := counter; i > counter-this.posChecks; i-- {
 		ref := m[i&this.maskChecks]
 
-		if ref == 0 {
-			break
-		}
-
 		// Hash check may save a memory access ...
 		if ref&_ROLZ_HASH_MASK != hash32 {
 			continue
@@ -829,10 +825,6 @@ func (this *rolzCodec2) findMatch(buf []byte, pos int) (int, int) {
 	// Check all recorded positions
 	for i := counter; i > counter-this.posChecks; i-- {
 		ref := m[i&this.maskChecks]
-
-		if ref == 0 {
-			break
-		}
 
 		// Hash check may save a memory access ...
 		if ref&_ROLZ_HASH_MASK != hash32 {
