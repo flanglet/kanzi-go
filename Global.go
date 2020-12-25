@@ -19,6 +19,15 @@ import (
 	"errors"
 )
 
+type DataType int
+
+const (
+	DT_UNDEFINED  DataType = 0
+	DT_TEXT       DataType = 1
+	DT_MULTIMEDIA DataType = 2
+	DT_X86        DataType = 3
+)
+
 // LOG2 is an array with 256 elements: int(Math.log2(x-1))
 var LOG2 = [...]uint32{
 	0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4,

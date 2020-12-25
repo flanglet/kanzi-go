@@ -18,6 +18,8 @@ package function
 import (
 	"errors"
 	"fmt"
+
+	"github.com/flanglet/kanzi-go"
 )
 
 // X86Codec is a codec that replaces relative jumps addresses with
@@ -36,6 +38,7 @@ const (
 
 // X86Codec a codec for x86 code
 type X86Codec struct {
+	ctx *map[string]interface{}
 }
 
 // NewX86Codec creates a new instance of X86Codec
@@ -48,6 +51,7 @@ func NewX86Codec() (*X86Codec, error) {
 // configuration map as parameter.
 func NewX86CodecWithCtx(ctx *map[string]interface{}) (*X86Codec, error) {
 	this := &X86Codec{}
+	this.ctx = ctx
 	return this, nil
 }
 
@@ -68,8 +72,22 @@ func (this *X86Codec) Forward(src, dst []byte) (uint, uint, error) {
 
 	end := count - 8
 
+	if this.ctx != nil {
+		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
+			dt := val.(kanzi.DataType)
+
+			if dt != kanzi.DT_UNDEFINED && dt != kanzi.DT_X86 {
+				return 0, 0, fmt.Errorf("Input is not an executable, skip")
+			}
+		}
+	}
+
 	if this.isExeBlock(src[:end], count) == false {
-		return 0, 0, errors.New("Not a binary or not enough jumps")
+		return 0, 0, errors.New("Input is not an executable or has too few jump instructions, skip")
+	}
+
+	if this.ctx != nil {
+		(*this.ctx)["dataType"] = kanzi.DT_X86
 	}
 
 	srcIdx := 0

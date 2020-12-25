@@ -68,6 +68,7 @@ type textCodec1 struct {
 	logHashSize    uint
 	hashMask       int32
 	isCRLF         bool // EOL = CR+LF ?
+	ctx            *map[string]interface{}
 }
 
 type textCodec2 struct {
@@ -78,6 +79,7 @@ type textCodec2 struct {
 	logHashSize    uint
 	hashMask       int32
 	isCRLF         bool // EOL = CR+LF ?
+	ctx            *map[string]interface{}
 }
 
 var (
@@ -527,6 +529,7 @@ func newTextCodec1WithCtx(ctx *map[string]interface{}) (*textCodec1, error) {
 	this.dictList = make([]dictEntry, 0)
 	this.hashMask = int32(1<<this.logHashSize) - 1
 	this.staticDictSize = _TC_STATIC_DICT_WORDS
+	this.ctx = ctx
 	return this, nil
 }
 
@@ -588,6 +591,16 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
 	}
 
+	if this.ctx != nil {
+		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
+			dt := val.(kanzi.DataType)
+
+			if dt != kanzi.DT_UNDEFINED && dt != kanzi.DT_TEXT {
+				return 0, 0, fmt.Errorf("Input is not text, skip")
+			}
+		}
+	}
+
 	srcIdx := 0
 	dstIdx := 0
 	freqs0 := [256]int32{}
@@ -595,7 +608,11 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Not text ?
 	if mode&_TC_MASK_NOT_TEXT != 0 {
-		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skipping")
+		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skip")
+	}
+
+	if this.ctx != nil {
+		(*this.ctx)["dataType"] = kanzi.DT_TEXT
 	}
 
 	this.reset(count)
@@ -1047,6 +1064,7 @@ func newTextCodec2WithCtx(ctx *map[string]interface{}) (*textCodec2, error) {
 	this.dictList = make([]dictEntry, 0)
 	this.hashMask = int32(1<<this.logHashSize) - 1
 	this.staticDictSize = _TC_STATIC_DICT_WORDS
+	this.ctx = ctx
 	return this, nil
 }
 
@@ -1103,6 +1121,16 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
 	}
 
+	if this.ctx != nil {
+		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
+			dt := val.(kanzi.DataType)
+
+			if dt != kanzi.DT_UNDEFINED && dt != kanzi.DT_TEXT {
+				return 0, 0, fmt.Errorf("Input is not text, skip")
+			}
+		}
+	}
+
 	srcIdx := 0
 	dstIdx := 0
 	freqs0 := [256]int32{}
@@ -1111,6 +1139,10 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	// Not text ?
 	if mode&_TC_MASK_NOT_TEXT != 0 {
 		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skipping")
+	}
+
+	if this.ctx != nil {
+		(*this.ctx)["dataType"] = kanzi.DT_TEXT
 	}
 
 	this.reset(count)

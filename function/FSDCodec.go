@@ -32,13 +32,12 @@ const (
 // FSDCodec Fixed Step Delta codec is used to decorrelate values separated
 // by a constant distance (step) and encode residuals
 type FSDCodec struct {
-	isFast bool
+	ctx *map[string]interface{}
 }
 
 // NewFSDCodec creates a new instance of FSDCodec
 func NewFSDCodec() (*FSDCodec, error) {
 	this := &FSDCodec{}
-	this.isFast = true
 	return this, nil
 }
 
@@ -46,16 +45,7 @@ func NewFSDCodec() (*FSDCodec, error) {
 // configuration map as parameter.
 func NewFSDCodecWithCtx(ctx *map[string]interface{}) (*FSDCodec, error) {
 	this := &FSDCodec{}
-	this.isFast = true
-
-	if val, containsKey := (*ctx)["fullFSD"]; containsKey {
-		fullFSD := val.(int)
-
-		if fullFSD == 1 {
-			this.isFast = false
-		}
-	}
-
+	this.ctx = ctx
 	return this, nil
 }
 
@@ -102,6 +92,16 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 	dst3 := dst[2*count5 : 3*count5]
 	dst4 := dst[3*count5 : 4*count5]
 	dst8 := dst[4*count5 : count]
+
+	if this.ctx != nil {
+		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
+			dt := val.(kanzi.DataType)
+
+			if dt != kanzi.DT_UNDEFINED && dt != kanzi.DT_MULTIMEDIA {
+				return 0, 0, fmt.Errorf("FSD forward transform skip")
+			}
+		}
+	}
 
 	// Check several step values on a sub-block (no memory allocation)
 	// Sample 2 sub-blocks
@@ -157,8 +157,20 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	// If not 'better enough', quick exit
-	if this.isFast == true && ent[minIdx] >= (123*ent[0])>>7 {
+	isFast := true
+
+	if this.ctx != nil {
+		if val, containsKey := (*this.ctx)["fullFSD"]; containsKey {
+			isFast = val.(bool)
+		}
+	}
+
+	if isFast == true && ent[minIdx] >= (123*ent[0])>>7 {
 		return 0, 0, fmt.Errorf("FSD forward transform skip")
+	}
+
+	if this.ctx != nil {
+		(*this.ctx)["dataType"] = kanzi.DT_MULTIMEDIA
 	}
 
 	dist := minIdx
@@ -236,7 +248,7 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 		// Extra check that the transform makes sense
 		length := dstIdx
 
-		if this.isFast == true {
+		if isFast == true {
 			length = dstIdx >> 1
 		}
 
