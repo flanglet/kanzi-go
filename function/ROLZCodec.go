@@ -314,8 +314,9 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 	startChunk := 0
 	litBuf := make([]byte, this.MaxEncodedLen(sizeChunk))
-	lenBuf := make([]byte, sizeChunk/4)
+	lenBuf := make([]byte, sizeChunk/6)
 	mIdxBuf := make([]byte, sizeChunk/4)
+	tkBuf := make([]byte, sizeChunk/6)
 	var err error
 
 	for i := range this.counters {
@@ -336,6 +337,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		litIdx := 0
 		lenIdx := 0
 		mIdx := 0
+		tkIdx := 0
 
 		for i := range this.matches {
 			this.matches[i] = 0
@@ -371,12 +373,32 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 				continue
 			}
 
-			// Emit match and literal lengths
+			// mode LLLLLMMM -> L lit length, M match length
 			litLen := srcIdx - firstLitIdx
-			lenIdx += emitToken(lenBuf[lenIdx:], litLen, matchLen)
+			var mode byte
+
+			if litLen < 31 {
+				mode = byte(litLen << 3)
+			} else {
+				mode = 0xF8
+			}
+
+			if matchLen >= 7 {
+				tkBuf[tkIdx] = mode | 0x07
+				tkIdx++
+				lenBuf[lenIdx] = byte(matchLen - 7)
+				lenIdx++
+			} else {
+				tkBuf[tkIdx] = mode | byte(matchLen)
+				tkIdx++
+			}
 
 			// Emit literals
 			if litLen > 0 {
+				if litLen >= 31 {
+					lenIdx += emitLengthROLZ(lenBuf[lenIdx:], litLen-31)
+				}
+
 				copy(litBuf[litIdx:], buf[firstLitIdx:firstLitIdx+litLen])
 				litIdx += litLen
 			}
@@ -390,8 +412,15 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 		// Emit last chunk literals
 		litLen := srcIdx - firstLitIdx
-		lenIdx += emitToken(lenBuf[lenIdx:], litLen, 0)
 
+		if litLen < 31 {
+			tkBuf[tkIdx] = byte(litLen << 3)
+		} else {
+			tkBuf[tkIdx] = 0xF8
+			lenIdx += emitLengthROLZ(lenBuf[lenIdx:], litLen-31)
+		}
+
+		tkIdx++
 		// Emit literals
 		if litLen > 0 {
 			copy(litBuf[litIdx:], buf[firstLitIdx:firstLitIdx+litLen])
@@ -410,6 +439,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			}
 
 			obs.WriteBits(uint64(litIdx), 32)
+			obs.WriteBits(uint64(tkIdx), 32)
 			obs.WriteBits(uint64(lenIdx), 32)
 			obs.WriteBits(uint64(mIdx), 32)
 			var litEnc *entropy.ANSRangeEncoder
@@ -426,6 +456,10 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			var mEnc *entropy.ANSRangeEncoder
 
 			if mEnc, err = entropy.NewANSRangeEncoder(obs, 0); err != nil {
+				goto End
+			}
+
+			if _, err = mEnc.Write(tkBuf[0:tkIdx]); err != nil {
 				goto End
 			}
 
@@ -503,8 +537,9 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	srcIdx := 4
 	dstIdx := 0
 	litBuf := make([]byte, this.MaxEncodedLen(sizeChunk))
-	lenBuf := make([]byte, sizeChunk/4)
+	lenBuf := make([]byte, sizeChunk/6)
 	mIdxBuf := make([]byte, sizeChunk/4)
+	tkBuf := make([]byte, sizeChunk/6)
 	var err error
 
 	for i := range this.counters {
@@ -519,6 +554,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		mIdx := 0
 		lenIdx := 0
 		litIdx := 0
+		tkIdx := 0
 
 		for i := range this.matches {
 			this.matches[i] = 0
@@ -547,11 +583,17 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			litLen := int(ibs.ReadBits(32))
+			tkLen := int(ibs.ReadBits(32))
 			mLenLen := int(ibs.ReadBits(32))
 			mIdxLen := int(ibs.ReadBits(32))
 
 			if litLen > sizeChunk {
 				err = fmt.Errorf("ROLZ codec: Invalid length: got %v, must be less than or equal to %v", litLen, sizeChunk)
+				goto End
+			}
+
+			if tkLen > sizeChunk {
+				err = fmt.Errorf("ROLZ codec: Invalid length: got %v, must be less than or equal to %v", tkLen, sizeChunk)
 				goto End
 			}
 
@@ -582,6 +624,10 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 				goto End
 			}
 
+			if _, err = mDec.Read(tkBuf[0:tkLen]); err != nil {
+				goto End
+			}
+
 			if _, err = mDec.Read(lenBuf[0:mLenLen]); err != nil {
 				goto End
 			}
@@ -608,8 +654,25 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 		// Next chunk
 		for dstIdx < sizeChunk {
-			litLen, matchLen, deltaIdx := this.readLengths(lenBuf[lenIdx:])
-			lenIdx += deltaIdx
+			// mode LLLLLMMM -> L lit length, M match length
+			mode := tkBuf[tkIdx]
+			tkIdx++
+			matchLen := int(mode & 0x07)
+
+			if matchLen == 7 {
+				matchLen += int(lenBuf[lenIdx])
+				lenIdx++
+			}
+
+			var litLen int
+
+			if mode < 0xF8 {
+				litLen = int(mode >> 3)
+			} else {
+				var deltaIdx int
+				litLen, deltaIdx = readLengthROLZ(lenBuf[lenIdx:])
+				lenIdx += deltaIdx
+			}
 
 			if litLen > 0 {
 				this.emitLiterals(litBuf[litIdx:litIdx+litLen], buf, dstIdx)
@@ -675,68 +738,31 @@ func (this rolzCodec1) MaxEncodedLen(srcLen int) int {
 	return srcLen
 }
 
-func emitToken(block []byte, litLen, mLen int) int {
-	// mode LLLLLMMM -> L lit length, M match length
-	var mode byte
+func emitLengthROLZ(block []byte, litLen int) int {
+	idx := 0
 
-	if litLen < 0x1F {
-		mode = byte(litLen << 3)
-	} else {
-		mode = 0xF8
-	}
-
-	var idx int
-
-	if mLen >= 7 {
-		block[0] = mode | 0x07
-		block[1] = byte(mLen - 7)
-		idx = 2
-	} else {
-		block[0] = mode | byte(mLen)
-		idx = 1
-	}
-
-	if litLen >= 31 {
-		litLen -= 31
-
-		if litLen >= 1<<7 {
-			if litLen >= 1<<14 {
-				if litLen >= 1<<21 {
-					block[idx] = byte(0x80 | (litLen >> 21))
-					idx++
-				}
-
-				block[idx] = byte(0x80 | (litLen >> 14))
+	if litLen >= 1<<7 {
+		if litLen >= 1<<14 {
+			if litLen >= 1<<21 {
+				block[idx] = byte(0x80 | (litLen >> 21))
 				idx++
 			}
 
-			block[idx] = byte(0x80 | (litLen >> 7))
+			block[idx] = byte(0x80 | (litLen >> 14))
 			idx++
 		}
 
-		block[idx] = byte(litLen & 0x7F)
+		block[idx] = byte(0x80 | (litLen >> 7))
 		idx++
 	}
 
-	return idx
+	block[idx] = byte(litLen & 0x7F)
+	return idx + 1
 }
 
-// return litLen, mLen, idx
-func (this rolzCodec1) readLengths(lenBuf []byte) (int, int, int) {
-	// mode LLLLLMMM -> L lit length, M match length
-	mode := lenBuf[0]
-	idx := 1
-	mLen := int(mode & 0x07)
-
-	if mLen == 7 {
-		mLen += int(lenBuf[1])
-		idx = 2
-	}
-
-	if mode < 0xF8 {
-		return int(mode >> 3), mLen, idx
-	}
-
+// return litLen, idx
+func readLengthROLZ(lenBuf []byte) (int, int) {
+	idx := 0
 	next := lenBuf[idx]
 	idx++
 	litLen := int(next & 0x7F)
@@ -759,7 +785,7 @@ func (this rolzCodec1) readLengths(lenBuf []byte) (int, int, int) {
 		}
 	}
 
-	return litLen + 31, mLen, idx
+	return litLen + 31, idx
 }
 
 func (this rolzCodec1) emitLiterals(litBuf, dst []byte, dstIdx int) {

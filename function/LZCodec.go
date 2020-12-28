@@ -140,7 +140,7 @@ func NewLZXCodecWithCtx(ctx *map[string]interface{}) (*LZXCodec, error) {
 	return this, nil
 }
 
-func emitLength(buf []byte, length int) int {
+func emitLengthLZ(buf []byte, length int) int {
 	idx := 0
 
 	for length >= 0xFF {
@@ -167,7 +167,7 @@ func emitLastLiterals(src, dst []byte) int {
 
 	if litLen >= 7 {
 		dst[0] = byte(7 << 5)
-		dstIdx += emitLength(dst[1:], litLen-7)
+		dstIdx += emitLengthLZ(dst[1:], litLen-7)
 	} else {
 		dst[0] = byte(litLen << 5)
 	}
@@ -306,7 +306,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 			if litLen >= 7 {
 				dst[dstIdx] = byte((7 << 5) | token)
 				dstIdx++
-				dstIdx += emitLength(dst[dstIdx:], litLen-7)
+				dstIdx += emitLengthLZ(dst[dstIdx:], litLen-7)
 			} else {
 				dst[dstIdx] = byte((litLen << 5) | token)
 				dstIdx++
@@ -319,7 +319,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 		// Emit match length
 		if mLen >= 15 {
-			mIdx += emitLength(this.buffer[mIdx:], mLen-15)
+			mIdx += emitLengthLZ(this.buffer[mIdx:], mLen-15)
 		}
 
 		// Emit distance
