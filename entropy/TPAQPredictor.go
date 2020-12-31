@@ -385,7 +385,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 			}
 		} else {
 			// Mostly binary
-			this.ctx4 = createContext(_TPAQ_HASH, this.c4^(this.c4&0x000FFFFF))
+			this.ctx4 = createContext(_TPAQ_HASH+this.matchLen, this.c4^(this.c4&0x000FFFFF))
 			this.ctx5 = this.ctx0 | (this.c8 << 16)
 
 			if this.extra == true {
