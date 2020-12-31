@@ -141,6 +141,20 @@ var _TPAQ_STATE_MAP = []int32{
 	1, 1, 1, 1, 1, 1, 1, 1,
 }
 
+var _TPAQ_MATCH_PRED = [_TPAQ_MAX_LENGTH]int32{
+	0, 64, 128, 192, 256, 320, 384, 448,
+	512, 576, 640, 704, 768, 832, 896, 960,
+	1024, 1038, 1053, 1067, 1082, 1096, 1111, 1125,
+	1139, 1154, 1168, 1183, 1197, 1211, 1226, 1240,
+	1255, 1269, 1284, 1298, 1312, 1327, 1341, 1356,
+	1370, 1385, 1399, 1413, 1428, 1442, 1457, 1471,
+	1486, 1500, 1514, 1529, 1543, 1558, 1572, 1586,
+	1601, 1615, 1630, 1644, 1659, 1673, 1687, 1702,
+	1716, 1731, 1745, 1760, 1774, 1788, 1803, 1817,
+	1832, 1846, 1861, 1875, 1889, 1904, 1918, 1933,
+	1947, 1961, 1976, 1990, 2005, 2019, 2034, 2047,
+}
+
 func hashTPAQ(x, y int32) int32 {
 	h := x*_TPAQ_HASH ^ y*_TPAQ_HASH
 	return h>>1 ^ h>>9 ^ x>>2 ^ y>>3 ^ _TPAQ_HASH
@@ -425,7 +439,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 
 		// SSE (Secondary Symbol Estimation)
 		if this.binCount < (this.pos >> 3) {
-			p = this.sse0.get(y, p, int(this.c0))
+			p = (3*this.sse0.get(y, p, int(this.c0)) + p) >> 2
 		}
 	} else {
 		// One more prediction
@@ -497,19 +511,13 @@ func (this *TPAQPredictor) findMatch() {
 // Get a squashed prediction (in [-2047..2048]) from the match model
 func (this *TPAQPredictor) getMatchContextPred() int32 {
 	if this.c0 == ((int32(this.buffer[this.matchPos&this.bufferMask])&0xFF)|256)>>this.bpos {
-		var p int32
-
-		if this.matchLen <= 24 {
-			p = this.matchLen
-		} else {
-			p = (24 + ((this.matchLen - 24) >> 3))
-		}
+		p := _TPAQ_MATCH_PRED[this.matchLen-1]
 
 		if ((this.buffer[this.matchPos&this.bufferMask] >> (this.bpos - 1)) & 1) == 0 {
-			return -p << 6
+			return -p
 		}
 
-		return p << 6
+		return p
 	}
 
 	this.matchLen = 0
