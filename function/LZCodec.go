@@ -417,7 +417,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		tkIdx++
 	}
 
-	copy(dst[dstIdx:], src[anchor:srcEnd+litLen])
+	copy(dst[dstIdx:], src[anchor:anchor+litLen])
 	dstIdx += litLen
 
 	// Emit buffers: literals + tokens + matches
