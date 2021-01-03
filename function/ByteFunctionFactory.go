@@ -45,6 +45,7 @@ const (
 	SRT_TYPE    = uint64(13) // Sorted Rank
 	LZP_TYPE    = uint64(14) // Lempel Ziv Predict
 	FSD_TYPE    = uint64(15) // Fixed Shift Delta codec
+	LZX_TYPE    = uint64(16) // Lempel Ziv Extra
 )
 
 // NewByteFunction creates a new instance of ByteTransformSequence based on the provided
@@ -114,6 +115,21 @@ func newByteFunctionToken(ctx *map[string]interface{}, functionType uint64) (kan
 	case BWTS_TYPE:
 		return transform.NewBWTSWithCtx(ctx)
 
+	case LZ_TYPE:
+		(*ctx)["lz"] = LZ_TYPE
+		return NewLZCodecWithCtx(ctx)
+
+	case LZX_TYPE:
+		(*ctx)["lz"] = LZX_TYPE
+		return NewLZCodecWithCtx(ctx)
+
+	case LZP_TYPE:
+		(*ctx)["lz"] = LZP_TYPE
+		return NewLZCodecWithCtx(ctx)
+
+	case FSD_TYPE:
+		return NewFSDCodecWithCtx(ctx)
+
 	case SRT_TYPE:
 		return NewSRTWithCtx(ctx)
 
@@ -130,17 +146,6 @@ func newByteFunctionToken(ctx *map[string]interface{}, functionType uint64) (kan
 
 	case RLT_TYPE:
 		return NewRLTWithCtx(ctx)
-
-	case LZ_TYPE:
-		(*ctx)["lz"] = LZ_TYPE
-		return NewLZCodecWithCtx(ctx)
-
-	case LZP_TYPE:
-		(*ctx)["lz"] = LZP_TYPE
-		return NewLZCodecWithCtx(ctx)
-
-	case FSD_TYPE:
-		return NewFSDCodecWithCtx(ctx)
 
 	case X86_TYPE:
 		return NewX86CodecWithCtx(ctx)
@@ -198,6 +203,21 @@ func getByteFunctionNameToken(functionType uint64) string {
 	case BWTS_TYPE:
 		return "BWTS"
 
+	case LZ_TYPE:
+		return "LZ"
+
+	case LZX_TYPE:
+		return "LZX"
+
+	case LZP_TYPE:
+		return "LZP"
+
+	case X86_TYPE:
+		return "X86"
+
+	case FSD_TYPE:
+		return "FSD"
+
 	case ZRLT_TYPE:
 		return "ZRLT"
 
@@ -212,18 +232,6 @@ func getByteFunctionNameToken(functionType uint64) string {
 
 	case MTFT_TYPE:
 		return "MTFT"
-
-	case LZ_TYPE:
-		return "LZ"
-
-	case LZP_TYPE:
-		return "LZP"
-
-	case X86_TYPE:
-		return "X86"
-
-	case FSD_TYPE:
-		return "FSD"
 
 	case NONE_TYPE:
 		return "NONE"
@@ -286,6 +294,18 @@ func getByteFunctionTypeToken(name string) uint64 {
 	case "ROLZX":
 		return ROLZX_TYPE
 
+	case "LZ":
+		return LZ_TYPE
+
+	case "LZX":
+		return LZX_TYPE
+
+	case "LZP":
+		return LZP_TYPE
+
+	case "FSD":
+		return FSD_TYPE
+
 	case "SRT":
 		return SRT_TYPE
 
@@ -304,17 +324,8 @@ func getByteFunctionTypeToken(name string) uint64 {
 	case "X86":
 		return X86_TYPE
 
-	case "LZ":
-		return LZ_TYPE
-
-	case "LZP":
-		return LZP_TYPE
-
 	case "NONE":
 		return NONE_TYPE
-
-	case "FSD":
-		return FSD_TYPE
 
 	default:
 		panic(fmt.Errorf("Unknown transform type: '%v'", name))

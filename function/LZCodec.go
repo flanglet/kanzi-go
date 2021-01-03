@@ -25,9 +25,12 @@ import (
 
 const (
 	_LZX_HASH_SEED          = 0x1E35A7BD
-	_LZX_HASH_LOG           = 19 // 512K
-	_LZX_HASH_SHIFT         = 40 - _LZX_HASH_LOG
-	_LZX_HASH_MASK          = (1 << _LZX_HASH_LOG) - 1
+	_LZX_HASH_LOG1          = 16
+	_LZX_HASH_SHIFT1        = 40 - _LZX_HASH_LOG1
+	_LZX_HASH_MASK1         = (1 << _LZX_HASH_LOG1) - 1
+	_LZX_HASH_LOG2          = 21
+	_LZX_HASH_SHIFT2        = 40 - _LZX_HASH_LOG2
+	_LZX_HASH_MASK2         = (1 << _LZX_HASH_LOG2) - 1
 	_LZX_MAX_DISTANCE1      = (1 << 17) - 1
 	_LZX_MAX_DISTANCE2      = (1 << 24) - 1
 	_LZX_MIN_MATCH          = 5
@@ -116,12 +119,13 @@ func (this *LZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 }
 
 // LZXCodec Simple byte oriented LZ77 implementation.
-// It is a modified LZ4 with a bigger window, a bigger hash map, 3+n*8 bit
-// literal lengths and 17 or 24 bit match lengths.
+// It is a based on a heavily modified LZ4 with a bigger window, a bigger
+// hash map, 3+n*8 bit literal lengths and 17 or 24 bit match lengths.
 type LZXCodec struct {
 	hashes []int32
 	mBuf   []byte
 	tkBuf  []byte
+	extra  bool
 }
 
 // NewLZXCodec creates a new instance of LZXCodec
@@ -130,6 +134,7 @@ func NewLZXCodec() (*LZXCodec, error) {
 	this.hashes = make([]int32, 0)
 	this.mBuf = make([]byte, 0)
 	this.tkBuf = make([]byte, 0)
+	this.extra = false
 	return this, nil
 }
 
@@ -140,6 +145,14 @@ func NewLZXCodecWithCtx(ctx *map[string]interface{}) (*LZXCodec, error) {
 	this.hashes = make([]int32, 0)
 	this.mBuf = make([]byte, 0)
 	this.tkBuf = make([]byte, 0)
+	this.extra = false
+
+	if val, containsKey := (*ctx)["lz"]; containsKey {
+		lzType := val.(uint64)
+
+		this.extra = lzType == LZX_TYPE
+	}
+
 	return this, nil
 }
 
@@ -193,8 +206,12 @@ func emitLiteralsLZ(src, dst []byte) {
 	}
 }
 
-func lzhash(p []byte) uint32 {
-	return uint32((binary.LittleEndian.Uint64(p)*_LZX_HASH_SEED)>>_LZX_HASH_SHIFT) & _LZX_HASH_MASK
+func (this *LZXCodec) hash(p []byte) uint32 {
+	if this.extra == true {
+		return uint32((binary.LittleEndian.Uint64(p)*_LZX_HASH_SEED)>>_LZX_HASH_SHIFT2) & _LZX_HASH_MASK2
+	} else {
+		return uint32((binary.LittleEndian.Uint64(p)*_LZX_HASH_SEED)>>_LZX_HASH_SHIFT1) & _LZX_HASH_MASK1
+	}
 }
 
 // Forward applies the function to the src and writes the result
@@ -221,7 +238,11 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	if len(this.hashes) == 0 {
-		this.hashes = make([]int32, 1<<_LZX_HASH_LOG)
+		if this.extra == true {
+			this.hashes = make([]int32, 1<<_LZX_HASH_LOG2)
+		} else {
+			this.hashes = make([]int32, 1<<_LZX_HASH_LOG1)
+		}
 	} else {
 		for i := range this.hashes {
 			this.hashes[i] = 0
@@ -267,7 +288,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 			minRef = srcIdx - maxDist
 		}
 
-		h := lzhash(src[srcIdx:])
+		h := this.hash(src[srcIdx:])
 		ref := int(this.hashes[h])
 		bestLen := 0
 
@@ -290,7 +311,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		// Check if better match at next position
-		h2 := lzhash(src[srcIdx+1:])
+		h2 := this.hash(src[srcIdx+1:])
 		ref2 := int(this.hashes[h2])
 		bestLen2 := 0
 
@@ -384,19 +405,19 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		this.mBuf[mIdx+1] = byte(dist)
 		mIdx += 2
 
-		if mIdx >= len(this.mBuf)-16 {
+		if mIdx >= len(this.mBuf)-4 {
 			// Expand match mBuf
 			extraBuf := make([]byte, len(this.mBuf))
 			this.mBuf = append(this.mBuf, extraBuf...)
 		}
 
-		// Fill _hashes and update positions
+		// Fill this.hashes and update positions
 		anchor = srcIdx + bestLen
 		this.hashes[h] = int32(srcIdx)
 		srcIdx++
 
 		for srcIdx < anchor {
-			this.hashes[lzhash(src[srcIdx:])] = int32(srcIdx)
+			this.hashes[this.hash(src[srcIdx:])] = int32(srcIdx)
 			srcIdx++
 		}
 	}
