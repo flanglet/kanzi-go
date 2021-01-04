@@ -298,11 +298,6 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	if this.jobs > 1 {
 		msg = fmt.Sprintf("Using %d jobs", this.jobs)
 		log.Println(msg, printFlag)
-
-		if strings.ToUpper(this.outputName) == _COMP_STDOUT {
-			fmt.Println("Cannot output to STDOUT with multiple jobs")
-			return kanzi.ERR_CREATE_FILE, 0
-		}
 	} else {
 		log.Println("Using 1 job", printFlag)
 	}
@@ -522,24 +517,27 @@ func getTransformAndCodec(level int) string {
 		return "TEXT+LZ&HUFFMAN"
 
 	case 2:
-		return "TEXT+FSD+ROLZ&NONE"
+		return "TEXT+FSD+LZX&HUFFMAN"
 
 	case 3:
-		return "TEXT+FSD+ROLZX&NONE"
+		return "TEXT+FSD+ROLZ&NONE"
 
 	case 4:
-		return "TEXT+BWT+RANK+ZRLT&ANS0"
+		return "TEXT+FSD+ROLZX&NONE"
 
 	case 5:
-		return "TEXT+BWT+SRT+ZRLT&FPAQ"
+		return "TEXT+BWT+RANK+ZRLT&ANS0"
 
 	case 6:
-		return "LZP+TEXT+BWT&CM"
+		return "TEXT+BWT+SRT+ZRLT&FPAQ"
 
 	case 7:
-		return "X86+RLT+TEXT&TPAQ"
+		return "LZP+TEXT+BWT&CM"
 
 	case 8:
+		return "X86+RLT+TEXT&TPAQ"
+
+	case 9:
 		return "X86+RLT+TEXT&TPAQX"
 
 	default:

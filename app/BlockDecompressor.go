@@ -216,11 +216,6 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	if this.jobs > 1 {
 		msg = fmt.Sprintf("Using %d jobs", this.jobs)
 		log.Println(msg, printFlag)
-
-		if strings.ToUpper(this.outputName) == _DECOMP_STDOUT {
-			fmt.Println("Cannot output to STDOUT with multiple jobs")
-			return kanzi.ERR_CREATE_FILE, 0
-		}
 	} else {
 		log.Println("Using 1 job", printFlag)
 	}
