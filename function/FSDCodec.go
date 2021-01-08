@@ -83,16 +83,6 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, fmt.Errorf("Block too small, skip")
 	}
 
-	dstEnd := this.MaxEncodedLen(count)
-	count5 := count / 5
-	count10 := count / 10
-	var in []byte
-	dst1 := dst[0*count5 : 1*count5]
-	dst2 := dst[1*count5 : 2*count5]
-	dst3 := dst[2*count5 : 3*count5]
-	dst4 := dst[3*count5 : 4*count5]
-	dst8 := dst[4*count5 : count]
-
 	if this.ctx != nil {
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
 			dt := val.(kanzi.DataType)
@@ -103,69 +93,54 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
+	dstEnd := this.MaxEncodedLen(count)
+	count5 := count / 5
+	count10 := count / 10
+	var in []byte
+	var histo [6][256]int
+
 	// Check several step values on a sub-block (no memory allocation)
 	// Sample 2 sub-blocks
 	in = src[3*count5 : 3*count5+count]
 
 	for i := 0; i < count10; i++ {
 		b := in[i]
-		dst1[i] = b ^ in[i-1]
-		dst2[i] = b ^ in[i-2]
-		dst3[i] = b ^ in[i-3]
-		dst4[i] = b ^ in[i-4]
-		dst8[i] = b ^ in[i-8]
+		histo[0][b]++
+		histo[1][b^in[i-1]]++
+		histo[2][b^in[i-2]]++
+		histo[3][b^in[i-3]]++
+		histo[4][b^in[i-4]]++
+		histo[5][b^in[i-8]]++
 	}
 
 	in = src[1*count5 : 1*count5+count10]
 
 	for i := count10; i < count5; i++ {
 		b := in[i]
-		dst1[i] = b ^ in[i-1]
-		dst2[i] = b ^ in[i-2]
-		dst3[i] = b ^ in[i-3]
-		dst4[i] = b ^ in[i-4]
-		dst8[i] = b ^ in[i-8]
+		histo[0][b]++
+		histo[1][b^in[i-1]]++
+		histo[2][b^in[i-2]]++
+		histo[3][b^in[i-3]]++
+		histo[4][b^in[i-4]]++
+		histo[5][b^in[i-8]]++
 	}
 
 	// Find if entropy is lower post transform
-	var histo [256]int
 	var ent [6]int
-	count3 := count / 3
-	kanzi.ComputeHistogram(src[count3:2*count3], histo[:], true, false)
-	ent[0] = kanzi.ComputeFirstOrderEntropy1024(count3, histo[:])
-	kanzi.ComputeHistogram(dst1[0:count5], histo[:], true, false)
-	ent[1] = kanzi.ComputeFirstOrderEntropy1024(count5, histo[:])
-	kanzi.ComputeHistogram(dst2[0:count5], histo[:], true, false)
-	ent[2] = kanzi.ComputeFirstOrderEntropy1024(count5, histo[:])
-	kanzi.ComputeHistogram(dst3[0:count5], histo[:], true, false)
-	ent[3] = kanzi.ComputeFirstOrderEntropy1024(count5, histo[:])
-	kanzi.ComputeHistogram(dst4[0:count5], histo[:], true, false)
-	ent[4] = kanzi.ComputeFirstOrderEntropy1024(count5, histo[:])
-	kanzi.ComputeHistogram(dst8[0:count5], histo[:], true, false)
-	ent[5] = kanzi.ComputeFirstOrderEntropy1024(count5, histo[:])
+	ent[0] = kanzi.ComputeFirstOrderEntropy1024(count5, histo[0][:])
 
 	minIdx := 0
 
 	for i := 1; i < len(ent); i++ {
+		ent[i] = kanzi.ComputeFirstOrderEntropy1024(count5, histo[i][:])
+
 		if ent[i] < ent[minIdx] {
 			minIdx = i
 		}
 	}
 
-	if minIdx == 0 {
-		return 0, 0, fmt.Errorf("FSD forward transform skip")
-	}
-
-	// If not 'better enough', quick exit
-	isFast := true
-
-	if this.ctx != nil {
-		if val, containsKey := (*this.ctx)["fullFSD"]; containsKey {
-			isFast = val.(bool)
-		}
-	}
-
-	if isFast == true && ent[minIdx] >= (123*ent[0])>>7 {
+	// If not better, quick exit
+	if minIdx == 0 || ent[minIdx] >= ent[0] {
 		return 0, 0, fmt.Errorf("FSD forward transform skip")
 	}
 
@@ -240,23 +215,29 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
+	if srcIdx != count {
+		return uint(srcIdx), uint(dstIdx), errors.New("FSD forward transform skip: output buffer too small")
+	}
+
+	length := dstIdx
+	isFast := true
+
+	if this.ctx != nil {
+		if val, containsKey := (*this.ctx)["fullFSD"]; containsKey {
+			isFast = val.(bool)
+		}
+	}
+
+	if isFast == true {
+		length = dstIdx >> 1
+	}
+
+	// Extra check that the transform makes sense
+	kanzi.ComputeHistogram(dst[(dstIdx-length)>>1:(dstIdx+length)>>1], histo[0][:], true, false)
 	var err error
 
-	if srcIdx != count {
-		err = errors.New("FSD forward transform skip: output buffer too small")
-	} else {
-		// Extra check that the transform makes sense
-		length := dstIdx
-
-		if isFast == true {
-			length = dstIdx >> 1
-		}
-
-		kanzi.ComputeHistogram(dst[(dstIdx-length)>>1:(dstIdx+length)>>1], histo[:], true, false)
-
-		if entropy := kanzi.ComputeFirstOrderEntropy1024(length, histo[:]); entropy >= ent[0] {
-			err = errors.New("FSD forward transform skip: no improvement")
-		}
+	if entropy := kanzi.ComputeFirstOrderEntropy1024(length, histo[0][:]); entropy >= ent[0] {
+		err = errors.New("FSD forward transform skip: no improvement")
 	}
 
 	return uint(srcIdx), uint(dstIdx), err
