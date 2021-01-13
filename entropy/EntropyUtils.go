@@ -29,12 +29,11 @@ const (
 	_FULL_ALPHABET    = 0 // Flag for full alphabet encoding
 	_PARTIAL_ALPHABET = 1 // Flag for partial alphabet encoding
 	_ALPHABET_256     = 0 // Flag for alphabet with 256 symbols
-	_ALPHABET_NOT_256 = 1 // Flag for alphabet not with 256 symbols
+	_ALPHABET_0       = 1 // Flag for alphabet not with no symbol
 )
 
 type freqSortData struct {
 	frequencies []int
-	errors      []int
 	symbol      int
 }
 
@@ -48,14 +47,11 @@ func (this freqSortPriorityQueue) Less(i, j int) bool {
 	di := this[i]
 	dj := this[j]
 
-	// Decreasing error
-	if di.errors[di.symbol] != dj.errors[dj.symbol] {
-		return di.errors[di.symbol] > dj.errors[dj.symbol]
-	}
-
 	// Decreasing frequency
-	if di.frequencies[di.symbol] != dj.frequencies[dj.symbol] {
-		return di.frequencies[di.symbol] > dj.frequencies[dj.symbol]
+	res := dj.frequencies[dj.symbol] - di.frequencies[di.symbol]
+
+	if res != 0 {
+		return res < 0
 	}
 
 	// Decreasing symbol
@@ -95,17 +91,12 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 		return 0, fmt.Errorf("The max alphabet length is 256, got %v", alphabetSize)
 	}
 
-	if count == 0 || count == alphabetSize {
-		// Full alphabet
+	if count == 0 {
 		obs.WriteBit(_FULL_ALPHABET)
-
-		if count == 256 {
-			obs.WriteBit(_ALPHABET_256) // shortcut
-		} else {
-			// Write alphabet size
-			obs.WriteBit(_ALPHABET_NOT_256)
-			obs.WriteBits(uint64(count), 8)
-		}
+		obs.WriteBit(_ALPHABET_0)
+	} else if count == 256 {
+		obs.WriteBit(_FULL_ALPHABET)
+		obs.WriteBit(_ALPHABET_256)
 	} else {
 		// Partial alphabet
 		obs.WriteBit(_PARTIAL_ALPHABET)
@@ -200,7 +191,6 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 		return alphabetSize, nil
 	}
 
-	var errors [256]int
 	sumScaledFreq := 0
 	freqMax := 0
 	idxMax := -1
@@ -208,7 +198,6 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 	// Scale frequencies by stretching distribution over complete range
 	for i := range alphabet {
 		alphabet[i] = 0
-		errors[i] = 0
 		f := freqs[i]
 
 		if f == 0 {
@@ -234,9 +223,6 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 
 			if errCeiling < errFloor {
 				scaledFreq++
-				errors[i] = int(errCeiling)
-			} else {
-				errors[i] = int(errFloor)
 			}
 		}
 
@@ -256,30 +242,33 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 	}
 
 	if sumScaledFreq != scale {
-		if freqs[idxMax] > sumScaledFreq-scale {
-			// Fast path: just adjust the max frequency
-			freqs[idxMax] += (scale - sumScaledFreq)
+		delta := sumScaledFreq - scale
+		var inc, absDelta int
+
+		if sumScaledFreq < scale {
+			absDelta = -delta
+			inc = 1
+		} else {
+			absDelta = delta
+			inc = -1
+		}
+
+		if absDelta*100 < freqs[idxMax]*5 {
+			// Fast path: just adjust the max frequency (or do nothing)
+			if freqs[idxMax] > delta {
+				freqs[idxMax] -= delta
+			}
 		} else {
 			// Slow path: spread error across frequencies
-			var inc int
-
-			if sumScaledFreq > scale {
-				inc = -1
-			} else {
-				inc = 1
-			}
-
 			queue := make(freqSortPriorityQueue, 0, alphabetSize)
 
-			// Create sorted queue of present symbols (except those with 'quantum frequency')
+			// Create sorted queue of present symbols
 			for i := 0; i < alphabetSize; i++ {
-				if errors[alphabet[i]] > 0 && freqs[alphabet[i]] != -inc {
-					heap.Push(&queue, &freqSortData{errors: errors[:], frequencies: freqs, symbol: alphabet[i]})
-				}
+				heap.Push(&queue, &freqSortData{frequencies: freqs, symbol: alphabet[i]})
 			}
 
 			for sumScaledFreq != scale && len(queue) > 0 {
-				// Remove symbol with highest error
+				// Remove symbol with highest frequency
 				fsd := heap.Pop(&queue).(*freqSortData)
 
 				// Do not zero out any frequency
@@ -287,11 +276,9 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 					continue
 				}
 
-				// Distort frequency and error
+				// Distort frequency
 				freqs[fsd.symbol] += inc
-				errors[fsd.symbol] -= scale
 				sumScaledFreq += inc
-				heap.Push(&queue, fsd)
 			}
 		}
 	}
