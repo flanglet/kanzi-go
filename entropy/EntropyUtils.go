@@ -16,8 +16,8 @@ limitations under the License.
 package entropy
 
 import (
-	"container/heap"
 	"fmt"
+	"sort"
 
 	kanzi "github.com/flanglet/kanzi-go"
 )
@@ -37,41 +37,29 @@ type freqSortData struct {
 	symbol      int
 }
 
-type freqSortPriorityQueue []*freqSortData
+type sortByFreq []*freqSortData
 
-func (this freqSortPriorityQueue) Len() int {
+func (this sortByFreq) Len() int {
 	return len(this)
 }
 
-func (this freqSortPriorityQueue) Less(i, j int) bool {
+func (this sortByFreq) Less(i, j int) bool {
 	di := this[i]
 	dj := this[j]
 
 	// Decreasing frequency
 	res := dj.frequencies[dj.symbol] - di.frequencies[di.symbol]
 
-	if res != 0 {
-		return res < 0
+	if res == 0 {
+		// Decreasing symbol
+		return dj.symbol < di.symbol
 	}
 
-	// Decreasing symbol
-	return dj.symbol < di.symbol
+	return res < 0
 }
 
-func (this freqSortPriorityQueue) Swap(i, j int) {
+func (this sortByFreq) Swap(i, j int) {
 	this[i], this[j] = this[j], this[i]
-}
-
-func (this *freqSortPriorityQueue) Push(data interface{}) {
-	*this = append(*this, data.(*freqSortData))
-}
-
-func (this *freqSortPriorityQueue) Pop() interface{} {
-	old := *this
-	n := len(old)
-	data := old[n-1]
-	*this = old[0 : n-1]
-	return data
 }
 
 // EncodeAlphabet writes the alphabet to the bitstream and return the number
@@ -122,13 +110,11 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 	// Read encoding mode from bitstream
 	if ibs.ReadBit() == _FULL_ALPHABET {
-		var alphabetSize int
-
-		if ibs.ReadBit() == _ALPHABET_256 {
-			alphabetSize = 256
-		} else {
-			alphabetSize = 0
+		if ibs.ReadBit() == _ALPHABET_0 {
+			return 0, nil
 		}
+
+		alphabetSize := 256
 
 		if alphabetSize > len(alphabet) {
 			return alphabetSize, fmt.Errorf("Invalid bitstream: incorrect alphabet size: %v", alphabetSize)
@@ -260,16 +246,20 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 			}
 		} else {
 			// Slow path: spread error across frequencies
-			queue := make(freqSortPriorityQueue, 0, alphabetSize)
+			queue := make(sortByFreq, alphabetSize)
 
-			// Create sorted queue of present symbols
-			for i := 0; i < alphabetSize; i++ {
-				heap.Push(&queue, &freqSortData{frequencies: freqs, symbol: alphabet[i]})
+			// Create queue of present symbols
+			for i := range queue {
+				queue[i] = &freqSortData{frequencies: freqs, symbol: alphabet[i]}
 			}
+
+			// Sort queue by decreasing frequency
+			sort.Sort(queue)
 
 			for sumScaledFreq != scale && len(queue) > 0 {
 				// Remove symbol with highest frequency
-				fsd := heap.Pop(&queue).(*freqSortData)
+				fsd := queue[0]
+				queue = queue[1:]
 
 				// Do not zero out any frequency
 				if freqs[fsd.symbol] == -inc {
@@ -279,6 +269,7 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 				// Distort frequency
 				freqs[fsd.symbol] += inc
 				sumScaledFreq += inc
+				queue = append(queue, fsd)
 			}
 		}
 	}
