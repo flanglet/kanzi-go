@@ -419,7 +419,7 @@ func NewTextCodec() (*TextCodec, error) {
 // NewTextCodecWithCtx creates a new instance of TextCodec using a
 // configuration map as parameter.
 func NewTextCodecWithCtx(ctx *map[string]interface{}) (*TextCodec, error) {
-	this := new(TextCodec)
+	this := &TextCodec{}
 
 	var err error
 	var d kanzi.ByteFunction
@@ -489,7 +489,7 @@ func (this *TextCodec) MaxEncodedLen(srcLen int) int {
 }
 
 func newTextCodec1() (*textCodec1, error) {
-	this := new(textCodec1)
+	this := &textCodec1{}
 	this.logHashSize = _TC_LOG_HASHES_SIZE
 	this.dictSize = 1 << 13
 	this.dictMap = make([]*dictEntry, 0)
@@ -500,7 +500,7 @@ func newTextCodec1() (*textCodec1, error) {
 }
 
 func newTextCodec1WithCtx(ctx *map[string]interface{}) (*textCodec1, error) {
-	this := new(textCodec1)
+	this := &textCodec1{}
 	log := uint32(13)
 
 	if val, containsKey := (*ctx)["blockSize"]; containsKey {
@@ -1024,7 +1024,7 @@ func (this textCodec1) MaxEncodedLen(srcLen int) int {
 
 //nolint (remove unused warning)
 func newTextCodec2() (*textCodec2, error) {
-	this := new(textCodec2)
+	this := &textCodec2{}
 	this.logHashSize = _TC_LOG_HASHES_SIZE
 	this.dictSize = 1 << 13
 	this.dictMap = make([]*dictEntry, 0)
@@ -1035,7 +1035,7 @@ func newTextCodec2() (*textCodec2, error) {
 }
 
 func newTextCodec2WithCtx(ctx *map[string]interface{}) (*textCodec2, error) {
-	this := new(textCodec2)
+	this := &textCodec2{}
 	log := uint32(13)
 
 	if val, containsKey := (*ctx)["blockSize"]; containsKey {

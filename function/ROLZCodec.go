@@ -421,6 +421,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		tkIdx++
+
 		// Emit literals
 		if litLen > 0 {
 			copy(litBuf[litIdx:], buf[firstLitIdx:firstLitIdx+litLen])
