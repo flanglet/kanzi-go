@@ -186,7 +186,6 @@ type BinaryEntropyDecoder struct {
 	low         uint64
 	high        uint64
 	current     uint64
-	initialized bool
 	bitstream   kanzi.InputBitStream
 	buffer      []byte
 	index       int
@@ -225,22 +224,6 @@ func (this *BinaryEntropyDecoder) DecodeByte() byte {
 		(this.DecodeBit(this.predictor.Get()) << 2) |
 		(this.DecodeBit(this.predictor.Get()) << 1) |
 		this.DecodeBit(this.predictor.Get())
-}
-
-// Initialized returns true if Initialize() has been called at least once
-func (this *BinaryEntropyDecoder) Initialized() bool {
-	return this.initialized
-}
-
-// Initialize initializes the decoder by prefetching the first bits
-// and saving them into a buffer. This code is idempotent.
-func (this *BinaryEntropyDecoder) Initialize() {
-	if this.initialized == true {
-		return
-	}
-
-	this.current = this.bitstream.ReadBits(56)
-	this.initialized = true
 }
 
 // DecodeBit decodes one bit from the bitstream using arithmetic coding
@@ -319,7 +302,6 @@ func (this *BinaryEntropyDecoder) Read(block []byte) (int, error) {
 
 		szBytes := ReadVarInt(this.bitstream)
 		this.current = this.bitstream.ReadBits(56)
-		this.initialized = true
 
 		if szBytes != 0 {
 			this.bitstream.ReadArray(this.buffer, uint(8*szBytes))
