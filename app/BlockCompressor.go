@@ -32,7 +32,9 @@ import (
 
 const (
 	_COMP_DEFAULT_BUFFER_SIZE = 65536
-	_COMP_DEFAULT_BLOCK_SIZE  = 1024 * 1024
+	_COMP_DEFAULT_BLOCK_SIZE  = 4 * 1024 * 1024
+	_COMP_MIN_BLOCK_SIZE      = 1024
+	_COMP_MAX_BLOCK_SIZE      = 1024 * 1024 * 1024
 	_COMP_DEFAULT_CONCURRENCY = 1
 	_COMP_MAX_CONCURRENCY     = 64
 	_COMP_NONE                = "NONE"
@@ -110,11 +112,16 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 
 	if block, prst := argsMap["block"]; prst == true {
 		this.blockSize = block.(uint)
-		this.blockSize = ((this.blockSize + 15) >> 4) << 4
 		delete(argsMap, "block")
 
-		if this.blockSize > 1024*1024*1024 {
-			return nil, fmt.Errorf("Maximum block size is 1 GB (1073741824 bytes), got %v bytes", this.blockSize)
+		if this.blockSize < _COMP_MIN_BLOCK_SIZE {
+			return nil, fmt.Errorf("Minimum block size is %v KB (%v bytes), got %v bytes", _COMP_MIN_BLOCK_SIZE/1024, _COMP_MIN_BLOCK_SIZE, this.blockSize)
+		}
+
+		this.blockSize = ((this.blockSize + 15) >> 4) << 4 // may increase value
+
+		if this.blockSize > _COMP_MAX_BLOCK_SIZE {
+			return nil, fmt.Errorf("Maximum block size is %v GB (%v bytes), got %v bytes", _COMP_MAX_BLOCK_SIZE/(1024*1024*1024), _COMP_MAX_BLOCK_SIZE, this.blockSize)
 		}
 
 	} else {

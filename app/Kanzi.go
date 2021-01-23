@@ -52,6 +52,7 @@ var (
 		"-c", "-d", "-i", "-o", "-b", "-t", "-e", "-j",
 		"-v", "-l", "-s", "-x", "-f", "-h", "-p",
 	}
+
 	mutex sync.Mutex
 	log   = Printer{os: bufio.NewWriter(os.Stdout)}
 )
@@ -315,7 +316,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 
 			if mode != "d" {
 				log.Println("   -b, --block=<size>", true)
-				log.Println("        size of blocks, multiple of 16 (default 1 MB, max 1 GB, min 1 KB).\n", true)
+				log.Println("        size of blocks (default 4 MB, max 1 GB, min 1 KB).\n", true)
 				log.Println("   -l, --level=<compression>", true)
 				log.Println("        set the compression level [0..9]", true)
 				log.Println("        Providing this option forces entropy and transform.", true)
