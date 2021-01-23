@@ -33,7 +33,7 @@ import (
 const (
 	_ROLZ_HASH_SIZE       = 1 << 16
 	_ROLZ_MIN_MATCH       = 3
-	_ROLZ_MAX_MATCH1      = _ROLZ_MIN_MATCH + 255 + 7
+	_ROLZ_MAX_MATCH1      = _ROLZ_MIN_MATCH + 65535 + 7
 	_ROLZ_MAX_MATCH2      = _ROLZ_MIN_MATCH + 255
 	_ROLZ_LOG_POS_CHECKS1 = 4
 	_ROLZ_LOG_POS_CHECKS2 = 5
@@ -386,8 +386,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			if matchLen >= 7 {
 				tkBuf[tkIdx] = mode | 0x07
 				tkIdx++
-				lenBuf[lenIdx] = byte(matchLen - 7)
-				lenIdx++
+				lenIdx += emitLengthROLZ(lenBuf[lenIdx:], matchLen-7)
 			} else {
 				tkBuf[tkIdx] = mode | byte(matchLen)
 				tkIdx++
@@ -661,8 +660,9 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			matchLen := int(mode & 0x07)
 
 			if matchLen == 7 {
-				matchLen += int(lenBuf[lenIdx])
-				lenIdx++
+				ml, deltaIdx := readLengthROLZ(lenBuf[lenIdx:])
+				lenIdx += deltaIdx
+				matchLen = ml + 7
 			}
 
 			var litLen int
@@ -670,9 +670,9 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			if mode < 0xF8 {
 				litLen = int(mode >> 3)
 			} else {
-				var deltaIdx int
-				litLen, deltaIdx = readLengthROLZ(lenBuf[lenIdx:])
+				ll, deltaIdx := readLengthROLZ(lenBuf[lenIdx:])
 				lenIdx += deltaIdx
+				litLen = ll + 31
 			}
 
 			if litLen > 0 {
@@ -786,7 +786,7 @@ func readLengthROLZ(lenBuf []byte) (int, int) {
 		}
 	}
 
-	return litLen + 31, idx
+	return litLen, idx
 }
 
 func (this rolzCodec1) emitLiterals(litBuf, dst []byte, dstIdx int) {
