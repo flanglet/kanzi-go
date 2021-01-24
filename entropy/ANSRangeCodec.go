@@ -30,7 +30,8 @@ import (
 const (
 	_ANS_TOP                 = 1 << 15       // max possible for ANS_TOP=1<23
 	_DEFAULT_ANS0_CHUNK_SIZE = uint(1 << 15) // 32 KB by default
-	_ANS_MAX_CHUNK_SIZE      = 1 << 27       // 8*MAX_CHUNK_SIZE must not overflow
+	_ANS_MIN_CHUNK_SIZE      = 1024
+	_ANS_MAX_CHUNK_SIZE      = 1 << 27 // 8*MAX_CHUNK_SIZE must not overflow
 	_DEFAULT_ANS_LOG_RANGE   = uint(12)
 )
 
@@ -69,30 +70,38 @@ func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncode
 
 	if len(args) > 0 {
 		order = args[0]
-	}
 
-	if len(args) > 1 {
-		chkSize = args[1]
-	}
+		if len(args) > 1 {
+			chkSize = args[1]
 
-	if len(args) > 2 {
-		logRange = args[2]
-	}
+			if len(args) > 2 {
+				logRange = args[2]
+			}
+		}
 
-	if order != 0 && order != 1 {
-		return nil, errors.New("ANS codec: The order must be 0 or 1")
-	}
+		if order != 0 && order != 1 {
+			return nil, errors.New("ANS codec: The order must be 0 or 1")
+		}
 
-	if chkSize < 1024 {
-		return nil, errors.New("ANS codec: The chunk size must be at least 1024")
-	}
+		if chkSize < _ANS_MIN_CHUNK_SIZE {
+			return nil, fmt.Errorf("ANS codec: The chunk size must be at least %d", _ANS_MIN_CHUNK_SIZE)
+		}
 
-	if chkSize > _ANS_MAX_CHUNK_SIZE {
-		return nil, fmt.Errorf("ANS codec: The chunk size must be at most %d", _ANS_MAX_CHUNK_SIZE)
-	}
+		if chkSize > _ANS_MAX_CHUNK_SIZE {
+			return nil, fmt.Errorf("ANS codec: The chunk size must be at most %d", _ANS_MAX_CHUNK_SIZE)
+		}
 
-	if logRange < 8 || logRange > 16 {
-		return nil, fmt.Errorf("ANS codec: Invalid range: %v (must be in [8..16])", logRange)
+		if logRange < 8 || logRange > 16 {
+			return nil, fmt.Errorf("ANS codec: Invalid range: %d (must be in [8..16])", logRange)
+		}
+
+		if order == 1 {
+			chkSize <<= 8
+
+			if chkSize > _ANS_MAX_CHUNK_SIZE {
+				chkSize = _ANS_MAX_CHUNK_SIZE
+			}
+		}
 	}
 
 	this := new(ANSRangeEncoder)
@@ -104,7 +113,7 @@ func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncode
 	this.symbols = make([]encSymbol, dim*256)
 	this.buffer = make([]byte, 0)
 	this.logRange = logRange
-	this.chunkSize = int(chkSize) << (8 * order)
+	this.chunkSize = int(chkSize)
 	return this, nil
 }
 
@@ -434,24 +443,30 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 
 	if len(args) > 0 {
 		order = args[0]
-	}
 
-	if len(args) > 1 {
-		chkSize = args[1]
-	} else if order == 1 {
-		chkSize <<= 8
-	}
+		if len(args) > 1 {
+			chkSize = args[1]
+		}
 
-	if order != 0 && order != 1 {
-		return nil, errors.New("ANS codec: The order must be 0 or 1")
-	}
+		if chkSize < _ANS_MIN_CHUNK_SIZE {
+			return nil, fmt.Errorf("ANS codec: The chunk size must be at least %d", _ANS_MIN_CHUNK_SIZE)
+		}
 
-	if chkSize < 1024 {
-		return nil, errors.New("ANS codec: The chunk size must be at least 1024")
-	}
+		if chkSize > _ANS_MAX_CHUNK_SIZE {
+			return nil, fmt.Errorf("ANS codec: The chunk size must be at most %d", _ANS_MAX_CHUNK_SIZE)
+		}
 
-	if chkSize > _ANS_MAX_CHUNK_SIZE {
-		return nil, fmt.Errorf("ANS codec: The chunk size must be at most %d", _ANS_MAX_CHUNK_SIZE)
+		if order != 0 && order != 1 {
+			return nil, errors.New("ANS codec: The order must be 0 or 1")
+		}
+
+		if order == 1 {
+			chkSize <<= 8
+
+			if chkSize > _ANS_MAX_CHUNK_SIZE {
+				chkSize = _ANS_MAX_CHUNK_SIZE
+			}
+		}
 	}
 
 	this := new(ANSRangeDecoder)
@@ -472,7 +487,7 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, error) {
 	this.logRange = uint(8 + this.bitstream.ReadBits(3))
 
 	if this.logRange < 8 || this.logRange > 16 {
-		return 0, fmt.Errorf("ANS codec: Invalid range: %v (must be in [8..16])", this.logRange)
+		return 0, fmt.Errorf("Invalid bitstream: range = %d (must be in [8..16])", this.logRange)
 	}
 
 	res := 0
@@ -522,7 +537,7 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, error) {
 			logMax := uint(this.bitstream.ReadBits(llr))
 
 			if 1<<logMax > scale {
-				err := fmt.Errorf("Invalid bitstream: incorrect frequency size %v in ANS range decoder", logMax)
+				err := fmt.Errorf("Invalid bitstream: incorrect frequency size %d in ANS range decoder", logMax)
 				return alphabetSize, err
 			}
 
@@ -540,7 +555,7 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, error) {
 					freq = int(1 + this.bitstream.ReadBits(logMax))
 
 					if freq <= 0 || freq >= scale {
-						err := fmt.Errorf("Invalid bitstream: incorrect frequency %v for symbol '%v' in ANS range decoder", freq, alphabet[j])
+						err := fmt.Errorf("Invalid bitstream: incorrect frequency %d for symbol '%d' in ANS range decoder", freq, alphabet[j])
 						return alphabetSize, err
 					}
 				}
@@ -552,7 +567,7 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, error) {
 
 		// Infer first frequency
 		if scale <= sum {
-			err := fmt.Errorf("Invalid bitstream: incorrect frequency %v for symbol '%v' in ANS range decoder", frequencies[alphabet[0]], this.alphabet[0])
+			err := fmt.Errorf("Invalid bitstream: incorrect frequency %d for symbol '%d' in ANS range decoder", frequencies[alphabet[0]], this.alphabet[0])
 			return alphabetSize, err
 		}
 
