@@ -118,10 +118,14 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 			return nil, fmt.Errorf("Minimum block size is %v KB (%v bytes), got %v bytes", _COMP_MIN_BLOCK_SIZE/1024, _COMP_MIN_BLOCK_SIZE, this.blockSize)
 		}
 
-		this.blockSize = ((this.blockSize + 15) >> 4) << 4 // may increase value
-
 		if this.blockSize > _COMP_MAX_BLOCK_SIZE {
 			return nil, fmt.Errorf("Maximum block size is %v GB (%v bytes), got %v bytes", _COMP_MAX_BLOCK_SIZE/(1024*1024*1024), _COMP_MAX_BLOCK_SIZE, this.blockSize)
+		}
+
+		this.blockSize = ((this.blockSize + 15) >> 4) << 4
+
+		if this.blockSize > _COMP_MAX_BLOCK_SIZE {
+			this.blockSize = _COMP_MAX_BLOCK_SIZE
 		}
 
 	} else {
@@ -241,7 +245,6 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	before := time.Now()
 	files := make([]FileData, 0, 256)
 	nbFiles := 1
-	printFlag := this.verbosity > 2
 	var msg string
 
 	if strings.ToUpper(this.inputName) != "STDIN" {
@@ -273,16 +276,15 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		log.Println(msg, this.verbosity > 0)
 	}
 
-	msg = fmt.Sprintf("Block size set to %d bytes", this.blockSize)
-	log.Println(msg, printFlag)
-	msg = fmt.Sprintf("Verbosity set to %v", this.verbosity)
-	log.Println(msg, printFlag)
-	msg = fmt.Sprintf("Overwrite set to %t", this.overwrite)
-	log.Println(msg, printFlag)
-	msg = fmt.Sprintf("Checksum set to %t", this.checksum)
-	log.Println(msg, printFlag)
-
-	if printFlag == true {
+	if this.verbosity > 2 {
+		msg = fmt.Sprintf("Block size set to %d bytes", this.blockSize)
+		log.Println(msg, true)
+		msg = fmt.Sprintf("Verbosity set to %v", this.verbosity)
+		log.Println(msg, true)
+		msg = fmt.Sprintf("Overwrite set to %t", this.overwrite)
+		log.Println(msg, true)
+		msg = fmt.Sprintf("Checksum set to %t", this.checksum)
+		log.Println(msg, true)
 		w1 := "no"
 
 		if this.transform != _COMP_NONE {
@@ -290,7 +292,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		}
 
 		msg = fmt.Sprintf("Using %s transform (stage 1)", w1)
-		log.Println(msg, printFlag)
+		log.Println(msg, true)
 		w2 := "no"
 
 		if this.entropyCodec != _COMP_NONE {
@@ -298,15 +300,14 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		}
 
 		msg = fmt.Sprintf("Using %s entropy codec (stage 2)", w2)
-	}
+		log.Println(msg, true)
 
-	log.Println(msg, printFlag)
-
-	if this.jobs > 1 {
-		msg = fmt.Sprintf("Using %d jobs", this.jobs)
-		log.Println(msg, printFlag)
-	} else {
-		log.Println("Using 1 job", printFlag)
+		if this.jobs > 1 {
+			msg = fmt.Sprintf("Using %d jobs", this.jobs)
+			log.Println(msg, true)
+		} else {
+			log.Println("Using 1 job", true)
+		}
 	}
 
 	// Limit verbosity level when files are processed concurrently
@@ -562,9 +563,12 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 	verbosity := this.ctx["verbosity"].(uint)
 	inputName := this.ctx["inputName"].(string)
 	outputName := this.ctx["outputName"].(string)
-	printFlag := verbosity > 2
-	log.Println("Input file name set to '"+inputName+"'", printFlag)
-	log.Println("Output file name set to '"+outputName+"'", printFlag)
+
+	if verbosity > 2 {
+		log.Println("Input file name set to '"+inputName+"'", true)
+		log.Println("Output file name set to '"+outputName+"'", true)
+	}
+
 	overwrite := this.ctx["overwrite"].(bool)
 
 	var output io.WriteCloser
@@ -658,8 +662,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 	}
 
 	// Encode
-	printFlag = verbosity > 1
-	log.Println("\nEncoding "+inputName+" ...", printFlag)
+	log.Println("\nEncoding "+inputName+" ...", verbosity > 1)
 	log.Println("", verbosity > 3)
 	length := 0
 	read := uint64(0)
@@ -710,38 +713,41 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 
 	after := time.Now()
 	delta := after.Sub(before).Nanoseconds() / 1000000 // convert to ms
-	log.Println("", verbosity > 1)
 
-	if delta >= 100000 {
-		msg = fmt.Sprintf("%.1f s", float64(delta)/1000)
-	} else {
-		msg = fmt.Sprintf("%.0f ms", float64(delta))
+	if verbosity >= 1 {
+		log.Println("", verbosity > 1)
+
+		if delta >= 100000 {
+			msg = fmt.Sprintf("%.1f s", float64(delta)/1000)
+		} else {
+			msg = fmt.Sprintf("%.0f ms", float64(delta))
+		}
+
+		f := float64(cos.GetWritten()) / float64(read)
+
+		if verbosity > 1 {
+			msg = fmt.Sprintf("Encoding:          %v", msg)
+			log.Println(msg, true)
+			msg = fmt.Sprintf("Input size:        %d", read)
+			log.Println(msg, true)
+			msg = fmt.Sprintf("Output size:       %d", cos.GetWritten())
+			log.Println(msg, true)
+			msg = fmt.Sprintf("Compression ratio: %f", f)
+			log.Println(msg, true)
+		}
+
+		if verbosity == 1 {
+			msg = fmt.Sprintf("Encoding %v: %v => %v (%.2f%%) in %v", inputName, read, cos.GetWritten(), 100*f, msg)
+			log.Println(msg, true)
+		}
+
+		if verbosity > 1 && delta > 0 {
+			msg = fmt.Sprintf("Throughput (KB/s): %d", ((int64(read*1000))>>10)/delta)
+			log.Println(msg, true)
+		}
+
+		log.Println("", verbosity > 1)
 	}
-
-	msg = fmt.Sprintf("Encoding:          %v", msg)
-	log.Println(msg, printFlag)
-	msg = fmt.Sprintf("Input size:        %d", read)
-	log.Println(msg, printFlag)
-	msg = fmt.Sprintf("Output size:       %d", cos.GetWritten())
-	log.Println(msg, printFlag)
-	msg = fmt.Sprintf("Compression ratio: %f", float64(cos.GetWritten())/float64(read))
-	log.Println(msg, printFlag)
-
-	if delta >= 100000 {
-		msg = fmt.Sprintf("%.1f s", float64(delta)/1000)
-	} else {
-		msg = fmt.Sprintf("%.0f ms", float64(delta))
-	}
-
-	msg = fmt.Sprintf("Encoding %v: %v => %v bytes in %v", inputName, read, cos.GetWritten(), msg)
-	log.Println(msg, verbosity == 1)
-
-	if delta > 0 {
-		msg = fmt.Sprintf("Throughput (KB/s): %d", ((int64(read*1000))>>10)/delta)
-		log.Println(msg, printFlag)
-	}
-
-	log.Println("", verbosity > 1)
 
 	if len(this.listeners) > 0 {
 		evt := kanzi.NewEvent(kanzi.EVT_COMPRESSION_END, -1, int64(cos.GetWritten()), 0, false, time.Now())

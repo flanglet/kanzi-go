@@ -198,26 +198,27 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	}
 
 	nbFiles := len(files)
-	printFlag := this.verbosity > 2
 	var msg string
 
-	if nbFiles > 1 {
-		msg = fmt.Sprintf("%d files to decompress\n", nbFiles)
-	} else {
-		msg = fmt.Sprintf("%d file to decompress\n", nbFiles)
-	}
+	if this.verbosity > 2 {
+		if nbFiles > 1 {
+			msg = fmt.Sprintf("%d files to decompress\n", nbFiles)
+		} else {
+			msg = fmt.Sprintf("%d file to decompress\n", nbFiles)
+		}
 
-	log.Println(msg, this.verbosity > 0)
-	msg = fmt.Sprintf("Verbosity set to %v", this.verbosity)
-	log.Println(msg, printFlag)
-	msg = fmt.Sprintf("Overwrite set to %t", this.overwrite)
-	log.Println(msg, printFlag)
+		log.Println(msg, this.verbosity > 0)
+		msg = fmt.Sprintf("Verbosity set to %v", this.verbosity)
+		log.Println(msg, true)
+		msg = fmt.Sprintf("Overwrite set to %t", this.overwrite)
+		log.Println(msg, true)
 
-	if this.jobs > 1 {
-		msg = fmt.Sprintf("Using %d jobs", this.jobs)
-		log.Println(msg, printFlag)
-	} else {
-		log.Println("Using 1 job", printFlag)
+		if this.jobs > 1 {
+			msg = fmt.Sprintf("Using %d jobs", this.jobs)
+			log.Println(msg, true)
+		} else {
+			log.Println("Using 1 job", true)
+		}
 	}
 
 	// Limit verbosity level when files are processed concurrently
@@ -427,9 +428,12 @@ func (this *fileDecompressTask) call() (int, uint64) {
 	verbosity := this.ctx["verbosity"].(uint)
 	inputName := this.ctx["inputName"].(string)
 	outputName := this.ctx["outputName"].(string)
-	printFlag := verbosity > 2
-	log.Println("Input file name set to '"+inputName+"'", printFlag)
-	log.Println("Output file name set to '"+outputName+"'", printFlag)
+
+	if verbosity > 2 {
+		log.Println("Input file name set to '"+inputName+"'", true)
+		log.Println("Output file name set to '"+outputName+"'", true)
+	}
+
 	overwrite := this.ctx["overwrite"].(bool)
 
 	var output io.WriteCloser
@@ -481,8 +485,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 
 	// Decode
 	read := int64(0)
-	printFlag = verbosity > 1
-	log.Println("\nDecoding "+inputName+" ...", printFlag)
+	log.Println("\nDecoding "+inputName+" ...", verbosity > 1)
 	log.Println("", verbosity > 3)
 	var input io.ReadCloser
 
@@ -559,36 +562,37 @@ func (this *fileDecompressTask) call() (int, uint64) {
 
 	after := time.Now()
 	delta := after.Sub(before).Nanoseconds() / 1000000 // convert to ms
-	log.Println("", verbosity > 1)
 
-	if delta >= 100000 {
-		msg = fmt.Sprintf("%.1f s", float64(delta)/1000)
-	} else {
-		msg = fmt.Sprintf("%.0f ms", float64(delta))
+	if verbosity >= 1 {
+		log.Println("", verbosity > 1)
+
+		if delta >= 100000 {
+			msg = fmt.Sprintf("%.1f s", float64(delta)/1000)
+		} else {
+			msg = fmt.Sprintf("%.0f ms", float64(delta))
+		}
+
+		if verbosity > 1 {
+			msg = fmt.Sprintf("Decoding:          %v", msg)
+			log.Println(msg, true)
+			msg = fmt.Sprintf("Input size:        %d", cis.GetRead())
+			log.Println(msg, true)
+			msg = fmt.Sprintf("Output size:       %d", read)
+			log.Println(msg, true)
+		}
+
+		if verbosity == 1 {
+			msg = fmt.Sprintf("Decoding %v: %v => %v bytes in %v", inputName, cis.GetRead(), read, msg)
+			log.Println(msg, true)
+		}
+
+		if verbosity > 1 && delta > 0 {
+			msg = fmt.Sprintf("Throughput (KB/s): %d", ((read*int64(1000))>>10)/delta)
+			log.Println(msg, true)
+		}
+
+		log.Println("", verbosity > 1)
 	}
-
-	msg = fmt.Sprintf("Decoding:          %v", msg)
-	log.Println(msg, printFlag)
-	msg = fmt.Sprintf("Input size:        %d", cis.GetRead())
-	log.Println(msg, printFlag)
-	msg = fmt.Sprintf("Output size:       %d", read)
-	log.Println(msg, printFlag)
-
-	if delta >= 100000 {
-		msg = fmt.Sprintf("%.1f s", float64(delta)/1000)
-	} else {
-		msg = fmt.Sprintf("%.0f ms", float64(delta))
-	}
-
-	msg = fmt.Sprintf("Decoding %v: %v => %v bytes in %v", inputName, cis.GetRead(), read, msg)
-	log.Println(msg, verbosity == 1)
-
-	if delta > 0 {
-		msg = fmt.Sprintf("Throughput (KB/s): %d", ((read*int64(1000))>>10)/delta)
-		log.Println(msg, printFlag)
-	}
-
-	log.Println("", verbosity > 1)
 
 	if len(this.listeners) > 0 {
 		evt := kanzi.NewEvent(kanzi.EVT_DECOMPRESSION_END, -1, int64(cis.GetRead()), 0, false, time.Now())
