@@ -29,10 +29,10 @@ const (
 	_LZX_HASH_SHIFT1        = 40 - _LZX_HASH_LOG1
 	_LZX_HASH_MASK1         = (1 << _LZX_HASH_LOG1) - 1
 	_LZX_HASH_LOG2          = 21
-	_LZX_HASH_SHIFT2        = 40 - _LZX_HASH_LOG2
+	_LZX_HASH_SHIFT2        = 48 - _LZX_HASH_LOG2
 	_LZX_HASH_MASK2         = (1 << _LZX_HASH_LOG2) - 1
-	_LZX_MAX_DISTANCE1      = (1 << 17) - 1
-	_LZX_MAX_DISTANCE2      = (1 << 24) - 1
+	_LZX_MAX_DISTANCE1      = (1 << 17) - 2
+	_LZX_MAX_DISTANCE2      = (1 << 24) - 2
 	_LZX_MIN_MATCH          = 5
 	_LZX_MAX_MATCH          = 32767 + _LZX_MIN_MATCH
 	_LZX_MIN_BLOCK_LENGTH   = 24
@@ -222,10 +222,6 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, nil
 	}
 
-	if &src[0] == &dst[0] {
-		return 0, 0, errors.New("Input and output mBufs cannot be equal")
-	}
-
 	count := len(src)
 
 	if n := this.MaxEncodedLen(count); len(dst) < n {
@@ -328,8 +324,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		// Select best match
-		if bestLen2 > bestLen+1 {
-			h = h2
+		if (bestLen2 > bestLen) || ((bestLen2 == bestLen) && (srcIdx-ref2 < srcIdx-ref)) {
 			ref = ref2
 			bestLen = bestLen2
 			srcIdx++
@@ -337,7 +332,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 		// Emit token
 		// Token: 3 bits litLen + 1 bit flag + 4 bits mLen (LLLFMMMM)
-		// flag = if maxDist = (1<<17)-1, then highest bit of distance
+		// flag = if maxDist = _LZX_MAX_DISTANCE1, then highest bit of distance
 		//        else 1 if dist needs 3 bytes (> 0xFFFF) and 0 otherwise
 		mLen := bestLen - _LZX_MIN_MATCH
 		d := srcIdx - ref
@@ -361,7 +356,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		if mLen < 15 {
 			token += mLen
 		} else {
-			token += 0x0F
+			token += 15
 		}
 
 		// Literals to process ?
@@ -482,10 +477,6 @@ func findMatch(src []byte, srcIdx, ref, maxMatch int) int {
 func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
-	}
-
-	if &src[0] == &dst[0] {
-		return 0, 0, errors.New("Input and output mBufs cannot be equal")
 	}
 
 	count := len(src)
@@ -645,10 +636,6 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, nil
 	}
 
-	if &src[0] == &dst[0] {
-		return 0, 0, errors.New("Input and output mBufs cannot be equal")
-	}
-
 	count := len(src)
 
 	if n := this.MaxEncodedLen(count); len(dst) < n {
@@ -774,10 +761,6 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 func (this *LZPCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
-	}
-
-	if &src[0] == &dst[0] {
-		return 0, 0, errors.New("Input and output mBufs cannot be equal")
 	}
 
 	if len(src) < 4 {
