@@ -18,6 +18,7 @@ package entropy
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 
 	kanzi "github.com/flanglet/kanzi-go"
 )
@@ -28,7 +29,7 @@ const (
 
 // FPAQEncoder entropy encoder derived from fpaq0r by Matt Mahoney & Alexander Ratushnyak.
 // See http://mattmahoney.net/dc/#fpaq0.
-// Simple (and fast) adaptive order 0 entropy coder
+// Simple (and fast) adaptive entropy bit encoder
 type FPAQEncoder struct {
 	low       uint64
 	high      uint64
@@ -94,7 +95,7 @@ func (this *FPAQEncoder) Write(block []byte) (int, error) {
 	count := len(block)
 
 	if count > 1<<30 {
-		return -1, errors.New("FPAQ codec: Invalid block size parameter (max is 1<<30)")
+		return 0, fmt.Errorf("FPAQ codec: Invalid block size parameter (max is 1<<30): got %v", count)
 	}
 
 	startChunk := 0
@@ -180,18 +181,17 @@ func (this *FPAQEncoder) Dispose() {
 
 // FPAQDecoder entropy decoder derived from fpaq0r by Matt Mahoney & Alexander Ratushnyak.
 // See http://mattmahoney.net/dc/#fpaq0.
-// Simple (and fast) adaptive order 0 entropy coder
+// Simple (and fast) adaptive entropy bit decoder
 type FPAQDecoder struct {
-	low         uint64
-	high        uint64
-	current     uint64
-	initialized bool
-	bitstream   kanzi.InputBitStream
-	buffer      []byte
-	index       int
-	probs       [4][]int // probability of bit=1
-	p           []int    // pointer to current prob
-	ctx         byte     // previous bits
+	low       uint64
+	high      uint64
+	current   uint64
+	bitstream kanzi.InputBitStream
+	buffer    []byte
+	index     int
+	probs     [4][]int // probability of bit=1
+	p         []int    // pointer to current prob
+	ctx       byte     // previous bits
 }
 
 // NewFPAQDecoder creates an instance of FPAQDecoder
@@ -200,7 +200,6 @@ func NewFPAQDecoder(bs kanzi.InputBitStream) (*FPAQDecoder, error) {
 		return nil, errors.New("FPAQ codec: Invalid null bitstream parameter")
 	}
 
-	// Defer stream reading. We are creating the object, we should not do any I/O
 	this := &FPAQDecoder{}
 	this.low = 0
 	this.high = _BINARY_ENTROPY_TOP
@@ -219,22 +218,6 @@ func NewFPAQDecoder(bs kanzi.InputBitStream) (*FPAQDecoder, error) {
 	}
 
 	return this, nil
-}
-
-// Initialized returns true if Initialize() has been called at least once
-func (this *FPAQDecoder) Initialized() bool {
-	return this.initialized
-}
-
-// Initialize initializes the decoder by prefetching the first bits
-// and saving them into a buffer. This code is idempotent.
-func (this *FPAQDecoder) Initialize() {
-	if this.initialized == true {
-		return
-	}
-
-	this.current = this.bitstream.ReadBits(56)
-	this.initialized = true
 }
 
 func (this *FPAQDecoder) decodeBit(pred int) byte {
@@ -279,7 +262,7 @@ func (this *FPAQDecoder) Read(block []byte) (int, error) {
 	count := len(block)
 
 	if count > 1<<30 {
-		return -1, errors.New("FPAQ codec: Invalid block size parameter (max is 1<<30)")
+		return 0, fmt.Errorf("FPAQ codec: Invalid block size parameter (max is 1<<30): got %v", count)
 	}
 
 	startChunk := 0
@@ -312,7 +295,6 @@ func (this *FPAQDecoder) Read(block []byte) (int, error) {
 
 		szBytes := ReadVarInt(this.bitstream)
 		this.current = this.bitstream.ReadBits(56)
-		this.initialized = true
 
 		if szBytes != 0 {
 			this.bitstream.ReadArray(this.buffer, uint(8*szBytes))
