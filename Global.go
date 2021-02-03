@@ -26,6 +26,10 @@ const (
 	DT_TEXT       DataType = 1
 	DT_MULTIMEDIA DataType = 2
 	DT_X86        DataType = 3
+	DT_NUMERIC    DataType = 4
+	DT_BASE64     DataType = 5
+	DT_DNA        DataType = 6
+	DT_FASTA      DataType = 7
 )
 
 // LOG2 is an array with 256 elements: int(Math.log2(x-1))
@@ -78,7 +82,7 @@ var LOG2_4096 = [...]uint32{
 	32628, 32651, 32675, 32698, 32722, 32745, 32768,
 }
 
-// array with 33 elements: 65536/(1 + exp(-alpha*x))
+//  65536 /(1 + exp(-alpha*x)) with alpha ~= 0.54
 var _INV_EXP = [33]int{
 	// alpha = 0.54
 	0, 8, 22, 47, 88, 160, 283, 492,

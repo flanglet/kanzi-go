@@ -28,24 +28,27 @@ const (
 	// CR Carriage Return symbol
 	CR = byte(0x0D)
 
-	_TC_THRESHOLD1             = 128
-	_TC_THRESHOLD2             = _TC_THRESHOLD1 * _TC_THRESHOLD1
-	_TC_THRESHOLD3             = 32
-	_TC_THRESHOLD4             = _TC_THRESHOLD3 * 128
-	_TC_MAX_DICT_SIZE          = 1 << 19    // must be less than 1<<24
-	_TC_MAX_WORD_LENGTH        = 31         // must be less than 128
-	_TC_LOG_HASHES_SIZE        = 24         // 16 MB
-	_TC_MAX_BLOCK_SIZE         = 1 << 30    // 1 GB
-	_TC_ESCAPE_TOKEN1          = byte(0x0F) // dictionary word preceded by space symbol
-	_TC_ESCAPE_TOKEN2          = byte(0x0E) // toggle upper/lower case of first word char
-	_TC_MASK_NOT_TEXT          = 0x80
-	_TC_MASK_ALMOST_FULL_ASCII = 0x08
-	_TC_MASK_FULL_ASCII        = 0x04
-	_TC_MASK_XML_HTML          = 0x02
-	_TC_MASK_CRLF              = 0x01
-	_TC_MASK_LENGTH            = 0x0007FFFF         // 19 bits
-	_TC_HASH1                  = int32(2146121005)  // 0x7FEB352D
-	_TC_HASH2                  = int32(-2073254261) // 0x846CA68B
+	_TC_THRESHOLD1      = 128
+	_TC_THRESHOLD2      = _TC_THRESHOLD1 * _TC_THRESHOLD1
+	_TC_THRESHOLD3      = 32
+	_TC_THRESHOLD4      = _TC_THRESHOLD3 * 128
+	_TC_MAX_DICT_SIZE   = 1 << 19    // must be less than 1<<24
+	_TC_MAX_WORD_LENGTH = 31         // must be less than 128
+	_TC_LOG_HASHES_SIZE = 24         // 16 MB
+	_TC_MAX_BLOCK_SIZE  = 1 << 30    // 1 GB
+	_TC_ESCAPE_TOKEN1   = byte(0x0F) // dictionary word preceded by space symbol
+	_TC_ESCAPE_TOKEN2   = byte(0x0E) // toggle upper/lower case of first word char
+	_TC_MASK_NOT_TEXT   = 0x80
+	_TC_MASK_DNA        = _TC_MASK_NOT_TEXT | 0x40
+	_TC_MASK_FASTA      = _TC_MASK_NOT_TEXT | 0x20
+	_TC_MASK_BASE64     = _TC_MASK_NOT_TEXT | 0x10
+	_TC_MASK_NUMERIC    = _TC_MASK_NOT_TEXT | 0x08
+	_TC_MASK_FULL_ASCII = 0x04
+	_TC_MASK_XML_HTML   = 0x02
+	_TC_MASK_CRLF       = 0x01
+	_TC_MASK_LENGTH     = 0x0007FFFF         // 19 bits
+	_TC_HASH1           = int32(2146121005)  // 0x7FEB352D
+	_TC_HASH2           = int32(-2073254261) // 0x846CA68B
 )
 
 type dictEntry struct {
@@ -175,6 +178,10 @@ var (
 	rGenerationLeafCopyMatchClaimAnyoneSoftwarePartyDeviceCodeLangua
 	geLinkHoweverConfirmCommentCityAnywhereSomewhereDebateDriveHighe
 	rBeautifulOnlineFanPriorityTraditionalSixUnited`)
+
+	_TC_BASE64_SYMBOLS  = []byte(`ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/`)
+	_TC_NUMERIC_SYMBOLS = []byte(`0123456789+-*/=,.:; `)
+	_TC_DNA_SYMBOLS     = []byte(`acgntuACGNTU"`) // either T or U and N for unknown
 )
 
 // Analyze the block and return an 8-bit status (see MASK flags constants)
@@ -182,8 +189,8 @@ var (
 func computeStats(block []byte, freqs0 []int32, strict bool) byte {
 	var freqs [256][256]int32
 	freqs1 := freqs[0:256]
-	length := len(block)
-	end4 := length & -4
+	count := len(block)
+	end4 := count & -4
 	prv := byte(0)
 
 	// Unroll loop
@@ -203,7 +210,7 @@ func computeStats(block []byte, freqs0 []int32, strict bool) byte {
 		prv = cur3
 	}
 
-	for i := end4; i < length; i++ {
+	for i := end4; i < count; i++ {
 		cur := block[i]
 		freqs0[cur]++
 		freqs1[prv][cur]++
@@ -222,32 +229,71 @@ func computeStats(block []byte, freqs0 []int32, strict bool) byte {
 	}
 
 	// Not text (crude thresholds)
-	if nbTextChars < (length>>1) || freqs0[32] < int32(length>>5) {
+	if nbTextChars < (count>>1) || freqs0[32] < int32(count>>5) {
 		return _TC_MASK_NOT_TEXT
 	}
 
 	if strict == true {
-		if nbTextChars < (length>>2) || freqs0[0] >= int32(length/100) || (nbASCII/95) < (length/100) {
+		if nbTextChars < (count>>2) || freqs0[0] >= int32(count/100) || (nbASCII/95) < (count/100) {
 			return _TC_MASK_NOT_TEXT
 		}
 	}
 
-	nbBinChars := length - nbASCII
-
 	// Not text (crude threshold)
-	if nbBinChars > (length >> 2) {
+	var notText bool
+
+	if strict == true {
+		notText = ((nbTextChars < (count >> 2)) || (freqs0[0] >= int32(count/100)) || ((nbASCII / 95) < (count / 100)))
+	} else {
+		notText = (nbTextChars < (count >> 1)) || (freqs0[32] < int32(count>>5))
+	}
+
+	if notText == true {
+		sum := int32(0)
+
+		for i := 0; i < 12; i++ {
+			sum += freqs0[_TC_DNA_SYMBOLS[i]]
+		}
+
+		if sum >= int32(count/100)*90 {
+			if sum == int32(count) {
+				return _TC_MASK_DNA
+			}
+
+			return _TC_MASK_FASTA
+		}
+
+		for i, sum := 0, int32(0); i < 20; i++ {
+			sum += freqs0[_TC_NUMERIC_SYMBOLS[i]]
+		}
+
+		if sum >= int32(count/100)*98 {
+			return _TC_MASK_NUMERIC
+		}
+
+		for i, sum := 0, int32(0); i < 64; i++ {
+			sum += freqs0[_TC_BASE64_SYMBOLS[i]]
+		}
+
+		if sum == int32(count) {
+			return _TC_MASK_BASE64
+		}
+
 		return _TC_MASK_NOT_TEXT
 	}
 
+	nbBinChars := count - nbASCII
 	res := byte(0)
+
+	if nbBinChars > (count >> 2) {
+		return _TC_MASK_NOT_TEXT
+	}
 
 	if nbBinChars == 0 {
 		res |= _TC_MASK_FULL_ASCII
-	} else if nbBinChars <= length/100 {
-		res |= _TC_MASK_ALMOST_FULL_ASCII
 	}
 
-	if nbBinChars <= length-length/10 {
+	if nbBinChars <= count-count/10 {
 		// Check if likely XML/HTML
 		// Another crude test: check that the frequencies of < and > are similar
 		// and 'high enough'. Also check it is worth to attempt replacing ampersand sequences.
@@ -255,7 +301,7 @@ func computeStats(block []byte, freqs0 []int32, strict bool) byte {
 		f1 := freqs0['<']
 		f2 := freqs0['>']
 		f3 := freqs['&']['a'] + freqs['&']['g'] + freqs['&']['l'] + freqs['&']['q']
-		minFreq := int32(length-nbBinChars) >> 9
+		minFreq := int32(count-nbBinChars) >> 9
 
 		if minFreq < 2 {
 			minFreq = 2
@@ -608,6 +654,20 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Not text ?
 	if mode&_TC_MASK_NOT_TEXT != 0 {
+		if this.ctx != nil {
+			switch mode {
+			case _TC_MASK_NUMERIC:
+				(*this.ctx)["dataType"] = kanzi.DT_NUMERIC
+			case _TC_MASK_BASE64:
+				(*this.ctx)["dataType"] = kanzi.DT_BASE64
+			case _TC_MASK_FASTA:
+				(*this.ctx)["dataType"] = kanzi.DT_FASTA
+			case _TC_MASK_DNA:
+				(*this.ctx)["dataType"] = kanzi.DT_DNA
+			default:
+			}
+		}
+
 		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skip")
 	}
 
@@ -1138,7 +1198,21 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Not text ?
 	if mode&_TC_MASK_NOT_TEXT != 0 {
-		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skipping")
+		if this.ctx != nil {
+			switch mode {
+			case _TC_MASK_NUMERIC:
+				(*this.ctx)["dataType"] = kanzi.DT_NUMERIC
+			case _TC_MASK_BASE64:
+				(*this.ctx)["dataType"] = kanzi.DT_BASE64
+			case _TC_MASK_FASTA:
+				(*this.ctx)["dataType"] = kanzi.DT_FASTA
+			case _TC_MASK_DNA:
+				(*this.ctx)["dataType"] = kanzi.DT_DNA
+			default:
+			}
+		}
+
+		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skip")
 	}
 
 	if this.ctx != nil {
