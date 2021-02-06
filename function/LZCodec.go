@@ -34,7 +34,7 @@ const (
 	_LZX_MAX_DISTANCE1      = (1 << 17) - 2
 	_LZX_MAX_DISTANCE2      = (1 << 24) - 2
 	_LZX_MIN_MATCH          = 5
-	_LZX_MAX_MATCH          = 32767 + _LZX_MIN_MATCH
+	_LZX_MAX_MATCH          = 66535 + 254 + 15 + _LZX_MIN_MATCH
 	_LZX_MIN_BLOCK_LENGTH   = 24
 	_LZX_MIN_MATCH_MIN_DIST = 1 << 16
 	_LZP_HASH_SEED          = 0x7FEB352D
@@ -149,7 +149,6 @@ func NewLZXCodecWithCtx(ctx *map[string]interface{}) (*LZXCodec, error) {
 
 	if val, containsKey := (*ctx)["lz"]; containsKey {
 		lzType := val.(uint64)
-
 		this.extra = lzType == LZX_TYPE
 	}
 
@@ -199,19 +198,17 @@ func readLengthLZ(block []byte) (int, int) {
 }
 
 func emitLiteralsLZ(src, dst []byte) {
-	length := len(src)
-
-	for i := 0; i < length; i += 16 {
-		copy(dst[i:], src[i:i+16])
+	for i := 0; i < len(src); i += 8 {
+		copy(dst[i:], src[i:i+8])
 	}
 }
 
 func (this *LZXCodec) hash(p []byte) uint32 {
 	if this.extra == true {
 		return uint32((binary.LittleEndian.Uint64(p)*_LZX_HASH_SEED)>>_LZX_HASH_SHIFT2) & _LZX_HASH_MASK2
-	} else {
-		return uint32((binary.LittleEndian.Uint64(p)*_LZX_HASH_SEED)>>_LZX_HASH_SHIFT1) & _LZX_HASH_MASK1
 	}
+
+	return uint32((binary.LittleEndian.Uint64(p)*_LZX_HASH_SEED)>>_LZX_HASH_SHIFT1) & _LZX_HASH_MASK1
 }
 
 // Forward applies the function to the src and writes the result
@@ -518,7 +515,7 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			srcIdx += litLen
 			dstIdx += litLen
 
-			if dstIdx > dstEnd || srcIdx >= srcEnd {
+			if srcIdx >= srcEnd {
 				break
 			}
 		}
@@ -534,11 +531,6 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 		mLen += _LZX_MIN_MATCH
 		mEnd := dstIdx + mLen
-
-		// Sanity check
-		if mEnd > dstEnd+16 {
-			return uint(srcIdx), uint(dstIdx), fmt.Errorf("LZCodec: invalid match length decoded: %d", mLen)
-		}
 
 		// Get distance
 		d := (int(src[mIdx]) << 8) | int(src[mIdx+1])
@@ -563,7 +555,7 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 
 		// Sanity check
-		if dstIdx < dist || dist > maxDist {
+		if dstIdx < dist || dist > maxDist || mEnd > dstEnd+16 {
 			return uint(srcIdx), uint(dstIdx), fmt.Errorf("LZCodec: invalid distance decoded: %d", dist)
 		}
 
