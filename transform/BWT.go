@@ -271,7 +271,11 @@ func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 func (this *BWT) inverseSmallBlock(src, dst []byte, count int) (uint, uint, error) {
 	// Lazy dynamic memory allocation
 	if len(this.buffer1) < count {
-		this.buffer1 = make([]uint32, count)
+		if count <= 64 {
+			this.buffer1 = make([]uint32, 64)
+		} else {
+			this.buffer1 = make([]uint32, count)
+		}
 	}
 
 	// Aliasing
@@ -321,7 +325,11 @@ func (this *BWT) inverseSmallBlock(src, dst []byte, count int) (uint, uint, erro
 func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error) {
 	// Lazy dynamic memory allocations
 	if len(this.buffer1) < count+1 {
-		this.buffer1 = make([]uint32, count+1)
+		if count+1 <= 64 {
+			this.buffer1 = make([]uint32, 64)
+		} else {
+			this.buffer1 = make([]uint32, count+1)
+		}
 	}
 
 	pIdx := int(this.PrimaryIndex(0))
