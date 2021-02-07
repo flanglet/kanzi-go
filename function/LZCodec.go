@@ -511,7 +511,12 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			// Emit literals
-			emitLiteralsLZ(src[srcIdx:srcIdx+litLen], dst[dstIdx:])
+			if dstIdx+litLen >= dstEnd {
+				copy(dst[dstIdx:], src[srcIdx:srcIdx+litLen])
+			} else {
+				emitLiteralsLZ(src[srcIdx:srcIdx+litLen], dst[dstIdx:])
+			}
+
 			srcIdx += litLen
 			dstIdx += litLen
 
