@@ -594,11 +594,11 @@ func (this *encodingTask) encode(res error) {
 
 	if postTransformLength >= 256 {
 		dataSize = uint(kanzi.Log2NoCheck(uint32(postTransformLength))>>3) + 1
-	}
 
-	if dataSize > 4 {
-		res = IOError{msg: "Invalid block data length", code: kanzi.ERR_WRITE_FILE}
-		return
+		if dataSize > 4 {
+			res = IOError{msg: "Invalid block data length", code: kanzi.ERR_WRITE_FILE}
+			return
+		}
 	}
 
 	// Record size of 'block size' - 1 in bytes

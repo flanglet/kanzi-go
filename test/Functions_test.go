@@ -276,5 +276,6 @@ func testFunctionCorrectness(name string) error {
 		fmt.Printf("Identical\n")
 	}
 
+	fmt.Println()
 	return error(nil)
 }
