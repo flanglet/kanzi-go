@@ -372,19 +372,19 @@ func (this *HuffmanEncoder) Write(block []byte) (int, error) {
 
 		for i := startChunk; i < endChunk4; i += 4 {
 			// Pack 4 codes into 1 uint64
-			code1 := c[block[i]]
-			codeLen1 := uint(code1 >> 24)
-			code2 := c[block[i+1]]
-			codeLen2 := uint(code2 >> 24)
-			code3 := c[block[i+2]]
-			codeLen3 := uint(code3 >> 24)
-			code4 := c[block[i+3]]
-			codeLen4 := uint(code4 >> 24)
-			st := (uint64(code1&0xFFFF) << (codeLen2 + codeLen3 + codeLen4)) |
-				(uint64(code2&((1<<codeLen2)-1)) << (codeLen3 + codeLen4)) |
-				(uint64(code3&((1<<codeLen3)-1)) << codeLen4) |
-				uint64(code4&((1<<codeLen4)-1))
-			bs.WriteBits(st, codeLen1+codeLen2+codeLen3+codeLen4)
+			code := c[block[i]]
+			codeLen0 := uint(code >> 24)
+			st := uint64(code & 0xFFFFFF)
+			code = c[block[i+1]]
+			codeLen1 := uint(code >> 24)
+			st = (st << codeLen1) | uint64(code&0xFFFFFF)
+			code = c[block[i+2]]
+			codeLen2 := uint(code >> 24)
+			st = (st << codeLen2) | uint64(code&0xFFFFFF)
+			code = c[block[i+3]]
+			codeLen3 := uint(code >> 24)
+			st = (st << codeLen3) | uint64(code&0xFFFFFF)
+			bs.WriteBits(st, codeLen0+codeLen1+codeLen2+codeLen3)
 		}
 
 		for i := endChunk4; i < endChunk; i++ {
