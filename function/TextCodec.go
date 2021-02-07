@@ -40,7 +40,7 @@ const (
 	_TC_ESCAPE_TOKEN2   = byte(0x0E) // toggle upper/lower case of first word char
 	_TC_MASK_NOT_TEXT   = 0x80
 	_TC_MASK_DNA        = _TC_MASK_NOT_TEXT | 0x40
-	_TC_MASK_FASTA      = _TC_MASK_NOT_TEXT | 0x20
+	_TC_MASK_BIN        = _TC_MASK_NOT_TEXT | 0x20
 	_TC_MASK_BASE64     = _TC_MASK_NOT_TEXT | 0x10
 	_TC_MASK_NUMERIC    = _TC_MASK_NOT_TEXT | 0x08
 	_TC_MASK_FULL_ASCII = 0x04
@@ -255,15 +255,13 @@ func computeStats(block []byte, freqs0 []int32, strict bool) byte {
 			sum += freqs0[_TC_DNA_SYMBOLS[i]]
 		}
 
-		if sum >= int32(count/100)*90 {
-			if sum == int32(count) {
-				return _TC_MASK_DNA
-			}
-
-			return _TC_MASK_FASTA
+		if sum == int32(count) {
+			return _TC_MASK_DNA
 		}
 
-		for i, sum := 0, int32(0); i < 20; i++ {
+		sum = 0
+
+		for i := 0; i < 20; i++ {
 			sum += freqs0[_TC_NUMERIC_SYMBOLS[i]]
 		}
 
@@ -271,12 +269,26 @@ func computeStats(block []byte, freqs0 []int32, strict bool) byte {
 			return _TC_MASK_NUMERIC
 		}
 
-		for i, sum := 0, int32(0); i < 64; i++ {
+		sum = 0
+
+		for i := 0; i < 64; i++ {
 			sum += freqs0[_TC_BASE64_SYMBOLS[i]]
 		}
 
 		if sum == int32(count) {
 			return _TC_MASK_BASE64
+		}
+
+		sum = 0
+
+		for i := 0; i < 256; i++ {
+			if freqs0[i] > 0 {
+				sum++
+			}
+		}
+
+		if sum == 255 {
+			return _TC_MASK_BIN
 		}
 
 		return _TC_MASK_NOT_TEXT
@@ -660,8 +672,8 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 				(*this.ctx)["dataType"] = kanzi.DT_NUMERIC
 			case _TC_MASK_BASE64:
 				(*this.ctx)["dataType"] = kanzi.DT_BASE64
-			case _TC_MASK_FASTA:
-				(*this.ctx)["dataType"] = kanzi.DT_FASTA
+			case _TC_MASK_BIN:
+				(*this.ctx)["dataType"] = kanzi.DT_BIN
 			case _TC_MASK_DNA:
 				(*this.ctx)["dataType"] = kanzi.DT_DNA
 			default:
@@ -1204,8 +1216,8 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 				(*this.ctx)["dataType"] = kanzi.DT_NUMERIC
 			case _TC_MASK_BASE64:
 				(*this.ctx)["dataType"] = kanzi.DT_BASE64
-			case _TC_MASK_FASTA:
-				(*this.ctx)["dataType"] = kanzi.DT_FASTA
+			case _TC_MASK_BIN:
+				(*this.ctx)["dataType"] = kanzi.DT_BIN
 			case _TC_MASK_DNA:
 				(*this.ctx)["dataType"] = kanzi.DT_DNA
 			default:

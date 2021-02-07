@@ -29,7 +29,7 @@ const (
 	DT_NUMERIC    DataType = 4
 	DT_BASE64     DataType = 5
 	DT_DNA        DataType = 6
-	DT_FASTA      DataType = 7
+	DT_BIN        DataType = 7
 )
 
 // LOG2 is an array with 256 elements: int(Math.log2(x-1))
