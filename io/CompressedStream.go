@@ -1009,7 +1009,7 @@ func (this *CompressedInputStream) Read(block []byte) (int, error) {
 				// Reached end of stream
 				if len(block) == remaining {
 					// EOF and we did not read any bytes in this call
-					return 0, nil
+					return 0, io.EOF
 				}
 
 				break
