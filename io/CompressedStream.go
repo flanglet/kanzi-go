@@ -114,6 +114,10 @@ type encodingTask struct {
 	ctx                map[string]interface{}
 }
 
+type encodingTaskResult struct {
+	err *IOError
+}
+
 // NewCompressedOutputStream creates a new instance of CompressedOutputStream
 func NewCompressedOutputStream(os io.WriteCloser, codec, transform string, blockSize, jobs uint, checksum bool) (*CompressedOutputStream, error) {
 	ctx := make(map[string]interface{})
@@ -433,9 +437,9 @@ func (this *CompressedOutputStream) processBlock(force bool) error {
 		jobsPerTask = []uint{uint(this.jobs)}
 	}
 
-	var err error
 	tasks := 0
 	wg := sync.WaitGroup{}
+	results := make([]encodingTaskResult, nbTasks)
 
 	// Invoke as many go routines as required
 	for taskID := 0; taskID < nbTasks; taskID++ {
@@ -488,13 +492,19 @@ func (this *CompressedOutputStream) processBlock(force bool) error {
 			ctx:                copyCtx}
 
 		// Invoke the tasks concurrently
-		go task.encode(err)
+		go task.encode(&results[taskID])
 	}
 
 	// Wait for completion of all tasks
 	wg.Wait()
 
-	return err
+	for _, r := range results {
+		if r.err != nil {
+			return r.err
+		}
+	}
+
+	return nil
 }
 
 // GetWritten returns the number of bytes written so far
@@ -511,7 +521,7 @@ func (this *CompressedOutputStream) GetWritten() uint64 {
 //  case more than 4 transforms
 //      | 0b00000000
 //      then 0byyyyyyyy => transform sequence skip flags (1 means skip)
-func (this *encodingTask) encode(res error) {
+func (this *encodingTask) encode(res *encodingTaskResult) {
 	data := this.iBuffer.Buf
 	buffer := this.oBuffer.Buf
 	mode := byte(0)
@@ -519,7 +529,7 @@ func (this *encodingTask) encode(res error) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			res = IOError{msg: r.(error).Error(), code: kanzi.ERR_PROCESS_BLOCK}
+			res.err = &IOError{msg: r.(error).Error(), code: kanzi.ERR_PROCESS_BLOCK}
 		}
 
 		// Unblock other tasks
@@ -569,7 +579,7 @@ func (this *encodingTask) encode(res error) {
 	t, err := function.NewByteFunction(&this.ctx, this.blockTransformType)
 
 	if err != nil {
-		res = IOError{msg: err.Error(), code: kanzi.ERR_CREATE_CODEC}
+		res.err = &IOError{msg: err.Error(), code: kanzi.ERR_CREATE_CODEC}
 		return
 	}
 
@@ -596,7 +606,7 @@ func (this *encodingTask) encode(res error) {
 		dataSize = uint(kanzi.Log2NoCheck(uint32(postTransformLength))>>3) + 1
 
 		if dataSize > 4 {
-			res = IOError{msg: "Invalid block data length", code: kanzi.ERR_WRITE_FILE}
+			res.err = &IOError{msg: "Invalid block data length", code: kanzi.ERR_WRITE_FILE}
 			return
 		}
 	}
@@ -644,13 +654,13 @@ func (this *encodingTask) encode(res error) {
 	ee, err := entropy.NewEntropyEncoder(obs, this.ctx, this.blockEntropyType)
 
 	if err != nil {
-		res = IOError{msg: err.Error(), code: kanzi.ERR_CREATE_CODEC}
+		res.err = &IOError{msg: err.Error(), code: kanzi.ERR_CREATE_CODEC}
 		return
 	}
 
 	// Entropy encode block
 	if _, err = ee.Write(buffer[0:postTransformLength]); err != nil {
-		res = IOError{msg: err.Error(), code: kanzi.ERR_PROCESS_BLOCK}
+		res.err = &IOError{msg: err.Error(), code: kanzi.ERR_PROCESS_BLOCK}
 		return
 	}
 
