@@ -13,26 +13,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package function
+package transform
 
 import (
 	"errors"
 )
 
-// NullFunction is a pass through byte function
-type NullFunction struct {
+// NullTransform is a pass through byte function
+type NullTransform struct {
 }
 
-// NewNullFunction creates a new instance of NullFunction
-func NewNullFunction() (*NullFunction, error) {
-	this := &NullFunction{}
+// NewNullTransform creates a new instance of NullTransform
+func NewNullTransform() (*NullTransform, error) {
+	this := &NullTransform{}
 	return this, nil
 }
 
-// NewNullFunctionWithCtx creates a new instance of NullFunction using a
+// NewNullTransformWithCtx creates a new instance of NullTransform using a
 // configuration map as parameter.
-func NewNullFunctionWithCtx(ctx *map[string]interface{}) (*NullFunction, error) {
-	this := &NullFunction{}
+func NewNullTransformWithCtx(ctx *map[string]interface{}) (*NullTransform, error) {
+	this := &NullTransform{}
 	return this, nil
 }
 
@@ -55,18 +55,18 @@ func doCopy(src, dst []byte) (uint, uint, error) {
 // Forward applies the function to the src and writes the result
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
-func (this *NullFunction) Forward(src, dst []byte) (uint, uint, error) {
+func (this *NullTransform) Forward(src, dst []byte) (uint, uint, error) {
 	return doCopy(src, dst)
 }
 
 // Inverse applies the reverse function to the src and writes the result
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
-func (this *NullFunction) Inverse(src, dst []byte) (uint, uint, error) {
+func (this *NullTransform) Inverse(src, dst []byte) (uint, uint, error) {
 	return doCopy(src, dst)
 }
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
-func (this NullFunction) MaxEncodedLen(srcLen int) int {
+func (this NullTransform) MaxEncodedLen(srcLen int) int {
 	return srcLen
 }

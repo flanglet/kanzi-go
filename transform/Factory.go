@@ -13,14 +13,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package function
+package transform
 
 import (
 	"fmt"
 	"strings"
 
 	kanzi "github.com/flanglet/kanzi-go"
-	"github.com/flanglet/kanzi-go/transform"
 )
 
 const (
@@ -29,7 +28,7 @@ const (
 	_BFF_MASK      = (1 << _BFF_ONE_SHIFT) - 1
 
 	// Up to 64 transforms can be declared (6 bit index)
-	NONE_TYPE   = uint64(0)  // copy
+	NONE_TYPE   = uint64(0)  // Copy
 	BWT_TYPE    = uint64(1)  // Burrows Wheeler
 	BWTS_TYPE   = uint64(2)  // Burrows Wheeler Scott
 	LZ_TYPE     = uint64(3)  // Lempel Ziv
@@ -48,9 +47,9 @@ const (
 	LZX_TYPE    = uint64(16) // Lempel Ziv Extra
 )
 
-// NewByteFunction creates a new instance of ByteTransformSequence based on the provided
+// New creates a new instance of ByteTransformSequence based on the provided
 // function type.
-func NewByteFunction(ctx *map[string]interface{}, functionType uint64) (*ByteTransformSequence, error) {
+func New(ctx *map[string]interface{}, functionType uint64) (*ByteTransformSequence, error) {
 	nbtr := 0
 
 	// Several transforms
@@ -73,7 +72,7 @@ func NewByteFunction(ctx *map[string]interface{}, functionType uint64) (*ByteTra
 		t := (functionType >> (_BFF_MAX_SHIFT - _BFF_ONE_SHIFT*uint(i))) & _BFF_MASK
 
 		if t != NONE_TYPE || i == 0 {
-			if transforms[nbtr], err = newByteFunctionToken(ctx, t); err != nil {
+			if transforms[nbtr], err = newToken(ctx, t); err != nil {
 				return nil, err
 			}
 		}
@@ -84,7 +83,7 @@ func NewByteFunction(ctx *map[string]interface{}, functionType uint64) (*ByteTra
 	return NewByteTransformSequence(transforms)
 }
 
-func newByteFunctionToken(ctx *map[string]interface{}, functionType uint64) (kanzi.ByteTransform, error) {
+func newToken(ctx *map[string]interface{}, functionType uint64) (kanzi.ByteTransform, error) {
 	switch functionType {
 
 	case DICT_TYPE:
@@ -113,7 +112,7 @@ func newByteFunctionToken(ctx *map[string]interface{}, functionType uint64) (kan
 		return NewBWTBlockCodecWithCtx(ctx)
 
 	case BWTS_TYPE:
-		return transform.NewBWTSWithCtx(ctx)
+		return NewBWTSWithCtx(ctx)
 
 	case LZ_TYPE:
 		(*ctx)["lz"] = LZ_TYPE
@@ -134,12 +133,12 @@ func newByteFunctionToken(ctx *map[string]interface{}, functionType uint64) (kan
 		return NewSRTWithCtx(ctx)
 
 	case RANK_TYPE:
-		(*ctx)["sbrt"] = transform.SBRT_MODE_RANK
-		return transform.NewSBRTWithCtx(ctx)
+		(*ctx)["sbrt"] = SBRT_MODE_RANK
+		return NewSBRTWithCtx(ctx)
 
 	case MTFT_TYPE:
-		(*ctx)["sbrt"] = transform.SBRT_MODE_MTF
-		return transform.NewSBRTWithCtx(ctx)
+		(*ctx)["sbrt"] = SBRT_MODE_MTF
+		return NewSBRTWithCtx(ctx)
 
 	case ZRLT_TYPE:
 		return NewZRLTWithCtx(ctx)
@@ -151,7 +150,7 @@ func newByteFunctionToken(ctx *map[string]interface{}, functionType uint64) (kan
 		return NewX86CodecWithCtx(ctx)
 
 	case NONE_TYPE:
-		return NewNullFunctionWithCtx(ctx)
+		return NewNullTransformWithCtx(ctx)
 
 	default:
 		return nil, fmt.Errorf("Unknown transform type: '%v'", functionType)

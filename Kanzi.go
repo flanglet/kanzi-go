@@ -38,38 +38,9 @@ const (
 	ERR_UNKNOWN             = 127
 )
 
-// IntTransform is a function that takes an slice of integers as input and
-// and turns it into another slice of integers of the same size.
-// Return index in src, index in dst and error
-type IntTransform interface {
-	// Forward applies the function to the src and writes the result
-	// to the destination. Returns number of bytes read, number of bytes
-	// written and possibly an error.
-	Forward(src, dst []int) (uint, uint, error)
-
-	// Inverse applies the reverse function to the src and writes the result
-	// to the destination. Returns number of bytes read, number of bytes
-	// written and possibly an error.
-	Inverse(src, dst []int) (uint, uint, error)
-}
-
-// ByteTransform is a function that takes an slice of bytes as input and
-// turns it into another slice of bytes of the same size.
-type ByteTransform interface {
-	// Forward applies the function to the src and writes the result
-	// to the destination. Returns number of bytes read, number of bytes
-	// written and possibly an error.
-	Forward(src, dst []byte) (uint, uint, error)
-
-	// Inverse applies the reverse function to the src and writes the result
-	// to the destination. Returns number of bytes read, number of bytes
-	// written and possibly an error.
-	Inverse(src, dst []byte) (uint, uint, error)
-}
-
-// IntFunction is a function that transforms the input int slice and writes
+// IntTransform is a function that transforms the input int slice and writes
 // the result in the output int slice. The result may have a different size.
-type IntFunction interface {
+type IntTransform interface {
 	// Forward applies the function to the src and writes the result
 	// to the destination. Returns number of bytes read, number of bytes
 	// written and possibly an error.
@@ -85,9 +56,9 @@ type IntFunction interface {
 	MaxEncodedLen(srcLen int) int
 }
 
-// ByteFunction is a function that transforms the input byte slice and writes
+// ByteTransform is a function that transforms the input byte slice and writes
 // the result in the output byte slice. The result may have a different size.
-type ByteFunction interface {
+type ByteTransform interface {
 	// Forward applies the function to the src and writes the result
 	// to the destination. Returns number of bytes read, number of bytes
 	// written and possibly an error.

@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package function
+package transform
 
 import (
 	"errors"
@@ -60,7 +60,7 @@ type dictEntry struct {
 // TextCodec is a simple one-pass text codec that replaces words with indexes.
 // Uses a default (small) static dictionary. Generates a dynamic dictionary.
 type TextCodec struct {
-	delegate kanzi.ByteFunction
+	delegate kanzi.ByteTransform
 }
 
 type textCodec1 struct {
@@ -480,7 +480,7 @@ func NewTextCodecWithCtx(ctx *map[string]interface{}) (*TextCodec, error) {
 	this := &TextCodec{}
 
 	var err error
-	var d kanzi.ByteFunction
+	var d kanzi.ByteTransform
 
 	if val, containsKey := (*ctx)["textcodec"]; containsKey {
 		encodingType := val.(int)

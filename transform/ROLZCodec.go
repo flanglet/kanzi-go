@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package function
+package transform
 
 import (
 	"encoding/binary"
@@ -91,7 +91,7 @@ func emitCopy(buf []byte, dstIdx, ref, matchLen int) int {
 
 // ROLZCodec Reduced Offset Lempel Ziv codec
 type ROLZCodec struct {
-	delegate kanzi.ByteFunction
+	delegate kanzi.ByteTransform
 }
 
 // NewROLZCodec creates a new instance of ROLZCodec providing
@@ -110,7 +110,7 @@ func NewROLZCodec(logPosChecks uint) (*ROLZCodec, error) {
 func NewROLZCodecWithFlag(extra bool) (*ROLZCodec, error) {
 	this := &ROLZCodec{}
 	var err error
-	var d kanzi.ByteFunction
+	var d kanzi.ByteTransform
 
 	if extra {
 		d, err = newROLZCodec2(_ROLZ_LOG_POS_CHECKS2)
@@ -129,7 +129,7 @@ func NewROLZCodecWithFlag(extra bool) (*ROLZCodec, error) {
 func NewROLZCodecWithCtx(ctx *map[string]interface{}) (*ROLZCodec, error) {
 	this := &ROLZCodec{}
 	var err error
-	var d kanzi.ByteFunction
+	var d kanzi.ByteTransform
 
 	if val, containsKey := (*ctx)["transform"]; containsKey {
 		transform := val.(string)

@@ -15,6 +15,7 @@ limitations under the License.
 
 package main
 
+/*
 import (
 	"fmt"
 	"math/rand"
@@ -22,33 +23,44 @@ import (
 	"time"
 
 	kanzi "github.com/flanglet/kanzi-go"
-	"github.com/flanglet/kanzi-go/function"
+	"github.com/flanglet/kanzi-go/transform"
 )
 
-func getByteFunction(name string) (kanzi.ByteFunction, error) {
+func getTransform(name string) (kanzi.ByteTransform, error) {
 	switch name {
 	case "LZ":
-		res, err := function.NewLZCodec()
+		res, err := transform.NewLZCodec()
 		return res, err
 
 	case "ZRLT":
-		res, err := function.NewZRLT()
+		res, err := transform.NewZRLT()
 		return res, err
 
 	case "RLT":
-		res, err := function.NewRLT()
+		res, err := transform.NewRLT()
 		return res, err
 
 	case "SRT":
-		res, err := function.NewSRT()
+		res, err := transform.NewSRT()
 		return res, err
 
 	case "ROLZ":
-		res, err := function.NewROLZCodecWithFlag(false)
+		res, err := transform.NewROLZCodecWithFlag(false)
 		return res, err
 
 	case "ROLZX":
-		res, err := function.NewROLZCodecWithFlag(true)
+		res, err := transform.NewROLZCodecWithFlag(true)
+		return res, err
+	case "RANK":
+		res, err := transform.NewSBRT(transform.SBRT_MODE_RANK)
+		return res, err
+
+	case "MTFT":
+		res, err := transform.NewSBRT(transform.SBRT_MODE_MTF)
+		return res, err
+
+	case "BWTS":
+		res, err := transform.NewBWTS()
 		return res, err
 
 	default:
@@ -171,7 +183,7 @@ func testFunctionCorrectness(name string) error {
 		}
 
 		size := len(arr)
-		f, err := getByteFunction(name)
+		f, err := getTransform(name)
 
 		if err != nil {
 			fmt.Printf("\nCannot create transform '%v': %v\n", name, err)
@@ -190,7 +202,7 @@ func testFunctionCorrectness(name string) error {
 			input[i] = byte(arr[i])
 		}
 
-		f, err = getByteFunction(name)
+		f, err = getTransform(name)
 
 		if err != nil {
 			fmt.Printf("\nCannot create transform '%v': %v\n", name, err)
@@ -233,7 +245,7 @@ func testFunctionCorrectness(name string) error {
 
 		fmt.Printf(" (Compression ratio: %v%%)\n", int(dstIdx)*100/size)
 
-		f, err = getByteFunction(name)
+		f, err = getTransform(name)
 
 		if err != nil {
 			fmt.Printf("\nCannot create transform '%v': %v\n", name, err)
@@ -279,3 +291,4 @@ func testFunctionCorrectness(name string) error {
 	fmt.Println()
 	return error(nil)
 }
+*/

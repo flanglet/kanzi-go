@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package function
+package transform
 
 import (
 	"errors"
@@ -174,12 +174,10 @@ func (this ByteTransformSequence) MaxEncodedLen(srcLen int) int {
 	requiredSize := srcLen
 
 	for _, t := range this.transforms {
-		if f, isFunction := t.(kanzi.ByteFunction); isFunction == true {
-			reqSize := f.MaxEncodedLen(requiredSize)
+		reqSize := t.MaxEncodedLen(requiredSize)
 
-			if reqSize > requiredSize {
-				requiredSize = reqSize
-			}
+		if reqSize > requiredSize {
+			requiredSize = reqSize
 		}
 	}
 

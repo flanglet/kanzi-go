@@ -26,7 +26,8 @@ import (
 	kanzi "github.com/flanglet/kanzi-go"
 	"github.com/flanglet/kanzi-go/bitstream"
 	"github.com/flanglet/kanzi-go/entropy"
-	"github.com/flanglet/kanzi-go/function"
+	"github.com/flanglet/kanzi-go/transform"
+
 	"github.com/flanglet/kanzi-go/util"
 	"github.com/flanglet/kanzi-go/util/hash"
 )
@@ -159,7 +160,7 @@ func createCompressedOutputStreamWithCtx(obs kanzi.OutputBitStream, ctx map[stri
 	}
 
 	entropyCodec := ctx["codec"].(string)
-	transform := ctx["transform"].(string)
+	t := ctx["transform"].(string)
 	tasks := ctx["jobs"].(uint)
 
 	if tasks == 0 || tasks > _MAX_CONCURRENCY {
@@ -194,7 +195,7 @@ func createCompressedOutputStreamWithCtx(obs kanzi.OutputBitStream, ctx map[stri
 	this.entropyType = entropy.GetType(entropyCodec)
 
 	// Check transform type validity (panic on error)
-	this.transformType = function.GetType(transform)
+	this.transformType = transform.GetType(t)
 
 	this.blockSize = bSize
 	nbBlocks := uint8(0)
@@ -555,7 +556,7 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 	}
 
 	if this.blockLength <= _SMALL_BLOCK_SIZE {
-		this.blockTransformType = function.NONE_TYPE
+		this.blockTransformType = transform.NONE_TYPE
 		this.blockEntropyType = entropy.NONE_TYPE
 		mode |= byte(_COPY_BLOCK_MASK)
 	} else {
@@ -567,7 +568,7 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 				//this.ctx["histo0"] = histo
 
 				if entropy1024 >= entropy.INCOMPRESSIBLE_THRESHOLD {
-					this.blockTransformType = function.NONE_TYPE
+					this.blockTransformType = transform.NONE_TYPE
 					this.blockEntropyType = entropy.NONE_TYPE
 					mode |= _COPY_BLOCK_MASK
 				}
@@ -576,7 +577,7 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 	}
 
 	this.ctx["size"] = this.blockLength
-	t, err := function.NewByteFunction(&this.ctx, this.blockTransformType)
+	t, err := transform.New(&this.ctx, this.blockTransformType)
 
 	if err != nil {
 		res.err = &IOError{msg: err.Error(), code: kanzi.ERR_CREATE_CODEC}
@@ -837,7 +838,7 @@ func createCompressedInputStreamWithCtx(ibs kanzi.InputBitStream, ctx map[string
 	this.ctx = ctx
 	this.blockSize = 0
 	this.entropyType = entropy.NONE_TYPE
-	this.transformType = function.NONE_TYPE
+	this.transformType = transform.NONE_TYPE
 	return this, nil
 }
 
@@ -909,7 +910,7 @@ func (this *CompressedInputStream) readHeader() error {
 
 	// Read transforms: 8*6 bits
 	this.transformType = this.ibs.ReadBits(48)
-	this.ctx["transform"] = function.GetName(this.transformType)
+	this.ctx["transform"] = transform.GetName(this.transformType)
 
 	// Read block size
 	this.blockSize = uint(this.ibs.ReadBits(28)) << 4
@@ -941,7 +942,7 @@ func (this *CompressedInputStream) readHeader() error {
 		}
 
 		msg += fmt.Sprintf("Using %v entropy codec (stage 1)\n", w1)
-		w2 := function.GetName(this.transformType)
+		w2 := transform.GetName(this.transformType)
 
 		if w2 == "NONE" {
 			w2 = "no"
@@ -1296,7 +1297,7 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	skipFlags := byte(0)
 
 	if mode&_COPY_BLOCK_MASK != 0 {
-		this.blockTransformType = function.NONE_TYPE
+		this.blockTransformType = transform.NONE_TYPE
 		this.blockEntropyType = entropy.NONE_TYPE
 	} else {
 		if mode&_TRANSFORMS_MASK != 0 {
@@ -1385,7 +1386,7 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	}
 
 	this.ctx["size"] = preTransformLength
-	transform, err := function.NewByteFunction(&this.ctx, this.blockTransformType)
+	transform, err := transform.New(&this.ctx, this.blockTransformType)
 
 	if err != nil {
 		// Error => return

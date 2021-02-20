@@ -13,13 +13,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package function
+package transform
 
 import (
 	"errors"
 	"fmt"
-
-	"github.com/flanglet/kanzi-go/transform"
 )
 
 const (
@@ -42,14 +40,14 @@ const (
 // BWTBlockCodec a codec that encapsulates a Burrows Wheeler Transform and
 // takes care of encoding/decoding information about the primary indexes in a header.
 type BWTBlockCodec struct {
-	bwt *transform.BWT
+	bwt *BWT
 }
 
 // NewBWTBlockCodec creates a new instance of BWTBlockCodec
 func NewBWTBlockCodec() (*BWTBlockCodec, error) {
 	this := &BWTBlockCodec{}
 	var err error
-	this.bwt, err = transform.NewBWT()
+	this.bwt, err = NewBWT()
 	return this, err
 }
 
@@ -57,7 +55,7 @@ func NewBWTBlockCodec() (*BWTBlockCodec, error) {
 func NewBWTBlockCodecWithCtx(ctx *map[string]interface{}) (*BWTBlockCodec, error) {
 	this := &BWTBlockCodec{}
 	var err error
-	this.bwt, err = transform.NewBWTWithCtx(ctx)
+	this.bwt, err = NewBWTWithCtx(ctx)
 	return this, err
 }
 
@@ -80,7 +78,7 @@ func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 			len(dst), this.MaxEncodedLen(blockSize))
 	}
 
-	chunks := transform.GetBWTChunks(blockSize)
+	chunks := GetBWTChunks(blockSize)
 	log := uint(1)
 
 	for 1<<log <= len(src) {
@@ -162,7 +160,7 @@ func (this *BWTBlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 	srcIdx := uint(0)
 	blockSize := uint(len(src))
-	chunks := transform.GetBWTChunks(len(src))
+	chunks := GetBWTChunks(len(src))
 
 	for i := 0; i < chunks; i++ {
 		// Read block header (mode + primary index). See top of file for format

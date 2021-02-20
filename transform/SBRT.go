@@ -219,3 +219,8 @@ func (this *SBRT) Inverse(src, dst []byte) (uint, uint, error) {
 
 	return uint(count), uint(count), nil
 }
+
+// MaxEncodedLen returns the max size required for the encoding output buffer
+func (this SBRT) MaxEncodedLen(srcLen int) int {
+	return srcLen + _BWT_MAX_HEADER_SIZE
+}

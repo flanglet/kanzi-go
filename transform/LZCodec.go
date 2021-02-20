@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package function
+package transform
 
 import (
 	"encoding/binary"
@@ -47,7 +47,7 @@ const (
 
 // LZCodec encapsulates an implementation of a Lempel-Ziv codec
 type LZCodec struct {
-	delegate kanzi.ByteFunction
+	delegate kanzi.ByteTransform
 }
 
 // NewLZCodec creates a new instance of LZCodec
@@ -69,7 +69,7 @@ func NewLZCodecWithCtx(ctx *map[string]interface{}) (*LZCodec, error) {
 	this := &LZCodec{}
 
 	var err error
-	var d kanzi.ByteFunction
+	var d kanzi.ByteTransform
 
 	if val, containsKey := (*ctx)["lz"]; containsKey {
 		lzType := val.(uint64)

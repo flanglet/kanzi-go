@@ -20,7 +20,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/flanglet/kanzi-go/function"
+	"github.com/flanglet/kanzi-go/transform"
 )
 
 func BenchmarkLZ(b *testing.B) {
@@ -28,7 +28,7 @@ func BenchmarkLZ(b *testing.B) {
 	size := 50000
 
 	for jj := 0; jj < 3; jj++ {
-		bf, _ := function.NewLZCodec()
+		bf, _ := transform.NewLZCodec()
 		input := make([]byte, size)
 		output := make([]byte, bf.MaxEncodedLen(size))
 		reverse := make([]byte, size)
@@ -53,7 +53,7 @@ func BenchmarkLZ(b *testing.B) {
 		var err error
 
 		for ii := 0; ii < iter; ii++ {
-			f, _ := function.NewLZCodec()
+			f, _ := transform.NewLZCodec()
 
 			_, dstIdx, err = f.Forward(input, output)
 
@@ -64,7 +64,7 @@ func BenchmarkLZ(b *testing.B) {
 		}
 
 		for ii := 0; ii < iter; ii++ {
-			f, _ := function.NewLZCodec()
+			f, _ := transform.NewLZCodec()
 
 			if _, _, err = f.Inverse(output[0:dstIdx], reverse); err != nil {
 				msg := fmt.Sprintf("Decoding error : %v\n", err)
@@ -127,7 +127,7 @@ func BenchmarkZRLT(b *testing.B) {
 		var err error
 
 		for ii := 0; ii < iter; ii++ {
-			f, _ := function.NewZRLT()
+			f, _ := transform.NewZRLT()
 
 			_, dstIdx, err = f.Forward(input, output)
 
@@ -138,7 +138,7 @@ func BenchmarkZRLT(b *testing.B) {
 		}
 
 		for ii := 0; ii < iter; ii++ {
-			f, _ := function.NewZRLT()
+			f, _ := transform.NewZRLT()
 
 			if _, _, err = f.Inverse(output[0:dstIdx], reverse); err != nil {
 				msg := fmt.Sprintf("Decoding error : %v\n", err)
@@ -169,7 +169,7 @@ func BenchmarkRLT(b *testing.B) {
 	size := 50000
 
 	for jj := 0; jj < 3; jj++ {
-		bf, _ := function.NewRLT()
+		bf, _ := transform.NewRLT()
 		input := make([]byte, size)
 		output := make([]byte, bf.MaxEncodedLen(size))
 		reverse := make([]byte, size)
@@ -194,7 +194,7 @@ func BenchmarkRLT(b *testing.B) {
 		var err error
 
 		for ii := 0; ii < iter; ii++ {
-			f, _ := function.NewRLT()
+			f, _ := transform.NewRLT()
 
 			srcIdx, dstIdx, err = f.Forward(input, output)
 
@@ -211,7 +211,7 @@ func BenchmarkRLT(b *testing.B) {
 		}
 
 		for ii := 0; ii < iter; ii++ {
-			f, _ := function.NewRLT()
+			f, _ := transform.NewRLT()
 
 			if _, _, err = f.Inverse(output[0:dstIdx], reverse); err != nil {
 				msg := fmt.Sprintf("Decoding error : %v\n", err)
@@ -241,7 +241,7 @@ func BenchmarkROLZ(b *testing.B) {
 	size := 50000
 
 	for jj := 0; jj < 3; jj++ {
-		bf, _ := function.NewROLZCodecWithFlag(false)
+		bf, _ := transform.NewROLZCodecWithFlag(false)
 		input := make([]byte, size)
 		output := make([]byte, bf.MaxEncodedLen(size))
 		reverse := make([]byte, size)
@@ -267,7 +267,7 @@ func BenchmarkROLZ(b *testing.B) {
 		var err error
 
 		for ii := 0; ii < iter; ii++ {
-			f, _ := function.NewROLZCodec(5)
+			f, _ := transform.NewROLZCodec(5)
 
 			_, dstIdx, err = f.Forward(input, output)
 
@@ -278,7 +278,7 @@ func BenchmarkROLZ(b *testing.B) {
 		}
 
 		for ii := 0; ii < iter; ii++ {
-			f, _ := function.NewROLZCodec(5)
+			f, _ := transform.NewROLZCodec(5)
 
 			if _, _, err = f.Inverse(output[0:dstIdx], reverse); err != nil {
 				msg := fmt.Sprintf("Decoding error : %v\n", err)
@@ -309,7 +309,7 @@ func BenchmarkROLZX(b *testing.B) {
 	size := 50000
 
 	for jj := 0; jj < 3; jj++ {
-		bf, _ := function.NewROLZCodecWithFlag(true)
+		bf, _ := transform.NewROLZCodecWithFlag(true)
 		input := make([]byte, size)
 		output := make([]byte, bf.MaxEncodedLen(size))
 		reverse := make([]byte, size)
@@ -334,7 +334,7 @@ func BenchmarkROLZX(b *testing.B) {
 		var err error
 
 		for ii := 0; ii < iter; ii++ {
-			f, _ := function.NewROLZCodec(5)
+			f, _ := transform.NewROLZCodec(5)
 
 			_, dstIdx, err = f.Forward(input, output)
 
@@ -345,7 +345,7 @@ func BenchmarkROLZX(b *testing.B) {
 		}
 
 		for ii := 0; ii < iter; ii++ {
-			f, _ := function.NewROLZCodec(5)
+			f, _ := transform.NewROLZCodec(5)
 
 			if _, _, err = f.Inverse(output[0:dstIdx], reverse); err != nil {
 				msg := fmt.Sprintf("Decoding error : %v\n", err)
@@ -408,7 +408,7 @@ func BenchmarkSRT(b *testing.B) {
 		var err error
 
 		for ii := 0; ii < iter; ii++ {
-			f, _ := function.NewSRT()
+			f, _ := transform.NewSRT()
 
 			_, dstIdx, err = f.Forward(input, output)
 
@@ -419,7 +419,7 @@ func BenchmarkSRT(b *testing.B) {
 		}
 
 		for ii := 0; ii < iter; ii++ {
-			f, _ := function.NewSRT()
+			f, _ := transform.NewSRT()
 
 			if _, _, err = f.Inverse(output[0:dstIdx], reverse); err != nil {
 				msg := fmt.Sprintf("Decoding error : %v\n", err)

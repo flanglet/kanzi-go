@@ -25,8 +25,32 @@ import (
 	"github.com/flanglet/kanzi-go/transform"
 )
 
-func getByteTransform(name string) (kanzi.ByteTransform, error) {
+func getTransform(name string) (kanzi.ByteTransform, error) {
 	switch name {
+	case "LZ":
+		res, err := transform.NewLZCodec()
+		return res, err
+
+	case "ZRLT":
+		res, err := transform.NewZRLT()
+		return res, err
+
+	case "RLT":
+		res, err := transform.NewRLT()
+		return res, err
+
+	case "SRT":
+		res, err := transform.NewSRT()
+		return res, err
+
+	case "ROLZ":
+		res, err := transform.NewROLZCodecWithFlag(false)
+		return res, err
+
+	case "ROLZX":
+		res, err := transform.NewROLZCodecWithFlag(true)
+		return res, err
+
 	case "RANK":
 		res, err := transform.NewSBRT(transform.SBRT_MODE_RANK)
 		return res, err
@@ -35,21 +59,51 @@ func getByteTransform(name string) (kanzi.ByteTransform, error) {
 		res, err := transform.NewSBRT(transform.SBRT_MODE_MTF)
 		return res, err
 
-	case "BWTS":
-		res, err := transform.NewBWTS()
-		return res, err
-
 	default:
-		panic(fmt.Errorf("No such byte transform: '%s'", name))
+		panic(fmt.Errorf("No such transform: '%s'", name))
 	}
 }
 
+func TestLZ(b *testing.T) {
+	if err := testTransformCorrectness("LZ"); err != nil {
+		b.Errorf(err.Error())
+	}
+}
+
+func TestROLZ(b *testing.T) {
+	if err := testTransformCorrectness("ROLZ"); err != nil {
+		b.Errorf(err.Error())
+	}
+}
+
+func TestZRLT(b *testing.T) {
+	if err := testTransformCorrectness("ZRLT"); err != nil {
+		b.Errorf(err.Error())
+	}
+}
+
+func TestRLT(b *testing.T) {
+	if err := testTransformCorrectness("RLT"); err != nil {
+		b.Errorf(err.Error())
+	}
+}
+
+func TestSRT(b *testing.T) {
+	if err := testTransformCorrectness("SRT"); err != nil {
+		b.Errorf(err.Error())
+	}
+}
+
+// func TestROLZX(b *testing.T) {
+// 	if err := testTransformCorrectness("ROLZX"); err != nil {
+// 		b.Errorf(err.Error())
+// 	}
+// }
 func TestRank(b *testing.T) {
 	if err := testTransformCorrectness("RANK"); err != nil {
 		b.Errorf(err.Error())
 	}
 }
-
 func TestMTFT(b *testing.T) {
 	if err := testTransformCorrectness("MTFT"); err != nil {
 		b.Errorf(err.Error())
@@ -57,8 +111,11 @@ func TestMTFT(b *testing.T) {
 }
 
 func testTransformCorrectness(name string) error {
-	fmt.Printf("Correctness test for %v\n", name)
 	rng := 256
+
+	if name == "ZRLT" {
+		rng = 5
+	}
 
 	for ii := 0; ii < 20; ii++ {
 		rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -69,7 +126,7 @@ func testTransformCorrectness(name string) error {
 			arr = []int{0, 1, 2, 2, 2, 2, 7, 9, 9, 16, 16, 16, 1, 3,
 				3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3}
 		} else if ii == 1 {
-			arr = make([]int, 800)
+			arr = make([]int, 80000)
 
 			for i := range arr {
 				arr[i] = 8
@@ -99,13 +156,13 @@ func testTransformCorrectness(name string) error {
 			// Totally random
 			arr = make([]int, 512)
 
-			// Leave zeros at the beginning
+			// Leave zeros at the beginning for ZRLT to succeed
 			for i := 20; i < len(arr); i++ {
 				arr[i] = rand.Intn(rng)
 			}
 		} else {
 			arr = make([]int, 1024)
-			// Leave zeros at the beginning
+			// Leave zeros at the beginning for ZRLT to succeed
 			idx := 20
 
 			for idx < len(arr) {
@@ -132,8 +189,15 @@ func testTransformCorrectness(name string) error {
 		}
 
 		size := len(arr)
+		f, err := getTransform(name)
+
+		if err != nil {
+			fmt.Printf("\nCannot create transform '%v': %v\n", name, err)
+			return err
+		}
+
 		input := make([]byte, size)
-		output := make([]byte, size)
+		output := make([]byte, f.MaxEncodedLen(size))
 		reverse := make([]byte, size)
 
 		for i := range output {
@@ -144,7 +208,7 @@ func testTransformCorrectness(name string) error {
 			input[i] = byte(arr[i])
 		}
 
-		f, err := getByteTransform(name)
+		f, err = getTransform(name)
 
 		if err != nil {
 			fmt.Printf("\nCannot create transform '%v': %v\n", name, err)
@@ -164,7 +228,8 @@ func testTransformCorrectness(name string) error {
 		srcIdx, dstIdx, err := f.Forward(input, output)
 
 		if err != nil {
-			if srcIdx != uint(size) {
+			// Function may fail when compression ratio > 1.0
+			if srcIdx != uint(size) || srcIdx < dstIdx {
 				fmt.Printf("\nNo compression (ratio > 1.0), skip reverse")
 				continue
 			}
@@ -173,7 +238,7 @@ func testTransformCorrectness(name string) error {
 			return err
 		}
 
-		if srcIdx != uint(size) {
+		if srcIdx != uint(size) || srcIdx < dstIdx {
 			fmt.Printf("\nNo compression (ratio > 1.0), skip reverse")
 			continue
 		}
@@ -186,7 +251,7 @@ func testTransformCorrectness(name string) error {
 
 		fmt.Printf(" (Compression ratio: %v%%)\n", int(dstIdx)*100/size)
 
-		f, err = getByteTransform(name)
+		f, err = getTransform(name)
 
 		if err != nil {
 			fmt.Printf("\nCannot create transform '%v': %v\n", name, err)
@@ -229,5 +294,6 @@ func testTransformCorrectness(name string) error {
 		fmt.Printf("Identical\n")
 	}
 
+	fmt.Println()
 	return error(nil)
 }

@@ -26,8 +26,8 @@ import (
 	"time"
 
 	kanzi "github.com/flanglet/kanzi-go"
-	"github.com/flanglet/kanzi-go/function"
 	kio "github.com/flanglet/kanzi-go/io"
+	"github.com/flanglet/kanzi-go/transform"
 )
 
 const (
@@ -142,7 +142,7 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 	}
 
 	// Extract transform names. Curate input (EG. NONE+NONE+xxxx => xxxx)
-	this.transform = function.GetName(function.GetType(strTransf))
+	this.transform = transform.GetName(transform.GetType(strTransf))
 
 	if check, prst := argsMap["checksum"]; prst == true {
 		this.checksum = check.(bool)
