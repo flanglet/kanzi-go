@@ -20,88 +20,139 @@ import (
 	"math/rand"
 	"testing"
 
+	kanzi "github.com/flanglet/kanzi-go"
 	"github.com/flanglet/kanzi-go/transform"
 )
 
-func BenchmarkRANK(b *testing.B) {
-	iter := b.N
-	size := 50000
+func getTransform(name string) (kanzi.ByteTransform, error) {
+	switch name {
+	case "LZ":
+		res, err := transform.NewLZCodec()
+		return res, err
 
-	for jj := 0; jj < 3; jj++ {
-		input := make([]byte, size)
-		output := make([]byte, size)
-		reverse := make([]byte, size)
-		rand.Seed(int64(jj))
-		n := 0
+	case "LZX":
+		ctx := make(map[string]interface{})
+		ctx["lz"] = transform.LZX_TYPE
+		res, err := transform.NewLZCodecWithCtx(&ctx)
+		return res, err
 
-		for n < len(input) {
-			val := byte(rand.Intn(255))
-			input[n] = val
-			n++
-			run := rand.Intn(55)
-			run -= 20
+	case "LZP":
+		ctx := make(map[string]interface{})
+		ctx["lz"] = transform.LZP_TYPE
+		res, err := transform.NewLZCodecWithCtx(&ctx)
+		return res, err
 
-			for run > 0 && n < len(input) {
-				input[n] = val
-				n++
-				run--
-			}
-		}
+	case "ZRLT":
+		res, err := transform.NewZRLT()
+		return res, err
 
-		var dstIdx uint
-		var err error
+	case "RLT":
+		res, err := transform.NewRLT()
+		return res, err
 
-		for ii := 0; ii < iter; ii++ {
-			f, _ := transform.NewSBRT(transform.SBRT_MODE_RANK)
+	case "SRT":
+		res, err := transform.NewSRT()
+		return res, err
 
-			_, dstIdx, err = f.Forward(input, output)
+	case "ROLZ":
+		res, err := transform.NewROLZCodecWithFlag(false)
+		return res, err
 
-			if err != nil {
-				msg := fmt.Sprintf("Encoding error : %v\n", err)
-				b.Fatalf(msg)
-			}
-		}
+	case "ROLZX":
+		res, err := transform.NewROLZCodecWithFlag(true)
+		return res, err
 
-		for ii := 0; ii < iter; ii++ {
-			f, _ := transform.NewSBRT(transform.SBRT_MODE_RANK)
+	case "RANK":
+		res, err := transform.NewSBRT(transform.SBRT_MODE_RANK)
+		return res, err
 
-			if _, _, err = f.Inverse(output[0:dstIdx], reverse); err != nil {
-				msg := fmt.Sprintf("Decoding error : %v\n", err)
-				b.Fatalf(msg)
-			}
-		}
+	case "MTFT":
+		res, err := transform.NewSBRT(transform.SBRT_MODE_MTF)
+		return res, err
 
-		idx := -1
-
-		// Sanity check
-		for i := range input {
-			if input[i] != reverse[i] {
-				idx = i
-				break
-			}
-		}
-
-		if idx >= 0 {
-			msg := fmt.Sprintf("Failure at index %v (%v <-> %v)\n", idx, input[idx], reverse[idx])
-			b.Fatalf(msg)
-		}
-
+	default:
+		panic(fmt.Errorf("No such transform: '%s'", name))
 	}
 }
 
+func BenchmarkLZ(b *testing.B) {
+	if err := testTransformSpeed("LZ", b.N); err != nil {
+		b.Fatalf(err.Error())
+	}
+}
+
+func BenchmarkLZP(b *testing.B) {
+	if err := testTransformSpeed("LZP", b.N); err != nil {
+		b.Fatalf(err.Error())
+	}
+}
+
+func BenchmarkLZX(b *testing.B) {
+	if err := testTransformSpeed("LZX", b.N); err != nil {
+		b.Fatalf(err.Error())
+	}
+}
+
+func BenchmarkROLZ(b *testing.B) {
+	if err := testTransformSpeed("ROLZ", b.N); err != nil {
+		b.Fatalf(err.Error())
+	}
+}
+
+func BenchmarkZRLT(b *testing.B) {
+	if err := testTransformSpeed("ZRLT", b.N); err != nil {
+		b.Fatalf(err.Error())
+	}
+}
+
+func BenchmarkRLT(b *testing.B) {
+	if err := testTransformSpeed("RLT", b.N); err != nil {
+		b.Fatalf(err.Error())
+	}
+}
+
+func BenchmarkSRT(b *testing.B) {
+	if err := testTransformSpeed("SRT", b.N); err != nil {
+		b.Fatalf(err.Error())
+	}
+}
+
+func BenchmarkROLZX(b *testing.B) {
+	if err := testTransformSpeed("ROLZX", b.N); err != nil {
+		b.Fatalf(err.Error())
+	}
+}
+func BenchmarkRank(b *testing.B) {
+	if err := testTransformSpeed("RANK", b.N); err != nil {
+		b.Fatalf(err.Error())
+	}
+}
 func BenchmarkMTFT(b *testing.B) {
-	iter := b.N
+	if err := testTransformSpeed("MTFT", b.N); err != nil {
+		b.Fatalf(err.Error())
+	}
+}
+
+func testTransformSpeed(name string, iter int) error {
 	size := 50000
 
 	for jj := 0; jj < 3; jj++ {
 		input := make([]byte, size)
-		output := make([]byte, size)
+		output := make([]byte, 8*size)
 		reverse := make([]byte, size)
 		rand.Seed(int64(jj))
-		n := 0
+
+		// Generate random data with runs
+		// Leave zeros at the beginning for ZRLT to succeed
+		n := iter / 20
 
 		for n < len(input) {
-			val := byte(rand.Intn(255))
+			val := byte(rand.Intn(4))
+
+			if val%7 == 0 {
+				val = 0
+			}
+
 			input[n] = val
 			n++
 			run := rand.Intn(55)
@@ -118,22 +169,20 @@ func BenchmarkMTFT(b *testing.B) {
 		var err error
 
 		for ii := 0; ii < iter; ii++ {
-			f, _ := transform.NewSBRT(transform.SBRT_MODE_MTF)
+			f, _ := getTransform(name)
 
 			_, dstIdx, err = f.Forward(input, output)
 
 			if err != nil {
-				msg := fmt.Sprintf("Encoding error : %v\n", err)
-				b.Fatalf(msg)
+				return err
 			}
 		}
 
 		for ii := 0; ii < iter; ii++ {
-			f, _ := transform.NewSBRT(transform.SBRT_MODE_MTF)
+			f, _ := getTransform(name)
 
 			if _, _, err = f.Inverse(output[0:dstIdx], reverse); err != nil {
-				msg := fmt.Sprintf("Decoding error : %v\n", err)
-				b.Fatalf(msg)
+				return err
 			}
 		}
 
@@ -148,9 +197,11 @@ func BenchmarkMTFT(b *testing.B) {
 		}
 
 		if idx >= 0 {
-			msg := fmt.Sprintf("Failure at index %v (%v <-> %v)\n", idx, input[idx], reverse[idx])
-			b.Fatalf(msg)
+			err := fmt.Errorf("Failure at index %v (%v <-> %v)\n", idx, input[idx], reverse[idx])
+			return err
 		}
 
 	}
+
+	return nil
 }
