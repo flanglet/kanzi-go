@@ -414,12 +414,12 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
-	if dstIdx+tkIdx+mIdx > len(dst) {
-		return 0, 0, errors.New("Output block too small")
-	}
-
 	// Emit last literals
 	litLen := count - anchor
+
+	if dstIdx+litLen+tkIdx+mIdx >= count {
+		return uint(count), uint(dstIdx), errors.New("No compression")
+	}
 
 	if litLen >= 7 {
 		this.tkBuf[tkIdx] = byte(7 << 5)
@@ -440,14 +440,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 	dstIdx += tkIdx
 	copy(dst[dstIdx:], this.mBuf[0:mIdx])
 	dstIdx += mIdx
-
-	var err error
-
-	if dstIdx >= count {
-		err = errors.New("No compression")
-	}
-
-	return uint(count), uint(dstIdx), err
+	return uint(count), uint(dstIdx), nil
 }
 
 func findMatch(src []byte, srcIdx, ref, maxMatch int) int {
