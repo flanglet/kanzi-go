@@ -36,7 +36,7 @@ type CMPredictor struct {
 
 // NewCMPredictor creates a new instance of CMPredictor
 func NewCMPredictor() (*CMPredictor, error) {
-	this := new(CMPredictor)
+	this := &CMPredictor{}
 	this.ctx = 1
 	this.runMask = 0
 	this.idx = 8

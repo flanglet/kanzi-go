@@ -19,6 +19,7 @@ import (
 	"errors"
 )
 
+// DataType captures the type of input data
 type DataType int
 
 const (
@@ -84,7 +85,6 @@ var LOG2_4096 = [...]uint32{
 
 //  65536 /(1 + exp(-alpha*x)) with alpha ~= 0.54
 var _INV_EXP = [33]int{
-	// alpha = 0.54
 	0, 8, 22, 47, 88, 160, 283, 492,
 	848, 1451, 2459, 4117, 6766, 10819, 16608, 24127,
 	32768, 41409, 48928, 54717, 58770, 61419, 63077, 64085,

@@ -739,7 +739,7 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 	var err error
 
 	if (srcIdx != count) || (dstIdx >= count-(count>>6)) {
-		err = errors.New("LZP forward transform failed: output mBuf too small")
+		err = errors.New("LZP forward transform failed: output buffer too small")
 	}
 
 	return uint(srcIdx), uint(dstIdx), err
@@ -822,13 +822,13 @@ func (this *LZPCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	var err error
 
 	if srcIdx != srcEnd {
-		err = errors.New("LZP inverse transform failed: output mBuf too small")
+		err = errors.New("LZP inverse transform failed: output buffer too small")
 	}
 
 	return uint(srcIdx), uint(dstIdx), err
 }
 
-// MaxEncodedLen returns the max size required for the encoding output mBuf
+// MaxEncodedLen returns the max size required for the encoding output buffer
 func (this LZPCodec) MaxEncodedLen(srcLen int) int {
 	if srcLen <= 1024 {
 		return srcLen + 16
