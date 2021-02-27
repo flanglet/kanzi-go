@@ -304,7 +304,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	srcIdx := 0
 	dstIdx := 0
 	srcEnd := len(src) - 4
-	binary.LittleEndian.PutUint32(dst[dstIdx:], uint32(len(src)))
+	binary.BigEndian.PutUint32(dst[dstIdx:], uint32(len(src)))
 	dstIdx += 4
 	sizeChunk := len(src)
 
@@ -528,7 +528,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 	startChunk := 0
 	var is util.BufferStream
-	dstEnd := int(binary.LittleEndian.Uint32(src[0:])) - 4
+	dstEnd := int(binary.BigEndian.Uint32(src[0:])) - 4
 
 	if _, err := is.Write(src[4:]); err != nil {
 		return 0, 0, err
@@ -914,7 +914,7 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	startChunk := 0
-	binary.LittleEndian.PutUint32(dst[dstIdx:], uint32(len(src)))
+	binary.BigEndian.PutUint32(dst[dstIdx:], uint32(len(src)))
 	dstIdx += 4
 	re, _ := newRolzEncoder(9, this.logPosChecks, dst, &dstIdx)
 
@@ -1002,7 +1002,7 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	srcIdx := 0
 	dstIdx := 0
-	dstEnd := int(binary.LittleEndian.Uint32(src[srcIdx:]))
+	dstEnd := int(binary.BigEndian.Uint32(src[srcIdx:]))
 
 	srcIdx += 4
 	sizeChunk := len(dst)
@@ -1197,7 +1197,7 @@ func (this *rolzEncoder) encodeBit(bit int) {
 
 	// Write unchanged first 32 bits to bitstream
 	for (this.low^this.high)>>24 == 0 {
-		binary.LittleEndian.PutUint32(this.buf[*this.idx:*this.idx+4], uint32(this.high>>32))
+		binary.BigEndian.PutUint32(this.buf[*this.idx:*this.idx+4], uint32(this.high>>32))
 		*this.idx += 4
 		this.low <<= 32
 		this.high = (this.high << 32) | _MASK_0_32
@@ -1304,7 +1304,7 @@ func (this *rolzDecoder) decodeBit() int {
 	for (this.low^this.high)>>24 == 0 {
 		this.low = (this.low << 32) & _MASK_0_56
 		this.high = ((this.high << 32) | _MASK_0_32) & _MASK_0_56
-		val := uint64(binary.LittleEndian.Uint32(this.buf[*this.idx : *this.idx+4]))
+		val := uint64(binary.BigEndian.Uint32(this.buf[*this.idx : *this.idx+4]))
 		this.current = ((this.current << 32) | val) & _MASK_0_56
 		*this.idx += 4
 	}

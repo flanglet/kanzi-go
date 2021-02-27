@@ -148,7 +148,7 @@ func (this *DefaultInputBitStream) ReadArray(bits []byte, count uint) uint {
 			v := this.current & ((uint64(1) << this.availBits) - 1)
 			this.pullCurrent()
 			this.availBits -= r
-			binary.LittleEndian.PutUint64(bits[start:start+8], (v<<uint(r))|(this.current>>uint(this.availBits)))
+			binary.BigEndian.PutUint64(bits[start:start+8], (v<<uint(r))|(this.current>>uint(this.availBits)))
 			start += 8
 			remaining -= 64
 		}
@@ -228,7 +228,7 @@ func (this *DefaultInputBitStream) pullCurrent() {
 		this.current = val
 	} else {
 		// Regular processing, buffer length is multiple of 8
-		this.current = binary.LittleEndian.Uint64(this.buffer[this.position : this.position+8])
+		this.current = binary.BigEndian.Uint64(this.buffer[this.position : this.position+8])
 		this.availBits = 64
 		this.position += 8
 	}

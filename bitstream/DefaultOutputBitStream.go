@@ -143,7 +143,7 @@ func (this *DefaultOutputBitStream) WriteArray(bits []byte, count uint) uint {
 			r := 64 - this.availBits
 
 			for remaining >= 64 {
-				value := binary.LittleEndian.Uint64(bits[start : start+8])
+				value := binary.BigEndian.Uint64(bits[start : start+8])
 				this.current |= (value >> r)
 				this.pushCurrent()
 				this.current = (value << (64 - r))
@@ -171,7 +171,7 @@ func (this *DefaultOutputBitStream) WriteArray(bits []byte, count uint) uint {
 
 // Push 64 bits of current value into buffer.
 func (this *DefaultOutputBitStream) pushCurrent() {
-	binary.LittleEndian.PutUint64(this.buffer[this.position:this.position+8], this.current)
+	binary.BigEndian.PutUint64(this.buffer[this.position:this.position+8], this.current)
 	this.availBits = 64
 	this.current = 0
 	this.position += 8

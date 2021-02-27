@@ -156,7 +156,7 @@ func (this *FPAQEncoder) Write(block []byte) (int, error) {
 }
 
 func (this *FPAQEncoder) flush() {
-	binary.LittleEndian.PutUint32(this.buffer[this.index:], uint32(this.high>>24))
+	binary.BigEndian.PutUint32(this.buffer[this.index:], uint32(this.high>>24))
 	this.index += 4
 	this.low <<= 32
 	this.high = (this.high << 32) | _MASK_0_32
@@ -250,7 +250,7 @@ func (this *FPAQDecoder) decodeBit(pred int) byte {
 func (this *FPAQDecoder) read() {
 	this.low = (this.low << 32) & _MASK_0_56
 	this.high = ((this.high << 32) | _MASK_0_32) & _MASK_0_56
-	val := uint64(binary.LittleEndian.Uint32(this.buffer[this.index:]))
+	val := uint64(binary.BigEndian.Uint32(this.buffer[this.index:]))
 	this.current = ((this.current << 32) | val) & _MASK_0_56
 	this.index += 4
 }
