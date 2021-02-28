@@ -16,9 +16,10 @@ limitations under the License.
 package entropy
 
 const (
-	_FAST_RATE   = 2
-	_MEDIUM_RATE = 4
-	_SLOW_RATE   = 6
+	_CM_FAST_RATE   = 2
+	_CM_MEDIUM_RATE = 4
+	_CM_SLOW_RATE   = 6
+	_CM_PSCALE      = 65536
 )
 
 // CMPredictor context model predictor based on BCM by Ilya Muravyov.
@@ -39,28 +40,25 @@ func NewCMPredictor() (*CMPredictor, error) {
 	this := &CMPredictor{}
 	this.ctx = 1
 	this.runMask = 0
-	this.idx = 8
+	this.idx = 1
 
 	for i := 0; i < 256; i++ {
 		this.counter1[i] = make([]int32, 257)
-		this.counter2[i+i] = make([]int32, 17)
-		this.counter2[i+i+1] = make([]int32, 17)
+		this.counter2[i+i] = make([]int32, 16)
+		this.counter2[i+i+1] = make([]int32, 16)
 
 		for j := 0; j <= 256; j++ {
-			this.counter1[i][j] = 32768
+			this.counter1[i][j] = _CM_PSCALE >> 1
 		}
 
 		for j := 0; j < 16; j++ {
 			this.counter2[i+i][j] = int32(j << 12)
 			this.counter2[i+i+1][j] = int32(j << 12)
 		}
-
-		this.counter2[i+i][16] = 65520
-		this.counter2[i+i+1][16] = 65520
 	}
 
 	pc1 := this.counter1[this.ctx]
-	this.p = int(13*pc1[256]+14*pc1[this.c1]+5*pc1[this.c2]) >> 5
+	this.p = int(13*(pc1[256]+pc1[this.c1])+6*pc1[this.c2]) >> 5
 	return this, nil
 }
 
@@ -71,13 +69,13 @@ func (this *CMPredictor) Update(bit byte) {
 	this.ctx += (this.ctx + int32(bit))
 
 	if bit == 0 {
-		pc1[256] -= (pc1[256] >> _FAST_RATE)
-		pc1[this.c1] -= (pc1[this.c1] >> _MEDIUM_RATE)
-		pc2[this.idx] -= (pc2[this.idx] >> _SLOW_RATE)
+		pc1[256] -= (pc1[256] >> _CM_FAST_RATE)
+		pc1[this.c1] -= (pc1[this.c1] >> _CM_MEDIUM_RATE)
+		pc2[this.idx] -= (pc2[this.idx] >> _CM_SLOW_RATE)
 	} else {
-		pc1[256] += ((0xFFFF - pc1[256]) >> _FAST_RATE)
-		pc1[this.c1] += ((0xFFFF - pc1[this.c1]) >> _MEDIUM_RATE)
-		pc2[this.idx] += ((0xFFFF - pc2[this.idx]) >> _SLOW_RATE)
+		pc1[256] -= ((pc1[256] - _CM_PSCALE + 16) >> _CM_FAST_RATE)
+		pc1[this.c1] -= ((pc1[this.c1] - _CM_PSCALE + 16) >> _CM_MEDIUM_RATE)
+		pc2[this.idx] -= ((pc2[this.idx] - _CM_PSCALE + 16) >> _CM_SLOW_RATE)
 	}
 
 	if this.ctx > 255 {
