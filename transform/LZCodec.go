@@ -40,7 +40,7 @@ const (
 	_LZP_HASH_SEED          = 0x7FEB352D
 	_LZP_HASH_LOG           = 16
 	_LZP_HASH_SHIFT         = 32 - _LZP_HASH_LOG
-	_LZP_MIN_MATCH          = 64
+	_LZP_MIN_MATCH          = 96
 	_LZP_MATCH_FLAG         = 0xFC
 	_LZP_MIN_BLOCK_LENGTH   = 128
 )

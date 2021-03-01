@@ -44,8 +44,8 @@ func NewCMPredictor() (*CMPredictor, error) {
 
 	for i := 0; i < 256; i++ {
 		this.counter1[i] = make([]int32, 257)
-		this.counter2[i+i] = make([]int32, 16)
-		this.counter2[i+i+1] = make([]int32, 16)
+		this.counter2[i+i] = make([]int32, 17)
+		this.counter2[i+i+1] = make([]int32, 17)
 
 		for j := 0; j <= 256; j++ {
 			this.counter1[i][j] = _CM_PSCALE >> 1
@@ -55,6 +55,9 @@ func NewCMPredictor() (*CMPredictor, error) {
 			this.counter2[i+i][j] = int32(j << 12)
 			this.counter2[i+i+1][j] = int32(j << 12)
 		}
+
+		this.counter2[i+i][16] = int32(15 << 12)
+		this.counter2[i+i+1][16] = int32(15 << 12)
 	}
 
 	pc1 := this.counter1[this.ctx]
@@ -72,10 +75,12 @@ func (this *CMPredictor) Update(bit byte) {
 		pc1[256] -= (pc1[256] >> _CM_FAST_RATE)
 		pc1[this.c1] -= (pc1[this.c1] >> _CM_MEDIUM_RATE)
 		pc2[this.idx] -= (pc2[this.idx] >> _CM_SLOW_RATE)
+		pc2[this.idx+1] -= (pc2[this.idx+1] >> _CM_SLOW_RATE)
 	} else {
 		pc1[256] -= ((pc1[256] - _CM_PSCALE + 16) >> _CM_FAST_RATE)
 		pc1[this.c1] -= ((pc1[this.c1] - _CM_PSCALE + 16) >> _CM_MEDIUM_RATE)
 		pc2[this.idx] -= ((pc2[this.idx] - _CM_PSCALE + 16) >> _CM_SLOW_RATE)
+		pc2[this.idx+1] -= ((pc2[this.idx+1] - _CM_PSCALE + 16) >> _CM_SLOW_RATE)
 	}
 
 	if this.ctx > 255 {
@@ -100,5 +105,8 @@ func (this *CMPredictor) Update(bit byte) {
 // bit counters.
 func (this *CMPredictor) Get() int {
 	pc2 := this.counter2[this.ctx|this.runMask]
-	return (this.p + 3*int(pc2[this.idx]) + 32) >> 6 // rescale to [0..4095]
+	x2 := int(pc2[this.idx+1])
+	x1 := int(pc2[this.idx])
+	ssep := x1 + (((x2 - x1) * (this.p & 4095)) >> 12)
+	return (this.p + 3*ssep + 32) >> 6 // rescale to [0..4095]
 }

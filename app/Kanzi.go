@@ -322,7 +322,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 				log.Println("        Providing this option forces entropy and transform.", true)
 				log.Println("        0=None&None (store), 1=TEXT+LZ&HUFFMAN, 2=TEXT+FSD+LZX&HUFFMAN", true)
 				log.Println("        3=TEXT+FSD+ROLZ, 4=TEXT+FSD+ROLZX, 5=TEXT+BWT+RANK+ZRLT&ANS0", true)
-				log.Println("        6=TEXT+BWT+SRT+ZRLT&FPAQ, 7=LZP+TEXT+BWT&CM, 8=X86+RLT+TEXT&TPAQ", true)
+				log.Println("        6=TEXT+BWT+SRT+ZRLT&FPAQ, 7=LZP+TEXT+BWT+LZP&CM, 8=X86+RLT+TEXT&TPAQ", true)
 				log.Println("        9=X86+RLT+TEXT&TPAQX\n", true)
 				log.Println("   -e, --entropy=<codec>", true)
 				log.Println("        entropy codec [None|Huffman|ANS0|ANS1|Range|FPAQ|TPAQ|TPAQX|CM]", true)
