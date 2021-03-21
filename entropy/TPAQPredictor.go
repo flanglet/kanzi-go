@@ -164,9 +164,9 @@ func hashTPAQ(x, y int32) int32 {
 // It uses a mixer to combine initial predictions derived for several
 // local contexts and a secondary symbol estimation to improve the
 // prediction from the mixer.
-// It is a heavily modified version of Tangelo 2.4 (by Jan Ondrus), itself
-// derived from PAQ8 (by Matt Mahoney).
-// See http://encode.ru/threads/1738-TANGELO-new-compressor-(derived-from-PAQ8-FP8)
+// Initially based on Tangelo 2.4 (by Jan Ondrus).
+// PAQ8 is written by Matt Mahoney.
+// See http://encode.su/threads/1738-TANGELO-new-compressor-(derived-from-PAQ8-FP8)
 type TPAQPredictor struct {
 	pr              int   // next predicted value (0-4095)
 	c0              int32 // bitwise context: last 0-7 bits with a leading 1 (1-255)
@@ -240,9 +240,9 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 		}
 
 		if rbsz >= 64*1024*1024 {
-			statesSize = 1 << 29
-		} else if rbsz >= 16*1024*1024 {
 			statesSize = 1 << 28
+		} else if rbsz >= 16*1024*1024 {
+			statesSize = 1 << 27
 		} else if rbsz >= 4*1024*1024 {
 			statesSize = 1 << 26
 		} else if rbsz >= 1024*1024 {
@@ -261,17 +261,17 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 		}
 
 		if absz >= 32*1024*1024 {
-			mixersSize = 1 << 17
-		} else if absz >= 16*1024*1024 {
 			mixersSize = 1 << 16
+		} else if absz >= 16*1024*1024 {
+			mixersSize = 1 << 15
 		} else if absz >= 8*1024*1024 {
 			mixersSize = 1 << 14
 		} else if absz >= 4*1024*1024 {
-			mixersSize = 1 << 12
+			mixersSize = 1 << 13
 		} else if absz >= 1024*1024 {
-			mixersSize = 1 << 10
+			mixersSize = 1 << 11
 		} else {
-			mixersSize = 1 << 9
+			mixersSize = 1 << 8
 		}
 
 		if bufferSize > rbsz {
@@ -283,8 +283,8 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 		}
 	}
 
-	mixersSize <<= extraMem
-	statesSize <<= extraMem
+	mixersSize <<= (2 * extraMem)
+	statesSize <<= (2 * extraMem)
 	hashSize <<= (2 * extraMem)
 
 	this.mixers = make([]TPAQMixer, mixersSize)
@@ -490,11 +490,11 @@ func (this *TPAQPredictor) findMatch() {
 			t := this.matchPos - r
 
 			for r <= _TPAQ_MAX_LENGTH {
-				if this.buffer[s&this.bufferMask] != this.buffer[t&this.bufferMask] {
+				if this.buffer[(s-1)&this.bufferMask] != this.buffer[(t-1)&this.bufferMask] {
 					break
 				}
 
-				if this.buffer[(s-1)&this.bufferMask] != this.buffer[(t-1)&this.bufferMask] {
+				if this.buffer[s&this.bufferMask] != this.buffer[t&this.bufferMask] {
 					break
 				}
 

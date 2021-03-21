@@ -43,7 +43,13 @@ type FastLogisticAdaptiveProbMap AdaptiveProbMap
 
 func newLogisticAdaptiveProbMap(n, rate uint) (*LogisticAdaptiveProbMap, error) {
 	this := &LogisticAdaptiveProbMap{}
-	this.data = make([]uint16, n*33)
+	size := n * 33
+
+	if size == 0 {
+		size = 33
+	}
+
+	this.data = make([]uint16, size)
 	this.rate = rate
 
 	for j := 0; j <= 32; j++ {
@@ -100,7 +106,13 @@ func (this *FastLogisticAdaptiveProbMap) get(bit int, pr int, ctx int) int {
 
 func newLinearAdaptiveProbMap(n, rate uint) (*LinearAdaptiveProbMap, error) {
 	this := &LinearAdaptiveProbMap{}
-	this.data = make([]uint16, n*65)
+	size := n * 65
+
+	if size == 0 {
+		size = 65
+	}
+
+	this.data = make([]uint16, size)
 	this.rate = rate
 
 	for j := 0; j <= 64; j++ {
