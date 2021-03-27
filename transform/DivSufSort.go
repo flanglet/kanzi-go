@@ -173,17 +173,28 @@ func (this *DivSufSort) constructSuffixArray(bucketA, bucketB []int32, n, m int3
 	}
 }
 
-// ComputeBWT generates the BWT  for the given data and returns it
-// in the 'sa' slice.
-func (this *DivSufSort) ComputeBWT(src []byte, sa []int32) int32 {
+// ComputeBWT generates the BWT for the given data and return the primary index
+func (this *DivSufSort) ComputeBWT(src, dst []byte, bwt []int32) int32 {
 	// Lazy dynamic memory allocation
 	this.buffer = src
-	this.sa = sa
+	this.sa = bwt
 	this.reset()
 	var bucketA [256]int32
 	var bucketB [65536]int32
-	m := this.sortTypeBstar(bucketA[:], bucketB[:], int32(len(src)))
-	return this.constructBWT(bucketA[:], bucketB[:], int32(len(src)), m)
+	length := int32(len(src))
+	m := this.sortTypeBstar(bucketA[:], bucketB[:], length)
+	pIdx := this.constructBWT(bucketA[:], bucketB[:], length, m)
+	dst[0] = src[length-1]
+
+	for i := int32(0); i < pIdx; i++ {
+		dst[i+1] = byte(bwt[i])
+	}
+
+	for i := pIdx + 1; i < length; i++ {
+		dst[i] = byte(bwt[i])
+	}
+
+	return pIdx + 1
 }
 
 func (this *DivSufSort) constructBWT(bucketA, bucketB []int32, n, m int32) int32 {

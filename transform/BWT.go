@@ -165,30 +165,13 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	sa := this.buffer2
-	this.saAlgo.ComputeSuffixArray(src[0:count], sa[0:count])
 	chunks := GetBWTChunks(count)
 
 	if chunks == 1 {
-		dst[0] = src[count-1]
-		n := 0
-
-		for n < count {
-			if sa[n] == 0 {
-				break
-			}
-
-			dst[n+1] = src[sa[n]-1]
-			n++
-		}
-
-		n++
-		this.SetPrimaryIndex(0, uint(n))
-
-		for n < count {
-			dst[n] = src[sa[n]-1]
-			n++
-		}
+		pIdx := this.saAlgo.ComputeBWT(src[0:count], dst, sa[0:count])
+		this.SetPrimaryIndex(0, uint(pIdx))
 	} else {
+		this.saAlgo.ComputeSuffixArray(src[0:count], sa[0:count])
 		step := int32(count / chunks)
 
 		if int(step)*chunks != count {
