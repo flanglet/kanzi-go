@@ -534,7 +534,7 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 		}
 
 		// Unblock other tasks
-		if res != nil {
+		if res.err != nil {
 			atomic.StoreInt32(this.processedBlockID, _CANCEL_TASKS_ID)
 		} else if atomic.LoadInt32(this.processedBlockID) == this.currentBlockID-1 {
 			atomic.StoreInt32(this.processedBlockID, this.currentBlockID)
