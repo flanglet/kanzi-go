@@ -24,10 +24,11 @@ import (
 )
 
 const (
-	_BWT_MAX_BLOCK_SIZE = 1024 * 1024 * 1024 // 1 GB
-	_BWT_MAX_CHUNKS     = 8
-	_BWT_NB_FASTBITS    = 17
-	_BWT_MASK_FASTBITS  = 1 << _BWT_NB_FASTBITS
+	_BWT_MAX_BLOCK_SIZE        = 1024 * 1024 * 1024 // 1 GB
+	_BWT_NB_FASTBITS           = 17
+	_BWT_MASK_FASTBITS         = 1 << _BWT_NB_FASTBITS
+	_BWT_BLOCK_SIZE_THRESHOLD1 = 256
+	_BWT_BLOCK_SIZE_THRESHOLD2 = 4 * 1024 * 1024
 )
 
 // The Burrows-Wheeler Transform is a reversible transform based on
@@ -243,14 +244,14 @@ func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	// Find the fastest way to implement inverse based on block size
-	if count < 4*1024*1024 {
+	if count <= _BWT_BLOCK_SIZE_THRESHOLD2 {
 		return this.inverseSmallBlock(src, dst, count)
 	}
 
 	return this.inverseBigBlock(src, dst, count)
 }
 
-// When count < 4M, mergeTPSI algo. Always in one chunk
+// When count <= 4M, mergeTPSI algo. Always in one chunk
 func (this *BWT) inverseSmallBlock(src, dst []byte, count int) (uint, uint, error) {
 	// Lazy dynamic memory allocation
 	if len(this.buffer1) < count {
@@ -293,18 +294,57 @@ func (this *BWT) inverseSmallBlock(src, dst []byte, count int) (uint, uint, erro
 		buckets[val]++
 	}
 
-	t := uint32(pIdx - 1)
+	if count < _BWT_BLOCK_SIZE_THRESHOLD1 {
+		t := uint32(pIdx - 1)
 
-	for i := range src {
-		ptr := data[t]
-		dst[i] = byte(ptr)
-		t = ptr >> 8
+		for i := range src {
+			ptr := data[t]
+			dst[i] = byte(ptr)
+			t = ptr >> 8
+		}
+	} else {
+		ckSize := count >> 3
+		t0 := uint32(this.PrimaryIndex(0) - 1)
+		t1 := uint32(this.PrimaryIndex(1) - 1)
+		t2 := uint32(this.PrimaryIndex(2) - 1)
+		t3 := uint32(this.PrimaryIndex(3) - 1)
+		t4 := uint32(this.PrimaryIndex(4) - 1)
+		t5 := uint32(this.PrimaryIndex(5) - 1)
+		t6 := uint32(this.PrimaryIndex(6) - 1)
+		t7 := uint32(this.PrimaryIndex(7) - 1)
+
+		for i := 0; i < ckSize; i++ {
+			ptr0 := data[t0]
+			dst[i] = byte(ptr0)
+			t0 = ptr0 >> 8
+			ptr1 := data[t1]
+			dst[i+ckSize*1] = byte(ptr1)
+			t1 = ptr1 >> 8
+			ptr2 := data[t2]
+			dst[i+ckSize*2] = byte(ptr2)
+			t2 = ptr2 >> 8
+			ptr3 := data[t3]
+			dst[i+ckSize*3] = byte(ptr3)
+			t3 = ptr3 >> 8
+			ptr4 := data[t4]
+			dst[i+ckSize*4] = byte(ptr4)
+			t4 = ptr4 >> 8
+			ptr5 := data[t5]
+			dst[i+ckSize*5] = byte(ptr5)
+			t5 = ptr5 >> 8
+			ptr6 := data[t6]
+			dst[i+ckSize*6] = byte(ptr6)
+			t6 = ptr6 >> 8
+			ptr7 := data[t7]
+			dst[i+ckSize*7] = byte(ptr7)
+			t7 = ptr7 >> 8
+		}
 	}
 
 	return uint(count), uint(count), nil
 }
 
-// When count >= 1<<24, biPSIv2 algo. Possibly multiple chunks
+// When count > 4M, biPSIv2 algo. Possibly multiple chunks
 func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error) {
 	// Lazy dynamic memory allocations
 	if len(this.buffer1) < count+1 {
@@ -430,51 +470,36 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 	chunks := GetBWTChunks(count)
 
 	// Build inverse
-	if chunks == 1 {
-		// Shortcut for 1 chunk scenario
-		for i, p := 1, pIdx; i < count; i += 2 {
-			c := fastBits[p>>shift]
+	// Several chunks may be decoded concurrently (depending on the availability
+	// of jobs for this block).
+	ckSize := count / chunks
 
-			for buckets[c] <= p {
-				c++
-			}
-
-			dst[i-1] = byte(c >> 8)
-			dst[i] = byte(c)
-			p = int(data[p])
-		}
-	} else {
-		// Several chunks may be decoded concurrently (depending on the availability
-		// of jobs for this block).
-		ckSize := count / chunks
-
-		if ckSize*chunks != count {
-			ckSize++
-		}
-
-		nbTasks := int(this.jobs)
-
-		if nbTasks > chunks {
-			nbTasks = chunks
-		}
-
-		jobsPerTask := kanzi.ComputeJobsPerTask(make([]uint, nbTasks), uint(chunks), uint(nbTasks))
-		var wg sync.WaitGroup
-
-		for j, c := 0, 0; j < nbTasks; j++ {
-			wg.Add(1)
-			start := c * ckSize
-
-			go func(dst []byte, buckets []int, fastBits []uint16, indexes []uint, total, start, ckSize, firstChunk, lastChunk int) {
-				this.inverseChunkTask(dst, buckets, fastBits, indexes, total, start, ckSize, firstChunk, lastChunk)
-				wg.Done()
-			}(dst, buckets[:], fastBits, this.primaryIndexes[:], count, start, ckSize, c, c+int(jobsPerTask[j]))
-
-			c += int(jobsPerTask[j])
-		}
-
-		wg.Wait()
+	if ckSize*chunks != count {
+		ckSize++
 	}
+
+	nbTasks := int(this.jobs)
+
+	if nbTasks > chunks {
+		nbTasks = chunks
+	}
+
+	jobsPerTask := kanzi.ComputeJobsPerTask(make([]uint, nbTasks), uint(chunks), uint(nbTasks))
+	var wg sync.WaitGroup
+
+	for j, c := 0, 0; j < nbTasks; j++ {
+		wg.Add(1)
+		start := c * ckSize
+
+		go func(dst []byte, buckets []int, fastBits []uint16, indexes []uint, total, start, ckSize, firstChunk, lastChunk int) {
+			this.inverseChunkTask(dst, buckets, fastBits, indexes, total, start, ckSize, firstChunk, lastChunk)
+			wg.Done()
+		}(dst, buckets[:], fastBits, this.primaryIndexes[:], count, start, ckSize, c, c+int(jobsPerTask[j]))
+
+		c += int(jobsPerTask[j])
+	}
+
+	wg.Wait()
 
 	dst[count-1] = byte(lastc)
 	return uint(count), uint(count), nil
@@ -520,17 +545,11 @@ func MaxBWTBlockSize() int {
 
 // GetBWTChunks returns the number of chunks for a given block size
 func GetBWTChunks(size int) int {
-	if size < 4*1024*1024 {
+	if size < _BWT_BLOCK_SIZE_THRESHOLD1 {
 		return 1
 	}
 
-	res := (size + (1 << 21)) >> 22
-
-	if res > _BWT_MAX_CHUNKS {
-		return _BWT_MAX_CHUNKS
-	}
-
-	return res
+	return 8
 }
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
