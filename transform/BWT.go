@@ -28,7 +28,7 @@ const (
 	_BWT_NB_FASTBITS           = 17
 	_BWT_MASK_FASTBITS         = 1 << _BWT_NB_FASTBITS
 	_BWT_BLOCK_SIZE_THRESHOLD1 = 256
-	_BWT_BLOCK_SIZE_THRESHOLD2 = 4 * 1024 * 1024
+	_BWT_BLOCK_SIZE_THRESHOLD2 = 8 * 1024 * 1024
 )
 
 // The Burrows-Wheeler Transform is a reversible transform based on
@@ -69,8 +69,7 @@ const (
 
 // BWT Burrows Wheeler Transform
 type BWT struct {
-	buffer1        []uint32
-	buffer2        []int32
+	buffer         []int32
 	primaryIndexes [8]uint
 	saAlgo         *DivSufSort
 	jobs           uint
@@ -79,8 +78,7 @@ type BWT struct {
 // NewBWT creates a new BWT instance with 1 job
 func NewBWT() (*BWT, error) {
 	this := new(BWT)
-	this.buffer1 = make([]uint32, 0)
-	this.buffer2 = make([]int32, 0)
+	this.buffer = make([]int32, 0)
 	this.primaryIndexes = [8]uint{}
 	this.jobs = 1
 	return this, nil
@@ -90,8 +88,7 @@ func NewBWT() (*BWT, error) {
 // from the provided map or arguments.
 func NewBWTWithCtx(ctx *map[string]interface{}) (*BWT, error) {
 	this := new(BWT)
-	this.buffer1 = make([]uint32, 0)
-	this.buffer2 = make([]int32, 0)
+	this.buffer = make([]int32, 0)
 	this.primaryIndexes = [8]uint{}
 
 	if _, containsKey := (*ctx)["jobs"]; containsKey {
@@ -161,11 +158,11 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	// Lazy dynamic memory allocation
-	if len(this.buffer2) < count {
-		this.buffer2 = make([]int32, count)
+	if len(this.buffer) < count {
+		this.buffer = make([]int32, count)
 	}
 
-	sa := this.buffer2
+	sa := this.buffer
 	chunks := GetBWTChunks(count)
 
 	if chunks == 1 {
@@ -174,11 +171,6 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 	} else {
 		this.saAlgo.ComputeSuffixArray(src[0:count], sa[0:count])
 		step := int32(count / chunks)
-
-		if int(step)*chunks != count {
-			step++
-		}
-
 		dst[0] = src[count-1]
 		idx := 0
 
@@ -245,25 +237,29 @@ func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 
 	// Find the fastest way to implement inverse based on block size
 	if count <= _BWT_BLOCK_SIZE_THRESHOLD2 {
-		return this.inverseSmallBlock(src, dst, count)
+		return this.inverseMergeTPSI(src, dst, count)
 	}
 
-	return this.inverseBigBlock(src, dst, count)
+	if count < 1<<24 && this.jobs == 1 {
+		return this.inverseMergeTPSI(src, dst, count)
+	}
+
+	return this.inverseBiPSIv2(src, dst, count)
 }
 
-// When count <= 4M, mergeTPSI algo. Always in one chunk
-func (this *BWT) inverseSmallBlock(src, dst []byte, count int) (uint, uint, error) {
+// When count <= _BWT_BLOCK_SIZE_THRESHOLD2, mergeTPSI algo. Always in one chunk
+func (this *BWT) inverseMergeTPSI(src, dst []byte, count int) (uint, uint, error) {
 	// Lazy dynamic memory allocation
-	if len(this.buffer1) < count {
+	if len(this.buffer) < count {
 		if count <= 64 {
-			this.buffer1 = make([]uint32, 64)
+			this.buffer = make([]int32, 64)
 		} else {
-			this.buffer1 = make([]uint32, count)
+			this.buffer = make([]int32, count)
 		}
 	}
 
 	// Aliasing
-	data := this.buffer1
+	data := this.buffer
 
 	// Build array of packed index + value (assumes block size < 2^24)
 	pIdx := int(this.PrimaryIndex(0))
@@ -283,19 +279,19 @@ func (this *BWT) inverseSmallBlock(src, dst []byte, count int) (uint, uint, erro
 	}
 
 	for i := 0; i < pIdx; i++ {
-		val := uint32(src[i])
-		data[buckets[val]] = uint32((i-1)<<8) | val
+		val := int32(src[i])
+		data[buckets[val]] = int32((i-1)<<8) | val
 		buckets[val]++
 	}
 
 	for i := pIdx; i < count; i++ {
-		val := uint32(src[i])
-		data[buckets[val]] = uint32((i)<<8) | val
+		val := int32(src[i])
+		data[buckets[val]] = int32((i)<<8) | val
 		buckets[val]++
 	}
 
 	if count < _BWT_BLOCK_SIZE_THRESHOLD1 {
-		t := uint32(pIdx - 1)
+		t := int32(pIdx - 1)
 
 		for i := range src {
 			ptr := data[t]
@@ -304,54 +300,60 @@ func (this *BWT) inverseSmallBlock(src, dst []byte, count int) (uint, uint, erro
 		}
 	} else {
 		ckSize := count >> 3
-		t0 := uint32(this.PrimaryIndex(0) - 1)
-		t1 := uint32(this.PrimaryIndex(1) - 1)
-		t2 := uint32(this.PrimaryIndex(2) - 1)
-		t3 := uint32(this.PrimaryIndex(3) - 1)
-		t4 := uint32(this.PrimaryIndex(4) - 1)
-		t5 := uint32(this.PrimaryIndex(5) - 1)
-		t6 := uint32(this.PrimaryIndex(6) - 1)
-		t7 := uint32(this.PrimaryIndex(7) - 1)
+		t0 := int32(this.PrimaryIndex(0) - 1)
+		t1 := int32(this.PrimaryIndex(1) - 1)
+		t2 := int32(this.PrimaryIndex(2) - 1)
+		t3 := int32(this.PrimaryIndex(3) - 1)
+		t4 := int32(this.PrimaryIndex(4) - 1)
+		t5 := int32(this.PrimaryIndex(5) - 1)
+		t6 := int32(this.PrimaryIndex(6) - 1)
+		t7 := int32(this.PrimaryIndex(7) - 1)
+		n := 0
 
-		for i := 0; i < ckSize; i++ {
+		for {
 			ptr0 := data[t0]
-			dst[i] = byte(ptr0)
+			dst[n] = byte(ptr0)
 			t0 = ptr0 >> 8
 			ptr1 := data[t1]
-			dst[i+ckSize*1] = byte(ptr1)
+			dst[n+ckSize*1] = byte(ptr1)
 			t1 = ptr1 >> 8
 			ptr2 := data[t2]
-			dst[i+ckSize*2] = byte(ptr2)
+			dst[n+ckSize*2] = byte(ptr2)
 			t2 = ptr2 >> 8
 			ptr3 := data[t3]
-			dst[i+ckSize*3] = byte(ptr3)
+			dst[n+ckSize*3] = byte(ptr3)
 			t3 = ptr3 >> 8
 			ptr4 := data[t4]
-			dst[i+ckSize*4] = byte(ptr4)
+			dst[n+ckSize*4] = byte(ptr4)
 			t4 = ptr4 >> 8
 			ptr5 := data[t5]
-			dst[i+ckSize*5] = byte(ptr5)
+			dst[n+ckSize*5] = byte(ptr5)
 			t5 = ptr5 >> 8
 			ptr6 := data[t6]
-			dst[i+ckSize*6] = byte(ptr6)
+			dst[n+ckSize*6] = byte(ptr6)
 			t6 = ptr6 >> 8
 			ptr7 := data[t7]
-			dst[i+ckSize*7] = byte(ptr7)
+			dst[n+ckSize*7] = byte(ptr7)
 			t7 = ptr7 >> 8
+			n++
+
+			if ptr7 < 0 {
+				break
+			}
 		}
 	}
 
 	return uint(count), uint(count), nil
 }
 
-// When count > 4M, biPSIv2 algo. Possibly multiple chunks
-func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error) {
+// When count > _BWT_BLOCK_SIZE_THRESHOLD2, biPSIv2 algo. Possibly multiple chunks
+func (this *BWT) inverseBiPSIv2(src, dst []byte, count int) (uint, uint, error) {
 	// Lazy dynamic memory allocations
-	if len(this.buffer1) < count+1 {
+	if len(this.buffer) < count+1 {
 		if count+1 <= 64 {
-			this.buffer1 = make([]uint32, 64)
+			this.buffer = make([]int32, 64)
 		} else {
-			this.buffer1 = make([]uint32, count+1)
+			this.buffer = make([]int32, count+1)
 		}
 	}
 
@@ -425,7 +427,7 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 		}
 	}
 
-	data := this.buffer1
+	data := this.buffer
 
 	for i := 0; i < pIdx; i++ {
 		c := int(src[i])
@@ -434,11 +436,11 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 
 		if p < pIdx {
 			idx := (c << 8) | int(src[p])
-			data[buckets[idx]] = uint32(i)
+			data[buckets[idx]] = int32(i)
 			buckets[idx]++
 		} else if p > pIdx {
 			idx := (c << 8) | int(src[p-1])
-			data[buckets[idx]] = uint32(i)
+			data[buckets[idx]] = int32(i)
 			buckets[idx]++
 		}
 	}
@@ -450,11 +452,11 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 
 		if p < pIdx {
 			idx := (c << 8) | int(src[p])
-			data[buckets[idx]] = uint32(i + 1)
+			data[buckets[idx]] = int32(i + 1)
 			buckets[idx]++
 		} else if p > pIdx {
 			idx := (c << 8) | int(src[p-1])
-			data[buckets[idx]] = uint32(i + 1)
+			data[buckets[idx]] = int32(i + 1)
 			buckets[idx]++
 		}
 	}
@@ -506,7 +508,7 @@ func (this *BWT) inverseBigBlock(src, dst []byte, count int) (uint, uint, error)
 }
 
 func (this *BWT) inverseChunkTask(dst []byte, buckets []int, fastBits []uint16, indexes []uint, total, start, ckSize, firstChunk, lastChunk int) {
-	data := this.buffer1
+	data := this.buffer
 	shift := uint(0)
 
 	for (total >> shift) > _BWT_MASK_FASTBITS {
