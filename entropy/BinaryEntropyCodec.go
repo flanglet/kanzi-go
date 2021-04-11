@@ -182,13 +182,13 @@ func (this *BinaryEntropyEncoder) Dispose() {
 // BinaryEntropyDecoder entropy decoder based on arithmetic coding and
 // using an external probability predictor.
 type BinaryEntropyDecoder struct {
-	predictor   kanzi.Predictor
-	low         uint64
-	high        uint64
-	current     uint64
-	bitstream   kanzi.InputBitStream
-	buffer      []byte
-	index       int
+	predictor kanzi.Predictor
+	low       uint64
+	high      uint64
+	current   uint64
+	bitstream kanzi.InputBitStream
+	buffer    []byte
+	index     int
 }
 
 // NewBinaryEntropyDecoder creates an instance of BinaryEntropyDecoder using the

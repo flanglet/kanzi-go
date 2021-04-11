@@ -40,7 +40,6 @@ func NewCMPredictor() (*CMPredictor, error) {
 	this := &CMPredictor{}
 	this.ctx = 1
 	this.runMask = 0
-	this.idx = 1
 
 	for i := 0; i < 256; i++ {
 		this.counter1[i] = make([]int32, 257)
@@ -62,6 +61,7 @@ func NewCMPredictor() (*CMPredictor, error) {
 
 	pc1 := this.counter1[this.ctx]
 	this.p = int(13*(pc1[256]+pc1[this.c1])+6*pc1[this.c2]) >> 5
+	this.idx = this.p >> 12
 	return this, nil
 }
 
