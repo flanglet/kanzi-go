@@ -171,6 +171,11 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 	} else {
 		this.saAlgo.ComputeSuffixArray(src[0:count], sa[0:count])
 		step := int32(count / chunks)
+
+		if int(step)*chunks != count {
+			step++
+		}
+
 		dst[0] = src[count-1]
 		idx := 0
 
@@ -179,11 +184,12 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 				continue
 			}
 
-			this.SetPrimaryIndex(int(sa[i]/step), uint(i+1))
-			idx++
+			if this.SetPrimaryIndex(int(sa[i]/step), uint(i+1)) {
+				idx++
 
-			if idx == chunks {
-				break
+				if idx == chunks {
+					break
+				}
 			}
 		}
 
@@ -300,6 +306,11 @@ func (this *BWT) inverseMergeTPSI(src, dst []byte, count int) (uint, uint, error
 		}
 	} else {
 		ckSize := count >> 3
+
+		if ckSize*8 != count {
+			ckSize++
+		}
+
 		t0 := int32(this.PrimaryIndex(0) - 1)
 		t1 := int32(this.PrimaryIndex(1) - 1)
 		t2 := int32(this.PrimaryIndex(2) - 1)
@@ -341,12 +352,37 @@ func (this *BWT) inverseMergeTPSI(src, dst []byte, count int) (uint, uint, error
 				break
 			}
 		}
+
+		for n < ckSize {
+			ptr0 := data[t0]
+			dst[n] = byte(ptr0)
+			t0 = ptr0 >> 8
+			ptr1 := data[t1]
+			dst[n+ckSize*1] = byte(ptr1)
+			t1 = ptr1 >> 8
+			ptr2 := data[t2]
+			dst[n+ckSize*2] = byte(ptr2)
+			t2 = ptr2 >> 8
+			ptr3 := data[t3]
+			dst[n+ckSize*3] = byte(ptr3)
+			t3 = ptr3 >> 8
+			ptr4 := data[t4]
+			dst[n+ckSize*4] = byte(ptr4)
+			t4 = ptr4 >> 8
+			ptr5 := data[t5]
+			dst[n+ckSize*5] = byte(ptr5)
+			t5 = ptr5 >> 8
+			ptr6 := data[t6]
+			dst[n+ckSize*6] = byte(ptr6)
+			t6 = ptr6 >> 8
+			n++
+		}
 	}
 
 	return uint(count), uint(count), nil
 }
 
-// When count > _BWT_BLOCK_SIZE_THRESHOLD2, biPSIv2 algo. Possibly multiple chunks
+// When count > _BWT_BLOCK_SIZE_THRESHOLD2, biPSIv2 algo
 func (this *BWT) inverseBiPSIv2(src, dst []byte, count int) (uint, uint, error) {
 	// Lazy dynamic memory allocations
 	if len(this.buffer) < count+1 {
@@ -494,7 +530,7 @@ func (this *BWT) inverseBiPSIv2(src, dst []byte, count int) (uint, uint, error) 
 		start := c * ckSize
 
 		go func(dst []byte, buckets []int, fastBits []uint16, indexes []uint, total, start, ckSize, firstChunk, lastChunk int) {
-			this.inverseChunkTask(dst, buckets, fastBits, indexes, total, start, ckSize, firstChunk, lastChunk)
+			this.inverseBiPSIv2Task(dst, buckets, fastBits, indexes, total, start, ckSize, firstChunk, lastChunk)
 			wg.Done()
 		}(dst, buckets[:], fastBits, this.primaryIndexes[:], count, start, ckSize, c, c+int(jobsPerTask[j]))
 
@@ -507,7 +543,7 @@ func (this *BWT) inverseBiPSIv2(src, dst []byte, count int) (uint, uint, error) 
 	return uint(count), uint(count), nil
 }
 
-func (this *BWT) inverseChunkTask(dst []byte, buckets []int, fastBits []uint16, indexes []uint, total, start, ckSize, firstChunk, lastChunk int) {
+func (this *BWT) inverseBiPSIv2Task(dst []byte, buckets []int, fastBits []uint16, indexes []uint, total, start, ckSize, firstChunk, lastChunk int) {
 	data := this.buffer
 	shift := uint(0)
 
