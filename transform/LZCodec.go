@@ -770,7 +770,7 @@ func (this *LZPCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	dst[1] = src[1]
 	dst[2] = src[2]
 	dst[3] = src[3]
-	ctx := binary.LittleEndian.Uint32(src[:])
+	ctx := binary.LittleEndian.Uint32(dst[:])
 	srcIdx := 4
 	dstIdx := 4
 
