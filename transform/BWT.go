@@ -242,11 +242,7 @@ func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	// Find the fastest way to implement inverse based on block size
-	if count <= _BWT_BLOCK_SIZE_THRESHOLD2 {
-		return this.inverseMergeTPSI(src, dst, count)
-	}
-
-	if count < 1<<24 && this.jobs == 1 {
+	if count <= _BWT_BLOCK_SIZE_THRESHOLD2 && this.jobs == 1 {
 		return this.inverseMergeTPSI(src, dst, count)
 	}
 
