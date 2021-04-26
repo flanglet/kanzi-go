@@ -228,17 +228,6 @@ func computeStats(block []byte, freqs0 []int32, strict bool) byte {
 		nbASCII += int(freqs0[i])
 	}
 
-	// Not text (crude thresholds)
-	if nbTextChars < (count>>1) || freqs0[32] < int32(count>>5) {
-		return _TC_MASK_NOT_TEXT
-	}
-
-	if strict == true {
-		if nbTextChars < (count>>2) || freqs0[0] >= int32(count/100) || (nbASCII/95) < (count/100) {
-			return _TC_MASK_NOT_TEXT
-		}
-	}
-
 	// Not text (crude threshold)
 	var notText bool
 
