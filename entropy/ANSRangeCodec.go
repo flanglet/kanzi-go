@@ -283,27 +283,45 @@ func (this *ANSRangeEncoder) Write(block []byte) (int, error) {
 }
 
 func (this *ANSRangeEncoder) encodeChunk(block []byte) {
-	st := _ANS_TOP
+	st0 := _ANS_TOP
+	st1 := _ANS_TOP
 	n := len(this.buffer) - 1
 
 	if this.order == 0 {
 		symb := this.symbols[0:256]
+		start := len(block) - 1
 
-		for i := len(block) - 1; i >= 0; i-- {
-			sym := symb[block[i]]
+		if len(block)&1 != 0 {
+			this.buffer[n] = block[start]
+			start--
+			n--
+		}
 
-			for st >= sym.xMax {
-				this.buffer[n] = byte(st)
-				st >>= 8
-				this.buffer[n-1] = byte(st)
-				st >>= 8
+		for i := start; i > 0; i -= 2 {
+			sym0 := symb[block[i]]
+			sym1 := symb[block[i-1]]
+
+			for st0 >= sym0.xMax {
+				this.buffer[n] = byte(st0)
+				st0 >>= 8
+				this.buffer[n-1] = byte(st0)
+				st0 >>= 8
+				n -= 2
+			}
+
+			for st1 >= sym1.xMax {
+				this.buffer[n] = byte(st1)
+				st1 >>= 8
+				this.buffer[n-1] = byte(st1)
+				st1 >>= 8
 				n -= 2
 			}
 
 			// Compute next ANS state
 			// C(s,x) = M floor(x/q_s) + mod(x,q_s) + b_s where b_s = q_0 + ... + q_{s-1}
 			// st = ((st / freq) << lr) + (st % freq) + cumFreq[prv];
-			st = st + sym.bias + int((uint64(st)*sym.invFreq)>>sym.invShift)*sym.cmplFreq
+			st0 = st0 + sym0.bias + int((uint64(st0)*sym0.invFreq)>>sym0.invShift)*sym0.cmplFreq
+			st1 = st1 + sym1.bias + int((uint64(st1)*sym1.invFreq)>>sym1.invShift)*sym1.cmplFreq
 		}
 	} else { // order 1
 		symb := this.symbols
@@ -313,36 +331,36 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 			cur := int(block[i])
 			sym := symb[(cur<<8)|prv]
 
-			for st >= sym.xMax {
-				this.buffer[n] = byte(st)
-				st >>= 8
-				this.buffer[n-1] = byte(st)
-				st >>= 8
+			for st0 >= sym.xMax {
+				this.buffer[n] = byte(st0)
+				st0 >>= 8
+				this.buffer[n-1] = byte(st0)
+				st0 >>= 8
 				n -= 2
 			}
 
 			// Compute next ANS state
 			// C(s,x) = M floor(x/q_s) + mod(x,q_s) + b_s where b_s = q_0 + ... + q_{s-1}
 			// st = ((st / freq) << lr) + (st % freq) + cumFreq[prv];
-			st = st + sym.bias + int((uint64(st)*sym.invFreq)>>sym.invShift)*sym.cmplFreq
+			st0 = st0 + sym.bias + int((uint64(st0)*sym.invFreq)>>sym.invShift)*sym.cmplFreq
 			prv = cur
 		}
 
 		// Last symbol
 		sym := symb[prv]
 
-		for st >= sym.xMax {
-			this.buffer[n] = byte(st)
-			st >>= 8
-			this.buffer[n-1] = byte(st)
-			st >>= 8
+		for st0 >= sym.xMax {
+			this.buffer[n] = byte(st0)
+			st0 >>= 8
+			this.buffer[n-1] = byte(st0)
+			st0 >>= 8
 			n -= 2
 		}
 
 		// Compute next ANS state
 		// C(s,x) = M floor(x/q_s) + mod(x,q_s) + b_s where b_s = q_0 + ... + q_{s-1}
 		// st = ((st / freq) << lr) + (st % freq) + cumFreq[prv];
-		st = st + sym.bias + int((uint64(st)*sym.invFreq)>>sym.invShift)*sym.cmplFreq
+		st0 = st0 + sym.bias + int((uint64(st0)*sym.invFreq)>>sym.invShift)*sym.cmplFreq
 	}
 
 	n++
@@ -351,7 +369,11 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 	WriteVarInt(this.bitstream, uint32(len(this.buffer)-n))
 
 	// Write final ANS state
-	this.bitstream.WriteBits(uint64(st), 32)
+	this.bitstream.WriteBits(uint64(st0), 32)
+
+	if this.order == 0 {
+		this.bitstream.WriteBits(uint64(st1), 32)
+	}
 
 	if len(this.buffer) != n {
 		// Write encoded data to bitstream
@@ -664,7 +686,12 @@ func (this *ANSRangeDecoder) decodeChunk(block []byte) {
 	sz := ReadVarInt(this.bitstream) & (_ANS_MAX_CHUNK_SIZE - 1)
 
 	// Read initial ANS state
-	st := int(this.bitstream.ReadBits(32))
+	st0 := int(this.bitstream.ReadBits(32))
+	st1 := 0
+
+	if this.order == 0 {
+		st1 = int(this.bitstream.ReadBits(32))
+	}
 
 	// Read encoded data
 	if sz != 0 {
@@ -679,39 +706,53 @@ func (this *ANSRangeDecoder) decodeChunk(block []byte) {
 		freq2sym := this.f2s[0 : mask+1]
 		symb := this.symbols[0:256]
 
-		for i := range block {
-			cur := freq2sym[st&mask]
-			block[i] = cur
-			sym := symb[cur]
+		for i := 0; i < len(block); i += 2 {
+			cur1 := freq2sym[st1&mask]
+			block[i] = cur1
+			sym1 := symb[cur1]
+			cur0 := freq2sym[st0&mask]
+			block[i+1] = cur0
+			sym0 := symb[cur0]
 
 			// Compute next ANS state
 			// D(x) = (s, q_s (x/M) + mod(x,M) - b_s) where s is such b_s <= x mod M < b_{s+1}
-			st = sym.freq*(st>>lr) + (st & mask) - sym.cumFreq
+			st1 = sym1.freq*(st1>>lr) + (st1 & mask) - sym1.cumFreq
+			st0 = sym0.freq*(st0>>lr) + (st0 & mask) - sym0.cumFreq
 
 			// Normalize
-			for st < _ANS_TOP {
-				st = (st << 8) | int(this.buffer[n])
-				st = (st << 8) | int(this.buffer[n+1])
+			for st1 < _ANS_TOP {
+				st1 = (st1 << 8) | int(this.buffer[n])
+				st1 = (st1 << 8) | int(this.buffer[n+1])
 				n += 2
 			}
+
+			for st0 < _ANS_TOP {
+				st0 = (st0 << 8) | int(this.buffer[n])
+				st0 = (st0 << 8) | int(this.buffer[n+1])
+				n += 2
+			}
+		}
+
+		if len(block)&1 != 0 {
+			block[len(block)-1] = this.buffer[sz-1]
 		}
 	} else {
 		symb := this.symbols
 		prv := int(0)
 
 		for i := range block {
-			cur := this.f2s[(prv<<lr)|(st&mask)]
+			cur := this.f2s[(prv<<lr)|(st0&mask)]
 			block[i] = cur
 			sym := symb[(prv<<8)|int(cur)]
 
 			// Compute next ANS state
 			// D(x) = (s, q_s (x/M) + mod(x,M) - b_s) where s is such b_s <= x mod M < b_{s+1}
-			st = sym.freq*(st>>lr) + (st & mask) - sym.cumFreq
+			st0 = sym.freq*(st0>>lr) + (st0 & mask) - sym.cumFreq
 
 			// Normalize
-			for st < _ANS_TOP {
-				st = (st << 8) | int(this.buffer[n])
-				st = (st << 8) | int(this.buffer[n+1])
+			for st0 < _ANS_TOP {
+				st0 = (st0 << 8) | int(this.buffer[n])
+				st0 = (st0 << 8) | int(this.buffer[n+1])
 				n += 2
 			}
 
