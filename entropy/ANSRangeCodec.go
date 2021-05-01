@@ -705,8 +705,9 @@ func (this *ANSRangeDecoder) decodeChunk(block []byte) {
 	if this.order == 0 {
 		freq2sym := this.f2s[0 : mask+1]
 		symb := this.symbols[0:256]
+		end2 := (len(block) & -2) - 1
 
-		for i := 0; i < len(block); i += 2 {
+		for i := 0; i < end2; i += 2 {
 			cur1 := freq2sym[st1&mask]
 			block[i] = cur1
 			sym1 := symb[cur1]

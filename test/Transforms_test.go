@@ -16,6 +16,7 @@ limitations under the License.
 package main
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -218,7 +219,7 @@ func testTransformCorrectness(name string) error {
 		fmt.Printf("\nOriginal: \n")
 
 		if ii == 1 {
-			fmt.Printf("1 8 (%v times)", len(input)-2)
+			fmt.Printf("1 8 (%v times)", len(input)-1)
 		} else {
 			for i := range arr {
 				fmt.Printf("%v ", input[i])
@@ -273,7 +274,7 @@ func testTransformCorrectness(name string) error {
 
 		if idx == -1 {
 			if ii == 1 {
-				fmt.Printf("1 8 (%v times)", len(input)-2)
+				fmt.Printf("1 8 (%v times)", len(input)-1)
 			} else {
 				for i := range reverse {
 					fmt.Printf("%v ", reverse[i])
@@ -283,7 +284,7 @@ func testTransformCorrectness(name string) error {
 			fmt.Printf("\n")
 		} else {
 			fmt.Printf("Different (index %v - %v)\n", input[idx], reverse[idx])
-			return err
+			return errors.New("Input and inverse are different")
 		}
 
 		fmt.Printf("Identical\n")
