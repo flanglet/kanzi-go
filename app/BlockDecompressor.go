@@ -537,8 +537,10 @@ func (this *fileDecompressTask) call() (int, uint64) {
 				return ioerr.ErrorCode(), uint64(read)
 			}
 
-			fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err)
-			return kanzi.ERR_PROCESS_BLOCK, uint64(read)
+			if err != io.EOF {
+				fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err)
+				return kanzi.ERR_PROCESS_BLOCK, uint64(read)
+			}
 		}
 
 		if decoded > 0 {

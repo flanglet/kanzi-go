@@ -44,7 +44,7 @@ const (
 	//_ARG_IDX_FROM      = 10
 	//_ARG_IDX_TO        = 11
 	_ARG_IDX_PROFILE = 14
-	_APP_HEADER      = "Kanzi 1.8 (C) 2020,  Frederic Langlet"
+	_APP_HEADER      = "Kanzi 1.9 (C) 2021,  Frederic Langlet"
 )
 
 var (
@@ -314,7 +314,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 				log.Println("        optional name of the output file or 'none' or 'stdout'.\n", true)
 			}
 
-			if mode != "d" {
+			if mode == "c" {
 				log.Println("   -b, --block=<size>", true)
 				log.Println("        size of blocks (default 4 MB, max 1 GB, min 1 KB).\n", true)
 				log.Println("   -l, --level=<compression>", true)
@@ -340,16 +340,22 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			log.Println("   -j, --jobs=<jobs>", true)
 			log.Println("        maximum number of jobs the program may start concurrently", true)
 			log.Println("        (default is 1, maximum is 64).\n", true)
-			log.Println("", true)
 
-			if mode != "d" {
+			if mode == "c" {
+				log.Println("", true)
 				log.Println("EG. Kanzi -c -i foo.txt -o none -b 4m -l 4 -v 3\n", true)
 				log.Println("EG. Kanzi -c -i foo.txt -f -t BWT+MTFT+ZRLT -b 4m -e FPAQ -v 3 -j 4\n", true)
 				log.Println("EG. Kanzi --compress --input=foo.txt --output=foo.knz --block=4m --force", true)
 				log.Println("          --transform=BWT+MTFT+ZRLT --entropy=FPAQ --verbose=3 --jobs=4\n", true)
 			}
 
-			if mode != "c" {
+			if mode == "d" {
+				log.Println("   --from=blockID", true)
+				log.Println("        Decompress starting from the provided block (included).", true)
+				log.Println("        The first block ID is 1.\n", true)
+				log.Println("   --to=blockID", true)
+				log.Println("        Decompress ending at the provided block (excluded).\n", true)
+				log.Println("", true)
 				log.Println("EG. Kanzi -d -i foo.knz -f -v 2 -j 2\n", true)
 				log.Println("EG. Kanzi --decompress --input=foo.knz --force --verbose=2 --jobs=2\n", true)
 			}
@@ -635,8 +641,13 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 				continue
 			}
 
-			if from, err = strconv.Atoi(strFrom); err != nil || from < 0 {
+			if from, err = strconv.Atoi(strFrom); err != nil || from <= 0 {
 				fmt.Printf("Invalid start block provided on command line: %v\n", strFrom)
+
+				if from == 0 {
+					fmt.Printf("The first block ID is 1.\n")
+				}
+
 				return kanzi.ERR_INVALID_PARAM
 			}
 

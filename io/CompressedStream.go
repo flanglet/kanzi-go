@@ -40,7 +40,7 @@ import (
 
 const (
 	_BITSTREAM_TYPE             = 0x4B414E5A // "KANZ"
-	_BITSTREAM_FORMAT_VERSION   = 10
+	_BITSTREAM_FORMAT_VERSION   = 1
 	_STREAM_DEFAULT_BUFFER_SIZE = 256 * 1024
 	_EXTRA_BUFFER_SIZE          = 256
 	_COPY_BLOCK_MASK            = 0x80
@@ -278,7 +278,7 @@ func (this *CompressedOutputStream) writeHeader() *IOError {
 		return &IOError{msg: "Cannot write bitstream type to header", code: kanzi.ERR_WRITE_FILE}
 	}
 
-	if this.obs.WriteBits(_BITSTREAM_FORMAT_VERSION, 5) != 5 {
+	if this.obs.WriteBits(_BITSTREAM_FORMAT_VERSION, 4) != 4 {
 		return &IOError{msg: "Cannot write bitstream version to header", code: kanzi.ERR_WRITE_FILE}
 	}
 
@@ -302,7 +302,7 @@ func (this *CompressedOutputStream) writeHeader() *IOError {
 		return &IOError{msg: "Cannot write number of blocks to header", code: kanzi.ERR_WRITE_FILE}
 	}
 
-	if this.obs.WriteBits(0, 3) != 3 {
+	if this.obs.WriteBits(0, 4) != 4 {
 		return &IOError{msg: "Cannot write reserved bits to header", code: kanzi.ERR_WRITE_FILE}
 	}
 
@@ -885,7 +885,7 @@ func (this *CompressedInputStream) readHeader() error {
 		return &IOError{msg: "Invalid stream type", code: kanzi.ERR_INVALID_FILE}
 	}
 
-	version := this.ibs.ReadBits(5)
+	version := this.ibs.ReadBits(4)
 
 	// Sanity check
 	if version != _BITSTREAM_FORMAT_VERSION {
@@ -929,7 +929,7 @@ func (this *CompressedInputStream) readHeader() error {
 	this.nbInputBlocks = uint8(this.ibs.ReadBits(6))
 
 	// Read reserved bits
-	this.ibs.ReadBits(3)
+	this.ibs.ReadBits(4)
 
 	if len(this.listeners) > 0 {
 		msg := ""
@@ -1272,7 +1272,6 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	// Check if the block must be skipped
 	if v, hasKey := this.ctx["from"]; hasKey {
 		from := v.(int)
-
 		if int(this.currentBlockID) < from {
 			skipped = true
 			return
