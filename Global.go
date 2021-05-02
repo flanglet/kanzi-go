@@ -107,6 +107,7 @@ func init() {
 		SQUASH[x+2047] = (_INV_EXP[y]*(128-w) + _INV_EXP[y+1]*w) >> 11
 	}
 
+	SQUASH[4095] = 4095
 	pi := 0
 
 	for x := -2047; x <= 2047; x++ {
