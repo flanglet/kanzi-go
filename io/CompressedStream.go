@@ -188,6 +188,7 @@ func createCompressedOutputStreamWithCtx(obs kanzi.OutputBitStream, ctx map[stri
 		tasks = (1 << 31) / bSize
 	}
 
+	ctx["bsVersion"] = int(_BITSTREAM_FORMAT_VERSION)
 	this := new(CompressedOutputStream)
 	this.obs = obs
 
@@ -885,13 +886,15 @@ func (this *CompressedInputStream) readHeader() error {
 		return &IOError{msg: "Invalid stream type", code: kanzi.ERR_INVALID_FILE}
 	}
 
-	version := this.ibs.ReadBits(4)
+	bsVersion := int(this.ibs.ReadBits(4))
 
 	// Sanity check
-	if version != _BITSTREAM_FORMAT_VERSION {
-		errMsg := fmt.Sprintf("Invalid bitstream, cannot read this version of the stream: %d", version)
+	if bsVersion != _BITSTREAM_FORMAT_VERSION {
+		errMsg := fmt.Sprintf("Invalid bitstream, cannot read this version of the stream: %d", bsVersion)
 		return &IOError{msg: errMsg, code: kanzi.ERR_STREAM_VERSION}
 	}
+
+	this.ctx["bsVersion"] = bsVersion
 
 	// Read block checksum
 	if this.ibs.ReadBit() == 1 {
