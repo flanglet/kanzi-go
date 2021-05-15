@@ -283,6 +283,16 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			log.Println("", true)
 			log.Println("   -h, --help", true)
 			log.Println("        display this message\n", true)
+
+			if mode != "c" && mode != "d" {
+				log.Println("   -c, --compress", true)
+				log.Println("        compress mode", true)
+				log.Println("", true)
+				log.Println("   -d, --decompress", true)
+				log.Println("        decompress mode", true)
+				log.Println("", true)
+			}
+
 			log.Println("   -v, --verbose=<level>", true)
 			log.Println("        set the verbosity level [0..5]", true)
 			log.Println("        0=silent, 1=default, 2=display details, 3=display configuration,", true)
@@ -347,9 +357,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 				log.Println("EG. Kanzi -c -i foo.txt -f -t BWT+MTFT+ZRLT -b 4m -e FPAQ -v 3 -j 4\n", true)
 				log.Println("EG. Kanzi --compress --input=foo.txt --output=foo.knz --block=4m --force", true)
 				log.Println("          --transform=BWT+MTFT+ZRLT --entropy=FPAQ --verbose=3 --jobs=4\n", true)
-			}
-
-			if mode == "d" {
+			} else if mode == "d" {
 				log.Println("   --from=blockID", true)
 				log.Println("        Decompress starting from the provided block (included).", true)
 				log.Println("        The first block ID is 1.\n", true)
