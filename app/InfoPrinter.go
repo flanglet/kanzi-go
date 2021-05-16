@@ -57,7 +57,7 @@ type InfoPrinter struct {
 // NewInfoPrinter creates a new instance of InfoPrinter
 func NewInfoPrinter(infoLevel, infoType uint, writer io.Writer) (*InfoPrinter, error) {
 	if writer == nil {
-		return nil, errors.New("Invalid null writer parameter")
+		return nil, errors.New("invalid null writer parameter")
 	}
 
 	this := &InfoPrinter{}
@@ -126,7 +126,7 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 
 			if this.level >= 5 {
 				durationMS := bi.time1.Sub(bi.time0).Nanoseconds() / int64(time.Millisecond)
-				fmt.Fprintln(this.writer, fmt.Sprintf("%s [%d ms]", evt, durationMS))
+				fmt.Fprintf(this.writer, "%s [%d ms]\n", evt, durationMS)
 			}
 		}
 	} else if evt.Type() == this.thresholds[3] {
@@ -143,7 +143,7 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 
 			if this.level >= 5 {
 				durationMS := bi.time2.Sub(bi.time1).Nanoseconds() / int64(time.Millisecond)
-				fmt.Fprintln(this.writer, fmt.Sprintf("%s [%d ms]", evt, durationMS))
+				fmt.Fprintf(this.writer, "%s [%d ms]\n", evt, durationMS)
 			}
 		}
 	} else if evt.Type() == this.thresholds[4] {
@@ -169,7 +169,7 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 		var msg string
 
 		if this.level >= 5 {
-			fmt.Fprintln(this.writer, fmt.Sprintf("%s [%d ms]", evt, duration2MS))
+			fmt.Fprintf(this.writer, "%s [%d ms]\n", evt, duration2MS)
 		}
 
 		// Display block info
