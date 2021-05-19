@@ -269,6 +269,11 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 	outputName = ""
 	ctx = -1
 
+	if len(args) == 1 {
+		printHelp(mode)
+		return 0
+	}
+
 	for i, arg := range args {
 		if i == 0 {
 			continue
@@ -277,97 +282,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 		arg = strings.TrimSpace(arg)
 
 		if arg == "--help" || arg == "-h" {
-			log.Println("", true)
-			log.Println("Credits: Matt Mahoney, Yann Collet, Jan Ondrus, Yuta Mori, Ilya Muravyov,", true)
-			log.Println("         Neal Burns, Fabian Giesen, Jarek Duda, Ilya Grebnov", true)
-			log.Println("", true)
-			log.Println("   -h, --help", true)
-			log.Println("        display this message\n", true)
-
-			if mode != "c" && mode != "d" {
-				log.Println("   -c, --compress", true)
-				log.Println("        compress mode", true)
-				log.Println("", true)
-				log.Println("   -d, --decompress", true)
-				log.Println("        decompress mode", true)
-				log.Println("", true)
-			}
-
-			log.Println("   -v, --verbose=<level>", true)
-			log.Println("        set the verbosity level [0..5]", true)
-			log.Println("        0=silent, 1=default, 2=display details, 3=display configuration,", true)
-			log.Println("        4=display block size and timings, 5=display extra information", true)
-			log.Println("        Verbosity is reduced to 1 when files are processed concurrently", true)
-			log.Println("        Verbosity is silently reduced to 0 when the output is 'stdout'", true)
-			log.Println("        (EG: The source is a directory and the number of jobs > 1).\n", true)
-			log.Println("   -f, --force", true)
-			log.Println("        overwrite the output file if it already exists\n", true)
-			log.Println("   -i, --input=<inputName>", true)
-			log.Println("        mandatory name of the input file or directory or 'stdin'", true)
-			log.Println("        When the source is a directory, all files in it will be processed.", true)
-			msg := fmt.Sprintf("        Provide %c. at the end of the directory name to avoid recursion.", os.PathSeparator)
-			log.Println(msg, true)
-			msg = fmt.Sprintf("        (EG: myDir%c. => no recursion)\n", os.PathSeparator)
-			log.Println(msg, true)
-			log.Println("   -o, --output=<outputName>", true)
-
-			if mode == "c" {
-				log.Println("        optional name of the output file or directory (defaults to", true)
-				log.Println("        <inputName.knz>) or 'none' or 'stdout'. 'stdout' is not valid", true)
-				log.Println("        when the number of jobs is greater than 1.\n", true)
-			} else if mode == "d" {
-				log.Println("        optional name of the output file or directory (defaults to", true)
-				log.Println("        <inputName.bak>) or 'none' or 'stdout'. 'stdout' is not valid", true)
-				log.Println("        when the number of jobs is greater than 1.\n", true)
-
-			} else {
-				log.Println("        optional name of the output file or 'none' or 'stdout'.\n", true)
-			}
-
-			if mode == "c" {
-				log.Println("   -b, --block=<size>", true)
-				log.Println("        size of blocks (default 4 MB, max 1 GB, min 1 KB).\n", true)
-				log.Println("   -l, --level=<compression>", true)
-				log.Println("        set the compression level [0..9]", true)
-				log.Println("        Providing this option forces entropy and transform.", true)
-				log.Println("        0=None&None (store), 1=TEXT+LZ&HUFFMAN, 2=TEXT+FSD+LZX&HUFFMAN", true)
-				log.Println("        3=TEXT+FSD+ROLZ, 4=TEXT+FSD+ROLZX, 5=TEXT+BWT+RANK+ZRLT&ANS0", true)
-				log.Println("        6=TEXT+BWT+SRT+ZRLT&FPAQ, 7=LZP+TEXT+BWT+LZP&CM, 8=X86+RLT+TEXT&TPAQ", true)
-				log.Println("        9=X86+RLT+TEXT&TPAQX\n", true)
-				log.Println("   -e, --entropy=<codec>", true)
-				log.Println("        entropy codec [None|Huffman|ANS0|ANS1|Range|FPAQ|TPAQ|TPAQX|CM]", true)
-				log.Println("        (default is ANS0)\n", true)
-				log.Println("   -t, --transform=<codec>", true)
-				log.Println("        transform [None|BWT|BWTS|LZ|LZX|LZP|ROLZ|ROLZX|RLT|ZRLT]", true)
-				log.Println("                  [MTFT|RANK|SRT|TEXT|X86]", true)
-				log.Println("        EG: BWT+RANK or BWTS+MTFT (default is BWT+RANK+ZRLT)\n", true)
-				log.Println("   -x, --checksum", true)
-				log.Println("        enable block checksum\n", true)
-				log.Println("   -s, --skip", true)
-				log.Println("        copy blocks with high entropy instead of compressing them.\n", true)
-			}
-
-			log.Println("   -j, --jobs=<jobs>", true)
-			log.Println("        maximum number of jobs the program may start concurrently", true)
-			log.Println("        (default is 1, maximum is 64).\n", true)
-
-			if mode == "c" {
-				log.Println("", true)
-				log.Println("EG. Kanzi -c -i foo.txt -o none -b 4m -l 4 -v 3\n", true)
-				log.Println("EG. Kanzi -c -i foo.txt -f -t BWT+MTFT+ZRLT -b 4m -e FPAQ -v 3 -j 4\n", true)
-				log.Println("EG. Kanzi --compress --input=foo.txt --output=foo.knz --block=4m --force", true)
-				log.Println("          --transform=BWT+MTFT+ZRLT --entropy=FPAQ --verbose=3 --jobs=4\n", true)
-			} else if mode == "d" {
-				log.Println("   --from=blockID", true)
-				log.Println("        Decompress starting from the provided block (included).", true)
-				log.Println("        The first block ID is 1.\n", true)
-				log.Println("   --to=blockID", true)
-				log.Println("        Decompress ending at the provided block (excluded).\n", true)
-				log.Println("", true)
-				log.Println("EG. Kanzi -d -i foo.knz -f -v 2 -j 2\n", true)
-				log.Println("EG. Kanzi --decompress --input=foo.knz --force --verbose=2 --jobs=2\n", true)
-			}
-
+			printHelp(mode)
 			return 0
 		}
 
@@ -769,6 +684,103 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 	}
 
 	return 0
+}
+
+func printHelp(mode string) {
+	log.Println("", true)
+	log.Println("Credits: Matt Mahoney, Yann Collet, Jan Ondrus, Yuta Mori, Ilya Muravyov,", true)
+	log.Println("         Neal Burns, Fabian Giesen, Jarek Duda, Ilya Grebnov", true)
+	log.Println("", true)
+	log.Println("   -h, --help", true)
+	log.Println("        display this message\n", true)
+
+	if mode != "c" && mode != "d" {
+		log.Println("   -c, --compress", true)
+		log.Println("        compress mode", true)
+		log.Println("", true)
+		log.Println("   -d, --decompress", true)
+		log.Println("        decompress mode", true)
+		log.Println("", true)
+	}
+
+	log.Println("   -i, --input=<inputName>", true)
+	log.Println("        mandatory name of the input file or directory or 'stdin'", true)
+	log.Println("        When the source is a directory, all files in it will be processed.", true)
+	msg := fmt.Sprintf("        Provide %c. at the end of the directory name to avoid recursion.", os.PathSeparator)
+	log.Println(msg, true)
+	msg = fmt.Sprintf("        (EG: myDir%c. => no recursion)\n", os.PathSeparator)
+	log.Println(msg, true)
+	log.Println("   -o, --output=<outputName>", true)
+
+	if mode == "c" {
+		log.Println("        optional name of the output file or directory (defaults to", true)
+		log.Println("        <inputName.knz>) or 'none' or 'stdout'. 'stdout' is not valid", true)
+		log.Println("        when the number of jobs is greater than 1.\n", true)
+	} else if mode == "d" {
+		log.Println("        optional name of the output file or directory (defaults to", true)
+		log.Println("        <inputName.bak>) or 'none' or 'stdout'. 'stdout' is not valid", true)
+		log.Println("        when the number of jobs is greater than 1.\n", true)
+
+	} else {
+		log.Println("        optional name of the output file or 'none' or 'stdout'.\n", true)
+	}
+
+	if mode == "c" {
+		log.Println("   -b, --block=<size>", true)
+		log.Println("        size of blocks (default 4 MB, max 1 GB, min 1 KB).\n", true)
+		log.Println("   -l, --level=<compression>", true)
+		log.Println("        set the compression level [0..9]", true)
+		log.Println("        Providing this option forces entropy and transform.", true)
+		log.Println("        0=None&None (store), 1=TEXT+LZ&HUFFMAN, 2=TEXT+FSD+LZX&HUFFMAN", true)
+		log.Println("        3=TEXT+FSD+ROLZ, 4=TEXT+FSD+ROLZX, 5=TEXT+BWT+RANK+ZRLT&ANS0", true)
+		log.Println("        6=TEXT+BWT+SRT+ZRLT&FPAQ, 7=LZP+TEXT+BWT+LZP&CM, 8=X86+RLT+TEXT&TPAQ", true)
+		log.Println("        9=X86+RLT+TEXT&TPAQX\n", true)
+		log.Println("   -e, --entropy=<codec>", true)
+		log.Println("        entropy codec [None|Huffman|ANS0|ANS1|Range|FPAQ|TPAQ|TPAQX|CM]", true)
+		log.Println("        (default is ANS0)\n", true)
+		log.Println("   -t, --transform=<codec>", true)
+		log.Println("        transform [None|BWT|BWTS|LZ|LZX|LZP|ROLZ|ROLZX|RLT|ZRLT]", true)
+		log.Println("                  [MTFT|RANK|SRT|TEXT|X86]", true)
+		log.Println("        EG: BWT+RANK or BWTS+MTFT (default is BWT+RANK+ZRLT)\n", true)
+		log.Println("   -x, --checksum", true)
+		log.Println("        enable block checksum\n", true)
+		log.Println("   -s, --skip", true)
+		log.Println("        copy blocks with high entropy instead of compressing them.\n", true)
+	}
+
+	log.Println("   -j, --jobs=<jobs>", true)
+	log.Println("        maximum number of jobs the program may start concurrently", true)
+	log.Println("        (default is 1, maximum is 64).\n", true)
+	log.Println("   -v, --verbose=<level>", true)
+	log.Println("        set the verbosity level [0..5]", true)
+	log.Println("        0=silent, 1=default, 2=display details, 3=display configuration,", true)
+	log.Println("        4=display block size and timings, 5=display extra information", true)
+	log.Println("        Verbosity is reduced to 1 when files are processed concurrently", true)
+	log.Println("        Verbosity is reduced to 0 when the output is 'stdout'", true)
+	log.Println("   -f, --force", true)
+	log.Println("        overwrite the output file if it already exists\n", true)
+
+	if mode == "d" {
+		log.Println("   --from=blockID", true)
+		log.Println("        Decompress starting from the provided block (included).", true)
+		log.Println("        The first block ID is 1.\n", true)
+		log.Println("   --to=blockID", true)
+		log.Println("        Decompress ending at the provided block (excluded).\n", true)
+	}
+
+	if mode != "d" {
+		log.Println("", true)
+		log.Println("EG. Kanzi -c -i foo.txt -o none -b 4m -l 4 -v 3\n", true)
+		log.Println("EG. Kanzi -c -i foo.txt -f -t BWT+MTFT+ZRLT -b 4m -e FPAQ -j 4\n", true)
+		log.Println("EG. Kanzi --compress --input=foo.txt --output=foo.knz --block=4m --force", true)
+		log.Println("          --transform=BWT+MTFT+ZRLT --entropy=FPAQ --jobs=4\n", true)
+	}
+
+	if mode != "c" {
+		log.Println("", true)
+		log.Println("EG. Kanzi -d -i foo.knz -f -v 2 -j 2\n", true)
+		log.Println("EG. Kanzi --decompress --input=foo.knz --force --verbose=2 --jobs=2\n", true)
+	}
 }
 
 // FileData a basic structure encapsulating a file path and size
