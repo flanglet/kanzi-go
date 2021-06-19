@@ -390,10 +390,8 @@ func (this *CompressedOutputStream) processBlock(force bool) error {
 	if force == false {
 		bufSize := this.jobs * int(this.blockSize)
 
-		if this.nbInputBlocks > 0 {
-			if int(this.nbInputBlocks) < this.jobs {
-				bufSize = int(this.nbInputBlocks) * int(this.blockSize)
-			}
+		if this.nbInputBlocks > 0 && int(this.nbInputBlocks) < this.jobs {
+			bufSize = int(this.nbInputBlocks) * int(this.blockSize)
 		}
 
 		if len(this.data) < bufSize {
