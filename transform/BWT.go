@@ -242,7 +242,7 @@ func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	// Find the fastest way to implement inverse based on block size
-	if count <= _BWT_BLOCK_SIZE_THRESHOLD2 && this.jobs == 1 {
+	if count <= _BWT_BLOCK_SIZE_THRESHOLD2 {
 		return this.inverseMergeTPSI(src, dst, count)
 	}
 
@@ -547,7 +547,58 @@ func (this *BWT) inverseBiPSIv2Task(dst []byte, buckets []int, fastBits []uint16
 		shift++
 	}
 
-	for c := firstChunk; c < lastChunk; c++ {
+	c := firstChunk
+
+	if start+4*ckSize < total {
+		for c+3 < lastChunk {
+			end := start + ckSize
+			p0 := int(indexes[c])
+			p1 := int(indexes[c+1])
+			p2 := int(indexes[c+2])
+			p3 := int(indexes[c+3])
+
+			for i := start + 1; i <= end; i += 2 {
+				s0 := fastBits[p0>>shift]
+				s1 := fastBits[p1>>shift]
+				s2 := fastBits[p2>>shift]
+				s3 := fastBits[p3>>shift]
+
+				for buckets[s0] <= p0 {
+					s0++
+				}
+
+				for buckets[s1] <= p1 {
+					s1++
+				}
+
+				for buckets[s2] <= p2 {
+					s2++
+				}
+
+				for buckets[s3] <= p3 {
+					s3++
+				}
+
+				dst[i-1] = byte(s0 >> 8)
+				dst[i] = byte(s0)
+				dst[ckSize+i-1] = byte(s1 >> 8)
+				dst[ckSize+i] = byte(s1)
+				dst[2*ckSize+i-1] = byte(s2 >> 8)
+				dst[2*ckSize+i] = byte(s2)
+				dst[3*ckSize+i-1] = byte(s3 >> 8)
+				dst[3*ckSize+i] = byte(s3)
+				p0 = int(data[p0])
+				p1 = int(data[p1])
+				p2 = int(data[p2])
+				p3 = int(data[p3])
+			}
+
+			start = end + 3*ckSize
+			c += 4
+		}
+	}
+
+	for c < lastChunk {
 		end := start + ckSize
 
 		if end > total-1 {
@@ -569,6 +620,7 @@ func (this *BWT) inverseBiPSIv2Task(dst []byte, buckets []int, fastBits []uint16
 		}
 
 		start = end
+		c++
 	}
 }
 
