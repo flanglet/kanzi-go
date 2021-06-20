@@ -37,7 +37,7 @@ func BenchmarkXXHash32b(b *testing.B) {
 	}
 
 	res := uint32(0)
-	iter := 1000
+	iter := b.N
 
 	for i := 0; i < iter; i++ {
 		hash.SetSeed(uint32(i))
@@ -64,7 +64,7 @@ func BenchmarkXXHash64(b *testing.B) {
 	}
 
 	res := uint64(0)
-	iter := 1000
+	iter := b.N
 
 	for i := 0; i < iter; i++ {
 		hash.SetSeed(uint64(i))

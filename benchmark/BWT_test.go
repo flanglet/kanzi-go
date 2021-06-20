@@ -26,37 +26,40 @@ import (
 	"github.com/flanglet/kanzi-go/transform"
 )
 
-func BenchmarkBWT(b *testing.B) {
-	if err := testBWTSpeed(true); err != nil {
+func BenchmarkBWTSmallBlock(b *testing.B) {
+	if err := testBWTSpeed(true, b.N, 256*1024); err != nil {
+		b.Errorf(err.Error())
+	}
+}
+
+func BenchmarkBWTBigBlock(b *testing.B) {
+	if err := testBWTSpeed(true, b.N, 10*1024*1024); err != nil {
 		b.Errorf(err.Error())
 	}
 }
 
 func BenchmarkBWTS(b *testing.B) {
-	if err := testBWTSpeed(false); err != nil {
+	if err := testBWTSpeed(false, b.N, 256*1024); err != nil {
 		b.Errorf(err.Error())
 	}
 }
 
-func testBWTSpeed(isBWT bool) error {
-	iter := 10
-	size := 256 * 1024
+func testBWTSpeed(isBWT bool, iter, size int) error {
 	buf1 := make([]byte, size)
 	buf2 := make([]byte, size)
 	buf3 := make([]byte, size)
 
 	for jj := 0; jj < 3; jj++ {
 		var bwt kanzi.ByteTransform
-
-		if isBWT {
-			bwt, _ = transform.NewBWT()
-		} else {
-			bwt, _ = transform.NewBWTS()
-		}
-
 		rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 		for i := 0; i < iter; i++ {
+			if isBWT {
+				bwt, _ = transform.NewBWT()
+			} else {
+				bwt, _ = transform.NewBWTS()
+			}
+
 			for i := range buf1 {
 				buf1[i] = byte(rnd.Intn(255) + 1)
 			}
