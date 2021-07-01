@@ -197,7 +197,7 @@ func testTransformSpeed(name string, iter int) error {
 		}
 
 		if idx >= 0 {
-			err := fmt.Errorf("Failure at index %v (%v <-> %v)\n", idx, input[idx], reverse[idx])
+			err := fmt.Errorf("Failure at index %v (%v <-> %v)", idx, input[idx], reverse[idx])
 			return err
 		}
 
