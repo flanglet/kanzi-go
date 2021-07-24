@@ -140,7 +140,7 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	// If not better, quick exit
-	if minIdx == 0 || ent[minIdx] >= ent[0] {
+	if ent[minIdx] >= ent[0] {
 		return 0, 0, fmt.Errorf("FSD forward transform skip")
 	}
 
@@ -215,7 +215,7 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
-	if srcIdx != count {
+	if srcIdx != count || srcIdx <= dstIdx {
 		return uint(srcIdx), uint(dstIdx), errors.New("FSD forward transform skip: output buffer too small")
 	}
 
