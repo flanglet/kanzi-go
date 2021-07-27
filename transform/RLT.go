@@ -371,26 +371,20 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 		run += (_RLT_RUN_THRESHOLD - 1)
 
 		// Sanity check
-		if dstIdx+run >= dstEnd || run > _RLT_MAX_RUN {
+		if run > _RLT_MAX_RUN || dstIdx+run >= dstEnd {
 			err = errors.New("Invalid run length")
 			break
 		}
 
 		// Emit 'run' times the previous byte
-		for run >= 4 {
-			dst[dstIdx] = val
-			dst[dstIdx+1] = val
-			dst[dstIdx+2] = val
-			dst[dstIdx+3] = val
-			dstIdx += 4
-			run -= 4
+		d := dst[dstIdx : dstIdx+run]
+
+		for i := range d {
+			d[i] = val
 		}
 
-		for run > 0 {
-			dst[dstIdx] = val
-			dstIdx++
-			run--
-		}
+		dstIdx += run
+		run = 0
 	}
 
 	if err == nil && srcIdx != srcEnd {
