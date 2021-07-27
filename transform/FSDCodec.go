@@ -215,7 +215,7 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
-	if srcIdx != count || srcIdx <= dstIdx {
+	if srcIdx != count {
 		return uint(srcIdx), uint(dstIdx), errors.New("FSD forward transform skip: output buffer too small")
 	}
 
@@ -240,7 +240,7 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 		err = errors.New("FSD forward transform skip: no improvement")
 	}
 
-	return uint(srcIdx), uint(dstIdx), err
+	return uint(srcIdx), uint(dstIdx), err // Allowed to expand
 }
 
 // Inverse applies the reverse function to the src and writes the result
