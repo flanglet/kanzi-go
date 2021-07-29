@@ -24,7 +24,8 @@ import (
 )
 
 const (
-	_FPAQ_PSCALE = 1 << 16
+	_FPAQ_PSCALE             = 1 << 16
+	_FPAQ_DEFAULT_CHUNK_SIZE = 4 * 1024 * 1024
 )
 
 // FPAQEncoder entropy encoder derived from fpaq0r by Matt Mahoney & Alexander Ratushnyak.
@@ -100,25 +101,12 @@ func (this *FPAQEncoder) Write(block []byte) (int, error) {
 
 	startChunk := 0
 	end := count
-	length := count
-
-	if count >= 1<<26 {
-		// If the block is big (>=64MB), split the encoding to avoid allocating
-		// too much memory.
-		if count < 1<<29 {
-			length = count >> 3
-		} else {
-			length = count >> 4
-		}
-	} else if count < 64 {
-		length = 64
-	}
 
 	// Split block into chunks, read bit array from bitstream and decode chunk
 	for startChunk < end {
-		chunkSize := length
+		chunkSize := _FPAQ_DEFAULT_CHUNK_SIZE
 
-		if startChunk+length >= end {
+		if startChunk+_FPAQ_DEFAULT_CHUNK_SIZE >= end {
 			chunkSize = end - startChunk
 		}
 
@@ -267,39 +255,27 @@ func (this *FPAQDecoder) Read(block []byte) (int, error) {
 
 	startChunk := 0
 	end := count
-	length := count
-
-	if count >= 1<<26 {
-		// If the block is big (>=64MB), split the decoding to avoid allocating
-		// too much memory.
-		if count < 1<<29 {
-			length = count >> 3
-		} else {
-			length = count >> 4
-		}
-	} else if count < 64 {
-		length = 64
-	}
 
 	// Split block into chunks, read bit array from bitstream and decode chunk
 	for startChunk < end {
-		chunkSize := length
+		chunkSize := _FPAQ_DEFAULT_CHUNK_SIZE
 
-		if startChunk+length >= end {
+		if startChunk+_FPAQ_DEFAULT_CHUNK_SIZE >= end {
 			chunkSize = end - startChunk
-		}
-
-		if len(this.buffer) < (chunkSize*9)>>3 {
-			this.buffer = make([]byte, (chunkSize*9)>>3)
 		}
 
 		szBytes := ReadVarInt(this.bitstream)
 		this.current = this.bitstream.ReadBits(56)
 
-		if szBytes != 0 {
-			this.bitstream.ReadArray(this.buffer, uint(8*szBytes))
+		if szBytes == 0 {
+			break
 		}
 
+		if len(this.buffer) < int(szBytes) {
+			this.buffer = make([]byte, szBytes+(szBytes>>3))
+		}
+
+		this.bitstream.ReadArray(this.buffer, uint(8*szBytes))
 		this.index = 0
 		buf := block[startChunk : startChunk+chunkSize]
 		this.p = this.probs[0]
