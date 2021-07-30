@@ -38,7 +38,6 @@ const (
 // ANSRangeEncoder Asymmetric Numeral System Encoder
 type ANSRangeEncoder struct {
 	bitstream kanzi.OutputBitStream
-	alphabet  []int
 	freqs     []int
 	symbols   []encSymbol
 	buffer    []byte
@@ -108,7 +107,6 @@ func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncode
 	this.bitstream = bs
 	this.order = order
 	dim := int(255*order + 1)
-	this.alphabet = make([]int, dim*256)
 	this.freqs = make([]int, dim*257) // freqs[x][256] = total(freqs[x][0..255])
 	this.symbols = make([]encSymbol, dim*256)
 	this.buffer = make([]byte, 0)
@@ -122,15 +120,16 @@ func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, lr uint) (int,
 	res := 0
 	endk := int(255*this.order + 1)
 	this.bitstream.WriteBits(uint64(lr-8), 3) // logRange
+	var alphabet [256]int
+
 	var err error
 
 	for k := 0; k < endk; k++ {
 		f := frequencies[257*k : 257*(k+1)]
 		symb := this.symbols[k<<8 : (k+1)<<8]
-		curAlphabet := this.alphabet[k<<8 : (k+1)<<8]
 		var alphabetSize int
 
-		if alphabetSize, err = NormalizeFrequencies(f, curAlphabet, f[256], 1<<lr); err != nil {
+		if alphabetSize, err = NormalizeFrequencies(f, alphabet[:], f[256], 1<<lr); err != nil {
 			break
 		}
 
@@ -147,7 +146,7 @@ func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, lr uint) (int,
 			}
 		}
 
-		if err = this.encodeHeader(alphabetSize, curAlphabet, f, lr); err != nil {
+		if err = this.encodeHeader(alphabetSize, alphabet[:], f, lr); err != nil {
 			break
 		}
 
@@ -437,7 +436,6 @@ type ANSRangeDecoder struct {
 	freqs     []int
 	symbols   []decSymbol
 	f2s       []byte // mapping frequency -> symbol
-	alphabet  []int
 	buffer    []byte
 	chunkSize int
 	logRange  uint
@@ -496,7 +494,6 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 	this.chunkSize = int(chkSize)
 	this.order = order
 	dim := int(255*order + 1)
-	this.alphabet = make([]int, dim*256)
 	this.freqs = make([]int, dim*256)
 	this.buffer = make([]byte, 0)
 	this.f2s = make([]byte, 0)
@@ -505,7 +502,7 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 }
 
 // Decodes alphabet and frequencies from the bitstream
-func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, error) {
+func (this *ANSRangeDecoder) decodeHeader(frequencies, alphabet []int) (int, error) {
 	this.logRange = uint(8 + this.bitstream.ReadBits(3))
 
 	if this.logRange < 8 || this.logRange > 16 {
@@ -522,7 +519,6 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, error) {
 
 	for k := 0; k < dim; k++ {
 		f := frequencies[k<<8 : (k+1)<<8]
-		alphabet := this.alphabet[k<<8 : (k+1)<<8]
 		alphabetSize, err := DecodeAlphabet(this.bitstream, alphabet)
 
 		if err != nil {
@@ -589,7 +585,7 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies []int) (int, error) {
 
 		// Infer first frequency
 		if scale <= sum {
-			err := fmt.Errorf("Invalid bitstream: incorrect frequency %d for symbol '%d' in ANS range decoder", frequencies[alphabet[0]], this.alphabet[0])
+			err := fmt.Errorf("Invalid bitstream: incorrect frequency %d for symbol '%d' in ANS range decoder", frequencies[alphabet[0]], alphabet[0])
 			return alphabetSize, err
 		}
 
@@ -637,20 +633,7 @@ func (this *ANSRangeDecoder) Read(block []byte) (int, error) {
 		this.symbols[i] = decSymbol{}
 	}
 
-	size := 2 * len(block)
-
-	if size > sizeChunk+(sizeChunk>>3) { // min
-		size = sizeChunk + (sizeChunk >> 3)
-	}
-
-	if size < 65536 { // max
-		size = 65536
-	}
-
-	// Add some padding
-	if len(this.buffer) < size {
-		this.buffer = make([]byte, size)
-	}
+	var alphabet [256]int
 
 	for startChunk < end {
 		endChunk := startChunk + sizeChunk
@@ -660,7 +643,7 @@ func (this *ANSRangeDecoder) Read(block []byte) (int, error) {
 			sizeChunk = end - startChunk
 		}
 
-		alphabetSize, err := this.decodeHeader(this.freqs)
+		alphabetSize, err := this.decodeHeader(this.freqs, alphabet[:])
 
 		if err != nil || alphabetSize == 0 {
 			return startChunk, err
@@ -669,7 +652,7 @@ func (this *ANSRangeDecoder) Read(block []byte) (int, error) {
 		if this.order == 0 && alphabetSize == 1 {
 			// Shortcut for chunks with only one symbol
 			for i := startChunk; i < endChunk; i++ {
-				block[i] = byte(this.alphabet[0])
+				block[i] = byte(alphabet[0])
 			}
 		} else {
 			this.decodeChunk(block[startChunk:endChunk])
@@ -695,6 +678,11 @@ func (this *ANSRangeDecoder) decodeChunk(block []byte) {
 
 	// Read encoded data
 	if sz != 0 {
+		// Add some padding
+		if len(this.buffer) < int(sz) {
+			this.buffer = make([]byte, sz+(sz>>3))
+		}
+
 		this.bitstream.ReadArray(this.buffer[0:sz], uint(8*sz))
 	}
 
