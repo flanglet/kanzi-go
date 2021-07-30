@@ -23,10 +23,12 @@ import (
 )
 
 const (
-	_BINARY_ENTROPY_TOP = uint64(0x00FFFFFFFFFFFFFF)
-	_MASK_0_56          = uint64(0x00FFFFFFFFFFFFFF)
-	_MASK_0_24          = uint64(0x0000000000FFFFFF)
-	_MASK_0_32          = uint64(0x00000000FFFFFFFF)
+	_BINARY_ENTROPY_TOP       = uint64(0x00FFFFFFFFFFFFFF)
+	_MASK_0_56                = uint64(0x00FFFFFFFFFFFFFF)
+	_MASK_0_24                = uint64(0x0000000000FFFFFF)
+	_MASK_0_32                = uint64(0x00000000FFFFFFFF)
+	_BINARY_ENTROPY_MAX_BLOCK = 1 << 30
+	_BINARY_ENTROPY_MAX_CHUNK = 1 << 26
 )
 
 // BinaryEntropyEncoder entropy encoder based on arithmetic coding and
@@ -103,7 +105,7 @@ func (this *BinaryEntropyEncoder) EncodeBit(bit byte, pred int) {
 func (this *BinaryEntropyEncoder) Write(block []byte) (int, error) {
 	count := len(block)
 
-	if count > 1<<30 {
+	if count > _BINARY_ENTROPY_MAX_BLOCK {
 		return -1, errors.New("Binary entropy codec: Invalid block size parameter (max is 1<<30)")
 	}
 
@@ -112,10 +114,10 @@ func (this *BinaryEntropyEncoder) Write(block []byte) (int, error) {
 	length := count
 	err := error(nil)
 
-	if count >= 1<<26 {
+	if count >= _BINARY_ENTROPY_MAX_CHUNK {
 		// If the block is big (>=64MB), split the encoding to avoid allocating
 		// too much memory.
-		if count < 1<<29 {
+		if count < 8*_BINARY_ENTROPY_MAX_CHUNK {
 			length = count >> 3
 		} else {
 			length = count >> 4
@@ -267,7 +269,7 @@ func (this *BinaryEntropyDecoder) read() {
 func (this *BinaryEntropyDecoder) Read(block []byte) (int, error) {
 	count := len(block)
 
-	if count > 1<<30 {
+	if count > _BINARY_ENTROPY_MAX_BLOCK {
 		return -1, errors.New("Binary entropy codec: Invalid block size parameter (max is 1<<30)")
 	}
 
@@ -276,10 +278,10 @@ func (this *BinaryEntropyDecoder) Read(block []byte) (int, error) {
 	length := count
 	err := error(nil)
 
-	if count >= 1<<26 {
+	if count >= _BINARY_ENTROPY_MAX_CHUNK {
 		// If the block is big (>=64MB), split the decoding to avoid allocating
 		// too much memory.
-		if count < 1<<29 {
+		if count < 8*_BINARY_ENTROPY_MAX_CHUNK {
 			length = count >> 3
 		} else {
 			length = count >> 4
@@ -296,8 +298,8 @@ func (this *BinaryEntropyDecoder) Read(block []byte) (int, error) {
 			chunkSize = end - startChunk
 		}
 
-		if len(this.buffer) < (chunkSize*9)>>3 {
-			this.buffer = make([]byte, (chunkSize*9)>>3)
+		if len(this.buffer) < chunkSize+(chunkSize>>3) {
+			this.buffer = make([]byte, chunkSize+(chunkSize>>3))
 		}
 
 		szBytes := ReadVarInt(this.bitstream)
