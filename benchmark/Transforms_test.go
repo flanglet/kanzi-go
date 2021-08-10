@@ -155,7 +155,7 @@ func testTransformSpeed(name string, iter int) error {
 
 			input[n] = val
 			n++
-			run := rand.Intn(55)
+			run := rand.Intn(120) // above LZP min match threshold
 			run -= 20
 
 			for run > 0 && n < len(input) {

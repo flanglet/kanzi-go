@@ -167,7 +167,7 @@ func testTransformCorrectness(name string) error {
 			idx := 20
 
 			for idx < len(arr) {
-				length := rnd.Intn(40)
+				length := rnd.Intn(120) // above LZP min match threshold
 
 				if length%3 == 0 {
 					length = 1
