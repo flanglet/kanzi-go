@@ -440,7 +440,7 @@ func createDictionary(words []byte, dict []dictEntry, maxWords, startWord int) i
 }
 
 func isText(val byte) bool {
-	return isLowerCase(val) || isUpperCase(val)
+	return isLowerCase(val | 0x20)
 }
 
 func isLowerCase(val byte) bool {
@@ -1050,8 +1050,8 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			// Emit word
 			copy(dst[dstIdx:], pe.ptr[0:length])
 
+			// Flip case of first character ?
 			if cur == _TC_ESCAPE_TOKEN2 {
-				// Flip case of first character
 				dst[dstIdx] ^= 0x20
 			}
 
