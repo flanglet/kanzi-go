@@ -347,7 +347,7 @@ func computeStats(block []byte, freqs0 []int32, strict bool) byte {
 }
 
 func sameWords(buf1, buf2 []byte) bool {
-	for i := range buf1[1:] {
+	for i := range buf1 {
 		if buf1[i] != buf2[i] {
 			return false
 		}
