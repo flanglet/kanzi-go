@@ -67,15 +67,17 @@ func (this *SRT) Forward(src, dst []byte) (uint, uint, error) {
 	// find first symbols and count occurrences
 	for i, b := 0, 0; i < count; {
 		c := src[i]
-		var j int
-
-		for j = i + 1; (j < count) && (src[j] == c); j++ {
-		}
 
 		if freqs[c] == 0 {
 			r2s[b] = c
 			s2r[c] = byte(b)
 			b++
+		}
+
+		j := i + 1
+
+		for (j < count) && (src[j] == c) {
+			j++
 		}
 
 		freqs[c] += int32(j - i)
@@ -120,16 +122,15 @@ func (this *SRT) Forward(src, dst []byte) (uint, uint, error) {
 			s2r[c] = 0
 		}
 
-		j := i + 1
+		i++
 
-		for (j < count) && (src[j] == c) {
+		for (i < count) && (src[i] == c) {
 			dst[p] = 0
 			p++
-			j++
+			i++
 		}
 
 		buckets[c] = p
-		i = j
 	}
 
 	return uint(count), uint(count + headerSize), nil
@@ -219,12 +220,21 @@ func (this *SRT) Inverse(src, dst []byte) (uint, uint, error) {
 				continue
 			}
 
-			for s := byte(0); s < r-1; s += 2 {
+			s := 0
+			
+			for s+4 < int(r) {
 				r2s[s] = r2s[s+1]
 				r2s[s+1] = r2s[s+2]
+				r2s[s+2] = r2s[s+3]
+				r2s[s+3] = r2s[s+4]
+				s += 4
 			}
 
-			r2s[r-1] = r2s[r]
+			for s < int(r) {
+				r2s[s] = r2s[s+1]
+				s++
+			}
+
 			r2s[r] = c
 			c = r2s[0]
 		} else {
