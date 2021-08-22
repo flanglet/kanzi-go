@@ -953,8 +953,9 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 			if length <= _TC_MAX_WORD_LENGTH {
 				h1 := _TC_HASH1
+				h1 = h1*_TC_HASH1 ^ int32(src[delimAnchor+1])*_TC_HASH2
 
-				for i := delimAnchor + 1; i < srcIdx; i++ {
+				for i := delimAnchor + 2; i < srcIdx; i++ {
 					h1 = h1*_TC_HASH1 ^ int32(src[i])*_TC_HASH2
 				}
 
@@ -1521,8 +1522,9 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 			if length <= _TC_MAX_WORD_LENGTH {
 				h1 := _TC_HASH1
+				h1 = h1*_TC_HASH1 ^ int32(src[delimAnchor+1])*_TC_HASH2
 
-				for i := delimAnchor + 1; i < srcIdx; i++ {
+				for i := delimAnchor + 2; i < srcIdx; i++ {
 					h1 = h1*_TC_HASH1 ^ int32(src[i])*_TC_HASH2
 				}
 

@@ -61,25 +61,24 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	srcEnd, dstEnd := uint(len(src)), uint(len(dst))
-	runLength := uint(0)
 	srcIdx, dstIdx := uint(0), uint(0)
-	var err error
+	res := true
 
 	for srcIdx < srcEnd {
 		if src[srcIdx] == 0 {
-			runLength = 1
+			runStart := srcIdx - 1
+			srcIdx++
 
-			for srcIdx+runLength < srcEnd && src[srcIdx+runLength] == src[srcIdx] {
-				runLength++
+			for srcIdx < srcEnd && src[srcIdx] == 0 {
+				srcIdx++
 			}
 
-			srcIdx += runLength
-
 			// Encode length
-			runLength++
+			runLength := srcIdx - runStart
 			log2 := kanzi.Log2NoCheck(uint32(runLength))
 
 			if dstIdx >= dstEnd-uint(log2) {
+				res = false
 				break
 			}
 
@@ -90,12 +89,12 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 				dstIdx++
 			}
 
-			runLength = 0
 			continue
 		}
 
 		if src[srcIdx] >= 0xFE {
 			if dstIdx >= dstEnd-1 {
+				res = false
 				break
 			}
 
@@ -104,6 +103,7 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 			dst[dstIdx] = src[srcIdx] - 0xFE
 		} else {
 			if dstIdx >= dstEnd {
+				res = false
 				break
 			}
 
@@ -114,7 +114,9 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 		dstIdx++
 	}
 
-	if srcIdx != srcEnd || runLength != 0 {
+	var err error
+
+	if srcIdx != srcEnd || res == false {
 		err = errors.New("Output buffer is too small")
 	}
 
@@ -140,9 +142,12 @@ func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 
 	for dstIdx < dstEnd {
 		if runLength > 1 {
-			runLength--
-			dst[dstIdx] = 0
-			dstIdx++
+			for dstIdx < dstEnd && runLength > 1 {
+				runLength--
+				dst[dstIdx] = 0
+				dstIdx++
+			}
+
 			continue
 		}
 
