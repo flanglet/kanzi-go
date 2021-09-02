@@ -45,6 +45,12 @@ const (
 	LZP_TYPE    = uint64(14) // Lempel Ziv Predict
 	FSD_TYPE    = uint64(15) // Fixed Shift Delta codec
 	LZX_TYPE    = uint64(16) // Lempel Ziv Extra
+	RESERVED1   = uint64(17) // Reserved
+	RESERVED2   = uint64(18) // Reserved
+	RESERVED3   = uint64(19) // Reserved
+	RESERVED4   = uint64(20) // Reserved
+	RESERVED5   = uint64(21) // Reserved
+	RESERVED6   = uint64(22) // Reserved
 )
 
 // New creates a new instance of ByteTransformSequence based on the provided

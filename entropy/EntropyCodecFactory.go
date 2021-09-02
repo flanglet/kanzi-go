@@ -23,16 +23,22 @@ import (
 )
 
 const (
-	NONE_TYPE    = uint32(0) // No compression
-	HUFFMAN_TYPE = uint32(1) // Huffman
-	FPAQ_TYPE    = uint32(2) // Fast PAQ (order 0)
-	PAQ_TYPE     = uint32(3) // Obsolete
-	RANGE_TYPE   = uint32(4) // Range
-	ANS0_TYPE    = uint32(5) // Asymmetric Numerical System order 0
-	CM_TYPE      = uint32(6) // Context Model
-	TPAQ_TYPE    = uint32(7) // Tangelo PAQ
-	ANS1_TYPE    = uint32(8) // Asymmetric Numerical System order 1
-	TPAQX_TYPE   = uint32(9) // Tangelo PAQ Extra
+	NONE_TYPE    = uint32(0)  // No compression
+	HUFFMAN_TYPE = uint32(1)  // Huffman
+	FPAQ_TYPE    = uint32(2)  // Fast PAQ (order 0)
+	PAQ_TYPE     = uint32(3)  // Obsolete
+	RANGE_TYPE   = uint32(4)  // Range
+	ANS0_TYPE    = uint32(5)  // Asymmetric Numerical System order 0
+	CM_TYPE      = uint32(6)  // Context Model
+	TPAQ_TYPE    = uint32(7)  // Tangelo PAQ
+	ANS1_TYPE    = uint32(8)  // Asymmetric Numerical System order 1
+	TPAQX_TYPE   = uint32(9)  // Tangelo PAQ Extra
+	RESERVED1    = uint32(10) // Reserved
+	RESERVED2    = uint32(11) // Reserved
+	RESERVED3    = uint32(12) // Reserved
+	RESERVED4    = uint32(13) // Reserved
+	RESERVED5    = uint32(14) // Reserved
+	RESERVED6    = uint32(15) // Reserved
 )
 
 // NewEntropyDecoder creates a new entropy decoder using the provided type and bitstream
