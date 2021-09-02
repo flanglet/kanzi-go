@@ -1010,7 +1010,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 				if idx2 >= 0x80 {
 					idx = ((idx & 0x1F) << 7) | (idx2 & 0x7F)
-					idx2 = int(src[srcIdx]) & 0x7F
+					idx2 = int(src[srcIdx])
 					srcIdx++
 				}
 
@@ -1577,7 +1577,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 				if idx2 >= 128 {
 					idx = (idx << 7) | (idx2 & 0x7F)
-					idx2 = int(src[srcIdx]) & 0x7F
+					idx2 = int(src[srcIdx])
 					srcIdx++
 				}
 

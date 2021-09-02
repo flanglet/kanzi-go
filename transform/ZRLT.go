@@ -69,6 +69,10 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 			runStart := srcIdx - 1
 			srcIdx++
 
+			for srcIdx+1 < srcEnd && src[srcIdx]|src[srcIdx+1] == 0 {
+				srcIdx += 2
+			}
+
 			for srcIdx < srcEnd && src[srcIdx] == 0 {
 				srcIdx++
 			}
