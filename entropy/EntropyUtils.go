@@ -240,38 +240,40 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 		}
 
 		if absDelta*100 < freqs[idxMax]*5 {
-			// Fast path: just adjust the max frequency (or do nothing)
+			// Fast path: just adjust the max frequency (or fallback to slow path)
 			if freqs[idxMax] > delta {
 				freqs[idxMax] -= delta
-			}
-		} else {
-			// Slow path: spread error across frequencies
-			queue := make(sortByFreq, alphabetSize)
-
-			// Create queue of present symbols
-			for i := range queue {
-				queue[i] = &freqSortData{frequencies: freqs, symbol: alphabet[i]}
-			}
-
-			// Sort queue by decreasing frequency
-			sort.Sort(queue)
-
-			for sumScaledFreq != scale && len(queue) > 0 {
-				// Remove symbol with highest frequency
-				fsd := queue[0]
-				queue = queue[1:]
-
-				// Do not zero out any frequency
-				if freqs[fsd.symbol] == -inc {
-					continue
-				}
-
-				// Distort frequency
-				freqs[fsd.symbol] += inc
-				sumScaledFreq += inc
-				queue = append(queue, fsd)
+				return alphabetSize, nil
 			}
 		}
+
+		// Slow path: spread error across frequencies
+		queue := make(sortByFreq, alphabetSize)
+
+		// Create queue of present symbols
+		for i := range queue {
+			queue[i] = &freqSortData{frequencies: freqs, symbol: alphabet[i]}
+		}
+
+		// Sort queue by decreasing frequency
+		sort.Sort(queue)
+
+		for sumScaledFreq != scale && len(queue) > 0 {
+			// Remove symbol with highest frequency
+			fsd := queue[0]
+			queue = queue[1:]
+
+			// Do not zero out any frequency
+			if freqs[fsd.symbol] == -inc {
+				continue
+			}
+
+			// Distort frequency
+			freqs[fsd.symbol] += inc
+			sumScaledFreq += inc
+			queue = append(queue, fsd)
+		}
+
 	}
 
 	return alphabetSize, nil
