@@ -106,7 +106,11 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 	}
 
 	if swaps&1 == 0 {
-		copy(dst, in[0:length])
+		if len(dst) < int(length) {
+			this.skipFlags = _TRANSFORM_SKIP_MASK
+		} else {
+			copy(dst, in[0:length])
+		}
 	}
 
 	return blockSize, length, nil
@@ -163,7 +167,11 @@ func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) 
 	}
 
 	if err == nil && swaps&1 == 0 {
-		copy(dst, in[0:length])
+		if len(dst) < int(length) {
+			err = errors.New("Inverse tranform sequence failed")
+		} else {
+			copy(dst, in[0:length])
+		}
 	}
 
 	return blockSize, length, err
