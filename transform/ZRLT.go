@@ -60,7 +60,8 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
 	}
 
-	srcEnd, dstEnd := uint(len(src)), uint(len(dst))
+	srcEnd := uint(len(src))
+	dstEnd := uint(len(src)) // do not expand, hence len(src)
 	srcIdx, dstIdx := uint(0), uint(0)
 	res := true
 
