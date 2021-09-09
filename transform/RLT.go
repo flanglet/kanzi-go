@@ -30,11 +30,12 @@ import (
 )
 
 const (
-	_RLT_RUN_LEN_ENCODE1 = 224                               // used to encode run length
-	_RLT_RUN_LEN_ENCODE2 = (255 - _RLT_RUN_LEN_ENCODE1) << 8 // used to encode run length
-	_RLT_RUN_THRESHOLD   = 3
-	_RLT_MAX_RUN         = 0xFFFF + _RLT_RUN_LEN_ENCODE2 + _RLT_RUN_THRESHOLD - 1
-	_RLT_MAX_RUN4        = _RLT_MAX_RUN - 4
+	_RLT_RUN_LEN_ENCODE1  = 224                               // used to encode run length
+	_RLT_RUN_LEN_ENCODE2  = (255 - _RLT_RUN_LEN_ENCODE1) << 8 // used to encode run length
+	_RLT_RUN_THRESHOLD    = 3
+	_RLT_MAX_RUN          = 0xFFFF + _RLT_RUN_LEN_ENCODE2 + _RLT_RUN_THRESHOLD - 1
+	_RLT_MAX_RUN4         = _RLT_MAX_RUN - 4
+	_RLT_MIN_BLOCK_LENGTH = 16
 )
 
 // RLT a Run Length Transform with escape symbol
@@ -62,7 +63,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, nil
 	}
 
-	if len(src) < 16 {
+	if len(src) < _RLT_MIN_BLOCK_LENGTH {
 		return 0, 0, errors.New("Input buffer is too small, skip")
 	}
 
@@ -331,7 +332,6 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 			break
 		}
 
-		val := dst[dstIdx-1]
 		run := int(src[srcIdx])
 		srcIdx++
 
@@ -377,6 +377,7 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 
 		// Emit 'run' times the previous byte
+		val := dst[dstIdx-1]
 		d := dst[dstIdx : dstIdx+run]
 
 		for i := range d {
