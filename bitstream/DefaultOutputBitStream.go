@@ -117,12 +117,14 @@ func (this *DefaultOutputBitStream) WriteArray(bits []byte, count uint) uint {
 			remaining -= 8
 		}
 
+		maxPos := len(this.buffer) - 8
+
 		// Copy bits array to internal buffer
-		for remaining>>3 >= len(this.buffer)-this.position {
-			copy(this.buffer[this.position:], bits[start:start+len(this.buffer)-this.position])
-			start += (len(this.buffer) - this.position)
-			remaining -= ((len(this.buffer) - this.position) << 3)
-			this.position = len(this.buffer)
+		for remaining>>3 >= maxPos-this.position {
+			copy(this.buffer[this.position:], bits[start:start+maxPos-this.position])
+			start += (maxPos - this.position)
+			remaining -= ((maxPos - this.position) << 3)
+			this.position = maxPos
 
 			if err := this.flush(); err != nil {
 				panic(err)
@@ -176,7 +178,7 @@ func (this *DefaultOutputBitStream) pushCurrent() {
 	this.current = 0
 	this.position += 8
 
-	if this.position >= len(this.buffer) {
+	if this.position >= len(this.buffer)-8 {
 		if err := this.flush(); err != nil {
 			panic(err)
 		}
