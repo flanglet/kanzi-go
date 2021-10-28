@@ -36,16 +36,11 @@ func BenchmarkXXHash32b(b *testing.B) {
 		b.Errorf(msg)
 	}
 
-	res := uint32(0)
 	iter := b.N
 
 	for i := 0; i < iter; i++ {
 		hash.SetSeed(uint32(i))
-		res += hash.Hash(buffer)
-	}
-
-	if res != 3520130870 {
-		b.Errorf("Incorrect result for XXHash32")
+		hash.Hash(buffer)
 	}
 }
 
@@ -63,15 +58,10 @@ func BenchmarkXXHash64(b *testing.B) {
 		b.Errorf(msg)
 	}
 
-	res := uint64(0)
 	iter := b.N
 
 	for i := 0; i < iter; i++ {
 		hash.SetSeed(uint64(i))
-		res += hash.Hash(buffer)
-	}
-
-	if res != 14337148651243832073 {
-		b.Errorf("Incorrect result for XXHash64")
+		hash.Hash(buffer)
 	}
 }
