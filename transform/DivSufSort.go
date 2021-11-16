@@ -16,12 +16,12 @@ limitations under the License.
 package transform
 
 const (
-	_SS_INSERTIONSORT_THRESHOLD = int32(8)
-	_SS_BLOCKSIZE               = int32(1024)
+	_SS_INSERTIONSORT_THRESHOLD = int32(16)
+	_SS_BLOCKSIZE               = int32(4096)
 	_SS_MISORT_STACKSIZE        = int32(16)
 	_SS_SMERGE_STACKSIZE        = int32(32)
 	_TR_STACKSIZE               = int32(64)
-	_TR_INSERTIONSORT_THRESHOLD = int32(8)
+	_TR_INSERTIONSORT_THRESHOLD = int32(16)
 	_MASK_FFFF0000              = -65536    // make 32 bit systems happy
 	_MASK_FF000000              = -16777216 // make 32 bit systems happy
 	_MASK_0000FF00              = 65280     // make 32 bit systems happy
@@ -67,6 +67,8 @@ type DivSufSort struct {
 	ssStack    *stack
 	trStack    *stack
 	mergestack *stack
+	bucketA    [256]int32
+	bucketB    [65536]int32
 }
 
 // NewDivSufSort creates a new instance of DivSufSort
@@ -82,6 +84,14 @@ func (this *DivSufSort) reset() {
 	this.ssStack.index = 0
 	this.trStack.index = 0
 	this.mergestack.index = 0
+
+	for i := range this.bucketA {
+		this.bucketA[i] = 0
+	}
+
+	for i := range this.bucketB {
+		this.bucketB[i] = 0
+	}
 }
 
 // ComputeSuffixArray generates the suffix array for the given data and returns it
@@ -90,10 +100,8 @@ func (this *DivSufSort) ComputeSuffixArray(src []byte, sa []int32) {
 	this.buffer = src
 	this.sa = sa
 	this.reset()
-	var bucketA [256]int32
-	var bucketB [65536]int32
-	m := this.sortTypeBstar(bucketA[:], bucketB[:], int32(len(src)))
-	this.constructSuffixArray(bucketA[:], bucketB[:], int32(len(src)), m)
+	m := this.sortTypeBstar(this.bucketA[:], this.bucketB[:], int32(len(src)))
+	this.constructSuffixArray(this.bucketA[:], this.bucketB[:], int32(len(src)), m)
 }
 
 func (this *DivSufSort) constructSuffixArray(bucketA, bucketB []int32, n, m int32) {
@@ -174,16 +182,14 @@ func (this *DivSufSort) constructSuffixArray(bucketA, bucketB []int32, n, m int3
 }
 
 // ComputeBWT generates the BWT for the given data and return the primary index
-func (this *DivSufSort) ComputeBWT(src, dst []byte, bwt []int32) int32 {
+func (this *DivSufSort) ComputeBWT(src, dst []byte, bwt []int32, indexes []uint, idxCount int) int32 {
 	// Lazy dynamic memory allocation
 	this.buffer = src
 	this.sa = bwt
 	this.reset()
-	var bucketA [256]int32
-	var bucketB [65536]int32
 	length := int32(len(src))
-	m := this.sortTypeBstar(bucketA[:], bucketB[:], length)
-	pIdx := this.constructBWT(bucketA[:], bucketB[:], length, m)
+	m := this.sortTypeBstar(this.bucketA[:], this.bucketB[:], length)
+	pIdx := this.constructBWT(this.bucketA[:], this.bucketB[:], length, m, indexes, int32(idxCount))
 	dst[0] = src[length-1]
 
 	for i := int32(0); i < pIdx; i++ {
@@ -197,8 +203,13 @@ func (this *DivSufSort) ComputeBWT(src, dst []byte, bwt []int32) int32 {
 	return pIdx + 1
 }
 
-func (this *DivSufSort) constructBWT(bucketA, bucketB []int32, n, m int32) int32 {
+func (this *DivSufSort) constructBWT(bucketA, bucketB []int32, n, m int32, indexes []uint, idxCount int32) int32 {
 	pIdx := int32(-1)
+	step := int32(n / idxCount)
+
+	if step*idxCount != n {
+		step++
+	}
 
 	if m > 0 {
 		for c1 := 254; c1 >= 0; c1-- {
@@ -217,6 +228,10 @@ func (this *DivSufSort) constructBWT(bucketA, bucketB []int32, n, m int32) int32
 					}
 
 					continue
+				}
+
+				if s%step == 0 {
+					indexes[s/step] = uint(j + 1)
 				}
 
 				s--
@@ -246,6 +261,10 @@ func (this *DivSufSort) constructBWT(bucketA, bucketB []int32, n, m int32) int32
 	k := bucketA[c2]
 
 	if this.buffer[n-2] < c2 {
+		if (n-1)%step == 0 {
+			indexes[(n-1)/step] = uint(n)
+		}
+
 		this.sa[k] = ^int32(this.buffer[n-2])
 	} else {
 		this.sa[k] = n - 1
@@ -267,13 +286,13 @@ func (this *DivSufSort) constructBWT(bucketA, bucketB []int32, n, m int32) int32
 			continue
 		}
 
+		if (s % step) == 0 {
+			indexes[s/step] = uint(i + 1)
+		}
+
 		s--
 		c0 := this.buffer[s]
 		this.sa[i] = int32(c0)
-
-		if s > 0 && this.buffer[s-1] < c0 {
-			s = ^int32(this.buffer[s-1])
-		}
 
 		if c0 != c2 {
 			bucketA[c2] = k
@@ -281,10 +300,19 @@ func (this *DivSufSort) constructBWT(bucketA, bucketB []int32, n, m int32) int32
 			k = bucketA[c2]
 		}
 
+		if s > 0 && this.buffer[s-1] < c0 {
+			if (s % step) == 0 {
+				indexes[s/step] = uint(k + 1)
+			}
+
+			s = ^int32(this.buffer[s-1])
+		}
+
 		this.sa[k] = s
 		k++
 	}
 
+	indexes[0] = uint(pIdx + 1)
 	return pIdx
 }
 
