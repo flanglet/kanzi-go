@@ -92,7 +92,6 @@ func generateCanonicalCodes(sizes []byte, codes []uint, symbols []int) (int, err
 type HuffmanEncoder struct {
 	bitstream  kanzi.OutputBitStream
 	codes      [256]uint
-	alphabet   [256]int
 	sranks     [256]int
 	chunkSize  int
 	maxCodeLen int
@@ -145,17 +144,18 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []int) (int, error) {
 
 	count := 0
 	var sizes [256]byte
+	var alphabet [256]int
 
 	for i := range &this.codes {
 		this.codes[i] = 0
 
 		if frequencies[i] > 0 {
-			this.alphabet[count] = i
+			alphabet[count] = i
 			count++
 		}
 	}
 
-	symbols := this.alphabet[0:count]
+	symbols := alphabet[0:count]
 
 	if _, err := EncodeAlphabet(this.bitstream, symbols); err != nil {
 		return count, err
@@ -164,7 +164,7 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []int) (int, error) {
 	retries := uint(0)
 
 	for {
-		if err := this.computeCodeLengths(frequencies, sizes[:], count); err != nil {
+		if err := this.computeCodeLengths(frequencies, sizes[:], symbols, count); err != nil {
 			return count, err
 		}
 
@@ -186,23 +186,23 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []int) (int, error) {
 		var f [256]int
 		totalFreq := 0
 
-		for i := 0; i < count; i++ {
-			f[i] = frequencies[this.alphabet[i]]
+		for i := range symbols {
+			f[i] = frequencies[symbols[i]]
 			totalFreq += f[i]
 		}
 
 		// Copy alphabet (modified by normalizeFrequencies)
-		var alphabet [256]int
-		copy(alphabet[:], this.alphabet[:count])
+		var _alphabet [256]int
+		copy(_alphabet[:], symbols)
 		retries++
 
 		// Normalize to a smaller scale
-		if _, err := NormalizeFrequencies(f[:count], alphabet[:count], totalFreq, int(_HUF_MAX_CHUNK_SIZE>>(2*retries))); err != nil {
+		if _, err := NormalizeFrequencies(f[:count], _alphabet[:count], totalFreq, int(_HUF_MAX_CHUNK_SIZE>>(2*retries))); err != nil {
 			return count, err
 		}
 
-		for i := 0; i < count; i++ {
-			frequencies[this.alphabet[i]] = f[i]
+		for i := range symbols {
+			frequencies[symbols[i]] = f[i]
 		}
 	}
 
@@ -218,29 +218,30 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []int) (int, error) {
 	// Pack size and code (size <= _HUF_MAX_SYMBOL_SIZE bits)
 	// Unary encode the length differences
 	for _, s := range symbols {
-		currSize := sizes[s]
-		this.codes[s] |= (uint(currSize) << 24)
-		egenc.EncodeByte(currSize - prevSize)
-		prevSize = currSize
+		curSize := sizes[s]
+		this.codes[s] |= (uint(curSize) << 24)
+		egenc.EncodeByte(curSize - prevSize)
+		prevSize = curSize
 	}
 
 	return count, nil
 }
 
-func (this *HuffmanEncoder) computeCodeLengths(frequencies []int, sizes []byte, count int) error {
+func (this *HuffmanEncoder) computeCodeLengths(frequencies []int, sizes []byte, alphabet []int, count int) error {
 	if count == 1 {
-		this.sranks[0] = this.alphabet[0]
-		sizes[this.alphabet[0]] = 1
+		this.sranks[0] = alphabet[0]
+		sizes[alphabet[0]] = 1
 		this.maxCodeLen = 1
 		return nil
 	}
 
 	// Sort ranks by increasing frequencies (first key) and increasing value (second key)
 	for i := 0; i < count; i++ {
-		this.sranks[i] = (frequencies[this.alphabet[i]] << 8) | this.alphabet[i]
+		this.sranks[i] = (frequencies[alphabet[i]] << 8) | alphabet[i]
 	}
 
-	buf := make([]int, count)
+	var buffer [256]int
+	buf := buffer[0:count]
 	sort.Ints(this.sranks[0:count])
 
 	for i := range buf {
@@ -476,7 +477,7 @@ func (this *HuffmanDecoder) readLengths() (int, error) {
 		return 0, err
 	}
 
-	currSize := int8(2)
+	curSize := int8(2)
 	symbols := this.alphabet[0:count]
 
 	// Decode lengths
@@ -486,13 +487,13 @@ func (this *HuffmanDecoder) readLengths() (int, error) {
 		}
 
 		this.codes[s] = 0
-		currSize += int8(egdec.DecodeByte())
+		curSize += int8(egdec.DecodeByte())
 
-		if currSize <= 0 || currSize > _HUF_MAX_SYMBOL_SIZE {
-			return 0, fmt.Errorf("Invalid bitstream: incorrect size %d for Huffman symbol %d", currSize, s)
+		if curSize <= 0 || curSize > _HUF_MAX_SYMBOL_SIZE {
+			return 0, fmt.Errorf("Invalid bitstream: incorrect size %d for Huffman symbol %d", curSize, s)
 		}
 
-		this.sizes[s] = byte(currSize)
+		this.sizes[s] = byte(curSize)
 	}
 
 	if _, err := generateCanonicalCodes(this.sizes[:], this.codes[:], symbols); err != nil {
