@@ -225,26 +225,23 @@ func newROLZCodec1(logPosChecks uint) (*rolzCodec1, error) {
 
 // findMatch returns match position index (logPosChecks bits) + length (8 bits) or -1
 func (this *rolzCodec1) findMatch(buf []byte, pos int) (int, int) {
-	key := getKey(buf[pos-2:])
-
-	if this.posChecks == 0 {
-		// Ahem terrible hack ... Do not try this at home, kids.
-		// This impossible branch speeds up the code (due to speculative
-		// memory fetch in the other branch probably)
-		return -1, -1
-	}
-
-	m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
-	hash32 := rolzhash(buf[pos : pos+4])
-	counter := this.counters[key]
-	bestLen := _ROLZ_MIN_MATCH - 1
-	bestIdx := -1
-	curBuf := buf[pos:]
 	maxMatch := _ROLZ_MAX_MATCH1
 
 	if maxMatch > len(buf)-pos {
 		maxMatch = len(buf) - pos
+
+		if maxMatch < _ROLZ_MIN_MATCH {
+			return -1, -1
+		}
 	}
+
+	key := getKey(buf[pos-2:])
+	m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
+	hash32 := rolzhash(buf[pos : pos+4])
+	counter := this.counters[key]
+	bestLen := 0
+	bestIdx := -1
+	curBuf := buf[pos:]
 
 	// Check all recorded positions
 	for i := counter; i > counter-this.posChecks; i-- {
@@ -256,13 +253,13 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int) (int, int) {
 		}
 
 		ref &= ^_ROLZ_HASH_MASK
+		refBuf := buf[ref:]
 
-		if buf[ref] != curBuf[0] {
+		if refBuf[bestLen] != curBuf[bestLen] {
 			continue
 		}
 
-		refBuf := buf[ref:]
-		n := 1
+		n := 0
 
 		if (n < maxMatch-4) && (binary.LittleEndian.Uint32(refBuf[n:]) == binary.LittleEndian.Uint32(curBuf[n:])) {
 			n += 4
@@ -283,8 +280,8 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int) (int, int) {
 	}
 
 	// Register current position
-	this.counters[key]++
-	m[(counter+1)&this.maskChecks] = hash32 | uint32(pos)
+	this.counters[key] = (this.counters[key] + 1) & this.maskChecks
+	m[this.counters[key]] = hash32 | uint32(pos)
 
 	if bestLen < _ROLZ_MIN_MATCH {
 		return -1, -1
@@ -316,7 +313,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	litBuf := make([]byte, this.MaxEncodedLen(sizeChunk))
 	lenBuf := make([]byte, sizeChunk/5)
 	mIdxBuf := make([]byte, sizeChunk/4)
-	tkBuf := make([]byte, sizeChunk/5)
+	tkBuf := make([]byte, sizeChunk/4)
 	var err error
 
 	for i := range this.counters {
@@ -539,7 +536,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	litBuf := make([]byte, this.MaxEncodedLen(sizeChunk))
 	lenBuf := make([]byte, sizeChunk/5)
 	mIdxBuf := make([]byte, sizeChunk/4)
-	tkBuf := make([]byte, sizeChunk/5)
+	tkBuf := make([]byte, sizeChunk/4)
 	var err error
 
 	for i := range this.counters {
@@ -704,8 +701,8 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			ref := int(m[(this.counters[key]-matchIdx)&this.maskChecks])
 			savedIdx := uint32(dstIdx)
 			dstIdx = emitCopy(buf, dstIdx, ref, matchLen)
-			this.counters[key]++
-			m[this.counters[key]&this.maskChecks] = savedIdx
+			this.counters[key] = (this.counters[key] + 1) & this.maskChecks
+			m[this.counters[key]] = savedIdx
 		}
 
 		startChunk = endChunk
@@ -796,8 +793,8 @@ func (this rolzCodec1) emitLiterals(litBuf, dst []byte, dstIdx int) {
 	for n := range litBuf {
 		key := getKey(d[n:])
 		m := this.matches[key<<this.logPosChecks:]
-		this.counters[key]++
-		m[this.counters[key]&this.maskChecks] = uint32(dstIdx + n)
+		this.counters[key] = (this.counters[key] + 1) & this.maskChecks
+		m[this.counters[key]] = uint32(dstIdx + n)
 	}
 }
 
@@ -828,26 +825,23 @@ func newROLZCodec2(logPosChecks uint) (*rolzCodec2, error) {
 
 // findMatch returns match position index and length or -1
 func (this *rolzCodec2) findMatch(buf []byte, pos int) (int, int) {
-	key := getKey(buf[pos-2:])
-
-	if this.posChecks == 0 {
-		// Ahem terrible hack ... Do not try this at home, kids.
-		// This impossible branch speeds up the code (due to speculative
-		// memory fetch in the other branch probably)
-		return -1, -1
-	}
-
-	m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
-	hash32 := rolzhash(buf[pos : pos+4])
-	counter := this.counters[key]
-	bestLen := _ROLZ_MIN_MATCH - 1
-	bestIdx := -1
-	curBuf := buf[pos:]
 	maxMatch := _ROLZ_MAX_MATCH2
 
 	if maxMatch > len(buf)-pos {
 		maxMatch = len(buf) - pos
+
+		if maxMatch < _ROLZ_MIN_MATCH {
+			return -1, -1
+		}
 	}
+
+	key := getKey(buf[pos-2:])
+	m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
+	hash32 := rolzhash(buf[pos : pos+4])
+	counter := this.counters[key]
+	bestLen := 0
+	bestIdx := -1
+	curBuf := buf[pos:]
 
 	// Check all recorded positions
 	for i := counter; i > counter-this.posChecks; i-- {
@@ -859,16 +853,20 @@ func (this *rolzCodec2) findMatch(buf []byte, pos int) (int, int) {
 		}
 
 		ref &= ^_ROLZ_HASH_MASK
+		refBuf := buf[ref:]
 
-		if buf[ref] != curBuf[0] {
+		if refBuf[bestLen] != curBuf[bestLen] {
 			continue
 		}
 
-		refBuf := buf[ref:]
-		n := 1
+		n := 0
 
-		if (n < maxMatch-4) && (binary.LittleEndian.Uint32(refBuf[n:]) == binary.LittleEndian.Uint32(curBuf[n:])) {
+		if (n+4 < maxMatch) && (binary.LittleEndian.Uint32(refBuf[n:]) == binary.LittleEndian.Uint32(curBuf[n:])) {
 			n += 4
+
+			for (n+4 < maxMatch) && (binary.LittleEndian.Uint32(refBuf[n:]) == binary.LittleEndian.Uint32(curBuf[n:])) {
+				n += 4
+			}
 		}
 
 		for (n < maxMatch) && (refBuf[n] == curBuf[n]) {
@@ -886,8 +884,8 @@ func (this *rolzCodec2) findMatch(buf []byte, pos int) (int, int) {
 	}
 
 	// Register current position
-	this.counters[key]++
-	m[(counter+1)&this.maskChecks] = hash32 | uint32(pos)
+	this.counters[key] = (this.counters[key] + 1) & this.maskChecks
+	m[this.counters[key]] = hash32 | uint32(pos)
 
 	if bestLen < _ROLZ_MIN_MATCH {
 		return -1, -1
@@ -942,11 +940,11 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		// First literals
 		re.setMode(_ROLZ_LITERAL_FLAG)
 		re.setContext(0)
-		re.encodeBits((_ROLZ_LITERAL_FLAG<<8)|int(buf[srcIdx]), 9)
+		re.encode9Bits((_ROLZ_LITERAL_FLAG << 8) | int(buf[srcIdx]))
 		srcIdx++
 
 		if startChunk+1 < srcEnd {
-			re.encodeBits((_ROLZ_LITERAL_FLAG<<8)|int(buf[srcIdx]), 9)
+			re.encode9Bits((_ROLZ_LITERAL_FLAG << 8) | int(buf[srcIdx]))
 			srcIdx++
 		}
 
@@ -958,13 +956,13 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 
 			if matchIdx < 0 {
 				// Emit one literal
-				re.encodeBits((_ROLZ_LITERAL_FLAG<<8)|int(buf[srcIdx]), 9)
+				re.encode9Bits((_ROLZ_LITERAL_FLAG << 8) | int(buf[srcIdx]))
 				srcIdx++
 				continue
 			}
 
 			// Emit one match length and index
-			re.encodeBits((_ROLZ_MATCH_FLAG<<8)|int(matchLen), 9)
+			re.encode9Bits((_ROLZ_MATCH_FLAG << 8) | int(matchLen))
 			re.setMode(_ROLZ_MATCH_FLAG)
 			re.setContext(buf[srcIdx-1])
 			re.encodeBits(matchIdx, this.logPosChecks)
@@ -980,7 +978,7 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 
 	for i := 0; i < 4; i++ {
 		re.setContext(src[srcIdx-1])
-		re.encodeBits((_ROLZ_LITERAL_FLAG<<8)|int(src[srcIdx]), 9)
+		re.encode9Bits((_ROLZ_LITERAL_FLAG << 8) | int(src[srcIdx]))
 		srcIdx++
 	}
 
@@ -1038,7 +1036,7 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 		// First literals
 		rd.setMode(_ROLZ_LITERAL_FLAG)
 		rd.setContext(0)
-		val := rd.decodeBits(9)
+		val := rd.decode9Bits()
 
 		// Sanity check
 		if val>>8 == _ROLZ_MATCH_FLAG {
@@ -1050,7 +1048,7 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 		dstIdx++
 
 		if startChunk+1 < dstEnd {
-			val = rd.decodeBits(9)
+			val = rd.decode9Bits()
 
 			// Sanity check
 			if val>>8 == _ROLZ_MATCH_FLAG {
@@ -1068,7 +1066,7 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			key := getKey(buf[dstIdx-2:])
 			m := this.matches[key<<this.logPosChecks:]
 			rd.setContext(buf[dstIdx-1])
-			val := rd.decodeBits(9)
+			val := rd.decode9Bits()
 
 			if val>>8 == _ROLZ_LITERAL_FLAG {
 				buf[dstIdx] = byte(val)
@@ -1092,8 +1090,8 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			// Update map
-			this.counters[key]++
-			m[this.counters[key]&this.maskChecks] = uint32(savedIdx)
+			this.counters[key] = (this.counters[key] + 1) & this.maskChecks
+			m[this.counters[key]] = uint32(savedIdx)
 		}
 
 		startChunk = endChunk
@@ -1178,6 +1176,20 @@ func (this *rolzEncoder) encodeBits(val int, n uint) {
 		n--
 		this.encodeBit(val & (1 << n))
 	}
+}
+
+func (this *rolzEncoder) encode9Bits(val int) {
+	this.c1 = 1
+	this.p = this.probs[this.pIdx][this.ctx:]
+	this.encodeBit(val & 0x100)
+	this.encodeBit(val & 0x80)
+	this.encodeBit(val & 0x40)
+	this.encodeBit(val & 0x20)
+	this.encodeBit(val & 0x10)
+	this.encodeBit(val & 0x08)
+	this.encodeBit(val & 0x04)
+	this.encodeBit(val & 0x02)
+	this.encodeBit(val & 0x01)
 }
 
 func (this *rolzEncoder) encodeBit(bit int) {
@@ -1280,6 +1292,21 @@ func (this *rolzDecoder) decodeBits(n uint) int {
 	}
 
 	return this.c1 & mask
+}
+
+func (this *rolzDecoder) decode9Bits() int {
+	this.c1 = 1
+	this.p = this.probs[this.pIdx][this.ctx:]
+	this.decodeBit()
+	this.decodeBit()
+	this.decodeBit()
+	this.decodeBit()
+	this.decodeBit()
+	this.decodeBit()
+	this.decodeBit()
+	this.decodeBit()
+	this.decodeBit()
+	return this.c1 & 0x1FF
 }
 
 func (this *rolzDecoder) decodeBit() int {
