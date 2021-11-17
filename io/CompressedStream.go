@@ -40,7 +40,7 @@ import (
 
 const (
 	_BITSTREAM_TYPE             = 0x4B414E5A // "KANZ"
-	_BITSTREAM_FORMAT_VERSION   = 1
+	_BITSTREAM_FORMAT_VERSION   = 2
 	_STREAM_DEFAULT_BUFFER_SIZE = 256 * 1024
 	_EXTRA_BUFFER_SIZE          = 256
 	_COPY_BLOCK_MASK            = 0x80
@@ -887,7 +887,7 @@ func (this *CompressedInputStream) readHeader() error {
 	bsVersion := int(this.ibs.ReadBits(4))
 
 	// Sanity check
-	if bsVersion != _BITSTREAM_FORMAT_VERSION {
+	if bsVersion > _BITSTREAM_FORMAT_VERSION {
 		errMsg := fmt.Sprintf("Invalid bitstream, cannot read this version of the stream: %d", bsVersion)
 		return &IOError{msg: errMsg, code: kanzi.ERR_STREAM_VERSION}
 	}
