@@ -236,6 +236,10 @@ func (this *RangeEncoder) Write(block []byte) (int, error) {
 
 // Compute chunk frequencies, cumulated frequencies and encode chunk header
 func (this *RangeEncoder) rebuildStatistics(block []byte, lr uint) (int, error) {
+	for i := range this.freqs {
+		this.freqs[i] = 0
+	}
+
 	kanzi.ComputeHistogram(block, this.freqs[:], true, false)
 	return this.updateFrequencies(this.freqs[:], len(block), lr)
 }

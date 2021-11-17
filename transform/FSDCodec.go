@@ -233,6 +233,10 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	// Extra check that the transform makes sense
+	for i := range histo[0] {
+		histo[0][i] = 0
+	}
+
 	kanzi.ComputeHistogram(dst[(dstIdx-length)>>1:(dstIdx+length)>>1], histo[0][:], true, false)
 	var err error
 

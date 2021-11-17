@@ -382,6 +382,10 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 
 // Compute chunk frequencies, cumulated frequencies and encode chunk header
 func (this *ANSRangeEncoder) rebuildStatistics(block []byte, lr uint) (int, error) {
+	for i := range this.freqs {
+		this.freqs[i] = 0
+	}
+
 	kanzi.ComputeHistogram(block, this.freqs, this.order == 0, true)
 	return this.updateFrequencies(this.freqs, lr)
 }

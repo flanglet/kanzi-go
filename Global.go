@@ -269,10 +269,6 @@ func ComputeFirstOrderEntropy1024(blockLen int, histo []int) int {
 // If withTotal is true, the last spot in each frequencies order 0 array is for the total
 // (each order 0 frequency slice must be of length 257 in this case).
 func ComputeHistogram(block []byte, freqs []int, isOrder0, withTotal bool) {
-	for i := range freqs {
-		freqs[i] = 0
-	}
-
 	if isOrder0 == true {
 		if withTotal == true {
 			freqs[256] = len(block)
@@ -282,16 +278,32 @@ func ComputeHistogram(block []byte, freqs []int, isOrder0, withTotal bool) {
 		f1 := [256]int{}
 		f2 := [256]int{}
 		f3 := [256]int{}
-		end4 := len(block) & -4
+		end16 := len(block) & -16
 
-		for i := 0; i < end4; i += 4 {
+		for i := 0; i < end16; {
 			f0[block[i]]++
 			f1[block[i+1]]++
 			f2[block[i+2]]++
 			f3[block[i+3]]++
+			i += 4
+			f0[block[i]]++
+			f1[block[i+1]]++
+			f2[block[i+2]]++
+			f3[block[i+3]]++
+			i += 4
+			f0[block[i]]++
+			f1[block[i+1]]++
+			f2[block[i+2]]++
+			f3[block[i+3]]++
+			i += 4
+			f0[block[i]]++
+			f1[block[i+1]]++
+			f2[block[i+2]]++
+			f3[block[i+3]]++
+			i += 4
 		}
 
-		for i := end4; i < len(block); i++ {
+		for i := end16; i < len(block); i++ {
 			freqs[block[i]]++
 		}
 
@@ -299,18 +311,90 @@ func ComputeHistogram(block []byte, freqs []int, isOrder0, withTotal bool) {
 			freqs[i] += (f0[i] + f1[i] + f2[i] + f3[i])
 		}
 	} else { // Order 1
-		prv := int(0)
+		length := len(block)
+		quarter := length >> 2
+		n0 := 0 * quarter
+		n1 := 1 * quarter
+		n2 := 2 * quarter
+		n3 := 3 * quarter
 
 		if withTotal == true {
-			for _, cur := range block {
-				freqs[prv+int(cur)]++
-				freqs[prv+256]++
-				prv = 257 * int(cur)
+			if length < 32 {
+				prv := uint(0)
+
+				for i := 0; i < length; i++ {
+					freqs[prv+uint(block[i])]++
+					freqs[prv+256]++
+					prv = 257 * uint(block[i])
+				}
+			} else {
+				prv0 := uint(0)
+				prv1 := 257 * uint(block[n1-1])
+				prv2 := 257 * uint(block[n2-1])
+				prv3 := 257 * uint(block[n3-1])
+
+				for n0 < quarter {
+					cur0 := uint(block[n0])
+					cur1 := uint(block[n1])
+					cur2 := uint(block[n2])
+					cur3 := uint(block[n3])
+					freqs[prv0+cur0]++
+					freqs[prv0+256]++
+					freqs[prv1+cur1]++
+					freqs[prv1+256]++
+					freqs[prv2+cur2]++
+					freqs[prv2+256]++
+					freqs[prv3+cur3]++
+					freqs[prv3+256]++
+					prv0 = 257 * cur0
+					prv1 = 257 * cur1
+					prv2 = 257 * cur2
+					prv3 = 257 * cur3
+					n0++
+					n1++
+					n2++
+					n3++
+				}
+
+				for ; n3 < length; n3++ {
+					freqs[prv3+uint(block[n3])]++
+					freqs[prv3+256]++
+					prv3 = 257 * uint(block[n3])
+				}
 			}
-		} else {
-			for _, cur := range block {
-				freqs[prv+int(cur)]++
-				prv = int(cur) << 8
+		} else { // order 1, no total
+			if length < 32 {
+				prv := uint(0)
+
+				for i := 0; i < length; i++ {
+					freqs[prv+uint(block[i])]++
+					prv = 256 * uint(block[i])
+				}
+			} else {
+				prv0 := uint(0)
+				prv1 := 256 * uint(block[n1-1])
+				prv2 := 256 * uint(block[n2-1])
+				prv3 := 256 * uint(block[n3-1])
+
+				for n0 < quarter {
+					cur0 := uint(block[n0])
+					cur1 := uint(block[n1])
+					cur2 := uint(block[n2])
+					cur3 := uint(block[n3])
+					freqs[prv0+cur0]++
+					freqs[prv1+cur1]++
+					freqs[prv2+cur2]++
+					freqs[prv3+cur3]++
+					prv0 = cur0 << 8
+					prv1 = cur1 << 8
+					prv2 = cur2 << 8
+					prv3 = cur3 << 8
+				}
+
+				for ; n3 < length; n3++ {
+					freqs[prv3+uint(block[n3])]++
+					prv3 = uint(block[n3]) << 8
+				}
 			}
 		}
 	}
