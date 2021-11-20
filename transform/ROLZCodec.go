@@ -19,6 +19,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math/bits"
 	"strings"
 
 	kanzi "github.com/flanglet/kanzi-go"
@@ -261,12 +262,15 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int) (int, int) {
 
 		n := 0
 
-		if (n < maxMatch-4) && (binary.LittleEndian.Uint32(refBuf[n:]) == binary.LittleEndian.Uint32(curBuf[n:])) {
-			n += 4
-		}
+		for n < maxMatch-4 {
+			diff := binary.LittleEndian.Uint32(refBuf[n:]) ^ binary.LittleEndian.Uint32(curBuf[n:])
 
-		for (n < maxMatch) && (refBuf[n] == curBuf[n]) {
-			n++
+			if diff != 0 {
+				n += (bits.TrailingZeros32(diff) >> 3)
+				break
+			}
+
+			n += 4
 		}
 
 		if n > bestLen {
@@ -861,16 +865,15 @@ func (this *rolzCodec2) findMatch(buf []byte, pos int) (int, int) {
 
 		n := 0
 
-		if (n+4 < maxMatch) && (binary.LittleEndian.Uint32(refBuf[n:]) == binary.LittleEndian.Uint32(curBuf[n:])) {
-			n += 4
+		for n+4 < maxMatch {
+			diff := binary.LittleEndian.Uint32(refBuf[n:]) ^ binary.LittleEndian.Uint32(curBuf[n:])
 
-			for (n+4 < maxMatch) && (binary.LittleEndian.Uint32(refBuf[n:]) == binary.LittleEndian.Uint32(curBuf[n:])) {
-				n += 4
+			if diff != 0 {
+				n += (bits.TrailingZeros32(diff) >> 3)
+				break
 			}
-		}
 
-		for (n < maxMatch) && (refBuf[n] == curBuf[n]) {
-			n++
+			n += 4
 		}
 
 		if n > bestLen {
