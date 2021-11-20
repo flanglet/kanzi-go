@@ -115,6 +115,35 @@ func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncode
 	return this, nil
 }
 
+// NewANSRangeEncoderWithCtx creates a new instance of ANSRangeEncoder providing a
+// context map.
+func NewANSRangeEncoderWithCtx(bs kanzi.OutputBitStream, order uint, ctx *map[string]interface{}) (*ANSRangeEncoder, error) {
+	if bs == nil {
+		return nil, errors.New("ANS codec: Invalid null bitstream parameter")
+	}
+
+	if order != 0 && order != 1 {
+		return nil, errors.New("ANS codec: The order must be 0 or 1")
+	}
+
+	chkSize := _DEFAULT_ANS0_CHUNK_SIZE
+
+	if order == 1 {
+		chkSize <<= 8
+	}
+
+	this := new(ANSRangeEncoder)
+	this.bitstream = bs
+	this.order = order
+	dim := int(255*order + 1)
+	this.freqs = make([]int, dim*257) // freqs[x][256] = total(freqs[x][0..255])
+	this.symbols = make([]encSymbol, dim*256)
+	this.buffer = make([]byte, 0)
+	this.logRange = _DEFAULT_ANS_LOG_RANGE
+	this.chunkSize = int(chkSize)
+	return this, nil
+}
+
 // Compute cumulated frequencies and encode header
 func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, lr uint) (int, error) {
 	res := 0
@@ -281,85 +310,75 @@ func (this *ANSRangeEncoder) Write(block []byte) (int, error) {
 	return end, nil
 }
 
+func (this *ANSRangeEncoder) encodeSymbol(n int, st *int, sym encSymbol) int {
+	if *st >= sym.xMax {
+		this.buffer[n] = byte(*st)
+		this.buffer[n-1] = byte(*st >> 8)
+		*st >>= 16
+		n -= 2
+	}
+
+	*st = *st + sym.bias + int((uint64(*st)*sym.invFreq)>>sym.invShift)*sym.cmplFreq
+	return n
+}
+
 func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 	st0 := _ANS_TOP
 	st1 := _ANS_TOP
+	st2 := _ANS_TOP
+	st3 := _ANS_TOP
 	n := len(this.buffer) - 1
+	end4 := len(block) & -4
+
+	for i := len(block) - 1; i >= end4; i-- {
+		this.buffer[n] = block[i]
+		n--
+	}
 
 	if this.order == 0 {
 		symb := this.symbols[0:256]
-		start := len(block) - 1
 
-		if len(block)&1 != 0 {
-			this.buffer[n] = block[start]
-			start--
-			n--
-		}
-
-		for i := start; i > 0; i -= 2 {
-			sym0 := symb[block[i]]
-			sym1 := symb[block[i-1]]
-
-			for st0 >= sym0.xMax {
-				this.buffer[n] = byte(st0)
-				st0 >>= 8
-				this.buffer[n-1] = byte(st0)
-				st0 >>= 8
-				n -= 2
-			}
-
-			for st1 >= sym1.xMax {
-				this.buffer[n] = byte(st1)
-				st1 >>= 8
-				this.buffer[n-1] = byte(st1)
-				st1 >>= 8
-				n -= 2
-			}
-
-			// Compute next ANS state
-			// C(s,x) = M floor(x/q_s) + mod(x,q_s) + b_s where b_s = q_0 + ... + q_{s-1}
-			// st = ((st / freq) << lr) + (st % freq) + cumFreq[prv];
-			st0 = st0 + sym0.bias + int((uint64(st0)*sym0.invFreq)>>sym0.invShift)*sym0.cmplFreq
-			st1 = st1 + sym1.bias + int((uint64(st1)*sym1.invFreq)>>sym1.invShift)*sym1.cmplFreq
+		for i := end4 - 1; i > 0; i -= 4 {
+			n = this.encodeSymbol(n, &st0, symb[block[i]])
+			n = this.encodeSymbol(n, &st1, symb[block[i-1]])
+			n = this.encodeSymbol(n, &st2, symb[block[i-2]])
+			n = this.encodeSymbol(n, &st3, symb[block[i-3]])
 		}
 	} else { // order 1
-		symb := this.symbols
-		prv := int(block[len(block)-1])
+		quarter := end4 >> 2
+		i0 := 1*quarter - 2
+		i1 := 2*quarter - 2
+		i2 := 3*quarter - 2
+		i3 := end4 - 2
+		prv0 := int(block[i0+1])
+		prv1 := int(block[i1+1])
+		prv2 := int(block[i2+1])
+		prv3 := int(block[i3+1])
 
-		for i := len(block) - 2; i >= 0; i-- {
-			cur := int(block[i])
-			sym := symb[(cur<<8)|prv]
-
-			for st0 >= sym.xMax {
-				this.buffer[n] = byte(st0)
-				st0 >>= 8
-				this.buffer[n-1] = byte(st0)
-				st0 >>= 8
-				n -= 2
-			}
-
-			// Compute next ANS state
-			// C(s,x) = M floor(x/q_s) + mod(x,q_s) + b_s where b_s = q_0 + ... + q_{s-1}
-			// st = ((st / freq) << lr) + (st % freq) + cumFreq[prv];
-			st0 = st0 + sym.bias + int((uint64(st0)*sym.invFreq)>>sym.invShift)*sym.cmplFreq
-			prv = cur
+		for i0 >= 0 {
+			cur0 := int(block[i0])
+			n = this.encodeSymbol(n, &st0, this.symbols[(cur0<<8)|prv0])
+			cur1 := int(block[i1])
+			n = this.encodeSymbol(n, &st1, this.symbols[(cur1<<8)|prv1])
+			cur2 := int(block[i2])
+			n = this.encodeSymbol(n, &st2, this.symbols[(cur2<<8)|prv2])
+			cur3 := int(block[i3])
+			n = this.encodeSymbol(n, &st3, this.symbols[(cur3<<8)|prv3])
+			prv0 = cur0
+			prv1 = cur1
+			prv2 = cur2
+			prv3 = cur3
+			i0--
+			i1--
+			i2--
+			i3--
 		}
 
-		// Last symbol
-		sym := symb[prv]
-
-		for st0 >= sym.xMax {
-			this.buffer[n] = byte(st0)
-			st0 >>= 8
-			this.buffer[n-1] = byte(st0)
-			st0 >>= 8
-			n -= 2
-		}
-
-		// Compute next ANS state
-		// C(s,x) = M floor(x/q_s) + mod(x,q_s) + b_s where b_s = q_0 + ... + q_{s-1}
-		// st = ((st / freq) << lr) + (st % freq) + cumFreq[prv];
-		st0 = st0 + sym.bias + int((uint64(st0)*sym.invFreq)>>sym.invShift)*sym.cmplFreq
+		// Last symbols
+		n = this.encodeSymbol(n, &st0, this.symbols[prv0])
+		n = this.encodeSymbol(n, &st1, this.symbols[prv1])
+		n = this.encodeSymbol(n, &st2, this.symbols[prv2])
+		n = this.encodeSymbol(n, &st3, this.symbols[prv3])
 	}
 
 	n++
@@ -369,10 +388,9 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 
 	// Write final ANS state
 	this.bitstream.WriteBits(uint64(st0), 32)
-
-	if this.order == 0 {
-		this.bitstream.WriteBits(uint64(st1), 32)
-	}
+	this.bitstream.WriteBits(uint64(st1), 32)
+	this.bitstream.WriteBits(uint64(st2), 32)
+	this.bitstream.WriteBits(uint64(st3), 32)
 
 	if len(this.buffer) != n {
 		// Write encoded data to bitstream
@@ -386,7 +404,16 @@ func (this *ANSRangeEncoder) rebuildStatistics(block []byte, lr uint) (int, erro
 		this.freqs[i] = 0
 	}
 
-	kanzi.ComputeHistogram(block, this.freqs, this.order == 0, true)
+	if this.order == 0 {
+		kanzi.ComputeHistogram(block, this.freqs, true, true)
+	} else {
+		quarter := len(block) >> 2
+		kanzi.ComputeHistogram(block[0*quarter:1*quarter], this.freqs, false, true)
+		kanzi.ComputeHistogram(block[1*quarter:2*quarter], this.freqs, false, true)
+		kanzi.ComputeHistogram(block[2*quarter:3*quarter], this.freqs, false, true)
+		kanzi.ComputeHistogram(block[3*quarter:4*quarter], this.freqs, false, true)
+	}
+
 	return this.updateFrequencies(this.freqs, lr)
 }
 
@@ -436,14 +463,15 @@ func (this *encSymbol) reset(cumFreq, freq int, logRange uint) {
 
 // ANSRangeDecoder Asymmetric Numeral System Decoder
 type ANSRangeDecoder struct {
-	bitstream kanzi.InputBitStream
-	freqs     []int
-	symbols   []decSymbol
-	f2s       []byte // mapping frequency -> symbol
-	buffer    []byte
-	chunkSize int
-	logRange  uint
-	order     uint
+	bitstream    kanzi.InputBitStream
+	freqs        []int
+	symbols      []decSymbol
+	f2s          []byte // mapping frequency -> symbol
+	buffer       []byte
+	chunkSize    int
+	logRange     uint
+	order        uint
+	isBsVersion1 bool
 }
 
 // NewANSRangeDecoder creates an instance of ANS decoder.
@@ -458,8 +486,8 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 		return nil, errors.New("ANS codec: Invalid null bitstream parameter")
 	}
 
-	if len(args) > 2 {
-		return nil, errors.New("ANS codec: At most order and chunk size can be provided")
+	if len(args) > 3 {
+		return nil, errors.New("ANS codec: At most order, chunk size and bitstream version can be provided")
 	}
 
 	chkSize := _DEFAULT_ANS0_CHUNK_SIZE
@@ -502,6 +530,43 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 	this.buffer = make([]byte, 0)
 	this.f2s = make([]byte, 0)
 	this.symbols = make([]decSymbol, dim*256)
+	this.isBsVersion1 = false
+	return this, nil
+}
+
+// NewANSRangeDecoderWithCtx creates a new instance of ANSRangeDecoder providing a
+// context map.
+func NewANSRangeDecoderWithCtx(bs kanzi.InputBitStream, order uint, ctx *map[string]interface{}) (*ANSRangeDecoder, error) {
+	if bs == nil {
+		return nil, errors.New("ANS codec: Invalid null bitstream parameter")
+	}
+
+	if order != 0 && order != 1 {
+		return nil, errors.New("ANS codec: The order must be 0 or 1")
+	}
+
+	chkSize := _DEFAULT_ANS0_CHUNK_SIZE
+
+	if order == 1 {
+		chkSize <<= 8
+	}
+
+	bsVersion := uint(2)
+
+	if val, containsKey := (*ctx)["bsVersion"]; containsKey {
+		bsVersion = val.(uint)
+	}
+
+	this := new(ANSRangeDecoder)
+	this.bitstream = bs
+	this.chunkSize = int(chkSize)
+	this.order = order
+	dim := int(255*order + 1)
+	this.freqs = make([]int, dim*256)
+	this.buffer = make([]byte, 0)
+	this.f2s = make([]byte, 0)
+	this.symbols = make([]decSymbol, dim*256)
+	this.isBsVersion1 = bsVersion == 1
 	return this, nil
 }
 
@@ -659,7 +724,11 @@ func (this *ANSRangeDecoder) Read(block []byte) (int, error) {
 				block[i] = byte(alphabet[0])
 			}
 		} else {
-			this.decodeChunk(block[startChunk:endChunk])
+			if this.isBsVersion1 == true {
+				this.decodeChunkV1(block[startChunk:endChunk])
+			} else {
+				this.decodeChunkV2(block[startChunk:endChunk])
+			}
 		}
 
 		startChunk = endChunk
@@ -668,7 +737,7 @@ func (this *ANSRangeDecoder) Read(block []byte) (int, error) {
 	return len(block), nil
 }
 
-func (this *ANSRangeDecoder) decodeChunk(block []byte) {
+func (this *ANSRangeDecoder) decodeChunkV1(block []byte) {
 	// Read chunk size
 	sz := ReadVarInt(this.bitstream) & (_ANS_MAX_CHUNK_SIZE - 1)
 
@@ -729,14 +798,13 @@ func (this *ANSRangeDecoder) decodeChunk(block []byte) {
 		if len(block)&1 != 0 {
 			block[len(block)-1] = this.buffer[sz-1]
 		}
-	} else {
-		symb := this.symbols
+	} else { // order1
 		prv := int(0)
 
 		for i := range block {
 			cur := this.f2s[(prv<<lr)|(st0&mask)]
 			block[i] = cur
-			sym := symb[(prv<<8)|int(cur)]
+			sym := this.symbols[(prv<<8)|int(cur)]
 
 			// Compute next ANS state
 			// D(x) = (s, q_s (x/M) + mod(x,M) - b_s) where s is such b_s <= x mod M < b_{s+1}
@@ -751,6 +819,106 @@ func (this *ANSRangeDecoder) decodeChunk(block []byte) {
 
 			prv = int(cur)
 		}
+	}
+}
+
+func (this *ANSRangeDecoder) decodeSymbol(n int, st *int, sym decSymbol, mask int) int {
+	// Compute next ANS state
+	// D(x) = (s, q_s (x/M) + mod(x,M) - b_s) where s is such b_s <= x mod M < b_{s+1}
+	*st = sym.freq*(*st>>this.logRange) + (*st & mask) - sym.cumFreq
+
+	// Normalize
+	if *st < _ANS_TOP {
+		*st = (*st << 8) | int(this.buffer[n])
+		*st = (*st << 8) | int(this.buffer[n+1])
+		n += 2
+	}
+
+	return n
+}
+
+func (this *ANSRangeDecoder) decodeChunkV2(block []byte) {
+	// Read chunk size
+	sz := ReadVarInt(this.bitstream) & (_ANS_MAX_CHUNK_SIZE - 1)
+
+	// Read initial ANS state
+	st0 := int(this.bitstream.ReadBits(32))
+	st1 := int(this.bitstream.ReadBits(32))
+	st2 := int(this.bitstream.ReadBits(32))
+	st3 := int(this.bitstream.ReadBits(32))
+
+	// Read encoded data
+	if sz != 0 {
+		// Add some padding
+		if len(this.buffer) < int(sz) {
+			this.buffer = make([]byte, sz+(sz>>3))
+		}
+
+		this.bitstream.ReadArray(this.buffer[0:sz], uint(8*sz))
+	}
+
+	n := 0
+	lr := this.logRange
+	mask := (1 << lr) - 1
+	end4 := len(block) & -4
+
+	if this.order == 0 {
+		freq2sym := this.f2s[0 : mask+1]
+		symb := this.symbols[0:256]
+
+		for i := 0; i < end4; i += 4 {
+			cur3 := freq2sym[st3&mask]
+			block[i] = byte(cur3)
+			n = this.decodeSymbol(n, &st3, symb[cur3], mask)
+			cur2 := freq2sym[st2&mask]
+			block[i+1] = byte(cur2)
+			n = this.decodeSymbol(n, &st2, symb[cur2], mask)
+			cur1 := freq2sym[st1&mask]
+			block[i+2] = byte(cur1)
+			n = this.decodeSymbol(n, &st1, symb[cur1], mask)
+			cur0 := freq2sym[st0&mask]
+			block[i+3] = byte(cur0)
+			n = this.decodeSymbol(n, &st0, symb[cur0], mask)
+		}
+	} else { // order 1
+		quarter := end4 >> 2
+		i0 := 0
+		i1 := 1 * quarter
+		i2 := 2 * quarter
+		i3 := 3 * quarter
+		prv0, prv1, prv2, prv3 := 0, 0, 0, 0
+
+		for i0 < quarter {
+			symbols3 := this.symbols[prv3<<8:]
+			symbols2 := this.symbols[prv2<<8:]
+			symbols1 := this.symbols[prv1<<8:]
+			symbols0 := this.symbols[prv0<<8:]
+			cur3 := int(this.f2s[(prv3<<this.logRange)+(st3&mask)])
+			block[i3] = byte(cur3)
+			n = this.decodeSymbol(n, &st3, symbols3[cur3], mask)
+			cur2 := int(this.f2s[(prv2<<this.logRange)+(st2&mask)])
+			block[i2] = byte(cur2)
+			n = this.decodeSymbol(n, &st2, symbols2[cur2], mask)
+			cur1 := int(this.f2s[(prv1<<this.logRange)+(st1&mask)])
+			block[i1] = byte(cur1)
+			n = this.decodeSymbol(n, &st1, symbols1[cur1], mask)
+			cur0 := int(this.f2s[(prv0<<this.logRange)+(st0&mask)])
+			block[i0] = byte(cur0)
+			n = this.decodeSymbol(n, &st0, symbols0[cur0], mask)
+			prv3 = cur3
+			prv2 = cur2
+			prv1 = cur1
+			prv0 = cur0
+			i0++
+			i1++
+			i2++
+			i3++
+		}
+	}
+
+	for i := end4; i < len(block); i++ {
+		block[i] = this.buffer[n]
+		n++
 	}
 }
 

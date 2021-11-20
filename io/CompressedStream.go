@@ -884,7 +884,7 @@ func (this *CompressedInputStream) readHeader() error {
 		return &IOError{msg: "Invalid stream type", code: kanzi.ERR_INVALID_FILE}
 	}
 
-	bsVersion := int(this.ibs.ReadBits(4))
+	bsVersion := uint(this.ibs.ReadBits(4))
 
 	// Sanity check
 	if bsVersion > _BITSTREAM_FORMAT_VERSION {

@@ -50,10 +50,10 @@ func NewEntropyDecoder(ibs kanzi.InputBitStream, ctx map[string]interface{},
 		return NewHuffmanDecoder(ibs)
 
 	case ANS0_TYPE:
-		return NewANSRangeDecoder(ibs, 0)
+		return NewANSRangeDecoderWithCtx(ibs, 0, &ctx)
 
 	case ANS1_TYPE:
-		return NewANSRangeDecoder(ibs, 1)
+		return NewANSRangeDecoderWithCtx(ibs, 1, &ctx)
 
 	case RANGE_TYPE:
 		return NewRangeDecoder(ibs)
@@ -90,10 +90,10 @@ func NewEntropyEncoder(obs kanzi.OutputBitStream, ctx map[string]interface{},
 		return NewHuffmanEncoder(obs)
 
 	case ANS0_TYPE:
-		return NewANSRangeEncoder(obs, 0)
+		return NewANSRangeEncoderWithCtx(obs, 0, &ctx)
 
 	case ANS1_TYPE:
-		return NewANSRangeEncoder(obs, 1)
+		return NewANSRangeEncoderWithCtx(obs, 1, &ctx)
 
 	case RANGE_TYPE:
 		return NewRangeEncoder(obs)
