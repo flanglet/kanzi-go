@@ -32,7 +32,7 @@ func TestCorrectness(b *testing.T) {
 	sum := 0
 
 	for test := 1; test < 40; test++ {
-		length := 65536 << (test % 7)
+		length := 65536 << uint(test%7)
 		fmt.Printf("\nIteration %v (size %v)\n", test, length)
 		rand.Seed(time.Now().UTC().UnixNano())
 
