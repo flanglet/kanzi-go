@@ -1,5 +1,8 @@
 language: go
+go:
+- master
 install: 
    - cd app 
    - go build -gcflags='all=-B' Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
    - cd ..
+script: go test -v ./...
