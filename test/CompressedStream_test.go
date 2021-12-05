@@ -25,7 +25,7 @@ import (
 	"github.com/flanglet/kanzi-go/util"
 )
 
-func TestCorrectness(b *testing.T) {
+func TestCompressedStream(b *testing.T) {
 	fmt.Println("Correctness Test")
 	values := make([]byte, 65536<<6)
 	incompressible := make([]byte, 65536<<6)

@@ -28,12 +28,12 @@ import (
 	"github.com/flanglet/kanzi-go/util"
 )
 
-func TestAligned(b *testing.T) {
+func TestBitStreamAligned(b *testing.T) {
 	testCorrectnessAligned1()
 	testCorrectnessAligned2()
 }
 
-func TestMisaligned(b *testing.T) {
+func TestBitStreamMisaligned(b *testing.T) {
 	testCorrectnessMisaligned1()
 	testCorrectnessMisaligned2()
 }
