@@ -50,6 +50,7 @@ const (
 	_SMALL_BLOCK_SIZE           = 15
 	_MAX_CONCURRENCY            = 64
 	_CANCEL_TASKS_ID            = -1
+	_UNKNOWN_NB_BLOCKS          = 65536
 )
 
 // IOError an extended error containing a message and a code value
@@ -83,10 +84,8 @@ type blockBuffer struct {
 // CompressedOutputStream a Writer that writes compressed data
 // to an OutputBitStream.
 type CompressedOutputStream struct {
-	blockSize     uint
-	nbInputBlocks uint8
+	blockSize     int
 	hasher        *hash.XXHash32
-	data          []byte
 	buffers       []blockBuffer
 	entropyType   uint32
 	transformType uint64
@@ -94,8 +93,9 @@ type CompressedOutputStream struct {
 	initialized   int32
 	closed        int32
 	blockID       int32
-	curIdx        int
 	jobs          int
+	nbInputBlocks int
+	available     int
 	listeners     []kanzi.Listener
 	ctx           map[string]interface{}
 }
@@ -184,10 +184,6 @@ func createCompressedOutputStreamWithCtx(obs kanzi.OutputBitStream, ctx map[stri
 		return nil, &IOError{msg: "The block size must be a multiple of 16", code: kanzi.ERR_CREATE_STREAM}
 	}
 
-	if uint64(bSize)*uint64(tasks) >= uint64(1<<31) {
-		tasks = (1 << 31) / bSize
-	}
-
 	ctx["bsVersion"] = int(_BITSTREAM_FORMAT_VERSION)
 	this := new(CompressedOutputStream)
 	this.obs = obs
@@ -197,9 +193,9 @@ func createCompressedOutputStreamWithCtx(obs kanzi.OutputBitStream, ctx map[stri
 
 	// Check transform type validity (panic on error)
 	this.transformType = transform.GetType(t)
-
-	this.blockSize = bSize
-	nbBlocks := uint8(0)
+	this.blockSize = int(bSize)
+	this.available = 0
+	nbBlocks := _UNKNOWN_NB_BLOCKS
 
 	// If input size has been provided, calculate the number of blocks
 	// in the input data else use 0. A value of 63 means '63 or more blocks'.
@@ -208,11 +204,11 @@ func createCompressedOutputStreamWithCtx(obs kanzi.OutputBitStream, ctx map[stri
 	// decompression scenario.
 	if val, containsKey := ctx["fileSize"]; containsKey {
 		fileSize := val.(int64)
-		nbBlocks = uint8((fileSize + int64(bSize-1)) / int64(bSize))
+		nbBlocks = int((fileSize + int64(bSize-1)) / int64(bSize))
 	}
 
-	if nbBlocks > 63 {
-		this.nbInputBlocks = 63
+	if nbBlocks >= _MAX_CONCURRENCY {
+		this.nbInputBlocks = _MAX_CONCURRENCY - 1
 	} else {
 		this.nbInputBlocks = nbBlocks
 	}
@@ -227,11 +223,21 @@ func createCompressedOutputStreamWithCtx(obs kanzi.OutputBitStream, ctx map[stri
 	}
 
 	this.jobs = int(tasks)
-	this.data = make([]byte, 0)
 	this.buffers = make([]blockBuffer, 2*this.jobs)
 
-	for i := range this.buffers {
+	// Allocate first buffer and add padding for incompressible blocks
+	bufSize := this.blockSize + this.blockSize>>6
+
+	if bufSize < 65536 {
+		bufSize = 65536
+	}
+
+	this.buffers[0] = blockBuffer{Buf: make([]byte, bufSize)}
+	this.buffers[this.jobs] = blockBuffer{Buf: make([]byte, 0)}
+
+	for i := 1; i < this.jobs; i++ {
 		this.buffers[i] = blockBuffer{Buf: make([]byte, 0)}
+		this.buffers[i+this.jobs] = blockBuffer{Buf: make([]byte, 0)}
 	}
 
 	this.blockID = 0
@@ -299,7 +305,7 @@ func (this *CompressedOutputStream) writeHeader() *IOError {
 		return &IOError{msg: "Cannot write block size to header", code: kanzi.ERR_WRITE_FILE}
 	}
 
-	if this.obs.WriteBits(uint64(this.nbInputBlocks), 6) != 6 {
+	if this.obs.WriteBits(uint64(this.nbInputBlocks&(_MAX_CONCURRENCY-1)), 6) != 6 {
 		return &IOError{msg: "Cannot write number of blocks to header", code: kanzi.ERR_WRITE_FILE}
 	}
 
@@ -318,33 +324,48 @@ func (this *CompressedOutputStream) Write(block []byte) (int, error) {
 		return 0, &IOError{msg: "Stream closed", code: kanzi.ERR_WRITE_FILE}
 	}
 
-	startChunk := 0
+	off := 0
 	remaining := len(block)
 
 	for remaining > 0 {
-		lenChunk := len(block) - startChunk
+		lenChunk := remaining
+		bufOff := this.available % this.blockSize
 
-		if lenChunk+this.curIdx >= len(this.data) {
-			// Limit to number of available bytes in buffer
-			lenChunk = len(this.data) - this.curIdx
+		if lenChunk > this.blockSize-bufOff {
+			lenChunk = this.blockSize - bufOff
 		}
 
 		if lenChunk > 0 {
 			// Process a chunk of in-buffer data. No access to bitstream required
-			copy(this.data[this.curIdx:], block[startChunk:startChunk+lenChunk])
-			this.curIdx += lenChunk
-			startChunk += lenChunk
+			bufID := this.available / this.blockSize
+			copy(this.buffers[bufID].Buf[bufOff:], block[off:off+lenChunk])
+			bufOff += lenChunk
+			off += lenChunk
 			remaining -= lenChunk
+			this.available += lenChunk
+
+			if bufOff >= this.blockSize {
+				if bufID+1 < this.jobs {
+					// Current write buffer is full
+					if len(this.buffers[bufID+1].Buf) == 0 {
+						bufSize := this.blockSize + this.blockSize>>6
+
+						if bufSize < 65536 {
+							bufSize = 65536
+						}
+
+						this.buffers[bufID+1].Buf = make([]byte, bufSize)
+					}
+				} else {
+					// If all buffers are full, time to encode
+					if err := this.processBlock(); err != nil {
+						return len(block) - remaining, err
+					}
+				}
+			}
 
 			if remaining == 0 {
 				break
-			}
-		}
-
-		if this.curIdx >= len(this.data) {
-			// Buffer full, time to encode
-			if err := this.processBlock(false); err != nil {
-				return len(block) - remaining, err
 			}
 		}
 	}
@@ -360,12 +381,8 @@ func (this *CompressedOutputStream) Close() error {
 		return nil
 	}
 
-	if this.curIdx > 0 {
-		if err := this.processBlock(true); err != nil {
-			return err
-		}
-
-		this.curIdx = 0
+	if err := this.processBlock(); err != nil {
+		return err
 	}
 
 	// Write end block of size 0
@@ -377,8 +394,6 @@ func (this *CompressedOutputStream) Close() error {
 	}
 
 	// Release resources
-	this.data = make([]byte, 0, 0)
-
 	for i := range this.buffers {
 		this.buffers[i] = blockBuffer{Buf: make([]byte, 0, 0)}
 	}
@@ -386,22 +401,8 @@ func (this *CompressedOutputStream) Close() error {
 	return nil
 }
 
-func (this *CompressedOutputStream) processBlock(force bool) error {
-	if force == false {
-		bufSize := this.jobs * int(this.blockSize)
-
-		if this.nbInputBlocks > 0 && int(this.nbInputBlocks) < this.jobs {
-			bufSize = int(this.nbInputBlocks) * int(this.blockSize)
-		}
-
-		if len(this.data) < bufSize {
-			extraBuf := make([]byte, bufSize-len(this.data))
-			this.data = append(this.data, extraBuf...)
-			return nil
-		}
-	}
-
-	if this.curIdx == 0 {
+func (this *CompressedOutputStream) processBlock() error {
+	if this.available == 0 {
 		return nil
 	}
 
@@ -411,7 +412,7 @@ func (this *CompressedOutputStream) processBlock(force bool) error {
 		}
 	}
 
-	offset := 0
+	off := 0
 
 	// Protect against future concurrent modification of the list of block listeners
 	listeners := make([]kanzi.Listener, len(this.listeners))
@@ -422,14 +423,10 @@ func (this *CompressedOutputStream) processBlock(force bool) error {
 
 	// Assign optimal number of tasks and jobs per task
 	if nbTasks > 1 {
-		// If the number of input blocks is available, use it to optimize
-		// memory usage
-		if this.nbInputBlocks != 0 {
-			// Limit the number of jobs if there are fewer blocks that this.jobs
-			// It allows more jobs per task and reduces memory usage.
-			if nbTasks > int(this.nbInputBlocks) {
-				nbTasks = int(this.nbInputBlocks)
-			}
+		// Limit the number of jobs if there are fewer blocks that this.jobs
+		// It allows more jobs per task and reduces memory usage.
+		if nbTasks > this.nbInputBlocks {
+			nbTasks = this.nbInputBlocks
 		}
 
 		jobsPerTask = kanzi.ComputeJobsPerTask(make([]uint, nbTasks), uint(this.jobs), uint(nbTasks))
@@ -443,28 +440,16 @@ func (this *CompressedOutputStream) processBlock(force bool) error {
 
 	// Invoke as many go routines as required
 	for taskID := 0; taskID < nbTasks; taskID++ {
-		if this.curIdx == 0 {
+		dataLength := this.available
+
+		if dataLength > this.blockSize {
+			dataLength = this.blockSize
+		}
+
+		if dataLength == 0 {
 			break
 		}
 
-		sz := this.curIdx
-
-		if sz >= int(this.blockSize) {
-			sz = int(this.blockSize)
-		}
-
-		// Add padding for incompressible data
-		length := sz + sz>>6
-
-		if length < 65536 {
-			length = 65536
-		}
-
-		if len(this.buffers[2*taskID].Buf) < length {
-			this.buffers[2*taskID].Buf = make([]byte, length)
-		}
-
-		copy(this.buffers[2*taskID].Buf, this.data[offset:offset+sz])
 		copyCtx := make(map[string]interface{})
 
 		for k, v := range this.ctx {
@@ -474,14 +459,14 @@ func (this *CompressedOutputStream) processBlock(force bool) error {
 		copyCtx["jobs"] = jobsPerTask[taskID]
 		wg.Add(1)
 		tasks++
-		offset += sz
-		this.curIdx -= sz
+		off += dataLength
+		this.available -= dataLength
 
 		task := encodingTask{
-			iBuffer:            &this.buffers[2*taskID],
-			oBuffer:            &this.buffers[2*taskID+1],
+			iBuffer:            &this.buffers[taskID],
+			oBuffer:            &this.buffers[this.jobs+taskID],
 			hasher:             this.hasher,
-			blockLength:        uint(sz),
+			blockLength:        uint(dataLength),
 			blockTransformType: this.transformType,
 			blockEntropyType:   this.entropyType,
 			currentBlockID:     this.blockID + int32(taskID) + 1,
@@ -745,22 +730,22 @@ type decodingTaskResult struct {
 // CompressedInputStream a Reader that reads compressed data
 // from an InputBitStream.
 type CompressedInputStream struct {
-	blockSize     uint
-	nbInputBlocks uint8
-	hasher        *hash.XXHash32
-	data          []byte
-	buffers       []blockBuffer
-	entropyType   uint32
-	transformType uint64
-	ibs           kanzi.InputBitStream
-	initialized   int32
-	closed        int32
-	blockID       int32
-	maxIdx        int
-	curIdx        int
-	jobs          int
-	listeners     []kanzi.Listener
-	ctx           map[string]interface{}
+	blockSize       int
+	hasher          *hash.XXHash32
+	buffers         []blockBuffer
+	entropyType     uint32
+	transformType   uint64
+	ibs             kanzi.InputBitStream
+	initialized     int32
+	closed          int32
+	blockID         int32
+	jobs            int
+	bufferThreshold int
+	available       int // decoded not consumed bytes
+	consumed        int // decoded consumed bytes
+	nbInputBlocks   int
+	listeners       []kanzi.Listener
+	ctx             map[string]interface{}
 }
 
 type decodingTask struct {
@@ -826,7 +811,9 @@ func createCompressedInputStreamWithCtx(ibs kanzi.InputBitStream, ctx map[string
 	this.ibs = ibs
 	this.jobs = int(tasks)
 	this.blockID = 0
-	this.data = make([]byte, 0)
+	this.consumed = 0
+	this.available = 0
+	this.bufferThreshold = 0
 	this.buffers = make([]blockBuffer, 2*this.jobs)
 
 	for i := range this.buffers {
@@ -914,20 +901,22 @@ func (this *CompressedInputStream) readHeader() error {
 	this.ctx["transform"] = transform.GetName(this.transformType)
 
 	// Read block size
-	this.blockSize = uint(this.ibs.ReadBits(28)) << 4
-	this.ctx["blockSize"] = this.blockSize
+	this.blockSize = int(this.ibs.ReadBits(28)) << 4
 
 	if this.blockSize < _MIN_BITSTREAM_BLOCK_SIZE || this.blockSize > _MAX_BITSTREAM_BLOCK_SIZE {
 		errMsg := fmt.Sprintf("Invalid bitstream, incorrect block size: %d", this.blockSize)
 		return &IOError{msg: errMsg, code: kanzi.ERR_BLOCK_SIZE}
 	}
 
-	if uint64(this.blockSize)*uint64(this.jobs) >= uint64(1<<31) {
-		this.jobs = int(uint(1<<31) / this.blockSize)
-	}
+	this.ctx["blockSize"] = uint(this.blockSize)
+	this.bufferThreshold = this.blockSize
 
 	// Read number of blocks in input. 0 means 'unknown' and 63 means 63 or more.
-	this.nbInputBlocks = uint8(this.ibs.ReadBits(6))
+	this.nbInputBlocks = int(this.ibs.ReadBits(6))
+
+	if this.nbInputBlocks == 0 {
+		this.nbInputBlocks = _UNKNOWN_NB_BLOCKS
+	}
 
 	// Read reserved bits
 	this.ibs.ReadBits(4)
@@ -957,7 +946,7 @@ func (this *CompressedInputStream) readHeader() error {
 	return nil
 }
 
-// Close reads the buffered data intto the input stream and releases resources.
+// Close reads the buffered data from the input stream and releases resources.
 // Close makes the bitstream unavailable for further reads. Idempotent
 func (this *CompressedInputStream) Close() error {
 	if atomic.SwapInt32(&this.closed, 1) == 1 {
@@ -968,10 +957,9 @@ func (this *CompressedInputStream) Close() error {
 		return err
 	}
 
-	// Release resources
-	this.maxIdx = 0
-	this.data = make([]byte, 0)
+	this.available = 0
 
+	// Release resources
 	for i := range this.buffers {
 		this.buffers[i] = blockBuffer{Buf: make([]byte, 0)}
 	}
@@ -979,30 +967,50 @@ func (this *CompressedInputStream) Close() error {
 	return nil
 }
 
-// Read reads up to len(block) bytes into block.
+// Read reads up to len(block) bytes and copies them into block.
 // It returns the number of bytes read (0 <= n <= len(block)) and any error encountered.
 func (this *CompressedInputStream) Read(block []byte) (int, error) {
 	if atomic.LoadInt32(&this.closed) == 1 {
 		return 0, &IOError{msg: "Stream closed", code: kanzi.ERR_READ_FILE}
 	}
 
-	startChunk := 0
+	if atomic.SwapInt32(&this.initialized, 1) == 0 {
+		if err := this.readHeader(); err != nil {
+			return 0, err
+		}
+	}
+
+	off := 0
 	remaining := len(block)
 
 	for remaining > 0 {
-		lenChunk := len(block) - startChunk
+		avail := this.available
+		bufOff := this.consumed % this.blockSize
 
-		if lenChunk+this.curIdx >= this.maxIdx {
-			// Limit to number of available bytes in buffer
-			lenChunk = this.maxIdx - this.curIdx
+		if avail > this.bufferThreshold-bufOff {
+			avail = this.bufferThreshold - bufOff
+		}
+
+		lenChunk := remaining
+
+		// lenChunk = min(remaining, min(this.available, this.bufferThreshold-bufOff))
+		if lenChunk > avail {
+			lenChunk = avail
 		}
 
 		if lenChunk > 0 {
 			// Process a chunk of in-buffer data. No access to bitstream required
-			copy(block[startChunk:], this.data[this.curIdx:this.curIdx+lenChunk])
-			this.curIdx += lenChunk
-			startChunk += lenChunk
+			bufID := this.consumed / this.blockSize
+			copy(block[off:], this.buffers[bufID].Buf[bufOff:bufOff+lenChunk])
+			off += lenChunk
 			remaining -= lenChunk
+			this.available -= lenChunk
+			this.consumed += lenChunk
+
+			if this.available > 0 && bufOff+lenChunk >= this.bufferThreshold {
+				// Move to next buffer
+				continue
+			}
 
 			if remaining == 0 {
 				break
@@ -1010,14 +1018,14 @@ func (this *CompressedInputStream) Read(block []byte) (int, error) {
 		}
 
 		// Buffer empty, time to decode
-		if this.curIdx >= this.maxIdx {
+		if this.available == 0 {
 			var err error
 
-			if this.maxIdx, err = this.processBlock(); err != nil {
+			if this.available, err = this.processBlock(); err != nil {
 				return len(block) - remaining, err
 			}
 
-			if this.maxIdx == 0 {
+			if this.available == 0 {
 				// Reached end of stream
 				if len(block) == remaining {
 					// EOF and we did not read any bytes in this call
@@ -1033,19 +1041,13 @@ func (this *CompressedInputStream) Read(block []byte) (int, error) {
 }
 
 func (this *CompressedInputStream) processBlock() (int, error) {
-	if atomic.SwapInt32(&this.initialized, 1) == 0 {
-		if err := this.readHeader(); err != nil {
-			return 0, err
-		}
-	}
-
 	if atomic.LoadInt32(&this.blockID) == _CANCEL_TASKS_ID {
 		return 0, nil
 	}
 
-	blkSize := int(this.blockSize)
+	blkSize := this.blockSize
 
-	// Add a padding area to manage any block with header or temporarily expanded
+	// Add a padding area to manage any block temporarily expanded
 	if _EXTRA_BUFFER_SIZE >= (blkSize >> 4) {
 		blkSize += _EXTRA_BUFFER_SIZE
 	} else {
@@ -1063,14 +1065,10 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 
 		// Assign optimal number of tasks and jobs per task
 		if nbTasks > 1 {
-			// If the number of input blocks is available, use it to optimize
-			// memory usage
-			if this.nbInputBlocks != 0 {
-				// Limit the number of jobs if there are fewer blocks that this.jobs
-				// It allows more jobs per task and reduces memory usage.
-				if nbTasks > int(this.nbInputBlocks) {
-					nbTasks = int(this.nbInputBlocks)
-				}
+			// Limit the number of jobs if there are fewer blocks that this.jobs
+			// It allows more jobs per task and reduces memory usage.
+			if nbTasks > this.nbInputBlocks {
+				nbTasks = this.nbInputBlocks
 			}
 
 			jobsPerTask = kanzi.ComputeJobsPerTask(make([]uint, nbTasks), uint(this.jobs), uint(nbTasks))
@@ -1081,14 +1079,16 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 		results := make([]decodingTaskResult, nbTasks)
 		wg := sync.WaitGroup{}
 		firstID := this.blockID
+		bufSize := this.blockSize + _EXTRA_BUFFER_SIZE
+
+		if bufSize < this.blockSize+(this.blockSize>>4) {
+			bufSize = this.blockSize + (this.blockSize >> 4)
+		}
 
 		// Invoke as many go routines as required
 		for taskID := 0; taskID < nbTasks; taskID++ {
-			// Lazy instantiation of input buffers this.buffers[2*taskID]
-			// Output buffers this.buffers[2*taskID+1] are lazily instantiated
-			// by the decoding tasks.
-			if len(this.buffers[2*taskID].Buf) < blkSize+1024 {
-				this.buffers[2*taskID].Buf = make([]byte, blkSize+1024)
+			if len(this.buffers[taskID].Buf) < int(bufSize) {
+				this.buffers[taskID].Buf = make([]byte, bufSize)
 			}
 
 			copyCtx := make(map[string]interface{})
@@ -1102,8 +1102,8 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 			wg.Add(1)
 
 			task := decodingTask{
-				iBuffer:            &this.buffers[2*taskID],
-				oBuffer:            &this.buffers[2*taskID+1],
+				iBuffer:            &this.buffers[taskID],
+				oBuffer:            &this.buffers[this.jobs+taskID],
 				hasher:             this.hasher,
 				blockLength:        uint(blkSize),
 				blockTransformType: this.transformType,
@@ -1125,6 +1125,10 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 
 		// Process results
 		for _, r := range results {
+			if r.decoded > this.blockSize {
+				return decoded, &IOError{msg: "Invalid data", code: kanzi.ERR_PROCESS_BLOCK}
+			}
+
 			decoded += r.decoded
 
 			if r.err != nil {
@@ -1136,20 +1140,11 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 			}
 		}
 
-		if decoded > nbTasks*int(this.blockSize) {
-			return decoded, &IOError{msg: "Invalid data", code: kanzi.ERR_PROCESS_BLOCK}
-		}
-
-		if len(this.data) < decoded {
-			extraBuf := make([]byte, decoded-len(this.data))
-			this.data = append(this.data, extraBuf...)
-		}
-
-		offset := 0
+		n := 0
 
 		for _, r := range results {
-			copy(this.data[offset:], r.data[0:r.decoded])
-			offset += r.decoded
+			copy(this.buffers[n].Buf, r.data[0:r.decoded])
+			n++
 
 			if len(listeners) > 0 {
 				// Notify after transform ... in block order !
@@ -1165,7 +1160,7 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 		}
 	}
 
-	this.curIdx = 0
+	this.consumed = 0
 	return decoded, nil
 }
 

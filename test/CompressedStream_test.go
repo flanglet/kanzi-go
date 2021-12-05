@@ -31,7 +31,7 @@ func TestCorrectness(b *testing.T) {
 	incompressible := make([]byte, 65536<<6)
 	sum := 0
 
-	for test := 1; test < 40; test++ {
+	for test := 1; test <= 40; test++ {
 		length := 65536 << uint(test%7)
 		fmt.Printf("\nIteration %v (size %v)\n", test, length)
 		rand.Seed(time.Now().UTC().UnixNano())
@@ -44,21 +44,21 @@ func TestCorrectness(b *testing.T) {
 		if res := compress1(values[0:length]); res == 0 {
 			fmt.Println("Success")
 		} else {
-			fmt.Println("Failure")
+			fmt.Printf("Failure %v\n", res)
 			sum += res
 		}
 
 		if res := compress2(values[0:length]); res == 0 {
 			fmt.Println("Success")
 		} else {
-			fmt.Println("Failure")
+			fmt.Printf("Failure %v\n", res)
 			sum += res
 		}
 
 		if res := compress3(values[0:length]); res == 0 {
 			fmt.Println("Success")
 		} else {
-			fmt.Println("Failure")
+			fmt.Printf("Failure %v\n", res)
 			sum += res
 		}
 
@@ -73,7 +73,7 @@ func TestCorrectness(b *testing.T) {
 			if res := compress5(values[0:length]); res == 0 {
 				fmt.Println("Success")
 			} else {
-				fmt.Println("Failure")
+				fmt.Printf("Failure %v\n", res)
 				sum += res
 			}
 		}
