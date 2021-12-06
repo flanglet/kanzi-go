@@ -385,7 +385,6 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 
 		dstIdx += run
-		run = 0
 	}
 
 	if err == nil && srcIdx != srcEnd {
