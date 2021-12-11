@@ -44,7 +44,7 @@ const (
 	//_ARG_IDX_FROM      = 10
 	//_ARG_IDX_TO        = 11
 	_ARG_IDX_PROFILE = 14
-	_APP_HEADER      = "Kanzi 1.9 (C) 2021,  Frederic Langlet"
+	_APP_HEADER      = "Kanzi 2.0 (c) Frederic Langlet"
 )
 
 var (
@@ -727,7 +727,7 @@ func printHelp(mode string) {
 
 	if mode == "c" {
 		log.Println("   -b, --block=<size>", true)
-		log.Println("        size of blocks (default 4 MB, max 1 GB, min 1 KB).\n", true)
+		log.Println("        size of blocks (default 4|8|16 MB based on level, max 1 GB, min 1 KB).\n", true)
 		log.Println("   -l, --level=<compression>", true)
 		log.Println("        set the compression level [0..9]", true)
 		log.Println("        Providing this option forces entropy and transform.", true)

@@ -129,7 +129,15 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 		}
 
 	} else {
-		this.blockSize = _COMP_DEFAULT_BLOCK_SIZE
+		if this.level < 7 {
+			this.blockSize = _COMP_DEFAULT_BLOCK_SIZE
+		} else {
+			if this.level >= 9 {
+				this.blockSize = 4 * _COMP_DEFAULT_BLOCK_SIZE
+			} else { // level 7 or 8
+				this.blockSize = 2 * _COMP_DEFAULT_BLOCK_SIZE
+			}
+		}
 	}
 
 	if len(strTransf) == 0 {
