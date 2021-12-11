@@ -284,17 +284,23 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		h := this.hash(src[srcIdx:])
 		ref := int(this.hashes[h])
 		this.hashes[h] = int32(srcIdx)
+
+		if ref <= minRef {
+			srcIdx++
+			continue
+		}
+
 		bestLen := 0
 
 		// Find a match
-		if ref > minRef {
+		if binary.LittleEndian.Uint32(src[srcIdx:]) == binary.LittleEndian.Uint32(src[ref:]) {
 			maxMatch := srcEnd - srcIdx
 
 			if maxMatch > _LZX_MAX_MATCH {
 				maxMatch = _LZX_MAX_MATCH
 			}
 
-			bestLen = findMatch(src, srcIdx, ref, maxMatch)
+			bestLen = 4 + this.findMatch(src, srcIdx+4, ref+4, maxMatch)
 		}
 
 		// No good match ?
@@ -317,7 +323,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 				maxMatch = _LZX_MAX_MATCH
 			}
 
-			bestLen2 = findMatch(src, srcIdx+1, ref2, maxMatch)
+			bestLen2 = this.findMatch(src, srcIdx+1, ref2, maxMatch)
 		}
 
 		// Select best match
@@ -443,19 +449,15 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 	return uint(count), uint(dstIdx), nil
 }
 
-func findMatch(src []byte, srcIdx, ref, maxMatch int) int {
+func (this *LZXCodec) findMatch(src []byte, srcIdx, ref, maxMatch int) int {
 	bestLen := 0
 
-	if binary.LittleEndian.Uint32(src[srcIdx:]) == binary.LittleEndian.Uint32(src[ref:]) {
-		bestLen = 4
+	for bestLen+4 < maxMatch && binary.LittleEndian.Uint32(src[srcIdx+bestLen:]) == binary.LittleEndian.Uint32(src[ref+bestLen:]) {
+		bestLen += 4
+	}
 
-		for bestLen+4 < maxMatch && binary.LittleEndian.Uint32(src[srcIdx+bestLen:]) == binary.LittleEndian.Uint32(src[ref+bestLen:]) {
-			bestLen += 4
-		}
-
-		for bestLen < maxMatch && src[ref+bestLen] == src[srcIdx+bestLen] {
-			bestLen++
-		}
+	for bestLen < maxMatch && src[ref+bestLen] == src[srcIdx+bestLen] {
+		bestLen++
 	}
 
 	return bestLen
@@ -637,7 +639,7 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, fmt.Errorf("Block too small, skip")
 	}
 
-	srcEnd := count - 8
+	srcEnd := count
 	dstEnd := len(dst) - 4
 
 	if len(this.hashes) == 0 {
@@ -657,24 +659,15 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 	dstIdx := 4
 	minRef := 4
 
-	for (srcIdx < srcEnd) && (dstIdx < dstEnd) {
+	for (srcIdx < srcEnd-_LZP_MIN_MATCH) && (dstIdx < dstEnd) {
 		h := (_LZP_HASH_SEED * ctx) >> _LZP_HASH_SHIFT
 		ref := int(this.hashes[h])
 		this.hashes[h] = int32(srcIdx)
 		bestLen := 0
 
 		// Find a match
-		if ref > minRef && binary.LittleEndian.Uint32(src[srcIdx:]) == binary.LittleEndian.Uint32(src[ref:]) {
-			maxMatch := srcEnd - srcIdx
-			bestLen = 4
-
-			for bestLen < maxMatch && binary.LittleEndian.Uint32(src[srcIdx+bestLen:]) == binary.LittleEndian.Uint32(src[ref+bestLen:]) {
-				bestLen += 4
-			}
-
-			for (bestLen < maxMatch) && (src[ref+bestLen] == src[srcIdx+bestLen]) {
-				bestLen++
-			}
+		if ref > minRef && binary.LittleEndian.Uint32(src[srcIdx+_LZP_MIN_MATCH-4:]) == binary.LittleEndian.Uint32(src[ref+_LZP_MIN_MATCH-4:]) {
+			bestLen = this.findMatch(src, srcIdx, ref, srcEnd-srcIdx)
 		}
 
 		// No good match ?
@@ -720,7 +713,7 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 		dstIdx++
 	}
 
-	for (srcIdx < srcEnd+8) && (dstIdx < dstEnd) {
+	for (srcIdx < srcEnd) && (dstIdx < dstEnd) {
 		h := (_LZP_HASH_SEED * ctx) >> _LZP_HASH_SHIFT
 		ref := this.hashes[h]
 		this.hashes[h] = int32(srcIdx)
@@ -773,6 +766,7 @@ func (this *LZPCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	ctx := binary.LittleEndian.Uint32(dst[:])
 	srcIdx := 4
 	dstIdx := 4
+	res := true
 
 	for srcIdx < srcEnd {
 		h := (_LZP_HASH_SEED * ctx) >> _LZP_HASH_SHIFT
@@ -805,6 +799,7 @@ func (this *LZPCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 
 		if srcIdx >= srcEnd {
+			res = false
 			break
 		}
 
@@ -821,11 +816,27 @@ func (this *LZPCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 	var err error
 
-	if srcIdx != srcEnd {
+	if res == false || (srcIdx != srcEnd) {
 		err = errors.New("LZP inverse transform failed: output buffer too small")
 	}
 
 	return uint(srcIdx), uint(dstIdx), err
+}
+
+func (this *LZPCodec) findMatch(src []byte, srcIdx, ref, maxMatch int) int {
+	bestLen := 0
+
+	for bestLen+4 < maxMatch && binary.LittleEndian.Uint32(src[srcIdx+bestLen:]) == binary.LittleEndian.Uint32(src[ref+bestLen:]) {
+		bestLen += 4
+	}
+
+	if bestLen > _LZP_MIN_MATCH-4 {
+		for bestLen < maxMatch && src[ref+bestLen] == src[srcIdx+bestLen] {
+			bestLen++
+		}
+	}
+
+	return bestLen
 }
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
