@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	_BFF_ONE_SHIFT = uint(6)                  // bits per transform
+	_BFF_ONE_SHIFT = 6                        // bits per transform
 	_BFF_MAX_SHIFT = (8 - 1) * _BFF_ONE_SHIFT // 8 transforms
 	_BFF_MASK      = (1 << _BFF_ONE_SHIFT) - 1
 
@@ -59,8 +59,8 @@ func New(ctx *map[string]interface{}, functionType uint64) (*ByteTransformSequen
 	nbtr := 0
 
 	// Several transforms
-	for i := uint(0); i < 8; i++ {
-		if (functionType>>(_BFF_MAX_SHIFT-_BFF_ONE_SHIFT*i))&_BFF_MASK != NONE_TYPE {
+	for s := _BFF_MAX_SHIFT; s >= 0; s -= _BFF_ONE_SHIFT {
+		if (functionType>>uint(s))&_BFF_MASK != NONE_TYPE {
 			nbtr++
 		}
 	}
