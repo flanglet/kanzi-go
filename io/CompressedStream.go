@@ -184,7 +184,7 @@ func createCompressedOutputStreamWithCtx(obs kanzi.OutputBitStream, ctx map[stri
 		return nil, &IOError{msg: "The block size must be a multiple of 16", code: kanzi.ERR_CREATE_STREAM}
 	}
 
-	ctx["bsVersion"] = int(_BITSTREAM_FORMAT_VERSION)
+	ctx["bsVersion"] = uint(_BITSTREAM_FORMAT_VERSION)
 	this := new(CompressedOutputStream)
 	this.obs = obs
 

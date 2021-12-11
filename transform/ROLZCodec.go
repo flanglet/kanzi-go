@@ -136,13 +136,13 @@ func NewROLZCodecWithCtx(ctx *map[string]interface{}) (*ROLZCodec, error) {
 		transform := val.(string)
 
 		if strings.Contains(transform, "ROLZX") {
-			d, err = newROLZCodec2(_ROLZ_LOG_POS_CHECKS2)
+			d, err = newROLZCodec2WithCtx(_ROLZ_LOG_POS_CHECKS2, ctx)
 			this.delegate = d
 		}
 	}
 
 	if this.delegate == nil && err == nil {
-		d, err = newROLZCodec1(_ROLZ_LOG_POS_CHECKS1)
+		d, err = newROLZCodec1WithCtx(_ROLZ_LOG_POS_CHECKS1, ctx)
 		this.delegate = d
 	}
 
@@ -207,6 +207,7 @@ type rolzCodec1 struct {
 	logPosChecks uint
 	maskChecks   int32
 	posChecks    int32
+	bsVersion    uint
 }
 
 func newROLZCodec1(logPosChecks uint) (*rolzCodec1, error) {
@@ -221,6 +222,29 @@ func newROLZCodec1(logPosChecks uint) (*rolzCodec1, error) {
 	this.maskChecks = this.posChecks - 1
 	this.counters = make([]int32, 1<<16)
 	this.matches = make([]uint32, _ROLZ_HASH_SIZE<<logPosChecks)
+	return this, nil
+}
+
+func newROLZCodec1WithCtx(logPosChecks uint, ctx *map[string]interface{}) (*rolzCodec1, error) {
+	this := &rolzCodec1{}
+
+	if (logPosChecks < 2) || (logPosChecks > 8) {
+		return nil, fmt.Errorf("ROLZ codec: Invalid logPosChecks parameter: %v (must be in [2..8])", logPosChecks)
+	}
+
+	this.logPosChecks = logPosChecks
+	this.posChecks = 1 << logPosChecks
+	this.maskChecks = this.posChecks - 1
+	this.counters = make([]int32, 1<<16)
+	this.matches = make([]uint32, _ROLZ_HASH_SIZE<<logPosChecks)
+	this.bsVersion = uint(2)
+
+	if ctx != nil {
+		if val, containsKey := (*ctx)["bsVersion"]; containsKey {
+			this.bsVersion = val.(uint)
+		}
+	}
+
 	return this, nil
 }
 
@@ -609,8 +633,10 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			var litDec *entropy.ANSRangeDecoder
+			ctx := make(map[string]interface{})
+			ctx["bsVersion"] = this.bsVersion
 
-			if litDec, err = entropy.NewANSRangeDecoder(ibs, litOrder); err != nil {
+			if litDec, err = entropy.NewANSRangeDecoderWithCtx(ibs, litOrder, &ctx); err != nil {
 				goto End
 			}
 
@@ -621,7 +647,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			litDec.Dispose()
 			var mDec *entropy.ANSRangeDecoder
 
-			if mDec, err = entropy.NewANSRangeDecoder(ibs, 0); err != nil {
+			if mDec, err = entropy.NewANSRangeDecoderWithCtx(ibs, 0, &ctx); err != nil {
 				goto End
 			}
 
@@ -813,6 +839,21 @@ type rolzCodec2 struct {
 }
 
 func newROLZCodec2(logPosChecks uint) (*rolzCodec2, error) {
+	this := &rolzCodec2{}
+
+	if (logPosChecks < 2) || (logPosChecks > 8) {
+		return nil, fmt.Errorf("ROLZX codec: Invalid logPosChecks parameter: %v (must be in [2..8])", logPosChecks)
+	}
+
+	this.logPosChecks = logPosChecks
+	this.posChecks = 1 << logPosChecks
+	this.maskChecks = this.posChecks - 1
+	this.counters = make([]int32, 1<<16)
+	this.matches = make([]uint32, _ROLZ_HASH_SIZE<<logPosChecks)
+	return this, nil
+}
+
+func newROLZCodec2WithCtx(logPosChecks uint, ctx *map[string]interface{}) (*rolzCodec2, error) {
 	this := &rolzCodec2{}
 
 	if (logPosChecks < 2) || (logPosChecks > 8) {
