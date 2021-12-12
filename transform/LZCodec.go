@@ -294,7 +294,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 		// Find a match
 		if binary.LittleEndian.Uint32(src[srcIdx:]) == binary.LittleEndian.Uint32(src[ref:]) {
-			maxMatch := srcEnd - srcIdx
+			maxMatch := srcEnd - srcIdx - 4
 
 			if maxMatch > _LZX_MAX_MATCH {
 				maxMatch = _LZX_MAX_MATCH
