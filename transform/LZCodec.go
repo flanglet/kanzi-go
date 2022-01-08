@@ -344,7 +344,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		if d == repd {
 			dist = 0
 		} else {
-			dist = d + 1
+			dist = d
 		}
 
 		repd = d
@@ -450,6 +450,24 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 }
 
 func (this *LZXCodec) findMatch(src []byte, srcIdx, ref, maxMatch int) int {
+	/*
+	   	n := 0
+
+	          for n + 4 < maxMatch  {
+	              diff := binary.LittleEndian.Uint32(src[srcIdx+n:]) ^ binary.LittleEndian.Uint32(src[ref+n:])
+
+	   		   if diff != 0 {
+	   			   // trailing zeros
+	   			   log, _ := kanzi.Log2((diff & (^diff + 1)) - 1)
+	                  n += int(log >> 3)
+	                  break
+	              }
+
+	              n += 4
+	          }
+
+	          return n
+	*/
 	bestLen := 0
 
 	for bestLen+4 < maxMatch && binary.LittleEndian.Uint32(src[srcIdx+bestLen:]) == binary.LittleEndian.Uint32(src[ref+bestLen:]) {
@@ -550,7 +568,7 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		if d == 0 {
 			dist = repd
 		} else {
-			dist = d - 1
+			dist = d
 			repd = dist
 		}
 

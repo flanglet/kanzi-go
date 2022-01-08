@@ -22,8 +22,6 @@ const (
 	_CM_PSCALE      = 65536
 )
 
-// CMPredictor context model predictor based on BCM by Ilya Muravyov.
-// See https://github.com/encode84/bcm
 type CMPredictor struct {
 	c1       byte
 	c2       byte

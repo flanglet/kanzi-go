@@ -121,15 +121,19 @@ func (this *DefaultInputBitStream) ReadArray(bits []byte, count uint) uint {
 			remaining -= 8
 		}
 
+		availBytes := this.maxPosition + 1 - this.position
+
 		// Copy internal buffer to bits array
-		for (remaining >> 3) > this.maxPosition+1-this.position {
+		for (remaining >> 3) > availBytes {
 			copy(bits[start:], this.buffer[this.position:this.maxPosition+1])
-			start += (this.maxPosition + 1 - this.position)
-			remaining -= ((this.maxPosition + 1 - this.position) << 3)
+			start += availBytes
+			remaining -= (availBytes << 3)
 
 			if _, err := this.readFromInputStream(len(this.buffer)); err != nil {
 				panic(err)
 			}
+
+			availBytes = this.maxPosition + 1 - this.position
 		}
 
 		r := (remaining >> 6) << 3
@@ -155,14 +159,8 @@ func (this *DefaultInputBitStream) ReadArray(bits []byte, count uint) uint {
 	}
 
 	// Last bytes
-	for remaining >= 8 {
-		bits[start] = byte(this.ReadBits(8))
-		start++
-		remaining -= 8
-	}
-
 	if remaining > 0 {
-		bits[start] = byte(this.ReadBits(uint(remaining)) << uint(8-remaining))
+		binary.BigEndian.PutUint64(bits[start:start+8], this.ReadBits(uint(remaining))<<uint(64-remaining))
 	}
 
 	return count

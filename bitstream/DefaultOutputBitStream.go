@@ -143,17 +143,18 @@ func (this *DefaultOutputBitStream) WriteArray(bits []byte, count uint) uint {
 		// Not byte aligned
 		if remaining >= 64 {
 			r := 64 - this.availBits
+			a := this.availBits
 
 			for remaining >= 64 {
 				value := binary.BigEndian.Uint64(bits[start : start+8])
 				this.current |= (value >> r)
 				this.pushCurrent()
-				this.current = (value << (64 - r))
+				this.current = (value << a)
 				start += 8
 				remaining -= 64
 			}
 
-			this.availBits -= r
+			this.availBits = a
 		}
 	}
 
@@ -165,7 +166,7 @@ func (this *DefaultOutputBitStream) WriteArray(bits []byte, count uint) uint {
 	}
 
 	if remaining > 0 {
-		this.WriteBits(uint64(bits[start])>>uint(8-remaining), uint(remaining))
+		this.WriteBits(binary.BigEndian.Uint64(bits[start:start+8])>>uint(64-remaining), uint(remaining))
 	}
 
 	return count
