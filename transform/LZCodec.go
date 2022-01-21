@@ -34,7 +34,7 @@ const (
 	_LZX_MAX_DISTANCE1      = (1 << 17) - 2
 	_LZX_MAX_DISTANCE2      = (1 << 24) - 2
 	_LZX_MIN_MATCH          = 5
-	_LZX_MAX_MATCH          = 66535 + 254 + 15 + _LZX_MIN_MATCH
+	_LZX_MAX_MATCH          = 65535 + 254 + 15 + _LZX_MIN_MATCH
 	_LZX_MIN_BLOCK_LENGTH   = 24
 	_LZX_MIN_MATCH_MIN_DIST = 1 << 16
 	_LZP_HASH_SEED          = 0x7FEB352D
@@ -122,16 +122,18 @@ func (this *LZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 // It is a based on a heavily modified LZ4 with a bigger window, a bigger
 // hash map, 3+n*8 bit literal lengths and 17 or 24 bit match lengths.
 type LZXCodec struct {
-	hashes []int32
-	mBuf   []byte
-	tkBuf  []byte
-	extra  bool
+	hashes  []int32
+	mLenBuf []byte
+	mBuf    []byte
+	tkBuf   []byte
+	extra   bool
 }
 
 // NewLZXCodec creates a new instance of LZXCodec
 func NewLZXCodec() (*LZXCodec, error) {
 	this := &LZXCodec{}
 	this.hashes = make([]int32, 0)
+	this.mLenBuf = make([]byte, 0)
 	this.mBuf = make([]byte, 0)
 	this.tkBuf = make([]byte, 0)
 	this.extra = false
@@ -143,6 +145,7 @@ func NewLZXCodec() (*LZXCodec, error) {
 func NewLZXCodecWithCtx(ctx *map[string]interface{}) (*LZXCodec, error) {
 	this := &LZXCodec{}
 	this.hashes = make([]int32, 0)
+	this.mLenBuf = make([]byte, 0)
 	this.mBuf = make([]byte, 0)
 	this.tkBuf = make([]byte, 0)
 	this.extra = false
@@ -248,6 +251,10 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		minBufSize = 256
 	}
 
+	if len(this.mLenBuf) < minBufSize {
+		this.mLenBuf = make([]byte, minBufSize)
+	}
+
 	if len(this.mBuf) < minBufSize {
 		this.mBuf = make([]byte, minBufSize)
 	}
@@ -258,19 +265,23 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	srcEnd := count - 16 - 1
 	maxDist := _LZX_MAX_DISTANCE2
-	dst[8] = 1
+	dThreshold := 1 << 16
+	dst[12] = 1
 
 	if srcEnd < 4*_LZX_MAX_DISTANCE1 {
 		maxDist = _LZX_MAX_DISTANCE1
-		dst[8] = 0
+		dThreshold = _LZX_MAX_DISTANCE1 + 1
+		dst[12] = 0
 	}
 
 	srcIdx := 0
-	dstIdx := 9
+	dstIdx := 13
 	anchor := 0
+	mLenIdx := 0
 	mIdx := 0
 	tkIdx := 0
-	repd := 0
+	repd0 := 0
+	repd1 := 0
 
 	for srcIdx < srcEnd {
 		var minRef int
@@ -281,9 +292,9 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 			minRef = srcIdx - maxDist
 		}
 
-		h := this.hash(src[srcIdx:])
-		ref := int(this.hashes[h])
-		this.hashes[h] = int32(srcIdx)
+		h0 := this.hash(src[srcIdx:])
+		ref := int(this.hashes[h0])
+		this.hashes[h0] = int32(srcIdx)
 
 		if ref <= minRef {
 			srcIdx++
@@ -309,28 +320,29 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 			continue
 		}
 
-		// Check if better match at next position
-		h2 := this.hash(src[srcIdx+1:])
-		ref2 := int(this.hashes[h2])
-		this.hashes[h2] = int32(srcIdx + 1)
-		bestLen2 := 0
+		if ref != srcIdx-repd0 {
+			// Check if better match at next position
+			h1 := this.hash(src[srcIdx+1:])
+			ref1 := int(this.hashes[h1])
+			this.hashes[h1] = int32(srcIdx + 1)
 
-		// Find a match
-		if ref2 > minRef+1 {
-			maxMatch := srcEnd - srcIdx - 1
+			// Find a match
+			if ref1 > minRef+1 {
+				maxMatch := srcEnd - srcIdx - 1
 
-			if maxMatch > _LZX_MAX_MATCH {
-				maxMatch = _LZX_MAX_MATCH
+				if maxMatch > _LZX_MAX_MATCH {
+					maxMatch = _LZX_MAX_MATCH
+				}
+
+				bestLen1 := this.findMatch(src, srcIdx+1, ref1, maxMatch)
+
+				// Select best match
+				if (bestLen1 > bestLen) || ((bestLen1 == bestLen) && (srcIdx+1-ref1 < srcIdx-ref)) {
+					ref = ref1
+					bestLen = bestLen1
+					srcIdx++
+				}
 			}
-
-			bestLen2 = this.findMatch(src, srcIdx+1, ref2, maxMatch)
-		}
-
-		// Select best match
-		if (bestLen2 > bestLen) || ((bestLen2 == bestLen) && (srcIdx-ref2 < srcIdx-ref)) {
-			ref = ref2
-			bestLen = bestLen2
-			srcIdx++
 		}
 
 		// Emit token
@@ -341,16 +353,22 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		d := srcIdx - ref
 		var dist int
 
-		if d == repd {
+		if d == repd0 {
 			dist = 0
 		} else {
-			dist = d
+			if d == repd1 {
+				dist = 1
+			} else {
+				dist = d + 1
+			}
+
+			repd1 = repd0
+			repd0 = d
 		}
 
-		repd = d
 		var token int
 
-		if dist > 0xFFFF {
+		if dist > 65535 {
 			token = 0x10
 		} else {
 			token = 0
@@ -391,11 +409,11 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 		// Emit match length
 		if mLen >= 15 {
-			mIdx += emitLengthLZ(this.mBuf[mIdx:], mLen-15)
+			mLenIdx += emitLengthLZ(this.mLenBuf[mLenIdx:], mLen-15)
 		}
 
 		// Emit distance
-		if maxDist == _LZX_MAX_DISTANCE2 && dist > 0xFFFF {
+		if dist >= dThreshold {
 			this.mBuf[mIdx] = byte(dist >> 16)
 			mIdx++
 		}
@@ -404,10 +422,15 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		this.mBuf[mIdx+1] = byte(dist)
 		mIdx += 2
 
-		if mIdx >= len(this.mBuf)-4 {
+		if mIdx >= len(this.mBuf)-8 {
 			// Expand match mBuf
-			extraBuf := make([]byte, len(this.mBuf))
-			this.mBuf = append(this.mBuf, extraBuf...)
+			extraBuf1 := make([]byte, len(this.mBuf))
+			this.mBuf = append(this.mBuf, extraBuf1...)
+
+			if mLenIdx >= len(this.mLenBuf)-8 {
+				extraBuf2 := make([]byte, len(this.mLenBuf))
+				this.mLenBuf = append(this.mBuf, extraBuf2...)
+			}
 		}
 
 		// Fill this.hashes and update positions
@@ -442,35 +465,20 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 	// Emit buffers: literals + tokens + matches
 	binary.LittleEndian.PutUint32(dst[0:], uint32(dstIdx))
 	binary.LittleEndian.PutUint32(dst[4:], uint32(tkIdx))
+	binary.LittleEndian.PutUint32(dst[8:], uint32(mIdx))
 	copy(dst[dstIdx:], this.tkBuf[0:tkIdx])
 	dstIdx += tkIdx
 	copy(dst[dstIdx:], this.mBuf[0:mIdx])
 	dstIdx += mIdx
+	copy(dst[dstIdx:], this.mLenBuf[0:mLenIdx])
+	dstIdx += mLenIdx
 	return uint(count), uint(dstIdx), nil
 }
 
 func (this *LZXCodec) findMatch(src []byte, srcIdx, ref, maxMatch int) int {
-	/*
-	   	n := 0
-
-	          for n + 4 < maxMatch  {
-	              diff := binary.LittleEndian.Uint32(src[srcIdx+n:]) ^ binary.LittleEndian.Uint32(src[ref+n:])
-
-	   		   if diff != 0 {
-	   			   // trailing zeros
-	   			   log, _ := kanzi.Log2((diff & (^diff + 1)) - 1)
-	                  n += int(log >> 3)
-	                  break
-	              }
-
-	              n += 4
-	          }
-
-	          return n
-	*/
 	bestLen := 0
 
-	for bestLen+4 < maxMatch && binary.LittleEndian.Uint32(src[srcIdx+bestLen:]) == binary.LittleEndian.Uint32(src[ref+bestLen:]) {
+	for bestLen+4 <= maxMatch && binary.LittleEndian.Uint32(src[srcIdx+bestLen:]) == binary.LittleEndian.Uint32(src[ref+bestLen:]) {
 		bestLen += 4
 	}
 
@@ -490,24 +498,31 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	count := len(src)
-	tkIdx := int(binary.LittleEndian.Uint32(src[0:]))
-	mIdx := tkIdx + int(binary.LittleEndian.Uint32(src[4:]))
 
-	if tkIdx > count || mIdx > count {
+	if count < 13 {
 		return 0, 0, errors.New("LZCodec: inverse transform failed, invalid data")
 	}
 
-	srcEnd := tkIdx - 9
+	tkIdx := int(binary.LittleEndian.Uint32(src[0:]))
+	mIdx := tkIdx + int(binary.LittleEndian.Uint32(src[4:]))
+	mLenIdx := mIdx + int(binary.LittleEndian.Uint32(src[8:]))
+
+	if mLenIdx > count {
+		return 0, 0, errors.New("LZCodec: inverse transform failed, invalid data")
+	}
+
+	srcEnd := tkIdx - 13
 	dstEnd := len(dst) - 16
 	maxDist := _LZX_MAX_DISTANCE2
 
-	if src[8] == 0 {
+	if src[12] == 0 {
 		maxDist = _LZX_MAX_DISTANCE1
 	}
 
-	srcIdx := 9
+	srcIdx := 13
 	dstIdx := 0
-	repd := 0
+	repd0 := 0
+	repd1 := 0
 
 	for {
 		token := int(src[tkIdx])
@@ -542,34 +557,38 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		mLen := token & 0x0F
 
 		if mLen == 15 {
-			ll, delta := readLengthLZ(src[mIdx:])
+			ll, delta := readLengthLZ(src[mLenIdx:])
 			mLen += ll
-			mIdx += delta
+			mLenIdx += delta
 		}
 
 		mLen += _LZX_MIN_MATCH
 		mEnd := dstIdx + mLen
 
 		// Get distance
-		d := (int(src[mIdx]) << 8) | int(src[mIdx+1])
+		dist := (int(src[mIdx]) << 8) | int(src[mIdx+1])
 		mIdx += 2
 
 		if (token & 0x10) != 0 {
 			if maxDist == _LZX_MAX_DISTANCE1 {
-				d += 65536
+				dist += 65536
 			} else {
-				d = (d << 8) | int(src[mIdx])
+				dist = (dist << 8) | int(src[mIdx])
 				mIdx++
 			}
 		}
 
-		var dist int
-
-		if d == 0 {
-			dist = repd
+		if dist == 0 {
+			dist = repd0
 		} else {
-			dist = d
-			repd = dist
+			if dist == 1 {
+				dist = repd1
+			} else {
+				dist--
+			}
+
+			repd1 = repd0
+			repd0 = dist
 		}
 
 		// Sanity check
@@ -602,7 +621,7 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 	var err error
 
-	if srcIdx != srcEnd+9 {
+	if srcIdx != srcEnd+13 {
 		err = errors.New("LZCodec: inverse transform failed")
 	}
 
