@@ -31,6 +31,7 @@ const (
 	DT_BASE64     DataType = 5
 	DT_DNA        DataType = 6
 	DT_BIN        DataType = 7
+	DT_UTF8       DataType = 8
 )
 
 // LOG2 is an array with 256 elements: int(Math.log2(x-1))

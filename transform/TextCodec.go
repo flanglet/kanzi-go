@@ -32,15 +32,16 @@ const (
 	_TC_THRESHOLD2      = _TC_THRESHOLD1 * _TC_THRESHOLD1
 	_TC_THRESHOLD3      = 32
 	_TC_THRESHOLD4      = _TC_THRESHOLD3 * 128
-	_TC_MAX_DICT_SIZE   = 1 << 19    // must be less than 1<<24
-	_TC_MAX_WORD_LENGTH = 31         // must be less than 128
-	_TC_LOG_HASHES_SIZE = 24         // 16 MB
+	_TC_MAX_DICT_SIZE   = 1 << 19 // must be less than 1<<24
+	_TC_MAX_WORD_LENGTH = 31      // must be less than 128
+	_TC_LOG_HASHES_SIZE = 24      // 16 MB
+	_TC_MIN_BLOCK_SIZE  = 1024
 	_TC_MAX_BLOCK_SIZE  = 1 << 30    // 1 GB
 	_TC_ESCAPE_TOKEN1   = byte(0x0F) // dictionary word preceded by space symbol
 	_TC_ESCAPE_TOKEN2   = byte(0x0E) // toggle upper/lower case of first word char
 	_TC_MASK_NOT_TEXT   = 0x80
 	_TC_MASK_DNA        = _TC_MASK_NOT_TEXT | 0x40
-	_TC_MASK_BIN        = _TC_MASK_NOT_TEXT | 0x20
+	_TC_MASK_UTF8       = _TC_MASK_NOT_TEXT | 0x20
 	_TC_MASK_BASE64     = _TC_MASK_NOT_TEXT | 0x10
 	_TC_MASK_NUMERIC    = _TC_MASK_NOT_TEXT | 0x08
 	_TC_MASK_FULL_ASCII = 0x04
@@ -229,66 +230,24 @@ func computeStats(block []byte, freqs0 []int32, strict bool) byte {
 	}
 
 	// Not text (crude threshold)
-	var notText bool
+	nbBinChars := count - nbASCII
+	notText := false
 
-	if strict == true {
-		notText = ((nbTextChars < (count >> 2)) || (freqs0[0] >= int32(count/100)) || ((nbASCII / 95) < (count / 100)))
+	if nbBinChars > (count >> 2) {
+		notText = true
 	} else {
-		notText = (nbTextChars < (count >> 1)) || (freqs0[32] < int32(count>>5))
+		if strict == true {
+			notText = ((nbTextChars < (count >> 2)) || (freqs0[0] >= int32(count/100)) || ((nbASCII / 95) < (count / 100)))
+		} else {
+			notText = (nbTextChars < (count >> 1)) || (freqs0[32] < int32(count/50))
+		}
 	}
 
 	if notText == true {
-		sum := int32(0)
-
-		for i := 0; i < 12; i++ {
-			sum += freqs0[_TC_DNA_SYMBOLS[i]]
-		}
-
-		if sum == int32(count) {
-			return _TC_MASK_DNA
-		}
-
-		sum = 0
-
-		for i := 0; i < 20; i++ {
-			sum += freqs0[_TC_NUMERIC_SYMBOLS[i]]
-		}
-
-		if sum >= int32(count/100)*98 {
-			return _TC_MASK_NUMERIC
-		}
-
-		sum = 0
-
-		for i := 0; i < 64; i++ {
-			sum += freqs0[_TC_BASE64_SYMBOLS[i]]
-		}
-
-		if sum == int32(count) {
-			return _TC_MASK_BASE64
-		}
-
-		sum = 0
-
-		for i := 0; i < 256; i++ {
-			if freqs0[i] > 0 {
-				sum++
-			}
-		}
-
-		if sum == 255 {
-			return _TC_MASK_BIN
-		}
-
-		return _TC_MASK_NOT_TEXT
+		return detectType(freqs0, freqs[:], count)
 	}
 
-	nbBinChars := count - nbASCII
 	res := byte(0)
-
-	if nbBinChars > (count >> 2) {
-		return _TC_MASK_NOT_TEXT
-	}
 
 	if nbBinChars == 0 {
 		res |= _TC_MASK_FULL_ASCII
@@ -344,6 +303,103 @@ func computeStats(block []byte, freqs0 []int32, strict bool) byte {
 	}
 
 	return res
+}
+
+func detectType(freqs0 []int32, freqs [][256]int32, count int) byte {
+	sum := int32(0)
+
+	for i := 0; i < 12; i++ {
+		sum += freqs0[_TC_DNA_SYMBOLS[i]]
+	}
+
+	if sum >= int32(count-count/12) {
+		return _TC_MASK_DNA
+	}
+
+	sum = 0
+
+	for i := 0; i < 20; i++ {
+		sum += freqs0[_TC_NUMERIC_SYMBOLS[i]]
+	}
+
+	if sum >= int32(count/100)*98 {
+		return _TC_MASK_NUMERIC
+	}
+
+	sum = freqs0[0x3D]
+
+	for i := 0; i < 64; i++ {
+		sum += freqs0[_TC_BASE64_SYMBOLS[i]]
+	}
+
+	if sum == int32(count) {
+		return _TC_MASK_BASE64
+	}
+
+	sum = 0
+
+	for i := 0; i < 256; i++ {
+		if freqs0[i] > 0 {
+			sum++
+		}
+	}
+
+	// Check UTF-8
+	// See Unicode 14 Standard - UTF-8 Table 3.7
+	// U+0000..U+007F          00..7F
+	// U+0080..U+07FF          C2..DF 80..BF
+	// U+0800..U+0FFF          E0 A0..BF 80..BF
+	// U+1000..U+CFFF          E1..EC 80..BF 80..BF
+	// U+D000..U+D7FF          ED 80..9F 80..BF
+	// U+E000..U+FFFF          EE..EF 80..BF 80..BF
+	// U+10000..U+3FFFF        F0 90..BF 80..BF 80..BF
+	// U+40000..U+FFFFF        F1..F3 80..BF 80..BF 80..BF
+	// U+100000..U+10FFFF      F4 80..8F 80..BF 80..BF
+	if freqs0[0xC0] > 0 || freqs0[0xC1] > 0 {
+		return _TC_MASK_NOT_TEXT
+	}
+
+	for i := 0xF5; i <= 0xFF; i++ {
+		if freqs0[i] > 0 {
+			return _TC_MASK_NOT_TEXT
+		}
+	}
+
+	sum = 0
+
+	for i := 0; i < 256; i++ {
+		// Exclude < 0xE0A0 || > 0xE0BF
+		if (i < 0xA0 || i > 0xBF) && (freqs[0xE0][i] > 0) {
+			return _TC_MASK_NOT_TEXT
+		}
+
+		// Exclude < 0xED80 || > 0xEDE9F
+		if (i < 0x80 || i > 0x9F) && (freqs[0xED][i] > 0) {
+			return _TC_MASK_NOT_TEXT
+		}
+
+		// Exclude < 0xF090 || > 0xF0BF
+		if (i < 0x90 || i > 0xBF) && (freqs[0xF0][i] > 0) {
+			return _TC_MASK_NOT_TEXT
+		}
+
+		// Exclude < 0xF480 || > 0xF4BF
+		if (i < 0x80 || i > 0xBF) && (freqs[0xF4][i] > 0) {
+			return _TC_MASK_NOT_TEXT
+		}
+
+		// Count non-primary bytes
+		if i >= 0x80 && i <= 0xBF {
+			sum += freqs0[i]
+		}
+	}
+
+	// Another ad-hoc threshold
+	if int(sum) < count/4 {
+		return _TC_MASK_NOT_TEXT
+	}
+
+	return _TC_MASK_UTF8
 }
 
 func sameWords(buf1, buf2 []byte) bool {
@@ -496,14 +552,16 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, nil
 	}
 
-	if &src[0] == &dst[0] {
-		return 0, 0, errors.New("Input and output buffers cannot be equal")
+	if len(src) < _TC_MIN_BLOCK_SIZE {
+		return 0, 0, fmt.Errorf("The min text transform block size is %d, got %d", _TC_MIN_BLOCK_SIZE, len(src))
 	}
 
 	if len(src) > _TC_MAX_BLOCK_SIZE {
-		// Not a recoverable error: instead of silently fail the transform,
-		// issue a fatal error.
-		panic(fmt.Errorf("The max text transform block size is %d, got %d", _TC_MAX_BLOCK_SIZE, len(src)))
+		return 0, 0, fmt.Errorf("The max text transform block size is %d, got %d", _TC_MAX_BLOCK_SIZE, len(src))
+	}
+
+	if &src[0] == &dst[0] {
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
 	return this.delegate.Forward(src, dst)
@@ -517,14 +575,13 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, nil
 	}
 
-	if &src[0] == &dst[0] {
-		return 0, 0, errors.New("Input and output buffers cannot be equal")
+	// ! no min test
+	if len(src) > _TC_MAX_BLOCK_SIZE {
+		return 0, 0, fmt.Errorf("The max text transform block size is %d, got %d", _TC_MAX_BLOCK_SIZE, len(src))
 	}
 
-	if len(src) > _TC_MAX_BLOCK_SIZE {
-		// Not a recoverable error: instead of silently fail the transform,
-		// issue a fatal error.
-		panic(fmt.Errorf("The max text transform block size is %d, got %d", _TC_MAX_BLOCK_SIZE, len(src)))
+	if &src[0] == &dst[0] {
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
 	return this.delegate.Inverse(src, dst)
@@ -554,6 +611,7 @@ func newTextCodec1WithCtx(ctx *map[string]interface{}) (*textCodec1, error) {
 		blockSize := val.(uint)
 
 		if blockSize >= 8 {
+
 			log, _ = kanzi.Log2(uint32(blockSize / 8))
 
 			if log > 26 {
@@ -661,8 +719,8 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 				(*this.ctx)["dataType"] = kanzi.DT_NUMERIC
 			case _TC_MASK_BASE64:
 				(*this.ctx)["dataType"] = kanzi.DT_BASE64
-			case _TC_MASK_BIN:
-				(*this.ctx)["dataType"] = kanzi.DT_BIN
+			case _TC_MASK_UTF8:
+				(*this.ctx)["dataType"] = kanzi.DT_UTF8
 			case _TC_MASK_DNA:
 				(*this.ctx)["dataType"] = kanzi.DT_DNA
 			default:
@@ -1205,8 +1263,8 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 				(*this.ctx)["dataType"] = kanzi.DT_NUMERIC
 			case _TC_MASK_BASE64:
 				(*this.ctx)["dataType"] = kanzi.DT_BASE64
-			case _TC_MASK_BIN:
-				(*this.ctx)["dataType"] = kanzi.DT_BIN
+			case _TC_MASK_UTF8:
+				(*this.ctx)["dataType"] = kanzi.DT_UTF8
 			case _TC_MASK_DNA:
 				(*this.ctx)["dataType"] = kanzi.DT_DNA
 			default:
