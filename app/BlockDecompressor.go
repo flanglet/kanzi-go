@@ -390,7 +390,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 			msg = fmt.Sprintf("%.0f ms", float64(delta))
 		}
 
-		msg = fmt.Sprintf("Total decoding time: %v", msg)
+		msg = fmt.Sprintf("Total decompression time: %v", msg)
 		log.Println(msg, this.verbosity > 0)
 
 		if read > 1 {
@@ -485,7 +485,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 
 	// Decode
 	read := int64(0)
-	log.Println("\nDecoding "+inputName+" ...", verbosity > 1)
+	log.Println("\nDecompressing "+inputName+" ...", verbosity > 1)
 	log.Println("", verbosity > 3)
 	var input io.ReadCloser
 
@@ -575,7 +575,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 		}
 
 		if verbosity > 1 {
-			msg = fmt.Sprintf("Decoding:          %v", msg)
+			msg = fmt.Sprintf("Decompressing:     %v", msg)
 			log.Println(msg, true)
 			msg = fmt.Sprintf("Input size:        %d", cis.GetRead())
 			log.Println(msg, true)
@@ -584,7 +584,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 		}
 
 		if verbosity == 1 {
-			msg = fmt.Sprintf("Decoding %v: %v => %v bytes in %v", inputName, cis.GetRead(), read, msg)
+			msg = fmt.Sprintf("Decompressing %v: %v => %v in %v", inputName, cis.GetRead(), read, msg)
 			log.Println(msg, true)
 		}
 

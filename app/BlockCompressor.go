@@ -491,7 +491,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 			msg = fmt.Sprintf("%.0f ms", float64(delta))
 		}
 
-		msg = fmt.Sprintf("Total encoding time: %v", msg)
+		msg = fmt.Sprintf("Total compression time: %v", msg)
 		log.Println(msg, this.verbosity > 0)
 
 		if written > 1 {
@@ -670,7 +670,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 	}
 
 	// Encode
-	log.Println("\nEncoding "+inputName+" ...", verbosity > 1)
+	log.Println("\nCompressing "+inputName+" ...", verbosity > 1)
 	log.Println("", verbosity > 3)
 	length := 0
 	read := uint64(0)
@@ -734,7 +734,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 		f := float64(cos.GetWritten()) / float64(read)
 
 		if verbosity > 1 {
-			msg = fmt.Sprintf("Encoding:          %v", msg)
+			msg = fmt.Sprintf("Compressing:       %v", msg)
 			log.Println(msg, true)
 			msg = fmt.Sprintf("Input size:        %d", read)
 			log.Println(msg, true)
@@ -745,7 +745,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 		}
 
 		if verbosity == 1 {
-			msg = fmt.Sprintf("Encoding %v: %v => %v (%.2f%%) in %v", inputName, read, cos.GetWritten(), 100*f, msg)
+			msg = fmt.Sprintf("Compressing %v: %v => %v (%.2f%%) in %v", inputName, read, cos.GetWritten(), 100*f, msg)
 			log.Println(msg, true)
 		}
 
