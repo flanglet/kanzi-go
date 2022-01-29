@@ -188,6 +188,14 @@ var (
 // Analyze the block and return an 8-bit status (see MASK flags constants)
 // The goal is to detect test data amenable to pre-processing.
 func computeStats(block []byte, freqs0 []int32, strict bool) byte {
+	if strict == false {
+		// This is going to fail if the block is not the first of the file.
+		// But this is a cheap test, good enough for fast mode.
+		if kanzi.GetMagicType(block) != kanzi.NO_MAGIC {
+			return _TC_MASK_NOT_TEXT
+		}
+	}
+
 	var freqs [256][256]int32
 	freqs1 := freqs[0:256]
 	count := len(block)
