@@ -36,9 +36,14 @@ const (
 	BROTLI_MAGIC = 0x81CFB2CE
 	RIFF_MAGIC   = 0x04524946
 	CAB_MAGIC    = 0x4D534346
+	BZIP2_MAGIC  = 0x425A68
 	GZIP_MAGIC   = 0x1F8B
 	BMP_MAGIC    = 0x424D
 	WIN_MAGIC    = 0x4D5A
+	PBM_MAGIC    = 0x5034 // bin only
+	PGM_MAGIC    = 0x5035 // bin only
+	PPM_MAGIC    = 0x5036 // bin only
+
 )
 
 // Magic is a utility to detect common header magic values
@@ -61,7 +66,7 @@ var (
 func GetMagicType(src []byte) uint {
 	key := uint(binary.BigEndian.Uint32(src))
 
-	if (key & ^uint(0x0F)) == JPG_MAGIC {
+	if ((key & ^uint(0x0F)) == JPG_MAGIC) || ((key >> 8) == BZIP2_MAGIC) {
 		return key
 	}
 
@@ -71,9 +76,19 @@ func GetMagicType(src []byte) uint {
 		}
 	}
 
+	key16 := key >> 16
+
 	for _, k := range KEYS16 {
-		if (key >> 16) == k {
-			return key >> 16
+		if key16 == k {
+			return key16
+		}
+	}
+
+	if (key16 == PBM_MAGIC) || (key16 == PGM_MAGIC) || (key16 == PPM_MAGIC) {
+		subkey := (key >> 8) & 0xFF
+
+		if (subkey == 0x07) || (subkey == 0x0A) || (subkey == 0x0D) || (subkey == 0x20) {
+			return key16
 		}
 	}
 
