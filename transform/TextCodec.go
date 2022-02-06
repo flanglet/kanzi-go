@@ -186,7 +186,7 @@ var (
 )
 
 // Analyze the block and return an 8-bit status (see MASK flags constants)
-// The goal is to detect test data amenable to pre-processing.
+// The goal is to detect text data amenable to pre-processing.
 func computeStats(block []byte, freqs0 []int32, strict bool) byte {
 	if strict == false {
 		// This is going to fail if the block is not the first of the file.
