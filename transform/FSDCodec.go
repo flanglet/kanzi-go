@@ -23,10 +23,10 @@ import (
 )
 
 const (
-	_FSD_MIN_LENGTH   = 128
-	_FSD_ESCAPE_TOKEN = 0xFF
-	_FSD_DELTA_CODING = byte(0)
-	_FSD_XOR_CODING   = byte(1)
+	_FSD_MIN_BLOCK_LENGTH = 128
+	_FSD_ESCAPE_TOKEN     = 0xFF
+	_FSD_DELTA_CODING     = byte(0)
+	_FSD_XOR_CODING       = byte(1)
 )
 
 // FSDCodec Fixed Step Delta codec is used to decorrelate values separated
@@ -79,7 +79,7 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	// If too small, skip
-	if count < _FSD_MIN_LENGTH {
+	if count < _FSD_MIN_BLOCK_LENGTH {
 		return 0, 0, fmt.Errorf("Block too small, skip")
 	}
 
@@ -98,6 +98,25 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 	count10 := count / 10
 	var in []byte
 	var histo [6][256]int
+	magic := kanzi.GetMagicType(src)
+
+	// Skip detection except for a few candidate types
+	switch magic {
+	case kanzi.BMP_MAGIC:
+		break
+	case kanzi.RIFF_MAGIC:
+		break
+	case kanzi.PBM_MAGIC:
+		break
+	case kanzi.PGM_MAGIC:
+		break
+	case kanzi.PPM_MAGIC:
+		break
+	case kanzi.NO_MAGIC:
+		break
+	default:
+		return 0, 0, fmt.Errorf("FSD forward skip: found %#x magic value header", magic)
+	}
 
 	// Check several step values on a sub-block (no memory allocation)
 	// Sample 2 sub-blocks
