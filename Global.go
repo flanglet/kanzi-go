@@ -26,7 +26,7 @@ const (
 	DT_UNDEFINED  DataType = 0
 	DT_TEXT       DataType = 1
 	DT_MULTIMEDIA DataType = 2
-	DT_X86        DataType = 3
+	DT_EXE        DataType = 3
 	DT_NUMERIC    DataType = 4
 	DT_BASE64     DataType = 5
 	DT_DNA        DataType = 6

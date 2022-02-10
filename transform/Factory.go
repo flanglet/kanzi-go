@@ -37,7 +37,7 @@ const (
 	ZRLT_TYPE   = uint64(6)  // Zero Run Length
 	MTFT_TYPE   = uint64(7)  // Move To Front
 	RANK_TYPE   = uint64(8)  // Rank
-	X86_TYPE    = uint64(9)  // X86 codec
+	EXE_TYPE    = uint64(9)  // EXE codec
 	DICT_TYPE   = uint64(10) // Text codec
 	ROLZ_TYPE   = uint64(11) // ROLZ codec
 	ROLZX_TYPE  = uint64(12) // ROLZ Extra codec
@@ -152,7 +152,7 @@ func newToken(ctx *map[string]interface{}, functionType uint64) (kanzi.ByteTrans
 	case RLT_TYPE:
 		return NewRLTWithCtx(ctx)
 
-	case X86_TYPE:
+	case EXE_TYPE:
 		return NewX86CodecWithCtx(ctx)
 
 	case NONE_TYPE:
@@ -217,8 +217,8 @@ func getByteFunctionNameToken(functionType uint64) string {
 	case LZP_TYPE:
 		return "LZP"
 
-	case X86_TYPE:
-		return "X86"
+	case EXE_TYPE:
+		return "EXE"
 
 	case FSD_TYPE:
 		return "FSD"
@@ -326,8 +326,8 @@ func getByteFunctionTypeToken(name string) uint64 {
 	case "RLT":
 		return RLT_TYPE
 
-	case "X86":
-		return X86_TYPE
+	case "EXE":
+		return EXE_TYPE
 
 	case "NONE":
 		return NONE_TYPE

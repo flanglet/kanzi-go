@@ -16,6 +16,7 @@ limitations under the License.
 package transform
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 
@@ -27,23 +28,51 @@ import (
 // Adapted from MCM: https://github.com/mathieuchartier/mcm/blob/master/X86Binary.hpp
 
 const (
-	_X86_MASK_JUMP        = 0xFE
-	_X86_INSTRUCTION_JUMP = 0xE8
-	_X86_INSTRUCTION_JCC  = 0x80
-	_X86_PREFIX_JCC       = 0x0F
-	_X86_MASK_JCC         = 0xF0
-	_X86_MASK_ADDRESS     = 0xD5
-	_X86_ESCAPE           = 0xF5
+	_EXE_X86_MASK_JUMP        = 0xFE
+	_EXE_X86_INSTRUCTION_JUMP = 0xE8
+	_EXE_X86_INSTRUCTION_JCC  = 0x80
+	_EXE_X86_TWO_BYTE_PREFIX  = 0x0F
+	_EXE_X86_MASK_JCC         = 0xF0
+	_EXE_X86_ESCAPE           = 0x9B
+	_EXE_NOT_EXE              = 0
+	_EXE_X86                  = 1
+	_EXE_ARM64                = 2
+	_EXE_X86_ADDR_MASK        = (1 << 24) - 1
+	_EXE_MASK_ADDRESS         = 0xF0F0F0F0
+	_EXE_ARM_B_ADDR_MASK      = (1 << 26) - 1
+	_EXE_ARM_B_OPCODE_MASK    = 0xFFFFFFFF ^ _EXE_ARM_B_ADDR_MASK
+	_EXE_ARM_B_ADDR_SGN_MASK  = 1 << 25
+	_EXE_ARM_OPCODE_B         = 0x14000000 // 6 bit opcode
+	_EXE_ARM_OPCODE_BL        = 0x94000000 // 6 bit opcode
+	_EXE_ARM_CB_REG_BITS      = 5          // lowest bits for register
+	_EXE_ARM_CB_ADDR_MASK     = 0x00FFFFE0 // 18 bit addr mask
+	_EXE_ARM_CB_ADDR_SGN_MASK = 1 << 18
+	_EXE_ARM_CB_OPCODE_MASK   = 0x7F000000
+	_EXE_ARM_OPCODE_CBZ       = 0x34000000 // 8 bit opcode
+	_EXE_ARM_OPCODE_CBNZ      = 0x3500000  // 8 bit opcode
+	_EXE_WIN_PE               = 0x00004550
+	_EXE_WIN_X86_ARCH         = 0x014C
+	_EXE_WIN_AMD64_ARCH       = 0x8664
+	_EXE_WIN_ARM64_ARCH       = 0xAA64
+	_EXE_ELF_X86_ARCH         = 0x03
+	_EXE_ELF_AMD64_ARCH       = 0x3E
+	_EXE_ELF_ARM64_ARCH       = 0xB7
+	_EXE_MAC_AMD64_ARCH       = 0x01000007
+	_EXE_MAC_ARM64_ARCH       = 0x0100000C
+	_EXE_MIN_BLOCK_SIZE       = 4096
+	_EXE_MAX_BLOCK_SIZE       = (1 << (26 + 2)) - 1 // max offset << 2
 )
 
 // X86Codec a codec for x86 code
 type X86Codec struct {
-	ctx *map[string]interface{}
+	ctx          *map[string]interface{}
+	isBsVersion2 bool
 }
 
 // NewX86Codec creates a new instance of X86Codec
 func NewX86Codec() (*X86Codec, error) {
 	this := &X86Codec{}
+	this.isBsVersion2 = false
 	return this, nil
 }
 
@@ -52,6 +81,13 @@ func NewX86Codec() (*X86Codec, error) {
 func NewX86CodecWithCtx(ctx *map[string]interface{}) (*X86Codec, error) {
 	this := &X86Codec{}
 	this.ctx = ctx
+	bsVersion := uint(2)
+
+	if val, containsKey := (*ctx)["bsVersion"]; containsKey {
+		bsVersion = val.(uint)
+	}
+
+	this.isBsVersion2 = bsVersion < 3
 	return this, nil
 }
 
@@ -66,8 +102,16 @@ func (this *X86Codec) Forward(src, dst []byte) (uint, uint, error) {
 
 	count := len(src)
 
+	if count < _EXE_MIN_BLOCK_SIZE {
+		return 0, 0, fmt.Errorf("Block too small - size: %d, min %d)", count, _EXE_MIN_BLOCK_SIZE)
+	}
+
+	if count > _EXE_MAX_BLOCK_SIZE {
+		return 0, 0, fmt.Errorf("Block too big - size: %d, max %d", count, _EXE_MAX_BLOCK_SIZE)
+	}
+
 	if n := this.MaxEncodedLen(count); len(dst) < n {
-		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
+		return 0, 0, fmt.Errorf("Output buffer too small - size: %d, required %d", len(dst), n)
 	}
 
 	end := count - 8
@@ -76,70 +120,117 @@ func (this *X86Codec) Forward(src, dst []byte) (uint, uint, error) {
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
 			dt := val.(kanzi.DataType)
 
-			if dt != kanzi.DT_UNDEFINED && dt != kanzi.DT_X86 {
+			if dt != kanzi.DT_UNDEFINED && dt != kanzi.DT_EXE {
 				return 0, 0, fmt.Errorf("Input is not an executable, skip")
 			}
 		}
 	}
 
-	if this.isExeBlock(src[:end], count) == false {
-		return 0, 0, errors.New("Input is not an executable or has too few jump instructions, skip")
+	codeStart := 0
+	codeEnd := count - 8
+	mode := detectExeType(src[:end], &codeStart, &codeEnd)
+
+	if mode == _EXE_NOT_EXE {
+		return 0, 0, fmt.Errorf("Input is not an executable, skip")
 	}
 
 	if this.ctx != nil {
-		(*this.ctx)["dataType"] = kanzi.DT_X86
+		(*this.ctx)["dataType"] = kanzi.DT_EXE
 	}
 
-	srcIdx := 0
-	dstIdx := 0
+	if mode == _EXE_X86 {
+		return this.forwardX86(src, dst, codeStart, codeEnd)
+	}
 
-	for srcIdx < end {
-		dst[dstIdx] = src[srcIdx]
-		dstIdx++
-		srcIdx++
+	if mode == _EXE_ARM64 {
+		return this.forwardARM(src, dst, codeStart, codeEnd)
+	}
 
-		// Relative jump ?
-		if src[srcIdx-1]&_X86_MASK_JUMP != _X86_INSTRUCTION_JUMP {
+	return 0, 0, fmt.Errorf("Input is not a supported executable format, skip")
+}
+
+func (this *X86Codec) forwardX86(src, dst []byte, codeStart, codeEnd int) (uint, uint, error) {
+	srcIdx := codeStart
+	dstIdx := 9
+	matches := 0
+	dst[0] = _EXE_X86
+	matches = 0
+
+	if codeStart > 0 {
+		copy(dst[dstIdx:], src[0:codeStart])
+		dstIdx += codeStart
+	}
+
+	for srcIdx < codeEnd {
+		if src[srcIdx] == _EXE_X86_TWO_BYTE_PREFIX {
+			dst[dstIdx] = src[srcIdx]
+			srcIdx++
+			dstIdx++
+
+			if (src[srcIdx] & _EXE_X86_MASK_JCC) != _EXE_X86_INSTRUCTION_JCC {
+				// Not a relative jump
+				if src[srcIdx] == _EXE_X86_ESCAPE {
+					dst[dstIdx] = _EXE_X86_ESCAPE
+					dstIdx++
+				}
+
+				dst[dstIdx] = src[srcIdx]
+				srcIdx++
+				dstIdx++
+				continue
+			}
+		} else if (src[srcIdx] & _EXE_X86_MASK_JUMP) != _EXE_X86_INSTRUCTION_JUMP {
+			// Not a relative call
+			if src[srcIdx] == _EXE_X86_ESCAPE {
+				dst[dstIdx] = _EXE_X86_ESCAPE
+				dstIdx++
+			}
+
+			dst[dstIdx] = src[srcIdx]
+			srcIdx++
+			dstIdx++
 			continue
 		}
 
-		cur := src[srcIdx]
+		// Current instruction is a jump/call.
+		sgn := src[srcIdx+4]
+		offset := int(binary.LittleEndian.Uint32(src[srcIdx+1:]))
 
-		if cur == 0 || cur == 1 || cur == _X86_ESCAPE {
-			// Conflict prevents encoding the address. Emit escape symbol
-			dst[dstIdx] = _X86_ESCAPE
-			dst[dstIdx+1] = cur
+		if (sgn != 0 && sgn != 0xFF) || (offset == 0xFF000000) {
+			dst[dstIdx] = _EXE_X86_ESCAPE
+			dst[dstIdx+1] = src[srcIdx]
 			srcIdx++
 			dstIdx += 2
 			continue
 		}
 
-		sgn := src[srcIdx+3]
+		// Absolute target address = srcIdx + 5 + offset. Let us ignore the +5
+		addr := srcIdx
 
-		// Invalid sign of jump address difference => false positive ?
-		if sgn != 0 && sgn != 0xFF {
-			continue
+		if sgn == 0 {
+			addr += offset
+		} else {
+			addr -= (-offset & _EXE_X86_ADDR_MASK)
 		}
 
-		addr := int32(src[srcIdx]) | (int32(src[srcIdx+1]) << 8) |
-			(int32(src[srcIdx+2]) << 16) | (int32(sgn) << 24)
-
-		addr += int32(srcIdx)
-		dst[dstIdx] = sgn + 1
-		dst[dstIdx+1] = _X86_MASK_ADDRESS ^ byte(addr>>16)
-		dst[dstIdx+2] = _X86_MASK_ADDRESS ^ byte(addr>>8)
-		dst[dstIdx+3] = _X86_MASK_ADDRESS ^ byte(addr)
-		srcIdx += 4
-		dstIdx += 4
-	}
-
-	for srcIdx < count {
 		dst[dstIdx] = src[srcIdx]
-		dstIdx++
-		srcIdx++
+		binary.BigEndian.PutUint32(dst[dstIdx+1:], uint32(addr^_EXE_MASK_ADDRESS))
+		srcIdx += 5
+		dstIdx += 5
+		matches++
 	}
 
-	return uint(srcIdx), uint(dstIdx), nil
+	// Worth it ?
+	if matches < 16 {
+		return uint(srcIdx), uint(dstIdx), errors.New("Too few calls/jumps, skip")
+	}
+
+	count := len(src)
+	binary.LittleEndian.PutUint32(dst[1:], uint32(codeStart))
+	binary.LittleEndian.PutUint32(dst[5:], uint32(dstIdx))
+	copy(dst[dstIdx:], src[srcIdx:count])
+	dstIdx += (count - srcIdx)
+	return uint(count), uint(dstIdx), nil
 }
 
 // Inverse applies the reverse function to the src and writes the result
@@ -150,6 +241,89 @@ func (this *X86Codec) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
+	// Old format
+	if this.isBsVersion2 == true {
+		return this.inverseV2(src, dst)
+	}
+
+	mode := src[0]
+
+	if mode == _EXE_X86 {
+		return this.inverseX86(src, dst)
+	}
+
+	if mode == _EXE_ARM64 {
+		return this.inverseARM(src, dst)
+	}
+
+	return 0, 0, errors.New("Invalid data: unknown binary type")
+}
+
+func (this *X86Codec) inverseX86(src, dst []byte) (uint, uint, error) {
+	srcIdx := 9
+	dstIdx := 0
+	codeStart := int(binary.LittleEndian.Uint32(src[1:]))
+	codeEnd := int(binary.LittleEndian.Uint32(src[5:]))
+
+	if codeStart > 0 {
+		copy(dst[dstIdx:], src[srcIdx:srcIdx+codeStart])
+		dstIdx += codeStart
+		srcIdx += codeStart
+	}
+
+	for srcIdx < codeEnd {
+		if src[srcIdx] == _EXE_X86_TWO_BYTE_PREFIX {
+			dst[dstIdx] = src[srcIdx]
+			srcIdx++
+			dstIdx++
+
+			if (src[srcIdx] & _EXE_X86_MASK_JCC) != _EXE_X86_INSTRUCTION_JCC {
+				// Not a relative jump
+				if src[srcIdx] == _EXE_X86_ESCAPE {
+					srcIdx++
+				}
+
+				dst[dstIdx] = src[srcIdx]
+				srcIdx++
+				dstIdx++
+				continue
+			}
+		} else if (src[srcIdx] & _EXE_X86_MASK_JUMP) != _EXE_X86_INSTRUCTION_JUMP {
+			// Not a relative call
+			if src[srcIdx] == _EXE_X86_ESCAPE {
+				srcIdx++
+			}
+
+			dst[dstIdx] = src[srcIdx]
+			srcIdx++
+			dstIdx++
+			continue
+		}
+
+		// Current instruction is a jump/call. Decode absolute address
+		addr := int(binary.BigEndian.Uint32(src[srcIdx+1:])) ^ _EXE_MASK_ADDRESS
+		offset := addr - dstIdx
+		dst[dstIdx] = src[srcIdx]
+		srcIdx++
+		dstIdx++
+
+		if offset >= 0 {
+			binary.LittleEndian.PutUint32(dst[dstIdx:], uint32(offset))
+		} else {
+			binary.LittleEndian.PutUint32(dst[dstIdx:], uint32(-(-offset & _EXE_X86_ADDR_MASK)))
+		}
+
+		srcIdx += 4
+		dstIdx += 4
+	}
+
+	count := len(src)
+	copy(dst[dstIdx:], src[srcIdx:count])
+	dstIdx += (count - srcIdx)
+	return uint(count), uint(dstIdx), nil
+}
+
+func (this *X86Codec) inverseV2(src, dst []byte) (uint, uint, error) {
 	count := len(src)
 	srcIdx := 0
 	dstIdx := 0
@@ -161,11 +335,11 @@ func (this *X86Codec) Inverse(src, dst []byte) (uint, uint, error) {
 		srcIdx++
 
 		// Relative jump ?
-		if src[srcIdx-1]&_X86_MASK_JUMP != _X86_INSTRUCTION_JUMP {
+		if src[srcIdx-1]&_EXE_X86_MASK_JUMP != _EXE_X86_INSTRUCTION_JUMP {
 			continue
 		}
 
-		if src[srcIdx] == _X86_ESCAPE {
+		if src[srcIdx] == 0xF5 {
 			// Not an encoded address. Skip escape symbol
 			srcIdx++
 			continue
@@ -178,9 +352,9 @@ func (this *X86Codec) Inverse(src, dst []byte) (uint, uint, error) {
 			continue
 		}
 
-		addr := (_X86_MASK_ADDRESS ^ int32(src[srcIdx+3])) |
-			((_X86_MASK_ADDRESS ^ int32(src[srcIdx+2])) << 8) |
-			((_X86_MASK_ADDRESS ^ int32(src[srcIdx+1])) << 16) |
+		addr := (0xD5 ^ int32(src[srcIdx+3])) |
+			((0xD5 ^ int32(src[srcIdx+2])) << 8) |
+			((0xD5 ^ int32(src[srcIdx+1])) << 16) |
 			((0xFF & int32(sgn)) << 24)
 
 		addr -= int32(dstIdx)
@@ -201,42 +375,355 @@ func (this *X86Codec) Inverse(src, dst []byte) (uint, uint, error) {
 	return uint(srcIdx), uint(dstIdx), nil
 }
 
-// MaxEncodedLen returns the max size required for the encoding output buffer
-func (this X86Codec) MaxEncodedLen(srcLen int) int {
-	// Since we do not check the dst index for each byte (for speed purpose)
-	// allocate some extra buffer for incompressible data.
-	if srcLen >= 1<<30 {
-		return srcLen
+func (this *X86Codec) forwardARM(src, dst []byte, codeStart, codeEnd int) (uint, uint, error) {
+	srcIdx := codeStart
+	dstIdx := 9
+	matches := 0
+	dst[0] = _EXE_ARM64
+	matches = 0
+	fpRun := 0
+
+	if codeStart > 0 {
+		copy(dst[dstIdx:], src[0:codeStart])
+		dstIdx += codeStart
 	}
 
-	if srcLen <= 512 {
+	for srcIdx < codeEnd {
+		instr := int(binary.LittleEndian.Uint32(src[srcIdx:]))
+		opcode1 := instr & _EXE_ARM_B_OPCODE_MASK
+		//opcode2 := instr & ARM_CB_OPCODE_MASK
+		isBL := (opcode1 == _EXE_ARM_OPCODE_B) || (opcode1 == _EXE_ARM_OPCODE_BL) // inconditional jump
+		// disable for now ... isCB = (opcode2 == ARM_OPCODE_CBZ) || (opcode2 == ARM_OPCODE_CBNZ) // conditional jump
+		isCB := false
+
+		if isBL == false && isCB == false {
+			// Not a relative jump
+			copy(dst[dstIdx:], src[srcIdx:srcIdx+4])
+			srcIdx += 4
+			dstIdx += 4
+			continue
+		}
+
+		var addr int
+		var val int
+
+		if isBL == true {
+			// opcode(6) + sgn(1) + offset(25)
+			// Absolute target address = srcIdx +/- (offet*4)
+			offset := int(int32(instr & _EXE_ARM_B_ADDR_MASK))
+
+			if instr&_EXE_ARM_B_ADDR_SGN_MASK == 0 {
+				addr = srcIdx + 4*offset
+			} else {
+				addr = srcIdx - 4*int(int32(-offset&_EXE_ARM_B_ADDR_MASK))
+			}
+
+			if addr < 0 {
+				addr = 0
+			}
+
+			val = opcode1 | (addr >> 2)
+		} else { // isCB == true
+			// opcode(8) + sgn(1) + offset(18) + register(5)
+			// Absolute target address = srcIdx +/- (offet*4)
+			offset := (instr & _EXE_ARM_CB_ADDR_MASK) >> _EXE_ARM_CB_REG_BITS
+
+			if instr&_EXE_ARM_CB_ADDR_SGN_MASK == 0 {
+				addr = srcIdx + 4*offset
+			} else {
+				addr = srcIdx + 4*(0xFFFC0000|offset)
+			}
+
+			if addr < 0 {
+				addr = 0
+			}
+
+			val = (instr & ^_EXE_ARM_CB_ADDR_MASK) | ((addr >> 2) << _EXE_ARM_CB_REG_BITS)
+		}
+
+		if addr == 0 {
+			fpRun++
+
+			// Early exit if likely outside a code section
+			if fpRun == 4 {
+				break
+			}
+
+			binary.LittleEndian.PutUint32(dst[dstIdx:], uint32(val)) // 0 address as escape
+			copy(dst[dstIdx+4:], src[srcIdx:srcIdx+4])
+			srcIdx += 4
+			dstIdx += 8
+			continue
+		}
+
+		fpRun = 0
+		binary.LittleEndian.PutUint32(dst[dstIdx:], uint32(val))
+		srcIdx += 4
+		dstIdx += 4
+		matches++
+	}
+
+	// Worth it ?
+	if matches < 16 {
+		return uint(srcIdx), uint(dstIdx), errors.New("Too few calls/jumps, skip")
+	}
+
+	binary.LittleEndian.PutUint32(dst[1:], uint32(codeStart))
+	binary.LittleEndian.PutUint32(dst[5:], uint32(dstIdx))
+	count := len(src)
+	copy(dst[dstIdx:], src[srcIdx:count])
+	dstIdx += (count - srcIdx)
+	return uint(count), uint(dstIdx), nil
+}
+
+func (this *X86Codec) inverseARM(src, dst []byte) (uint, uint, error) {
+	srcIdx := 9
+	dstIdx := 0
+	codeStart := int(binary.LittleEndian.Uint32(src[1:]))
+	codeEnd := int(binary.LittleEndian.Uint32(src[5:]))
+	fpRun := 0
+
+	if codeStart > 0 {
+		copy(dst[dstIdx:], src[srcIdx:srcIdx+codeStart])
+		dstIdx += codeStart
+		srcIdx += codeStart
+	}
+
+	for srcIdx < codeEnd {
+		instr := int(binary.LittleEndian.Uint32(src[srcIdx:]))
+		opcode1 := instr & _EXE_ARM_B_OPCODE_MASK
+		//copcode2 := instr & ARM_CB_OPCODE_MASK
+		isBL := (opcode1 == _EXE_ARM_OPCODE_B) || (opcode1 == _EXE_ARM_OPCODE_BL) // inconditional jump
+		// disable for now ... isCB = (opcode2 == ARM_OPCODE_CBZ) || (opcode2 == ARM_OPCODE_CBNZ); // conditional jump
+		isCB := false
+
+		if isBL == false && isCB == false {
+			// Not a relative jump
+			copy(dst[dstIdx:], src[srcIdx:srcIdx+4])
+			srcIdx += 4
+			dstIdx += 4
+			continue
+		}
+
+		// Decode absolute address
+		var addr int
+		var val int
+
+		if isBL == true {
+			addr = (instr & _EXE_ARM_B_ADDR_MASK) << 2
+			offset := (addr - dstIdx) >> 2
+			val = opcode1 | (offset & _EXE_ARM_B_ADDR_MASK)
+		} else {
+			addr = ((instr & _EXE_ARM_CB_ADDR_MASK) >> _EXE_ARM_CB_REG_BITS) << 2
+			offset := (addr - dstIdx) >> 2
+			val = (instr & ^_EXE_ARM_CB_ADDR_MASK) | (offset << _EXE_ARM_CB_REG_BITS)
+		}
+
+		if addr == 0 {
+			// False positive
+			fpRun++
+
+			// Early exit if likely outside a code section
+			if fpRun == 4 {
+				break
+			}
+
+			copy(dst[dstIdx:], src[srcIdx+4:srcIdx+8])
+			srcIdx += 8
+			dstIdx += 4
+			continue
+		}
+
+		fpRun = 0
+		binary.LittleEndian.PutUint32(dst[dstIdx:], uint32(val))
+		srcIdx += 4
+		dstIdx += 4
+	}
+
+	count := len(src)
+	copy(dst[dstIdx:], src[srcIdx:count])
+	dstIdx += (count - srcIdx)
+	return uint(count), uint(dstIdx), nil
+}
+
+// MaxEncodedLen returns the max size required for the encoding output buffer
+func (this X86Codec) MaxEncodedLen(srcLen int) int {
+	// Allocate some extra buffer for incompressible data.
+	if srcLen <= 256 {
 		return srcLen + 32
 	}
 
-	return srcLen + srcLen/16
+	return srcLen + srcLen/8
 }
 
-func (this X86Codec) isExeBlock(src []byte, count int) bool {
-	jumps := 0
+func detectExeType(src []byte, codeStart, codeEnd *int) byte {
+	// Let us check the first bytes ... but this may not be the first block
+	// Best effort
+	magic := kanzi.GetMagicType(src)
+	arch := 0
 
-	for i := range src {
-		if src[i]&_X86_MASK_JUMP == _X86_INSTRUCTION_JUMP {
-			if src[i+4] == 0 || src[i+4] == 0xFF {
-				// Count relative jumps (E8/E9 .. .. .. 00/FF)
-				jumps++
-			}
-		} else if (src[i] == _X86_PREFIX_JCC) && (src[i+1]&_X86_MASK_JCC == _X86_INSTRUCTION_JCC) {
-			// Count relative conditional jumps (0x0F 0x8.)
-			jumps++
+	if parseExeHeader(src, magic, &arch, codeStart, codeEnd) == true {
+		if (arch == _EXE_ELF_X86_ARCH) || (arch == _EXE_ELF_AMD64_ARCH) {
+			return _EXE_X86
+		}
+
+		if (arch == _EXE_WIN_X86_ARCH) || (arch == _EXE_WIN_AMD64_ARCH) {
+			return _EXE_X86
+		}
+
+		if arch == _EXE_MAC_AMD64_ARCH {
+			return _EXE_X86
+		}
+
+		if (arch == _EXE_ELF_ARM64_ARCH) || (arch == _EXE_WIN_ARM64_ARCH) {
+			return _EXE_ARM64
+		}
+
+		if arch == _EXE_MAC_ARM64_ARCH {
+			return _EXE_ARM64
 		}
 	}
 
-	if jumps < (count >> 7) {
-		// Number of jump instructions too small => either not a binary
-		// or not worth the change => skip. Very crude filter obviously.
-		// Also, binaries usually have a lot of 0x88..0x8C (MOV) instructions.
-		return false
+	jumpsX86 := 0
+	jumpsARM64 := 0
+	zeros := 0
+	smallVals := 0
+	count := *codeEnd - *codeStart
+
+	for i := *codeStart; i < *codeEnd; i++ {
+		if src[i] < 16 {
+			smallVals++
+
+			if src[i] == 0 {
+				zeros++
+			}
+		}
+
+		// X86
+		if (src[i] & _EXE_X86_MASK_JUMP) == _EXE_X86_INSTRUCTION_JUMP {
+			if (src[i+4] == 0) || (src[i+4] == 0xFF) {
+				// Count relative jumps (CALL = E8/ JUMP = E9 .. .. .. 00/FF)
+				jumpsX86++
+				continue
+			}
+		} else if src[i] == _EXE_X86_TWO_BYTE_PREFIX {
+			i++
+
+			if (src[i] == 0x38) || (src[i] == 0x3A) {
+				i++
+			}
+
+			// Count relative conditional jumps (0x0F 0x8?) with 16/32 offsets
+			if (src[i] & _EXE_X86_MASK_JCC) == _EXE_X86_INSTRUCTION_JCC {
+				jumpsX86++
+				continue
+			}
+		}
+
+		// ARM
+		if (i & 3) != 0 {
+			continue
+		}
+
+		instr := binary.LittleEndian.Uint32(src[i:])
+		opcode1 := instr & _EXE_ARM_B_OPCODE_MASK
+		opcode2 := instr & _EXE_ARM_CB_OPCODE_MASK
+
+		if (opcode1 == _EXE_ARM_OPCODE_B) || (opcode1 == _EXE_ARM_OPCODE_BL) {
+			jumpsARM64++
+		} else if (opcode2 == _EXE_ARM_OPCODE_CBZ) || (opcode2 == _EXE_ARM_OPCODE_CBNZ) {
+			jumpsARM64++
+		}
 	}
 
-	return true
+	if zeros < (count / 10) {
+		return _EXE_NOT_EXE
+	}
+
+	// Filter out (some/many) multimedia files
+	if smallVals > (count / 2) {
+		return _EXE_NOT_EXE
+	}
+
+	// Ad-hoc thresholds
+	if jumpsX86 >= (count / 200) {
+		return _EXE_X86
+	}
+
+	if jumpsARM64 >= (count / 200) {
+		return _EXE_ARM64
+	}
+
+	// Number of jump instructions too small => either not a binary
+	// or not worth the change, skip.
+	return _EXE_NOT_EXE
+}
+
+// Return true if known header
+func parseExeHeader(src []byte, magic uint, arch, codeStart, codeEnd *int) bool {
+	count := len(src)
+
+	if magic == kanzi.WIN_MAGIC {
+		if count >= 64 {
+			posPE := int(binary.LittleEndian.Uint32(src[60:]))
+
+			if (posPE > 0) && (posPE <= count-48) && (int(binary.LittleEndian.Uint32(src[posPE:])) == _EXE_WIN_PE) {
+				*codeStart = int(binary.LittleEndian.Uint32(src[posPE+44:]))
+				*codeEnd = *codeStart + int(binary.LittleEndian.Uint32(src[posPE+28:]))
+
+				if *codeStart > count {
+					*codeStart = count
+				}
+
+				if *codeEnd > count {
+					*codeEnd = count
+				}
+
+				*arch = int(binary.LittleEndian.Uint32(src[posPE+4:]))
+			}
+
+			return true
+		}
+	} else if magic == kanzi.ELF_MAGIC {
+		isLittleEndian := src[5] == 1
+
+		if count >= 64 {
+			if isLittleEndian == true {
+				// Super inaccurate, just jump over file and program headers
+				if src[4] == 2 {
+					*codeStart = 0x40 + int(binary.LittleEndian.Uint16(src[0x36:]))*int(binary.LittleEndian.Uint16(src[0x38:]))
+				} else {
+					*codeStart = 0x34 + int(binary.LittleEndian.Uint16(src[0x2A:]))*int(binary.LittleEndian.Uint16(src[0x2C:]))
+				}
+
+				*arch = int(binary.LittleEndian.Uint16(src[18:]))
+			} else {
+				// Super inaccurate, just jump over file and program headers
+				if src[4] == 2 {
+					*codeStart = 0x40 + int(binary.BigEndian.Uint16(src[0x36:]))*int(binary.BigEndian.Uint16(src[0x38:]))
+				} else {
+					*codeStart = 0x34 + int(binary.BigEndian.Uint16(src[0x2A:]))*int(binary.BigEndian.Uint16(src[0x2C:]))
+				}
+
+				*arch = int(binary.BigEndian.Uint16(src[18:]))
+			}
+
+			if *codeStart > count {
+				*codeStart = count
+			}
+
+			return true
+		}
+	} else if (magic == kanzi.MAC_MAGIC32) || (magic == kanzi.MAC_CIGAM32) ||
+		(magic == kanzi.MAC_MAGIC64) || (magic == kanzi.MAC_CIGAM64) {
+
+		if count >= 8 {
+			*arch = int(binary.LittleEndian.Uint32(src[4:]))
+		}
+
+		*codeStart = 0x20 // just ignore Mach-O header for now
+		return true
+	}
+
+	return false
 }
