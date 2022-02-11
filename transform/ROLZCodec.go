@@ -207,7 +207,7 @@ type rolzCodec1 struct {
 	logPosChecks uint
 	maskChecks   int32
 	posChecks    int32
-	bsVersion    uint
+	ctx          *map[string]interface{}
 }
 
 func newROLZCodec1(logPosChecks uint) (*rolzCodec1, error) {
@@ -237,14 +237,7 @@ func newROLZCodec1WithCtx(logPosChecks uint, ctx *map[string]interface{}) (*rolz
 	this.maskChecks = this.posChecks - 1
 	this.counters = make([]int32, 1<<16)
 	this.matches = make([]uint32, _ROLZ_HASH_SIZE<<logPosChecks)
-	this.bsVersion = uint(2)
-
-	if ctx != nil {
-		if val, containsKey := (*ctx)["bsVersion"]; containsKey {
-			this.bsVersion = val.(uint)
-		}
-	}
-
+	this.ctx = ctx
 	return this, nil
 }
 
@@ -287,9 +280,7 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int) (int, int) {
 		n := 0
 
 		for n < maxMatch-4 {
-			diff := binary.LittleEndian.Uint32(refBuf[n:]) ^ binary.LittleEndian.Uint32(curBuf[n:])
-
-			if diff != 0 {
+			if diff := binary.LittleEndian.Uint32(refBuf[n:]) ^ binary.LittleEndian.Uint32(curBuf[n:]); diff != 0 {
 				n += (bits.TrailingZeros32(diff) >> 3)
 				break
 			}
@@ -633,10 +624,8 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			var litDec *entropy.ANSRangeDecoder
-			ctx := make(map[string]interface{})
-			ctx["bsVersion"] = this.bsVersion
 
-			if litDec, err = entropy.NewANSRangeDecoderWithCtx(ibs, litOrder, &ctx); err != nil {
+			if litDec, err = entropy.NewANSRangeDecoderWithCtx(ibs, litOrder, this.ctx); err != nil {
 				goto End
 			}
 
@@ -647,7 +636,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			litDec.Dispose()
 			var mDec *entropy.ANSRangeDecoder
 
-			if mDec, err = entropy.NewANSRangeDecoderWithCtx(ibs, 0, &ctx); err != nil {
+			if mDec, err = entropy.NewANSRangeDecoderWithCtx(ibs, 0, this.ctx); err != nil {
 				goto End
 			}
 
@@ -836,6 +825,7 @@ type rolzCodec2 struct {
 	logPosChecks uint
 	maskChecks   int32
 	posChecks    int32
+	ctx          *map[string]interface{}
 }
 
 func newROLZCodec2(logPosChecks uint) (*rolzCodec2, error) {
@@ -865,6 +855,7 @@ func newROLZCodec2WithCtx(logPosChecks uint, ctx *map[string]interface{}) (*rolz
 	this.maskChecks = this.posChecks - 1
 	this.counters = make([]int32, 1<<16)
 	this.matches = make([]uint32, _ROLZ_HASH_SIZE<<logPosChecks)
+	this.ctx = ctx
 	return this, nil
 }
 
@@ -907,9 +898,7 @@ func (this *rolzCodec2) findMatch(buf []byte, pos int) (int, int) {
 		n := 0
 
 		for n+4 < maxMatch {
-			diff := binary.LittleEndian.Uint32(refBuf[n:]) ^ binary.LittleEndian.Uint32(curBuf[n:])
-
-			if diff != 0 {
+			if diff := binary.LittleEndian.Uint32(refBuf[n:]) ^ binary.LittleEndian.Uint32(curBuf[n:]); diff != 0 {
 				n += (bits.TrailingZeros32(diff) >> 3)
 				break
 			}
