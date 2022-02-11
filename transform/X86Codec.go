@@ -25,7 +25,6 @@ import (
 
 // X86Codec is a codec that replaces relative jumps addresses with
 // absolute ones in X86 code (to improve entropy coding).
-// Adapted from MCM: https://github.com/mathieuchartier/mcm/blob/master/X86Binary.hpp
 
 const (
 	_EXE_X86_MASK_JUMP        = 0xFE
