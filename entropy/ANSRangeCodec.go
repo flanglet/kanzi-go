@@ -553,8 +553,10 @@ func NewANSRangeDecoderWithCtx(bs kanzi.InputBitStream, order uint, ctx *map[str
 
 	bsVersion := uint(2)
 
-	if val, containsKey := (*ctx)["bsVersion"]; containsKey {
-		bsVersion = val.(uint)
+	if ctx != nil {
+		if val, containsKey := (*ctx)["bsVersion"]; containsKey {
+			bsVersion = val.(uint)
+		}
 	}
 
 	this := new(ANSRangeDecoder)
