@@ -159,8 +159,14 @@ func (this *DefaultInputBitStream) ReadArray(bits []byte, count uint) uint {
 	}
 
 	// Last bytes
+	for remaining >= 8 {
+		bits[start] = byte(this.ReadBits(8))
+		start++
+		remaining -= 8
+	}
+
 	if remaining > 0 {
-		binary.BigEndian.PutUint64(bits[start:start+8], this.ReadBits(uint(remaining))<<uint(64-remaining))
+		bits[start] = byte(this.ReadBits(uint(remaining)) << uint(8-remaining))
 	}
 
 	return count
