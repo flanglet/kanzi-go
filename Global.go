@@ -290,16 +290,15 @@ func ComputeHistogram(block []byte, freqs []int, isOrder0, withTotal bool) {
 			f1[block[i+5]]++
 			f2[block[i+6]]++
 			f3[block[i+7]]++
-			i += 8
-			f0[block[i]]++
-			f1[block[i+1]]++
-			f2[block[i+2]]++
-			f3[block[i+3]]++
-			f0[block[i+4]]++
-			f1[block[i+5]]++
-			f2[block[i+6]]++
-			f3[block[i+7]]++
-			i += 8
+			f0[block[i+8]]++
+			f1[block[i+9]]++
+			f2[block[i+10]]++
+			f3[block[i+11]]++
+			f0[block[i+12]]++
+			f1[block[i+13]]++
+			f2[block[i+14]]++
+			f3[block[i+15]]++
+			i += 16
 		}
 
 		for i := end16; i < len(block); i++ {
