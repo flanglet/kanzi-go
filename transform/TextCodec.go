@@ -187,7 +187,7 @@ var (
 
 // Analyze the block and return an 8-bit status (see MASK flags constants)
 // The goal is to detect text data amenable to pre-processing.
-func computeStats(block []byte, freqs0 []int32, strict bool) byte {
+func computeTextStats(block []byte, freqs0 []int32, strict bool) byte {
 	if strict == false {
 		// This is going to fail if the block is not the first of the file.
 		// But this is a cheap test, good enough for fast mode.
@@ -251,14 +251,14 @@ func computeStats(block []byte, freqs0 []int32, strict bool) byte {
 		}
 	}
 
-	if notText == true {
-		return detectType(freqs0, freqs[:], count)
-	}
-
 	res := byte(0)
 
 	if nbBinChars == 0 {
 		res |= _TC_MASK_FULL_ASCII
+	}
+
+	if notText == true {
+		return res | detectTextType(freqs0, freqs[:], count)
 	}
 
 	if nbBinChars <= count-count/10 {
@@ -313,7 +313,7 @@ func computeStats(block []byte, freqs0 []int32, strict bool) byte {
 	return res
 }
 
-func detectType(freqs0 []int32, freqs [][256]int32, count int) byte {
+func detectTextType(freqs0 []int32, freqs [][256]int32, count int) byte {
 	sum := int32(0)
 
 	for i := 0; i < 12; i++ {
@@ -717,12 +717,12 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	srcIdx := 0
 	dstIdx := 0
 	freqs0 := [256]int32{}
-	mode := computeStats(src[0:count], freqs0[:], true)
+	mode := computeTextStats(src[0:count], freqs0[:], true)
 
 	// Not text ?
 	if mode&_TC_MASK_NOT_TEXT != 0 {
 		if this.ctx != nil {
-			switch mode {
+			switch mode & ^byte(_TC_MASK_FULL_ASCII) {
 			case _TC_MASK_NUMERIC:
 				(*this.ctx)["dataType"] = kanzi.DT_NUMERIC
 			case _TC_MASK_BASE64:
@@ -1261,12 +1261,12 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	srcIdx := 0
 	dstIdx := 0
 	freqs0 := [256]int32{}
-	mode := computeStats(src[0:count], freqs0[:], false)
+	mode := computeTextStats(src[0:count], freqs0[:], false)
 
 	// Not text ?
 	if mode&_TC_MASK_NOT_TEXT != 0 {
 		if this.ctx != nil {
-			switch mode {
+			switch mode ^ byte(_TC_MASK_FULL_ASCII) {
 			case _TC_MASK_NUMERIC:
 				(*this.ctx)["dataType"] = kanzi.DT_NUMERIC
 			case _TC_MASK_BASE64:
