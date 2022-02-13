@@ -176,17 +176,15 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 		} else {
 			concurrency = 1
 		}
-	} else {
-		if concurrency > _COMP_MAX_CONCURRENCY {
-			if this.verbosity > 0 {
-				fmt.Printf("Warning: the number of jobs is too high, defaulting to %v\n", _COMP_MAX_CONCURRENCY)
-			}
-
-			concurrency = _COMP_MAX_CONCURRENCY
+	} else if concurrency > _COMP_MAX_CONCURRENCY {
+		if this.verbosity > 0 {
+			fmt.Printf("Warning: the number of jobs is too high, defaulting to %v\n", _COMP_MAX_CONCURRENCY)
 		}
 
-		this.jobs = concurrency
+		concurrency = _COMP_MAX_CONCURRENCY
 	}
+
+	this.jobs = concurrency
 
 	if prof, prst := argsMap["cpuProf"]; prst == true {
 		this.cpuProf = prof.(string)

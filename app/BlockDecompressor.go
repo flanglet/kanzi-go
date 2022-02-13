@@ -104,17 +104,15 @@ func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, e
 		} else {
 			concurrency = 1
 		}
-	} else {
-		if concurrency > _DECOMP_MAX_CONCURRENCY {
-			if this.verbosity > 0 {
-				fmt.Printf("Warning: the number of jobs is too high, defaulting to %v\n", _DECOMP_MAX_CONCURRENCY)
-			}
-
-			concurrency = _DECOMP_MAX_CONCURRENCY
+	} else if concurrency > _DECOMP_MAX_CONCURRENCY {
+		if this.verbosity > 0 {
+			fmt.Printf("Warning: the number of jobs is too high, defaulting to %v\n", _DECOMP_MAX_CONCURRENCY)
 		}
 
-		this.jobs = concurrency
+		concurrency = _DECOMP_MAX_CONCURRENCY
 	}
+
+	this.jobs = concurrency
 
 	if prof, hasKey := argsMap["cpuProf"]; hasKey == true {
 		this.cpuProf = prof.(string)
