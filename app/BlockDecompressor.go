@@ -21,6 +21,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -31,7 +32,6 @@ import (
 
 const (
 	_DECOMP_DEFAULT_BUFFER_SIZE = 32768
-	_DECOMP_DEFAULT_CONCURRENCY = 1
 	_DECOMP_MAX_CONCURRENCY     = 64
 	_DECOMP_NONE                = "NONE"
 	_DECOMP_STDIN               = "STDIN"
@@ -93,7 +93,17 @@ func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, e
 	}
 
 	if concurrency == 0 {
-		this.jobs = _DECOMP_DEFAULT_CONCURRENCY
+		cores := runtime.NumCPU() / 2 // defaults to half the cores
+
+		if cores > 0 {
+			if cores > _COMP_MAX_CONCURRENCY {
+				concurrency = _COMP_MAX_CONCURRENCY
+			} else {
+				concurrency = uint(cores)
+			}
+		} else {
+			concurrency = 1
+		}
 	} else {
 		if concurrency > _DECOMP_MAX_CONCURRENCY {
 			if this.verbosity > 0 {

@@ -21,6 +21,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -35,7 +36,6 @@ const (
 	_COMP_DEFAULT_BLOCK_SIZE  = 4 * 1024 * 1024
 	_COMP_MIN_BLOCK_SIZE      = 1024
 	_COMP_MAX_BLOCK_SIZE      = 1024 * 1024 * 1024
-	_COMP_DEFAULT_CONCURRENCY = 1
 	_COMP_MAX_CONCURRENCY     = 64
 	_COMP_NONE                = "NONE"
 	_COMP_STDIN               = "STDIN"
@@ -165,7 +165,17 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 	delete(argsMap, "jobs")
 
 	if concurrency == 0 {
-		this.jobs = _COMP_DEFAULT_CONCURRENCY
+		cores := runtime.NumCPU() / 2 // defaults to half the cores
+
+		if cores > 0 {
+			if cores > _COMP_MAX_CONCURRENCY {
+				concurrency = _COMP_MAX_CONCURRENCY
+			} else {
+				concurrency = uint(cores)
+			}
+		} else {
+			concurrency = 1
+		}
 	} else {
 		if concurrency > _COMP_MAX_CONCURRENCY {
 			if this.verbosity > 0 {

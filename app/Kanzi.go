@@ -750,7 +750,7 @@ func printHelp(mode string) {
 
 	log.Println("   -j, --jobs=<jobs>", true)
 	log.Println("        maximum number of jobs the program may start concurrently", true)
-	log.Println("        (default is 1, maximum is 64).\n", true)
+	log.Println("        (default is half of available cores, maximum is 64).\n", true)
 	log.Println("   -v, --verbose=<level>", true)
 	log.Println("        set the verbosity level [0..5]", true)
 	log.Println("        0=silent, 1=default, 2=display details, 3=display configuration,", true)
