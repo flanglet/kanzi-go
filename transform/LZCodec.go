@@ -33,8 +33,9 @@ const (
 	_LZX_HASH_MASK2         = (1 << _LZX_HASH_LOG2) - 1
 	_LZX_MAX_DISTANCE1      = (1 << 17) - 2
 	_LZX_MAX_DISTANCE2      = (1 << 24) - 2
-	_LZX_MIN_MATCH          = 5
-	_LZX_MAX_MATCH          = 65535 + 254 + 15 + _LZX_MIN_MATCH
+	_LZX_MIN_MATCH1         = 5
+	_LZX_MIN_MATCH2         = 9
+	_LZX_MAX_MATCH          = 65535 + 254 + 15 + _LZX_MIN_MATCH1
 	_LZX_MIN_BLOCK_LENGTH   = 24
 	_LZX_MIN_MATCH_MIN_DIST = 1 << 16
 	_LZP_HASH_SEED          = 0x7FEB352D
@@ -127,6 +128,7 @@ type LZXCodec struct {
 	mBuf    []byte
 	tkBuf   []byte
 	extra   bool
+	ctx     *map[string]interface{}
 }
 
 // NewLZXCodec creates a new instance of LZXCodec
@@ -137,6 +139,7 @@ func NewLZXCodec() (*LZXCodec, error) {
 	this.mBuf = make([]byte, 0)
 	this.tkBuf = make([]byte, 0)
 	this.extra = false
+
 	return this, nil
 }
 
@@ -149,10 +152,13 @@ func NewLZXCodecWithCtx(ctx *map[string]interface{}) (*LZXCodec, error) {
 	this.mBuf = make([]byte, 0)
 	this.tkBuf = make([]byte, 0)
 	this.extra = false
+	this.ctx = ctx
 
-	if val, containsKey := (*ctx)["lz"]; containsKey {
-		lzType := val.(uint64)
-		this.extra = lzType == LZX_TYPE
+	if ctx != nil {
+		if val, containsKey := (*ctx)["lz"]; containsKey {
+			lzType := val.(uint64)
+			this.extra = lzType == LZX_TYPE
+		}
 	}
 
 	return this, nil
@@ -274,6 +280,20 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		dst[12] = 0
 	}
 
+	minMatch := _LZX_MIN_MATCH1
+
+	if this.ctx != nil {
+		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
+			dt := val.(kanzi.DataType)
+
+			if dt == kanzi.DT_DNA {
+				// Longer min match for DNA input
+				minMatch = _LZX_MIN_MATCH2
+				dst[12] |= 2
+			}
+		}
+	}
+
 	srcIdx := 0
 	dstIdx := 13
 	anchor := 0
@@ -315,7 +335,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		// No good match ?
-		if bestLen < _LZX_MIN_MATCH || (bestLen == _LZX_MIN_MATCH && srcIdx-ref >= _LZX_MIN_MATCH_MIN_DIST) {
+		if bestLen < minMatch || (bestLen == minMatch && srcIdx-ref >= _LZX_MIN_MATCH_MIN_DIST) {
 			srcIdx++
 			continue
 		}
@@ -349,7 +369,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		// Token: 3 bits litLen + 1 bit flag + 4 bits mLen (LLLFMMMM)
 		// flag = if maxDist = _LZX_MAX_DISTANCE1, then highest bit of distance
 		//        else 1 if dist needs 3 bytes (> 0xFFFF) and 0 otherwise
-		mLen := bestLen - _LZX_MIN_MATCH
+		mLen := bestLen - minMatch
 		d := srcIdx - ref
 		var dist int
 
@@ -515,8 +535,14 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	dstEnd := len(dst) - 16
 	maxDist := _LZX_MAX_DISTANCE2
 
-	if src[12] == 0 {
+	if src[12]&1 == 0 {
 		maxDist = _LZX_MAX_DISTANCE1
+	}
+
+	minMatch := _LZX_MIN_MATCH1
+
+	if src[12]&2 != 0 {
+		minMatch = _LZX_MIN_MATCH2
 	}
 
 	srcIdx := 13
@@ -562,7 +588,7 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			mLenIdx += delta
 		}
 
-		mLen += _LZX_MIN_MATCH
+		mLen += minMatch
 		mEnd := dstIdx + mLen
 
 		// Get distance
