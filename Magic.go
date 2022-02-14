@@ -94,3 +94,34 @@ func GetMagicType(src []byte) uint {
 
 	return NO_MAGIC
 }
+
+func isDataCompressed(magic uint) bool {
+	switch magic {
+	case JPG_MAGIC:
+		return true
+	case GIF_MAGIC:
+		return true
+	case PNG_MAGIC:
+		return true
+	case RIFF_MAGIC:
+		return true
+	case LZMA_MAGIC:
+		return true
+	case ZSTD_MAGIC:
+		return true
+	case BROTLI_MAGIC:
+		return true
+	case CAB_MAGIC:
+		return true
+	case ZIP_MAGIC:
+		return true
+	case GZIP_MAGIC:
+		return true
+	case BZIP2_MAGIC:
+		return true
+
+	default:
+	}
+
+	return false
+}

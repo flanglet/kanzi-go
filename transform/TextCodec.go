@@ -40,10 +40,7 @@ const (
 	_TC_ESCAPE_TOKEN1   = byte(0x0F) // dictionary word preceded by space symbol
 	_TC_ESCAPE_TOKEN2   = byte(0x0E) // toggle upper/lower case of first word char
 	_TC_MASK_NOT_TEXT   = 0x80
-	_TC_MASK_DNA        = _TC_MASK_NOT_TEXT | 0x40
-	_TC_MASK_UTF8       = _TC_MASK_NOT_TEXT | 0x20
-	_TC_MASK_BASE64     = _TC_MASK_NOT_TEXT | 0x10
-	_TC_MASK_NUMERIC    = _TC_MASK_NOT_TEXT | 0x08
+	_TC_MASK_UTF8       = _TC_MASK_NOT_TEXT | 0x40
 	_TC_MASK_FULL_ASCII = 0x04
 	_TC_MASK_XML_HTML   = 0x02
 	_TC_MASK_CRLF       = 0x01
@@ -179,15 +176,11 @@ var (
 	rGenerationLeafCopyMatchClaimAnyoneSoftwarePartyDeviceCodeLangua
 	geLinkHoweverConfirmCommentCityAnywhereSomewhereDebateDriveHighe
 	rBeautifulOnlineFanPriorityTraditionalSixUnited`)
-
-	_TC_BASE64_SYMBOLS  = []byte(`ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/`)
-	_TC_NUMERIC_SYMBOLS = []byte(`0123456789+-*/=,.:; `)
-	_TC_DNA_SYMBOLS     = []byte(`acgntuACGNTU"`) // either T or U and N for unknown
 )
 
 // Analyze the block and return an 8-bit status (see MASK flags constants)
 // The goal is to detect text data amenable to pre-processing.
-func computeTextStats(block []byte, freqs0 []int32, strict bool) byte {
+func computeTextStats(block []byte, freqs0 []int, strict bool) byte {
 	if strict == false {
 		// This is going to fail if the block is not the first of the file.
 		// But this is a cheap test, good enough for fast mode.
@@ -196,7 +189,7 @@ func computeTextStats(block []byte, freqs0 []int32, strict bool) byte {
 		}
 	}
 
-	var freqs [256][256]int32
+	var freqs [256][256]int
 	freqs1 := freqs[0:256]
 	count := len(block)
 	end4 := count & -4
@@ -245,9 +238,9 @@ func computeTextStats(block []byte, freqs0 []int32, strict bool) byte {
 		notText = true
 	} else {
 		if strict == true {
-			notText = ((nbTextChars < (count >> 2)) || (freqs0[0] >= int32(count/100)) || ((nbASCII / 95) < (count / 100)))
+			notText = (nbTextChars < (count >> 2)) || (freqs0[0] >= count/100) || ((nbASCII / 95) < (count / 100))
 		} else {
-			notText = (nbTextChars < (count >> 1)) || (freqs0[32] < int32(count/50))
+			notText = (nbTextChars < (count >> 1)) || (freqs0[32] < count/50)
 		}
 	}
 
@@ -269,7 +262,7 @@ func computeTextStats(block []byte, freqs0 []int32, strict bool) byte {
 		f1 := freqs0['<']
 		f2 := freqs0['>']
 		f3 := freqs['&']['a'] + freqs['&']['g'] + freqs['&']['l'] + freqs['&']['q']
-		minFreq := int32(count-nbBinChars) >> 9
+		minFreq := (count - nbBinChars) >> 9
 
 		if minFreq < 2 {
 			minFreq = 2
@@ -313,43 +306,9 @@ func computeTextStats(block []byte, freqs0 []int32, strict bool) byte {
 	return res
 }
 
-func detectTextType(freqs0 []int32, freqs [][256]int32, count int) byte {
-	sum := int32(0)
-
-	for i := 0; i < 12; i++ {
-		sum += freqs0[_TC_DNA_SYMBOLS[i]]
-	}
-
-	if sum >= int32(count-count/12) {
-		return _TC_MASK_DNA
-	}
-
-	sum = 0
-
-	for i := 0; i < 20; i++ {
-		sum += freqs0[_TC_NUMERIC_SYMBOLS[i]]
-	}
-
-	if sum >= int32(count/100)*98 {
-		return _TC_MASK_NUMERIC
-	}
-
-	sum = freqs0[0x3D]
-
-	for i := 0; i < 64; i++ {
-		sum += freqs0[_TC_BASE64_SYMBOLS[i]]
-	}
-
-	if sum == int32(count) {
-		return _TC_MASK_BASE64
-	}
-
-	sum = 0
-
-	for i := 0; i < 256; i++ {
-		if freqs0[i] > 0 {
-			sum++
-		}
+func detectTextType(freqs0 []int, freqs [][256]int, count int) byte {
+	if kanzi.DetectSimpleType(freqs0, count) != kanzi.DT_UNDEFINED {
+		return _TC_MASK_NOT_TEXT
 	}
 
 	// Check UTF-8
@@ -373,7 +332,7 @@ func detectTextType(freqs0 []int32, freqs [][256]int32, count int) byte {
 		}
 	}
 
-	sum = 0
+	sum := 0
 
 	for i := 0; i < 256; i++ {
 		// Exclude < 0xE0A0 || > 0xE0BF
@@ -716,23 +675,13 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 	srcIdx := 0
 	dstIdx := 0
-	freqs0 := [256]int32{}
+	freqs0 := [256]int{}
 	mode := computeTextStats(src[0:count], freqs0[:], true)
 
 	// Not text ?
 	if mode&_TC_MASK_NOT_TEXT != 0 {
-		if this.ctx != nil {
-			switch mode & ^byte(_TC_MASK_FULL_ASCII) {
-			case _TC_MASK_NUMERIC:
-				(*this.ctx)["dataType"] = kanzi.DT_NUMERIC
-			case _TC_MASK_BASE64:
-				(*this.ctx)["dataType"] = kanzi.DT_BASE64
-			case _TC_MASK_UTF8:
-				(*this.ctx)["dataType"] = kanzi.DT_UTF8
-			case _TC_MASK_DNA:
-				(*this.ctx)["dataType"] = kanzi.DT_DNA
-			default:
-			}
+		if (this.ctx != nil) && (mode & ^byte(_TC_MASK_FULL_ASCII) == _TC_MASK_UTF8) {
+			(*this.ctx)["dataType"] = kanzi.DT_UTF8
 		}
 
 		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skip")
@@ -1260,23 +1209,13 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 
 	srcIdx := 0
 	dstIdx := 0
-	freqs0 := [256]int32{}
+	freqs0 := [256]int{}
 	mode := computeTextStats(src[0:count], freqs0[:], false)
 
 	// Not text ?
 	if mode&_TC_MASK_NOT_TEXT != 0 {
-		if this.ctx != nil {
-			switch mode ^ byte(_TC_MASK_FULL_ASCII) {
-			case _TC_MASK_NUMERIC:
-				(*this.ctx)["dataType"] = kanzi.DT_NUMERIC
-			case _TC_MASK_BASE64:
-				(*this.ctx)["dataType"] = kanzi.DT_BASE64
-			case _TC_MASK_UTF8:
-				(*this.ctx)["dataType"] = kanzi.DT_UTF8
-			case _TC_MASK_DNA:
-				(*this.ctx)["dataType"] = kanzi.DT_DNA
-			default:
-			}
+		if (this.ctx != nil) && (mode & ^byte(_TC_MASK_FULL_ASCII) == _TC_MASK_UTF8) {
+			(*this.ctx)["dataType"] = kanzi.DT_UTF8
 		}
 
 		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skip")

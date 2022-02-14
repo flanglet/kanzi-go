@@ -93,6 +93,10 @@ var _INV_EXP = [33]int{
 	65536,
 }
 
+var _BASE64_SYMBOLS = []byte(`ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/`)
+var _NUMERIC_SYMBOLS = []byte(`0123456789+-*/=,.:; `)
+var _DNA_SYMBOLS = []byte(`acgntuACGNTU"`) // either T or U and N for unknown
+
 // SQUASH contains p = 1/(1 + exp(-d)), d scaled by 8 bits, p scaled by 12 bits
 var SQUASH [4096]int
 
@@ -396,6 +400,40 @@ func ComputeHistogram(block []byte, freqs []int, isOrder0, withTotal bool) {
 			}
 		}
 	}
+}
+
+func DetectSimpleType(freqs0 []int, count int) DataType {
+	sum := 0
+
+	for i := 0; i < 12; i++ {
+		sum += freqs0[_DNA_SYMBOLS[i]]
+	}
+
+	if sum >= count-count/12 {
+		return DT_DNA
+	}
+
+	sum = 0
+
+	for i := 0; i < 20; i++ {
+		sum += freqs0[_NUMERIC_SYMBOLS[i]]
+	}
+
+	if sum >= (count/100)*98 {
+		return DT_NUMERIC
+	}
+
+	sum = freqs0[0x3D]
+
+	for i := 0; i < 64; i++ {
+		sum += freqs0[_BASE64_SYMBOLS[i]]
+	}
+
+	if sum == count {
+		return DT_BASE64
+	}
+
+	return DT_UNDEFINED
 }
 
 // ComputeJobsPerTask computes the number of jobs associated with each task
