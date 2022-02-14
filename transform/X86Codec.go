@@ -678,7 +678,7 @@ func parseExeHeader(src []byte, magic uint, arch, codeStart, codeEnd *int) bool 
 					*codeEnd = count
 				}
 
-				*arch = int(binary.LittleEndian.Uint32(src[posPE+4:]))
+				*arch = int(binary.LittleEndian.Uint16(src[posPE+4:]))
 			}
 
 			return true
