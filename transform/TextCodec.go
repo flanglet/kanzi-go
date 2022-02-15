@@ -40,10 +40,9 @@ const (
 	_TC_ESCAPE_TOKEN1   = byte(0x0F) // dictionary word preceded by space symbol
 	_TC_ESCAPE_TOKEN2   = byte(0x0E) // toggle upper/lower case of first word char
 	_TC_MASK_NOT_TEXT   = 0x80
-	_TC_MASK_UTF8       = _TC_MASK_NOT_TEXT | 0x40
-	_TC_MASK_FULL_ASCII = 0x04
-	_TC_MASK_XML_HTML   = 0x02
-	_TC_MASK_CRLF       = 0x01
+	_TC_MASK_CRLF       = 0x40
+	_TC_MASK_XML_HTML   = 0x20
+	_TC_MASK_DT         = 0x0F
 	_TC_MASK_LENGTH     = 0x0007FFFF         // 19 bits
 	_TC_HASH1           = int32(2146121005)  // 0x7FEB352D
 	_TC_HASH2           = int32(-2073254261) // 0x846CA68B
@@ -246,10 +245,6 @@ func computeTextStats(block []byte, freqs0 []int, strict bool) byte {
 
 	res := byte(0)
 
-	if nbBinChars == 0 {
-		res |= _TC_MASK_FULL_ASCII
-	}
-
 	if notText == true {
 		return res | detectTextType(freqs0, freqs[:], count)
 	}
@@ -307,8 +302,8 @@ func computeTextStats(block []byte, freqs0 []int, strict bool) byte {
 }
 
 func detectTextType(freqs0 []int, freqs [][256]int, count int) byte {
-	if kanzi.DetectSimpleType(freqs0, count) != kanzi.DT_UNDEFINED {
-		return _TC_MASK_NOT_TEXT
+	if dt := kanzi.DetectSimpleType(freqs0, count); dt != kanzi.DT_UNDEFINED {
+		return _TC_MASK_NOT_TEXT | byte(dt)
 	}
 
 	// Check UTF-8
@@ -366,7 +361,7 @@ func detectTextType(freqs0 []int, freqs [][256]int, count int) byte {
 		return _TC_MASK_NOT_TEXT
 	}
 
-	return _TC_MASK_UTF8
+	return _TC_MASK_NOT_TEXT | byte(kanzi.DT_UTF8)
 }
 
 func sameWords(buf1, buf2 []byte) bool {
@@ -680,8 +675,18 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Not text ?
 	if mode&_TC_MASK_NOT_TEXT != 0 {
-		if (this.ctx != nil) && (mode & ^byte(_TC_MASK_FULL_ASCII) == _TC_MASK_UTF8) {
-			(*this.ctx)["dataType"] = kanzi.DT_UTF8
+		if this.ctx != nil {
+			switch mode & _TC_MASK_DT {
+			case byte(kanzi.DT_NUMERIC):
+				(*this.ctx)["dataType"] = kanzi.DT_NUMERIC
+			case byte(kanzi.DT_BASE64):
+				(*this.ctx)["dataType"] = kanzi.DT_BASE64
+			case byte(kanzi.DT_UTF8):
+				(*this.ctx)["dataType"] = kanzi.DT_UTF8
+			case byte(kanzi.DT_DNA):
+				(*this.ctx)["dataType"] = kanzi.DT_DNA
+			default:
+			}
 		}
 
 		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skip")
@@ -1214,8 +1219,18 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Not text ?
 	if mode&_TC_MASK_NOT_TEXT != 0 {
-		if (this.ctx != nil) && (mode & ^byte(_TC_MASK_FULL_ASCII) == _TC_MASK_UTF8) {
-			(*this.ctx)["dataType"] = kanzi.DT_UTF8
+		if this.ctx != nil {
+			switch mode & _TC_MASK_DT {
+			case byte(kanzi.DT_NUMERIC):
+				(*this.ctx)["dataType"] = kanzi.DT_NUMERIC
+			case byte(kanzi.DT_BASE64):
+				(*this.ctx)["dataType"] = kanzi.DT_BASE64
+			case byte(kanzi.DT_UTF8):
+				(*this.ctx)["dataType"] = kanzi.DT_UTF8
+			case byte(kanzi.DT_DNA):
+				(*this.ctx)["dataType"] = kanzi.DT_DNA
+			default:
+			}
 		}
 
 		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skip")
