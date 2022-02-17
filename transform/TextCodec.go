@@ -676,17 +676,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	// Not text ?
 	if mode&_TC_MASK_NOT_TEXT != 0 {
 		if this.ctx != nil {
-			switch mode & _TC_MASK_DT {
-			case byte(kanzi.DT_NUMERIC):
-				(*this.ctx)["dataType"] = kanzi.DT_NUMERIC
-			case byte(kanzi.DT_BASE64):
-				(*this.ctx)["dataType"] = kanzi.DT_BASE64
-			case byte(kanzi.DT_UTF8):
-				(*this.ctx)["dataType"] = kanzi.DT_UTF8
-			case byte(kanzi.DT_DNA):
-				(*this.ctx)["dataType"] = kanzi.DT_DNA
-			default:
-			}
+			(*this.ctx)["dataType"] = kanzi.DataType(mode & _TC_MASK_DT)
 		}
 
 		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skip")
@@ -1220,17 +1210,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	// Not text ?
 	if mode&_TC_MASK_NOT_TEXT != 0 {
 		if this.ctx != nil {
-			switch mode & _TC_MASK_DT {
-			case byte(kanzi.DT_NUMERIC):
-				(*this.ctx)["dataType"] = kanzi.DT_NUMERIC
-			case byte(kanzi.DT_BASE64):
-				(*this.ctx)["dataType"] = kanzi.DT_BASE64
-			case byte(kanzi.DT_UTF8):
-				(*this.ctx)["dataType"] = kanzi.DT_UTF8
-			case byte(kanzi.DT_DNA):
-				(*this.ctx)["dataType"] = kanzi.DT_DNA
-			default:
-			}
+				(*this.ctx)["dataType"] = kanzi.DataType(mode & _TC_MASK_DT)
 		}
 
 		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skip")

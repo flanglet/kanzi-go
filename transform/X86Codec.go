@@ -33,9 +33,10 @@ const (
 	_EXE_X86_TWO_BYTE_PREFIX  = 0x0F
 	_EXE_X86_MASK_JCC         = 0xF0
 	_EXE_X86_ESCAPE           = 0x9B
-	_EXE_NOT_EXE              = 0
-	_EXE_X86                  = 1
-	_EXE_ARM64                = 2
+	_EXE_NOT_EXE              = 0x80
+	_EXE_X86                  = 0x40
+	_EXE_ARM64                = 0x20
+	_EXE_MASK_DT              = 0x0F
 	_EXE_X86_ADDR_MASK        = (1 << 24) - 1
 	_EXE_MASK_ADDRESS         = 0xF0F0F0F0
 	_EXE_ARM_B_ADDR_MASK      = (1 << 26) - 1
@@ -129,9 +130,15 @@ func (this *X86Codec) Forward(src, dst []byte) (uint, uint, error) {
 	codeEnd := count - 8
 	mode := detectExeType(src[:end], &codeStart, &codeEnd)
 
-	if mode == _EXE_NOT_EXE {
+	if mode&_EXE_NOT_EXE != 0 {
+		if this.ctx != nil {
+			(*this.ctx)["dataType"] = kanzi.DataType(mode & _EXE_MASK_DT)
+		}
+
 		return 0, 0, fmt.Errorf("Input is not an executable, skip")
 	}
+
+	mode &= ^byte(_EXE_MASK_DT)
 
 	if this.ctx != nil {
 		(*this.ctx)["dataType"] = kanzi.DT_EXE
@@ -585,18 +592,11 @@ func detectExeType(src []byte, codeStart, codeEnd *int) byte {
 
 	jumpsX86 := 0
 	jumpsARM64 := 0
-	zeros := 0
-	smallVals := 0
 	count := *codeEnd - *codeStart
+	var histo [256]int
 
 	for i := *codeStart; i < *codeEnd; i++ {
-		if src[i] < 16 {
-			smallVals++
-
-			if src[i] == 0 {
-				zeros++
-			}
-		}
+		histo[src[i]]++
 
 		// X86
 		if (src[i] & _EXE_X86_MASK_JUMP) == _EXE_X86_INSTRUCTION_JUMP {
@@ -635,17 +635,25 @@ func detectExeType(src []byte, codeStart, codeEnd *int) byte {
 		}
 	}
 
-	if zeros < (count / 10) {
-		return _EXE_NOT_EXE
+	var dt kanzi.DataType
+
+	if dt = kanzi.DetectSimpleType(histo[:], count); dt != kanzi.DT_BIN {
+		return _EXE_NOT_EXE | byte(dt)
 	}
 
 	// Filter out (some/many) multimedia files
-	if smallVals > (count / 2) {
-		return _EXE_NOT_EXE
+	smallVals := 0
+
+	for _, h := range histo[0:16] {
+		smallVals += h
+	}
+
+	if histo[0] < (count/10) || smallVals > (count/2) || histo[255] < (count/100) {
+		return _EXE_NOT_EXE | byte(dt)
 	}
 
 	// Ad-hoc thresholds
-	if jumpsX86 >= (count / 200) {
+	if jumpsX86 >= (count/200) && histo[255] >= (count/50) {
 		return _EXE_X86
 	}
 
@@ -653,9 +661,8 @@ func detectExeType(src []byte, codeStart, codeEnd *int) byte {
 		return _EXE_ARM64
 	}
 
-	// Number of jump instructions too small => either not a binary
-	// or not worth the change, skip.
-	return _EXE_NOT_EXE
+	// Number of jump instructions too small => either not an exe or not worth the change, skip.
+	return _EXE_NOT_EXE | byte(dt)
 }
 
 // Return true if known header

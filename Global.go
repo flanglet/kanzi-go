@@ -423,14 +423,26 @@ func DetectSimpleType(freqs0 []int, count int) DataType {
 		return DT_NUMERIC
 	}
 
-	sum = freqs0[0x3D]
+	sum = 0
 
 	for i := 0; i < 64; i++ {
 		sum += freqs0[_BASE64_SYMBOLS[i]]
 	}
 
-	if sum == count {
+	if sum+freqs0[0x3D] == count {
 		return DT_BASE64
+	}
+
+	sum = 0
+
+	for i := 0; i < 256; i++ {
+		if freqs0[i] > 0 {
+			sum++
+		}
+	}
+
+	if sum == 256 {
+		return DT_BIN
 	}
 
 	return DT_UNDEFINED
