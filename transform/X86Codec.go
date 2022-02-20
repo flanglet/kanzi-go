@@ -59,8 +59,12 @@ const (
 	_EXE_ELF_ARM64_ARCH       = 0xB7
 	_EXE_MAC_AMD64_ARCH       = 0x01000007
 	_EXE_MAC_ARM64_ARCH       = 0x0100000C
+	_EXE_MAC_MH_EXECUTE       = 0x02
+	_EXE_MAC_LC_SEGMENT       = 0x01
+	_EXE_MAC_LC_SEGMENT64     = 0x19
 	_EXE_MIN_BLOCK_SIZE       = 4096
 	_EXE_MAX_BLOCK_SIZE       = (1 << (26 + 2)) - 1 // max offset << 2
+
 )
 
 // X86Codec a codec for x86 code
@@ -159,6 +163,7 @@ func (this *X86Codec) forwardX86(src, dst []byte, codeStart, codeEnd int) (uint,
 	srcIdx := codeStart
 	dstIdx := 9
 	matches := 0
+	dstEnd := len(dst) - 5
 	dst[0] = _EXE_X86
 	matches = 0
 
@@ -167,7 +172,7 @@ func (this *X86Codec) forwardX86(src, dst []byte, codeStart, codeEnd int) (uint,
 		dstIdx += codeStart
 	}
 
-	for srcIdx < codeEnd {
+	for srcIdx < codeEnd && dstIdx < dstEnd {
 		if src[srcIdx] == _EXE_X86_TWO_BYTE_PREFIX {
 			dst[dstIdx] = src[srcIdx]
 			srcIdx++
@@ -226,12 +231,17 @@ func (this *X86Codec) forwardX86(src, dst []byte, codeStart, codeEnd int) (uint,
 		matches++
 	}
 
-	// Worth it ?
 	if matches < 16 {
 		return uint(srcIdx), uint(dstIdx), errors.New("Too few calls/jumps, skip")
 	}
 
 	count := len(src)
+
+	// Cap expansion due to false positives
+	if srcIdx < codeEnd || dstIdx+(count-srcIdx) > dstEnd {
+		return uint(srcIdx), uint(dstIdx), errors.New("Too many false positives, skip")
+	}
+
 	binary.LittleEndian.PutUint32(dst[1:], uint32(codeStart))
 	binary.LittleEndian.PutUint32(dst[5:], uint32(dstIdx))
 	copy(dst[dstIdx:], src[srcIdx:count])
@@ -385,16 +395,16 @@ func (this *X86Codec) forwardARM(src, dst []byte, codeStart, codeEnd int) (uint,
 	srcIdx := codeStart
 	dstIdx := 9
 	matches := 0
+	dstEnd := len(dst) - 8
 	dst[0] = _EXE_ARM64
 	matches = 0
-	fpRun := 0
 
 	if codeStart > 0 {
 		copy(dst[dstIdx:], src[0:codeStart])
 		dstIdx += codeStart
 	}
 
-	for srcIdx < codeEnd {
+	for srcIdx < codeEnd && dstIdx < dstEnd {
 		instr := int(binary.LittleEndian.Uint32(src[srcIdx:]))
 		opcode1 := instr & _EXE_ARM_B_OPCODE_MASK
 		//opcode2 := instr & ARM_CB_OPCODE_MASK
@@ -448,13 +458,6 @@ func (this *X86Codec) forwardARM(src, dst []byte, codeStart, codeEnd int) (uint,
 		}
 
 		if addr == 0 {
-			fpRun++
-
-			// Early exit if likely outside a code section
-			if fpRun == 4 {
-				break
-			}
-
 			binary.LittleEndian.PutUint32(dst[dstIdx:], uint32(val)) // 0 address as escape
 			copy(dst[dstIdx+4:], src[srcIdx:srcIdx+4])
 			srcIdx += 4
@@ -462,21 +465,25 @@ func (this *X86Codec) forwardARM(src, dst []byte, codeStart, codeEnd int) (uint,
 			continue
 		}
 
-		fpRun = 0
 		binary.LittleEndian.PutUint32(dst[dstIdx:], uint32(val))
 		srcIdx += 4
 		dstIdx += 4
 		matches++
 	}
 
-	// Worth it ?
 	if matches < 16 {
 		return uint(srcIdx), uint(dstIdx), errors.New("Too few calls/jumps, skip")
 	}
 
+	count := len(src)
+
+	// Cap expansion due to false positives
+	if srcIdx < codeEnd || dstIdx+(count-srcIdx) > dstEnd {
+		return uint(srcIdx), uint(dstIdx), errors.New("Too many false positives, skip")
+	}
+
 	binary.LittleEndian.PutUint32(dst[1:], uint32(codeStart))
 	binary.LittleEndian.PutUint32(dst[5:], uint32(dstIdx))
-	count := len(src)
 	copy(dst[dstIdx:], src[srcIdx:count])
 	dstIdx += (count - srcIdx)
 	return uint(count), uint(dstIdx), nil
@@ -487,7 +494,6 @@ func (this *X86Codec) inverseARM(src, dst []byte) (uint, uint, error) {
 	dstIdx := 0
 	codeStart := int(binary.LittleEndian.Uint32(src[1:]))
 	codeEnd := int(binary.LittleEndian.Uint32(src[5:]))
-	fpRun := 0
 
 	if codeStart > 0 {
 		copy(dst[dstIdx:], src[srcIdx:srcIdx+codeStart])
@@ -526,21 +532,12 @@ func (this *X86Codec) inverseARM(src, dst []byte) (uint, uint, error) {
 		}
 
 		if addr == 0 {
-			// False positive
-			fpRun++
-
-			// Early exit if likely outside a code section
-			if fpRun == 4 {
-				break
-			}
-
 			copy(dst[dstIdx:], src[srcIdx+4:srcIdx+8])
 			srcIdx += 8
 			dstIdx += 4
 			continue
 		}
 
-		fpRun = 0
 		binary.LittleEndian.PutUint32(dst[dstIdx:], uint32(val))
 		srcIdx += 4
 		dstIdx += 4
@@ -694,21 +691,115 @@ func parseExeHeader(src []byte, magic uint, arch, codeStart, codeEnd *int) bool 
 		isLittleEndian := src[5] == 1
 
 		if count >= 64 {
+			*codeStart = 0
+
 			if isLittleEndian == true {
-				// Super inaccurate, just jump over file and program headers
+				// Little Endian
 				if src[4] == 2 {
-					*codeStart = 0x40 + int(binary.LittleEndian.Uint16(src[0x36:]))*int(binary.LittleEndian.Uint16(src[0x38:]))
+					// 64 bits
+					nbEntries := int(binary.LittleEndian.Uint16(src[0x3C:]))
+					szEntry := int(binary.LittleEndian.Uint16(src[0x3A:]))
+					posSection := int(binary.LittleEndian.Uint64(src[0x28:]))
+
+					for i := 0; i < nbEntries; i++ {
+						startEntry := posSection + i*szEntry
+
+						if startEntry+0x28 >= count {
+							return false
+						}
+
+						typeSection := int(binary.LittleEndian.Uint32(src[startEntry+4:]))
+						offSection := int(binary.LittleEndian.Uint64(src[startEntry+0x18:]))
+						lenSection := int(binary.LittleEndian.Uint64(src[startEntry+0x20:]))
+
+						if typeSection == 1 && lenSection >= 64 {
+							if *codeStart == 0 {
+								*codeStart = offSection
+							}
+
+							*codeEnd = offSection + lenSection
+						}
+					}
 				} else {
-					*codeStart = 0x34 + int(binary.LittleEndian.Uint16(src[0x2A:]))*int(binary.LittleEndian.Uint16(src[0x2C:]))
+					// 32 bits
+					nbEntries := int(binary.LittleEndian.Uint16(src[0x30:]))
+					szEntry := int(binary.LittleEndian.Uint16(src[0x2E:]))
+					posSection := int(binary.LittleEndian.Uint32(src[0x20:]))
+
+					for i := 0; i < nbEntries; i++ {
+						startEntry := posSection + i*szEntry
+
+						if startEntry+0x18 >= count {
+							return false
+						}
+
+						typeSection := int(binary.LittleEndian.Uint32(src[startEntry+4:]))
+						offSection := int(binary.LittleEndian.Uint32(src[startEntry+0x10:]))
+						lenSection := int(binary.LittleEndian.Uint32(src[startEntry+0x14:]))
+
+						if typeSection == 1 && lenSection >= 64 {
+							if *codeStart == 0 {
+								*codeStart = offSection
+							}
+
+							*codeEnd = offSection + lenSection
+						}
+					}
 				}
 
 				*arch = int(binary.LittleEndian.Uint16(src[18:]))
 			} else {
-				// Super inaccurate, just jump over file and program headers
+				// Big Endian
 				if src[4] == 2 {
-					*codeStart = 0x40 + int(binary.BigEndian.Uint16(src[0x36:]))*int(binary.BigEndian.Uint16(src[0x38:]))
+					// 64 bits
+					nbEntries := int(binary.BigEndian.Uint16(src[0x3C:]))
+					szEntry := int(binary.BigEndian.Uint16(src[0x3A:]))
+					posSection := int(binary.BigEndian.Uint64(src[0x28:]))
+
+					for i := 0; i < nbEntries; i++ {
+						startEntry := posSection + i*szEntry
+
+						if startEntry+0x28 >= count {
+							return false
+						}
+
+						typeSection := int(binary.BigEndian.Uint32(src[startEntry+4:]))
+						offSection := int(binary.BigEndian.Uint64(src[startEntry+0x18:]))
+						lenSection := int(binary.BigEndian.Uint64(src[startEntry+0x20:]))
+
+						if typeSection == 1 && lenSection >= 64 {
+							if *codeStart == 0 {
+								*codeStart = offSection
+							}
+
+							*codeEnd = offSection + lenSection
+						}
+					}
 				} else {
-					*codeStart = 0x34 + int(binary.BigEndian.Uint16(src[0x2A:]))*int(binary.BigEndian.Uint16(src[0x2C:]))
+					// 32 bits
+					nbEntries := int(binary.BigEndian.Uint16(src[0x30:]))
+					szEntry := int(binary.BigEndian.Uint16(src[0x2E:]))
+					posSection := int(binary.BigEndian.Uint32(src[0x20:]))
+
+					for i := 0; i < nbEntries; i++ {
+						startEntry := posSection + i*szEntry
+
+						if startEntry+0x18 >= count {
+							return false
+						}
+
+						typeSection := int(binary.BigEndian.Uint32(src[startEntry+4:]))
+						offSection := int(binary.BigEndian.Uint32(src[startEntry+0x10:]))
+						lenSection := int(binary.BigEndian.Uint32(src[startEntry+0x14:]))
+
+						if typeSection == 1 && lenSection >= 64 {
+							if *codeStart == 0 {
+								*codeStart = offSection
+							}
+
+							*codeEnd = offSection + lenSection
+						}
+					}
 				}
 
 				*arch = int(binary.BigEndian.Uint16(src[18:]))
@@ -718,17 +809,87 @@ func parseExeHeader(src []byte, magic uint, arch, codeStart, codeEnd *int) bool 
 				*codeStart = count
 			}
 
+			if *codeEnd > count {
+				*codeEnd = count
+			}
+
 			return true
 		}
 	} else if (magic == kanzi.MAC_MAGIC32) || (magic == kanzi.MAC_CIGAM32) ||
 		(magic == kanzi.MAC_MAGIC64) || (magic == kanzi.MAC_CIGAM64) {
+		is64Bits := magic == kanzi.MAC_MAGIC64 || magic == kanzi.MAC_CIGAM64
+		*codeStart = 0
 
-		if count >= 8 {
+		if count >= 64 {
+			mode := binary.LittleEndian.Uint32(src[12:])
+
+			if mode != _EXE_MAC_MH_EXECUTE {
+				return false
+			}
+
 			*arch = int(binary.LittleEndian.Uint32(src[4:]))
-		}
+			nbCmds := int(binary.LittleEndian.Uint32(src[0x10:]))
+			cmd := 0
+			pos := 0x1C
 
-		*codeStart = 0x20 // just ignore Mach-O header for now
-		return true
+			if is64Bits == true {
+				pos = 0x20
+			}
+
+			for cmd < nbCmds {
+				ldCmd := int(binary.LittleEndian.Uint32(src[pos:]))
+				szCmd := int(binary.LittleEndian.Uint32(src[pos+4:]))
+				szSegHdr := 0x38
+
+				if is64Bits == true {
+					szSegHdr = 0x48
+				}
+
+				if ldCmd == _EXE_MAC_LC_SEGMENT || ldCmd == _EXE_MAC_LC_SEGMENT64 {
+					if pos+14 >= count {
+						return false
+					}
+
+					nameSegment := binary.BigEndian.Uint64(src[pos+8:]) >> 16
+
+					if nameSegment == 0x5F5F54455854 {
+						posSection := pos + szSegHdr
+
+						if posSection+0x34 >= count {
+							return false
+						}
+
+						nameSection := binary.BigEndian.Uint64(src[posSection:]) >> 16
+
+						if nameSection == 0x5F5F74657874 {
+							// Text section in TEXT segment
+							if is64Bits == true {
+								*codeStart = int(int32(binary.LittleEndian.Uint64(src[posSection+0x30:])))
+								*codeEnd = *codeStart + int(int32(binary.LittleEndian.Uint32(src[posSection+0x28:])))
+								break
+							} else {
+								*codeStart = int(int32(binary.LittleEndian.Uint32(src[posSection+0x2C:])))
+								*codeEnd = *codeStart + int(int32(binary.LittleEndian.Uint32(src[posSection+0x28:])))
+								break
+							}
+						}
+					}
+				}
+
+				cmd++
+				pos += szCmd
+			}
+
+			if *codeStart > count {
+				*codeStart = count
+			}
+
+			if *codeEnd > count {
+				*codeEnd = count
+			}
+
+			return true
+		}
 	}
 
 	return false
