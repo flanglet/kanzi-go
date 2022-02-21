@@ -40,6 +40,7 @@ const (
 
 // RLT a Run Length Transform with escape symbol
 type RLT struct {
+	ctx *map[string]interface{}
 }
 
 // NewRLT creates a new instance of RLT
@@ -75,14 +76,33 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
 	}
 
+	if this.ctx != nil {
+		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
+			dt := val.(kanzi.DataType)
+
+			if dt == kanzi.DT_DNA || dt == kanzi.DT_BASE64 || dt == kanzi.DT_UTF8 {
+				return 0, 0, fmt.Errorf("RLT forward transform skip")
+			}
+		}
+	}
+
+	freqs := [256]int{}
+	kanzi.ComputeHistogram(src, freqs[:], true, false)
+	dt := kanzi.DetectSimpleType(freqs[:], len(src))
+
+	if this.ctx != nil && dt != kanzi.DT_UNDEFINED {
+		(*this.ctx)["dataType"] = dt
+	}
+
+	if dt == kanzi.DT_DNA || dt == kanzi.DT_BASE64 || dt == kanzi.DT_UTF8 {
+		return 0, 0, fmt.Errorf("RLT forward transform skip")
+	}
+
 	srcIdx := 0
 	dstIdx := 0
 	srcEnd := len(src)
 	srcEnd4 := srcEnd - 4
 	dstEnd := len(dst)
-	freqs := [256]int{}
-	kanzi.ComputeHistogram(src[srcIdx:srcEnd], freqs[:], true, false)
-
 	minIdx := 0
 
 	// Select escape symbol
