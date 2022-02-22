@@ -634,7 +634,7 @@ func detectExeType(src []byte, codeStart, codeEnd *int) byte {
 
 	var dt kanzi.DataType
 
-	if dt = kanzi.DetectSimpleType(histo[:], count); dt != kanzi.DT_BIN {
+	if dt = kanzi.DetectSimpleType(count, histo[:]); dt != kanzi.DT_BIN {
 		return _EXE_NOT_EXE | byte(dt)
 	}
 

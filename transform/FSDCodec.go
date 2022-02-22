@@ -158,6 +158,10 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
+	if this.ctx != nil {
+		(*this.ctx)["dataType"] = kanzi.DetectSimpleType(count5, histo[0][:])
+	}
+
 	// If not better, quick exit
 	if ent[minIdx] >= ent[0] {
 		return 0, 0, fmt.Errorf("FSD forward transform skip")

@@ -88,7 +88,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 
 	freqs := [256]int{}
 	kanzi.ComputeHistogram(src, freqs[:], true, false)
-	dt := kanzi.DetectSimpleType(freqs[:], len(src))
+	dt := kanzi.DetectSimpleType(len(src), freqs[:])
 
 	if this.ctx != nil && dt != kanzi.DT_UNDEFINED {
 		(*this.ctx)["dataType"] = dt

@@ -302,7 +302,7 @@ func computeTextStats(block []byte, freqs0 []int, strict bool) byte {
 }
 
 func detectTextType(freqs0 []int, freqs [][256]int, count int) byte {
-	if dt := kanzi.DetectSimpleType(freqs0, count); dt != kanzi.DT_UNDEFINED {
+	if dt := kanzi.DetectSimpleType(count, freqs0); dt != kanzi.DT_UNDEFINED {
 		return _TC_MASK_NOT_TEXT | byte(dt)
 	}
 
@@ -1210,7 +1210,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	// Not text ?
 	if mode&_TC_MASK_NOT_TEXT != 0 {
 		if this.ctx != nil {
-				(*this.ctx)["dataType"] = kanzi.DataType(mode & _TC_MASK_DT)
+			(*this.ctx)["dataType"] = kanzi.DataType(mode & _TC_MASK_DT)
 		}
 
 		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skip")

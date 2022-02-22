@@ -402,7 +402,7 @@ func ComputeHistogram(block []byte, freqs []int, isOrder0, withTotal bool) {
 	}
 }
 
-func DetectSimpleType(freqs0 []int, count int) DataType {
+func DetectSimpleType(count int, freqs0 []int) DataType {
 	sum := 0
 
 	for i := 0; i < 12; i++ {
