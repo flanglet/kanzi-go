@@ -40,7 +40,7 @@ import (
 
 const (
 	_BITSTREAM_TYPE             = 0x4B414E5A // "KANZ"
-	_BITSTREAM_FORMAT_VERSION   = 2
+	_BITSTREAM_FORMAT_VERSION   = 3
 	_STREAM_DEFAULT_BUFFER_SIZE = 256 * 1024
 	_EXTRA_BUFFER_SIZE          = 256
 	_COPY_BLOCK_MASK            = 0x80
@@ -164,7 +164,7 @@ func createCompressedOutputStreamWithCtx(obs kanzi.OutputBitStream, ctx map[stri
 	tasks := ctx["jobs"].(uint)
 
 	if tasks == 0 || tasks > _MAX_CONCURRENCY {
-		errMsg := fmt.Sprintf("The number of jobs must be in [1..%v]", _MAX_CONCURRENCY)
+		errMsg := fmt.Sprintf("The number of jobs must be in [1..%d], got %d", _MAX_CONCURRENCY, tasks)
 		return nil, &IOError{msg: errMsg, code: kanzi.ERR_CREATE_STREAM}
 	}
 
@@ -802,7 +802,7 @@ func createCompressedInputStreamWithCtx(ibs kanzi.InputBitStream, ctx map[string
 	tasks := ctx["jobs"].(uint)
 
 	if tasks == 0 || tasks > _MAX_CONCURRENCY {
-		errMsg := fmt.Sprintf("The number of jobs must be in [1..%v]", _MAX_CONCURRENCY)
+		errMsg := fmt.Sprintf("The number of jobs must be in [1..%d], got %d", _MAX_CONCURRENCY, tasks)
 		return nil, &IOError{msg: errMsg, code: kanzi.ERR_CREATE_STREAM}
 	}
 

@@ -123,12 +123,13 @@ func (this *LZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 // It is a based on a heavily modified LZ4 with a bigger window, a bigger
 // hash map, 3+n*8 bit literal lengths and 17 or 24 bit match lengths.
 type LZXCodec struct {
-	hashes  []int32
-	mLenBuf []byte
-	mBuf    []byte
-	tkBuf   []byte
-	extra   bool
-	ctx     *map[string]interface{}
+	hashes       []int32
+	mLenBuf      []byte
+	mBuf         []byte
+	tkBuf        []byte
+	extra        bool
+	ctx          *map[string]interface{}
+	isBsVersion2 bool
 }
 
 // NewLZXCodec creates a new instance of LZXCodec
@@ -139,7 +140,7 @@ func NewLZXCodec() (*LZXCodec, error) {
 	this.mBuf = make([]byte, 0)
 	this.tkBuf = make([]byte, 0)
 	this.extra = false
-
+	this.isBsVersion2 = false // old encoding
 	return this, nil
 }
 
@@ -153,14 +154,20 @@ func NewLZXCodecWithCtx(ctx *map[string]interface{}) (*LZXCodec, error) {
 	this.tkBuf = make([]byte, 0)
 	this.extra = false
 	this.ctx = ctx
+	bsVersion := uint(3)
 
 	if ctx != nil {
 		if val, containsKey := (*ctx)["lz"]; containsKey {
 			lzType := val.(uint64)
 			this.extra = lzType == LZX_TYPE
 		}
+
+		if val, containsKey := (*ctx)["bsVersion"]; containsKey {
+			bsVersion = val.(uint)
+		}
 	}
 
+	this.isBsVersion2 = bsVersion < 3
 	return this, nil
 }
 
@@ -513,6 +520,14 @@ func (this *LZXCodec) findMatch(src []byte, srcIdx, ref, maxMatch int) int {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
+	if this.isBsVersion2 == true {
+		return this.inverseV2(src, dst)
+	}
+
+	return this.inverseV3(src, dst)
+}
+
+func (this *LZXCodec) inverseV3(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
 	}
@@ -648,6 +663,131 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	var err error
 
 	if srcIdx != srcEnd+13 {
+		err = errors.New("LZCodec: inverse transform failed")
+	}
+
+	return uint(mIdx), uint(dstIdx), err
+}
+
+func (this *LZXCodec) inverseV2(src, dst []byte) (uint, uint, error) {
+	if len(src) == 0 {
+		return 0, 0, nil
+	}
+
+	count := len(src)
+	tkIdx := int(binary.LittleEndian.Uint32(src[0:]))
+	mIdx := tkIdx + int(binary.LittleEndian.Uint32(src[4:]))
+
+	if tkIdx > count || mIdx > count {
+		return 0, 0, errors.New("LZCodec: inverse transform failed, invalid data")
+	}
+
+	srcEnd := tkIdx - 9
+	dstEnd := len(dst) - 16
+	maxDist := _LZX_MAX_DISTANCE2
+
+	if src[8] == 0 {
+		maxDist = _LZX_MAX_DISTANCE1
+	}
+
+	srcIdx := 9
+	dstIdx := 0
+	repd := 0
+
+	for {
+		token := int(src[tkIdx])
+		tkIdx++
+
+		if token >= 32 {
+			// Get literal length
+			litLen := token >> 5
+
+			if litLen == 7 {
+				ll, delta := readLengthLZ(src[srcIdx:])
+				litLen += ll
+				srcIdx += delta
+			}
+
+			// Emit literals
+			if dstIdx+litLen >= dstEnd {
+				copy(dst[dstIdx:], src[srcIdx:srcIdx+litLen])
+			} else {
+				emitLiteralsLZ(src[srcIdx:srcIdx+litLen], dst[dstIdx:])
+			}
+
+			srcIdx += litLen
+			dstIdx += litLen
+
+			if srcIdx >= srcEnd {
+				break
+			}
+		}
+
+		// Get match length
+		mLen := token & 0x0F
+
+		if mLen == 15 {
+			ll, delta := readLengthLZ(src[mIdx:])
+			mLen += ll
+			mIdx += delta
+		}
+
+		mLen += 5
+		mEnd := dstIdx + mLen
+
+		// Get distance
+		d := (int(src[mIdx]) << 8) | int(src[mIdx+1])
+		mIdx += 2
+
+		if (token & 0x10) != 0 {
+			if maxDist == _LZX_MAX_DISTANCE1 {
+				d += 65536
+			} else {
+				d = (d << 8) | int(src[mIdx])
+				mIdx++
+			}
+		}
+
+		var dist int
+
+		if d == 0 {
+			dist = repd
+		} else {
+			dist = d - 1
+			repd = dist
+		}
+
+		// Sanity check
+		if dstIdx < dist || dist > maxDist || mEnd > dstEnd+16 {
+			return uint(srcIdx), uint(dstIdx), fmt.Errorf("LZCodec: invalid distance decoded: %d", dist)
+		}
+
+		ref := dstIdx - dist
+
+		// Copy match
+		if dist >= 16 {
+			for {
+				// No overlap
+				copy(dst[dstIdx:], dst[ref:ref+16])
+				ref += 16
+				dstIdx += 16
+
+				if dstIdx >= mEnd {
+					break
+				}
+			}
+		} else {
+			for i := 0; i < mLen; i++ {
+				dst[dstIdx+i] = dst[ref+i]
+			}
+		}
+
+		dstIdx = mEnd
+	}
+
+	var err error
+
+	if srcIdx != srcEnd+9 {
 		err = errors.New("LZCodec: inverse transform failed")
 	}
 
