@@ -410,9 +410,9 @@ func (this *X86Codec) forwardARM(src, dst []byte, codeStart, codeEnd int) (uint,
 		//opcode2 := instr & ARM_CB_OPCODE_MASK
 		isBL := (opcode1 == _EXE_ARM_OPCODE_B) || (opcode1 == _EXE_ARM_OPCODE_BL) // inconditional jump
 		// disable for now ... isCB = (opcode2 == ARM_OPCODE_CBZ) || (opcode2 == ARM_OPCODE_CBNZ) // conditional jump
-		isCB := false
+		//isCB := false
 
-		if isBL == false && isCB == false {
+		if isBL == false { // && isCB == false {
 			// Not a relative jump
 			copy(dst[dstIdx:], src[srcIdx:srcIdx+4])
 			srcIdx += 4
@@ -507,9 +507,9 @@ func (this *X86Codec) inverseARM(src, dst []byte) (uint, uint, error) {
 		//copcode2 := instr & ARM_CB_OPCODE_MASK
 		isBL := (opcode1 == _EXE_ARM_OPCODE_B) || (opcode1 == _EXE_ARM_OPCODE_BL) // inconditional jump
 		// disable for now ... isCB = (opcode2 == ARM_OPCODE_CBZ) || (opcode2 == ARM_OPCODE_CBNZ); // conditional jump
-		isCB := false
+		//isCB := false
 
-		if isBL == false && isCB == false {
+		if isBL == false { //} && isCB == false {
 			// Not a relative jump
 			copy(dst[dstIdx:], src[srcIdx:srcIdx+4])
 			srcIdx += 4
