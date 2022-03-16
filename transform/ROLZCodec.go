@@ -44,6 +44,8 @@ const (
 	_ROLZ_HASH_MASK       = ^uint32(_ROLZ_CHUNK_SIZE - 1)
 	_ROLZ_MATCH_FLAG      = 0
 	_ROLZ_LITERAL_FLAG    = 1
+	_ROLZ_MATCH_CTX       = 0
+	_ROLZ_LITERAL_CTX     = 1
 	_ROLZ_HASH_SEED       = uint32(200002979)
 	_ROLZ_MAX_BLOCK_SIZE  = 1 << 30 // 1 GB
 	_ROLZ_MIN_BLOCK_SIZE  = 64
@@ -1008,8 +1010,7 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		srcIdx = 0
 
 		// First literals
-		re.setMode(_ROLZ_LITERAL_FLAG)
-		re.setContext(0)
+		re.setContext(_ROLZ_LITERAL_CTX, 0)
 		re.encode9Bits((_ROLZ_LITERAL_FLAG << 8) | int(buf[srcIdx]))
 		srcIdx++
 
@@ -1020,8 +1021,7 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 
 		// Next chunk
 		for srcIdx < sizeChunk {
-			re.setMode(_ROLZ_LITERAL_FLAG)
-			re.setContext(buf[srcIdx-1])
+			re.setContext(_ROLZ_LITERAL_CTX, buf[srcIdx-1])
 			matchIdx, matchLen := this.findMatch(buf, srcIdx)
 
 			if matchIdx < 0 {
@@ -1033,8 +1033,7 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 
 			// Emit one match length and index
 			re.encode9Bits((_ROLZ_MATCH_FLAG << 8) | int(matchLen))
-			re.setMode(_ROLZ_MATCH_FLAG)
-			re.setContext(buf[srcIdx-1])
+			re.setContext(_ROLZ_MATCH_CTX, buf[srcIdx-1])
 			re.encodeBits(matchIdx, this.logPosChecks)
 			srcIdx += (matchLen + this.minMatch)
 		}
@@ -1044,10 +1043,9 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Emit last literals
 	srcIdx += (startChunk - sizeChunk)
-	re.setMode(_ROLZ_LITERAL_FLAG)
 
 	for i := 0; i < 4; i++ {
-		re.setContext(src[srcIdx-1])
+		re.setContext(_ROLZ_LITERAL_CTX, src[srcIdx-1])
 		re.encode9Bits((_ROLZ_LITERAL_FLAG << 8) | int(src[srcIdx]))
 		srcIdx++
 	}
@@ -1110,8 +1108,7 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 		dstIdx = 0
 
 		// First literals
-		rd.setMode(_ROLZ_LITERAL_FLAG)
-		rd.setContext(0)
+		rd.setContext(_ROLZ_LITERAL_CTX, 0)
 		val := rd.decode9Bits()
 
 		// Sanity check
@@ -1141,7 +1138,7 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			savedIdx := dstIdx
 			key := getKey(buf[dstIdx-2:])
 			m := this.matches[key<<this.logPosChecks:]
-			rd.setContext(buf[dstIdx-1])
+			rd.setContext(_ROLZ_LITERAL_CTX, buf[dstIdx-1])
 			val := rd.decode9Bits()
 
 			if val>>8 == _ROLZ_LITERAL_FLAG {
@@ -1157,12 +1154,10 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 					break
 				}
 
-				rd.setMode(_ROLZ_MATCH_FLAG)
-				rd.setContext(buf[dstIdx-1])
+				rd.setContext(_ROLZ_MATCH_CTX, buf[dstIdx-1])
 				matchIdx := int32(rd.decodeBits(this.logPosChecks))
 				ref := int(m[(this.counters[key]-matchIdx)&this.maskChecks])
 				dstIdx = emitCopy(buf, dstIdx, ref, matchLen+this.minMatch)
-				rd.setMode(_ROLZ_LITERAL_FLAG)
 			}
 
 			// Update map
@@ -1214,32 +1209,29 @@ func newRolzEncoder(litLogSize, mLogSize uint, buf []byte, idx *int) (*rolzEncod
 	this.high = _ROLZ_TOP
 	this.buf = buf
 	this.idx = idx
-	this.pIdx = _ROLZ_LITERAL_FLAG
+	this.pIdx = _ROLZ_LITERAL_CTX
 	this.c1 = 1
 	this.ctx = 0
-	this.logSize[_ROLZ_MATCH_FLAG] = mLogSize
-	this.probs[_ROLZ_MATCH_FLAG] = make([]int, 256<<mLogSize)
-	this.logSize[_ROLZ_LITERAL_FLAG] = litLogSize
-	this.probs[_ROLZ_LITERAL_FLAG] = make([]int, 256<<litLogSize)
+	this.logSize[_ROLZ_MATCH_CTX] = mLogSize
+	this.probs[_ROLZ_MATCH_CTX] = make([]int, 256<<mLogSize)
+	this.logSize[_ROLZ_LITERAL_CTX] = litLogSize
+	this.probs[_ROLZ_LITERAL_CTX] = make([]int, 256<<litLogSize)
 	this.reset()
 	return this, nil
 }
 
 func (this *rolzEncoder) reset() {
-	for i := range this.probs[_ROLZ_MATCH_FLAG] {
-		this.probs[_ROLZ_MATCH_FLAG][i] = _ROLZ_PSCALE >> 1
+	for i := range this.probs[_ROLZ_MATCH_CTX] {
+		this.probs[_ROLZ_MATCH_CTX][i] = _ROLZ_PSCALE >> 1
 	}
 
-	for i := range this.probs[_ROLZ_LITERAL_FLAG] {
-		this.probs[_ROLZ_LITERAL_FLAG][i] = _ROLZ_PSCALE >> 1
+	for i := range this.probs[_ROLZ_LITERAL_CTX] {
+		this.probs[_ROLZ_LITERAL_CTX][i] = _ROLZ_PSCALE >> 1
 	}
 }
 
-func (this *rolzEncoder) setMode(n int) {
+func (this *rolzEncoder) setContext(n int, ctx byte) {
 	this.pIdx = n
-}
-
-func (this *rolzEncoder) setContext(ctx byte) {
 	this.ctx = int(ctx) << this.logSize[this.pIdx]
 }
 
@@ -1327,32 +1319,29 @@ func newRolzDecoder(litLogSize, mLogSize uint, buf []byte, idx *int) (*rolzDecod
 	}
 
 	*this.idx += 8
-	this.pIdx = _ROLZ_LITERAL_FLAG
+	this.pIdx = _ROLZ_LITERAL_CTX
 	this.c1 = 1
 	this.ctx = 0
-	this.logSize[_ROLZ_MATCH_FLAG] = mLogSize
-	this.probs[_ROLZ_MATCH_FLAG] = make([]int, 256<<mLogSize)
-	this.logSize[_ROLZ_LITERAL_FLAG] = litLogSize
-	this.probs[_ROLZ_LITERAL_FLAG] = make([]int, 256<<litLogSize)
+	this.logSize[_ROLZ_MATCH_CTX] = mLogSize
+	this.probs[_ROLZ_MATCH_CTX] = make([]int, 256<<mLogSize)
+	this.logSize[_ROLZ_LITERAL_CTX] = litLogSize
+	this.probs[_ROLZ_LITERAL_CTX] = make([]int, 256<<litLogSize)
 	this.reset()
 	return this, nil
 }
 
 func (this *rolzDecoder) reset() {
-	for i := range this.probs[_ROLZ_MATCH_FLAG] {
-		this.probs[_ROLZ_MATCH_FLAG][i] = _ROLZ_PSCALE >> 1
+	for i := range this.probs[_ROLZ_MATCH_CTX] {
+		this.probs[_ROLZ_MATCH_CTX][i] = _ROLZ_PSCALE >> 1
 	}
 
-	for i := range this.probs[_ROLZ_LITERAL_FLAG] {
-		this.probs[_ROLZ_LITERAL_FLAG][i] = _ROLZ_PSCALE >> 1
+	for i := range this.probs[_ROLZ_LITERAL_CTX] {
+		this.probs[_ROLZ_LITERAL_CTX][i] = _ROLZ_PSCALE >> 1
 	}
 }
 
-func (this *rolzDecoder) setMode(n int) {
+func (this *rolzDecoder) setContext(n int, ctx byte) {
 	this.pIdx = n
-}
-
-func (this *rolzDecoder) setContext(ctx byte) {
 	this.ctx = int(ctx) << this.logSize[this.pIdx]
 }
 
