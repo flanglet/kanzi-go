@@ -23,7 +23,7 @@ import (
 	"github.com/flanglet/kanzi-go"
 )
 
-// X86Codec is a codec that replaces relative jumps addresses with
+// EXECodec is a codec that replaces relative jumps addresses with
 // absolute ones in X86 code (to improve entropy coding).
 
 const (
@@ -67,23 +67,23 @@ const (
 
 )
 
-// X86Codec a codec for x86 code
-type X86Codec struct {
+// EXECodec a codec for x86 code
+type EXECodec struct {
 	ctx          *map[string]interface{}
 	isBsVersion2 bool
 }
 
-// NewX86Codec creates a new instance of X86Codec
-func NewX86Codec() (*X86Codec, error) {
-	this := &X86Codec{}
+// NewEXECodec creates a new instance of EXECodec
+func NewEXECodec() (*EXECodec, error) {
+	this := &EXECodec{}
 	this.isBsVersion2 = false
 	return this, nil
 }
 
-// NewX86CodecWithCtx creates a new instance of X86Codec using a
+// NewEXECodecWithCtx creates a new instance of EXECodec using a
 // configuration map as parameter.
-func NewX86CodecWithCtx(ctx *map[string]interface{}) (*X86Codec, error) {
-	this := &X86Codec{}
+func NewEXECodecWithCtx(ctx *map[string]interface{}) (*EXECodec, error) {
+	this := &EXECodec{}
 	this.ctx = ctx
 	bsVersion := uint(2)
 
@@ -99,7 +99,7 @@ func NewX86CodecWithCtx(ctx *map[string]interface{}) (*X86Codec, error) {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error. If the source data does not represent
 // X86 code, an error is returned.
-func (this *X86Codec) Forward(src, dst []byte) (uint, uint, error) {
+func (this *EXECodec) Forward(src, dst []byte) (uint, uint, error) {
 	if &src[0] == &dst[0] {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
@@ -159,7 +159,7 @@ func (this *X86Codec) Forward(src, dst []byte) (uint, uint, error) {
 	return 0, 0, fmt.Errorf("Input is not a supported executable format, skip")
 }
 
-func (this *X86Codec) forwardX86(src, dst []byte, codeStart, codeEnd int) (uint, uint, error) {
+func (this *EXECodec) forwardX86(src, dst []byte, codeStart, codeEnd int) (uint, uint, error) {
 	srcIdx := codeStart
 	dstIdx := 9
 	matches := 0
@@ -252,7 +252,7 @@ func (this *X86Codec) forwardX86(src, dst []byte, codeStart, codeEnd int) (uint,
 // Inverse applies the reverse function to the src and writes the result
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
-func (this *X86Codec) Inverse(src, dst []byte) (uint, uint, error) {
+func (this *EXECodec) Inverse(src, dst []byte) (uint, uint, error) {
 	if &src[0] == &dst[0] {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
@@ -275,7 +275,7 @@ func (this *X86Codec) Inverse(src, dst []byte) (uint, uint, error) {
 	return 0, 0, errors.New("Invalid data: unknown binary type")
 }
 
-func (this *X86Codec) inverseX86(src, dst []byte) (uint, uint, error) {
+func (this *EXECodec) inverseX86(src, dst []byte) (uint, uint, error) {
 	srcIdx := 9
 	dstIdx := 0
 	codeStart := int(binary.LittleEndian.Uint32(src[1:]))
@@ -339,7 +339,7 @@ func (this *X86Codec) inverseX86(src, dst []byte) (uint, uint, error) {
 	return uint(count), uint(dstIdx), nil
 }
 
-func (this *X86Codec) inverseV2(src, dst []byte) (uint, uint, error) {
+func (this *EXECodec) inverseV2(src, dst []byte) (uint, uint, error) {
 	count := len(src)
 	srcIdx := 0
 	dstIdx := 0
@@ -391,7 +391,7 @@ func (this *X86Codec) inverseV2(src, dst []byte) (uint, uint, error) {
 	return uint(srcIdx), uint(dstIdx), nil
 }
 
-func (this *X86Codec) forwardARM(src, dst []byte, codeStart, codeEnd int) (uint, uint, error) {
+func (this *EXECodec) forwardARM(src, dst []byte, codeStart, codeEnd int) (uint, uint, error) {
 	srcIdx := codeStart
 	dstIdx := 9
 	matches := 0
@@ -489,7 +489,7 @@ func (this *X86Codec) forwardARM(src, dst []byte, codeStart, codeEnd int) (uint,
 	return uint(count), uint(dstIdx), nil
 }
 
-func (this *X86Codec) inverseARM(src, dst []byte) (uint, uint, error) {
+func (this *EXECodec) inverseARM(src, dst []byte) (uint, uint, error) {
 	srcIdx := 9
 	dstIdx := 0
 	codeStart := int(binary.LittleEndian.Uint32(src[1:]))
@@ -550,7 +550,7 @@ func (this *X86Codec) inverseARM(src, dst []byte) (uint, uint, error) {
 }
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
-func (this X86Codec) MaxEncodedLen(srcLen int) int {
+func (this EXECodec) MaxEncodedLen(srcLen int) int {
 	// Allocate some extra buffer for incompressible data.
 	if srcLen <= 256 {
 		return srcLen + 32

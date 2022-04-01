@@ -153,7 +153,7 @@ func newToken(ctx *map[string]interface{}, functionType uint64) (kanzi.ByteTrans
 		return NewRLTWithCtx(ctx)
 
 	case EXE_TYPE:
-		return NewX86CodecWithCtx(ctx)
+		return NewEXECodecWithCtx(ctx)
 
 	case NONE_TYPE:
 		return NewNullTransformWithCtx(ctx)
