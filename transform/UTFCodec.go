@@ -175,9 +175,6 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 	for i := 0; i < n; i++ {
 		r := n - 1 - i
 		s := symb[r].sym
-		if i < 1500 {
-			fmt.Printf("%v %v %v\n", dstIdx, s, symb[r].freq)
-		}
 		aliasMap[s] = i
 		dst[dstIdx] = byte(s >> 16)
 		dst[dstIdx+1] = byte(s >> 8)
