@@ -45,12 +45,12 @@ const (
 	LZP_TYPE    = uint64(14) // Lempel Ziv Predict
 	FSD_TYPE    = uint64(15) // Fixed Shift Delta codec
 	LZX_TYPE    = uint64(16) // Lempel Ziv Extra
-	RESERVED1   = uint64(17) // Reserved
-	RESERVED2   = uint64(18) // Reserved
-	RESERVED3   = uint64(19) // Reserved
-	RESERVED4   = uint64(20) // Reserved
-	RESERVED5   = uint64(21) // Reserved
-	RESERVED6   = uint64(22) // Reserved
+	UTF_TYPE    = uint64(17) // UTF codec
+	RESERVED1   = uint64(18) // Reserved
+	RESERVED2   = uint64(19) // Reserved
+	RESERVED3   = uint64(20) // Reserved
+	RESERVED4   = uint64(21) // Reserved
+	RESERVED5   = uint64(22) // Reserved
 )
 
 // New creates a new instance of ByteTransformSequence based on the provided
@@ -131,6 +131,9 @@ func newToken(ctx *map[string]interface{}, functionType uint64) (kanzi.ByteTrans
 	case LZP_TYPE:
 		(*ctx)["lz"] = LZP_TYPE
 		return NewLZCodecWithCtx(ctx)
+
+	case UTF_TYPE:
+		return NewUTFCodecWithCtx(ctx)
 
 	case FSD_TYPE:
 		return NewFSDCodecWithCtx(ctx)
@@ -216,6 +219,9 @@ func getByteFunctionNameToken(functionType uint64) string {
 
 	case LZP_TYPE:
 		return "LZP"
+
+	case UTF_TYPE:
+		return "UTF"
 
 	case EXE_TYPE:
 		return "EXE"
@@ -307,6 +313,9 @@ func getByteFunctionTypeToken(name string) uint64 {
 
 	case "LZP":
 		return LZP_TYPE
+
+	case "UTF":
+		return UTF_TYPE
 
 	case "FSD":
 		return FSD_TYPE
