@@ -35,7 +35,7 @@ const (
 	_ROLZ_HASH_SIZE       = 1 << 16
 	_ROLZ_MIN_MATCH3      = 3
 	_ROLZ_MIN_MATCH4      = 4
-	_ROLZ_MIN_MATCH9      = 9
+	_ROLZ_MIN_MATCH7      = 7
 	_ROLZ_MAX_MATCH1      = _ROLZ_MIN_MATCH3 + 65535
 	_ROLZ_MAX_MATCH2      = _ROLZ_MIN_MATCH3 + 255
 	_ROLZ_LOG_POS_CHECKS1 = 4
@@ -46,7 +46,7 @@ const (
 	_ROLZ_LITERAL_FLAG    = 1
 	_ROLZ_MATCH_CTX       = 0
 	_ROLZ_LITERAL_CTX     = 1
-	_ROLZ_HASH_SEED       = uint32(200002979)
+	_ROLZ_HASH_SEED       = 200002979
 	_ROLZ_MAX_BLOCK_SIZE  = 1 << 30 // 1 GB
 	_ROLZ_MIN_BLOCK_SIZE  = 64
 	_ROLZ_PSCALE          = 0xFFFF
@@ -55,8 +55,12 @@ const (
 	_MASK_0_32            = uint64(0x00000000FFFFFFFF)
 )
 
-func getKey(p []byte) uint32 {
+func getKey1(p []byte) uint32 {
 	return uint32(binary.LittleEndian.Uint16(p))
+}
+
+func getKey2(p []byte) uint32 {
+	return uint32((binary.LittleEndian.Uint64(p)*_ROLZ_HASH_SEED)>>40) & 0xFFFF
 }
 
 func rolzhash(p []byte) uint32 {
@@ -241,7 +245,7 @@ func newROLZCodec1WithCtx(logPosChecks uint, ctx *map[string]interface{}) (*rolz
 }
 
 // findMatch returns match position index (logPosChecks bits) + length (8 bits) or -1
-func (this *rolzCodec1) findMatch(buf []byte, pos int) (int, int) {
+func (this *rolzCodec1) findMatch(buf []byte, pos int, key uint32) (int, int) {
 	maxMatch := _ROLZ_MAX_MATCH1
 
 	if maxMatch > len(buf)-pos {
@@ -252,7 +256,6 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int) (int, int) {
 		}
 	}
 
-	key := getKey(buf[pos-2:])
 	m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
 	hash32 := rolzhash(buf[pos : pos+4])
 	counter := this.counters[key]
@@ -349,7 +352,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			dt := val.(kanzi.DataType)
 
 			if dt == kanzi.DT_DNA {
-				this.minMatch = _ROLZ_MIN_MATCH9
+				this.minMatch = _ROLZ_MIN_MATCH7
 				flags |= 4
 			} else if dt == kanzi.DT_MULTIMEDIA {
 				this.minMatch = _ROLZ_MIN_MATCH4
@@ -382,11 +385,13 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 		buf := src[startChunk:endChunk]
 		srcIdx = 0
-		litBuf[litIdx] = buf[srcIdx]
-		litIdx++
-		srcIdx++
+		mm := this.minMatch
 
-		if startChunk+1 < srcEnd {
+		if startChunk >= srcEnd {
+			mm = srcEnd - startChunk
+		}
+
+		for j := 0; j < mm; j++ {
 			litBuf[litIdx] = buf[srcIdx]
 			litIdx++
 			srcIdx++
@@ -396,7 +401,13 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 		// Next chunk
 		for srcIdx < sizeChunk {
-			matchIdx, matchLen := this.findMatch(buf, srcIdx)
+			var matchIdx, matchLen int
+
+			if this.minMatch == _ROLZ_MIN_MATCH3 {
+				matchIdx, matchLen = this.findMatch(buf, srcIdx, getKey1(buf[srcIdx-2:]))
+			} else {
+				matchIdx, matchLen = this.findMatch(buf, srcIdx, getKey2(buf[srcIdx-8:]))
+			}
 
 			if matchIdx < 0 {
 				srcIdx++
@@ -578,11 +589,18 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 	litOrder := uint(src[4] & 1)
 	this.minMatch = _ROLZ_MIN_MATCH3
+	bsVersion := uint(3)
 
-	if src[4]&6 == 2 {
-		this.minMatch = _ROLZ_MIN_MATCH4
-	} else if src[4]&6 == 4 {
-		this.minMatch = _ROLZ_MIN_MATCH9
+	if val, containsKey := (*this.ctx)["bsVersion"]; containsKey {
+		bsVersion = val.(uint)
+	}
+
+	if bsVersion >= 3 {
+		if src[4]&6 == 2 {
+			this.minMatch = _ROLZ_MIN_MATCH4
+		} else if src[4]&6 == 4 {
+			this.minMatch = _ROLZ_MIN_MATCH7
+		}
 	}
 
 	// Main loop
@@ -678,11 +696,13 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 
 		dstIdx = 0
-		buf[dstIdx] = litBuf[litIdx]
-		dstIdx++
-		litIdx++
+		mm := this.minMatch
 
-		if startChunk+1 < dstEnd {
+		if startChunk >= dstEnd {
+			mm = dstEnd - startChunk
+		}
+
+		for j := 0; j < mm; j++ {
 			buf[dstIdx] = litBuf[litIdx]
 			dstIdx++
 			litIdx++
@@ -712,7 +732,30 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			if litLen > 0 {
-				this.emitLiterals(litBuf[litIdx:litIdx+litLen], buf, dstIdx)
+				lb := litBuf[litIdx : litIdx+litLen]
+
+				if this.minMatch == _ROLZ_MIN_MATCH3 {
+					d := buf[dstIdx-2:]
+					copy(d[2:], lb)
+
+					for n := range lb {
+						key := getKey1(d[n:])
+						m := this.matches[key<<this.logPosChecks:]
+						this.counters[key] = (this.counters[key] + 1) & this.maskChecks
+						m[this.counters[key]] = uint32(dstIdx + n)
+					}
+				} else {
+					d := buf[dstIdx-8:]
+					copy(d[8:], lb)
+
+					for n := range lb {
+						key := getKey2(d[n:])
+						m := this.matches[key<<this.logPosChecks:]
+						this.counters[key] = (this.counters[key] + 1) & this.maskChecks
+						m[this.counters[key]] = uint32(dstIdx + n)
+					}
+				}
+
 				litIdx += litLen
 				dstIdx += litLen
 
@@ -735,7 +778,14 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 			matchIdx := int32(mIdxBuf[mIdx] & 0xFF)
 			mIdx++
-			key := getKey(buf[dstIdx-2:])
+			var key uint32
+
+			if this.minMatch == _ROLZ_MIN_MATCH3 {
+				key = getKey1(buf[dstIdx-2:])
+			} else {
+				key = getKey2(buf[dstIdx-8:])
+			}
+
 			m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
 			ref := int(m[(this.counters[key]-matchIdx)&this.maskChecks])
 			savedIdx := uint32(dstIdx)
@@ -825,18 +875,6 @@ func readLengthROLZ(lenBuf []byte) (int, int) {
 	return litLen, idx
 }
 
-func (this rolzCodec1) emitLiterals(litBuf, dst []byte, dstIdx int) {
-	d := dst[dstIdx-2:]
-	copy(d[2:], litBuf)
-
-	for n := range litBuf {
-		key := getKey(d[n:])
-		m := this.matches[key<<this.logPosChecks:]
-		this.counters[key] = (this.counters[key] + 1) & this.maskChecks
-		m[this.counters[key]] = uint32(dstIdx + n)
-	}
-}
-
 // Use CM (ROLZEncoder/ROLZDecoder) to encode/decode literals and matches
 // Code loosely based on 'balz' by Ilya Muravyov
 type rolzCodec2 struct {
@@ -881,7 +919,7 @@ func newROLZCodec2WithCtx(logPosChecks uint, ctx *map[string]interface{}) (*rolz
 }
 
 // findMatch returns match position index and length or -1
-func (this *rolzCodec2) findMatch(buf []byte, pos int) (int, int) {
+func (this *rolzCodec2) findMatch(buf []byte, pos int, key uint32) (int, int) {
 	maxMatch := _ROLZ_MAX_MATCH2
 
 	if maxMatch > len(buf)-pos {
@@ -892,7 +930,6 @@ func (this *rolzCodec2) findMatch(buf []byte, pos int) (int, int) {
 		}
 	}
 
-	key := getKey(buf[pos-2:])
 	m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
 	hash32 := rolzhash(buf[pos : pos+4])
 	counter := this.counters[key]
@@ -981,7 +1018,7 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 			dt := val.(kanzi.DataType)
 
 			if dt == kanzi.DT_DNA {
-				this.minMatch = _ROLZ_MIN_MATCH9
+				this.minMatch = _ROLZ_MIN_MATCH7
 				flags = 2
 			} else if dt == kanzi.DT_MULTIMEDIA {
 				this.minMatch = _ROLZ_MIN_MATCH4
@@ -1010,11 +1047,14 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		srcIdx = 0
 
 		// First literals
+		mm := this.minMatch
 		re.setContext(_ROLZ_LITERAL_CTX, 0)
-		re.encode9Bits((_ROLZ_LITERAL_FLAG << 8) | int(buf[srcIdx]))
-		srcIdx++
 
-		if startChunk+1 < srcEnd {
+		if startChunk >= srcEnd {
+			mm = srcEnd - startChunk
+		}
+
+		for j := 0; j < mm; j++ {
 			re.encode9Bits((_ROLZ_LITERAL_FLAG << 8) | int(buf[srcIdx]))
 			srcIdx++
 		}
@@ -1022,7 +1062,13 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		// Next chunk
 		for srcIdx < sizeChunk {
 			re.setContext(_ROLZ_LITERAL_CTX, buf[srcIdx-1])
-			matchIdx, matchLen := this.findMatch(buf, srcIdx)
+			var matchIdx, matchLen int
+
+			if this.minMatch == _ROLZ_MIN_MATCH3 {
+				matchIdx, matchLen = this.findMatch(buf, srcIdx, getKey1(buf[srcIdx-2:]))
+			} else {
+				matchIdx, matchLen = this.findMatch(buf, srcIdx, getKey2(buf[srcIdx-8:]))
+			}
 
 			if matchIdx < 0 {
 				// Emit one literal
@@ -1073,12 +1119,19 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 		sizeChunk = _ROLZ_CHUNK_SIZE
 	}
 
-	if src[4] == 0 {
-		this.minMatch = _ROLZ_MIN_MATCH3
-	} else if src[4] == 1 {
-		this.minMatch = _ROLZ_MIN_MATCH4
-	} else {
-		this.minMatch = _ROLZ_MIN_MATCH9
+	this.minMatch = _ROLZ_MIN_MATCH3
+	bsVersion := uint(3)
+
+	if val, containsKey := (*this.ctx)["bsVersion"]; containsKey {
+		bsVersion = val.(uint)
+	}
+
+	if bsVersion >= 3 {
+		if src[4] == 1 {
+			this.minMatch = _ROLZ_MIN_MATCH4
+		} else if src[4] == 2 {
+			this.minMatch = _ROLZ_MIN_MATCH7
+		}
 	}
 
 	srcIdx := 5
@@ -1108,20 +1161,15 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 		dstIdx = 0
 
 		// First literals
+		mm := this.minMatch
 		rd.setContext(_ROLZ_LITERAL_CTX, 0)
-		val := rd.decode9Bits()
 
-		// Sanity check
-		if val>>8 == _ROLZ_MATCH_FLAG {
-			dstIdx += startChunk
-			break
+		if startChunk >= dstEnd {
+			mm = dstEnd - startChunk
 		}
 
-		buf[dstIdx] = byte(val)
-		dstIdx++
-
-		if startChunk+1 < dstEnd {
-			val = rd.decode9Bits()
+		for j := 0; j < mm; j++ {
+			val := rd.decode9Bits()
 
 			// Sanity check
 			if val>>8 == _ROLZ_MATCH_FLAG {
@@ -1136,7 +1184,14 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 		// Next chunk
 		for dstIdx < sizeChunk {
 			savedIdx := dstIdx
-			key := getKey(buf[dstIdx-2:])
+			var key uint32
+
+			if this.minMatch == _ROLZ_MIN_MATCH3 {
+				key = getKey1(buf[dstIdx-2:])
+			} else {
+				key = getKey2(buf[dstIdx-8:])
+			}
+
 			m := this.matches[key<<this.logPosChecks:]
 			rd.setContext(_ROLZ_LITERAL_CTX, buf[dstIdx-1])
 			val := rd.decode9Bits()
