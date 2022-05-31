@@ -385,7 +385,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 		buf := src[startChunk:endChunk]
 		srcIdx = 0
-		mm := this.minMatch
+		mm := 8
 
 		if startChunk >= srcEnd {
 			mm = srcEnd - startChunk
@@ -696,7 +696,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 
 		dstIdx = 0
-		mm := this.minMatch
+		mm := 8
 
 		if startChunk >= dstEnd {
 			mm = dstEnd - startChunk
@@ -1047,7 +1047,7 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		srcIdx = 0
 
 		// First literals
-		mm := this.minMatch
+		mm := 8
 		re.setContext(_ROLZ_LITERAL_CTX, 0)
 
 		if startChunk >= srcEnd {
@@ -1161,7 +1161,7 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 		dstIdx = 0
 
 		// First literals
-		mm := this.minMatch
+		mm := 8
 		rd.setContext(_ROLZ_LITERAL_CTX, 0)
 
 		if startChunk >= dstEnd {
