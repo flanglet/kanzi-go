@@ -1019,9 +1019,6 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 
 			if dt == kanzi.DT_DNA {
 				this.minMatch = _ROLZ_MIN_MATCH7
-				flags = 2
-			} else if dt == kanzi.DT_MULTIMEDIA {
-				this.minMatch = _ROLZ_MIN_MATCH4
 				flags = 1
 			}
 		}
@@ -1126,12 +1123,8 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 		bsVersion = val.(uint)
 	}
 
-	if bsVersion >= 3 {
-		if src[4] == 1 {
-			this.minMatch = _ROLZ_MIN_MATCH4
-		} else if src[4] == 2 {
-			this.minMatch = _ROLZ_MIN_MATCH7
-		}
+	if bsVersion >= 3 && src[4] == 1 {
+		this.minMatch = _ROLZ_MIN_MATCH7
 	}
 
 	srcIdx := 5
