@@ -107,7 +107,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Select escape symbol
 	if freqs[minIdx] > 0 {
-		for i, f := range freqs {
+		for i, f := range &freqs {
 			if f < freqs[minIdx] {
 				minIdx = i
 

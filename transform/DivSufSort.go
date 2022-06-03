@@ -85,11 +85,11 @@ func (this *DivSufSort) reset() {
 	this.trStack.index = 0
 	this.mergestack.index = 0
 
-	for i := range this.bucketA {
+	for i := range &this.bucketA {
 		this.bucketA[i] = 0
 	}
 
-	for i := range this.bucketB {
+	for i := range &this.bucketB {
 		this.bucketB[i] = 0
 	}
 }
