@@ -273,14 +273,14 @@ func (this *DivSufSort) constructBWT(bucketA, bucketB []int32, n, m int32, index
 	k++
 
 	// Scan the suffix array from left to right.
-	for i := int32(0); i < n; i++ {
+	for i := range this.sa[0:n] {
 		s := this.sa[i]
 
 		if s <= 0 {
 			if s != 0 {
 				this.sa[i] = ^s
 			} else {
-				pIdx = i
+				pIdx = int32(i)
 			}
 
 			continue
