@@ -54,6 +54,11 @@ func (this sortByFreq) Swap(i, j int) {
 	this[i], this[j] = this[j], this[i]
 }
 
+type utfSymbol struct {
+	value  [4]byte
+	length uint8
+}
+
 // UTFCodec is a simple one-pass UTF8 codec that replaces code points with indexes.
 type UTFCodec struct {
 	ctx *map[string]interface{}
@@ -260,24 +265,24 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("UTF inverse transform skip: invalid data")
 	}
 
-	// Fill map with invalid value
-	m := [32768]uint32{}
-
-	for i := range m {
-		m[i] = 0xFFFFFFFF
-	}
-
+	m := [32768]utfSymbol{}
 	srcIdx := 4
 
 	// Build inverse mapping
 	for i := 0; i < n; i++ {
-		m[i] = (uint32(src[srcIdx]) << 16) | (uint32(src[srcIdx+1]) << 8) | uint32(src[srcIdx+2])
+		s := (uint32(src[srcIdx]) << 16) | (uint32(src[srcIdx+1]) << 8) | uint32(src[srcIdx+2])
+		sl := unpackUTF(s, m[i].value[:])
+
+		if sl == 0 {
+			return 0, 0, errors.New("UTF inverse transform skip: invalid data")
+		}
+
+		m[i].length = uint8(sl)
 		srcIdx += 3
 	}
 
 	dstIdx := 0
 	srcEnd := count - 4 + adjust
-	var err error
 
 	for i := 0; i < start; i++ {
 		dst[dstIdx] = src[srcIdx]
@@ -295,14 +300,9 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			srcIdx++
 		}
 
-		s := unpackUTF(m[alias], dst[dstIdx:])
-
-		if s == 0 {
-			err = errors.New("UTF inverse transform skip: invalid data")
-			break
-		}
-
-		dstIdx += s
+		s := m[alias]
+		copy(dst[dstIdx:], s.value[:4])
+		dstIdx += int(s.length)
 	}
 
 	for i := srcEnd; i < count; i++ {
@@ -311,7 +311,7 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		dstIdx++
 	}
 
-	return uint(srcIdx), uint(dstIdx), err
+	return uint(srcIdx), uint(dstIdx), nil
 }
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
