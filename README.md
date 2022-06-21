@@ -2,7 +2,7 @@ kanzi
 =====
 
 
-Kanzi is a modern, modular, expendable and efficient lossless data compressor implemented in Go.
+Kanzi is a modern, modular, expandable and efficient lossless data compressor implemented in Go.
 
 * modern: state-of-the-art algorithms are implemented and multi-core CPUs can take advantage of the built-in multi-tasking.
 * modular: entropy codec and a combination of transforms can be provided at runtime to best match the kind of data to compress.
