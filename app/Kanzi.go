@@ -394,6 +394,11 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 				codec = strings.ToUpper(name)
 			}
 
+			if len(codec) == 0 {
+				fmt.Println("Invalid empty entropy provided on command line")
+				return kanzi.ERR_INVALID_PARAM
+			}
+
 			ctx = -1
 			continue
 		}
@@ -419,6 +424,11 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 
 			for len(transform) > 0 && transform[len(transform)-1] == '+' {
 				transform = transform[0 : len(transform)-1]
+			}
+
+			if len(transform) == 0 {
+				fmt.Println("Invalid empty transform provided on command line")
+				return kanzi.ERR_INVALID_PARAM
 			}
 
 			ctx = -1
