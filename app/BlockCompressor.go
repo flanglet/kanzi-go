@@ -717,6 +717,8 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 	if read == 0 {
 		msg = fmt.Sprintf("Input file %v is empty ... nothing to do", inputName)
 		log.Println(msg, verbosity > 0)
+		output.Close()
+		os.Remove(outputName) // best effort to delete output file, ignore return code
 		return 0, read, cos.GetWritten()
 	}
 
