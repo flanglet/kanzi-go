@@ -365,7 +365,7 @@ func detectTextType(freqs0 []int, freqs [][256]int, count int) byte {
 }
 
 func sameWords(buf1, buf2 []byte) bool {
-	for i := range buf1 {
+	for i := len(buf1) - 1; i >= 0; i-- {
 		if buf1[i] != buf2[i] {
 			return false
 		}
@@ -601,21 +601,21 @@ func newTextCodec1WithCtx(ctx *map[string]interface{}) (*textCodec1, error) {
 }
 
 func (this *textCodec1) reset(count int) {
-	if count >= 8 {
+	if count >= 1024 {
 		// Select an appropriate initial dictionary size
-		log, _ := kanzi.Log2(uint32(count / 8))
+		log, _ := kanzi.Log2(uint32(count / 128))
 
-		if log > 22 {
-			log = 22
-		} else if log < 17 {
-			log = 17
+		if log > 18 {
+			log = 18
+		} else if log < 13 {
+			log = 13
 		}
 
-		this.dictSize = 1 << (log - 4)
+		this.dictSize = 1 << log
 	}
 
 	// Allocate lazily (only if text input detected)
-	if len(this.dictMap) == 0 {
+	if len(this.dictMap) < 1<<this.logHashSize {
 		this.dictMap = make([]*dictEntry, 1<<this.logHashSize)
 	} else {
 		for i := range this.dictMap {
@@ -623,7 +623,7 @@ func (this *textCodec1) reset(count int) {
 		}
 	}
 
-	if len(this.dictList) == 0 {
+	if len(this.dictList) < this.dictSize {
 		this.dictList = make([]dictEntry, this.dictSize)
 		size := len(_TC_STATIC_DICTIONARY)
 
@@ -748,12 +748,9 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 				// Check for hash collisions
 				if pe1 != nil && pe1.hash == h1 && pe1.data>>24 == length {
 					pe = pe1
-				}
-
-				if pe == nil {
-					if pe2 := this.dictMap[h2&this.hashMask]; pe2 != nil && pe2.hash == h2 && pe2.data>>24 == length {
-						pe = pe2
-					}
+					pe = pe1
+				} else if pe2 := this.dictMap[h2&this.hashMask]; pe2 != nil && pe2.hash == h2 && pe2.data>>24 == length {
+					pe = pe2
 				}
 
 				if pe != nil {
@@ -1140,21 +1137,21 @@ func newTextCodec2WithCtx(ctx *map[string]interface{}) (*textCodec2, error) {
 }
 
 func (this *textCodec2) reset(count int) {
-	if count >= 8 {
+	if count >= 1024 {
 		// Select an appropriate initial dictionary size
-		log, _ := kanzi.Log2(uint32(count / 8))
+		log, _ := kanzi.Log2(uint32(count / 128))
 
-		if log > 22 {
-			log = 22
-		} else if log < 17 {
-			log = 17
+		if log > 18 {
+			log = 18
+		} else if log < 13 {
+			log = 13
 		}
 
-		this.dictSize = 1 << (log - 4)
+		this.dictSize = 1 << log
 	}
 
 	// Allocate lazily (only if text input detected)
-	if len(this.dictMap) == 0 {
+	if len(this.dictMap) < 1<<this.logHashSize {
 		this.dictMap = make([]*dictEntry, 1<<this.logHashSize)
 	} else {
 		for i := range this.dictMap {
@@ -1162,7 +1159,7 @@ func (this *textCodec2) reset(count int) {
 		}
 	}
 
-	if len(this.dictList) == 0 {
+	if len(this.dictList) < this.dictSize {
 		this.dictList = make([]dictEntry, this.dictSize)
 		size := len(_TC_STATIC_DICTIONARY)
 
@@ -1278,15 +1275,12 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 				// Check word in dictionary
 				var pe *dictEntry
 				pe1 := this.dictMap[h1&this.hashMask]
-				var pe2 *dictEntry
 
 				// Check for hash collisions
 				if pe1 != nil && pe1.hash == h1 && pe1.data>>24 == length {
 					pe = pe1
-				}
-
-				if pe == nil {
-					if pe2 = this.dictMap[h2&this.hashMask]; pe2 != nil && pe2.hash == h2 && pe2.data>>24 == length {
+				} else {
+					if pe2 := this.dictMap[h2&this.hashMask]; pe2 != nil && pe2.hash == h2 && pe2.data>>24 == length {
 						pe = pe2
 					}
 				}
