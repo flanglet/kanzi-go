@@ -573,7 +573,6 @@ func newTextCodec1WithCtx(ctx *map[string]interface{}) (*textCodec1, error) {
 		blockSize := val.(uint)
 
 		if blockSize >= 8 {
-
 			log, _ = kanzi.Log2(uint32(blockSize / 8))
 
 			if log > 26 {
@@ -640,7 +639,7 @@ func (this *textCodec1) reset(count int) {
 	}
 
 	// Update map
-	for i := 0; i < this.staticDictSize; i++ {
+	for i := 0; i < _TC_STATIC_DICT_WORDS; i++ {
 		e := this.dictList[i]
 		this.dictMap[e.hash&this.hashMask] = &e
 	}
@@ -748,7 +747,6 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 				// Check for hash collisions
 				if pe1 != nil && pe1.hash == h1 && pe1.data>>24 == length {
 					pe = pe1
-					pe = pe1
 				} else if pe2 := this.dictMap[h2&this.hashMask]; pe2 != nil && pe2.hash == h2 && pe2.data>>24 == length {
 					pe = pe2
 				}
@@ -788,14 +786,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 					// Word found in the dictionary
 					// Skip space if only delimiter between 2 word references
 					if (emitAnchor != delimAnchor) || (src[delimAnchor] != ' ') {
-						dIdx := this.emitSymbols(src[emitAnchor:delimAnchor+1], dst[dstIdx:dstEnd])
-
-						if dIdx < 0 {
-							err = errors.New("Text transform failed. Output buffer too small")
-							break
-						}
-
-						dstIdx += dIdx
+						dstIdx += this.emitSymbols(src[emitAnchor:delimAnchor+1], dst[dstIdx:dstEnd])
 					}
 
 					if dstIdx >= dstEnd4 {
@@ -823,12 +814,10 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 	if err == nil {
 		// Emit last symbols
-		dIdx := this.emitSymbols(src[emitAnchor:srcEnd], dst[dstIdx:dstEnd])
+		dstIdx += this.emitSymbols(src[emitAnchor:srcEnd], dst[dstIdx:dstEnd])
 
-		if dIdx < 0 {
+		if dstIdx >= dstEnd {
 			err = errors.New("Text transform failed. Output buffer too small")
-		} else {
-			dstIdx += dIdx
 		}
 	}
 
@@ -860,7 +849,7 @@ func (this *textCodec1) emitSymbols(src, dst []byte) int {
 
 	for _, cur := range src {
 		if dstIdx >= dstEnd {
-			return -1
+			return dstEnd + 1
 		}
 
 		switch cur {
@@ -886,7 +875,7 @@ func (this *textCodec1) emitSymbols(src, dst []byte) int {
 			}
 
 			if dstIdx+lenIdx >= dstEnd {
-				return -1
+				return dstEnd + 1
 			}
 
 			dstIdx += emitWordIndex1(dst[dstIdx:dstIdx+lenIdx], idx)
@@ -1320,14 +1309,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 					// Word found in the dictionary
 					// Skip space if only delimiter between 2 word references
 					if (emitAnchor != delimAnchor) || (src[delimAnchor] != ' ') {
-						dIdx := this.emitSymbols(src[emitAnchor:delimAnchor+1], dst[dstIdx:dstEnd])
-
-						if dIdx < 0 {
-							err = errors.New("Text transform failed. Output buffer too small")
-							break
-						}
-
-						dstIdx += dIdx
+						dstIdx += this.emitSymbols(src[emitAnchor:delimAnchor+1], dst[dstIdx:dstEnd])
 					}
 
 					if dstIdx >= dstEnd3 {
@@ -1353,12 +1335,10 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 
 	if err == nil {
 		// Emit last symbols
-		dIdx := this.emitSymbols(src[emitAnchor:srcEnd], dst[dstIdx:dstEnd])
+		dstIdx += this.emitSymbols(src[emitAnchor:srcEnd], dst[dstIdx:dstEnd])
 
-		if dIdx < 0 {
+		if dstIdx >= dstEnd {
 			err = errors.New("Text transform failed. Output buffer too small")
-		} else {
-			dstIdx += dIdx
 		}
 	}
 
@@ -1417,7 +1397,7 @@ func (this *textCodec2) emitSymbols(src, dst []byte) int {
 			switch cur {
 			case _TC_ESCAPE_TOKEN1:
 				if dstIdx+1 >= len(dst) {
-					return -1
+					return len(dst) + 1
 				}
 
 				dst[dstIdx] = _TC_ESCAPE_TOKEN1
@@ -1428,7 +1408,7 @@ func (this *textCodec2) emitSymbols(src, dst []byte) int {
 			case CR:
 				if this.isCRLF == false {
 					if dstIdx >= len(dst) {
-						return -1
+						return len(dst) + 1
 					}
 
 					dst[dstIdx] = cur
@@ -1438,7 +1418,7 @@ func (this *textCodec2) emitSymbols(src, dst []byte) int {
 			default:
 				if cur >= 0x80 {
 					if dstIdx >= len(dst) {
-						return -1
+						return len(dst) + 1
 					}
 
 					dst[dstIdx] = _TC_ESCAPE_TOKEN1
@@ -1446,7 +1426,7 @@ func (this *textCodec2) emitSymbols(src, dst []byte) int {
 				}
 
 				if dstIdx >= len(dst) {
-					return -1
+					return len(dst) + 1
 				}
 
 				dst[dstIdx] = cur
