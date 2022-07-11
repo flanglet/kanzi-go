@@ -17,31 +17,59 @@ package entropy
 
 //nolint (remove unused warnings)
 import (
+	"errors"
+
 	kanzi "github.com/flanglet/kanzi-go"
 )
 
 // AdaptiveProbMap maps a probability and a context to a new probability
 // that the next bit will be 1. After each guess, it updates
 // its state to improve future predictions.
-type AdaptiveProbMap struct {
+type adaptiveProbMapData struct {
 	index int      // last prob, context
 	rate  uint     // update rate
 	data  []uint16 // prob, context -> prob
 }
 
+const (
+	LINEAR_APM        = 0
+	LOGISTIC_APM      = 1
+	FAST_LOGISTIC_APM = 2
+)
+
+type AdaptiveProbMap interface {
+	Get(bit int, pr int, ctx int) int
+}
+
 // LinearAdaptiveProbMap maps a probability and a context into a new probability
 // using linear interpolation of probabilities
-type LinearAdaptiveProbMap AdaptiveProbMap
+type LinearAdaptiveProbMap adaptiveProbMapData
 
 // LogisticAdaptiveProbMap maps a probability and a context into a new probability
 // using interpolation in the logistic domain
-type LogisticAdaptiveProbMap AdaptiveProbMap
+type LogisticAdaptiveProbMap adaptiveProbMapData
 
 // FastLogisticAdaptiveProbMap is similar to LogisticAdaptiveProbMap but works
 // faster at the expense of some accuracy
-type FastLogisticAdaptiveProbMap AdaptiveProbMap
+type FastLogisticAdaptiveProbMap adaptiveProbMapData
 
-func newLogisticAdaptiveProbMap(n, rate uint) (*LogisticAdaptiveProbMap, error) {
+// NewBinaryEntropyEncoder creates an instance of AdaptiveProbMap
+// given the provided type of APM.
+func NewAdaptiveProbMap(mapType int, n, rate uint) (AdaptiveProbMap, error) {
+	if mapType == LINEAR_APM {
+		return newLinearAdaptiveProbMap(n, rate)
+	}
+	if mapType == LOGISTIC_APM {
+		return newLogisticAdaptiveProbMap(n, rate)
+	}
+	if mapType == FAST_LOGISTIC_APM {
+		return newFastLogisticAdaptiveProbMap(n, rate)
+	}
+
+	return nil, errors.New("Unknow APM type")
+}
+
+func newLogisticAdaptiveProbMap(n, rate uint) (AdaptiveProbMap, error) {
 	this := &LogisticAdaptiveProbMap{}
 	size := n * 33
 
@@ -64,7 +92,7 @@ func newLogisticAdaptiveProbMap(n, rate uint) (*LogisticAdaptiveProbMap, error) 
 }
 
 // get returns improved prediction given current bit, prediction and context
-func (this *LogisticAdaptiveProbMap) get(bit int, pr int, ctx int) int {
+func (this *LogisticAdaptiveProbMap) Get(bit int, pr int, ctx int) int {
 	// Update probability based on error and learning rate
 	g := (-bit & 65528) + (bit << this.rate)
 	this.data[this.index+1] += uint16((g - int(this.data[this.index+1])) >> this.rate)
@@ -79,7 +107,7 @@ func (this *LogisticAdaptiveProbMap) get(bit int, pr int, ctx int) int {
 	return (int(this.data[this.index+1])*w + int(this.data[this.index])*(128-w)) >> 11
 }
 
-func newFastLogisticAdaptiveProbMap(n, rate uint) (*FastLogisticAdaptiveProbMap, error) {
+func newFastLogisticAdaptiveProbMap(n, rate uint) (AdaptiveProbMap, error) {
 	this := &FastLogisticAdaptiveProbMap{}
 	this.data = make([]uint16, n*32)
 	this.rate = rate
@@ -96,7 +124,7 @@ func newFastLogisticAdaptiveProbMap(n, rate uint) (*FastLogisticAdaptiveProbMap,
 }
 
 // get returns improved prediction given current bit, prediction and context
-func (this *FastLogisticAdaptiveProbMap) get(bit int, pr int, ctx int) int {
+func (this *FastLogisticAdaptiveProbMap) Get(bit int, pr int, ctx int) int {
 	// Update probability based on error and learning rate
 	g := (-bit & 65528) + (bit << this.rate)
 	this.data[this.index] += uint16((g - int(this.data[this.index])) >> this.rate)
@@ -127,7 +155,7 @@ func newLinearAdaptiveProbMap(n, rate uint) (*LinearAdaptiveProbMap, error) {
 }
 
 // get returns improved prediction given current bit, prediction and context
-func (this *LinearAdaptiveProbMap) get(bit int, pr int, ctx int) int {
+func (this *LinearAdaptiveProbMap) Get(bit int, pr int, ctx int) int {
 	// Update probability based on error and learning rate
 	g := (-bit & 65528) + (bit << this.rate)
 	this.data[this.index+1] += uint16((g - int(this.data[this.index+1])) >> this.rate)

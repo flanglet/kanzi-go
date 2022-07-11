@@ -182,8 +182,8 @@ type TPAQPredictor struct {
 	mixersMask      int32
 	hashMask        int32
 	bufferMask      int32
-	sse0            *LogisticAdaptiveProbMap
-	sse1            *LogisticAdaptiveProbMap
+	sse0            AdaptiveProbMap
+	sse1            AdaptiveProbMap
 	mixers          []TPAQMixer
 	mixer           *TPAQMixer // current mixer
 	buffer          []int8
@@ -317,13 +317,13 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 	var err error
 
 	if this.extra == true {
-		this.sse0, err = newLogisticAdaptiveProbMap(256, 6)
+		this.sse0, err = NewAdaptiveProbMap(LOGISTIC_APM, 256, 6)
 
 		if err == nil {
-			this.sse1, err = newLogisticAdaptiveProbMap(65536, 7)
+			this.sse1, err = NewAdaptiveProbMap(LOGISTIC_APM, 65536, 7)
 		}
 	} else {
-		this.sse0, err = newLogisticAdaptiveProbMap(256, 7)
+		this.sse0, err = NewAdaptiveProbMap(LOGISTIC_APM, 256, 7)
 	}
 
 	return this, err
@@ -439,7 +439,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 
 		// SSE (Secondary Symbol Estimation)
 		if this.binCount < (this.pos >> 3) {
-			p = (3*this.sse0.get(y, p, int(this.c0)) + p) >> 2
+			p = (3*this.sse0.Get(y, p, int(this.c0)) + p) >> 2
 		}
 	} else {
 		// One more prediction
@@ -452,13 +452,13 @@ func (this *TPAQPredictor) Update(bit byte) {
 
 		// SSE (Secondary Symbol Estimation)
 		if this.binCount < (this.pos >> 3) {
-			p = this.sse1.get(y, p, int(this.ctx0+c))
+			p = this.sse1.Get(y, p, int(this.ctx0+c))
 		} else {
 			if this.binCount >= (this.pos >> 2) {
-				p = (3*this.sse0.get(y, p, int(this.c0)) + p) >> 2
+				p = (3*this.sse0.Get(y, p, int(this.c0)) + p) >> 2
 			}
 
-			p = (3*this.sse1.get(y, p, int(this.ctx0+c)) + p) >> 2
+			p = (3*this.sse1.Get(y, p, int(this.ctx0+c)) + p) >> 2
 		}
 	}
 
