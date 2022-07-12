@@ -538,7 +538,7 @@ func getTransformAndCodec(level int) string {
 		return "NONE&NONE"
 
 	case 1:
-		return "TEXT+LZ&HUFFMAN"
+		return "LZ&HUFFMAN"
 
 	case 2:
 		return "TEXT+UTF+FSD+LZX&HUFFMAN"

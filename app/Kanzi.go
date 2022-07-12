@@ -741,7 +741,7 @@ func printHelp(mode string) {
 		log.Println("   -l, --level=<compression>", true)
 		log.Println("        set the compression level [0..9]", true)
 		log.Println("        Providing this option forces entropy and transform.", true)
-		log.Println("        0=None&None (store), 1=TEXT+LZ&HUFFMAN, 2=TEXT+UTF+FSD+LZX&HUFFMAN", true)
+		log.Println("        0=None&None (store), 1=LZ&HUFFMAN, 2=TEXT+UTF+FSD+LZX&HUFFMAN", true)
 		log.Println("        3=TEXT+UTF+FSD+ROLZ, 4=TEXT+UTF+FSD+ROLZX, 5=TEXT+UTF+BWT+RANK+ZRLT&ANS0", true)
 		log.Println("        6=TEXT+UTF+UTF+BWT+SRT+ZRLT&FPAQ, 7=LZP+TEXT+BWT+LZP&CM, 8=EXE+RLT+TEXT+UTF&TPAQ", true)
 		log.Println("        9=EXE+RLT+TEXT+UTF&TPAQX\n", true)
