@@ -661,7 +661,8 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
 			dt := val.(kanzi.DataType)
 
-			if dt != kanzi.DT_UNDEFINED && dt != kanzi.DT_TEXT {
+			// Filter out most types. Still check binaries which may contain significant parts of text
+			if dt != kanzi.DT_UNDEFINED && dt != kanzi.DT_TEXT && dt != kanzi.DT_BIN {
 				return 0, 0, fmt.Errorf("Input is not text, skip")
 			}
 		}
@@ -1182,7 +1183,8 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
 			dt := val.(kanzi.DataType)
 
-			if dt != kanzi.DT_UNDEFINED && dt != kanzi.DT_TEXT {
+			// Filter out most types. Still check binaries which may contain significant parts of text
+			if dt != kanzi.DT_UNDEFINED && dt != kanzi.DT_TEXT && dt != kanzi.DT_BIN {
 				return 0, 0, fmt.Errorf("Input is not text, skip")
 			}
 		}
