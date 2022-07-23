@@ -591,22 +591,34 @@ func (this *HuffmanDecoder) Read(block []byte) (int, error) {
 			padding++
 		}
 
-		endChunk4 := startChunk
+		endChunk2 := startChunk
 
 		if endChunk > startChunk+padding {
-			endChunk4 += ((endChunk - startChunk - padding) & -4)
+			endChunk2 += ((endChunk - startChunk - padding) & -2)
 		}
 
-		for i := startChunk; i < endChunk4; i += 4 {
-			this.fetchBits()
-			block[i] = this.decodeByte()
-			block[i+1] = this.decodeByte()
-			block[i+2] = this.decodeByte()
-			block[i+3] = this.decodeByte()
+		n := byte(0)
+		st := uint64(0)
+
+		for i := startChunk; i < endChunk2; i += 2 {
+			if n < 32 {
+				st = (st << 32) | this.bitstream.ReadBits(32)
+				n += 32
+			}
+
+			val0 := this.table[int(st>>(n-_HUF_DECODING_BATCH_SIZE))&_HUF_DECODING_MASK]
+			n -= byte(val0)
+			val1 := this.table[int(st>>(n-_HUF_DECODING_BATCH_SIZE))&_HUF_DECODING_MASK]
+			n -= byte(val1)
+			block[i] = byte(val0 >> 8)
+			block[i+1] = byte(val1 >> 8)
 		}
+
+		this.bits = n
+		this.state = st
 
 		// Fallback to regular decoding
-		for i := endChunk4; i < endChunk; i++ {
+		for i := endChunk2; i < endChunk; i++ {
 			block[i] = this.slowDecodeByte()
 		}
 
@@ -638,18 +650,6 @@ func (this *HuffmanDecoder) slowDecodeByte() byte {
 	}
 
 	panic(errors.New("Invalid bitstream: incorrect Huffman code"))
-}
-
-func (this *HuffmanDecoder) fetchBits() {
-	read := this.bitstream.ReadBits(uint(64 - this.bits))
-	this.state = (this.state << (64 - this.bits)) | read
-	this.bits = 64
-}
-
-func (this *HuffmanDecoder) decodeByte() byte {
-	val := this.table[int(this.state>>(this.bits-_HUF_DECODING_BATCH_SIZE))&_HUF_DECODING_MASK]
-	this.bits -= byte(val)
-	return byte(val >> 8)
 }
 
 // BitStream returns the underlying bitstream
