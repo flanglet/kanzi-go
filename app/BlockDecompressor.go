@@ -208,14 +208,15 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	nbFiles := len(files)
 	var msg string
 
-	if this.verbosity > 2 {
-		if nbFiles > 1 {
-			msg = fmt.Sprintf("%d files to decompress\n", nbFiles)
-		} else {
-			msg = fmt.Sprintf("%d file to decompress\n", nbFiles)
-		}
+	if nbFiles > 1 {
+		msg = fmt.Sprintf("%d files to decompress\n", nbFiles)
+	} else {
+		msg = fmt.Sprintf("%d file to decompress\n", nbFiles)
+	}
 
-		log.Println(msg, this.verbosity > 0)
+	log.Println(msg, this.verbosity > 0)
+
+	if this.verbosity > 2 {
 		msg = fmt.Sprintf("Verbosity set to %v", this.verbosity)
 		log.Println(msg, true)
 		msg = fmt.Sprintf("Overwrite set to %t", this.overwrite)
