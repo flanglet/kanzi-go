@@ -189,7 +189,14 @@ func createCompressedOutputStreamWithCtx(obs kanzi.OutputBitStream, ctx map[stri
 	this.obs = obs
 
 	// Check entropy type validity (panic on error)
-	this.entropyType = entropy.GetType(entropyCodec)
+	var eType uint32
+	var err error
+
+	if eType, err = entropy.GetType(entropyCodec); err != nil {
+		return nil, &IOError{msg: err.Error(), code: kanzi.ERR_CREATE_STREAM}
+	}
+
+	this.entropyType = eType
 
 	// Check transform type validity (panic on error)
 	this.transformType = transform.GetType(t)
@@ -880,10 +887,10 @@ func (this *CompressedInputStream) readHeader() error {
 	}
 
 	this.ctx["bsVersion"] = bsVersion
+	var err error
 
 	// Read block checksum
 	if this.ibs.ReadBit() == 1 {
-		var err error
 		this.hasher, err = hash.NewXXHash32(_BITSTREAM_TYPE)
 
 		if err != nil {
@@ -893,12 +900,26 @@ func (this *CompressedInputStream) readHeader() error {
 
 	// Read entropy codec
 	this.entropyType = uint32(this.ibs.ReadBits(5))
-	this.ctx["codec"] = entropy.GetName(this.entropyType)
+	var eType string
+
+	if eType, err = entropy.GetName(this.entropyType); err != nil {
+		errMsg := fmt.Sprintf("Invalid bitstream, invalid entropy type: %d", this.entropyType)
+		return &IOError{msg: errMsg, code: kanzi.ERR_INVALID_CODEC}
+	}
+
+	this.ctx["codec"] = eType
 	this.ctx["extra"] = this.entropyType == entropy.TPAQX_TYPE
 
 	// Read transforms: 8*6 bits
 	this.transformType = this.ibs.ReadBits(48)
-	this.ctx["transform"] = transform.GetName(this.transformType)
+	var tType string
+
+	if tType, err = transform.GetName(this.transformType); err != nil {
+		errMsg := fmt.Sprintf("Invalid bitstream, invalid transform type: %d", this.transformType)
+		return &IOError{msg: errMsg, code: kanzi.ERR_INVALID_CODEC}
+	}
+
+	this.ctx["transform"] = tType
 
 	// Read block size
 	this.blockSize = int(this.ibs.ReadBits(28)) << 4
@@ -925,14 +946,14 @@ func (this *CompressedInputStream) readHeader() error {
 		msg := ""
 		msg += fmt.Sprintf("Checksum set to %v\n", this.hasher != nil)
 		msg += fmt.Sprintf("Block size set to %d bytes\n", this.blockSize)
-		w1 := entropy.GetName(this.entropyType)
+		w1, _ := entropy.GetName(this.entropyType)
 
 		if w1 == "NONE" {
 			w1 = "no"
 		}
 
 		msg += fmt.Sprintf("Using %v entropy codec (stage 1)\n", w1)
-		w2 := transform.GetName(this.transformType)
+		w2, _ := transform.GetName(this.transformType)
 
 		if w2 == "NONE" {
 			w2 = "no"

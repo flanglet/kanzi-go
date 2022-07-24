@@ -122,73 +122,73 @@ func NewEntropyEncoder(obs kanzi.OutputBitStream, ctx map[string]interface{},
 }
 
 // GetName returns the name of the entropy codec given its type
-func GetName(entropyType uint32) string {
+func GetName(entropyType uint32) (string, error) {
 	switch entropyType {
 
 	case HUFFMAN_TYPE:
-		return "HUFFMAN"
+		return "HUFFMAN", nil
 
 	case ANS0_TYPE:
-		return "ANS0"
+		return "ANS0", nil
 
 	case ANS1_TYPE:
-		return "ANS1"
+		return "ANS1", nil
 
 	case RANGE_TYPE:
-		return "RANGE"
+		return "RANGE", nil
 
 	case FPAQ_TYPE:
-		return "FPAQ"
+		return "FPAQ", nil
 
 	case CM_TYPE:
-		return "CM"
+		return "CM", nil
 
 	case TPAQ_TYPE:
-		return "TPAQ"
+		return "TPAQ", nil
 
 	case TPAQX_TYPE:
-		return "TPAQX"
+		return "TPAQX", nil
 
 	case NONE_TYPE:
-		return "NONE"
+		return "NONE", nil
 
 	default:
-		panic(fmt.Errorf("Unsupported entropy codec type: '%c'", entropyType))
+		return "", fmt.Errorf("Unsupported entropy codec type: '%c'", entropyType)
 	}
 }
 
 // GetType returns the type of the entropy codec given its name
-func GetType(entropyName string) uint32 {
+func GetType(entropyName string) (uint32, error) {
 	switch strings.ToUpper(entropyName) {
 
 	case "HUFFMAN":
-		return HUFFMAN_TYPE
+		return HUFFMAN_TYPE, nil
 
 	case "ANS0":
-		return ANS0_TYPE
+		return ANS0_TYPE, nil
 
 	case "ANS1":
-		return ANS1_TYPE
+		return ANS1_TYPE, nil
 
 	case "RANGE":
-		return RANGE_TYPE
+		return RANGE_TYPE, nil
 
 	case "FPAQ":
-		return FPAQ_TYPE
+		return FPAQ_TYPE, nil
 
 	case "CM":
-		return CM_TYPE
+		return CM_TYPE, nil
 
 	case "TPAQ":
-		return TPAQ_TYPE
+		return TPAQ_TYPE, nil
 
 	case "TPAQX":
-		return TPAQX_TYPE
+		return TPAQX_TYPE, nil
 
 	case "NONE":
-		return NONE_TYPE
+		return NONE_TYPE, nil
 
 	default:
-		panic(fmt.Errorf("Unsupported entropy codec type: '%s'", entropyName))
+		return 0, fmt.Errorf("Unsupported entropy codec type: '%v'", entropyName)
 	}
 }

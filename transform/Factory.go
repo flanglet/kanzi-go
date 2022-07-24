@@ -167,8 +167,10 @@ func newToken(ctx *map[string]interface{}, functionType uint64) (kanzi.ByteTrans
 }
 
 // GetName transforms the function type into a function name
-func GetName(functionType uint64) string {
+func GetName(functionType uint64) (string, error) {
 	var s string
+	var name string
+	var err error
 
 	for i := uint(0); i < 8; i++ {
 		t := (functionType >> (_BFF_MAX_SHIFT - _BFF_ONE_SHIFT*i)) & _BFF_MASK
@@ -177,7 +179,9 @@ func GetName(functionType uint64) string {
 			continue
 		}
 
-		name := getByteFunctionNameToken(t)
+		if name, err = getByteFunctionNameToken(t); err != nil {
+			return "", err
+		}
 
 		if len(s) != 0 {
 			s += "+"
@@ -187,68 +191,72 @@ func GetName(functionType uint64) string {
 	}
 
 	if len(s) == 0 {
-		s += getByteFunctionNameToken(NONE_TYPE)
+		if name, err = getByteFunctionNameToken(NONE_TYPE); err != nil {
+			return "", err
+		}
+
+		s += name
 	}
 
-	return s
+	return s, nil
 }
 
-func getByteFunctionNameToken(functionType uint64) string {
+func getByteFunctionNameToken(functionType uint64) (string, error) {
 	switch functionType {
 
 	case DICT_TYPE:
-		return "TEXT"
+		return "TEXT", nil
 
 	case ROLZ_TYPE:
-		return "ROLZ"
+		return "ROLZ", nil
 
 	case ROLZX_TYPE:
-		return "ROLZX"
+		return "ROLZX", nil
 
 	case BWT_TYPE:
-		return "BWT"
+		return "BWT", nil
 
 	case BWTS_TYPE:
-		return "BWTS"
+		return "BWTS", nil
 
 	case LZ_TYPE:
-		return "LZ"
+		return "LZ", nil
 
 	case LZX_TYPE:
-		return "LZX"
+		return "LZX", nil
 
 	case LZP_TYPE:
-		return "LZP"
+		return "LZP", nil
 
 	case UTF_TYPE:
-		return "UTF"
+		return "UTF", nil
 
 	case EXE_TYPE:
-		return "EXE"
+		return "EXE", nil
 
 	case FSD_TYPE:
-		return "FSD"
+		return "FSD", nil
 
 	case ZRLT_TYPE:
-		return "ZRLT"
+		return "ZRLT", nil
 
 	case RLT_TYPE:
-		return "RLT"
+		return "RLT", nil
 
 	case SRT_TYPE:
-		return "SRT"
+		return "SRT", nil
 
 	case RANK_TYPE:
-		return "RANK"
+		return "RANK", nil
 
 	case MTFT_TYPE:
-		return "MTFT"
+		return "MTFT", nil
 
 	case NONE_TYPE:
-		return "NONE"
+		return "NONE", nil
 
 	default:
-		panic(fmt.Errorf("Unknown transform type: '%v'", functionType))
+		return "", fmt.Errorf("Unknown transform type: '%v'", functionType)
 	}
 }
 

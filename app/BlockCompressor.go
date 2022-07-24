@@ -149,8 +149,15 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 		}
 	}
 
+	var t string
+	var err error
+
 	// Extract transform names. Curate input (EG. NONE+NONE+xxxx => xxxx)
-	this.transform = transform.GetName(transform.GetType(strTransf))
+	if t, err = transform.GetName(transform.GetType(strTransf)); err != nil {
+		return nil, err
+	}
+
+	this.transform = t
 
 	if check, prst := argsMap["checksum"]; prst == true {
 		this.checksum = check.(bool)
