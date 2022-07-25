@@ -571,6 +571,10 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	var is util.BufferStream
 	dstEnd := int(binary.BigEndian.Uint32(src[0:])) - 4
 
+	if dstEnd <= 0 || dstEnd > len(dst) {
+		return 0, 0, errors.New("ROLZ codec: Invalid input data")
+	}
+
 	if _, err := is.Write(src[4:]); err != nil {
 		return 0, 0, err
 	}
@@ -1110,6 +1114,11 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 // written and possibly an error.
 func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	dstEnd := int(binary.BigEndian.Uint32(src[0:]))
+
+	if dstEnd <= 0 || dstEnd > len(dst) {
+		return 0, 0, errors.New("ROLZX codec: Invalid input data")
+	}
+
 	sizeChunk := len(dst)
 
 	if sizeChunk > _ROLZ_CHUNK_SIZE {
