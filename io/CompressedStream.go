@@ -216,6 +216,8 @@ func createCompressedOutputStreamWithCtx(obs kanzi.OutputBitStream, ctx map[stri
 
 	if nbBlocks >= _MAX_CONCURRENCY {
 		this.nbInputBlocks = _MAX_CONCURRENCY - 1
+	} else if nbBlocks == 0 {
+		this.nbInputBlocks = 1
 	} else {
 		this.nbInputBlocks = nbBlocks
 	}
@@ -282,7 +284,7 @@ func (this *CompressedOutputStream) RemoveListener(bl kanzi.Listener) bool {
 }
 
 func (this *CompressedOutputStream) writeHeader() *IOError {
-	cksum := 0
+	cksum := uint32(0)
 
 	if this.hasher != nil {
 		cksum = 1
@@ -316,8 +318,17 @@ func (this *CompressedOutputStream) writeHeader() *IOError {
 		return &IOError{msg: "Cannot write number of blocks to header", code: kanzi.ERR_WRITE_FILE}
 	}
 
-	if this.obs.WriteBits(0, 4) != 4 {
-		return &IOError{msg: "Cannot write reserved bits to header", code: kanzi.ERR_WRITE_FILE}
+	HASH := uint32(0x1E35A7BD)
+	cksum = HASH * _BITSTREAM_FORMAT_VERSION
+	cksum ^= (HASH * uint32(this.entropyType))
+	cksum ^= (HASH * uint32(this.transformType>>32))
+	cksum ^= (HASH * uint32(this.transformType))
+	cksum ^= (HASH * uint32(this.blockSize))
+	cksum ^= (HASH * uint32(this.nbInputBlocks))
+	cksum = (cksum >> 23) ^ (cksum >> 3)
+
+	if this.obs.WriteBits(uint64(cksum), 4) != 4 {
+		return &IOError{msg: "Cannot write checksum to header", code: kanzi.ERR_WRITE_FILE}
 	}
 
 	return nil
@@ -939,8 +950,25 @@ func (this *CompressedInputStream) readHeader() error {
 		this.nbInputBlocks = _UNKNOWN_NB_BLOCKS
 	}
 
-	// Read reserved bits
-	this.ibs.ReadBits(4)
+	// Read checksum
+	cksum1 := uint32(this.ibs.ReadBits(4))
+
+	if bsVersion >= 3 {
+		// Verify checksum from bitstream version 3
+		HASH := uint32(0x1E35A7BD)
+		var cksum2 uint32
+		cksum2 = HASH * uint32(bsVersion)
+		cksum2 ^= (HASH * uint32(this.entropyType))
+		cksum2 ^= (HASH * uint32(this.transformType>>32))
+		cksum2 ^= (HASH * uint32(this.transformType))
+		cksum2 ^= (HASH * uint32(this.blockSize))
+		cksum2 ^= (HASH * uint32(this.nbInputBlocks))
+		cksum2 = (cksum2 >> 23) ^ (cksum2 >> 3)
+
+		if cksum1 != (cksum2 & 0x0F) {
+			return &IOError{msg: "Invalid bitstream: corrupted header", code: kanzi.ERR_INVALID_FILE}
+		}
+	}
 
 	if len(this.listeners) > 0 {
 		msg := ""
