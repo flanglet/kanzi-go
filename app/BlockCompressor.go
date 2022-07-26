@@ -606,12 +606,12 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 		if output, err = os.OpenFile(outputName, os.O_RDWR, 0666); err == nil {
 			// File exists
 			if err = output.Close(); err != nil {
-				fmt.Printf("Cannot create output file '%v': error closing existing file\n", outputName)
+				fmt.Printf("Cannot create output file '%s': error closing existing file\n", outputName)
 				return kanzi.ERR_OVERWRITE_FILE, 0, 0
 			}
 
 			if overwrite == false {
-				fmt.Printf("File '%v' exists and the 'force' command ", outputName)
+				fmt.Printf("File '%s' exists and the 'force' command ", outputName)
 				fmt.Println("line option has not been provided")
 				return kanzi.ERR_OVERWRITE_FILE, 0, 0
 			}
@@ -636,7 +636,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 			}
 
 			if err != nil {
-				fmt.Printf("Cannot open output file '%v' for writing: %v\n", outputName, err)
+				fmt.Printf("Cannot open output file '%s' for writing: %v\n", outputName, err)
 				return kanzi.ERR_CREATE_FILE, 0, 0
 			}
 		}
@@ -671,7 +671,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 		var err error
 
 		if input, err = os.Open(inputName); err != nil {
-			fmt.Printf("Cannot open input file '%v': %v\n", inputName, err)
+			fmt.Printf("Cannot open input file '%s': %v\n", inputName, err)
 			return kanzi.ERR_OPEN_FILE, 0, 0
 		}
 
@@ -702,7 +702,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 
 	for length > 0 {
 		if err != nil {
-			fmt.Printf("Failed to read block from file '%v': %v\n", inputName, err)
+			fmt.Printf("Failed to read block from file '%s': %v\n", inputName, err)
 			return kanzi.ERR_READ_FILE, read, cos.GetWritten()
 		}
 
@@ -722,7 +722,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 	}
 
 	if read == 0 {
-		msg = fmt.Sprintf("Input file %v is empty ... nothing to do", inputName)
+		msg = fmt.Sprintf("Input file %s is empty ... nothing to do", inputName)
 		log.Println(msg, verbosity > 0)
 		output.Close()
 		os.Remove(outputName) // best effort to delete output file, ignore return code

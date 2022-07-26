@@ -26,9 +26,9 @@ type NullOutputStream struct {
 
 // NewNullOutputStream creates an instance of NullOutputStream
 func NewNullOutputStream() (*NullOutputStream, error) {
-	bos := new(NullOutputStream)
-	bos.closed = false
-	return bos, nil
+	this := new(NullOutputStream)
+	this.closed = false
+	return this, nil
 }
 
 // Write panics if the stream is closed else does nothing.

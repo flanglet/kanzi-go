@@ -457,7 +457,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 		if output, err = os.OpenFile(outputName, os.O_RDWR, 0666); err == nil {
 			// File exists
 			if overwrite == false {
-				fmt.Printf("File '%v' exists and the 'force' command ", outputName)
+				fmt.Printf("File '%s' exists and the 'force' command ", outputName)
 				fmt.Println("line option has not been provided")
 				return kanzi.ERR_OVERWRITE_FILE, 0
 			}
@@ -481,7 +481,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 				}
 
 				if err != nil {
-					fmt.Printf("Cannot open output file '%v' for writing: %v\n", outputName, err)
+					fmt.Printf("Cannot open output file '%s' for writing: %v\n", outputName, err)
 					return kanzi.ERR_CREATE_FILE, 0
 				}
 			}
@@ -509,7 +509,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 		var err error
 
 		if input, err = os.Open(inputName); err != nil {
-			fmt.Printf("Cannot open input file '%v': %v\n", inputName, err)
+			fmt.Printf("Cannot open input file '%s': %v\n", inputName, err)
 			return kanzi.ERR_OPEN_FILE, uint64(read)
 		}
 
