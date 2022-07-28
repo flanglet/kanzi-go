@@ -18,7 +18,7 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -895,13 +895,20 @@ func createFileList(target string, fileList []FileData) ([]FileData, error) {
 		// Remove suffix
 		target = target[0 : len(target)-1]
 
-		var files []os.FileInfo
-		files, err = ioutil.ReadDir(target)
+		var files []fs.DirEntry
+		files, err = os.ReadDir(target)
 
 		if err == nil {
-			for _, fi := range files {
-				if fi.Mode().IsRegular() && fi.Name()[0] != '.' {
-					fileList = append(fileList, *NewFileData(target+fi.Name(), fi.Size()))
+			for _, de := range files {
+				if de.Type().IsRegular() && de.Name()[0] != '.' {
+					var fi fs.FileInfo
+					fi, err = de.Info()
+
+					if err != nil {
+						break
+					}
+
+					fileList = append(fileList, *NewFileData(target+de.Name(), fi.Size()))
 				}
 			}
 		}

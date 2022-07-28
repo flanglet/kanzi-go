@@ -413,7 +413,7 @@ func (this *CompressedOutputStream) Close() error {
 
 	// Release resources
 	for i := range this.buffers {
-		this.buffers[i] = blockBuffer{Buf: make([]byte, 0, 0)}
+		this.buffers[i] = blockBuffer{Buf: make([]byte, 0)}
 	}
 
 	return nil
@@ -726,6 +726,7 @@ func notifyListeners(listeners []kanzi.Listener, evt *kanzi.Event) {
 	defer func() {
 		//nolint
 		if r := recover(); r != nil {
+			//lint:ignore SA9003
 			// Ignore panics in block listeners
 		}
 	}()
