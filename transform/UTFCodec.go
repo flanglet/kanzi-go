@@ -417,11 +417,9 @@ func packUTF(in []byte, out *uint32) int {
 
 	case 3:
 		*out = (2 << 21) | ((uint32(in[0]) & 0x0F) << 12) | ((uint32(in[1]) & 0x3F) << 6) | (uint32(in[2]) & 0x3F)
-		break
 
 	case 4:
 		*out = (3 << 21) | ((uint32(in[0]) & 0x07) << 18) | ((uint32(in[1]) & 0x3F) << 12) | ((uint32(in[2]) & 0x3F) << 6) | (uint32(in[3]) & 0x3F)
-		break
 
 	default:
 		*out = 0
