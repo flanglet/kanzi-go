@@ -702,6 +702,10 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		dstIdx = 0
 		mm := 8
 
+		if bsVersion < 3 {
+			mm = 2
+		}
+
 		if startChunk >= dstEnd {
 			mm = dstEnd - startChunk
 		}
@@ -1126,17 +1130,21 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	this.minMatch = _ROLZ_MIN_MATCH3
+	srcIdx := 4
 	bsVersion := uint(3)
 
 	if val, containsKey := (*this.ctx)["bsVersion"]; containsKey {
 		bsVersion = val.(uint)
 	}
 
-	if bsVersion >= 3 && src[4] == 1 {
-		this.minMatch = _ROLZ_MIN_MATCH7
+	if bsVersion >= 3 {
+		if src[4] == 1 {
+			this.minMatch = _ROLZ_MIN_MATCH7
+		}
+
+		srcIdx++
 	}
 
-	srcIdx := 5
 	dstIdx := 0
 	startChunk := 0
 	rd, _ := newRolzDecoder(9, this.logPosChecks, src, &srcIdx)
@@ -1164,6 +1172,11 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 		// First literals
 		mm := 8
+
+		if bsVersion < 3 {
+			mm = 2
+		}
+
 		rd.setContext(_ROLZ_LITERAL_CTX, 0)
 
 		if startChunk >= dstEnd {
@@ -1176,7 +1189,7 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			// Sanity check
 			if val>>8 == _ROLZ_MATCH_FLAG {
 				dstIdx += startChunk
-				break
+				return uint(srcIdx), uint(dstIdx), errors.New("ROLZX codec: Invalid input data")
 			}
 
 			buf[dstIdx] = byte(val)
@@ -1208,7 +1221,7 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 				// Sanity check
 				if matchLen+3 > dstEnd {
 					dstIdx += startChunk
-					break
+					return uint(srcIdx), uint(dstIdx), errors.New("ROLZX codec: Invalid input data")
 				}
 
 				rd.setContext(_ROLZ_MATCH_CTX, buf[dstIdx-1])
