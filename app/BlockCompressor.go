@@ -631,7 +631,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 		if err != nil {
 			if overwrite {
 				// Attempt to create the full folder hierarchy to file
-				if err = os.MkdirAll(path.Dir(strings.Replace(outputName, "\\", "/", -1)), os.ModePerm); err == nil {
+				if err = os.MkdirAll(path.Dir(strings.ReplaceAll(outputName, "\\", "/")), os.ModePerm); err == nil {
 					output, err = os.Create(outputName)
 				}
 			}
