@@ -334,7 +334,7 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
 	alphabetSize, err := DecodeAlphabet(this.bitstream, this.alphabet[:])
 
 	if err != nil || alphabetSize == 0 {
-		return alphabetSize, nil
+		return alphabetSize, err
 	}
 
 	if alphabetSize != 256 {
