@@ -115,11 +115,11 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 		delete(argsMap, "block")
 
 		if this.blockSize < _COMP_MIN_BLOCK_SIZE {
-			return nil, fmt.Errorf("Minimum block size is %v KB (%v bytes), got %v bytes", _COMP_MIN_BLOCK_SIZE/1024, _COMP_MIN_BLOCK_SIZE, this.blockSize)
+			return nil, fmt.Errorf("Minimum block size is %d KB (%d bytes), got %d bytes", _COMP_MIN_BLOCK_SIZE/1024, _COMP_MIN_BLOCK_SIZE, this.blockSize)
 		}
 
 		if this.blockSize > _COMP_MAX_BLOCK_SIZE {
-			return nil, fmt.Errorf("Maximum block size is %v GB (%v bytes), got %v bytes", _COMP_MAX_BLOCK_SIZE/(1024*1024*1024), _COMP_MAX_BLOCK_SIZE, this.blockSize)
+			return nil, fmt.Errorf("Maximum block size is %d GB (%d bytes), got %d bytes", _COMP_MAX_BLOCK_SIZE/(1024*1024*1024), _COMP_MAX_BLOCK_SIZE, this.blockSize)
 		}
 
 		this.blockSize = ((this.blockSize + 15) >> 4) << 4
@@ -185,7 +185,7 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 		}
 	} else if concurrency > _COMP_MAX_CONCURRENCY {
 		if this.verbosity > 0 {
-			fmt.Printf("Warning: the number of jobs is too high, defaulting to %v\n", _COMP_MAX_CONCURRENCY)
+			fmt.Printf("Warning: the number of jobs is too high, defaulting to %d\n", _COMP_MAX_CONCURRENCY)
 		}
 
 		concurrency = _COMP_MAX_CONCURRENCY
@@ -279,12 +279,12 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 				return ioerr.ErrorCode(), 0
 			}
 
-			fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err.Error())
+			fmt.Printf("An unexpected condition happened. Exiting ...\n%s\n", err.Error())
 			return kanzi.ERR_OPEN_FILE, 0
 		}
 
 		if len(files) == 0 {
-			fmt.Printf("Cannot open input file '%v'\n", this.inputName)
+			fmt.Printf("Cannot open input file '%s'\n", this.inputName)
 			return kanzi.ERR_OPEN_FILE, 0
 		}
 
@@ -302,7 +302,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	if this.verbosity > 2 {
 		msg = fmt.Sprintf("Block size set to %d bytes", this.blockSize)
 		log.Println(msg, true)
-		msg = fmt.Sprintf("Verbosity set to %v", this.verbosity)
+		msg = fmt.Sprintf("Verbosity set to %d", this.verbosity)
 		log.Println(msg, true)
 		msg = fmt.Sprintf("Overwrite set to %t", this.overwrite)
 		log.Println(msg, true)
@@ -356,7 +356,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		fi, err := os.Stat(this.inputName)
 
 		if err != nil {
-			fmt.Printf("Cannot access %v\n", formattedInName)
+			fmt.Printf("Cannot access %s\n", formattedInName)
 			return kanzi.ERR_OPEN_FILE, 0
 		}
 
@@ -368,7 +368,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 			}
 
 			if formattedInName[len(formattedInName)-1] != os.PathSeparator {
-				formattedInName = formattedInName + string([]byte{os.PathSeparator})
+				formattedInName += string([]byte{os.PathSeparator})
 			}
 
 			if len(formattedOutName) > 0 && specialOutput == false {
@@ -385,7 +385,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 				}
 
 				if formattedOutName[len(formattedOutName)-1] != os.PathSeparator {
-					formattedOutName = formattedOutName + string([]byte{os.PathSeparator})
+					formattedOutName += string([]byte{os.PathSeparator})
 				}
 			}
 		} else {
@@ -506,7 +506,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 			msg = fmt.Sprintf("%.0f ms", float64(delta))
 		}
 
-		msg = fmt.Sprintf("Total compression time: %v", msg)
+		msg = fmt.Sprintf("Total compression time: %s", msg)
 		log.Println(msg, this.verbosity > 0)
 
 		if written > 1 {
@@ -752,7 +752,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 		f := float64(cos.GetWritten()) / float64(read)
 
 		if verbosity > 1 {
-			msg = fmt.Sprintf("Compressing:       %v", msg)
+			msg = fmt.Sprintf("Compressing:       %s", msg)
 			log.Println(msg, true)
 			msg = fmt.Sprintf("Input size:        %d", read)
 			log.Println(msg, true)
@@ -763,7 +763,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 		}
 
 		if verbosity == 1 {
-			msg = fmt.Sprintf("Compressing %v: %v => %v (%.2f%%) in %v", inputName, read, cos.GetWritten(), 100*f, msg)
+			msg = fmt.Sprintf("Compressing %s: %d => %d (%.2f%%) in %s", inputName, read, cos.GetWritten(), 100*f, msg)
 			log.Println(msg, true)
 		}
 

@@ -16,6 +16,7 @@ limitations under the License.
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -106,7 +107,7 @@ func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, e
 		}
 	} else if concurrency > _DECOMP_MAX_CONCURRENCY {
 		if this.verbosity > 0 {
-			fmt.Printf("Warning: the number of jobs is too high, defaulting to %v\n", _DECOMP_MAX_CONCURRENCY)
+			fmt.Printf("Warning: the number of jobs is too high, defaulting to %d\n", _DECOMP_MAX_CONCURRENCY)
 		}
 
 		concurrency = _DECOMP_MAX_CONCURRENCY
@@ -196,12 +197,12 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 			return ioerr.ErrorCode(), 0
 		}
 
-		fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err.Error())
+		fmt.Printf("An unexpected condition happened. Exiting ...\n%s\n", err.Error())
 		return kanzi.ERR_OPEN_FILE, 0
 	}
 
 	if len(files) == 0 {
-		fmt.Printf("Cannot open input file '%v'\n", this.inputName)
+		fmt.Printf("Cannot open input file '%s'\n", this.inputName)
 		return kanzi.ERR_OPEN_FILE, 0
 	}
 
@@ -217,7 +218,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	log.Println(msg, this.verbosity > 0)
 
 	if this.verbosity > 2 {
-		msg = fmt.Sprintf("Verbosity set to %v", this.verbosity)
+		msg = fmt.Sprintf("Verbosity set to %d", this.verbosity)
 		log.Println(msg, true)
 		msg = fmt.Sprintf("Overwrite set to %t", this.overwrite)
 		log.Println(msg, true)
@@ -251,7 +252,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	fi, err := os.Stat(this.inputName)
 
 	if err != nil {
-		fmt.Printf("Cannot access %v\n", formattedInName)
+		fmt.Printf("Cannot access %s\n", formattedInName)
 		return kanzi.ERR_OPEN_FILE, 0
 	}
 
@@ -263,7 +264,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 		}
 
 		if formattedInName[len(formattedInName)-1] != os.PathSeparator {
-			formattedInName = formattedInName + string([]byte{os.PathSeparator})
+			formattedInName += string([]byte{os.PathSeparator})
 		}
 
 		if len(formattedOutName) > 0 && specialOutput == false {
@@ -280,7 +281,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 			}
 
 			if formattedOutName[len(formattedOutName)-1] != os.PathSeparator {
-				formattedOutName = formattedOutName + string([]byte{os.PathSeparator})
+				formattedOutName += string([]byte{os.PathSeparator})
 			}
 		}
 	} else {
@@ -399,7 +400,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 			msg = fmt.Sprintf("%.0f ms", float64(delta))
 		}
 
-		msg = fmt.Sprintf("Total decompression time: %v", msg)
+		msg = fmt.Sprintf("Total decompression time: %s", msg)
 		log.Println(msg, this.verbosity > 0)
 
 		if read > 1 {
@@ -547,7 +548,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 				return ioerr.ErrorCode(), uint64(read)
 			}
 
-			if err != io.EOF {
+			if errors.Is(err, io.EOF) {
 				fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err)
 				return kanzi.ERR_PROCESS_BLOCK, uint64(read)
 			}
@@ -557,7 +558,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 			_, err = output.Write(buffer[0:decoded])
 
 			if err != nil {
-				fmt.Printf("Failed to write decompressed block to file '%v': %v\n", outputName, err)
+				fmt.Printf("Failed to write decompressed block to file '%s': %v\n", outputName, err)
 				return kanzi.ERR_WRITE_FILE, uint64(read)
 			}
 
@@ -585,7 +586,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 		}
 
 		if verbosity > 1 {
-			msg = fmt.Sprintf("Decompressing:     %v", msg)
+			msg = fmt.Sprintf("Decompressing:     %s", msg)
 			log.Println(msg, true)
 			msg = fmt.Sprintf("Input size:        %d", cis.GetRead())
 			log.Println(msg, true)
@@ -594,7 +595,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 		}
 
 		if verbosity == 1 {
-			msg = fmt.Sprintf("Decompressing %v: %v => %v in %v", inputName, cis.GetRead(), read, msg)
+			msg = fmt.Sprintf("Decompressing %s: %d => %d in %s", inputName, cis.GetRead(), read, msg)
 			log.Println(msg, true)
 		}
 
