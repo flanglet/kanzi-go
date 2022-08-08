@@ -69,7 +69,7 @@ func NewAdaptiveProbMap(mapType int, n, rate uint) (AdaptiveProbMap, error) {
 	return nil, errors.New("Unknow APM type")
 }
 
-func newLogisticAdaptiveProbMap(n, rate uint) (AdaptiveProbMap, error) {
+func newLogisticAdaptiveProbMap(n, rate uint) (*LogisticAdaptiveProbMap, error) {
 	this := &LogisticAdaptiveProbMap{}
 	size := n * 33
 
@@ -107,7 +107,7 @@ func (this *LogisticAdaptiveProbMap) Get(bit int, pr int, ctx int) int {
 	return (int(this.data[this.index+1])*w + int(this.data[this.index])*(128-w)) >> 11
 }
 
-func newFastLogisticAdaptiveProbMap(n, rate uint) (AdaptiveProbMap, error) {
+func newFastLogisticAdaptiveProbMap(n, rate uint) (*FastLogisticAdaptiveProbMap, error) {
 	this := &FastLogisticAdaptiveProbMap{}
 	this.data = make([]uint16, n*32)
 	this.rate = rate
