@@ -149,11 +149,15 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 		}
 	}
 
-	var t string
-	var err error
-
 	// Extract transform names. Curate input (EG. NONE+NONE+xxxx => xxxx)
-	if t, err = transform.GetName(transform.GetType(strTransf)); err != nil {
+	var t string
+	name, err := transform.GetType(strTransf)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if t, err = transform.GetName(name); err != nil {
 		return nil, err
 	}
 
@@ -437,7 +441,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		results := make(chan fileCompressResult, nbFiles)
 		cancel := make(chan bool, 1)
 
-		jobsPerTask := kanzi.ComputeJobsPerTask(make([]uint, nbFiles), this.jobs, uint(nbFiles))
+		jobsPerTask, _ := kanzi.ComputeJobsPerTask(make([]uint, nbFiles), this.jobs, uint(nbFiles))
 		sort.Sort(FileCompare{data: files, sortBySize: true})
 
 		// Create one task per file

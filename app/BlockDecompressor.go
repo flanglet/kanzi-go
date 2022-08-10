@@ -333,7 +333,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 		results := make(chan fileDecompressResult, nbFiles)
 		cancel := make(chan bool, 1)
 
-		jobsPerTask := kanzi.ComputeJobsPerTask(make([]uint, nbFiles), this.jobs, uint(nbFiles))
+		jobsPerTask, _ := kanzi.ComputeJobsPerTask(make([]uint, nbFiles), this.jobs, uint(nbFiles))
 		sort.Sort(FileCompare{data: files, sortBySize: true})
 
 		for i, f := range files {

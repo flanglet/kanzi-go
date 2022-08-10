@@ -15,9 +15,7 @@ limitations under the License.
 
 package io
 
-import (
-	"errors"
-)
+import kanzi "github.com/flanglet/kanzi-go"
 
 // NullOutputStream similar to io.Discard but implements io.WriteCloser
 type NullOutputStream struct {
@@ -26,21 +24,21 @@ type NullOutputStream struct {
 
 // NewNullOutputStream creates an instance of NullOutputStream
 func NewNullOutputStream() (*NullOutputStream, error) {
-	this := new(NullOutputStream)
+	this := &NullOutputStream{}
 	this.closed = false
 	return this, nil
 }
 
-// Write panics if the stream is closed else does nothing.
+// Write returns an error if the stream is closed else does nothing.
 func (this *NullOutputStream) Write(b []byte) (n int, err error) {
 	if this.closed == true {
-		panic(errors.New("Stream closed"))
+		return 0, &IOError{msg: "Stream closed", code: kanzi.ERR_WRITE_FILE}
 	}
 
 	return len(b), nil
 }
 
-// Close makes the stream unavailable for further writes
+// Close makes the stream unavailable for future writes
 func (this *NullOutputStream) Close() error {
 	this.closed = true
 	return nil

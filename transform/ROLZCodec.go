@@ -168,9 +168,7 @@ func (this *ROLZCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	if len(src) > _ROLZ_MAX_BLOCK_SIZE {
-		// Not a recoverable error: instead of a (silent) failure,
-		// issue a fatal error.
-		panic(fmt.Errorf("The max ROLZ codec block size is %d, got %d", _ROLZ_MAX_BLOCK_SIZE, len(src)))
+		return 0, 0, fmt.Errorf("The max ROLZ codec block size is %d, got %d", _ROLZ_MAX_BLOCK_SIZE, len(src))
 	}
 
 	return this.delegate.Forward(src, dst)
@@ -189,9 +187,7 @@ func (this *ROLZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	if len(src) > _ROLZ_MAX_BLOCK_SIZE {
-		// Not a recoverable error: instead of a (silent) failure,
-		// issue a fatal error.
-		panic(fmt.Errorf("The max ROLZ codec block size is %d, got %d", _ROLZ_MAX_BLOCK_SIZE, len(src)))
+		return 0, 0, fmt.Errorf("The max ROLZ codec block size is %d, got %d", _ROLZ_MAX_BLOCK_SIZE, len(src))
 	}
 
 	return this.delegate.Inverse(src, dst)

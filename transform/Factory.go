@@ -162,7 +162,7 @@ func newToken(ctx *map[string]interface{}, functionType uint64) (kanzi.ByteTrans
 		return NewNullTransformWithCtx(ctx)
 
 	default:
-		return nil, fmt.Errorf("Unknown transform type: '%v'", functionType)
+		return nil, fmt.Errorf("Unknown transform type: '%d'", functionType)
 	}
 }
 
@@ -256,32 +256,42 @@ func getByteFunctionNameToken(functionType uint64) (string, error) {
 		return "NONE", nil
 
 	default:
-		return "", fmt.Errorf("Unknown transform type: '%v'", functionType)
+		return "", fmt.Errorf("Unknown transform type: '%d'", functionType)
 	}
 }
 
 // GetType transforms the function name into a function type.
 // The returned type contains 8 transform type values (masks).
-func GetType(name string) uint64 {
+func GetType(name string) (uint64, error) {
 	if strings.IndexByte(name, byte('+')) < 0 {
-		return getByteFunctionTypeToken(name) << _BFF_MAX_SHIFT
+		res, err := getByteFunctionTypeToken(name)
+
+		if err != nil {
+			return 0, err
+		}
+
+		return res << _BFF_MAX_SHIFT, nil
 	}
 
 	tokens := strings.Split(name, "+")
 
 	if len(tokens) == 0 {
-		panic(fmt.Errorf("Unknown transform type: '%v'", name))
+		return 0, fmt.Errorf("Unknown transform type: '%s'", name)
 	}
 
 	if len(tokens) > 8 {
-		panic(fmt.Errorf("Only 8 transforms allowed: '%v'", name))
+		return 0, fmt.Errorf("Only 8 transforms allowed: '%s'", name)
 	}
 
 	res := uint64(0)
 	shift := _BFF_MAX_SHIFT
 
 	for _, token := range tokens {
-		tkType := getByteFunctionTypeToken(token)
+		tkType, err := getByteFunctionTypeToken(token)
+
+		if err != nil {
+			return 0, err
+		}
 
 		// Skip null transform
 		if tkType != NONE_TYPE {
@@ -290,66 +300,66 @@ func GetType(name string) uint64 {
 		}
 	}
 
-	return res
+	return res, nil
 }
 
-func getByteFunctionTypeToken(name string) uint64 {
+func getByteFunctionTypeToken(name string) (uint64, error) {
 	name = strings.ToUpper(name)
 
 	switch name {
 
 	case "TEXT":
-		return DICT_TYPE
+		return DICT_TYPE, nil
 
 	case "BWT":
-		return BWT_TYPE
+		return BWT_TYPE, nil
 
 	case "BWTS":
-		return BWTS_TYPE
+		return BWTS_TYPE, nil
 
 	case "ROLZ":
-		return ROLZ_TYPE
+		return ROLZ_TYPE, nil
 
 	case "ROLZX":
-		return ROLZX_TYPE
+		return ROLZX_TYPE, nil
 
 	case "LZ":
-		return LZ_TYPE
+		return LZ_TYPE, nil
 
 	case "LZX":
-		return LZX_TYPE
+		return LZX_TYPE, nil
 
 	case "LZP":
-		return LZP_TYPE
+		return LZP_TYPE, nil
 
 	case "UTF":
-		return UTF_TYPE
+		return UTF_TYPE, nil
 
 	case "FSD":
-		return FSD_TYPE
+		return FSD_TYPE, nil
 
 	case "SRT":
-		return SRT_TYPE
+		return SRT_TYPE, nil
 
 	case "RANK":
-		return RANK_TYPE
+		return RANK_TYPE, nil
 
 	case "MTFT":
-		return MTFT_TYPE
+		return MTFT_TYPE, nil
 
 	case "ZRLT":
-		return ZRLT_TYPE
+		return ZRLT_TYPE, nil
 
 	case "RLT":
-		return RLT_TYPE
+		return RLT_TYPE, nil
 
 	case "EXE":
-		return EXE_TYPE
+		return EXE_TYPE, nil
 
 	case "NONE":
-		return NONE_TYPE
+		return NONE_TYPE, nil
 
 	default:
-		panic(fmt.Errorf("Unknown transform type: '%v'", name))
+		return 0, fmt.Errorf("Unknown transform type: '%s'", name)
 	}
 }

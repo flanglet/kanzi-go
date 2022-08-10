@@ -198,8 +198,13 @@ func createCompressedOutputStreamWithCtx(obs kanzi.OutputBitStream, ctx map[stri
 
 	this.entropyType = eType
 
-	// Check transform type validity (panic on error)
-	this.transformType = transform.GetType(t)
+	// Check transform type validity
+	this.transformType, err = transform.GetType(t)
+
+	if err != nil {
+		return nil, &IOError{msg: err.Error(), code: kanzi.ERR_CREATE_STREAM}
+	}
+
 	this.blockSize = int(bSize)
 	this.available = 0
 	nbBlocks := _UNKNOWN_NB_BLOCKS
@@ -447,7 +452,7 @@ func (this *CompressedOutputStream) processBlock() error {
 			nbTasks = this.nbInputBlocks
 		}
 
-		jobsPerTask = kanzi.ComputeJobsPerTask(make([]uint, nbTasks), uint(this.jobs), uint(nbTasks))
+		jobsPerTask, _ = kanzi.ComputeJobsPerTask(make([]uint, nbTasks), uint(this.jobs), uint(nbTasks))
 	} else {
 		jobsPerTask = []uint{uint(this.jobs)}
 	}
@@ -518,12 +523,12 @@ func (this *CompressedOutputStream) GetWritten() uint64 {
 // Encode mode + transformed entropy coded data
 // mode | 0b10000000 => copy block
 //      | 0b0yy00000 => size(size(block))-1
-//      | 0b000y0000 => 1 if more than 4 transforms
-//  case 4 transforms or less
-//      | 0b0000yyyy => transform sequence skip flags (1 means skip)
-//  case more than 4 transforms
-//      | 0b00000000
-//      then 0byyyyyyyy => transform sequence skip flags (1 means skip)
+//	    | 0b000y0000 => 1 if more than 4 transforms
+//	case 4 transforms or less
+//	    | 0b0000yyyy => transform sequence skip flags (1 means skip)
+//	case more than 4 transforms
+//	    | 0b00000000
+//	    then 0byyyyyyyy => transform sequence skip flags (1 means skip)
 func (this *encodingTask) encode(res *encodingTaskResult) {
 	data := this.iBuffer.Buf
 	buffer := this.oBuffer.Buf
@@ -1121,7 +1126,7 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 				nbTasks = this.nbInputBlocks
 			}
 
-			jobsPerTask = kanzi.ComputeJobsPerTask(make([]uint, nbTasks), uint(this.jobs), uint(nbTasks))
+			jobsPerTask, _ = kanzi.ComputeJobsPerTask(make([]uint, nbTasks), uint(this.jobs), uint(nbTasks))
 		} else {
 			jobsPerTask = []uint{uint(this.jobs)}
 		}
@@ -1222,12 +1227,12 @@ func (this *CompressedInputStream) GetRead() uint64 {
 // Decode mode + transformed entropy coded data
 // mode | 0b10000000 => copy block
 //      | 0b0yy00000 => size(size(block))-1
-//      | 0b000y0000 => 1 if more than 4 transforms
-//  case 4 transforms or less
-//      | 0b0000yyyy => transform sequence skip flags (1 means skip)
-//  case more than 4 transforms
-//      | 0b00000000
-//      then 0byyyyyyyy => transform sequence skip flags (1 means skip)
+//	    | 0b000y0000 => 1 if more than 4 transforms
+//	case 4 transforms or less
+//	    | 0b0000yyyy => transform sequence skip flags (1 means skip)
+//	case more than 4 transforms
+//	    | 0b00000000
+//	    then 0byyyyyyyy => transform sequence skip flags (1 means skip)
 func (this *decodingTask) decode(res *decodingTaskResult) {
 	data := this.iBuffer.Buf
 	buffer := this.oBuffer.Buf

@@ -84,7 +84,7 @@ var LOG2_4096 = [...]uint32{
 	32628, 32651, 32675, 32698, 32722, 32745, 32768,
 }
 
-//  65536 /(1 + exp(-alpha*x)) with alpha ~= 0.54
+// 65536 /(1 + exp(-alpha*x)) with alpha ~= 0.54
 var _INV_EXP = [33]int{
 	0, 8, 22, 47, 88, 160, 283, 492,
 	848, 1451, 2459, 4117, 6766, 10819, 16608, 24127,
@@ -451,13 +451,13 @@ func DetectSimpleType(count int, freqs0 []int) DataType {
 // ComputeJobsPerTask computes the number of jobs associated with each task
 // given a number of jobs available and a number of tasks to perform.
 // The provided 'jobsPerTask' slice is returned as result.
-func ComputeJobsPerTask(jobsPerTask []uint, jobs, tasks uint) []uint {
+func ComputeJobsPerTask(jobsPerTask []uint, jobs, tasks uint) ([]uint, error) {
 	if tasks == 0 {
-		panic("Invalid number of tasks provided: 0")
+		return jobsPerTask, errors.New("Invalid number of tasks provided: 0")
 	}
 
 	if jobs == 0 {
-		panic("Invalid number of jobs provided: 0")
+		return jobsPerTask, errors.New("Invalid number of jobs provided: 0")
 	}
 
 	var q, r uint
@@ -486,5 +486,5 @@ func ComputeJobsPerTask(jobsPerTask []uint, jobs, tasks uint) []uint {
 		}
 	}
 
-	return jobsPerTask
+	return jobsPerTask, nil
 }

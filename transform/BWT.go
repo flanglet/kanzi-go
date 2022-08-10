@@ -129,16 +129,12 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 
 	count := len(src)
 
-	if count > MaxBWTBlockSize() {
-		// Not a recoverable error: instead of silently fail the transform,
-		// issue a fatal error.
-		errMsg := fmt.Sprintf("The max BWT block size is %v, got %v", MaxBWTBlockSize(), count)
-		panic(errors.New(errMsg))
+	if count > _BWT_MAX_BLOCK_SIZE {
+		return 0, 0, fmt.Errorf("The max BWT block size is %d, got %d", _BWT_MAX_BLOCK_SIZE, count)
 	}
 
 	if count > len(dst) {
-		errMsg := fmt.Sprintf("Block size is %v, output buffer length is %v", count, len(dst))
-		return 0, 0, errors.New(errMsg)
+		return 0, 0, fmt.Errorf("Block size is %v, output buffer length is %v", count, len(dst))
 	}
 
 	if count < 2 {
@@ -180,16 +176,12 @@ func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 
 	count := len(src)
 
-	if count > MaxBWTBlockSize() {
-		// Not a recoverable error: instead of silently fail the transform,
-		// issue a fatal error.
-		errMsg := fmt.Sprintf("The max BWT block size is %v, got %v", MaxBWTSBlockSize(), count)
-		panic(errors.New(errMsg))
+	if count > _BWT_MAX_BLOCK_SIZE {
+		return 0, 0, fmt.Errorf("The max BWT block size is %d, got %d", _BWT_MAX_BLOCK_SIZE, count)
 	}
 
 	if count > len(dst) {
-		errMsg := fmt.Sprintf("BWT inverse failed: output buffer size is %v, expected %v", count, len(dst))
-		return 0, 0, errors.New(errMsg)
+		return 0, 0, fmt.Errorf("BWT inverse failed: output buffer size is %d, expected %d", count, len(dst))
 	}
 
 	if count < 2 {
@@ -477,7 +469,7 @@ func (this *BWT) inverseBiPSIv2(src, dst []byte, count int) (uint, uint, error) 
 		nbTasks = chunks
 	}
 
-	jobsPerTask := kanzi.ComputeJobsPerTask(make([]uint, nbTasks), uint(chunks), uint(nbTasks))
+	jobsPerTask, _ := kanzi.ComputeJobsPerTask(make([]uint, nbTasks), uint(chunks), uint(nbTasks))
 	var wg sync.WaitGroup
 
 	for j, c := 0, 0; j < nbTasks; j++ {
@@ -581,11 +573,6 @@ func (this *BWT) inverseBiPSIv2Task(dst []byte, buckets []int, fastBits []uint16
 		start = end
 		c++
 	}
-}
-
-// MaxBWTBlockSize returns the maximum size of a block to transform
-func MaxBWTBlockSize() int {
-	return _BWT_MAX_BLOCK_SIZE
 }
 
 // GetBWTChunks returns the number of chunks for a given block size

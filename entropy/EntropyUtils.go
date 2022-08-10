@@ -240,11 +240,9 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 		}
 
 		if absDelta*100 < freqs[idxMax]*5 {
-			// Fast path: just adjust the max frequency (or fallback to slow path)
-			if freqs[idxMax] > delta {
-				freqs[idxMax] -= delta
-				return alphabetSize, nil
-			}
+			// Fast path: just adjust the max frequency
+			freqs[idxMax] -= delta
+			return alphabetSize, nil
 		}
 
 		// Slow path: spread error across frequencies

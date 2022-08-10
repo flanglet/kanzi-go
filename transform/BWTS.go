@@ -65,18 +65,13 @@ func (this *BWTS) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	count := len(src)
-	count32 := int32(count)
 
-	if count > MaxBWTSBlockSize() {
-		// Not a recoverable error: instead of silently fail the transform,
-		// issue a fatal error.
-		errMsg := fmt.Sprintf("The max BWTS block size is %v, got %v", MaxBWTSBlockSize(), count)
-		panic(errors.New(errMsg))
+	if count > _BWTS_MAX_BLOCK_SIZE {
+		return 0, 0, fmt.Errorf("The max BWTS block size is %d, got %d", _BWTS_MAX_BLOCK_SIZE, count)
 	}
 
 	if count > len(dst) {
-		errMsg := fmt.Sprintf("Block size is %v, output buffer length is %v", count, len(dst))
-		return 0, 0, errors.New(errMsg)
+		return 0, 0, fmt.Errorf("Block size is %d, output buffer length is %d", count, len(dst))
 	}
 
 	if count < 2 {
@@ -116,6 +111,7 @@ func (this *BWTS) Forward(src, dst []byte) (uint, uint, error) {
 
 	min := isa[0]
 	idxMin := int32(0)
+	count32 := int32(count)
 
 	for i := int32(1); i < count32 && min > 0; i++ {
 		if isa[i] >= min {
@@ -223,16 +219,12 @@ func (this *BWTS) Inverse(src, dst []byte) (uint, uint, error) {
 
 	count := len(src)
 
-	if count > MaxBWTSBlockSize() {
-		// Not a recoverable error: instead of silently fail the transform,
-		// issue a fatal error.
-		errMsg := fmt.Sprintf("The max BWTS block size is %v, got %v", MaxBWTSBlockSize(), count)
-		panic(errors.New(errMsg))
+	if count > _BWTS_MAX_BLOCK_SIZE {
+		return 0, 0, fmt.Errorf("The max BWTS block size is %d, got %d", _BWTS_MAX_BLOCK_SIZE, count)
 	}
 
 	if count > len(dst) {
-		errMsg := fmt.Sprintf("Block size is %v, output buffer length is %v", count, len(dst))
-		return 0, 0, errors.New(errMsg)
+		return 0, 0, fmt.Errorf("Block size is %d, output buffer length is %d", count, len(dst))
 	}
 
 	if count < 2 {
@@ -293,11 +285,6 @@ func (this *BWTS) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	return uint(count), uint(count), nil
-}
-
-// MaxBWTSBlockSize returns the maximum size of a block to transform
-func MaxBWTSBlockSize() int {
-	return _BWTS_MAX_BLOCK_SIZE
 }
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
