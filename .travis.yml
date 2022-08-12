@@ -1,7 +1,7 @@
 language: go
 
 install: 
-   - cd app 
+   - cd v2/app
    - go build -gcflags='all=-B' Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
    - cd ..
 
