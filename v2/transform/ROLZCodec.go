@@ -722,7 +722,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			matchLen := int(mode & 0x07)
 
 			if matchLen == 7 {
-				ml, deltaIdx := readLengthROLZ(lenBuf[lenIdx:])
+				ml, deltaIdx := readLengthROLZ(lenBuf[lenIdx : lenIdx+4])
 				lenIdx += deltaIdx
 				matchLen = ml + 7
 			}
@@ -732,7 +732,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			if mode < 0xF8 {
 				litLen = int(mode >> 3)
 			} else {
-				ll, deltaIdx := readLengthROLZ(lenBuf[lenIdx:])
+				ll, deltaIdx := readLengthROLZ(lenBuf[lenIdx : lenIdx+4])
 				lenIdx += deltaIdx
 				litLen = ll + 31
 			}
@@ -855,9 +855,8 @@ func emitLengthROLZ(block []byte, litLen int) int {
 
 // return litLen, idx
 func readLengthROLZ(lenBuf []byte) (int, int) {
-	idx := 0
-	next := lenBuf[idx]
-	idx++
+	next := lenBuf[0]
+	idx := 1
 	litLen := int(next & 0x7F)
 
 	if next >= 128 {
