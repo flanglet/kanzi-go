@@ -129,25 +129,10 @@ Kanzi version 2.1 Go implementation. Block size is 100 MB. 1 thread
 Build
 -----
 
-There are no dependencies, making the project easy to build.
+It is recommended to use formal releases (see https://github.com/flanglet/kanzi-go/releases).
 
-**Option 1: go get** 
+Else, to build manually from the latest tag, follow the instructions below:
 
-~~~
-cd $GOPATH
-
-go get github.com/flanglet/kanzi-go
-
-cd src/github.com/flanglet/kanzi-go/app
-
-go build Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
-~~~
-
-
-
-**Option 2: git clone** 
-
-~~~
 cd $GOPATH/src
 
 mkdir github.com; cd github.com
@@ -156,7 +141,7 @@ mkdir flanglet; cd flanglet
 
 git clone https://github.com/flanglet/kanzi-go.git
 
-cd kanzi-go/app
+cd kanzi-go/v2/app
 
 go build Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
 ~~~
