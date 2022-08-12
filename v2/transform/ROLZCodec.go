@@ -591,8 +591,10 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	this.minMatch = _ROLZ_MIN_MATCH3
 	bsVersion := uint(3)
 
-	if val, containsKey := (*this.ctx)["bsVersion"]; containsKey {
-		bsVersion = val.(uint)
+	if this.ctx != nil {
+		if val, containsKey := (*this.ctx)["bsVersion"]; containsKey {
+			bsVersion = val.(uint)
+		}
 	}
 
 	if bsVersion >= 3 {
@@ -1129,8 +1131,10 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	srcIdx := 4
 	bsVersion := uint(3)
 
-	if val, containsKey := (*this.ctx)["bsVersion"]; containsKey {
-		bsVersion = val.(uint)
+	if this.ctx != nil {
+		if val, containsKey := (*this.ctx)["bsVersion"]; containsKey {
+			bsVersion = val.(uint)
+		}
 	}
 
 	if bsVersion >= 3 {
