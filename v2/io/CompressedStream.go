@@ -522,13 +522,13 @@ func (this *CompressedOutputStream) GetWritten() uint64 {
 
 // Encode mode + transformed entropy coded data
 // mode | 0b10000000 => copy block
-//      | 0b0yy00000 => size(size(block))-1
-//	    | 0b000y0000 => 1 if more than 4 transforms
-//	case 4 transforms or less
-//	    | 0b0000yyyy => transform sequence skip flags (1 means skip)
-//	case more than 4 transforms
-//	    | 0b00000000
-//	    then 0byyyyyyyy => transform sequence skip flags (1 means skip)
+//		| 0b0yy00000 => size(size(block))-1
+//		| 0b000y0000 => 1 if more than 4 transforms
+// case 4 transforms or less
+//		| 0b0000yyyy => transform sequence skip flags (1 means skip)
+// case more than 4 transforms
+//		| 0b00000000
+// then 0byyyyyyyy => transform sequence skip flags (1 means skip)
 func (this *encodingTask) encode(res *encodingTaskResult) {
 	data := this.iBuffer.Buf
 	buffer := this.oBuffer.Buf
@@ -567,14 +567,23 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 		this.blockEntropyType = entropy.NONE_TYPE
 		mode |= byte(_COPY_BLOCK_MASK)
 	} else {
-		if skip, prst := this.ctx["skipBlocks"]; prst == true {
-			if skip.(bool) == true {
-				histo := [256]int{}
-				kanzi.ComputeHistogram(data[0:this.blockLength], histo[:], true, false)
-				entropy1024 := kanzi.ComputeFirstOrderEntropy1024(int(this.blockLength), histo[:])
-				//this.ctx["histo0"] = histo
+		if skipOpt, prst := this.ctx["skipBlocks"]; prst == true {
+			if skipOpt.(bool) == true {
+				skip := false
 
-				if entropy1024 >= entropy.INCOMPRESSIBLE_THRESHOLD {
+				if this.blockLength >= 8 {
+					skip = kanzi.IsDataCompressed(kanzi.GetMagicType(data))
+				}
+
+				if skip == false {
+					histo := [256]int{}
+					kanzi.ComputeHistogram(data[0:this.blockLength], histo[:], true, false)
+					entropy1024 := kanzi.ComputeFirstOrderEntropy1024(int(this.blockLength), histo[:])
+					skip = entropy1024 >= entropy.INCOMPRESSIBLE_THRESHOLD
+					//this.ctx["histo0"] = histo
+				}
+
+				if skip == true {
 					this.blockTransformType = transform.NONE_TYPE
 					this.blockEntropyType = entropy.NONE_TYPE
 					mode |= _COPY_BLOCK_MASK
@@ -1226,13 +1235,13 @@ func (this *CompressedInputStream) GetRead() uint64 {
 
 // Decode mode + transformed entropy coded data
 // mode | 0b10000000 => copy block
-//      | 0b0yy00000 => size(size(block))-1
-//	    | 0b000y0000 => 1 if more than 4 transforms
-//	case 4 transforms or less
-//	    | 0b0000yyyy => transform sequence skip flags (1 means skip)
-//	case more than 4 transforms
-//	    | 0b00000000
-//	    then 0byyyyyyyy => transform sequence skip flags (1 means skip)
+//		| 0b0yy00000 => size(size(block))-1
+//		| 0b000y0000 => 1 if more than 4 transforms
+// case 4 transforms or less
+//		| 0b0000yyyy => transform sequence skip flags (1 means skip)
+// case more than 4 transforms
+//		| 0b00000000
+//		then 0byyyyyyyy => transform sequence skip flags (1 means skip)
 func (this *decodingTask) decode(res *decodingTaskResult) {
 	data := this.iBuffer.Buf
 	buffer := this.oBuffer.Buf
