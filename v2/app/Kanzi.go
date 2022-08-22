@@ -173,6 +173,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 	overwrite := false
 	checksum := false
 	skip := false
+	fileReorder := true
 	from := -1
 	to := -1
 	inputName := ""
@@ -321,6 +322,16 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			}
 
 			checksum = true
+			ctx = -1
+			continue
+		}
+
+		if arg == "--no-file-reorder" {
+			if ctx != -1 {
+				log.Println("Warning: ignoring option ["+_CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
+			}
+
+			fileReorder = false
 			ctx = -1
 			continue
 		}
@@ -672,11 +683,15 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 	}
 
 	if checksum == true {
-		argsMap["checksum"] = checksum
+		argsMap["checksum"] = true
 	}
 
 	if skip == true {
-		argsMap["skipBlocks"] = skip
+		argsMap["skipBlocks"] = true
+	}
+
+	if fileReorder == false {
+		argsMap["fileReorder"] = false
 	}
 
 	argsMap["jobs"] = uint(tasks)

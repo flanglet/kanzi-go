@@ -48,6 +48,7 @@ type BlockCompressor struct {
 	overwrite    bool
 	checksum     bool
 	skipBlocks   bool
+	fileReorder  bool
 	inputName    string
 	outputName   string
 	entropyCodec string
@@ -168,6 +169,13 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 		delete(argsMap, "checksum")
 	} else {
 		this.checksum = false
+	}
+
+	if check, prst := argsMap["fileReorder"]; prst == true {
+		this.fileReorder = check.(bool)
+		delete(argsMap, "fileReorder")
+	} else {
+		this.fileReorder = true
 	}
 
 	this.verbosity = argsMap["verbose"].(uint)
@@ -442,7 +450,10 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		cancel := make(chan bool, 1)
 
 		jobsPerTask, _ := kanzi.ComputeJobsPerTask(make([]uint, nbFiles), this.jobs, uint(nbFiles))
-		sort.Sort(FileCompare{data: files, sortBySize: true})
+
+		if this.fileReorder == true {
+			sort.Sort(FileCompare{data: files, sortBySize: true})
+		}
 
 		// Create one task per file
 		for i, f := range files {
