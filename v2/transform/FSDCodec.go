@@ -94,9 +94,6 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	dstEnd := this.MaxEncodedLen(count)
-	count5 := count / 5
-	count10 := count / 10
-	var in []byte
 	var histo [6][256]int
 	magic := kanzi.GetMagicType(src)
 
@@ -120,28 +117,32 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Check several step values on a sub-block (no memory allocation)
 	// Sample 2 sub-blocks
-	in = src[3*count5 : 3*count5+count]
+	count5 := count / 5
+	count10 := count / 10
+	start := 3 * count5
+	end := start + count10
 
-	for i := 0; i < count10; i++ {
-		b := in[i]
+	for i := start; i < end; i++ {
+		b := src[i]
 		histo[0][b]++
-		histo[1][b^in[i-1]]++
-		histo[2][b^in[i-2]]++
-		histo[3][b^in[i-3]]++
-		histo[4][b^in[i-4]]++
-		histo[5][b^in[i-8]]++
+		histo[1][b^src[i-1]]++
+		histo[2][b^src[i-2]]++
+		histo[3][b^src[i-3]]++
+		histo[4][b^src[i-4]]++
+		histo[5][b^src[i-8]]++
 	}
 
-	in = src[1*count5 : 1*count5+count10]
+	start = 1 * count5
+	end = start + count10
 
-	for i := count10; i < count5; i++ {
-		b := in[i]
+	for i := start; i < end; i++ {
+		b := src[i]
 		histo[0][b]++
-		histo[1][b^in[i-1]]++
-		histo[2][b^in[i-2]]++
-		histo[3][b^in[i-3]]++
-		histo[4][b^in[i-4]]++
-		histo[5][b^in[i-8]]++
+		histo[1][b^src[i-1]]++
+		histo[2][b^src[i-2]]++
+		histo[3][b^src[i-3]]++
+		histo[4][b^src[i-4]]++
+		histo[5][b^src[i-8]]++
 	}
 
 	// Find if entropy is lower post transform
