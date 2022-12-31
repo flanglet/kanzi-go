@@ -23,15 +23,16 @@ import (
 type DataType int
 
 const (
-	DT_UNDEFINED  DataType = 0
-	DT_TEXT       DataType = 1
-	DT_MULTIMEDIA DataType = 2
-	DT_EXE        DataType = 3
-	DT_NUMERIC    DataType = 4
-	DT_BASE64     DataType = 5
-	DT_DNA        DataType = 6
-	DT_BIN        DataType = 7
-	DT_UTF8       DataType = 8
+	DT_UNDEFINED      DataType = 0
+	DT_TEXT           DataType = 1
+	DT_MULTIMEDIA     DataType = 2
+	DT_EXE            DataType = 3
+	DT_NUMERIC        DataType = 4
+	DT_BASE64         DataType = 5
+	DT_DNA            DataType = 6
+	DT_BIN            DataType = 7
+	DT_UTF8           DataType = 8
+	DT_SMALL_ALPHABET DataType = 9
 )
 
 // LOG2 is an array with 256 elements: int(Math.log2(x-1))
@@ -443,6 +444,10 @@ func DetectSimpleType(count int, freqs0 []int) DataType {
 
 	if sum == 256 {
 		return DT_BIN
+	}
+
+	if sum <= 4 {
+		return DT_SMALL_ALPHABET
 	}
 
 	return DT_UNDEFINED

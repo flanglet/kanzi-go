@@ -298,6 +298,8 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 				// Longer min match for DNA input
 				minMatch = _LZX_MIN_MATCH2
 				dst[12] |= 2
+			} else if dt == kanzi.DT_SMALL_ALPHABET {
+				return 0, 0, errors.New("Small alphabet, skip")
 			}
 		}
 	}
