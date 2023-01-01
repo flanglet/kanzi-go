@@ -358,8 +358,8 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 				bestLen = 4 + findMatchLZX(src, srcIdx+4, ref+4, maxMatch)
 			}
 		} else {
-			srcIdx++
 			this.hashes[h0] = int32(srcIdx)
+			srcIdx++
 		}
 
 		// No good match ?
