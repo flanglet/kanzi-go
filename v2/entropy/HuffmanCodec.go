@@ -25,6 +25,7 @@ import (
 
 const (
 	_HUF_LOG_MAX_CHUNK_SIZE  = 14
+	_HUF_MIN_CHUNK_SIZE      = 1024
 	_HUF_MAX_CHUNK_SIZE      = uint(1 << _HUF_LOG_MAX_CHUNK_SIZE)
 	_HUF_MAX_SYMBOL_SIZE     = _HUF_LOG_MAX_CHUNK_SIZE
 	_HUF_DECODING_BATCH_SIZE = 14 // ensures decoding table fits in L1 cache
@@ -115,8 +116,8 @@ func NewHuffmanEncoder(bs kanzi.OutputBitStream, args ...uint) (*HuffmanEncoder,
 	if len(args) == 1 {
 		chkSize = args[0]
 
-		if chkSize < 1024 {
-			return nil, errors.New("Huffman codec: The chunk size must be at least 1024")
+		if chkSize < _HUF_MIN_CHUNK_SIZE {
+			return nil, fmt.Errorf("Huffman codec: The chunk size must be at least %d", _HUF_MIN_CHUNK_SIZE)
 		}
 
 		if chkSize > _HUF_MAX_CHUNK_SIZE {
@@ -124,7 +125,7 @@ func NewHuffmanEncoder(bs kanzi.OutputBitStream, args ...uint) (*HuffmanEncoder,
 		}
 	}
 
-	this := new(HuffmanEncoder)
+	this := &HuffmanEncoder{}
 	this.bitstream = bs
 	this.chunkSize = int(chkSize)
 
