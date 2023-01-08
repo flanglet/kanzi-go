@@ -71,8 +71,12 @@ type fileCompressResult struct {
 func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error) {
 	this := new(BlockCompressor)
 	this.listeners = make([]kanzi.Listener, 0)
-	this.level = argsMap["level"].(int)
-	delete(argsMap, "level")
+	this.level = -1
+
+	if level, prst := argsMap["level"]; prst == true {
+		this.level = level.(int)
+		delete(argsMap, "level")
+	}
 
 	if force, prst := argsMap["overwrite"]; prst == true {
 		this.overwrite = force.(bool)
