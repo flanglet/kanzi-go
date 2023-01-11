@@ -410,7 +410,7 @@ func DetectSimpleType(count int, freqs0 []int) DataType {
 		sum += freqs0[_DNA_SYMBOLS[i]]
 	}
 
-	if sum >= count-count/12 {
+	if sum > count-count/12 {
 		return DT_DNA
 	}
 
@@ -420,7 +420,7 @@ func DetectSimpleType(count int, freqs0 []int) DataType {
 		sum += freqs0[_NUMERIC_SYMBOLS[i]]
 	}
 
-	if sum >= (count/100)*98 {
+	if sum == count {
 		return DT_NUMERIC
 	}
 
@@ -436,8 +436,29 @@ func DetectSimpleType(count int, freqs0 []int) DataType {
 
 	sum = 0
 
-	for i := 0; i < 256; i++ {
+	for i := 0; i < 256; i += 8 {
 		if freqs0[i] > 0 {
+			sum++
+		}
+		if freqs0[i+1] > 0 {
+			sum++
+		}
+		if freqs0[i+2] > 0 {
+			sum++
+		}
+		if freqs0[i+3] > 0 {
+			sum++
+		}
+		if freqs0[i+4] > 0 {
+			sum++
+		}
+		if freqs0[i+5] > 0 {
+			sum++
+		}
+		if freqs0[i+6] > 0 {
+			sum++
+		}
+		if freqs0[i+7] > 0 {
 			sum++
 		}
 	}
