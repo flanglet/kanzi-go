@@ -489,12 +489,14 @@ func NewTextCodecWithCtx(ctx *map[string]interface{}) (*TextCodec, error) {
 	var err error
 	var d kanzi.ByteTransform
 
-	if val, containsKey := (*ctx)["textcodec"]; containsKey {
-		encodingType := val.(int)
+	if ctx != nil {
+		if val, containsKey := (*ctx)["textcodec"]; containsKey {
+			encodingType := val.(int)
 
-		if encodingType == 2 {
-			d, err = newTextCodec2WithCtx(ctx)
-			this.delegate = d
+			if encodingType == 2 {
+				d, err = newTextCodec2WithCtx(ctx)
+				this.delegate = d
+			}
 		}
 	}
 
@@ -569,23 +571,25 @@ func newTextCodec1WithCtx(ctx *map[string]interface{}) (*textCodec1, error) {
 	this := &textCodec1{}
 	log := uint32(13)
 
-	if val, containsKey := (*ctx)["blockSize"]; containsKey {
-		blockSize := val.(uint)
+	if ctx != nil {
+		if val, containsKey := (*ctx)["blockSize"]; containsKey {
+			blockSize := val.(uint)
 
-		if blockSize >= 8 {
-			log, _ = kanzi.Log2(uint32(blockSize / 8))
+			if blockSize >= 8 {
+				log, _ = kanzi.Log2(uint32(blockSize / 8))
 
-			if log > 26 {
-				log = 26
-			} else if log < 13 {
-				log = 13
+				if log > 26 {
+					log = 26
+				} else if log < 13 {
+					log = 13
+				}
 			}
 		}
-	}
 
-	if val, containsKey := (*ctx)["extra"]; containsKey {
-		if val.(bool) == true {
-			log++
+		if val, containsKey := (*ctx)["extra"]; containsKey {
+			if val.(bool) == true {
+				log++
+			}
 		}
 	}
 
@@ -668,8 +672,6 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
-	srcIdx := 0
-	dstIdx := 0
 	freqs0 := [256]int{}
 	mode := computeTextStats(src[0:count], freqs0[:], true)
 
@@ -679,7 +681,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			(*this.ctx)["dataType"] = kanzi.DataType(mode & _TC_MASK_DT)
 		}
 
-		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skip")
+		return 0, 0, errors.New("Input is not text, skip")
 	}
 
 	if this.ctx != nil {
@@ -695,9 +697,9 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 	// DOS encoded end of line (CR+LF) ?
 	this.isCRLF = mode&_TC_MASK_CRLF != 0
-	dst[dstIdx] = mode
-	dstIdx++
-	var err error
+	dst[0] = mode
+	dstIdx := 1
+	srcIdx := 0
 
 	for srcIdx < srcEnd && src[srcIdx] == ' ' {
 		dst[dstIdx] = ' '
@@ -706,6 +708,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		emitAnchor++
 	}
 
+	var err error
 	var delimAnchor int // previous delimiter
 
 	if isText(src[srcIdx]) {
@@ -916,24 +919,23 @@ func emitWordIndex1(dst []byte, val int) int {
 }
 
 func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
-	srcIdx := 0
-	dstIdx := 0
 	this.reset(len(dst))
 	srcEnd := len(src)
 	dstEnd := len(dst)
 	var delimAnchor int // previous delimiter
 
-	if isText(src[srcIdx]) {
-		delimAnchor = srcIdx - 1
+	if isText(src[0]) {
+		delimAnchor = -1
 	} else {
-		delimAnchor = srcIdx
+		delimAnchor = 0
 	}
 
 	words := this.staticDictSize
 	wordRun := false
 	err := error(nil)
-	this.isCRLF = src[srcIdx]&_TC_MASK_CRLF != 0
-	srcIdx++
+	this.isCRLF = src[0]&_TC_MASK_CRLF != 0
+	srcIdx := 1
+	dstIdx := 0
 
 	for srcIdx < srcEnd && dstIdx < dstEnd {
 		cur := src[srcIdx]
@@ -1096,23 +1098,25 @@ func newTextCodec2WithCtx(ctx *map[string]interface{}) (*textCodec2, error) {
 	this := &textCodec2{}
 	log := uint32(13)
 
-	if val, containsKey := (*ctx)["blockSize"]; containsKey {
-		blockSize := val.(uint)
+	if ctx != nil {
+		if val, containsKey := (*ctx)["blockSize"]; containsKey {
+			blockSize := val.(uint)
 
-		if blockSize >= 32 {
-			log, _ = kanzi.Log2(uint32(blockSize / 32))
+			if blockSize >= 32 {
+				log, _ = kanzi.Log2(uint32(blockSize / 32))
 
-			if log > 24 {
-				log = 24
-			} else if log < 13 {
-				log = 13
+				if log > 24 {
+					log = 24
+				} else if log < 13 {
+					log = 13
+				}
 			}
 		}
-	}
 
-	if val, containsKey := (*ctx)["extra"]; containsKey {
-		if val.(bool) == true {
-			log++
+		if val, containsKey := (*ctx)["extra"]; containsKey {
+			if val.(bool) == true {
+				log++
+			}
 		}
 	}
 
@@ -1190,8 +1194,6 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
-	srcIdx := 0
-	dstIdx := 0
 	freqs0 := [256]int{}
 	mode := computeTextStats(src[0:count], freqs0[:], false)
 
@@ -1201,7 +1203,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 			(*this.ctx)["dataType"] = kanzi.DataType(mode & _TC_MASK_DT)
 		}
 
-		return uint(srcIdx), uint(dstIdx), errors.New("Input is not text, skip")
+		return uint(0), uint(0), errors.New("Input is not text, skip")
 	}
 
 	if this.ctx != nil {
@@ -1217,9 +1219,9 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 
 	// DOS encoded end of line (CR+LF) ?
 	this.isCRLF = mode&_TC_MASK_CRLF != 0
-	dst[dstIdx] = mode
-	dstIdx++
-	var err error
+	dst[0] = mode
+	srcIdx := 0
+	dstIdx := 1
 
 	for srcIdx < srcEnd && src[srcIdx] == ' ' {
 		dst[dstIdx] = ' '
@@ -1228,6 +1230,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		emitAnchor++
 	}
 
+	var err error
 	var delimAnchor int // previous delimiter
 
 	if isText(src[srcIdx]) {
@@ -1464,24 +1467,23 @@ func emitWordIndex2(dst []byte, val, mask int) int {
 }
 
 func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
-	srcIdx := 0
-	dstIdx := 0
 	this.reset(len(dst))
-	srcEnd := len(src)
-	dstEnd := len(dst)
 	var delimAnchor int // previous delimiter
 
-	if isText(src[srcIdx]) {
-		delimAnchor = srcIdx - 1
+	if isText(src[0]) {
+		delimAnchor = -1
 	} else {
-		delimAnchor = srcIdx
+		delimAnchor = 0
 	}
 
 	words := this.staticDictSize
 	wordRun := false
-	err := error(nil)
-	this.isCRLF = src[srcIdx]&_TC_MASK_CRLF != 0
-	srcIdx++
+	var err error
+	this.isCRLF = src[0]&_TC_MASK_CRLF != 0
+	srcIdx := 1
+	dstIdx := 0
+	srcEnd := len(src)
+	dstEnd := len(dst)
 
 	for srcIdx < srcEnd && dstIdx < dstEnd {
 		cur := src[srcIdx]
