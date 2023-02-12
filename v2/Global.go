@@ -23,15 +23,16 @@ import (
 type DataType int
 
 const (
-	DT_UNDEFINED  DataType = 0
-	DT_TEXT       DataType = 1
-	DT_MULTIMEDIA DataType = 2
-	DT_EXE        DataType = 3
-	DT_NUMERIC    DataType = 4
-	DT_BASE64     DataType = 5
-	DT_DNA        DataType = 6
-	DT_BIN        DataType = 7
-	DT_UTF8       DataType = 8
+	DT_UNDEFINED      DataType = 0
+	DT_TEXT           DataType = 1
+	DT_MULTIMEDIA     DataType = 2
+	DT_EXE            DataType = 3
+	DT_NUMERIC        DataType = 4
+	DT_BASE64         DataType = 5
+	DT_DNA            DataType = 6
+	DT_BIN            DataType = 7
+	DT_UTF8           DataType = 8
+	DT_SMALL_ALPHABET DataType = 9
 )
 
 // LOG2 is an array with 256 elements: int(Math.log2(x-1))
@@ -409,7 +410,7 @@ func DetectSimpleType(count int, freqs0 []int) DataType {
 		sum += freqs0[_DNA_SYMBOLS[i]]
 	}
 
-	if sum >= count-count/12 {
+	if sum > count-count/12 {
 		return DT_DNA
 	}
 
@@ -419,7 +420,7 @@ func DetectSimpleType(count int, freqs0 []int) DataType {
 		sum += freqs0[_NUMERIC_SYMBOLS[i]]
 	}
 
-	if sum >= (count/100)*98 {
+	if sum == count {
 		return DT_NUMERIC
 	}
 
@@ -435,14 +436,39 @@ func DetectSimpleType(count int, freqs0 []int) DataType {
 
 	sum = 0
 
-	for i := 0; i < 256; i++ {
+	for i := 0; i < 256; i += 8 {
 		if freqs0[i] > 0 {
+			sum++
+		}
+		if freqs0[i+1] > 0 {
+			sum++
+		}
+		if freqs0[i+2] > 0 {
+			sum++
+		}
+		if freqs0[i+3] > 0 {
+			sum++
+		}
+		if freqs0[i+4] > 0 {
+			sum++
+		}
+		if freqs0[i+5] > 0 {
+			sum++
+		}
+		if freqs0[i+6] > 0 {
+			sum++
+		}
+		if freqs0[i+7] > 0 {
 			sum++
 		}
 	}
 
 	if sum == 256 {
 		return DT_BIN
+	}
+
+	if sum <= 4 {
+		return DT_SMALL_ALPHABET
 	}
 
 	return DT_UNDEFINED
