@@ -247,26 +247,27 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 
 		// Slow path: spread error across frequencies
 		queue := make(sortByFreq, alphabetSize)
+		n := 0
 
 		// Create queue of present symbols
 		for i := range queue {
-			queue[i] = &freqSortData{frequencies: freqs, symbol: alphabet[i]}
+			// Do not zero out any frequency
+			if freqs[alphabet[i]] != -inc {
+				queue[n] = &freqSortData{frequencies: freqs, symbol: alphabet[i]}
+				n++
+			}
 		}
 
 		// Sort queue by decreasing frequency
+		queue = queue[0:n]
 		sort.Sort(queue)
 
-		for sumScaledFreq != scale && len(queue) > 0 {
+		for sumScaledFreq != scale {
 			// Remove symbol with highest frequency
 			fsd := queue[0]
 			queue = queue[1:]
 
-			// Do not zero out any frequency
-			if freqs[fsd.symbol] == -inc {
-				continue
-			}
-
-			// Distort frequency
+			// Distort frequency and re-enqueue
 			freqs[fsd.symbol] += inc
 			sumScaledFreq += inc
 			queue = append(queue, fsd)
