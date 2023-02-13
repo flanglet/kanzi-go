@@ -198,7 +198,7 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []int) (int, error) {
 		retries++
 
 		// Normalize to a smaller scale
-		if _, err := NormalizeFrequencies(f[:count], _alphabet[:count], totalFreq, int(_HUF_MAX_CHUNK_SIZE>>(2*retries))); err != nil {
+		if _, err := NormalizeFrequencies(f[:count], _alphabet[:count], totalFreq, int(_HUF_MAX_CHUNK_SIZE>>retries)); err != nil {
 			return count, err
 		}
 
