@@ -37,7 +37,6 @@ Use at your own risk. Always keep a backup of your files.
 
 ![Build Status](https://github.com/flanglet/kanzi-go/actions/workflows/go.yml/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/flanglet/kanzi-go)](https://goreportcard.com/badge/github.com/flanglet/kanzi-go)
-[![Total alerts](https://img.shields.io/lgtm/alerts/g/flanglet/kanzi-go.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/flanglet/kanzi-go/alerts/)
 [![Documentation](https://godoc.org/github.com/flanglet/kanzi-go?status.svg)](http://godoc.org/github.com/flanglet/kanzi-go)
 
 
@@ -63,13 +62,13 @@ Kanzi version 2.1 Go implementation. Block size is 100 MB.
 |Brotli 1.0.9 -2 --large_window=30|        1.5      |       0.8       |    68,033,377    |
 |Pigz 2.6 -9 -p6                  |        3.0      |       0.6       |    67,656,836    |
 |Gzip 1.10 -9                     |       15.5      |       1.0       |    67,631,990    |
+|Brotli 1.0.9 -4 --large_window=30|        4.1      |       0.7       |    64,267,169    |
 |**Kanzi -l 2 -j 1**              |      **3.1**    |     **1.2**     |  **63,808,747**  |
 |**Kanzi -l 2 -j 6**              |      **1.2**    |     **0.5**     |  **63,808,747**  |
-|Brotli 1.0.9 -4 --large_window=30|        4.1      |       0.7       |    64,267,169    |
-|**Kanzi -l 3 -j 1**              |      **5.4**    |     **2.1**     |  **59,199,795**  |
-|**Kanzi -l 3 -j 6**              |      **1.8**    |     **0.8**     |  **59,199,795**  |
 |Zstd 1.5.3 -9 --long=30          |        3.7      |       0.3       |    59,272,590    |
 |Zstd 1.5.3 -9 -T6 --long=30      |        2.3      |       0.3       |    59,272,590    |
+|**Kanzi -l 3 -j 1**              |      **5.4**    |     **2.1**     |  **59,199,795**  |
+|**Kanzi -l 3 -j 6**              |      **1.8**    |     **0.8**     |  **59,199,795**  |
 |Orz 1.5.0                        |        7.7      |       2.0       |    57,564,831    |
 |Brotli 1.0.9 -9 --large_window=30|       36.7      |       0.7       |    56,232,817    |
 |Lzma 5.2.2 -3	                  |       24.1	    |       2.6       |    55,743,540    |
