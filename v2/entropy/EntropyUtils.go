@@ -33,8 +33,8 @@ const (
 )
 
 type freqSortData struct {
-	frequencies []int
-	symbol      int
+	frequency int
+	symbol    int
 }
 
 type sortByFreq []*freqSortData
@@ -47,15 +47,12 @@ func (this sortByFreq) Less(i, j int) bool {
 	di := this[i]
 	dj := this[j]
 
-	// Decreasing frequency
-	res := dj.frequencies[dj.symbol] - di.frequencies[di.symbol]
-
-	if res == 0 {
-		// Decreasing symbol
+	// Decreasing frequency then decreasing symbol
+	if dj.frequency == di.frequency {
 		return dj.symbol < di.symbol
 	}
 
-	return res < 0
+	return dj.frequency < di.frequency
 }
 
 func (this sortByFreq) Swap(i, j int) {
@@ -250,10 +247,9 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 		n := 0
 
 		// Create queue of present symbols
-		for i := range queue {
-			// Do not zero out any frequency
+		for i := 0; i < alphabetSize; i++ {
 			if freqs[alphabet[i]] != -inc {
-				queue[n] = &freqSortData{frequencies: freqs, symbol: alphabet[i]}
+				queue[n] = &freqSortData{frequency: freqs[alphabet[i]], symbol: alphabet[i]}
 				n++
 			}
 		}
@@ -267,12 +263,16 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 			fsd := queue[0]
 			queue = queue[1:]
 
+			// Do not zero out any frequency
+			if fsd.frequency == -inc {
+				continue
+			}
+
 			// Distort frequency and re-enqueue
-			freqs[fsd.symbol] += inc
+			fsd.frequency += inc
 			sumScaledFreq += inc
 			queue = append(queue, fsd)
 		}
-
 	}
 
 	return alphabetSize, nil
