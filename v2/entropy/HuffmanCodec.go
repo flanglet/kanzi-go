@@ -27,8 +27,8 @@ const (
 	_HUF_LOG_MAX_CHUNK_SIZE  = 14
 	_HUF_MIN_CHUNK_SIZE      = 1024
 	_HUF_MAX_CHUNK_SIZE      = uint(1 << _HUF_LOG_MAX_CHUNK_SIZE)
-	_HUF_MAX_SYMBOL_SIZE     = _HUF_LOG_MAX_CHUNK_SIZE
-	_HUF_DECODING_BATCH_SIZE = 14 // ensures decoding table fits in L1 cache
+	_HUF_MAX_SYMBOL_SIZE     = 12
+	_HUF_DECODING_BATCH_SIZE = 12 // 14 or less ensures decoding table fits in L1 cache
 	_HUF_BUFFER_SIZE         = uint(_HUF_MAX_SYMBOL_SIZE<<8) + 256
 	_HUF_DECODING_MASK       = (1 << _HUF_DECODING_BATCH_SIZE) - 1
 )
@@ -592,34 +592,41 @@ func (this *HuffmanDecoder) Read(block []byte) (int, error) {
 			padding++
 		}
 
-		endChunk2 := startChunk
+		endChunk5 := startChunk
+		szChunk := endChunk - startChunk - padding
 
-		if endChunk > startChunk+padding {
-			endChunk2 += ((endChunk - startChunk - padding) & -2)
+		if szChunk > 0 {
+			endChunk5 += (szChunk - szChunk%5)
 		}
 
 		n := byte(0)
 		st := uint64(0)
 
-		for i := startChunk; i < endChunk2; i += 2 {
-			if n < 32 {
-				st = (st << 32) | this.bitstream.ReadBits(32)
-				n += 32
-			}
-
+		for i := startChunk; i < endChunk5; i += 5 {
+			st = (st << (64 - n)) | this.bitstream.ReadBits(uint(64-n))
+			n = 64
 			val0 := this.table[int(st>>(n-_HUF_DECODING_BATCH_SIZE))&_HUF_DECODING_MASK]
 			n -= byte(val0)
 			val1 := this.table[int(st>>(n-_HUF_DECODING_BATCH_SIZE))&_HUF_DECODING_MASK]
 			n -= byte(val1)
+			val2 := this.table[int(st>>(n-_HUF_DECODING_BATCH_SIZE))&_HUF_DECODING_MASK]
+			n -= byte(val2)
+			val3 := this.table[int(st>>(n-_HUF_DECODING_BATCH_SIZE))&_HUF_DECODING_MASK]
+			n -= byte(val3)
+			val4 := this.table[int(st>>(n-_HUF_DECODING_BATCH_SIZE))&_HUF_DECODING_MASK]
+			n -= byte(val4)
 			block[i] = byte(val0 >> 8)
 			block[i+1] = byte(val1 >> 8)
+			block[i+2] = byte(val2 >> 8)
+			block[i+3] = byte(val3 >> 8)
+			block[i+4] = byte(val4 >> 8)
 		}
 
 		this.bits = n
 		this.state = st
 
 		// Fallback to regular decoding
-		for i := endChunk2; i < endChunk; i++ {
+		for i := endChunk5; i < endChunk; i++ {
 			block[i] = this.slowDecodeByte()
 		}
 
