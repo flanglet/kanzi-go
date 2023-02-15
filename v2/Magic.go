@@ -117,8 +117,8 @@ func IsDataCompressed(magic uint) bool {
 		return true
 	case PNG_MAGIC:
 		return true
-	case RIFF_MAGIC:
-		return true
+	//case RIFF_MAGIC: may or may not
+	//	return true
 	case LZMA_MAGIC:
 		return true
 	case ZSTD_MAGIC:
@@ -140,6 +140,58 @@ func IsDataCompressed(magic uint) bool {
 	case XZ_MAGIC:
 		return true
 	case KNZ_MAGIC:
+		return true
+	default:
+	}
+
+	return false
+}
+
+// IsDataMultimedia return true if the provided magic parameter corresponds
+// to a known multimedia data type.
+func IsDataMultimedia(magic uint) bool {
+	switch magic {
+	case JPG_MAGIC:
+		return true
+	case GIF_MAGIC:
+		return true
+	case PNG_MAGIC:
+		return true
+	case RIFF_MAGIC:
+		return true
+	case FLAC_MAGIC:
+		return true
+	case MP3_ID3_MAGIC:
+		return true
+	case BMP_MAGIC:
+		return true
+	case PBM_MAGIC:
+		return true
+	case PGM_MAGIC:
+		return true
+	case PPM_MAGIC:
+		return true
+	default:
+	}
+
+	return false
+}
+
+// IsDataExecutable return true if the provided magic parameter corresponds
+// to a known executable data type.
+func IsDataExecutable(magic uint) bool {
+	switch magic {
+	case ELF_MAGIC:
+		return true
+	case WIN_MAGIC:
+		return true
+	case MAC_MAGIC32:
+		return true
+	case MAC_CIGAM32:
+		return true
+	case MAC_MAGIC64:
+		return true
+	case MAC_CIGAM64:
 		return true
 	default:
 	}
