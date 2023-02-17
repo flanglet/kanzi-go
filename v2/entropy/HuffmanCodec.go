@@ -178,8 +178,8 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []int) (int, error) {
 			break
 		}
 
-		// Rare: some codes exceed the budget for the max code length => normalize
-		// frequencies (it boosts the smallest frequencies) and try once more.
+		// Sometimes, codes exceed the budget for the max code length => normalize
+		// frequencies (boost the smallest frequencies) and try once more.
 		if retries > 2 {
 			return count, fmt.Errorf("Could not generate Huffman codes: max code length (%d bits) exceeded, ", _HUF_MAX_SYMBOL_SIZE)
 		}
@@ -198,7 +198,7 @@ func (this *HuffmanEncoder) updateFrequencies(frequencies []int) (int, error) {
 		retries++
 
 		// Normalize to a smaller scale
-		if _, err := NormalizeFrequencies(f[:count], _alphabet[:count], totalFreq, int(_HUF_MAX_CHUNK_SIZE>>retries)); err != nil {
+		if _, err := NormalizeFrequencies(f[:count], _alphabet[:count], totalFreq, int(_HUF_MAX_CHUNK_SIZE>>(retries+1))); err != nil {
 			return count, err
 		}
 
