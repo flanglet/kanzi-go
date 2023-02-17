@@ -28,7 +28,7 @@ const (
 	_HUF_MIN_CHUNK_SIZE      = 1024
 	_HUF_MAX_CHUNK_SIZE      = uint(1 << _HUF_LOG_MAX_CHUNK_SIZE)
 	_HUF_MAX_SYMBOL_SIZE     = 12
-	_HUF_DECODING_BATCH_SIZE = 12 // 14 or less ensures decoding table fits in L1 cache
+	_HUF_DECODING_BATCH_SIZE = 14 // 14 or less ensures decoding table fits in L1 cache
 	_HUF_BUFFER_SIZE         = uint(_HUF_MAX_SYMBOL_SIZE<<8) + 256
 	_HUF_DECODING_MASK       = (1 << _HUF_DECODING_BATCH_SIZE) - 1
 )
