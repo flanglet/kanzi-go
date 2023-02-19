@@ -196,22 +196,21 @@ func emitLengthLZ(block []byte, length int) int {
 
 func readLengthLZ(block []byte) (int, int) {
 	res := int(block[0])
-	idx := 1
 
 	if res < 254 {
-		return res, idx
+		return res, 1
 	}
 
 	if res == 254 {
-		res += (int(block[idx]) << 8)
-		res += int(block[idx+1])
-		return res, idx + 2
+		res += (int(block[1]) << 8)
+		res += int(block[2])
+		return res, 3
 	}
 
-	res += (int(block[idx]) << 16)
-	res += (int(block[idx+1]) << 8)
-	res += int(block[idx+2])
-	return res, idx + 3
+	res += (int(block[1]) << 16)
+	res += (int(block[2]) << 8)
+	res += int(block[3])
+	return res, 4
 }
 
 func emitLiteralsLZ(src, dst []byte) {
