@@ -617,7 +617,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		if flags&0x0E == 2 {
 			this.minMatch = _ROLZ_MIN_MATCH4
 			delta = 8
-		} else if flags&6 == 4 {
+		} else if flags&0x0E == 4 {
 			this.minMatch = _ROLZ_MIN_MATCH7
 			delta = 8
 		} else if flags&0x0E == 8 {
