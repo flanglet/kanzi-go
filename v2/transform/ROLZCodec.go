@@ -342,18 +342,32 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 	flags := byte(litOrder)
 	this.minMatch = _ROLZ_MIN_MATCH3
+	delta := 2
 
 	if this.ctx != nil {
-		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
-			dt := val.(kanzi.DataType)
+		dt := kanzi.DT_UNDEFINED
 
-			if dt == kanzi.DT_DNA {
-				this.minMatch = _ROLZ_MIN_MATCH7
-				flags |= 4
-			} else if dt == kanzi.DT_MULTIMEDIA {
-				this.minMatch = _ROLZ_MIN_MATCH4
-				flags |= 2
-			}
+		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
+			dt = val.(kanzi.DataType)
+		}
+
+		if dt == kanzi.DT_UNDEFINED {
+			var freqs0 [256]int
+			kanzi.ComputeHistogram(src, freqs0[:], true, false)
+			dt = kanzi.DetectSimpleType(len(src), freqs0[:])
+		}
+
+		if dt == kanzi.DT_EXE {
+			delta = 3
+			flags |= 8
+		} else if dt == kanzi.DT_DNA {
+			delta = 8
+			this.minMatch = _ROLZ_MIN_MATCH7
+			flags |= 4
+		} else if dt == kanzi.DT_MULTIMEDIA {
+			delta = 8
+			this.minMatch = _ROLZ_MIN_MATCH4
+			flags |= 2
 		}
 	}
 
@@ -400,9 +414,9 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			var matchIdx, matchLen int
 
 			if this.minMatch == _ROLZ_MIN_MATCH3 {
-				matchIdx, matchLen = this.findMatch(buf, srcIdx, getKey1(buf[srcIdx-2:]))
+				matchIdx, matchLen = this.findMatch(buf, srcIdx, getKey1(buf[srcIdx-delta:]))
 			} else {
-				matchIdx, matchLen = this.findMatch(buf, srcIdx, getKey2(buf[srcIdx-8:]))
+				matchIdx, matchLen = this.findMatch(buf, srcIdx, getKey2(buf[srcIdx-delta:]))
 			}
 
 			if matchIdx < 0 {
@@ -587,7 +601,9 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		this.counters[i] = 0
 	}
 
-	litOrder := uint(src[4] & 1)
+	flags := src[4]
+	litOrder := uint(flags & 1)
+	delta := 2
 	this.minMatch = _ROLZ_MIN_MATCH3
 	bsVersion := uint(3)
 
@@ -597,10 +613,21 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
-	if bsVersion >= 3 {
-		if src[4]&6 == 2 {
+	if bsVersion >= 4 {
+		if flags&0x0E == 2 {
 			this.minMatch = _ROLZ_MIN_MATCH4
-		} else if src[4]&6 == 4 {
+			delta = 8
+		} else if flags&6 == 4 {
+			this.minMatch = _ROLZ_MIN_MATCH7
+			delta = 8
+		} else if flags&0x0E == 8 {
+			delta = 3
+		}
+
+	} else if bsVersion >= 3 {
+		if flags&6 == 2 {
+			this.minMatch = _ROLZ_MIN_MATCH4
+		} else if flags&6 == 4 {
 			this.minMatch = _ROLZ_MIN_MATCH7
 		}
 	}
@@ -787,9 +814,9 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			var key uint32
 
 			if this.minMatch == _ROLZ_MIN_MATCH3 {
-				key = getKey1(buf[dstIdx-2:])
+				key = getKey1(buf[dstIdx-delta:])
 			} else {
-				key = getKey2(buf[dstIdx-8:])
+				key = getKey2(buf[dstIdx-delta:])
 			}
 
 			m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
@@ -1016,16 +1043,28 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	this.minMatch = _ROLZ_MIN_MATCH3
+	delta := 2
 	flags := byte(0)
 
 	if this.ctx != nil {
-		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
-			dt := val.(kanzi.DataType)
+		dt := kanzi.DT_UNDEFINED
 
-			if dt == kanzi.DT_DNA {
-				this.minMatch = _ROLZ_MIN_MATCH7
-				flags = 1
-			}
+		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
+			dt = val.(kanzi.DataType)
+		}
+
+		if dt == kanzi.DT_UNDEFINED {
+			var freqs0 [256]int
+			kanzi.ComputeHistogram(src, freqs0[:], true, false)
+			dt = kanzi.DetectSimpleType(len(src), freqs0[:])
+		}
+
+		if dt == kanzi.DT_EXE {
+			delta = 3
+			flags |= 8
+		} else if dt == kanzi.DT_DNA {
+			this.minMatch = _ROLZ_MIN_MATCH7
+			flags = 1
 		}
 	}
 
@@ -1067,9 +1106,9 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 			var matchIdx, matchLen int
 
 			if this.minMatch == _ROLZ_MIN_MATCH3 {
-				matchIdx, matchLen = this.findMatch(buf, srcIdx, getKey1(buf[srcIdx-2:]))
+				matchIdx, matchLen = this.findMatch(buf, srcIdx, getKey1(buf[srcIdx-delta:]))
 			} else {
-				matchIdx, matchLen = this.findMatch(buf, srcIdx, getKey2(buf[srcIdx-8:]))
+				matchIdx, matchLen = this.findMatch(buf, srcIdx, getKey2(buf[srcIdx-delta:]))
 			}
 
 			if matchIdx < 0 {
@@ -1129,6 +1168,8 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	this.minMatch = _ROLZ_MIN_MATCH3
 	srcIdx := 4
 	bsVersion := uint(3)
+	flags := src[4]
+	delta := 2
 
 	if this.ctx != nil {
 		if val, containsKey := (*this.ctx)["bsVersion"]; containsKey {
@@ -1136,8 +1177,17 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
-	if bsVersion >= 3 {
-		if src[4] == 1 {
+	if bsVersion >= 4 {
+		if flags&0x0E == 8 {
+			delta = 3
+		} else if flags&0x0E == 4 {
+			delta = 8
+			this.minMatch = _ROLZ_MIN_MATCH7
+		}
+
+		srcIdx++
+	} else if bsVersion >= 3 {
+		if flags == 1 {
 			this.minMatch = _ROLZ_MIN_MATCH7
 		}
 
@@ -1201,9 +1251,9 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			var key uint32
 
 			if this.minMatch == _ROLZ_MIN_MATCH3 {
-				key = getKey1(buf[dstIdx-2:])
+				key = getKey1(buf[dstIdx-delta:])
 			} else {
-				key = getKey2(buf[dstIdx-8:])
+				key = getKey2(buf[dstIdx-delta:])
 			}
 
 			m := this.matches[key<<this.logPosChecks:]
