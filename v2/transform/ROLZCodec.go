@@ -768,8 +768,8 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 				lb := litBuf[litIdx : litIdx+litLen]
 
 				if this.minMatch == _ROLZ_MIN_MATCH3 {
-					d := buf[dstIdx-2:]
-					copy(d[2:], lb)
+					d := buf[dstIdx-delta:]
+					copy(d[delta:], lb)
 
 					for n := range lb {
 						key := getKey1(d[n:])
@@ -778,8 +778,8 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 						m[this.counters[key]] = uint32(dstIdx + n)
 					}
 				} else {
-					d := buf[dstIdx-8:]
-					copy(d[8:], lb)
+					d := buf[dstIdx-delta:]
+					copy(d[delta:], lb)
 
 					for n := range lb {
 						key := getKey2(d[n:])
