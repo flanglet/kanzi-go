@@ -124,7 +124,7 @@ func (this *EXECodec) Forward(src, dst []byte) (uint, uint, error) {
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
 			dt := val.(kanzi.DataType)
 
-			if dt != kanzi.DT_UNDEFINED && dt != kanzi.DT_EXE {
+			if dt != kanzi.DT_UNDEFINED && dt != kanzi.DT_EXE && dt != kanzi.DT_BIN {
 				return 0, 0, fmt.Errorf("Input is not an executable, skip")
 			}
 		}
