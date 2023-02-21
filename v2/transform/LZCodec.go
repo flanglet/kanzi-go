@@ -562,10 +562,17 @@ func (this *LZXCodec) inverseV3(src, dst []byte) (uint, uint, error) {
 	}
 
 	tkIdx := int(binary.LittleEndian.Uint32(src[0:]))
-	mIdx := tkIdx + int(binary.LittleEndian.Uint32(src[4:]))
-	mLenIdx := mIdx + int(binary.LittleEndian.Uint32(src[8:]))
+	mIdx := int(binary.LittleEndian.Uint32(src[4:]))
+	mLenIdx := int(binary.LittleEndian.Uint32(src[8:]))
 
-	if mLenIdx > count {
+	if (tkIdx < 0) || (mIdx < 0)  || (mLenIdx < 0) {
+		return 0, 0, errors.New("LZCodec: inverse transform failed, invalid data")
+	}
+
+	mIdx += tkIdx
+	mLenIdx += mIdx 
+
+	if (tkIdx > count) || (mIdx > count) || (mLenIdx > count) {
 		return 0, 0, errors.New("LZCodec: inverse transform failed, invalid data")
 	}
 
@@ -699,9 +706,15 @@ func (this *LZXCodec) inverseV2(src, dst []byte) (uint, uint, error) {
 
 	count := len(src)
 	tkIdx := int(binary.LittleEndian.Uint32(src[0:]))
-	mIdx := tkIdx + int(binary.LittleEndian.Uint32(src[4:]))
+	mIdx := int(binary.LittleEndian.Uint32(src[4:]))
 
-	if tkIdx > count || mIdx > count {
+	if (tkIdx < 0) || (mIdx < 0) {
+		return 0, 0, errors.New("LZCodec: inverse transform failed, invalid data")
+	}
+
+	mIdx += tkIdx 
+
+	if (tkIdx > count) || (mIdx > count) {
 		return 0, 0, errors.New("LZCodec: inverse transform failed, invalid data")
 	}
 
