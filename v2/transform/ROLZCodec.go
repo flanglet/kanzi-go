@@ -355,6 +355,10 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			var freqs0 [256]int
 			kanzi.ComputeHistogram(src, freqs0[:], true, false)
 			dt = kanzi.DetectSimpleType(len(src), freqs0[:])
+
+			if dt == kanzi.DT_UNDEFINED {
+				(*this.ctx)["dataType"] = dt
+			}
 		}
 
 		if dt == kanzi.DT_EXE {
@@ -1057,6 +1061,10 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 			var freqs0 [256]int
 			kanzi.ComputeHistogram(src, freqs0[:], true, false)
 			dt = kanzi.DetectSimpleType(len(src), freqs0[:])
+
+			if dt == kanzi.DT_UNDEFINED {
+				(*this.ctx)["dataType"] = dt
+			}			
 		}
 
 		if dt == kanzi.DT_EXE {
