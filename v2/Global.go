@@ -392,6 +392,10 @@ func ComputeHistogram(block []byte, freqs []int, isOrder0, withTotal bool) {
 					prv1 = cur1 << 8
 					prv2 = cur2 << 8
 					prv3 = cur3 << 8
+					n0++
+					n1++
+					n2++
+					n3++
 				}
 
 				for ; n3 < length; n3++ {
