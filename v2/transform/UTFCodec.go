@@ -31,18 +31,18 @@ var (
 	_UTF_SIZES = []int{1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 2, 2, 3, 4}
 )
 
-type sd struct {
+type sdUTF struct {
 	sym  int // symbol
 	freq int // frequency
 }
 
-type sortByFreq []*sd
+type sortUTFByFreq []*sdUTF
 
-func (this sortByFreq) Len() int {
+func (this sortUTFByFreq) Len() int {
 	return len(this)
 }
 
-func (this sortByFreq) Less(i, j int) bool {
+func (this sortUTFByFreq) Less(i, j int) bool {
 	if r := this[i].freq - this[j].freq; r != 0 {
 		return r < 0
 	}
@@ -50,7 +50,7 @@ func (this sortByFreq) Less(i, j int) bool {
 	return this[i].sym < this[j].sym
 }
 
-func (this sortByFreq) Swap(i, j int) {
+func (this sortUTFByFreq) Swap(i, j int) {
 	this[i], this[j] = this[j], this[i]
 }
 
@@ -90,6 +90,10 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
+	if len(src) < _UTF_MIN_BLOCKSIZE {
+		return 0, 0, fmt.Errorf("Input block is too small - size: %d, required %d", len(src), _UTF_MIN_BLOCKSIZE)
+	}
+
 	if n := this.MaxEncodedLen(len(src)); len(dst) < n {
 		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
 	}
@@ -121,7 +125,7 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	aliasMap := make([]int, 1<<23) // 2 bit size + (7 or 11 or 16 or 21) bit payload
-	symb := [32768]*sd{}
+	symb := [32768]*sdUTF{}
 	n := 0
 	var err error
 
@@ -135,7 +139,7 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		if aliasMap[val] == 0 {
-			symb[n] = &sd{sym: int(val)}
+			symb[n] = &sdUTF{sym: int(val)}
 			n++
 
 			if n >= 32768 {
@@ -167,7 +171,7 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	// Sort ranks by increasing frequencies
-	sort.Sort(sortByFreq(symb[0:n]))
+	sort.Sort(sortUTFByFreq(symb[0:n]))
 	dstIdx := 2
 
 	// Emit map length then map data
@@ -247,8 +251,8 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, nil
 	}
 
-	if len(src) < _UTF_MIN_BLOCKSIZE {
-		return 0, 0, fmt.Errorf("Input block is too small - size: %d, required %d", len(src), _UTF_MIN_BLOCKSIZE)
+	if len(src) < 4 {
+		return 0, 0, fmt.Errorf("Input block is too small - size: %d, required %d", len(src), 4)
 	}
 
 	if &src[0] == &dst[0] {
