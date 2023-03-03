@@ -189,33 +189,45 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	var err error
 	before := time.Now()
 	files := make([]FileData, 0, 256)
-	files, err = createFileList(this.inputName, files)
-
-	if err != nil {
-		if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
-			fmt.Printf("%s\n", ioerr.Error())
-			return ioerr.ErrorCode(), 0
-		}
-
-		fmt.Printf("An unexpected condition happened. Exiting ...\n%s\n", err.Error())
-		return kanzi.ERR_OPEN_FILE, 0
-	}
-
-	if len(files) == 0 {
-		fmt.Printf("Cannot open input file '%s'\n", this.inputName)
-		return kanzi.ERR_OPEN_FILE, 0
-	}
-
-	nbFiles := len(files)
+	nbFiles := 1
 	var msg string
 
-	if nbFiles > 1 {
-		msg = fmt.Sprintf("%d files to decompress\n", nbFiles)
-	} else {
-		msg = fmt.Sprintf("%d file to decompress\n", nbFiles)
-	}
+	if strings.ToUpper(this.inputName) != "STDIN" {
+		suffix := string([]byte{os.PathSeparator, '.'})
+		target := this.inputName
+		isRecursive := len(target) <= 2 || target[len(target)-len(suffix):] != suffix
 
-	log.Println(msg, this.verbosity > 0)
+		if isRecursive == false {
+			target = target[0 : len(target)-1]
+		}
+
+		files, err = createFileList(this.inputName, files, isRecursive, false)
+
+		if err != nil {
+			if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
+				fmt.Printf("%s\n", ioerr.Error())
+				return ioerr.ErrorCode(), 0
+			}
+
+			fmt.Printf("An unexpected condition happened. Exiting ...\n%s\n", err.Error())
+			return kanzi.ERR_OPEN_FILE, 0
+		}
+
+		if len(files) == 0 {
+			fmt.Printf("Cannot open input file '%s'\n", this.inputName)
+			return kanzi.ERR_OPEN_FILE, 0
+		}
+
+		nbFiles = len(files)
+
+		if nbFiles > 1 {
+			msg = fmt.Sprintf("%d files to decompress\n", nbFiles)
+		} else {
+			msg = fmt.Sprintf("%d file to decompress\n", nbFiles)
+		}
+
+		log.Println(msg, this.verbosity > 0)
+	}
 
 	if this.verbosity > 2 {
 		msg = fmt.Sprintf("Verbosity set to %d", this.verbosity)
@@ -259,7 +271,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	if fi.IsDir() {
 		inputIsDir = true
 
-		if formattedInName[len(formattedInName)-1] == '.' {
+		if formattedInName != "." && formattedInName[len(formattedInName)-1] == '.' {
 			formattedInName = formattedInName[0 : len(formattedInName)-1]
 		}
 

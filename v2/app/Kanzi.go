@@ -53,8 +53,9 @@ var (
 		"-v", "-l", "-s", "-x", "-f", "-h", "-p",
 	}
 
-	mutex sync.Mutex
-	log   = Printer{os: bufio.NewWriter(os.Stdout)}
+	mutex         sync.Mutex
+	log           = Printer{os: bufio.NewWriter(os.Stdout)}
+	pathSeparator = string([]byte{os.PathSeparator})
 )
 
 func main() {
@@ -174,6 +175,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 	checksum := false
 	skip := false
 	fileReorder := true
+	noDotFile := false
 	from := -1
 	to := -1
 	inputName := ""
@@ -331,8 +333,30 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 				log.Println("Warning: ignoring option ["+_CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
 			}
 
-			fileReorder = false
 			ctx = -1
+
+			if mode != "c" {
+				log.Println("Warning: ignoring option ["+arg+"]. Only applicable in compress mode.", verbose > 0)
+				continue
+			}
+
+			fileReorder = false
+			continue
+		}
+
+		if arg == "--no-dot-file" {
+			if ctx != -1 {
+				log.Println("Warning: ignoring option ["+_CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
+			}
+
+			ctx = -1
+
+			if mode != "c" {
+				log.Println("Warning: ignoring option ["+arg+"]. Only applicable in compress mode.", verbose > 0)
+				continue
+			}
+
+			noDotFile = true
 			continue
 		}
 
@@ -694,6 +718,10 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 		argsMap["fileReorder"] = false
 	}
 
+	if noDotFile == true {
+		argsMap["noDotFile"] = true
+	}
+
 	argsMap["jobs"] = uint(tasks)
 
 	if len(cpuProf) > 0 {
@@ -872,27 +900,34 @@ func (this FileCompare) Less(i, j int) bool {
 	return this.data[i].Size > this.data[j].Size
 }
 
-func createFileList(target string, fileList []FileData) ([]FileData, error) {
+func createFileList(target string, fileList []FileData, isRecursive, ignoreDotFile bool) ([]FileData, error) {
 	fi, err := os.Stat(target)
 
 	if err != nil {
 		return fileList, err
 	}
 
-	if fi.Mode().IsRegular() {
-		if fi.Name()[0] != '.' {
-			fileList = append(fileList, *NewFileData(target, fi.Size()))
+	if ignoreDotFile == true {
+		idx := strings.LastIndex(target, pathSeparator)
+		shortName := target
+
+		if idx > 0 {
+			shortName = shortName[idx+1:]
 		}
 
+		if len(shortName) > 0 && shortName[0] == '.' {
+			return fileList, nil
+		}
+	}
+
+	if fi.Mode().IsRegular() {
+		fileList = append(fileList, *NewFileData(target, fi.Size()))
 		return fileList, nil
 	}
 
-	suffix := string([]byte{os.PathSeparator, '.'})
-	isRecursive := len(target) <= 2 || target[len(target)-len(suffix):] != suffix
-
 	if isRecursive {
 		if target[len(target)-1] != os.PathSeparator {
-			target = target + string([]byte{os.PathSeparator})
+			target = target + pathSeparator
 		}
 
 		err = filepath.Walk(target, func(path string, fi os.FileInfo, err error) error {
@@ -900,27 +935,45 @@ func createFileList(target string, fileList []FileData) ([]FileData, error) {
 				return err
 			}
 
-			if fi.Mode().IsRegular() && fi.Name()[0] != '.' {
+			if ignoreDotFile == true {
+				shortName := path
+				idx := strings.Index(shortName, pathSeparator+".")
+
+				if idx > 0 {
+					return nil
+				}
+			}
+
+			if fi.Mode().IsRegular() {
 				fileList = append(fileList, *NewFileData(path, fi.Size()))
 			}
 
 			return err
 		})
 	} else {
-		// Remove suffix
-		target = target[0 : len(target)-1]
-
 		var files []fs.DirEntry
 		files, err = os.ReadDir(target)
 
 		if err == nil {
 			for _, de := range files {
-				if de.Type().IsRegular() && de.Name()[0] != '.' {
+				if de.Type().IsRegular() {
 					var fi fs.FileInfo
-					fi, err = de.Info()
 
-					if err != nil {
+					if fi, err = de.Info(); err != nil {
 						break
+					}
+
+					if ignoreDotFile == true {
+						shortName := de.Name()
+						idx := strings.LastIndex(shortName, pathSeparator)
+
+						if idx > 0 {
+							shortName = shortName[idx+1:]
+						}
+
+						if len(shortName) > 0 && shortName[0] == '.' {
+							continue
+						}
 					}
 
 					fileList = append(fileList, *NewFileData(target+de.Name(), fi.Size()))

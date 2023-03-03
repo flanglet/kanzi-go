@@ -49,6 +49,7 @@ type BlockCompressor struct {
 	checksum     bool
 	skipBlocks   bool
 	fileReorder  bool
+	noDotFile    bool
 	inputName    string
 	outputName   string
 	entropyCodec string
@@ -182,6 +183,13 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 		this.fileReorder = true
 	}
 
+	if check, prst := argsMap["noDotFile"]; prst == true {
+		this.noDotFile = check.(bool)
+		delete(argsMap, "noDotFile")
+	} else {
+		this.noDotFile = false
+	}
+
 	this.verbosity = argsMap["verbose"].(uint)
 	delete(argsMap, "verbose")
 	concurrency := argsMap["jobs"].(uint)
@@ -287,7 +295,15 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	var msg string
 
 	if strings.ToUpper(this.inputName) != "STDIN" {
-		files, err = createFileList(this.inputName, files)
+		suffix := string([]byte{os.PathSeparator, '.'})
+		target := this.inputName
+		isRecursive := len(target) <= 2 || target[len(target)-len(suffix):] != suffix
+
+		if isRecursive == false {
+			target = target[0 : len(target)-1]
+		}
+
+		files, err = createFileList(target, files, isRecursive, this.noDotFile)
 
 		if err != nil {
 			if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
@@ -379,7 +395,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		if fi.IsDir() {
 			inputIsDir = true
 
-			if formattedInName[len(formattedInName)-1] == '.' {
+			if formattedInName != "." && formattedInName[len(formattedInName)-1] == '.' {
 				formattedInName = formattedInName[0 : len(formattedInName)-1]
 			}
 
