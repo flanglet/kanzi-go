@@ -362,7 +362,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		// No good match ?
-		if (bestLen < minMatch) || (bestLen == minMatch && srcIdx-ref >= _LZX_MIN_MATCH_MIN_DIST && srcIdx-ref != repd0) {
+		if bestLen < minMatch {
 			srcIdx++
 			continue
 		}
