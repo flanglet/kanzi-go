@@ -32,8 +32,8 @@ var (
 )
 
 type sdUTF struct {
-	sym  int // symbol
-	freq int // frequency
+	sym  int32 // symbol
+	freq int32 // frequency
 }
 
 type sortUTFByFreq []*sdUTF
@@ -124,7 +124,13 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("UTF forward transform skip: not UTF")
 	}
 
-	aliasMap := make([]int, 1<<23) // 2 bit size + (7 or 11 or 16 or 21) bit payload
+	// 1-3 bit size + (7 or 11 or 16 or 21) bit payload
+	// 3 MSBs indicate symbol size (limit map size to 22 bits)
+	// 000 -> 7 bits
+	// 001 -> 11 bits
+	// 010 -> 16 bits
+	// 1xx -> 21 bits
+	aliasMap := make([]int32, 1<<22)
 	symb := [32768]*sdUTF{}
 	n := 0
 	var err error
@@ -139,7 +145,7 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		if aliasMap[val] == 0 {
-			symb[n] = &sdUTF{sym: int(val)}
+			symb[n] = &sdUTF{sym: int32(val)}
 			n++
 
 			if n >= 32768 {
@@ -184,7 +190,7 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 	for i := 0; i < n; i++ {
 		r := n - 1 - i
 		s := symb[r].sym
-		aliasMap[s] = i
+		aliasMap[s] = int32(i)
 		dst[dstIdx] = byte(s >> 16)
 		dst[dstIdx+1] = byte(s >> 8)
 		dst[dstIdx+2] = byte(s)
@@ -269,19 +275,38 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("UTF inverse transform skip: invalid data")
 	}
 
+	bsVersion := uint(4)
+
+	if val, containsKey := (*this.ctx)["bsVersion"]; containsKey {
+		bsVersion = val.(uint)
+	}
+
+	isBsVersion3 := bsVersion < 4
 	m := [32768]utfSymbol{}
 	srcIdx := 4
 
 	// Build inverse mapping
 	for i := 0; i < n; i++ {
 		s := (uint32(src[srcIdx]) << 16) | (uint32(src[srcIdx+1]) << 8) | uint32(src[srcIdx+2])
-		sl := unpackUTF(s, m[i].value[:])
 
-		if sl == 0 {
-			return 0, 0, errors.New("UTF inverse transform skip: invalid data")
+		if isBsVersion3 == true {
+			sl := unpackUTF0(s, m[i].value[:])
+
+			if sl == 0 {
+				return 0, 0, errors.New("UTF inverse transform skip: invalid data")
+			}
+
+			m[i].length = uint8(sl)
+		} else {
+			sl := unpackUTF1(s, m[i].value[:])
+
+			if sl == 0 {
+				return 0, 0, errors.New("UTF inverse transform skip: invalid data")
+			}
+
+			m[i].length = uint8(sl)
 		}
 
-		m[i].length = uint8(sl)
 		srcIdx += 3
 	}
 
@@ -417,13 +442,16 @@ func packUTF(in []byte, out *uint32) int {
 		*out = uint32(in[0])
 
 	case 2:
-		*out = (1 << 21) | (uint32(in[0]) << 8) | uint32(in[1])
+		*out = (1 << 19) | (uint32(in[0]) << 8) | uint32(in[1])
+		s = 2
 
 	case 3:
-		*out = (2 << 21) | ((uint32(in[0]) & 0x0F) << 12) | ((uint32(in[1]) & 0x3F) << 6) | (uint32(in[2]) & 0x3F)
+		*out = (2 << 19) | ((uint32(in[0]) & 0x0F) << 12) | ((uint32(in[1]) & 0x3F) << 6) | (uint32(in[2]) & 0x3F)
+		s = 3
 
 	case 4:
-		*out = (3 << 21) | ((uint32(in[0]) & 0x07) << 18) | ((uint32(in[1]) & 0x3F) << 12) | ((uint32(in[2]) & 0x3F) << 6) | (uint32(in[3]) & 0x3F)
+		*out = (4 << 19) | ((uint32(in[0]) & 0x07) << 18) | ((uint32(in[1]) & 0x3F) << 12) | ((uint32(in[2]) & 0x3F) << 6) | (uint32(in[3]) & 0x3F)
+		s = 4
 
 	default:
 		*out = 0
@@ -433,7 +461,7 @@ func packUTF(in []byte, out *uint32) int {
 	return s
 }
 
-func unpackUTF(in uint32, out []byte) int {
+func unpackUTF0(in uint32, out []byte) int {
 	s := int(in>>21) + 1
 
 	switch s {
@@ -454,6 +482,41 @@ func unpackUTF(in uint32, out []byte) int {
 		out[1] = byte(((in >> 12) & 0x3F) | 0x80)
 		out[2] = byte(((in >> 6) & 0x3F) | 0x80)
 		out[3] = byte((in & 0x3F) | 0x80)
+
+	default:
+		s = 0 // signal invalid value
+	}
+
+	return s
+}
+
+// Since Kanzi 2.2 (bitstream v4)
+func unpackUTF1(in uint32, out []byte) int {
+	var s int
+	sz := in >> 19
+
+	switch {
+	case sz == 0:
+		out[0] = byte(in)
+		s = 1
+
+	case sz == 1:
+		out[0] = byte(in >> 8)
+		out[1] = byte(in)
+		s = 2
+
+	case sz == 2:
+		out[0] = byte(((in >> 12) & 0x0F) | 0xE0)
+		out[1] = byte(((in >> 6) & 0x3F) | 0x80)
+		out[2] = byte((in & 0x3F) | 0x80)
+		s = 3
+
+	case sz >= 4 && sz <= 7:
+		out[0] = byte(((in >> 18) & 0x07) | 0xF0)
+		out[1] = byte(((in >> 12) & 0x3F) | 0x80)
+		out[2] = byte(((in >> 6) & 0x3F) | 0x80)
+		out[3] = byte((in & 0x3F) | 0x80)
+		s = 4
 
 	default:
 		s = 0 // signal invalid value
