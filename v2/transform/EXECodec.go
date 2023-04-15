@@ -87,8 +87,10 @@ func NewEXECodecWithCtx(ctx *map[string]interface{}) (*EXECodec, error) {
 	this.ctx = ctx
 	bsVersion := uint(2)
 
-	if val, containsKey := (*ctx)["bsVersion"]; containsKey {
-		bsVersion = val.(uint)
+	if ctx != nil {
+		if val, containsKey := (*ctx)["bsVersion"]; containsKey {
+			bsVersion = val.(uint)
+		}
 	}
 
 	this.isBsVersion2 = bsVersion < 3
