@@ -408,6 +408,10 @@ func ComputeHistogram(block []byte, freqs []int, isOrder0, withTotal bool) {
 }
 
 func DetectSimpleType(count int, freqs0 []int) DataType {
+	if count == 0 {
+		return DT_UNDEFINED
+	}
+
 	sum := 0
 
 	for i := 0; i < 12; i++ {
