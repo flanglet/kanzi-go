@@ -62,7 +62,7 @@ func NewEntropyDecoder(ibs kanzi.InputBitStream, ctx map[string]interface{},
 		return NewFPAQDecoder(ibs)
 
 	case CM_TYPE:
-		predictor, _ := NewCMPredictor()
+		predictor, _ := NewCMPredictor(&ctx)
 		return NewBinaryEntropyDecoder(ibs, predictor)
 
 	case TPAQ_TYPE:
@@ -102,7 +102,7 @@ func NewEntropyEncoder(obs kanzi.OutputBitStream, ctx map[string]interface{},
 		return NewFPAQEncoder(obs)
 
 	case CM_TYPE:
-		predictor, _ := NewCMPredictor()
+		predictor, _ := NewCMPredictor(&ctx)
 		return NewBinaryEntropyEncoder(obs, predictor)
 
 	case TPAQ_TYPE:

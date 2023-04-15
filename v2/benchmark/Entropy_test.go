@@ -533,7 +533,7 @@ func BenchmarkCM(b *testing.B) {
 			}
 
 			obs, _ := bitstream.NewDefaultOutputBitStream(&bs, uint(size))
-			predictor, _ := entropy.NewCMPredictor()
+			predictor, _ := entropy.NewCMPredictor(nil)
 			ec, _ := entropy.NewBinaryEntropyEncoder(obs, predictor)
 
 			// Encode
@@ -550,7 +550,7 @@ func BenchmarkCM(b *testing.B) {
 			}
 
 			ibs, _ := bitstream.NewDefaultInputBitStream(&bs, uint(size))
-			predictor, _ = entropy.NewCMPredictor()
+			predictor, _ = entropy.NewCMPredictor(nil)
 			ed, _ := entropy.NewBinaryEntropyDecoder(ibs, predictor)
 
 			// Decode

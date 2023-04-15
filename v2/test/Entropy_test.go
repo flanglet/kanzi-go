@@ -83,7 +83,7 @@ func getPredictor(name string) kanzi.Predictor {
 		return res
 
 	case "CM":
-		res, _ := entropy.NewCMPredictor()
+		res, _ := entropy.NewCMPredictor(nil)
 		return res
 
 	default:

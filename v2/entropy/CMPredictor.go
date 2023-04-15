@@ -23,18 +23,19 @@ const (
 )
 
 type CMPredictor struct {
-	c1       byte
-	c2       byte
-	ctx      int32
-	idx      int
-	runMask  int32
-	counter1 [256][]int32
-	counter2 [512][]int32
-	p        int
+	c1           byte
+	c2           byte
+	ctx          int32
+	idx          int
+	runMask      int32
+	counter1     [256][]int32
+	counter2     [512][]int32
+	p            int
+	isBsVersion3 bool
 }
 
 // NewCMPredictor creates a new instance of CMPredictor
-func NewCMPredictor() (*CMPredictor, error) {
+func NewCMPredictor(ctx *map[string]interface{}) (*CMPredictor, error) {
 	this := &CMPredictor{}
 	this.ctx = 1
 	this.runMask = 0
@@ -60,6 +61,15 @@ func NewCMPredictor() (*CMPredictor, error) {
 	pc1 := this.counter1[this.ctx]
 	this.p = int(13*(pc1[256]+pc1[this.c1])+6*pc1[this.c2]) >> 5
 	this.idx = this.p >> 12
+	bsVersion := uint(4)
+
+	if ctx != nil {
+		if val, containsKey := (*ctx)["bsVersion"]; containsKey {
+			bsVersion = val.(uint)
+		}
+	}
+
+	this.isBsVersion3 = bsVersion < 4
 	return this, nil
 }
 
@@ -67,18 +77,19 @@ func NewCMPredictor() (*CMPredictor, error) {
 func (this *CMPredictor) Update(bit byte) {
 	pc1 := this.counter1[this.ctx]
 	pc2 := this.counter2[this.ctx|this.runMask]
-	this.ctx += (this.ctx + int32(bit))
 
 	if bit == 0 {
 		pc1[256] -= (pc1[256] >> _CM_FAST_RATE)
 		pc1[this.c1] -= (pc1[this.c1] >> _CM_MEDIUM_RATE)
 		pc2[this.idx] -= (pc2[this.idx] >> _CM_SLOW_RATE)
 		pc2[this.idx+1] -= (pc2[this.idx+1] >> _CM_SLOW_RATE)
+		this.ctx += this.ctx
 	} else {
 		pc1[256] -= ((pc1[256] - _CM_PSCALE + 16) >> _CM_FAST_RATE)
 		pc1[this.c1] -= ((pc1[this.c1] - _CM_PSCALE + 16) >> _CM_MEDIUM_RATE)
 		pc2[this.idx] -= ((pc2[this.idx] - _CM_PSCALE + 16) >> _CM_SLOW_RATE)
 		pc2[this.idx+1] -= ((pc2[this.idx+1] - _CM_PSCALE + 16) >> _CM_SLOW_RATE)
+		this.ctx += (this.ctx + 1)
 	}
 
 	if this.ctx > 255 {
@@ -105,6 +116,11 @@ func (this *CMPredictor) Get() int {
 	pc2 := this.counter2[this.ctx|this.runMask]
 	x2 := int(pc2[this.idx+1])
 	x1 := int(pc2[this.idx])
-	ssep := x1 + (((x2 - x1) * (this.p & 4095)) >> 12)
-	return (this.p + 3*ssep + 32) >> 6 // rescale to [0..4095]
+
+	if this.isBsVersion3 == true {
+		ssep := x1 + (((x2 - x1) * (this.p & 4095)) >> 12)
+		return (this.p + 3*ssep + 32) >> 6 // rescale to [0..4095]
+	}
+
+	return (this.p + this.p + 3*(x1+x2) + 64) >> 7 // rescale to [0..4095]
 }
