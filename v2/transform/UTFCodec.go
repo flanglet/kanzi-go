@@ -277,7 +277,7 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 	bsVersion := uint(4)
 
-	if ctx != nil {
+	if this.ctx != nil {
 		if val, containsKey := (*this.ctx)["bsVersion"]; containsKey {
 			bsVersion = val.(uint)
 		}
