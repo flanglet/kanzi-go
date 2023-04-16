@@ -54,8 +54,13 @@ func NewCMPredictor(ctx *map[string]interface{}) (*CMPredictor, error) {
 			this.counter2[i+i+1][j] = int32(j << 12)
 		}
 
-		this.counter2[i+i][16] = int32(15 << 12)
-		this.counter2[i+i+1][16] = int32(15 << 12)
+		if this.isBsVersion3 == true {
+			this.counter2[i+i][16] = int32(15 << 12)
+			this.counter2[i+i+1][16] = int32(15 << 12)
+		} else {
+			this.counter2[i+i][16] = 65535
+			this.counter2[i+i+1][16] = 65535
+		}
 	}
 
 	pc1 := this.counter1[this.ctx]
