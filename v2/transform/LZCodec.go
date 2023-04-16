@@ -42,7 +42,8 @@ const (
 	_LZP_HASH_SEED          = 0x7FEB352D
 	_LZP_HASH_LOG           = 16
 	_LZP_HASH_SHIFT         = 32 - _LZP_HASH_LOG
-	_LZP_MIN_MATCH          = 96
+	_LZP_MIN_MATCH96        = 96
+	_LZP_MIN_MATCH64        = 64
 	_LZP_MATCH_FLAG         = 0xFC
 	_LZP_MIN_BLOCK_LENGTH   = 128
 )
@@ -565,12 +566,12 @@ func (this *LZXCodec) inverseV3(src, dst []byte) (uint, uint, error) {
 	mIdx := int(binary.LittleEndian.Uint32(src[4:]))
 	mLenIdx := int(binary.LittleEndian.Uint32(src[8:]))
 
-	if (tkIdx < 0) || (mIdx < 0)  || (mLenIdx < 0) {
+	if (tkIdx < 0) || (mIdx < 0) || (mLenIdx < 0) {
 		return 0, 0, errors.New("LZCodec: inverse transform failed, invalid data")
 	}
 
 	mIdx += tkIdx
-	mLenIdx += mIdx 
+	mLenIdx += mIdx
 
 	if (tkIdx > count) || (mIdx > count) || (mLenIdx > count) {
 		return 0, 0, errors.New("LZCodec: inverse transform failed, invalid data")
@@ -712,7 +713,7 @@ func (this *LZXCodec) inverseV2(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("LZCodec: inverse transform failed, invalid data")
 	}
 
-	mIdx += tkIdx 
+	mIdx += tkIdx
 
 	if (tkIdx > count) || (mIdx > count) {
 		return 0, 0, errors.New("LZCodec: inverse transform failed, invalid data")
@@ -841,13 +842,15 @@ func (this LZXCodec) MaxEncodedLen(srcLen int) int {
 
 // LZPCodec an implementation of the Lempel Ziv Predict algorithm
 type LZPCodec struct {
-	hashes []int32
+	hashes       []int32
+	isBsVersion3 bool
 }
 
 // NewLZPCodec creates a new instance of LZXCodec
 func NewLZPCodec() (*LZPCodec, error) {
 	this := &LZPCodec{}
 	this.hashes = make([]int32, 0)
+	this.isBsVersion3 = false
 	return this, nil
 }
 
@@ -856,6 +859,15 @@ func NewLZPCodec() (*LZPCodec, error) {
 func NewLZPCodecWithCtx(ctx *map[string]interface{}) (*LZPCodec, error) {
 	this := &LZPCodec{}
 	this.hashes = make([]int32, 0)
+	bsVersion := uint(4)
+
+	if ctx != nil {
+		if val, containsKey := (*ctx)["bsVersion"]; containsKey {
+			bsVersion = val.(uint)
+		}
+	}
+
+	this.isBsVersion3 = bsVersion < 4
 	return this, nil
 }
 
@@ -898,19 +910,19 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 	dstIdx := 4
 	minRef := 4
 
-	for (srcIdx < srcEnd-_LZP_MIN_MATCH) && (dstIdx < dstEnd) {
+	for (srcIdx < srcEnd-_LZP_MIN_MATCH64) && (dstIdx < dstEnd) {
 		h := (_LZP_HASH_SEED * ctx) >> _LZP_HASH_SHIFT
 		ref := int(this.hashes[h])
 		this.hashes[h] = int32(srcIdx)
 		bestLen := 0
 
 		// Find a match
-		if ref > minRef && binary.LittleEndian.Uint32(src[srcIdx+_LZP_MIN_MATCH-4:]) == binary.LittleEndian.Uint32(src[ref+_LZP_MIN_MATCH-4:]) {
+		if ref > minRef && binary.LittleEndian.Uint32(src[srcIdx+_LZP_MIN_MATCH64-4:]) == binary.LittleEndian.Uint32(src[ref+_LZP_MIN_MATCH64-4:]) {
 			bestLen = this.findMatch(src, srcIdx, ref, srcEnd-srcIdx)
 		}
 
 		// No good match ?
-		if bestLen < _LZP_MIN_MATCH {
+		if bestLen < _LZP_MIN_MATCH64 {
 			val := uint32(src[srcIdx])
 			ctx = (ctx << 8) | val
 			dst[dstIdx] = src[srcIdx]
@@ -935,7 +947,7 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 		ctx = binary.LittleEndian.Uint32(src[srcIdx-4:])
 		dst[dstIdx] = _LZP_MATCH_FLAG
 		dstIdx++
-		bestLen -= _LZP_MIN_MATCH
+		bestLen -= _LZP_MIN_MATCH64
 
 		// Emit match length
 		for bestLen >= 254 {
@@ -1006,6 +1018,13 @@ func (this *LZPCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	srcIdx := 4
 	dstIdx := 4
 	res := true
+	var minMatch int
+
+	if this.isBsVersion3 {
+		minMatch = _LZP_MIN_MATCH96
+	} else {
+		minMatch = _LZP_MIN_MATCH64
+	}
 
 	for srcIdx < srcEnd {
 		h := (_LZP_HASH_SEED * ctx) >> _LZP_HASH_SHIFT
@@ -1030,7 +1049,7 @@ func (this *LZPCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			continue
 		}
 
-		mLen := _LZP_MIN_MATCH
+		mLen := minMatch
 
 		for srcIdx < srcEnd && src[srcIdx] == 0xFE {
 			srcIdx++
