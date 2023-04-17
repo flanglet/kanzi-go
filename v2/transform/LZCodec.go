@@ -343,54 +343,51 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 			ref = int(this.hashes[h0])
 			this.hashes[h0] = int32(srcIdx)
 
-			if ref <= minRef {
+			if ref > minRef {
+				if binary.LittleEndian.Uint32(src[srcIdx:]) == binary.LittleEndian.Uint32(src[ref:]) {
+					maxMatch := srcEnd - srcIdx - 4
+
+					if maxMatch > _LZX_MAX_MATCH {
+						maxMatch = _LZX_MAX_MATCH
+					}
+
+					bestLen = 4 + findMatchLZX(src, srcIdx+4, ref+4, maxMatch)
+				}
+			}
+
+			// No good match ?
+			if bestLen < minMatch {
 				srcIdx++
 				continue
 			}
 
-			if binary.LittleEndian.Uint32(src[srcIdx:]) == binary.LittleEndian.Uint32(src[ref:]) {
-				maxMatch := srcEnd - srcIdx - 4
+			if ref != srcIdx-repd0 {
+				// Check if better match at next position
+				h1 := this.hash(src[srcIdx+1:])
+				ref1 := int(this.hashes[h1])
+				this.hashes[h1] = int32(srcIdx + 1)
 
-				if maxMatch > _LZX_MAX_MATCH {
-					maxMatch = _LZX_MAX_MATCH
+				// Find a match
+				if ref1 > minRef+1 {
+					maxMatch := srcEnd - srcIdx - 1
+
+					if maxMatch > _LZX_MAX_MATCH {
+						maxMatch = _LZX_MAX_MATCH
+					}
+
+					bestLen1 := findMatchLZX(src, srcIdx+1, ref1, maxMatch)
+
+					// Select best match
+					if (bestLen1 > bestLen) || ((bestLen1 == bestLen) && (ref1 > ref)) {
+						ref = ref1
+						bestLen = bestLen1
+						srcIdx++
+					}
 				}
-
-				bestLen = 4 + findMatchLZX(src, srcIdx+4, ref+4, maxMatch)
 			}
 		} else {
 			this.hashes[h0] = int32(srcIdx)
 			srcIdx++
-		}
-
-		// No good match ?
-		if bestLen < minMatch {
-			srcIdx++
-			continue
-		}
-
-		if ref != srcIdx-repd0 {
-			// Check if better match at next position
-			h1 := this.hash(src[srcIdx+1:])
-			ref1 := int(this.hashes[h1])
-			this.hashes[h1] = int32(srcIdx + 1)
-
-			// Find a match
-			if ref1 > minRef+1 {
-				maxMatch := srcEnd - srcIdx - 1
-
-				if maxMatch > _LZX_MAX_MATCH {
-					maxMatch = _LZX_MAX_MATCH
-				}
-
-				bestLen1 := findMatchLZX(src, srcIdx+1, ref1, maxMatch)
-
-				// Select best match
-				if (bestLen1 > bestLen) || ((bestLen1 == bestLen) && (ref1 > ref+1)) {
-					ref = ref1
-					bestLen = bestLen1
-					srcIdx++
-				}
-			}
 		}
 
 		d := srcIdx - ref
