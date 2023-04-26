@@ -59,7 +59,7 @@ func NewEntropyDecoder(ibs kanzi.InputBitStream, ctx map[string]interface{},
 		return NewRangeDecoder(ibs)
 
 	case FPAQ_TYPE:
-		return NewFPAQDecoder(ibs)
+		return NewFPAQDecoder(ibs, &ctx)
 
 	case CM_TYPE:
 		predictor, _ := NewCMPredictor(&ctx)

@@ -72,7 +72,7 @@ func NewFPAQEncoder(bs kanzi.OutputBitStream) (*FPAQEncoder, error) {
 func (this *FPAQEncoder) encodeBit(bit byte, pIdx int) {
 	// Calculate interval split
 	// Written in a way to maximize accuracy of multiplication/division
-	split := (((this.high - this.low) >> 4) * uint64(this.p[pIdx]>>4)) >> 8
+	split := (((this.high - this.low) >> 8) * uint64(this.p[pIdx])) >> 8
 
 	// Update probabilities
 	if bit == 0 {
@@ -171,19 +171,20 @@ func (this *FPAQEncoder) Dispose() {
 // See http://mattmahoney.net/dc/#fpaq0.
 // Simple (and fast) adaptive entropy bit decoder
 type FPAQDecoder struct {
-	low       uint64
-	high      uint64
-	current   uint64
-	bitstream kanzi.InputBitStream
-	buffer    []byte
-	index     int
-	probs     [4][]int // probability of bit=1
-	p         []int    // pointer to current prob
-	ctx       byte     // previous bits
+	low          uint64
+	high         uint64
+	current      uint64
+	bitstream    kanzi.InputBitStream
+	buffer       []byte
+	index        int
+	probs        [4][]int // probability of bit=1
+	p            []int    // pointer to current prob
+	ctx          byte     // previous bits
+	isBsVersion3 bool
 }
 
 // NewFPAQDecoder creates an instance of FPAQDecoder
-func NewFPAQDecoder(bs kanzi.InputBitStream) (*FPAQDecoder, error) {
+func NewFPAQDecoder(bs kanzi.InputBitStream, ctx *map[string]interface{}) (*FPAQDecoder, error) {
 	if bs == nil {
 		return nil, errors.New("FPAQ codec: Invalid null bitstream parameter")
 	}
@@ -205,13 +206,47 @@ func NewFPAQDecoder(bs kanzi.InputBitStream) (*FPAQDecoder, error) {
 		}
 	}
 
+	bsVersion := uint(4)
+
+	if ctx != nil {
+		if val, containsKey := (*ctx)["bsVersion"]; containsKey {
+			bsVersion = val.(uint)
+		}
+	}
+
+	this.isBsVersion3 = bsVersion < 4
 	return this, nil
 }
 
-func (this *FPAQDecoder) decodeBit(pred int) byte {
+func (this *FPAQDecoder) decodeBitV1(pred int) byte {
 	// Calculate interval split
-	// Written in a way to maximize accuracy of multiplication/division
 	split := ((((this.high - this.low) >> 4) * uint64(pred)) >> 8) + this.low
+	var bit byte
+
+	// Update probabilities
+	if split >= this.current {
+		bit = 1
+		this.high = split
+		this.p[this.ctx] -= ((this.p[this.ctx] - _FPAQ_PSCALE + 64) >> 6)
+		this.ctx += (this.ctx + 1)
+	} else {
+		bit = 0
+		this.low = -^split
+		this.p[this.ctx] -= (this.p[this.ctx] >> 6)
+		this.ctx += this.ctx
+	}
+
+	// Read 32 bits from bitstream
+	for (this.low^this.high)>>24 == 0 {
+		this.read()
+	}
+
+	return bit
+}
+
+func (this *FPAQDecoder) decodeBitV2(pred int) byte {
+	// Calculate interval split
+	split := ((((this.high - this.low) >> 8) * uint64(pred)) >> 8) + this.low
 	var bit byte
 
 	// Update probabilities
@@ -280,18 +315,34 @@ func (this *FPAQDecoder) Read(block []byte) (int, error) {
 		buf := block[startChunk : startChunk+chunkSize]
 		this.p = this.probs[0]
 
-		for i := range buf {
-			this.ctx = 1
-			this.decodeBit(this.p[this.ctx] >> 4)
-			this.decodeBit(this.p[this.ctx] >> 4)
-			this.decodeBit(this.p[this.ctx] >> 4)
-			this.decodeBit(this.p[this.ctx] >> 4)
-			this.decodeBit(this.p[this.ctx] >> 4)
-			this.decodeBit(this.p[this.ctx] >> 4)
-			this.decodeBit(this.p[this.ctx] >> 4)
-			this.decodeBit(this.p[this.ctx] >> 4)
-			buf[i] = byte(this.ctx)
-			this.p = this.probs[(this.ctx&0xFF)>>6]
+		if this.isBsVersion3 == true {
+			for i := range buf {
+				this.ctx = 1
+				this.decodeBitV1(this.p[this.ctx] >> 4)
+				this.decodeBitV1(this.p[this.ctx] >> 4)
+				this.decodeBitV1(this.p[this.ctx] >> 4)
+				this.decodeBitV1(this.p[this.ctx] >> 4)
+				this.decodeBitV1(this.p[this.ctx] >> 4)
+				this.decodeBitV1(this.p[this.ctx] >> 4)
+				this.decodeBitV1(this.p[this.ctx] >> 4)
+				this.decodeBitV1(this.p[this.ctx] >> 4)
+				buf[i] = byte(this.ctx)
+				this.p = this.probs[(this.ctx&0xFF)>>6]
+			}
+		} else {
+			for i := range buf {
+				this.ctx = 1
+				this.decodeBitV2(this.p[this.ctx])
+				this.decodeBitV2(this.p[this.ctx])
+				this.decodeBitV2(this.p[this.ctx])
+				this.decodeBitV2(this.p[this.ctx])
+				this.decodeBitV2(this.p[this.ctx])
+				this.decodeBitV2(this.p[this.ctx])
+				this.decodeBitV2(this.p[this.ctx])
+				this.decodeBitV2(this.p[this.ctx])
+				buf[i] = byte(this.ctx)
+				this.p = this.probs[(this.ctx&0xFF)>>6]
+			}
 		}
 
 		startChunk += chunkSize
