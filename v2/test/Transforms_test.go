@@ -95,11 +95,11 @@ func TestSRT(b *testing.T) {
 	}
 }
 
-// func TestROLZX(b *testing.T) {
-// 	if err := testTransformCorrectness("ROLZX"); err != nil {
-// 		b.Errorf(err.Error())
-// 	}
-// }
+//	func TestROLZX(b *testing.T) {
+//		if err := testTransformCorrectness("ROLZX"); err != nil {
+//			b.Errorf(err.Error())
+//		}
+//	}
 func TestRank(b *testing.T) {
 	if err := testTransformCorrectness("RANK"); err != nil {
 		b.Errorf(err.Error())

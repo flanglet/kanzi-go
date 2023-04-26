@@ -38,9 +38,11 @@ const (
 // State 0 is the starting state (no bits seen).
 // States 1-30 represent all possible sequences of 1-4 bits.
 // States 31-252 represent a pair of counts, (n0,n1), the number
-//   of 0 and 1 bits respectively.  If n0+n1 < 16 then there are
-//   two states for each pair, depending on if a 0 or 1 was the last
-//   bit seen.
+//
+//	of 0 and 1 bits respectively.  If n0+n1 < 16 then there are
+//	two states for each pair, depending on if a 0 or 1 was the last
+//	bit seen.
+//
 // If n0 and n1 are too large, then there is no state to represent this
 // pair, so another state with about the same ratio of n0/n1 is substituted.
 // Also, when a bit is observed and the count of the opposite bit is large,

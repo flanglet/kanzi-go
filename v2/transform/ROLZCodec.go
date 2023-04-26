@@ -1064,7 +1064,7 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 
 			if dt == kanzi.DT_UNDEFINED {
 				(*this.ctx)["dataType"] = dt
-			}			
+			}
 		}
 
 		if dt == kanzi.DT_EXE {
