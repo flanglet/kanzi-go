@@ -190,7 +190,7 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 	for i := 0; i < n; i++ {
 		r := n - 1 - i
 		s := symb[r].sym
-		aliasMap[s] = int32(i)
+
 		dst[dstIdx] = byte(s >> 16)
 		dst[dstIdx+1] = byte(s >> 8)
 		dst[dstIdx+2] = byte(s)
@@ -198,8 +198,10 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 		if i < 128 {
 			estimate += int(symb[r].freq)
+			aliasMap[s] = int32(i)
 		} else {
 			estimate += 2 * int(symb[r].freq)
+			aliasMap[s] = 0x10080 | int32((i<<1)&0xFF00) | int32(i&0x7F)
 		}
 	}
 
@@ -221,15 +223,10 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 		var val uint32
 		srcIdx += packUTF(src[srcIdx:], &val)
 		alias := aliasMap[val]
-
-		if alias >= 128 {
-			dst[dstIdx] = byte(alias | 0x80)
-			dstIdx++
-			alias >>= 7
-		}
-
 		dst[dstIdx] = byte(alias)
 		dstIdx++
+		dst[dstIdx] = byte(alias >> 8)
+		dstIdx += int(alias >> 16)
 	}
 
 	dst[0] = byte(start)
