@@ -137,7 +137,7 @@ func getEncoder(name string, obs kanzi.OutputBitStream) kanzi.EntropyEncoder {
 func getDecoder(name string, ibs kanzi.InputBitStream) kanzi.EntropyDecoder {
 	switch name {
 	case "FPAQ":
-		res, _ := entropy.NewFPAQDecoder(ibs)
+		res, _ := entropy.NewFPAQDecoder(ibs, nil)
 		return res
 
 	case "TPAQ":
