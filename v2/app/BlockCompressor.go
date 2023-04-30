@@ -136,10 +136,8 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 
 	} else {
 		switch this.level {
-		case 6:
-			this.blockSize = 2 * _COMP_DEFAULT_BLOCK_SIZE
 		case 7:
-			this.blockSize = 4 * _COMP_DEFAULT_BLOCK_SIZE
+			this.blockSize = 2 * _COMP_DEFAULT_BLOCK_SIZE
 		case 8:
 			this.blockSize = 4 * _COMP_DEFAULT_BLOCK_SIZE
 		case 9:
