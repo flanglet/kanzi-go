@@ -187,6 +187,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 	ctx := -1
 	level := -1
 	mode := " "
+	autoBlockSize := false
 
 	for i, arg := range args {
 		if i == 0 {
@@ -532,39 +533,44 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 
 			strBlockSize = strings.ToUpper(strBlockSize)
 
-			if blockSize != -1 {
+			if blockSize != -1 || autoBlockSize == true {
 				fmt.Printf("Warning: ignoring duplicate block size: %v\n", strBlockSize)
 				ctx = -1
 				continue
 			}
 
-			// Process K or M suffix
-			scale := 1
-			lastChar := byte(0)
+			if strings.Compare(strBlockSize, "AUTO") == 0 {
+				autoBlockSize = true
+			} else {
+				// Process K or M suffix
+				scale := 1
+				lastChar := byte(0)
 
-			if len(strBlockSize) > 0 {
-				lastChar = strBlockSize[len(strBlockSize)-1]
+				if len(strBlockSize) > 0 {
+					lastChar = strBlockSize[len(strBlockSize)-1]
+				}
+
+				var err error
+
+				if lastChar == 'K' {
+					strBlockSize = strBlockSize[0 : len(strBlockSize)-1]
+					scale = 1024
+				} else if lastChar == 'M' {
+					strBlockSize = strBlockSize[0 : len(strBlockSize)-1]
+					scale = 1024 * 1024
+				} else if lastChar == 'G' {
+					strBlockSize = strBlockSize[0 : len(strBlockSize)-1]
+					scale = 1024 * 1024 * 1024
+				}
+
+				if blockSize, err = strconv.Atoi(strBlockSize); err != nil || blockSize <= 0 {
+					fmt.Printf("Invalid block size provided on command line: %v\n", strBlockSize)
+					return kanzi.ERR_BLOCK_SIZE
+				}
+
+				blockSize = scale * blockSize
 			}
 
-			var err error
-
-			if lastChar == 'K' {
-				strBlockSize = strBlockSize[0 : len(strBlockSize)-1]
-				scale = 1024
-			} else if lastChar == 'M' {
-				strBlockSize = strBlockSize[0 : len(strBlockSize)-1]
-				scale = 1024 * 1024
-			} else if lastChar == 'G' {
-				strBlockSize = strBlockSize[0 : len(strBlockSize)-1]
-				scale = 1024 * 1024 * 1024
-			}
-
-			if blockSize, err = strconv.Atoi(strBlockSize); err != nil || blockSize <= 0 {
-				fmt.Printf("Invalid block size provided on command line: %v\n", strBlockSize)
-				return kanzi.ERR_BLOCK_SIZE
-			}
-
-			blockSize = scale * blockSize
 			ctx = -1
 			continue
 		}
@@ -682,6 +688,10 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 
 	if blockSize != -1 {
 		argsMap["block"] = uint(blockSize)
+	}
+
+	if autoBlockSize == true {
+		argsMap["autoBlock"] = true
 	}
 
 	argsMap["verbose"] = uint(verbose)

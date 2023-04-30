@@ -44,21 +44,22 @@ const (
 
 // BlockCompressor main block compressor struct
 type BlockCompressor struct {
-	verbosity    uint
-	overwrite    bool
-	checksum     bool
-	skipBlocks   bool
-	fileReorder  bool
-	noDotFile    bool
-	inputName    string
-	outputName   string
-	entropyCodec string
-	transform    string
-	blockSize    uint
-	level        int // command line compression level
-	jobs         uint
-	listeners    []kanzi.Listener
-	cpuProf      string
+	verbosity     uint
+	overwrite     bool
+	checksum      bool
+	skipBlocks    bool
+	fileReorder   bool
+	noDotFile     bool
+	autoBlockSize bool
+	inputName     string
+	outputName    string
+	entropyCodec  string
+	transform     string
+	blockSize     uint
+	level         int // command line compression level
+	jobs          uint
+	listeners     []kanzi.Listener
+	cpuProf       string
 }
 
 type fileCompressResult struct {
@@ -91,6 +92,13 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 		delete(argsMap, "skipBlocks")
 	} else {
 		this.skipBlocks = false
+	}
+
+	if skip, prst := argsMap["autoBlock"]; prst == true {
+		this.autoBlockSize = skip.(bool)
+		delete(argsMap, "autoBlock")
+	} else {
+		this.autoBlockSize = false
 	}
 
 	this.inputName = argsMap["inputName"].(string)
@@ -333,7 +341,12 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	}
 
 	if this.verbosity > 2 {
-		msg = fmt.Sprintf("Block size set to %d bytes", this.blockSize)
+		if this.autoBlockSize == true {
+			msg = "Block size set to 'auto'"
+		} else {
+			msg = fmt.Sprintf("Block size set to %d bytes", this.blockSize)
+		}
+
 		log.Println(msg, true)
 		msg = fmt.Sprintf("Verbosity set to %d", this.verbosity)
 		log.Println(msg, true)
@@ -437,7 +450,6 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	ctx["verbosity"] = this.verbosity
 	ctx["overwrite"] = this.overwrite
 	ctx["skipBlocks"] = this.skipBlocks
-	ctx["blockSize"] = this.blockSize
 	ctx["checksum"] = this.checksum
 	ctx["codec"] = this.entropyCodec
 	ctx["transform"] = this.transform
@@ -452,6 +464,19 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 			iName = files[0].FullPath
 			ctx["fileSize"] = files[0].Size
 
+			if this.autoBlockSize == true && this.jobs > 0 {
+				bl := files[0].Size / int64(this.jobs)
+				bl = (bl + 63) & ^63
+
+				if bl > _COMP_MAX_BLOCK_SIZE {
+					bl = _COMP_MAX_BLOCK_SIZE
+				} else if bl < _COMP_MIN_BLOCK_SIZE {
+					bl = _COMP_MIN_BLOCK_SIZE
+				}
+
+				this.blockSize = uint(bl)
+			}
+
 			if len(oName) == 0 {
 				oName = iName + ".knz"
 			} else if inputIsDir == true && specialOutput == false {
@@ -461,6 +486,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 
 		ctx["inputName"] = iName
 		ctx["outputName"] = oName
+		ctx["blockSize"] = this.blockSize
 		ctx["jobs"] = this.jobs
 		task := fileCompressTask{ctx: ctx, listeners: this.listeners}
 		res, read, written = task.call()
@@ -493,9 +519,23 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 				taskCtx[k] = v
 			}
 
+			if this.autoBlockSize == true && this.jobs > 0 {
+				bl := f.Size / int64(this.jobs)
+				bl = (bl + 63) & ^63
+
+				if bl > _COMP_MAX_BLOCK_SIZE {
+					bl = _COMP_MAX_BLOCK_SIZE
+				} else if bl < _COMP_MIN_BLOCK_SIZE {
+					bl = _COMP_MIN_BLOCK_SIZE
+				}
+
+				this.blockSize = uint(bl)
+			}
+
 			taskCtx["fileSize"] = f.Size
 			taskCtx["inputName"] = iName
 			taskCtx["outputName"] = oName
+			taskCtx["blockSize"] = this.blockSize
 			taskCtx["jobs"] = jobsPerTask[i]
 			task := fileCompressTask{ctx: taskCtx, listeners: this.listeners}
 
