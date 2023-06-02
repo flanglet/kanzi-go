@@ -287,14 +287,7 @@ func (this *ANSRangeEncoder) Write(block []byte) (int, error) {
 			sizeChunk = endChunk - startChunk
 		}
 
-		lr := this.logRange
-
-		// Lower log range if the size of the data block is small
-		for lr > 8 && 1<<lr > endChunk-startChunk {
-			lr--
-		}
-
-		alphabetSize, err := this.rebuildStatistics(block[startChunk:endChunk], lr)
+		alphabetSize, err := this.rebuildStatistics(block[startChunk:endChunk], this.logRange)
 
 		if err != nil {
 			return end, err
