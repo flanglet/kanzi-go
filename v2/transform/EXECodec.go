@@ -120,8 +120,6 @@ func (this *EXECodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, fmt.Errorf("Output buffer too small - size: %d, required %d", len(dst), n)
 	}
 
-	end := count - 8
-
 	if this.ctx != nil {
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
 			dt := val.(kanzi.DataType)
@@ -134,7 +132,7 @@ func (this *EXECodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	codeStart := 0
 	codeEnd := count - 8
-	mode := detectExeType(src[:end], &codeStart, &codeEnd)
+	mode := detectExeType(src[:codeEnd+4], &codeStart, &codeEnd)
 
 	if mode&_EXE_NOT_EXE != 0 {
 		if this.ctx != nil {
