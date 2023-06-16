@@ -25,6 +25,7 @@ package transform
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
 )
@@ -36,6 +37,7 @@ const (
 	_RLT_MAX_RUN          = 0xFFFF + _RLT_RUN_LEN_ENCODE2 + _RLT_RUN_THRESHOLD - 1
 	_RLT_MAX_RUN4         = _RLT_MAX_RUN - 4
 	_RLT_MIN_BLOCK_LENGTH = 16
+	_RLT_DEFAULT_ESCAPE   = 0xFB
 )
 
 // RLT a Run Length Transform with escape symbol
@@ -53,6 +55,7 @@ func NewRLT() (*RLT, error) {
 // configuration map as parameter.
 func NewRLTWithCtx(ctx *map[string]interface{}) (*RLT, error) {
 	this := &RLT{}
+	this.ctx = ctx
 	return this, nil
 }
 
@@ -76,26 +79,63 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
 	}
 
+	dt := kanzi.DT_UNDEFINED
+	findBestEscape := true
+
 	if this.ctx != nil {
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
-			dt := val.(kanzi.DataType)
+			dt = val.(kanzi.DataType)
 
 			if dt == kanzi.DT_DNA || dt == kanzi.DT_BASE64 || dt == kanzi.DT_UTF8 {
 				return 0, 0, fmt.Errorf("RLT forward transform skip")
 			}
 		}
+
+		if val, containsKey := (*this.ctx)["codec"]; containsKey {
+			entropyType := strings.ToUpper(val.(string))
+
+			// Fast track if fast entropy coder is used
+			if entropyType == "NONE" || entropyType == "ANS0" ||
+				entropyType == "HUFFMAN" || entropyType == "RANGE" {
+				findBestEscape = false
+			}
+		}
 	}
 
-	freqs := [256]int{}
-	kanzi.ComputeHistogram(src, freqs[:], true, false)
-	dt := kanzi.DetectSimpleType(len(src), freqs[:])
+	escape := byte(_RLT_DEFAULT_ESCAPE)
 
-	if this.ctx != nil && dt != kanzi.DT_UNDEFINED {
-		(*this.ctx)["dataType"] = dt
-	}
+	if findBestEscape == true {
+		freqs := [256]int{}
+		kanzi.ComputeHistogram(src, freqs[:], true, false)
 
-	if dt == kanzi.DT_DNA || dt == kanzi.DT_BASE64 || dt == kanzi.DT_UTF8 {
-		return 0, 0, fmt.Errorf("RLT forward transform skip")
+		if dt == kanzi.DT_UNDEFINED {
+			dt = kanzi.DetectSimpleType(len(src), freqs[:])
+
+			if this.ctx != nil && dt != kanzi.DT_UNDEFINED {
+				(*this.ctx)["dataType"] = dt
+			}
+
+			if dt == kanzi.DT_DNA || dt == kanzi.DT_BASE64 || dt == kanzi.DT_UTF8 {
+				return 0, 0, fmt.Errorf("RLT forward transform skip")
+			}
+		}
+
+		minIdx := 0
+
+		// Select escape symbol
+		if freqs[minIdx] > 0 {
+			for i, f := range &freqs {
+				if f < freqs[minIdx] {
+					minIdx = i
+
+					if f == 0 {
+						break
+					}
+				}
+			}
+		}
+
+		escape = byte(minIdx)
 	}
 
 	srcIdx := 0
@@ -103,22 +143,6 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 	srcEnd := len(src)
 	srcEnd4 := srcEnd - 4
 	dstEnd := len(dst)
-	minIdx := 0
-
-	// Select escape symbol
-	if freqs[minIdx] > 0 {
-		for i, f := range &freqs {
-			if f < freqs[minIdx] {
-				minIdx = i
-
-				if f == 0 {
-					break
-				}
-			}
-		}
-	}
-
-	escape := byte(minIdx)
 	run := 0
 	var err error
 	prev := src[srcIdx]
@@ -160,24 +184,27 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		if run > _RLT_RUN_THRESHOLD {
-			dIdx, err2 := emitRunLength(dst[dstIdx:dstEnd], run, escape, prev)
-
-			if err2 != nil {
-				err = err2
-				break
-			}
-
-			dstIdx += dIdx
-		} else if prev != escape {
-			if dstIdx+run >= dstEnd {
+			if dstIdx+5 >= dstEnd {
 				err = errors.New("Output buffer is too small")
 				break
 			}
 
-			if run > 0 {
-				dst[dstIdx] = prev
+			dst[dstIdx] = prev
+			dstIdx++
+
+			if prev == escape {
+				dst[dstIdx] = 0
 				dstIdx++
-				run--
+			}
+
+			dst[dstIdx] = escape
+			dstIdx++
+
+			dstIdx += emitRunLength(dst[dstIdx:dstEnd], run)
+		} else if prev != escape {
+			if dstIdx+run >= dstEnd {
+				err = errors.New("Output buffer is too small")
+				break
 			}
 
 			for run > 0 {
@@ -258,43 +285,30 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 	return uint(srcIdx), uint(dstIdx), err
 }
 
-func emitRunLength(dst []byte, run int, escape, val byte) (int, error) {
-	dst[0] = val
-	dstIdx := 1
-
-	if val == escape {
-		dst[1] = 0
-		dstIdx = 2
-	}
-
-	dst[dstIdx] = escape
-	dstIdx++
+func emitRunLength(dst []byte, run int) int {
 	run -= _RLT_RUN_THRESHOLD
 
 	// Encode run length
-	if run >= _RLT_RUN_LEN_ENCODE1 {
-		if run < _RLT_RUN_LEN_ENCODE2 {
-			if dstIdx >= len(dst)-2 {
-				return dstIdx, errors.New("Output buffer too small")
-			}
+	if run < _RLT_RUN_LEN_ENCODE1 {
+		dst[0] = byte(run)
+		return 1
+	}
 
-			run -= _RLT_RUN_LEN_ENCODE1
-			dst[dstIdx] = byte(_RLT_RUN_LEN_ENCODE1 + (run >> 8))
-			dstIdx++
-		} else {
-			if dstIdx >= len(dst)-3 {
-				return dstIdx, errors.New("Output buffer too small")
-			}
+	var dstIdx int
 
-			run -= _RLT_RUN_LEN_ENCODE2
-			dst[dstIdx] = byte(0xFF)
-			dst[dstIdx+1] = byte(run >> 8)
-			dstIdx += 2
-		}
+	if run < _RLT_RUN_LEN_ENCODE2 {
+		run -= _RLT_RUN_LEN_ENCODE1
+		dst[0] = byte(_RLT_RUN_LEN_ENCODE1 + (run >> 8))
+		dstIdx = 1
+	} else {
+		run -= _RLT_RUN_LEN_ENCODE2
+		dst[0] = byte(0xFF)
+		dst[1] = byte(run >> 8)
+		dstIdx = 2
 	}
 
 	dst[dstIdx] = byte(run)
-	return dstIdx + 1, nil
+	return dstIdx + 1
 }
 
 // Inverse applies the reverse function to the src and writes the result
