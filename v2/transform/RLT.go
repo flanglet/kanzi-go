@@ -184,7 +184,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		if run > _RLT_RUN_THRESHOLD {
-			if dstIdx+5 >= dstEnd {
+			if dstIdx+6 >= dstEnd {
 				err = errors.New("Output buffer is too small")
 				break
 			}
