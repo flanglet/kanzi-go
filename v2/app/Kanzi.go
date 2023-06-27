@@ -809,7 +809,7 @@ func printHelp(mode string) {
 		log.Println("        (default is ANS0)\n", true)
 		log.Println("   -t, --transform=<codec>", true)
 		log.Println("        transform [None|BWT|BWTS|LZ|LZX|LZP|ROLZ|ROLZX|RLT|ZRLT]", true)
-		log.Println("                  [MTFT|RANK|SRT|TEXT|EXE|UTF]", true)
+		log.Println("                  [MTFT|RANK|SRT|TEXT|EXE|UTF|ALIAS]", true)
 		log.Println("        EG: BWT+RANK or BWTS+MTFT (default is BWT+RANK+ZRLT)\n", true)
 		log.Println("   -x, --checksum", true)
 		log.Println("        enable block checksum\n", true)
