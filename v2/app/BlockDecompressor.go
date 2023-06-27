@@ -562,7 +562,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 
 			if errors.Is(err, io.EOF) == false {
 				// Ignore EOF (see comment in io.Copy:
-				// Becuase Copy is defined to read from src until EOF, it does not
+				// Because Copy is defined to read from src until EOF, it does not
 				// treat EOF from Read an an error to be reported)
 				fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err)
 				return kanzi.ERR_PROCESS_BLOCK, uint64(read)
