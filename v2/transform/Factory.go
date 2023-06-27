@@ -46,7 +46,7 @@ const (
 	FSD_TYPE    = uint64(15) // Fixed Shift Delta codec
 	LZX_TYPE    = uint64(16) // Lempel Ziv Extra
 	UTF_TYPE    = uint64(17) // UTF codec
-	RESERVED1   = uint64(18) // Reserved
+	ALIAS_TYPE  = uint64(18) // Alias Codec
 	RESERVED2   = uint64(19) // Reserved
 	RESERVED3   = uint64(20) // Reserved
 	RESERVED4   = uint64(21) // Reserved
@@ -137,6 +137,9 @@ func newToken(ctx *map[string]interface{}, functionType uint64) (kanzi.ByteTrans
 
 	case FSD_TYPE:
 		return NewFSDCodecWithCtx(ctx)
+
+	case ALIAS_TYPE:
+		return NewAliasCodecWithCtx(ctx)
 
 	case SRT_TYPE:
 		return NewSRTWithCtx(ctx)
@@ -252,6 +255,9 @@ func getByteFunctionNameToken(functionType uint64) (string, error) {
 	case MTFT_TYPE:
 		return "MTFT", nil
 
+	case ALIAS_TYPE:
+		return "ALIAS", nil
+
 	case NONE_TYPE:
 		return "NONE", nil
 
@@ -355,6 +361,9 @@ func getByteFunctionTypeToken(name string) (uint64, error) {
 
 	case "EXE":
 		return EXE_TYPE, nil
+
+	case "ALIAS":
+		return ALIAS_TYPE, nil
 
 	case "NONE":
 		return NONE_TYPE, nil
