@@ -698,7 +698,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 	argsMap["mode"] = mode
 
 	if overwrite == true {
-		argsMap["overwrite"] = overwrite
+		argsMap["overwrite"] = true
 	}
 
 	argsMap["inputName"] = inputName
