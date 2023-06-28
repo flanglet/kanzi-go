@@ -301,7 +301,7 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 		// Rebuild map alias -> symbol
 		for i := 0; i < n; i++ {
-			idx2symb[i] = src[i]
+			idx2symb[i] = src[srcIdx]
 			srcIdx++
 		}
 
