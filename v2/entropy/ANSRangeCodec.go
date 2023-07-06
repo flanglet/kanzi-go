@@ -103,7 +103,7 @@ func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncode
 		}
 	}
 
-	this := new(ANSRangeEncoder)
+	this := &ANSRangeEncoder{}
 	this.bitstream = bs
 	this.order = order
 	dim := int(255*order + 1)
@@ -132,7 +132,7 @@ func NewANSRangeEncoderWithCtx(bs kanzi.OutputBitStream, order uint, ctx *map[st
 		chkSize <<= 8
 	}
 
-	this := new(ANSRangeEncoder)
+	this := &ANSRangeEncoder{}
 	this.bitstream = bs
 	this.order = order
 	dim := int(255*order + 1)
@@ -514,7 +514,7 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 		}
 	}
 
-	this := new(ANSRangeDecoder)
+	this := &ANSRangeDecoder{}
 	this.bitstream = bs
 	this.chunkSize = int(chkSize)
 	this.order = order
@@ -553,7 +553,7 @@ func NewANSRangeDecoderWithCtx(bs kanzi.InputBitStream, order uint, ctx *map[str
 		}
 	}
 
-	this := new(ANSRangeDecoder)
+	this := &ANSRangeDecoder{}
 	this.bitstream = bs
 	this.chunkSize = int(chkSize)
 	this.order = order

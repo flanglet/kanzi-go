@@ -183,8 +183,9 @@ type FPAQDecoder struct {
 	isBsVersion3 bool
 }
 
-// NewFPAQDecoder creates an instance of FPAQDecoder
-func NewFPAQDecoder(bs kanzi.InputBitStream, ctx *map[string]interface{}) (*FPAQDecoder, error) {
+// NewFPAQDecoderWithCtx creates an instance of FPAQDecoder providing a
+// context map.
+func NewFPAQDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]interface{}) (*FPAQDecoder, error) {
 	if bs == nil {
 		return nil, errors.New("FPAQ codec: Invalid null bitstream parameter")
 	}

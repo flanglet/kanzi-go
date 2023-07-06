@@ -47,7 +47,7 @@ func NewEntropyDecoder(ibs kanzi.InputBitStream, ctx map[string]interface{},
 	switch entropyType {
 
 	case HUFFMAN_TYPE:
-		return NewHuffmanDecoder(ibs)
+		return NewHuffmanDecoderWithCtx(ibs, &ctx)
 
 	case ANS0_TYPE:
 		return NewANSRangeDecoderWithCtx(ibs, 0, &ctx)
@@ -59,7 +59,7 @@ func NewEntropyDecoder(ibs kanzi.InputBitStream, ctx map[string]interface{},
 		return NewRangeDecoder(ibs)
 
 	case FPAQ_TYPE:
-		return NewFPAQDecoder(ibs, &ctx)
+		return NewFPAQDecoderWithCtx(ibs, &ctx)
 
 	case CM_TYPE:
 		predictor, _ := NewCMPredictor(&ctx)
