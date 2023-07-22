@@ -522,12 +522,15 @@ func (this *CompressedOutputStream) GetWritten() uint64 {
 
 // Encode mode + transformed entropy coded data
 // mode | 0b10000000 => copy block
-//	    | 0b0yy00000 => size(size(block))-1
-//	    | 0b000y0000 => 1 if more than 4 transforms
+// mode | 0b0yy00000 => size(size(block))-1
+// mode | 0b000y0000 => 1 if more than 4 transforms
+//
 // case 4 transforms or less
-//	    | 0b0000yyyy => transform sequence skip flags (1 means skip)
+// mode | 0b0000yyyy => transform sequence skip flags (1 means skip)
+//
 // case more than 4 transforms
-//	    | 0b00000000
+// mode | 0b00000000
+//
 // then 0byyyyyyyy => transform sequence skip flags (1 means skip)
 func (this *encodingTask) encode(res *encodingTaskResult) {
 	data := this.iBuffer.Buf
@@ -601,7 +604,7 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 	}
 
 	requiredSize := t.MaxEncodedLen(int(this.blockLength))
-	
+
 	if this.blockLength >= 4 {
 		magic := kanzi.GetMagicType(data)
 
@@ -650,8 +653,24 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 		notifyListeners(this.listeners, evt)
 	}
 
+	bufSize := postTransformLength
+
+	if bufSize < this.blockLength+(this.blockLength>>3) {
+		bufSize = this.blockLength + (this.blockLength >> 3)
+	}
+
+	if bufSize < 512*1024 {
+		bufSize = 512 * 1024
+	}
+
+	if len(data) < int(bufSize) {
+		// Rare case where the transform expanded the input or the entropy
+		// coder may expand the size
+		data = make([]byte, bufSize)
+	}
+
 	// Create a bitstream local to the task
-	bufStream := util.NewBufferStream(data[0:0:cap(data)])
+	bufStream := util.NewBufferStream(data)
 	obs, _ := bitstream.NewDefaultOutputBitStream(bufStream, 16384)
 
 	// Write block 'header' (mode + compressed length)
@@ -1247,12 +1266,15 @@ func (this *CompressedInputStream) GetRead() uint64 {
 
 // Decode mode + transformed entropy coded data
 // mode | 0b10000000 => copy block
-//	    | 0b0yy00000 => size(size(block))-1
-//	    | 0b000y0000 => 1 if more than 4 transforms
+// mode | 0b0yy00000 => size(size(block))-1
+// mode | 0b000y0000 => 1 if more than 4 transforms
+//
 // case 4 transforms or less
-//	    | 0b0000yyyy => transform sequence skip flags (1 means skip)
+// mode	| 0b0000yyyy => transform sequence skip flags (1 means skip)
+//
 // case more than 4 transforms
-//	    | 0b00000000
+// mode | 0b00000000
+//
 // then 0byyyyyyyy => transform sequence skip flags (1 means skip)
 func (this *decodingTask) decode(res *decodingTaskResult) {
 	data := this.iBuffer.Buf
