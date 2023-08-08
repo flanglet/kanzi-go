@@ -670,7 +670,7 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 	}
 
 	// Create a bitstream local to the task
-	bufStream := util.NewBufferStream(data)
+	bufStream := util.NewBufferStream(data[0:0:cap(data)])
 	obs, _ := bitstream.NewDefaultOutputBitStream(bufStream, 16384)
 
 	// Write block 'header' (mode + compressed length)
