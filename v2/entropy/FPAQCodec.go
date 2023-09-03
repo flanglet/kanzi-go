@@ -43,8 +43,35 @@ type FPAQEncoder struct {
 	ctxIdx    byte     // previous bits
 }
 
-// NewFPAQEncoder creates an instance of FPAQEncoder
+// NewFPAQEncoder creates an instance of FPAQEncoder providing a
+// context map.
 func NewFPAQEncoder(bs kanzi.OutputBitStream) (*FPAQEncoder, error) {
+	if bs == nil {
+		return nil, errors.New("FPAQ codec: Invalid null bitstream parameter")
+	}
+
+	this := &FPAQEncoder{}
+	this.low = 0
+	this.high = _BINARY_ENTROPY_TOP
+	this.bitstream = bs
+	this.buffer = make([]byte, 0)
+	this.index = 0
+	this.ctxIdx = 1
+	this.p = this.probs[0]
+
+	for i := 0; i < 4; i++ {
+		this.probs[i] = make([]int, 256)
+
+		for j := range this.probs[0] {
+			this.probs[i][j] = _FPAQ_PSCALE >> 1
+		}
+	}
+
+	return this, nil
+}
+
+// NewFPAQEncoderWithCtx creates an instance of FPAQEncoder
+func NewFPAQEncoderWithCtx(bs kanzi.OutputBitStream, ctx *map[string]interface{}) (*FPAQEncoder, error) {
 	if bs == nil {
 		return nil, errors.New("FPAQ codec: Invalid null bitstream parameter")
 	}
@@ -181,6 +208,24 @@ type FPAQDecoder struct {
 	p            []int    // pointer to current prob
 	ctx          byte     // previous bits
 	isBsVersion3 bool
+}
+
+// NewFPAQDecoder creates an instance of FPAQDecoder
+func NewFPAQDecoder(bs kanzi.InputBitStream) (*FPAQDecoder, error) {
+	if bs == nil {
+		return nil, errors.New("FPAQ codec: Invalid null bitstream parameter")
+	}
+
+	this := &FPAQDecoder{}
+	this.low = 0
+	this.high = _BINARY_ENTROPY_TOP
+	this.bitstream = bs
+	this.buffer = make([]byte, 0)
+	this.index = 0
+	this.ctx = 1
+	this.p = this.probs[0]
+	this.isBsVersion3 = false
+	return this, nil
 }
 
 // NewFPAQDecoderWithCtx creates an instance of FPAQDecoder providing a

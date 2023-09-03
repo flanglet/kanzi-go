@@ -481,7 +481,7 @@ func BenchmarkFPAQ(b *testing.B) {
 			}
 
 			ibs, _ := bitstream.NewDefaultInputBitStream(&bs, uint(size))
-			ed, _ := entropy.NewFPAQDecoder(ibs, nil)
+			ed, _ := entropy.NewFPAQDecoder(ibs)
 
 			// Decode
 			if _, err := ed.Read(values2); err != nil {
