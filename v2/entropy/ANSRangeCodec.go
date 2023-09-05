@@ -165,13 +165,14 @@ func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, lr uint) (int,
 		if alphabetSize > 0 {
 			sum := 0
 
-			for i := 0; i < 256; i++ {
+			for i, count := 0, 0; i < 256 && count < alphabetSize; i++ {
 				if f[i] == 0 {
 					continue
 				}
 
 				symb[i].reset(sum, f[i], lr)
 				sum += f[i]
+				count++
 			}
 		}
 
@@ -191,7 +192,7 @@ func (this *ANSRangeEncoder) encodeHeader(alphabetSize int, alphabet []int, freq
 		return err
 	}
 
-	if alphabetSize == 0 {
+	if alphabetSize <= 1 {
 		return nil
 	}
 
