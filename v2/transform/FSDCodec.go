@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	_FSD_MIN_BLOCK_LENGTH = 128
+	_FSD_MIN_BLOCK_LENGTH = 1024
 	_FSD_ESCAPE_TOKEN     = 0xFF
 	_FSD_DELTA_CODING     = byte(0)
 	_FSD_XOR_CODING       = byte(1)
@@ -187,11 +187,11 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 	// Sample 2 sub-blocks
 	count5 := count / 5
 	count10 := count / 10
-	in1 := src[1*count5-16 : 1*count5+count10-16]
-	in2 := src[3*count5-16 : 3*count5+count10-16]
+	in1 := src[1*count5 : 1*count5+count10]
+	in2 := src[3*count5 : 3*count5+count10]
 	var histo [7][256]int
 
-	for i := 16; i < count10; i++ {
+	for i := 0; i < count10; i++ {
 		b1 := in1[i]
 		histo[0][b1]++
 		histo[1][b1^in1[i-1]]++
@@ -214,7 +214,7 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 	var ent [7]int
 	minIdx := 0
 
-	for i := 0; i < len(ent); i++ {
+	for i := range ent {
 		ent[i] = kanzi.ComputeFirstOrderEntropy1024(count5, histo[i][:])
 
 		if ent[i] < ent[minIdx] {
@@ -303,28 +303,22 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return uint(srcIdx), uint(dstIdx), errors.New("FSD forward transform skip: output buffer too small")
 	}
 
-	length := dstIdx
-	isFast := true
-
-	if this.ctx != nil {
-		if val, containsKey := (*this.ctx)["fullFSD"]; containsKey {
-			isFast = val.(bool)
-		}
-	}
-
-	if isFast == true {
-		length = dstIdx >> 1
-	}
-
 	// Extra check that the transform makes sense
 	for i := range histo[0] {
 		histo[0][i] = 0
 	}
 
-	kanzi.ComputeHistogram(dst[(dstIdx-length)>>1:(dstIdx+length)>>1], histo[0][:], true, false)
+	out1 := dst[1*count5 : 1*count5+count10]
+	out2 := dst[3*count5 : 3*count5+count10]
+
+	for i := 0; i < count10; i++ {
+		histo[0][out1[i]]++
+		histo[0][out2[i]]++
+	}
+
 	var err error
 
-	if entropy := kanzi.ComputeFirstOrderEntropy1024(length, histo[0][:]); entropy >= ent[0] {
+	if entropy := kanzi.ComputeFirstOrderEntropy1024(count5, histo[0][:]); entropy >= ent[0] {
 		err = errors.New("FSD forward transform skip: no improvement")
 	}
 
