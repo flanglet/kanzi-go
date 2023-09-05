@@ -196,12 +196,17 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 
 		arg = strings.TrimSpace(arg)
 
-		if arg == "-o" {
+		if strings.HasPrefix(arg, "--output=") || arg == "-o" {
 			ctx = _ARG_IDX_OUTPUT
 			continue
 		}
 
-		if arg == "-v" {
+		if strings.HasPrefix(arg, "--input=") || arg == "-i" {
+			ctx = _ARG_IDX_INPUT
+			continue
+		}
+
+		if strings.HasPrefix(arg, "--verbose=") || arg == "-v" {
 			ctx = _ARG_IDX_VERBOSE
 			continue
 		}
@@ -248,28 +253,31 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 				fmt.Printf("Invalid verbosity level provided on command line: %v\n", arg)
 				return kanzi.ERR_INVALID_PARAM
 			}
-		} else if strings.HasPrefix(arg, "--output=") || ctx == _ARG_IDX_OUTPUT {
-			if strings.HasPrefix(arg, "--output") {
-				outputName = strings.TrimPrefix(arg, "--output=")
-			} else {
-				outputName = arg
-			}
-
-			outputName = strings.TrimSpace(outputName)
+		} else if ctx == _ARG_IDX_OUTPUT {
+			outputName = strings.TrimSpace(arg)
+		} else if ctx == _ARG_IDX_INPUT {
+			inputName = strings.TrimSpace(arg)
 		}
 
 		ctx = -1
 	}
 
 	// Overwrite verbosity if the output goes to stdout
-	if strings.ToUpper(outputName) == "STDOUT" {
+	if len(inputName) == 0 && len(outputName) == 0 {
 		verbose = 0
+	} else {
+		outputName = strings.ToUpper(outputName)
+
+		if outputName == "STDOUT" {
+			verbose = 0
+		}
 	}
 
 	if verbose >= 1 {
 		log.Println("\n"+_APP_HEADER+"\n", true)
 	}
 
+	inputName = ""
 	outputName = ""
 	ctx = -1
 
@@ -657,11 +665,6 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 		}
 
 		ctx = -1
-	}
-
-	if inputName == "" {
-		fmt.Printf("Missing input file name, exiting ...\n")
-		return kanzi.ERR_MISSING_PARAM
 	}
 
 	if ctx != -1 {

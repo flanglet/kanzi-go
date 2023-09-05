@@ -103,8 +103,18 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 
 	this.inputName = argsMap["inputName"].(string)
 	delete(argsMap, "inputName")
+
+	if len(this.inputName) == 0 {
+		this.inputName = _COMP_STDIN
+	}
+
 	this.outputName = argsMap["outputName"].(string)
 	delete(argsMap, "outputName")
+
+	if len(this.outputName) == 0 && this.inputName == _COMP_STDIN {
+		this.outputName = _COMP_STDOUT
+	}
+
 	strTransf := ""
 	strCodec := ""
 
@@ -304,8 +314,9 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	files := make([]FileData, 0, 256)
 	nbFiles := 1
 	var msg string
+	isStdIn := strings.ToUpper(this.inputName) != _COMP_STDIN
 
-	if strings.ToUpper(this.inputName) != "STDIN" {
+	if isStdIn == false {
 		suffix := string([]byte{os.PathSeparator, '.'})
 		target := this.inputName
 		isRecursive := len(target) <= 2 || target[len(target)-len(suffix):] != suffix
@@ -340,6 +351,21 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		}
 
 		log.Println(msg, this.verbosity > 0)
+	}
+
+	upperOutputName := strings.ToUpper(this.outputName)
+	isStdOut := upperOutputName == _COMP_STDOUT
+
+	// Limit verbosity level when output is stdout
+	// Logic is duplicated here to avoid dependency to Kanzi.go
+	if isStdOut == true {
+		this.verbosity = 0
+	}
+
+	// Limit verbosity level when files are processed concurrently
+	if this.jobs > 1 && nbFiles > 1 && this.verbosity > 1 {
+		log.Println("Warning: limiting verbosity to 1 due to concurrent processing of input files.\n", true)
+		this.verbosity = 1
 	}
 
 	if this.verbosity > 2 {
@@ -381,12 +407,6 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		}
 	}
 
-	// Limit verbosity level when files are processed concurrently
-	if this.jobs > 1 && nbFiles > 1 && this.verbosity > 1 {
-		log.Println("Warning: limiting verbosity to 1 due to concurrent processing of input files.\n", true)
-		this.verbosity = 1
-	}
-
 	if this.verbosity > 2 {
 		if listener, err2 := NewInfoPrinter(this.verbosity, ENCODING, os.Stdout); err2 == nil {
 			this.AddListener(listener)
@@ -398,9 +418,9 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	inputIsDir := false
 	formattedOutName := this.outputName
 	formattedInName := this.inputName
-	specialOutput := strings.ToUpper(formattedOutName) == _COMP_NONE || strings.ToUpper(formattedOutName) == _COMP_STDOUT
+	specialOutput := upperOutputName == _COMP_NONE || upperOutputName == _COMP_STDOUT
 
-	if strings.ToUpper(this.inputName) != _COMP_STDIN {
+	if isStdIn == false {
 		fi, err := os.Stat(this.inputName)
 
 		if err != nil {
@@ -411,11 +431,11 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		if fi.IsDir() {
 			inputIsDir = true
 
-			if formattedInName != "." && formattedInName[len(formattedInName)-1] == '.' {
+			if len(formattedOutName) > 0 && formattedInName != "." && formattedInName[len(formattedInName)-1] == '.' {
 				formattedInName = formattedInName[0 : len(formattedInName)-1]
 			}
 
-			if formattedInName[len(formattedInName)-1] != os.PathSeparator {
+			if len(formattedOutName) > 0 && formattedInName[len(formattedInName)-1] != os.PathSeparator {
 				formattedInName += string([]byte{os.PathSeparator})
 			}
 
@@ -462,8 +482,11 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		oName := formattedOutName
 		iName := _COMP_STDIN
 
-		if strings.ToUpper(this.inputName) != _COMP_STDIN {
-			iName = files[0].FullPath
+		if isStdIn == true {
+			if len(oName) == 0 {
+				oName = _COMP_STDOUT
+			}
+		} else {
 			ctx["fileSize"] = files[0].Size
 
 			if this.autoBlockSize == true && this.jobs > 0 {
@@ -624,16 +647,16 @@ func getTransformAndCodec(level int) string {
 		return "NONE&NONE"
 
 	case 1:
-		return "LZ&HUFFMAN"
+		return "ALIAS+LZ&NONE"
 
 	case 2:
-		return "TEXT+UTF+FSD+LZX&HUFFMAN"
+		return "ALIAS+LZ&HUFFMAN"
 
 	case 3:
-		return "TEXT+UTF+FSD+ROLZ&NONE"
+		return "TEXT+UTF+ALIAS+FSD+LZX&HUFFMAN"
 
 	case 4:
-		return "TEXT+UTF+FSD+ROLZX&NONE"
+		return "TEXT+UTF+EXE+ALIAS+FSD+ROLZ&NONE"
 
 	case 5:
 		return "TEXT+UTF+BWT+RANK+ZRLT&ANS0"

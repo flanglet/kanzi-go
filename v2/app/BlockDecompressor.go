@@ -72,8 +72,18 @@ func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, e
 
 	this.inputName = argsMap["inputName"].(string)
 	delete(argsMap, "inputName")
+
+	if len(this.inputName) == 0 {
+		this.inputName = _DECOMP_STDIN
+	}
+
 	this.outputName = argsMap["outputName"].(string)
 	delete(argsMap, "outputName")
+
+	if len(this.outputName) == 0 && this.inputName == _DECOMP_STDIN {
+		this.outputName = _DECOMP_STDOUT
+	}
+
 	concurrency := argsMap["jobs"].(uint)
 	delete(argsMap, "jobs")
 	this.verbosity = argsMap["verbose"].(uint)
@@ -191,8 +201,9 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	files := make([]FileData, 0, 256)
 	nbFiles := 1
 	var msg string
+	isStdIn := strings.ToUpper(this.inputName) != _DECOMP_STDIN
 
-	if strings.ToUpper(this.inputName) != "STDIN" {
+	if isStdIn == false {
 		suffix := string([]byte{os.PathSeparator, '.'})
 		target := this.inputName
 		isRecursive := len(target) <= 2 || target[len(target)-len(suffix):] != suffix
@@ -243,6 +254,15 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 		}
 	}
 
+	upperOutputName := strings.ToUpper(this.outputName)
+	isStdOut := upperOutputName == _DECOMP_STDOUT
+
+	// Limit verbosity level when output is stdout
+	// Logic is duplicated here to avoid dependency to Kanzi.go
+	if isStdOut == true {
+		this.verbosity = 0
+	}
+
 	// Limit verbosity level when files are processed concurrently
 	if this.jobs > 1 && nbFiles > 1 && this.verbosity > 1 {
 		log.Println("Warning: limiting verbosity to 1 due to concurrent processing of input files.\n", true)
@@ -259,60 +279,62 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	var inputIsDir bool
 	formattedOutName := this.outputName
 	formattedInName := this.inputName
-	specialOutput := strings.ToUpper(formattedOutName) == _DECOMP_NONE || strings.ToUpper(formattedOutName) == _DECOMP_STDOUT
+	specialOutput := upperOutputName == _DECOMP_NONE || upperOutputName == _DECOMP_STDOUT
 
-	fi, err := os.Stat(this.inputName)
+	if isStdIn == false {
+		fi, err := os.Stat(this.inputName)
 
-	if err != nil {
-		fmt.Printf("Cannot access %s\n", formattedInName)
-		return kanzi.ERR_OPEN_FILE, 0
+		if err != nil {
+			fmt.Printf("Cannot access %s\n", formattedInName)
+			return kanzi.ERR_OPEN_FILE, 0
+		}
+
+		if fi.IsDir() {
+			inputIsDir = true
+
+			if formattedInName != "." && formattedInName[len(formattedInName)-1] == '.' {
+				formattedInName = formattedInName[0 : len(formattedInName)-1]
+			}
+
+			if formattedInName[len(formattedInName)-1] != os.PathSeparator {
+				formattedInName += string([]byte{os.PathSeparator})
+			}
+
+			if len(formattedOutName) > 0 && specialOutput == false {
+				fi, err = os.Stat(formattedOutName)
+
+				if err != nil {
+					fmt.Println("Output must be an existing directory (or 'NONE')")
+					return kanzi.ERR_OPEN_FILE, 0
+				}
+
+				if !fi.IsDir() {
+					fmt.Println("Output must be a directory (or 'NONE')")
+					return kanzi.ERR_CREATE_FILE, 0
+				}
+
+				if formattedOutName[len(formattedOutName)-1] != os.PathSeparator {
+					formattedOutName += string([]byte{os.PathSeparator})
+				}
+			}
+		} else {
+			inputIsDir = false
+
+			if len(formattedOutName) > 0 && specialOutput == false {
+				fi, err = os.Stat(formattedOutName)
+
+				if err == nil && fi.IsDir() {
+					fmt.Println("Output must be a file (or 'NONE')")
+					return kanzi.ERR_CREATE_FILE, 0
+				}
+			}
+		}
 	}
 
-	if fi.IsDir() {
-		inputIsDir = true
-
-		if formattedInName != "." && formattedInName[len(formattedInName)-1] == '.' {
-			formattedInName = formattedInName[0 : len(formattedInName)-1]
-		}
-
-		if formattedInName[len(formattedInName)-1] != os.PathSeparator {
-			formattedInName += string([]byte{os.PathSeparator})
-		}
-
-		if len(formattedOutName) > 0 && specialOutput == false {
-			fi, err = os.Stat(formattedOutName)
-
-			if err != nil {
-				fmt.Println("Output must be an existing directory (or 'NONE')")
-				return kanzi.ERR_OPEN_FILE, 0
-			}
-
-			if !fi.IsDir() {
-				fmt.Println("Output must be a directory (or 'NONE')")
-				return kanzi.ERR_CREATE_FILE, 0
-			}
-
-			if formattedOutName[len(formattedOutName)-1] != os.PathSeparator {
-				formattedOutName += string([]byte{os.PathSeparator})
-			}
-		}
-	} else {
-		inputIsDir = false
-
-		if len(formattedOutName) > 0 && specialOutput == false {
-			fi, err = os.Stat(formattedOutName)
-
-			if err == nil && fi.IsDir() {
-				fmt.Println("Output must be a file (or 'NONE')")
-				return kanzi.ERR_CREATE_FILE, 0
-			}
-		}
-	}
-
-	var res int
 	ctx := make(map[string]interface{})
 	ctx["verbosity"] = this.verbosity
 	ctx["overwrite"] = this.overwrite
+	var res int
 
 	if this.from >= 0 {
 		ctx["from"] = this.from
@@ -324,12 +346,20 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 
 	if nbFiles == 1 {
 		oName := formattedOutName
-		iName := files[0].FullPath
+		iName := _COMP_STDIN
 
-		if len(oName) == 0 {
-			oName = iName + ".bak"
-		} else if inputIsDir == true && specialOutput == false {
-			oName = formattedOutName + iName[len(formattedInName):] + ".bak"
+		if isStdIn == true {
+			if len(oName) == 0 {
+				oName = _COMP_STDOUT
+			}
+		} else {
+			iName = files[0].FullPath
+
+			if len(oName) == 0 {
+				oName = iName + ".bak"
+			} else if inputIsDir == true && specialOutput == false {
+				oName = formattedOutName + iName[len(formattedInName):] + ".bak"
+			}
 		}
 
 		ctx["fileSize"] = files[0].Size
