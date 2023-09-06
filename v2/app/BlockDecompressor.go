@@ -212,7 +212,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 			target = target[0 : len(target)-1]
 		}
 
-		files, err = createFileList(this.inputName, files, isRecursive, false)
+		files, err = createFileList(target, files, isRecursive, false)
 
 		if err != nil {
 			if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {

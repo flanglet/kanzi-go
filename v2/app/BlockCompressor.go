@@ -487,7 +487,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 				oName = _COMP_STDOUT
 			}
 		} else {
-		    iName = files[0].FullPath
+			iName = files[0].FullPath
 			ctx["fileSize"] = files[0].Size
 
 			if this.autoBlockSize == true && this.jobs > 0 {
