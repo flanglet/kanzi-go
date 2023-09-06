@@ -314,7 +314,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	files := make([]FileData, 0, 256)
 	nbFiles := 1
 	var msg string
-	isStdIn := strings.ToUpper(this.inputName) != _COMP_STDIN
+	isStdIn := strings.ToUpper(this.inputName) == _COMP_STDIN
 
 	if isStdIn == false {
 		suffix := string([]byte{os.PathSeparator, '.'})
@@ -421,7 +421,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	specialOutput := upperOutputName == _COMP_NONE || upperOutputName == _COMP_STDOUT
 
 	if isStdIn == false {
-		fi, err := os.Stat(this.inputName)
+		fi, err := os.Stat(formattedInName)
 
 		if err != nil {
 			fmt.Printf("Cannot access %s\n", formattedInName)
@@ -487,6 +487,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 				oName = _COMP_STDOUT
 			}
 		} else {
+		    iName = files[0].FullPath
 			ctx["fileSize"] = files[0].Size
 
 			if this.autoBlockSize == true && this.jobs > 0 {

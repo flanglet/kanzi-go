@@ -201,7 +201,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	files := make([]FileData, 0, 256)
 	nbFiles := 1
 	var msg string
-	isStdIn := strings.ToUpper(this.inputName) != _DECOMP_STDIN
+	isStdIn := strings.ToUpper(this.inputName) == _DECOMP_STDIN
 
 	if isStdIn == false {
 		suffix := string([]byte{os.PathSeparator, '.'})
@@ -282,7 +282,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	specialOutput := upperOutputName == _DECOMP_NONE || upperOutputName == _DECOMP_STDOUT
 
 	if isStdIn == false {
-		fi, err := os.Stat(this.inputName)
+		fi, err := os.Stat(formattedInName)
 
 		if err != nil {
 			fmt.Printf("Cannot access %s\n", formattedInName)
