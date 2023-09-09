@@ -805,7 +805,7 @@ func printHelp(mode string) {
 		log.Println("        3=TEXT+UTF+PACK+MM+LZX&HUFFMAN", true)
 		log.Println("        4=TEXT+UTF+EXE+PACK+MM+ROLZ&NONE", true)
 		log.Println("        5=TEXT+UTF+BWT+RANK+ZRLT&ANS0", true)
-		log.Println("        6=TEXT+UTF+UTF+BWT+SRT+ZRLT&FPAQ", true)
+		log.Println("        6=TEXT+UTF+BWT+SRT+ZRLT&FPAQ", true)
 		log.Println("        7=LZP+TEXT+UTF+BWT+LZP&CM", true)
 		log.Println("        8=EXE+RLT+TEXT+UTF&TPAQ", true)
 		log.Println("        9=EXE+RLT+TEXT+UTF&TPAQX\n", true)
