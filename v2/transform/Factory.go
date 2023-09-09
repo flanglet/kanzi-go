@@ -43,10 +43,10 @@ const (
 	ROLZX_TYPE  = uint64(12) // ROLZ Extra codec
 	SRT_TYPE    = uint64(13) // Sorted Rank
 	LZP_TYPE    = uint64(14) // Lempel Ziv Predict
-	FSD_TYPE    = uint64(15) // Fixed Shift Delta codec
+	MM_TYPE     = uint64(15) // Multimedia (FSD) codec
 	LZX_TYPE    = uint64(16) // Lempel Ziv Extra
 	UTF_TYPE    = uint64(17) // UTF codec
-	ALIAS_TYPE  = uint64(18) // Alias Codec
+	PACK_TYPE   = uint64(18) // Alias Codec
 	RESERVED2   = uint64(19) // Reserved
 	RESERVED3   = uint64(20) // Reserved
 	RESERVED4   = uint64(21) // Reserved
@@ -135,10 +135,10 @@ func newToken(ctx *map[string]interface{}, functionType uint64) (kanzi.ByteTrans
 	case UTF_TYPE:
 		return NewUTFCodecWithCtx(ctx)
 
-	case FSD_TYPE:
+	case MM_TYPE:
 		return NewFSDCodecWithCtx(ctx)
 
-	case ALIAS_TYPE:
+	case PACK_TYPE:
 		return NewAliasCodecWithCtx(ctx)
 
 	case SRT_TYPE:
@@ -237,8 +237,8 @@ func getByteFunctionNameToken(functionType uint64) (string, error) {
 	case EXE_TYPE:
 		return "EXE", nil
 
-	case FSD_TYPE:
-		return "FSD", nil
+	case MM_TYPE:
+		return "MM", nil
 
 	case ZRLT_TYPE:
 		return "ZRLT", nil
@@ -255,8 +255,8 @@ func getByteFunctionNameToken(functionType uint64) (string, error) {
 	case MTFT_TYPE:
 		return "MTFT", nil
 
-	case ALIAS_TYPE:
-		return "ALIAS", nil
+	case PACK_TYPE:
+		return "PACK", nil
 
 	case NONE_TYPE:
 		return "NONE", nil
@@ -341,8 +341,8 @@ func getByteFunctionTypeToken(name string) (uint64, error) {
 	case "UTF":
 		return UTF_TYPE, nil
 
-	case "FSD":
-		return FSD_TYPE, nil
+	case "MM":
+		return MM_TYPE, nil
 
 	case "SRT":
 		return SRT_TYPE, nil
@@ -362,8 +362,8 @@ func getByteFunctionTypeToken(name string) (uint64, error) {
 	case "EXE":
 		return EXE_TYPE, nil
 
-	case "ALIAS":
-		return ALIAS_TYPE, nil
+	case "PACK":
+		return PACK_TYPE, nil
 
 	case "NONE":
 		return NONE_TYPE, nil

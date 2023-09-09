@@ -648,16 +648,16 @@ func getTransformAndCodec(level int) string {
 		return "NONE&NONE"
 
 	case 1:
-		return "ALIAS+LZ&NONE"
+		return "PACK+LZ&NONE"
 
 	case 2:
-		return "ALIAS+LZ&HUFFMAN"
+		return "PACK+LZ&HUFFMAN"
 
 	case 3:
-		return "TEXT+UTF+ALIAS+FSD+LZX&HUFFMAN"
+		return "TEXT+UTF+PACK+MM+LZX&HUFFMAN"
 
 	case 4:
-		return "TEXT+UTF+EXE+ALIAS+FSD+ROLZ&NONE"
+		return "TEXT+UTF+EXE+PACK+MM+ROLZ&NONE"
 
 	case 5:
 		return "TEXT+UTF+BWT+RANK+ZRLT&ANS0"
