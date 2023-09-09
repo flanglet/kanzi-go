@@ -583,8 +583,13 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies, alphabet []int) (int, err
 		this.f2s = make([]byte, dim*scale)
 	}
 
+	llr := uint(3)
+
+	for 1<<llr <= this.logRange {
+		llr++
+	}
+
 	for k := 0; k < dim; k++ {
-		f := frequencies[k<<8 : (k+1)<<8]
 		alphabetSize, err := DecodeAlphabet(this.bitstream, alphabet)
 
 		if err != nil {
@@ -594,6 +599,8 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies, alphabet []int) (int, err
 		if alphabetSize == 0 {
 			continue
 		}
+
+		f := frequencies[k<<8 : (k+1)<<8]
 
 		if alphabetSize != 256 {
 			for i := range f {
@@ -605,12 +612,6 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies, alphabet []int) (int, err
 
 		if alphabetSize < 64 {
 			chkSize = 6
-		}
-
-		llr := uint(3)
-
-		for 1<<llr <= this.logRange {
-			llr++
 		}
 
 		sum := 0
@@ -826,8 +827,7 @@ func (this *ANSRangeDecoder) decodeSymbol(n int, st *int, sym decSymbol, mask in
 
 	// Normalize
 	if *st < _ANS_TOP {
-		*st = (*st << 8) | int(this.buffer[n])
-		*st = (*st << 8) | int(this.buffer[n+1])
+		*st = (*st << 16) | (int(this.buffer[n]) << 8) | int(this.buffer[n+1])
 		n += 2
 	}
 
