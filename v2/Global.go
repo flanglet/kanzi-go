@@ -287,7 +287,7 @@ func ComputeHistogram(block []byte, freqs []int, isOrder0, withTotal bool) {
 		end16 := len(block) & -16
 
 		for i := 0; i < end16; {
-			d := block[i:i+16]
+			d := block[i : i+16]
 			f0[d[0]]++
 			f1[d[1]]++
 			f2[d[2]]++
@@ -317,10 +317,6 @@ func ComputeHistogram(block []byte, freqs []int, isOrder0, withTotal bool) {
 	} else { // Order 1
 		length := len(block)
 		quarter := length >> 2
-		n0 := 0 * quarter
-		n1 := 1 * quarter
-		n2 := 2 * quarter
-		n3 := 3 * quarter
 
 		if withTotal == true {
 			if length < 32 {
@@ -333,15 +329,16 @@ func ComputeHistogram(block []byte, freqs []int, isOrder0, withTotal bool) {
 				}
 			} else {
 				prv0 := uint(0)
-				prv1 := 257 * uint(block[n1-1])
-				prv2 := 257 * uint(block[n2-1])
-				prv3 := 257 * uint(block[n3-1])
+				prv1 := 257 * uint(block[1*quarter-1])
+				prv2 := 257 * uint(block[2*quarter-1])
+				prv3 := 257 * uint(block[3*quarter-1])
+				end4 := 4 * quarter
 
-				for n0 < quarter {
-					cur0 := uint(block[n0])
-					cur1 := uint(block[n1])
-					cur2 := uint(block[n2])
-					cur3 := uint(block[n3])
+				for n := 0; n < end4; n += 4 {
+					cur0 := uint(block[n+0])
+					cur1 := uint(block[n+1])
+					cur2 := uint(block[n+2])
+					cur3 := uint(block[n+3])
 					freqs[prv0+cur0]++
 					freqs[prv0+256]++
 					freqs[prv1+cur1]++
@@ -354,16 +351,12 @@ func ComputeHistogram(block []byte, freqs []int, isOrder0, withTotal bool) {
 					prv1 = 257 * cur1
 					prv2 = 257 * cur2
 					prv3 = 257 * cur3
-					n0++
-					n1++
-					n2++
-					n3++
 				}
 
-				for ; n3 < length; n3++ {
-					freqs[prv3+uint(block[n3])]++
+				for n := end4; n < length; n++ {
+					freqs[prv3+uint(block[n])]++
 					freqs[prv3+256]++
-					prv3 = 257 * uint(block[n3])
+					prv3 = 257 * uint(block[n])
 				}
 			}
 		} else { // order 1, no total
@@ -376,15 +369,16 @@ func ComputeHistogram(block []byte, freqs []int, isOrder0, withTotal bool) {
 				}
 			} else {
 				prv0 := uint(0)
-				prv1 := 256 * uint(block[n1-1])
-				prv2 := 256 * uint(block[n2-1])
-				prv3 := 256 * uint(block[n3-1])
+				prv1 := 256 * uint(block[1*quarter-1])
+				prv2 := 256 * uint(block[2*quarter-1])
+				prv3 := 256 * uint(block[3*quarter-1])
+				end4 := 4 * quarter
 
-				for n0 < quarter {
-					cur0 := uint(block[n0])
-					cur1 := uint(block[n1])
-					cur2 := uint(block[n2])
-					cur3 := uint(block[n3])
+				for n := 0; n < end4; n += 4 {
+					cur0 := uint(block[n+0])
+					cur1 := uint(block[n+1])
+					cur2 := uint(block[n+2])
+					cur3 := uint(block[n+3])
 					freqs[prv0+cur0]++
 					freqs[prv1+cur1]++
 					freqs[prv2+cur2]++
@@ -393,15 +387,11 @@ func ComputeHistogram(block []byte, freqs []int, isOrder0, withTotal bool) {
 					prv1 = cur1 << 8
 					prv2 = cur2 << 8
 					prv3 = cur3 << 8
-					n0++
-					n1++
-					n2++
-					n3++
 				}
 
-				for ; n3 < length; n3++ {
-					freqs[prv3+uint(block[n3])]++
-					prv3 = uint(block[n3]) << 8
+				for n := end4; n < length; n++ {
+					freqs[prv3+uint(block[n])]++
+					prv3 = uint(block[n]) << 8
 				}
 			}
 		}
