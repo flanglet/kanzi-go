@@ -146,26 +146,12 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 		if n0 >= 252 {
 			// 4 symbols or less
-			dst[dstIdx] = byte(count & 3)
+			c3 := count & 3
+			dst[dstIdx] = byte(c3)
 			dstIdx++
-
-			if (count & 3) > 2 {
-				dst[dstIdx] = src[srcIdx]
-				srcIdx++
-				dstIdx++
-			}
-
-			if (count & 3) > 1 {
-				dst[dstIdx] = src[srcIdx]
-				srcIdx++
-				dstIdx++
-			}
-
-			if (count & 3) > 0 {
-				dst[dstIdx] = src[srcIdx]
-				srcIdx++
-				dstIdx++
-			}
+			copy(dst[dstIdx:], src[srcIdx:srcIdx+c3])
+			srcIdx += c3
+			dstIdx += c3
 
 			for srcIdx < count {
 				dst[dstIdx] = (map8[int(src[srcIdx+0])] << 6) | (map8[int(src[srcIdx+1])] << 4) |
@@ -320,7 +306,7 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			adjust := int(src[srcIdx])
 			srcIdx++
 
-			if adjust < 0 || adjust >= 4 {
+			if adjust < 0 || adjust > 3 {
 				return 0, 0, errors.New("Alias codec: invalid data")
 			}
 
@@ -340,23 +326,9 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 					decodeMap[i] = val
 				}
 
-				if adjust > 0 {
-					dst[dstIdx] = src[srcIdx]
-					srcIdx++
-					dstIdx++
-				}
-
-				if adjust > 1 {
-					dst[dstIdx] = src[srcIdx]
-					srcIdx++
-					dstIdx++
-				}
-
-				if adjust > 2 {
-					dst[dstIdx] = src[srcIdx]
-					srcIdx++
-					dstIdx++
-				}
+				copy(dst[dstIdx:], src[srcIdx:srcIdx+adjust])
+				srcIdx += adjust
+				dstIdx += adjust
 
 				for srcIdx < count {
 					binary.LittleEndian.PutUint32(dst[dstIdx:], decodeMap[int(src[srcIdx])])
