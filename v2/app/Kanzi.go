@@ -110,12 +110,16 @@ func compress(argsMap map[string]interface{}) int {
 		return kanzi.ERR_CREATE_COMPRESSOR
 	}
 
+    verbose := argsMap["verbose"].(uint)
+
 	if len(bc.CPUProf()) != 0 {
 		if f, err := os.Create(bc.CPUProf()); err != nil {
-			fmt.Printf("Warning: cpu profile unavailable: %v\n", err)
+			msg := fmt.Sprintf("Warning: cpu profile unavailable: %v", err)
+			log.Println(msg, verbose > 0)
 		} else {
 			if err := pprof.StartCPUProfile(f); err != nil {
-				fmt.Printf("Warning: cpu profile unavailable: %v\n", err)
+				msg := fmt.Sprintf("Warning: cpu profile unavailable: %v", err)
+				log.Println(msg, verbose > 0)
 			}
 
 			defer func() {
@@ -149,12 +153,16 @@ func decompress(argsMap map[string]interface{}) int {
 		return kanzi.ERR_CREATE_DECOMPRESSOR
 	}
 
+    verbose := argsMap["verbose"].(uint)
+
 	if len(bd.CPUProf()) != 0 {
 		if f, err := os.Create(bd.CPUProf()); err != nil {
-			fmt.Printf("Warning: cpu profile unavailable: %v\n", err)
+		    msg := fmt.Sprintf("Warning: cpu profile unavailable: %v", err)
+			log.Println(msg, verbose > 0)
 		} else {
 			if err := pprof.StartCPUProfile(f); err != nil {
-				fmt.Printf("Warning: cpu profile unavailable: %v\n", err)
+				msg := fmt.Sprintf("Warning: cpu profile unavailable: %v", err)
+				log.Println(msg, verbose > 0)
 			}
 
 			defer func() {
@@ -395,7 +403,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			}
 
 			if outputName != "" {
-				fmt.Printf("Warning: ignoring duplicate output name: %v\n", name)
+				log.Println("Warning: ignoring duplicate output name "+name, verbose > 0)
 			} else {
 				outputName = name
 			}
@@ -414,7 +422,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			}
 
 			if inputName != "" {
-				fmt.Printf("Warning: ignoring duplicate input name: %v\n", name)
+				log.Println("Warning: ignoring duplicate input name "+name, verbose > 0)
 			} else {
 				inputName = name
 			}
@@ -424,6 +432,11 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 		}
 
 		if strings.HasPrefix(arg, "--entropy=") || ctx == _ARG_IDX_ENTROPY {
+            if mode != "c" {
+				log.Println("Warning: ignoring option ["+arg+"]. Only applicable in compress mode.", verbose > 0)
+				continue
+			}
+
 			name := ""
 
 			if strings.HasPrefix(arg, "--entropy=") {
@@ -433,7 +446,9 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			}
 
 			if codec != "" {
-				fmt.Printf("Warning: ignoring duplicate entropy: %v\n", name)
+				log.Println("Warning: ignoring duplicate entropy "+name, verbose > 0)
+				ctx = -1
+			    continue
 			} else {
 				codec = strings.ToUpper(name)
 			}
@@ -448,6 +463,12 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 		}
 
 		if strings.HasPrefix(arg, "--transform=") || ctx == _ARG_IDX_TRANSFORM {
+            if mode != "c" {
+				log.Println("Warning: ignoring option transform. Only applicable in compress mode.", verbose > 0)
+				ctx = -1
+				continue
+			}
+
 			name := ""
 
 			if strings.HasPrefix(arg, "--transform=") {
@@ -457,7 +478,9 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			}
 
 			if transform != "" {
-				fmt.Printf("Warning: ignoring duplicate transform: %v\n", name)
+				log.Println("Warning: ignoring duplicate transform "+name, verbose > 0)
+				ctx = -1
+			    continue
 			} else {
 				transform = strings.ToUpper(name)
 			}
@@ -480,6 +503,12 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 		}
 
 		if strings.HasPrefix(arg, "--level=") || ctx == _ARG_IDX_LEVEL {
+            if mode != "c" {
+				log.Println("Warning: ignoring option level. Only applicable in compress mode.", verbose > 0)
+                ctx = -1
+				continue
+			}
+			
 			var str string
 			var err error
 
@@ -492,7 +521,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			str = strings.TrimSpace(str)
 
 			if level != -1 {
-				fmt.Printf("Warning: ignoring duplicate level: %v\n", str)
+				log.Println("Warning: ignoring duplicate level", verbose > 0)
 				ctx = -1
 				continue
 			}
@@ -521,7 +550,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			}
 
 			if cpuProf != "" {
-				fmt.Printf("Warning: ignoring duplicate profile file name: %v\n", name)
+				log.Println("Warning: ignoring duplicate profile file name "+name, verbose > 0)
 			} else {
 				cpuProf = name
 			}
@@ -531,6 +560,12 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 		}
 
 		if strings.HasPrefix(arg, "--block=") || ctx == _ARG_IDX_BLOCK {
+            if mode != "c" {
+				log.Println("Warning: ignoring option block. Only applicable in compress mode.", verbose > 0)
+				ctx = -1
+				continue
+			}
+
 			var strBlockSize string
 
 			if strings.HasPrefix(arg, "--block=") {
@@ -542,7 +577,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			strBlockSize = strings.ToUpper(strBlockSize)
 
 			if blockSize != -1 || autoBlockSize == true {
-				fmt.Printf("Warning: ignoring duplicate block size: %v\n", strBlockSize)
+				log.Println("Warning: ignoring duplicate block sizee "+strBlockSize, verbose > 0)
 				ctx = -1
 				continue
 			}
@@ -594,7 +629,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			}
 
 			if tasks != 0 {
-				fmt.Printf("Warning: ignoring duplicate jobs: %v\n", strTasks)
+				log.Println("Warning: ignoring duplicate jobs "+strTasks, verbose > 0)
 				ctx = -1
 				continue
 			}
@@ -609,6 +644,11 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 		}
 
 		if strings.HasPrefix(arg, "--from=") && ctx == -1 {
+            if mode != "d" {
+				log.Println("Warning: ignoring option start block. Only applicable in decompress mode.", verbose > 0)
+				continue
+			}
+
 			var strFrom string
 			var err error
 
@@ -619,7 +659,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			}
 
 			if from != -1 {
-				fmt.Printf("Warning: ignoring duplicate start block: %v\n", strFrom)
+				log.Println("Warning: ignoring duplicate start block "+strFrom, verbose > 0)
 				continue
 			}
 
@@ -637,6 +677,11 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 		}
 
 		if strings.HasPrefix(arg, "--to=") && ctx == -1 {
+            if mode != "d" {
+				log.Println("Warning: ignoring option end block. Only applicable in decompress mode.", verbose > 0)
+				continue
+			}
+
 			var strTo string
 			var err error
 
@@ -647,7 +692,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			}
 
 			if to != -1 {
-				fmt.Printf("Warning: ignoring duplicate end block: %v\n", strTo)
+				log.Println("Warning: ignoring duplicate end block "+strTo, verbose > 0)
 				continue
 			}
 
@@ -678,14 +723,6 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 
 		if len(transform) != 0 {
 			log.Println("Warning: providing the 'level' option forces the transform. Ignoring ["+transform+"]", verbose > 0)
-		}
-	}
-
-	if from >= 0 || to >= 0 {
-		if mode != "d" {
-			log.Println("Warning: ignoring start/end block (only valid for decompression)", verbose > 0)
-			from = -1
-			to = -1
 		}
 	}
 

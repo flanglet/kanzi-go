@@ -134,7 +134,7 @@ func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, e
 
 	if this.verbosity > 0 && len(argsMap) > 0 {
 		for k := range argsMap {
-			log.Println("Ignoring invalid option ["+k+"]", this.verbosity > 0)
+			log.Println("Warning: ignoring invalid option ["+k+"]", this.verbosity > 0)
 		}
 	}
 
