@@ -93,6 +93,7 @@ func main() {
 func compress(argsMap map[string]interface{}) int {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	code := 0
+	verbose := argsMap["verbose"].(uint)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -109,8 +110,6 @@ func compress(argsMap map[string]interface{}) int {
 		fmt.Printf("Failed to create block compressor: %v\n", err)
 		return kanzi.ERR_CREATE_COMPRESSOR
 	}
-
-    verbose := argsMap["verbose"].(uint)
 
 	if len(bc.CPUProf()) != 0 {
 		if f, err := os.Create(bc.CPUProf()); err != nil {
@@ -136,6 +135,7 @@ func compress(argsMap map[string]interface{}) int {
 func decompress(argsMap map[string]interface{}) int {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	code := 0
+	verbose := argsMap["verbose"].(uint)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -153,11 +153,9 @@ func decompress(argsMap map[string]interface{}) int {
 		return kanzi.ERR_CREATE_DECOMPRESSOR
 	}
 
-    verbose := argsMap["verbose"].(uint)
-
 	if len(bd.CPUProf()) != 0 {
 		if f, err := os.Create(bd.CPUProf()); err != nil {
-		    msg := fmt.Sprintf("Warning: cpu profile unavailable: %v", err)
+			msg := fmt.Sprintf("Warning: cpu profile unavailable: %v", err)
 			log.Println(msg, verbose > 0)
 		} else {
 			if err := pprof.StartCPUProfile(f); err != nil {
@@ -432,7 +430,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 		}
 
 		if strings.HasPrefix(arg, "--entropy=") || ctx == _ARG_IDX_ENTROPY {
-            if mode != "c" {
+			if mode != "c" {
 				log.Println("Warning: ignoring option ["+arg+"]. Only applicable in compress mode.", verbose > 0)
 				continue
 			}
@@ -448,7 +446,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			if codec != "" {
 				log.Println("Warning: ignoring duplicate entropy "+name, verbose > 0)
 				ctx = -1
-			    continue
+				continue
 			} else {
 				codec = strings.ToUpper(name)
 			}
@@ -463,7 +461,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 		}
 
 		if strings.HasPrefix(arg, "--transform=") || ctx == _ARG_IDX_TRANSFORM {
-            if mode != "c" {
+			if mode != "c" {
 				log.Println("Warning: ignoring option transform. Only applicable in compress mode.", verbose > 0)
 				ctx = -1
 				continue
@@ -480,7 +478,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			if transform != "" {
 				log.Println("Warning: ignoring duplicate transform "+name, verbose > 0)
 				ctx = -1
-			    continue
+				continue
 			} else {
 				transform = strings.ToUpper(name)
 			}
@@ -503,12 +501,12 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 		}
 
 		if strings.HasPrefix(arg, "--level=") || ctx == _ARG_IDX_LEVEL {
-            if mode != "c" {
+			if mode != "c" {
 				log.Println("Warning: ignoring option level. Only applicable in compress mode.", verbose > 0)
-                ctx = -1
+				ctx = -1
 				continue
 			}
-			
+
 			var str string
 			var err error
 
@@ -560,7 +558,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 		}
 
 		if strings.HasPrefix(arg, "--block=") || ctx == _ARG_IDX_BLOCK {
-            if mode != "c" {
+			if mode != "c" {
 				log.Println("Warning: ignoring option block. Only applicable in compress mode.", verbose > 0)
 				ctx = -1
 				continue
@@ -644,7 +642,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 		}
 
 		if strings.HasPrefix(arg, "--from=") && ctx == -1 {
-            if mode != "d" {
+			if mode != "d" {
 				log.Println("Warning: ignoring option start block. Only applicable in decompress mode.", verbose > 0)
 				continue
 			}
@@ -677,7 +675,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 		}
 
 		if strings.HasPrefix(arg, "--to=") && ctx == -1 {
-            if mode != "d" {
+			if mode != "d" {
 				log.Println("Warning: ignoring option end block. Only applicable in decompress mode.", verbose > 0)
 				continue
 			}
