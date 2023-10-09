@@ -34,9 +34,9 @@ const (
 	_LZX_HASH_MASK2         = (1 << _LZX_HASH_LOG2) - 1
 	_LZX_MAX_DISTANCE1      = (1 << 17) - 2
 	_LZX_MAX_DISTANCE2      = (1 << 24) - 2
-	_LZX_MIN_MATCH1         = 5
-	_LZX_MIN_MATCH2         = 9
-	_LZX_MAX_MATCH          = 65535 + 254 + 15 + _LZX_MIN_MATCH1
+	_LZX_MIN_MATCH4         = 4
+	_LZX_MIN_MATCH9         = 9
+	_LZX_MAX_MATCH          = 65535 + 254 + 15 + _LZX_MIN_MATCH4
 	_LZX_MIN_BLOCK_LENGTH   = 24
 	_LZX_MIN_MATCH_MIN_DIST = 1 << 16
 	_LZP_HASH_SEED          = 0x7FEB352D
@@ -125,13 +125,13 @@ func (this *LZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 // It is a based on a heavily modified LZ4 with a bigger window, a bigger
 // hash map, 3+n*8 bit literal lengths and 17 or 24 bit match lengths.
 type LZXCodec struct {
-	hashes       []int32
-	mLenBuf      []byte
-	mBuf         []byte
-	tkBuf        []byte
-	extra        bool
-	ctx          *map[string]interface{}
-	isBsVersion2 bool
+	hashes    []int32
+	mLenBuf   []byte
+	mBuf      []byte
+	tkBuf     []byte
+	extra     bool
+	ctx       *map[string]interface{}
+	bsVersion uint
 }
 
 // NewLZXCodec creates a new instance of LZXCodec
@@ -142,7 +142,7 @@ func NewLZXCodec() (*LZXCodec, error) {
 	this.mBuf = make([]byte, 0)
 	this.tkBuf = make([]byte, 0)
 	this.extra = false
-	this.isBsVersion2 = false // old encoding
+	this.bsVersion = 4
 	return this, nil
 }
 
@@ -169,7 +169,7 @@ func NewLZXCodecWithCtx(ctx *map[string]interface{}) (*LZXCodec, error) {
 		}
 	}
 
-	this.isBsVersion2 = bsVersion < 3
+	this.bsVersion = bsVersion
 	return this, nil
 }
 
@@ -288,7 +288,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		dst[12] = 0
 	}
 
-	minMatch := _LZX_MIN_MATCH1
+	minMatch := _LZX_MIN_MATCH4
 
 	if this.ctx != nil {
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
@@ -296,7 +296,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 			if dt == kanzi.DT_DNA {
 				// Longer min match for DNA input
-				minMatch = _LZX_MIN_MATCH2
+				minMatch = _LZX_MIN_MATCH9
 				dst[12] |= 2
 			} else if dt == kanzi.DT_SMALL_ALPHABET {
 				return 0, 0, errors.New("Small alphabet, skip")
@@ -310,8 +310,9 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 	mLenIdx := 0
 	mIdx := 0
 	tkIdx := 0
-	repd0 := len(src)
-	repd1 := 0
+	var repd = []int{count, count}
+	repdIdx := 0
+	srcInc := 0
 
 	for srcIdx < srcEnd {
 		var minRef int
@@ -322,46 +323,55 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 			minRef = srcIdx - maxDist
 		}
 
-		h0 := this.hash(src[srcIdx:])
-		ref := srcIdx + 1 - repd0
+		ref := srcIdx + 1 - repd[repdIdx]
 		bestLen := 0
 
-		if ref > minRef {
-			// Check repd0 first
-			if binary.LittleEndian.Uint32(src[srcIdx+1:]) == binary.LittleEndian.Uint32(src[ref:]) {
-				maxMatch := srcEnd - srcIdx - 5
+		maxMatch := srcEnd - srcIdx - 1
 
-				if maxMatch > _LZX_MAX_MATCH {
-					maxMatch = _LZX_MAX_MATCH
+		if maxMatch > _LZX_MAX_MATCH {
+			maxMatch = _LZX_MAX_MATCH
+		}
+
+		// Check repd first
+		if ref > minRef && binary.LittleEndian.Uint32(src[srcIdx+1:]) == binary.LittleEndian.Uint32(src[ref:]) {
+			bestLen = findMatchLZX(src, srcIdx+1, ref, maxMatch)
+
+			if bestLen < minMatch {
+				ref = srcIdx + 1 - repd[1-repdIdx]
+
+				if ref > minRef && binary.LittleEndian.Uint32(src[srcIdx+1:]) == binary.LittleEndian.Uint32(src[ref:]) {
+					bestLen = findMatchLZX(src, srcIdx+1, ref, maxMatch)
 				}
-
-				bestLen = 4 + findMatchLZX(src, srcIdx+5, ref+4, maxMatch)
 			}
 		}
 
 		if bestLen < minMatch {
+			h0 := this.hash(src[srcIdx:])
 			ref = int(this.hashes[h0])
 			this.hashes[h0] = int32(srcIdx)
 
 			if ref > minRef {
 				if binary.LittleEndian.Uint32(src[srcIdx:]) == binary.LittleEndian.Uint32(src[ref:]) {
-					maxMatch := srcEnd - srcIdx - 4
+					maxMatch := srcEnd - srcIdx
 
 					if maxMatch > _LZX_MAX_MATCH {
 						maxMatch = _LZX_MAX_MATCH
 					}
 
-					bestLen = 4 + findMatchLZX(src, srcIdx+4, ref+4, maxMatch)
+					bestLen = findMatchLZX(src, srcIdx, ref, maxMatch)
 				}
 			}
 
 			// No good match ?
 			if bestLen < minMatch {
 				srcIdx++
+				srcIdx += (srcInc >> 6)
+				srcInc++
+				repdIdx = 0
 				continue
 			}
 
-			if ref != srcIdx-repd0 {
+			if ref != srcIdx-repd[0] && ref != srcIdx-repd[1] {
 				// Check if better match at next position
 				h1 := this.hash(src[srcIdx+1:])
 				ref1 := int(this.hashes[h1])
@@ -379,60 +389,100 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 					// Select best match
 					if (bestLen1 > bestLen) || ((bestLen1 == bestLen) && (ref1 > ref)) {
-						ref = ref1
-						bestLen = bestLen1
-						srcIdx++
+						if src[srcIdx] == src[ref1-1] && bestLen1 < _LZX_MAX_MATCH {
+							ref = ref1 - 1
+							bestLen = bestLen1 + 1
+						} else {
+							ref = ref1
+							bestLen = bestLen1
+							srcIdx++
+						}
 					}
 				}
 			}
 		} else {
+			h0 := this.hash(src[srcIdx:])
 			this.hashes[h0] = int32(srcIdx)
-			srcIdx++
-		}
 
-		d := srcIdx - ref
-		var dist int
-
-		if d == repd0 {
-			dist = 0
-		} else {
-			if d == repd1 {
-				dist = 1
+			if src[srcIdx] == src[ref-1] && bestLen < _LZX_MAX_MATCH {
+				bestLen++
+				ref--
 			} else {
-				dist = d + 1
+				srcIdx++
+				h1 := this.hash(src[srcIdx:])
+				this.hashes[h1] = int32(srcIdx)
 			}
-
-			repd1 = repd0
-			repd0 = d
 		}
 
-		// Emit token
+		// Emit match
+		srcInc = 0
+
 		// Token: 3 bits litLen + 1 bit flag + 4 bits mLen (LLLFMMMM)
-		// flag = if maxDist = _LZX_MAX_DISTANCE1, then highest bit of distance
-		//        else 1 if dist needs 3 bytes (> 0xFFFF) and 0 otherwise
+		// LLL  : <= 7  --> LLL == literal length (if 7, remainder encoded outside of token)
+		// MMMM : <= 14 --> MMMM == match length (if 14, remainder encoded outside of token)
+		//        == 15 if dist == repd0 or repd1 && matchLen fully encoded outside of token
+		// F    : if MMMM == 15, flag = 0 if dist == repd0 and 1 if dist == repd1
+		//        else flag = 1 if dist >= dThreshold and 0 otherwise
+		dist := srcIdx - ref
 		mLen := bestLen - minMatch
+		litLen := srcIdx - anchor
 		var token int
 
-		if dist > 65535 {
-			token = 0x10
+		if dist == repd[0] {
+			token = 0x0F
+			mLenIdx += emitLengthLZ(this.mLenBuf[mLenIdx:], mLen)
+		} else if dist == repd[1] {
+			token = 0x1F
+			mLenIdx += emitLengthLZ(this.mLenBuf[mLenIdx:], mLen)
 		} else {
-			token = 0
+			// Emit distance since not a repeat
+			if maxDist == _LZX_MAX_DISTANCE2 {
+				if dist >= 65536 {
+					this.mBuf[mIdx] = byte(dist >> 16)
+					mIdx++
+				}
+
+				this.mBuf[mIdx] = byte(dist >> 8)
+				mIdx++
+			} else {
+				if dist >= 256 {
+					this.mBuf[mIdx] = byte(dist >> 8)
+					mIdx++
+				}
+			}
+
+			this.mBuf[mIdx] = byte(dist)
+			mIdx++
+
+			// Emit match length
+			if mLen >= 14 {
+				if mLen == 14 {
+					// Avoid the penalty of one extra byte to encode match length
+					token = 0x0D
+					bestLen--
+				} else {
+					token = 0x0E
+					mLenIdx += emitLengthLZ(this.mLenBuf[mLenIdx:], mLen-14)
+				}
+			} else {
+				token = mLen
+			}
+
+			if dist >= dThreshold {
+				token |= 0x10
+			}
 		}
 
-		if mLen < 15 {
-			token += mLen
-		} else {
-			token += 15
-		}
+		repd[1] = repd[0]
+		repd[0] = dist
+		repdIdx = 1
 
+		// Emit token
 		// Literals to process ?
-		if anchor == srcIdx {
+		if litLen == 0 {
 			this.tkBuf[tkIdx] = byte(token)
 			tkIdx++
 		} else {
-			// Process literals
-			litLen := srcIdx - anchor
-
 			// Emit literal length
 			if litLen >= 7 {
 				if litLen >= 1<<24 {
@@ -451,21 +501,6 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 			emitLiteralsLZ(src[anchor:anchor+litLen], dst[dstIdx:])
 			dstIdx += litLen
 		}
-
-		// Emit match length
-		if mLen >= 15 {
-			mLenIdx += emitLengthLZ(this.mLenBuf[mLenIdx:], mLen-15)
-		}
-
-		// Emit distance
-		if dist >= dThreshold {
-			this.mBuf[mIdx] = byte(dist >> 16)
-			mIdx++
-		}
-
-		this.mBuf[mIdx] = byte(dist >> 8)
-		this.mBuf[mIdx+1] = byte(dist)
-		mIdx += 2
 
 		if mIdx >= len(this.mBuf)-8 {
 			// Expand match mBuf
@@ -523,7 +558,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 func findMatchLZX(src []byte, srcIdx, ref, maxMatch int) int {
 	bestLen := 0
 
-	for bestLen+4 <= maxMatch {
+	for bestLen <= maxMatch-4 {
 		diff := binary.LittleEndian.Uint32(src[srcIdx+bestLen:]) ^ binary.LittleEndian.Uint32(src[ref+bestLen:])
 
 		if diff != 0 {
@@ -541,11 +576,171 @@ func findMatchLZX(src []byte, srcIdx, ref, maxMatch int) int {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
-	if this.isBsVersion2 == true {
+	if this.bsVersion == 2 {
 		return this.inverseV2(src, dst)
 	}
 
-	return this.inverseV3(src, dst)
+	if this.bsVersion == 3 {
+		return this.inverseV3(src, dst)
+	}
+
+	return this.inverseV4(src, dst)
+}
+
+func (this *LZXCodec) inverseV4(src, dst []byte) (uint, uint, error) {
+	if len(src) == 0 {
+		return 0, 0, nil
+	}
+
+	count := len(src)
+
+	if count < 13 {
+		return 0, 0, errors.New("LZCodec: inverse transform failed, invalid data")
+	}
+
+	tkIdx := int(binary.LittleEndian.Uint32(src[0:]))
+	mIdx := int(binary.LittleEndian.Uint32(src[4:]))
+	mLenIdx := int(binary.LittleEndian.Uint32(src[8:]))
+
+	if (tkIdx < 0) || (mIdx < 0) || (mLenIdx < 0) {
+		return 0, 0, errors.New("LZCodec: inverse transform failed, invalid data")
+	}
+
+	mIdx += tkIdx
+	mLenIdx += mIdx
+
+	if (tkIdx > count) || (mIdx > count) || (mLenIdx > count) {
+		return 0, 0, errors.New("LZCodec: inverse transform failed, invalid data")
+	}
+
+	srcEnd := tkIdx - 13
+	mFlag := int(src[12]) & 1
+	dstEnd := len(dst) - 16
+	maxDist := _LZX_MAX_DISTANCE2
+
+	if mFlag == 0 {
+		maxDist = _LZX_MAX_DISTANCE1
+	}
+
+	minMatch := _LZX_MIN_MATCH9
+
+	if src[12]&2 == 0 {
+		minMatch = _LZX_MIN_MATCH4
+	}
+
+	srcIdx := 13
+	dstIdx := 0
+	repd0 := 0
+	repd1 := 0
+
+	for {
+		token := int(src[tkIdx])
+		tkIdx++
+
+		if token >= 32 {
+			// Get literal length
+			var litLen int
+
+			if token >= 0xE0 {
+				ll, delta := readLengthLZ(src[srcIdx:])
+				litLen = 7 + ll
+				srcIdx += delta
+			} else {
+				litLen = token >> 5
+			}
+
+			// Emit literals
+			if dstIdx+litLen >= dstEnd {
+				copy(dst[dstIdx:], src[srcIdx:srcIdx+litLen])
+			} else {
+				emitLiteralsLZ(src[srcIdx:srcIdx+litLen], dst[dstIdx:])
+			}
+
+			srcIdx += litLen
+			dstIdx += litLen
+
+			if srcIdx >= srcEnd {
+				break
+			}
+		}
+
+		// Get match length and distance
+		mLen := token & 0x0F
+		var dist int
+
+		if mLen == 15 {
+			// Repetition distance, read mLen fully outside of token
+			ll, delta := readLengthLZ(src[mLenIdx:])
+			mLen = minMatch + ll
+			mLenIdx += delta
+
+			if token&0x10 == 0 {
+				dist = repd0
+			} else {
+				dist = repd1
+			}
+		} else {
+			// Read mLen remainder (if any) outside of token
+			if mLen == 14 {
+				ll, delta := readLengthLZ(src[mLenIdx:])
+				mLen = 14 + minMatch + ll
+				mLenIdx += delta
+			} else {
+				mLen += minMatch
+			}
+
+			dist = int(src[mIdx])
+			mIdx++
+
+			if mFlag != 0 {
+				dist = (dist << 8) | int(src[mIdx])
+				mIdx++
+			}
+
+			if token&0x10 != 0 {
+				dist = (dist << 8) | int(src[mIdx])
+				mIdx++
+			}
+		}
+
+		repd1 = repd0
+		repd0 = dist
+		mEnd := dstIdx + mLen
+		ref := dstIdx - dist
+
+		// Sanity check
+		if ref < 0 || dist > maxDist || mEnd > dstEnd {
+			return uint(srcIdx), uint(dstIdx), fmt.Errorf("LZCodec: invalid distance decoded: %d", dist)
+		}
+
+		// Copy match
+		if dist >= 16 {
+			for {
+				// No overlap
+				copy(dst[dstIdx:], dst[ref:ref+16])
+				ref += 16
+				dstIdx += 16
+
+				if dstIdx >= mEnd {
+					break
+				}
+			}
+		} else {
+			for i := 0; i < mLen; i++ {
+				dst[dstIdx+i] = dst[ref+i]
+			}
+		}
+
+		dstIdx = mEnd
+	}
+
+	var err error
+
+	if srcIdx != srcEnd+13 {
+		err = errors.New("LZCodec: inverse transform failed")
+	}
+
+	return uint(mIdx), uint(dstIdx), err
 }
 
 func (this *LZXCodec) inverseV3(src, dst []byte) (uint, uint, error) {
@@ -582,10 +777,10 @@ func (this *LZXCodec) inverseV3(src, dst []byte) (uint, uint, error) {
 		maxDist = _LZX_MAX_DISTANCE1
 	}
 
-	minMatch := _LZX_MIN_MATCH1
+	minMatch := _LZX_MIN_MATCH4
 
 	if src[12]&2 != 0 {
-		minMatch = _LZX_MIN_MATCH2
+		minMatch = _LZX_MIN_MATCH9
 	}
 
 	srcIdx := 13
