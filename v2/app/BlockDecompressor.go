@@ -240,6 +240,17 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 		log.Println(msg, this.verbosity > 0)
 	}
 
+	// Limit verbosity level when output is stdout
+	if strings.ToUpper(this.outputName) == _DECOMP_STDOUT {
+		this.verbosity = 0
+	}
+
+	// Limit verbosity level when files are processed concurrently
+	if this.jobs > 1 && nbFiles > 1 && this.verbosity > 1 {
+		log.Println("Warning: limiting verbosity to 1 due to concurrent processing of input files.\n", true)
+		this.verbosity = 1
+	}
+
 	if this.verbosity > 2 {
 		msg = fmt.Sprintf("Verbosity set to %d", this.verbosity)
 		log.Println(msg, true)
