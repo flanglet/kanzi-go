@@ -191,7 +191,7 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 	in2 := src[3*count5 : 3*count5+count10]
 	var histo [7][256]int
 
-	for i := 0; i < count10; i++ {
+	for i := 16; i < count10; i++ {
 		b1 := in1[i]
 		histo[0][b1]++
 		histo[1][b1^in1[i-1]]++
