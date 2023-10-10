@@ -365,6 +365,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 			}
 		} else {
 			iName = files[0].FullPath
+			ctx["fileSize"] = files[0].Size
 
 			if len(oName) == 0 {
 				oName = iName + ".bak"
@@ -373,7 +374,6 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 			}
 		}
 
-		ctx["fileSize"] = files[0].Size
 		ctx["inputName"] = iName
 		ctx["outputName"] = oName
 		ctx["jobs"] = this.jobs
