@@ -139,7 +139,7 @@ func NewANSRangeEncoderWithCtx(bs kanzi.OutputBitStream, order uint, ctx *map[st
 	this.freqs = make([]int, dim*257) // freqs[x][256] = total(freqs[x][0..255])
 	this.symbols = make([]encSymbol, dim*256)
 	this.buffer = make([]byte, 0)
-	this.logRange = _DEFAULT_ANS_LOG_RANGE
+	this.logRange = _DEFAULT_ANS_LOG_RANGE - order
 	this.chunkSize = int(chkSize)
 	return this, nil
 }
