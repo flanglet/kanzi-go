@@ -38,9 +38,9 @@ const (
 	_ROLZ_MIN_MATCH7      = 7
 	_ROLZ_MAX_MATCH1      = _ROLZ_MIN_MATCH3 + 65535
 	_ROLZ_MAX_MATCH2      = _ROLZ_MIN_MATCH3 + 255
-	_ROLZ_LOG_POS_CHECKS1 = 4
+	_ROLZ_LOG_POS_CHECKS1 = 5
 	_ROLZ_LOG_POS_CHECKS2 = 5
-	_ROLZ_CHUNK_SIZE      = 1 << 26 // 64 MB
+	_ROLZ_CHUNK_SIZE      = 16 * 1024 * 1024
 	_ROLZ_HASH_MASK       = ^uint32(_ROLZ_CHUNK_SIZE - 1)
 	_ROLZ_MATCH_FLAG      = 0
 	_ROLZ_LITERAL_FLAG    = 1
@@ -287,7 +287,7 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int, key uint32) (int, int) {
 		}
 
 		if n > bestLen {
-			bestIdx = int(counter - i)
+			bestIdx = int(i)
 			bestLen = n
 
 			if bestLen == maxMatch {
@@ -304,7 +304,7 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int, key uint32) (int, int) {
 		return -1, -1
 	}
 
-	return bestIdx, bestLen - this.minMatch
+	return int(counter) - bestIdx, bestLen - this.minMatch
 }
 
 // Forward applies the function to the src and writes the result
@@ -375,6 +375,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
+	flags |= byte(this.logPosChecks << 4)
 	dst[4] = flags
 	srcIdx := 0
 	dstIdx := 5
@@ -399,19 +400,20 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 		buf := src[startChunk:endChunk]
 		srcIdx = 0
-		mm := 8
+		n := srcEnd - startChunk
 
-		if startChunk >= srcEnd {
-			mm = srcEnd - startChunk
+		if n > 8 {
+			n = 8
 		}
 
-		for j := 0; j < mm; j++ {
+		for j := 0; j < n; j++ {
 			litBuf[litIdx] = buf[srcIdx]
 			litIdx++
 			srcIdx++
 		}
 
 		firstLitIdx := srcIdx
+		srcInc := 0
 
 		// Next chunk
 		for srcIdx < sizeChunk {
@@ -425,6 +427,8 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 			if matchIdx < 0 {
 				srcIdx++
+				srcIdx += (srcInc >> 6)
+				srcInc++
 				continue
 			}
 
@@ -462,9 +466,11 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			mIdx++
 			srcIdx += (matchLen + this.minMatch)
 			firstLitIdx = srcIdx
+			srcInc = 0
 		}
 
 		// Emit last chunk literals
+		srcIdx = sizeChunk
 		litLen := srcIdx - firstLitIdx
 
 		if litLen < 31 {
@@ -581,7 +587,6 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		sizeChunk = _ROLZ_CHUNK_SIZE
 	}
 
-	startChunk := 0
 	var is util.BufferStream
 	dstEnd := int(binary.BigEndian.Uint32(src[0:])) - 4
 
@@ -593,9 +598,10 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, err
 	}
 
+	startChunk := 0
 	srcIdx := 5
 	dstIdx := 0
-	litBuf := make([]byte, this.MaxEncodedLen(sizeChunk))
+	litBuf := make([]byte, sizeChunk)
 	lenBuf := make([]byte, sizeChunk/5)
 	mIdxBuf := make([]byte, sizeChunk/4)
 	tkBuf := make([]byte, sizeChunk/4)
@@ -608,6 +614,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	flags := src[4]
 	litOrder := uint(flags & 1)
 	delta := 2
+	this.logPosChecks = uint(flags >> 4)
 	this.minMatch = _ROLZ_MIN_MATCH3
 	bsVersion := uint(3)
 
@@ -674,22 +681,22 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			mLenLen := int(ibs.ReadBits(32))
 			mIdxLen := int(ibs.ReadBits(32))
 
-			if litLen > sizeChunk {
+			if litLen < 0 || litLen > sizeChunk {
 				err = fmt.Errorf("ROLZ codec: Invalid length: got %d, must be less than or equal to %v", litLen, sizeChunk)
 				goto End
 			}
 
-			if tkLen > sizeChunk {
+			if tkLen < 0 || tkLen > sizeChunk {
 				err = fmt.Errorf("ROLZ codec: Invalid length: got %d, must be less than or equal to %v", tkLen, sizeChunk)
 				goto End
 			}
 
-			if mLenLen > sizeChunk {
+			if mLenLen < 0 || mLenLen > sizeChunk {
 				err = fmt.Errorf("ROLZ codec: Invalid length: got %d, must be less than or equal to %v", mLenLen, sizeChunk)
 				goto End
 			}
 
-			if mIdxLen > sizeChunk {
+			if mIdxLen < 0 || mIdxLen > sizeChunk {
 				err = fmt.Errorf("ROLZ codec: Invalid length: got %d, must be less than or equal to %v", mIdxLen, sizeChunk)
 				goto End
 			}
@@ -769,27 +776,27 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			if litLen > 0 {
-				lb := litBuf[litIdx : litIdx+litLen]
+				srcInc := 0
+				d := buf[dstIdx-delta:]
+				copy(d[delta:], litBuf[litIdx:litIdx+litLen])
 
 				if this.minMatch == _ROLZ_MIN_MATCH3 {
-					d := buf[dstIdx-delta:]
-					copy(d[delta:], lb)
-
-					for n := range lb {
+					for n := 0; n < litLen; n++ {
 						key := getKey1(d[n:])
 						m := this.matches[key<<this.logPosChecks:]
 						this.counters[key] = (this.counters[key] + 1) & this.maskChecks
 						m[this.counters[key]] = uint32(dstIdx + n)
+						n += (srcInc >> 6)
+						srcInc++
 					}
 				} else {
-					d := buf[dstIdx-delta:]
-					copy(d[delta:], lb)
-
-					for n := range lb {
+					for n := 0; n < litLen; n++ {
 						key := getKey2(d[n:])
 						m := this.matches[key<<this.logPosChecks:]
 						this.counters[key] = (this.counters[key] + 1) & this.maskChecks
 						m[this.counters[key]] = uint32(dstIdx + n)
+						n += (srcInc >> 6)
+						srcInc++
 					}
 				}
 
@@ -991,7 +998,7 @@ func (this *rolzCodec2) findMatch(buf []byte, pos int, key uint32) (int, int) {
 
 		n := 0
 
-		for n+4 < maxMatch {
+		for n < maxMatch-4 {
 			if diff := binary.LittleEndian.Uint32(refBuf[n:]) ^ binary.LittleEndian.Uint32(curBuf[n:]); diff != 0 {
 				n += (bits.TrailingZeros32(diff) >> 3)
 				break
@@ -1001,7 +1008,7 @@ func (this *rolzCodec2) findMatch(buf []byte, pos int, key uint32) (int, int) {
 		}
 
 		if n > bestLen {
-			bestIdx = int(counter - i)
+			bestIdx = int(i)
 			bestLen = n
 
 			if bestLen == maxMatch {
@@ -1018,7 +1025,7 @@ func (this *rolzCodec2) findMatch(buf []byte, pos int, key uint32) (int, int) {
 		return -1, -1
 	}
 
-	return bestIdx, bestLen - this.minMatch
+	return int(counter) - bestIdx, bestLen - this.minMatch
 }
 
 // Forward applies the function to the src and writes the result
