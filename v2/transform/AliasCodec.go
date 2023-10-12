@@ -187,18 +187,21 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 	} else {
 		// Digram encoding
-		var freqs1 [65536]int
-		kanzi.ComputeHistogram(src[:], freqs1[:], false, false)
 		symb := [65536]*sdAlias{}
 		n1 := 0
 
-		for i := range &freqs1 {
-			if freqs1[i] == 0 {
-				continue
-			}
+		{
+			var freqs1 [65536]int
+			kanzi.ComputeHistogram(src[:], freqs1[:], false, false)
 
-			symb[n1] = &sdAlias{val: i, freq: freqs1[i]}
-			n1++
+			for i := range &freqs1 {
+				if freqs1[i] == 0 {
+					continue
+				}
+
+				symb[n1] = &sdAlias{val: i, freq: freqs1[i]}
+				n1++
+			}
 		}
 
 		if n0 > n1 {
@@ -216,7 +219,7 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 		// Build map symbol -> alias
 		for i := range &map16 {
-			map16[i] = int16(i>>8) | 0x100
+			map16[i] = int16(0x100 | (i >> 8))
 		}
 
 		savings := 0
@@ -228,7 +231,7 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 		for i := 0; i < n0; i++ {
 			savings += symb[i].freq // ignore factor 2
 			idx := symb[i].val
-			map16[idx] = int16(absent[i]) | 0x200
+			map16[idx] = int16(0x200 | absent[i])
 			dst[dstIdx] = byte(idx >> 8)
 			dst[dstIdx+1] = byte(idx)
 			dst[dstIdx+2] = byte(absent[i])
@@ -236,7 +239,7 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		// Worth it ?
-		if savings*20 < len(src) {
+		if savings*20 < count {
 			return 0, 0, errors.New("Alias Codec: forward transform skip, not enough savings")
 		}
 
@@ -251,9 +254,11 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		if srcIdx != count {
-			dst[dstIdx] = src[srcEnd]
+			dst[dstIdx] = src[srcIdx]
+			srcIdx++
 			dstIdx++
 		}
+
 	}
 
 	if dstIdx >= count {
