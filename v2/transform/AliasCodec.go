@@ -129,51 +129,60 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	if n0 >= 240 {
 		// Small alphabet => pack bits
-		var map8 [256]byte
 		dst[0] = byte(n0)
-		srcIdx = 0
-		dstIdx = 1
-		j := 0
 
-		for i := range freqs0 {
-			if freqs0[i] != 0 {
-				dst[dstIdx] = byte(i)
-				dstIdx++
-				map8[i] = byte(j)
-				j++
-			}
-		}
-
-		if n0 >= 252 {
-			// 4 symbols or less
-			c3 := count & 3
-			dst[dstIdx] = byte(c3)
-			dstIdx++
-			copy(dst[dstIdx:], src[srcIdx:srcIdx+c3])
-			srcIdx += c3
-			dstIdx += c3
-
-			for srcIdx < count {
-				dst[dstIdx] = (map8[int(src[srcIdx+0])] << 6) | (map8[int(src[srcIdx+1])] << 4) |
-					(map8[int(src[srcIdx+2])] << 2) | map8[int(src[srcIdx+3])]
-				srcIdx += 4
-				dstIdx++
-			}
+		if n0 == 255 {
+			// One symbol
+			dst[1] = src[0]
+			binary.LittleEndian.PutUint32(dst[2:], uint32(count))
+			srcIdx = count
+			dstIdx = 6
 		} else {
-			// 16 symbols or less
-			dst[dstIdx] = byte(count & 1)
-			dstIdx++
+			var map8 [256]byte
+			srcIdx = 0
+			dstIdx = 1
+			j := 0
 
-			if (count & 1) != 0 {
-				dst[dstIdx] = src[srcIdx]
-				srcIdx++
-				dstIdx++
+			for i := range freqs0 {
+				if freqs0[i] != 0 {
+					dst[dstIdx] = byte(i)
+					dstIdx++
+					map8[i] = byte(j)
+					j++
+				}
 			}
 
-			for srcIdx < count {
-				dst[dstIdx] = (map8[int(src[srcIdx])] << 4) | map8[int(src[srcIdx+1])]
-				srcIdx += 2
+			if n0 >= 252 {
+				// 4 symbols or less
+				c3 := count & 3
+				dst[dstIdx] = byte(c3)
 				dstIdx++
+				copy(dst[dstIdx:], src[srcIdx:srcIdx+c3])
+				srcIdx += c3
+				dstIdx += c3
+
+				for srcIdx < count {
+					dst[dstIdx] = (map8[int(src[srcIdx+0])] << 6) | (map8[int(src[srcIdx+1])] << 4) |
+						(map8[int(src[srcIdx+2])] << 2) | map8[int(src[srcIdx+3])]
+					srcIdx += 4
+					dstIdx++
+				}
+			} else {
+				// 16 symbols or less
+				dst[dstIdx] = byte(count & 1)
+				dstIdx++
+
+				if (count & 1) != 0 {
+					dst[dstIdx] = src[srcIdx]
+					srcIdx++
+					dstIdx++
+				}
+
+				for srcIdx < count {
+					dst[dstIdx] = (map8[int(src[srcIdx])] << 4) | map8[int(src[srcIdx+1])]
+					srcIdx += 2
+					dstIdx++
+				}
 			}
 		}
 	} else {
@@ -272,7 +281,7 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 	n := int(src[0])
 
-	if n < 16 || n >= 256 {
+	if n < 16 {
 		return 0, 0, errors.New("Alias codec: invalid data (incorrect number of slots)")
 	}
 
@@ -282,27 +291,32 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 	if n >= 240 {
 		n = 256 - n
-		var idx2symb [16]byte
 		srcIdx = 1
-
-		// Rebuild map alias -> symbol
-		for i := 0; i < n; i++ {
-			idx2symb[i] = src[srcIdx]
-			srcIdx++
-		}
 
 		if n == 1 {
 			// One symbol
-			p := dst[dstIdx : dstIdx+count]
-			s := idx2symb[0]
+			val := src[1]
+			oSize := int(binary.LittleEndian.Uint32(src[2:]))
 
-			for i := range p {
-				p[i] = s
+			if oSize > len(dst) {
+				return 0, 0, errors.New("Alias codec: invalid data (incorrect output size)")
 			}
 
-			srcIdx += count
-			dstIdx += count
+			for i := range dst[0:oSize] {
+				dst[i] = val
+			}
+
+			srcIdx = count
+			dstIdx = oSize
 		} else {
+			// Rebuild map alias -> symbol
+			var idx2symb [16]byte
+
+			for i := 0; i < n; i++ {
+				idx2symb[i] = src[srcIdx]
+				srcIdx++
+			}
+
 			adjust := int(src[srcIdx])
 			srcIdx++
 
