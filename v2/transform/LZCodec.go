@@ -283,7 +283,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 	dst[12] = 1
 
 	if srcEnd < 4*_LZX_MAX_DISTANCE1 {
-		maxDist = _LZX_MAX_DISTANCE1
+		maxDist = 1 << 8
 		dThreshold = _LZX_MAX_DISTANCE1 + 1
 		dst[12] = 0
 	}
