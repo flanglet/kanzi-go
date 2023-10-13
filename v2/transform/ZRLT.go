@@ -140,14 +140,18 @@ func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	srcEnd, dstEnd := len(src), len(dst)
+	srcEnd, dstEnd := len(src), len(dst)-1
 	runLength := 1
 	srcIdx, dstIdx := 0, 0
 	var err error
 
-	for dstIdx < dstEnd {
+	for {
 		if runLength > 1 {
-			for dstIdx < dstEnd && runLength > 1 {
+			if dstIdx+runLength > dstEnd {
+				break
+			}
+
+			for runLength > 1 {
 				runLength--
 				dst[dstIdx] = 0
 				dstIdx++
@@ -194,20 +198,21 @@ func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 End:
-	// If runLength is not 1, add trailing 0s
-	end := dstIdx + runLength - 1
-
-	if end > dstEnd {
-		err = errors.New("Output buffer is too small")
-	} else {
-		for dstIdx < end {
-			dst[dstIdx] = 0
-			dstIdx++
-		}
-
-		if srcIdx < srcEnd {
+	if runLength > 1 {
+		// If runLength is not 1, add trailing 0s
+		if dstIdx+runLength > dstEnd {
 			err = errors.New("Output buffer is too small")
+		} else {
+			for runLength > 1 {
+				runLength--
+				dst[dstIdx] = 0
+				dstIdx++
+			}
 		}
+	}
+
+	if srcIdx < srcEnd {
+		err = errors.New("Output buffer is too small")
 	}
 
 	return uint(srcIdx), uint(dstIdx), err
