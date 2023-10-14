@@ -174,21 +174,20 @@ func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error
 		} else {
 			strTransf = "BWT+RANK+ZRLT"
 		}
+
+		// Extract transform names. Curate input (EG. NONE+NONE+xxxx => xxxx)
+		name, err := transform.GetType(strTransf)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if strTransf, err = transform.GetName(name); err != nil {
+			return nil, err
+		}
 	}
 
-	// Extract transform names. Curate input (EG. NONE+NONE+xxxx => xxxx)
-	var t string
-	name, err := transform.GetType(strTransf)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if t, err = transform.GetName(name); err != nil {
-		return nil, err
-	}
-
-	this.transform = t
+	this.transform = strTransf
 
 	if check, prst := argsMap["checksum"]; prst == true {
 		this.checksum = check.(bool)
