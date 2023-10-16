@@ -1,5 +1,5 @@
 /*
-Copyright 2011-2022 Frederic Langlet
+Copyright 2011-2024 Frederic Langlet
 Licensed under the Apache License, Version 2.0 (the "License")
 you may not use this file except in compliance with the License.
 you may obtain a copy of the License at
@@ -1082,7 +1082,7 @@ func (this textCodec1) MaxEncodedLen(srcLen int) int {
 	return srcLen
 }
 
-//nolint (remove unused warning)
+// nolint (remove unused warning)
 func newTextCodec2() (*textCodec2, error) {
 	this := &textCodec2{}
 	this.logHashSize = _TC_LOG_HASHES_SIZE
