@@ -183,15 +183,23 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, fmt.Errorf("FSD forward skip: found %#x magic value header", magic)
 	}
 
-	// Check several step values on a sub-block (no memory allocation)
-	// Sample 2 sub-blocks
+	// Check several step values on a few sub-blocks (no memory allocation)
 	count5 := count / 5
 	count10 := count / 10
-	in1 := src[1*count5 : 1*count5+count10]
-	in2 := src[3*count5 : 3*count5+count10]
+	in0 := src[0*count5:]
+	in1 := src[2*count5:]
+	in2 := src[4*count5:]
 	var histo [7][256]int
 
-	for i := 16; i < count10; i++ {
+	for i := count10; i < count5; i++ {
+		b0 := in0[i]
+		histo[0][b0]++
+		histo[1][b0^in0[i-1]]++
+		histo[2][b0^in0[i-2]]++
+		histo[3][b0^in0[i-3]]++
+		histo[4][b0^in0[i-4]]++
+		histo[5][b0^in0[i-8]]++
+		histo[6][b0^in0[i-16]]++
 		b1 := in1[i]
 		histo[0][b1]++
 		histo[1][b1^in1[i-1]]++
@@ -215,7 +223,7 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 	minIdx := 0
 
 	for i := range ent {
-		ent[i] = kanzi.ComputeFirstOrderEntropy1024(count5, histo[i][:])
+		ent[i] = kanzi.ComputeFirstOrderEntropy1024(3*count10, histo[i][:])
 
 		if ent[i] < ent[minIdx] {
 			minIdx = i
@@ -225,7 +233,7 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 	// If not better, quick exit
 	if ent[minIdx] >= ent[0] {
 		if this.ctx != nil {
-			(*this.ctx)["dataType"] = kanzi.DetectSimpleType(count5, histo[0][:])
+			(*this.ctx)["dataType"] = kanzi.DetectSimpleType(3*count10, histo[0][:])
 		}
 
 		return 0, 0, fmt.Errorf("FSD forward transform skip")
@@ -271,18 +279,14 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Emit modified bytes
 	if mode == _FSD_DELTA_CODING {
-		for srcIdx < count && dstIdx < dstEnd {
-			delta := int32(src[srcIdx]) - int32(src[srcIdx-dist])
+		for srcIdx < count && dstIdx < dstEnd-1 {
+			delta := 127 + int32(src[srcIdx]) - int32(src[srcIdx-dist])
 
-			if delta >= -127 && delta <= 127 {
-				dst[dstIdx] = _FSD_ZIGZAG1[delta+127] // zigzag encode delta
+			if delta >= 0 && delta < 255 {
+				dst[dstIdx] = _FSD_ZIGZAG1[delta] // zigzag encode delta
 				srcIdx++
 				dstIdx++
 				continue
-			}
-
-			if dstIdx == dstEnd-1 {
-				break
 			}
 
 			// Skip delta, encode with escape
