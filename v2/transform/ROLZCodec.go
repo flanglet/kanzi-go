@@ -516,7 +516,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			litEnc.Dispose()
 			var mEnc *entropy.ANSRangeEncoder
 
-			if mEnc, err = entropy.NewANSRangeEncoder(obs, 0); err != nil {
+			if mEnc, err = entropy.NewANSRangeEncoder(obs, 0, 32768); err != nil {
 				goto End
 			}
 
@@ -703,7 +703,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 			var litDec *entropy.ANSRangeDecoder
 
-			if litDec, err = entropy.NewANSRangeDecoderWithCtx(ibs, litOrder, this.ctx); err != nil {
+			if litDec, err = entropy.NewANSRangeDecoderWithCtx(ibs, this.ctx, litOrder); err != nil {
 				goto End
 			}
 
@@ -714,7 +714,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			litDec.Dispose()
 			var mDec *entropy.ANSRangeDecoder
 
-			if mDec, err = entropy.NewANSRangeDecoderWithCtx(ibs, 0, this.ctx); err != nil {
+			if mDec, err = entropy.NewANSRangeDecoderWithCtx(ibs, this.ctx, 0, 32768); err != nil {
 				goto End
 			}
 

@@ -28,8 +28,8 @@ import (
 // For an alternate C implementation example, see https://github.com/Cyan4973/FiniteStateEntropy
 
 const (
-	_ANS_TOP                 = 1 << 15       // max possible for ANS_TOP=1<23
-	_DEFAULT_ANS0_CHUNK_SIZE = uint(1 << 15) // 32 KB by default
+	_ANS_TOP                 = 1 << 15 // max possible for ANS_TOP=1<23
+	_DEFAULT_ANS0_CHUNK_SIZE = 16384
 	_ANS_MIN_CHUNK_SIZE      = 1024
 	_ANS_MAX_CHUNK_SIZE      = 1 << 27 // 8*MAX_CHUNK_SIZE must not overflow
 	_DEFAULT_ANS_LOG_RANGE   = uint(12)
@@ -70,28 +70,28 @@ func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncode
 	if len(args) > 0 {
 		order = args[0]
 
-		if len(args) > 1 {
-			chkSize = args[1]
-
-			if len(args) > 2 {
-				logRange = args[2]
-			}
-		}
-
 		if order != 0 && order != 1 {
 			return nil, errors.New("ANS codec: The order must be 0 or 1")
 		}
 
-		if chkSize < _ANS_MIN_CHUNK_SIZE {
-			return nil, fmt.Errorf("ANS codec: The chunk size must be at least %d", _ANS_MIN_CHUNK_SIZE)
+		if len(args) > 1 {
+			chkSize = int(args[1])
+
+			if chkSize < _ANS_MIN_CHUNK_SIZE {
+				return nil, fmt.Errorf("ANS codec: The chunk size must be at least %d", _ANS_MIN_CHUNK_SIZE)
+			}
+
+			if chkSize > _ANS_MAX_CHUNK_SIZE {
+				return nil, fmt.Errorf("ANS codec: The chunk size must be at most %d", _ANS_MAX_CHUNK_SIZE)
+			}
 		}
 
-		if chkSize > _ANS_MAX_CHUNK_SIZE {
-			return nil, fmt.Errorf("ANS codec: The chunk size must be at most %d", _ANS_MAX_CHUNK_SIZE)
-		}
+		if len(args) > 2 {
+			logRange = args[2]
 
-		if logRange < 8 || logRange > 16 {
-			return nil, fmt.Errorf("ANS codec: Invalid range: %d (must be in [8..16])", logRange)
+			if logRange < 8 || logRange > 16 {
+				return nil, fmt.Errorf("ANS codec: Invalid range: %d (must be in [8..16])", logRange)
+			}
 		}
 
 		if order == 1 {
@@ -117,19 +117,49 @@ func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncode
 
 // NewANSRangeEncoderWithCtx creates a new instance of ANSRangeEncoder providing a
 // context map.
-func NewANSRangeEncoderWithCtx(bs kanzi.OutputBitStream, order uint, ctx *map[string]interface{}) (*ANSRangeEncoder, error) {
+func NewANSRangeEncoderWithCtx(bs kanzi.OutputBitStream, ctx *map[string]interface{}, args ...uint) (*ANSRangeEncoder, error) {
 	if bs == nil {
 		return nil, errors.New("ANS codec: Invalid null bitstream parameter")
 	}
 
-	if order != 0 && order != 1 {
-		return nil, errors.New("ANS codec: The order must be 0 or 1")
-	}
-
 	chkSize := _DEFAULT_ANS0_CHUNK_SIZE
+	logRange := _DEFAULT_ANS_LOG_RANGE
+	order := uint(0)
 
-	if order == 1 {
-		chkSize <<= 8
+	if len(args) > 0 {
+		order = args[0]
+
+		if order != 0 && order != 1 {
+			return nil, errors.New("ANS codec: The order must be 0 or 1")
+		}
+
+		if len(args) > 1 {
+			chkSize = int(args[1])
+
+			if chkSize < _ANS_MIN_CHUNK_SIZE {
+				return nil, fmt.Errorf("ANS codec: The chunk size must be at least %d", _ANS_MIN_CHUNK_SIZE)
+			}
+
+			if chkSize > _ANS_MAX_CHUNK_SIZE {
+				return nil, fmt.Errorf("ANS codec: The chunk size must be at most %d", _ANS_MAX_CHUNK_SIZE)
+			}
+		}
+
+		if len(args) > 2 {
+			logRange = args[2]
+
+			if logRange < 8 || logRange > 16 {
+				return nil, fmt.Errorf("ANS codec: Invalid range: %d (must be in [8..16])", logRange)
+			}
+		}
+
+		if order == 1 {
+			chkSize <<= 8
+
+			if chkSize > _ANS_MAX_CHUNK_SIZE {
+				chkSize = _ANS_MAX_CHUNK_SIZE
+			}
+		}
 	}
 
 	this := &ANSRangeEncoder{}
@@ -457,15 +487,15 @@ func (this *encSymbol) reset(cumFreq, freq int, logRange uint) {
 
 // ANSRangeDecoder Asymmetric Numeral System Decoder
 type ANSRangeDecoder struct {
-	bitstream    kanzi.InputBitStream
-	freqs        []int
-	symbols      []decSymbol
-	f2s          []byte // mapping frequency -> symbol
-	buffer       []byte
-	chunkSize    int
-	logRange     uint
-	order        uint
-	isBsVersion1 bool
+	bitstream kanzi.InputBitStream
+	freqs     []int
+	symbols   []decSymbol
+	f2s       []byte // mapping frequency -> symbol
+	buffer    []byte
+	chunkSize int
+	logRange  uint
+	order     uint
+	bsVersion uint
 }
 
 // NewANSRangeDecoder creates an instance of ANS decoder.
@@ -490,20 +520,20 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 	if len(args) > 0 {
 		order = args[0]
 
-		if len(args) > 1 {
-			chkSize = args[1]
-		}
-
-		if chkSize < _ANS_MIN_CHUNK_SIZE {
-			return nil, fmt.Errorf("ANS codec: The chunk size must be at least %d", _ANS_MIN_CHUNK_SIZE)
-		}
-
-		if chkSize > _ANS_MAX_CHUNK_SIZE {
-			return nil, fmt.Errorf("ANS codec: The chunk size must be at most %d", _ANS_MAX_CHUNK_SIZE)
-		}
-
 		if order != 0 && order != 1 {
 			return nil, errors.New("ANS codec: The order must be 0 or 1")
+		}
+
+		if len(args) > 1 {
+			chkSize = int(args[1])
+
+			if chkSize < _ANS_MIN_CHUNK_SIZE {
+				return nil, fmt.Errorf("ANS codec: The chunk size must be at least %d", _ANS_MIN_CHUNK_SIZE)
+			}
+
+			if chkSize > _ANS_MAX_CHUNK_SIZE {
+				return nil, fmt.Errorf("ANS codec: The chunk size must be at most %d", _ANS_MAX_CHUNK_SIZE)
+			}
 		}
 
 		if order == 1 {
@@ -524,33 +554,58 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 	this.buffer = make([]byte, 0)
 	this.f2s = make([]byte, 0)
 	this.symbols = make([]decSymbol, dim*256)
-	this.isBsVersion1 = false
+	this.bsVersion = 4
 	this.logRange = _DEFAULT_ANS_LOG_RANGE
 	return this, nil
 }
 
 // NewANSRangeDecoderWithCtx creates a new instance of ANSRangeDecoder providing a
 // context map.
-func NewANSRangeDecoderWithCtx(bs kanzi.InputBitStream, order uint, ctx *map[string]interface{}) (*ANSRangeDecoder, error) {
+func NewANSRangeDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]interface{}, args ...uint) (*ANSRangeDecoder, error) {
 	if bs == nil {
 		return nil, errors.New("ANS codec: Invalid null bitstream parameter")
 	}
 
-	if order != 0 && order != 1 {
-		return nil, errors.New("ANS codec: The order must be 0 or 1")
-	}
-
 	chkSize := _DEFAULT_ANS0_CHUNK_SIZE
-
-	if order == 1 {
-		chkSize <<= 8
-	}
-
-	bsVersion := uint(2)
+	order := uint(0)
+	bsVersion := uint(4)
 
 	if ctx != nil {
 		if val, containsKey := (*ctx)["bsVersion"]; containsKey {
 			bsVersion = val.(uint)
+
+			if bsVersion < 4 {
+				// Prior to bitstream V4, the default chunk size was 32768
+				chkSize = 32768
+			}
+		}
+	}
+
+	if len(args) > 0 {
+		order = args[0]
+
+		if order != 0 && order != 1 {
+			return nil, errors.New("ANS codec: The order must be 0 or 1")
+		}
+
+		if len(args) > 1 {
+			chkSize = int(args[1])
+
+			if chkSize < _ANS_MIN_CHUNK_SIZE {
+				return nil, fmt.Errorf("ANS codec: The chunk size must be at least %d", _ANS_MIN_CHUNK_SIZE)
+			}
+
+			if chkSize > _ANS_MAX_CHUNK_SIZE {
+				return nil, fmt.Errorf("ANS codec: The chunk size must be at most %d", _ANS_MAX_CHUNK_SIZE)
+			}
+		}
+
+		if order == 1 {
+			chkSize <<= 8
+
+			if chkSize > _ANS_MAX_CHUNK_SIZE {
+				chkSize = _ANS_MAX_CHUNK_SIZE
+			}
 		}
 	}
 
@@ -563,7 +618,7 @@ func NewANSRangeDecoderWithCtx(bs kanzi.InputBitStream, order uint, ctx *map[str
 	this.buffer = make([]byte, 0)
 	this.f2s = make([]byte, 0)
 	this.symbols = make([]decSymbol, dim*256)
-	this.isBsVersion1 = bsVersion == 1
+	this.bsVersion = bsVersion
 	return this, nil
 }
 
@@ -722,7 +777,7 @@ func (this *ANSRangeDecoder) Read(block []byte) (int, error) {
 				block[i] = byte(alphabet[0])
 			}
 		} else {
-			if this.isBsVersion1 == true {
+			if this.bsVersion == 1 {
 				this.decodeChunkV1(block[startChunk:endChunk])
 			} else {
 				this.decodeChunkV2(block[startChunk:endChunk])
