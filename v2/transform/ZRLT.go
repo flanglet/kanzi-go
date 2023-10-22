@@ -140,26 +140,12 @@ func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	srcEnd, dstEnd := len(src), len(dst)-1
-	runLength := 1
+	srcEnd, dstEnd := len(src), len(dst)
 	srcIdx, dstIdx := 0, 0
+	runLength := 0
 	var err error
 
 	for {
-		if runLength > 1 {
-			if dstIdx+runLength > dstEnd {
-				break
-			}
-
-			for runLength > 1 {
-				runLength--
-				dst[dstIdx] = 0
-				dstIdx++
-			}
-
-			continue
-		}
-
 		if src[srcIdx] <= 1 {
 			// Generate the run length bit by bit (but force MSB)
 			runLength = 1
@@ -173,7 +159,19 @@ func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 				}
 			}
 
-			continue
+			runLength--
+
+			if runLength > 0 {
+				if dstIdx+runLength > dstEnd {
+					break
+				}
+
+				for runLength > 0 {
+					runLength--
+					dst[dstIdx] = 0
+					dstIdx++
+				}
+			}
 		}
 
 		// Regular data processing
@@ -198,12 +196,14 @@ func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 End:
-	if runLength > 1 {
+	if runLength > 0 {
+		runLength--
+
 		// If runLength is not 1, add trailing 0s
 		if dstIdx+runLength > dstEnd {
 			err = errors.New("Output buffer is too small")
 		} else {
-			for runLength > 1 {
+			for runLength > 0 {
 				runLength--
 				dst[dstIdx] = 0
 				dstIdx++
