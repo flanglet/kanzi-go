@@ -16,7 +16,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.18
+        go-version: 1.21
 
     - name: Build
       run: cd v2/app && go build -gcflags="all=-B" -gcflags=-l=4 Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
