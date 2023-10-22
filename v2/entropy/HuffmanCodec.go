@@ -493,7 +493,7 @@ func NewHuffmanDecoder(bs kanzi.InputBitStream, args ...uint) (*HuffmanDecoder, 
 	this.bitstream = bs
 	this.isBsVersion3 = false
 	this.maxSymbolSize = _HUF_MAX_SYMBOL_SIZE_V4
-	this.table = make([]uint16, this.maxSymbolSize)
+	this.table = make([]uint16, 1<<this.maxSymbolSize)
 	this.chunkSize = int(chkSize)
 	this.buffer = make([]byte, 0)
 
