@@ -21,3 +21,15 @@ jobs:
     - name: Build
       run: cd v2/app && go build -gcflags="all=-B" -gcflags=-l=4 Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
 
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.21
+
+    - name: Test
+      run: cd v2/test && go test Entropy_test.go && go test Transforms_test.go && go test CompressedStream_test.go
