@@ -241,15 +241,16 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 			rbsz = val.(uint)
 		}
 
-		if rbsz >= 64*1024*1024 {
+		switch s := rbsz; {
+		case s >= 64*1024*1024:
 			statesSize = 1 << 28
-		} else if rbsz >= 16*1024*1024 {
+		case s >= 16*1024*1024:
 			statesSize = 1 << 27
-		} else if rbsz >= 4*1024*1024 {
+		case s >= 4*1024*1024:
 			statesSize = 1 << 26
-		} else if rbsz >= 1024*1024 {
+		case s >= 1024*1024:
 			statesSize = 1 << 24
-		} else {
+		default:
 			statesSize = 1 << 22
 		}
 
@@ -262,17 +263,18 @@ func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
 			absz = val.(uint)
 		}
 
-		if absz >= 32*1024*1024 {
+		switch s := absz; {
+		case s >= 32*1024*1024:
 			mixersSize = 1 << 16
-		} else if absz >= 16*1024*1024 {
+		case s >= 16*1024*1024:
 			mixersSize = 1 << 15
-		} else if absz >= 8*1024*1024 {
+		case s >= 8*1024*1024:
 			mixersSize = 1 << 14
-		} else if absz >= 4*1024*1024 {
+		case s >= 4*1024*1024:
 			mixersSize = 1 << 13
-		} else if absz >= 1024*1024 {
+		case s >= 1024*1024:
 			mixersSize = 1 << 11
-		} else {
+		default:
 			mixersSize = 1 << 8
 		}
 

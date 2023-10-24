@@ -169,8 +169,8 @@ func Log2NoCheck(x uint32) uint32 {
 	return res + LOG2[x-1]
 }
 
-// Log2_1024 returns 1024 * log2(x). Max error is around 0.1%
-func Log2_1024(x uint32) (uint32, error) {
+// Log2ScaledBy1024 returns 1024 * log2(x). Max error is around 0.1%
+func Log2ScaledBy1024(x uint32) (uint32, error) {
 	if x == 0 {
 		return 0, errors.New("Cannot calculate log of a negative or null value")
 	}
@@ -256,14 +256,14 @@ func ComputeFirstOrderEntropy1024(blockLen int, histo []int) int {
 	}
 
 	sum := uint64(0)
-	logLength1024, _ := Log2_1024(uint32(blockLen))
+	logLength1024, _ := Log2ScaledBy1024(uint32(blockLen))
 
 	for i := 0; i < 256; i++ {
 		if histo[i] == 0 {
 			continue
 		}
 
-		log1024, _ := Log2_1024(uint32(histo[i]))
+		log1024, _ := Log2ScaledBy1024(uint32(histo[i]))
 		sum += ((uint64(histo[i]) * uint64(logLength1024-log1024)) >> 3)
 	}
 
