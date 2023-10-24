@@ -17,6 +17,7 @@ package transform
 
 import (
 	"errors"
+	"fmt"
 )
 
 // NullTransform is a pass through byte function
@@ -56,6 +57,10 @@ func doCopy(src, dst []byte) (uint, uint, error) {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *NullTransform) Forward(src, dst []byte) (uint, uint, error) {
+	if n := this.MaxEncodedLen(len(src)); len(dst) < n {
+		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
+	}
+
 	return doCopy(src, dst)
 }
 

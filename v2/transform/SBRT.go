@@ -126,13 +126,11 @@ func (this *SBRT) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	count := len(src)
-
-	if count > len(dst) {
-		errMsg := fmt.Sprintf("Block size is %v, output buffer length is %v", count, len(dst))
-		return 0, 0, errors.New(errMsg)
+	if n := this.MaxEncodedLen(len(src)); len(dst) < n {
+		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
 	}
 
+	count := len(src)
 	s2r := [256]uint8{}
 	r2s := [256]uint8{}
 

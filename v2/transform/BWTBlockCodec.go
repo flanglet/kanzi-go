@@ -71,13 +71,11 @@ func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	blockSize := len(src)
-
-	if len(dst) < this.MaxEncodedLen(blockSize) {
-		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d",
-			len(dst), this.MaxEncodedLen(blockSize))
+	if n := this.MaxEncodedLen(len(src)); len(dst) < n {
+		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
 	}
 
+	blockSize := len(src)
 	chunks := GetBWTChunks(blockSize)
 	log := uint(1)
 

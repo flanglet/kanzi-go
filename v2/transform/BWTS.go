@@ -64,14 +64,14 @@ func (this *BWTS) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
+	if n := this.MaxEncodedLen(len(src)); len(dst) < n {
+		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
+	}
+
 	count := len(src)
 
 	if count > _BWTS_MAX_BLOCK_SIZE {
 		return 0, 0, fmt.Errorf("The max BWTS block size is %d, got %d", _BWTS_MAX_BLOCK_SIZE, count)
-	}
-
-	if count > len(dst) {
-		return 0, 0, fmt.Errorf("Block size is %d, output buffer length is %d", count, len(dst))
 	}
 
 	if count < 2 {
