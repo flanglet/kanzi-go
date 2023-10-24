@@ -789,6 +789,8 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 
 func printHelp(mode string) {
 	log.Println("", true)
+	log.Println(_APP_HEADER, true)
+	log.Println("", true)
 	log.Println("Credits: Matt Mahoney, Yann Collet, Jan Ondrus, Yuta Mori, Ilya Muravyov,", true)
 	log.Println("         Neal Burns, Fabian Giesen, Jarek Duda, Ilya Grebnov", true)
 	log.Println("", true)
