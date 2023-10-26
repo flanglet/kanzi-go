@@ -224,8 +224,9 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 		savings := 0
 		dst[0] = byte(n0)
+		dst[1] = 0
 		srcIdx = 0
-		dstIdx = 1
+		dstIdx = 2
 
 		// Header: emit map length then map data
 		for i := 0; i < n0; i++ {
@@ -254,6 +255,7 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		if srcIdx != count {
+			dst[1] = 1
 			dst[dstIdx] = src[srcIdx]
 			srcIdx++
 			dstIdx++
@@ -292,9 +294,9 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 	var srcIdx int
 	dstIdx := 0
-	count := len(src)
 
 	if n >= 240 {
+		srcEnd := len(src)
 		n = 256 - n
 		srcIdx = 1
 
@@ -311,7 +313,7 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 				dst[i] = val
 			}
 
-			srcIdx = count
+			srcIdx = srcEnd
 			dstIdx = oSize
 		} else {
 			// Rebuild map alias -> symbol
@@ -349,7 +351,7 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 				srcIdx += adjust
 				dstIdx += adjust
 
-				for srcIdx < count {
+				for srcIdx < srcEnd {
 					binary.LittleEndian.PutUint32(dst[dstIdx:], decodeMap[int(src[srcIdx])])
 					srcIdx++
 					dstIdx += 4
@@ -371,7 +373,7 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 					dstIdx++
 				}
 
-				for srcIdx < count {
+				for srcIdx < srcEnd {
 					val := decodeMap[int(src[srcIdx])]
 					srcIdx++
 					binary.LittleEndian.PutUint16(dst[dstIdx:], val)
@@ -382,7 +384,8 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	} else {
 		// Rebuild map alias -> symbol
 		var map16 [256]int
-		srcIdx = 1
+		srcEnd := len(src) - int(src[1])
+		srcIdx = 2
 
 		for i := range &map16 {
 			map16[i] = 0x10000 | int(i)
@@ -393,14 +396,18 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			srcIdx += 3
 		}
 
-		srcEnd := len(src)
-
 		for srcIdx < srcEnd {
 			val := map16[int(src[srcIdx])]
 			srcIdx++
 			dst[dstIdx] = byte(val)
 			dst[dstIdx+1] = byte(val >> 8)
 			dstIdx += (val >> 16)
+		}
+
+		if src[1] != 0 {
+			dst[dstIdx] = src[srcIdx]
+			srcIdx++
+			dstIdx++
 		}
 	}
 
