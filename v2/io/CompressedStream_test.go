@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package io
 
 import (
 	"fmt"
@@ -21,7 +21,6 @@ import (
 	"testing"
 	"time"
 
-	kio "github.com/flanglet/kanzi-go/v2/io"
 	"github.com/flanglet/kanzi-go/v2/util"
 )
 
@@ -93,7 +92,7 @@ func compress1(block []byte) int {
 	var bs util.BufferStream
 	blockSize := uint((len(block) / (rand.Intn(3) + 1)) & -16)
 
-	os, err := kio.NewCompressedOutputStream(&bs, "HUFFMAN", "RLT", blockSize, 1, false)
+	os, err := NewCompressedOutputStream(&bs, "HUFFMAN", "RLT", blockSize, 1, false)
 
 	if err != nil {
 		return 1
@@ -111,7 +110,7 @@ func compress1(block []byte) int {
 		block[i] = 0
 	}
 
-	is, err := kio.NewCompressedInputStream(&bs, 1)
+	is, err := NewCompressedInputStream(&bs, 1)
 
 	if err != nil {
 		return 3
@@ -150,7 +149,7 @@ func compress2(block []byte) int {
 	var bs util.BufferStream
 	blockSize := uint((len(block) / (rand.Intn(3) + 1)) & -16)
 
-	os, err := kio.NewCompressedOutputStream(&bs, "ANS0", "LZX", blockSize, jobs, check)
+	os, err := NewCompressedOutputStream(&bs, "ANS0", "LZX", blockSize, jobs, check)
 
 	if err != nil {
 		return 1
@@ -168,7 +167,7 @@ func compress2(block []byte) int {
 		block[i] = 0
 	}
 
-	is, err := kio.NewCompressedInputStream(&bs, jobs)
+	is, err := NewCompressedInputStream(&bs, jobs)
 
 	if err != nil {
 		return 3
@@ -198,7 +197,7 @@ func compress3(block []byte) int {
 	var bs util.BufferStream
 	blockSize := uint((len(block) / (rand.Intn(3) + 1)) & -16)
 
-	os, err := kio.NewCompressedOutputStream(&bs, "FPAQ", "LZP+ZRLT", blockSize, 1, false)
+	os, err := NewCompressedOutputStream(&bs, "FPAQ", "LZP+ZRLT", blockSize, 1, false)
 
 	if err != nil {
 		return 1
@@ -216,7 +215,7 @@ func compress3(block []byte) int {
 		block[i] = 0
 	}
 
-	is, err := kio.NewCompressedInputStream(&bs, 1)
+	is, err := NewCompressedInputStream(&bs, 1)
 
 	if err != nil {
 		return 3
@@ -245,7 +244,7 @@ func compress4(block []byte) int {
 	copy(buf, block)
 	var bs util.BufferStream
 
-	os, err := kio.NewCompressedOutputStream(&bs, "HUFFMAN", "NONE", uint(len(block)), 1, false)
+	os, err := NewCompressedOutputStream(&bs, "HUFFMAN", "NONE", uint(len(block)), 1, false)
 
 	if err != nil {
 		return 1
@@ -273,7 +272,7 @@ func compress5(block []byte) int {
 	fmt.Println("Test - read after close")
 	var bs util.BufferStream
 
-	os, err := kio.NewCompressedOutputStream(&bs, "NONE", "NONE", uint(len(block)), 1, false)
+	os, err := NewCompressedOutputStream(&bs, "NONE", "NONE", uint(len(block)), 1, false)
 
 	if err != nil {
 		return 1
@@ -287,7 +286,7 @@ func compress5(block []byte) int {
 		}
 	}
 
-	is, err := kio.NewCompressedInputStream(&bs, 1)
+	is, err := NewCompressedInputStream(&bs, 1)
 
 	if err != nil {
 		return 3

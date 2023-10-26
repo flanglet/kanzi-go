@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package entropy
 
 import (
 	"errors"
@@ -25,7 +25,6 @@ import (
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
 	"github.com/flanglet/kanzi-go/v2/bitstream"
-	"github.com/flanglet/kanzi-go/v2/entropy"
 	"github.com/flanglet/kanzi-go/v2/util"
 )
 
@@ -79,11 +78,11 @@ func TestRiceGolomb(b *testing.T) {
 func getPredictor(name string) kanzi.Predictor {
 	switch name {
 	case "TPAQ":
-		res, _ := entropy.NewTPAQPredictor(nil)
+		res, _ := NewTPAQPredictor(nil)
 		return res
 
 	case "CM":
-		res, _ := entropy.NewCMPredictor(nil)
+		res, _ := NewCMPredictor(nil)
 		return res
 
 	default:
@@ -94,39 +93,39 @@ func getPredictor(name string) kanzi.Predictor {
 func getEncoder(name string, obs kanzi.OutputBitStream) kanzi.EntropyEncoder {
 	switch name {
 	case "FPAQ":
-		res, _ := entropy.NewFPAQEncoder(obs)
+		res, _ := NewFPAQEncoder(obs)
 		return res
 
 	case "TPAQ":
-		res, _ := entropy.NewBinaryEntropyEncoder(obs, getPredictor(name))
+		res, _ := NewBinaryEntropyEncoder(obs, getPredictor(name))
 		return res
 
 	case "CM":
-		res, _ := entropy.NewBinaryEntropyEncoder(obs, getPredictor(name))
+		res, _ := NewBinaryEntropyEncoder(obs, getPredictor(name))
 		return res
 
 	case "HUFFMAN":
-		res, _ := entropy.NewHuffmanEncoder(obs)
+		res, _ := NewHuffmanEncoder(obs)
 		return res
 
 	case "ANS0":
-		res, _ := entropy.NewANSRangeEncoder(obs, 0)
+		res, _ := NewANSRangeEncoder(obs, 0)
 		return res
 
 	case "ANS1":
-		res, _ := entropy.NewANSRangeEncoder(obs, 1)
+		res, _ := NewANSRangeEncoder(obs, 1)
 		return res
 
 	case "RANGE":
-		res, _ := entropy.NewRangeEncoder(obs)
+		res, _ := NewRangeEncoder(obs)
 		return res
 
 	case "EXPGOLOMB":
-		res, _ := entropy.NewExpGolombEncoder(obs, true)
+		res, _ := NewExpGolombEncoder(obs, true)
 		return res
 
 	case "RICEGOLOMB":
-		res, _ := entropy.NewRiceGolombEncoder(obs, true, 4)
+		res, _ := NewRiceGolombEncoder(obs, true, 4)
 		return res
 
 	default:
@@ -137,7 +136,7 @@ func getEncoder(name string, obs kanzi.OutputBitStream) kanzi.EntropyEncoder {
 func getDecoder(name string, ibs kanzi.InputBitStream) kanzi.EntropyDecoder {
 	switch name {
 	case "FPAQ":
-		res, _ := entropy.NewFPAQDecoderWithCtx(ibs, nil)
+		res, _ := NewFPAQDecoderWithCtx(ibs, nil)
 		return res
 
 	case "TPAQ":
@@ -147,7 +146,7 @@ func getDecoder(name string, ibs kanzi.InputBitStream) kanzi.EntropyDecoder {
 			panic(fmt.Errorf("No such entropy decoder: '%s'", name))
 		}
 
-		res, _ := entropy.NewBinaryEntropyDecoder(ibs, pred)
+		res, _ := NewBinaryEntropyDecoder(ibs, pred)
 		return res
 
 	case "CM":
@@ -157,31 +156,31 @@ func getDecoder(name string, ibs kanzi.InputBitStream) kanzi.EntropyDecoder {
 			panic(fmt.Errorf("No such entropy decoder: '%s'", name))
 		}
 
-		res, _ := entropy.NewBinaryEntropyDecoder(ibs, pred)
+		res, _ := NewBinaryEntropyDecoder(ibs, pred)
 		return res
 
 	case "HUFFMAN":
-		res, _ := entropy.NewHuffmanDecoder(ibs)
+		res, _ := NewHuffmanDecoder(ibs)
 		return res
 
 	case "ANS0":
-		res, _ := entropy.NewANSRangeDecoder(ibs, 0)
+		res, _ := NewANSRangeDecoder(ibs, 0)
 		return res
 
 	case "ANS1":
-		res, _ := entropy.NewANSRangeDecoder(ibs, 1)
+		res, _ := NewANSRangeDecoder(ibs, 1)
 		return res
 
 	case "RANGE":
-		res, _ := entropy.NewRangeDecoder(ibs)
+		res, _ := NewRangeDecoder(ibs)
 		return res
 
 	case "EXPGOLOMB":
-		res, _ := entropy.NewExpGolombDecoder(ibs, true)
+		res, _ := NewExpGolombDecoder(ibs, true)
 		return res
 
 	case "RICEGOLOMB":
-		res, _ := entropy.NewRiceGolombDecoder(ibs, true, 4)
+		res, _ := NewRiceGolombDecoder(ibs, true, 4)
 		return res
 
 	default:

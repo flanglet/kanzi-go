@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package bitstream
 
 import (
 	"errors"
@@ -24,7 +24,6 @@ import (
 	"time"
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
-	"github.com/flanglet/kanzi-go/v2/bitstream"
 	"github.com/flanglet/kanzi-go/v2/util"
 )
 
@@ -46,14 +45,14 @@ func testCorrectnessAligned1() error {
 	// Check correctness of read() and written()
 	for t := 1; t <= 32; t++ {
 		var bs util.BufferStream
-		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
+		obs, _ := NewDefaultOutputBitStream(&bs, 16384)
 		fmt.Println()
 		obs.WriteBits(0x0123456789ABCDEF, uint(t))
 		fmt.Printf("Written (before close): %v\n", obs.Written())
 		obs.Close()
 		fmt.Printf("Written (after close): %v\n", obs.Written())
 
-		ibs, _ := bitstream.NewDefaultInputBitStream(&bs, 16384)
+		ibs, _ := NewDefaultInputBitStream(&bs, 16384)
 		ibs.ReadBits(uint(t))
 
 		if ibs.Read() == uint64(t) {
@@ -70,8 +69,8 @@ func testCorrectnessAligned1() error {
 
 	for test := 1; test <= 10; test++ {
 		var bs util.BufferStream
-		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
-		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
+		obs, _ := NewDefaultOutputBitStream(&bs, 16384)
+		dbgbs, _ := NewDebugOutputBitStream(obs, os.Stdout)
 		dbgbs.ShowByte(true)
 		dbgbs.Mark(true)
 
@@ -99,7 +98,7 @@ func testCorrectnessAligned1() error {
 		// Close first to force flush()
 		dbgbs.Close()
 
-		ibs, _ := bitstream.NewDefaultInputBitStream(&bs, 16384)
+		ibs, _ := NewDefaultInputBitStream(&bs, 16384)
 		fmt.Printf("\nRead:\n")
 		ok := true
 
@@ -148,7 +147,7 @@ func testCorrectnessMisaligned1() error {
 	// Check correctness of read() and written()
 	for t := 1; t <= 32; t++ {
 		var bs util.BufferStream
-		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
+		obs, _ := NewDefaultOutputBitStream(&bs, 16384)
 		fmt.Println()
 		obs.WriteBit(1)
 		obs.WriteBits(0x0123456789ABCDEF, uint(t))
@@ -156,7 +155,7 @@ func testCorrectnessMisaligned1() error {
 		obs.Close()
 		fmt.Printf("Written (after close): %v\n", obs.Written())
 
-		ibs, _ := bitstream.NewDefaultInputBitStream(&bs, 16384)
+		ibs, _ := NewDefaultInputBitStream(&bs, 16384)
 		ibs.ReadBit()
 		ibs.ReadBits(uint(t))
 
@@ -170,8 +169,8 @@ func testCorrectnessMisaligned1() error {
 
 	for test := 1; test <= 10; test++ {
 		var bs util.BufferStream
-		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
-		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
+		obs, _ := NewDefaultOutputBitStream(&bs, 16384)
+		dbgbs, _ := NewDebugOutputBitStream(obs, os.Stdout)
 		dbgbs.ShowByte(true)
 		dbgbs.Mark(true)
 
@@ -202,7 +201,7 @@ func testCorrectnessMisaligned1() error {
 		dbgbs.Close()
 		testWritePostClose(dbgbs)
 
-		ibs, _ := bitstream.NewDefaultInputBitStream(&bs, 16384)
+		ibs, _ := NewDefaultInputBitStream(&bs, 16384)
 		fmt.Printf("\nRead:\n")
 		ok := true
 
@@ -253,8 +252,8 @@ func testCorrectnessAligned2() error {
 
 	for test := 1; test <= 10; test++ {
 		var bs util.BufferStream
-		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
-		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
+		obs, _ := NewDefaultOutputBitStream(&bs, 16384)
+		dbgbs, _ := NewDebugOutputBitStream(obs, os.Stdout)
 		dbgbs.ShowByte(true)
 		dbgbs.Mark(true)
 		println()
@@ -281,7 +280,7 @@ func testCorrectnessAligned2() error {
 		// Close first to force flush()
 		dbgbs.Close()
 
-		ibs, _ := bitstream.NewDefaultInputBitStream(&bs, 16384)
+		ibs, _ := NewDefaultInputBitStream(&bs, 16384)
 		fmt.Printf("\nRead:\n")
 		r := ibs.ReadArray(output, count)
 		ok := r == count
@@ -332,8 +331,8 @@ func testCorrectnessMisaligned2() error {
 
 	for test := 1; test <= 10; test++ {
 		var bs util.BufferStream
-		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
-		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
+		obs, _ := NewDefaultOutputBitStream(&bs, 16384)
+		dbgbs, _ := NewDebugOutputBitStream(obs, os.Stdout)
 		dbgbs.ShowByte(true)
 		dbgbs.Mark(true)
 		println()
@@ -361,7 +360,7 @@ func testCorrectnessMisaligned2() error {
 		// Close first to force flush()
 		dbgbs.Close()
 
-		ibs, _ := bitstream.NewDefaultInputBitStream(&bs, 16384)
+		ibs, _ := NewDefaultInputBitStream(&bs, 16384)
 		fmt.Printf("\nRead:\n")
 		ibs.ReadBit()
 		r := ibs.ReadArray(output[1:], count)

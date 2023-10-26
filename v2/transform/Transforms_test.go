@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package transform
 
 import (
 	"errors"
@@ -23,41 +23,40 @@ import (
 	"time"
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
-	"github.com/flanglet/kanzi-go/v2/transform"
 )
 
 func getTransform(name string) (kanzi.ByteTransform, error) {
 	switch name {
 	case "LZ":
-		res, err := transform.NewLZCodec()
+		res, err := NewLZCodec()
 		return res, err
 
 	case "ZRLT":
-		res, err := transform.NewZRLT()
+		res, err := NewZRLT()
 		return res, err
 
 	case "RLT":
-		res, err := transform.NewRLT()
+		res, err := NewRLT()
 		return res, err
 
 	case "SRT":
-		res, err := transform.NewSRT()
+		res, err := NewSRT()
 		return res, err
 
 	case "ROLZ":
-		res, err := transform.NewROLZCodecWithFlag(false)
+		res, err := NewROLZCodecWithFlag(false)
 		return res, err
 
 	case "ROLZX":
-		res, err := transform.NewROLZCodecWithFlag(true)
+		res, err := NewROLZCodecWithFlag(true)
 		return res, err
 
 	case "RANK":
-		res, err := transform.NewSBRT(transform.SBRT_MODE_RANK)
+		res, err := NewSBRT(SBRT_MODE_RANK)
 		return res, err
 
 	case "MTFT":
-		res, err := transform.NewSBRT(transform.SBRT_MODE_MTF)
+		res, err := NewSBRT(SBRT_MODE_MTF)
 		return res, err
 
 	default:

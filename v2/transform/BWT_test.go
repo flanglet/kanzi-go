@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package transform
 
 import (
 	"fmt"
@@ -22,7 +22,6 @@ import (
 	"time"
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
-	"github.com/flanglet/kanzi-go/v2/transform"
 )
 
 func TestBWT(b *testing.T) {
@@ -78,9 +77,9 @@ func testCorrectnessBWT(isBWT bool) error {
 		var tf kanzi.ByteTransform
 
 		if isBWT {
-			tf, _ = transform.NewBWT()
+			tf, _ = NewBWT()
 		} else {
-			tf, _ = transform.NewBWTS()
+			tf, _ = NewBWTS()
 		}
 
 		str1 := string(buf1)
@@ -103,8 +102,8 @@ func testCorrectnessBWT(isBWT bool) error {
 		}
 
 		if isBWT {
-			bwt := tf.(*transform.BWT)
-			chunks := transform.GetBWTChunks(len(buf1))
+			bwt := tf.(*BWT)
+			chunks := GetBWTChunks(len(buf1))
 			pi := make([]uint, chunks)
 
 			for i := range pi {
@@ -112,14 +111,14 @@ func testCorrectnessBWT(isBWT bool) error {
 				fmt.Printf("(Primary index=%v)\n", pi[i])
 			}
 
-			tf, _ = transform.NewBWT()
-			bwt = tf.(*transform.BWT)
+			tf, _ = NewBWT()
+			bwt = tf.(*BWT)
 
 			for i := range pi {
 				bwt.SetPrimaryIndex(i, pi[i])
 			}
 		} else {
-			tf, _ = transform.NewBWTS()
+			tf, _ = NewBWTS()
 
 			if len(str2) < 512 {
 				fmt.Printf("Encoded: %s\n", str2)
