@@ -90,97 +90,33 @@ func getPredictor(name string) kanzi.Predictor {
 }
 
 func getEncoder(name string, obs kanzi.OutputBitStream) kanzi.EntropyEncoder {
-	switch name {
-	case "FPAQ":
-		res, _ := entropy.NewFPAQEncoder(obs)
-		return res
+	ctx := make(map[string]interface{})
+	ctx["entropy"] = name
+	ctx["bsVersion"] = uint(4)
+	eType, _ := entropy.GetType(name)
 
-	case "TPAQ", "CM":
-		res, _ := entropy.NewBinaryEntropyEncoder(obs, getPredictor(name))
-		return res
+	res, err := entropy.NewEntropyEncoder(obs, ctx, eType)
 
-	case "HUFFMAN":
-		res, _ := entropy.NewHuffmanEncoder(obs)
-		return res
-
-	case "ANS0":
-		res, _ := entropy.NewANSRangeEncoder(obs, 0)
-		return res
-
-	case "ANS1":
-		res, _ := entropy.NewANSRangeEncoder(obs, 1)
-		return res
-
-	case "RANGE":
-		res, _ := entropy.NewRangeEncoder(obs)
-		return res
-
-	case "EXPGOLOMB":
-		res, _ := entropy.NewExpGolombEncoder(obs, true)
-		return res
-
-	case "RICEGOLOMB":
-		res, _ := entropy.NewRiceGolombEncoder(obs, true, 4)
-		return res
-
-	default:
-		panic(fmt.Errorf("No such entropy encoder: '%s'", name))
+	if err != nil {
+		panic(err.Error())
 	}
+
+	return res
 }
 
 func getDecoder(name string, ibs kanzi.InputBitStream) kanzi.EntropyDecoder {
-	switch name {
-	case "FPAQ":
-		res, _ := entropy.NewFPAQDecoderWithCtx(ibs, nil)
-		return res
+	ctx := make(map[string]interface{})
+	ctx["entropy"] = name
+	ctx["bsVersion"] = uint(4)
+	eType, _ := entropy.GetType(name)
 
-	case "TPAQ":
-		pred := getPredictor(name)
+	res, err := entropy.NewEntropyDecoder(ibs, ctx, eType)
 
-		if pred == nil {
-			panic(fmt.Errorf("No such entropy decoder: '%s'", name))
-		}
-
-		res, _ := entropy.NewBinaryEntropyDecoder(ibs, pred)
-		return res
-
-	case "CM":
-		pred := getPredictor(name)
-
-		if pred == nil {
-			panic(fmt.Errorf("No such entropy decoder: '%s'", name))
-		}
-
-		res, _ := entropy.NewBinaryEntropyDecoder(ibs, pred)
-		return res
-
-	case "HUFFMAN":
-		res, _ := entropy.NewHuffmanDecoder(ibs)
-		return res
-
-	case "ANS0":
-		res, _ := entropy.NewANSRangeDecoder(ibs, 0)
-		return res
-
-	case "ANS1":
-		res, _ := entropy.NewANSRangeDecoder(ibs, 1)
-		return res
-
-	case "RANGE":
-		res, _ := entropy.NewRangeDecoder(ibs)
-		return res
-
-	case "EXPGOLOMB":
-		res, _ := entropy.NewExpGolombDecoder(ibs, true)
-		return res
-
-	case "RICEGOLOMB":
-		res, _ := entropy.NewRiceGolombDecoder(ibs, true, 4)
-		return res
-
-	default:
-		panic(fmt.Errorf("No such entropy decoder: '%s'", name))
+	if err != nil {
+		panic(err.Error())
 	}
+
+	return res
 }
 
 func testEntropySpeed(b *testing.B, name string) error {

@@ -58,14 +58,20 @@ func testCorrectnessBWT(isBWT bool) error {
 			buf1 = []byte("3.14159265358979323846264338327950288419716939937510")
 		} else if ii == 3 {
 			buf1 = []byte("SIX.MIXED.PIXIES.SIFT.SIXTY.PIXIE.DUST.BOXES")
-		} else if ii < 20 {
+		} else if ii < 19 {
 			buf1 = make([]byte, 128)
 
 			for i := range buf1 {
 				buf1[i] = byte(65 + rnd.Intn(4*ii))
 			}
+		} else if ii < 20 {
+			buf1 = make([]byte, _BWT_BLOCK_SIZE_THRESHOLD2/2)
+
+			for i := range buf1 {
+				buf1[i] = byte(i)
+			}
 		} else {
-			buf1 = make([]byte, 8*1024*1024)
+			buf1 = make([]byte, _BWT_BLOCK_SIZE_THRESHOLD2*2)
 
 			for i := range buf1 {
 				buf1[i] = byte(i)

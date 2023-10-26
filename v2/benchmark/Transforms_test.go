@@ -25,41 +25,52 @@ import (
 )
 
 func getTransform(name string) (kanzi.ByteTransform, error) {
+	ctx := make(map[string]interface{})
+	ctx["transform"] = name
+	ctx["bsVersion"] = uint(4)
+
 	switch name {
 	case "LZ":
-		res, err := transform.NewLZCodec()
+		ctx["lz"] = transform.LZ_TYPE
+		res, err := transform.NewLZCodecWithCtx(&ctx)
 		return res, err
 
 	case "LZX":
-		ctx := make(map[string]interface{})
 		ctx["lz"] = transform.LZX_TYPE
 		res, err := transform.NewLZCodecWithCtx(&ctx)
 		return res, err
 
 	case "LZP":
-		ctx := make(map[string]interface{})
 		ctx["lz"] = transform.LZP_TYPE
 		res, err := transform.NewLZCodecWithCtx(&ctx)
 		return res, err
 
+	case "ALIAS":
+		res, err := transform.NewAliasCodecWithCtx(&ctx)
+		return res, err
+
+	case "NONE":
+		res, err := transform.NewNullTransformWithCtx(&ctx)
+		return res, err
+
 	case "ZRLT":
-		res, err := transform.NewZRLT()
+		res, err := transform.NewZRLTWithCtx(&ctx)
 		return res, err
 
 	case "RLT":
-		res, err := transform.NewRLT()
+		res, err := transform.NewRLTWithCtx(&ctx)
 		return res, err
 
 	case "SRT":
-		res, err := transform.NewSRT()
+		res, err := transform.NewSRTWithCtx(&ctx)
 		return res, err
 
 	case "ROLZ":
-		res, err := transform.NewROLZCodecWithFlag(false)
+		res, err := transform.NewROLZCodecWithCtx(&ctx)
 		return res, err
 
 	case "ROLZX":
-		res, err := transform.NewROLZCodecWithFlag(true)
+		res, err := transform.NewROLZCodecWithCtx(&ctx)
 		return res, err
 
 	case "RANK":
@@ -89,6 +100,18 @@ func BenchmarkLZP(b *testing.B) {
 
 func BenchmarkLZX(b *testing.B) {
 	if err := testTransformSpeed("LZX", b.N); err != nil {
+		b.Fatalf(err.Error())
+	}
+}
+
+func BenchmarkLCopy(b *testing.B) {
+	if err := testTransformSpeed("NONE", b.N); err != nil {
+		b.Fatalf(err.Error())
+	}
+}
+
+func BenchmarkLAlias(b *testing.B) {
+	if err := testTransformSpeed("ALIAS", b.N); err != nil {
 		b.Fatalf(err.Error())
 	}
 }
@@ -146,7 +169,7 @@ func testTransformSpeed(name string, iter int) error {
 		n := iter / 20
 
 		for n < len(input) {
-			val := byte(rand.Intn(4))
+			val := byte(rand.Intn(64))
 
 			if val%7 == 0 {
 				val = 0
@@ -196,7 +219,7 @@ func testTransformSpeed(name string, iter int) error {
 		}
 
 		if idx >= 0 {
-			err := fmt.Errorf("Failure at index %v (%v <-> %v)", idx, input[idx], reverse[idx])
+			err := fmt.Errorf("Failure at index %v of %v (%v <-> %v)", idx, len(input), input[idx], reverse[idx])
 			return err
 		}
 
