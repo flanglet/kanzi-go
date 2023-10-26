@@ -45,6 +45,22 @@ const (
 	//_ARG_IDX_TO        = 11
 	_ARG_IDX_PROFILE = 14
 	_APP_HEADER      = "Kanzi 2.1 (c) Frederic Langlet"
+	_ARG_INPUT       = "--input="
+	_ARG_OUTPUT      = "--output="
+	_ARG_LEVEL       = "--level="
+	_ARG_COMPRESS    = "--compress"
+	_ARG_DECOMPRESS  = "--decompress"
+	_ARG_ENTROPY     = "--entropy="
+	_ARG_TRANSFORM   = "--transform="
+	_ARG_VERBOSE     = "--verbose="
+	_ARG_JOBS        = "--jobs="
+	_ARG_BLOCK       = "--block="
+	_ARG_FROM        = "--from="
+	_ARG_TO          = "--to="
+	_ARG_CPUPROF     = "--cpuProf="
+	_ARG_FORCE       = "--force"
+	_ARG_SKIP        = "--skip"
+	_ARG_CHECKSUM    = "--checksum"
 )
 
 var (
@@ -202,23 +218,23 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 
 		arg = strings.TrimSpace(arg)
 
-		if strings.HasPrefix(arg, "--output=") || arg == "-o" {
+		if strings.HasPrefix(arg, _ARG_OUTPUT) || arg == "-o" {
 			ctx = _ARG_IDX_OUTPUT
 			continue
 		}
 
-		if strings.HasPrefix(arg, "--input=") || arg == "-i" {
+		if strings.HasPrefix(arg, _ARG_INPUT) || arg == "-i" {
 			ctx = _ARG_IDX_INPUT
 			continue
 		}
 
-		if strings.HasPrefix(arg, "--verbose=") || arg == "-v" {
+		if strings.HasPrefix(arg, _ARG_VERBOSE) || arg == "-v" {
 			ctx = _ARG_IDX_VERBOSE
 			continue
 		}
 
 		// Extract verbosity, output and mode first
-		if arg == "--compress" || arg == "-c" {
+		if arg == _ARG_COMPRESS || arg == "-c" {
 			if mode == "d" {
 				fmt.Println("Both compression and decompression options were provided.")
 				return kanzi.ERR_INVALID_PARAM
@@ -228,7 +244,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
-		if arg == "--decompress" || arg == "-d" {
+		if arg == _ARG_DECOMPRESS || arg == "-d" {
 			if mode == "c" {
 				fmt.Println("Both compression and decompression options were provided.")
 				return kanzi.ERR_INVALID_PARAM
@@ -238,12 +254,12 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, "--verbose=") || ctx == _ARG_IDX_VERBOSE {
+		if strings.HasPrefix(arg, _ARG_VERBOSE) || ctx == _ARG_IDX_VERBOSE {
 			var verboseLevel string
 			var err error
 
-			if strings.HasPrefix(arg, "--verbose=") {
-				verboseLevel = strings.TrimPrefix(arg, "--verbose=")
+			if strings.HasPrefix(arg, _ARG_VERBOSE) {
+				verboseLevel = strings.TrimPrefix(arg, _ARG_VERBOSE)
 			} else {
 				verboseLevel = arg
 			}
@@ -304,7 +320,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			return 0
 		}
 
-		if arg == "--compress" || arg == "-c" || arg == "--decompress" || arg == "-d" {
+		if arg == _ARG_COMPRESS || arg == "-c" || arg == _ARG_DECOMPRESS || arg == "-d" {
 			if ctx != -1 {
 				log.Println("Warning: ignoring option ["+_CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
 			}
@@ -313,7 +329,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
-		if arg == "--force" || arg == "-f" {
+		if arg == _ARG_FORCE || arg == "-f" {
 			if ctx != -1 {
 				log.Println("Warning: ignoring option ["+_CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
 			}
@@ -323,7 +339,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
-		if arg == "--skip" || arg == "-s" {
+		if arg == _ARG_SKIP || arg == "-s" {
 			if ctx != -1 {
 				log.Println("Warning: ignoring option ["+_CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
 			}
@@ -333,7 +349,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
-		if arg == "--checksum" || arg == "-x" {
+		if arg == _ARG_CHECKSUM || arg == "-x" {
 			if ctx != -1 {
 				log.Println("Warning: ignoring option ["+_CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
 			}
@@ -391,11 +407,11 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			}
 		}
 
-		if strings.HasPrefix(arg, "--output=") || ctx == _ARG_IDX_OUTPUT {
+		if strings.HasPrefix(arg, _ARG_OUTPUT) || ctx == _ARG_IDX_OUTPUT {
 			name := ""
 
-			if strings.HasPrefix(arg, "--output=") {
-				name = strings.TrimPrefix(arg, "--output=")
+			if strings.HasPrefix(arg, _ARG_OUTPUT) {
+				name = strings.TrimPrefix(arg, _ARG_OUTPUT)
 			} else {
 				name = arg
 			}
@@ -410,11 +426,11 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, "--input=") || ctx == _ARG_IDX_INPUT {
+		if strings.HasPrefix(arg, _ARG_INPUT) || ctx == _ARG_IDX_INPUT {
 			name := ""
 
-			if strings.HasPrefix(arg, "--input=") {
-				name = strings.TrimPrefix(arg, "--input=")
+			if strings.HasPrefix(arg, _ARG_INPUT) {
+				name = strings.TrimPrefix(arg, _ARG_INPUT)
 			} else {
 				name = arg
 			}
@@ -429,7 +445,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, "--entropy=") || ctx == _ARG_IDX_ENTROPY {
+		if strings.HasPrefix(arg, _ARG_ENTROPY) || ctx == _ARG_IDX_ENTROPY {
 			if mode != "c" {
 				log.Println("Warning: ignoring option ["+arg+"]. Only applicable in compress mode.", verbose > 0)
 				continue
@@ -437,8 +453,8 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 
 			name := ""
 
-			if strings.HasPrefix(arg, "--entropy=") {
-				name = strings.TrimPrefix(arg, "--entropy=")
+			if strings.HasPrefix(arg, _ARG_ENTROPY) {
+				name = strings.TrimPrefix(arg, _ARG_ENTROPY)
 			} else {
 				name = arg
 			}
@@ -460,7 +476,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, "--transform=") || ctx == _ARG_IDX_TRANSFORM {
+		if strings.HasPrefix(arg, _ARG_TRANSFORM) || ctx == _ARG_IDX_TRANSFORM {
 			if mode != "c" {
 				log.Println("Warning: ignoring option transform. Only applicable in compress mode.", verbose > 0)
 				ctx = -1
@@ -469,8 +485,8 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 
 			name := ""
 
-			if strings.HasPrefix(arg, "--transform=") {
-				name = strings.TrimPrefix(arg, "--transform=")
+			if strings.HasPrefix(arg, _ARG_TRANSFORM) {
+				name = strings.TrimPrefix(arg, _ARG_TRANSFORM)
 			} else {
 				name = arg
 			}
@@ -500,7 +516,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, "--level=") || ctx == _ARG_IDX_LEVEL {
+		if strings.HasPrefix(arg, _ARG_LEVEL) || ctx == _ARG_IDX_LEVEL {
 			if mode != "c" {
 				log.Println("Warning: ignoring option level. Only applicable in compress mode.", verbose > 0)
 				ctx = -1
@@ -510,8 +526,8 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			var str string
 			var err error
 
-			if strings.HasPrefix(arg, "--level=") {
-				str = strings.TrimPrefix(arg, "--level=")
+			if strings.HasPrefix(arg, _ARG_LEVEL) {
+				str = strings.TrimPrefix(arg, _ARG_LEVEL)
 			} else {
 				str = arg
 			}
@@ -538,11 +554,11 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, "--cpuProf=") || ctx == _ARG_IDX_PROFILE {
+		if strings.HasPrefix(arg, _ARG_CPUPROF) || ctx == _ARG_IDX_PROFILE {
 			name := ""
 
-			if strings.HasPrefix(arg, "--cpuProf=") {
-				name = strings.TrimPrefix(arg, "--cpuProf=")
+			if strings.HasPrefix(arg, _ARG_CPUPROF) {
+				name = strings.TrimPrefix(arg, _ARG_CPUPROF)
 			} else {
 				name = arg
 			}
@@ -557,7 +573,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, "--block=") || ctx == _ARG_IDX_BLOCK {
+		if strings.HasPrefix(arg, _ARG_BLOCK) || ctx == _ARG_IDX_BLOCK {
 			if mode != "c" {
 				log.Println("Warning: ignoring option block. Only applicable in compress mode.", verbose > 0)
 				ctx = -1
@@ -566,8 +582,8 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 
 			var strBlockSize string
 
-			if strings.HasPrefix(arg, "--block=") {
-				strBlockSize = strings.TrimPrefix(arg, "--block=")
+			if strings.HasPrefix(arg, _ARG_BLOCK) {
+				strBlockSize = strings.TrimPrefix(arg, _ARG_BLOCK)
 			} else {
 				strBlockSize = arg
 			}
@@ -616,12 +632,12 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, "--jobs=") || ctx == _ARG_IDX_JOBS {
+		if strings.HasPrefix(arg, _ARG_JOBS) || ctx == _ARG_IDX_JOBS {
 			var strTasks string
 			var err error
 
-			if strings.HasPrefix(arg, "--jobs=") {
-				strTasks = strings.TrimPrefix(arg, "--jobs=")
+			if strings.HasPrefix(arg, _ARG_JOBS) {
+				strTasks = strings.TrimPrefix(arg, _ARG_JOBS)
 			} else {
 				strTasks = arg
 			}
@@ -641,7 +657,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, "--from=") && ctx == -1 {
+		if strings.HasPrefix(arg, _ARG_FROM) && ctx == -1 {
 			if mode != "d" {
 				log.Println("Warning: ignoring option start block. Only applicable in decompress mode.", verbose > 0)
 				continue
@@ -650,8 +666,8 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			var strFrom string
 			var err error
 
-			if strings.HasPrefix(arg, "--from=") {
-				strFrom = strings.TrimPrefix(arg, "--from=")
+			if strings.HasPrefix(arg, _ARG_FROM) {
+				strFrom = strings.TrimPrefix(arg, _ARG_FROM)
 			} else {
 				strFrom = arg
 			}
@@ -674,7 +690,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, "--to=") && ctx == -1 {
+		if strings.HasPrefix(arg, _ARG_TO) && ctx == -1 {
 			if mode != "d" {
 				log.Println("Warning: ignoring option end block. Only applicable in decompress mode.", verbose > 0)
 				continue
@@ -683,8 +699,8 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			var strTo string
 			var err error
 
-			if strings.HasPrefix(arg, "--to=") {
-				strTo = strings.TrimPrefix(arg, "--to=")
+			if strings.HasPrefix(arg, _ARG_TO) {
+				strTo = strings.TrimPrefix(arg, _ARG_TO)
 			} else {
 				strTo = arg
 			}
@@ -702,8 +718,8 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 			continue
 		}
 
-		if !strings.HasPrefix(arg, "--verbose=") && !strings.HasPrefix(arg, "--output=") &&
-			ctx == -1 && !strings.HasPrefix(arg, "--cpuProf=") {
+		if !strings.HasPrefix(arg, _ARG_VERBOSE) && !strings.HasPrefix(arg, _ARG_OUTPUT) &&
+			ctx == -1 && !strings.HasPrefix(arg, _ARG_CPUPROF) {
 			log.Println("Warning: ignoring unknown option ["+arg+"]", verbose > 0)
 		}
 

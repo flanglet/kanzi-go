@@ -96,11 +96,7 @@ func getEncoder(name string, obs kanzi.OutputBitStream) kanzi.EntropyEncoder {
 		res, _ := NewFPAQEncoder(obs)
 		return res
 
-	case "TPAQ":
-		res, _ := NewBinaryEntropyEncoder(obs, getPredictor(name))
-		return res
-
-	case "CM":
+	case "TPAQ", "CM":
 		res, _ := NewBinaryEntropyEncoder(obs, getPredictor(name))
 		return res
 
