@@ -31,9 +31,5 @@ jobs:
       with:
         go-version: 1.21
 
-    - name: Test
-      run: cd v2/bitstream && go test
-      run: cd v2/io && go test
-      run: cd v2/entropy && go test
-      run: cd v2/transform && go test
-      run: cd v2/test && go test Entropy_test.go && go test Transforms_test.go && go test CompressedStream_test.go
+    - name: Tests
+      run: cd v2 && go test ./...
