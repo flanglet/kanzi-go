@@ -140,7 +140,6 @@ func testTransformSpeed(name string, iter int) error {
 		input := make([]byte, size)
 		output := make([]byte, 8*size)
 		reverse := make([]byte, size)
-		rand.Seed(int64(jj))
 
 		// Generate random data with runs
 		// Leave zeros at the beginning for ZRLT to succeed

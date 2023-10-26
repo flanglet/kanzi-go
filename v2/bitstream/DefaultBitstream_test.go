@@ -21,10 +21,15 @@ import (
 	"math/rand"
 	"os"
 	"testing"
-	"time"
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
 	"github.com/flanglet/kanzi-go/v2/util"
+)
+
+const (
+	_SUCCESS = "Success"
+	_FAILURE = "Failure"
+	_READ    = "Read: "
 )
 
 func TestBitStreamAligned(b *testing.T) {
@@ -40,7 +45,6 @@ func TestBitStreamMisaligned(b *testing.T) {
 func testCorrectnessAligned1() error {
 	fmt.Printf("Correctness Test - write long - byte aligned\n")
 	values := make([]int, 100)
-	rand.Seed(time.Now().UTC().UnixNano())
 
 	// Check correctness of read() and written()
 	for t := 1; t <= 32; t++ {
@@ -99,7 +103,8 @@ func testCorrectnessAligned1() error {
 		dbgbs.Close()
 
 		ibs, _ := NewDefaultInputBitStream(&bs, 16384)
-		fmt.Printf("\nRead:\n")
+		println()
+		fmt.Println(_READ)
 		ok := true
 
 		for i := range values {
@@ -124,12 +129,13 @@ func testCorrectnessAligned1() error {
 		println()
 		fmt.Printf("Bits written: %v\n", dbgbs.Written())
 		fmt.Printf("Bits read: %v\n", ibs.Read())
+		println()
 
 		if ok {
-			fmt.Printf("\nSuccess\n")
+			fmt.Println(_SUCCESS)
 		} else {
-			fmt.Printf("\nFailure\n")
-			return fmt.Errorf("Bits written: %v, its read: %v", dbgbs.Written(), ibs.Read())
+			fmt.Println(_FAILURE)
+			return fmt.Errorf("Bits written: %v, bits read: %v", dbgbs.Written(), ibs.Read())
 		}
 
 		println()
@@ -142,7 +148,6 @@ func testCorrectnessAligned1() error {
 func testCorrectnessMisaligned1() error {
 	fmt.Printf("Correctness Test - write long - not byte aligned\n")
 	values := make([]int, 100)
-	rand.Seed(time.Now().UTC().UnixNano())
 
 	// Check correctness of read() and written()
 	for t := 1; t <= 32; t++ {
@@ -202,7 +207,8 @@ func testCorrectnessMisaligned1() error {
 		testWritePostClose(dbgbs)
 
 		ibs, _ := NewDefaultInputBitStream(&bs, 16384)
-		fmt.Printf("\nRead:\n")
+		println()
+		fmt.Println(_READ)
 		ok := true
 
 		for i := range values {
@@ -229,12 +235,13 @@ func testCorrectnessMisaligned1() error {
 		println()
 		fmt.Printf("Bits written: %v\n", dbgbs.Written())
 		fmt.Printf("Bits read: %v\n", ibs.Read())
+		println()
 
 		if ok {
-			fmt.Printf("\nSuccess\n")
+			fmt.Println(_SUCCESS)
 		} else {
-			fmt.Printf("\nFailure\n")
-			return fmt.Errorf("Bits written: %v, its read: %v", dbgbs.Written(), ibs.Read())
+			fmt.Println(_FAILURE)
+			return fmt.Errorf("Bits written: %v, bits read: %v", dbgbs.Written(), ibs.Read())
 		}
 
 		println()
@@ -248,7 +255,6 @@ func testCorrectnessAligned2() error {
 	fmt.Printf("Correctness Test - write array - byte aligned\n")
 	input := make([]byte, 100)
 	output := make([]byte, 100)
-	rand.Seed(time.Now().UTC().UnixNano())
 
 	for test := 1; test <= 10; test++ {
 		var bs util.BufferStream
@@ -281,7 +287,8 @@ func testCorrectnessAligned2() error {
 		dbgbs.Close()
 
 		ibs, _ := NewDefaultInputBitStream(&bs, 16384)
-		fmt.Printf("\nRead:\n")
+		println()
+		fmt.Println(_READ)
 		r := ibs.ReadArray(output, count)
 		ok := r == count
 
@@ -313,7 +320,7 @@ func testCorrectnessAligned2() error {
 			fmt.Printf("\nSuccess\n")
 		} else {
 			fmt.Printf("\nFailure\n")
-			return fmt.Errorf("Bits written: %v, its read: %v", dbgbs.Written(), ibs.Read())
+			return fmt.Errorf("Bits written: %v, bits read: %v", dbgbs.Written(), ibs.Read())
 		}
 
 		println()
@@ -327,7 +334,6 @@ func testCorrectnessMisaligned2() error {
 	fmt.Printf("Correctness Test - write array - not byte aligned\n")
 	input := make([]byte, 100)
 	output := make([]byte, 100)
-	rand.Seed(time.Now().UTC().UnixNano())
 
 	for test := 1; test <= 10; test++ {
 		var bs util.BufferStream
@@ -361,7 +367,8 @@ func testCorrectnessMisaligned2() error {
 		dbgbs.Close()
 
 		ibs, _ := NewDefaultInputBitStream(&bs, 16384)
-		fmt.Printf("\nRead:\n")
+		println()
+		fmt.Println(_READ)
 		ibs.ReadBit()
 		r := ibs.ReadArray(output[1:], count)
 		ok := r == count
@@ -394,7 +401,7 @@ func testCorrectnessMisaligned2() error {
 			fmt.Printf("\nSuccess\n")
 		} else {
 			fmt.Printf("\nFailure\n")
-			return fmt.Errorf("Bits written: %v, its read: %v", dbgbs.Written(), ibs.Read())
+			return fmt.Errorf("Bits written: %v, bits read: %v", dbgbs.Written(), ibs.Read())
 		}
 
 		println()

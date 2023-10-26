@@ -21,7 +21,6 @@ import (
 	"math/rand"
 	"os"
 	"testing"
-	"time"
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
 	"github.com/flanglet/kanzi-go/v2/bitstream"
@@ -191,7 +190,6 @@ func testEntropyCorrectness(name string) error {
 	for ii := 1; ii < 20; ii++ {
 		fmt.Printf("\n\nTest %v", ii)
 		var values []byte
-		rand.Seed(time.Now().UTC().UnixNano())
 
 		if ii == 3 {
 			values = []byte{0, 0, 32, 15, -4 & 0xFF, 16, 0, 16, 0, 7, -1 & 0xFF, -4 & 0xFF, -32 & 0xFF, 0, 31, -1 & 0xFF}

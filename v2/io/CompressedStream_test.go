@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/flanglet/kanzi-go/v2/util"
 )
@@ -33,7 +32,6 @@ func TestCompressedStream(b *testing.T) {
 	for test := 1; test <= 40; test++ {
 		length := 65536 << uint(test%7)
 		fmt.Printf("\nIteration %v (size %v)\n", test, length)
-		rand.Seed(time.Now().UTC().UnixNano())
 
 		for i := range values {
 			values[i] = byte(rand.Intn(4*test + 1))
