@@ -77,6 +77,10 @@ func getTransform(name string) (kanzi.ByteTransform, error) {
 		res, err := NewSBRT(SBRT_MODE_MTF)
 		return res, err
 
+	case "MM":
+		res, err := NewFSDCodecWithCtx(&ctx)
+		return res, err
+
 	default:
 		panic(fmt.Errorf("No such transform: '%s'", name))
 	}
@@ -102,6 +106,12 @@ func TestLZP(b *testing.T) {
 
 func TestROLZ(b *testing.T) {
 	if err := testTransformCorrectness("ROLZ"); err != nil {
+		b.Errorf(err.Error())
+	}
+}
+
+func TestROLZX(b *testing.T) {
+	if err := testTransformCorrectness("ROLZX"); err != nil {
 		b.Errorf(err.Error())
 	}
 }
@@ -136,11 +146,12 @@ func TestSRT(b *testing.T) {
 	}
 }
 
-//	func TestROLZX(b *testing.T) {
-//		if err := testTransformCorrectness("ROLZX"); err != nil {
-//			b.Errorf(err.Error())
-//		}
-//	}
+func TestMM(b *testing.T) {
+	if err := testTransformCorrectness("MM"); err != nil {
+		b.Errorf(err.Error())
+	}
+}
+
 func TestRank(b *testing.T) {
 	if err := testTransformCorrectness("RANK"); err != nil {
 		b.Errorf(err.Error())
@@ -161,7 +172,7 @@ func testTransformCorrectness(name string) error {
 		rng = 5
 	}
 
-	for ii := 0; ii < 20; ii++ {
+	for ii := 0; ii < 50; ii++ {
 		rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 		fmt.Printf("\nTest %v\n\n", ii)
 		var arr []int
@@ -279,7 +290,7 @@ func testTransformCorrectness(name string) error {
 			continue
 		}
 
-		if srcIdx != uint(size) || srcIdx < dstIdx {
+		if name != "MM" && (srcIdx != uint(size) || srcIdx < dstIdx) {
 			fmt.Printf("\nNo compression (ratio > 1.0), skip reverse")
 			continue
 		}

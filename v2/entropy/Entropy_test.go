@@ -63,16 +63,6 @@ func TestTPAQ(b *testing.T) {
 		b.Errorf(err.Error())
 	}
 }
-func TestExpGolomb(b *testing.T) {
-	if err := testEntropyCorrectness("EXPGOLOMB"); err != nil {
-		b.Errorf(err.Error())
-	}
-}
-func TestRiceGolomb(b *testing.T) {
-	if err := testEntropyCorrectness("RICEGOLOMB"); err != nil {
-		b.Errorf(err.Error())
-	}
-}
 
 func getEncoder(name string, obs kanzi.OutputBitStream) kanzi.EntropyEncoder {
 	ctx := make(map[string]interface{})

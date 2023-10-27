@@ -56,7 +56,7 @@ func NewEntropyDecoder(ibs kanzi.InputBitStream, ctx map[string]interface{},
 		return NewANSRangeDecoderWithCtx(ibs, &ctx, 1)
 
 	case RANGE_TYPE:
-		return NewRangeDecoder(ibs)
+		return NewANSRangeDecoderWithCtx(ibs, &ctx)
 
 	case FPAQ_TYPE:
 		return NewFPAQDecoderWithCtx(ibs, &ctx)
@@ -92,10 +92,10 @@ func NewEntropyEncoder(obs kanzi.OutputBitStream, ctx map[string]interface{},
 		return NewANSRangeEncoderWithCtx(obs, &ctx, 1)
 
 	case RANGE_TYPE:
-		return NewRangeEncoder(obs)
+		return NewANSRangeEncoderWithCtx(obs, &ctx)
 
 	case FPAQ_TYPE:
-		return NewFPAQEncoder(obs)
+		return NewFPAQEncoderWithCtx(obs, &ctx)
 
 	case CM_TYPE:
 		predictor, _ := NewCMPredictor(&ctx)
