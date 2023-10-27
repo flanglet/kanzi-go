@@ -74,21 +74,6 @@ func BenchmarkTPAQ(b *testing.B) {
 	}
 }
 
-func getPredictor(name string) kanzi.Predictor {
-	switch name {
-	case "TPAQ":
-		res, _ := entropy.NewTPAQPredictor(nil)
-		return res
-
-	case "CM":
-		res, _ := entropy.NewCMPredictor(nil)
-		return res
-
-	default:
-		panic(fmt.Errorf("Unsupported type: '%s'", name))
-	}
-}
-
 func getEncoder(name string, obs kanzi.OutputBitStream) kanzi.EntropyEncoder {
 	ctx := make(map[string]interface{})
 	ctx["entropy"] = name

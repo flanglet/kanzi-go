@@ -65,11 +65,7 @@ func getTransform(name string) (kanzi.ByteTransform, error) {
 		res, err := transform.NewSRTWithCtx(&ctx)
 		return res, err
 
-	case "ROLZ":
-		res, err := transform.NewROLZCodecWithCtx(&ctx)
-		return res, err
-
-	case "ROLZX":
+	case "ROLZ", "ROLZX":
 		res, err := transform.NewROLZCodecWithCtx(&ctx)
 		return res, err
 
