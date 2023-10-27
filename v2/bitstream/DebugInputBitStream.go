@@ -72,21 +72,13 @@ func (this *DebugInputBitStream) ReadBit() int {
 		fmt.Fprintf(this.out, "r")
 	}
 
-	if this.width > 7 {
-		if (this.lineIndex-1)%this.width == this.width-1 {
-			if this.hexa == true {
-				this.printByte(this.current)
-			}
-
-			fmt.Fprintf(this.out, "\n")
-			this.lineIndex = 0
-		} else if this.lineIndex&7 == 0 {
-			if this.hexa == true {
-				this.printByte(this.current)
-			} else {
-				fmt.Fprintf(this.out, " ")
-			}
+	if this.width > 7 && (this.lineIndex-1)%this.width == this.width-1 {
+		if this.hexa == true {
+			this.printByte(this.current)
 		}
+
+		fmt.Fprintf(this.out, "\n")
+		this.lineIndex = 0
 	} else if this.lineIndex&7 == 0 {
 		if this.hexa == true {
 			this.printByte(this.current)
@@ -116,21 +108,13 @@ func (this *DebugInputBitStream) ReadBits(length uint) uint64 {
 			fmt.Fprintf(this.out, "r")
 		}
 
-		if this.width > 7 {
-			if this.lineIndex%this.width == 0 {
-				if this.hexa == true {
-					this.printByte(this.current)
-				}
-
-				fmt.Fprintf(this.out, "\n")
-				this.lineIndex = 0
-			} else if this.lineIndex&7 == 0 {
-				if this.hexa == true {
-					this.printByte(this.current)
-				} else {
-					fmt.Fprintf(this.out, " ")
-				}
+		if this.width > 7 && this.lineIndex%this.width == 0 {
+			if this.hexa == true {
+				this.printByte(this.current)
 			}
+
+			fmt.Fprintf(this.out, "\n")
+			this.lineIndex = 0
 		} else if this.lineIndex&7 == 0 {
 			if this.hexa == true {
 				this.printByte(this.current)
@@ -162,21 +146,14 @@ func (this *DebugInputBitStream) ReadArray(bits []byte, count uint) uint {
 				fmt.Fprintf(this.out, "r")
 			}
 
-			if this.width > 7 {
-				if this.lineIndex%this.width == 0 {
-					if this.hexa == true {
-						this.printByte(this.current)
-					}
-
-					fmt.Fprintf(this.out, "\n")
-					this.lineIndex = 0
-				} else if this.lineIndex&7 == 0 {
-					if this.hexa == true {
-						this.printByte(this.current)
-					} else {
-						fmt.Fprintf(this.out, " ")
-					}
+			if this.width > 7 && this.lineIndex%this.width == 0 {
+				if this.hexa == true {
+					this.printByte(this.current)
 				}
+
+				fmt.Fprintf(this.out, "\n")
+				this.lineIndex = 0
+
 			} else if this.lineIndex&7 == 0 {
 				if this.hexa == true {
 					this.printByte(this.current)
