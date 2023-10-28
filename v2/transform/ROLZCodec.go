@@ -999,6 +999,7 @@ func (this *rolzCodec2) findMatch(buf []byte, pos int, key uint32) (int, int) {
 		}
 	}
 
+	maxMatch -= 4
 	m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
 	hash32 := rolzhash(buf[pos : pos+4])
 	counter := this.counters[key]
@@ -1024,7 +1025,7 @@ func (this *rolzCodec2) findMatch(buf []byte, pos int, key uint32) (int, int) {
 
 		n := 0
 
-		for n < maxMatch-4 {
+		for n < maxMatch {
 			if diff := binary.LittleEndian.Uint32(refBuf[n:]) ^ binary.LittleEndian.Uint32(curBuf[n:]); diff != 0 {
 				n += (bits.TrailingZeros32(diff) >> 3)
 				break
