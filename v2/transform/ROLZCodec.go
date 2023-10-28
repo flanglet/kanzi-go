@@ -38,7 +38,7 @@ const (
 	_ROLZ_MIN_MATCH7      = 7
 	_ROLZ_MAX_MATCH1      = _ROLZ_MIN_MATCH3 + 65535
 	_ROLZ_MAX_MATCH2      = _ROLZ_MIN_MATCH3 + 255
-	_ROLZ_LOG_POS_CHECKS1 = 5
+	_ROLZ_LOG_POS_CHECKS1 = 4
 	_ROLZ_LOG_POS_CHECKS2 = 5
 	_ROLZ_CHUNK_SIZE      = 16 * 1024 * 1024
 	_ROLZ_HASH_MASK       = ^uint32(_ROLZ_CHUNK_SIZE - 1)
@@ -241,7 +241,7 @@ func newROLZCodec1WithCtx(logPosChecks uint, ctx *map[string]interface{}) (*rolz
 }
 
 // findMatch returns match position index (logPosChecks bits) + length (8 bits) or -1
-func (this *rolzCodec1) findMatch(buf []byte, pos int, key uint32) (int, int) {
+func (this *rolzCodec1) findMatch(buf []byte, pos int, hash32 uint32, counter int32, matches []uint32) (int, int) {
 	maxMatch := _ROLZ_MAX_MATCH1
 
 	if maxMatch > len(buf)-pos {
@@ -252,16 +252,13 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int, key uint32) (int, int) {
 		}
 	}
 
-	m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
-	hash32 := rolzhash(buf[pos : pos+4])
-	counter := this.counters[key]
 	bestLen := 0
 	bestIdx := -1
 	curBuf := buf[pos:]
 
 	// Check all recorded positions
 	for i := counter; i > counter-this.posChecks; i-- {
-		ref := m[i&this.maskChecks]
+		ref := matches[i&this.maskChecks]
 
 		// Hash check may save a memory access ...
 		if ref&_ROLZ_HASH_MASK != hash32 {
@@ -295,10 +292,6 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int, key uint32) (int, int) {
 			}
 		}
 	}
-
-	// Register current position
-	this.counters[key] = (this.counters[key] + 1) & this.maskChecks
-	m[this.counters[key]] = hash32 | uint32(pos)
 
 	if bestLen < this.minMatch {
 		return -1, -1
@@ -417,19 +410,51 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 		// Next chunk
 		for srcIdx < sizeChunk {
-			var matchIdx, matchLen int
+			var key uint32
 
 			if this.minMatch == _ROLZ_MIN_MATCH3 {
-				matchIdx, matchLen = this.findMatch(buf, srcIdx, getKey1(buf[srcIdx-delta:]))
+				key = getKey1(buf[srcIdx-delta:])
 			} else {
-				matchIdx, matchLen = this.findMatch(buf, srcIdx, getKey2(buf[srcIdx-delta:]))
+				key = getKey2(buf[srcIdx-delta:])
 			}
+
+			m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
+			hash32 := rolzhash(buf[srcIdx : srcIdx+4])
+			matchIdx, matchLen := this.findMatch(buf, srcIdx, hash32, this.counters[key], m)
+
+			// Register current position
+			this.counters[key] = (this.counters[key] + 1) & this.maskChecks
+			m[this.counters[key]] = hash32 | uint32(srcIdx)
 
 			if matchIdx < 0 {
 				srcIdx++
 				srcIdx += (srcInc >> 6)
 				srcInc++
 				continue
+			}
+
+			{
+				// Check if better match at next position
+				if this.minMatch == _ROLZ_MIN_MATCH3 {
+					key = getKey1(buf[srcIdx+1-delta:])
+				} else {
+					key = getKey2(buf[srcIdx+1-delta:])
+				}
+
+				m = this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
+				hash32 = rolzhash(buf[srcIdx+1 : srcIdx+5])
+				matchIdx2, matchLen2 := this.findMatch(buf, srcIdx+1, hash32, this.counters[key], m)
+
+				if (matchIdx2 >= 0) && (matchLen2 > matchLen) {
+					// New match is better
+					matchIdx = matchIdx2
+					matchLen = matchLen2
+					srcIdx++
+
+					// Register current position
+					this.counters[key] = (this.counters[key] + 1) & this.maskChecks
+					m[this.counters[key]] = hash32 | uint32(srcIdx)
+				}
 			}
 
 			// mode LLLLLMMM -> L lit length, M match length
@@ -1118,13 +1143,15 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		// Next chunk
 		for srcIdx < sizeChunk {
 			re.setContext(_ROLZ_LITERAL_CTX, buf[srcIdx-1])
-			var matchIdx, matchLen int
+			var key uint32
 
 			if this.minMatch == _ROLZ_MIN_MATCH3 {
-				matchIdx, matchLen = this.findMatch(buf, srcIdx, getKey1(buf[srcIdx-delta:]))
+				key = getKey1(buf[srcIdx-delta:])
 			} else {
-				matchIdx, matchLen = this.findMatch(buf, srcIdx, getKey2(buf[srcIdx-delta:]))
+				key = getKey2(buf[srcIdx-delta:])
 			}
+
+			matchIdx, matchLen := this.findMatch(buf, srcIdx, key)
 
 			if matchIdx < 0 {
 				// Emit one literal
