@@ -252,6 +252,7 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int, hash32 uint32, counter in
 		}
 	}
 
+	maxMatch -= 4
 	bestLen := 0
 	bestIdx := -1
 	curBuf := buf[pos:]
@@ -274,7 +275,7 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int, hash32 uint32, counter in
 
 		n := 0
 
-		for n < maxMatch-4 {
+		for n < maxMatch {
 			if diff := binary.LittleEndian.Uint32(refBuf[n:]) ^ binary.LittleEndian.Uint32(curBuf[n:]); diff != 0 {
 				n += (bits.TrailingZeros32(diff) >> 3)
 				break
