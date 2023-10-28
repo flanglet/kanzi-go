@@ -460,6 +460,7 @@ func (this *CompressedOutputStream) processBlock() error {
 	tasks := 0
 	wg := sync.WaitGroup{}
 	results := make([]encodingTaskResult, nbTasks)
+	firstID := this.blockID
 
 	// Invoke as many go routines as required
 	for taskID := 0; taskID < nbTasks; taskID++ {
@@ -492,7 +493,7 @@ func (this *CompressedOutputStream) processBlock() error {
 			blockLength:        uint(dataLength),
 			blockTransformType: this.transformType,
 			blockEntropyType:   this.entropyType,
-			currentBlockID:     this.blockID + int32(taskID) + 1,
+			currentBlockID:     firstID + int32(taskID) + 1,
 			processedBlockID:   &this.blockID,
 			wg:                 &wg,
 			obs:                this.obs,
