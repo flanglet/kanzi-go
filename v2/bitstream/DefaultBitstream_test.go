@@ -57,26 +57,29 @@ func testCorrectnessAligned1() error {
 		fmt.Printf("Written (after close): %v\n", obs.Written())
 
 		ibs, _ := NewDefaultInputBitStream(&bs, 16384)
-		ibs.ReadBits(uint(t))
+		dbgibs, _ := NewDebugInputBitStream(ibs, os.Stdout)
+		dbgibs.ShowByte(true)
+		dbgibs.Mark(true)
+		dbgibs.ReadBits(uint(t))
 
-		if ibs.Read() == uint64(t) {
+		if dbgibs.Read() == uint64(t) {
 			fmt.Println("OK")
 		} else {
 			fmt.Println("KO")
 			return errors.New("Invalid number of bits read")
 		}
 
-		fmt.Printf("Read (before close): %v\n", ibs.Read())
-		ibs.Close()
-		fmt.Printf("Read (after close): %v\n", ibs.Read())
+		fmt.Printf("Read (before close): %v\n", dbgibs.Read())
+		dbgibs.Close()
+		fmt.Printf("Read (after close): %v\n", dbgibs.Read())
 	}
 
 	for test := 1; test <= 10; test++ {
 		var bs util.BufferStream
 		obs, _ := NewDefaultOutputBitStream(&bs, 16384)
-		dbgbs, _ := NewDebugOutputBitStream(obs, os.Stdout)
-		dbgbs.ShowByte(true)
-		dbgbs.Mark(true)
+		dbgobs, _ := NewDebugOutputBitStream(obs, os.Stdout)
+		dbgobs.ShowByte(true)
+		dbgobs.Mark(true)
 
 		for i := range values {
 			if test < 5 {
@@ -96,19 +99,22 @@ func testCorrectnessAligned1() error {
 		println()
 
 		for i := range values {
-			dbgbs.WriteBits(uint64(values[i]), 32)
+			dbgobs.WriteBits(uint64(values[i]), 32)
 		}
 
 		// Close first to force flush()
-		dbgbs.Close()
+		dbgobs.Close()
 
 		ibs, _ := NewDefaultInputBitStream(&bs, 16384)
+		dbgibs, _ := NewDebugInputBitStream(ibs, os.Stdout)
+		dbgibs.ShowByte(true)
+		dbgibs.Mark(true)
 		println()
 		fmt.Println(_READ)
 		ok := true
 
 		for i := range values {
-			x := ibs.ReadBits(32)
+			x := dbgibs.ReadBits(32)
 			fmt.Printf("%v", x)
 
 			if int(x) == values[i] {
@@ -123,19 +129,20 @@ func testCorrectnessAligned1() error {
 			}
 		}
 
-		ibs.Close()
+		dbgobs.Close()
+		dbgibs.Close()
 		bs.Close()
 		println()
 		println()
-		fmt.Printf("Bits written: %v\n", dbgbs.Written())
-		fmt.Printf("Bits read: %v\n", ibs.Read())
+		fmt.Printf("Bits written: %v\n", dbgobs.Written())
+		fmt.Printf("Bits read: %v\n", dbgibs.Read())
 		println()
 
 		if ok {
 			fmt.Println(_SUCCESS)
 		} else {
 			fmt.Println(_FAILURE)
-			return fmt.Errorf("Bits written: %v, bits read: %v", dbgbs.Written(), ibs.Read())
+			return fmt.Errorf("Bits written: %v, bits read: %v", dbgobs.Written(), dbgibs.Read())
 		}
 
 		println()
@@ -153,31 +160,41 @@ func testCorrectnessMisaligned1() error {
 	for t := 1; t <= 32; t++ {
 		var bs util.BufferStream
 		obs, _ := NewDefaultOutputBitStream(&bs, 16384)
+		dbgobs, _ := NewDebugOutputBitStream(obs, os.Stdout)
+		dbgobs.ShowByte(true)
+		dbgobs.Mark(true)
 		fmt.Println()
-		obs.WriteBit(1)
-		obs.WriteBits(0x0123456789ABCDEF, uint(t))
+		dbgobs.WriteBit(1)
+		dbgobs.WriteBits(0x0123456789ABCDEF, uint(t))
 		fmt.Printf("Written (before close): %v\n", obs.Written())
+		dbgobs.Close()
 		obs.Close()
 		fmt.Printf("Written (after close): %v\n", obs.Written())
 
 		ibs, _ := NewDefaultInputBitStream(&bs, 16384)
-		ibs.ReadBit()
-		ibs.ReadBits(uint(t))
+		dbgibs, _ := NewDebugInputBitStream(ibs, os.Stdout)
+		dbgibs.ShowByte(true)
+		dbgibs.Mark(true)
+		dbgibs.ReadBit()
+		dbgibs.ReadBits(uint(t))
 
-		if ibs.Read() == uint64(t+1) {
+		if dbgibs.Read() == uint64(t+1) {
 			fmt.Println("OK")
 		} else {
 			fmt.Println("KO")
 			return errors.New("Invalid number of bits read")
 		}
+
+		dbgibs.Close()
+		bs.Close()
 	}
 
 	for test := 1; test <= 10; test++ {
 		var bs util.BufferStream
 		obs, _ := NewDefaultOutputBitStream(&bs, 16384)
-		dbgbs, _ := NewDebugOutputBitStream(obs, os.Stdout)
-		dbgbs.ShowByte(true)
-		dbgbs.Mark(true)
+		dbgobs, _ := NewDebugOutputBitStream(obs, os.Stdout)
+		dbgobs.ShowByte(true)
+		dbgobs.Mark(true)
 
 		for i := range values {
 			if test < 5 {
@@ -199,20 +216,24 @@ func testCorrectnessMisaligned1() error {
 		println()
 
 		for i := range values {
-			dbgbs.WriteBits(uint64(values[i]), 1+uint(i&63))
+			dbgobs.WriteBits(uint64(values[i]), 1+uint(i&63))
 		}
 
 		// Close first to force flush()
-		dbgbs.Close()
-		testWritePostClose(dbgbs)
+		dbgobs.Close()
+		obs.Close()
+		testWritePostClose(dbgobs)
 
 		ibs, _ := NewDefaultInputBitStream(&bs, 16384)
+		dbgibs, _ := NewDebugInputBitStream(ibs, os.Stdout)
+		dbgibs.ShowByte(true)
+		dbgibs.Mark(true)
 		println()
 		fmt.Println(_READ)
 		ok := true
 
 		for i := range values {
-			x := ibs.ReadBits(1 + uint(i&63))
+			x := dbgibs.ReadBits(1 + uint(i&63))
 			fmt.Printf("%v", x)
 
 			if int(x) == values[i] {
@@ -227,21 +248,21 @@ func testCorrectnessMisaligned1() error {
 			}
 		}
 
-		ibs.Close()
-		testReadPostClose(ibs)
+		dbgibs.Close()
+		testReadPostClose(dbgibs)
 		bs.Close()
 
 		println()
 		println()
-		fmt.Printf("Bits written: %v\n", dbgbs.Written())
-		fmt.Printf("Bits read: %v\n", ibs.Read())
+		fmt.Printf("Bits written: %v\n", dbgobs.Written())
+		fmt.Printf("Bits read: %v\n", dbgibs.Read())
 		println()
 
 		if ok {
 			fmt.Println(_SUCCESS)
 		} else {
 			fmt.Println(_FAILURE)
-			return fmt.Errorf("Bits written: %v, bits read: %v", dbgbs.Written(), ibs.Read())
+			return fmt.Errorf("Bits written: %v, bits read: %v", dbgobs.Written(), dbgibs.Read())
 		}
 
 		println()
@@ -259,9 +280,9 @@ func testCorrectnessAligned2() error {
 	for test := 1; test <= 10; test++ {
 		var bs util.BufferStream
 		obs, _ := NewDefaultOutputBitStream(&bs, 16384)
-		dbgbs, _ := NewDebugOutputBitStream(obs, os.Stdout)
-		dbgbs.ShowByte(true)
-		dbgbs.Mark(true)
+		dbgobs, _ := NewDebugOutputBitStream(obs, os.Stdout)
+		dbgobs.ShowByte(true)
+		dbgobs.Mark(true)
 		println()
 
 		for i := range input {
@@ -281,15 +302,19 @@ func testCorrectnessAligned2() error {
 		count := uint(8 + test*(20+(test&1)) + (test & 3))
 		println()
 		println()
-		dbgbs.WriteArray(input, count)
+		dbgobs.WriteArray(input, count)
 
 		// Close first to force flush()
-		dbgbs.Close()
+		dbgobs.Close()
 
 		ibs, _ := NewDefaultInputBitStream(&bs, 16384)
+		dbgibs, _ := NewDebugInputBitStream(ibs, os.Stdout)
+		dbgibs.ShowByte(true)
+		dbgibs.Mark(true)
+
 		println()
 		fmt.Println(_READ)
-		r := ibs.ReadArray(output, count)
+		r := dbgibs.ReadArray(output, count)
 		ok := r == count
 
 		if ok == true {
@@ -309,18 +334,18 @@ func testCorrectnessAligned2() error {
 			}
 		}
 
-		ibs.Close()
+		dbgibs.Close()
 		bs.Close()
 		println()
 		println()
-		fmt.Printf("Bits written: %v\n", dbgbs.Written())
-		fmt.Printf("Bits read: %v\n", ibs.Read())
+		fmt.Printf("Bits written: %v\n", dbgobs.Written())
+		fmt.Printf("Bits read: %v\n", dbgibs.Read())
 
 		if ok {
 			fmt.Printf("\nSuccess\n")
 		} else {
 			fmt.Printf("\nFailure\n")
-			return fmt.Errorf("Bits written: %v, bits read: %v", dbgbs.Written(), ibs.Read())
+			return fmt.Errorf("Bits written: %v, bits read: %v", dbgobs.Written(), dbgibs.Read())
 		}
 
 		println()
@@ -338,9 +363,9 @@ func testCorrectnessMisaligned2() error {
 	for test := 1; test <= 10; test++ {
 		var bs util.BufferStream
 		obs, _ := NewDefaultOutputBitStream(&bs, 16384)
-		dbgbs, _ := NewDebugOutputBitStream(obs, os.Stdout)
-		dbgbs.ShowByte(true)
-		dbgbs.Mark(true)
+		dbgobs, _ := NewDebugOutputBitStream(obs, os.Stdout)
+		dbgobs.ShowByte(true)
+		dbgobs.Mark(true)
 		println()
 
 		for i := range input {
@@ -360,17 +385,21 @@ func testCorrectnessMisaligned2() error {
 		count := uint(8 + test*(20+(test&1)) + (test & 3))
 		println()
 		println()
-		dbgbs.WriteBit(0)
-		dbgbs.WriteArray(input[1:], count)
+		dbgobs.WriteBit(0)
+		dbgobs.WriteArray(input[1:], count)
 
 		// Close first to force flush()
-		dbgbs.Close()
+		dbgobs.Close()
 
 		ibs, _ := NewDefaultInputBitStream(&bs, 16384)
+		dbgibs, _ := NewDebugInputBitStream(ibs, os.Stdout)
+		dbgibs.ShowByte(true)
+		dbgibs.Mark(true)
+
 		println()
 		fmt.Println(_READ)
-		ibs.ReadBit()
-		r := ibs.ReadArray(output[1:], count)
+		dbgibs.ReadBit()
+		r := dbgibs.ReadArray(output[1:], count)
 		ok := r == count
 
 		if ok == true {
@@ -390,18 +419,18 @@ func testCorrectnessMisaligned2() error {
 			}
 		}
 
-		ibs.Close()
+		dbgibs.Close()
 		bs.Close()
 		println()
 		println()
-		fmt.Printf("Bits written: %v\n", dbgbs.Written())
-		fmt.Printf("Bits read: %v\n", ibs.Read())
+		fmt.Printf("Bits written: %v\n", dbgobs.Written())
+		fmt.Printf("Bits read: %v\n", dbgibs.Read())
 
 		if ok {
 			fmt.Printf("\nSuccess\n")
 		} else {
 			fmt.Printf("\nFailure\n")
-			return fmt.Errorf("Bits written: %v, bits read: %v", dbgbs.Written(), ibs.Read())
+			return fmt.Errorf("Bits written: %v, bits read: %v", dbgobs.Written(), dbgibs.Read())
 		}
 
 		println()
