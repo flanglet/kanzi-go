@@ -77,7 +77,7 @@ type BWT struct {
 
 // NewBWT creates a new BWT instance with 1 job
 func NewBWT() (*BWT, error) {
-	this := new(BWT)
+	this := &BWT{}
 	this.buffer = make([]int32, 0)
 	this.primaryIndexes = [8]uint{}
 	this.jobs = 1
@@ -87,12 +87,16 @@ func NewBWT() (*BWT, error) {
 // NewBWTWithCtx creates a new BWT instance. The number of jobs is extracted
 // from the provided map or arguments.
 func NewBWTWithCtx(ctx *map[string]interface{}) (*BWT, error) {
-	this := new(BWT)
+	this := &BWT{}
 	this.buffer = make([]int32, 0)
 	this.primaryIndexes = [8]uint{}
 
 	if _, containsKey := (*ctx)["jobs"]; containsKey {
 		this.jobs = (*ctx)["jobs"].(uint)
+
+		if this.jobs == 0 {
+			return nil, errors.New("The number of jobs must be at least 1")
+		}
 	} else {
 		this.jobs = 1
 	}
@@ -137,11 +141,8 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, fmt.Errorf("The max BWT block size is %d, got %d", _BWT_MAX_BLOCK_SIZE, count)
 	}
 
-	if count < 2 {
-		if count == 1 {
-			dst[0] = src[0]
-		}
-
+	if count == 1 {
+		dst[0] = src[0]
 		return uint(count), uint(count), nil
 	}
 
@@ -184,11 +185,8 @@ func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, fmt.Errorf("BWT inverse failed: output buffer size is %d, expected %d", count, len(dst))
 	}
 
-	if count < 2 {
-		if count == 1 {
-			dst[0] = src[0]
-		}
-
+	if count == 1 {
+		dst[0] = src[0]
 		return uint(count), uint(count), nil
 	}
 
