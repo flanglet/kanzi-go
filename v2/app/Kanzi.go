@@ -44,7 +44,8 @@ const (
 	//_ARG_IDX_FROM      = 10
 	//_ARG_IDX_TO        = 11
 	_ARG_IDX_PROFILE = 14
-	_APP_HEADER      = "Kanzi 2.1 (c) Frederic Langlet"
+	_KANZI_VERSION   = "2.2"
+	_APP_HEADER      = "Kanzi " + _KANZI_VERSION + " (c) Frederic Langlet"
 	_ARG_INPUT       = "--input="
 	_ARG_OUTPUT      = "--output="
 	_ARG_LEVEL       = "--level="
