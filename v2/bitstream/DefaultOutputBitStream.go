@@ -79,16 +79,16 @@ func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) uint {
 		panic(fmt.Errorf("Invalid bit count: %d (must be in [1..64])", count))
 	}
 
+	this.current |= ((value << (64 - count)) >> (64 - this.availBits))
+
 	if count >= this.availBits {
 		// Not enough spots available in 'current'
-		this.current |= ((value << (64 - count)) >> (64 - this.availBits))
 		remaining := count - this.availBits
 		this.pushCurrent()
 		this.current = value << (64 - remaining)
 		this.availBits -= remaining
 	} else {
 		this.availBits -= count
-		this.current |= (value << this.availBits)
 	}
 
 	return count
