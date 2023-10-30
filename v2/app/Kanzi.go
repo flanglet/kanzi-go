@@ -211,6 +211,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 	level := -1
 	mode := " "
 	autoBlockSize := false
+	showHeader := true
 
 	for i, arg := range args {
 		if i == 0 {
@@ -298,6 +299,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 
 	if verbose >= 1 {
 		log.Println("\n"+_APP_HEADER+"\n", true)
+		showHeader = false
 	}
 
 	inputName = ""
@@ -305,7 +307,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 	ctx = -1
 
 	if len(args) == 1 {
-		printHelp(mode)
+		printHelp(mode, showHeader)
 		return 0
 	}
 
@@ -317,7 +319,7 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 		arg = strings.TrimSpace(arg)
 
 		if arg == "--help" || arg == "-h" {
-			printHelp(mode)
+			printHelp(mode, showHeader)
 			return 0
 		}
 
@@ -804,9 +806,12 @@ func processCommandLine(args []string, argsMap map[string]interface{}) int {
 	return 0
 }
 
-func printHelp(mode string) {
-	log.Println("", true)
-	log.Println(_APP_HEADER, true)
+func printHelp(mode string, showHeader bool) {
+	if showHeader == true {
+		log.Println("", true)
+		log.Println(_APP_HEADER, true)
+	}
+
 	log.Println("", true)
 	log.Println("Credits: Matt Mahoney, Yann Collet, Jan Ondrus, Yuta Mori, Ilya Muravyov,", true)
 	log.Println("         Neal Burns, Fabian Giesen, Jarek Duda, Ilya Grebnov", true)
