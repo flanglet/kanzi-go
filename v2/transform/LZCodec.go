@@ -1100,7 +1100,6 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 	ctx := binary.LittleEndian.Uint32(src[:])
 	srcIdx := 4
 	dstIdx := 4
-	minRef := 4
 
 	for (srcIdx < srcEnd-_LZP_MIN_MATCH64) && (dstIdx < dstEnd) {
 		h := (_LZP_HASH_SEED * ctx) >> _LZP_HASH_SHIFT
@@ -1109,7 +1108,7 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 		bestLen := 0
 
 		// Find a match
-		if ref > minRef && binary.LittleEndian.Uint32(src[srcIdx+_LZP_MIN_MATCH64-4:]) == binary.LittleEndian.Uint32(src[ref+_LZP_MIN_MATCH64-4:]) {
+		if ref != 0 && binary.LittleEndian.Uint64(src[srcIdx+_LZP_MIN_MATCH64-8:]) == binary.LittleEndian.Uint64(src[ref+_LZP_MIN_MATCH64-8:]) {
 			bestLen = this.findMatch(src, srcIdx, ref, srcEnd-srcIdx)
 		}
 
@@ -1121,15 +1120,9 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 			srcIdx++
 			dstIdx++
 
-			if ref != 0 {
-				if val == _LZP_MATCH_FLAG {
-					dst[dstIdx] = byte(0xFF)
-					dstIdx++
-				}
-
-				if minRef < bestLen {
-					minRef = srcIdx + bestLen
-				}
+			if ref != 0 && val == _LZP_MATCH_FLAG {
+				dst[dstIdx] = byte(0xFF)
+				dstIdx++
 			}
 
 			continue
