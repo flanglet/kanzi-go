@@ -852,8 +852,8 @@ func printHelp(mode string, showHeader bool) {
 
 	if mode == "c" {
 		log.Println("   -b, --block=<size>", true)
-		log.Println("        size of blocks (default 4|8|16|32 MB based on level, max 1 GB, min 1 KB).\n", true)
-		log.Println("        'auto' means that the compressor derives the best value'\n", true)
+		log.Println("        size of blocks (default 4|8|16|32 MB based on level, max 1 GB, min 1 KB).", true)
+		log.Println("        'auto' means that the compressor derives the best value'", true)
 		log.Println("        based on input size (when available) and number of jobs.\n", true)
 		log.Println("   -l, --level=<compression>", true)
 		log.Println("        set the compression level [0..9]", true)
