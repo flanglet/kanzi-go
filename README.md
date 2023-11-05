@@ -60,13 +60,13 @@ due to their fast decompression (but low compression speed at high compression r
 There are other scenarios where compression speed is critical: when data is generated before being compressed and consumed
 (one compression / one decompression) or during backups (many compressions / one decompression).
 
-- Kanzi has built-in data specific transforms (multimedia, utf, text, dna, ...) that can be chosen and combined 
-at compression time to better compress all kinds of data.
+- Kanzi has built-in customized data transforms (multimedia, utf, text, dna, ...) that can be chosen and combined 
+at compression time to better compress specific kinds of data.
 
 - Kanzi can take advantage of the multiple cores of a modern CPU to improve performance
 
 - It is easy to implement a new transform or entropy codec to either test an idea or improve
-compression ratio on speficic kinds of data.
+compression ratio on specific kinds of data.
 
 
 
