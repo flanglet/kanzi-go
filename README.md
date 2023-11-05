@@ -1,4 +1,4 @@
-# kanzi
+# Kanzi
 
 
 Kanzi is a modern, modular, expandable and efficient lossless data compressor implemented in Go.
@@ -44,6 +44,31 @@ Use at your own risk. Always keep a copy of your original files.
 
 
 
+## Why Kanzi
+
+There are many excellent, open-source lossless data compressors available already.
+
+If gzip is starting to show its age, zstd and brotli are open-source, standardized and used
+daily by millions of people. Zstd is incredibly fast and probably the best choice in many cases.
+There are a few scenarios where Kanzi could be a better choice:
+
+- gzip, lzma, brotli, zstd are all LZ based. It means that they can reach certain compression
+ratios only. Kanzi also makes use of BWT and CM which can compress beyond what LZ can do.
+
+- These LZ based compressors are well suited for software distribution (one compression / many decompressions)
+due to their fast decompression (but low compression speed at high compression ratios). 
+There are other scenarios where compression speed is critical: when data is generated before being compressed and consumed
+(one compression / one decompression) or during backups (many compressions / one decompression).
+
+- Kanzi has built-in data specific transforms (multimedia, utf, text, dna, ...) that can be chosen and combined 
+at compression time to better compress all kinds of data.
+
+- Kanzi can take advantage of the multiple cores of a modern CPU to improve performance
+
+- It is easy to implement a new transform or entropy codec to either test an idea or improve
+compression ratio on speficic kinds of data.
+
+
 
 ## Benchmarks
 
@@ -57,7 +82,7 @@ Ubuntu 22.04.3 LTS
 
 Kanzi version 2.2 
 
-On this machine kanzi can use up to 16 threads depending on compression level
+On this machine, Kanzi can use up to 16 threads depending on compression level
 (the default block size at level 9 is 32MB, severly limiting the number of threads
 in use, especially with enwik8, but all tests are performed with default values).
 bzip3 uses 16 threads. zstd can use 2 for compression, other compressors
@@ -115,7 +140,7 @@ are single threaded.
 
 # Build
 
-It is recommended to use formal releases (see https://github.com/flanglet/kanzi-go/releases).
+Useing formal releases is recommended (see https://github.com/flanglet/kanzi-go/releases).
 
 Else, to build manually from the latest tag, follow the instructions below:
 
