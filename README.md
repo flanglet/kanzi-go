@@ -125,7 +125,7 @@ Download at http://sun.aei.polsl.pl/~sdeor/corpus/silesia.zip
 
 ### enwik8
 
-Download at http://mattmahoney.net/dc/textdata.html
+Download at https://mattmahoney.net/dc/enwik8.zip
 
 |      Compressor        | Encoding (sec)   | Decoding (sec)   |    Size          |
 |------------------------|------------------|------------------|------------------|
@@ -145,9 +145,9 @@ Download at http://mattmahoney.net/dc/textdata.html
 
 # Build
 
-Useing formal releases is recommended (see https://github.com/flanglet/kanzi-go/releases).
+Using formal releases is recommended (see https://github.com/flanglet/kanzi-go/releases).
 
-Else, to build manually from the latest tag, follow the instructions below:
+Otherwise, to build manually from the latest tag, follow the instructions below:
 
 git clone https://github.com/flanglet/kanzi-go.git
 
