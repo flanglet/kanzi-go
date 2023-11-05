@@ -91,11 +91,14 @@ are single threaded.
 
 ### silesia.tar
 
+Download at http://sun.aei.polsl.pl/~sdeor/corpus/silesia.zip
+
 |        Compressor               | Encoding (sec)  | Decoding (sec)  |    Size          |
 |---------------------------------|-----------------|-----------------|------------------|
 |Original     	                  |                 |                 |   211,957,760    |
-|s2 -cpu 16   	                  |       0.285     |      1.042      |    86,650,932    |
+|s2 -cpu 16   	                  |       0.494     |      0.868      |    86,650,932    |
 |**Kanzi -l 1**                   |   	**0.683**   |    **0.255**    |  **80,284,705**  |
+|s2 -cpu 16 -better  	            |       1.517     |      0.868      |    79,555,929    |
 |Zstd 1.5.5 -2                    |	      0.761     |      0.286      |    69,590,245    |
 |**Kanzi -l 2**                   |   	**0.707**   |    **0.302**    |  **68,231,498**  |
 |Brotli 1.1.0 -2                  |       1.749     |      2.459      |    68,044,145    |
@@ -121,6 +124,8 @@ are single threaded.
 
 
 ### enwik8
+
+Download at http://mattmahoney.net/dc/textdata.html
 
 |      Compressor        | Encoding (sec)   | Decoding (sec)   |    Size          |
 |------------------------|------------------|------------------|------------------|
