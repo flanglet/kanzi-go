@@ -26,6 +26,7 @@ import (
 	kanzi "github.com/flanglet/kanzi-go/v2"
 	"github.com/flanglet/kanzi-go/v2/bitstream"
 	"github.com/flanglet/kanzi-go/v2/entropy"
+	internal "github.com/flanglet/kanzi-go/v2/internal"
 	"github.com/flanglet/kanzi-go/v2/transform"
 
 	"github.com/flanglet/kanzi-go/v2/util"
@@ -452,7 +453,7 @@ func (this *CompressedOutputStream) processBlock() error {
 			nbTasks = this.nbInputBlocks
 		}
 
-		jobsPerTask, _ = kanzi.ComputeJobsPerTask(make([]uint, nbTasks), uint(this.jobs), uint(nbTasks))
+		jobsPerTask, _ = internal.ComputeJobsPerTask(make([]uint, nbTasks), uint(this.jobs), uint(nbTasks))
 	} else {
 		jobsPerTask = []uint{uint(this.jobs)}
 	}
@@ -576,13 +577,13 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 				skip := false
 
 				if this.blockLength >= 8 {
-					skip = kanzi.IsDataCompressed(kanzi.GetMagicType(data))
+					skip = internal.IsDataCompressed(internal.GetMagicType(data))
 				}
 
 				if skip == false {
 					histo := [256]int{}
-					kanzi.ComputeHistogram(data[0:this.blockLength], histo[:], true, false)
-					entropy1024 := kanzi.ComputeFirstOrderEntropy1024(int(this.blockLength), histo[:])
+					internal.ComputeHistogram(data[0:this.blockLength], histo[:], true, false)
+					entropy1024 := internal.ComputeFirstOrderEntropy1024(int(this.blockLength), histo[:])
 					skip = entropy1024 >= entropy.INCOMPRESSIBLE_THRESHOLD
 					//this.ctx["histo0"] = histo
 				}
@@ -607,14 +608,14 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 	requiredSize := t.MaxEncodedLen(int(this.blockLength))
 
 	if this.blockLength >= 4 {
-		magic := kanzi.GetMagicType(data)
+		magic := internal.GetMagicType(data)
 
-		if kanzi.IsDataCompressed(magic) == true {
-			this.ctx["dataType"] = kanzi.DT_BIN
-		} else if kanzi.IsDataMultimedia(magic) == true {
-			this.ctx["dataType"] = kanzi.DT_MULTIMEDIA
-		} else if kanzi.IsDataExecutable(magic) == true {
-			this.ctx["dataType"] = kanzi.DT_EXE
+		if internal.IsDataCompressed(magic) == true {
+			this.ctx["dataType"] = internal.DT_BIN
+		} else if internal.IsDataMultimedia(magic) == true {
+			this.ctx["dataType"] = internal.DT_MULTIMEDIA
+		} else if internal.IsDataExecutable(magic) == true {
+			this.ctx["dataType"] = internal.DT_EXE
 		}
 	}
 
@@ -636,7 +637,7 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 	dataSize := uint(1)
 
 	if postTransformLength >= 256 {
-		dataSize = uint(kanzi.Log2NoCheck(uint32(postTransformLength))>>3) + 1
+		dataSize = uint(internal.Log2NoCheck(uint32(postTransformLength))>>3) + 1
 
 		if dataSize > 4 {
 			res.err = &IOError{msg: "Invalid block data length", code: kanzi.ERR_WRITE_FILE}
@@ -744,7 +745,7 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 	lw := uint(3)
 
 	if written >= 8 {
-		lw = uint(kanzi.Log2NoCheck(uint32(written>>3)) + 4)
+		lw = uint(internal.Log2NoCheck(uint32(written>>3)) + 4)
 	}
 
 	this.obs.WriteBits(uint64(lw-3), 5) // write length-3 (5 bits max)
@@ -1167,7 +1168,7 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 				nbTasks = this.nbInputBlocks
 			}
 
-			jobsPerTask, _ = kanzi.ComputeJobsPerTask(make([]uint, nbTasks), uint(this.jobs), uint(nbTasks))
+			jobsPerTask, _ = internal.ComputeJobsPerTask(make([]uint, nbTasks), uint(this.jobs), uint(nbTasks))
 		} else {
 			jobsPerTask = []uint{uint(this.jobs)}
 		}

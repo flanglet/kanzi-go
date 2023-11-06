@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
+	internal "github.com/flanglet/kanzi-go/v2/internal"
 )
 
 const (
@@ -183,7 +184,7 @@ func computeTextStats(block []byte, freqs0 []int, strict bool) byte {
 	if strict == false {
 		// This is going to fail if the block is not the first of the file.
 		// But this is a cheap test, good enough for fast mode.
-		if kanzi.GetMagicType(block) != kanzi.NO_MAGIC {
+		if internal.GetMagicType(block) != internal.NO_MAGIC {
 			return _TC_MASK_NOT_TEXT
 		}
 	}
@@ -302,7 +303,7 @@ func computeTextStats(block []byte, freqs0 []int, strict bool) byte {
 }
 
 func detectTextType(freqs0 []int, freqs [][256]int, count int) byte {
-	if dt := kanzi.DetectSimpleType(count, freqs0); dt != kanzi.DT_UNDEFINED {
+	if dt := internal.DetectSimpleType(count, freqs0); dt != internal.DT_UNDEFINED {
 		return _TC_MASK_NOT_TEXT | byte(dt)
 	}
 
@@ -361,7 +362,7 @@ func detectTextType(freqs0 []int, freqs [][256]int, count int) byte {
 		return _TC_MASK_NOT_TEXT
 	}
 
-	return _TC_MASK_NOT_TEXT | byte(kanzi.DT_UTF8)
+	return _TC_MASK_NOT_TEXT | byte(internal.DT_UTF8)
 }
 
 func sameWords(buf1, buf2 []byte) bool {
@@ -576,7 +577,7 @@ func newTextCodec1WithCtx(ctx *map[string]interface{}) (*textCodec1, error) {
 			blockSize := val.(uint)
 
 			if blockSize >= 8 {
-				log, _ = kanzi.Log2(uint32(blockSize / 8))
+				log, _ = internal.Log2(uint32(blockSize / 8))
 
 				if log > 26 {
 					log = 26
@@ -606,7 +607,7 @@ func newTextCodec1WithCtx(ctx *map[string]interface{}) (*textCodec1, error) {
 func (this *textCodec1) reset(count int) {
 	if count >= 1024 {
 		// Select an appropriate initial dictionary size
-		log, _ := kanzi.Log2(uint32(count / 128))
+		log, _ := internal.Log2(uint32(count / 128))
 
 		if log > 18 {
 			log = 18
@@ -663,10 +664,10 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 	if this.ctx != nil {
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
-			dt := val.(kanzi.DataType)
+			dt := val.(internal.DataType)
 
 			// Filter out most types. Still check binaries which may contain significant parts of text
-			if dt != kanzi.DT_UNDEFINED && dt != kanzi.DT_TEXT && dt != kanzi.DT_BIN {
+			if dt != internal.DT_UNDEFINED && dt != internal.DT_TEXT && dt != internal.DT_BIN {
 				return 0, 0, fmt.Errorf("Input is not text, skip")
 			}
 		}
@@ -678,14 +679,14 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	// Not text ?
 	if mode&_TC_MASK_NOT_TEXT != 0 {
 		if this.ctx != nil {
-			(*this.ctx)["dataType"] = kanzi.DataType(mode & _TC_MASK_DT)
+			(*this.ctx)["dataType"] = internal.DataType(mode & _TC_MASK_DT)
 		}
 
 		return 0, 0, errors.New("Input is not text, skip")
 	}
 
 	if this.ctx != nil {
-		(*this.ctx)["dataType"] = kanzi.DT_TEXT
+		(*this.ctx)["dataType"] = internal.DT_TEXT
 	}
 
 	this.reset(count)
@@ -1103,7 +1104,7 @@ func newTextCodec2WithCtx(ctx *map[string]interface{}) (*textCodec2, error) {
 			blockSize := val.(uint)
 
 			if blockSize >= 32 {
-				log, _ = kanzi.Log2(uint32(blockSize / 32))
+				log, _ = internal.Log2(uint32(blockSize / 32))
 
 				if log > 24 {
 					log = 24
@@ -1133,7 +1134,7 @@ func newTextCodec2WithCtx(ctx *map[string]interface{}) (*textCodec2, error) {
 func (this *textCodec2) reset(count int) {
 	if count >= 1024 {
 		// Select an appropriate initial dictionary size
-		log, _ := kanzi.Log2(uint32(count / 128))
+		log, _ := internal.Log2(uint32(count / 128))
 
 		if log > 18 {
 			log = 18
@@ -1185,10 +1186,10 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 
 	if this.ctx != nil {
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
-			dt := val.(kanzi.DataType)
+			dt := val.(internal.DataType)
 
 			// Filter out most types. Still check binaries which may contain significant parts of text
-			if dt != kanzi.DT_UNDEFINED && dt != kanzi.DT_TEXT && dt != kanzi.DT_BIN {
+			if dt != internal.DT_UNDEFINED && dt != internal.DT_TEXT && dt != internal.DT_BIN {
 				return 0, 0, fmt.Errorf("Input is not text, skip")
 			}
 		}
@@ -1200,14 +1201,14 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	// Not text ?
 	if mode&_TC_MASK_NOT_TEXT != 0 {
 		if this.ctx != nil {
-			(*this.ctx)["dataType"] = kanzi.DataType(mode & _TC_MASK_DT)
+			(*this.ctx)["dataType"] = internal.DataType(mode & _TC_MASK_DT)
 		}
 
 		return uint(0), uint(0), errors.New("Input is not text, skip")
 	}
 
 	if this.ctx != nil {
-		(*this.ctx)["dataType"] = kanzi.DT_TEXT
+		(*this.ctx)["dataType"] = internal.DT_TEXT
 	}
 
 	this.reset(count)

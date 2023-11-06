@@ -25,6 +25,7 @@ import (
 	kanzi "github.com/flanglet/kanzi-go/v2"
 	"github.com/flanglet/kanzi-go/v2/bitstream"
 	"github.com/flanglet/kanzi-go/v2/entropy"
+	internal "github.com/flanglet/kanzi-go/v2/internal"
 	"github.com/flanglet/kanzi-go/v2/util"
 )
 
@@ -339,30 +340,30 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	delta := 2
 
 	if this.ctx != nil {
-		dt := kanzi.DT_UNDEFINED
+		dt := internal.DT_UNDEFINED
 
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
-			dt = val.(kanzi.DataType)
+			dt = val.(internal.DataType)
 		}
 
-		if dt == kanzi.DT_UNDEFINED {
+		if dt == internal.DT_UNDEFINED {
 			var freqs0 [256]int
-			kanzi.ComputeHistogram(src, freqs0[:], true, false)
-			dt = kanzi.DetectSimpleType(len(src), freqs0[:])
+			internal.ComputeHistogram(src, freqs0[:], true, false)
+			dt = internal.DetectSimpleType(len(src), freqs0[:])
 
-			if dt == kanzi.DT_UNDEFINED {
+			if dt == internal.DT_UNDEFINED {
 				(*this.ctx)["dataType"] = dt
 			}
 		}
 
-		if dt == kanzi.DT_EXE {
+		if dt == internal.DT_EXE {
 			delta = 3
 			flags |= 8
-		} else if dt == kanzi.DT_DNA {
+		} else if dt == internal.DT_DNA {
 			delta = 8
 			this.minMatch = _ROLZ_MIN_MATCH7
 			flags |= 4
-		} else if dt == kanzi.DT_MULTIMEDIA {
+		} else if dt == internal.DT_MULTIMEDIA {
 			delta = 8
 			this.minMatch = _ROLZ_MIN_MATCH4
 			flags |= 2
@@ -1085,26 +1086,26 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	flags := byte(0)
 
 	if this.ctx != nil {
-		dt := kanzi.DT_UNDEFINED
+		dt := internal.DT_UNDEFINED
 
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
-			dt = val.(kanzi.DataType)
+			dt = val.(internal.DataType)
 		}
 
-		if dt == kanzi.DT_UNDEFINED {
+		if dt == internal.DT_UNDEFINED {
 			var freqs0 [256]int
-			kanzi.ComputeHistogram(src, freqs0[:], true, false)
-			dt = kanzi.DetectSimpleType(len(src), freqs0[:])
+			internal.ComputeHistogram(src, freqs0[:], true, false)
+			dt = internal.DetectSimpleType(len(src), freqs0[:])
 
-			if dt == kanzi.DT_UNDEFINED {
+			if dt == internal.DT_UNDEFINED {
 				(*this.ctx)["dataType"] = dt
 			}
 		}
 
-		if dt == kanzi.DT_EXE {
+		if dt == internal.DT_EXE {
 			delta = 3
 			flags |= 8
-		} else if dt == kanzi.DT_DNA {
+		} else if dt == internal.DT_DNA {
 			this.minMatch = _ROLZ_MIN_MATCH7
 			flags = 1
 		}

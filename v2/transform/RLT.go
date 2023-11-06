@@ -27,7 +27,7 @@ import (
 	"fmt"
 	"strings"
 
-	kanzi "github.com/flanglet/kanzi-go/v2"
+	internal "github.com/flanglet/kanzi-go/v2/internal"
 )
 
 const (
@@ -79,14 +79,14 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
 	}
 
-	dt := kanzi.DT_UNDEFINED
+	dt := internal.DT_UNDEFINED
 	findBestEscape := true
 
 	if this.ctx != nil {
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
-			dt = val.(kanzi.DataType)
+			dt = val.(internal.DataType)
 
-			if dt == kanzi.DT_DNA || dt == kanzi.DT_BASE64 || dt == kanzi.DT_UTF8 {
+			if dt == internal.DT_DNA || dt == internal.DT_BASE64 || dt == internal.DT_UTF8 {
 				return 0, 0, fmt.Errorf("RLT forward transform skip")
 			}
 		}
@@ -106,16 +106,16 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 
 	if findBestEscape == true {
 		freqs := [256]int{}
-		kanzi.ComputeHistogram(src, freqs[:], true, false)
+		internal.ComputeHistogram(src, freqs[:], true, false)
 
-		if dt == kanzi.DT_UNDEFINED {
-			dt = kanzi.DetectSimpleType(len(src), freqs[:])
+		if dt == internal.DT_UNDEFINED {
+			dt = internal.DetectSimpleType(len(src), freqs[:])
 
-			if this.ctx != nil && dt != kanzi.DT_UNDEFINED {
+			if this.ctx != nil && dt != internal.DT_UNDEFINED {
 				(*this.ctx)["dataType"] = dt
 			}
 
-			if dt == kanzi.DT_DNA || dt == kanzi.DT_BASE64 || dt == kanzi.DT_UTF8 {
+			if dt == internal.DT_DNA || dt == internal.DT_BASE64 || dt == internal.DT_UTF8 {
 				return 0, 0, fmt.Errorf("RLT forward transform skip")
 			}
 		}

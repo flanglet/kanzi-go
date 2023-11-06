@@ -18,7 +18,7 @@ package entropy
 import (
 	"math/bits"
 
-	kanzi "github.com/flanglet/kanzi-go/v2"
+	internal "github.com/flanglet/kanzi-go/v2/internal"
 )
 
 const (
@@ -592,7 +592,7 @@ func (this *TPAQMixer) get(p0, p1, p2, p3, p4, p5, p6, p7 int32) int {
 	this.p7 = p7
 
 	// Neural Network dot product (sum weights*inputs)
-	this.pr = kanzi.Squash(int((this.w0*p0 + this.w1*p1 + this.w2*p2 + this.w3*p3 +
+	this.pr = internal.Squash(int((this.w0*p0 + this.w1*p1 + this.w2*p2 + this.w3*p3 +
 		this.w4*p4 + this.w5*p5 + this.w6*p6 + this.w7*p7 +
 		this.skew + 65536) >> 17))
 

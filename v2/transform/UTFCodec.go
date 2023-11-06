@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sort"
 
-	kanzi "github.com/flanglet/kanzi-go/v2"
+	internal "github.com/flanglet/kanzi-go/v2/internal"
 )
 
 const (
@@ -103,13 +103,13 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	if this.ctx != nil {
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
-			dt := val.(kanzi.DataType)
+			dt := val.(internal.DataType)
 
-			if dt != kanzi.DT_UNDEFINED && dt != kanzi.DT_UTF8 {
+			if dt != internal.DT_UNDEFINED && dt != internal.DT_UTF8 {
 				return 0, 0, errors.New("UTF forward transform skip: not UTF")
 			}
 
-			mustValidate = dt != kanzi.DT_UTF8
+			mustValidate = dt != internal.DT_UTF8
 		}
 	}
 

@@ -19,7 +19,7 @@ import (
 	"errors"
 	"fmt"
 
-	kanzi "github.com/flanglet/kanzi-go/v2"
+	internal "github.com/flanglet/kanzi-go/v2/internal"
 )
 
 // ZRLT Zero Run Length Transform
@@ -80,7 +80,7 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 
 			// Encode length
 			runLength := srcIdx - runStart
-			log2 := kanzi.Log2NoCheck(uint32(runLength))
+			log2 := internal.Log2NoCheck(uint32(runLength))
 
 			if dstIdx >= dstEnd-uint(log2) {
 				res = false

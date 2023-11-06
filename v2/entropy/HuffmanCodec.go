@@ -22,6 +22,7 @@ import (
 	"sort"
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
+	internal "github.com/flanglet/kanzi-go/v2/internal"
 )
 
 const (
@@ -363,7 +364,7 @@ func (this *HuffmanEncoder) Write(block []byte) (int, error) {
 		}
 
 		var freqs [256]int
-		kanzi.ComputeHistogram(block[startChunk:endChunk], freqs[:], true, false)
+		internal.ComputeHistogram(block[startChunk:endChunk], freqs[:], true, false)
 		count, err := this.updateFrequencies(freqs[:])
 
 		if err != nil {

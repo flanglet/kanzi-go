@@ -20,7 +20,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/flanglet/kanzi-go/v2"
+	internal "github.com/flanglet/kanzi-go/v2/internal"
 )
 
 // EXECodec is a codec that replaces relative jumps addresses with
@@ -122,9 +122,9 @@ func (this *EXECodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	if this.ctx != nil {
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
-			dt := val.(kanzi.DataType)
+			dt := val.(internal.DataType)
 
-			if dt != kanzi.DT_UNDEFINED && dt != kanzi.DT_EXE && dt != kanzi.DT_BIN {
+			if dt != internal.DT_UNDEFINED && dt != internal.DT_EXE && dt != internal.DT_BIN {
 				return 0, 0, fmt.Errorf("Input is not an executable, skip")
 			}
 		}
@@ -136,7 +136,7 @@ func (this *EXECodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	if mode&_EXE_NOT_EXE != 0 {
 		if this.ctx != nil {
-			(*this.ctx)["dataType"] = kanzi.DataType(mode & _EXE_MASK_DT)
+			(*this.ctx)["dataType"] = internal.DataType(mode & _EXE_MASK_DT)
 		}
 
 		return 0, 0, fmt.Errorf("Input is not an executable, skip")
@@ -145,7 +145,7 @@ func (this *EXECodec) Forward(src, dst []byte) (uint, uint, error) {
 	mode &= ^byte(_EXE_MASK_DT)
 
 	if this.ctx != nil {
-		(*this.ctx)["dataType"] = kanzi.DT_EXE
+		(*this.ctx)["dataType"] = internal.DT_EXE
 	}
 
 	if mode == _EXE_X86 {
@@ -562,7 +562,7 @@ func (this EXECodec) MaxEncodedLen(srcLen int) int {
 func detectExeType(src []byte, codeStart, codeEnd *int) byte {
 	// Let us check the first bytes ... but this may not be the first block
 	// Best effort
-	magic := kanzi.GetMagicType(src)
+	magic := internal.GetMagicType(src)
 	arch := 0
 
 	if parseExeHeader(src, magic, &arch, codeStart, codeEnd) == true {
@@ -632,9 +632,9 @@ func detectExeType(src []byte, codeStart, codeEnd *int) byte {
 		}
 	}
 
-	var dt kanzi.DataType
+	var dt internal.DataType
 
-	if dt = kanzi.DetectSimpleType(count, histo[:]); dt != kanzi.DT_BIN {
+	if dt = internal.DetectSimpleType(count, histo[:]); dt != internal.DT_BIN {
 		return _EXE_NOT_EXE | byte(dt)
 	}
 
@@ -666,7 +666,7 @@ func detectExeType(src []byte, codeStart, codeEnd *int) byte {
 func parseExeHeader(src []byte, magic uint, arch, codeStart, codeEnd *int) bool {
 	count := len(src)
 
-	if magic == kanzi.WIN_MAGIC {
+	if magic == internal.WIN_MAGIC {
 		if count >= 64 {
 			posPE := int(binary.LittleEndian.Uint32(src[60:]))
 
@@ -687,7 +687,7 @@ func parseExeHeader(src []byte, magic uint, arch, codeStart, codeEnd *int) bool 
 
 			return true
 		}
-	} else if magic == kanzi.ELF_MAGIC {
+	} else if magic == internal.ELF_MAGIC {
 		isLittleEndian := src[5] == 1
 
 		if count >= 64 {
@@ -815,9 +815,9 @@ func parseExeHeader(src []byte, magic uint, arch, codeStart, codeEnd *int) bool 
 
 			return true
 		}
-	} else if (magic == kanzi.MAC_MAGIC32) || (magic == kanzi.MAC_CIGAM32) ||
-		(magic == kanzi.MAC_MAGIC64) || (magic == kanzi.MAC_CIGAM64) {
-		is64Bits := magic == kanzi.MAC_MAGIC64 || magic == kanzi.MAC_CIGAM64
+	} else if (magic == internal.MAC_MAGIC32) || (magic == internal.MAC_CIGAM32) ||
+		(magic == internal.MAC_MAGIC64) || (magic == internal.MAC_CIGAM64) {
+		is64Bits := magic == internal.MAC_MAGIC64 || magic == internal.MAC_CIGAM64
 		*codeStart = 0
 
 		if count >= 64 {

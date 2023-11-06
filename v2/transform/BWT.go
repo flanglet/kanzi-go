@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sync"
 
-	kanzi "github.com/flanglet/kanzi-go/v2"
+	internal "github.com/flanglet/kanzi-go/v2/internal"
 )
 
 const (
@@ -220,7 +220,7 @@ func (this *BWT) inverseMergeTPSI(src, dst []byte, count int) (uint, uint, error
 	}
 
 	buckets := [256]int{}
-	kanzi.ComputeHistogram(src[0:count], buckets[:], true, false)
+	internal.ComputeHistogram(src[0:count], buckets[:], true, false)
 	sum := 0
 
 	for i, b := range &buckets {
@@ -345,7 +345,7 @@ func (this *BWT) inverseBiPSIv2(src, dst []byte, count int) (uint, uint, error) 
 	}
 
 	freqs := [256]int{}
-	kanzi.ComputeHistogram(src[0:count], freqs[:], true, false)
+	internal.ComputeHistogram(src[0:count], freqs[:], true, false)
 	buckets := make([]int, 65536)
 
 	for c, sum := 0, 1; c < 256; c++ {
@@ -467,7 +467,7 @@ func (this *BWT) inverseBiPSIv2(src, dst []byte, count int) (uint, uint, error) 
 		nbTasks = chunks
 	}
 
-	jobsPerTask, _ := kanzi.ComputeJobsPerTask(make([]uint, nbTasks), uint(chunks), uint(nbTasks))
+	jobsPerTask, _ := internal.ComputeJobsPerTask(make([]uint, nbTasks), uint(chunks), uint(nbTasks))
 	var wg sync.WaitGroup
 
 	for j, c := 0, 0; j < nbTasks; j++ {

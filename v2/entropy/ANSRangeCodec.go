@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
+	internal "github.com/flanglet/kanzi-go/v2/internal"
 )
 
 // Implementation of an Asymmetric Numeral System codec.
@@ -429,13 +430,13 @@ func (this *ANSRangeEncoder) rebuildStatistics(block []byte, lr uint) (int, erro
 	}
 
 	if this.order == 0 {
-		kanzi.ComputeHistogram(block, this.freqs, true, true)
+		internal.ComputeHistogram(block, this.freqs, true, true)
 	} else {
 		quarter := len(block) >> 2
-		kanzi.ComputeHistogram(block[0*quarter:1*quarter], this.freqs, false, true)
-		kanzi.ComputeHistogram(block[1*quarter:2*quarter], this.freqs, false, true)
-		kanzi.ComputeHistogram(block[2*quarter:3*quarter], this.freqs, false, true)
-		kanzi.ComputeHistogram(block[3*quarter:4*quarter], this.freqs, false, true)
+		internal.ComputeHistogram(block[0*quarter:1*quarter], this.freqs, false, true)
+		internal.ComputeHistogram(block[1*quarter:2*quarter], this.freqs, false, true)
+		internal.ComputeHistogram(block[2*quarter:3*quarter], this.freqs, false, true)
+		internal.ComputeHistogram(block[3*quarter:4*quarter], this.freqs, false, true)
 	}
 
 	return this.updateFrequencies(this.freqs, lr)

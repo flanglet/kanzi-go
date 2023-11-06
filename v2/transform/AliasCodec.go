@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"sort"
 
-	kanzi "github.com/flanglet/kanzi-go/v2"
+	internal "github.com/flanglet/kanzi-go/v2/internal"
 )
 
 const (
@@ -91,24 +91,24 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	if this.ctx != nil {
-		dt := kanzi.DT_UNDEFINED
+		dt := internal.DT_UNDEFINED
 
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
-			dt = val.(kanzi.DataType)
+			dt = val.(internal.DataType)
 		}
 
-		if (dt == kanzi.DT_MULTIMEDIA) || (dt == kanzi.DT_UTF8) {
+		if (dt == internal.DT_MULTIMEDIA) || (dt == internal.DT_UTF8) {
 			return 0, 0, errors.New("Alias Codec: forward transform skip, binary data")
 		}
 
-		if (dt == kanzi.DT_EXE) || (dt == kanzi.DT_BIN) {
+		if (dt == internal.DT_EXE) || (dt == internal.DT_BIN) {
 			return 0, 0, errors.New("Alias Codec: forward transform skip, binary data")
 		}
 	}
 
 	// Find missing 1-byte symbols
 	var freqs0 [256]int
-	kanzi.ComputeHistogram(src[:], freqs0[:], true, false)
+	internal.ComputeHistogram(src[:], freqs0[:], true, false)
 	n0 := 0
 	var absent [256]int
 
@@ -192,7 +192,7 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 		{
 			var freqs1 [65536]int
-			kanzi.ComputeHistogram(src[:], freqs1[:], false, false)
+			internal.ComputeHistogram(src[:], freqs1[:], false, false)
 
 			for i := range &freqs1 {
 				if freqs1[i] == 0 {

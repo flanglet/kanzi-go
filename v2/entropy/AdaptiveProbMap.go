@@ -19,7 +19,7 @@ package entropy
 import (
 	"errors"
 
-	kanzi "github.com/flanglet/kanzi-go/v2"
+	internal "github.com/flanglet/kanzi-go/v2/internal"
 )
 
 // AdaptiveProbMap maps a probability and a context to a new probability
@@ -81,7 +81,7 @@ func newLogisticAdaptiveProbMap(n, rate uint) (*LogisticAdaptiveProbMap, error) 
 	this.rate = rate
 
 	for j := 0; j <= 32; j++ {
-		this.data[j] = uint16(kanzi.Squash((j-16)<<7) << 4)
+		this.data[j] = uint16(internal.Squash((j-16)<<7) << 4)
 	}
 
 	for i := uint(1); i < n; i++ {
@@ -97,7 +97,7 @@ func (this *LogisticAdaptiveProbMap) Get(bit int, pr int, ctx int) int {
 	g := (-bit & 65528) + (bit << this.rate)
 	this.data[this.index+1] += uint16((g - int(this.data[this.index+1])) >> this.rate)
 	this.data[this.index] += uint16((g - int(this.data[this.index])) >> this.rate)
-	pr = kanzi.STRETCH[pr]
+	pr = internal.STRETCH[pr]
 
 	// Find index: 33*ctx + quantized prediction in [0..32]
 	this.index = ((pr + 2048) >> 7) + 33*ctx
@@ -113,7 +113,7 @@ func newFastLogisticAdaptiveProbMap(n, rate uint) (*FastLogisticAdaptiveProbMap,
 	this.rate = rate
 
 	for j := 0; j < 32; j++ {
-		this.data[j] = uint16(kanzi.Squash((j-16)<<7) << 4)
+		this.data[j] = uint16(internal.Squash((j-16)<<7) << 4)
 	}
 
 	for i := uint(1); i < n; i++ {
@@ -128,7 +128,7 @@ func (this *FastLogisticAdaptiveProbMap) Get(bit int, pr int, ctx int) int {
 	// Update probability based on error and learning rate
 	g := (-bit & 65528) + (bit << this.rate)
 	this.data[this.index] += uint16((g - int(this.data[this.index])) >> this.rate)
-	this.index = ((kanzi.STRETCH[pr] + 2048) >> 7) + 32*ctx
+	this.index = ((internal.STRETCH[pr] + 2048) >> 7) + 32*ctx
 	return int(this.data[this.index]) >> 4
 }
 

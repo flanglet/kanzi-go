@@ -22,6 +22,7 @@ import (
 	"math/bits"
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
+	internal "github.com/flanglet/kanzi-go/v2/internal"
 )
 
 const (
@@ -292,13 +293,13 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	if this.ctx != nil {
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
-			dt := val.(kanzi.DataType)
+			dt := val.(internal.DataType)
 
-			if dt == kanzi.DT_DNA {
+			if dt == internal.DT_DNA {
 				// Longer min match for DNA input
 				minMatch = _LZX_MIN_MATCH9
 				dst[12] |= 2
-			} else if dt == kanzi.DT_SMALL_ALPHABET {
+			} else if dt == internal.DT_SMALL_ALPHABET {
 				return 0, 0, errors.New("Small alphabet, skip")
 			}
 		}

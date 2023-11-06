@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
+	internal "github.com/flanglet/kanzi-go/v2/internal"
 )
 
 // Code based on Order 0 range coder by Dmitry Subbotin itself derived from the algorithm
@@ -240,7 +241,7 @@ func (this *RangeEncoder) rebuildStatistics(block []byte, lr uint) (int, error) 
 		this.freqs[i] = 0
 	}
 
-	kanzi.ComputeHistogram(block, this.freqs[:], true, false)
+	internal.ComputeHistogram(block, this.freqs[:], true, false)
 	return this.updateFrequencies(this.freqs[:], len(block), lr)
 }
 

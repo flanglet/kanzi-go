@@ -19,7 +19,7 @@ import (
 	"errors"
 	"fmt"
 
-	kanzi "github.com/flanglet/kanzi-go/v2"
+	internal "github.com/flanglet/kanzi-go/v2/internal"
 )
 
 const (
@@ -155,29 +155,29 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	if this.ctx != nil {
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
-			dt := val.(kanzi.DataType)
+			dt := val.(internal.DataType)
 
-			if dt != kanzi.DT_UNDEFINED && dt != kanzi.DT_MULTIMEDIA && dt != kanzi.DT_BIN {
+			if dt != internal.DT_UNDEFINED && dt != internal.DT_MULTIMEDIA && dt != internal.DT_BIN {
 				return 0, 0, fmt.Errorf("FSD forward transform skip")
 			}
 		}
 	}
 
-	magic := kanzi.GetMagicType(src)
+	magic := internal.GetMagicType(src)
 
 	// Skip detection except for a few candidate types
 	switch magic {
-	case kanzi.BMP_MAGIC:
+	case internal.BMP_MAGIC:
 		break
-	case kanzi.RIFF_MAGIC:
+	case internal.RIFF_MAGIC:
 		break
-	case kanzi.PBM_MAGIC:
+	case internal.PBM_MAGIC:
 		break
-	case kanzi.PGM_MAGIC:
+	case internal.PGM_MAGIC:
 		break
-	case kanzi.PPM_MAGIC:
+	case internal.PPM_MAGIC:
 		break
-	case kanzi.NO_MAGIC:
+	case internal.NO_MAGIC:
 		break
 	default:
 		return 0, 0, fmt.Errorf("FSD forward skip: found %#x magic value header", magic)
@@ -223,7 +223,7 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 	minIdx := 0
 
 	for i := range ent {
-		ent[i] = kanzi.ComputeFirstOrderEntropy1024(3*count10, histo[i][:])
+		ent[i] = internal.ComputeFirstOrderEntropy1024(3*count10, histo[i][:])
 
 		if ent[i] < ent[minIdx] {
 			minIdx = i
@@ -233,14 +233,14 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 	// If not better, quick exit
 	if ent[minIdx] >= ent[0] {
 		if this.ctx != nil {
-			(*this.ctx)["dataType"] = kanzi.DetectSimpleType(3*count10, histo[0][:])
+			(*this.ctx)["dataType"] = internal.DetectSimpleType(3*count10, histo[0][:])
 		}
 
 		return 0, 0, fmt.Errorf("FSD forward transform skip")
 	}
 
 	if this.ctx != nil {
-		(*this.ctx)["dataType"] = kanzi.DT_MULTIMEDIA
+		(*this.ctx)["dataType"] = internal.DT_MULTIMEDIA
 	}
 
 	var distances = []int{0, 1, 2, 3, 4, 8, 16}
@@ -322,7 +322,7 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	var err error
 
-	if entropy := kanzi.ComputeFirstOrderEntropy1024(count5, histo[0][:]); entropy >= ent[0] {
+	if entropy := internal.ComputeFirstOrderEntropy1024(count5, histo[0][:]); entropy >= ent[0] {
 		err = errors.New("FSD forward transform skip: no improvement")
 	}
 
