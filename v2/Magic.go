@@ -57,14 +57,14 @@ type Magic struct {
 }
 
 var (
-	KEYS32 = [17]uint{
+	_KEYS32 = [17]uint{
 		GIF_MAGIC, PDF_MAGIC, ZIP_MAGIC, LZMA_MAGIC, PNG_MAGIC,
 		ELF_MAGIC, MAC_MAGIC32, MAC_CIGAM32, MAC_MAGIC64, MAC_CIGAM64,
 		ZSTD_MAGIC, BROTLI_MAGIC, CAB_MAGIC, RIFF_MAGIC, FLAC_MAGIC,
 		XZ_MAGIC, KNZ_MAGIC,
 	}
 
-	KEYS16 = [3]uint{
+	_KEYS16 = [3]uint{
 		GZIP_MAGIC, BMP_MAGIC, WIN_MAGIC,
 	}
 )
@@ -82,7 +82,7 @@ func GetMagicType(src []byte) uint {
 		return key >> 8
 	}
 
-	for _, k := range KEYS32 {
+	for _, k := range _KEYS32 {
 		if key == k {
 			return key
 		}
@@ -90,7 +90,7 @@ func GetMagicType(src []byte) uint {
 
 	key16 := key >> 16
 
-	for _, k := range KEYS16 {
+	for _, k := range _KEYS16 {
 		if key16 == k {
 			return key16
 		}
