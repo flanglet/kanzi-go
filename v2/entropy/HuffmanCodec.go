@@ -381,7 +381,7 @@ func (this *HuffmanEncoder) Write(block []byte) (int, error) {
 		c := this.codes
 		idx := 0
 		state := uint64(0)
-		bits := 0 // accumulated bits
+		bits := 0 // number of accumulated bits
 
 		// Encode chunk
 		for i := startChunk; i < endChunk4; i += 4 {
@@ -399,10 +399,9 @@ func (this *HuffmanEncoder) Write(block []byte) (int, error) {
 			codeLen3 := int(code >> 24)
 			state = (state << codeLen3) | uint64(code&0xFFFFFF)
 			bits += (codeLen0 + codeLen1 + codeLen2 + codeLen3)
-			shift := bits & -8
 			binary.BigEndian.PutUint64(this.buffer[idx:idx+8], state<<uint(64-bits))
-			bits -= shift
-			idx += (shift >> 3)
+			idx += (bits >> 3)
+			bits &= 7
 		}
 
 		for i := endChunk4; i < endChunk; i++ {
