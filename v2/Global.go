@@ -188,65 +188,6 @@ func Log2ScaledBy1024(x uint32) (uint32, error) {
 	return ((log - 7) * 1024) + ((LOG2_4096[x>>(log-7)] + 2) >> 2), nil
 }
 
-// Max returns the maximum of 2 values without a branch
-func Max(x, y int32) int32 {
-	return x - (((x - y) >> 31) & (x - y))
-}
-
-// Min returns the minimum of 2 values without a branch
-func Min(x, y int32) int32 {
-	return y + (((x - y) >> 31) & (x - y))
-}
-
-// Abs returns the absolute value of the input without a branch
-func Abs(x int32) int32 {
-	// Patented (!) :  return (x ^ (x >> 31)) - (x >> 31)
-	return (x + (x >> 31)) ^ (x >> 31)
-}
-
-// PositiveOrNull returns the input value if positive else 0
-func PositiveOrNull(x int32) int32 {
-	// return (x & ((-x) >> 31))
-	return x & ^(x >> 31)
-}
-
-// IsPowerOf2 returns true if the input value is a power of two
-func IsPowerOf2(x int32) bool {
-	return (x & (x - 1)) == 0
-}
-
-// ResetLsb sets the Least significan bit to 0
-func ResetLsb(x int32) int32 {
-	return x & (x - 1)
-}
-
-// Lsb returns the least significant bit
-func Lsb(x int32) int32 {
-	return x & -x
-}
-
-// Msb returns the most significant bit
-func Msb(x int32) int32 {
-	x |= (x >> 1)
-	x |= (x >> 2)
-	x |= (x >> 4)
-	x |= (x >> 8)
-	x |= (x >> 16)
-	return (x & ^(x >> 1))
-}
-
-// RoundUpPowerOfTwo returns the smnallest power of two greater than
-// or equal to the input value
-func RoundUpPowerOfTwo(x int32) int32 {
-	x--
-	x |= (x >> 1)
-	x |= (x >> 2)
-	x |= (x >> 4)
-	x |= (x >> 8)
-	x |= (x >> 16)
-	return x + 1
-}
-
 // ComputeFirstOrderEntropy1024 computes the order 0 entropy of the block
 // and scales the result by 1024 (result in the [0..1024] range)
 // Fills in the histogram with order 0 frequencies. Incoming array size must be at least 256
