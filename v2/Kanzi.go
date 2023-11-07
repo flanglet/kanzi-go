@@ -13,6 +13,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package kanzi defines all the top level interfaces used in the kanzi
+// data lossless compressor/decompressor
+//
+// The implementation of these interfaces are available in sub-folders
+// like bitstream, io, transform or entropy.
+// In particular, the io package contains the implementation of the
+// Writer and Reader used to compress and decompress data.
+//
+
 package kanzi
 
 const (

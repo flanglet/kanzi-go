@@ -13,6 +13,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package io provides the implementations of a Writer and a Reader
+// used to respectively losslessly compress and decompress data.
 package io
 
 import (
@@ -28,12 +30,11 @@ import (
 	"github.com/flanglet/kanzi-go/v2/entropy"
 	internal "github.com/flanglet/kanzi-go/v2/internal"
 	"github.com/flanglet/kanzi-go/v2/transform"
-
 	"github.com/flanglet/kanzi-go/v2/util"
 	"github.com/flanglet/kanzi-go/v2/util/hash"
 )
 
-// Write to/read from stream using a 2 step process:
+// Write to/read from bitstream using a 2 step process:
 // Encoding:
 // - step 1: a ByteFunction is used to reduce the size of the input data (bytes input & output)
 // - step 2: an EntropyEncoder is used to entropy code the results of step 1 (bytes input, bits output)
