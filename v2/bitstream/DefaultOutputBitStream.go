@@ -146,11 +146,35 @@ func (this *DefaultOutputBitStream) WriteArray(bits []byte, count uint) uint {
 			r := 64 - this.availBits
 			a := this.availBits
 
+			for remaining >= 256 {
+				val1 := binary.BigEndian.Uint64(bits[start:])
+				val2 := binary.BigEndian.Uint64(bits[start+8:])
+				val3 := binary.BigEndian.Uint64(bits[start+16:])
+				val4 := binary.BigEndian.Uint64(bits[start+24:])
+				this.current |= (val1 >> r)
+
+				if this.position >= len(this.buffer)-32 {
+					if err := this.flush(); err != nil {
+						panic(err)
+					}
+				}
+
+				binary.BigEndian.PutUint64(this.buffer[this.position:], this.current)
+				binary.BigEndian.PutUint64(this.buffer[this.position+8:], (val1<<a)|(val2>>r))
+				binary.BigEndian.PutUint64(this.buffer[this.position+16:], (val2<<a)|(val3>>r))
+				binary.BigEndian.PutUint64(this.buffer[this.position+24:], (val3<<a)|(val4>>r))
+				this.current = val4 << a
+				start += 32
+				remaining -= 256
+				this.availBits = 64
+				this.position += 32
+			}
+
 			for remaining >= 64 {
-				value := binary.BigEndian.Uint64(bits[start : start+8])
-				this.current |= (value >> r)
+				val := binary.BigEndian.Uint64(bits[start:])
+				this.current |= (val >> r)
 				this.pushCurrent()
-				this.current = (value << a)
+				this.current = val << a
 				start += 8
 				remaining -= 64
 			}
