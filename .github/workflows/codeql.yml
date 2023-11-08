@@ -58,7 +58,7 @@ jobs:
       # Remove retracted versions to make codeql happy
       # otherwise codeql fails with 'unknown version'
       run: |
-        sed -e "s/retract/#retract/" go.mod > gomod.tmp && mv gomod.tmp go.mod
+        sed -e "s/retract/\/\/ retract/" go.mod > gomod.tmp && mv gomod.tmp go.mod
         
     # Autobuild attempts to build any compiled languages  (C/C++, C#, Go, or Java).
     # If this step fails, then you should remove it and run the build manually (see below)
