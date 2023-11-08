@@ -38,7 +38,7 @@ Use at your own risk. Always keep a copy of your original files.
 
 ![Build Status](https://github.com/flanglet/kanzi-go/actions/workflows/go.yml/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/flanglet/kanzi-go)](https://goreportcard.com/badge/github.com/flanglet/kanzi-go)
-[![Documentation](https://godoc.org/github.com/flanglet/kanzi-go?status.svg)](http://godoc.org/github.com/flanglet/kanzi-go)
+[![Documentation](https://godoc.org/github.com/flanglet/kanzi-go?status.svg)](http://godoc.org/github.com/flanglet/kanzi-go/v2)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=flanglet_kanzi-go&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=flanglet_kanzi-go)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=flanglet_kanzi-go&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=flanglet_kanzi-go)
 
@@ -149,9 +149,11 @@ Using formal releases is recommended (see https://github.com/flanglet/kanzi-go/r
 
 Otherwise, to build manually from the latest tag, follow the instructions below:
 
+```
 git clone https://github.com/flanglet/kanzi-go.git
 
 cd kanzi-go/v2/app
 
 go build Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
+```
 
