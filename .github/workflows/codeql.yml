@@ -54,7 +54,12 @@ jobs:
         # Details on CodeQL's query packs refer to : https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
         # queries: security-extended,security-and-quality
 
-
+    - name: Preprocess go.mod
+      # Remove retracted versions to make codeql happy
+      # otherwise codeql fails with 'unknown version'
+      run: |
+        sed -e "s/retract/#retract/" go.mod > gomod.tmp && mv gomod.tmp go.mod
+        
     # Autobuild attempts to build any compiled languages  (C/C++, C#, Go, or Java).
     # If this step fails, then you should remove it and run the build manually (see below)
     - name: Autobuild
