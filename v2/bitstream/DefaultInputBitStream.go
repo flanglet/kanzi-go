@@ -147,12 +147,39 @@ func (this *DefaultInputBitStream) ReadArray(bits []byte, count uint) uint {
 	} else {
 		// Not byte aligned
 		r := 64 - this.availBits
+		a := this.availBits
+
+		for remaining >= 256 {
+			v0 := this.current
+
+			if this.position+32 > this.maxPosition {
+				this.pullCurrent()
+				this.availBits -= r
+				binary.BigEndian.PutUint64(bits[start:start+8], (v0<<r)|(this.current>>uint(this.availBits)))
+				start += 8
+				remaining -= 64
+				continue
+			}
+
+			v1 := binary.BigEndian.Uint64(this.buffer[this.position:])
+			v2 := binary.BigEndian.Uint64(this.buffer[this.position+8:])
+			v3 := binary.BigEndian.Uint64(this.buffer[this.position+16:])
+			v4 := binary.BigEndian.Uint64(this.buffer[this.position+24:])
+			this.position += 32
+			binary.BigEndian.PutUint64(bits[start:], (v0<<r)|(v1>>a))
+			binary.BigEndian.PutUint64(bits[start+8:], (v1<<r)|(v2>>a))
+			binary.BigEndian.PutUint64(bits[start+16:], (v2<<r)|(v3>>a))
+			binary.BigEndian.PutUint64(bits[start+24:], (v3<<r)|(v4>>a))
+			start += 32
+			remaining -= 256
+			this.current = v4
+		}
 
 		for remaining >= 64 {
-			v := this.current & ((uint64(1) << this.availBits) - 1)
+			v := this.current
 			this.pullCurrent()
 			this.availBits -= r
-			binary.BigEndian.PutUint64(bits[start:start+8], (v<<uint(r))|(this.current>>uint(this.availBits)))
+			binary.BigEndian.PutUint64(bits[start:start+8], (v<<r)|(this.current>>uint(this.availBits)))
 			start += 8
 			remaining -= 64
 		}
