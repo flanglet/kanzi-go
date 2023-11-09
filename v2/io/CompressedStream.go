@@ -427,14 +427,14 @@ func (this *CompressedOutputStream) Close() error {
 }
 
 func (this *CompressedOutputStream) processBlock() error {
-	if this.available == 0 {
-		return nil
-	}
-
 	if atomic.SwapInt32(&this.initialized, 1) == 0 {
 		if err := this.writeHeader(); err != nil {
 			return err
 		}
+	}
+
+	if this.available == 0 {
+		return nil
 	}
 
 	off := 0
