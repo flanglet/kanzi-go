@@ -824,14 +824,6 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 		length, err = input.Read(buffer)
 	}
 
-	if read == 0 {
-		msg = fmt.Sprintf("Input file %s is empty ... nothing to do", inputName)
-		log.Println(msg, verbosity > 0)
-		output.Close()
-		os.Remove(outputName) // best effort to delete output file, ignore return code
-		return 0, read, cos.GetWritten()
-	}
-
 	// Close streams to ensure all data are flushed
 	// Deferred close is fallback for error paths
 	if err := cos.Close(); err != nil {
@@ -851,8 +843,6 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 			msg = fmt.Sprintf("%.0f ms", float64(delta))
 		}
 
-		f := float64(cos.GetWritten()) / float64(read)
-
 		if verbosity > 1 {
 			msg = fmt.Sprintf("Compressing:       %s", msg)
 			log.Println(msg, true)
@@ -860,16 +850,23 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 			log.Println(msg, true)
 			msg = fmt.Sprintf("Output size:       %d", cos.GetWritten())
 			log.Println(msg, true)
-			msg = fmt.Sprintf("Compression ratio: %f", f)
+
+			if read != 0 {
+				msg = fmt.Sprintf("Compression ratio: %f", float64(cos.GetWritten())/float64(read))
+				log.Println(msg, true)
+			}
+		} else if verbosity == 1 {
+			if read == 0 {
+				msg = fmt.Sprintf("Compressing %s: %d => %d in %s", inputName, read, cos.GetWritten(), msg)
+			} else {
+				f := float64(cos.GetWritten()) / float64(read)
+				msg = fmt.Sprintf("Compressing %s: %d => %d (%.2f%%) in %s", inputName, read, cos.GetWritten(), 100*f, msg)
+			}
+
 			log.Println(msg, true)
 		}
 
-		if verbosity == 1 {
-			msg = fmt.Sprintf("Compressing %s: %d => %d (%.2f%%) in %s", inputName, read, cos.GetWritten(), 100*f, msg)
-			log.Println(msg, true)
-		}
-
-		if verbosity > 1 && delta > 0 {
+		if verbosity > 1 && delta != 0 && read != 0 {
 			msg = fmt.Sprintf("Throughput (KB/s): %d", ((int64(read*1000))>>10)/delta)
 			log.Println(msg, true)
 		}
