@@ -289,9 +289,9 @@ func (this *ANSRangeEncoder) Write(block []byte) (int, error) {
 
 	sizeChunk := this.chunkSize
 
-	for i := range this.symbols {
-		this.symbols[i] = encSymbol{}
-	}
+	// for i := range this.symbols {
+	// 	this.symbols[i] = encSymbol{}
+	// }
 
 	size := 2 * len(block)
 
@@ -752,9 +752,9 @@ func (this *ANSRangeDecoder) Read(block []byte) (int, error) {
 	end := len(block)
 	startChunk := 0
 
-	for i := range this.symbols {
-		this.symbols[i] = decSymbol{}
-	}
+	//	for i := range this.symbols {
+	//		this.symbols[i] = decSymbol{}
+	//	}
 
 	var alphabet [256]int
 
