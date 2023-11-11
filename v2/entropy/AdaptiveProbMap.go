@@ -26,9 +26,10 @@ import (
 // that the next bit will be 1. After each guess, it updates
 // its state to improve future predictions.
 type adaptiveProbMapData struct {
-	index int      // last prob, context
-	rate  uint     // update rate
-	data  []uint16 // prob, context -> prob
+	index    int      // last prob, context
+	rate     uint     // update rate
+	data     []uint16 // prob, context -> prob
+	gradient [2]int
 }
 
 const (
@@ -88,13 +89,15 @@ func newLogisticAdaptiveProbMap(n, rate uint) (*LogisticAdaptiveProbMap, error) 
 		copy(this.data[i*33:], this.data[0:33])
 	}
 
+	this.gradient[0] = 0
+	this.gradient[1] = 65528 + (1 << this.rate)
 	return this, nil
 }
 
 // get returns improved prediction given current bit, prediction and context
 func (this *LogisticAdaptiveProbMap) Get(bit int, pr int, ctx int) int {
 	// Update probability based on error and learning rate
-	g := (-bit & 65528) + (bit << this.rate)
+	g := this.gradient[bit]
 	this.data[this.index+1] += uint16((g - int(this.data[this.index+1])) >> this.rate)
 	this.data[this.index] += uint16((g - int(this.data[this.index])) >> this.rate)
 	pr = internal.STRETCH[pr]
@@ -120,13 +123,15 @@ func newFastLogisticAdaptiveProbMap(n, rate uint) (*FastLogisticAdaptiveProbMap,
 		copy(this.data[i*32:], this.data[0:32])
 	}
 
+	this.gradient[0] = 0
+	this.gradient[1] = 65528 + (1 << this.rate)
 	return this, nil
 }
 
 // get returns improved prediction given current bit, prediction and context
 func (this *FastLogisticAdaptiveProbMap) Get(bit int, pr int, ctx int) int {
 	// Update probability based on error and learning rate
-	g := (-bit & 65528) + (bit << this.rate)
+	g := this.gradient[bit]
 	this.data[this.index] += uint16((g - int(this.data[this.index])) >> this.rate)
 	this.index = ((internal.STRETCH[pr] + 2048) >> 7) + 32*ctx
 	return int(this.data[this.index]) >> 4
@@ -151,13 +156,15 @@ func newLinearAdaptiveProbMap(n, rate uint) (*LinearAdaptiveProbMap, error) {
 		copy(this.data[i*65:], this.data[0:65])
 	}
 
+	this.gradient[0] = 0
+	this.gradient[1] = 65528 + (1 << this.rate)
 	return this, nil
 }
 
 // get returns improved prediction given current bit, prediction and context
 func (this *LinearAdaptiveProbMap) Get(bit int, pr int, ctx int) int {
 	// Update probability based on error and learning rate
-	g := (-bit & 65528) + (bit << this.rate)
+	g := this.gradient[bit]
 	this.data[this.index+1] += uint16((g - int(this.data[this.index+1])) >> this.rate)
 	this.data[this.index] += uint16((g - int(this.data[this.index])) >> this.rate)
 
