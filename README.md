@@ -38,7 +38,6 @@ Use at your own risk. Always keep a copy of your original files.
 
 ![Build Status](https://github.com/flanglet/kanzi-go/actions/workflows/go.yml/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/flanglet/kanzi-go)](https://goreportcard.com/badge/github.com/flanglet/kanzi-go)
-[![Documentation](https://godoc.org/github.com/flanglet/kanzi-go?status.svg)](http://godoc.org/github.com/flanglet/kanzi-go/v2)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=flanglet_kanzi-go&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=flanglet_kanzi-go)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=flanglet_kanzi-go&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=flanglet_kanzi-go)
 
@@ -146,6 +145,9 @@ Download at https://mattmahoney.net/dc/enwik8.zip
 # Build
 
 Using formal releases is recommended (see https://github.com/flanglet/kanzi-go/releases).
+```
+go install github.com/flanglet/kanzi-go/v2/app@v2.2.0
+```
 
 Otherwise, to build manually from the latest tag, follow the instructions below:
 
