@@ -72,7 +72,7 @@ type fileCompressResult struct {
 // NewBlockCompressor creates a new instance of BlockCompressor given
 // a map of argument name/value pairs.
 func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error) {
-	this := new(BlockCompressor)
+	this := &BlockCompressor{}
 	this.listeners = make([]kanzi.Listener, 0)
 	this.level = -1
 

@@ -52,7 +52,7 @@ func NewDefaultOutputBitStream(stream io.WriteCloser, bufferSize uint) (*Default
 		return nil, errors.New("Invalid buffer size (must be a multiple of 8)")
 	}
 
-	this := new(DefaultOutputBitStream)
+	this := &DefaultOutputBitStream{}
 	this.buffer = make([]byte, bufferSize)
 	this.os = stream
 	this.availBits = 64

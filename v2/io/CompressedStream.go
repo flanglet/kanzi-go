@@ -187,7 +187,7 @@ func createCompressedOutputStreamWithCtx(obs kanzi.OutputBitStream, ctx map[stri
 	}
 
 	ctx["bsVersion"] = uint(_BITSTREAM_FORMAT_VERSION)
-	this := new(CompressedOutputStream)
+	this := &CompressedOutputStream{}
 	this.obs = obs
 
 	// Check entropy type validity (panic on error)
@@ -873,8 +873,7 @@ func createCompressedInputStreamWithCtx(ibs kanzi.InputBitStream, ctx map[string
 		return nil, &IOError{msg: errMsg, code: kanzi.ERR_CREATE_STREAM}
 	}
 
-	this := new(CompressedInputStream)
-
+	this := &CompressedInputStream{}
 	this.ibs = ibs
 	this.jobs = int(tasks)
 	this.blockID = 0

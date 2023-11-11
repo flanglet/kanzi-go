@@ -55,7 +55,7 @@ func NewBinaryEntropyEncoder(bs kanzi.OutputBitStream, predictor kanzi.Predictor
 		return nil, errors.New("Binary entropy codec: Invalid null predictor parameter")
 	}
 
-	this := new(BinaryEntropyEncoder)
+	this := &BinaryEntropyEncoder{}
 	this.predictor = predictor
 	this.low = 0
 	this.high = _BINARY_ENTROPY_TOP
@@ -206,7 +206,7 @@ func NewBinaryEntropyDecoder(bs kanzi.InputBitStream, predictor kanzi.Predictor)
 	}
 
 	// Defer stream reading. We are creating the object, we should not do any I/O
-	this := new(BinaryEntropyDecoder)
+	this := &BinaryEntropyDecoder{}
 	this.predictor = predictor
 	this.low = 0
 	this.high = _BINARY_ENTROPY_TOP

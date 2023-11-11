@@ -53,7 +53,7 @@ func NewDefaultInputBitStream(stream io.ReadCloser, bufferSize uint) (*DefaultIn
 		return nil, errors.New("Invalid buffer size (must be a multiple of 8)")
 	}
 
-	this := new(DefaultInputBitStream)
+	this := &DefaultInputBitStream{}
 	this.buffer = make([]byte, bufferSize)
 	this.is = stream
 	this.availBits = 0

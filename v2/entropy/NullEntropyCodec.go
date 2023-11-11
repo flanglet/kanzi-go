@@ -27,7 +27,7 @@ type NullEntropyEncoder struct {
 
 // NewNullEntropyEncoder  creates a new instance of NullEntropyEncoder
 func NewNullEntropyEncoder(bs kanzi.OutputBitStream) (*NullEntropyEncoder, error) {
-	this := new(NullEntropyEncoder)
+	this := &NullEntropyEncoder{}
 	this.bitstream = bs
 	return this, nil
 }
@@ -71,7 +71,7 @@ type NullEntropyDecoder struct {
 
 // NewNullEntropyDecoder  creates a new instance of NullEntropyDecoder
 func NewNullEntropyDecoder(bs kanzi.InputBitStream) (*NullEntropyDecoder, error) {
-	this := new(NullEntropyDecoder)
+	this := &NullEntropyDecoder{}
 	this.bitstream = bs
 	return this, nil
 }

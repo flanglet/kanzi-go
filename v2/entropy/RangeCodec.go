@@ -83,7 +83,7 @@ func NewRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*RangeEncoder, err
 		return nil, fmt.Errorf("Range codec: Invalid range parameter: %v (must be in [8..16])", logRange)
 	}
 
-	this := new(RangeEncoder)
+	this := &RangeEncoder{}
 	this.bitstream = bs
 	this.alphabet = [256]int{}
 	this.freqs = [256]int{}
@@ -321,7 +321,7 @@ func NewRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*RangeDecoder, erro
 		return nil, fmt.Errorf("Range codec: The chunk size must be at most %d", _RANGE_MAX_CHUNK_SIZE)
 	}
 
-	this := new(RangeDecoder)
+	this := &RangeDecoder{}
 	this.bitstream = bs
 	this.alphabet = [256]int{}
 	this.freqs = [256]int{}

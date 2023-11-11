@@ -43,7 +43,7 @@ func NewByteTransformSequence(transforms []kanzi.ByteTransform) (*ByteTransformS
 		return nil, errors.New("Only 1 to 8 transforms allowed")
 	}
 
-	this := new(ByteTransformSequence)
+	this := &ByteTransformSequence{}
 	this.transforms = transforms
 	this.skipFlags = 0
 	return this, nil

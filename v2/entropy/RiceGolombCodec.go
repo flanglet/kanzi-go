@@ -43,7 +43,7 @@ func NewRiceGolombEncoder(bs kanzi.OutputBitStream, sgn bool, logBase uint) (*Ri
 		return nil, fmt.Errorf("RiceGolomb codec: Invalid logBase '%v' value (must be in [1..12])", logBase)
 	}
 
-	this := new(RiceGolombEncoder)
+	this := &RiceGolombEncoder{}
 	this.signed = sgn
 	this.bitstream = bs
 	this.logBase = logBase
@@ -122,7 +122,7 @@ func NewRiceGolombDecoder(bs kanzi.InputBitStream, sgn bool, logBase uint) (*Ric
 		return nil, errors.New("RiceGolomb codec: Invalid logBase value (must be in [1..12])")
 	}
 
-	this := new(RiceGolombDecoder)
+	this := &RiceGolombDecoder{}
 	this.signed = sgn
 	this.bitstream = bs
 	this.logBase = logBase

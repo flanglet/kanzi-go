@@ -46,7 +46,7 @@ func NewDebugOutputBitStream(obs kanzi.OutputBitStream, writer io.Writer) (*Debu
 		return nil, errors.New("The writer cannot be null")
 	}
 
-	this := new(DebugOutputBitStream)
+	this := &DebugOutputBitStream{}
 	this.delegate = obs
 	this.out = writer
 	this.width = 80

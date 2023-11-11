@@ -73,7 +73,7 @@ type DivSufSort struct {
 
 // NewDivSufSort creates a new instance of DivSufSort
 func NewDivSufSort() (*DivSufSort, error) {
-	this := new(DivSufSort)
+	this := &DivSufSort{}
 	this.ssStack = newStack(_SS_MISORT_STACKSIZE)
 	this.trStack = newStack(_TR_STACKSIZE)
 	this.mergestack = newStack(_SS_SMERGE_STACKSIZE)

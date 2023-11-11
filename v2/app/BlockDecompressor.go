@@ -61,7 +61,7 @@ type fileDecompressResult struct {
 // NewBlockDecompressor creates a new instance of BlockDecompressor given
 // a map of argument name/value pairs.
 func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, error) {
-	this := new(BlockDecompressor)
+	this := &BlockDecompressor{}
 	this.listeners = make([]kanzi.Listener, 0)
 
 	if force, hasKey := argsMap["overwrite"]; hasKey == true {
