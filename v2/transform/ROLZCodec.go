@@ -463,30 +463,30 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			litLen := srcIdx - firstLitIdx
 			var mode byte
 
-			if litLen < 31 {
-				mode = byte(litLen << 3)
-			} else {
-				mode = 0xF8
-			}
-
 			if matchLen >= 7 {
-				tkBuf[tkIdx] = mode | 0x07
-				tkIdx++
+				mode = 7
 				lenIdx += emitLengthROLZ(lenBuf[lenIdx:], matchLen-7)
 			} else {
-				tkBuf[tkIdx] = mode | byte(matchLen)
-				tkIdx++
+				mode = byte(matchLen)
 			}
 
 			// Emit literals
 			if litLen > 0 {
 				if litLen >= 31 {
+					mode |= 0xF8
 					lenIdx += emitLengthROLZ(lenBuf[lenIdx:], litLen-31)
+				} else {
+					mode |= byte(litLen << 3)
 				}
 
 				copy(litBuf[litIdx:], buf[firstLitIdx:firstLitIdx+litLen])
 				litIdx += litLen
+			} else {
+				mode |= byte(litLen << 3)
 			}
+
+			tkBuf[tkIdx] = mode
+			tkIdx++
 
 			// Emit match index
 			mIdxBuf[mIdx] = byte(matchIdx)
@@ -811,8 +811,9 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 					for n := 0; n < litLen; n++ {
 						key := getKey1(d[n:])
 						m := this.matches[key<<this.logPosChecks:]
-						this.counters[key] = (this.counters[key] + 1) & this.maskChecks
-						m[this.counters[key]] = uint32(dstIdx + n)
+						c := (this.counters[key] + 1) & this.maskChecks
+						m[c] = uint32(dstIdx + n)
+						this.counters[key] = c
 						n += (srcInc >> 6)
 						srcInc++
 					}
@@ -820,8 +821,9 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 					for n := 0; n < litLen; n++ {
 						key := getKey2(d[n:])
 						m := this.matches[key<<this.logPosChecks:]
-						this.counters[key] = (this.counters[key] + 1) & this.maskChecks
-						m[this.counters[key]] = uint32(dstIdx + n)
+						c := (this.counters[key] + 1) & this.maskChecks
+						m[c] = uint32(dstIdx + n)
+						this.counters[key] = c
 						n += (srcInc >> 6)
 						srcInc++
 					}
