@@ -26,27 +26,26 @@ import (
 )
 
 const (
-	_LZX_HASH_SEED          = 0x1E35A7BD
-	_LZX_HASH_LOG1          = 17
-	_LZX_HASH_SHIFT1        = 40 - _LZX_HASH_LOG1
-	_LZX_HASH_MASK1         = (1 << _LZX_HASH_LOG1) - 1
-	_LZX_HASH_LOG2          = 21
-	_LZX_HASH_SHIFT2        = 48 - _LZX_HASH_LOG2
-	_LZX_HASH_MASK2         = (1 << _LZX_HASH_LOG2) - 1
-	_LZX_MAX_DISTANCE1      = (1 << 17) - 2
-	_LZX_MAX_DISTANCE2      = (1 << 24) - 2
-	_LZX_MIN_MATCH4         = 4
-	_LZX_MIN_MATCH9         = 9
-	_LZX_MAX_MATCH          = 65535 + 254 + 15 + _LZX_MIN_MATCH4
-	_LZX_MIN_BLOCK_LENGTH   = 24
-	_LZX_MIN_MATCH_MIN_DIST = 1 << 16
-	_LZP_HASH_SEED          = 0x7FEB352D
-	_LZP_HASH_LOG           = 16
-	_LZP_HASH_SHIFT         = 32 - _LZP_HASH_LOG
-	_LZP_MIN_MATCH96        = 96
-	_LZP_MIN_MATCH64        = 64
-	_LZP_MATCH_FLAG         = 0xFC
-	_LZP_MIN_BLOCK_LENGTH   = 128
+	_LZX_HASH_SEED        = 0x1E35A7BD
+	_LZX_HASH_LOG1        = 17
+	_LZX_HASH_SHIFT1      = 40 - _LZX_HASH_LOG1
+	_LZX_HASH_MASK1       = (1 << _LZX_HASH_LOG1) - 1
+	_LZX_HASH_LOG2        = 21
+	_LZX_HASH_SHIFT2      = 48 - _LZX_HASH_LOG2
+	_LZX_HASH_MASK2       = (1 << _LZX_HASH_LOG2) - 1
+	_LZX_MAX_DISTANCE1    = (1 << 17) - 2
+	_LZX_MAX_DISTANCE2    = (1 << 24) - 2
+	_LZX_MIN_MATCH4       = 4
+	_LZX_MIN_MATCH9       = 9
+	_LZX_MAX_MATCH        = 65535 + 254 + 15 + _LZX_MIN_MATCH4
+	_LZX_MIN_BLOCK_LENGTH = 24
+	_LZP_HASH_SEED        = 0x7FEB352D
+	_LZP_HASH_LOG         = 16
+	_LZP_HASH_SHIFT       = 32 - _LZP_HASH_LOG
+	_LZP_MIN_MATCH96      = 96
+	_LZP_MIN_MATCH64      = 64
+	_LZP_MATCH_FLAG       = 0xFC
+	_LZP_MIN_BLOCK_LENGTH = 128
 )
 
 // LZCodec encapsulates an implementation of a Lempel-Ziv codec
@@ -1083,7 +1082,7 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	srcEnd := count
-	dstEnd := len(dst) - 4
+	dstEnd := count - (count >> 6)
 
 	if len(this.hashes) == 0 {
 		this.hashes = make([]int32, 1<<_LZP_HASH_LOG)
@@ -1097,7 +1096,7 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 	dst[1] = src[1]
 	dst[2] = src[2]
 	dst[3] = src[3]
-	ctx := binary.LittleEndian.Uint32(src[:])
+	ctx := binary.LittleEndian.Uint32(src)
 	srcIdx := 4
 	dstIdx := 4
 
@@ -1159,7 +1158,7 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 		srcIdx++
 		dstIdx++
 
-		if (ref != 0) && (val == _LZP_MATCH_FLAG) && (dstIdx < dstEnd) {
+		if (ref != 0) && (val == _LZP_MATCH_FLAG) {
 			dst[dstIdx] = 0xFF
 			dstIdx++
 		}
@@ -1167,7 +1166,7 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	var err error
 
-	if (srcIdx != count) || (dstIdx >= count-(count>>6)) {
+	if (srcIdx != count) || (dstIdx >= dstEnd) {
 		err = errors.New("LZP forward transform failed: output buffer too small")
 	}
 
@@ -1249,8 +1248,12 @@ func (this *LZPCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		mLen += int(src[srcIdx])
 		srcIdx++
 
-		for i := 0; i < mLen; i++ {
-			dst[dstIdx+i] = dst[ref+i]
+		if ref+mLen < dstIdx {
+			copy(dst[dstIdx:], dst[ref:ref+mLen])
+		} else {
+			for i := 0; i < mLen; i++ {
+				dst[dstIdx+i] = dst[ref+i]
+			}
 		}
 
 		dstIdx += mLen
