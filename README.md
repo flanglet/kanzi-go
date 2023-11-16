@@ -40,6 +40,7 @@ Use at your own risk. Always keep a copy of your original files.
 [![Go Report Card](https://goreportcard.com/badge/github.com/flanglet/kanzi-go)](https://goreportcard.com/badge/github.com/flanglet/kanzi-go)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=flanglet_kanzi-go&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=flanglet_kanzi-go)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=flanglet_kanzi-go&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=flanglet_kanzi-go)
+[![Documentation](https://godoc.org/github.com/flanglet/kanzi-go?status.svg)](http://godoc.org/github.com/flanglet/kanzi-go/v2)
 
 
 
