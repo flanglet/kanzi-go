@@ -70,8 +70,11 @@ var (
 )
 
 // GetMagicType checks the first bytes of the slice against a list of common magic values
-// 4 bytes must be available in 'src'
 func GetMagicType(src []byte) uint {
+	if len(src) < 4 {
+		return NO_MAGIC
+	}
+
 	key := uint(binary.BigEndian.Uint32(src))
 
 	if (key & ^uint(0x0F)) == JPG_MAGIC {
