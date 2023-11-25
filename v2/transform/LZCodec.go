@@ -100,7 +100,7 @@ func (this *LZCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	if &src[0] == &dst[0] {
-		return 0, 0, errors.New("Input and output mBufs cannot be equal")
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
 	return this.delegate.Forward(src, dst)
@@ -115,7 +115,7 @@ func (this *LZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	if &src[0] == &dst[0] {
-		return 0, 0, errors.New("Input and output mBufs cannot be equal")
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
 	return this.delegate.Inverse(src, dst)
@@ -503,11 +503,11 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		if mIdx >= len(this.mBuf)-8 {
-			extraBuf1 := make([]byte, len(this.mBuf))
+			extraBuf1 := make([]byte, len(this.mBuf) / 2)
 			this.mBuf = append(this.mBuf, extraBuf1...)
 
 			if mLenIdx >= len(this.mLenBuf)-8 {
-				extraBuf2 := make([]byte, len(this.mLenBuf))
+				extraBuf2 := make([]byte, len(this.mLenBuf) / 2)
 				this.mLenBuf = append(this.mLenBuf, extraBuf2...)
 			}
 		}
