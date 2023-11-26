@@ -38,7 +38,7 @@ func NewSRT() (*SRT, error) {
 
 // NewSRTWithCtx creates a new instance of SRT using a
 // configuration map as parameter.
-func NewSRTWithCtx(ctx *map[string]interface{}) (*SRT, error) {
+func NewSRTWithCtx(ctx *map[string]any) (*SRT, error) {
 	this := &SRT{}
 	return this, nil
 }

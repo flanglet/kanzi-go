@@ -86,7 +86,7 @@ func NewBWT() (*BWT, error) {
 
 // NewBWTWithCtx creates a new BWT instance. The number of jobs is extracted
 // from the provided map or arguments.
-func NewBWTWithCtx(ctx *map[string]interface{}) (*BWT, error) {
+func NewBWTWithCtx(ctx *map[string]any) (*BWT, error) {
 	this := &BWT{}
 	this.buffer = make([]int32, 0)
 	this.primaryIndexes = [8]uint{}

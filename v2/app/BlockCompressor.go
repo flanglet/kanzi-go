@@ -71,7 +71,7 @@ type fileCompressResult struct {
 
 // NewBlockCompressor creates a new instance of BlockCompressor given
 // a map of argument name/value pairs.
-func NewBlockCompressor(argsMap map[string]interface{}) (*BlockCompressor, error) {
+func NewBlockCompressor(argsMap map[string]any) (*BlockCompressor, error) {
 	this := &BlockCompressor{}
 	this.listeners = make([]kanzi.Listener, 0)
 	this.level = -1
@@ -468,7 +468,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		}
 	}
 
-	ctx := make(map[string]interface{})
+	ctx := make(map[string]any)
 	ctx["verbosity"] = this.verbosity
 	ctx["overwrite"] = this.overwrite
 	ctx["skipBlocks"] = this.skipBlocks
@@ -539,7 +539,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 				oName = formattedOutName + iName[len(formattedInName):] + ".knz"
 			}
 
-			taskCtx := make(map[string]interface{})
+			taskCtx := make(map[string]any)
 
 			for k, v := range ctx {
 				taskCtx[k] = v
@@ -680,7 +680,7 @@ func getTransformAndCodec(level int) string {
 }
 
 type fileCompressTask struct {
-	ctx       map[string]interface{}
+	ctx       map[string]any
 	listeners []kanzi.Listener
 }
 

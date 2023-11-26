@@ -39,7 +39,7 @@ func NewZRLT() (*ZRLT, error) {
 
 // NewZRLTWithCtx creates a new instance of ZRLT using a
 // configuration map as parameter.
-func NewZRLTWithCtx(ctx *map[string]interface{}) (*ZRLT, error) {
+func NewZRLTWithCtx(ctx *map[string]any) (*ZRLT, error) {
 	this := &ZRLT{}
 	return this, nil
 }

@@ -42,7 +42,7 @@ const (
 
 // RLT a Run Length Transform with escape symbol
 type RLT struct {
-	ctx *map[string]interface{}
+	ctx *map[string]any
 }
 
 // NewRLT creates a new instance of RLT
@@ -53,7 +53,7 @@ func NewRLT() (*RLT, error) {
 
 // NewRLTWithCtx creates a new instance of RLT using a
 // configuration map as parameter.
-func NewRLTWithCtx(ctx *map[string]interface{}) (*RLT, error) {
+func NewRLTWithCtx(ctx *map[string]any) (*RLT, error) {
 	this := &RLT{}
 	this.ctx = ctx
 	return this, nil

@@ -60,7 +60,7 @@ type fileDecompressResult struct {
 
 // NewBlockDecompressor creates a new instance of BlockDecompressor given
 // a map of argument name/value pairs.
-func NewBlockDecompressor(argsMap map[string]interface{}) (*BlockDecompressor, error) {
+func NewBlockDecompressor(argsMap map[string]any) (*BlockDecompressor, error) {
 	this := &BlockDecompressor{}
 	this.listeners = make([]kanzi.Listener, 0)
 
@@ -343,7 +343,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 		}
 	}
 
-	ctx := make(map[string]interface{})
+	ctx := make(map[string]any)
 	ctx["verbosity"] = this.verbosity
 	ctx["overwrite"] = this.overwrite
 	var res int
@@ -400,7 +400,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 				oName = formattedOutName + iName[len(formattedInName):] + ".bak"
 			}
 
-			taskCtx := make(map[string]interface{})
+			taskCtx := make(map[string]any)
 
 			for k, v := range ctx {
 				taskCtx[k] = v
@@ -484,7 +484,7 @@ func notifyBDListeners(listeners []kanzi.Listener, evt *kanzi.Event) {
 }
 
 type fileDecompressTask struct {
-	ctx       map[string]interface{}
+	ctx       map[string]any
 	listeners []kanzi.Listener
 }
 

@@ -42,7 +42,7 @@ const (
 )
 
 // NewEntropyDecoder creates a new entropy decoder using the provided type and bitstream
-func NewEntropyDecoder(ibs kanzi.InputBitStream, ctx map[string]interface{},
+func NewEntropyDecoder(ibs kanzi.InputBitStream, ctx map[string]any,
 	entropyType uint32) (kanzi.EntropyDecoder, error) {
 	switch entropyType {
 
@@ -78,7 +78,7 @@ func NewEntropyDecoder(ibs kanzi.InputBitStream, ctx map[string]interface{},
 }
 
 // NewEntropyEncoder creates a new entropy encoder using the provided type and bitstream
-func NewEntropyEncoder(obs kanzi.OutputBitStream, ctx map[string]interface{},
+func NewEntropyEncoder(obs kanzi.OutputBitStream, ctx map[string]any,
 	entropyType uint32) (kanzi.EntropyEncoder, error) {
 	switch entropyType {
 

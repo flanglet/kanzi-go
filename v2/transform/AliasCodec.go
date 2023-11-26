@@ -53,7 +53,7 @@ func (this sortAliasByFreq) Swap(i, j int) {
 
 // AliasCodec is a simple codec replacing 2-byte symbols with 1-byte aliases whenever possible
 type AliasCodec struct {
-	ctx *map[string]interface{}
+	ctx *map[string]any
 }
 
 // NewAliasCodec creates a new instance of AliasCodec
@@ -64,7 +64,7 @@ func NewAliasCodec() (*AliasCodec, error) {
 
 // NewAliasCodecWithCtx creates a new instance of AliasCodec using a
 // configuration map as parameter.
-func NewAliasCodecWithCtx(ctx *map[string]interface{}) (*AliasCodec, error) {
+func NewAliasCodecWithCtx(ctx *map[string]any) (*AliasCodec, error) {
 	this := &AliasCodec{}
 	this.ctx = ctx
 	return this, nil

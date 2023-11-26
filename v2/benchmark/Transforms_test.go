@@ -25,7 +25,7 @@ import (
 )
 
 func getTransform(name string) (kanzi.ByteTransform, error) {
-	ctx := make(map[string]interface{})
+	ctx := make(map[string]any)
 	ctx["transform"] = name
 	ctx["bsVersion"] = uint(4)
 

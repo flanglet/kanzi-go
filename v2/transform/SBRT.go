@@ -79,7 +79,7 @@ func NewSBRT(mode int) (*SBRT, error) {
 
 // NewSBRTWithCtx creates a new instance of SBRT using a
 // configuration map as parameter.
-func NewSBRTWithCtx(ctx *map[string]interface{}) (*SBRT, error) {
+func NewSBRTWithCtx(ctx *map[string]any) (*SBRT, error) {
 	mode := SBRT_MODE_MTF
 
 	if _, containsKey := (*ctx)["sbrt"]; containsKey {

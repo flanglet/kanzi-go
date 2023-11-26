@@ -69,7 +69,7 @@ const (
 
 // EXECodec a codec for x86 code
 type EXECodec struct {
-	ctx          *map[string]interface{}
+	ctx          *map[string]any
 	isBsVersion2 bool
 }
 
@@ -82,7 +82,7 @@ func NewEXECodec() (*EXECodec, error) {
 
 // NewEXECodecWithCtx creates a new instance of EXECodec using a
 // configuration map as parameter.
-func NewEXECodecWithCtx(ctx *map[string]interface{}) (*EXECodec, error) {
+func NewEXECodecWithCtx(ctx *map[string]any) (*EXECodec, error) {
 	this := &EXECodec{}
 	this.ctx = ctx
 	bsVersion := uint(2)

@@ -55,7 +55,7 @@ const (
 
 // New creates a new instance of ByteTransformSequence based on the provided
 // function type.
-func New(ctx *map[string]interface{}, functionType uint64) (*ByteTransformSequence, error) {
+func New(ctx *map[string]any, functionType uint64) (*ByteTransformSequence, error) {
 	nbtr := 0
 
 	// Several transforms
@@ -89,7 +89,7 @@ func New(ctx *map[string]interface{}, functionType uint64) (*ByteTransformSequen
 	return NewByteTransformSequence(transforms)
 }
 
-func newToken(ctx *map[string]interface{}, functionType uint64) (kanzi.ByteTransform, error) {
+func newToken(ctx *map[string]any, functionType uint64) (kanzi.ByteTransform, error) {
 	switch functionType {
 
 	case DICT_TYPE:

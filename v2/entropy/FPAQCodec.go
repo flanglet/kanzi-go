@@ -71,7 +71,7 @@ func NewFPAQEncoder(bs kanzi.OutputBitStream) (*FPAQEncoder, error) {
 }
 
 // NewFPAQEncoderWithCtx creates an instance of FPAQEncoder
-func NewFPAQEncoderWithCtx(bs kanzi.OutputBitStream, ctx *map[string]interface{}) (*FPAQEncoder, error) {
+func NewFPAQEncoderWithCtx(bs kanzi.OutputBitStream, ctx *map[string]any) (*FPAQEncoder, error) {
 	if bs == nil {
 		return nil, errors.New("FPAQ codec: Invalid null bitstream parameter")
 	}
@@ -230,7 +230,7 @@ func NewFPAQDecoder(bs kanzi.InputBitStream) (*FPAQDecoder, error) {
 
 // NewFPAQDecoderWithCtx creates an instance of FPAQDecoder providing a
 // context map.
-func NewFPAQDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]interface{}) (*FPAQDecoder, error) {
+func NewFPAQDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]any) (*FPAQDecoder, error) {
 	if bs == nil {
 		return nil, errors.New("FPAQ codec: Invalid null bitstream parameter")
 	}

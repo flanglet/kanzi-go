@@ -68,7 +68,7 @@ func (this *LZCodec) MaxEncodedLen(srcLen int) int {
 
 // NewLZCodecWithCtx creates a new instance of LZCodec using a
 // configuration map as parameter.
-func NewLZCodecWithCtx(ctx *map[string]interface{}) (*LZCodec, error) {
+func NewLZCodecWithCtx(ctx *map[string]any) (*LZCodec, error) {
 	this := &LZCodec{}
 
 	var err error
@@ -130,7 +130,7 @@ type LZXCodec struct {
 	mBuf      []byte
 	tkBuf     []byte
 	extra     bool
-	ctx       *map[string]interface{}
+	ctx       *map[string]any
 	bsVersion uint
 }
 
@@ -148,7 +148,7 @@ func NewLZXCodec() (*LZXCodec, error) {
 
 // NewLZXCodecWithCtx creates a new instance of LZXCodec using a
 // configuration map as parameter.
-func NewLZXCodecWithCtx(ctx *map[string]interface{}) (*LZXCodec, error) {
+func NewLZXCodecWithCtx(ctx *map[string]any) (*LZXCodec, error) {
 	this := &LZXCodec{}
 	this.hashes = make([]int32, 0)
 	this.mLenBuf = make([]byte, 0)
@@ -503,11 +503,11 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		if mIdx >= len(this.mBuf)-8 {
-			extraBuf1 := make([]byte, len(this.mBuf) / 2)
+			extraBuf1 := make([]byte, len(this.mBuf)/2)
 			this.mBuf = append(this.mBuf, extraBuf1...)
 
 			if mLenIdx >= len(this.mLenBuf)-8 {
-				extraBuf2 := make([]byte, len(this.mLenBuf) / 2)
+				extraBuf2 := make([]byte, len(this.mLenBuf)/2)
 				this.mLenBuf = append(this.mLenBuf, extraBuf2...)
 			}
 		}
@@ -1047,7 +1047,7 @@ func NewLZPCodec() (*LZPCodec, error) {
 
 // NewLZPCodecWithCtx creates a new instance of LZXCodec using a
 // configuration map as parameter.
-func NewLZPCodecWithCtx(ctx *map[string]interface{}) (*LZPCodec, error) {
+func NewLZPCodecWithCtx(ctx *map[string]any) (*LZPCodec, error) {
 	this := &LZPCodec{}
 	this.hashes = make([]int32, 0)
 	bsVersion := uint(4)

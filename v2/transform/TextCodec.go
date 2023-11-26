@@ -69,7 +69,7 @@ type textCodec1 struct {
 	logHashSize    uint
 	hashMask       int32
 	isCRLF         bool // EOL = CR+LF ?
-	ctx            *map[string]interface{}
+	ctx            *map[string]any
 }
 
 type textCodec2 struct {
@@ -80,7 +80,7 @@ type textCodec2 struct {
 	logHashSize    uint
 	hashMask       int32
 	isCRLF         bool // EOL = CR+LF ?
-	ctx            *map[string]interface{}
+	ctx            *map[string]any
 }
 
 var (
@@ -484,7 +484,7 @@ func NewTextCodec() (*TextCodec, error) {
 
 // NewTextCodecWithCtx creates a new instance of TextCodec using a
 // configuration map as parameter.
-func NewTextCodecWithCtx(ctx *map[string]interface{}) (*TextCodec, error) {
+func NewTextCodecWithCtx(ctx *map[string]any) (*TextCodec, error) {
 	this := &TextCodec{}
 
 	var err error
@@ -568,7 +568,7 @@ func newTextCodec1() (*textCodec1, error) {
 	return this, nil
 }
 
-func newTextCodec1WithCtx(ctx *map[string]interface{}) (*textCodec1, error) {
+func newTextCodec1WithCtx(ctx *map[string]any) (*textCodec1, error) {
 	this := &textCodec1{}
 	log := uint32(13)
 
@@ -1095,7 +1095,7 @@ func newTextCodec2() (*textCodec2, error) {
 	return this, nil
 }
 
-func newTextCodec2WithCtx(ctx *map[string]interface{}) (*textCodec2, error) {
+func newTextCodec2WithCtx(ctx *map[string]any) (*textCodec2, error) {
 	this := &textCodec2{}
 	log := uint32(13)
 

@@ -52,7 +52,7 @@ func NewBWTBlockCodec() (*BWTBlockCodec, error) {
 }
 
 // NewBWTBlockCodecWithCtx creates a new instance of BWTBlockCodec
-func NewBWTBlockCodecWithCtx(ctx *map[string]interface{}) (*BWTBlockCodec, error) {
+func NewBWTBlockCodecWithCtx(ctx *map[string]any) (*BWTBlockCodec, error) {
 	this := &BWTBlockCodec{}
 	var err error
 	this.bwt, err = NewBWTWithCtx(ctx)

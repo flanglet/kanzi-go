@@ -35,7 +35,7 @@ type CMPredictor struct {
 }
 
 // NewCMPredictor creates a new instance of CMPredictor
-func NewCMPredictor(ctx *map[string]interface{}) (*CMPredictor, error) {
+func NewCMPredictor(ctx *map[string]any) (*CMPredictor, error) {
 	this := &CMPredictor{}
 	this.ctx = 1
 	this.runMask = 0

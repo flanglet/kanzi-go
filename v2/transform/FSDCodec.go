@@ -102,7 +102,7 @@ var _FSD_ZIGZAG2 = [256]int{
 // FSDCodec Fixed Step Delta codec is used to decorrelate values separated
 // by a constant distance (step) and encode residuals
 type FSDCodec struct {
-	ctx *map[string]interface{}
+	ctx *map[string]any
 }
 
 // NewFSDCodec creates a new instance of FSDCodec
@@ -113,7 +113,7 @@ func NewFSDCodec() (*FSDCodec, error) {
 
 // NewFSDCodecWithCtx creates a new instance of FSDCodec using a
 // configuration map as parameter.
-func NewFSDCodecWithCtx(ctx *map[string]interface{}) (*FSDCodec, error) {
+func NewFSDCodecWithCtx(ctx *map[string]any) (*FSDCodec, error) {
 	this := &FSDCodec{}
 	this.ctx = ctx
 	return this, nil

@@ -32,7 +32,7 @@ func NewNullTransform() (*NullTransform, error) {
 
 // NewNullTransformWithCtx creates a new instance of NullTransform using a
 // configuration map as parameter.
-func NewNullTransformWithCtx(ctx *map[string]interface{}) (*NullTransform, error) {
+func NewNullTransformWithCtx(ctx *map[string]any) (*NullTransform, error) {
 	this := &NullTransform{}
 	return this, nil
 }

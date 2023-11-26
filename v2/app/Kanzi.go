@@ -76,7 +76,7 @@ var (
 )
 
 func main() {
-	argsMap := make(map[string]interface{})
+	argsMap := make(map[string]any)
 
 	if status := processCommandLine(os.Args, argsMap); status != 0 {
 		// Command line processing error ?
@@ -107,7 +107,7 @@ func main() {
 	os.Exit(status)
 }
 
-func compress(argsMap map[string]interface{}) int {
+func compress(argsMap map[string]any) int {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	code := 0
 	verbose := argsMap["verbose"].(uint)
@@ -149,7 +149,7 @@ func compress(argsMap map[string]interface{}) int {
 	return code
 }
 
-func decompress(argsMap map[string]interface{}) int {
+func decompress(argsMap map[string]any) int {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	code := 0
 	verbose := argsMap["verbose"].(uint)
@@ -191,7 +191,7 @@ func decompress(argsMap map[string]interface{}) int {
 	return code
 }
 
-func processCommandLine(args []string, argsMap map[string]interface{}) int {
+func processCommandLine(args []string, argsMap map[string]any) int {
 	blockSize := -1
 	verbose := 1
 	overwrite := false

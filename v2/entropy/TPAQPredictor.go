@@ -212,7 +212,7 @@ type TPAQPredictor struct {
 
 // NewTPAQPredictor creates a new instance of TPAQPredictor using the provided
 // map of options to select the sizes of internal structures.
-func NewTPAQPredictor(ctx *map[string]interface{}) (*TPAQPredictor, error) {
+func NewTPAQPredictor(ctx *map[string]any) (*TPAQPredictor, error) {
 	this := &TPAQPredictor{}
 	statesSize := uint(1) << 28
 	mixersSize := uint(1) << 12

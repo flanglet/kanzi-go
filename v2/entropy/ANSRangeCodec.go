@@ -118,7 +118,7 @@ func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncode
 
 // NewANSRangeEncoderWithCtx creates a new instance of ANSRangeEncoder providing a
 // context map.
-func NewANSRangeEncoderWithCtx(bs kanzi.OutputBitStream, ctx *map[string]interface{}, args ...uint) (*ANSRangeEncoder, error) {
+func NewANSRangeEncoderWithCtx(bs kanzi.OutputBitStream, ctx *map[string]any, args ...uint) (*ANSRangeEncoder, error) {
 	if bs == nil {
 		return nil, errors.New("ANS codec: Invalid null bitstream parameter")
 	}
@@ -562,7 +562,7 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 
 // NewANSRangeDecoderWithCtx creates a new instance of ANSRangeDecoder providing a
 // context map.
-func NewANSRangeDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]interface{}, args ...uint) (*ANSRangeDecoder, error) {
+func NewANSRangeDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]any, args ...uint) (*ANSRangeDecoder, error) {
 	if bs == nil {
 		return nil, errors.New("ANS codec: Invalid null bitstream parameter")
 	}

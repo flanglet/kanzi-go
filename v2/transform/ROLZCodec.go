@@ -130,7 +130,7 @@ func NewROLZCodecWithFlag(extra bool) (*ROLZCodec, error) {
 // context map. If the map contains a transform name set to "ROLZX"
 // encode literals and matches using ANS. Otherwise encode literals
 // and matches using CM and check more match positions.
-func NewROLZCodecWithCtx(ctx *map[string]interface{}) (*ROLZCodec, error) {
+func NewROLZCodecWithCtx(ctx *map[string]any) (*ROLZCodec, error) {
 	this := &ROLZCodec{}
 	var err error
 	var d kanzi.ByteTransform
@@ -207,7 +207,7 @@ type rolzCodec1 struct {
 	maskChecks   int32
 	posChecks    int32
 	minMatch     int
-	ctx          *map[string]interface{}
+	ctx          *map[string]any
 }
 
 func newROLZCodec1(logPosChecks uint) (*rolzCodec1, error) {
@@ -225,7 +225,7 @@ func newROLZCodec1(logPosChecks uint) (*rolzCodec1, error) {
 	return this, nil
 }
 
-func newROLZCodec1WithCtx(logPosChecks uint, ctx *map[string]interface{}) (*rolzCodec1, error) {
+func newROLZCodec1WithCtx(logPosChecks uint, ctx *map[string]any) (*rolzCodec1, error) {
 	this := &rolzCodec1{}
 
 	if (logPosChecks < 2) || (logPosChecks > 8) {
@@ -956,7 +956,7 @@ type rolzCodec2 struct {
 	maskChecks   int32
 	posChecks    int32
 	minMatch     int
-	ctx          *map[string]interface{}
+	ctx          *map[string]any
 }
 
 func newROLZCodec2(logPosChecks uint) (*rolzCodec2, error) {
@@ -974,7 +974,7 @@ func newROLZCodec2(logPosChecks uint) (*rolzCodec2, error) {
 	return this, nil
 }
 
-func newROLZCodec2WithCtx(logPosChecks uint, ctx *map[string]interface{}) (*rolzCodec2, error) {
+func newROLZCodec2WithCtx(logPosChecks uint, ctx *map[string]any) (*rolzCodec2, error) {
 	this := &rolzCodec2{}
 
 	if (logPosChecks < 2) || (logPosChecks > 8) {

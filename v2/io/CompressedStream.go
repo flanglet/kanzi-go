@@ -99,7 +99,7 @@ type CompressedOutputStream struct {
 	nbInputBlocks int
 	available     int
 	listeners     []kanzi.Listener
-	ctx           map[string]interface{}
+	ctx           map[string]any
 }
 
 type encodingTask struct {
@@ -114,7 +114,7 @@ type encodingTask struct {
 	wg                 *sync.WaitGroup
 	listeners          []kanzi.Listener
 	obs                kanzi.OutputBitStream
-	ctx                map[string]interface{}
+	ctx                map[string]any
 }
 
 type encodingTaskResult struct {
@@ -123,7 +123,7 @@ type encodingTaskResult struct {
 
 // NewCompressedOutputStream creates a new instance of CompressedOutputStream
 func NewCompressedOutputStream(os io.WriteCloser, codec, transform string, blockSize, jobs uint, checksum bool) (*CompressedOutputStream, error) {
-	ctx := make(map[string]interface{})
+	ctx := make(map[string]any)
 	ctx["codec"] = codec
 	ctx["transform"] = transform
 	ctx["blockSize"] = blockSize
@@ -134,7 +134,7 @@ func NewCompressedOutputStream(os io.WriteCloser, codec, transform string, block
 
 // NewCompressedOutputStreamWithCtx creates a new instance of CompressedOutputStream using a
 // map of parameters and a writer
-func NewCompressedOutputStreamWithCtx(os io.WriteCloser, ctx map[string]interface{}) (*CompressedOutputStream, error) {
+func NewCompressedOutputStreamWithCtx(os io.WriteCloser, ctx map[string]any) (*CompressedOutputStream, error) {
 	var err error
 	var obs kanzi.OutputBitStream
 
@@ -148,11 +148,11 @@ func NewCompressedOutputStreamWithCtx(os io.WriteCloser, ctx map[string]interfac
 
 // NewCompressedOutputStreamWithCtx2 creates a new instance of CompressedOutputStream using a
 // map of parameters and a custom output bitstream
-func NewCompressedOutputStreamWithCtx2(obs kanzi.OutputBitStream, ctx map[string]interface{}) (*CompressedOutputStream, error) {
+func NewCompressedOutputStreamWithCtx2(obs kanzi.OutputBitStream, ctx map[string]any) (*CompressedOutputStream, error) {
 	return createCompressedOutputStreamWithCtx(obs, ctx)
 }
 
-func createCompressedOutputStreamWithCtx(obs kanzi.OutputBitStream, ctx map[string]interface{}) (*CompressedOutputStream, error) {
+func createCompressedOutputStreamWithCtx(obs kanzi.OutputBitStream, ctx map[string]any) (*CompressedOutputStream, error) {
 	if obs == nil {
 		return nil, &IOError{msg: "Invalid null output bitstream parameter", code: kanzi.ERR_CREATE_STREAM}
 	}
@@ -476,7 +476,7 @@ func (this *CompressedOutputStream) processBlock() error {
 			break
 		}
 
-		copyCtx := make(map[string]interface{})
+		copyCtx := make(map[string]any)
 
 		for k, v := range this.ctx {
 			copyCtx[k] = v
@@ -812,7 +812,7 @@ type CompressedInputStream struct {
 	consumed        int // decoded consumed bytes
 	nbInputBlocks   int
 	listeners       []kanzi.Listener
-	ctx             map[string]interface{}
+	ctx             map[string]any
 }
 
 type decodingTask struct {
@@ -827,19 +827,19 @@ type decodingTask struct {
 	wg                 *sync.WaitGroup
 	listeners          []kanzi.Listener
 	ibs                kanzi.InputBitStream
-	ctx                map[string]interface{}
+	ctx                map[string]any
 }
 
 // NewCompressedInputStream creates a new instance of CompressedInputStream
 func NewCompressedInputStream(is io.ReadCloser, jobs uint) (*CompressedInputStream, error) {
-	ctx := make(map[string]interface{})
+	ctx := make(map[string]any)
 	ctx["jobs"] = jobs
 	return NewCompressedInputStreamWithCtx(is, ctx)
 }
 
 // NewCompressedInputStreamWithCtx creates a new instance of CompressedInputStream
 // using a map of parameters
-func NewCompressedInputStreamWithCtx(is io.ReadCloser, ctx map[string]interface{}) (*CompressedInputStream, error) {
+func NewCompressedInputStreamWithCtx(is io.ReadCloser, ctx map[string]any) (*CompressedInputStream, error) {
 	var err error
 	var ibs kanzi.InputBitStream
 
@@ -853,11 +853,11 @@ func NewCompressedInputStreamWithCtx(is io.ReadCloser, ctx map[string]interface{
 
 // NewCompressedInputStreamWithCtx2 creates a new instance of CompressedInputStream
 // using a map of parameters and a custom input bitstream
-func NewCompressedInputStreamWithCtx2(ibs kanzi.InputBitStream, ctx map[string]interface{}) (*CompressedInputStream, error) {
+func NewCompressedInputStreamWithCtx2(ibs kanzi.InputBitStream, ctx map[string]any) (*CompressedInputStream, error) {
 	return createCompressedInputStreamWithCtx(ibs, ctx)
 }
 
-func createCompressedInputStreamWithCtx(ibs kanzi.InputBitStream, ctx map[string]interface{}) (*CompressedInputStream, error) {
+func createCompressedInputStreamWithCtx(ibs kanzi.InputBitStream, ctx map[string]any) (*CompressedInputStream, error) {
 	if ibs == nil {
 		return nil, &IOError{msg: "Invalid null input bitstream parameter", code: kanzi.ERR_CREATE_STREAM}
 	}
@@ -1188,7 +1188,7 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 				this.buffers[taskID].Buf = make([]byte, bufSize)
 			}
 
-			copyCtx := make(map[string]interface{})
+			copyCtx := make(map[string]any)
 
 			for k, v := range this.ctx {
 				copyCtx[k] = v

@@ -61,7 +61,7 @@ type utfSymbol struct {
 
 // UTFCodec is a simple one-pass UTF8 codec that replaces code points with indexes.
 type UTFCodec struct {
-	ctx *map[string]interface{}
+	ctx *map[string]any
 }
 
 // NewUTFCodec creates a new instance of UTFCodec
@@ -72,7 +72,7 @@ func NewUTFCodec() (*UTFCodec, error) {
 
 // NewUTFCodecWithCtx creates a new instance of UTFCodec using a
 // configuration map as parameter.
-func NewUTFCodecWithCtx(ctx *map[string]interface{}) (*UTFCodec, error) {
+func NewUTFCodecWithCtx(ctx *map[string]any) (*UTFCodec, error) {
 	this := &UTFCodec{}
 	this.ctx = ctx
 	return this, nil

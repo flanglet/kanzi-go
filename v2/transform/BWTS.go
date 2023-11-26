@@ -45,7 +45,7 @@ func NewBWTS() (*BWTS, error) {
 
 // NewBWTSWithCtx creates a new instance of BWTS using a
 // configuration map as parameter.
-func NewBWTSWithCtx(ctx *map[string]interface{}) (*BWTS, error) {
+func NewBWTSWithCtx(ctx *map[string]any) (*BWTS, error) {
 	this := &BWTS{}
 	this.buffer1 = make([]int32, 0)
 	this.buffer2 = make([]int32, 0)

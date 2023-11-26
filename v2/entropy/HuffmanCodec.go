@@ -508,7 +508,7 @@ func NewHuffmanDecoder(bs kanzi.InputBitStream, args ...uint) (*HuffmanDecoder, 
 
 // NewHuffmanDecoderWithCtx creates an instance of HuffmanDecoder providing a
 // context map.
-func NewHuffmanDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]interface{}) (*HuffmanDecoder, error) {
+func NewHuffmanDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]any) (*HuffmanDecoder, error) {
 	if bs == nil {
 		return nil, errors.New("Huffman codec: Invalid null bitstream parameter")
 	}
