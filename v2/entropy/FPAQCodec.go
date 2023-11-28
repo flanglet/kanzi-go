@@ -96,18 +96,18 @@ func NewFPAQEncoderWithCtx(bs kanzi.OutputBitStream, ctx *map[string]any) (*FPAQ
 	return this, nil
 }
 
-func (this *FPAQEncoder) encodeBit(bit byte, pIdx int) {
+func (this *FPAQEncoder) encodeBit(bit byte, p *int) {
 	// Calculate interval split
 	// Written in a way to maximize accuracy of multiplication/division
-	split := (((this.high - this.low) >> 8) * uint64(this.p[pIdx])) >> 8
+	split := (((this.high - this.low) >> 8) * uint64(*p)) >> 8
 
 	// Update probabilities
 	if bit == 0 {
 		this.low += (split + 1)
-		this.p[pIdx] -= (this.p[pIdx] >> 6)
+		*p -= (*p >> 6)
 	} else {
 		this.high = this.low + split
-		this.p[pIdx] -= ((this.p[pIdx] - _FPAQ_PSCALE + 64) >> 6)
+		*p -= ((*p - _FPAQ_PSCALE + 64) >> 6)
 	}
 
 	// Write unchanged first 32 bits to bitstream
@@ -147,14 +147,14 @@ func (this *FPAQEncoder) Write(block []byte) (int, error) {
 
 		for _, val := range buf {
 			bits := int(val) + 256
-			this.encodeBit(val&0x80, 1)
-			this.encodeBit(val&0x40, bits>>7)
-			this.encodeBit(val&0x20, bits>>6)
-			this.encodeBit(val&0x10, bits>>5)
-			this.encodeBit(val&0x08, bits>>4)
-			this.encodeBit(val&0x04, bits>>3)
-			this.encodeBit(val&0x02, bits>>2)
-			this.encodeBit(val&0x01, bits>>1)
+			this.encodeBit(val&0x80, &this.p[1])
+			this.encodeBit(val&0x40, &this.p[bits>>7])
+			this.encodeBit(val&0x20, &this.p[bits>>6])
+			this.encodeBit(val&0x10, &this.p[bits>>5])
+			this.encodeBit(val&0x08, &this.p[bits>>4])
+			this.encodeBit(val&0x04, &this.p[bits>>3])
+			this.encodeBit(val&0x02, &this.p[bits>>2])
+			this.encodeBit(val&0x01, &this.p[bits>>1])
 			this.p = this.probs[val>>6]
 		}
 
