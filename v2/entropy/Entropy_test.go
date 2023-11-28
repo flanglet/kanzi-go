@@ -103,23 +103,34 @@ func testEntropyCorrectness(name string) error {
 		fmt.Printf("\n\nTest %v", ii)
 		var values []byte
 
-		if ii == 3 {
-			values = []byte{0, 0, 32, 15, -4 & 0xFF, 16, 0, 16, 0, 7, -1 & 0xFF, -4 & 0xFF, -32 & 0xFF, 0, 31, -1 & 0xFF}
-		} else if ii == 2 {
-			values = []byte{0x3d, 0x4d, 0x54, 0x47, 0x5a, 0x36, 0x39, 0x26, 0x72, 0x6f, 0x6c, 0x65, 0x3d, 0x70, 0x72, 0x65}
-		} else if ii == 1 {
+		switch ii {
+		case 1:
 			values = make([]byte, 32)
 
 			for i := range values {
 				values[i] = byte(2) // all identical
 			}
-		} else if ii == 5 {
+
+		case 2:
+			values = []byte{0x3d, 0x4d, 0x54, 0x47, 0x5a, 0x36, 0x39, 0x26, 0x72, 0x6f, 0x6c, 0x65, 0x3d, 0x70, 0x72, 0x65}
+
+		case 3:
+			values = []byte{0, 0, 32, 15, 252, 16, 0, 16, 0, 7, 255, 252, 224, 0, 31, 255}
+
+		case 4:
 			values = make([]byte, 32)
 
 			for i := range values {
 				values[i] = byte(2 + (i & 1)) // 2 symbols
 			}
-		} else {
+
+		case 5:
+			values = []byte{42}
+
+		case 6:
+			values = []byte{42, 42}
+
+		default:
 			values = make([]byte, 256)
 
 			for i := range values {

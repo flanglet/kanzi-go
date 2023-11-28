@@ -235,6 +235,7 @@ func (this *HuffmanEncoder) updateFrequencies(freqs []int) (int, error) {
 	return count, nil
 }
 
+// Called only when more than 1 symbol (len(ranks)_ >= 2)
 func (this *HuffmanEncoder) computeCodeLengths(sizes []byte, ranks []int) (int, error) {
 	var frequencies [256]int
 	freqs := frequencies[0:len(ranks)]
@@ -300,6 +301,7 @@ func computeInPlaceSizesPhase1(data []int) {
 	}
 }
 
+// len(data) must be at least 2
 func computeInPlaceSizesPhase2(data []int) {
 	n := len(data)
 	levelTop := n - 2 //root
