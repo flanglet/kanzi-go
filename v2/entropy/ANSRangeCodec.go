@@ -285,7 +285,7 @@ func (this *ANSRangeEncoder) Write(block []byte) (int, error) {
 
 	if len(block) <= 32 {
 		this.bitstream.WriteArray(block, uint(8*len(block)))
-		return 0, nil
+		return len(block), nil
 	}
 
 	sizeChunk := this.chunkSize
@@ -742,7 +742,7 @@ func (this *ANSRangeDecoder) Read(block []byte) (int, error) {
 
 	if len(block) <= 32 {
 		this.bitstream.ReadArray(block, uint(8*len(block)))
-		return 0, nil
+		return len(block), nil
 	}
 
 	sizeChunk := this.chunkSize
