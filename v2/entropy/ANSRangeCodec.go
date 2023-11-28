@@ -283,16 +283,12 @@ func (this *ANSRangeEncoder) Write(block []byte) (int, error) {
 		return 0, errors.New("Invalid null block parameter")
 	}
 
-	if len(block) == 0 {
+	if len(block) <= 32 {
+		this.bitstream.WriteArray(block, uint(8*len(block)))
 		return 0, nil
 	}
 
 	sizeChunk := this.chunkSize
-
-	// for i := range this.symbols {
-	// 	this.symbols[i] = encSymbol{}
-	// }
-
 	size := 2 * len(block)
 
 	if size > sizeChunk+(sizeChunk>>3) { // min
@@ -369,7 +365,7 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 			n = this.encodeSymbol(n, &st2, symb[block[i-2]])
 			n = this.encodeSymbol(n, &st3, symb[block[i-3]])
 		}
-	} else { // order 1
+	} else if len(block) > 1 { // order 1
 		quarter := end4 >> 2
 		i0 := 1*quarter - 2
 		i1 := 2*quarter - 2
@@ -744,18 +740,14 @@ func (this *ANSRangeDecoder) Read(block []byte) (int, error) {
 		return 0, errors.New("Invalid null block parameter")
 	}
 
-	if len(block) == 0 {
+	if len(block) <= 32 {
+		this.bitstream.ReadArray(block, uint(8*len(block)))
 		return 0, nil
 	}
 
 	sizeChunk := this.chunkSize
 	end := len(block)
 	startChunk := 0
-
-	//	for i := range this.symbols {
-	//		this.symbols[i] = decSymbol{}
-	//	}
-
 	var alphabet [256]int
 
 	for startChunk < end {
