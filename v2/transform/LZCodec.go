@@ -423,16 +423,15 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		// F    : if MMMM == 15, flag = 0 if dist == repd0 and 1 if dist == repd1
 		//        else flag = 1 if dist >= dThreshold and 0 otherwise
 		dist := srcIdx - ref
-		mLen := bestLen - minMatch
 		litLen := srcIdx - anchor
 		var token int
 
 		if dist == repd[0] {
 			token = 0x0F
-			mLenIdx += emitLengthLZ(this.mLenBuf[mLenIdx:], mLen)
+			mLenIdx += emitLengthLZ(this.mLenBuf[mLenIdx:], bestLen-minMatch)
 		} else if dist == repd[1] {
 			token = 0x1F
-			mLenIdx += emitLengthLZ(this.mLenBuf[mLenIdx:], mLen)
+			mLenIdx += emitLengthLZ(this.mLenBuf[mLenIdx:], bestLen-minMatch)
 		} else {
 			// Emit distance since not a repeat
 			if maxDist == _LZX_MAX_DISTANCE2 {
@@ -452,6 +451,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 			this.mBuf[mIdx] = byte(dist)
 			mIdx++
+			mLen := bestLen - minMatch
 
 			// Emit match length
 			if mLen >= 14 {
