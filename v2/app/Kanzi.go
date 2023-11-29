@@ -549,13 +549,10 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 				continue
 			}
 
-			if level, err = strconv.Atoi(str); err != nil {
-				fmt.Println(fmt.Sprintf(warningInvalidOpt, "compression level", arg))
-				return kanzi.ERR_INVALID_PARAM
-			}
+			level, err = strconv.Atoi(str)
 
-			if level < 0 || level > 9 {
-				fmt.Println(fmt.Sprintf(warningInvalidOpt, "compression level", arg))
+			if err != nil || level < 0 || level > 9 {
+				fmt.Println(fmt.Sprintf(warningInvalidOpt, "compression level", str))
 				return kanzi.ERR_INVALID_PARAM
 			}
 
@@ -616,8 +613,6 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 					lastChar = strBlockSize[len(strBlockSize)-1]
 				}
 
-				var err error
-
 				if lastChar == 'K' {
 					strBlockSize = strBlockSize[0 : len(strBlockSize)-1]
 					scale = 1024
@@ -628,6 +623,8 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 					strBlockSize = strBlockSize[0 : len(strBlockSize)-1]
 					scale = 1024 * 1024 * 1024
 				}
+
+				var err error
 
 				if blockSize, err = strconv.Atoi(strBlockSize); err != nil || blockSize <= 0 {
 					fmt.Println(fmt.Sprintf(warningInvalidOpt, "block size", strBlockSize))
