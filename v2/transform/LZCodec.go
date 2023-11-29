@@ -350,16 +350,14 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 			ref = int(this.hashes[h0])
 			this.hashes[h0] = int32(srcIdx)
 
-			if ref > minRef {
-				if uint32(p) == binary.LittleEndian.Uint32(src[ref:]) {
-					maxMatch := srcEnd - srcIdx
+			if ref > minRef && uint32(p) == binary.LittleEndian.Uint32(src[ref:]) {
+				maxMatch := srcEnd - srcIdx
 
-					if maxMatch > _LZX_MAX_MATCH {
-						maxMatch = _LZX_MAX_MATCH
-					}
-
-					bestLen = findMatchLZX(src, srcIdx, ref, maxMatch)
+				if maxMatch > _LZX_MAX_MATCH {
+					maxMatch = _LZX_MAX_MATCH
 				}
+
+				bestLen = findMatchLZX(src, srcIdx, ref, maxMatch)
 			}
 
 			// No good match ?
@@ -373,19 +371,20 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 			if ref != srcIdx-repd[0] && ref != srcIdx-repd[1] {
 				// Check if better match at next position
-				h1 := this.hash(src[srcIdx+1:])
+				srcIdx1 := srcIdx + 1
+				h1 := this.hash(src[srcIdx1:])
 				ref1 := int(this.hashes[h1])
-				this.hashes[h1] = int32(srcIdx + 1)
+				this.hashes[h1] = int32(srcIdx1)
 
 				// Find a match
-				if ref1 > minRef+1 {
-					maxMatch := srcEnd - srcIdx - 1
+				if ref1 > minRef+1 && binary.LittleEndian.Uint32(src[srcIdx1+bestLen-4:]) == binary.LittleEndian.Uint32(src[ref1+bestLen-4:]) {
+					maxMatch := srcEnd - srcIdx1
 
 					if maxMatch > _LZX_MAX_MATCH {
 						maxMatch = _LZX_MAX_MATCH
 					}
 
-					bestLen1 := findMatchLZX(src, srcIdx+1, ref1, maxMatch)
+					bestLen1 := findMatchLZX(src, srcIdx1, ref1, maxMatch)
 
 					// Select best match
 					if (bestLen1 > bestLen) || ((bestLen1 == bestLen) && (ref1 > ref)) {
