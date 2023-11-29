@@ -305,6 +305,11 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 	inputName = ""
 	outputName = ""
 	ctx = -1
+	warningNoValOpt := "Warning: ignoring option [%s] with no value."
+	warningCompressOpt := "Warning: ignoring option [%s]. Only applicable in compress mode."
+	warningDecompressOpt := "Warning: ignoring option [%s]. Only applicable in decompress mode."
+	warningDupOpt := "Warning: ignoring duplicate %s (%s)"
+	warningInvalidOpt := "Invalid %s provided on command line: %s"
 
 	if len(args) == 1 {
 		printHelp(mode, showHeader)
@@ -325,7 +330,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 		if arg == _ARG_COMPRESS || arg == "-c" || arg == _ARG_DECOMPRESS || arg == "-d" {
 			if ctx != -1 {
-				log.Println("Warning: ignoring option ["+_CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
+				log.Println(fmt.Sprintf(warningNoValOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
 			}
 
 			ctx = -1
@@ -334,7 +339,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 		if arg == _ARG_FORCE || arg == "-f" {
 			if ctx != -1 {
-				log.Println("Warning: ignoring option ["+_CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
+				log.Println(fmt.Sprintf(warningNoValOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
 			}
 
 			overwrite = true
@@ -344,7 +349,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 		if arg == _ARG_SKIP || arg == "-s" {
 			if ctx != -1 {
-				log.Println("Warning: ignoring option ["+_CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
+				log.Println(fmt.Sprintf(warningNoValOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
 			}
 
 			skip = true
@@ -354,7 +359,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 		if arg == _ARG_CHECKSUM || arg == "-x" {
 			if ctx != -1 {
-				log.Println("Warning: ignoring option ["+_CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
+				log.Println(fmt.Sprintf(warningNoValOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
 			}
 
 			checksum = true
@@ -364,13 +369,13 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 		if arg == "--no-file-reorder" {
 			if ctx != -1 {
-				log.Println("Warning: ignoring option ["+_CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
+				log.Println(fmt.Sprintf(warningNoValOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
 			}
 
 			ctx = -1
 
 			if mode != "c" {
-				log.Println("Warning: ignoring option ["+arg+"]. Only applicable in compress mode.", verbose > 0)
+				log.Println(fmt.Sprintf(warningCompressOpt, arg), verbose > 0)
 				continue
 			}
 
@@ -380,13 +385,13 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 		if arg == "--no-dot-file" {
 			if ctx != -1 {
-				log.Println("Warning: ignoring option ["+_CMD_LINE_ARGS[ctx]+"] with no value.", verbose > 0)
+				log.Println(fmt.Sprintf(warningNoValOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
 			}
 
 			ctx = -1
 
 			if mode != "c" {
-				log.Println("Warning: ignoring option ["+arg+"]. Only applicable in compress mode.", verbose > 0)
+				log.Println(fmt.Sprintf(warningCompressOpt, arg), verbose > 0)
 				continue
 			}
 
@@ -420,7 +425,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			}
 
 			if outputName != "" {
-				log.Println("Warning: ignoring duplicate output name "+name, verbose > 0)
+				log.Println(fmt.Sprintf(warningDupOpt, "output name", name), verbose > 0)
 			} else {
 				outputName = name
 			}
@@ -439,7 +444,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			}
 
 			if inputName != "" {
-				log.Println("Warning: ignoring duplicate input name "+name, verbose > 0)
+				log.Println(fmt.Sprintf(warningDupOpt, "input name", name), verbose > 0)
 			} else {
 				inputName = name
 			}
@@ -450,7 +455,8 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 		if strings.HasPrefix(arg, _ARG_ENTROPY) || ctx == _ARG_IDX_ENTROPY {
 			if mode != "c" {
-				log.Println("Warning: ignoring option ["+arg+"]. Only applicable in compress mode.", verbose > 0)
+				log.Println(fmt.Sprintf(warningCompressOpt, "entropy"), verbose > 0)
+				ctx = -1
 				continue
 			}
 
@@ -463,7 +469,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			}
 
 			if codec != "" {
-				log.Println("Warning: ignoring duplicate entropy "+name, verbose > 0)
+				log.Println(fmt.Sprintf(warningDupOpt, "entropy", name), verbose > 0)
 				ctx = -1
 				continue
 			} else {
@@ -471,7 +477,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			}
 
 			if len(codec) == 0 {
-				fmt.Println("Invalid empty entropy provided on command line")
+				fmt.Println(fmt.Sprintf(warningInvalidOpt, "entropy", "[]"))
 				return kanzi.ERR_INVALID_PARAM
 			}
 
@@ -481,7 +487,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 		if strings.HasPrefix(arg, _ARG_TRANSFORM) || ctx == _ARG_IDX_TRANSFORM {
 			if mode != "c" {
-				log.Println("Warning: ignoring option transform. Only applicable in compress mode.", verbose > 0)
+				log.Println(fmt.Sprintf(warningCompressOpt, "transform"), verbose > 0)
 				ctx = -1
 				continue
 			}
@@ -495,7 +501,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			}
 
 			if transform != "" {
-				log.Println("Warning: ignoring duplicate transform "+name, verbose > 0)
+				log.Println(fmt.Sprintf(warningDupOpt, "transform", name), verbose > 0)
 				ctx = -1
 				continue
 			} else {
@@ -511,7 +517,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			}
 
 			if len(transform) == 0 {
-				fmt.Println("Invalid empty transform provided on command line")
+				fmt.Println(fmt.Sprintf(warningInvalidOpt, "transform", "[]"))
 				return kanzi.ERR_INVALID_PARAM
 			}
 
@@ -521,7 +527,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 		if strings.HasPrefix(arg, _ARG_LEVEL) || ctx == _ARG_IDX_LEVEL {
 			if mode != "c" {
-				log.Println("Warning: ignoring option level. Only applicable in compress mode.", verbose > 0)
+				log.Println(fmt.Sprintf(warningCompressOpt, "level"), verbose > 0)
 				ctx = -1
 				continue
 			}
@@ -538,18 +544,18 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			str = strings.TrimSpace(str)
 
 			if level != -1 {
-				log.Println("Warning: ignoring duplicate level", verbose > 0)
+				log.Println(fmt.Sprintf(warningDupOpt, "compression level", str), verbose > 0)
 				ctx = -1
 				continue
 			}
 
 			if level, err = strconv.Atoi(str); err != nil {
-				fmt.Printf("Invalid compression level provided on command line: %v\n", arg)
+				fmt.Println(fmt.Sprintf(warningInvalidOpt, "compression level", arg))
 				return kanzi.ERR_INVALID_PARAM
 			}
 
 			if level < 0 || level > 9 {
-				fmt.Printf("Invalid compression level provided on command line: %v\n", arg)
+				fmt.Println(fmt.Sprintf(warningInvalidOpt, "compression level", arg))
 				return kanzi.ERR_INVALID_PARAM
 			}
 
@@ -567,7 +573,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			}
 
 			if cpuProf != "" {
-				log.Println("Warning: ignoring duplicate profile file name "+name, verbose > 0)
+				log.Println(fmt.Sprintf(warningDupOpt, "profile name", name), verbose > 0)
 			} else {
 				cpuProf = name
 			}
@@ -578,7 +584,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 		if strings.HasPrefix(arg, _ARG_BLOCK) || ctx == _ARG_IDX_BLOCK {
 			if mode != "c" {
-				log.Println("Warning: ignoring option block. Only applicable in compress mode.", verbose > 0)
+				log.Println(fmt.Sprintf(warningCompressOpt, "block"), verbose > 0)
 				ctx = -1
 				continue
 			}
@@ -594,7 +600,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			strBlockSize = strings.ToUpper(strBlockSize)
 
 			if blockSize != -1 || autoBlockSize == true {
-				log.Println("Warning: ignoring duplicate block sizee "+strBlockSize, verbose > 0)
+				log.Println(fmt.Sprintf(warningDupOpt, "block size", strBlockSize), verbose > 0)
 				ctx = -1
 				continue
 			}
@@ -624,7 +630,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 				}
 
 				if blockSize, err = strconv.Atoi(strBlockSize); err != nil || blockSize <= 0 {
-					fmt.Printf("Invalid block size provided on command line: %v\n", strBlockSize)
+					fmt.Println(fmt.Sprintf(warningInvalidOpt, "block size", strBlockSize))
 					return kanzi.ERR_BLOCK_SIZE
 				}
 
@@ -646,13 +652,13 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			}
 
 			if tasks != 0 {
-				log.Println("Warning: ignoring duplicate jobs "+strTasks, verbose > 0)
+				log.Println(fmt.Sprintf(warningDupOpt, "jobs", strTasks), verbose > 0)
 				ctx = -1
 				continue
 			}
 
 			if tasks, err = strconv.Atoi(strTasks); err != nil || tasks < 1 {
-				fmt.Printf("Invalid number of jobs provided on command line: %v\n", strTasks)
+				fmt.Println(fmt.Sprintf(warningInvalidOpt, "number of jobs", strTasks))
 				return kanzi.ERR_BLOCK_SIZE
 			}
 
@@ -662,7 +668,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 		if strings.HasPrefix(arg, _ARG_FROM) && ctx == -1 {
 			if mode != "d" {
-				log.Println("Warning: ignoring option start block. Only applicable in decompress mode.", verbose > 0)
+				log.Println(fmt.Sprintf(warningDecompressOpt, "start block"), verbose > 0)
 				continue
 			}
 
@@ -676,12 +682,12 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			}
 
 			if from != -1 {
-				log.Println("Warning: ignoring duplicate start block "+strFrom, verbose > 0)
+				log.Println(fmt.Sprintf(warningDupOpt, "start block", strFrom), verbose > 0)
 				continue
 			}
 
 			if from, err = strconv.Atoi(strFrom); err != nil || from <= 0 {
-				fmt.Printf("Invalid start block provided on command line: %v\n", strFrom)
+				fmt.Println(fmt.Sprintf(warningInvalidOpt, "start block", strFrom))
 
 				if from == 0 {
 					fmt.Printf("The first block ID is 1.\n")
@@ -695,7 +701,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 		if strings.HasPrefix(arg, _ARG_TO) && ctx == -1 {
 			if mode != "d" {
-				log.Println("Warning: ignoring option end block. Only applicable in decompress mode.", verbose > 0)
+				log.Println(fmt.Sprintf(warningDecompressOpt, "end block"), verbose > 0)
 				continue
 			}
 
@@ -709,12 +715,12 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			}
 
 			if to != -1 {
-				log.Println("Warning: ignoring duplicate end block "+strTo, verbose > 0)
+				log.Println(fmt.Sprintf(warningDupOpt, "end block", strTo), verbose > 0)
 				continue
 			}
 
 			if to, err = strconv.Atoi(strTo); err != nil || to <= 0 {
-				fmt.Printf("Invalid end block provided on command line: %v\n", strTo)
+				fmt.Println(fmt.Sprintf(warningInvalidOpt, "end block", strTo))
 				return kanzi.ERR_INVALID_PARAM
 			}
 
@@ -730,7 +736,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 	}
 
 	if ctx != -1 {
-		log.Println("Warning: ignoring option with missing value ["+_CMD_LINE_ARGS[ctx]+"]", verbose > 0)
+		log.Println(fmt.Sprintf(warningNoValOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
 	}
 
 	if level >= 0 {
