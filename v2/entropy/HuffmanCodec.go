@@ -235,7 +235,7 @@ func (this *HuffmanEncoder) updateFrequencies(freqs []int) (int, error) {
 	return count, nil
 }
 
-// Called only when more than 1 symbol (len(ranks)_ >= 2)
+// Called only when more than 1 symbol (len(ranks) >= 2)
 func (this *HuffmanEncoder) computeCodeLengths(sizes []byte, ranks []int) (int, error) {
 	var frequencies [256]int
 	freqs := frequencies[0:len(ranks)]
@@ -253,25 +253,15 @@ func (this *HuffmanEncoder) computeCodeLengths(sizes []byte, ranks []int) (int, 
 	// See [In-Place Calculation of Minimum-Redundancy Codes]
 	// by Alistair Moffat & Jyrki Katajainen
 	computeInPlaceSizesPhase1(freqs)
-	computeInPlaceSizesPhase2(freqs)
-	maxCodeLen := 0
-	var err error
+	maxCodeLen := computeInPlaceSizesPhase2(freqs)
 
-	for i := range freqs {
-		codeLen := freqs[i]
-
-		if maxCodeLen < codeLen {
-			maxCodeLen = codeLen
-
-			if maxCodeLen > _HUF_MAX_SYMBOL_SIZE_V4 {
-				break
-			}
+	if maxCodeLen <= _HUF_MAX_SYMBOL_SIZE_V4 {
+		for i := range freqs {
+			sizes[ranks[i]] = byte(freqs[i])
 		}
-
-		sizes[ranks[i]] = byte(codeLen)
 	}
 
-	return maxCodeLen, err
+	return maxCodeLen, nil
 }
 
 func computeInPlaceSizesPhase1(data []int) {
@@ -302,11 +292,14 @@ func computeInPlaceSizesPhase1(data []int) {
 }
 
 // len(data) must be at least 2
-func computeInPlaceSizesPhase2(data []int) {
-	n := len(data)
-	levelTop := n - 2 //root
+func computeInPlaceSizesPhase2(data []int) int {
+	if len(data) < 2 {
+		return 0
+	}
+
+	levelTop := len(data) - 2 //root
 	depth := 1
-	i := n
+	i := len(data)
 	totalNodesAtLevel := 2
 
 	for i > 0 {
@@ -328,6 +321,8 @@ func computeInPlaceSizesPhase2(data []int) {
 		levelTop = k
 		depth++
 	}
+
+	return depth - 1
 }
 
 // Write encodes the data provided into the bitstream. Return the number of byte
