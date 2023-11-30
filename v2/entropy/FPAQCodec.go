@@ -26,6 +26,7 @@ import (
 const (
 	_FPAQ_PSCALE             = 1 << 16
 	_FPAQ_DEFAULT_CHUNK_SIZE = 4 * 1024 * 1024
+	_FPAQ_ENTROPY_TOP        = uint64(0x00FFFFFFFFFFFFFF)
 )
 
 // FPAQEncoder entropy encoder derived from fpaq0r by Matt Mahoney & Alexander Ratushnyak.
@@ -39,7 +40,6 @@ type FPAQEncoder struct {
 	buffer    []byte
 	index     int
 	probs     [4][]int // probability of bit=1
-	p         []int    // pointer to current prob
 	ctxIdx    byte     // previous bits
 }
 
@@ -52,12 +52,11 @@ func NewFPAQEncoder(bs kanzi.OutputBitStream) (*FPAQEncoder, error) {
 
 	this := &FPAQEncoder{}
 	this.low = 0
-	this.high = _BINARY_ENTROPY_TOP
+	this.high = _FPAQ_ENTROPY_TOP
 	this.bitstream = bs
 	this.buffer = make([]byte, 0)
 	this.index = 0
 	this.ctxIdx = 1
-	this.p = this.probs[0]
 
 	for i := 0; i < 4; i++ {
 		this.probs[i] = make([]int, 256)
@@ -78,12 +77,11 @@ func NewFPAQEncoderWithCtx(bs kanzi.OutputBitStream, ctx *map[string]any) (*FPAQ
 
 	this := &FPAQEncoder{}
 	this.low = 0
-	this.high = _BINARY_ENTROPY_TOP
+	this.high = _FPAQ_ENTROPY_TOP
 	this.bitstream = bs
 	this.buffer = make([]byte, 0)
 	this.index = 0
 	this.ctxIdx = 1
-	this.p = this.probs[0]
 
 	for i := 0; i < 4; i++ {
 		this.probs[i] = make([]int, 256)
@@ -111,7 +109,7 @@ func (this *FPAQEncoder) encodeBit(bit byte, p *int) {
 	}
 
 	// Write unchanged first 32 bits to bitstream
-	for (this.low^this.high)>>24 == 0 {
+	for (this.low ^ this.high) < (1 << 24) {
 		this.flush()
 	}
 }
@@ -143,19 +141,19 @@ func (this *FPAQEncoder) Write(block []byte) (int, error) {
 
 		this.index = 0
 		buf := block[startChunk : startChunk+chunkSize]
-		this.p = this.probs[0]
+		p := this.probs[0]
 
 		for _, val := range buf {
 			bits := int(val) + 256
-			this.encodeBit(val&0x80, &this.p[1])
-			this.encodeBit(val&0x40, &this.p[bits>>7])
-			this.encodeBit(val&0x20, &this.p[bits>>6])
-			this.encodeBit(val&0x10, &this.p[bits>>5])
-			this.encodeBit(val&0x08, &this.p[bits>>4])
-			this.encodeBit(val&0x04, &this.p[bits>>3])
-			this.encodeBit(val&0x02, &this.p[bits>>2])
-			this.encodeBit(val&0x01, &this.p[bits>>1])
-			this.p = this.probs[val>>6]
+			this.encodeBit(val&0x80, &p[1])
+			this.encodeBit(val&0x40, &p[bits>>7])
+			this.encodeBit(val&0x20, &p[bits>>6])
+			this.encodeBit(val&0x10, &p[bits>>5])
+			this.encodeBit(val&0x08, &p[bits>>4])
+			this.encodeBit(val&0x04, &p[bits>>3])
+			this.encodeBit(val&0x02, &p[bits>>2])
+			this.encodeBit(val&0x01, &p[bits>>1])
+			p = this.probs[val>>6]
 		}
 
 		WriteVarInt(this.bitstream, uint32(this.index))
@@ -309,7 +307,7 @@ func (this *FPAQDecoder) decodeBitV2(pred int) byte {
 	}
 
 	// Read 32 bits from bitstream
-	for (this.low^this.high)>>24 == 0 {
+	for (this.low ^ this.high) < (1 << 24) {
 		this.read()
 	}
 

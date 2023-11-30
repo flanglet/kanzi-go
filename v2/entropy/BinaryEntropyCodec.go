@@ -94,7 +94,7 @@ func (this *BinaryEntropyEncoder) EncodeBit(bit byte, pred int) {
 	this.predictor.Update(bit)
 
 	// Write unchanged first 32 bits to bitstream
-	for (this.low^this.high)>>24 == 0 {
+	for (this.low ^ this.high) < (1 << 24) {
 		this.flush()
 	}
 }
@@ -248,7 +248,7 @@ func (this *BinaryEntropyDecoder) DecodeBit(pred int) byte {
 	}
 
 	// Read 32 bits from bitstream
-	for (this.low^this.high)>>24 == 0 {
+	for (this.low ^ this.high) < (1 << 24) {
 		this.read()
 	}
 
