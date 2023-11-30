@@ -27,6 +27,9 @@ const (
 	_FPAQ_PSCALE             = 1 << 16
 	_FPAQ_DEFAULT_CHUNK_SIZE = 4 * 1024 * 1024
 	_FPAQ_ENTROPY_TOP        = uint64(0x00FFFFFFFFFFFFFF)
+	_FPAQ_MASK_0_56          = uint64(0x00FFFFFFFFFFFFFF)
+	_FPAQ_MASK_0_24          = uint64(0x0000000000FFFFFF)
+	_FPAQ_MASK_0_32          = uint64(0x00000000FFFFFFFF)
 )
 
 // FPAQEncoder entropy encoder derived from fpaq0r by Matt Mahoney & Alexander Ratushnyak.
@@ -161,7 +164,7 @@ func (this *FPAQEncoder) Write(block []byte) (int, error) {
 		startChunk += chunkSize
 
 		if startChunk < end {
-			this.bitstream.WriteBits(this.low|_MASK_0_24, 56)
+			this.bitstream.WriteBits(this.low|_FPAQ_MASK_0_24, 56)
 		}
 	}
 
@@ -172,7 +175,7 @@ func (this *FPAQEncoder) flush() {
 	binary.BigEndian.PutUint32(this.buffer[this.index:], uint32(this.high>>24))
 	this.index += 4
 	this.low <<= 32
-	this.high = (this.high << 32) | _MASK_0_32
+	this.high = (this.high << 32) | _FPAQ_MASK_0_32
 }
 
 // BitStream returns the underlying bitstream
@@ -189,7 +192,7 @@ func (this *FPAQEncoder) Dispose() {
 	}
 
 	this.disposed = true
-	this.bitstream.WriteBits(this.low|_MASK_0_24, 56)
+	this.bitstream.WriteBits(this.low|_FPAQ_MASK_0_24, 56)
 }
 
 // FPAQDecoder entropy decoder derived from fpaq0r by Matt Mahoney & Alexander Ratushnyak.
@@ -216,7 +219,7 @@ func NewFPAQDecoder(bs kanzi.InputBitStream) (*FPAQDecoder, error) {
 
 	this := &FPAQDecoder{}
 	this.low = 0
-	this.high = _BINARY_ENTROPY_TOP
+	this.high = _FPAQ_ENTROPY_TOP
 	this.bitstream = bs
 	this.buffer = make([]byte, 0)
 	this.index = 0
@@ -235,7 +238,7 @@ func NewFPAQDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]any) (*FPAQD
 
 	this := &FPAQDecoder{}
 	this.low = 0
-	this.high = _BINARY_ENTROPY_TOP
+	this.high = _FPAQ_ENTROPY_TOP
 	this.bitstream = bs
 	this.buffer = make([]byte, 0)
 	this.index = 0
@@ -315,10 +318,10 @@ func (this *FPAQDecoder) decodeBitV2(pred int) byte {
 }
 
 func (this *FPAQDecoder) read() {
-	this.low = (this.low << 32) & _MASK_0_56
-	this.high = ((this.high << 32) | _MASK_0_32) & _MASK_0_56
+	this.low = (this.low << 32) & _FPAQ_MASK_0_56
+	this.high = ((this.high << 32) | _FPAQ_MASK_0_32) & _FPAQ_MASK_0_56
 	val := uint64(binary.BigEndian.Uint32(this.buffer[this.index:]))
-	this.current = ((this.current << 32) | val) & _MASK_0_56
+	this.current = ((this.current << 32) | val) & _FPAQ_MASK_0_56
 	this.index += 4
 }
 
