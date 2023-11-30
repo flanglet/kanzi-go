@@ -100,13 +100,13 @@ func BenchmarkLZX(b *testing.B) {
 	}
 }
 
-func BenchmarkLCopy(b *testing.B) {
+func BenchmarkCopy(b *testing.B) {
 	if err := testTransformSpeed("NONE", b.N); err != nil {
 		b.Fatalf(err.Error())
 	}
 }
 
-func BenchmarkLAlias(b *testing.B) {
+func BenchmarkAlias(b *testing.B) {
 	if err := testTransformSpeed("ALIAS", b.N); err != nil {
 		b.Fatalf(err.Error())
 	}
