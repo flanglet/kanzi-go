@@ -175,10 +175,9 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 	}
 
 	sumScaledFreq := 0
-	freqMax := 0
-	idxMax := -1
+	idxMax := 0
 
-	// Scale frequencies by stretching distribution over complete range
+	// Scale frequencies by squeezing/stretching distribution over complete range
 	for i := range alphabet {
 		alphabet[i] = 0
 		f := freqs[i]
@@ -187,8 +186,7 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 			continue
 		}
 
-		if f > freqMax {
-			freqMax = f
+		if f > freqs[idxMax] {
 			idxMax = i
 		}
 
@@ -236,8 +234,8 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 			inc = -1
 		}
 
-		if absDelta*100 < freqs[idxMax]*5 {
-			// Fast path: just adjust the max frequency
+		if absDelta*20 < freqs[idxMax] {
+			// Fast path (small error): just adjust the max frequency
 			freqs[idxMax] -= delta
 			return alphabetSize, nil
 		}
