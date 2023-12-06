@@ -179,6 +179,7 @@ type TPAQPredictor struct {
 	binCount        int32
 	matchLen        int32
 	matchPos        int32
+	matchVal        int32
 	hash            int32
 	statesMask      int32
 	mixersMask      int32
@@ -188,7 +189,7 @@ type TPAQPredictor struct {
 	sse1            AdaptiveProbMap
 	mixers          []TPAQMixer
 	mixer           *TPAQMixer // current mixer
-	buffer          []int8
+	buffer          []uint8
 	hashes          []int32 // hash table(context, buffer position)
 	bigStatesMap    []uint8 // hash table(context, prediction)
 	smallStatesMap0 []uint8 // hash table(context, prediction)
@@ -305,7 +306,7 @@ func NewTPAQPredictor(ctx *map[string]any) (*TPAQPredictor, error) {
 	this.smallStatesMap0 = make([]uint8, 1<<16)
 	this.smallStatesMap1 = make([]uint8, 1<<24)
 	this.hashes = make([]int32, hashSize)
-	this.buffer = make([]int8, bufferSize)
+	this.buffer = make([]uint8, bufferSize)
 	this.statesMask = int32(statesSize - 1)
 	this.mixersMask = int32(mixersSize-1) & ^1
 	this.hashMask = int32(hashSize - 1)
@@ -337,11 +338,11 @@ func NewTPAQPredictor(ctx *map[string]any) (*TPAQPredictor, error) {
 func (this *TPAQPredictor) Update(bit byte) {
 	y := int(bit)
 	this.mixer.update(y)
+	this.c0 += (this.c0 + int32(bit))
 	this.bpos--
-	this.c0 = (this.c0 << 1) | int32(bit)
 
-	if this.c0 > 255 {
-		this.buffer[this.pos&this.bufferMask] = int8(this.c0)
+	if this.bpos == 0 {
+		this.buffer[this.pos&this.bufferMask] = uint8(this.c0)
 		this.pos++
 		this.c8 = (this.c8 << 8) | ((this.c4 >> 24) & 0xFF)
 		this.c4 = (this.c4 << 8) | (this.c0 & 0xFF)
@@ -398,6 +399,7 @@ func (this *TPAQPredictor) Update(bit byte) {
 		}
 
 		this.findMatch()
+		this.matchVal = int32(this.buffer[this.matchPos&this.bufferMask]) | 0x100
 
 		// Keep track of current position
 		this.hashes[this.hash] = this.pos
@@ -514,10 +516,12 @@ func (this *TPAQPredictor) findMatch() {
 
 // Get a squashed prediction (in [-2047..2048]) from the match model
 func (this *TPAQPredictor) getMatchContextPred() int32 {
-	if this.c0 == ((int32(this.buffer[this.matchPos&this.bufferMask])&0xFF)|256)>>this.bpos {
+	m := this.matchVal >> (this.bpos - 1)
+
+	if this.c0 == m>>1 {
 		p := _TPAQ_MATCH_PRED[this.matchLen-1]
 
-		if ((this.buffer[this.matchPos&this.bufferMask] >> (this.bpos - 1)) & 1) == 0 {
+		if (m & 1) == 0 {
 			return -p
 		}
 
@@ -530,8 +534,7 @@ func (this *TPAQPredictor) getMatchContextPred() int32 {
 
 func createContext(ctxID, cx int32) int32 {
 	c := uint32(cx*987654323 + ctxID)
-	c = bits.RotateLeft32(c, 16)
-	return int32(c*123456791) + ctxID
+	return int32(bits.RotateLeft32(c, 16)*123456791) + ctxID
 }
 
 // TPAQMixer a mixer that combines models using neural networks with 8 inputs.

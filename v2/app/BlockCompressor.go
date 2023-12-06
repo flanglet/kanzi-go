@@ -431,7 +431,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		if fi.IsDir() {
 			inputIsDir = true
 
-			if len(formattedOutName) > 0 && formattedInName != "." && formattedInName[len(formattedInName)-1] == '.' {
+			if len(formattedOutName) > 1 && formattedInName[len(formattedInName)-1] == '.' {
 				formattedInName = formattedInName[0 : len(formattedInName)-1]
 			}
 

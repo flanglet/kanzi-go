@@ -112,7 +112,7 @@ func (this *FPAQEncoder) encodeBit(bit byte, p *int) {
 	}
 
 	// Write unchanged first 32 bits to bitstream
-	for (this.low ^ this.high) < (1 << 24) {
+	if (this.low ^ this.high) < (1 << 24) {
 		this.flush()
 	}
 }
@@ -310,7 +310,7 @@ func (this *FPAQDecoder) decodeBitV2(pred int) byte {
 	}
 
 	// Read 32 bits from bitstream
-	for (this.low ^ this.high) < (1 << 24) {
+	if (this.low ^ this.high) < (1 << 24) {
 		this.read()
 	}
 

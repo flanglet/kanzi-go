@@ -181,7 +181,6 @@ func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, lr uint) (int,
 	endk := int(255*this.order + 1)
 	this.bitstream.WriteBits(uint64(lr-8), 3) // logRange
 	var alphabet [256]int
-
 	var err error
 
 	for k := 0; k < endk; k++ {
@@ -196,7 +195,7 @@ func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, lr uint) (int,
 		if alphabetSize > 0 {
 			sum := 0
 
-			for i, count := 0, 0; i < 256 && count < alphabetSize; i++ {
+			for i, count := 0, 0; i < 256; i++ {
 				if f[i] == 0 {
 					continue
 				}
@@ -204,6 +203,10 @@ func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, lr uint) (int,
 				symb[i].reset(sum, f[i], lr)
 				sum += f[i]
 				count++
+
+				if count >= alphabetSize {
+					break
+				}
 			}
 		}
 

@@ -603,9 +603,8 @@ func (this *DivSufSort) ssSort(pa, first, last, buf, bufSize, depth, n int32, la
 	if lastSuffix == true {
 		i = this.sa[first-1]
 		p1 := this.sa[pa+i]
-		p11 := n - 2
 
-		for a = first; a < last && (this.sa[a] < 0 || this.ssCompare4(p1, p11, pa+this.sa[a], depth) > 0); a++ {
+		for a = first; a < last && (this.sa[a] < 0 || this.ssCompare4(p1, n-2, pa+this.sa[a], depth) > 0); a++ {
 			this.sa[a-1] = this.sa[a]
 		}
 
