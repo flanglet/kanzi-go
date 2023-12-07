@@ -574,7 +574,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 		}()
 	}
 
-	cis, err := kio.NewCompressedInputStreamWithCtx(input, this.ctx)
+	cis, err := kio.NewReaderWithCtx(input, this.ctx)
 
 	if err != nil {
 		if err.(*kio.IOError) != nil {

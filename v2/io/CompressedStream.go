@@ -83,9 +83,9 @@ type blockBuffer struct {
 	Buf []byte
 }
 
-// CompressedOutputStream a Writer that writes compressed data
+// Writer a Writer that writes compressed data
 // to an OutputBitStream.
-type CompressedOutputStream struct {
+type Writer struct {
 	blockSize     int
 	hasher        *hash.XXHash32
 	buffers       []blockBuffer
@@ -121,20 +121,23 @@ type encodingTaskResult struct {
 	err *IOError
 }
 
-// NewCompressedOutputStream creates a new instance of CompressedOutputStream
-func NewCompressedOutputStream(os io.WriteCloser, codec, transform string, blockSize, jobs uint, checksum bool) (*CompressedOutputStream, error) {
+// NewWriter creates a new instance of Writer.
+// The writer writes compressed data blocks to the provided os.
+func NewWriter(os io.WriteCloser, codec, transform string, blockSize, jobs uint, checksum bool) (*Writer, error) {
 	ctx := make(map[string]any)
 	ctx["codec"] = codec
 	ctx["transform"] = transform
 	ctx["blockSize"] = blockSize
 	ctx["jobs"] = jobs
 	ctx["checksum"] = checksum
-	return NewCompressedOutputStreamWithCtx(os, ctx)
+	return NewWriterWithCtx(os, ctx)
 }
 
-// NewCompressedOutputStreamWithCtx creates a new instance of CompressedOutputStream using a
-// map of parameters and a writer
-func NewCompressedOutputStreamWithCtx(os io.WriteCloser, ctx map[string]any) (*CompressedOutputStream, error) {
+// NewWriterWithCtx creates a new instance of Writer using a
+// map of parameters and a writer.
+// The writer writes compressed data blocks to the provided os
+// using a default output bitstream.
+func NewWriterWithCtx(os io.WriteCloser, ctx map[string]any) (*Writer, error) {
 	var err error
 	var obs kanzi.OutputBitStream
 
@@ -143,16 +146,17 @@ func NewCompressedOutputStreamWithCtx(os io.WriteCloser, ctx map[string]any) (*C
 		return nil, &IOError{msg: errMsg, code: kanzi.ERR_CREATE_BITSTREAM}
 	}
 
-	return createCompressedOutputStreamWithCtx(obs, ctx)
+	return createWriterWithCtx(obs, ctx)
 }
 
-// NewCompressedOutputStreamWithCtx2 creates a new instance of CompressedOutputStream using a
-// map of parameters and a custom output bitstream
-func NewCompressedOutputStreamWithCtx2(obs kanzi.OutputBitStream, ctx map[string]any) (*CompressedOutputStream, error) {
-	return createCompressedOutputStreamWithCtx(obs, ctx)
+// NewWriterWithCtx2 creates a new instance of Writer using a
+// map of parameters and a custom output bitstream.
+// The writer writes compressed data blocks to the provided output bitstream.
+func NewWriterWithCtx2(obs kanzi.OutputBitStream, ctx map[string]any) (*Writer, error) {
+	return createWriterWithCtx(obs, ctx)
 }
 
-func createCompressedOutputStreamWithCtx(obs kanzi.OutputBitStream, ctx map[string]any) (*CompressedOutputStream, error) {
+func createWriterWithCtx(obs kanzi.OutputBitStream, ctx map[string]any) (*Writer, error) {
 	if obs == nil {
 		return nil, &IOError{msg: "Invalid null output bitstream parameter", code: kanzi.ERR_CREATE_STREAM}
 	}
@@ -187,7 +191,7 @@ func createCompressedOutputStreamWithCtx(obs kanzi.OutputBitStream, ctx map[stri
 	}
 
 	ctx["bsVersion"] = uint(_BITSTREAM_FORMAT_VERSION)
-	this := &CompressedOutputStream{}
+	this := &Writer{}
 	this.obs = obs
 
 	// Check entropy type validity (panic on error)
@@ -262,9 +266,9 @@ func createCompressedOutputStreamWithCtx(obs kanzi.OutputBitStream, ctx map[stri
 	return this, nil
 }
 
-// AddListener adds an event listener to this output stream.
+// AddListener adds an event listener to this writer.
 // Returns true if the listener has been added.
-func (this *CompressedOutputStream) AddListener(bl kanzi.Listener) bool {
+func (this *Writer) AddListener(bl kanzi.Listener) bool {
 	if bl == nil {
 		return false
 	}
@@ -273,9 +277,9 @@ func (this *CompressedOutputStream) AddListener(bl kanzi.Listener) bool {
 	return true
 }
 
-// RemoveListener removes an event listener from this output stream.
+// RemoveListener removes an event listener from this writer.
 // Returns true if the listener has been removed.
-func (this *CompressedOutputStream) RemoveListener(bl kanzi.Listener) bool {
+func (this *Writer) RemoveListener(bl kanzi.Listener) bool {
 	if bl == nil {
 		return false
 	}
@@ -290,7 +294,7 @@ func (this *CompressedOutputStream) RemoveListener(bl kanzi.Listener) bool {
 	return false
 }
 
-func (this *CompressedOutputStream) writeHeader() *IOError {
+func (this *Writer) writeHeader() *IOError {
 	cksum := uint32(0)
 
 	if this.hasher != nil {
@@ -342,9 +346,9 @@ func (this *CompressedOutputStream) writeHeader() *IOError {
 }
 
 // Write writes len(block) bytes from block to the underlying data stream.
-// It returns the number of bytes written from block (0 <= n <= len(block)) and
+// Returns the number of bytes written from block (0 <= n <= len(block)) and
 // any error encountered that caused the write to stop early.
-func (this *CompressedOutputStream) Write(block []byte) (int, error) {
+func (this *Writer) Write(block []byte) (int, error) {
 	if atomic.LoadInt32(&this.closed) == 1 {
 		return 0, &IOError{msg: "Stream closed", code: kanzi.ERR_WRITE_FILE}
 	}
@@ -398,10 +402,10 @@ func (this *CompressedOutputStream) Write(block []byte) (int, error) {
 	return len(block) - remaining, nil
 }
 
-// Close writes the buffered data to the output stream then writes
+// Close writes the buffered data to the writer then writes
 // a final empty block and releases resources.
 // Close makes the bitstream unavailable for further writes. Idempotent.
-func (this *CompressedOutputStream) Close() error {
+func (this *Writer) Close() error {
 	if atomic.SwapInt32(&this.closed, 1) == 1 {
 		return nil
 	}
@@ -426,7 +430,7 @@ func (this *CompressedOutputStream) Close() error {
 	return nil
 }
 
-func (this *CompressedOutputStream) processBlock() error {
+func (this *Writer) processBlock() error {
 	if atomic.SwapInt32(&this.initialized, 1) == 0 {
 		if err := this.writeHeader(); err != nil {
 			return err
@@ -519,7 +523,7 @@ func (this *CompressedOutputStream) processBlock() error {
 }
 
 // GetWritten returns the number of bytes written so far
-func (this *CompressedOutputStream) GetWritten() uint64 {
+func (this *Writer) GetWritten() uint64 {
 	return (this.obs.Written() + 7) >> 3
 }
 
@@ -794,9 +798,9 @@ type decodingTaskResult struct {
 	completionTime time.Time
 }
 
-// CompressedInputStream a Reader that reads compressed data
+// Reader a Reader that reads compressed data
 // from an InputBitStream.
-type CompressedInputStream struct {
+type Reader struct {
 	blockSize       int
 	hasher          *hash.XXHash32
 	buffers         []blockBuffer
@@ -830,16 +834,19 @@ type decodingTask struct {
 	ctx                map[string]any
 }
 
-// NewCompressedInputStream creates a new instance of CompressedInputStream
-func NewCompressedInputStream(is io.ReadCloser, jobs uint) (*CompressedInputStream, error) {
+// NewReader creates a new instance of Reader.
+// The reader reads compressed data blocks from the provided is.
+func NewReader(is io.ReadCloser, jobs uint) (*Reader, error) {
 	ctx := make(map[string]any)
 	ctx["jobs"] = jobs
-	return NewCompressedInputStreamWithCtx(is, ctx)
+	return NewReaderWithCtx(is, ctx)
 }
 
-// NewCompressedInputStreamWithCtx creates a new instance of CompressedInputStream
-// using a map of parameters
-func NewCompressedInputStreamWithCtx(is io.ReadCloser, ctx map[string]any) (*CompressedInputStream, error) {
+// NewReaderWithCtx creates a new instance of Reader
+// using a map of parameters.
+// The reader reads compressed data blocks from the provided is
+// using a default input bitstream.
+func NewReaderWithCtx(is io.ReadCloser, ctx map[string]any) (*Reader, error) {
 	var err error
 	var ibs kanzi.InputBitStream
 
@@ -848,16 +855,17 @@ func NewCompressedInputStreamWithCtx(is io.ReadCloser, ctx map[string]any) (*Com
 		return nil, &IOError{msg: errMsg, code: kanzi.ERR_CREATE_BITSTREAM}
 	}
 
-	return createCompressedInputStreamWithCtx(ibs, ctx)
+	return createReaderWithCtx(ibs, ctx)
 }
 
-// NewCompressedInputStreamWithCtx2 creates a new instance of CompressedInputStream
-// using a map of parameters and a custom input bitstream
-func NewCompressedInputStreamWithCtx2(ibs kanzi.InputBitStream, ctx map[string]any) (*CompressedInputStream, error) {
-	return createCompressedInputStreamWithCtx(ibs, ctx)
+// NewReaderWithCtx2 creates a new instance of Reader.
+// using a map of parameters and a custom input bitstream.
+// The reader reads compressed data blocks from the provided input bitstream.
+func NewReaderWithCtx2(ibs kanzi.InputBitStream, ctx map[string]any) (*Reader, error) {
+	return createReaderWithCtx(ibs, ctx)
 }
 
-func createCompressedInputStreamWithCtx(ibs kanzi.InputBitStream, ctx map[string]any) (*CompressedInputStream, error) {
+func createReaderWithCtx(ibs kanzi.InputBitStream, ctx map[string]any) (*Reader, error) {
 	if ibs == nil {
 		return nil, &IOError{msg: "Invalid null input bitstream parameter", code: kanzi.ERR_CREATE_STREAM}
 	}
@@ -873,7 +881,7 @@ func createCompressedInputStreamWithCtx(ibs kanzi.InputBitStream, ctx map[string
 		return nil, &IOError{msg: errMsg, code: kanzi.ERR_CREATE_STREAM}
 	}
 
-	this := &CompressedInputStream{}
+	this := &Reader{}
 	this.ibs = ibs
 	this.jobs = int(tasks)
 	this.blockID = 0
@@ -894,9 +902,9 @@ func createCompressedInputStreamWithCtx(ibs kanzi.InputBitStream, ctx map[string
 	return this, nil
 }
 
-// AddListener adds an event listener to this input stream.
+// AddListener adds an event listener to this reader.
 // Returns true if the listener has been added.
-func (this *CompressedInputStream) AddListener(bl kanzi.Listener) bool {
+func (this *Reader) AddListener(bl kanzi.Listener) bool {
 	if bl == nil {
 		return false
 	}
@@ -905,9 +913,9 @@ func (this *CompressedInputStream) AddListener(bl kanzi.Listener) bool {
 	return true
 }
 
-// RemoveListener removes an event listener from this input stream.
+// RemoveListener removes an event listener from this reader
 // Returns true if the listener has been removed.
-func (this *CompressedInputStream) RemoveListener(bl kanzi.Listener) bool {
+func (this *Reader) RemoveListener(bl kanzi.Listener) bool {
 	if bl == nil {
 		return false
 	}
@@ -922,7 +930,7 @@ func (this *CompressedInputStream) RemoveListener(bl kanzi.Listener) bool {
 	return false
 }
 
-func (this *CompressedInputStream) readHeader() error {
+func (this *Reader) readHeader() error {
 	defer func() {
 		if r := recover(); r != nil {
 			panic(&IOError{msg: "Cannot read bitstream header: " + r.(error).Error(), code: kanzi.ERR_READ_FILE})
@@ -1043,9 +1051,9 @@ func (this *CompressedInputStream) readHeader() error {
 	return nil
 }
 
-// Close reads the buffered data from the input stream and releases resources.
+// Close reads the buffered data from the reader and releases resources.
 // Close makes the bitstream unavailable for further reads. Idempotent
-func (this *CompressedInputStream) Close() error {
+func (this *Reader) Close() error {
 	if atomic.SwapInt32(&this.closed, 1) == 1 {
 		return nil
 	}
@@ -1065,8 +1073,9 @@ func (this *CompressedInputStream) Close() error {
 }
 
 // Read reads up to len(block) bytes and copies them into block.
-// It returns the number of bytes read (0 <= n <= len(block)) and any error encountered.
-func (this *CompressedInputStream) Read(block []byte) (int, error) {
+// Returns the number of bytes read (0 <= n <= len(block)) and any error encountered.
+// io.EOF is returned when the end of stream is reached.
+func (this *Reader) Read(block []byte) (int, error) {
 	if atomic.LoadInt32(&this.closed) == 1 {
 		return 0, &IOError{msg: "Stream closed", code: kanzi.ERR_READ_FILE}
 	}
@@ -1137,7 +1146,7 @@ func (this *CompressedInputStream) Read(block []byte) (int, error) {
 	return len(block) - remaining, nil
 }
 
-func (this *CompressedInputStream) processBlock() (int, error) {
+func (this *Reader) processBlock() (int, error) {
 	if atomic.LoadInt32(&this.blockID) == _CANCEL_TASKS_ID {
 		return 0, nil
 	}
@@ -1156,31 +1165,32 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 	copy(listeners, this.listeners)
 	decoded := 0
 
-	for {
-		nbTasks := this.jobs
-		var jobsPerTask []uint
+	nbTasks := this.jobs
+	var jobsPerTask []uint
 
-		// Assign optimal number of tasks and jobs per task
-		if nbTasks > 1 {
-			// Limit the number of jobs if there are fewer blocks that this.jobs
-			// It allows more jobs per task and reduces memory usage.
-			if nbTasks > this.nbInputBlocks {
-				nbTasks = this.nbInputBlocks
-			}
-
-			jobsPerTask, _ = internal.ComputeJobsPerTask(make([]uint, nbTasks), uint(this.jobs), uint(nbTasks))
-		} else {
-			jobsPerTask = []uint{uint(this.jobs)}
+	// Assign optimal number of tasks and jobs per task
+	if nbTasks > 1 {
+		// Limit the number of jobs if there are fewer blocks that this.jobs
+		// It allows more jobs per task and reduces memory usage.
+		if nbTasks > this.nbInputBlocks {
+			nbTasks = this.nbInputBlocks
 		}
 
+		jobsPerTask, _ = internal.ComputeJobsPerTask(make([]uint, nbTasks), uint(this.jobs), uint(nbTasks))
+	} else {
+		jobsPerTask = []uint{uint(this.jobs)}
+	}
+
+	bufSize := this.blockSize + _EXTRA_BUFFER_SIZE
+
+	if bufSize < this.blockSize+(this.blockSize>>4) {
+		bufSize = this.blockSize + (this.blockSize >> 4)
+	}
+
+	for {
 		results := make([]decodingTaskResult, nbTasks)
 		wg := sync.WaitGroup{}
 		firstID := this.blockID
-		bufSize := this.blockSize + _EXTRA_BUFFER_SIZE
-
-		if bufSize < this.blockSize+(this.blockSize>>4) {
-			bufSize = this.blockSize + (this.blockSize >> 4)
-		}
 
 		// Invoke as many go routines as required
 		for taskID := 0; taskID < nbTasks; taskID++ {
@@ -1218,10 +1228,16 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 
 		// Wait for completion of all tasks
 		wg.Wait()
-		skipped := 0
 
 		// Process results
+		n, skipped := 0, 0
+
 		for _, r := range results {
+			if r.skipped == true {
+				skipped++
+				continue
+			}
+
 			if r.decoded > this.blockSize {
 				return decoded, &IOError{msg: "Invalid data", code: kanzi.ERR_PROCESS_BLOCK}
 			}
@@ -1232,19 +1248,11 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 				return decoded, r.err
 			}
 
-			if r.skipped == true {
-				skipped++
-			}
-		}
-
-		n := 0
-
-		for _, r := range results {
 			copy(this.buffers[n].Buf, r.data[0:r.decoded])
 			n++
 
 			if len(listeners) > 0 {
-				// Notify after transform ... in block order !
+				// Notify after transform ... in block order
 				evt := kanzi.NewEvent(kanzi.EVT_AFTER_TRANSFORM, int(r.blockID),
 					int64(r.decoded), r.checksum, this.hasher != nil, r.completionTime)
 				notifyListeners(listeners, evt)
@@ -1262,7 +1270,7 @@ func (this *CompressedInputStream) processBlock() (int, error) {
 }
 
 // GetRead returns the number of bytes read so far
-func (this *CompressedInputStream) GetRead() uint64 {
+func (this *Reader) GetRead() uint64 {
 	return (this.ibs.Read() + 7) >> 3
 }
 
@@ -1367,17 +1375,14 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 
 	// Check if the block must be skipped
 	if v, hasKey := this.ctx["from"]; hasKey {
-		from := v.(int)
-		if int(this.currentBlockID) < from {
+		if int(this.currentBlockID) < v.(int) {
 			skipped = true
 			return
 		}
 	}
 
 	if v, hasKey := this.ctx["to"]; hasKey {
-		to := v.(int)
-
-		if int(this.currentBlockID) >= to {
+		if int(this.currentBlockID) >= v.(int) {
 			skipped = true
 			return
 		}

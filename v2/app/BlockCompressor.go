@@ -750,7 +750,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 
 	}
 
-	cos, err := kio.NewCompressedOutputStreamWithCtx(output, this.ctx)
+	cos, err := kio.NewWriterWithCtx(output, this.ctx)
 
 	if err != nil {
 		if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {

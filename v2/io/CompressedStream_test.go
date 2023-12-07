@@ -90,7 +90,7 @@ func compress1(block []byte) int {
 	var bs util.BufferStream
 	blockSize := uint((len(block) / (rand.Intn(3) + 1)) & -16)
 
-	os, err := NewCompressedOutputStream(&bs, "HUFFMAN", "RLT", blockSize, 1, false)
+	os, err := NewWriter(&bs, "HUFFMAN", "RLT", blockSize, 1, false)
 
 	if err != nil {
 		return 1
@@ -108,7 +108,7 @@ func compress1(block []byte) int {
 		block[i] = 0
 	}
 
-	is, err := NewCompressedInputStream(&bs, 1)
+	is, err := NewReader(&bs, 1)
 
 	if err != nil {
 		return 3
@@ -147,7 +147,7 @@ func compress2(block []byte) int {
 	var bs util.BufferStream
 	blockSize := uint((len(block) / (rand.Intn(3) + 1)) & -16)
 
-	os, err := NewCompressedOutputStream(&bs, "ANS0", "LZX", blockSize, jobs, check)
+	os, err := NewWriter(&bs, "ANS0", "LZX", blockSize, jobs, check)
 
 	if err != nil {
 		return 1
@@ -165,7 +165,7 @@ func compress2(block []byte) int {
 		block[i] = 0
 	}
 
-	is, err := NewCompressedInputStream(&bs, jobs)
+	is, err := NewReader(&bs, jobs)
 
 	if err != nil {
 		return 3
@@ -195,7 +195,7 @@ func compress3(block []byte) int {
 	var bs util.BufferStream
 	blockSize := uint((len(block) / (rand.Intn(3) + 1)) & -16)
 
-	os, err := NewCompressedOutputStream(&bs, "FPAQ", "LZP+ZRLT", blockSize, 1, false)
+	os, err := NewWriter(&bs, "FPAQ", "LZP+ZRLT", blockSize, 1, false)
 
 	if err != nil {
 		return 1
@@ -213,7 +213,7 @@ func compress3(block []byte) int {
 		block[i] = 0
 	}
 
-	is, err := NewCompressedInputStream(&bs, 1)
+	is, err := NewReader(&bs, 1)
 
 	if err != nil {
 		return 3
@@ -242,7 +242,7 @@ func compress4(block []byte) int {
 	copy(buf, block)
 	var bs util.BufferStream
 
-	os, err := NewCompressedOutputStream(&bs, "HUFFMAN", "NONE", uint(len(block)), 1, false)
+	os, err := NewWriter(&bs, "HUFFMAN", "NONE", uint(len(block)), 1, false)
 
 	if err != nil {
 		return 1
@@ -270,7 +270,7 @@ func compress5(block []byte) int {
 	fmt.Println("Test - read after close")
 	var bs util.BufferStream
 
-	os, err := NewCompressedOutputStream(&bs, "NONE", "NONE", uint(len(block)), 1, false)
+	os, err := NewWriter(&bs, "NONE", "NONE", uint(len(block)), 1, false)
 
 	if err != nil {
 		return 1
@@ -284,7 +284,7 @@ func compress5(block []byte) int {
 		}
 	}
 
-	is, err := NewCompressedInputStream(&bs, 1)
+	is, err := NewReader(&bs, 1)
 
 	if err != nil {
 		return 3
