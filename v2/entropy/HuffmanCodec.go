@@ -195,7 +195,7 @@ func (this *HuffmanEncoder) updateFrequencies(freqs []int) (int, error) {
 
 			retries++
 			var f [256]int
-			var _alphabet [256]int
+			var alpha [256]int
 			totalFreq := 0
 
 			for i := range symbols {
@@ -204,7 +204,7 @@ func (this *HuffmanEncoder) updateFrequencies(freqs []int) (int, error) {
 			}
 
 			// Normalize to a smaller scale
-			if _, err := NormalizeFrequencies(f[:count], _alphabet[:count], totalFreq, int(_HUF_MAX_CHUNK_SIZE>>(retries+1))); err != nil {
+			if _, err := NormalizeFrequencies(f[:count], alpha[:count], totalFreq, int(_HUF_MAX_CHUNK_SIZE>>(retries+1))); err != nil {
 				return count, err
 			}
 
