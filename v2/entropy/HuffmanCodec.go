@@ -232,6 +232,7 @@ func (this *HuffmanEncoder) updateFrequencies(freqs []int) (int, error) {
 		prevSize = curSize
 	}
 
+	egenc.Dispose()
 	return count, nil
 }
 
@@ -561,7 +562,7 @@ func (this *HuffmanDecoder) readLengths() (int, error) {
 
 	// Decode lengths
 	for _, s := range symbols {
-		if s&0xFF != s {
+		if s > 255 {
 			return 0, fmt.Errorf("Invalid bitstream: incorrect Huffman symbol %d", s)
 		}
 
@@ -579,6 +580,7 @@ func (this *HuffmanDecoder) readLengths() (int, error) {
 		return count, err
 	}
 
+	egdec.Dispose()
 	return count, nil
 }
 
