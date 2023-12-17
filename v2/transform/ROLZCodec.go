@@ -351,7 +351,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			internal.ComputeHistogram(src, freqs0[:], true, false)
 			dt = internal.DetectSimpleType(len(src), freqs0[:])
 
-			if dt == internal.DT_UNDEFINED {
+			if dt != internal.DT_UNDEFINED {
 				(*this.ctx)["dataType"] = dt
 			}
 		}
