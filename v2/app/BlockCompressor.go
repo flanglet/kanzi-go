@@ -50,7 +50,8 @@ type BlockCompressor struct {
 	checksum      bool
 	skipBlocks    bool
 	fileReorder   bool
-	noDotFile     bool
+	noDotFiles    bool
+	noLinks       bool
 	autoBlockSize bool
 	inputName     string
 	outputName    string
@@ -204,11 +205,18 @@ func NewBlockCompressor(argsMap map[string]any) (*BlockCompressor, error) {
 		this.fileReorder = true
 	}
 
-	if check, prst := argsMap["noDotFile"]; prst == true {
-		this.noDotFile = check.(bool)
-		delete(argsMap, "noDotFile")
+	if check, prst := argsMap["noDotFiles"]; prst == true {
+		this.noDotFiles = check.(bool)
+		delete(argsMap, "noDotFiles")
 	} else {
-		this.noDotFile = false
+		this.noDotFiles = false
+	}
+
+	if check, prst := argsMap["noLinks"]; prst == true {
+		this.noLinks = check.(bool)
+		delete(argsMap, "noLinks")
+	} else {
+		this.noLinks = false
 	}
 
 	this.verbosity = argsMap["verbose"].(uint)
@@ -325,7 +333,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 			target = target[0 : len(target)-1]
 		}
 
-		files, err = createFileList(target, files, isRecursive, this.noDotFile)
+		files, err = createFileList(target, files, isRecursive, this.noLinks, this.noDotFiles)
 
 		if err != nil {
 			if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {

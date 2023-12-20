@@ -198,7 +198,8 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 	checksum := false
 	skip := false
 	fileReorder := true
-	noDotFile := false
+	noDotFiles := false
+	noLinks := false
 	from := -1
 	to := -1
 	inputName := ""
@@ -395,7 +396,23 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 				continue
 			}
 
-			noDotFile = true
+			noDotFiles = true
+			continue
+		}
+
+		if arg == "--no-link" {
+			if ctx != -1 {
+				log.Println(fmt.Sprintf(warningNoValOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
+			}
+
+			ctx = -1
+
+			if mode != "c" {
+				log.Println(fmt.Sprintf(warningCompressOpt, arg), verbose > 0)
+				continue
+			}
+
+			noLinks = true
 			continue
 		}
 
@@ -788,8 +805,12 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 		argsMap["fileReorder"] = false
 	}
 
-	if noDotFile == true {
-		argsMap["noDotFile"] = true
+	if noDotFiles == true {
+		argsMap["noDotFiles"] = true
+	}
+
+	if noLinks == true {
+		argsMap["noLinks"] = true
 	}
 
 	argsMap["jobs"] = uint(tasks)
@@ -983,18 +1004,17 @@ func (this FileCompare) Less(i, j int) bool {
 	return this.data[i].Size > this.data[j].Size
 }
 
-func createFileList(target string, fileList []FileData, isRecursive, ignoreDotFile bool) ([]FileData, error) {
+func createFileList(target string, fileList []FileData, isRecursive, ignoreLinks, ignoreDotFiles bool) ([]FileData, error) {
 	fi, err := os.Stat(target)
 
 	if err != nil {
 		return fileList, err
 	}
 
-	if ignoreDotFile == true {
-		idx := strings.LastIndex(target, pathSeparator)
+	if ignoreDotFiles == true {
 		shortName := target
 
-		if idx > 0 {
+		if idx := strings.LastIndex(shortName, pathSeparator); idx > 0 {
 			shortName = shortName[idx+1:]
 		}
 
@@ -1003,7 +1023,7 @@ func createFileList(target string, fileList []FileData, isRecursive, ignoreDotFi
 		}
 	}
 
-	if fi.Mode().IsRegular() {
+	if fi.Mode().IsRegular() || ((ignoreLinks == false) && (fi.Mode()&fs.ModeSymlink != 0)) {
 		fileList = append(fileList, *NewFileData(target, fi.Size()))
 		return fileList, nil
 	}
@@ -1018,16 +1038,19 @@ func createFileList(target string, fileList []FileData, isRecursive, ignoreDotFi
 				return err
 			}
 
-			if ignoreDotFile == true {
+			if ignoreDotFiles == true {
 				shortName := path
-				idx := strings.Index(shortName, pathSeparator+".")
 
-				if idx > 0 {
+				if idx := strings.LastIndex(shortName, pathSeparator); idx > 0 {
+					shortName = shortName[idx+1:]
+				}
+
+				if len(shortName) > 0 && shortName[0] == '.' {
 					return nil
 				}
 			}
 
-			if fi.Mode().IsRegular() {
+			if fi.Mode().IsRegular() || ((ignoreLinks == false) && (fi.Mode()&fs.ModeSymlink != 0)) {
 				fileList = append(fileList, *NewFileData(path, fi.Size()))
 			}
 
@@ -1046,11 +1069,10 @@ func createFileList(target string, fileList []FileData, isRecursive, ignoreDotFi
 						break
 					}
 
-					if ignoreDotFile == true {
+					if ignoreDotFiles == true {
 						shortName := de.Name()
-						idx := strings.LastIndex(shortName, pathSeparator)
 
-						if idx > 0 {
+						if idx := strings.LastIndex(shortName, pathSeparator); idx > 0 {
 							shortName = shortName[idx+1:]
 						}
 
@@ -1059,7 +1081,9 @@ func createFileList(target string, fileList []FileData, isRecursive, ignoreDotFi
 						}
 					}
 
-					fileList = append(fileList, *NewFileData(target+de.Name(), fi.Size()))
+					if fi.Mode().IsRegular() || ((ignoreLinks == false) && (fi.Mode()&fs.ModeSymlink != 0)) {
+						fileList = append(fileList, *NewFileData(target+de.Name(), fi.Size()))
+					}
 				}
 			}
 		}
