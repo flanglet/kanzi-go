@@ -17,7 +17,6 @@ package io
 
 import (
 	"fmt"
-	kio "github.com/flanglet/kanzi-go/v2/io"
 	"github.com/flanglet/kanzi-go/v2/util"
 	"math/rand"
 	"os"
@@ -116,7 +115,7 @@ func compress(block []byte, entropy, transform string) int {
 		}
 
 		// Create a Writer
-		w, err2 := kio.NewWriter(output, entropy, transform, blockSize, jobs, true)
+		w, err2 := NewWriter(output, entropy, transform, blockSize, jobs, true)
 
 		if err2 != nil {
 			fmt.Printf("%v\n", err2)
@@ -151,7 +150,7 @@ func compress(block []byte, entropy, transform string) int {
 		}
 
 		// Create a Reader
-		r, err2 := kio.NewReader(input, 4)
+		r, err2 := NewReader(input, 4)
 
 		if err2 != nil {
 			fmt.Printf("%v\n", err2)
