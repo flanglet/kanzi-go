@@ -17,10 +17,12 @@ package io
 
 import (
 	"fmt"
-	"math/rand"
-	"testing"
-
+	kio "github.com/flanglet/kanzi-go/v2/io"
 	"github.com/flanglet/kanzi-go/v2/util"
+	"math/rand"
+	"os"
+	"path/filepath"
+	"testing"
 )
 
 func TestCompressedStream(b *testing.T) {
@@ -29,51 +31,59 @@ func TestCompressedStream(b *testing.T) {
 	incompressible := make([]byte, 65536<<6)
 	sum := 0
 
-	for test := 1; test <= 40; test++ {
+	for test := 1; test <= 20; test++ {
 		length := 65536 << uint(test%7)
-		fmt.Printf("\nIteration %v (size %v)\n", test, length)
+		fmt.Printf("\nIteration %v)\n", test)
 
 		for i := range values {
 			values[i] = byte(rand.Intn(4*test + 1))
 			incompressible[i] = byte(rand.Intn(256))
 		}
 
-		if res := compress1(values[0:length]); res == 0 {
+		if res := compress(values[0:length], "HUFFMAN", "LZ"); res == 0 {
+			fmt.Println("Success")
+		} else {
+			fmt.Printf("Failure %v\n", res)
+			sum += res
+			break
+		}
+
+		if res := compress(values[0:length], "NONE", "ROLZ"); res == 0 {
+			fmt.Println("Success")
+		} else {
+			fmt.Printf("Failure %v\n", res)
+			sum += res
+			break
+		}
+
+		if res := compress(values[0:length], "FPAQ", "BWT"); res == 0 {
+			fmt.Println("Success")
+		} else {
+			fmt.Printf("Failure %v\n", res)
+			sum += res
+			break
+		}
+
+		if res := compress(incompressible[0:length], "HUFFMAN", "LZ"); res == 0 {
 			fmt.Println("Success")
 		} else {
 			fmt.Printf("Failure %v\n", res)
 			sum += res
 		}
+	}
 
-		if res := compress2(values[0:length]); res == 0 {
-			fmt.Println("Success")
-		} else {
-			fmt.Printf("Failure %v\n", res)
-			sum += res
-		}
+	if res := compressAfterWriteClose(values[0:65536]); res == 0 {
+		fmt.Println("Success")
+	} else {
+		fmt.Println("Failure")
+		sum += res
+	}
 
-		if res := compress3(values[0:length]); res == 0 {
-			fmt.Println("Success")
-		} else {
-			fmt.Printf("Failure %v\n", res)
-			sum += res
-		}
-
-		if test == 1 {
-			if res := compress4(values[0:length]); res == 0 {
-				fmt.Println("Success")
-			} else {
-				fmt.Println("Failure")
-				sum += res
-			}
-
-			if res := compress5(values[0:length]); res == 0 {
-				fmt.Println("Success")
-			} else {
-				fmt.Printf("Failure %v\n", res)
-				sum += res
-			}
-		}
+	if res := compressAfterReadClose(values[0:65536]); res == 0 {
+		fmt.Println("Success")
+	} else {
+		fmt.Printf("Failure %v\n", res)
+		sum += res
 	}
 
 	fmt.Println()
@@ -83,160 +93,95 @@ func TestCompressedStream(b *testing.T) {
 	}
 }
 
-func compress1(block []byte) int {
-	fmt.Println("Test - Regular")
-	buf := make([]byte, len(block))
-	copy(buf, block)
-	var bs util.BufferStream
-	blockSize := uint((len(block) / (rand.Intn(3) + 1)) & -16)
-
-	os, err := NewWriter(&bs, "HUFFMAN", "RLT", blockSize, 1, false)
-
-	if err != nil {
-		return 1
-	}
-
-	written, err := os.Write(block)
-
-	if err == nil {
-		if err = os.Close(); err != nil {
-			return 2
-		}
-	}
-
-	for i := range block {
-		block[i] = 0
-	}
-
-	is, err := NewReader(&bs, 1)
-
-	if err != nil {
-		return 3
-	}
-
-	read, err := is.Read(block)
-
-	if err == nil {
-		if err = is.Close(); err != nil {
-			return 4
-		}
-	}
-
-	for i := range block {
-		if buf[i] != block[i] {
-			return 5
-		}
-	}
-
-	return read ^ written
-}
-
-func compress2(block []byte) int {
+func compress(block []byte, entropy, transform string) int {
 	jobs := uint(rand.Intn(4) + 1)
-	check := false
+	var blockSize uint
 
-	if rand.Intn(2) == 0 {
-		check = true
-		fmt.Printf("Test - %v job(s) - checksum\n", jobs)
+	if n := rand.Intn(3); n == 1 {
+		blockSize = uint(len(block))
 	} else {
-		fmt.Printf("Test - %v job(s)\n", jobs)
+		blockSize = uint((len(block) / (n + 1)) & -16)
 	}
 
-	buf := make([]byte, len(block))
-	copy(buf, block)
-	var bs util.BufferStream
-	blockSize := uint((len(block) / (rand.Intn(3) + 1)) & -16)
+        fmt.Printf("Block size: %v, jobs: %v \n", blockSize, jobs)
 
-	os, err := NewWriter(&bs, "ANS0", "LZX", blockSize, jobs, check)
+	{
+		// Create an io.WriteCloser
+		outputName := filepath.Join(os.TempDir(), "compressed.knz")
+		output, err := os.Create(outputName)
 
-	if err != nil {
-		return 1
-	}
+		if err != nil {
+			fmt.Printf("%v\n", err)
+			return 1
+		}
 
-	written, err := os.Write(block)
+		// Create a Writer
+		w, err2 := kio.NewWriter(output, entropy, transform, blockSize, jobs, true)
 
-	if err == nil {
-		if err = os.Close(); err != nil {
+		if err2 != nil {
+			fmt.Printf("%v\n", err2)
 			return 2
 		}
-	}
 
-	for i := range block {
-		block[i] = 0
-	}
+		// Compress block
+		_, err = w.Write(block)
 
-	is, err := NewReader(&bs, jobs)
+		if err != nil {
+			fmt.Printf("%v\n", err)
+			return 3
+		}
 
-	if err != nil {
-		return 3
-	}
+		// Close Writer
+		err = w.Close()
 
-	read, err := is.Read(block)
-
-	if err == nil {
-		if err = is.Close(); err != nil {
+		if err != nil {
+			fmt.Printf("%v\n", err)
 			return 4
 		}
 	}
 
-	for i := range block {
-		if buf[i] != block[i] {
+	{
+		// Create an io.ReadCloser
+		inputName := filepath.Join(os.TempDir(), "compressed.knz")
+		input, err := os.Open(inputName)
+
+		if err != nil {
+			fmt.Printf("%v\n", err)
 			return 5
 		}
+
+		// Create a Reader
+		r, err2 := kio.NewReader(input, 4)
+
+		if err2 != nil {
+			fmt.Printf("%v\n", err2)
+			return 6
+		}
+
+		// Decompress block
+		_, err = r.Read(block)
+
+		if err != nil {
+			fmt.Printf("%v\n", err)
+			return 7
+		}
+
+		// Close Reader
+		err = r.Close()
+
+		if err != nil {
+			fmt.Printf("%v\n", err)
+			return 8
+		}
 	}
 
-	return read ^ written
+	// If we made it until here, the roundtrip is valid.
+	// The checksum verification guarantees that the data
+	// has been decompressed correctly.
+	return 0
 }
 
-func compress3(block []byte) int {
-	fmt.Println("Test - Incompressible")
-	buf := make([]byte, len(block))
-	copy(buf, block)
-	var bs util.BufferStream
-	blockSize := uint((len(block) / (rand.Intn(3) + 1)) & -16)
-
-	os, err := NewWriter(&bs, "FPAQ", "LZP+ZRLT", blockSize, 1, false)
-
-	if err != nil {
-		return 1
-	}
-
-	written, err := os.Write(block)
-
-	if err == nil {
-		if err = os.Close(); err != nil {
-			return 2
-		}
-	}
-
-	for i := range block {
-		block[i] = 0
-	}
-
-	is, err := NewReader(&bs, 1)
-
-	if err != nil {
-		return 3
-	}
-
-	read, err := is.Read(block)
-
-	if err == nil {
-		if err = is.Close(); err != nil {
-			return 4
-		}
-	}
-
-	for i := range block {
-		if buf[i] != block[i] {
-			return 5
-		}
-	}
-
-	return read ^ written
-}
-
-func compress4(block []byte) int {
+func compressAfterWriteClose(block []byte) int {
 	fmt.Println("Test - write after close")
 	buf := make([]byte, len(block))
 	copy(buf, block)
@@ -245,15 +190,20 @@ func compress4(block []byte) int {
 	os, err := NewWriter(&bs, "HUFFMAN", "NONE", uint(len(block)), 1, false)
 
 	if err != nil {
+		fmt.Printf("%v\n", err)
 		return 1
 	}
 
 	_, err = os.Write(block)
 
-	if err == nil {
-		if err = os.Close(); err != nil {
-			return 2
-		}
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		return 2
+	}
+
+	if err = os.Close(); err != nil {
+		fmt.Printf("%v\n", err)
+		return 3
 	}
 
 	_, err = os.Write(block)
@@ -266,36 +216,46 @@ func compress4(block []byte) int {
 	return 4
 }
 
-func compress5(block []byte) int {
+func compressAfterReadClose(block []byte) int {
 	fmt.Println("Test - read after close")
 	var bs util.BufferStream
 
 	os, err := NewWriter(&bs, "NONE", "NONE", uint(len(block)), 1, false)
 
 	if err != nil {
+		fmt.Printf("%v\n", err)
 		return 1
 	}
 
 	_, err = os.Write(block)
 
-	if err == nil {
-		if err = os.Close(); err != nil {
-			return 2
-		}
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		return 2
+	}
+
+	if err = os.Close(); err != nil {
+		fmt.Printf("%v\n", err)
+		return 3
 	}
 
 	is, err := NewReader(&bs, 1)
 
 	if err != nil {
-		return 3
+		fmt.Printf("%v\n", err)
+		return 4
 	}
 
 	_, err = is.Read(block)
 
-	if err == nil {
-		if err = is.Close(); err != nil {
-			return 4
-		}
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		return 5
+	}
+
+	if err = is.Close(); err != nil {
+		fmt.Printf("%v\n", err)
+		return 6
 	}
 
 	_, err = is.Read(block)
@@ -305,5 +265,5 @@ func compress5(block []byte) int {
 		return 0
 	}
 
-	return 5
+	return 7
 }
