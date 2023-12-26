@@ -95,7 +95,7 @@ func newToken(ctx *map[string]any, functionType uint64) (kanzi.ByteTransform, er
 	case DICT_TYPE:
 		textCodecType := 1
 
-		if val, containsKey := (*ctx)["codec"]; containsKey {
+		if val, containsKey := (*ctx)["entropy"]; containsKey {
 			entropyType := strings.ToUpper(val.(string))
 
 			// Select text encoding based on entropy codec.

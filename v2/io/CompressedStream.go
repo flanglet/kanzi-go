@@ -100,6 +100,7 @@ type Writer struct {
 	available     int
 	listeners     []kanzi.Listener
 	ctx           map[string]any
+	headless      bool
 }
 
 type encodingTask struct {
@@ -123,9 +124,9 @@ type encodingTaskResult struct {
 
 // NewWriter creates a new instance of Writer.
 // The writer writes compressed data blocks to the provided os.
-func NewWriter(os io.WriteCloser, codec, transform string, blockSize, jobs uint, checksum bool) (*Writer, error) {
+func NewWriter(os io.WriteCloser, entropy, transform string, blockSize, jobs uint, checksum bool) (*Writer, error) {
 	ctx := make(map[string]any)
-	ctx["codec"] = codec
+	ctx["entropy"] = entropy
 	ctx["transform"] = transform
 	ctx["blockSize"] = blockSize
 	ctx["jobs"] = jobs
@@ -158,48 +159,48 @@ func NewWriterWithCtx2(obs kanzi.OutputBitStream, ctx map[string]any) (*Writer, 
 
 func createWriterWithCtx(obs kanzi.OutputBitStream, ctx map[string]any) (*Writer, error) {
 	if obs == nil {
-		return nil, &IOError{msg: "Invalid null output bitstream parameter", code: kanzi.ERR_CREATE_STREAM}
+		return nil, &IOError{msg: "Invalid null output bitstream parameter", code: kanzi.ERR_INVALID_PARAM}
 	}
 
 	if ctx == nil {
-		return nil, &IOError{msg: "Invalid null context parameter", code: kanzi.ERR_CREATE_STREAM}
+		return nil, &IOError{msg: "Invalid null context parameter", code: kanzi.ERR_INVALID_PARAM}
 	}
 
-	entropyCodec := ctx["codec"].(string)
+	entropyCodec := ctx["entropy"].(string)
 	t := ctx["transform"].(string)
 	tasks := ctx["jobs"].(uint)
 
 	if tasks == 0 || tasks > _MAX_CONCURRENCY {
 		errMsg := fmt.Sprintf("The number of jobs must be in [1..%d], got %d", _MAX_CONCURRENCY, tasks)
-		return nil, &IOError{msg: errMsg, code: kanzi.ERR_CREATE_STREAM}
+		return nil, &IOError{msg: errMsg, code: kanzi.ERR_INVALID_PARAM}
 	}
 
 	bSize := ctx["blockSize"].(uint)
 
 	if bSize > _MAX_BITSTREAM_BLOCK_SIZE {
 		errMsg := fmt.Sprintf("The block size must be at most %d MB", _MAX_BITSTREAM_BLOCK_SIZE>>20)
-		return nil, &IOError{msg: errMsg, code: kanzi.ERR_CREATE_STREAM}
+		return nil, &IOError{msg: errMsg, code: kanzi.ERR_INVALID_PARAM}
 	}
 
 	if bSize < _MIN_BITSTREAM_BLOCK_SIZE {
 		errMsg := fmt.Sprintf("The block size must be at least %d", _MIN_BITSTREAM_BLOCK_SIZE)
-		return nil, &IOError{msg: errMsg, code: kanzi.ERR_CREATE_STREAM}
+		return nil, &IOError{msg: errMsg, code: kanzi.ERR_INVALID_PARAM}
 	}
 
 	if int(bSize)&-16 != int(bSize) {
-		return nil, &IOError{msg: "The block size must be a multiple of 16", code: kanzi.ERR_CREATE_STREAM}
+		return nil, &IOError{msg: "The block size must be a multiple of 16", code: kanzi.ERR_INVALID_PARAM}
 	}
 
-	ctx["bsVersion"] = uint(_BITSTREAM_FORMAT_VERSION)
 	this := &Writer{}
 	this.obs = obs
+	this.ctx = ctx
 
 	// Check entropy type validity (panic on error)
 	var eType uint32
 	var err error
 
 	if eType, err = entropy.GetType(entropyCodec); err != nil {
-		return nil, &IOError{msg: err.Error(), code: kanzi.ERR_CREATE_STREAM}
+		return nil, &IOError{msg: err.Error(), code: kanzi.ERR_INVALID_PARAM}
 	}
 
 	this.entropyType = eType
@@ -208,7 +209,7 @@ func createWriterWithCtx(obs kanzi.OutputBitStream, ctx map[string]any) (*Writer
 	this.transformType, err = transform.GetType(t)
 
 	if err != nil {
-		return nil, &IOError{msg: err.Error(), code: kanzi.ERR_CREATE_STREAM}
+		return nil, &IOError{msg: err.Error(), code: kanzi.ERR_INVALID_PARAM}
 	}
 
 	this.blockSize = int(bSize)
@@ -220,7 +221,7 @@ func createWriterWithCtx(obs kanzi.OutputBitStream, ctx map[string]any) (*Writer
 	// This value is written to the bitstream header to let the decoder make
 	// better decisions about memory usage and job allocation in concurrent
 	// decompression scenario.
-	if val, containsKey := ctx["fileSize"]; containsKey {
+	if val, hasKey := ctx["fileSize"]; hasKey {
 		fileSize := val.(int64)
 		nbBlocks = int((fileSize + int64(bSize-1)) / int64(bSize))
 	}
@@ -242,6 +243,13 @@ func createWriterWithCtx(obs kanzi.OutputBitStream, ctx map[string]any) (*Writer
 		}
 	}
 
+	if hdl, hasKey := ctx["headerless"]; hasKey == true {
+		this.headless = hdl.(bool)
+	} else {
+		this.headless = false
+	}
+
+	ctx["bsVersion"] = uint(_BITSTREAM_FORMAT_VERSION)
 	this.jobs = int(tasks)
 	this.buffers = make([]blockBuffer, 2*this.jobs)
 
@@ -262,7 +270,6 @@ func createWriterWithCtx(obs kanzi.OutputBitStream, ctx map[string]any) (*Writer
 
 	this.blockID = 0
 	this.listeners = make([]kanzi.Listener, 0)
-	this.ctx = ctx
 	return this, nil
 }
 
@@ -431,7 +438,7 @@ func (this *Writer) Close() error {
 }
 
 func (this *Writer) processBlock() error {
-	if atomic.SwapInt32(&this.initialized, 1) == 0 {
+	if this.headless == false && atomic.SwapInt32(&this.initialized, 1) == 0 {
 		if err := this.writeHeader(); err != nil {
 			return err
 		}
@@ -577,7 +584,7 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 		this.blockEntropyType = entropy.NONE_TYPE
 		mode |= byte(_COPY_BLOCK_MASK)
 	} else {
-		if skipOpt, prst := this.ctx["skipBlocks"]; prst == true {
+		if skipOpt, hasKey := this.ctx["skipBlocks"]; hasKey == true {
 			if skipOpt.(bool) == true {
 				skip := false
 
@@ -817,6 +824,7 @@ type Reader struct {
 	nbInputBlocks   int
 	listeners       []kanzi.Listener
 	ctx             map[string]any
+	headless        bool
 }
 
 type decodingTask struct {
@@ -867,18 +875,18 @@ func NewReaderWithCtx2(ibs kanzi.InputBitStream, ctx map[string]any) (*Reader, e
 
 func createReaderWithCtx(ibs kanzi.InputBitStream, ctx map[string]any) (*Reader, error) {
 	if ibs == nil {
-		return nil, &IOError{msg: "Invalid null input bitstream parameter", code: kanzi.ERR_CREATE_STREAM}
+		return nil, &IOError{msg: "Invalid null input bitstream parameter", code: kanzi.ERR_CREATE_DECOMPRESSOR}
 	}
 
 	if ctx == nil {
-		return nil, &IOError{msg: "Invalid null context parameter", code: kanzi.ERR_CREATE_STREAM}
+		return nil, &IOError{msg: "Invalid null context parameter", code: kanzi.ERR_CREATE_DECOMPRESSOR}
 	}
 
 	tasks := ctx["jobs"].(uint)
 
 	if tasks == 0 || tasks > _MAX_CONCURRENCY {
 		errMsg := fmt.Sprintf("The number of jobs must be in [1..%d], got %d", _MAX_CONCURRENCY, tasks)
-		return nil, &IOError{msg: errMsg, code: kanzi.ERR_CREATE_STREAM}
+		return nil, &IOError{msg: errMsg, code: kanzi.ERR_CREATE_DECOMPRESSOR}
 	}
 
 	this := &Reader{}
@@ -899,7 +907,82 @@ func createReaderWithCtx(ibs kanzi.InputBitStream, ctx map[string]any) (*Reader,
 	this.blockSize = 0
 	this.entropyType = entropy.NONE_TYPE
 	this.transformType = transform.NONE_TYPE
+
+	if hdl, hasKey := ctx["headerless"]; hasKey == true {
+		this.headless = hdl.(bool)
+
+		// Validate required values
+		if err := this.validateHeaderless(); err != nil {
+			return nil, err
+		}
+	} else {
+		this.headless = false
+	}
+
 	return this, nil
+}
+
+func (this *Reader) validateHeaderless() error {
+	var err error
+
+	if bsv, hasKey := this.ctx["bsVersion"]; hasKey {
+		bsVersion := bsv.(uint)
+
+		if bsVersion > _BITSTREAM_FORMAT_VERSION {
+			errMsg := fmt.Sprintf("Invalid bitstream version, cannot read this version of the stream: %d", bsVersion)
+			return &IOError{msg: errMsg, code: kanzi.ERR_INVALID_PARAM}
+		}
+	} else {
+		return &IOError{msg: "Missing bitstream version in headerless mode", code: kanzi.ERR_MISSING_PARAM}
+	}
+
+	if e, hasKey := this.ctx["entropy"]; hasKey {
+		eName := e.(string)
+		this.entropyType, err = entropy.GetType(eName)
+
+		if err != nil {
+			return &IOError{msg: err.Error(), code: kanzi.ERR_INVALID_PARAM}
+		}
+	} else {
+		return &IOError{msg: "Missing entropy in headerless mode", code: kanzi.ERR_MISSING_PARAM}
+	}
+
+	if t, hasKey := this.ctx["transform"]; hasKey {
+		tName := t.(string)
+		this.transformType, err = transform.GetType(tName)
+
+		if err != nil {
+			return &IOError{msg: err.Error(), code: kanzi.ERR_INVALID_PARAM}
+		}
+	} else {
+		return &IOError{msg: "Missing transform in headerless mode", code: kanzi.ERR_MISSING_PARAM}
+	}
+
+	if b, hasKey := this.ctx["blockSize"]; hasKey {
+		blk := b.(uint)
+
+		if blk < _MIN_BITSTREAM_BLOCK_SIZE || blk > _MAX_BITSTREAM_BLOCK_SIZE {
+			errMsg := fmt.Sprintf("Invalid block size: %d", blk)
+			return &IOError{msg: errMsg, code: kanzi.ERR_INVALID_PARAM}
+		}
+
+		this.blockSize = int(blk)
+		this.bufferThreshold = this.blockSize
+	} else {
+		return &IOError{msg: "Missing block size in headerless mode", code: kanzi.ERR_MISSING_PARAM}
+	}
+
+	if c, hasKey := this.ctx["checksum"]; hasKey {
+		if c.(bool) == true {
+			this.hasher, err = hash.NewXXHash32(_BITSTREAM_TYPE)
+
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // AddListener adds an event listener to this reader.
@@ -974,8 +1057,7 @@ func (this *Reader) readHeader() error {
 		return &IOError{msg: errMsg, code: kanzi.ERR_INVALID_CODEC}
 	}
 
-	this.ctx["codec"] = eType
-	this.ctx["extra"] = this.entropyType == entropy.TPAQX_TYPE
+	this.ctx["entropy"] = eType
 
 	// Read transforms: 8*6 bits
 	this.transformType = this.ibs.ReadBits(48)
@@ -1080,7 +1162,7 @@ func (this *Reader) Read(block []byte) (int, error) {
 		return 0, &IOError{msg: "Stream closed", code: kanzi.ERR_READ_FILE}
 	}
 
-	if atomic.SwapInt32(&this.initialized, 1) == 0 {
+	if this.headless == false && atomic.SwapInt32(&this.initialized, 1) == 0 {
 		if err := this.readHeader(); err != nil {
 			return 0, err
 		}

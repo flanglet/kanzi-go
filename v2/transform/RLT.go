@@ -91,7 +91,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 			}
 		}
 
-		if val, containsKey := (*this.ctx)["codec"]; containsKey {
+		if val, containsKey := (*this.ctx)["entropy"]; containsKey {
 			entropyType := strings.ToUpper(val.(string))
 
 			// Fast track if fast entropy coder is used

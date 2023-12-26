@@ -491,7 +491,7 @@ func NewTextCodecWithCtx(ctx *map[string]any) (*TextCodec, error) {
 	var d kanzi.ByteTransform
 
 	if ctx != nil {
-		if val, containsKey := (*ctx)["textcodec"]; containsKey {
+		if val, hasKey := (*ctx)["textcodec"]; hasKey {
 			encodingType := val.(int)
 
 			if encodingType == 2 {
@@ -573,7 +573,7 @@ func newTextCodec1WithCtx(ctx *map[string]any) (*textCodec1, error) {
 	log := uint32(13)
 
 	if ctx != nil {
-		if val, containsKey := (*ctx)["blockSize"]; containsKey {
+		if val, hasKey := (*ctx)["blockSize"]; hasKey {
 			blockSize := val.(uint)
 
 			if blockSize >= 8 {
@@ -587,8 +587,8 @@ func newTextCodec1WithCtx(ctx *map[string]any) (*textCodec1, error) {
 			}
 		}
 
-		if val, containsKey := (*ctx)["extra"]; containsKey {
-			if val.(bool) == true {
+		if val, hasKey := (*ctx)["entropy"]; hasKey {
+			if val.(string) == "TPAQX" {
 				log++
 			}
 		}
@@ -663,7 +663,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	if this.ctx != nil {
-		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
+		if val, hasKey := (*this.ctx)["dataType"]; hasKey {
 			dt := val.(internal.DataType)
 
 			// Filter out most types. Still check binaries which may contain significant parts of text
@@ -1100,7 +1100,7 @@ func newTextCodec2WithCtx(ctx *map[string]any) (*textCodec2, error) {
 	log := uint32(13)
 
 	if ctx != nil {
-		if val, containsKey := (*ctx)["blockSize"]; containsKey {
+		if val, hasKey := (*ctx)["blockSize"]; hasKey {
 			blockSize := val.(uint)
 
 			if blockSize >= 32 {
@@ -1114,8 +1114,8 @@ func newTextCodec2WithCtx(ctx *map[string]any) (*textCodec2, error) {
 			}
 		}
 
-		if val, containsKey := (*ctx)["extra"]; containsKey {
-			if val.(bool) == true {
+		if val, hasKey := (*ctx)["entropy"]; hasKey {
+			if val.(string) == "TPAQX" {
 				log++
 			}
 		}
@@ -1185,7 +1185,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	if this.ctx != nil {
-		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
+		if val, hasKey := (*this.ctx)["dataType"]; hasKey {
 			dt := val.(internal.DataType)
 
 			// Filter out most types. Still check binaries which may contain significant parts of text

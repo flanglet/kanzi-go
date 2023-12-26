@@ -481,9 +481,8 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	ctx["overwrite"] = this.overwrite
 	ctx["skipBlocks"] = this.skipBlocks
 	ctx["checksum"] = this.checksum
-	ctx["codec"] = this.entropyCodec
+	ctx["entropy"] = this.entropyCodec
 	ctx["transform"] = this.transform
-	ctx["extra"] = this.entropyCodec == "TPAQX"
 	var res int
 
 	if nbFiles == 1 {
