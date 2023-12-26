@@ -933,7 +933,7 @@ func (this *Reader) validateHeaderless() error {
 			return &IOError{msg: errMsg, code: kanzi.ERR_INVALID_PARAM}
 		}
 	} else {
-		return &IOError{msg: "Missing bitstream version in headerless mode", code: kanzi.ERR_MISSING_PARAM}
+		this.ctx["bsVersion"] = _BITSTREAM_FORMAT_VERSION
 	}
 
 	if e, hasKey := this.ctx["entropy"]; hasKey {
