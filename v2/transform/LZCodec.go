@@ -33,7 +33,7 @@ const (
 	_LZX_HASH_LOG2        = 21
 	_LZX_HASH_SHIFT2      = 48 - _LZX_HASH_LOG2
 	_LZX_HASH_MASK2       = (1 << _LZX_HASH_LOG2) - 1
-	_LZX_MAX_DISTANCE1    = (1 << 17) - 2
+	_LZX_MAX_DISTANCE1    = (1 << 16) - 2
 	_LZX_MAX_DISTANCE2    = (1 << 24) - 2
 	_LZX_MIN_MATCH4       = 4
 	_LZX_MIN_MATCH9       = 9
