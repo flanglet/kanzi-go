@@ -8,7 +8,7 @@ Kanzi is a modern, modular, expandable and efficient lossless data compressor im
 * expandable: clean design with heavy use of interfaces as contracts makes integrating and expanding the code easy. No dependencies.
 * efficient: the code is optimized for efficiency (trade-off between compression ratio and speed).
 
-Unlike the most common lossless data compressors, Kanzi uses a variety of different compression algorithms and supports a wider range of compression ratios as a result. Most usual compressors do not take advantage of the many cores and threads available on modern CPUs (what a waste!). Kanzi is multithreaded by design and uses several threads by default to compress blocks concurrently. It is not compatible with standard compression formats. Kanzi is a lossless data compressor, not an archiver. It uses checksums (optional but recommended) to validate data integrity but does not have a mechanism for data recovery. It also lacks data deduplication across files.
+Unlike the most common lossless data compressors, Kanzi uses a variety of different compression algorithms and supports a wider range of compression ratios as a result. Most usual compressors do not take advantage of the many cores and threads available on modern CPUs (what a waste!). Kanzi is concurrent by design and uses several go routines by default to compress blocks concurrently. It is not compatible with standard compression formats. Kanzi is a lossless data compressor, not an archiver. It uses checksums (optional but recommended) to validate data integrity but does not have a mechanism for data recovery. It also lacks data deduplication across files.
 
 For more details, check https://github.com/flanglet/kanzi-go/wiki.
 
