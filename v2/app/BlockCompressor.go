@@ -136,9 +136,10 @@ func NewBlockCompressor(argsMap map[string]any) (*BlockCompressor, error) {
 
 	this.entropyCodec = strCodec
 
-	if block, prst := argsMap["block"]; prst == true {
-		this.blockSize = block.(uint)
-		delete(argsMap, "block")
+	if block, prst := argsMap["blockSize"]; prst == true {
+		szBlk := block.(uint)
+		this.blockSize = ((szBlk + 15) >> 4) << 4
+		delete(argsMap, "blockSize")
 
 		if this.blockSize < _COMP_MIN_BLOCK_SIZE {
 			return nil, fmt.Errorf("Minimum block size is %d KB (%d bytes), got %d bytes", _COMP_MIN_BLOCK_SIZE/1024, _COMP_MIN_BLOCK_SIZE, this.blockSize)
@@ -147,13 +148,6 @@ func NewBlockCompressor(argsMap map[string]any) (*BlockCompressor, error) {
 		if this.blockSize > _COMP_MAX_BLOCK_SIZE {
 			return nil, fmt.Errorf("Maximum block size is %d GB (%d bytes), got %d bytes", _COMP_MAX_BLOCK_SIZE/(1024*1024*1024), _COMP_MAX_BLOCK_SIZE, this.blockSize)
 		}
-
-		this.blockSize = ((this.blockSize + 15) >> 4) << 4
-
-		if this.blockSize > _COMP_MAX_BLOCK_SIZE {
-			this.blockSize = _COMP_MAX_BLOCK_SIZE
-		}
-
 	} else {
 		switch this.level {
 		case 6:
@@ -219,8 +213,8 @@ func NewBlockCompressor(argsMap map[string]any) (*BlockCompressor, error) {
 		this.noLinks = false
 	}
 
-	this.verbosity = argsMap["verbose"].(uint)
-	delete(argsMap, "verbose")
+	this.verbosity = argsMap["verbosity"].(uint)
+	delete(argsMap, "verbosity")
 	concurrency := argsMap["jobs"].(uint)
 	delete(argsMap, "jobs")
 

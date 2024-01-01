@@ -110,7 +110,7 @@ func main() {
 func compress(argsMap map[string]any) int {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	code := 0
-	verbose := argsMap["verbose"].(uint)
+	verbose := argsMap["verbosity"].(uint)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -152,7 +152,7 @@ func compress(argsMap map[string]any) int {
 func decompress(argsMap map[string]any) int {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	code := 0
-	verbose := argsMap["verbose"].(uint)
+	verbose := argsMap["verbosity"].(uint)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -598,7 +598,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 		if strings.HasPrefix(arg, _ARG_BLOCK) || ctx == _ARG_IDX_BLOCK {
 			if mode != "c" {
-				log.Println(fmt.Sprintf(warningCompressOpt, "block"), verbose > 0)
+				log.Println(fmt.Sprintf(warningCompressOpt, "block size"), verbose > 0)
 				ctx = -1
 				continue
 			}
@@ -764,14 +764,14 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 	}
 
 	if blockSize != -1 {
-		argsMap["block"] = uint(blockSize)
+		argsMap["blockSize"] = uint(blockSize)
 	}
 
 	if autoBlockSize == true {
 		argsMap["autoBlock"] = true
 	}
 
-	argsMap["verbose"] = uint(verbose)
+	argsMap["verbosity"] = uint(verbose)
 	argsMap["mode"] = mode
 
 	if overwrite == true {
