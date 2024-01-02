@@ -87,8 +87,8 @@ func NewBlockDecompressor(argsMap map[string]any) (*BlockDecompressor, error) {
 
 	concurrency := argsMap["jobs"].(uint)
 	delete(argsMap, "jobs")
-	this.verbosity = argsMap["verbose"].(uint)
-	delete(argsMap, "verbose")
+	this.verbosity = argsMap["verbosity"].(uint)
+	delete(argsMap, "verbosity")
 
 	if v, hasKey := argsMap["from"]; hasKey == true {
 		this.from = v.(int)
