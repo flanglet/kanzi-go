@@ -253,6 +253,13 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int, hash32 uint32, counter in
 		}
 	}
 
+	if this.posChecks == 0 {
+		// Ahem terrible hack ...
+		// This impossible branch improves performance by a few percents
+		// (due to speculative memory fetch in the other branch probably)
+		return -1, -1
+	}
+
 	maxMatch -= 4
 	bestLen := 0
 	bestIdx := -1

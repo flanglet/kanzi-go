@@ -334,16 +334,15 @@ func (this *ANSRangeEncoder) Write(block []byte) (int, error) {
 	return end, nil
 }
 
-func (this *ANSRangeEncoder) encodeSymbol(n int, st *int, sym encSymbol) int {
-	if *st >= sym.xMax {
-		this.buffer[n] = byte(*st)
-		this.buffer[n-1] = byte(*st >> 8)
-		*st >>= 16
+func (this *ANSRangeEncoder) encodeSymbol(n int, st int, sym encSymbol) (int, int) {
+	if st >= sym.xMax {
+		this.buffer[n] = byte(st)
+		this.buffer[n-1] = byte(st >> 8)
+		st >>= 16
 		n -= 2
 	}
 
-	*st = *st + sym.bias + int((uint64(*st)*sym.invFreq)>>sym.invShift)*sym.cmplFreq
-	return n
+	return n, st + sym.bias + int((uint64(st)*sym.invFreq)>>sym.invShift)*sym.cmplFreq
 }
 
 func (this *ANSRangeEncoder) encodeChunk(block []byte) {
@@ -363,10 +362,10 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 		symb := this.symbols[0:256]
 
 		for i := end4 - 1; i > 0; i -= 4 {
-			n = this.encodeSymbol(n, &st0, symb[block[i]])
-			n = this.encodeSymbol(n, &st1, symb[block[i-1]])
-			n = this.encodeSymbol(n, &st2, symb[block[i-2]])
-			n = this.encodeSymbol(n, &st3, symb[block[i-3]])
+			n, st0 = this.encodeSymbol(n, st0, symb[block[i]])
+			n, st1 = this.encodeSymbol(n, st1, symb[block[i-1]])
+			n, st2 = this.encodeSymbol(n, st2, symb[block[i-2]])
+			n, st3 = this.encodeSymbol(n, st3, symb[block[i-3]])
 		}
 	} else if len(block) > 1 { // order 1
 		quarter := end4 >> 2
@@ -381,13 +380,13 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 
 		for i0 >= 0 {
 			cur0 := int(block[i0])
-			n = this.encodeSymbol(n, &st0, this.symbols[(cur0<<8)|prv0])
+			n, st0 = this.encodeSymbol(n, st0, this.symbols[(cur0<<8)|prv0])
 			cur1 := int(block[i1])
-			n = this.encodeSymbol(n, &st1, this.symbols[(cur1<<8)|prv1])
+			n, st1 = this.encodeSymbol(n, st1, this.symbols[(cur1<<8)|prv1])
 			cur2 := int(block[i2])
-			n = this.encodeSymbol(n, &st2, this.symbols[(cur2<<8)|prv2])
+			n, st2 = this.encodeSymbol(n, st2, this.symbols[(cur2<<8)|prv2])
 			cur3 := int(block[i3])
-			n = this.encodeSymbol(n, &st3, this.symbols[(cur3<<8)|prv3])
+			n, st3 = this.encodeSymbol(n, st3, this.symbols[(cur3<<8)|prv3])
 			prv0 = cur0
 			prv1 = cur1
 			prv2 = cur2
@@ -399,10 +398,10 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 		}
 
 		// Last symbols
-		n = this.encodeSymbol(n, &st0, this.symbols[prv0])
-		n = this.encodeSymbol(n, &st1, this.symbols[prv1])
-		n = this.encodeSymbol(n, &st2, this.symbols[prv2])
-		n = this.encodeSymbol(n, &st3, this.symbols[prv3])
+		n, st0 = this.encodeSymbol(n, st0, this.symbols[prv0])
+		n, st1 = this.encodeSymbol(n, st1, this.symbols[prv1])
+		n, st2 = this.encodeSymbol(n, st2, this.symbols[prv2])
+		n, st3 = this.encodeSymbol(n, st3, this.symbols[prv3])
 	}
 
 	n++
@@ -871,18 +870,18 @@ func (this *ANSRangeDecoder) decodeChunkV1(block []byte) {
 	}
 }
 
-func (this *ANSRangeDecoder) decodeSymbol(n int, st *int, sym decSymbol, mask int) int {
+func (this *ANSRangeDecoder) decodeSymbol(n int, st int, sym decSymbol, mask int) (int, int) {
 	// Compute next ANS state
 	// D(x) = (s, q_s (x/M) + mod(x,M) - b_s) where s is such b_s <= x mod M < b_{s+1}
-	*st = sym.freq*(*st>>this.logRange) + (*st & mask) - sym.cumFreq
+	st = sym.freq*(st>>this.logRange) + (st & mask) - sym.cumFreq
 
 	// Normalize
-	if *st < _ANS_TOP {
-		*st = (*st << 16) | (int(this.buffer[n]) << 8) | int(this.buffer[n+1])
+	if st < _ANS_TOP {
+		st = (st << 16) | (int(this.buffer[n]) << 8) | int(this.buffer[n+1])
 		n += 2
 	}
 
-	return n
+	return n, st
 }
 
 func (this *ANSRangeDecoder) decodeChunkV2(block []byte) {
@@ -917,16 +916,16 @@ func (this *ANSRangeDecoder) decodeChunkV2(block []byte) {
 		for i := 0; i < end4; i += 4 {
 			cur3 := freq2sym[st3&mask]
 			block[i] = byte(cur3)
-			n = this.decodeSymbol(n, &st3, symb[cur3], mask)
+			n, st3 = this.decodeSymbol(n, st3, symb[cur3], mask)
 			cur2 := freq2sym[st2&mask]
 			block[i+1] = byte(cur2)
-			n = this.decodeSymbol(n, &st2, symb[cur2], mask)
+			n, st2 = this.decodeSymbol(n, st2, symb[cur2], mask)
 			cur1 := freq2sym[st1&mask]
 			block[i+2] = byte(cur1)
-			n = this.decodeSymbol(n, &st1, symb[cur1], mask)
+			n, st1 = this.decodeSymbol(n, st1, symb[cur1], mask)
 			cur0 := freq2sym[st0&mask]
 			block[i+3] = byte(cur0)
-			n = this.decodeSymbol(n, &st0, symb[cur0], mask)
+			n, st0 = this.decodeSymbol(n, st0, symb[cur0], mask)
 		}
 	} else { // order 1
 		quarter := end4 >> 2
@@ -943,16 +942,16 @@ func (this *ANSRangeDecoder) decodeChunkV2(block []byte) {
 			symbols0 := this.symbols[prv0<<8:]
 			cur3 := int(this.f2s[(prv3<<this.logRange)+(st3&mask)])
 			block[i3] = byte(cur3)
-			n = this.decodeSymbol(n, &st3, symbols3[cur3], mask)
+			n, st3 = this.decodeSymbol(n, st3, symbols3[cur3], mask)
 			cur2 := int(this.f2s[(prv2<<this.logRange)+(st2&mask)])
 			block[i2] = byte(cur2)
-			n = this.decodeSymbol(n, &st2, symbols2[cur2], mask)
+			n, st2 = this.decodeSymbol(n, st2, symbols2[cur2], mask)
 			cur1 := int(this.f2s[(prv1<<this.logRange)+(st1&mask)])
 			block[i1] = byte(cur1)
-			n = this.decodeSymbol(n, &st1, symbols1[cur1], mask)
+			n, st1 = this.decodeSymbol(n, st1, symbols1[cur1], mask)
 			cur0 := int(this.f2s[(prv0<<this.logRange)+(st0&mask)])
 			block[i0] = byte(cur0)
-			n = this.decodeSymbol(n, &st0, symbols0[cur0], mask)
+			n, st0 = this.decodeSymbol(n, st0, symbols0[cur0], mask)
 			prv3 = cur3
 			prv2 = cur2
 			prv1 = cur1
