@@ -408,7 +408,7 @@ func (this *EXECodec) forwardARM(src, dst []byte, codeStart, codeEnd int) (uint,
 		instr := int(binary.LittleEndian.Uint32(src[srcIdx:]))
 		opcode1 := instr & _EXE_ARM_B_OPCODE_MASK
 		//opcode2 := instr & ARM_CB_OPCODE_MASK
-		isBL := (opcode1 == _EXE_ARM_OPCODE_B) || (opcode1 == _EXE_ARM_OPCODE_BL) // inconditional jump
+		isBL := (opcode1 == _EXE_ARM_OPCODE_B) || (opcode1 == _EXE_ARM_OPCODE_BL) // unconditional jump
 		// disable for now ... isCB = (opcode2 == ARM_OPCODE_CBZ) || (opcode2 == ARM_OPCODE_CBNZ) // conditional jump
 		//isCB := false
 
@@ -505,7 +505,7 @@ func (this *EXECodec) inverseARM(src, dst []byte) (uint, uint, error) {
 		instr := int(binary.LittleEndian.Uint32(src[srcIdx:]))
 		opcode1 := instr & _EXE_ARM_B_OPCODE_MASK
 		//copcode2 := instr & ARM_CB_OPCODE_MASK
-		isBL := (opcode1 == _EXE_ARM_OPCODE_B) || (opcode1 == _EXE_ARM_OPCODE_BL) // inconditional jump
+		isBL := (opcode1 == _EXE_ARM_OPCODE_B) || (opcode1 == _EXE_ARM_OPCODE_BL) // unconditional jump
 		// disable for now ... isCB = (opcode2 == ARM_OPCODE_CBZ) || (opcode2 == ARM_OPCODE_CBNZ); // conditional jump
 		//isCB := false
 

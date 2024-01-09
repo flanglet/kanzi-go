@@ -168,7 +168,7 @@ func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) 
 
 	if err == nil && swaps&1 == 0 {
 		if len(dst) < int(length) {
-			err = errors.New("Inverse tranform sequence failed")
+			err = errors.New("Inverse transform sequence failed")
 		} else {
 			copy(dst, in[0:length])
 		}
