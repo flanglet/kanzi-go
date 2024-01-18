@@ -164,8 +164,8 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 
 	// Shortcut
 	if totalFreq == scale {
-		for i := 0; i < 256; i++ {
-			if freqs[i] != 0 {
+		for i, f := range freqs {
+			if f != 0 {
 				alphabet[alphabetSize] = i
 				alphabetSize++
 			}
@@ -234,7 +234,7 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 			inc = -1
 		}
 
-		if absDelta*20 < freqs[idxMax] {
+		if absDelta*10 < freqs[idxMax] {
 			// Fast path (small error): just adjust the max frequency
 			freqs[idxMax] -= delta
 			return alphabetSize, nil
@@ -246,10 +246,18 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 
 		// Create queue of present symbols
 		for i := 0; i < alphabetSize; i++ {
-			if freqs[alphabet[i]] != -inc {
-				queue[n] = &freqSortData{freq: &freqs[alphabet[i]], symbol: alphabet[i]}
-				n++
+			if freqs[alphabet[i]] <= 2 {
+				// Do not distort small frequencies
+				continue
 			}
+
+			queue[n] = &freqSortData{freq: &freqs[alphabet[i]], symbol: alphabet[i]}
+			n++
+		}
+
+		if n == 0 {
+			freqs[idxMax] -= delta
+			return alphabetSize, nil
 		}
 
 		// Sort queue by decreasing frequency
