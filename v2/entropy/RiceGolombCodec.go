@@ -111,7 +111,7 @@ type RiceGolombDecoder struct {
 	bitstream kanzi.InputBitStream
 }
 
-// NewRiceGolombDecoder creates a new instance of ExpGolombDecoder
+// NewRiceGolombDecoder creates a new instance of RiceGolombDecoder
 // If sgn is true, values from the bitstream will be decoded as signed (int8)
 func NewRiceGolombDecoder(bs kanzi.InputBitStream, sgn bool, logBase uint) (*RiceGolombDecoder, error) {
 	if bs == nil {
