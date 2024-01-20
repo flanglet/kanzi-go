@@ -1441,7 +1441,7 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	}()
 
 	// Lock free synchronization
-	for {
+	for n := 0; ; n++ {
 		taskID := atomic.LoadInt32(this.processedBlockID)
 
 		if taskID == _CANCEL_TASKS_ID {

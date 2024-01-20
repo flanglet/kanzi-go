@@ -32,7 +32,7 @@ func TestCompressedStream(b *testing.T) {
 
 	for test := 1; test <= 20; test++ {
 		length := 65536 << uint(test%7)
-		fmt.Printf("\nIteration %v)\n", test)
+		fmt.Printf("\nIteration %v\n", test)
 
 		for i := range values {
 			values[i] = byte(rand.Intn(4*test + 1))
