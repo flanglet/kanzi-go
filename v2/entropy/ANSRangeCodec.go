@@ -210,7 +210,7 @@ func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, lr uint) (int,
 			}
 		}
 
-		if err = this.encodeHeader(alphabetSize, alphabet[:], f, lr); err != nil {
+		if err = this.encodeHeader(alphabet[0:alphabetSize], f, lr); err != nil {
 			break
 		}
 
@@ -221,10 +221,12 @@ func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, lr uint) (int,
 }
 
 // Encodes alphabet and frequencies into the bitstream
-func (this *ANSRangeEncoder) encodeHeader(alphabetSize int, alphabet []int, frequencies []int, lr uint) error {
-	if _, err := EncodeAlphabet(this.bitstream, alphabet[0:alphabetSize:256]); err != nil {
+func (this *ANSRangeEncoder) encodeHeader(alphabet []int, frequencies []int, lr uint) error {
+	if _, err := EncodeAlphabet(this.bitstream, alphabet); err != nil {
 		return err
 	}
+
+	alphabetSize := len(alphabet)
 
 	if alphabetSize <= 1 {
 		return nil

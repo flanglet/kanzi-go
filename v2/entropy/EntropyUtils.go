@@ -61,7 +61,7 @@ func (this sortByFreq) Swap(i, j int) {
 
 // EncodeAlphabet writes the alphabet to the bitstream and return the number
 // of symbols written or an error.
-// alphabet must be sorted in increasing order
+// alphabet must be composed of values in [0..255] sorted in increasing order
 // alphabet size must be a power of 2 up to 256
 func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 	alphabetSize := cap(alphabet)
@@ -164,8 +164,8 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 
 	// Shortcut
 	if totalFreq == scale {
-		for i, f := range freqs {
-			if f != 0 {
+		for i := 0; i < 256; i++ {
+			if freqs[i] != 0 {
 				alphabet[alphabetSize] = i
 				alphabetSize++
 			}

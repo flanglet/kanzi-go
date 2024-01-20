@@ -113,14 +113,16 @@ func (this *RangeEncoder) updateFrequencies(frequencies []int, size int, lr uint
 		}
 	}
 
-	err = this.encodeHeader(alphabetSize, this.alphabet[:], frequencies, lr)
+	err = this.encodeHeader(this.alphabet[0:alphabetSize], frequencies, lr)
 	return alphabetSize, err
 }
 
-func (this *RangeEncoder) encodeHeader(alphabetSize int, alphabet []int, frequencies []int, lr uint) error {
-	if _, err := EncodeAlphabet(this.bitstream, alphabet[0:alphabetSize]); err != nil {
+func (this *RangeEncoder) encodeHeader(alphabet []int, frequencies []int, lr uint) error {
+	if _, err := EncodeAlphabet(this.bitstream, alphabet); err != nil {
 		return err
 	}
+
+	alphabetSize := len(alphabet)
 
 	if alphabetSize == 0 {
 		return nil
