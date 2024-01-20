@@ -49,13 +49,16 @@ const (
 
 // IntTransform is a function that transforms the input int slice and writes
 // the result in the output int slice. The result may have a different size.
+// The transform must be stateless to ensure that the compression results
+// are the same regardless of the number of jobs (ie no information is retained
+// between to invocations of Forward or Inverse).
 type IntTransform interface {
-	// Forward applies the function to the src and writes the result
+	// Forward applies the function to the source and writes the result
 	// to the destination. Returns number of bytes read, number of bytes
 	// written and possibly an error.
 	Forward(src, dst []int) (uint, uint, error)
 
-	// Inverse applies the reverse function to the src and writes the result
+	// Inverse applies the reverse function to the source and writes the result
 	// to the destination. Returns number of bytes read, number of bytes
 	// written and possibly an error.
 	Inverse(src, dst []int) (uint, uint, error)
@@ -67,6 +70,9 @@ type IntTransform interface {
 
 // ByteTransform is a function that transforms the input byte slice and writes
 // the result in the output byte slice. The result may have a different size.
+// The transform must be stateless to ensure that the compression results
+// are the same regardless of the number of jobs (ie no information is retained
+// between to invocations of Forward or Inverse).
 type ByteTransform interface {
 	// Forward applies the function to the src and writes the result
 	// to the destination. Returns number of bytes read, number of bytes
@@ -87,7 +93,7 @@ type InputBitStream interface {
 	// ReadBit returns the next bit in the bitstream. Panics if closed or EOS is reached.
 	ReadBit() int
 
-	// ReadBits reads 'length' (in [1..64]) bits from the bitstream .
+	// ReadBits reads 'length' (in [1..64]) bits from the bitstream.
 	// Returns the bits read as an uint64.
 	// Panics if closed or EOS is reached.
 	ReadBits(length uint) uint64
@@ -109,7 +115,7 @@ type InputBitStream interface {
 
 // OutputBitStream is a bitstream writer
 type OutputBitStream interface {
-	// WriteBit writes the least significant bit of the input integer
+	// WriteBit writes the least significant bit of the input integer.
 	// Panics if closed or an IO error is received.
 	WriteBit(bit int)
 
