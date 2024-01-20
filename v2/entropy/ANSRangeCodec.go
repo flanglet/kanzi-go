@@ -188,7 +188,7 @@ func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, lr uint) (int,
 		symb := this.symbols[k<<8 : (k+1)<<8]
 		var alphabetSize int
 
-		if alphabetSize, err = NormalizeFrequencies(f, alphabet[:], f[256], 1<<lr); err != nil {
+		if alphabetSize, err = NormalizeFrequencies(f[0:256], alphabet[:], f[256], 1<<lr); err != nil {
 			break
 		}
 
