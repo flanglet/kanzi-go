@@ -58,7 +58,6 @@ type BlockCompressor struct {
 	entropyCodec  string
 	transform     string
 	blockSize     uint
-	level         int // command line compression level
 	jobs          uint
 	listeners     []kanzi.Listener
 	cpuProf       string
@@ -75,11 +74,58 @@ type fileCompressResult struct {
 func NewBlockCompressor(argsMap map[string]any) (*BlockCompressor, error) {
 	this := &BlockCompressor{}
 	this.listeners = make([]kanzi.Listener, 0)
-	this.level = -1
+	level := -1
 
-	if level, prst := argsMap["level"]; prst == true {
-		this.level = level.(int)
+	if lvl, prst := argsMap["level"]; prst == true {
+		level = lvl.(int)
+
+		if level < 0 || level > 9 {
+			return nil, fmt.Errorf("Invalid compression level (must be in[0..9]), got %d ", level)
+		}
+
 		delete(argsMap, "level")
+		tranformAndCodec := getTransformAndCodec(level)
+		tokens := strings.Split(tranformAndCodec, "&")
+		this.transform = tokens[0]
+		this.entropyCodec = tokens[1]
+	} else {
+		codec, prstC := argsMap["entropy"]
+		transf, prstF := argsMap["transform"]
+
+		if prstC == false && prstF == false {
+			// Default to level 3
+			tranformAndCodec := getTransformAndCodec(3)
+			tokens := strings.Split(tranformAndCodec, "&")
+			this.transform = tokens[0]
+			this.entropyCodec = tokens[1]
+		} else {
+			if prstC == true {
+				this.entropyCodec = codec.(string)
+				delete(argsMap, "entropy")
+			} else {
+				this.entropyCodec = "NONE"
+			}
+
+			if prstF == true {
+				strTransf := transf.(string)
+				delete(argsMap, "transform")
+
+				// Extract transform names. Curate input (EG. NONE+NONE+xxxx => xxxx)
+				name, err := transform.GetType(strTransf)
+
+				if err != nil {
+					return nil, err
+				}
+
+				if strTransf, err = transform.GetName(name); err != nil {
+					return nil, err
+				}
+
+				this.transform = strTransf
+			} else {
+				this.transform = "NONE"
+			}
+		}
 	}
 
 	if force, prst := argsMap["overwrite"]; prst == true {
@@ -117,25 +163,6 @@ func NewBlockCompressor(argsMap map[string]any) (*BlockCompressor, error) {
 		this.outputName = _COMP_STDOUT
 	}
 
-	strTransf := ""
-	strCodec := ""
-
-	if this.level >= 0 {
-		tranformAndCodec := getTransformAndCodec(this.level)
-		tokens := strings.Split(tranformAndCodec, "&")
-		strTransf = tokens[0]
-		strCodec = tokens[1]
-	} else {
-		if codec, prst := argsMap["entropy"]; prst == true {
-			strCodec = codec.(string)
-			delete(argsMap, "entropy")
-		} else {
-			strCodec = "ANS0"
-		}
-	}
-
-	this.entropyCodec = strCodec
-
 	if block, prst := argsMap["blockSize"]; prst == true {
 		szBlk := block.(uint)
 		this.blockSize = ((szBlk + 15) >> 4) << 4
@@ -149,7 +176,7 @@ func NewBlockCompressor(argsMap map[string]any) (*BlockCompressor, error) {
 			return nil, fmt.Errorf("Maximum block size is %d GB (%d bytes), got %d bytes", _COMP_MAX_BLOCK_SIZE/(1024*1024*1024), _COMP_MAX_BLOCK_SIZE, this.blockSize)
 		}
 	} else {
-		switch this.level {
+		switch level {
 		case 6:
 			this.blockSize = 2 * _COMP_DEFAULT_BLOCK_SIZE
 		case 7:
@@ -162,28 +189,6 @@ func NewBlockCompressor(argsMap map[string]any) (*BlockCompressor, error) {
 			this.blockSize = _COMP_DEFAULT_BLOCK_SIZE
 		}
 	}
-
-	if len(strTransf) == 0 {
-		if transf, prst := argsMap["transform"]; prst == true {
-			strTransf = transf.(string)
-			delete(argsMap, "transform")
-		} else {
-			strTransf = "BWT+RANK+ZRLT"
-		}
-
-		// Extract transform names. Curate input (EG. NONE+NONE+xxxx => xxxx)
-		name, err := transform.GetType(strTransf)
-
-		if err != nil {
-			return nil, err
-		}
-
-		if strTransf, err = transform.GetName(name); err != nil {
-			return nil, err
-		}
-	}
-
-	this.transform = strTransf
 
 	if check, prst := argsMap["checksum"]; prst == true {
 		this.checksum = check.(bool)
@@ -231,10 +236,8 @@ func NewBlockCompressor(argsMap map[string]any) (*BlockCompressor, error) {
 			concurrency = 1
 		}
 	} else if concurrency > _COMP_MAX_CONCURRENCY {
-		if this.verbosity > 0 {
-			fmt.Printf("Warning: the number of jobs is too high, defaulting to %d\n", _COMP_MAX_CONCURRENCY)
-		}
-
+		msg := fmt.Sprintf("Warning: the number of jobs is too high, defaulting to %d\n", _COMP_MAX_CONCURRENCY)
+		log.Println(msg, this.verbosity > 0)
 		concurrency = _COMP_MAX_CONCURRENCY
 	}
 
