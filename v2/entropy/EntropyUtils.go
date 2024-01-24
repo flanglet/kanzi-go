@@ -186,10 +186,6 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 			continue
 		}
 
-		if f > freqs[idxMax] {
-			idxMax = i
-		}
-
 		sf := int64(freqs[i]) * int64(scale)
 		var scaledFreq int
 
@@ -211,6 +207,10 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 		alphabetSize++
 		sumScaledFreq += scaledFreq
 		freqs[i] = scaledFreq
+
+		if scaledFreq > freqs[idxMax] {
+			idxMax = i
+		}
 	}
 
 	if alphabetSize == 0 {
@@ -224,9 +224,10 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 
 	if sumScaledFreq != scale {
 		delta := sumScaledFreq - scale
+errThr := freqs[idxMax] >> 4
 		var inc, absDelta int
 
-		if sumScaledFreq < scale {
+		if delta < 0 {
 			absDelta = -delta
 			inc = 1
 		} else {
@@ -234,10 +235,18 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 			inc = -1
 		}
 
-		if absDelta*10 < freqs[idxMax] {
+		if absDelta <= errThr {
 			// Fast path (small error): just adjust the max frequency
 			freqs[idxMax] -= delta
 			return alphabetSize, nil
+		}
+
+		if delta < 0 {
+			freqs[idxMax] += errThr 
+			sumScaledFreq += errThr
+		} else {
+			freqs[idxMax] -= errThr
+			sumScaledFreq -= errThr
 		}
 
 		// Slow path: spread error across frequencies
