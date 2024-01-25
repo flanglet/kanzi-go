@@ -224,7 +224,7 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 
 	if sumScaledFreq != scale {
 		delta := sumScaledFreq - scale
-errThr := freqs[idxMax] >> 4
+		errThr := freqs[idxMax] >> 4
 		var inc, absDelta int
 
 		if delta < 0 {
@@ -242,7 +242,7 @@ errThr := freqs[idxMax] >> 4
 		}
 
 		if delta < 0 {
-			freqs[idxMax] += errThr 
+			freqs[idxMax] += errThr
 			sumScaledFreq += errThr
 		} else {
 			freqs[idxMax] -= errThr

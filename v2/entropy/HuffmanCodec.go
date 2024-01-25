@@ -747,9 +747,9 @@ func (this *HuffmanDecoder) Read(block []byte) (int, error) {
 
 				for idx < sz-8 {
 					shift := uint8((56 - bits) & 0xF8)
-					state = (state << shift) | (binary.BigEndian.Uint64(this.buffer[idx:idx+8]) >> (63 - shift) >> 1) // handle shift = 0
-					bs := bits + shift - _HUF_MAX_SYMBOL_SIZE_V4
+					state = (state << shift) | (binary.BigEndian.Uint64(this.buffer[idx:idx+8]) >> 1 >> (63 - shift)) // handle shift = 0
 					idx += int(shift >> 3)
+					bs := bits + shift - _HUF_MAX_SYMBOL_SIZE_V4
 					val0 := this.table[(state>>bs)&_HUF_DECODING_MASK_V4]
 					bs -= uint8(val0)
 					val1 := this.table[(state>>bs)&_HUF_DECODING_MASK_V4]
@@ -758,12 +758,12 @@ func (this *HuffmanDecoder) Read(block []byte) (int, error) {
 					bs -= uint8(val2)
 					val3 := this.table[(state>>bs)&_HUF_DECODING_MASK_V4]
 					bs -= uint8(val3)
+					bits = bs + _HUF_MAX_SYMBOL_SIZE_V4
 					block[n+0] = byte(val0 >> 8)
 					block[n+1] = byte(val1 >> 8)
 					block[n+2] = byte(val2 >> 8)
 					block[n+3] = byte(val3 >> 8)
 					n += 4
-					bits = bs + _HUF_MAX_SYMBOL_SIZE_V4
 				}
 
 				// Last bytes
