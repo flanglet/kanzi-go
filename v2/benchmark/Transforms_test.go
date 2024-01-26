@@ -153,6 +153,8 @@ func BenchmarkMTFT(b *testing.B) {
 }
 
 func testTransformSpeed(name string, iter int) error {
+	// Initialize with a fixed seed to get consistent results
+	r := rand.New(rand.NewSource(1234567))
 	size := 50000
 
 	for jj := 0; jj < 3; jj++ {
@@ -165,7 +167,7 @@ func testTransformSpeed(name string, iter int) error {
 		n := iter / 20
 
 		for n < len(input) {
-			val := byte(rand.Intn(64))
+			val := byte(r.Intn(64))
 
 			if val%7 == 0 {
 				val = 0

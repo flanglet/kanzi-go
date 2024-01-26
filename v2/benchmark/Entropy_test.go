@@ -105,6 +105,8 @@ func getDecoder(name string, ibs kanzi.InputBitStream) kanzi.EntropyDecoder {
 }
 
 func testEntropySpeed(b *testing.B, name string) error {
+	// Initialize with a fixed seed to get consistent results
+	r := rand.New(rand.NewSource(1234567))
 	repeats := []int{3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9, 3}
 
 	for jj := 0; jj < 3; jj++ {
@@ -122,7 +124,7 @@ func testEntropySpeed(b *testing.B, name string) error {
 
 				length := repeats[idx]
 				idx = (idx + 1) & 0x0F
-				b := byte(rand.Intn(256))
+				b := byte(r.Intn(256))
 
 				if i0+length >= size {
 					length = size - i0 - 1

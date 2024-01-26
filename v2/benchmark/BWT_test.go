@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"math/rand"
 	"testing"
-	"time"
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
 	"github.com/flanglet/kanzi-go/v2/transform"
@@ -50,8 +49,9 @@ func testBWTSpeed(isBWT bool, iter, size int) error {
 	buf3 := make([]byte, size)
 
 	for jj := 0; jj < 3; jj++ {
+		// Initialize with a fixed seed to get consistent results
+		r := rand.New(rand.NewSource(int64(jj * 1234567)))
 		var bwt kanzi.ByteTransform
-		rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 		for i := 0; i < iter; i++ {
 			if isBWT {
@@ -61,7 +61,7 @@ func testBWTSpeed(isBWT bool, iter, size int) error {
 			}
 
 			for i := range buf1 {
-				buf1[i] = byte(rnd.Intn(255) + 1)
+				buf1[i] = byte(r.Intn(255) + 1)
 			}
 
 			_, _, err1 := bwt.Forward(buf1, buf2)
