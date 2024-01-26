@@ -20,8 +20,6 @@ limitations under the License.
 // like bitstream, io, transform or entropy.
 // In particular, the io package contains the implementation of the
 // Writer and Reader used to compress and decompress data.
-//
-
 package kanzi
 
 const (
