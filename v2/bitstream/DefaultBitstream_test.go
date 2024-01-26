@@ -33,13 +33,23 @@ const (
 )
 
 func TestBitStreamAligned(b *testing.T) {
-	testCorrectnessAligned1()
-	testCorrectnessAligned2()
+	if err := testCorrectnessAligned1(); err != nil {
+		b.Errorf(err.Error())
+	}
+
+	if err := testCorrectnessAligned2(); err != nil {
+		b.Errorf(err.Error())
+	}
 }
 
 func TestBitStreamMisaligned(b *testing.T) {
-	testCorrectnessMisaligned1()
-	testCorrectnessMisaligned2()
+	if err := testCorrectnessMisaligned1(); err != nil {
+		b.Errorf(err.Error())
+	}
+
+	if err := testCorrectnessMisaligned2(); err != nil {
+		b.Errorf(err.Error())
+	}
 }
 
 func testCorrectnessAligned1() error {
