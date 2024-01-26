@@ -471,10 +471,8 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 
 func notifyBDListeners(listeners []kanzi.Listener, evt *kanzi.Event) {
 	defer func() {
-		//nolint
+		//lint:ignore SA9003 Ignore panics in listeners
 		if r := recover(); r != nil {
-			//lint:ignore SA9003
-			// Ignore panics in listeners
 		}
 	}()
 
