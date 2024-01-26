@@ -17,7 +17,7 @@ package io
 
 import (
 	"fmt"
-	"github.com/flanglet/kanzi-go/v2/util"
+	"github.com/flanglet/kanzi-go/v2/internal"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -184,7 +184,7 @@ func compressAfterWriteClose(block []byte) int {
 	fmt.Println("Test - write after close")
 	buf := make([]byte, len(block))
 	copy(buf, block)
-	var bs util.BufferStream
+	var bs internal.BufferStream
 
 	os, err := NewWriter(&bs, "HUFFMAN", "NONE", uint(len(block)), 1, false)
 
@@ -217,7 +217,7 @@ func compressAfterWriteClose(block []byte) int {
 
 func compressAfterReadClose(block []byte) int {
 	fmt.Println("Test - read after close")
-	var bs util.BufferStream
+	var bs internal.BufferStream
 
 	os, err := NewWriter(&bs, "NONE", "NONE", uint(len(block)), 1, false)
 
