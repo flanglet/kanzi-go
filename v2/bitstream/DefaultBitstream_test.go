@@ -23,7 +23,7 @@ import (
 	"testing"
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
-	"github.com/flanglet/kanzi-go/v2/util"
+	"github.com/flanglet/kanzi-go/v2/internal"
 )
 
 const (
@@ -58,7 +58,7 @@ func testCorrectnessAligned1() error {
 
 	// Check correctness of read() and written()
 	for t := 1; t <= 32; t++ {
-		var bs util.BufferStream
+		var bs internal.BufferStream
 		obs, _ := NewDefaultOutputBitStream(&bs, 16384)
 		fmt.Println()
 		obs.WriteBits(0x0123456789ABCDEF, uint(t))
@@ -85,7 +85,7 @@ func testCorrectnessAligned1() error {
 	}
 
 	for test := 1; test <= 10; test++ {
-		var bs util.BufferStream
+		var bs internal.BufferStream
 		obs, _ := NewDefaultOutputBitStream(&bs, 16384)
 		dbgobs, _ := NewDebugOutputBitStream(obs, os.Stdout)
 		dbgobs.ShowByte(true)
@@ -168,7 +168,7 @@ func testCorrectnessMisaligned1() error {
 
 	// Check correctness of read() and written()
 	for t := 1; t <= 32; t++ {
-		var bs util.BufferStream
+		var bs internal.BufferStream
 		obs, _ := NewDefaultOutputBitStream(&bs, 16384)
 		dbgobs, _ := NewDebugOutputBitStream(obs, os.Stdout)
 		dbgobs.ShowByte(true)
@@ -200,7 +200,7 @@ func testCorrectnessMisaligned1() error {
 	}
 
 	for test := 1; test <= 10; test++ {
-		var bs util.BufferStream
+		var bs internal.BufferStream
 		obs, _ := NewDefaultOutputBitStream(&bs, 16384)
 		dbgobs, _ := NewDebugOutputBitStream(obs, os.Stdout)
 		dbgobs.ShowByte(true)
@@ -288,7 +288,7 @@ func testCorrectnessAligned2() error {
 	output := make([]byte, 100)
 
 	for test := 1; test <= 10; test++ {
-		var bs util.BufferStream
+		var bs internal.BufferStream
 		obs, _ := NewDefaultOutputBitStream(&bs, 16384)
 		dbgobs, _ := NewDebugOutputBitStream(obs, os.Stdout)
 		dbgobs.ShowByte(true)
@@ -371,7 +371,7 @@ func testCorrectnessMisaligned2() error {
 	output := make([]byte, 100)
 
 	for test := 1; test <= 10; test++ {
-		var bs util.BufferStream
+		var bs internal.BufferStream
 		obs, _ := NewDefaultOutputBitStream(&bs, 16384)
 		dbgobs, _ := NewDebugOutputBitStream(obs, os.Stdout)
 		dbgobs.ShowByte(true)

@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/flanglet/kanzi-go/v2/util/hash"
+	"github.com/flanglet/kanzi-go/v2/hash"
 )
 
 func BenchmarkXXHash32b(b *testing.B) {

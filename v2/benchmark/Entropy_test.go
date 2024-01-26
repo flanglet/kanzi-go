@@ -23,7 +23,7 @@ import (
 	kanzi "github.com/flanglet/kanzi-go/v2"
 	"github.com/flanglet/kanzi-go/v2/bitstream"
 	"github.com/flanglet/kanzi-go/v2/entropy"
-	"github.com/flanglet/kanzi-go/v2/util"
+	"github.com/flanglet/kanzi-go/v2/internal"
 )
 
 func BenchmarkExpGolomb(b *testing.B) {
@@ -112,7 +112,7 @@ func testEntropySpeed(b *testing.B, name string) error {
 		size := 50000
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
-		var bs util.BufferStream
+		var bs internal.BufferStream
 
 		for ii := 0; ii < iter; ii++ {
 			idx := jj

@@ -25,8 +25,7 @@ import (
 	kanzi "github.com/flanglet/kanzi-go/v2"
 	"github.com/flanglet/kanzi-go/v2/bitstream"
 	"github.com/flanglet/kanzi-go/v2/entropy"
-	internal "github.com/flanglet/kanzi-go/v2/internal"
-	"github.com/flanglet/kanzi-go/v2/util"
+	"github.com/flanglet/kanzi-go/v2/internal"
 )
 
 // Implementation of a Reduced Offset Lempel Ziv transform
@@ -522,7 +521,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			litIdx += litLen
 		}
 
-		var os util.BufferStream
+		var os internal.BufferStream
 
 		// Scope to deallocate resources early
 		{
@@ -621,7 +620,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		sizeChunk = _ROLZ_CHUNK_SIZE
 	}
 
-	var is util.BufferStream
+	var is internal.BufferStream
 	dstEnd := int(binary.BigEndian.Uint32(src[0:])) - 4
 
 	if dstEnd <= 0 || dstEnd > len(dst) {

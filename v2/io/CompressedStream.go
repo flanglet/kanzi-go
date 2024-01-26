@@ -28,10 +28,9 @@ import (
 	kanzi "github.com/flanglet/kanzi-go/v2"
 	"github.com/flanglet/kanzi-go/v2/bitstream"
 	"github.com/flanglet/kanzi-go/v2/entropy"
-	internal "github.com/flanglet/kanzi-go/v2/internal"
+	"github.com/flanglet/kanzi-go/v2/internal"
 	"github.com/flanglet/kanzi-go/v2/transform"
-	"github.com/flanglet/kanzi-go/v2/util"
-	"github.com/flanglet/kanzi-go/v2/util/hash"
+	"github.com/flanglet/kanzi-go/v2/hash"
 )
 
 // Write to/read from bitstream using a 2 step process:
@@ -710,7 +709,7 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 	}
 
 	// Create a bitstream local to the task
-	bufStream := util.NewBufferStream(data[0:0:cap(data)])
+	bufStream := internal.NewBufferStream(data[0:0:cap(data)])
 	obs, _ := bitstream.NewDefaultOutputBitStream(bufStream, 16384)
 
 	// Write block 'header' (mode + compressed length)
@@ -1517,7 +1516,7 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 
 	// All the code below is concurrent
 	// Create a bitstream local to the task
-	bufStream := util.NewBufferStream(data[0:r])
+	bufStream := internal.NewBufferStream(data[0:r])
 	ibs, _ := bitstream.NewDefaultInputBitStream(bufStream, 16384)
 
 	mode := byte(ibs.ReadBits(8))

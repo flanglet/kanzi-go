@@ -24,7 +24,7 @@ import (
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
 	"github.com/flanglet/kanzi-go/v2/bitstream"
-	"github.com/flanglet/kanzi-go/v2/util"
+	"github.com/flanglet/kanzi-go/v2/internal"
 )
 
 func TestHuffman(b *testing.T) {
@@ -146,7 +146,7 @@ func testEntropyCorrectness(name string) error {
 
 		println()
 		fmt.Printf("\nEncoded: \n")
-		var bs util.BufferStream
+		var bs internal.BufferStream
 		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
 		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
 		dbgbs.ShowByte(true)
