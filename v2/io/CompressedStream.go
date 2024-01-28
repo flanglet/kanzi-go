@@ -28,9 +28,9 @@ import (
 	kanzi "github.com/flanglet/kanzi-go/v2"
 	"github.com/flanglet/kanzi-go/v2/bitstream"
 	"github.com/flanglet/kanzi-go/v2/entropy"
+	"github.com/flanglet/kanzi-go/v2/hash"
 	"github.com/flanglet/kanzi-go/v2/internal"
 	"github.com/flanglet/kanzi-go/v2/transform"
-	"github.com/flanglet/kanzi-go/v2/hash"
 )
 
 // Write to/read from bitstream using a 2 step process:

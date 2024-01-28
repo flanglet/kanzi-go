@@ -28,7 +28,7 @@ import (
 	"time"
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
-	internal "github.com/flanglet/kanzi-go/v2/internal"
+	"github.com/flanglet/kanzi-go/v2/internal"
 	kio "github.com/flanglet/kanzi-go/v2/io"
 )
 

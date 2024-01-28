@@ -26,7 +26,7 @@ import (
 const (
 	_BWT_MAX_BLOCK_SIZE        = 1024 * 1024 * 1024 // 1 GB
 	_BWT_NB_FASTBITS           = 17
-	_BWT_MASK_FASTBITS         = 1 << _BWT_NB_FASTBITS
+	_BWT_MASK_FASTBITS         = (1 << _BWT_NB_FASTBITS) - 1
 	_BWT_BLOCK_SIZE_THRESHOLD1 = 256
 	_BWT_BLOCK_SIZE_THRESHOLD2 = 8 * 1024 * 1024
 )
@@ -331,13 +331,16 @@ func (this *BWT) inverseMergeTPSI(src, dst []byte, count int) (uint, uint, error
 func (this *BWT) inverseBiPSIv2(src, dst []byte, count int) (uint, uint, error) {
 	// Lazy dynamic memory allocations
 	if len(this.buffer) < count+1 {
-		if count+1 <= 64 {
-			this.buffer = make([]int32, 64)
+		if count+1 <= 256 {
+			this.buffer = make([]int32, 256)
 		} else {
 			this.buffer = make([]int32, count+1)
 		}
+	} else {
+		for i := range this.buffer {
+			this.buffer[i] = 0
+		}
 	}
-
 	pIdx := int(this.PrimaryIndex(0))
 
 	if pIdx > len(src) {
@@ -497,6 +500,10 @@ func (this *BWT) inverseBiPSIv2Task(dst []byte, buckets []int, fastBits []uint16
 	}
 
 	c := firstChunk
+	dst0 := dst[0:]
+	dst1 := dst[ckSize:]
+	dst2 := dst[2*ckSize:]
+	dst3 := dst[3*ckSize:]
 
 	if start+4*ckSize < total {
 		for c+3 < lastChunk {
@@ -528,14 +535,14 @@ func (this *BWT) inverseBiPSIv2Task(dst []byte, buckets []int, fastBits []uint16
 					s3++
 				}
 
-				dst[i-1] = byte(s0 >> 8)
-				dst[i] = byte(s0)
-				dst[ckSize+i-1] = byte(s1 >> 8)
-				dst[ckSize+i] = byte(s1)
-				dst[2*ckSize+i-1] = byte(s2 >> 8)
-				dst[2*ckSize+i] = byte(s2)
-				dst[3*ckSize+i-1] = byte(s3 >> 8)
-				dst[3*ckSize+i] = byte(s3)
+				dst0[i-1] = byte(s0 >> 8)
+				dst0[i] = byte(s0)
+				dst1[i-1] = byte(s1 >> 8)
+				dst1[i] = byte(s1)
+				dst2[i-1] = byte(s2 >> 8)
+				dst2[i] = byte(s2)
+				dst3[i-1] = byte(s3 >> 8)
+				dst3[i] = byte(s3)
 				p0 = int(data[p0])
 				p1 = int(data[p1])
 				p2 = int(data[p2])
