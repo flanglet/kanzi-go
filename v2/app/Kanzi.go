@@ -206,7 +206,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 	outputName := ""
 	codec := ""
 	transform := ""
-	tasks := 0
+	tasks := -1
 	cpuProf := ""
 	ctx := -1
 	level := -1
@@ -665,13 +665,13 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 				strTasks = arg
 			}
 
-			if tasks != 0 {
+			if tasks != -1 {
 				log.Println(fmt.Sprintf(warningDupOpt, "jobs", strTasks), verbose > 0)
 				ctx = -1
 				continue
 			}
 
-			if tasks, err = strconv.Atoi(strTasks); err != nil || tasks < 1 {
+			if tasks, err = strconv.Atoi(strTasks); err != nil || tasks < 0 {
 				fmt.Println(fmt.Sprintf(warningInvalidOpt, "number of jobs", strTasks))
 				return kanzi.ERR_BLOCK_SIZE
 			}
@@ -813,7 +813,9 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 		argsMap["noLinks"] = true
 	}
 
-	argsMap["jobs"] = uint(tasks)
+	if tasks >= 0 {
+		argsMap["jobs"] = uint(tasks)
+	}
 
 	if len(cpuProf) > 0 {
 		argsMap["cpuProf"] = cpuProf

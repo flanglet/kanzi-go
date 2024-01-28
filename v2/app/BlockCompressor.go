@@ -220,24 +220,24 @@ func NewBlockCompressor(argsMap map[string]any) (*BlockCompressor, error) {
 
 	this.verbosity = argsMap["verbosity"].(uint)
 	delete(argsMap, "verbosity")
-	concurrency := argsMap["jobs"].(uint)
-	delete(argsMap, "jobs")
+	concurrency := uint(1)
 
-	if concurrency == 0 {
-		cores := runtime.NumCPU() / 2 // defaults to half the cores
+	if c, prst := argsMap["jobs"].(uint); prst == true {
+		delete(argsMap, "jobs")
+		concurrency = c
 
-		if cores > 0 {
-			if cores > _COMP_MAX_CONCURRENCY {
-				concurrency = _COMP_MAX_CONCURRENCY
-			} else {
-				concurrency = uint(cores)
-			}
-		} else {
-			concurrency = 1
+		if c == 0 {
+			concurrency = uint(runtime.NumCPU()) // use all cores
+		} else if c > _COMP_MAX_CONCURRENCY {
+			msg := fmt.Sprintf("Warning: the number of jobs is too high, defaulting to %d\n", _COMP_MAX_CONCURRENCY)
+			log.Println(msg, this.verbosity > 0)
+			concurrency = _COMP_MAX_CONCURRENCY
 		}
-	} else if concurrency > _COMP_MAX_CONCURRENCY {
-		msg := fmt.Sprintf("Warning: the number of jobs is too high, defaulting to %d\n", _COMP_MAX_CONCURRENCY)
-		log.Println(msg, this.verbosity > 0)
+	} else if runtime.NumCPU() > 1 {
+		concurrency = uint(runtime.NumCPU() / 2) // defaults to half the cores
+	}
+
+	if concurrency > _COMP_MAX_CONCURRENCY {
 		concurrency = _COMP_MAX_CONCURRENCY
 	}
 

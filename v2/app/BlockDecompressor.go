@@ -85,8 +85,28 @@ func NewBlockDecompressor(argsMap map[string]any) (*BlockDecompressor, error) {
 		this.outputName = _DECOMP_STDOUT
 	}
 
-	concurrency := argsMap["jobs"].(uint)
-	delete(argsMap, "jobs")
+	concurrency := uint(1)
+
+	if c, prst := argsMap["jobs"].(uint); prst == true {
+		delete(argsMap, "jobs")
+		concurrency = c
+
+		if c == 0 {
+			concurrency = uint(runtime.NumCPU()) // use all cores
+		} else if c > _COMP_MAX_CONCURRENCY {
+			msg := fmt.Sprintf("Warning: the number of jobs is too high, defaulting to %d\n", _COMP_MAX_CONCURRENCY)
+			log.Println(msg, this.verbosity > 0)
+			concurrency = _COMP_MAX_CONCURRENCY
+		}
+	} else if runtime.NumCPU() > 1 {
+		concurrency = uint(runtime.NumCPU() / 2) // defaults to half the cores
+	}
+
+	if concurrency > _COMP_MAX_CONCURRENCY {
+		concurrency = _COMP_MAX_CONCURRENCY
+	}
+
+	this.jobs = concurrency
 	this.verbosity = argsMap["verbosity"].(uint)
 	delete(argsMap, "verbosity")
 
@@ -103,28 +123,6 @@ func NewBlockDecompressor(argsMap map[string]any) (*BlockDecompressor, error) {
 	} else {
 		this.to = -1
 	}
-
-	if concurrency == 0 {
-		cores := runtime.NumCPU() / 2 // defaults to half the cores
-
-		if cores > 0 {
-			if cores > _COMP_MAX_CONCURRENCY {
-				concurrency = _COMP_MAX_CONCURRENCY
-			} else {
-				concurrency = uint(cores)
-			}
-		} else {
-			concurrency = 1
-		}
-	} else if concurrency > _DECOMP_MAX_CONCURRENCY {
-		if this.verbosity > 0 {
-			fmt.Printf("Warning: the number of jobs is too high, defaulting to %d\n", _DECOMP_MAX_CONCURRENCY)
-		}
-
-		concurrency = _DECOMP_MAX_CONCURRENCY
-	}
-
-	this.jobs = concurrency
 
 	if prof, hasKey := argsMap["cpuProf"]; hasKey == true {
 		this.cpuProf = prof.(string)
