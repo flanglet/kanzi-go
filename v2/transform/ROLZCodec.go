@@ -896,7 +896,7 @@ End:
 }
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
-func (this rolzCodec1) MaxEncodedLen(srcLen int) int {
+func (this *rolzCodec1) MaxEncodedLen(srcLen int) int {
 	if srcLen <= 512 {
 		return srcLen + 64
 	}
@@ -1352,7 +1352,7 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 }
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
-func (this rolzCodec2) MaxEncodedLen(srcLen int) int {
+func (this *rolzCodec2) MaxEncodedLen(srcLen int) int {
 	// Since we do not check the dst index for each byte (for speed purpose)
 	// allocate some extra buffer for incompressible data.
 	if srcLen <= 16384 {

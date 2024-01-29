@@ -219,6 +219,6 @@ End:
 }
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
-func (this ZRLT) MaxEncodedLen(srcLen int) int {
+func (this *ZRLT) MaxEncodedLen(srcLen int) int {
 	return srcLen
 }

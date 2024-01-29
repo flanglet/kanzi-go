@@ -1077,7 +1077,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	return uint(srcIdx), uint(dstIdx), err
 }
 
-func (this textCodec1) MaxEncodedLen(srcLen int) int {
+func (this *textCodec1) MaxEncodedLen(srcLen int) int {
 	// Limit to 1 x srcLength and let the caller deal with
 	// a failure when the output is too small
 	return srcLen
@@ -1626,7 +1626,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	return uint(srcIdx), uint(dstIdx), err
 }
 
-func (this textCodec2) MaxEncodedLen(srcLen int) int {
+func (this *textCodec2) MaxEncodedLen(srcLen int) int {
 	// Limit to 1 x srcLength and let the caller deal with
 	// a failure when the output is too small
 	return srcLen

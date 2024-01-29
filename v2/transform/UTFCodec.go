@@ -343,7 +343,7 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 }
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
-func (this UTFCodec) MaxEncodedLen(srcLen int) int {
+func (this *UTFCodec) MaxEncodedLen(srcLen int) int {
 	return srcLen + 8192
 }
 

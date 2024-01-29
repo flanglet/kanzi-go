@@ -178,7 +178,7 @@ func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) 
 }
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
-func (this ByteTransformSequence) MaxEncodedLen(srcLen int) int {
+func (this *ByteTransformSequence) MaxEncodedLen(srcLen int) int {
 	requiredSize := srcLen
 
 	for _, t := range this.transforms {

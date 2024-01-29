@@ -590,6 +590,6 @@ func GetBWTChunks(size int) int {
 }
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
-func (this BWT) MaxEncodedLen(srcLen int) int {
+func (this *BWT) MaxEncodedLen(srcLen int) int {
 	return srcLen
 }

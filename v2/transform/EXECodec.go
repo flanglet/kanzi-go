@@ -550,7 +550,7 @@ func (this *EXECodec) inverseARM(src, dst []byte) (uint, uint, error) {
 }
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
-func (this EXECodec) MaxEncodedLen(srcLen int) int {
+func (this *EXECodec) MaxEncodedLen(srcLen int) int {
 	// Allocate some extra buffer for incompressible data.
 	if srcLen <= 256 {
 		return srcLen + 32

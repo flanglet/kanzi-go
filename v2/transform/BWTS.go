@@ -288,6 +288,6 @@ func (this *BWTS) Inverse(src, dst []byte) (uint, uint, error) {
 }
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
-func (this BWTS) MaxEncodedLen(srcLen int) int {
+func (this *BWTS) MaxEncodedLen(srcLen int) int {
 	return srcLen
 }

@@ -429,7 +429,7 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 }
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
-func (this RLT) MaxEncodedLen(srcLen int) int {
+func (this *RLT) MaxEncodedLen(srcLen int) int {
 	if srcLen <= 512 {
 		return srcLen + 32
 	}
