@@ -36,7 +36,7 @@ const (
 )
 
 // Return the number of codes generated
-func generateCanonicalCodes(sizes []byte, codes []uint, symbols []int, maxSymbolSize int) (int, error) {
+func generateCanonicalCodes(sizes []byte, codes []uint16, symbols []int, maxSymbolSize int) (int, error) {
 	count := len(symbols)
 
 	if count == 0 {
@@ -65,7 +65,7 @@ func generateCanonicalCodes(sizes []byte, codes []uint, symbols []int, maxSymbol
 		}
 	}
 
-	code := uint(0)
+	code := uint16(0)
 	curLen := sizes[symbols[0]]
 
 	for _, s := range symbols {
@@ -85,7 +85,7 @@ func generateCanonicalCodes(sizes []byte, codes []uint, symbols []int, maxSymbol
 // Uses in place generation of canonical codes instead of a tree
 type HuffmanEncoder struct {
 	bitstream kanzi.OutputBitStream
-	codes     [256]uint
+	codes     [256]uint16
 	buffer    []byte
 	chunkSize int
 }
@@ -123,7 +123,7 @@ func NewHuffmanEncoder(bs kanzi.OutputBitStream, args ...uint) (*HuffmanEncoder,
 
 	// Default frequencies, sizes and codes
 	for i := 0; i < 256; i++ {
-		this.codes[i] = uint(i)
+		this.codes[i] = uint16(i)
 	}
 
 	return this, nil
@@ -159,7 +159,7 @@ func (this *HuffmanEncoder) updateFrequencies(freqs []int) (int, error) {
 	}
 
 	if count == 1 {
-		this.codes[symbols[0]] = 1 << 24
+		this.codes[symbols[0]] = 1 << 12
 		sizes[symbols[0]] = 1
 	} else {
 		retries := uint(0)
@@ -227,7 +227,7 @@ func (this *HuffmanEncoder) updateFrequencies(freqs []int) (int, error) {
 	// Unary encode the length differences
 	for _, s := range symbols {
 		curSize := sizes[s]
-		this.codes[s] |= (uint(curSize) << 24)
+		this.codes[s] |= (uint16(curSize) << 12)
 		egenc.EncodeByte(curSize - prevSize)
 		prevSize = curSize
 	}
@@ -383,20 +383,20 @@ func (this *HuffmanEncoder) Write(block []byte) (int, error) {
 
 		// Encode chunk
 		for i := startChunk; i < endChunk4; i += 4 {
-			var code uint
+			var code uint16
 			code = c[block[i]]
-			codeLen0 := int(code >> 24)
-			state = (state << codeLen0) | uint64(code&0xFFFFFF)
+			codeLen0 := (c[block[i]] >> 12)
+			state = (state << codeLen0) | uint64(code&0x0FFF)
 			code = c[block[i+1]]
-			codeLen1 := int(code >> 24)
-			state = (state << codeLen1) | uint64(code&0xFFFFFF)
+			codeLen1 := (code >> 12)
+			state = (state << codeLen1) | uint64(code&0x0FFF)
 			code = c[block[i+2]]
-			codeLen2 := int(code >> 24)
-			state = (state << codeLen2) | uint64(code&0xFFFFFF)
+			codeLen2 := (code >> 12)
+			state = (state << codeLen2) | uint64(code&0x0FFF)
 			code = c[block[i+3]]
-			codeLen3 := int(code >> 24)
-			state = (state << codeLen3) | uint64(code&0xFFFFFF)
-			bits += (codeLen0 + codeLen1 + codeLen2 + codeLen3)
+			codeLen3 := (code >> 12)
+			state = (state << codeLen3) | uint64(code&0x0FFF)
+			bits += int(codeLen0 + codeLen1 + codeLen2 + codeLen3)
 			binary.BigEndian.PutUint64(this.buffer[idx:idx+8], state<<uint(64-bits))
 			idx += (bits >> 3)
 			bits &= 7
@@ -404,9 +404,9 @@ func (this *HuffmanEncoder) Write(block []byte) (int, error) {
 
 		for i := endChunk4; i < endChunk; i++ {
 			code := c[block[i]]
-			codeLen := int(code >> 24)
-			state = (state << codeLen) | uint64(code&0xFFFFFF)
-			bits += codeLen
+			codeLen := (code >> 12)
+			state = (state << codeLen) | uint64(code&0x0FFF)
+			bits += int(codeLen)
 		}
 
 		nbBits := (idx * 8) + bits
@@ -450,7 +450,7 @@ func (this *HuffmanEncoder) BitStream() kanzi.OutputBitStream {
 // Uses tables to decode symbols
 type HuffmanDecoder struct {
 	bitstream     kanzi.InputBitStream
-	codes         [256]uint
+	codes         [256]uint16
 	alphabet      [256]int
 	sizes         [256]byte
 	buffer        []byte
@@ -498,7 +498,7 @@ func NewHuffmanDecoder(bs kanzi.InputBitStream, args ...uint) (*HuffmanDecoder, 
 	// Default lengths & canonical codes
 	for i := 0; i < 256; i++ {
 		this.sizes[i] = 8
-		this.codes[i] = uint(i)
+		this.codes[i] = uint16(i)
 	}
 
 	return this, nil
@@ -536,7 +536,7 @@ func NewHuffmanDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]any) (*Hu
 	// Default lengths & canonical codes
 	for i := 0; i < 256; i++ {
 		this.sizes[i] = 8
-		this.codes[i] = uint(i)
+		this.codes[i] = uint16(i)
 	}
 
 	return this, nil
