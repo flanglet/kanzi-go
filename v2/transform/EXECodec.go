@@ -671,17 +671,8 @@ func parseExeHeader(src []byte, magic uint, arch, codeStart, codeEnd *int) bool 
 			posPE := int(binary.LittleEndian.Uint32(src[60:]))
 
 			if (posPE > 0) && (posPE <= count-48) && (int(binary.LittleEndian.Uint32(src[posPE:])) == _EXE_WIN_PE) {
-				*codeStart = int(binary.LittleEndian.Uint32(src[posPE+44:]))
-				*codeEnd = *codeStart + int(binary.LittleEndian.Uint32(src[posPE+28:]))
-
-				if *codeStart > count {
-					*codeStart = count
-				}
-
-				if *codeEnd > count {
-					*codeEnd = count
-				}
-
+				*codeStart = min(int(binary.LittleEndian.Uint32(src[posPE+44:])), count)
+				*codeEnd = min(*codeStart+int(binary.LittleEndian.Uint32(src[posPE+28:])), count)
 				*arch = int(binary.LittleEndian.Uint16(src[posPE+4:]))
 			}
 
@@ -805,14 +796,8 @@ func parseExeHeader(src []byte, magic uint, arch, codeStart, codeEnd *int) bool 
 				*arch = int(binary.BigEndian.Uint16(src[18:]))
 			}
 
-			if *codeStart > count {
-				*codeStart = count
-			}
-
-			if *codeEnd > count {
-				*codeEnd = count
-			}
-
+			*codeStart = min(*codeStart, count)
+			*codeEnd = min(*codeEnd, count)
 			return true
 		}
 	} else if (magic == internal.MAC_MAGIC32) || (magic == internal.MAC_CIGAM32) ||
@@ -880,14 +865,8 @@ func parseExeHeader(src []byte, magic uint, arch, codeStart, codeEnd *int) bool 
 				pos += szCmd
 			}
 
-			if *codeStart > count {
-				*codeStart = count
-			}
-
-			if *codeEnd > count {
-				*codeEnd = count
-			}
-
+			*codeStart = min(*codeStart, count)
+			*codeEnd = min(*codeEnd, count)
 			return true
 		}
 	}

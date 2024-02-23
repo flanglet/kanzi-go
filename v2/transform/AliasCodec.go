@@ -143,7 +143,7 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 			dstIdx = 1
 			j := 0
 
-			for i := range freqs0 {
+			for i := range &freqs0 {
 				if freqs0[i] != 0 {
 					dst[dstIdx] = byte(i)
 					dstIdx++

@@ -237,11 +237,7 @@ func NewBlockCompressor(argsMap map[string]any) (*BlockCompressor, error) {
 		concurrency = uint(runtime.NumCPU() / 2) // defaults to half the cores
 	}
 
-	if concurrency > _COMP_MAX_CONCURRENCY {
-		concurrency = _COMP_MAX_CONCURRENCY
-	}
-
-	this.jobs = concurrency
+	this.jobs = min(concurrency, _COMP_MAX_CONCURRENCY)
 
 	if prof, prst := argsMap["cpuProf"]; prst == true {
 		this.cpuProf = prof.(string)

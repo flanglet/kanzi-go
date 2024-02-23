@@ -102,11 +102,7 @@ func NewBlockDecompressor(argsMap map[string]any) (*BlockDecompressor, error) {
 		concurrency = uint(runtime.NumCPU() / 2) // defaults to half the cores
 	}
 
-	if concurrency > _COMP_MAX_CONCURRENCY {
-		concurrency = _COMP_MAX_CONCURRENCY
-	}
-
-	this.jobs = concurrency
+	this.jobs = min(concurrency, _COMP_MAX_CONCURRENCY)
 	this.verbosity = argsMap["verbosity"].(uint)
 	delete(argsMap, "verbosity")
 

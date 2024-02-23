@@ -121,12 +121,7 @@ func NewFSDCodecWithCtx(ctx *map[string]any) (*FSDCodec, error) {
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
 func (this *FSDCodec) MaxEncodedLen(srcLen int) int {
-	padding := (srcLen >> 4)
-
-	if padding < 32 {
-		padding = 32
-	}
-
+	padding := max(srcLen>>4, 32)
 	return srcLen + padding // limit expansion
 }
 

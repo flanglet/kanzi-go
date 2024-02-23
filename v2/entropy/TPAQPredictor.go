@@ -279,13 +279,8 @@ func NewTPAQPredictor(ctx *map[string]any) (*TPAQPredictor, error) {
 			mixersSize = 1 << 8
 		}
 
-		if bufferSize > rbsz {
-			bufferSize = rbsz
-		}
-
-		if hashSize > 16*absz {
-			hashSize = 16 * absz
-		}
+		bufferSize = min(bufferSize, rbsz)
+		hashSize = min(hashSize, 16*absz)
 	}
 
 	mixersSize <<= (2 * extraMem)
@@ -352,13 +347,11 @@ func (this *TPAQPredictor) Update(bit byte) {
 		this.binCount += ((this.c4 >> 7) & 1)
 
 		// Select Neural Net
-		lenCtx := int32(0)
-
 		if this.matchLen != 0 {
-			lenCtx = 1
+			this.mixer = &this.mixers[(this.c4&this.mixersMask)+1]
+		} else {
+			this.mixer = &this.mixers[this.c4&this.mixersMask]
 		}
-
-		this.mixer = &this.mixers[(this.c4&this.mixersMask)|lenCtx]
 
 		// Add contexts to NN
 		this.ctx0 = (this.c4 & 0xFF) << 8

@@ -578,12 +578,8 @@ func newTextCodec1WithCtx(ctx *map[string]any) (*textCodec1, error) {
 
 			if blockSize >= 8 {
 				log, _ = internal.Log2(uint32(blockSize / 8))
-
-				if log > 26 {
-					log = 26
-				} else if log < 13 {
-					log = 13
-				}
+				log = min(log, 26)
+				log = max(log, 13)
 			}
 		}
 
@@ -608,13 +604,8 @@ func (this *textCodec1) reset(count int) {
 	if count >= 1024 {
 		// Select an appropriate initial dictionary size
 		log, _ := internal.Log2(uint32(count / 128))
-
-		if log > 18 {
-			log = 18
-		} else if log < 13 {
-			log = 13
-		}
-
+		log = min(log, 18)
+		log = max(log, 13)
 		this.dictSize = 1 << log
 	}
 
@@ -629,12 +620,7 @@ func (this *textCodec1) reset(count int) {
 
 	if len(this.dictList) < this.dictSize {
 		this.dictList = make([]dictEntry, this.dictSize)
-		size := len(_TC_STATIC_DICTIONARY)
-
-		if size >= this.dictSize {
-			size = this.dictSize
-		}
-
+		size := min(len(_TC_STATIC_DICTIONARY), this.dictSize)
 		copy(this.dictList, _TC_STATIC_DICTIONARY[0:size])
 
 		// Add special entries at end of static dictionary
@@ -1105,12 +1091,8 @@ func newTextCodec2WithCtx(ctx *map[string]any) (*textCodec2, error) {
 
 			if blockSize >= 32 {
 				log, _ = internal.Log2(uint32(blockSize / 32))
-
-				if log > 24 {
-					log = 24
-				} else if log < 13 {
-					log = 13
-				}
+				log = min(log, 24)
+				log = max(log, 13)
 			}
 		}
 
@@ -1135,13 +1117,8 @@ func (this *textCodec2) reset(count int) {
 	if count >= 1024 {
 		// Select an appropriate initial dictionary size
 		log, _ := internal.Log2(uint32(count / 128))
-
-		if log > 18 {
-			log = 18
-		} else if log < 13 {
-			log = 13
-		}
-
+		log = min(log, 18)
+		log = max(log, 13)
 		this.dictSize = 1 << log
 	}
 
@@ -1156,12 +1133,7 @@ func (this *textCodec2) reset(count int) {
 
 	if len(this.dictList) < this.dictSize {
 		this.dictList = make([]dictEntry, this.dictSize)
-		size := len(_TC_STATIC_DICTIONARY)
-
-		if size >= this.dictSize {
-			size = this.dictSize
-		}
-
+		size := min(len(_TC_STATIC_DICTIONARY), this.dictSize)
 		copy(this.dictList, _TC_STATIC_DICTIONARY[0:size])
 	}
 

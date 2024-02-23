@@ -145,11 +145,7 @@ func (this *RangeEncoder) encodeHeader(alphabet []int, frequencies []int, lr uin
 	for i := 1; i < alphabetSize; i += chkSize {
 		max := frequencies[alphabet[i]] - 1
 		logMax := uint(0)
-		endj := i + chkSize
-
-		if endj > alphabetSize {
-			endj = alphabetSize
-		}
+		endj := min(i+chkSize, alphabetSize)
 
 		// Search for max frequency log size in next chunk
 		for j := i + 1; j < endj; j++ {
@@ -198,12 +194,7 @@ func (this *RangeEncoder) Write(block []byte) (int, error) {
 		this.rng = _TOP_RANGE
 		this.low = 0
 		lr := this.logRange
-
-		endChunk := startChunk + sizeChunk
-
-		if endChunk > end {
-			endChunk = end
-		}
+		endChunk := min(startChunk+sizeChunk, end)
 
 		// Lower log range if the size of the data block is small
 		for lr > 8 && 1<<lr > endChunk-startChunk {
@@ -372,11 +363,7 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
 			return alphabetSize, err
 		}
 
-		endj := i + chkSize
-
-		if endj > alphabetSize {
-			endj = alphabetSize
-		}
+		endj := min(i+chkSize, alphabetSize)
 
 		// Read frequencies
 		for j := i; j < endj; j++ {
@@ -435,12 +422,7 @@ func (this *RangeDecoder) Read(block []byte) (int, error) {
 	sizeChunk := int(this.chunkSize)
 
 	for startChunk < end {
-		endChunk := startChunk + sizeChunk
-
-		if endChunk > end {
-			endChunk = end
-		}
-
+		endChunk := min(startChunk+sizeChunk, end)
 		alphabetSize, err := this.decodeHeader(this.freqs[:])
 
 		if err != nil || alphabetSize == 0 {

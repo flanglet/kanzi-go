@@ -128,11 +128,7 @@ func (this *BinaryEntropyEncoder) Write(block []byte) (int, error) {
 
 	// Split block into chunks, read bit array from bitstream and decode chunk
 	for startChunk < end {
-		chunkSize := length
-
-		if startChunk+length >= end {
-			chunkSize = end - startChunk
-		}
+		chunkSize := min(length, end-startChunk)
 
 		if len(this.buffer) < (chunkSize + (chunkSize >> 3)) {
 			this.buffer = make([]byte, chunkSize+(chunkSize>>3))
@@ -292,11 +288,7 @@ func (this *BinaryEntropyDecoder) Read(block []byte) (int, error) {
 
 	// Split block into chunks, read bit array from bitstream and decode chunk
 	for startChunk < end {
-		chunkSize := length
-
-		if startChunk+length >= end {
-			chunkSize = end - startChunk
-		}
+		chunkSize := min(length, end-startChunk)
 
 		if len(this.buffer) < chunkSize+(chunkSize>>3) {
 			this.buffer = make([]byte, chunkSize+(chunkSize>>3))

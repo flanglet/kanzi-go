@@ -331,11 +331,7 @@ func (this *BWT) inverseMergeTPSI(src, dst []byte, count int) (uint, uint, error
 func (this *BWT) inverseBiPSIv2(src, dst []byte, count int) (uint, uint, error) {
 	// Lazy dynamic memory allocations
 	if len(this.buffer) < count+1 {
-		if count+1 <= 256 {
-			this.buffer = make([]int32, 256)
-		} else {
-			this.buffer = make([]int32, count+1)
-		}
+		this.buffer = make([]int32, max(count+1, 256))
 	} else {
 		for i := range this.buffer {
 			this.buffer[i] = 0
@@ -358,19 +354,8 @@ func (this *BWT) inverseBiPSIv2(src, dst []byte, count int) (uint, uint, error) 
 
 		if f != sum {
 			ptr := buckets[c<<8 : (c+1)<<8]
-			var hi, lo int
-
-			if sum < pIdx {
-				hi = sum
-			} else {
-				hi = pIdx
-			}
-
-			if f-1 > pIdx {
-				lo = f - 1
-			} else {
-				lo = pIdx
-			}
+			hi := min(sum, pIdx)
+			lo := max(f-1, pIdx)
 
 			for i := f; i < hi; i++ {
 				ptr[src[i]]++
@@ -403,8 +388,11 @@ func (this *BWT) inverseBiPSIv2(src, dst []byte, count int) (uint, uint, error) 
 			ptr[d<<8] = s
 
 			if s != sum {
-				for v <= ((sum - 1) >> shift) {
-					fastBits[v] = uint16((c << 8) | d)
+				fb := uint16((c << 8) | d)
+				ve := (sum - 1) >> shift
+
+				for v <= ve {
+					fastBits[v] = fb
 					v++
 				}
 			}
@@ -464,12 +452,7 @@ func (this *BWT) inverseBiPSIv2(src, dst []byte, count int) (uint, uint, error) 
 		ckSize++
 	}
 
-	nbTasks := int(this.jobs)
-
-	if nbTasks > chunks {
-		nbTasks = chunks
-	}
-
+	nbTasks := min(int(this.jobs), chunks)
 	jobsPerTask, _ := internal.ComputeJobsPerTask(make([]uint, nbTasks), uint(chunks), uint(nbTasks))
 	var wg sync.WaitGroup
 
@@ -555,12 +538,7 @@ func (this *BWT) inverseBiPSIv2Task(dst []byte, buckets []int, fastBits []uint16
 	}
 
 	for c < lastChunk {
-		end := start + ckSize
-
-		if end > total-1 {
-			end = total - 1
-		}
-
+		end := min(start+ckSize, total-1)
 		p := int(indexes[c])
 
 		for i := start + 1; i <= end; i += 2 {

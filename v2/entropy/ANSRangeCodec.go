@@ -96,11 +96,7 @@ func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncode
 		}
 
 		if order == 1 {
-			chkSize <<= 8
-
-			if chkSize > _ANS_MAX_CHUNK_SIZE {
-				chkSize = _ANS_MAX_CHUNK_SIZE
-			}
+			chkSize = min(chkSize<<8, _ANS_MAX_CHUNK_SIZE)
 		}
 	}
 
@@ -155,11 +151,7 @@ func NewANSRangeEncoderWithCtx(bs kanzi.OutputBitStream, ctx *map[string]any, ar
 		}
 
 		if order == 1 {
-			chkSize <<= 8
-
-			if chkSize > _ANS_MAX_CHUNK_SIZE {
-				chkSize = _ANS_MAX_CHUNK_SIZE
-			}
+			chkSize = min(chkSize<<8, _ANS_MAX_CHUNK_SIZE)
 		}
 	}
 
@@ -248,11 +240,7 @@ func (this *ANSRangeEncoder) encodeHeader(alphabet []int, frequencies []int, lr 
 	for i := 1; i < alphabetSize; i += chkSize {
 		max := frequencies[alphabet[i]] - 1
 		logMax := uint(0)
-		endj := i + chkSize
-
-		if endj > alphabetSize {
-			endj = alphabetSize
-		}
+		endj := min(i+chkSize, alphabetSize)
 
 		// Search for max frequency log size in next chunk
 		for j := i + 1; j < endj; j++ {
@@ -294,15 +282,8 @@ func (this *ANSRangeEncoder) Write(block []byte) (int, error) {
 	}
 
 	sizeChunk := this.chunkSize
-	size := 2 * len(block)
-
-	if size > sizeChunk+(sizeChunk>>3) { // min
-		size = sizeChunk + (sizeChunk >> 3)
-	}
-
-	if size < 65536 { // max
-		size = 65536
-	}
+	size := min(2*len(block), sizeChunk+(sizeChunk>>3))
+	size = max(size, 65536)
 
 	// Add some padding
 	if len(this.buffer) < size {
@@ -313,13 +294,8 @@ func (this *ANSRangeEncoder) Write(block []byte) (int, error) {
 	startChunk := 0
 
 	for startChunk < end {
-		endChunk := startChunk + sizeChunk
-
-		if endChunk >= end {
-			endChunk = end
-			sizeChunk = endChunk - startChunk
-		}
-
+		endChunk := min(startChunk+sizeChunk, end)
+		sizeChunk = endChunk - startChunk
 		alphabetSize, err := this.rebuildStatistics(block[startChunk:endChunk], this.logRange)
 
 		if err != nil {
@@ -461,10 +437,7 @@ type encSymbol struct {
 
 func (this *encSymbol) reset(cumFreq, freq int, logRange uint) {
 	// Make sure xMax is a positive int32. Compatibility with Java implementation
-	if freq >= 1<<logRange {
-		freq = (1 << logRange) - 1
-	}
-
+	freq = min(freq, (1<<logRange)-1)
 	this.xMax = ((_ANS_TOP >> logRange) << 16) * freq
 	this.cmplFreq = (1 << logRange) - freq
 
@@ -538,11 +511,7 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 		}
 
 		if order == 1 {
-			chkSize <<= 8
-
-			if chkSize > _ANS_MAX_CHUNK_SIZE {
-				chkSize = _ANS_MAX_CHUNK_SIZE
-			}
+			chkSize = min(chkSize<<8, _ANS_MAX_CHUNK_SIZE)
 		}
 	}
 
@@ -602,11 +571,7 @@ func NewANSRangeDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]any, arg
 		}
 
 		if order == 1 {
-			chkSize <<= 8
-
-			if chkSize > _ANS_MAX_CHUNK_SIZE {
-				chkSize = _ANS_MAX_CHUNK_SIZE
-			}
+			chkSize = min(chkSize<<8, _ANS_MAX_CHUNK_SIZE)
 		}
 	}
 
@@ -682,11 +647,7 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies, alphabet []int) (int, err
 				return alphabetSize, err
 			}
 
-			endj := i + chkSize
-
-			if endj > alphabetSize {
-				endj = alphabetSize
-			}
+			endj := min(i+chkSize, alphabetSize)
 
 			// Read frequencies
 			for j := i; j < endj; j++ {
@@ -755,13 +716,8 @@ func (this *ANSRangeDecoder) Read(block []byte) (int, error) {
 	var alphabet [256]int
 
 	for startChunk < end {
-		endChunk := startChunk + sizeChunk
-
-		if endChunk >= end {
-			endChunk = end
-			sizeChunk = end - startChunk
-		}
-
+		endChunk := min(startChunk+sizeChunk, end)
+		sizeChunk = endChunk - startChunk
 		alphabetSize, err := this.decodeHeader(this.freqs, alphabet[:])
 
 		if err != nil || alphabetSize == 0 {
@@ -987,10 +943,7 @@ type decSymbol struct {
 
 func (this *decSymbol) reset(cumFreq, freq int, logRange uint) {
 	// Mirror encoder
-	if freq >= 1<<logRange {
-		freq = (1 << logRange) - 1
-	}
-
+	freq = min(freq, (1<<logRange)-1)
 	this.cumFreq = cumFreq
 	this.freq = freq
 }

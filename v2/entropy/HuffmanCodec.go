@@ -340,27 +340,15 @@ func (this *HuffmanEncoder) Write(block []byte) (int, error) {
 
 	end := len(block)
 	startChunk := 0
-	minBufLen := this.chunkSize + (this.chunkSize >> 3)
-
-	if minBufLen > 2*len(block) {
-		minBufLen = 2 * len(block)
-	}
-
-	if minBufLen < 65536 {
-		minBufLen = 65536
-	}
+	minBufLen := min(this.chunkSize+(this.chunkSize>>3), 2*len(block))
+	minBufLen = max(minBufLen, 65536)
 
 	if len(this.buffer) < minBufLen {
 		this.buffer = make([]byte, minBufLen)
 	}
 
 	for startChunk < end {
-		endChunk := startChunk + this.chunkSize
-
-		if endChunk > len(block) {
-			endChunk = len(block)
-		}
-
+		endChunk := min(startChunk+this.chunkSize, len(block))
 		var freqs [256]int
 		internal.ComputeHistogram(block[startChunk:endChunk], freqs[:], true, false)
 		count, err := this.updateFrequencies(freqs[:])
@@ -522,7 +510,6 @@ func NewHuffmanDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]any) (*Hu
 	this := &HuffmanDecoder{}
 	this.bitstream = bs
 	this.isBsVersion3 = bsVersion < 4
-
 	this.maxSymbolSize = _HUF_MAX_SYMBOL_SIZE_V4
 
 	if this.isBsVersion3 {
@@ -631,11 +618,7 @@ func (this *HuffmanDecoder) Read(block []byte) (int, error) {
 	startChunk := 0
 
 	for startChunk < end {
-		endChunk := startChunk + this.chunkSize
-
-		if endChunk > end {
-			endChunk = end
-		}
+		endChunk := min(startChunk+this.chunkSize, end)
 
 		// For each chunk, read code lengths, rebuild codes, rebuild decoding table
 		alphabetSize, err := this.readLengths()

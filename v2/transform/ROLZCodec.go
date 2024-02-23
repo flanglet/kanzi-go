@@ -242,14 +242,10 @@ func newROLZCodec1WithCtx(logPosChecks uint, ctx *map[string]any) (*rolzCodec1, 
 
 // findMatch returns match position index (logPosChecks bits) + length (8 bits) or -1
 func (this *rolzCodec1) findMatch(buf []byte, pos int, hash32 uint32, counter int32, matches []uint32) (int, int) {
-	maxMatch := _ROLZ_MAX_MATCH1
+	maxMatch := min(_ROLZ_MAX_MATCH1, len(buf)-pos)
 
-	if maxMatch > len(buf)-pos {
-		maxMatch = len(buf) - pos
-
-		if maxMatch < this.minMatch {
-			return -1, -1
-		}
+	if maxMatch < this.minMatch {
+		return -1, -1
 	}
 
 	if this.posChecks == 0 {
@@ -401,11 +397,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 		buf := src[startChunk:endChunk]
 		srcIdx = 0
-		n := srcEnd - startChunk
-
-		if n > 8 {
-			n = 8
-		}
+		n := min(srcEnd-startChunk, 8)
 
 		for j := 0; j < n; j++ {
 			litBuf[litIdx] = buf[srcIdx]
@@ -614,18 +606,13 @@ End:
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
-	sizeChunk := len(dst)
-
-	if sizeChunk > _ROLZ_CHUNK_SIZE {
-		sizeChunk = _ROLZ_CHUNK_SIZE
-	}
-
-	var is internal.BufferStream
 	dstEnd := int(binary.BigEndian.Uint32(src[0:])) - 4
 
 	if dstEnd <= 0 || dstEnd > len(dst) {
 		return 0, 0, errors.New("ROLZ codec: Invalid input data")
 	}
+
+	var is internal.BufferStream
 
 	if _, err := is.Write(src[4:]); err != nil {
 		return 0, 0, err
@@ -634,6 +621,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	startChunk := 0
 	srcIdx := 5
 	dstIdx := 0
+	sizeChunk := min(len(dst), _ROLZ_CHUNK_SIZE)
 	litBuf := make([]byte, sizeChunk)
 	lenBuf := make([]byte, sizeChunk/5)
 	mIdxBuf := make([]byte, sizeChunk/4)
@@ -998,14 +986,10 @@ func newROLZCodec2WithCtx(logPosChecks uint, ctx *map[string]any) (*rolzCodec2, 
 
 // findMatch returns match position index and length or -1
 func (this *rolzCodec2) findMatch(buf []byte, pos int, key uint32) (int, int) {
-	maxMatch := _ROLZ_MAX_MATCH2
+	maxMatch := min(_ROLZ_MAX_MATCH2, len(buf)-pos)
 
-	if maxMatch > len(buf)-pos {
-		maxMatch = len(buf) - pos
-
-		if maxMatch < this.minMatch {
-			return -1, -1
-		}
+	if maxMatch < this.minMatch {
+		return -1, -1
 	}
 
 	maxMatch -= 4
@@ -1073,12 +1057,6 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	srcEnd := len(src) - 4
-	sizeChunk := len(src)
-
-	if sizeChunk > _ROLZ_CHUNK_SIZE {
-		sizeChunk = _ROLZ_CHUNK_SIZE
-	}
-
 	srcIdx := 0
 	dstIdx := 5
 	startChunk := 0
@@ -1120,6 +1098,7 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	dst[4] = flags
+	sizeChunk := min(len(src), _ROLZ_CHUNK_SIZE)
 
 	// Main loop
 	for startChunk < srcEnd {
@@ -1212,12 +1191,6 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("ROLZX codec: Invalid input data")
 	}
 
-	sizeChunk := len(dst)
-
-	if sizeChunk > _ROLZ_CHUNK_SIZE {
-		sizeChunk = _ROLZ_CHUNK_SIZE
-	}
-
 	this.minMatch = _ROLZ_MIN_MATCH3
 	srcIdx := 4
 	bsVersion := uint(3)
@@ -1249,6 +1222,7 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 	dstIdx := 0
 	startChunk := 0
+	sizeChunk := min(len(dst), _ROLZ_CHUNK_SIZE)
 	rd, _ := newRolzDecoder(9, this.logPosChecks, src, &srcIdx)
 
 	for i := range this.counters {

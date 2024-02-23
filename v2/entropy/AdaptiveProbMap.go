@@ -60,9 +60,11 @@ func NewAdaptiveProbMap(mapType int, n, rate uint) (AdaptiveProbMap, error) {
 	if mapType == LINEAR_APM {
 		return newLinearAdaptiveProbMap(n, rate)
 	}
+
 	if mapType == LOGISTIC_APM {
 		return newLogisticAdaptiveProbMap(n, rate)
 	}
+
 	if mapType == FAST_LOGISTIC_APM {
 		return newFastLogisticAdaptiveProbMap(n, rate)
 	}
