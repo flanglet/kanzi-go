@@ -23,6 +23,7 @@ package transform
 // 7172 <= runLen < 65535+7172 -> 3 bytes
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"strings"
@@ -160,10 +161,16 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 	// Main loop
 	for {
 		if prev == src[srcIdx] {
-			srcIdx++
-			run++
+			v := uint32(0x01010101) * uint32(prev)
 
-			if prev == src[srcIdx] {
+			if v == binary.LittleEndian.Uint32(src[srcIdx:]) {
+				srcIdx += 4
+				run += 4
+
+				if (run < _RLT_MAX_RUN4) && (srcIdx < srcEnd4) {
+					continue
+				}
+			} else if prev == src[srcIdx] {
 				srcIdx++
 				run++
 
