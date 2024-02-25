@@ -181,12 +181,10 @@ var (
 // Analyze the block and return an 8-bit status (see MASK flags constants)
 // The goal is to detect text data amenable to pre-processing.
 func computeTextStats(block []byte, freqs0 []int, strict bool) byte {
-	if strict == false {
+	if strict == false && internal.GetMagicType(block) != internal.NO_MAGIC {
 		// This is going to fail if the block is not the first of the file.
 		// But this is a cheap test, good enough for fast mode.
-		if internal.GetMagicType(block) != internal.NO_MAGIC {
-			return _TC_MASK_NOT_TEXT
-		}
+		return _TC_MASK_NOT_TEXT
 	}
 
 	var freqs [256][256]int
