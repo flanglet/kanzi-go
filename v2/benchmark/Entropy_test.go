@@ -32,12 +32,6 @@ func BenchmarkExpGolomb(b *testing.B) {
 	}
 }
 
-func BenchmarkRiceGolomb(b *testing.B) {
-	if err := testEntropySpeed(b, "RICEGOLOMB"); err != nil {
-		b.Errorf(err.Error())
-	}
-}
-
 func BenchmarkHuffman(b *testing.B) {
 	if err := testEntropySpeed(b, "HUFFMAN"); err != nil {
 		b.Errorf(err.Error())
