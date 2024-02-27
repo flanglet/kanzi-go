@@ -18,7 +18,7 @@ on:
     # The branches below must be a subset of the branches above
     branches: [ "master" ]
   schedule:
-    - cron: '19 22 * * 2'
+    - cron: '31 1 * * 5'
 
 jobs:
   analyze:
@@ -65,7 +65,8 @@ jobs:
 
      - run: |
        echo "Build Application"
-       cd ../../v2/app && go build -gcflags="all=-B" Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
+       echo "cd ../../v2/app && go build Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go" > ./build.sh
+       chmod +x ./build.sh && ./build.sh
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
