@@ -73,11 +73,11 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 	blockSize := uint(len(src))
 	length := blockSize
 	in, out := src, dst
-	var err error
 	swaps := 0
 
 	// Process transforms sequentially
-	for i, t := range this.transforms {
+	for i := range this.transforms {
+		var err error
 		savedLength := length
 
 		if len(out) < requiredSize {
@@ -89,7 +89,7 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 		}
 
 		// Apply forward transform
-		if _, length, err = t.Forward((in)[0:length], out); err != nil {
+		if _, length, err = this.transforms[i].Forward((in)[0:length], out); err != nil {
 			// Transform failed. Either it does not apply to this type
 			// of data or a recoverable error occurred => revert
 			length = savedLength
