@@ -33,7 +33,7 @@ type sdAlias struct {
 	freq int // frequency
 }
 
-type sortAliasByFreq []*sdAlias
+type sortAliasByFreq []sdAlias
 
 func (this sortAliasByFreq) Len() int {
 	return len(this)
@@ -187,7 +187,7 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 	} else {
 		// Digram encoding
-		symb := [65536]*sdAlias{}
+		symb := [65536]sdAlias{}
 		n1 := 0
 
 		{
@@ -199,7 +199,7 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 					continue
 				}
 
-				symb[n1] = &sdAlias{val: i, freq: freqs1[i]}
+				symb[n1] = sdAlias{val: i, freq: freqs1[i]}
 				n1++
 			}
 		}

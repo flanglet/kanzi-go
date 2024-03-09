@@ -36,7 +36,7 @@ type sdUTF struct {
 	freq int32 // frequency
 }
 
-type sortUTFByFreq []*sdUTF
+type sortUTFByFreq []sdUTF
 
 func (this sortUTFByFreq) Len() int {
 	return len(this)
@@ -131,7 +131,7 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 	// 010 -> 16 bits
 	// 1xx -> 21 bits
 	aliasMap := make([]int32, 1<<22)
-	symb := [32768]*sdUTF{}
+	symb := [32768]sdUTF{}
 	n := 0
 	var err error
 
@@ -145,7 +145,7 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		if aliasMap[val] == 0 {
-			symb[n] = &sdUTF{sym: int32(val)}
+			symb[n] = sdUTF{sym: int32(val)}
 			n++
 
 			if n >= 32768 {
