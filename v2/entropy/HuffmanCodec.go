@@ -27,7 +27,7 @@ import (
 
 const (
 	_HUF_MIN_CHUNK_SIZE     = 1024
-	_HUF_MAX_CHUNK_SIZE     = uint(1 << 14)
+	_HUF_MAX_CHUNK_SIZE     = 1 << 14
 	_HUF_MAX_SYMBOL_SIZE_V3 = 14
 	_HUF_MAX_SYMBOL_SIZE_V4 = 12
 	_HUF_BUFFER_SIZE        = (_HUF_MAX_SYMBOL_SIZE_V3 << 8) + 256
@@ -94,7 +94,7 @@ type HuffmanEncoder struct {
 // Since the number of args is variable, this function can be called like this:
 // NewHuffmanEncoder(bs) or NewHuffmanEncoder(bs, 16384) (the second argument
 // being the chunk size)
-func NewHuffmanEncoder(bs kanzi.OutputBitStream, args ...uint) (*HuffmanEncoder, error) {
+func NewHuffmanEncoder(bs kanzi.OutputBitStream, args ...int) (*HuffmanEncoder, error) {
 	if bs == nil {
 		return nil, errors.New("Huffman codec: Invalid null bitstream parameter")
 	}
@@ -119,10 +119,10 @@ func NewHuffmanEncoder(bs kanzi.OutputBitStream, args ...uint) (*HuffmanEncoder,
 
 	this := &HuffmanEncoder{}
 	this.bitstream = bs
-	this.chunkSize = int(chkSize)
+	this.chunkSize = chkSize
 
 	// Default frequencies, sizes and codes
-	for i := 0; i < 256; i++ {
+	for i := range &this.codes {
 		this.codes[i] = uint16(i)
 	}
 
@@ -204,7 +204,7 @@ func (this *HuffmanEncoder) updateFrequencies(freqs []int) (int, error) {
 			}
 
 			// Normalize to a smaller scale
-			if _, err := NormalizeFrequencies(f[:count], alpha[:count], totalFreq, int(_HUF_MAX_CHUNK_SIZE>>(retries+1))); err != nil {
+			if _, err := NormalizeFrequencies(f[:count], alpha[:count], totalFreq, _HUF_MAX_CHUNK_SIZE>>(retries+1)); err != nil {
 				return count, err
 			}
 
@@ -373,16 +373,16 @@ func (this *HuffmanEncoder) Write(block []byte) (int, error) {
 		for i := startChunk; i < endChunk4; i += 4 {
 			var code uint16
 			code = c[block[i]]
-			codeLen0 := (c[block[i]] >> 12)
+			codeLen0 := code >> 12
 			state = (state << codeLen0) | uint64(code&0x0FFF)
 			code = c[block[i+1]]
-			codeLen1 := (code >> 12)
+			codeLen1 := code >> 12
 			state = (state << codeLen1) | uint64(code&0x0FFF)
 			code = c[block[i+2]]
-			codeLen2 := (code >> 12)
+			codeLen2 := code >> 12
 			state = (state << codeLen2) | uint64(code&0x0FFF)
 			code = c[block[i+3]]
-			codeLen3 := (code >> 12)
+			codeLen3 := code >> 12
 			state = (state << codeLen3) | uint64(code&0x0FFF)
 			bits += int(codeLen0 + codeLen1 + codeLen2 + codeLen3)
 			binary.BigEndian.PutUint64(this.buffer[idx:idx+8], state<<uint(64-bits))
@@ -452,7 +452,7 @@ type HuffmanDecoder struct {
 // Since the number of args is variable, this function can be called like this:
 // NewHuffmanDecoder(bs) or NewHuffmanDecoder(bs, 16384) (the second argument
 // being the chunk size)
-func NewHuffmanDecoder(bs kanzi.InputBitStream, args ...uint) (*HuffmanDecoder, error) {
+func NewHuffmanDecoder(bs kanzi.InputBitStream, args ...int) (*HuffmanDecoder, error) {
 	if bs == nil {
 		return nil, errors.New("Huffman codec: Invalid null bitstream parameter")
 	}
@@ -480,7 +480,7 @@ func NewHuffmanDecoder(bs kanzi.InputBitStream, args ...uint) (*HuffmanDecoder, 
 	this.isBsVersion3 = false
 	this.maxSymbolSize = _HUF_MAX_SYMBOL_SIZE_V4
 	this.table = make([]uint16, 1<<this.maxSymbolSize)
-	this.chunkSize = int(chkSize)
+	this.chunkSize = chkSize
 	this.buffer = make([]byte, 0)
 
 	// Default lengths & canonical codes
@@ -517,7 +517,7 @@ func NewHuffmanDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]any) (*Hu
 	}
 
 	this.table = make([]uint16, 1<<this.maxSymbolSize)
-	this.chunkSize = int(_HUF_MAX_CHUNK_SIZE)
+	this.chunkSize = _HUF_MAX_CHUNK_SIZE
 	this.buffer = make([]byte, 0)
 
 	// Default lengths & canonical codes
@@ -628,9 +628,12 @@ func (this *HuffmanDecoder) Read(block []byte) (int, error) {
 		}
 
 		if alphabetSize == 1 {
+			val := byte(this.alphabet[0])
+			b := block[startChunk:endChunk]
+
 			// Shortcut for chunks with only one symbol
-			for i := startChunk; i < endChunk; i++ {
-				block[i] = byte(this.alphabet[0])
+			for i := range b {
+				b[i] = val
 			}
 
 			startChunk = endChunk
