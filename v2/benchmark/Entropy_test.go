@@ -141,7 +141,7 @@ func testEntropySpeed(b *testing.B, name string) error {
 
 			ec.Dispose()
 
-			if _, err := obs.Close(); err != nil {
+			if err := obs.Close(); err != nil {
 				msg := fmt.Sprintf("Error during close: %v\n", err)
 				b.Fatalf(msg)
 			}
@@ -157,7 +157,7 @@ func testEntropySpeed(b *testing.B, name string) error {
 
 			ed.Dispose()
 
-			if _, err := ibs.Close(); err != nil {
+			if err := ibs.Close(); err != nil {
 				msg := fmt.Sprintf("Error during close: %v\n", err)
 				b.Fatalf(msg)
 			}
