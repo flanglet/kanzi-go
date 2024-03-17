@@ -230,9 +230,9 @@ func (this *DefaultOutputBitStream) flush() error {
 }
 
 // Close prevents further writes
-func (this *DefaultOutputBitStream) Close() (bool, error) {
+func (this *DefaultOutputBitStream) Close() error {
 	if this.Closed() {
-		return true, nil
+		return nil
 	}
 
 	savedBitIndex := this.availBits
@@ -254,7 +254,7 @@ func (this *DefaultOutputBitStream) Close() (bool, error) {
 		this.availBits = savedBitIndex
 		this.position = savedPosition
 		this.current = savedCurrent
-		return false, err
+		return err
 	}
 
 	// Reset fields to force a flush() and trigger an error
@@ -264,7 +264,7 @@ func (this *DefaultOutputBitStream) Close() (bool, error) {
 	this.availBits = 0
 	this.written -= 64 // adjust because this.availBits = 0
 	this.buffer = make([]byte, 8)
-	return true, nil
+	return nil
 }
 
 // Written returns the number of bits written so far

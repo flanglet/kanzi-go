@@ -267,9 +267,9 @@ func (this *DefaultInputBitStream) pullCurrent() {
 }
 
 // Close prevents further reads (beyond the available bits)
-func (this *DefaultInputBitStream) Close() (bool, error) {
+func (this *DefaultInputBitStream) Close() error {
 	if this.Closed() {
-		return true, nil
+		return nil
 	}
 
 	this.closed = true
@@ -279,7 +279,7 @@ func (this *DefaultInputBitStream) Close() (bool, error) {
 	this.read -= int64(this.availBits) // can be negative
 	this.availBits = 0
 	this.maxPosition = -1
-	return true, nil
+	return nil
 }
 
 // Read returns the number of bits read so far

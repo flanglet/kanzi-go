@@ -102,7 +102,7 @@ type InputBitStream interface {
 	ReadArray(bits []byte, length uint) uint
 
 	// Close makes the bitstream unavailable for further reads.
-	Close() (bool, error)
+	Close() error
 
 	// Read returns the number of bits read
 	Read() uint64
@@ -129,7 +129,7 @@ type OutputBitStream interface {
 	WriteArray(bits []byte, length uint) uint
 
 	// Close makes the bitstream unavailable for further writes.
-	Close() (bool, error)
+	Close() error
 
 	// Written returns the number of bits written
 	Written() uint64

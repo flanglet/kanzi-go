@@ -185,7 +185,7 @@ func (this *DebugInputBitStream) printByte(val byte) {
 
 // Close makes the bitstream unavailable for further reads.
 // Calls Close() on the underlying bitstream delegate.
-func (this *DebugInputBitStream) Close() (bool, error) {
+func (this *DebugInputBitStream) Close() error {
 	return this.delegate.Close()
 }
 

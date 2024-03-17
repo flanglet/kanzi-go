@@ -424,7 +424,7 @@ func (this *Writer) Close() error {
 	this.obs.WriteBits(0, 5) // write length-3 (5 bits max)
 	this.obs.WriteBits(0, 3)
 
-	if _, err := this.obs.Close(); err != nil {
+	if err := this.obs.Close(); err != nil {
 		return err
 	}
 
@@ -1137,7 +1137,7 @@ func (this *Reader) Close() error {
 		return nil
 	}
 
-	if _, err := this.ibs.Close(); err != nil {
+	if err := this.ibs.Close(); err != nil {
 		return err
 	}
 
