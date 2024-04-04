@@ -196,7 +196,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	files := make([]FileData, 0, 256)
 	nbFiles := 1
 	var msg string
-	isStdIn := strings.ToUpper(this.inputName) == _DECOMP_STDIN
+	isStdIn := strings.EqualFold(this.inputName, _DECOMP_STDIN)
 
 	if isStdIn == false {
 		suffix := string([]byte{os.PathSeparator, '.'})
@@ -236,7 +236,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	}
 
 	// Limit verbosity level when output is stdout
-	if strings.ToUpper(this.outputName) == _DECOMP_STDOUT {
+	if strings.EqualFold(this.outputName, _DECOMP_STDOUT) {
 		this.verbosity = 0
 	}
 
@@ -247,9 +247,9 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	}
 
 	if this.verbosity > 2 {
-		msg = fmt.Sprintf("Verbosity set to %d", this.verbosity)
+		msg = fmt.Sprintf("Verbosity: %d", this.verbosity)
 		log.Println(msg, true)
-		msg = fmt.Sprintf("Overwrite set to %t", this.overwrite)
+		msg = fmt.Sprintf("Overwrite: %t", this.overwrite)
 		log.Println(msg, true)
 
 		if this.jobs > 1 {
@@ -260,8 +260,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 		}
 	}
 
-	upperOutputName := strings.ToUpper(this.outputName)
-	isStdOut := upperOutputName == _DECOMP_STDOUT
+	isStdOut := strings.EqualFold(this.outputName, _DECOMP_STDOUT)
 
 	// Limit verbosity level when output is stdout
 	// Logic is duplicated here to avoid dependency to Kanzi.go
@@ -285,7 +284,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	var inputIsDir bool
 	formattedOutName := this.outputName
 	formattedInName := this.inputName
-	specialOutput := upperOutputName == _DECOMP_NONE || upperOutputName == _DECOMP_STDOUT
+	specialOutput := strings.EqualFold(this.outputName, _DECOMP_NONE) || strings.EqualFold(this.outputName, _DECOMP_STDOUT)
 
 	if isStdIn == false {
 		fi, err := os.Stat(formattedInName)
@@ -488,17 +487,16 @@ func (this *fileDecompressTask) call() (int, uint64) {
 	outputName := this.ctx["outputName"].(string)
 
 	if verbosity > 2 {
-		log.Println("Input file name set to '"+inputName+"'", true)
-		log.Println("Output file name set to '"+outputName+"'", true)
+		log.Println("Input file name: '"+inputName+"'", true)
+		log.Println("Output file name: '"+outputName+"'", true)
 	}
 
 	overwrite := this.ctx["overwrite"].(bool)
-
 	var output io.WriteCloser
 
-	if strings.ToUpper(outputName) == _DECOMP_NONE {
+	if strings.EqualFold(outputName, _DECOMP_NONE) {
 		output, _ = kio.NewNullOutputStream()
-	} else if strings.ToUpper(outputName) == _DECOMP_STDOUT {
+	} else if strings.EqualFold(outputName, _DECOMP_STDOUT) {
 		output = os.Stdout
 	} else {
 		var err error
@@ -552,7 +550,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 		notifyBDListeners(this.listeners, evt)
 	}
 
-	if strings.ToUpper(inputName) == _DECOMP_STDIN {
+	if strings.EqualFold(inputName, _DECOMP_STDIN) {
 		input = os.Stdin
 	} else {
 		var err error
@@ -584,12 +582,12 @@ func (this *fileDecompressTask) call() (int, uint64) {
 	}
 
 	buffer := make([]byte, _DECOMP_DEFAULT_BUFFER_SIZE)
-	decoded := len(buffer)
+	written := uint64(0)
 	before := time.Now()
 
 	// Decode next block
-	for decoded == len(buffer) {
-		if decoded, err = cis.Read(buffer); err != nil {
+	for {
+		if decoded, err := cis.Read(buffer); err != nil {
 			if ioerr, isIOErr := err.(*kio.IOError); isIOErr == true {
 				fmt.Printf("%s\n", ioerr.Message())
 				return ioerr.ErrorCode(), uint64(read)
@@ -605,7 +603,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 		}
 
 		if decoded > 0 {
-			_, err = output.Write(buffer[0:decoded])
+			w, err = output.Write(buffer[0:decoded])
 
 			if err != nil {
 				fmt.Printf("Failed to write decompressed block to file '%s': %v\n", outputName, err)
@@ -613,6 +611,11 @@ func (this *fileDecompressTask) call() (int, uint64) {
 			}
 
 			read += int64(decoded)
+			written += uint64(w)
+		}
+
+		if decoded != len(buffer) {
+			break
 		}
 	}
 
@@ -625,6 +628,22 @@ func (this *fileDecompressTask) call() (int, uint64) {
 
 	after := time.Now()
 	delta := after.Sub(before).Nanoseconds() / 1000000 // convert to ms
+
+	// If the whole input stream has been decoded and the original data size is present,
+	// check that the output size match the original data size.
+	to, hasTo := this.ctx["to"]
+	from, hasFrom := this.ctx["from"]
+
+	if hasTo == false && hasFrom == false {
+		if osz, hasKey := this.ctx["outputSize"]; hasKey == true {
+			outputSize := osz.(uint64)
+
+			if outputSize != 0 && written != outputSize {
+				fmt.Printf("Corrupted bitstream: invalid output size (expected %d, got %d)\n", written, outputSize)
+				return kanzi.ERR_INVALID_FILE, uint64(read)
+			}
+		}
+	}
 
 	if verbosity >= 1 {
 		log.Println("", verbosity > 1)

@@ -315,7 +315,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	files := make([]FileData, 0, 256)
 	nbFiles := 1
 	var msg string
-	isStdIn := strings.ToUpper(this.inputName) == _COMP_STDIN
+	isStdIn := strings.EqualFold(this.inputName, _COMP_STDIN)
 
 	if isStdIn == false {
 		suffix := string([]byte{os.PathSeparator, '.'})
@@ -354,8 +354,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		log.Println(msg, this.verbosity > 0)
 	}
 
-	upperOutputName := strings.ToUpper(this.outputName)
-	isStdOut := upperOutputName == _COMP_STDOUT
+	isStdOut := strings.EqualFold(this.outputName, _COMP_STDOUT)
 
 	// Limit verbosity level when output is stdout
 	// Logic is duplicated here to avoid dependency to Kanzi.go
@@ -371,17 +370,17 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 
 	if this.verbosity > 2 {
 		if this.autoBlockSize == true {
-			msg = "Block size set to 'auto'"
+			msg = "Block size: 'auto'"
 		} else {
-			msg = fmt.Sprintf("Block size set to %d bytes", this.blockSize)
+			msg = fmt.Sprintf("Block size: %d bytes", this.blockSize)
 		}
 
 		log.Println(msg, true)
-		msg = fmt.Sprintf("Verbosity set to %d", this.verbosity)
+		msg = fmt.Sprintf("Verbosity: %d", this.verbosity)
 		log.Println(msg, true)
-		msg = fmt.Sprintf("Overwrite set to %t", this.overwrite)
+		msg = fmt.Sprintf("Overwrite: %t", this.overwrite)
 		log.Println(msg, true)
-		msg = fmt.Sprintf("Checksum set to %t", this.checksum)
+		msg = fmt.Sprintf("Checksum: %t", this.checksum)
 		log.Println(msg, true)
 		w1 := "no"
 
@@ -419,7 +418,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	inputIsDir := false
 	formattedOutName := this.outputName
 	formattedInName := this.inputName
-	specialOutput := upperOutputName == _COMP_NONE || upperOutputName == _COMP_STDOUT
+	specialOutput := strings.EqualFold(this.outputName, _COMP_NONE) || strings.EqualFold(this.outputName, _COMP_STDOUT)
 
 	if isStdIn == false {
 		fi, err := os.Stat(formattedInName)
@@ -690,17 +689,16 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 	outputName := this.ctx["outputName"].(string)
 
 	if verbosity > 2 {
-		log.Println("Input file name set to '"+inputName+"'", true)
-		log.Println("Output file name set to '"+outputName+"'", true)
+		log.Println("Input file name: '"+inputName+"'", true)
+		log.Println("Output file name: '"+outputName+"'", true)
 	}
 
 	overwrite := this.ctx["overwrite"].(bool)
-
 	var output io.WriteCloser
 
-	if strings.ToUpper(outputName) == _COMP_NONE {
+	if strings.EqualFold(outputName, _COMP_NONE) == true {
 		output, _ = kio.NewNullOutputStream()
-	} else if strings.ToUpper(outputName) == _COMP_STDOUT {
+	} else if strings.EqualFold(outputName, _COMP_STDOUT) == true {
 		output = os.Stdout
 	} else {
 		var err error
@@ -767,7 +765,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 
 	var input io.ReadCloser
 
-	if strings.ToUpper(inputName) == _COMP_STDIN {
+	if strings.EqualFold(inputName, _COMP_STDIN) {
 		input = os.Stdin
 	} else {
 		var err error
@@ -789,9 +787,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 	// Encode
 	log.Println("\nCompressing "+inputName+" ...", verbosity > 1)
 	log.Println("", verbosity > 3)
-	length := 0
 	read := uint64(0)
-
 	buffer := make([]byte, _COMP_DEFAULT_BUFFER_SIZE)
 
 	if len(this.listeners) > 0 {
@@ -800,12 +796,15 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 	}
 
 	before := time.Now()
-	length, err = input.Read(buffer)
 
-	for length > 0 {
-		if err != nil {
+	for {
+		if length, err := input.Read(buffer); err != nil {
 			fmt.Printf("Failed to read block from file '%s': %v\n", inputName, err)
 			return kanzi.ERR_READ_FILE, read, cos.GetWritten()
+		}
+
+		if length <= 0 {
+			break
 		}
 
 		read += uint64(length)
@@ -819,8 +818,6 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 			fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err.Error())
 			return kanzi.ERR_PROCESS_BLOCK, read, cos.GetWritten()
 		}
-
-		length, err = input.Read(buffer)
 	}
 
 	// Close streams to ensure all data are flushed
