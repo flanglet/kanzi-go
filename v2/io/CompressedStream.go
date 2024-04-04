@@ -913,6 +913,7 @@ func createReaderWithCtx(ibs kanzi.InputBitStream, ctx map[string]any) (*Reader,
 	this.consumed = 0
 	this.available = 0
 	this.outputSize = 0
+	this.nbInputBlocks = 1
 	this.bufferThreshold = 0
 	this.buffers = make([]blockBuffer, 2*this.jobs)
 
