@@ -798,25 +798,29 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 	before := time.Now()
 
 	for {
-		if length, err := input.Read(buffer); err != nil {
+		var length int
+
+		if length, err = input.Read(buffer); err != nil {
 			fmt.Printf("Failed to read block from file '%s': %v\n", inputName, err)
 			return kanzi.ERR_READ_FILE, read, cos.GetWritten()
 		}
 
-		if length <= 0 {
-			break
+		if length > 0 {
+			read += uint64(length)
+
+			if _, err = cos.Write(buffer[0:length]); err != nil {
+				if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
+					fmt.Printf("%s\n", ioerr.Error())
+					return ioerr.ErrorCode(), read, cos.GetWritten()
+				}
+
+				fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err.Error())
+				return kanzi.ERR_PROCESS_BLOCK, read, cos.GetWritten()
+			}
 		}
 
-		read += uint64(length)
-
-		if _, err = cos.Write(buffer[0:length]); err != nil {
-			if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
-				fmt.Printf("%s\n", ioerr.Error())
-				return ioerr.ErrorCode(), read, cos.GetWritten()
-			}
-
-			fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err.Error())
-			return kanzi.ERR_PROCESS_BLOCK, read, cos.GetWritten()
+		if length < len(buffer) {
+			break
 		}
 	}
 

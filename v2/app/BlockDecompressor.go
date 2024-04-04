@@ -540,7 +540,6 @@ func (this *fileDecompressTask) call() (int, uint64) {
 	}()
 
 	// Decode
-	read := int64(0)
 	log.Println("\nDecompressing "+inputName+" ...", verbosity > 1)
 	log.Println("", verbosity > 3)
 	var input io.ReadCloser
@@ -557,7 +556,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 
 		if input, err = os.Open(inputName); err != nil {
 			fmt.Printf("Cannot open input file '%s': %v\n", inputName, err)
-			return kanzi.ERR_OPEN_FILE, uint64(read)
+			return kanzi.ERR_OPEN_FILE, 0
 		}
 
 		defer func() {
@@ -570,11 +569,11 @@ func (this *fileDecompressTask) call() (int, uint64) {
 	if err != nil {
 		if err.(*kio.IOError) != nil {
 			fmt.Printf("%s\n", err.(*kio.IOError).Message())
-			return err.(*kio.IOError).ErrorCode(), uint64(read)
+			return err.(*kio.IOError).ErrorCode(), 0
 		}
 
 		fmt.Printf("Cannot create compressed stream: %v\n", err)
-		return kanzi.ERR_CREATE_DECOMPRESSOR, uint64(read)
+		return kanzi.ERR_CREATE_DECOMPRESSOR, 0
 	}
 
 	for _, bl := range this.listeners {
@@ -582,15 +581,17 @@ func (this *fileDecompressTask) call() (int, uint64) {
 	}
 
 	buffer := make([]byte, _DECOMP_DEFAULT_BUFFER_SIZE)
-	written := uint64(0)
+	decoded := int64(0)
 	before := time.Now()
 
 	// Decode next block
 	for {
-		if decoded, err := cis.Read(buffer); err != nil {
+		var decodedBlock int
+
+		if decodedBlock, err = cis.Read(buffer); err != nil {
 			if ioerr, isIOErr := err.(*kio.IOError); isIOErr == true {
 				fmt.Printf("%s\n", ioerr.Message())
-				return ioerr.ErrorCode(), uint64(read)
+				return ioerr.ErrorCode(), uint64(decoded)
 			}
 
 			if errors.Is(err, io.EOF) == false {
@@ -598,23 +599,22 @@ func (this *fileDecompressTask) call() (int, uint64) {
 				// Because Copy is defined to read from src until EOF, it does not
 				// treat EOF from Read an an error to be reported)
 				fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err)
-				return kanzi.ERR_PROCESS_BLOCK, uint64(read)
+				return kanzi.ERR_PROCESS_BLOCK, uint64(decoded)
 			}
 		}
 
-		if decoded > 0 {
-			w, err = output.Write(buffer[0:decoded])
+		if decodedBlock > 0 {
+			_, err := output.Write(buffer[0:decodedBlock])
 
 			if err != nil {
 				fmt.Printf("Failed to write decompressed block to file '%s': %v\n", outputName, err)
-				return kanzi.ERR_WRITE_FILE, uint64(read)
+				return kanzi.ERR_WRITE_FILE, uint64(decoded)
 			}
 
-			read += int64(decoded)
-			written += uint64(w)
+			decoded += int64(decodedBlock)
 		}
 
-		if decoded != len(buffer) {
+		if decodedBlock != len(buffer) {
 			break
 		}
 	}
@@ -623,7 +623,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 	// Deferred close is fallback for error paths
 	if err := cis.Close(); err != nil {
 		fmt.Printf("%v\n", err)
-		return kanzi.ERR_PROCESS_BLOCK, uint64(read)
+		return kanzi.ERR_PROCESS_BLOCK, uint64(decoded)
 	}
 
 	after := time.Now()
@@ -631,16 +631,16 @@ func (this *fileDecompressTask) call() (int, uint64) {
 
 	// If the whole input stream has been decoded and the original data size is present,
 	// check that the output size match the original data size.
-	to, hasTo := this.ctx["to"]
-	from, hasFrom := this.ctx["from"]
+	_, hasTo := this.ctx["to"]
+	_, hasFrom := this.ctx["from"]
 
 	if hasTo == false && hasFrom == false {
 		if osz, hasKey := this.ctx["outputSize"]; hasKey == true {
-			outputSize := osz.(uint64)
+			outputSize := osz.(int64)
 
-			if outputSize != 0 && written != outputSize {
-				fmt.Printf("Corrupted bitstream: invalid output size (expected %d, got %d)\n", written, outputSize)
-				return kanzi.ERR_INVALID_FILE, uint64(read)
+			if outputSize != 0 && decoded != outputSize {
+				fmt.Printf("Corrupted bitstream: invalid output size (expected %d, got %d)\n", decoded, outputSize)
+				return kanzi.ERR_INVALID_FILE, uint64(decoded)
 			}
 		}
 	}
@@ -659,17 +659,17 @@ func (this *fileDecompressTask) call() (int, uint64) {
 			log.Println(msg, true)
 			msg = fmt.Sprintf("Input size:        %d", cis.GetRead())
 			log.Println(msg, true)
-			msg = fmt.Sprintf("Output size:       %d", read)
+			msg = fmt.Sprintf("Output size:       %d", decoded)
 			log.Println(msg, true)
 		}
 
 		if verbosity == 1 {
-			msg = fmt.Sprintf("Decompressing %s: %d => %d in %s", inputName, cis.GetRead(), read, msg)
+			msg = fmt.Sprintf("Decompressing %s: %d => %d in %s", inputName, cis.GetRead(), decoded, msg)
 			log.Println(msg, true)
 		}
 
 		if verbosity > 1 && delta > 0 {
-			msg = fmt.Sprintf("Throughput (KB/s): %d", ((read*int64(1000))>>10)/delta)
+			msg = fmt.Sprintf("Throughput (KB/s): %d", ((decoded*int64(1000))>>10)/delta)
 			log.Println(msg, true)
 		}
 
@@ -681,5 +681,5 @@ func (this *fileDecompressTask) call() (int, uint64) {
 		notifyBDListeners(this.listeners, evt)
 	}
 
-	return 0, uint64(read)
+	return 0, uint64(decoded)
 }
