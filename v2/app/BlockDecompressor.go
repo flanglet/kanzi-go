@@ -630,7 +630,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 	delta := after.Sub(before).Nanoseconds() / 1000000 // convert to ms
 
 	// If the whole input stream has been decoded and the original data size is present,
-	// check that the output size match the original data size.
+	// check that the output size matches the original data size.
 	_, hasTo := this.ctx["to"]
 	_, hasFrom := this.ctx["from"]
 
