@@ -1101,11 +1101,12 @@ func (this *Reader) readHeader() error {
 
 	this.ctx["blockSize"] = uint(this.blockSize)
 	this.bufferThreshold = this.blockSize
+	szMask := uint(0)
 
 	if bsVersion >= 5 {
 		// Read original size
 		// 0 -> not provided, <2^16 -> 1, <2^32 -> 2, <2^48 -> 3
-		szMask := uint(this.ibs.ReadBits(2))
+		szMask = uint(this.ibs.ReadBits(2))
 
 		if szMask != 0 {
 			this.outputSize = int64(this.ibs.ReadBits(16 * szMask))
