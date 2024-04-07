@@ -222,7 +222,7 @@ func createWriterWithCtx(obs kanzi.OutputBitStream, ctx map[string]any) (*Writer
 		nbBlocks = int((this.inputSize + int64(bSize-1)) / int64(bSize))
 	}
 
-	this.nbInputBlocks = max(min(nbBlocks, _MAX_CONCURRENCY-1), 0)
+	this.nbInputBlocks = min(nbBlocks, _MAX_CONCURRENCY-1)
 
 	if checksum := ctx["checksum"].(bool); checksum == true {
 		var err error
@@ -323,11 +323,11 @@ func (this *Writer) writeHeader() *IOError {
 	switch {
 	case this.inputSize == 0:
 		szMask = 0
-	case this.inputSize >= (int64(1)<<48):
+	case this.inputSize >= (int64(1) << 48):
 		szMask = 0
-	case this.inputSize >= (int64(1)<<32):
+	case this.inputSize >= (int64(1) << 32):
 		szMask = 3
-	case this.inputSize >= (int64(1)<<16):
+	case this.inputSize >= (int64(1) << 16):
 		szMask = 2
 	default:
 		szMask = 1
@@ -1000,7 +1000,7 @@ func (this *Reader) validateHeaderless() error {
 		}
 
 		nbBlocks := int((this.outputSize + int64(this.blockSize-1)) / int64(this.blockSize))
-		this.nbInputBlocks = max(min(nbBlocks, _MAX_CONCURRENCY-1), 0)
+		this.nbInputBlocks = min(nbBlocks, _MAX_CONCURRENCY-1)
 	}
 
 	return nil
@@ -1115,7 +1115,7 @@ func (this *Reader) readHeader() error {
 			}
 
 			nbBlocks := int((this.outputSize + int64(this.blockSize-1)) / int64(this.blockSize))
-			this.nbInputBlocks = max(min(nbBlocks, _MAX_CONCURRENCY-1), 0)
+			this.nbInputBlocks = min(nbBlocks, _MAX_CONCURRENCY-1)
 		}
 
 		// Read and verify checksum
@@ -1174,14 +1174,19 @@ func (this *Reader) readHeader() error {
 			w1 = "no"
 		}
 
-		sb.WriteString(fmt.Sprintf("Using %v entropy codec (stage 1)\n", w1))
+		sb.WriteString(fmt.Sprintf("Using %s entropy codec (stage 1)\n", w1))
 		w2, _ := transform.GetName(this.transformType)
 
 		if w2 == "NONE" {
 			w2 = "no"
 		}
 
-		sb.WriteString(fmt.Sprintf("Using %v transform (stage 2)\n", w2))
+		sb.WriteString(fmt.Sprintf("Using %s transform (stage 2)\n", w2))
+
+		if szMask != 0 {
+			sb.WriteString(fmt.Sprintf("Output size: %d byte(s)\n", this.outputSize))
+		}
+
 		evt := kanzi.NewEventFromString(kanzi.EVT_AFTER_HEADER_DECODING, 0, sb.String(), time.Now())
 		notifyListeners(this.listeners, evt)
 	}
