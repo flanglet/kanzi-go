@@ -887,7 +887,8 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 		// Close will return an error if it has already been called.
 		// The deferred call does not check for error.
 		if err := input.Close(); err != nil {
-			log.Println("Warning: %v\n", err)
+			msg := fmt.Sprintf("Warning: %v\n", err)
+			log.Println(msg, verbosity > 0)
 		}
 
 		// Delete input file

@@ -503,11 +503,24 @@ func (this *fileDecompressTask) call() (int, uint64) {
 
 	overwrite := this.ctx["overwrite"].(bool)
 	var output io.WriteCloser
+	checkOutputSize := true
+
+	if runtime.GOOS == "windows" {
+		if strings.EqualFold(outputName, "NUL") {
+			checkOutputSize = false
+		}
+	} else {
+		if strings.EqualFold(outputName, "/DEV/NULL") {
+			checkOutputSize = false
+		}
+	}
 
 	if strings.EqualFold(outputName, _DECOMP_NONE) {
 		output, _ = kio.NewNullOutputStream()
+		checkOutputSize = false
 	} else if strings.EqualFold(outputName, _DECOMP_STDOUT) {
 		output = os.Stdout
+		checkOutputSize = false
 	} else {
 		var err error
 
@@ -628,7 +641,6 @@ func (this *fileDecompressTask) call() (int, uint64) {
 	// Close streams to ensure all data are flushed
 	// Deferred close is fallback for error paths
 	if err := cis.Close(); err != nil {
-		fmt.Printf("%v\n", err)
 		return kanzi.ERR_PROCESS_BLOCK, uint64(decoded)
 	}
 
@@ -640,7 +652,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 	_, hasTo := this.ctx["to"]
 	_, hasFrom := this.ctx["from"]
 
-	if hasTo == false && hasFrom == false {
+	if checkOutputSize == true && hasTo == false && hasFrom == false {
 		if osz, prst := this.ctx["outputSize"]; prst == true {
 			outputSize := osz.(int64)
 
@@ -692,7 +704,8 @@ func (this *fileDecompressTask) call() (int, uint64) {
 		// Close will return an error if it has already been called.
 		// The deferred call does not check for error.
 		if err := input.Close(); err != nil {
-			log.Println("Warning: %v\n", err)
+			msg := fmt.Sprintf("Warning: %v\n", err)
+			log.Println(msg, verbosity > 0)
 		}
 
 		// Delete input file
