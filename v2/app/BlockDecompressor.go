@@ -42,15 +42,16 @@ const (
 
 // BlockDecompressor main block decompressor struct
 type BlockDecompressor struct {
-	verbosity  uint
-	overwrite  bool
-	inputName  string
-	outputName string
-	jobs       uint
-	from       int // start blovk
-	to         int // end block
-	listeners  []kanzi.Listener
-	cpuProf    string
+	verbosity    uint
+	overwrite    bool
+	removeSource bool
+	inputName    string
+	outputName   string
+	jobs         uint
+	from         int // start blovk
+	to           int // end block
+	listeners    []kanzi.Listener
+	cpuProf      string
 }
 
 type fileDecompressResult struct {
@@ -64,11 +65,18 @@ func NewBlockDecompressor(argsMap map[string]any) (*BlockDecompressor, error) {
 	this := &BlockDecompressor{}
 	this.listeners = make([]kanzi.Listener, 0)
 
-	if force, hasKey := argsMap["overwrite"]; hasKey == true {
+	if force, prst := argsMap["overwrite"]; prst == true {
 		this.overwrite = force.(bool)
 		delete(argsMap, "overwrite")
 	} else {
 		this.overwrite = false
+	}
+
+	if rmSrc, prst := argsMap["remove"]; prst == true {
+		this.removeSource = rmSrc.(bool)
+		delete(argsMap, "remove")
+	} else {
+		this.removeSource = false
 	}
 
 	this.inputName = argsMap["inputName"].(string)
@@ -106,21 +114,21 @@ func NewBlockDecompressor(argsMap map[string]any) (*BlockDecompressor, error) {
 	this.verbosity = argsMap["verbosity"].(uint)
 	delete(argsMap, "verbosity")
 
-	if v, hasKey := argsMap["from"]; hasKey == true {
+	if v, prst := argsMap["from"]; prst == true {
 		this.from = v.(int)
 		delete(argsMap, "from")
 	} else {
 		this.from = -1
 	}
 
-	if v, hasKey := argsMap["to"]; hasKey == true {
+	if v, prst := argsMap["to"]; prst == true {
 		this.to = v.(int)
 		delete(argsMap, "to")
 	} else {
 		this.to = -1
 	}
 
-	if prof, hasKey := argsMap["cpuProf"]; hasKey == true {
+	if prof, prst := argsMap["cpuProf"]; prst == true {
 		this.cpuProf = prof.(string)
 		delete(argsMap, "cpuProf")
 	} else {
@@ -339,6 +347,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	ctx := make(map[string]any)
 	ctx["verbosity"] = this.verbosity
 	ctx["overwrite"] = this.overwrite
+	ctx["remove"] = this.removeSource
 	var res int
 
 	if this.from >= 0 {
@@ -482,6 +491,7 @@ type fileDecompressTask struct {
 
 func (this *fileDecompressTask) call() (int, uint64) {
 	var msg string
+	removeSource := this.ctx["remove"].(bool)
 	verbosity := this.ctx["verbosity"].(uint)
 	inputName := this.ctx["inputName"].(string)
 	outputName := this.ctx["outputName"].(string)
@@ -535,9 +545,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 		}
 	}
 
-	defer func() {
-		output.Close()
-	}()
+	defer output.Close()
 
 	// Decode
 	log.Println("\nDecompressing "+inputName+" ...", verbosity > 1)
@@ -559,9 +567,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 			return kanzi.ERR_OPEN_FILE, 0
 		}
 
-		defer func() {
-			input.Close()
-		}()
+		defer input.Close()
 	}
 
 	cis, err := kio.NewReaderWithCtx(input, this.ctx)
@@ -635,7 +641,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 	_, hasFrom := this.ctx["from"]
 
 	if hasTo == false && hasFrom == false {
-		if osz, hasKey := this.ctx["outputSize"]; hasKey == true {
+		if osz, prst := this.ctx["outputSize"]; prst == true {
 			outputSize := osz.(int64)
 
 			if outputSize != 0 && decoded != outputSize {
@@ -679,6 +685,22 @@ func (this *fileDecompressTask) call() (int, uint64) {
 	if len(this.listeners) > 0 {
 		evt := kanzi.NewEvent(kanzi.EVT_DECOMPRESSION_END, -1, int64(cis.GetRead()), 0, false, time.Now())
 		notifyBDListeners(this.listeners, evt)
+	}
+
+	if removeSource == true {
+		// Close input prior to deletion
+		// Close will return an error if it has already been called.
+		// The deferred call does not check for error.
+		if err := input.Close(); err != nil {
+			log.Println("Warning: %v\n", err)
+		}
+
+		// Delete input file
+		if inputName == "STDIN" {
+			log.Println("Warning: ignoring remove option with STDIN", verbosity > 0)
+		} else if os.Remove(inputName) != nil {
+			log.Println("Warning: input file could not be deleted", verbosity > 0)
+		}
 	}
 
 	return 0, uint64(decoded)

@@ -50,6 +50,7 @@ type BlockCompressor struct {
 	checksum      bool
 	skipBlocks    bool
 	fileReorder   bool
+	removeSource  bool
 	noDotFiles    bool
 	noLinks       bool
 	autoBlockSize bool
@@ -195,6 +196,13 @@ func NewBlockCompressor(argsMap map[string]any) (*BlockCompressor, error) {
 		delete(argsMap, "checksum")
 	} else {
 		this.checksum = false
+	}
+
+	if rmSrc, prst := argsMap["remove"]; prst == true {
+		this.removeSource = rmSrc.(bool)
+		delete(argsMap, "remove")
+	} else {
+		this.removeSource = false
 	}
 
 	if check, prst := argsMap["fileReorder"]; prst == true {
@@ -470,6 +478,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 
 	ctx := make(map[string]any)
 	ctx["verbosity"] = this.verbosity
+	ctx["remove"] = this.removeSource
 	ctx["overwrite"] = this.overwrite
 	ctx["skipBlocks"] = this.skipBlocks
 	ctx["checksum"] = this.checksum
@@ -684,6 +693,7 @@ type fileCompressTask struct {
 
 func (this *fileCompressTask) call() (int, uint64, uint64) {
 	var msg string
+	removeSource := this.ctx["remove"].(bool)
 	verbosity := this.ctx["verbosity"].(uint)
 	inputName := this.ctx["inputName"].(string)
 	outputName := this.ctx["outputName"].(string)
@@ -741,10 +751,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 			}
 		}
 
-		defer func() {
-			output.Close()
-		}()
-
+		defer output.Close()
 	}
 
 	cos, err := kio.NewWriterWithCtx(output, this.ctx)
@@ -759,9 +766,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 		return kanzi.ERR_CREATE_COMPRESSOR, 0, 0
 	}
 
-	defer func() {
-		cos.Close()
-	}()
+	defer cos.Close()
 
 	var input io.ReadCloser
 
@@ -775,9 +780,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 			return kanzi.ERR_OPEN_FILE, 0, 0
 		}
 
-		defer func() {
-			input.Close()
-		}()
+		defer input.Close()
 	}
 
 	for _, bl := range this.listeners {
@@ -877,6 +880,22 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 	if len(this.listeners) > 0 {
 		evt := kanzi.NewEvent(kanzi.EVT_COMPRESSION_END, -1, int64(cos.GetWritten()), 0, false, time.Now())
 		notifyBCListeners(this.listeners, evt)
+	}
+
+	if removeSource == true {
+		// Close input prior to deletion
+		// Close will return an error if it has already been called.
+		// The deferred call does not check for error.
+		if err := input.Close(); err != nil {
+			log.Println("Warning: %v\n", err)
+		}
+
+		// Delete input file
+		if inputName == "STDIN" {
+			log.Println("Warning: ignoring remove option with STDIN", verbosity > 0)
+		} else if os.Remove(inputName) != nil {
+			log.Println("Warning: input file could not be deleted", verbosity > 0)
+		}
 	}
 
 	return 0, read, cos.GetWritten()
