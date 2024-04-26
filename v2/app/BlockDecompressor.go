@@ -42,15 +42,16 @@ const (
 
 // BlockDecompressor main block decompressor struct
 type BlockDecompressor struct {
-	verbosity  uint
-	overwrite  bool
-	inputName  string
-	outputName string
-	jobs       uint
-	from       int // start blovk
-	to         int // end block
-	listeners  []kanzi.Listener
-	cpuProf    string
+	verbosity    uint
+	overwrite    bool
+	removeSource bool
+	inputName    string
+	outputName   string
+	jobs         uint
+	from         int // start blovk
+	to           int // end block
+	listeners    []kanzi.Listener
+	cpuProf      string
 }
 
 type fileDecompressResult struct {
@@ -64,11 +65,18 @@ func NewBlockDecompressor(argsMap map[string]any) (*BlockDecompressor, error) {
 	this := &BlockDecompressor{}
 	this.listeners = make([]kanzi.Listener, 0)
 
-	if force, hasKey := argsMap["overwrite"]; hasKey == true {
+	if force, prst := argsMap["overwrite"]; prst == true {
 		this.overwrite = force.(bool)
 		delete(argsMap, "overwrite")
 	} else {
 		this.overwrite = false
+	}
+
+	if rmSrc, prst := argsMap["remove"]; prst == true {
+		this.removeSource = rmSrc.(bool)
+		delete(argsMap, "remove")
+	} else {
+		this.removeSource = false
 	}
 
 	this.inputName = argsMap["inputName"].(string)
@@ -106,21 +114,21 @@ func NewBlockDecompressor(argsMap map[string]any) (*BlockDecompressor, error) {
 	this.verbosity = argsMap["verbosity"].(uint)
 	delete(argsMap, "verbosity")
 
-	if v, hasKey := argsMap["from"]; hasKey == true {
+	if v, prst := argsMap["from"]; prst == true {
 		this.from = v.(int)
 		delete(argsMap, "from")
 	} else {
 		this.from = -1
 	}
 
-	if v, hasKey := argsMap["to"]; hasKey == true {
+	if v, prst := argsMap["to"]; prst == true {
 		this.to = v.(int)
 		delete(argsMap, "to")
 	} else {
 		this.to = -1
 	}
 
-	if prof, hasKey := argsMap["cpuProf"]; hasKey == true {
+	if prof, prst := argsMap["cpuProf"]; prst == true {
 		this.cpuProf = prof.(string)
 		delete(argsMap, "cpuProf")
 	} else {
@@ -196,7 +204,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	files := make([]FileData, 0, 256)
 	nbFiles := 1
 	var msg string
-	isStdIn := strings.ToUpper(this.inputName) == _DECOMP_STDIN
+	isStdIn := strings.EqualFold(this.inputName, _DECOMP_STDIN)
 
 	if isStdIn == false {
 		suffix := string([]byte{os.PathSeparator, '.'})
@@ -236,7 +244,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	}
 
 	// Limit verbosity level when output is stdout
-	if strings.ToUpper(this.outputName) == _DECOMP_STDOUT {
+	if strings.EqualFold(this.outputName, _DECOMP_STDOUT) {
 		this.verbosity = 0
 	}
 
@@ -247,9 +255,9 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	}
 
 	if this.verbosity > 2 {
-		msg = fmt.Sprintf("Verbosity set to %d", this.verbosity)
+		msg = fmt.Sprintf("Verbosity: %d", this.verbosity)
 		log.Println(msg, true)
-		msg = fmt.Sprintf("Overwrite set to %t", this.overwrite)
+		msg = fmt.Sprintf("Overwrite: %t", this.overwrite)
 		log.Println(msg, true)
 
 		if this.jobs > 1 {
@@ -260,8 +268,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 		}
 	}
 
-	upperOutputName := strings.ToUpper(this.outputName)
-	isStdOut := upperOutputName == _DECOMP_STDOUT
+	isStdOut := strings.EqualFold(this.outputName, _DECOMP_STDOUT)
 
 	// Limit verbosity level when output is stdout
 	// Logic is duplicated here to avoid dependency to Kanzi.go
@@ -285,7 +292,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	var inputIsDir bool
 	formattedOutName := this.outputName
 	formattedInName := this.inputName
-	specialOutput := upperOutputName == _DECOMP_NONE || upperOutputName == _DECOMP_STDOUT
+	specialOutput := strings.EqualFold(this.outputName, _DECOMP_NONE) || strings.EqualFold(this.outputName, _DECOMP_STDOUT)
 
 	if isStdIn == false {
 		fi, err := os.Stat(formattedInName)
@@ -340,6 +347,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	ctx := make(map[string]any)
 	ctx["verbosity"] = this.verbosity
 	ctx["overwrite"] = this.overwrite
+	ctx["remove"] = this.removeSource
 	var res int
 
 	if this.from >= 0 {
@@ -483,23 +491,36 @@ type fileDecompressTask struct {
 
 func (this *fileDecompressTask) call() (int, uint64) {
 	var msg string
+	removeSource := this.ctx["remove"].(bool)
 	verbosity := this.ctx["verbosity"].(uint)
 	inputName := this.ctx["inputName"].(string)
 	outputName := this.ctx["outputName"].(string)
 
 	if verbosity > 2 {
-		log.Println("Input file name set to '"+inputName+"'", true)
-		log.Println("Output file name set to '"+outputName+"'", true)
+		log.Println("Input file name: '"+inputName+"'", true)
+		log.Println("Output file name: '"+outputName+"'", true)
 	}
 
 	overwrite := this.ctx["overwrite"].(bool)
-
 	var output io.WriteCloser
+	checkOutputSize := true
 
-	if strings.ToUpper(outputName) == _DECOMP_NONE {
+	if runtime.GOOS == "windows" {
+		if strings.EqualFold(outputName, "NUL") {
+			checkOutputSize = false
+		}
+	} else {
+		if strings.EqualFold(outputName, "/DEV/NULL") {
+			checkOutputSize = false
+		}
+	}
+
+	if strings.EqualFold(outputName, _DECOMP_NONE) {
 		output, _ = kio.NewNullOutputStream()
-	} else if strings.ToUpper(outputName) == _DECOMP_STDOUT {
+		checkOutputSize = false
+	} else if strings.EqualFold(outputName, _DECOMP_STDOUT) {
 		output = os.Stdout
+		checkOutputSize = false
 	} else {
 		var err error
 
@@ -537,12 +558,9 @@ func (this *fileDecompressTask) call() (int, uint64) {
 		}
 	}
 
-	defer func() {
-		output.Close()
-	}()
+	defer output.Close()
 
 	// Decode
-	read := int64(0)
 	log.Println("\nDecompressing "+inputName+" ...", verbosity > 1)
 	log.Println("", verbosity > 3)
 	var input io.ReadCloser
@@ -552,19 +570,17 @@ func (this *fileDecompressTask) call() (int, uint64) {
 		notifyBDListeners(this.listeners, evt)
 	}
 
-	if strings.ToUpper(inputName) == _DECOMP_STDIN {
+	if strings.EqualFold(inputName, _DECOMP_STDIN) {
 		input = os.Stdin
 	} else {
 		var err error
 
 		if input, err = os.Open(inputName); err != nil {
 			fmt.Printf("Cannot open input file '%s': %v\n", inputName, err)
-			return kanzi.ERR_OPEN_FILE, uint64(read)
+			return kanzi.ERR_OPEN_FILE, 0
 		}
 
-		defer func() {
-			input.Close()
-		}()
+		defer input.Close()
 	}
 
 	cis, err := kio.NewReaderWithCtx(input, this.ctx)
@@ -572,11 +588,11 @@ func (this *fileDecompressTask) call() (int, uint64) {
 	if err != nil {
 		if err.(*kio.IOError) != nil {
 			fmt.Printf("%s\n", err.(*kio.IOError).Message())
-			return err.(*kio.IOError).ErrorCode(), uint64(read)
+			return err.(*kio.IOError).ErrorCode(), 0
 		}
 
 		fmt.Printf("Cannot create compressed stream: %v\n", err)
-		return kanzi.ERR_CREATE_DECOMPRESSOR, uint64(read)
+		return kanzi.ERR_CREATE_DECOMPRESSOR, 0
 	}
 
 	for _, bl := range this.listeners {
@@ -584,15 +600,17 @@ func (this *fileDecompressTask) call() (int, uint64) {
 	}
 
 	buffer := make([]byte, _DECOMP_DEFAULT_BUFFER_SIZE)
-	decoded := len(buffer)
+	decoded := int64(0)
 	before := time.Now()
 
 	// Decode next block
-	for decoded == len(buffer) {
-		if decoded, err = cis.Read(buffer); err != nil {
+	for {
+		var decodedBlock int
+
+		if decodedBlock, err = cis.Read(buffer); err != nil {
 			if ioerr, isIOErr := err.(*kio.IOError); isIOErr == true {
 				fmt.Printf("%s\n", ioerr.Message())
-				return ioerr.ErrorCode(), uint64(read)
+				return ioerr.ErrorCode(), uint64(decoded)
 			}
 
 			if errors.Is(err, io.EOF) == false {
@@ -600,31 +618,50 @@ func (this *fileDecompressTask) call() (int, uint64) {
 				// Because Copy is defined to read from src until EOF, it does not
 				// treat EOF from Read an an error to be reported)
 				fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err)
-				return kanzi.ERR_PROCESS_BLOCK, uint64(read)
+				return kanzi.ERR_PROCESS_BLOCK, uint64(decoded)
 			}
 		}
 
-		if decoded > 0 {
-			_, err = output.Write(buffer[0:decoded])
+		if decodedBlock > 0 {
+			_, err := output.Write(buffer[0:decodedBlock])
 
 			if err != nil {
 				fmt.Printf("Failed to write decompressed block to file '%s': %v\n", outputName, err)
-				return kanzi.ERR_WRITE_FILE, uint64(read)
+				return kanzi.ERR_WRITE_FILE, uint64(decoded)
 			}
 
-			read += int64(decoded)
+			decoded += int64(decodedBlock)
+		}
+
+		if decodedBlock != len(buffer) {
+			break
 		}
 	}
 
 	// Close streams to ensure all data are flushed
 	// Deferred close is fallback for error paths
 	if err := cis.Close(); err != nil {
-		fmt.Printf("%v\n", err)
-		return kanzi.ERR_PROCESS_BLOCK, uint64(read)
+		return kanzi.ERR_PROCESS_BLOCK, uint64(decoded)
 	}
 
 	after := time.Now()
 	delta := after.Sub(before).Nanoseconds() / 1000000 // convert to ms
+
+	// If the whole input stream has been decoded and the original data size is present,
+	// check that the output size matches the original data size.
+	_, hasTo := this.ctx["to"]
+	_, hasFrom := this.ctx["from"]
+
+	if checkOutputSize == true && hasTo == false && hasFrom == false {
+		if osz, prst := this.ctx["outputSize"]; prst == true {
+			outputSize := osz.(int64)
+
+			if outputSize != 0 && decoded != outputSize {
+				fmt.Printf("Corrupted bitstream: invalid output size (expected %d, got %d)\n", decoded, outputSize)
+				return kanzi.ERR_INVALID_FILE, uint64(decoded)
+			}
+		}
+	}
 
 	if verbosity >= 1 {
 		log.Println("", verbosity > 1)
@@ -640,17 +677,17 @@ func (this *fileDecompressTask) call() (int, uint64) {
 			log.Println(msg, true)
 			msg = fmt.Sprintf("Input size:        %d", cis.GetRead())
 			log.Println(msg, true)
-			msg = fmt.Sprintf("Output size:       %d", read)
+			msg = fmt.Sprintf("Output size:       %d", decoded)
 			log.Println(msg, true)
 		}
 
 		if verbosity == 1 {
-			msg = fmt.Sprintf("Decompressing %s: %d => %d in %s", inputName, cis.GetRead(), read, msg)
+			msg = fmt.Sprintf("Decompressing %s: %d => %d in %s", inputName, cis.GetRead(), decoded, msg)
 			log.Println(msg, true)
 		}
 
 		if verbosity > 1 && delta > 0 {
-			msg = fmt.Sprintf("Throughput (KB/s): %d", ((read*int64(1000))>>10)/delta)
+			msg = fmt.Sprintf("Throughput (KB/s): %d", ((decoded*int64(1000))>>10)/delta)
 			log.Println(msg, true)
 		}
 
@@ -662,5 +699,22 @@ func (this *fileDecompressTask) call() (int, uint64) {
 		notifyBDListeners(this.listeners, evt)
 	}
 
-	return 0, uint64(read)
+	if removeSource == true {
+		// Close input prior to deletion
+		// Close will return an error if it has already been called.
+		// The deferred call does not check for error.
+		if err := input.Close(); err != nil {
+			msg := fmt.Sprintf("Warning: %v\n", err)
+			log.Println(msg, verbosity > 0)
+		}
+
+		// Delete input file
+		if inputName == "STDIN" {
+			log.Println("Warning: ignoring remove option with STDIN", verbosity > 0)
+		} else if os.Remove(inputName) != nil {
+			log.Println("Warning: input file could not be deleted", verbosity > 0)
+		}
+	}
+
+	return 0, uint64(decoded)
 }

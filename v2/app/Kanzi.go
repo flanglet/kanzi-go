@@ -202,6 +202,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 	noLinks := false
 	from := -1
 	to := -1
+	remove := false
 	inputName := ""
 	outputName := ""
 	codec := ""
@@ -364,6 +365,16 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			}
 
 			checksum = true
+			ctx = -1
+			continue
+		}
+
+		if arg == "--rm" {
+			if ctx != -1 {
+				log.Println(fmt.Sprintf(warningNoValOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
+			}
+
+			remove = true
 			ctx = -1
 			continue
 		}
@@ -801,6 +812,10 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 		argsMap["skipBlocks"] = true
 	}
 
+	if remove == true {
+		argsMap["remove"] = true
+	}
+
 	if fileReorder == false {
 		argsMap["fileReorder"] = false
 	}
@@ -909,7 +924,8 @@ func printHelp(mode string, showHeader bool) {
 
 	log.Println("   -j, --jobs=<jobs>", true)
 	log.Println("        maximum number of jobs the program may start concurrently", true)
-	log.Println("        (default is half of available cores, maximum is 64).\n", true)
+	log.Println("        If 0 is provided, use all available cores (maximum is 64).", true)
+	log.Println("        (default is half of available cores).\n", true)
 	log.Println("   -v, --verbose=<level>", true)
 	log.Println("        set the verbosity level [0..5]", true)
 	log.Println("        0=silent, 1=default, 2=display details, 3=display configuration,", true)
@@ -920,7 +936,8 @@ func printHelp(mode string, showHeader bool) {
 	log.Println("        overwrite the output file if it already exists\n", true)
 
 	if mode == "d" {
-		log.Println("   --from=blockID", true)
+		log.Println("   --rm", true)
+		log.Println("        remove the input file after successful decompression\n", true)
 		log.Println("        Decompress starting from the provided block (included).", true)
 		log.Println("        The first block ID is 1.\n", true)
 		log.Println("   --to=blockID", true)
@@ -928,6 +945,8 @@ func printHelp(mode string, showHeader bool) {
 	}
 
 	if mode != "d" {
+		log.Println("   --rm", true)
+		log.Println("        remove the input file after successful compression\n", true)
 		log.Println("", true)
 		log.Println("EG. Kanzi -c -i foo.txt -o none -b 4m -l 4 -v 3\n", true)
 		log.Println("EG. Kanzi -c -i foo.txt -f -t BWT+MTFT+ZRLT -b 4m -e FPAQ -j 4\n", true)

@@ -50,6 +50,7 @@ type BlockCompressor struct {
 	checksum      bool
 	skipBlocks    bool
 	fileReorder   bool
+	removeSource  bool
 	noDotFiles    bool
 	noLinks       bool
 	autoBlockSize bool
@@ -197,6 +198,13 @@ func NewBlockCompressor(argsMap map[string]any) (*BlockCompressor, error) {
 		this.checksum = false
 	}
 
+	if rmSrc, prst := argsMap["remove"]; prst == true {
+		this.removeSource = rmSrc.(bool)
+		delete(argsMap, "remove")
+	} else {
+		this.removeSource = false
+	}
+
 	if check, prst := argsMap["fileReorder"]; prst == true {
 		this.fileReorder = check.(bool)
 		delete(argsMap, "fileReorder")
@@ -315,7 +323,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	files := make([]FileData, 0, 256)
 	nbFiles := 1
 	var msg string
-	isStdIn := strings.ToUpper(this.inputName) == _COMP_STDIN
+	isStdIn := strings.EqualFold(this.inputName, _COMP_STDIN)
 
 	if isStdIn == false {
 		suffix := string([]byte{os.PathSeparator, '.'})
@@ -354,8 +362,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		log.Println(msg, this.verbosity > 0)
 	}
 
-	upperOutputName := strings.ToUpper(this.outputName)
-	isStdOut := upperOutputName == _COMP_STDOUT
+	isStdOut := strings.EqualFold(this.outputName, _COMP_STDOUT)
 
 	// Limit verbosity level when output is stdout
 	// Logic is duplicated here to avoid dependency to Kanzi.go
@@ -371,17 +378,17 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 
 	if this.verbosity > 2 {
 		if this.autoBlockSize == true {
-			msg = "Block size set to 'auto'"
+			msg = "Block size: 'auto'"
 		} else {
-			msg = fmt.Sprintf("Block size set to %d bytes", this.blockSize)
+			msg = fmt.Sprintf("Block size: %d bytes", this.blockSize)
 		}
 
 		log.Println(msg, true)
-		msg = fmt.Sprintf("Verbosity set to %d", this.verbosity)
+		msg = fmt.Sprintf("Verbosity: %d", this.verbosity)
 		log.Println(msg, true)
-		msg = fmt.Sprintf("Overwrite set to %t", this.overwrite)
+		msg = fmt.Sprintf("Overwrite: %t", this.overwrite)
 		log.Println(msg, true)
-		msg = fmt.Sprintf("Checksum set to %t", this.checksum)
+		msg = fmt.Sprintf("Checksum: %t", this.checksum)
 		log.Println(msg, true)
 		w1 := "no"
 
@@ -419,7 +426,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	inputIsDir := false
 	formattedOutName := this.outputName
 	formattedInName := this.inputName
-	specialOutput := upperOutputName == _COMP_NONE || upperOutputName == _COMP_STDOUT
+	specialOutput := strings.EqualFold(this.outputName, _COMP_NONE) || strings.EqualFold(this.outputName, _COMP_STDOUT)
 
 	if isStdIn == false {
 		fi, err := os.Stat(formattedInName)
@@ -471,6 +478,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 
 	ctx := make(map[string]any)
 	ctx["verbosity"] = this.verbosity
+	ctx["remove"] = this.removeSource
 	ctx["overwrite"] = this.overwrite
 	ctx["skipBlocks"] = this.skipBlocks
 	ctx["checksum"] = this.checksum
@@ -685,22 +693,22 @@ type fileCompressTask struct {
 
 func (this *fileCompressTask) call() (int, uint64, uint64) {
 	var msg string
+	removeSource := this.ctx["remove"].(bool)
 	verbosity := this.ctx["verbosity"].(uint)
 	inputName := this.ctx["inputName"].(string)
 	outputName := this.ctx["outputName"].(string)
 
 	if verbosity > 2 {
-		log.Println("Input file name set to '"+inputName+"'", true)
-		log.Println("Output file name set to '"+outputName+"'", true)
+		log.Println("Input file name: '"+inputName+"'", true)
+		log.Println("Output file name: '"+outputName+"'", true)
 	}
 
 	overwrite := this.ctx["overwrite"].(bool)
-
 	var output io.WriteCloser
 
-	if strings.ToUpper(outputName) == _COMP_NONE {
+	if strings.EqualFold(outputName, _COMP_NONE) == true {
 		output, _ = kio.NewNullOutputStream()
-	} else if strings.ToUpper(outputName) == _COMP_STDOUT {
+	} else if strings.EqualFold(outputName, _COMP_STDOUT) == true {
 		output = os.Stdout
 	} else {
 		var err error
@@ -743,10 +751,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 			}
 		}
 
-		defer func() {
-			output.Close()
-		}()
-
+		defer output.Close()
 	}
 
 	cos, err := kio.NewWriterWithCtx(output, this.ctx)
@@ -761,13 +766,11 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 		return kanzi.ERR_CREATE_COMPRESSOR, 0, 0
 	}
 
-	defer func() {
-		cos.Close()
-	}()
+	defer cos.Close()
 
 	var input io.ReadCloser
 
-	if strings.ToUpper(inputName) == _COMP_STDIN {
+	if strings.EqualFold(inputName, _COMP_STDIN) {
 		input = os.Stdin
 	} else {
 		var err error
@@ -777,9 +780,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 			return kanzi.ERR_OPEN_FILE, 0, 0
 		}
 
-		defer func() {
-			input.Close()
-		}()
+		defer input.Close()
 	}
 
 	for _, bl := range this.listeners {
@@ -789,9 +790,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 	// Encode
 	log.Println("\nCompressing "+inputName+" ...", verbosity > 1)
 	log.Println("", verbosity > 3)
-	length := 0
 	read := uint64(0)
-
 	buffer := make([]byte, _COMP_DEFAULT_BUFFER_SIZE)
 
 	if len(this.listeners) > 0 {
@@ -800,27 +799,32 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 	}
 
 	before := time.Now()
-	length, err = input.Read(buffer)
 
-	for length > 0 {
-		if err != nil {
+	for {
+		var length int
+
+		if length, err = input.Read(buffer); err != nil {
 			fmt.Printf("Failed to read block from file '%s': %v\n", inputName, err)
 			return kanzi.ERR_READ_FILE, read, cos.GetWritten()
 		}
 
-		read += uint64(length)
+		if length > 0 {
+			read += uint64(length)
 
-		if _, err = cos.Write(buffer[0:length]); err != nil {
-			if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
-				fmt.Printf("%s\n", ioerr.Error())
-				return ioerr.ErrorCode(), read, cos.GetWritten()
+			if _, err = cos.Write(buffer[0:length]); err != nil {
+				if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
+					fmt.Printf("%s\n", ioerr.Error())
+					return ioerr.ErrorCode(), read, cos.GetWritten()
+				}
+
+				fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err.Error())
+				return kanzi.ERR_PROCESS_BLOCK, read, cos.GetWritten()
 			}
-
-			fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err.Error())
-			return kanzi.ERR_PROCESS_BLOCK, read, cos.GetWritten()
 		}
 
-		length, err = input.Read(buffer)
+		if length < len(buffer) {
+			break
+		}
 	}
 
 	// Close streams to ensure all data are flushed
@@ -876,6 +880,23 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 	if len(this.listeners) > 0 {
 		evt := kanzi.NewEvent(kanzi.EVT_COMPRESSION_END, -1, int64(cos.GetWritten()), 0, false, time.Now())
 		notifyBCListeners(this.listeners, evt)
+	}
+
+	if removeSource == true {
+		// Close input prior to deletion
+		// Close will return an error if it has already been called.
+		// The deferred call does not check for error.
+		if err := input.Close(); err != nil {
+			msg := fmt.Sprintf("Warning: %v\n", err)
+			log.Println(msg, verbosity > 0)
+		}
+
+		// Delete input file
+		if inputName == "STDIN" {
+			log.Println("Warning: ignoring remove option with STDIN", verbosity > 0)
+		} else if os.Remove(inputName) != nil {
+			log.Println("Warning: input file could not be deleted", verbosity > 0)
+		}
 	}
 
 	return 0, read, cos.GetWritten()
