@@ -1185,7 +1185,7 @@ func (this *Reader) readHeader() error {
 		sb.WriteString(fmt.Sprintf("Using %s transform (stage 2)\n", w2))
 
 		if szMask != 0 {
-			sb.WriteString(fmt.Sprintf("Output size: %d byte(s)\n", this.outputSize))
+			sb.WriteString(fmt.Sprintf("Original size: %d byte(s)\n", this.outputSize))
 		}
 
 		evt := kanzi.NewEventFromString(kanzi.EVT_AFTER_HEADER_DECODING, 0, sb.String(), time.Now())
