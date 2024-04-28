@@ -938,10 +938,11 @@ func printHelp(mode string, showHeader bool) {
 	if mode == "d" {
 		log.Println("   --rm", true)
 		log.Println("        remove the input file after successful decompression\n", true)
-		log.Println("        Decompress starting from the provided block (included).", true)
+		log.Println("   --from=blockID", true)
+		log.Println("        decompress starting from the provided block (included).", true)
 		log.Println("        The first block ID is 1.\n", true)
 		log.Println("   --to=blockID", true)
-		log.Println("        Decompress ending at the provided block (excluded).\n", true)
+		log.Println("        decompress ending at the provided block (excluded).\n", true)
 	}
 
 	if mode != "d" {
