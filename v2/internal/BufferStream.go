@@ -16,21 +16,26 @@ limitations under the License.
 package internal
 
 import (
+	"bytes"
 	"errors"
 )
 
-// BufferStream a closable read/write stream of bytes backed by a slice
+// BufferStream a closable read/write stream of bytes backed by a bytes.Buffer
 type BufferStream struct {
-	buf    []byte
-	off    int
+	buf    *bytes.Buffer
 	closed bool
 }
 
-// NewBufferStream creates a new instance of BufferStream backed by the
-// provided byte slice.
-func NewBufferStream(buf []byte) *BufferStream {
+// NewBufferStream creates a new instance of BufferStream
+func NewBufferStream(args ...[]byte) *BufferStream {
 	this := &BufferStream{}
-	this.buf = buf
+
+	if len(args) == 1 {
+		this.buf = bytes.NewBuffer(args[0])
+	} else {
+		this.buf = bytes.NewBuffer(make([]byte, 0))
+        }
+
 	return this
 }
 
@@ -42,9 +47,7 @@ func (this *BufferStream) Write(b []byte) (int, error) {
 		return 0, errors.New("Stream closed")
 	}
 
-	// Write to len(this.buf)
-	this.buf = append(this.buf, b...)
-	return len(b), nil
+	return this.buf.Write(b)
 }
 
 // Read returns an error if the stream is closed, otherwise reads data from
@@ -55,20 +58,10 @@ func (this *BufferStream) Read(b []byte) (int, error) {
 		return 0, errors.New("Stream closed")
 	}
 
-	// Read from this.off
-	if len(b) < len(this.buf[this.off:]) {
-		copy(b, this.buf[this.off:this.off+len(b)])
-		this.off += len(b)
-		return len(b), nil
-	}
-
-	copy(b, this.buf[this.off:])
-	old := this.off
-	this.off = len(this.buf)
-	return len(this.buf) - old, nil
+	return this.buf.Read(b)
 }
 
-// Close makes the stream unavailable for further reads or writes.
+// Close makes the stream unavailable for future reads or writes.
 func (this *BufferStream) Close() error {
 	this.closed = true
 	return nil
@@ -76,25 +69,14 @@ func (this *BufferStream) Close() error {
 
 // Len returns the size of the stream
 func (this *BufferStream) Len() int {
-	return len(this.buf)
+	return this.buf.Len()
 }
 
-// Offset returns the offset of the read pointer
-func (this *BufferStream) Offset() int {
-	return this.off
-}
-
-// SetOffset sets the offset of the read pointer.
-// Returns an error if the offset value is invalid otr the stream is closed.
-func (this *BufferStream) SetOffset(off int) error {
+// Available returns the number of bytes available for read
+func (this *BufferStream) Available() int {
 	if this.closed == true {
-		return errors.New("Stream closed")
+		return 0
 	}
 
-	if off < 0 || off >= this.Len() {
-		return errors.New("Invalid offset")
-	}
-
-	this.off = off
-	return nil
+	return this.buf.Available()
 }

@@ -513,14 +513,14 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 			litIdx += litLen
 		}
 
-		var os internal.BufferStream
+		os := internal.NewBufferStream(make([]byte, 0, sizeChunk/4))
 
 		// Scope to deallocate resources early
 		{
 			// Encode literal, length and match index buffers
 			var obs kanzi.OutputBitStream
 
-			if obs, err = bitstream.NewDefaultOutputBitStream(&os, 65536); err != nil {
+			if obs, err = bitstream.NewDefaultOutputBitStream(os, 65536); err != nil {
 				break
 			}
 
@@ -612,12 +612,6 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("ROLZ codec: Invalid input data")
 	}
 
-	var is internal.BufferStream
-
-	if _, err := is.Write(src[4:]); err != nil {
-		return 0, 0, err
-	}
-
 	startChunk := 0
 	srcIdx := 5
 	dstIdx := 0
@@ -664,6 +658,12 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
+	is := internal.NewBufferStream(make([]byte, 0, len(src)))
+
+	if _, err := is.Write(src[5:]); err != nil {
+		return 0, 0, err
+	}
+
 	// Main loop
 	for startChunk < dstEnd {
 		mIdx := 0
@@ -689,11 +689,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			// Decode literal, match length and match index buffers
 			var ibs kanzi.InputBitStream
 
-			if err = is.SetOffset(srcIdx - 4); err != nil {
-				goto End
-			}
-
-			if ibs, err = bitstream.NewDefaultInputBitStream(&is, 65536); err != nil {
+			if ibs, err = bitstream.NewDefaultInputBitStream(is, 65536); err != nil {
 				goto End
 			}
 

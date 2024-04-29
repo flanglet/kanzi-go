@@ -146,8 +146,8 @@ func testEntropyCorrectness(name string) error {
 
 		println()
 		fmt.Printf("\nEncoded: \n")
-		var bs internal.BufferStream
-		obs, _ := bitstream.NewDefaultOutputBitStream(&bs, 16384)
+		bs := internal.NewBufferStream()
+		obs, _ := bitstream.NewDefaultOutputBitStream(bs, 16384)
 		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
 		dbgbs.ShowByte(true)
 		//dbgbs.Mark(true)
@@ -167,7 +167,7 @@ func testEntropyCorrectness(name string) error {
 		println()
 		fmt.Printf("\nDecoded: \n")
 
-		ibs, _ := bitstream.NewDefaultInputBitStream(&bs, 16384)
+		ibs, _ := bitstream.NewDefaultInputBitStream(bs, 16384)
 		ed := getDecoder(name, ibs)
 
 		if ed == nil {

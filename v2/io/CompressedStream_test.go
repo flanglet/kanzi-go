@@ -184,9 +184,9 @@ func compressAfterWriteClose(block []byte) int {
 	fmt.Println("Test - write after close")
 	buf := make([]byte, len(block))
 	copy(buf, block)
-	var bs internal.BufferStream
+	bs := internal.NewBufferStream()
 
-	os, err := NewWriter(&bs, "HUFFMAN", "NONE", uint(len(block)), 1, false)
+	os, err := NewWriter(bs, "HUFFMAN", "NONE", uint(len(block)), 1, false)
 
 	if err != nil {
 		fmt.Printf("%v\n", err)
@@ -217,9 +217,9 @@ func compressAfterWriteClose(block []byte) int {
 
 func compressAfterReadClose(block []byte) int {
 	fmt.Println("Test - read after close")
-	var bs internal.BufferStream
+	bs := internal.NewBufferStream()
 
-	os, err := NewWriter(&bs, "NONE", "NONE", uint(len(block)), 1, false)
+	os, err := NewWriter(bs, "NONE", "NONE", uint(len(block)), 1, false)
 
 	if err != nil {
 		fmt.Printf("%v\n", err)
@@ -238,7 +238,7 @@ func compressAfterReadClose(block []byte) int {
 		return 3
 	}
 
-	is, err := NewReader(&bs, 1)
+	is, err := NewReader(bs, 1)
 
 	if err != nil {
 		fmt.Printf("%v\n", err)

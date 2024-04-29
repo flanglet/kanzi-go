@@ -108,7 +108,7 @@ func testEntropySpeed(b *testing.B, name string) error {
 		size := 50000
 		values1 := make([]byte, size)
 		values2 := make([]byte, size)
-		var bs internal.BufferStream
+		bs := internal.NewBufferStream(make([]byte, 0, size))
 
 		for ii := 0; ii < iter; ii++ {
 			idx := jj
@@ -130,7 +130,7 @@ func testEntropySpeed(b *testing.B, name string) error {
 				}
 			}
 
-			obs, _ := bitstream.NewDefaultOutputBitStream(&bs, uint(size))
+			obs, _ := bitstream.NewDefaultOutputBitStream(bs, uint(size))
 			ec := getEncoder(name, obs)
 
 			// Encode
@@ -146,7 +146,7 @@ func testEntropySpeed(b *testing.B, name string) error {
 				b.Fatalf(msg)
 			}
 
-			ibs, _ := bitstream.NewDefaultInputBitStream(&bs, uint(size))
+			ibs, _ := bitstream.NewDefaultInputBitStream(bs, uint(size))
 			ed := getDecoder(name, ibs)
 
 			// Decode
