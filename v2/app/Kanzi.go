@@ -44,7 +44,7 @@ const (
 	//_ARG_IDX_FROM      = 10
 	//_ARG_IDX_TO        = 11
 	_ARG_IDX_PROFILE = 14
-	_KANZI_VERSION   = "2.2"
+	_KANZI_VERSION   = "2.3"
 	_APP_HEADER      = "Kanzi " + _KANZI_VERSION + " (c) Frederic Langlet"
 	_ARG_INPUT       = "--input="
 	_ARG_OUTPUT      = "--output="
@@ -900,7 +900,7 @@ func printHelp(mode string, showHeader bool) {
 		log.Println("        set the compression level [0..9]", true)
 		log.Println("        Providing this option forces entropy and transform.", true)
 		log.Println("        Defaults to level 3 if not provided.", true)
-		log.Println("        0=None&None (store)", true)
+		log.Println("        0=NONE&NONE (store)", true)
 		log.Println("        1=PACK+LZ&NONE", true)
 		log.Println("        2=PACK+LZ&HUFFMAN", true)
 		log.Println("        3=TEXT+UTF+PACK+MM+LZX&HUFFMAN", true)
@@ -911,15 +911,16 @@ func printHelp(mode string, showHeader bool) {
 		log.Println("        8=EXE+RLT+TEXT+UTF&TPAQ", true)
 		log.Println("        9=EXE+RLT+TEXT+UTF&TPAQX\n", true)
 		log.Println("   -e, --entropy=<codec>", true)
-		log.Println("        entropy codec [None|Huffman|ANS0|ANS1|Range|FPAQ|TPAQ|TPAQX|CM]", true)
+		log.Println("        entropy codec [None|Huffman|ANS0|ANS1|Range|FPAQ|TPAQ|TPAQX|CM]\n", true)
 		log.Println("   -t, --transform=<codec>", true)
 		log.Println("        transform [None|BWT|BWTS|LZ|LZX|LZP|ROLZ|ROLZX|RLT|ZRLT]", true)
 		log.Println("                  [MTFT|RANK|SRT|TEXT|MM|EXE|UTF|PACK]", true)
-		log.Println("        EG: BWT+RANK or BWTS+MTFT", true)
+		log.Println("        EG: BWT+RANK or BWTS+MTFT\n", true)
 		log.Println("   -x, --checksum", true)
 		log.Println("        enable block checksum\n", true)
 		log.Println("   -s, --skip", true)
 		log.Println("        copy blocks with high entropy instead of compressing them.\n", true)
+
 	}
 
 	log.Println("   -j, --jobs=<jobs>", true)
@@ -934,31 +935,30 @@ func printHelp(mode string, showHeader bool) {
 	log.Println("        Verbosity is reduced to 0 when the output is 'stdout'\n", true)
 	log.Println("   -f, --force", true)
 	log.Println("        overwrite the output file if it already exists\n", true)
+        log.Println("   --rm", true)
+        log.Println("        remove the input file after successful (de)compression\n", true)
+        log.Println("   --no-link", true);
+        log.Println("        skip links\n", true);
+        log.Println("   --no-dot-file", true);
+        log.Println("        skip dot files\n", true);
 
 	if mode == "d" {
-		log.Println("   --rm", true)
-		log.Println("        remove the input file after successful decompression\n", true)
 		log.Println("   --from=blockID", true)
 		log.Println("        decompress starting from the provided block (included).", true)
 		log.Println("        The first block ID is 1.\n", true)
 		log.Println("   --to=blockID", true)
 		log.Println("        decompress ending at the provided block (excluded).\n", true)
+		log.Println("", true)
+		log.Println("EG. Kanzi -d -i foo.knz -f -v 2 -j 2\n", true)
+		log.Println("EG. Kanzi --decompress --input=foo.knz --force --verbose=2 --jobs=2\n", true)
 	}
 
-	if mode != "d" {
-		log.Println("   --rm", true)
-		log.Println("        remove the input file after successful compression\n", true)
+	if mode == "c" {
 		log.Println("", true)
 		log.Println("EG. Kanzi -c -i foo.txt -o none -b 4m -l 4 -v 3\n", true)
 		log.Println("EG. Kanzi -c -i foo.txt -f -t BWT+MTFT+ZRLT -b 4m -e FPAQ -j 4\n", true)
 		log.Println("EG. Kanzi --compress --input=foo.txt --output=foo.knz --block=4m --force", true)
 		log.Println("          --transform=BWT+MTFT+ZRLT --entropy=FPAQ --jobs=4\n", true)
-	}
-
-	if mode != "c" {
-		log.Println("", true)
-		log.Println("EG. Kanzi -d -i foo.knz -f -v 2 -j 2\n", true)
-		log.Println("EG. Kanzi --decompress --input=foo.knz --force --verbose=2 --jobs=2\n", true)
 	}
 }
 
