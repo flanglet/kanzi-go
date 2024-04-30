@@ -124,13 +124,19 @@ type encodingTaskResult struct {
 
 // NewWriter creates a new instance of Writer.
 // The writer writes compressed data blocks to the provided os.
-func NewWriter(os io.WriteCloser, entropy, transform string, blockSize, jobs uint, checksum bool) (*Writer, error) {
+// Use 0 if the file size is not available
+// Use headerless == false to create a bitstream without a header. The decompressor
+// must know all the compression parameters to be able to decompress the bitstream.
+// The headerless mode is only useful in very specific scenarios.
+func NewWriter(os io.WriteCloser, transform, entropy string, blockSize, jobs uint, checksum bool, fileSize int64, headerless bool) (*Writer, error) {
 	ctx := make(map[string]any)
 	ctx["entropy"] = entropy
 	ctx["transform"] = transform
 	ctx["blockSize"] = blockSize
 	ctx["jobs"] = jobs
 	ctx["checksum"] = checksum
+	ctx["fileSize"] = fileSize
+	ctx["headerless"] = headerless
 	return NewWriterWithCtx(os, ctx)
 }
 
@@ -858,8 +864,25 @@ func NewReader(is io.ReadCloser, jobs uint) (*Reader, error) {
 	return NewReaderWithCtx(is, ctx)
 }
 
-// NewReaderWithCtx creates a new instance of Reader
-// using a map of parameters.
+// NewHeaderlessReader creates a new instance of Reader to decompress a headerless bitstream.
+// The reader reads compressed data blocks from the provided is.
+// Use 0 if the original file size is not known.
+// The default value for the bitstream version is _BITSTREAM_FORMAT_VERSION.
+// If the provided compression parameters do not match those used during compression,
+// the decompression is likely to fail.
+func NewHeaderlessReader(is io.ReadCloser, jobs uint, transform, entropy string, blockSize uint, checksum bool, originalSize int64, bsVersion uint) (*Reader, error) {
+	ctx := make(map[string]any)
+	ctx["jobs"] = jobs
+	ctx["transform"] = transform
+	ctx["entropy"] = entropy
+	ctx["blockSize"] = blockSize
+	ctx["checksum"] = checksum
+	ctx["outputSize"] = originalSize
+	ctx["bsVersion"] = bsVersion
+	return NewReaderWithCtx(is, ctx)
+}
+
+// NewReaderWithCtx creates a new instance of Reader using a map of parameters.
 // The reader reads compressed data blocks from the provided is
 // using a default input bitstream.
 func NewReaderWithCtx(is io.ReadCloser, ctx map[string]any) (*Reader, error) {
