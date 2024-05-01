@@ -858,19 +858,19 @@ func printHelp(mode string, showHeader bool) {
 	log.Println("         Neal Burns, Fabian Giesen, Jarek Duda, Ilya Grebnov", true)
 	log.Println("", true)
 	log.Println("   -h, --help", true)
-	log.Println("        display this message\n", true)
+	log.Println("        Display this message\n", true)
 
 	if mode != "c" && mode != "d" {
 		log.Println("   -c, --compress", true)
-		log.Println("        compress mode", true)
+		log.Println("        Compress mode", true)
 		log.Println("", true)
 		log.Println("   -d, --decompress", true)
-		log.Println("        decompress mode", true)
+		log.Println("        Decompress mode", true)
 		log.Println("", true)
 	}
 
 	log.Println("   -i, --input=<inputName>", true)
-	log.Println("        mandatory name of the input file or directory or 'stdin'", true)
+	log.Println("        Mandatory name of the input file or directory or 'stdin'", true)
 	log.Println("        When the source is a directory, all files in it will be processed.", true)
 	msg := fmt.Sprintf("        Provide %c. at the end of the directory name to avoid recursion.", os.PathSeparator)
 	log.Println(msg, true)
@@ -879,11 +879,11 @@ func printHelp(mode string, showHeader bool) {
 	log.Println("   -o, --output=<outputName>", true)
 
 	if mode == "c" {
-		log.Println("        optional name of the output file or directory (defaults to", true)
+		log.Println("        Optional name of the output file or directory (defaults to", true)
 		log.Println("        <inputName.knz>) or 'none' or 'stdout'. 'stdout' is not valid", true)
 		log.Println("        when the number of jobs is greater than 1.\n", true)
 	} else if mode == "d" {
-		log.Println("        optional name of the output file or directory (defaults to", true)
+		log.Println("        Optional name of the output file or directory (defaults to", true)
 		log.Println("        <inputName.bak>) or 'none' or 'stdout'. 'stdout' is not valid", true)
 		log.Println("        when the number of jobs is greater than 1.\n", true)
 
@@ -893,11 +893,11 @@ func printHelp(mode string, showHeader bool) {
 
 	if mode == "c" {
 		log.Println("   -b, --block=<size>", true)
-		log.Println("        size of blocks (default 4|8|16|32 MB based on level, max 1 GB, min 1 KB).", true)
+		log.Println("        Size of blocks (default 4|8|16|32 MB based on level, max 1 GB, min 1 KB).", true)
 		log.Println("        'auto' means that the compressor derives the best value'", true)
 		log.Println("        based on input size (when available) and number of jobs.\n", true)
 		log.Println("   -l, --level=<compression>", true)
-		log.Println("        set the compression level [0..9]", true)
+		log.Println("        Set the compression level [0..9]", true)
 		log.Println("        Providing this option forces entropy and transform.", true)
 		log.Println("        Defaults to level 3 if not provided.", true)
 		log.Println("        0=NONE&NONE (store)", true)
@@ -911,43 +911,44 @@ func printHelp(mode string, showHeader bool) {
 		log.Println("        8=EXE+RLT+TEXT+UTF&TPAQ", true)
 		log.Println("        9=EXE+RLT+TEXT+UTF&TPAQX\n", true)
 		log.Println("   -e, --entropy=<codec>", true)
-		log.Println("        entropy codec [None|Huffman|ANS0|ANS1|Range|FPAQ|TPAQ|TPAQX|CM]\n", true)
+		log.Println("        Entropy codec [None|Huffman|ANS0|ANS1|Range|FPAQ|TPAQ|TPAQX|CM]\n", true)
 		log.Println("   -t, --transform=<codec>", true)
-		log.Println("        transform [None|BWT|BWTS|LZ|LZX|LZP|ROLZ|ROLZX|RLT|ZRLT]", true)
+		log.Println("        Transform [None|BWT|BWTS|LZ|LZX|LZP|ROLZ|ROLZX|RLT|ZRLT]", true)
 		log.Println("                  [MTFT|RANK|SRT|TEXT|MM|EXE|UTF|PACK]", true)
 		log.Println("        EG: BWT+RANK or BWTS+MTFT\n", true)
 		log.Println("   -x, --checksum", true)
-		log.Println("        enable block checksum\n", true)
+		log.Println("        Enable block checksum\n", true)
 		log.Println("   -s, --skip", true)
-		log.Println("        copy blocks with high entropy instead of compressing them.\n", true)
+		log.Println("        Copy blocks with high entropy instead of compressing them.\n", true)
 
 	}
 
 	log.Println("   -j, --jobs=<jobs>", true)
-	log.Println("        maximum number of jobs the program may start concurrently", true)
+	log.Println("        Maximum number of jobs the program may start concurrently", true)
 	log.Println("        If 0 is provided, use all available cores (maximum is 64).", true)
 	log.Println("        (default is half of available cores).\n", true)
 	log.Println("   -v, --verbose=<level>", true)
-	log.Println("        set the verbosity level [0..5]", true)
+	log.Println("        Set the verbosity level [0..5]", true)
 	log.Println("        0=silent, 1=default, 2=display details, 3=display configuration,", true)
 	log.Println("        4=display block size and timings, 5=display extra information", true)
 	log.Println("        Verbosity is reduced to 1 when files are processed concurrently", true)
 	log.Println("        Verbosity is reduced to 0 when the output is 'stdout'\n", true)
 	log.Println("   -f, --force", true)
-	log.Println("        overwrite the output file if it already exists\n", true)
+	log.Println("        Overwrite the output file if it already exists\n", true)
         log.Println("   --rm", true)
-        log.Println("        remove the input file after successful (de)compression\n", true)
+        log.Println("        Remove the input file after successful (de)compression.", true)
+        log.Println("        If the input is a folder, all processed files under the folder are removed.\n", true)
         log.Println("   --no-link", true);
-        log.Println("        skip links\n", true);
+        log.Println("        Skip links\n", true);
         log.Println("   --no-dot-file", true);
-        log.Println("        skip dot files\n", true);
+        log.Println("        Skip dot files\n", true);
 
 	if mode == "d" {
 		log.Println("   --from=blockID", true)
-		log.Println("        decompress starting from the provided block (included).", true)
+		log.Println("        Decompress starting at the provided block (included).", true)
 		log.Println("        The first block ID is 1.\n", true)
 		log.Println("   --to=blockID", true)
-		log.Println("        decompress ending at the provided block (excluded).\n", true)
+		log.Println("        Decompress ending at the provided block (excluded).\n", true)
 		log.Println("", true)
 		log.Println("EG. Kanzi -d -i foo.knz -f -v 2 -j 2\n", true)
 		log.Println("EG. Kanzi --decompress --input=foo.knz --force --verbose=2 --jobs=2\n", true)
