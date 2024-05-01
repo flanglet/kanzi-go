@@ -19,22 +19,6 @@ There is a C++ implementation available here: https://github.com/flanglet/kanzi-
 There is Java implementation available here: https://github.com/flanglet/kanzi
 
 
-Credits
-
-Matt Mahoney,
-Yann Collet,
-Jan Ondrus,
-Yuta Mori,
-Ilya Muravyov,
-Neal Burns,
-Fabian Giesen,
-Jarek Duda,
-Ilya Grebnov
-
-Disclaimer
-
-Use at your own risk. Always keep a copy of your original files.
-
 
 ![Build Status](https://github.com/flanglet/kanzi-go/actions/workflows/go.yml/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/flanglet/kanzi-go/v2)](https://goreportcard.com/report/github.com/flanglet/kanzi-go/v2)
@@ -159,3 +143,19 @@ cd kanzi-go/v2/app
 go build Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
 ```
 
+
+Credits
+
+Matt Mahoney,
+Yann Collet,
+Jan Ondrus,
+Yuta Mori,
+Ilya Muravyov,
+Neal Burns,
+Fabian Giesen,
+Jarek Duda,
+Ilya Grebnov
+
+Disclaimer
+
+Use at your own risk. Always keep a copy of your original files.
