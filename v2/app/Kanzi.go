@@ -935,13 +935,13 @@ func printHelp(mode string, showHeader bool) {
 	log.Println("        Verbosity is reduced to 0 when the output is 'stdout'\n", true)
 	log.Println("   -f, --force", true)
 	log.Println("        Overwrite the output file if it already exists\n", true)
-        log.Println("   --rm", true)
-        log.Println("        Remove the input file after successful (de)compression.", true)
-        log.Println("        If the input is a folder, all processed files under the folder are removed.\n", true)
-        log.Println("   --no-link", true);
-        log.Println("        Skip links\n", true);
-        log.Println("   --no-dot-file", true);
-        log.Println("        Skip dot files\n", true);
+	log.Println("   --rm", true)
+	log.Println("        Remove the input file after successful (de)compression.", true)
+	log.Println("        If the input is a folder, all processed files under the folder are removed.\n", true)
+	log.Println("   --no-link", true)
+	log.Println("        Skip links\n", true)
+	log.Println("   --no-dot-file", true)
+	log.Println("        Skip dot files\n", true)
 
 	if mode == "d" {
 		log.Println("   --from=blockID", true)

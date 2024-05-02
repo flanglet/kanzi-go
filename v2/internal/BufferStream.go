@@ -34,7 +34,7 @@ func NewBufferStream(args ...[]byte) *BufferStream {
 		this.buf = bytes.NewBuffer(args[0])
 	} else {
 		this.buf = bytes.NewBuffer(make([]byte, 0))
-        }
+	}
 
 	return this
 }
