@@ -313,12 +313,19 @@ func (this *ANSRangeEncoder) Write(block []byte) (int, error) {
 }
 
 func (this *ANSRangeEncoder) encodeSymbol(n int, st int, sym encSymbol) (int, int) {
+	var x int
+
 	if st >= sym.xMax {
-		this.buffer[n] = byte(st)
-		this.buffer[n-1] = byte(st >> 8)
-		st >>= 16
-		n -= 2
+		x = 1
+	} else {
+		x = 0
 	}
+
+	this.buffer[n] = byte(st)
+	n -= x
+	this.buffer[n] = byte(st >> 8)
+	n -= x
+	st >>= (-x & 16)
 
 	return n, st + sym.bias + int((uint64(st)*sym.invFreq)>>sym.invShift)*sym.cmplFreq
 }
