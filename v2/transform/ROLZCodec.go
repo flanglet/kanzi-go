@@ -658,12 +658,6 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
-	is := internal.NewBufferStream(make([]byte, 0, len(src)))
-
-	if _, err := is.Write(src[5:]); err != nil {
-		return 0, 0, err
-	}
-
 	// Main loop
 	for startChunk < dstEnd {
 		mIdx := 0
@@ -687,6 +681,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		// Scope to deallocate resources early
 		{
 			// Decode literal, match length and match index buffers
+			is := internal.NewBufferStream(src[srcIdx:])
 			var ibs kanzi.InputBitStream
 
 			if ibs, err = bitstream.NewDefaultInputBitStream(is, 65536); err != nil {
@@ -699,22 +694,22 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			mIdxLen := int(ibs.ReadBits(32))
 
 			if litLen < 0 || litLen > sizeChunk {
-				err = fmt.Errorf("ROLZ codec: Invalid length: got %d, must be less than or equal to %v", litLen, sizeChunk)
+				err = fmt.Errorf("ROLZ codec: Invalid length for literals: got %d, must be less than or equal to %d", litLen, sizeChunk)
 				goto End
 			}
 
 			if tkLen < 0 || tkLen > sizeChunk {
-				err = fmt.Errorf("ROLZ codec: Invalid length: got %d, must be less than or equal to %v", tkLen, sizeChunk)
+				err = fmt.Errorf("ROLZ codec: Invalid length for tokens: got %d, must be less than or equal to %d", tkLen, sizeChunk)
 				goto End
 			}
 
 			if mLenLen < 0 || mLenLen > sizeChunk {
-				err = fmt.Errorf("ROLZ codec: Invalid length: got %d, must be less than or equal to %v", mLenLen, sizeChunk)
+				err = fmt.Errorf("ROLZ codec: Invalid length for matches: got %d, must be less than or equal to %d", mLenLen, sizeChunk)
 				goto End
 			}
 
 			if mIdxLen < 0 || mIdxLen > sizeChunk {
-				err = fmt.Errorf("ROLZ codec: Invalid length: got %d, must be less than or equal to %v", mIdxLen, sizeChunk)
+				err = fmt.Errorf("ROLZ codec: Invalid length for match indexes: got %d, must be less than or equal to %d", mIdxLen, sizeChunk)
 				goto End
 			}
 
