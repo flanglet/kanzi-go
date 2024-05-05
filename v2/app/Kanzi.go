@@ -289,14 +289,8 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 	}
 
 	// Overwrite verbosity if the output goes to stdout
-	if len(inputName) == 0 && len(outputName) == 0 {
+	if (len(inputName) == 0 && len(outputName) == 0) || strings.EqualFold(outputName, "STDOUT") == true {
 		verbose = 0
-	} else {
-		outputName = strings.ToUpper(outputName)
-
-		if outputName == "STDOUT" {
-			verbose = 0
-		}
 	}
 
 	if verbose >= 1 {

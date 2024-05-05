@@ -625,9 +625,7 @@ func detectExeType(src []byte, codeStart, codeEnd *int) byte {
 		opcode1 := instr & _EXE_ARM_B_OPCODE_MASK
 		opcode2 := instr & _EXE_ARM_CB_OPCODE_MASK
 
-		if (opcode1 == _EXE_ARM_OPCODE_B) || (opcode1 == _EXE_ARM_OPCODE_BL) {
-			jumpsARM64++
-		} else if (opcode2 == _EXE_ARM_OPCODE_CBZ) || (opcode2 == _EXE_ARM_OPCODE_CBNZ) {
+		if (opcode1 == _EXE_ARM_OPCODE_B) || (opcode1 == _EXE_ARM_OPCODE_BL) || (opcode2 == _EXE_ARM_OPCODE_CBZ) || (opcode2 == _EXE_ARM_OPCODE_CBNZ) {
 			jumpsARM64++
 		}
 	}
