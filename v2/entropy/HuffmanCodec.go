@@ -69,11 +69,8 @@ func generateCanonicalCodes(sizes []byte, codes []uint16, symbols []int, maxSymb
 	curLen := sizes[symbols[0]]
 
 	for _, s := range symbols {
-		if sizes[s] > curLen {
-			code <<= (sizes[s] - curLen)
-			curLen = sizes[s]
-		}
-
+		code <<= (sizes[s] - curLen)
+		curLen = sizes[s]
 		codes[s] = code
 		code++
 	}
@@ -162,55 +159,28 @@ func (this *HuffmanEncoder) updateFrequencies(freqs []int) (int, error) {
 		this.codes[symbols[0]] = 1 << 12
 		sizes[symbols[0]] = 1
 	} else {
-		retries := uint(0)
 		var ranks [256]int
 
-		for {
-			// Sort ranks by increasing freqs (first key) and increasing value (second key)
-			for i := range symbols {
-				ranks[i] = (freqs[symbols[i]] << 8) | symbols[i]
-			}
+		// Sort ranks by increasing freqs (first key) and increasing value (second key)
+		for i := range symbols {
+			ranks[i] = (freqs[symbols[i]] << 8) | symbols[i]
+		}
 
-			var maxCodeLen int
-			var err error
+		var maxCodeLen int
+		var err error
 
-			if maxCodeLen, err = this.computeCodeLengths(sizes[:], ranks[0:count]); err != nil {
+		if maxCodeLen, err = this.computeCodeLengths(sizes[:], ranks[0:count]); err != nil {
+			return count, err
+		}
+
+		if maxCodeLen > _HUF_MAX_SYMBOL_SIZE_V4 {
+			if _, err = this.limitCodeLengths(symbols, freqs, sizes[:], ranks[0:count]); err != nil {
 				return count, err
 			}
+		}
 
-			if maxCodeLen <= _HUF_MAX_SYMBOL_SIZE_V4 {
-				// Usual case
-				if _, err := generateCanonicalCodes(sizes[:], this.codes[:], ranks[0:count], _HUF_MAX_SYMBOL_SIZE_V4); err != nil {
-					return count, err
-				}
-
-				break
-			}
-
-			// Sometimes, codes exceed the budget for the max code length => normalize
-			// frequencies (boost the smallest frequencies) and try once more.
-			if retries > 2 {
-				return count, fmt.Errorf("Could not generate Huffman codes: max code length (%d bits) exceeded, ", _HUF_MAX_SYMBOL_SIZE_V4)
-			}
-
-			retries++
-			var f [256]int
-			var alpha [256]int
-			totalFreq := 0
-
-			for i := range symbols {
-				f[i] = freqs[symbols[i]]
-				totalFreq += f[i]
-			}
-
-			// Normalize to a smaller scale
-			if _, err := NormalizeFrequencies(f[:count], alpha[:count], totalFreq, _HUF_MAX_CHUNK_SIZE>>(retries+1)); err != nil {
-				return count, err
-			}
-
-			for i := range symbols {
-				freqs[symbols[i]] = f[i]
-			}
+		if _, err = generateCanonicalCodes(sizes[:], this.codes[:], ranks[0:count], _HUF_MAX_SYMBOL_SIZE_V4); err != nil {
+			return count, err
 		}
 	}
 
@@ -236,6 +206,89 @@ func (this *HuffmanEncoder) updateFrequencies(freqs []int) (int, error) {
 	return count, nil
 }
 
+func (this *HuffmanEncoder) limitCodeLengths(symbols []int, freqs []int, sizes []byte, ranks []int) (int, error) {
+	n := 0
+	debt := 0
+
+	// Fold over-the-limit sizes, skip at-the-limit sizes => incur bit debt
+	for sizes[ranks[n]] >= _HUF_MAX_SYMBOL_SIZE_V4 {
+		debt += (int(sizes[ranks[n]]) - _HUF_MAX_SYMBOL_SIZE_V4)
+		sizes[ranks[n]] = _HUF_MAX_SYMBOL_SIZE_V4
+		n++
+	}
+
+	// Check (up to) 6 levels; one slice per size delta
+	q := make([][]int, 6)
+	count := len(ranks)
+
+	for n < count {
+		idx := _HUF_MAX_SYMBOL_SIZE_V4 - 1 - sizes[ranks[n]]
+
+		if (idx > 5) || (debt < (1 << idx)) {
+			break
+		}
+
+		q[idx] = append(q[idx], ranks[n])
+		n++
+	}
+
+	idx := 5
+
+	// Repay bit debt in a "semi optimized" way
+	for (debt > 0) && (idx >= 0) {
+		if (len(q[idx]) == 0) || (debt < (1 << idx)) {
+			idx--
+			continue
+		}
+
+		r := q[idx][0]
+		sizes[r]++
+		debt -= (1 << idx)
+		q[idx] = q[idx][1:]
+	}
+
+	idx = 0
+
+	// Adjust if necessary
+	for (debt > 0) && (idx < 6) {
+		if len(q[idx]) == 0 {
+			idx++
+			continue
+		}
+
+		r := q[idx][0]
+		sizes[r]++
+		debt -= (1 << idx)
+		q[idx] = q[idx][1:]
+	}
+
+	if debt > 0 {
+		// Fallback to slow (more accurate) path if fast path failed to repay the debt
+		var f [256]int
+		var alpha [256]int
+		totalFreq := 0
+
+		for i := range symbols {
+			f[i] = freqs[symbols[i]]
+			totalFreq += f[i]
+		}
+
+		// Renormalize to a smaller scale
+		if _, err := NormalizeFrequencies(f[:count], alpha[:count], totalFreq, _HUF_MAX_CHUNK_SIZE>>3); err != nil {
+			return 0, err
+		}
+
+		for i := range ranks {
+			freqs[symbols[i]] = f[i]
+			ranks[i] = (f[i] << 8) | symbols[i]
+		}
+
+		return this.computeCodeLengths(sizes, ranks)
+	}
+
+	return _HUF_MAX_SYMBOL_SIZE_V4, nil
+}
+
 // Called only when more than 1 symbol (len(ranks) >= 2)
 func (this *HuffmanEncoder) computeCodeLengths(sizes []byte, ranks []int) (int, error) {
 	var frequencies [256]int
@@ -256,10 +309,8 @@ func (this *HuffmanEncoder) computeCodeLengths(sizes []byte, ranks []int) (int, 
 	computeInPlaceSizesPhase1(freqs)
 	maxCodeLen := computeInPlaceSizesPhase2(freqs)
 
-	if maxCodeLen <= _HUF_MAX_SYMBOL_SIZE_V4 {
-		for i := range freqs {
-			sizes[ranks[i]] = byte(freqs[i])
-		}
+	for i := range freqs {
+		sizes[ranks[i]] = byte(freqs[i])
 	}
 
 	return maxCodeLen, nil
