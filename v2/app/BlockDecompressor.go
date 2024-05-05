@@ -45,6 +45,8 @@ type BlockDecompressor struct {
 	verbosity    uint
 	overwrite    bool
 	removeSource bool
+	noDotFiles   bool
+	noLinks      bool
 	inputName    string
 	outputName   string
 	jobs         uint
@@ -77,6 +79,20 @@ func NewBlockDecompressor(argsMap map[string]any) (*BlockDecompressor, error) {
 		delete(argsMap, "remove")
 	} else {
 		this.removeSource = false
+	}
+
+	if check, prst := argsMap["noDotFiles"]; prst == true {
+		this.noDotFiles = check.(bool)
+		delete(argsMap, "noDotFiles")
+	} else {
+		this.noDotFiles = false
+	}
+
+	if check, prst := argsMap["noLinks"]; prst == true {
+		this.noLinks = check.(bool)
+		delete(argsMap, "noLinks")
+	} else {
+		this.noLinks = false
 	}
 
 	this.inputName = argsMap["inputName"].(string)
@@ -215,7 +231,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 			target = target[0 : len(target)-1]
 		}
 
-		files, err = createFileList(target, files, isRecursive, false, false)
+		files, err = createFileList(target, files, isRecursive, this.noLinks, this.noDotFiles)
 
 		if err != nil {
 			if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {

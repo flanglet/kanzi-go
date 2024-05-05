@@ -44,7 +44,7 @@ const (
 	//_ARG_IDX_FROM      = 10
 	//_ARG_IDX_TO        = 11
 	_ARG_IDX_PROFILE = 14
-	_KANZI_VERSION   = "2.3"
+	_KANZI_VERSION   = "2.3.0"
 	_APP_HEADER      = "Kanzi " + _KANZI_VERSION + " (c) Frederic Langlet"
 	_ARG_INPUT       = "--input="
 	_ARG_OUTPUT      = "--output="
@@ -395,12 +395,6 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			}
 
 			ctx = -1
-
-			if mode != "c" {
-				log.Println(fmt.Sprintf(warningCompressOpt, arg), verbose > 0)
-				continue
-			}
-
 			noDotFiles = true
 			continue
 		}
@@ -411,12 +405,6 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			}
 
 			ctx = -1
-
-			if mode != "c" {
-				log.Println(fmt.Sprintf(warningCompressOpt, arg), verbose > 0)
-				continue
-			}
-
 			noLinks = true
 			continue
 		}
