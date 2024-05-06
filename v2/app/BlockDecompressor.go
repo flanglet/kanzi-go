@@ -689,11 +689,11 @@ func (this *fileDecompressTask) call() (int, uint64) {
 		}
 
 		if verbosity > 1 {
-			msg = fmt.Sprintf("Decompressing:     %s", msg)
+			msg = fmt.Sprintf("Decompression time: %s", msg)
 			log.Println(msg, true)
-			msg = fmt.Sprintf("Input size:        %d", cis.GetRead())
+			msg = fmt.Sprintf("Input size:         %d", cis.GetRead())
 			log.Println(msg, true)
-			msg = fmt.Sprintf("Output size:       %d", decoded)
+			msg = fmt.Sprintf("Output size:        %d", decoded)
 			log.Println(msg, true)
 		}
 
@@ -703,7 +703,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 		}
 
 		if verbosity > 1 && delta > 0 {
-			msg = fmt.Sprintf("Throughput (KB/s): %d", ((decoded*int64(1000))>>10)/delta)
+			msg = fmt.Sprintf("Throughput (KB/s):  %d", ((decoded*int64(1000))>>10)/delta)
 			log.Println(msg, true)
 		}
 

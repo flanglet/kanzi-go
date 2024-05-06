@@ -847,7 +847,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 		}
 
 		if verbosity > 1 {
-			msg = fmt.Sprintf("Compressing:       %s", msg)
+			msg = fmt.Sprintf("Compression time:  %s", msg)
 			log.Println(msg, true)
 			msg = fmt.Sprintf("Input size:        %d", read)
 			log.Println(msg, true)
