@@ -121,8 +121,7 @@ func NewFSDCodecWithCtx(ctx *map[string]any) (*FSDCodec, error) {
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
 func (this *FSDCodec) MaxEncodedLen(srcLen int) int {
-	padding := max(srcLen>>4, 32)
-	return srcLen + padding // limit expansion
+	return srcLen + max(srcLen>>4, 64) // limit expansion
 }
 
 // Forward applies the function to the src and writes the result
@@ -138,9 +137,10 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	count := len(src)
+	dstEnd := this.MaxEncodedLen(count)
 
-	if n := this.MaxEncodedLen(count); len(dst) < n {
-		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
+	if len(dst) < dstEnd {
+		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), dstEnd)
 	}
 
 	// If too small, skip
@@ -179,8 +179,8 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	// Check several step values on a few sub-blocks (no memory allocation)
-	count5 := count / 5
 	count10 := count / 10
+	count5 := 2 * count10 // count5=count/5 doest not guarantee count5=2*count10 !
 	in0 := src[0*count5:]
 	in1 := src[2*count5:]
 	in2 := src[4*count5:]
@@ -259,7 +259,6 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 		mode = _FSD_XOR_CODING
 	}
 
-	dstEnd := this.MaxEncodedLen(count)
 	dst[0] = mode
 	dst[1] = byte(dist)
 	srcIdx := 0
