@@ -628,7 +628,7 @@ func (this *textCodec1) reset(count int) {
 	}
 
 	// Update map
-	for i := 0; i < _TC_STATIC_DICT_WORDS; i++ {
+	for i := 0; i < this.staticDictSize; i++ {
 		e := this.dictList[i]
 		this.dictMap[e.hash&this.hashMask] = &e
 	}
@@ -805,7 +805,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		// Emit last symbols
 		dstIdx += this.emitSymbols(src[emitAnchor:srcEnd], dst[dstIdx:dstEnd])
 
-		if dstIdx >= dstEnd {
+		if dstIdx > dstEnd {
 			err = errors.New("Text transform failed. Output buffer too small")
 		}
 	}
@@ -1313,7 +1313,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		// Emit last symbols
 		dstIdx += this.emitSymbols(src[emitAnchor:srcEnd], dst[dstIdx:dstEnd])
 
-		if dstIdx >= dstEnd {
+		if dstIdx > dstEnd {
 			err = errors.New("Text transform failed. Output buffer too small")
 		}
 	}
