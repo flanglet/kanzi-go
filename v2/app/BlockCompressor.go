@@ -803,7 +803,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 	for {
 		var length int
 
-		if length, err = input.Read(buffer); err != nil {
+		if length, err = input.Read(buffer); err != nil && length != 0 {
 			fmt.Printf("Failed to read block from file '%s': %v\n", inputName, err)
 			return kanzi.ERR_READ_FILE, read, cos.GetWritten()
 		}
