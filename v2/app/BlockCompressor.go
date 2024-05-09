@@ -803,9 +803,14 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 	for {
 		var length int
 
-		if length, err = input.Read(buffer); err != nil && length != 0 {
-			fmt.Printf("Failed to read block from file '%s': %v\n", inputName, err)
-			return kanzi.ERR_READ_FILE, read, cos.GetWritten()
+		if length, err = input.Read(buffer); err != nil {
+			if errors.Is(err, io.EOF) == false {
+				// Ignore EOF (see comment in io.Copy:
+				// Because Copy is defined to read from src until EOF, it does not
+				// treat EOF from Read an an error to be reported)
+				fmt.Printf("Failed to read block from file '%s': %v\n", inputName, err)
+				return kanzi.ERR_READ_FILE, read, cos.GetWritten()
+			}
 		}
 
 		if length > 0 {
