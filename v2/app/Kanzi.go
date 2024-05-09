@@ -222,23 +222,23 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 		arg = strings.TrimSpace(arg)
 
-		if strings.HasPrefix(arg, _ARG_OUTPUT) || arg == "-o" {
+		if arg == "-o" {
 			ctx = _ARG_IDX_OUTPUT
 			continue
 		}
 
-		if strings.HasPrefix(arg, _ARG_INPUT) || arg == "-i" {
+		if arg == "-i" {
 			ctx = _ARG_IDX_INPUT
 			continue
 		}
 
-		if strings.HasPrefix(arg, _ARG_VERBOSE) || arg == "-v" {
+		if arg == "-v" {
 			ctx = _ARG_IDX_VERBOSE
 			continue
 		}
 
 		// Extract verbosity, output and mode first
-		if arg == _ARG_COMPRESS || arg == "-c" {
+		if arg == "-c" || arg == _ARG_COMPRESS {
 			if mode == "d" {
 				fmt.Println("Both compression and decompression options were provided.")
 				return kanzi.ERR_INVALID_PARAM
@@ -248,7 +248,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			continue
 		}
 
-		if arg == _ARG_DECOMPRESS || arg == "-d" {
+		if arg == "-d" || arg == _ARG_DECOMPRESS {
 			if mode == "c" {
 				fmt.Println("Both compression and decompression options were provided.")
 				return kanzi.ERR_INVALID_PARAM
@@ -258,14 +258,14 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, _ARG_VERBOSE) || ctx == _ARG_IDX_VERBOSE {
+		if ctx == _ARG_IDX_VERBOSE || strings.HasPrefix(arg, _ARG_VERBOSE) {
 			var verboseLevel string
 			var err error
 
-			if strings.HasPrefix(arg, _ARG_VERBOSE) {
-				verboseLevel = strings.TrimPrefix(arg, _ARG_VERBOSE)
-			} else {
+			if ctx == _ARG_IDX_VERBOSE {
 				verboseLevel = arg
+			} else {
+				verboseLevel = strings.TrimPrefix(arg, _ARG_VERBOSE)
 			}
 
 			verboseLevel = strings.TrimSpace(verboseLevel)
@@ -279,10 +279,22 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 				fmt.Printf("Invalid verbosity level provided on command line: %v\n", arg)
 				return kanzi.ERR_INVALID_PARAM
 			}
-		} else if ctx == _ARG_IDX_OUTPUT {
-			outputName = strings.TrimSpace(arg)
-		} else if ctx == _ARG_IDX_INPUT {
-			inputName = strings.TrimSpace(arg)
+		} else if ctx == _ARG_IDX_OUTPUT || strings.HasPrefix(arg, _ARG_OUTPUT) {
+			if ctx == _ARG_IDX_OUTPUT {
+				outputName = arg
+			} else {
+				outputName = strings.TrimPrefix(arg, _ARG_OUTPUT)
+			}
+
+			outputName = strings.TrimSpace(outputName)
+		} else if ctx == _ARG_IDX_INPUT || strings.HasPrefix(arg, _ARG_INPUT) {
+			if ctx == _ARG_IDX_INPUT {
+				inputName = arg
+			} else {
+				inputName = strings.TrimPrefix(arg, _ARG_INPUT)
+			}
+
+			inputName = strings.TrimSpace(inputName)
 		}
 
 		ctx = -1
@@ -324,7 +336,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			return 0
 		}
 
-		if arg == _ARG_COMPRESS || arg == "-c" || arg == _ARG_DECOMPRESS || arg == "-d" {
+		if arg == "-c" || arg == "-d" || arg == _ARG_COMPRESS || arg == _ARG_DECOMPRESS {
 			if ctx != -1 {
 				log.Println(fmt.Sprintf(warningNoValOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
 			}
@@ -333,7 +345,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			continue
 		}
 
-		if arg == _ARG_FORCE || arg == "-f" {
+		if arg == "-f" || arg == _ARG_FORCE {
 			if ctx != -1 {
 				log.Println(fmt.Sprintf(warningNoValOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
 			}
@@ -343,7 +355,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			continue
 		}
 
-		if arg == _ARG_SKIP || arg == "-s" {
+		if arg == "-s" || arg == _ARG_SKIP {
 			if ctx != -1 {
 				log.Println(fmt.Sprintf(warningNoValOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
 			}
@@ -353,7 +365,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			continue
 		}
 
-		if arg == _ARG_CHECKSUM || arg == "-x" {
+		if arg == "-x" || arg == _ARG_CHECKSUM {
 			if ctx != -1 {
 				log.Println(fmt.Sprintf(warningNoValOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
 			}
@@ -394,8 +406,8 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 				log.Println(fmt.Sprintf(warningNoValOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
 			}
 
-			ctx = -1
 			noDotFiles = true
+			ctx = -1
 			continue
 		}
 
@@ -404,8 +416,8 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 				log.Println(fmt.Sprintf(warningNoValOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
 			}
 
-			ctx = -1
 			noLinks = true
+			ctx = -1
 			continue
 		}
 
@@ -425,13 +437,13 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			}
 		}
 
-		if strings.HasPrefix(arg, _ARG_OUTPUT) || ctx == _ARG_IDX_OUTPUT {
+		if ctx == _ARG_IDX_OUTPUT || strings.HasPrefix(arg, _ARG_OUTPUT) {
 			name := ""
 
-			if strings.HasPrefix(arg, _ARG_OUTPUT) {
-				name = strings.TrimPrefix(arg, _ARG_OUTPUT)
-			} else {
+			if ctx == _ARG_IDX_OUTPUT {
 				name = arg
+			} else {
+				name = strings.TrimPrefix(arg, _ARG_OUTPUT)
 			}
 
 			if outputName != "" {
@@ -444,13 +456,13 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, _ARG_INPUT) || ctx == _ARG_IDX_INPUT {
+		if ctx == _ARG_IDX_INPUT || strings.HasPrefix(arg, _ARG_INPUT) {
 			name := ""
 
-			if strings.HasPrefix(arg, _ARG_INPUT) {
-				name = strings.TrimPrefix(arg, _ARG_INPUT)
-			} else {
+			if ctx == _ARG_IDX_INPUT {
 				name = arg
+			} else {
+				name = strings.TrimPrefix(arg, _ARG_INPUT)
 			}
 
 			if inputName != "" {
@@ -463,7 +475,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, _ARG_ENTROPY) || ctx == _ARG_IDX_ENTROPY {
+		if ctx == _ARG_IDX_ENTROPY || strings.HasPrefix(arg, _ARG_ENTROPY) {
 			if mode != "c" {
 				log.Println(fmt.Sprintf(warningCompressOpt, "entropy"), verbose > 0)
 				ctx = -1
@@ -472,10 +484,10 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 			name := ""
 
-			if strings.HasPrefix(arg, _ARG_ENTROPY) {
-				name = strings.TrimPrefix(arg, _ARG_ENTROPY)
-			} else {
+			if ctx == _ARG_IDX_ENTROPY {
 				name = arg
+			} else {
+				name = strings.TrimPrefix(arg, _ARG_ENTROPY)
 			}
 
 			if codec != "" {
@@ -495,7 +507,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, _ARG_TRANSFORM) || ctx == _ARG_IDX_TRANSFORM {
+		if ctx == _ARG_IDX_TRANSFORM || strings.HasPrefix(arg, _ARG_TRANSFORM) {
 			if mode != "c" {
 				log.Println(fmt.Sprintf(warningCompressOpt, "transform"), verbose > 0)
 				ctx = -1
@@ -504,10 +516,10 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 			name := ""
 
-			if strings.HasPrefix(arg, _ARG_TRANSFORM) {
-				name = strings.TrimPrefix(arg, _ARG_TRANSFORM)
-			} else {
+			if ctx == _ARG_IDX_TRANSFORM {
 				name = arg
+			} else {
+				name = strings.TrimPrefix(arg, _ARG_TRANSFORM)
 			}
 
 			if transform != "" {
@@ -535,7 +547,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, _ARG_LEVEL) || ctx == _ARG_IDX_LEVEL {
+		if ctx == _ARG_IDX_LEVEL || strings.HasPrefix(arg, _ARG_LEVEL) {
 			if mode != "c" {
 				log.Println(fmt.Sprintf(warningCompressOpt, "level"), verbose > 0)
 				ctx = -1
@@ -545,10 +557,10 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			var str string
 			var err error
 
-			if strings.HasPrefix(arg, _ARG_LEVEL) {
-				str = strings.TrimPrefix(arg, _ARG_LEVEL)
-			} else {
+			if ctx == _ARG_IDX_LEVEL {
 				str = arg
+			} else {
+				str = strings.TrimPrefix(arg, _ARG_LEVEL)
 			}
 
 			str = strings.TrimSpace(str)
@@ -570,13 +582,13 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, _ARG_CPUPROF) || ctx == _ARG_IDX_PROFILE {
+		if ctx == _ARG_IDX_PROFILE || strings.HasPrefix(arg, _ARG_CPUPROF) {
 			name := ""
 
-			if strings.HasPrefix(arg, _ARG_CPUPROF) {
-				name = strings.TrimPrefix(arg, _ARG_CPUPROF)
-			} else {
+			if ctx == _ARG_IDX_PROFILE {
 				name = arg
+			} else {
+				name = strings.TrimPrefix(arg, _ARG_CPUPROF)
 			}
 
 			if cpuProf != "" {
@@ -589,7 +601,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, _ARG_BLOCK) || ctx == _ARG_IDX_BLOCK {
+		if ctx == _ARG_IDX_BLOCK || strings.HasPrefix(arg, _ARG_BLOCK) {
 			if mode != "c" {
 				log.Println(fmt.Sprintf(warningCompressOpt, "block size"), verbose > 0)
 				ctx = -1
@@ -598,10 +610,10 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 			var strBlockSize string
 
-			if strings.HasPrefix(arg, _ARG_BLOCK) {
-				strBlockSize = strings.TrimPrefix(arg, _ARG_BLOCK)
-			} else {
+			if ctx == _ARG_IDX_BLOCK {
 				strBlockSize = arg
+			} else {
+				strBlockSize = strings.TrimPrefix(arg, _ARG_BLOCK)
 			}
 
 			strBlockSize = strings.ToUpper(strBlockSize)
@@ -648,14 +660,14 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, _ARG_JOBS) || ctx == _ARG_IDX_JOBS {
+		if ctx == _ARG_IDX_JOBS || strings.HasPrefix(arg, _ARG_JOBS) {
 			var strTasks string
 			var err error
 
-			if strings.HasPrefix(arg, _ARG_JOBS) {
-				strTasks = strings.TrimPrefix(arg, _ARG_JOBS)
-			} else {
+			if ctx == _ARG_IDX_JOBS {
 				strTasks = arg
+			} else {
+				strTasks = strings.TrimPrefix(arg, _ARG_JOBS)
 			}
 
 			if tasks != -1 {
@@ -673,7 +685,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, _ARG_FROM) && ctx == -1 {
+		if ctx == -1 && strings.HasPrefix(arg, _ARG_FROM) {
 			if mode != "d" {
 				log.Println(fmt.Sprintf(warningDecompressOpt, "start block"), verbose > 0)
 				continue
@@ -697,7 +709,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 				fmt.Println(fmt.Sprintf(warningInvalidOpt, "start block", strFrom))
 
 				if from == 0 {
-					fmt.Printf("The first block ID is 1.\n")
+					fmt.Println("The first block ID is 1.")
 				}
 
 				return kanzi.ERR_INVALID_PARAM
@@ -706,7 +718,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			continue
 		}
 
-		if strings.HasPrefix(arg, _ARG_TO) && ctx == -1 {
+		if ctx == -1 && strings.HasPrefix(arg, _ARG_TO) {
 			if mode != "d" {
 				log.Println(fmt.Sprintf(warningDecompressOpt, "end block"), verbose > 0)
 				continue
@@ -766,13 +778,12 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 	argsMap["verbosity"] = uint(verbose)
 	argsMap["mode"] = mode
+	argsMap["inputName"] = inputName
+	argsMap["outputName"] = outputName
 
 	if overwrite == true {
 		argsMap["overwrite"] = true
 	}
-
-	argsMap["inputName"] = inputName
-	argsMap["outputName"] = outputName
 
 	if mode == "c" && level != -1 {
 		argsMap["level"] = level
@@ -958,18 +969,7 @@ func NewFileData(fullPath string, size int64) *FileData {
 	this := &FileData{}
 	this.FullPath = fullPath
 	this.Size = size
-
-	idx := strings.LastIndexByte(this.FullPath, byte(os.PathSeparator))
-
-	if idx > 0 {
-		b := []byte(this.FullPath)
-		this.Path = string(b[0 : idx+1])
-		this.Name = string(b[idx+1:])
-	} else {
-		this.Path = ""
-		this.Name = this.FullPath
-	}
-
+	this.Path, this.Name = filepath.Split(fullPath)
 	return this
 }
 
