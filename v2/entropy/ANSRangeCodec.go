@@ -416,10 +416,15 @@ func (this *ANSRangeEncoder) rebuildStatistics(block []byte, lr uint) (int, erro
 		internal.ComputeHistogram(block, this.freqs, true, true)
 	} else {
 		quarter := len(block) >> 2
-		internal.ComputeHistogram(block[0*quarter:1*quarter], this.freqs, false, true)
-		internal.ComputeHistogram(block[1*quarter:2*quarter], this.freqs, false, true)
-		internal.ComputeHistogram(block[2*quarter:3*quarter], this.freqs, false, true)
-		internal.ComputeHistogram(block[3*quarter:4*quarter], this.freqs, false, true)
+
+		if quarter == 0 {
+			internal.ComputeHistogram(block, this.freqs, false, true)
+		} else {
+			internal.ComputeHistogram(block[0*quarter:1*quarter], this.freqs, false, true)
+			internal.ComputeHistogram(block[1*quarter:2*quarter], this.freqs, false, true)
+			internal.ComputeHistogram(block[2*quarter:3*quarter], this.freqs, false, true)
+			internal.ComputeHistogram(block[3*quarter:4*quarter], this.freqs, false, true)
+		}
 	}
 
 	return this.updateFrequencies(this.freqs, lr)
