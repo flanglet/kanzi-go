@@ -498,17 +498,23 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		srcIdx = sizeChunk
 		litLen := srcIdx - firstLitIdx
 
-		if litLen < 31 {
-			tkBuf[tkIdx] = byte(litLen << 3)
-		} else {
-			tkBuf[tkIdx] = 0xF8
-			lenIdx += emitLengthROLZ(lenBuf[lenIdx:], litLen-31)
-		}
+		if tkIdx != 0 {
+			// At least one match to emit
+			if litLen >= 31 {
+				tkBuf[tkIdx] = 0xF8
+			} else {
+				tkBuf[tkIdx] = byte(litLen << 3)
+			}
 
-		tkIdx++
+			tkIdx++
+		}
 
 		// Emit literals
 		if litLen > 0 {
+			if litLen >= 31 {
+				lenIdx += emitLengthROLZ(lenBuf[lenIdx:], litLen-31)
+			}
+
 			copy(litBuf[litIdx:], buf[firstLitIdx:firstLitIdx+litLen])
 			litIdx += litLen
 		}
@@ -677,6 +683,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 		sizeChunk = endChunk - startChunk
 		buf := dst[startChunk:endChunk]
+		onlyLiterals := false
 
 		// Scope to deallocate resources early
 		{
@@ -743,8 +750,17 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			mDec.Dispose()
+			onlyLiterals = tkLen == 0
 			srcIdx += int((ibs.Read() + 7) >> 3)
 			ibs.Close()
+		}
+
+		if onlyLiterals == true {
+			// Shortcut when no match
+			copy(buf[dstIdx:], litBuf[0:sizeChunk])
+			startChunk = endChunk
+			dstIdx += sizeChunk
+			continue
 		}
 
 		dstIdx = 0
