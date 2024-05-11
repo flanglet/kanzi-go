@@ -1007,13 +1007,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			pe := &this.dictList[idx]
-			length := int(pe.data >> 24)
-
-			// Sanity check
-			if pe.ptr == nil || dstIdx+length >= dstEnd {
-				err = errors.New("Text transform failed. Invalid input data")
-				break
-			}
+			length := int(pe.data>>24) & 0xFF
 
 			// Add space if only delimiter between 2 words (not an escaped delimiter)
 			if length > 1 {
@@ -1029,6 +1023,12 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 				// Escape entry
 				wordRun = false
 				delimAnchor = srcIdx - 1
+			}
+
+			// Sanity check
+			if pe.ptr == nil || dstIdx+length >= dstEnd {
+				err = errors.New("Text transform failed. Invalid input data")
+				break
 			}
 
 			// Emit word
@@ -1047,6 +1047,11 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			if (this.isCRLF == true) && (cur == LF) {
 				dst[dstIdx] = CR
 				dstIdx++
+
+				if dstIdx >= dstEnd {
+					err = errors.New("Text transform failed. Invalid input data")
+					break
+				}
 			}
 
 			dst[dstIdx] = cur
@@ -1539,13 +1544,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			pe := &this.dictList[idx]
-			length := int(pe.data >> 24)
-
-			// Sanity check
-			if pe.ptr == nil || dstIdx+length >= dstEnd {
-				err = errors.New("Text transform failed. Invalid input data")
-				break
-			}
+			length := int(pe.data>>24) & 0xFF
 
 			// Add space if only delimiter between 2 words (not an escaped delimiter)
 			if length > 1 {
@@ -1563,6 +1562,12 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 				delimAnchor = srcIdx - 1
 			}
 
+			// Sanity check
+			if pe.ptr == nil || dstIdx+length >= dstEnd {
+				err = errors.New("Text transform failed. Invalid input data")
+				break
+			}
+
 			// Emit word
 			copy(dst[dstIdx:], pe.ptr[0:length])
 
@@ -1578,6 +1583,11 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 				if (this.isCRLF == true) && (cur == LF) {
 					dst[dstIdx] = CR
 					dstIdx++
+
+					if dstIdx >= dstEnd {
+						err = errors.New("Text transform failed. Invalid input data")
+						break
+					}
 				}
 
 				dst[dstIdx] = cur
