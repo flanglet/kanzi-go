@@ -12,7 +12,7 @@ Unlike the most common lossless data compressors, Kanzi uses a variety of differ
 
 Kanzi is a lossless data compressor, not an archiver. It uses checksums (optional but recommended) to validate data integrity but does not have a mechanism for data recovery. It also lacks data deduplication across files. However, Kanzi generates a bitstream that is seekable (one or several consecutive blocks can be decompressed without the need for the whole bitstream to be decompressed).
 
-For more details, check https://github.com/flanglet/kanzi-go/wiki.
+For more details, see [Wiki](https://github.com/flanglet/kanzi-go/wiki) and [Q&A](https://github.com/flanglet/kanzi-go/wiki/q&a)
 
 See how to reuse the code here: https://github.com/flanglet/kanzi-go/wiki/Using-and-extending-the-code
 
