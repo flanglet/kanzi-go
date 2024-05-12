@@ -36,7 +36,7 @@ There are many excellent, open-source lossless data compressors available alread
 
 If gzip is starting to show its age, zstd and brotli are open-source, standardized and used
 daily by millions of people. Zstd is incredibly fast and probably the best choice in many cases.
-There are a few scenarios where Kanzi czn be a better choice:
+There are a few scenarios where Kanzi can be a better choice:
 
 - gzip, lzma, brotli, zstd are all LZ based. It means that they can reach certain compression
 ratios only. Kanzi also makes use of BWT and CM which can compress beyond what LZ can do.
@@ -96,7 +96,7 @@ Download at http://sun.aei.polsl.pl/~sdeor/corpus/silesia.zip
 |Zstd 1.5.5 -9 -T16               |	      0.690     |      0.278      |    59,429,335    |
 |Brotli 1.1.0 -6                  |       8.388     |      0.677      |    58,571,909    |
 |Zstd 1.5.6 -13 -T16              |	      3.244     |      0.272      |    58,041,112    |
-|Brotli 1.1.0 -9                  |      70.07      |      0.761      |    56,376,419    |
+|Brotli 1.1.0 -9                  |      70.07      |      0.677      |    56,376,419    |
 |Bzip2 1.0.8 -9	                  |      16.94      |      6.734      |    54,572,500    |
 |**Kanzi -l 5**                   |   	**2.161**   |    **1.043**    |  **54,039,773**  |
 |Zstd 1.5.6 -19 -T16              |	     20.87      |      0.303      |    52,889,925    |
