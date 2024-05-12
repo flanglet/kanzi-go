@@ -214,6 +214,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 	mode := " "
 	autoBlockSize := false
 	showHeader := true
+	showHelp := true
 
 	for i, arg := range args {
 		if i == 0 {
@@ -295,9 +296,16 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			}
 
 			inputName = strings.TrimSpace(inputName)
+		} else if arg == "-h" || arg == "--help" {
+			showHelp = true
 		}
 
 		ctx = -1
+	}
+
+	if showHelp == true || len(args) == 1 {
+		printHelp(mode, showHeader)
+		return 0
 	}
 
 	// Overwrite verbosity if the output goes to stdout
@@ -319,22 +327,12 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 	warningDupOpt := "Warning: ignoring duplicate %s (%s)"
 	warningInvalidOpt := "Invalid %s provided on command line: %s"
 
-	if len(args) == 1 {
-		printHelp(mode, showHeader)
-		return 0
-	}
-
 	for i, arg := range args {
 		if i == 0 {
 			continue
 		}
 
 		arg = strings.TrimSpace(arg)
-
-		if arg == "--help" || arg == "-h" {
-			printHelp(mode, showHeader)
-			return 0
-		}
 
 		if arg == "-c" || arg == "-d" || arg == _ARG_COMPRESS || arg == _ARG_DECOMPRESS {
 			if ctx != -1 {
