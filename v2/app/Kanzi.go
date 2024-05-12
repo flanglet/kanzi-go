@@ -213,8 +213,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 	level := -1
 	mode := " "
 	autoBlockSize := false
-	showHeader := true
-	showHelp := true
+	showHelp := false
 
 	for i, arg := range args {
 		if i == 0 {
@@ -304,7 +303,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 	}
 
 	if showHelp == true || len(args) == 1 {
-		printHelp(mode, showHeader)
+		printHelp(mode, true)
 		return 0
 	}
 
@@ -315,7 +314,6 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 	if verbose >= 1 {
 		log.Println("\n"+_APP_HEADER+"\n", true)
-		showHeader = false
 	}
 
 	inputName = ""
