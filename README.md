@@ -67,8 +67,8 @@ Kanzi version 2.3.0
 
 On this machine, Kanzi uses up to 16 threads (half of CPUs by default).
 
-bzip3 uses 16 threads. zstd uses 16 threads for compression and 1 for decompression, 
-other compressors are single threaded.
+bzip3 and zpaq use 16 threads. 
+zstd uses 16 threads for compression and 1 for decompression, other compressors are single threaded.
 
 The default block size at level 9 is 32MB, severely limiting the number of threads
 in use, especially with enwik8, but all tests are performed with default values.
@@ -85,7 +85,7 @@ Download at http://sun.aei.polsl.pl/~sdeor/corpus/silesia.zip
 |s2 -cpu 16                       |       0.494	    |      0.868	    |    86,650,932    |
 |**Kanzi -l 1**                   |   	**0.504**   |    **0.366**    |  **80,277,212**  |
 |Lz4 1.9.5 -4                     |       0.321     |      0.330      |    79,912,419    |
-|s2 -cpu 16 -better               |       1.517	    |      0.868	    |    79,555,929    |
+|s2 -cpu 16 -slower               |       1.517	    |      0.868	    |    79,555,929    |
 |Zstd 1.5.6 -2 -T16               |	      0.151     |      0.271      |    69,556,157    |
 |**Kanzi -l 2**                   |   	**0.533**   |    **0.263**    |  **68,195,845**  |
 |Brotli 1.1.0 -2                  |       1.749     |      0.761      |    68,041,629    |
@@ -127,6 +127,27 @@ Download at https://mattmahoney.net/dc/enwik8.zip
 |**Kanzi -l 8**          |	  **12.52**     |    **12.27**     |  **21,181,983**  |
 |**Kanzi -l 9**          |	  **32.24**     |    **32.27**     |  **20,035,138**  |
 
+
+### Round-trip scores for LZ
+
+Below is a table showing silesia.tar compressed using different LZ compressors (no entropy) in single-threaded mode.
+
+The efficiency score is computed as such: score(lambda) = compTime + 2 x decompTime + 10^-lambda x compSize
+
+A lower score is better. Best scores are in bold.
+
+Tested on Ubuntu 22.04.4 LTS, i7-7700K CPU @ 4.20GHz, 32 GB RAM 
+
+|      Compressor      | Encoding (sec) | Decoding (sec)  |    Size          |  Score(5)  |  Score(6)  |  Score(7)  |
+|----------------------|----------------|-----------------|------------------|------------|------------|------------|
+|Lz4        	         |     0.91	      |      	0.53	    |    	 98375894	   |   985.73	  |   100.35	 |   11.81    |
+|s2 -cpu 1	           |     0.81	      |      	0.40	    |	     86646819	   |	 868.08   |   88.25	   |***10.27*** |
+|Kanzi 2.3 -t lz -j 1	 |     1.30	      |      	0.33	    |      83355862	   |	 835.52   |   85.31	   |   10.29    |
+|Kanzi 2.3 -t lzx -j 1 |	   1.58	      |      	0.30	    |      81485228	   |***817.04***|***83.67*** |	 10.33    |
+
+References: 
+[S2](https://github.com/klauspost/compress)
+[LZ4 (go)](github.com/pierrec/lz4)
 
 
 # Build
