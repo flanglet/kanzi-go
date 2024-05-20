@@ -364,7 +364,7 @@ func detectTextType(freqs0 []int, freqs [][256]int, count int) byte {
 }
 
 func sameWords(buf1, buf2 []byte) bool {
-	for i := len(buf1) - 1; i >= 0; i-- {
+	for i := range(buf1) {
 		if buf1[i] != buf2[i] {
 			return false
 		}
@@ -938,8 +938,9 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			if length <= _TC_MAX_WORD_LENGTH {
 				h1 := _TC_HASH1
 				h1 = h1*_TC_HASH1 ^ int32(src[delimAnchor+1])*_TC_HASH2
+				h1 = h1*_TC_HASH1 ^ int32(src[delimAnchor+2])*_TC_HASH2
 
-				for i := delimAnchor + 2; i < srcIdx; i++ {
+				for i := delimAnchor + 3; i < srcIdx; i++ {
 					h1 = h1*_TC_HASH1 ^ int32(src[i])*_TC_HASH2
 				}
 
@@ -1477,8 +1478,9 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			if length <= _TC_MAX_WORD_LENGTH {
 				h1 := _TC_HASH1
 				h1 = h1*_TC_HASH1 ^ int32(src[delimAnchor+1])*_TC_HASH2
+				h1 = h1*_TC_HASH1 ^ int32(src[delimAnchor+2])*_TC_HASH2
 
-				for i := delimAnchor + 2; i < srcIdx; i++ {
+				for i := delimAnchor + 3; i < srcIdx; i++ {
 					h1 = h1*_TC_HASH1 ^ int32(src[i])*_TC_HASH2
 				}
 
