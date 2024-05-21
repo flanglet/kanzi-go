@@ -144,5 +144,6 @@ func (this *Event) String() string {
 
 // Listener is an interface implemented by event processors
 type Listener interface {
+	// ProcessEvent is the method called whenever a Listener receives an event.
 	ProcessEvent(evt *Event)
 }

@@ -248,13 +248,6 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int, hash32 uint32, counter in
 		return -1, -1
 	}
 
-	if this.posChecks == 0 {
-		// Ahem terrible hack ...
-		// This impossible branch improves performance by a few percents
-		// (due to speculative memory fetch in the other branch probably)
-		return -1, -1
-	}
-
 	maxMatch -= 4
 	bestLen := 0
 	bestIdx := -1
@@ -811,9 +804,8 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 				if this.minMatch == _ROLZ_MIN_MATCH3 {
 					for n := 0; n < litLen; n++ {
 						key := getKey1(d[n:])
-						m := this.matches[key<<this.logPosChecks:]
 						c := (this.counters[key] + 1) & this.maskChecks
-						m[c] = uint32(dstIdx + n)
+						this.matches[(key<<this.logPosChecks)+uint32(c)] = uint32(dstIdx + n)
 						this.counters[key] = c
 						n += (srcInc >> 6)
 						srcInc++
@@ -821,9 +813,8 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 				} else {
 					for n := 0; n < litLen; n++ {
 						key := getKey2(d[n:])
-						m := this.matches[key<<this.logPosChecks:]
 						c := (this.counters[key] + 1) & this.maskChecks
-						m[c] = uint32(dstIdx + n)
+						this.matches[(key<<this.logPosChecks)+uint32(c)] = uint32(dstIdx + n)
 						this.counters[key] = c
 						n += (srcInc >> 6)
 						srcInc++

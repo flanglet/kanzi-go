@@ -364,7 +364,7 @@ func detectTextType(freqs0 []int, freqs [][256]int, count int) byte {
 }
 
 func sameWords(buf1, buf2 []byte) bool {
-	for i := range(buf1) {
+	for i := range buf1 {
 		if buf1[i] != buf2[i] {
 			return false
 		}
