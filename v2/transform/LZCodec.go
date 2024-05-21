@@ -534,7 +534,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 func findMatchLZX(src []byte, srcIdx, ref, maxMatch int) int {
 	bestLen := 0
 
-	for {
+	for bestLen+4 <= maxMatch {
 		diff := binary.LittleEndian.Uint32(src[srcIdx+bestLen:]) ^ binary.LittleEndian.Uint32(src[ref+bestLen:])
 
 		if diff != 0 {
@@ -543,10 +543,6 @@ func findMatchLZX(src []byte, srcIdx, ref, maxMatch int) int {
 		}
 
 		bestLen += 4
-
-		if bestLen >= maxMatch {
-			break
-		}
 	}
 
 	return bestLen
