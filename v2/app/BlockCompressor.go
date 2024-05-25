@@ -321,7 +321,7 @@ func fileCompressWorker(tasks <-chan fileCompressTask, cancel <-chan bool, resul
 func (this *BlockCompressor) Compress() (int, uint64) {
 	var err error
 	before := time.Now()
-	files := make([]FileData, 0, 256)
+	files := make([]internal.FileData, 0, 256)
 	nbFiles := 1
 	var msg string
 	isStdIn := strings.EqualFold(this.inputName, _COMP_STDIN)
@@ -335,7 +335,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 			target = target[0 : len(target)-1]
 		}
 
-		files, err = createFileList(target, files, isRecursive, this.noLinks, this.noDotFiles)
+		files, err = internal.CreateFileList(target, files, isRecursive, this.noLinks, this.noDotFiles)
 
 		if err != nil {
 			if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
@@ -534,7 +534,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		jobsPerTask, _ := internal.ComputeJobsPerTask(make([]uint, nbFiles), this.jobs, uint(nbFiles))
 
 		if this.fileReorder == true {
-			sort.Sort(FileCompare{data: files, sortBySize: true})
+			sort.Sort(internal.NewFileCompare(files, true))
 		}
 
 		// Create one task per file

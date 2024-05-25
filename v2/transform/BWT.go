@@ -90,6 +90,7 @@ func NewBWTWithCtx(ctx *map[string]any) (*BWT, error) {
 	this := &BWT{}
 	this.buffer = make([]int32, 0)
 	this.primaryIndexes = [8]uint{}
+	this.jobs = 1
 
 	if _, containsKey := (*ctx)["jobs"]; containsKey {
 		this.jobs = (*ctx)["jobs"].(uint)
@@ -97,8 +98,6 @@ func NewBWTWithCtx(ctx *map[string]any) (*BWT, error) {
 		if this.jobs == 0 {
 			return nil, errors.New("The number of jobs must be at least 1")
 		}
-	} else {
-		this.jobs = 1
 	}
 
 	return this, nil
@@ -155,8 +154,10 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	// Lazy dynamic memory allocation
-	if len(this.buffer) < count {
-		this.buffer = make([]int32, count)
+	minLenBuf := max(count, 256)
+
+	if len(this.buffer) < minLenBuf {
+		this.buffer = make([]int32, minLenBuf)
 	}
 
 	this.saAlgo.ComputeBWT(src[0:count], dst, this.buffer[0:count], this.primaryIndexes[:], GetBWTChunks(count))
@@ -201,12 +202,10 @@ func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 // When count <= _BWT_BLOCK_SIZE_THRESHOLD2, mergeTPSI algo. Always in one chunk
 func (this *BWT) inverseMergeTPSI(src, dst []byte, count int) (uint, uint, error) {
 	// Lazy dynamic memory allocation
-	if len(this.buffer) < count {
-		if count <= 64 {
-			this.buffer = make([]int32, 64)
-		} else {
-			this.buffer = make([]int32, count)
-		}
+	minLenBuf := max(count, 64)
+
+	if len(this.buffer) < minLenBuf {
+		this.buffer = make([]int32, minLenBuf)
 	}
 
 	// Aliasing
@@ -330,13 +329,12 @@ func (this *BWT) inverseMergeTPSI(src, dst []byte, count int) (uint, uint, error
 // When count > _BWT_BLOCK_SIZE_THRESHOLD2, biPSIv2 algo
 func (this *BWT) inverseBiPSIv2(src, dst []byte, count int) (uint, uint, error) {
 	// Lazy dynamic memory allocations
-	if len(this.buffer) < count+1 {
-		this.buffer = make([]int32, max(count+1, 256))
-	} else {
-		for i := range this.buffer {
-			this.buffer[i] = 0
-		}
+	minLenBuf := max(count+1, 256)
+
+	if len(this.buffer) < minLenBuf {
+		this.buffer = make([]int32, minLenBuf)
 	}
+
 	pIdx := int(this.PrimaryIndex(0))
 
 	if pIdx > len(src) {
@@ -383,11 +381,11 @@ func (this *BWT) inverseBiPSIv2(src, dst []byte, count int) (uint, uint, error) 
 		ptr := buckets[c:]
 
 		for d := 0; d < 256; d++ {
-			s := sum
-			sum += ptr[d<<8]
-			ptr[d<<8] = s
+			val := ptr[d<<8]
+			ptr[d<<8] = sum
+			sum += val
 
-			if s != sum {
+			if val != 0 {
 				fb := uint16((c << 8) | d)
 				ve := (sum - 1) >> shift
 

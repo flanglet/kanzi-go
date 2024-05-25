@@ -18,9 +18,7 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"io/fs"
 	"os"
-	"path/filepath"
 	"runtime"
 	"runtime/pprof"
 	"strconv"
@@ -72,18 +70,12 @@ var (
 
 	mutex         sync.Mutex
 	log           = Printer{os: bufio.NewWriter(os.Stdout)}
-	pathSeparator = string([]byte{os.PathSeparator})
 )
 
 func main() {
 	argsMap := make(map[string]any)
 
 	if status := processCommandLine(os.Args, argsMap); status != 0 {
-		// Command line processing error ?
-		if status < 0 {
-			os.Exit(0)
-		}
-
 		os.Exit(status)
 	}
 
@@ -950,147 +942,6 @@ func printHelp(mode string, showHeader bool) {
 		log.Println("EG. Kanzi --compress --input=foo.txt --output=foo.knz --block=4m --force", true)
 		log.Println("          --transform=BWT+MTFT+ZRLT --entropy=FPAQ --jobs=4\n", true)
 	}
-}
-
-// FileData a basic structure encapsulating a file path and size
-type FileData struct {
-	FullPath string
-	Path     string
-	Name     string
-	Size     int64
-}
-
-// NewFileData creates an instance of FileData from a file path and size
-func NewFileData(fullPath string, size int64) *FileData {
-	this := &FileData{}
-	this.FullPath = fullPath
-	this.Size = size
-	this.Path, this.Name = filepath.Split(fullPath)
-	return this
-}
-
-// FileCompare a structure used to sort files by path and size
-type FileCompare struct {
-	data       []FileData
-	sortBySize bool
-}
-
-// Len returns the size of the internal file data buffer
-func (this FileCompare) Len() int {
-	return len(this.data)
-}
-
-// Swap swaps two file data in the internal buffer
-func (this FileCompare) Swap(i, j int) {
-	this.data[i], this.data[j] = this.data[j], this.data[i]
-}
-
-// Less returns true if the path at index i in the internal
-// file data buffer is less than file data buffer at index j.
-// The order is defined by lexical order of the parent directory
-// path then file size.
-func (this FileCompare) Less(i, j int) bool {
-	if this.sortBySize == false {
-		return strings.Compare(this.data[i].FullPath, this.data[j].FullPath) < 0
-	}
-
-	// First compare parent directory paths
-	res := strings.Compare(this.data[i].Path, this.data[j].Path)
-
-	if res != 0 {
-		return res < 0
-	}
-
-	// Then, compare file sizes (decreasing order)
-	return this.data[i].Size > this.data[j].Size
-}
-
-func createFileList(target string, fileList []FileData, isRecursive, ignoreLinks, ignoreDotFiles bool) ([]FileData, error) {
-	fi, err := os.Stat(target)
-
-	if err != nil {
-		return fileList, err
-	}
-
-	if ignoreDotFiles == true {
-		shortName := target
-
-		if idx := strings.LastIndex(shortName, pathSeparator); idx > 0 {
-			shortName = shortName[idx+1:]
-		}
-
-		if len(shortName) > 0 && shortName[0] == '.' {
-			return fileList, nil
-		}
-	}
-
-	if fi.Mode().IsRegular() || ((ignoreLinks == false) && (fi.Mode()&fs.ModeSymlink != 0)) {
-		fileList = append(fileList, *NewFileData(target, fi.Size()))
-		return fileList, nil
-	}
-
-	if isRecursive {
-		if target[len(target)-1] != os.PathSeparator {
-			target = target + pathSeparator
-		}
-
-		err = filepath.Walk(target, func(path string, fi os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			if ignoreDotFiles == true {
-				shortName := path
-
-				if idx := strings.LastIndex(shortName, pathSeparator); idx > 0 {
-					shortName = shortName[idx+1:]
-				}
-
-				if len(shortName) > 0 && shortName[0] == '.' {
-					return nil
-				}
-			}
-
-			if fi.Mode().IsRegular() || ((ignoreLinks == false) && (fi.Mode()&fs.ModeSymlink != 0)) {
-				fileList = append(fileList, *NewFileData(path, fi.Size()))
-			}
-
-			return err
-		})
-	} else {
-		var files []fs.DirEntry
-		files, err = os.ReadDir(target)
-
-		if err == nil {
-			for _, de := range files {
-				if de.Type().IsRegular() {
-					var fi fs.FileInfo
-
-					if fi, err = de.Info(); err != nil {
-						break
-					}
-
-					if ignoreDotFiles == true {
-						shortName := de.Name()
-
-						if idx := strings.LastIndex(shortName, pathSeparator); idx > 0 {
-							shortName = shortName[idx+1:]
-						}
-
-						if len(shortName) > 0 && shortName[0] == '.' {
-							continue
-						}
-					}
-
-					if fi.Mode().IsRegular() || ((ignoreLinks == false) && (fi.Mode()&fs.ModeSymlink != 0)) {
-						fileList = append(fileList, *NewFileData(target+de.Name(), fi.Size()))
-					}
-				}
-			}
-		}
-	}
-
-	return fileList, err
 }
 
 // Printer a buffered printer (required in concurrent code)
