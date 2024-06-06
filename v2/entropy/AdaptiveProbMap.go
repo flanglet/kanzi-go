@@ -69,7 +69,7 @@ func NewAdaptiveProbMap(mapType int, n, rate uint) (AdaptiveProbMap, error) {
 		return newFastLogisticAdaptiveProbMap(n, rate)
 	}
 
-	return nil, errors.New("Unknow APM type")
+	return nil, errors.New("Unknown APM type")
 }
 
 func newLogisticAdaptiveProbMap(n, rate uint) (*LogisticAdaptiveProbMap, error) {

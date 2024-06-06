@@ -425,7 +425,7 @@ func (this *EXECodec) forwardARM(src, dst []byte, codeStart, codeEnd int) (uint,
 
 		if isBL == true {
 			// opcode(6) + sgn(1) + offset(25)
-			// Absolute target address = srcIdx +/- (offet*4)
+			// Absolute target address = srcIdx +/- (offset*4)
 			offset := int(int32(instr & _EXE_ARM_B_ADDR_MASK))
 
 			if instr&_EXE_ARM_B_ADDR_SGN_MASK == 0 {
@@ -441,7 +441,7 @@ func (this *EXECodec) forwardARM(src, dst []byte, codeStart, codeEnd int) (uint,
 			val = opcode1 | (addr >> 2)
 		} else { // isCB == true
 			// opcode(8) + sgn(1) + offset(18) + register(5)
-			// Absolute target address = srcIdx +/- (offet*4)
+			// Absolute target address = srcIdx +/- (offset*4)
 			offset := (instr & _EXE_ARM_CB_ADDR_MASK) >> _EXE_ARM_CB_REG_BITS
 
 			if instr&_EXE_ARM_CB_ADDR_SGN_MASK == 0 {

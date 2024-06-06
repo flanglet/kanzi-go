@@ -180,7 +180,7 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Check several step values on a few sub-blocks (no memory allocation)
 	count10 := count / 10
-	count5 := 2 * count10 // count5=count/5 doest not guarantee count5=2*count10 !
+	count5 := 2 * count10 // count5=count/5 does not guarantee count5=2*count10 !
 	in0 := src[0*count5:]
 	in1 := src[2*count5:]
 	in2 := src[4*count5:]

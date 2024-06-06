@@ -184,7 +184,7 @@ func (this *FPAQEncoder) BitStream() kanzi.OutputBitStream {
 }
 
 // Dispose must be called before getting rid of the entropy encoder
-// This idempotent implmentation writes the last buffered bits into the
+// This idempotent implementation writes the last buffered bits into the
 // bitstream.
 func (this *FPAQEncoder) Dispose() {
 	if this.disposed == true {

@@ -25,7 +25,7 @@ import (
 // SBR(alpha) is defined by sbr(x, alpha) = (1-alpha)*(t-w1(x,t)) + alpha*(t-w2(x,t))
 // where x is an item in the data list, t is the current access time and wk(x,t) is
 // the k-th access time to x at time t (with 0 <= alpha <= 1).
-// See [Two new families of list update algorihtms] by Frank Schulz for details.
+// See [Two new families of list update algorithms] by Frank Schulz for details.
 // SBR(0)= Move to Front Transform
 // SBR(1)= Time Stamp Transform
 // This code implements SBR(0), SBR(1/2) and SBR(1). Code derived from openBWT
