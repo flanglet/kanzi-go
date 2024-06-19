@@ -623,7 +623,7 @@ func (this *HuffmanDecoder) readLengths() (int, error) {
 }
 
 // max(CodeLen) must be <= _HUF_MAX_SYMBOL_SIZE
-func (this *HuffmanDecoder) buildDecodingTable(count int) {
+func (this *HuffmanDecoder) buildDecodingTable(count int) bool {
 	for i := range this.table {
 		this.table[i] = 0
 	}
@@ -645,13 +645,19 @@ func (this *HuffmanDecoder) buildDecodingTable(count int) {
 		// starting with the same prefix point to symbol s
 		idx := code << (shift - length)
 		end := idx + (1 << (shift - length))
+
+		if end > len(this.table) {
+			return false
+		}
+
 		t := this.table[idx:end]
 
 		for j := range t {
 			t[j] = val
 		}
-
 	}
+
+	return true
 }
 
 // Read decodes data from the bitstream and return it in the provided buffer.
@@ -691,7 +697,9 @@ func (this *HuffmanDecoder) Read(block []byte) (int, error) {
 			continue
 		}
 
-		this.buildDecodingTable(alphabetSize)
+		if this.buildDecodingTable(alphabetSize) == false {
+			return 0, errors.New("Invalid bitstream: incorrect symbol size")
+		}
 
 		if this.isBsVersion3 == true {
 			// Compute minimum number of bits required in bitstream for fast decoding

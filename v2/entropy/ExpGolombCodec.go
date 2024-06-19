@@ -171,6 +171,9 @@ func (this *ExpGolombDecoder) DecodeByte() byte {
 		log2++
 	}
 
+	// Clamp. Do not attempt to detect a corrupted bitstream
+	log2 &= 7
+
 	if this.signed == true {
 		// Decode signed: read value + sign
 		val := this.bitstream.ReadBits(log2 + 1)

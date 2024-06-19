@@ -220,7 +220,7 @@ func newROLZCodec1(logPosChecks uint) (*rolzCodec1, error) {
 	this.posChecks = 1 << logPosChecks
 	this.maskChecks = this.posChecks - 1
 	this.counters = make([]int32, 1<<16)
-	this.matches = make([]uint32, _ROLZ_HASH_SIZE<<logPosChecks)
+	this.matches = make([]uint32, 0)
 	return this, nil
 }
 
@@ -235,7 +235,7 @@ func newROLZCodec1WithCtx(logPosChecks uint, ctx *map[string]any) (*rolzCodec1, 
 	this.posChecks = 1 << logPosChecks
 	this.maskChecks = this.posChecks - 1
 	this.counters = make([]int32, 1<<16)
-	this.matches = make([]uint32, _ROLZ_HASH_SIZE<<logPosChecks)
+	this.matches = make([]uint32, 0)
 	this.ctx = ctx
 	return this, nil
 }
@@ -369,6 +369,10 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	dst[4] = flags
 	srcIdx := 0
 	dstIdx := 5
+
+	if len(this.matches) == 0 {
+		this.matches = make([]uint32, _ROLZ_HASH_SIZE<<this.logPosChecks)
+	}
 
 	// Main loop
 	for startChunk < srcEnd {
@@ -632,6 +636,9 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	this.minMatch = _ROLZ_MIN_MATCH3
 	bsVersion := uint(3)
 
+	if len(this.matches) < this.logPosChecks {
+		this.matches = make([]uint32, _ROLZ_HASH_SIZE<<this.logPosChecks)
+	}
 	if this.ctx != nil {
 		if val, containsKey := (*this.ctx)["bsVersion"]; containsKey {
 			bsVersion = val.(uint)
