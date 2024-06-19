@@ -646,7 +646,7 @@ func (this *HuffmanDecoder) buildDecodingTable(count int) bool {
 		idx := code << (shift - length)
 		end := idx + (1 << (shift - length))
 
-		if end > len(this.table) {
+		if int(end) > len(this.table) {
 			return false
 		}
 

@@ -636,7 +636,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	this.minMatch = _ROLZ_MIN_MATCH3
 	bsVersion := uint(3)
 
-	if len(this.matches) < this.logPosChecks {
+	if len(this.matches) < int(this.logPosChecks) {
 		this.matches = make([]uint32, _ROLZ_HASH_SIZE<<this.logPosChecks)
 	}
 	if this.ctx != nil {
