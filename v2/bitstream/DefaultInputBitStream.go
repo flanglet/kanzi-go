@@ -89,8 +89,7 @@ func (this *DefaultInputBitStream) ReadBits(count uint) uint64 {
 	count -= this.availBits
 	res := this.current & (0xFFFFFFFFFFFFFFFF >> (64 - this.availBits))
 	this.pullCurrent()
-	this.availBits -= count
-	return (res << count) | (this.current >> this.availBits)
+	return (res << count) | this.ReadBits(count) // handle this.availBits < count (at EOS)
 }
 
 // ReadArray reads 'count' bits from the stream and returns them to the 'bits'
@@ -154,6 +153,11 @@ func (this *DefaultInputBitStream) ReadArray(bits []byte, count uint) uint {
 
 			if this.position+32 > this.maxPosition {
 				this.pullCurrent()
+
+				if this.availBits < r {
+					panic("No more data to read in the bitstream")
+				}
+
 				this.availBits -= r
 				binary.BigEndian.PutUint64(bits[start:start+8], (v0<<r)|(this.current>>uint(this.availBits)))
 				start += 8
@@ -178,6 +182,11 @@ func (this *DefaultInputBitStream) ReadArray(bits []byte, count uint) uint {
 		for remaining >= 64 {
 			v := this.current
 			this.pullCurrent()
+
+			if this.availBits < r {
+				panic("No more data to read in the bitstream")
+			}
+
 			this.availBits -= r
 			binary.BigEndian.PutUint64(bits[start:start+8], (v<<r)|(this.current>>uint(this.availBits)))
 			start += 8
