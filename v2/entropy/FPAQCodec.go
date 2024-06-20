@@ -291,21 +291,21 @@ func (this *FPAQDecoder) decodeBitV1(pred int) byte {
 	return bit
 }
 
-func (this *FPAQDecoder) decodeBitV2(pred int) byte {
+func (this *FPAQDecoder) decodeBitV2(p []int) byte {
 	// Calculate interval split
-	split := ((((this.high - this.low) >> 8) * uint64(pred)) >> 8) + this.low
+	split := ((((this.high - this.low) >> 8) * uint64(p[this.ctx])) >> 8) + this.low
 	var bit byte
 
 	// Update probabilities
 	if split >= this.current {
 		bit = 1
 		this.high = split
-		this.p[this.ctx] -= ((this.p[this.ctx] - _FPAQ_PSCALE + 64) >> 6)
+		p[this.ctx] -= ((p[this.ctx] - _FPAQ_PSCALE + 64) >> 6)
 		this.ctx += (this.ctx + 1)
 	} else {
 		bit = 0
 		this.low = -^split
-		this.p[this.ctx] -= (this.p[this.ctx] >> 6)
+		p[this.ctx] -= (p[this.ctx] >> 6)
 		this.ctx += this.ctx
 	}
 
@@ -361,9 +361,10 @@ func (this *FPAQDecoder) Read(block []byte) (int, error) {
 		this.bitstream.ReadArray(this.buffer, uint(8*szBytes))
 		this.index = 0
 		buf := block[startChunk : startChunk+chunkSize]
-		this.p = this.probs[0]
 
 		if this.isBsVersion3 == true {
+			this.p = this.probs[0]
+
 			for i := range buf {
 				this.ctx = 1
 				this.decodeBitV1(this.p[this.ctx] >> 4)
@@ -378,18 +379,20 @@ func (this *FPAQDecoder) Read(block []byte) (int, error) {
 				this.p = this.probs[(this.ctx&0xFF)>>6]
 			}
 		} else {
+			p := this.probs[0]
+
 			for i := range buf {
 				this.ctx = 1
-				this.decodeBitV2(this.p[this.ctx])
-				this.decodeBitV2(this.p[this.ctx])
-				this.decodeBitV2(this.p[this.ctx])
-				this.decodeBitV2(this.p[this.ctx])
-				this.decodeBitV2(this.p[this.ctx])
-				this.decodeBitV2(this.p[this.ctx])
-				this.decodeBitV2(this.p[this.ctx])
-				this.decodeBitV2(this.p[this.ctx])
+				this.decodeBitV2(p)
+				this.decodeBitV2(p)
+				this.decodeBitV2(p)
+				this.decodeBitV2(p)
+				this.decodeBitV2(p)
+				this.decodeBitV2(p)
+				this.decodeBitV2(p)
+				this.decodeBitV2(p)
 				buf[i] = byte(this.ctx)
-				this.p = this.probs[(this.ctx&0xFF)>>6]
+				p = this.probs[(this.ctx&0xFF)>>6]
 			}
 		}
 
