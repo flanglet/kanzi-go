@@ -214,7 +214,7 @@ func (this *BWT) inverseMergeTPSI(src, dst []byte, count int) (uint, uint, error
 	// Build array of packed index + value (assumes block size < 2^24)
 	pIdx := int(this.PrimaryIndex(0))
 
-	if pIdx > len(src) {
+	if pIdx <= 0 || pIdx > len(src) {
 		return 0, 0, errors.New("Invalid input: corrupted BWT primary index")
 	}
 
@@ -245,6 +245,11 @@ func (this *BWT) inverseMergeTPSI(src, dst []byte, count int) (uint, uint, error
 
 		for i := range src {
 			ptr := data[t]
+
+			if ptr < 0 {
+				break
+			}
+
 			dst[i] = byte(ptr)
 			t = ptr >> 8
 		}
