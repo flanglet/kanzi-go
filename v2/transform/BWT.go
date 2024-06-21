@@ -245,13 +245,12 @@ func (this *BWT) inverseMergeTPSI(src, dst []byte, count int) (uint, uint, error
 
 		for i := range src {
 			ptr := data[t]
+			dst[i] = byte(ptr)
+			t = ptr >> 8
 
 			if ptr < 0 {
 				break
 			}
-
-			dst[i] = byte(ptr)
-			t = ptr >> 8
 		}
 	} else {
 		ckSize := count >> 3
