@@ -767,15 +767,17 @@ func (this *ANSRangeDecoder) decodeChunkV1(block []byte) {
 		st1 = int(this.bitstream.ReadBits(32))
 	}
 
-	// Read encoded data
-	if sz != 0 {
-		// Add some padding
-		if len(this.buffer) < int(sz) {
-			this.buffer = make([]byte, sz+(sz>>3))
-		}
-
-		this.bitstream.ReadArray(this.buffer[0:sz], uint(8*sz))
+	if sz == 0 {
+		return
 	}
+
+	// Add some padding
+	if len(this.buffer) < int(sz) {
+		this.buffer = make([]byte, sz+(sz>>3))
+	}
+
+	// Read encoded data
+	this.bitstream.ReadArray(this.buffer[0:sz], uint(8*sz))
 
 	n := 0
 	lr := this.logRange
