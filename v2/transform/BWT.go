@@ -269,6 +269,14 @@ func (this *BWT) inverseMergeTPSI(src, dst []byte, count int) (uint, uint, error
 		t7 := int32(this.PrimaryIndex(7) - 1)
 		n := 0
 
+		if t0 < 0 || t1 < 0 || t2 < 0 || t3 < 0 || t4 < 0 || t5 < 0 || t6 < 0 || t7 < 0 {
+			return 0, 0, errors.New("Invalid input: corrupted BWT primary index")
+		}
+
+		if t0 >= int32(len(data)) || t1 >= int32(len(data)) || t2 >= int32(len(data)) || t3 >= int32(len(data)) || t4 >= int32(len(data)) || t5 >= int32(len(data)) || t6 >= int32(len(data)) || t7 >= int32(len(data)) {
+			return 0, 0, errors.New("Invalid input: corrupted BWT primary index")
+		}
+
 		for {
 			ptr0 := data[t0]
 			dst[n] = byte(ptr0)
