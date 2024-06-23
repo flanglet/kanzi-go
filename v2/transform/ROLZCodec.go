@@ -620,7 +620,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	dstIdx := 0
 	sizeChunk := min(len(dst), _ROLZ_CHUNK_SIZE)
 	litBuf := make([]byte, sizeChunk)
-	lenBuf := make([]byte, sizeChunk/5)
+	mLenBuf := make([]byte, sizeChunk/5)
 	mIdxBuf := make([]byte, sizeChunk/4)
 	tkBuf := make([]byte, sizeChunk/4)
 	var err error
@@ -632,7 +632,6 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	flags := src[4]
 	litOrder := uint(flags & 1)
 	delta := 2
-	this.logPosChecks = uint(flags >> 4)
 	this.minMatch = _ROLZ_MIN_MATCH3
 	bsVersion := uint(3)
 
@@ -662,6 +661,12 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		} else if flags&6 == 4 {
 			this.minMatch = _ROLZ_MIN_MATCH7
 		}
+	}
+
+	this.logPosChecks = uint(flags >> 4)
+
+	if this.logPosChecks < 2 || this.logPosChecks > 8 {
+		return 0, 0, errors.New("ROLZ codec: Invalid 'logPosChecks' value in bitstream")
 	}
 
 	// Main loop
@@ -700,22 +705,22 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			mLenLen := int(ibs.ReadBits(32))
 			mIdxLen := int(ibs.ReadBits(32))
 
-			if litLen < 0 || litLen > sizeChunk {
+			if litLen < 0 || litLen > len(litBuf) {
 				err = fmt.Errorf("ROLZ codec: Invalid length for literals: got %d, must be less than or equal to %d", litLen, sizeChunk)
 				goto End
 			}
 
-			if tkLen < 0 || tkLen > sizeChunk {
+			if tkLen < 0 || tkLen > len(tkBuf) {
 				err = fmt.Errorf("ROLZ codec: Invalid length for tokens: got %d, must be less than or equal to %d", tkLen, sizeChunk)
 				goto End
 			}
 
-			if mLenLen < 0 || mLenLen > sizeChunk {
-				err = fmt.Errorf("ROLZ codec: Invalid length for matches: got %d, must be less than or equal to %d", mLenLen, sizeChunk)
+			if mLenLen < 0 || mLenLen > len(mLenBuf) {
+				err = fmt.Errorf("ROLZ codec: Invalid length for match lengths: got %d, must be less than or equal to %d", mLenLen, sizeChunk)
 				goto End
 			}
 
-			if mIdxLen < 0 || mIdxLen > sizeChunk {
+			if mIdxLen < 0 || mIdxLen > len(mIdxBuf) {
 				err = fmt.Errorf("ROLZ codec: Invalid length for match indexes: got %d, must be less than or equal to %d", mIdxLen, sizeChunk)
 				goto End
 			}
@@ -741,7 +746,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 				goto End
 			}
 
-			if _, err = mDec.Read(lenBuf[0:mLenLen]); err != nil {
+			if _, err = mDec.Read(mLenBuf[0:mLenLen]); err != nil {
 				goto End
 			}
 
@@ -788,7 +793,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			matchLen := int(mode & 0x07)
 
 			if matchLen == 7 {
-				ml, deltaIdx := readLengthROLZ(lenBuf[lenIdx : lenIdx+4])
+				ml, deltaIdx := readLengthROLZ(mLenBuf[lenIdx : lenIdx+4])
 				lenIdx += deltaIdx
 				matchLen = ml + 7
 			}
@@ -798,12 +803,17 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			if mode < 0xF8 {
 				litLen = int(mode >> 3)
 			} else {
-				ll, deltaIdx := readLengthROLZ(lenBuf[lenIdx : lenIdx+4])
+				ll, deltaIdx := readLengthROLZ(mLenBuf[lenIdx : lenIdx+4])
 				lenIdx += deltaIdx
 				litLen = ll + 31
 			}
 
 			if litLen > 0 {
+				if dstIdx+litLen > len(litBuf) {
+					err = errors.New("ROLZ codec: Invalid input data")
+					goto End
+				}
+
 				srcInc := 0
 				d := buf[dstIdx-delta:]
 				copy(d[delta:], litBuf[litIdx:litIdx+litLen])
@@ -873,12 +883,17 @@ End:
 	if err == nil {
 		// Emit last literals
 		dstIdx += (startChunk - sizeChunk)
-		dst[dstIdx] = src[srcIdx]
-		dst[dstIdx+1] = src[srcIdx+1]
-		dst[dstIdx+2] = src[srcIdx+2]
-		dst[dstIdx+3] = src[srcIdx+3]
-		srcIdx += 4
-		dstIdx += 4
+
+		if dstIdx+4 > len(dst) && srcIdx+4 > len(src) {
+			err = errors.New("ROLZ codec: Invalid input data")
+		} else {
+			dst[dstIdx] = src[srcIdx]
+			dst[dstIdx+1] = src[srcIdx+1]
+			dst[dstIdx+2] = src[srcIdx+2]
+			dst[dstIdx+3] = src[srcIdx+3]
+			srcIdx += 4
+			dstIdx += 4
+		}
 
 		if srcIdx != len(src) {
 			err = errors.New("ROLZ codec: Invalid input data")

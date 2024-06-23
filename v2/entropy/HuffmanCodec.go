@@ -624,8 +624,11 @@ func (this *HuffmanDecoder) readLengths() (int, error) {
 
 // max(CodeLen) must be <= _HUF_MAX_SYMBOL_SIZE
 func (this *HuffmanDecoder) buildDecodingTable(count int) bool {
+	// Initialize table with non zero value.
+	// If the bitstream is altered, the decoder may access these default table values.
+	// The number of consumed bits cannot be 0.
 	for i := range this.table {
-		this.table[i] = 0
+		this.table[i] = 8
 	}
 
 	length := 0
@@ -637,19 +640,17 @@ func (this *HuffmanDecoder) buildDecodingTable(count int) bool {
 			length = int(this.sizes[s])
 		}
 
-		// code -> size, symbol
-		val := (uint16(s) << 8) | uint16(this.sizes[s])
-		code := this.codes[s]
-
 		// All DECODING_BATCH_SIZE bit values read from the bit stream and
 		// starting with the same prefix point to symbol s
-		idx := code << (shift - length)
+		idx := this.codes[s] << (shift - length)
 		end := idx + (1 << (shift - length))
 
 		if int(end) > len(this.table) {
 			return false
 		}
 
+		// code -> size, symbol
+		val := (uint16(s) << 8) | uint16(this.sizes[s])
 		t := this.table[idx:end]
 
 		for j := range t {
@@ -829,6 +830,11 @@ func (this *HuffmanDecoder) Read(block []byte) (int, error) {
 						// It is necessary to compute proper table indexes
 						// and has no consequences (except bits != 0 at the end of chunk)
 						bits += 8
+					}
+
+					// Sanity check
+					if bits > 64 {
+						return n, errors.New("Invalid bitstream: incorrect symbol size")
 					}
 
 					var val uint16

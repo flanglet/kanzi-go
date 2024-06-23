@@ -109,15 +109,15 @@ func (this *EXECodec) Forward(src, dst []byte) (uint, uint, error) {
 	count := len(src)
 
 	if count < _EXE_MIN_BLOCK_SIZE {
-		return 0, 0, fmt.Errorf("Block too small - size: %d, min %d)", count, _EXE_MIN_BLOCK_SIZE)
+		return 0, 0, fmt.Errorf("ExeCodec forward failed: Block too small - size: %d, min %d)", count, _EXE_MIN_BLOCK_SIZE)
 	}
 
 	if count > _EXE_MAX_BLOCK_SIZE {
-		return 0, 0, fmt.Errorf("Block too big - size: %d, max %d", count, _EXE_MAX_BLOCK_SIZE)
+		return 0, 0, fmt.Errorf("ExeCodec forward failed: Block too big - size: %d, max %d", count, _EXE_MAX_BLOCK_SIZE)
 	}
 
 	if n := this.MaxEncodedLen(count); len(dst) < n {
-		return 0, 0, fmt.Errorf("Output buffer too small - size: %d, required %d", len(dst), n)
+		return 0, 0, fmt.Errorf("ExeCodec forward failed: Output buffer too small - size: %d, required %d", len(dst), n)
 	}
 
 	if this.ctx != nil {
@@ -125,7 +125,7 @@ func (this *EXECodec) Forward(src, dst []byte) (uint, uint, error) {
 			dt := val.(internal.DataType)
 
 			if dt != internal.DT_UNDEFINED && dt != internal.DT_EXE && dt != internal.DT_BIN {
-				return 0, 0, fmt.Errorf("Input is not an executable, skip")
+				return 0, 0, fmt.Errorf("ExeCodec forward failed: Input is not an executable, skip")
 			}
 		}
 	}
@@ -139,7 +139,7 @@ func (this *EXECodec) Forward(src, dst []byte) (uint, uint, error) {
 			(*this.ctx)["dataType"] = internal.DataType(mode & _EXE_MASK_DT)
 		}
 
-		return 0, 0, fmt.Errorf("Input is not an executable, skip")
+		return 0, 0, fmt.Errorf("ExeCodec forward failed: Input is not an executable, skip")
 	}
 
 	mode &= ^byte(_EXE_MASK_DT)
@@ -156,7 +156,7 @@ func (this *EXECodec) Forward(src, dst []byte) (uint, uint, error) {
 		return this.forwardARM(src, dst, codeStart, codeEnd)
 	}
 
-	return 0, 0, fmt.Errorf("Input is not a supported executable format, skip")
+	return 0, 0, fmt.Errorf("ExeCodec forward failed: Input is not a supported executable format, skip")
 }
 
 func (this *EXECodec) forwardX86(src, dst []byte, codeStart, codeEnd int) (uint, uint, error) {
@@ -166,6 +166,10 @@ func (this *EXECodec) forwardX86(src, dst []byte, codeStart, codeEnd int) (uint,
 	dstEnd := len(dst) - 5
 	dst[0] = _EXE_X86
 	matches = 0
+
+	if codeStart > len(src) || codeEnd > len(src) {
+		return 0, 0, fmt.Errorf("ExeCodec forward failed: Input is not a supported executable format")
+	}
 
 	if codeStart > 0 {
 		copy(dst[dstIdx:], src[0:codeStart])
@@ -232,14 +236,14 @@ func (this *EXECodec) forwardX86(src, dst []byte, codeStart, codeEnd int) (uint,
 	}
 
 	if matches < 16 {
-		return uint(srcIdx), uint(dstIdx), errors.New("Too few calls/jumps, skip")
+		return uint(srcIdx), uint(dstIdx), errors.New("ExeCodec forward: Too few calls/jumps, skip")
 	}
 
 	count := len(src)
 
 	// Cap expansion due to false positives
 	if srcIdx < codeEnd || dstIdx+(count-srcIdx) > dstEnd {
-		return uint(srcIdx), uint(dstIdx), errors.New("Too many false positives, skip")
+		return uint(srcIdx), uint(dstIdx), errors.New("ExeCodec forward: Too many false positives, skip")
 	}
 
 	binary.LittleEndian.PutUint32(dst[1:], uint32(codeStart))
@@ -272,7 +276,7 @@ func (this *EXECodec) Inverse(src, dst []byte) (uint, uint, error) {
 		return this.inverseARM(src, dst)
 	}
 
-	return 0, 0, errors.New("Invalid data: unknown binary type")
+	return 0, 0, errors.New("ExeCodec inverse failed: unknown binary type")
 }
 
 func (this *EXECodec) inverseX86(src, dst []byte) (uint, uint, error) {
@@ -280,6 +284,11 @@ func (this *EXECodec) inverseX86(src, dst []byte) (uint, uint, error) {
 	dstIdx := 0
 	codeStart := int(binary.LittleEndian.Uint32(src[1:]))
 	codeEnd := int(binary.LittleEndian.Uint32(src[5:]))
+
+	// Sanity check
+	if codeStart+srcIdx > len(src) || codeStart+dstIdx > len(dst) || codeEnd > len(src) {
+		return 0, 0, errors.New("ExeCodec inverse failed: invalid bitstream")
+	}
 
 	if codeStart > 0 {
 		copy(dst[dstIdx:], src[srcIdx:srcIdx+codeStart])
@@ -334,8 +343,12 @@ func (this *EXECodec) inverseX86(src, dst []byte) (uint, uint, error) {
 	}
 
 	count := len(src)
-	copy(dst[dstIdx:], src[srcIdx:count])
-	dstIdx += (count - srcIdx)
+
+	if srcIdx < count {
+		copy(dst[dstIdx:], src[srcIdx:count])
+		dstIdx += (count - srcIdx)
+	}
+
 	return uint(count), uint(dstIdx), nil
 }
 
@@ -398,6 +411,10 @@ func (this *EXECodec) forwardARM(src, dst []byte, codeStart, codeEnd int) (uint,
 	dstEnd := len(dst) - 8
 	dst[0] = _EXE_ARM64
 	matches = 0
+
+	if codeStart > len(src) || codeEnd > len(src) {
+		return 0, 0, fmt.Errorf("ExeCodec forward failed: Input is not a supported executable format")
+	}
 
 	if codeStart > 0 {
 		copy(dst[dstIdx:], src[0:codeStart])
@@ -472,14 +489,14 @@ func (this *EXECodec) forwardARM(src, dst []byte, codeStart, codeEnd int) (uint,
 	}
 
 	if matches < 16 {
-		return uint(srcIdx), uint(dstIdx), errors.New("Too few calls/jumps, skip")
+		return uint(srcIdx), uint(dstIdx), errors.New("ExeCodec forward: Too few calls/jumps, skip")
 	}
 
 	count := len(src)
 
 	// Cap expansion due to false positives
 	if srcIdx < codeEnd || dstIdx+(count-srcIdx) > dstEnd {
-		return uint(srcIdx), uint(dstIdx), errors.New("Too many false positives, skip")
+		return uint(srcIdx), uint(dstIdx), errors.New("ExeCodec forward: Too many false positives, skip")
 	}
 
 	binary.LittleEndian.PutUint32(dst[1:], uint32(codeStart))
@@ -494,6 +511,11 @@ func (this *EXECodec) inverseARM(src, dst []byte) (uint, uint, error) {
 	dstIdx := 0
 	codeStart := int(binary.LittleEndian.Uint32(src[1:]))
 	codeEnd := int(binary.LittleEndian.Uint32(src[5:]))
+
+	// Sanity check
+	if codeStart+srcIdx > len(src) || codeStart+dstIdx > len(dst) || codeEnd > len(src) {
+		return 0, 0, errors.New("ExeCodec inverse failed: invalid bitstream")
+	}
 
 	if codeStart > 0 {
 		copy(dst[dstIdx:], src[srcIdx:srcIdx+codeStart])
@@ -544,8 +566,12 @@ func (this *EXECodec) inverseARM(src, dst []byte) (uint, uint, error) {
 	}
 
 	count := len(src)
-	copy(dst[dstIdx:], src[srcIdx:count])
-	dstIdx += (count - srcIdx)
+
+	if srcIdx < count {
+		copy(dst[dstIdx:], src[srcIdx:count])
+		dstIdx += (count - srcIdx)
+	}
+
 	return uint(count), uint(dstIdx), nil
 }
 

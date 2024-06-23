@@ -126,16 +126,17 @@ func (this *BinaryEntropyEncoder) Write(block []byte) (int, error) {
 		length = 64
 	}
 
+	bufSize := length + (length >> 3)
+
+	if len(this.buffer) < bufSize {
+		this.buffer = make([]byte, bufSize)
+	}
+
 	// Split block into chunks, read bit array from bitstream and decode chunk
 	for startChunk < end {
 		chunkSize := min(length, end-startChunk)
-
-		if len(this.buffer) < (chunkSize + (chunkSize >> 3)) {
-			this.buffer = make([]byte, chunkSize+(chunkSize>>3))
-		}
-
-		this.index = 0
 		buf := block[startChunk : startChunk+chunkSize]
+		this.index = 0
 
 		for i := range buf {
 			this.EncodeByte(buf[i])
@@ -286,15 +287,21 @@ func (this *BinaryEntropyDecoder) Read(block []byte) (int, error) {
 		length = 64
 	}
 
+	bufSize := length + (length >> 3)
+
+	if len(this.buffer) < bufSize {
+		this.buffer = make([]byte, bufSize)
+	}
+
 	// Split block into chunks, read bit array from bitstream and decode chunk
 	for startChunk < end {
 		chunkSize := min(length, end-startChunk)
+		szBytes := ReadVarInt(this.bitstream)
 
-		if len(this.buffer) < chunkSize+(chunkSize>>3) {
-			this.buffer = make([]byte, chunkSize+(chunkSize>>3))
+		if szBytes > uint32(bufSize) {
+			return startChunk, errors.New("Binary entropy codec: Invalid bitstream")
 		}
 
-		szBytes := ReadVarInt(this.bitstream)
 		this.current = this.bitstream.ReadBits(56)
 
 		if szBytes != 0 {

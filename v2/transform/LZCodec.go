@@ -214,9 +214,7 @@ func readLengthLZ(block []byte) (int, int) {
 }
 
 func emitLiteralsLZ(src, dst []byte) {
-	for i := 0; i < len(src); i += 8 {
-		copy(dst[i:], src[i:i+8])
-	}
+	copy(dst, src)
 }
 
 func (this *LZXCodec) hash(p []byte) uint32 {
@@ -733,17 +731,17 @@ func (this *LZXCodec) inverseV3(src, dst []byte) (uint, uint, error) {
 	mIdx := int(binary.LittleEndian.Uint32(src[4:]))
 	mLenIdx := int(binary.LittleEndian.Uint32(src[8:]))
 
+	// Sanity checks
 	if (tkIdx < 0) || (mIdx < 0) || (mLenIdx < 0) {
+		return 0, 0, errors.New("LZCodec: inverse transform failed, invalid data")
+	}
+
+	if (tkIdx > count) || (mIdx > count-tkIdx) || (mLenIdx > count-tkIdx-mIdx) {
 		return 0, 0, errors.New("LZCodec: inverse transform failed, invalid data")
 	}
 
 	mIdx += tkIdx
 	mLenIdx += mIdx
-
-	if (tkIdx > count) || (mIdx > count) || (mLenIdx > count) {
-		return 0, 0, errors.New("LZCodec: inverse transform failed, invalid data")
-	}
-
 	srcEnd := tkIdx - 13
 	dstEnd := len(dst) - 16
 	maxDist := _LZX_MAX_DISTANCE2
