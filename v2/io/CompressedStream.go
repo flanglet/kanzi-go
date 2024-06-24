@@ -567,7 +567,13 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			res.err = &IOError{msg: r.(error).Error(), code: kanzi.ERR_PROCESS_BLOCK}
+			err, ok := r.(error)
+
+			if ok {
+				res.err = &IOError{msg: err.Error(), code: kanzi.ERR_PROCESS_BLOCK}
+			} else {
+				res.err = &IOError{msg: "Unknown error", code: kanzi.ERR_PROCESS_BLOCK}
+			}
 		}
 
 		// Unblock other tasks
@@ -1060,7 +1066,13 @@ func (this *Reader) RemoveListener(bl kanzi.Listener) bool {
 func (this *Reader) readHeader() error {
 	defer func() {
 		if r := recover(); r != nil {
-			panic(&IOError{msg: "Cannot read bitstream header: " + r.(error).Error(), code: kanzi.ERR_READ_FILE})
+			err, ok := r.(error)
+
+			if ok {
+				panic(&IOError{msg: "Invalid bitstream header: " + err.Error(), code: kanzi.ERR_READ_FILE})
+			} else {
+				panic(&IOError{msg: "Invalid bitstream header", code: kanzi.ERR_READ_FILE})
+			}
 		}
 	}()
 
@@ -1469,7 +1481,13 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 		res.skipped = skipped
 
 		if r := recover(); r != nil {
-			res.err = &IOError{msg: r.(error).Error(), code: kanzi.ERR_PROCESS_BLOCK}
+			err, ok := r.(error)
+
+			if ok {
+				res.err = &IOError{msg: err.Error(), code: kanzi.ERR_PROCESS_BLOCK}
+			} else {
+				res.err = &IOError{msg: "Unkown error", code: kanzi.ERR_PROCESS_BLOCK}
+			}
 		}
 
 		// Unblock other tasks
