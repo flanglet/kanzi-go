@@ -724,6 +724,7 @@ func (this *ANSRangeDecoder) Read(block []byte) (int, error) {
 
 	sizeChunk := this.chunkSize
 	end := len(block)
+	var err error
 	startChunk := 0
 	var alphabet [256]int
 
@@ -745,14 +746,17 @@ func (this *ANSRangeDecoder) Read(block []byte) (int, error) {
 			if this.bsVersion == 1 {
 				this.decodeChunkV1(block[startChunk:endChunk])
 			} else {
-				this.decodeChunkV2(block[startChunk:endChunk])
+				if this.decodeChunkV2(block[startChunk:endChunk]) == false {
+					err = errors.New("Invalid bitstream: incorrect chunk size")
+					break
+				}
 			}
 		}
 
 		startChunk = endChunk
 	}
 
-	return len(block), nil
+	return startChunk, err
 }
 
 func (this *ANSRangeDecoder) decodeChunkV1(block []byte) {
@@ -856,9 +860,13 @@ func (this *ANSRangeDecoder) decodeSymbol(n int, st int, sym decSymbol, mask int
 	return n, st
 }
 
-func (this *ANSRangeDecoder) decodeChunkV2(block []byte) {
+func (this *ANSRangeDecoder) decodeChunkV2(block []byte) bool {
 	// Read chunk size
-	sz := ReadVarInt(this.bitstream) & (_ANS_MAX_CHUNK_SIZE - 1)
+	sz := ReadVarInt(this.bitstream)
+
+	if sz >= _ANS_MAX_CHUNK_SIZE {
+		return false
+	}
 
 	// Read initial ANS state
 	st0 := int(this.bitstream.ReadBits(32))
@@ -939,6 +947,8 @@ func (this *ANSRangeDecoder) decodeChunkV2(block []byte) {
 		block[i] = this.buffer[n]
 		n++
 	}
+
+	return true
 }
 
 // BitStream returns the underlying bitstream
