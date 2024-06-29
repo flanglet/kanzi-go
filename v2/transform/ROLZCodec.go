@@ -609,6 +609,10 @@ End:
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
+	if len(src) < 5 {
+		return 0, 0, errors.New("ROLZ codec: Invalid input data (input array too small)")
+	}
+
 	dstEnd := int(binary.BigEndian.Uint32(src[0:])) - 4
 
 	if dstEnd <= 0 || dstEnd > len(dst) {
