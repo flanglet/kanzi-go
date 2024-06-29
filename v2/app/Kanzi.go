@@ -68,8 +68,8 @@ var (
 		"-v", "-l", "-s", "-x", "-f", "-h", "-p",
 	}
 
-	mutex         sync.Mutex
-	log           = Printer{os: bufio.NewWriter(os.Stdout)}
+	mutex sync.Mutex
+	log   = Printer{os: bufio.NewWriter(os.Stdout)}
 )
 
 func main() {

@@ -69,6 +69,7 @@ type fileCompressResult struct {
 	code    int
 	read    uint64
 	written uint64
+	err     error
 }
 
 // NewBlockCompressor creates a new instance of BlockCompressor given
@@ -303,8 +304,8 @@ func fileCompressWorker(tasks <-chan fileCompressTask, cancel <-chan bool, resul
 			more = m
 
 			if more {
-				res, read, written := t.call()
-				results <- fileCompressResult{code: res, read: read, written: written}
+				res, read, written, err := t.call()
+				results <- fileCompressResult{code: res, read: read, written: written, err: err}
 				more = res == 0
 			}
 
@@ -524,7 +525,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		ctx["blockSize"] = this.blockSize
 		ctx["jobs"] = this.jobs
 		task := fileCompressTask{ctx: ctx, listeners: this.listeners}
-		res, read, written = task.call()
+		res, read, written, err = task.call()
 	} else {
 		// Create channels for task synchronization
 		tasks := make(chan fileCompressTask, nbFiles)
@@ -557,13 +558,8 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 			if this.autoBlockSize == true && this.jobs > 0 {
 				bl := f.Size / int64(this.jobs)
 				bl = (bl + 63) & ^63
-
-				if bl > _COMP_MAX_BLOCK_SIZE {
-					bl = _COMP_MAX_BLOCK_SIZE
-				} else if bl < _COMP_MIN_BLOCK_SIZE {
-					bl = _COMP_MIN_BLOCK_SIZE
-				}
-
+				bl = min(bl, _COMP_MAX_BLOCK_SIZE)
+				bl = max(bl, _COMP_MIN_BLOCK_SIZE)
 				this.blockSize = uint(bl)
 			}
 
@@ -692,7 +688,7 @@ type fileCompressTask struct {
 	listeners []kanzi.Listener
 }
 
-func (this *fileCompressTask) call() (int, uint64, uint64) {
+func (this *fileCompressTask) call() (int, uint64, uint64, error) {
 	var msg string
 	removeSource := this.ctx["remove"].(bool)
 	verbosity := this.ctx["verbosity"].(uint)
@@ -718,13 +714,13 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 			// File exists
 			if err = output.Close(); err != nil {
 				fmt.Printf("Cannot create output file '%s': error closing existing file\n", outputName)
-				return kanzi.ERR_OVERWRITE_FILE, 0, 0
+				return kanzi.ERR_OVERWRITE_FILE, 0, 0, err
 			}
 
 			if overwrite == false {
 				fmt.Printf("File '%s' exists and the 'force' command ", outputName)
 				fmt.Println("line option has not been provided")
-				return kanzi.ERR_OVERWRITE_FILE, 0, 0
+				return kanzi.ERR_OVERWRITE_FILE, 0, 0, err
 			}
 
 			path1, _ := filepath.Abs(inputName)
@@ -732,7 +728,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 
 			if path1 == path2 {
 				fmt.Print("The input and output files must be different")
-				return kanzi.ERR_CREATE_FILE, 0, 0
+				return kanzi.ERR_CREATE_FILE, 0, 0, err
 			}
 		}
 
@@ -748,7 +744,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 
 			if err != nil {
 				fmt.Printf("Cannot open output file '%s' for writing: %v\n", outputName, err)
-				return kanzi.ERR_CREATE_FILE, 0, 0
+				return kanzi.ERR_CREATE_FILE, 0, 0, err
 			}
 		}
 
@@ -760,11 +756,11 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 	if err != nil {
 		if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
 			fmt.Printf("%s\n", ioerr.Error())
-			return ioerr.ErrorCode(), 0, 0
+			return ioerr.ErrorCode(), 0, 0, err
 		}
 
 		fmt.Printf("Cannot create compressed stream: %s\n", err.Error())
-		return kanzi.ERR_CREATE_COMPRESSOR, 0, 0
+		return kanzi.ERR_CREATE_COMPRESSOR, 0, 0, err
 	}
 
 	defer cos.Close()
@@ -778,7 +774,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 
 		if input, err = os.Open(inputName); err != nil {
 			fmt.Printf("Cannot open input file '%s': %v\n", inputName, err)
-			return kanzi.ERR_OPEN_FILE, 0, 0
+			return kanzi.ERR_OPEN_FILE, 0, 0, err
 		}
 
 		defer input.Close()
@@ -810,7 +806,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 				// Because Copy is defined to read from src until EOF, it does not
 				// treat EOF from Read an an error to be reported)
 				fmt.Printf("Failed to read block from file '%s': %v\n", inputName, err)
-				return kanzi.ERR_READ_FILE, read, cos.GetWritten()
+				return kanzi.ERR_READ_FILE, read, cos.GetWritten(), err
 			}
 		}
 
@@ -820,11 +816,11 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 			if _, err = cos.Write(buffer[0:length]); err != nil {
 				if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
 					fmt.Printf("%s\n", ioerr.Error())
-					return ioerr.ErrorCode(), read, cos.GetWritten()
+					return ioerr.ErrorCode(), read, cos.GetWritten(), err
 				}
 
 				fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err.Error())
-				return kanzi.ERR_PROCESS_BLOCK, read, cos.GetWritten()
+				return kanzi.ERR_PROCESS_BLOCK, read, cos.GetWritten(), err
 			}
 		}
 
@@ -837,7 +833,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 	// Deferred close is fallback for error paths
 	if err := cos.Close(); err != nil {
 		fmt.Printf("%v\n", err)
-		return kanzi.ERR_PROCESS_BLOCK, read, cos.GetWritten()
+		return kanzi.ERR_PROCESS_BLOCK, read, cos.GetWritten(), err
 	}
 
 	after := time.Now()
@@ -866,10 +862,10 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 			}
 		} else if verbosity == 1 {
 			if read == 0 {
-				msg = fmt.Sprintf("Compressing %s: %d => %d in %s", inputName, read, cos.GetWritten(), msg)
+				msg = fmt.Sprintf("Compressed %s: %d => %d in %s", inputName, read, cos.GetWritten(), msg)
 			} else {
 				f := float64(cos.GetWritten()) / float64(read)
-				msg = fmt.Sprintf("Compressing %s: %d => %d (%.2f%%) in %s", inputName, read, cos.GetWritten(), 100*f, msg)
+				msg = fmt.Sprintf("Compressed %s: %d => %d (%.2f%%) in %s", inputName, read, cos.GetWritten(), 100*f, msg)
 			}
 
 			log.Println(msg, true)
@@ -905,5 +901,5 @@ func (this *fileCompressTask) call() (int, uint64, uint64) {
 		}
 	}
 
-	return 0, read, cos.GetWritten()
+	return 0, read, cos.GetWritten(), nil
 }

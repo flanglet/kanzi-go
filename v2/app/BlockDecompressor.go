@@ -59,6 +59,7 @@ type BlockDecompressor struct {
 type fileDecompressResult struct {
 	code int
 	read uint64
+	err  error
 }
 
 // NewBlockDecompressor creates a new instance of BlockDecompressor given
@@ -199,8 +200,8 @@ func fileDecompressWorker(tasks <-chan fileDecompressTask, cancel <-chan bool, r
 			more = m
 
 			if more {
-				res, read := t.call()
-				results <- fileDecompressResult{code: res, read: read}
+				res, read, err := t.call()
+				results <- fileDecompressResult{code: res, read: read, err: err}
 				more = res == 0
 			}
 
@@ -398,7 +399,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 		ctx["jobs"] = this.jobs
 		task := fileDecompressTask{ctx: ctx, listeners: this.listeners}
 
-		res, read = task.call()
+		res, read, _ = task.call()
 	} else {
 		// Create channels for task synchronization
 		tasks := make(chan fileDecompressTask, nbFiles)
@@ -505,7 +506,7 @@ type fileDecompressTask struct {
 	listeners []kanzi.Listener
 }
 
-func (this *fileDecompressTask) call() (int, uint64) {
+func (this *fileDecompressTask) call() (int, uint64, error) {
 	var msg string
 	removeSource := this.ctx["remove"].(bool)
 	verbosity := this.ctx["verbosity"].(uint)
@@ -545,7 +546,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 			if overwrite == false {
 				fmt.Printf("File '%s' exists and the 'force' command ", outputName)
 				fmt.Println("line option has not been provided")
-				return kanzi.ERR_OVERWRITE_FILE, 0
+				return kanzi.ERR_OVERWRITE_FILE, 0, err
 			}
 
 			path1, _ := filepath.Abs(inputName)
@@ -553,7 +554,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 
 			if path1 == path2 {
 				fmt.Print("The input and output files must be different")
-				return kanzi.ERR_CREATE_FILE, 0
+				return kanzi.ERR_CREATE_FILE, 0, err
 			}
 		} else {
 			output, err = os.Create(outputName)
@@ -568,7 +569,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 
 				if err != nil {
 					fmt.Printf("Cannot open output file '%s' for writing: %v\n", outputName, err)
-					return kanzi.ERR_CREATE_FILE, 0
+					return kanzi.ERR_CREATE_FILE, 0, err
 				}
 			}
 		}
@@ -593,7 +594,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 
 		if input, err = os.Open(inputName); err != nil {
 			fmt.Printf("Cannot open input file '%s': %v\n", inputName, err)
-			return kanzi.ERR_OPEN_FILE, 0
+			return kanzi.ERR_OPEN_FILE, 0, err
 		}
 
 		defer input.Close()
@@ -604,11 +605,11 @@ func (this *fileDecompressTask) call() (int, uint64) {
 	if err != nil {
 		if err.(*kio.IOError) != nil {
 			fmt.Printf("%s\n", err.(*kio.IOError).Message())
-			return err.(*kio.IOError).ErrorCode(), 0
+			return err.(*kio.IOError).ErrorCode(), 0, err
 		}
 
 		fmt.Printf("Cannot create compressed stream: %v\n", err)
-		return kanzi.ERR_CREATE_DECOMPRESSOR, 0
+		return kanzi.ERR_CREATE_DECOMPRESSOR, 0, err
 	}
 
 	for _, bl := range this.listeners {
@@ -626,7 +627,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 		if decodedBlock, err = cis.Read(buffer); err != nil {
 			if ioerr, isIOErr := err.(*kio.IOError); isIOErr == true {
 				fmt.Printf("%s\n", ioerr.Message())
-				return ioerr.ErrorCode(), uint64(decoded)
+				return ioerr.ErrorCode(), uint64(decoded), err
 			}
 
 			if errors.Is(err, io.EOF) == false {
@@ -634,7 +635,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 				// Because Copy is defined to read from src until EOF, it does not
 				// treat EOF from Read an an error to be reported)
 				fmt.Printf("An unexpected condition happened. Exiting ...\n%v\n", err)
-				return kanzi.ERR_PROCESS_BLOCK, uint64(decoded)
+				return kanzi.ERR_PROCESS_BLOCK, uint64(decoded), err
 			}
 		}
 
@@ -643,7 +644,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 
 			if err != nil {
 				fmt.Printf("Failed to write decompressed block to file '%s': %v\n", outputName, err)
-				return kanzi.ERR_WRITE_FILE, uint64(decoded)
+				return kanzi.ERR_WRITE_FILE, uint64(decoded), err
 			}
 
 			decoded += int64(decodedBlock)
@@ -657,7 +658,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 	// Close streams to ensure all data are flushed
 	// Deferred close is fallback for error paths
 	if err := cis.Close(); err != nil {
-		return kanzi.ERR_PROCESS_BLOCK, uint64(decoded)
+		return kanzi.ERR_PROCESS_BLOCK, uint64(decoded), err
 	}
 
 	after := time.Now()
@@ -673,8 +674,9 @@ func (this *fileDecompressTask) call() (int, uint64) {
 			outputSize := osz.(int64)
 
 			if outputSize != 0 && decoded != outputSize {
-				fmt.Printf("Corrupted bitstream: invalid output size (expected %d, got %d)\n", decoded, outputSize)
-				return kanzi.ERR_INVALID_FILE, uint64(decoded)
+				errMsg := fmt.Sprintf("Corrupted bitstream: invalid output size (expected %d, got %d)", decoded, outputSize)
+				fmt.Println(errMsg)
+				return kanzi.ERR_INVALID_FILE, uint64(decoded), errors.New(errMsg)
 			}
 		}
 	}
@@ -698,7 +700,7 @@ func (this *fileDecompressTask) call() (int, uint64) {
 		}
 
 		if verbosity == 1 {
-			msg = fmt.Sprintf("Decompressing %s: %d => %d in %s", inputName, cis.GetRead(), decoded, msg)
+			msg = fmt.Sprintf("Decompressed %s: %d => %d in %s", inputName, cis.GetRead(), decoded, msg)
 			log.Println(msg, true)
 		}
 
@@ -732,5 +734,5 @@ func (this *fileDecompressTask) call() (int, uint64) {
 		}
 	}
 
-	return 0, uint64(decoded)
+	return 0, uint64(decoded), nil
 }
