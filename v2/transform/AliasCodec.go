@@ -53,12 +53,14 @@ func (this sortAliasByFreq) Swap(i, j int) {
 
 // AliasCodec is a simple codec replacing 2-byte symbols with 1-byte aliases whenever possible
 type AliasCodec struct {
-	ctx *map[string]any
+	ctx     *map[string]any
+	onlyDNA bool
 }
 
 // NewAliasCodec creates a new instance of AliasCodec
 func NewAliasCodec() (*AliasCodec, error) {
 	this := &AliasCodec{}
+	this.onlyDNA = false
 	return this, nil
 }
 
@@ -67,6 +69,14 @@ func NewAliasCodec() (*AliasCodec, error) {
 func NewAliasCodecWithCtx(ctx *map[string]any) (*AliasCodec, error) {
 	this := &AliasCodec{}
 	this.ctx = ctx
+	this.onlyDNA = false
+
+	if ctx != nil {
+		if val, containsKey := (*this.ctx)["packOnlyDNA"]; containsKey {
+			this.onlyDNA = val.(bool)
+		}
+	}
+
 	return this, nil
 }
 
@@ -90,9 +100,9 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, fmt.Errorf("Input block is too small - size: %d, required %d", len(src), _ALIAS_MIN_BLOCKSIZE)
 	}
 
-	if this.ctx != nil {
-		dt := internal.DT_UNDEFINED
+	dt := internal.DT_UNDEFINED
 
+	if this.ctx != nil {
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
 			dt = val.(internal.DataType)
 		}
@@ -103,6 +113,10 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 		if (dt == internal.DT_EXE) || (dt == internal.DT_BIN) {
 			return 0, 0, errors.New("Alias Codec: forward transform skip, binary data")
+		}
+
+		if (this.onlyDNA == true) && (dt != internal.DT_EXE) && (dt != internal.DT_DNA) {
+			return 0, 0, errors.New("DNA Alias Codec: forward transform skip, not DNA data")
 		}
 	}
 
@@ -121,6 +135,18 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	if n0 < 16 {
 		return 0, 0, errors.New("Alias Codec: forward transform skip, not enough free slots")
+	}
+
+	if dt == internal.DT_UNDEFINED {
+		dt = internal.DetectSimpleType(len(src), freqs0[:])
+
+		if (this.ctx != nil) && (dt != internal.DT_UNDEFINED) {
+			(*this.ctx)["dataType"] = dt
+		}
+
+		if (dt != internal.DT_DNA) && (this.onlyDNA == true) {
+			return 0, 0, errors.New("DNA Alias Codec: forward transform skip, not DNA data")
+		}
 	}
 
 	var srcIdx int

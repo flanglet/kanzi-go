@@ -47,7 +47,7 @@ const (
 	LZX_TYPE    = uint64(16) // Lempel Ziv Extra
 	UTF_TYPE    = uint64(17) // UTF codec
 	PACK_TYPE   = uint64(18) // Alias Codec
-	RESERVED2   = uint64(19) // Reserved
+	DNA_TYPE    = uint64(19) // DNA Alias Codec
 	RESERVED3   = uint64(20) // Reserved
 	RESERVED4   = uint64(21) // Reserved
 	RESERVED5   = uint64(22) // Reserved
@@ -139,6 +139,10 @@ func newToken(ctx *map[string]any, functionType uint64) (kanzi.ByteTransform, er
 		return NewFSDCodecWithCtx(ctx)
 
 	case PACK_TYPE:
+		return NewAliasCodecWithCtx(ctx)
+
+	case DNA_TYPE:
+		(*ctx)["packOnlyDNA"] = true
 		return NewAliasCodecWithCtx(ctx)
 
 	case SRT_TYPE:
@@ -258,6 +262,9 @@ func getByteFunctionNameToken(functionType uint64) (string, error) {
 	case PACK_TYPE:
 		return "PACK", nil
 
+	case DNA_TYPE:
+		return "DNA", nil
+
 	case NONE_TYPE:
 		return "NONE", nil
 
@@ -364,6 +371,9 @@ func getByteFunctionTypeToken(name string) (uint64, error) {
 
 	case "PACK":
 		return PACK_TYPE, nil
+
+	case "DNA":
+		return DNA_TYPE, nil
 
 	case "NONE":
 		return NONE_TYPE, nil
