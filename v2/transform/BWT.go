@@ -201,6 +201,16 @@ func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 
 // When count <= _BWT_BLOCK_SIZE_THRESHOLD2, mergeTPSI algo. Always in one chunk
 func (this *BWT) inverseMergeTPSI(src, dst []byte, count int) (uint, uint, error) {
+	if len(src) == 0 {
+		return 0, 0, nil
+	}
+
+	pIdx := int(this.PrimaryIndex(0))
+
+	if pIdx <= 0 || pIdx > len(src) {
+		return 0, 0, errors.New("Invalid input: corrupted BWT primary index")
+	}
+
 	// Lazy dynamic memory allocation
 	minLenBuf := max(count, 64)
 
@@ -212,12 +222,6 @@ func (this *BWT) inverseMergeTPSI(src, dst []byte, count int) (uint, uint, error
 	data := this.buffer
 
 	// Build array of packed index + value (assumes block size < 2^24)
-	pIdx := int(this.PrimaryIndex(0))
-
-	if pIdx <= 0 || pIdx > len(src) {
-		return 0, 0, errors.New("Invalid input: corrupted BWT primary index")
-	}
-
 	buckets := [256]int{}
 	internal.ComputeHistogram(src[0:count], buckets[:], true, false)
 	sum := 0
@@ -228,7 +232,10 @@ func (this *BWT) inverseMergeTPSI(src, dst []byte, count int) (uint, uint, error
 		sum += tmp
 	}
 
-	for i := 0; i < pIdx; i++ {
+	data[buckets[src[0]]] = int32(0xFF00) | int32(src[0])
+	buckets[src[0]]++
+
+	for i := 1; i < pIdx; i++ {
 		val := int32(src[i])
 		data[buckets[val]] = int32((i-1)<<8) | val
 		buckets[val]++
@@ -240,17 +247,13 @@ func (this *BWT) inverseMergeTPSI(src, dst []byte, count int) (uint, uint, error
 		buckets[val]++
 	}
 
-	if count < _BWT_BLOCK_SIZE_THRESHOLD1 {
+	if GetBWTChunks(count) != 8 {
 		t := int32(pIdx - 1)
 
 		for i := range src {
 			ptr := data[t]
 			dst[i] = byte(ptr)
 			t = ptr >> 8
-
-			if ptr < 0 {
-				break
-			}
 		}
 	} else {
 		ckSize := count >> 3
@@ -267,7 +270,6 @@ func (this *BWT) inverseMergeTPSI(src, dst []byte, count int) (uint, uint, error
 		t5 := int32(this.PrimaryIndex(5) - 1)
 		t6 := int32(this.PrimaryIndex(6) - 1)
 		t7 := int32(this.PrimaryIndex(7) - 1)
-		n := 0
 
 		if t0 < 0 || t1 < 0 || t2 < 0 || t3 < 0 || t4 < 0 || t5 < 0 || t6 < 0 || t7 < 0 {
 			return 0, 0, errors.New("Invalid input: corrupted BWT primary index")
@@ -277,59 +279,68 @@ func (this *BWT) inverseMergeTPSI(src, dst []byte, count int) (uint, uint, error
 			return 0, 0, errors.New("Invalid input: corrupted BWT primary index")
 		}
 
-		for {
+		d0 := dst[0*ckSize : 1*ckSize]
+		d1 := dst[1*ckSize : 2*ckSize]
+		d2 := dst[2*ckSize : 3*ckSize]
+		d3 := dst[3*ckSize : 4*ckSize]
+		d4 := dst[4*ckSize : 5*ckSize]
+		d5 := dst[5*ckSize : 6*ckSize]
+		d6 := dst[6*ckSize : 7*ckSize]
+		d7 := dst[7*ckSize : count]
+
+		// Last interval [7*chunk:count] smaller when 8*ckSize != count
+		end := count - ckSize*7
+		n := 0
+
+		for n < end {
 			ptr0 := data[t0]
-			dst[n] = byte(ptr0)
+			d0[n] = byte(ptr0)
 			t0 = ptr0 >> 8
 			ptr1 := data[t1]
-			dst[n+ckSize*1] = byte(ptr1)
+			d1[n] = byte(ptr1)
 			t1 = ptr1 >> 8
 			ptr2 := data[t2]
-			dst[n+ckSize*2] = byte(ptr2)
+			d2[n] = byte(ptr2)
 			t2 = ptr2 >> 8
 			ptr3 := data[t3]
-			dst[n+ckSize*3] = byte(ptr3)
+			d3[n] = byte(ptr3)
 			t3 = ptr3 >> 8
 			ptr4 := data[t4]
-			dst[n+ckSize*4] = byte(ptr4)
+			d4[n] = byte(ptr4)
 			t4 = ptr4 >> 8
 			ptr5 := data[t5]
-			dst[n+ckSize*5] = byte(ptr5)
+			d5[n] = byte(ptr5)
 			t5 = ptr5 >> 8
 			ptr6 := data[t6]
-			dst[n+ckSize*6] = byte(ptr6)
+			d6[n] = byte(ptr6)
 			t6 = ptr6 >> 8
 			ptr7 := data[t7]
-			dst[n+ckSize*7] = byte(ptr7)
+			d7[n] = byte(ptr7)
 			t7 = ptr7 >> 8
 			n++
-
-			if ptr7 < 0 {
-				break
-			}
 		}
 
 		for n < ckSize {
 			ptr0 := data[t0]
-			dst[n] = byte(ptr0)
+			d0[n] = byte(ptr0)
 			t0 = ptr0 >> 8
 			ptr1 := data[t1]
-			dst[n+ckSize*1] = byte(ptr1)
+			d1[n] = byte(ptr1)
 			t1 = ptr1 >> 8
 			ptr2 := data[t2]
-			dst[n+ckSize*2] = byte(ptr2)
+			d2[n] = byte(ptr2)
 			t2 = ptr2 >> 8
 			ptr3 := data[t3]
-			dst[n+ckSize*3] = byte(ptr3)
+			d3[n] = byte(ptr3)
 			t3 = ptr3 >> 8
 			ptr4 := data[t4]
-			dst[n+ckSize*4] = byte(ptr4)
+			d4[n] = byte(ptr4)
 			t4 = ptr4 >> 8
 			ptr5 := data[t5]
-			dst[n+ckSize*5] = byte(ptr5)
+			d5[n] = byte(ptr5)
 			t5 = ptr5 >> 8
 			ptr6 := data[t6]
-			dst[n+ckSize*6] = byte(ptr6)
+			d6[n] = byte(ptr6)
 			t6 = ptr6 >> 8
 			n++
 		}
