@@ -1486,7 +1486,7 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 			if ok {
 				res.err = &IOError{msg: err.Error(), code: kanzi.ERR_PROCESS_BLOCK}
 			} else {
-				res.err = &IOError{msg: "Unkown error", code: kanzi.ERR_PROCESS_BLOCK}
+				res.err = &IOError{msg: "Unknown error", code: kanzi.ERR_PROCESS_BLOCK}
 			}
 		}
 
