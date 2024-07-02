@@ -673,6 +673,9 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("ROLZ codec: Invalid 'logPosChecks' value in bitstream")
 	}
 
+	this.posChecks = 1 << this.logPosChecks
+	this.maskChecks = this.posChecks - 1
+
 	// Main loop
 	for startChunk < dstEnd {
 		mIdx := 0
