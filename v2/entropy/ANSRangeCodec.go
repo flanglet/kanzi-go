@@ -874,15 +874,19 @@ func (this *ANSRangeDecoder) decodeChunkV2(block []byte) bool {
 	st2 := int(this.bitstream.ReadBits(32))
 	st3 := int(this.bitstream.ReadBits(32))
 
-	// Read encoded data
-	if sz != 0 {
-		// Add some padding
-		if len(this.buffer) < int(sz) {
-			this.buffer = make([]byte, sz+(sz>>3))
-		}
+	minBufSize := max(int(sz+(sz>>3)), len(block))
 
-		this.bitstream.ReadArray(this.buffer[0:sz], uint(8*sz))
+	// Add some padding
+	if len(this.buffer) < minBufSize {
+		this.buffer = make([]byte, minBufSize)
 	}
+
+	for i := range this.buffer {
+		this.buffer[i] = 0
+	}
+
+	// Read compressed data
+	this.bitstream.ReadArray(this.buffer, uint(8*sz))
 
 	n := 0
 	lr := this.logRange
@@ -895,47 +899,44 @@ func (this *ANSRangeDecoder) decodeChunkV2(block []byte) bool {
 
 		for i := 0; i < end4; i += 4 {
 			cur3 := freq2sym[st3&mask]
-			block[i] = byte(cur3)
+			block[i] = cur3
 			n, st3 = this.decodeSymbol(n, st3, symb[cur3], mask)
 			cur2 := freq2sym[st2&mask]
-			block[i+1] = byte(cur2)
+			block[i+1] = cur2
 			n, st2 = this.decodeSymbol(n, st2, symb[cur2], mask)
 			cur1 := freq2sym[st1&mask]
-			block[i+2] = byte(cur1)
+			block[i+2] = cur1
 			n, st1 = this.decodeSymbol(n, st1, symb[cur1], mask)
 			cur0 := freq2sym[st0&mask]
-			block[i+3] = byte(cur0)
+			block[i+3] = cur0
 			n, st0 = this.decodeSymbol(n, st0, symb[cur0], mask)
 		}
 	} else { // order 1
 		quarter := end4 >> 2
-		i0 := 0
-		i1 := 1 * quarter
-		i2 := 2 * quarter
-		i3 := 3 * quarter
+		i0 , i1, i2, i3 := 0, 1 * quarter, 2 * quarter, 3 * quarter
 		prv0, prv1, prv2, prv3 := 0, 0, 0, 0
 
 		for i0 < quarter {
-			symbols3 := this.symbols[prv3<<8:]
-			symbols2 := this.symbols[prv2<<8:]
-			symbols1 := this.symbols[prv1<<8:]
-			symbols0 := this.symbols[prv0<<8:]
-			cur3 := int(this.f2s[(prv3<<this.logRange)+(st3&mask)])
-			block[i3] = byte(cur3)
+			symbols3 := this.symbols[prv3<<8:(prv3<<8)+256]
+			symbols2 := this.symbols[prv2<<8:(prv2<<8)+256]
+			symbols1 := this.symbols[prv1<<8:(prv1<<8)+256]
+			symbols0 := this.symbols[prv0<<8:(prv0<<8)+256]
+			cur3 := this.f2s[(prv3<<this.logRange)+(st3&mask)]
+			block[i3] = cur3
 			n, st3 = this.decodeSymbol(n, st3, symbols3[cur3], mask)
-			cur2 := int(this.f2s[(prv2<<this.logRange)+(st2&mask)])
-			block[i2] = byte(cur2)
+			cur2 := this.f2s[(prv2<<this.logRange)+(st2&mask)]
+			block[i2] = cur2
 			n, st2 = this.decodeSymbol(n, st2, symbols2[cur2], mask)
-			cur1 := int(this.f2s[(prv1<<this.logRange)+(st1&mask)])
-			block[i1] = byte(cur1)
+			cur1 := this.f2s[(prv1<<this.logRange)+(st1&mask)]
+			block[i1] = cur1
 			n, st1 = this.decodeSymbol(n, st1, symbols1[cur1], mask)
-			cur0 := int(this.f2s[(prv0<<this.logRange)+(st0&mask)])
-			block[i0] = byte(cur0)
+			cur0 := this.f2s[(prv0<<this.logRange)+(st0&mask)]
+			block[i0] = cur0
 			n, st0 = this.decodeSymbol(n, st0, symbols0[cur0], mask)
-			prv3 = cur3
-			prv2 = cur2
-			prv1 = cur1
-			prv0 = cur0
+			prv3 = int(cur3)
+			prv2 = int(cur2)
+			prv1 = int(cur1)
+			prv0 = int(cur0)
 			i0++
 			i1++
 			i2++
