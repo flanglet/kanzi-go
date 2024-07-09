@@ -913,14 +913,14 @@ func (this *ANSRangeDecoder) decodeChunkV2(block []byte) bool {
 		}
 	} else { // order 1
 		quarter := end4 >> 2
-		i0 , i1, i2, i3 := 0, 1 * quarter, 2 * quarter, 3 * quarter
+		i0, i1, i2, i3 := 0, 1*quarter, 2*quarter, 3*quarter
 		prv0, prv1, prv2, prv3 := 0, 0, 0, 0
 
 		for i0 < quarter {
-			symbols3 := this.symbols[prv3<<8:(prv3<<8)+256]
-			symbols2 := this.symbols[prv2<<8:(prv2<<8)+256]
-			symbols1 := this.symbols[prv1<<8:(prv1<<8)+256]
-			symbols0 := this.symbols[prv0<<8:(prv0<<8)+256]
+			symbols3 := this.symbols[prv3<<8 : (prv3<<8)+256]
+			symbols2 := this.symbols[prv2<<8 : (prv2<<8)+256]
+			symbols1 := this.symbols[prv1<<8 : (prv1<<8)+256]
+			symbols0 := this.symbols[prv0<<8 : (prv0<<8)+256]
 			cur3 := this.f2s[(prv3<<this.logRange)+(st3&mask)]
 			block[i3] = cur3
 			n, st3 = this.decodeSymbol(n, st3, symbols3[cur3], mask)
