@@ -82,7 +82,7 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 
 		if len(out) < requiredSize {
 			if cap(out) >= requiredSize {
-				out = out[:cap(out)]
+				out = out[:requiredSize]
 			} else {
 				out = make([]byte, requiredSize)
 			}
@@ -150,7 +150,7 @@ func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) 
 
 		if len(out) < len(dst) {
 			if cap(out) >= len(dst) {
-				out = out[:cap(out)]
+				out = out[:len(dst)]
 			} else {
 				out = make([]byte, len(dst))
 			}

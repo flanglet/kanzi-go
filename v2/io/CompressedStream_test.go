@@ -74,7 +74,7 @@ func TestCompressedStream(b *testing.T) {
 	if res := compressAfterWriteClose(values[0:65536]); res == 0 {
 		fmt.Println("Success")
 	} else {
-		fmt.Println("Failure")
+		fmt.Printf("Failure %v\n", res)
 		sum += res
 	}
 
@@ -102,7 +102,7 @@ func compress(block []byte, entropy, transform string) int {
 		blockSize = uint((len(block) / (n + 1)) & -16)
 	}
 
-	fmt.Printf("Block size: %v, jobs: %v \n", blockSize, jobs)
+	fmt.Printf("Block size: %v, transform %v, entropy: %v, jobs: %v \n", blockSize, transform, entropy, jobs)
 
 	{
 		// Create an io.WriteCloser

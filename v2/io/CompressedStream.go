@@ -648,11 +648,14 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 	}
 
 	if len(this.iBuffer.Buf) < requiredSize {
-		this.iBuffer.Buf = make([]byte, requiredSize)
+		extraBuf := make([]byte, requiredSize-len(this.iBuffer.Buf))
+		data = append(data, extraBuf...)
+		this.iBuffer.Buf = data
 	}
 
 	if len(this.oBuffer.Buf) < requiredSize {
-		this.oBuffer.Buf = make([]byte, requiredSize)
+		buffer = make([]byte, requiredSize)
+		this.oBuffer.Buf = buffer
 	}
 
 	// Forward transform (ignore error, encode skipFlags)
@@ -1534,7 +1537,9 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	}
 
 	if len(data) < maxL {
-		this.iBuffer.Buf = make([]byte, maxL)
+		extraBuf := make([]byte, maxL-len(data))
+		data = append(data, extraBuf...)
+		this.iBuffer.Buf = data
 	}
 
 	// Read data from shared bitstream
@@ -1624,7 +1629,8 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	}
 
 	if len(buffer) < int(bufferSize) {
-		this.oBuffer.Buf = make([]byte, int(bufferSize))
+		buffer = make([]byte, int(bufferSize))
+		this.oBuffer.Buf = buffer
 	}
 
 	this.ctx["size"] = preTransformLength
