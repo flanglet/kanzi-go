@@ -874,6 +874,10 @@ func (this *ANSRangeDecoder) decodeChunkV2(block []byte) bool {
 	st2 := int(this.bitstream.ReadBits(32))
 	st3 := int(this.bitstream.ReadBits(32))
 
+	if sz == 0 {
+		return len(block) == 0
+	}
+
 	minBufSize := max(int(sz+(sz>>3)), len(block))
 
 	// Add some padding
