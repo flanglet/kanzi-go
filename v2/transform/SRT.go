@@ -200,6 +200,11 @@ func (this *SRT) Inverse(src, dst []byte) (uint, uint, error) {
 
 	for i, bucketPos := 0, 0; i < nbSymbols; i++ {
 		c := symbols[i]
+
+		if bucketPos < 0 || bucketPos > len(src) {
+			return 0, 0, errors.New("SRT inverse: invalid data")
+		}
+
 		r2s[src[bucketPos]] = c
 		buckets[c] = bucketPos + 1
 		bucketPos += int(freqs[c])
