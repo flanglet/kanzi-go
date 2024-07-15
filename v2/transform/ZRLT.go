@@ -162,7 +162,7 @@ func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 			runLength--
 
 			if runLength > 0 {
-				if runLength > dstEnd-dstIdx {
+				if runLength >= dstEnd-dstIdx {
 					break
 				}
 
