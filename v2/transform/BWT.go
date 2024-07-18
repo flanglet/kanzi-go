@@ -28,7 +28,7 @@ const (
 	_BWT_NB_FASTBITS           = 17
 	_BWT_MASK_FASTBITS         = (1 << _BWT_NB_FASTBITS) - 1
 	_BWT_BLOCK_SIZE_THRESHOLD1 = 256
-	_BWT_BLOCK_SIZE_THRESHOLD2 = 8 * 1024 * 1024
+	_BWT_BLOCK_SIZE_THRESHOLD2 = 4 * 1024 * 1024
 )
 
 // The Burrows-Wheeler Transform is a reversible transform based on
@@ -508,20 +508,32 @@ func (this *BWT) inverseBiPSIv2Task(dst []byte, buckets []int, fastBits []uint16
 	dst1 := dst[ckSize:]
 	dst2 := dst[2*ckSize:]
 	dst3 := dst[3*ckSize:]
+	dst4 := dst[4*ckSize:]
+	dst5 := dst[5*ckSize:]
+	dst6 := dst[6*ckSize:]
+	dst7 := dst[7*ckSize:]
 
-	if start+4*ckSize < total {
-		for c+3 < lastChunk {
+	if start+8*ckSize <= total {
+		for c+7 < lastChunk {
 			end := start + ckSize
 			p0 := int(indexes[c])
 			p1 := int(indexes[c+1])
 			p2 := int(indexes[c+2])
 			p3 := int(indexes[c+3])
+			p4 := int(indexes[c+4])
+			p5 := int(indexes[c+5])
+			p6 := int(indexes[c+6])
+			p7 := int(indexes[c+7])
 
 			for i := start + 1; i <= end; i += 2 {
 				s0 := fastBits[p0>>shift]
 				s1 := fastBits[p1>>shift]
 				s2 := fastBits[p2>>shift]
 				s3 := fastBits[p3>>shift]
+				s4 := fastBits[p4>>shift]
+				s5 := fastBits[p5>>shift]
+				s6 := fastBits[p6>>shift]
+				s7 := fastBits[p7>>shift]
 
 				for buckets[s0] <= p0 {
 					s0++
@@ -539,6 +551,22 @@ func (this *BWT) inverseBiPSIv2Task(dst []byte, buckets []int, fastBits []uint16
 					s3++
 				}
 
+				for buckets[s4] <= p4 {
+					s4++
+				}
+
+				for buckets[s5] <= p5 {
+					s5++
+				}
+
+				for buckets[s6] <= p6 {
+					s6++
+				}
+
+				for buckets[s7] <= p7 {
+					s7++
+				}
+
 				dst0[i-1] = byte(s0 >> 8)
 				dst0[i] = byte(s0)
 				dst1[i-1] = byte(s1 >> 8)
@@ -547,14 +575,26 @@ func (this *BWT) inverseBiPSIv2Task(dst []byte, buckets []int, fastBits []uint16
 				dst2[i] = byte(s2)
 				dst3[i-1] = byte(s3 >> 8)
 				dst3[i] = byte(s3)
+				dst4[i-1] = byte(s4 >> 8)
+				dst4[i] = byte(s4)
+				dst5[i-1] = byte(s5 >> 8)
+				dst5[i] = byte(s5)
+				dst6[i-1] = byte(s6 >> 8)
+				dst6[i] = byte(s6)
+				dst7[i-1] = byte(s7 >> 8)
+				dst7[i] = byte(s7)
 				p0 = int(data[p0])
 				p1 = int(data[p1])
 				p2 = int(data[p2])
 				p3 = int(data[p3])
+				p4 = int(data[p4])
+				p5 = int(data[p5])
+				p6 = int(data[p6])
+				p7 = int(data[p7])
 			}
 
-			start = end + 3*ckSize
-			c += 4
+			start += 8*ckSize
+			c += 8
 		}
 	}
 
