@@ -65,7 +65,7 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 	srcIdx, dstIdx := uint(0), uint(0)
 	res := true
 
-	for {
+	for srcIdx < srcEnd {
 		if src[srcIdx] == 0 {
 			runStart := srcIdx - 1
 			srcIdx++
@@ -117,10 +117,6 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 
 		srcIdx++
 		dstIdx++
-
-		if srcIdx >= srcEnd || dstIdx >= dstEnd {
-			break
-		}
 	}
 
 	var err error
@@ -194,7 +190,7 @@ func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 		srcIdx++
 		dstIdx++
 
-		if srcIdx >= srcEnd {
+		if srcIdx >= srcEnd  || dstIdx >= dstEnd {
 			break
 		}
 	}
