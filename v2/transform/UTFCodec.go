@@ -292,7 +292,7 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			sl := unpackUTF0(s, m[i].value[:])
 
 			if sl == 0 {
-				return 0, 0, errors.New("UTF inverse transform skip: invalid data")
+				return 0, 0, errors.New("UTF inverse transform failed: invalid data")
 			}
 
 			m[i].length = uint8(sl)
@@ -300,7 +300,7 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			sl := unpackUTF1(s, m[i].value[:])
 
 			if sl == 0 {
-				return 0, 0, errors.New("UTF inverse transform skip: invalid data")
+				return 0, 0, errors.New("UTF inverse transform failed: invalid data")
 			}
 
 			m[i].length = uint8(sl)

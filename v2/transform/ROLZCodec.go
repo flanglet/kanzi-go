@@ -160,11 +160,11 @@ func (this *ROLZCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	if len(src) < _ROLZ_MIN_BLOCK_SIZE {
-		return 0, 0, errors.New("ROLZ codec: Block too small, skip")
+		return 0, 0, errors.New("ROLZ codec forward transform skip: block too small")
 	}
 
 	if &src[0] == &dst[0] {
-		return 0, 0, errors.New("ROLZ codec: Input and output buffers cannot be equal")
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
 	if len(src) > _ROLZ_MAX_BLOCK_SIZE {
@@ -183,7 +183,7 @@ func (this *ROLZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	if &src[0] == &dst[0] {
-		return 0, 0, errors.New("ROLZ codec: Input and output buffers cannot be equal")
+		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
 	if len(src) > _ROLZ_MAX_BLOCK_SIZE {
@@ -213,7 +213,7 @@ func newROLZCodec1(logPosChecks uint) (*rolzCodec1, error) {
 	this := &rolzCodec1{}
 
 	if (logPosChecks < 2) || (logPosChecks > 8) {
-		return nil, fmt.Errorf("ROLZ codec: Invalid logPosChecks parameter: %d (must be in [2..8])", logPosChecks)
+		return nil, fmt.Errorf("ROLZ codec forward transform failed: Invalid logPosChecks parameter: %d (must be in [2..8])", logPosChecks)
 	}
 
 	this.logPosChecks = logPosChecks
@@ -302,7 +302,7 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int, hash32 uint32, counter in
 // written and possibly an error.
 func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	if n := this.MaxEncodedLen(len(src)); len(dst) < n {
-		return 0, 0, fmt.Errorf("ROLZ codec: Output buffer is too small - size: %d, required %d", len(dst), n)
+		return 0, 0, fmt.Errorf("ROLZ codec forward transform failed: output buffer is too small - size: %d, required %d", len(dst), n)
 	}
 
 	srcEnd := len(src) - 4
@@ -568,7 +568,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		bufSize := os.Len()
 
 		if dstIdx+bufSize > len(dst) {
-			err = errors.New("ROLZ codec: Destination buffer too small")
+			err = errors.New("ROLZ codec forward transform skip: destination buffer too small")
 			break
 		}
 
@@ -583,7 +583,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 End:
 	if err == nil {
 		if dstIdx+4 > len(dst) {
-			err = errors.New("ROLZ codec: Destination buffer too small")
+			err = errors.New("ROLZ codec forward transform skip: destination buffer too small")
 		} else {
 			// Emit last literals
 			srcIdx += (startChunk - sizeChunk)
@@ -595,9 +595,9 @@ End:
 			dstIdx += 4
 
 			if srcIdx != len(src) {
-				err = errors.New("ROLZ codec: Destination buffer too small")
+				err = errors.New("ROLZ codec forward transform skip: destination buffer too small")
 			} else if dstIdx >= len(src) {
-				err = errors.New("ROLZ codec: No compression")
+				err = errors.New("ROLZ codec forward transform skip: no compression")
 			}
 		}
 	}
@@ -610,13 +610,13 @@ End:
 // written and possibly an error.
 func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	if len(src) < 5 {
-		return 0, 0, errors.New("ROLZ codec: Invalid input data (input array too small)")
+		return 0, 0, errors.New("ROLZ codec inverse transform failed: invalid input data (input array too small)")
 	}
 
 	dstEnd := int(binary.BigEndian.Uint32(src[0:])) - 4
 
 	if dstEnd <= 0 || dstEnd > len(dst) {
-		return 0, 0, errors.New("ROLZ codec: Invalid input data")
+		return 0, 0, errors.New("ROLZ codec inverse transform failed: invalid input data")
 	}
 
 	startChunk := 0
@@ -670,7 +670,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	this.logPosChecks = uint(flags >> 4)
 
 	if this.logPosChecks < 2 || this.logPosChecks > 8 {
-		return 0, 0, errors.New("ROLZ codec: Invalid 'logPosChecks' value in bitstream")
+		return 0, 0, errors.New("ROLZ codec inverse transform failed: invalid 'logPosChecks' value in bitstream")
 	}
 
 	this.posChecks = 1 << this.logPosChecks
@@ -817,7 +817,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 			if litLen > 0 {
 				if dstIdx+litLen > len(litBuf) {
-					err = errors.New("ROLZ codec: Invalid input data")
+					err = errors.New("ROLZ codec inverse transform failed: invalid data")
 					goto End
 				}
 
@@ -854,14 +854,14 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 						break
 					}
 
-					err = errors.New("ROLZ codec: Invalid input data")
+					err = errors.New("ROLZ codec inverse transform failed: invalid data")
 					goto End
 				}
 			}
 
 			// Sanity check
 			if dstIdx+matchLen+this.minMatch > dstEnd {
-				err = errors.New("ROLZ codec: Invalid input data")
+				err = errors.New("ROLZ codec inverse transform failed: invalid data")
 				goto End
 			}
 
@@ -892,7 +892,7 @@ End:
 		dstIdx += (startChunk - sizeChunk)
 
 		if dstIdx+4 > len(dst) && srcIdx+4 > len(src) {
-			err = errors.New("ROLZ codec: Invalid input data")
+			err = errors.New("ROLZ codec inverse transform failed: invalid input data")
 		} else {
 			dst[dstIdx] = src[srcIdx]
 			dst[dstIdx+1] = src[srcIdx+1]
@@ -903,7 +903,7 @@ End:
 		}
 
 		if srcIdx != len(src) {
-			err = errors.New("ROLZ codec: Invalid input data")
+			err = errors.New("ROLZ codec inverse transform failed: invalid input data")
 		}
 	}
 
@@ -984,7 +984,7 @@ func newROLZCodec2(logPosChecks uint) (*rolzCodec2, error) {
 	this := &rolzCodec2{}
 
 	if (logPosChecks < 2) || (logPosChecks > 8) {
-		return nil, fmt.Errorf("ROLZX codec: Invalid logPosChecks parameter: %v (must be in [2..8])", logPosChecks)
+		return nil, fmt.Errorf("ROLZX codec forward transform failed: invalid logPosChecks parameter: %v (must be in [2..8])", logPosChecks)
 	}
 
 	this.logPosChecks = logPosChecks
@@ -999,7 +999,7 @@ func newROLZCodec2WithCtx(logPosChecks uint, ctx *map[string]any) (*rolzCodec2, 
 	this := &rolzCodec2{}
 
 	if (logPosChecks < 2) || (logPosChecks > 8) {
-		return nil, fmt.Errorf("ROLZX codec: Invalid logPosChecks parameter: %d (must be in [2..8])", logPosChecks)
+		return nil, fmt.Errorf("ROLZX codec forward transform failed: invalid logPosChecks parameter: %d (must be in [2..8])", logPosChecks)
 	}
 
 	this.logPosChecks = logPosChecks
@@ -1200,9 +1200,9 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	var err error
 
 	if srcIdx != len(src) {
-		err = errors.New("ROLZX codec: Destination buffer too small")
+		err = errors.New("ROLZX codec forward transform skip: destination buffer too small")
 	} else if dstIdx >= len(src) {
-		err = errors.New("ROLZX codec: No compression")
+		err = errors.New("ROLZX codec forward transform skip: no compression")
 	}
 
 	return uint(srcIdx), uint(dstIdx), err
@@ -1215,7 +1215,7 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	dstEnd := int(binary.BigEndian.Uint32(src[0:]))
 
 	if dstEnd <= 0 || dstEnd > len(dst) {
-		return 0, 0, errors.New("ROLZX codec: Invalid input data")
+		return 0, 0, errors.New("ROLZX codec inverse transform failed: invalid data")
 	}
 
 	this.minMatch = _ROLZ_MIN_MATCH3
@@ -1292,7 +1292,7 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			// Sanity check
 			if val>>8 == _ROLZ_MATCH_FLAG {
 				dstIdx += startChunk
-				return uint(srcIdx), uint(dstIdx), errors.New("ROLZX codec: Invalid input data")
+				return uint(srcIdx), uint(dstIdx), errors.New("ROLZX codec inverse transform failed: invalid data")
 			}
 
 			buf[dstIdx] = byte(val)
@@ -1324,7 +1324,7 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 				// Sanity check
 				if matchLen+3 > dstEnd {
 					dstIdx += startChunk
-					return uint(srcIdx), uint(dstIdx), errors.New("ROLZX codec: Invalid input data")
+					return uint(srcIdx), uint(dstIdx), errors.New("ROLZX codec inverse transform failed: invalid data")
 				}
 
 				rd.setContext(_ROLZ_MATCH_CTX, buf[dstIdx-1])
@@ -1346,7 +1346,7 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	dstIdx += (startChunk - sizeChunk)
 
 	if srcIdx != len(src) {
-		err = errors.New("ROLZX codec: Invalid input data")
+		err = errors.New("ROLZX codec inverse transform failed: invalid data")
 	}
 
 	return uint(srcIdx), uint(dstIdx), err

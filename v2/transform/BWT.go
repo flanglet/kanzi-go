@@ -179,11 +179,11 @@ func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 	count := len(src)
 
 	if count > _BWT_MAX_BLOCK_SIZE {
-		return 0, 0, fmt.Errorf("The max BWT block size is %d, got %d", _BWT_MAX_BLOCK_SIZE, count)
+		return 0, 0, fmt.Errorf("BWT inverse transform failed: max BWT block size is %d, got %d", _BWT_MAX_BLOCK_SIZE, count)
 	}
 
 	if count > len(dst) {
-		return 0, 0, fmt.Errorf("BWT inverse failed: output buffer size is %d, expected %d", count, len(dst))
+		return 0, 0, fmt.Errorf("BWT inverse transform failed: output buffer size is %d, expected %d", count, len(dst))
 	}
 
 	if count == 1 {
@@ -272,11 +272,11 @@ func (this *BWT) inverseMergeTPSI(src, dst []byte, count int) (uint, uint, error
 		t7 := int32(this.PrimaryIndex(7) - 1)
 
 		if t0 < 0 || t1 < 0 || t2 < 0 || t3 < 0 || t4 < 0 || t5 < 0 || t6 < 0 || t7 < 0 {
-			return 0, 0, errors.New("Invalid input: corrupted BWT primary index")
+			return 0, 0, errors.New("BWT inverse transform failed: corrupted BWT primary index")
 		}
 
 		if t0 >= int32(len(data)) || t1 >= int32(len(data)) || t2 >= int32(len(data)) || t3 >= int32(len(data)) || t4 >= int32(len(data)) || t5 >= int32(len(data)) || t6 >= int32(len(data)) || t7 >= int32(len(data)) {
-			return 0, 0, errors.New("Invalid input: corrupted BWT primary index")
+			return 0, 0, errors.New("BWT inverse transform failed: corrupted BWT primary index")
 		}
 
 		d0 := dst[0*ckSize : 1*ckSize]
@@ -593,7 +593,7 @@ func (this *BWT) inverseBiPSIv2Task(dst []byte, buckets []int, fastBits []uint16
 				p7 = int(data[p7])
 			}
 
-			start += 8*ckSize
+			start += 8 * ckSize
 			c += 8
 		}
 	}

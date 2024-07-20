@@ -65,7 +65,7 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 	srcIdx, dstIdx := uint(0), uint(0)
 	res := true
 
-	for srcIdx < srcEnd {
+	for {
 		if src[srcIdx] == 0 {
 			runStart := srcIdx - 1
 			srcIdx++
@@ -117,12 +117,16 @@ func (this *ZRLT) Forward(src, dst []byte) (uint, uint, error) {
 
 		srcIdx++
 		dstIdx++
+
+		if scrIdx >= srcEnd || dstIdx >= dstEnd {
+			break
+		}
 	}
 
 	var err error
 
 	if srcIdx != srcEnd || res == false {
-		err = errors.New("Output buffer is too small")
+		err = errors.New("ZRLT forward transform failed: output buffer is too small")
 	}
 
 	return srcIdx, dstIdx, err
@@ -201,7 +205,7 @@ End:
 
 		// If runLength is not 1, add trailing 0s
 		if runLength > dstEnd-dstIdx {
-			err = errors.New("Output buffer is too small")
+			err = errors.New("ZRLT inverse transform failed: output buffer is too small")
 		} else {
 			for runLength > 0 {
 				runLength--
@@ -212,7 +216,7 @@ End:
 	}
 
 	if srcIdx < srcEnd {
-		err = errors.New("Output buffer is too small")
+		err = errors.New("ZRLT inverse transform failed: output buffer is too small")
 	}
 
 	return uint(srcIdx), uint(dstIdx), err

@@ -315,7 +315,7 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	n := int(src[0])
 
 	if n < 16 {
-		return 0, 0, errors.New("Alias codec: invalid data (incorrect number of slots)")
+		return 0, 0, errors.New("Alias codec inverse transform failed: invalid data (incorrect number of slots)")
 	}
 
 	var srcIdx int
@@ -332,7 +332,7 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			oSize := int(binary.LittleEndian.Uint32(src[2:]))
 
 			if oSize > len(dst) {
-				return 0, 0, errors.New("Alias codec: invalid data (incorrect output size)")
+				return 0, 0, errors.New("Alias codec inverse transform failed: invalid data (incorrect output size)")
 			}
 
 			for i := range dst[0:oSize] {
@@ -354,7 +354,7 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			srcIdx++
 
 			if adjust < 0 || adjust > 3 {
-				return 0, 0, errors.New("Alias codec: invalid data")
+				return 0, 0, errors.New("Alias codec inverse transform failed: invalid data")
 			}
 
 			if n <= 4 {

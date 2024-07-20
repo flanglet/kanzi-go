@@ -69,7 +69,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	if len(src) < _RLT_MIN_BLOCK_LENGTH {
-		return 0, 0, errors.New("Input buffer is too small, skip")
+		return 0, 0, errors.New("RLT forward transform skip: input buffer is too small")
 	}
 
 	if &src[0] == &dst[0] {
@@ -77,7 +77,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	if n := this.MaxEncodedLen(len(src)); len(dst) < n {
-		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
+		return 0, 0, fmt.Errorf("RLT forward transform skip: output buffer is too small - size: %d, required %d", len(dst), n)
 	}
 
 	dt := internal.DT_UNDEFINED
@@ -192,7 +192,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 
 		if run > _RLT_RUN_THRESHOLD {
 			if dstIdx+6 >= dstEnd {
-				err = errors.New("Output buffer is too small")
+				err = errors.New("RLT forward transform skip: output buffer is too small")
 				break
 			}
 
@@ -210,7 +210,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 			dstIdx += emitRunLength(dst[dstIdx:dstEnd], run)
 		} else if prev != escape {
 			if dstIdx+run >= dstEnd {
-				err = errors.New("Output buffer is too small")
+				err = errors.New("RLT forward transform skip: output buffer is too small")
 				break
 			}
 
@@ -221,7 +221,7 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 			}
 		} else { // escape literal
 			if dstIdx+2*run >= dstEnd {
-				err = errors.New("Output buffer is too small")
+				err = errors.New("RLT forward transform skip: output buffer is too small")
 				break
 			}
 
@@ -283,9 +283,9 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		if srcIdx != srcEnd {
-			err = errors.New("Output buffer is too small")
+			err = errors.New("RLT forward transform skip: output buffer is too small")
 		} else if dstIdx >= srcIdx {
-			err = errors.New("Input not compressed")
+			err = errors.New("RLT forward transform skip: no compression")
 		}
 	}
 
@@ -343,7 +343,7 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 
 		// The data cannot start with a run but may start with an escape literal
 		if srcIdx < srcEnd && src[srcIdx] != 0 {
-			return uint(srcIdx), uint(dstIdx), errors.New("Invalid input data: input starts with a run")
+			return uint(srcIdx), uint(dstIdx), errors.New("RLT inverse transform failed: input starts with a run")
 		}
 
 		srcIdx++
@@ -356,7 +356,7 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 		if src[srcIdx] != escape {
 			// Literal
 			if dstIdx >= dstEnd {
-				err = errors.New("Invalid input data")
+				err = errors.New("RLT inverse transform failed: invalid data")
 				break
 			}
 
@@ -369,7 +369,7 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 		srcIdx++
 
 		if srcIdx >= srcEnd {
-			err = errors.New("Invalid input data")
+			err = errors.New("RLT inverse transform failed: invalid data")
 			break
 		}
 
@@ -379,7 +379,7 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 		if run == 0 {
 			// Just an escape symbol, not a run
 			if dstIdx >= dstEnd {
-				err = errors.New("Invalid input data")
+				err = errors.New("RLT inverse transform failed: invalid data")
 				break
 			}
 
@@ -391,7 +391,7 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 		// Decode the length
 		if run == 0xFF {
 			if srcIdx+1 >= srcEnd {
-				err = errors.New("Invalid input data")
+				err = errors.New("RLT inverse transform failed: invalid data")
 				break
 			}
 
@@ -400,7 +400,7 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 			run += _RLT_RUN_LEN_ENCODE2
 		} else if run >= _RLT_RUN_LEN_ENCODE1 {
 			if srcIdx >= srcEnd {
-				err = errors.New("Invalid input data")
+				err = errors.New("RLT inverse transform failed: invalid data")
 				break
 			}
 
@@ -413,7 +413,7 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 
 		// Sanity check
 		if run > _RLT_MAX_RUN || dstIdx+run >= dstEnd {
-			err = errors.New("Invalid run length")
+			err = errors.New("RLT inverse transform failed: invalid run length")
 			break
 		}
 
@@ -429,7 +429,7 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	if err == nil && srcIdx != srcEnd {
-		err = errors.New("Invalid input data")
+		err = errors.New("RLT inverse transform failed: invalid data")
 	}
 
 	return uint(srcIdx), uint(dstIdx), err

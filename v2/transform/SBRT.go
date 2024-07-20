@@ -50,7 +50,7 @@ type SBRT struct {
 // NewSBRT creates a new instance of SBRT
 func NewSBRT(mode int) (*SBRT, error) {
 	if mode != SBRT_MODE_MTF && mode != SBRT_MODE_RANK && mode != SBRT_MODE_TIMESTAMP {
-		return nil, errors.New("Invalid mode parameter")
+		return nil, errors.New("SBRT forward transform failed: invalid mode parameter")
 	}
 
 	this := &SBRT{}
@@ -87,7 +87,7 @@ func NewSBRTWithCtx(ctx *map[string]any) (*SBRT, error) {
 	}
 
 	if mode != SBRT_MODE_MTF && mode != SBRT_MODE_RANK && mode != SBRT_MODE_TIMESTAMP {
-		return nil, errors.New("Invalid mode parameter")
+		return nil, errors.New("SBRT forward transform failed: invalid mode parameter")
 	}
 
 	this := &SBRT{}
@@ -127,7 +127,7 @@ func (this *SBRT) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	if n := this.MaxEncodedLen(len(src)); len(dst) < n {
-		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
+		return 0, 0, fmt.Errorf("SBRT forward transform skip: output buffer is too small - size: %d, required %d", len(dst), n)
 	}
 
 	count := len(src)
@@ -182,7 +182,7 @@ func (this *SBRT) Inverse(src, dst []byte) (uint, uint, error) {
 	count := len(src)
 
 	if count > len(dst) {
-		errMsg := fmt.Sprintf("Block size is %v, output buffer length is %v", count, len(dst))
+		errMsg := fmt.Sprintf("SBRT inverse transform failed: block size is %v, output buffer length is %v", count, len(dst))
 		return 0, 0, errors.New(errMsg)
 	}
 

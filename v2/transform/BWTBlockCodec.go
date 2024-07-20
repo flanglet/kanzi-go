@@ -167,7 +167,7 @@ func (this *BWTBlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		pIndexSizeBytes := 1 + ((blockMode >> 6) & 0x03)
 
 		if blockSize < pIndexSizeBytes {
-			return 0, 0, errors.New("Invalid compressed length in bitstream")
+			return 0, 0, errors.New("BWT inverse transform failed: invalid compressed length in bitstream")
 		}
 
 		blockSize -= pIndexSizeBytes
@@ -182,7 +182,7 @@ func (this *BWTBlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 
 		if this.bwt.SetPrimaryIndex(i, primaryIndex) == false {
-			return 0, 0, errors.New("Invalid primary index in bitstream")
+			return 0, 0, errors.New("BWT inverse transform failed: invalid primary index in bitstream")
 		}
 	}
 

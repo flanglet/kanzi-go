@@ -192,6 +192,11 @@ func (this *SRT) Inverse(src, dst []byte) (uint, uint, error) {
 	freqs := [256]int32{}
 	headerSize := this.decodeHeader(src, freqs[:])
 	src = src[headerSize:]
+
+	if len(src) > len(dst) {
+		return 0, 0, errors.New("SRT inverse transform failed: invalid data")
+	}
+
 	symbols := [256]byte{}
 	nbSymbols := this.preprocess(freqs[:], symbols[:])
 	buckets := [256]int{}
@@ -202,7 +207,7 @@ func (this *SRT) Inverse(src, dst []byte) (uint, uint, error) {
 		c := symbols[i]
 
 		if bucketPos < 0 || bucketPos > len(src) {
-			return 0, 0, errors.New("SRT inverse: invalid data")
+			return 0, 0, errors.New("SRT inverse transform failed: invalid data")
 		}
 
 		r2s[src[bucketPos]] = c

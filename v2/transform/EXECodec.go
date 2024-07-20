@@ -117,7 +117,7 @@ func (this *EXECodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	if n := this.MaxEncodedLen(count); len(dst) < n {
-		return 0, 0, fmt.Errorf("ExeCodec forward failed: Output buffer too small - size: %d, required %d", len(dst), n)
+		return 0, 0, fmt.Errorf("ExeCodec forward transform skip: Output buffer too small - size: %d, required %d", len(dst), n)
 	}
 
 	if this.ctx != nil {
@@ -125,7 +125,7 @@ func (this *EXECodec) Forward(src, dst []byte) (uint, uint, error) {
 			dt := val.(internal.DataType)
 
 			if dt != internal.DT_UNDEFINED && dt != internal.DT_EXE && dt != internal.DT_BIN {
-				return 0, 0, fmt.Errorf("ExeCodec forward failed: Input is not an executable, skip")
+				return 0, 0, fmt.Errorf("ExeCodec forward transform skip: Input is not an executable")
 			}
 		}
 	}
@@ -139,7 +139,7 @@ func (this *EXECodec) Forward(src, dst []byte) (uint, uint, error) {
 			(*this.ctx)["dataType"] = internal.DataType(mode & _EXE_MASK_DT)
 		}
 
-		return 0, 0, fmt.Errorf("ExeCodec forward failed: Input is not an executable, skip")
+		return 0, 0, fmt.Errorf("ExeCodec forward transform skip: Input is not an executable")
 	}
 
 	mode &= ^byte(_EXE_MASK_DT)
@@ -156,7 +156,7 @@ func (this *EXECodec) Forward(src, dst []byte) (uint, uint, error) {
 		return this.forwardARM(src, dst, codeStart, codeEnd)
 	}
 
-	return 0, 0, fmt.Errorf("ExeCodec forward failed: Input is not a supported executable format, skip")
+	return 0, 0, fmt.Errorf("ExeCodec forward transform skip: Input is not a supported executable format")
 }
 
 func (this *EXECodec) forwardX86(src, dst []byte, codeStart, codeEnd int) (uint, uint, error) {
@@ -168,7 +168,7 @@ func (this *EXECodec) forwardX86(src, dst []byte, codeStart, codeEnd int) (uint,
 	matches = 0
 
 	if codeStart > len(src) || codeEnd > len(src) {
-		return 0, 0, fmt.Errorf("ExeCodec forward failed: Input is not a supported executable format")
+		return 0, 0, fmt.Errorf("ExeCodec forward transform skip: Input is not a supported executable format")
 	}
 
 	if codeStart > 0 {
@@ -236,14 +236,14 @@ func (this *EXECodec) forwardX86(src, dst []byte, codeStart, codeEnd int) (uint,
 	}
 
 	if matches < 16 {
-		return uint(srcIdx), uint(dstIdx), errors.New("ExeCodec forward: Too few calls/jumps, skip")
+		return uint(srcIdx), uint(dstIdx), errors.New("ExeCodec forward transform skip: Too few calls/jumps")
 	}
 
 	count := len(src)
 
 	// Cap expansion due to false positives
 	if srcIdx < codeEnd || dstIdx+(count-srcIdx) > dstEnd {
-		return uint(srcIdx), uint(dstIdx), errors.New("ExeCodec forward: Too many false positives, skip")
+		return uint(srcIdx), uint(dstIdx), errors.New("ExeCodec forward transform skip: Too many false positives")
 	}
 
 	binary.LittleEndian.PutUint32(dst[1:], uint32(codeStart))
@@ -276,7 +276,7 @@ func (this *EXECodec) Inverse(src, dst []byte) (uint, uint, error) {
 		return this.inverseARM(src, dst)
 	}
 
-	return 0, 0, errors.New("ExeCodec inverse failed: unknown binary type")
+	return 0, 0, errors.New("ExeCodec inverse transform failed: unknown binary type")
 }
 
 func (this *EXECodec) inverseX86(src, dst []byte) (uint, uint, error) {
@@ -287,7 +287,7 @@ func (this *EXECodec) inverseX86(src, dst []byte) (uint, uint, error) {
 
 	// Sanity check
 	if codeStart+srcIdx > len(src) || codeStart+dstIdx > len(dst) || codeEnd > len(src) {
-		return 0, 0, errors.New("ExeCodec inverse failed: invalid bitstream")
+		return 0, 0, errors.New("ExeCodec inverse transform failed: invalid data")
 	}
 
 	if codeStart > 0 {
@@ -489,14 +489,14 @@ func (this *EXECodec) forwardARM(src, dst []byte, codeStart, codeEnd int) (uint,
 	}
 
 	if matches < 16 {
-		return uint(srcIdx), uint(dstIdx), errors.New("ExeCodec forward: Too few calls/jumps, skip")
+		return uint(srcIdx), uint(dstIdx), errors.New("ExeCodec forward transform skip: Too few calls/jumps")
 	}
 
 	count := len(src)
 
 	// Cap expansion due to false positives
 	if srcIdx < codeEnd || dstIdx+(count-srcIdx) > dstEnd {
-		return uint(srcIdx), uint(dstIdx), errors.New("ExeCodec forward: Too many false positives, skip")
+		return uint(srcIdx), uint(dstIdx), errors.New("ExeCodec forward transform skip: Too many false positives")
 	}
 
 	binary.LittleEndian.PutUint32(dst[1:], uint32(codeStart))
@@ -514,7 +514,7 @@ func (this *EXECodec) inverseARM(src, dst []byte) (uint, uint, error) {
 
 	// Sanity check
 	if codeStart+srcIdx > len(src) || codeStart+dstIdx > len(dst) || codeEnd > len(src) {
-		return 0, 0, errors.New("ExeCodec inverse failed: invalid bitstream")
+		return 0, 0, errors.New("ExeCodec inverse transform failed: invalid data")
 	}
 
 	if codeStart > 0 {
