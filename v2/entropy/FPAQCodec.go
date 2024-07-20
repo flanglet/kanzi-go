@@ -340,26 +340,29 @@ func (this *FPAQDecoder) Read(block []byte) (int, error) {
 
 	// Split block into chunks, read bit array from bitstream and decode chunk
 	for startChunk < end {
-		chunkSize := _FPAQ_DEFAULT_CHUNK_SIZE
+		szBytes := int(ReadVarInt(this.bitstream))
 
-		if startChunk+_FPAQ_DEFAULT_CHUNK_SIZE >= end {
-			chunkSize = end - startChunk
+		if szBytes < 0 || szBytes >= 2*len(block) {
+			return 0, fmt.Errorf("FPAQ codec: Invalid chunk size (%v)", szBytes)
 		}
 
-		szBytes := ReadVarInt(this.bitstream)
-		this.current = this.bitstream.ReadBits(56)
-		bufSize := int(szBytes + (szBytes >> 3))
-
-		if bufSize < 1024 {
-			bufSize = 1024
-		}
+		bufSize := max(int(szBytes+(szBytes>>2)), 1024)
 
 		if len(this.buffer) < bufSize {
 			this.buffer = make([]byte, bufSize)
 		}
 
+		this.current = this.bitstream.ReadBits(56)
+
+		if bufSize > szBytes {
+			for i := range this.buffer[szBytes:] {
+				this.buffer[i] = 0
+			}
+		}
+
 		this.bitstream.ReadArray(this.buffer, uint(8*szBytes))
 		this.index = 0
+		chunkSize := min(_FPAQ_DEFAULT_CHUNK_SIZE, end-startChunk)
 		buf := block[startChunk : startChunk+chunkSize]
 
 		if this.isBsVersion3 == true {
