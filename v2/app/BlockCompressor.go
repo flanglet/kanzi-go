@@ -655,7 +655,7 @@ func getTransformAndCodec(level int) string {
 		return "PACK+LZ&NONE"
 
 	case 2:
-		return "PACK+LZ&HUFFMAN"
+		return "DNA+LZ&HUFFMAN"
 
 	case 3:
 		return "TEXT+UTF+PACK+MM+LZX&HUFFMAN"
@@ -673,10 +673,10 @@ func getTransformAndCodec(level int) string {
 		return "LZP+TEXT+UTF+BWT+LZP&CM"
 
 	case 8:
-		return "EXE+RLT+TEXT+UTF&TPAQ"
+		return "EXE+RLT+TEXT+UTF+DNA&TPAQ"
 
 	case 9:
-		return "EXE+RLT+TEXT+UTF&TPAQX"
+		return "EXE+RLT+TEXT+UTF+DNA&TPAQX"
 
 	default:
 		return "Unknown&Unknown"
