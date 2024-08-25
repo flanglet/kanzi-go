@@ -38,6 +38,7 @@ const (
 	CAB_MAGIC    = 0x4D534346
 	FLAC_MAGIC   = 0x664C6143
 	XZ_MAGIC     = 0xFD377A58 // FD 37 7A 58 5A 00
+	RAR_MAGIC    = 0x52617221 // 42 61 72 21 1A 07 00
 	KNZ_MAGIC    = 0x4B414E5A
 
 	BZIP2_MAGIC   = 0x425A68
@@ -57,11 +58,11 @@ type Magic struct {
 }
 
 var (
-	_KEYS32 = [17]uint{
+	_KEYS32 = [18]uint{
 		GIF_MAGIC, PDF_MAGIC, ZIP_MAGIC, LZMA_MAGIC, PNG_MAGIC,
 		ELF_MAGIC, MAC_MAGIC32, MAC_CIGAM32, MAC_MAGIC64, MAC_CIGAM64,
 		ZSTD_MAGIC, BROTLI_MAGIC, CAB_MAGIC, RIFF_MAGIC, FLAC_MAGIC,
-		XZ_MAGIC, KNZ_MAGIC,
+		XZ_MAGIC, KNZ_MAGIC, RAR_MAGIC,
 	}
 
 	_KEYS16 = [3]uint{
@@ -143,6 +144,8 @@ func IsDataCompressed(magic uint) bool {
 	case XZ_MAGIC:
 		return true
 	case KNZ_MAGIC:
+		return true
+	case RAR_MAGIC:
 		return true
 	default:
 	}
