@@ -172,11 +172,11 @@ func NewBlockCompressor(argsMap map[string]any) (*BlockCompressor, error) {
 		delete(argsMap, "blockSize")
 
 		if this.blockSize < _COMP_MIN_BLOCK_SIZE {
-			return nil, fmt.Errorf("Minimum block size is %d KB (%d bytes), got %d bytes", _COMP_MIN_BLOCK_SIZE/1024, _COMP_MIN_BLOCK_SIZE, this.blockSize)
+			return nil, fmt.Errorf("Minimum block size is %d KiB (%d bytes), got %d bytes", _COMP_MIN_BLOCK_SIZE/1024, _COMP_MIN_BLOCK_SIZE, this.blockSize)
 		}
 
 		if this.blockSize > _COMP_MAX_BLOCK_SIZE {
-			return nil, fmt.Errorf("Maximum block size is %d GB (%d bytes), got %d bytes", _COMP_MAX_BLOCK_SIZE/(1024*1024*1024), _COMP_MAX_BLOCK_SIZE, this.blockSize)
+			return nil, fmt.Errorf("Maximum block size is %d GiB (%d bytes), got %d bytes", _COMP_MAX_BLOCK_SIZE/(1024*1024*1024), _COMP_MAX_BLOCK_SIZE, this.blockSize)
 		}
 	} else {
 		switch level {
@@ -872,7 +872,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64, error) {
 		}
 
 		if verbosity > 1 && delta != 0 && read != 0 {
-			msg = fmt.Sprintf("Throughput (KB/s): %d", ((int64(read*1000))>>10)/delta)
+			msg = fmt.Sprintf("Throughput (KiB/s): %d", ((int64(read*1000))>>10)/delta)
 			log.Println(msg, true)
 		}
 
