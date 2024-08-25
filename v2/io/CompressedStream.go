@@ -42,7 +42,7 @@ import (
 
 const (
 	_BITSTREAM_TYPE             = 0x4B414E5A // "KANZ"
-	_BITSTREAM_FORMAT_VERSION   = 5
+	_BITSTREAM_FORMAT_VERSION   = 6
 	_STREAM_DEFAULT_BUFFER_SIZE = 256 * 1024
 	_EXTRA_BUFFER_SIZE          = 512
 	_COPY_BLOCK_MASK            = 0x80
@@ -349,8 +349,9 @@ func (this *Writer) writeHeader() *IOError {
 		}
 	}
 
+	seed := uint32(0x01030507 * _BITSTREAM_FORMAT_VERSION)
 	HASH := uint32(0x1E35A7BD)
-	cksum = HASH * _BITSTREAM_FORMAT_VERSION
+	cksum = HASH * seed
 	cksum ^= (HASH * uint32(^this.entropyType))
 	cksum ^= (HASH * uint32((^this.transformType)>>32))
 	cksum ^= (HASH * uint32(^this.transformType))
@@ -363,7 +364,7 @@ func (this *Writer) writeHeader() *IOError {
 
 	cksum = (cksum >> 23) ^ (cksum >> 3)
 
-	if this.obs.WriteBits(uint64(cksum), 16) != 16 {
+	if this.obs.WriteBits(uint64(cksum), 24) != 24 {
 		return &IOError{msg: "Cannot write checksum to header", code: kanzi.ERR_WRITE_FILE}
 	}
 
@@ -1154,10 +1155,18 @@ func (this *Reader) readHeader() error {
 		}
 
 		// Read and verify checksum
-		cksum1 := uint32(this.ibs.ReadBits(16))
+		crcSize := uint(24)
+		seed := uint32(0x01030507 * bsVersion)
+
+		if bsVersion == 5 {
+			crcSize = uint(16)
+			seed = uint32(bsVersion)
+		}
+
+		cksum1 := uint32(this.ibs.ReadBits(crcSize))
 		var cksum2 uint32
 		HASH := uint32(0x1E35A7BD)
-		cksum2 = HASH * uint32(bsVersion)
+		cksum2 = HASH * seed
 		cksum2 ^= (HASH * uint32(^this.entropyType))
 		cksum2 ^= (HASH * uint32((^this.transformType)>>32))
 		cksum2 ^= (HASH * uint32(^this.transformType))
@@ -1170,7 +1179,7 @@ func (this *Reader) readHeader() error {
 
 		cksum2 = (cksum2 >> 23) ^ (cksum2 >> 3)
 
-		if cksum1 != (cksum2 & 0xFFFF) {
+		if cksum1 != (cksum2 & ((1 << crcSize) - 1)) {
 			return &IOError{msg: "Invalid bitstream: corrupted header", code: kanzi.ERR_INVALID_FILE}
 		}
 	} else if bsVersion >= 3 {

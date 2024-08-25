@@ -190,7 +190,7 @@ func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 		srcIdx++
 		dstIdx++
 
-		if srcIdx >= srcEnd  || dstIdx >= dstEnd {
+		if srcIdx >= srcEnd || dstIdx >= dstEnd {
 			break
 		}
 	}
