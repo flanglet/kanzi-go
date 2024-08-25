@@ -174,13 +174,25 @@ func (this *HuffmanEncoder) updateFrequencies(freqs []int) (int, error) {
 		}
 
 		if maxCodeLen > _HUF_MAX_SYMBOL_SIZE_V4 {
+			// Attempt to limit codes max width
 			if _, err = this.limitCodeLengths(symbols, freqs, sizes[:], ranks[0:count]); err != nil {
 				return count, err
 			}
 		}
 
-		if _, err = generateCanonicalCodes(sizes[:], this.codes[:], ranks[0:count], _HUF_MAX_SYMBOL_SIZE_V4); err != nil {
-			return count, err
+		if maxCodeLen > _HUF_MAX_SYMBOL_SIZE_V4 {
+			// Unlikely branch when no codes could be found that fit within _HUF_MAX_SYMBOL_SIZE_V4 width
+			n := uint16(0)
+
+			for i := 0; i < count; i++ {
+				this.codes[alphabet[i]] = n
+				sizes[alphabet[i]] = 8
+				n++
+			}
+		} else {
+			if _, err = generateCanonicalCodes(sizes[:], this.codes[:], ranks[0:count], _HUF_MAX_SYMBOL_SIZE_V4); err != nil {
+				return count, err
+			}
 		}
 	}
 
