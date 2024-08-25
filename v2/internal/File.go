@@ -19,6 +19,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -172,4 +173,29 @@ func CreateFileList(target string, fileList []FileData, isRecursive, ignoreLinks
 	}
 
 	return fileList, err
+}
+
+func IsReservedName(fileName string) bool {
+	if runtime.GOOS != "windows" {
+		return false
+	}
+
+	// Sorted list
+	var reserved = []string{"AUX", "COM0", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6",
+		"COM7", "COM8", "COM9", "COM¹", "COM²", "COM³", "CON", "LPT0", "LPT1", "LPT2",
+		"LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9", "NUL", "PRN"}
+
+	for _, r := range reserved {
+		res := strings.Compare(fileName, r)
+
+		if res == 0 {
+			return true
+		}
+
+		if res < 0 {
+			break
+		}
+	}
+
+	return false
 }

@@ -155,12 +155,20 @@ func NewBlockCompressor(argsMap map[string]any) (*BlockCompressor, error) {
 	this.inputName = argsMap["inputName"].(string)
 	delete(argsMap, "inputName")
 
+	if internal.IsReservedName(this.inputName) {
+		return nil, fmt.Errorf("'%s' is a reserved name", this.inputName)
+	}
+
 	if len(this.inputName) == 0 {
 		this.inputName = _COMP_STDIN
 	}
 
 	this.outputName = argsMap["outputName"].(string)
 	delete(argsMap, "outputName")
+
+	if internal.IsReservedName(this.outputName) {
+		return nil, fmt.Errorf("'%s' is a reserved name", this.outputName)
+	}
 
 	if len(this.outputName) == 0 && this.inputName == _COMP_STDIN {
 		this.outputName = _COMP_STDOUT
