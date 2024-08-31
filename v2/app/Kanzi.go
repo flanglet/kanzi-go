@@ -187,7 +187,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 	blockSize := -1
 	verbose := 1
 	overwrite := false
-	checksum := false
+	checksum := -1
 	skip := false
 	fileReorder := true
 	noDotFiles := false
@@ -201,11 +201,17 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 	transform := ""
 	tasks := -1
 	cpuProf := ""
+	verboseLevel := ""
 	ctx := -1
 	level := -1
 	mode := " "
 	autoBlockSize := false
 	showHelp := false
+	warningNoValOpt := "Warning: ignoring option [%s] with no value."
+	warningCompressOpt := "Warning: ignoring option [%s]. Only applicable in compress mode."
+	warningDecompressOpt := "Warning: ignoring option [%s]. Only applicable in decompress mode."
+	warningDupOpt := "Warning: ignoring duplicate option [%s] (%s)"
+	warningInvalidOpt := "Invalid %s provided on command line: %s"
 
 	for i, arg := range args {
 		if i == 0 {
@@ -251,25 +257,28 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 		}
 
 		if ctx == _ARG_IDX_VERBOSE || strings.HasPrefix(arg, _ARG_VERBOSE) {
-			var verboseLevel string
-			var err error
-
-			if ctx == _ARG_IDX_VERBOSE {
-				verboseLevel = arg
+			if verboseLevel != "" {
+				log.Println(fmt.Sprintf(warningDupOpt, "verbose", verboseLevel), verbose > 0)
 			} else {
-				verboseLevel = strings.TrimPrefix(arg, _ARG_VERBOSE)
-			}
 
-			verboseLevel = strings.TrimSpace(verboseLevel)
+				if ctx == _ARG_IDX_VERBOSE {
+					verboseLevel = arg
+				} else {
+					verboseLevel = strings.TrimPrefix(arg, _ARG_VERBOSE)
+				}
 
-			if verbose, err = strconv.Atoi(verboseLevel); err != nil {
-				fmt.Printf("Invalid verbosity level provided on command line: %v\n", arg)
-				return kanzi.ERR_INVALID_PARAM
-			}
+				verboseLevel = strings.TrimSpace(verboseLevel)
+				var err error
 
-			if verbose < 0 || verbose > 5 {
-				fmt.Printf("Invalid verbosity level provided on command line: %v\n", arg)
-				return kanzi.ERR_INVALID_PARAM
+				if verbose, err = strconv.Atoi(verboseLevel); err != nil {
+					fmt.Printf("Invalid verbosity level provided on command line: %v\n", arg)
+					return kanzi.ERR_INVALID_PARAM
+				}
+
+				if verbose < 0 || verbose > 5 {
+					fmt.Printf("Invalid verbosity level provided on command line: %v\n", arg)
+					return kanzi.ERR_INVALID_PARAM
+				}
 			}
 		} else if ctx == _ARG_IDX_OUTPUT || strings.HasPrefix(arg, _ARG_OUTPUT) {
 			if ctx == _ARG_IDX_OUTPUT {
@@ -311,11 +320,6 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 	inputName = ""
 	outputName = ""
 	ctx = -1
-	warningNoValOpt := "Warning: ignoring option [%s] with no value."
-	warningCompressOpt := "Warning: ignoring option [%s]. Only applicable in compress mode."
-	warningDecompressOpt := "Warning: ignoring option [%s]. Only applicable in decompress mode."
-	warningDupOpt := "Warning: ignoring duplicate %s (%s)"
-	warningInvalidOpt := "Invalid %s provided on command line: %s"
 
 	for i, arg := range args {
 		if i == 0 {
@@ -356,9 +360,13 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 		if arg == "-x" || arg == _ARG_CHECKSUM {
 			if ctx != -1 {
 				log.Println(fmt.Sprintf(warningNoValOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
+			} else if mode != "c" {
+				log.Println(fmt.Sprintf(warningCompressOpt, "checksum"), verbose > 0)
+			} else if checksum >= 0 {
+				log.Println(fmt.Sprintf(warningDupOpt, "checksum", "true"), verbose > 0)
 			}
 
-			checksum = true
+			checksum = 1
 			ctx = -1
 			continue
 		}
@@ -785,7 +793,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 		argsMap["transform"] = transform
 	}
 
-	if checksum == true {
+	if checksum == 1 {
 		argsMap["checksum"] = true
 	}
 
