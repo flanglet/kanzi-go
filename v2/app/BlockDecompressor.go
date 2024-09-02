@@ -160,7 +160,7 @@ func NewBlockDecompressor(argsMap map[string]any) (*BlockDecompressor, error) {
 		this.cpuProf = ""
 	}
 
-	if this.verbosity > 0 && len(argsMap) > 0 {
+	if this.verbosity > 3 && len(argsMap) > 0 {
 		for k := range argsMap {
 			log.Println("Warning: ignoring invalid option ["+k+"]", this.verbosity > 0)
 		}
