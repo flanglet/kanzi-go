@@ -142,7 +142,7 @@ func NewLZXCodec() (*LZXCodec, error) {
 	this.mBuf = make([]byte, 0)
 	this.tkBuf = make([]byte, 0)
 	this.extra = false
-	this.bsVersion = 4
+	this.bsVersion = 6
 	return this, nil
 }
 

@@ -536,7 +536,7 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 	this.buffer = make([]byte, 0)
 	this.f2s = make([]byte, 0)
 	this.symbols = make([]decSymbol, dim*256)
-	this.bsVersion = 4
+	this.bsVersion = 6
 	this.logRange = _DEFAULT_ANS_LOG_RANGE
 	return this, nil
 }
