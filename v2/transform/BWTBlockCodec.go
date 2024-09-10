@@ -53,6 +53,7 @@ func NewBWTBlockCodec() (*BWTBlockCodec, error) {
 // NewBWTBlockCodecWithCtx creates a new instance of BWTBlockCodec
 func NewBWTBlockCodecWithCtx(ctx *map[string]any) (*BWTBlockCodec, error) {
 	this := &BWTBlockCodec{}
+	this.bsVersion = 6
 
 	if val, containsKey := (*ctx)["bsVersion"]; containsKey {
 		this.bsVersion = val.(uint)
@@ -92,15 +93,17 @@ func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("BWT forward failed: invalid index size")
 	}
 
-	chunks := GetBWTChunks(len(src))
+	chunks := GetBWTChunks(blockSize)
 	logNbChunks := internal.Log2NoCheck(uint32(chunks))
 
 	if logNbChunks > 7 {
 		return 0, 0, errors.New("BWT forward failed: invalid number of chunks")
 	}
 
+        headerSize := chunks*pIndexSize+1
+
 	// Apply forward Transform
-	iIdx, oIdx, err := this.bwt.Forward(src, dst[chunks*pIndexSize+1:])
+	iIdx, oIdx, err := this.bwt.Forward(src, dst[headerSize:])
 
 	if err != nil {
 		return iIdx, oIdx, err
@@ -121,7 +124,7 @@ func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	dst[0] = mode
-	return iIdx, oIdx, nil
+	return iIdx, oIdx+uint(headerSize), nil
 }
 
 // Inverse applies the reverse function to the src and writes the result
@@ -145,7 +148,7 @@ func (this *BWTBlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 	if this.bsVersion > 5 {
 		// Number of chunks and primary index size in bitstream since bsVersion 6
-		mode := dst[0]
+		mode := src[0]
 		logNbChunks := uint(mode>>2) & 0x07
 		pIndexSize := int(mode&0x03) + 1
 
