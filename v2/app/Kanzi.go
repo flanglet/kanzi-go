@@ -44,6 +44,8 @@ const (
 	_ARG_IDX_PROFILE = 14
 	_KANZI_VERSION   = "2.3.0"
 	_APP_HEADER      = "Kanzi " + _KANZI_VERSION + " (c) Frederic Langlet"
+	_APP_SUB_HEADER  = "Fast lossless data compressor."
+	_APP_USAGE       = "Usage: Kanzi [-c|-d] [flags and files in any order]"
 	_ARG_INPUT       = "--input="
 	_ARG_OUTPUT      = "--output="
 	_ARG_LEVEL       = "--level="
@@ -315,6 +317,8 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 	if verbose >= 1 {
 		log.Println("\n"+_APP_HEADER+"\n", true)
+		log.Println(_APP_SUB_HEADER, true)
+		log.Println(_APP_USAGE, true)
 	}
 
 	inputName = ""
@@ -838,8 +842,9 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 func printHelp(mode string, showHeader bool) {
 	if showHeader == true {
-		log.Println("", true)
-		log.Println(_APP_HEADER, true)
+		log.Println("\n"+_APP_HEADER+"\n", true)
+		log.Println(_APP_SUB_HEADER, true)
+		log.Println(_APP_USAGE, true)
 	}
 
 	log.Println("", true)
@@ -863,8 +868,9 @@ func printHelp(mode string, showHeader bool) {
 	log.Println("        When the source is a directory, all files in it will be processed.", true)
 	msg := fmt.Sprintf("        Provide %c. at the end of the directory name to avoid recursion.", os.PathSeparator)
 	log.Println(msg, true)
-	msg = fmt.Sprintf("        (EG: myDir%c. => no recursion)\n", os.PathSeparator)
+	msg = fmt.Sprintf("        (EG: myDir%c. => no recursion)", os.PathSeparator)
 	log.Println(msg, true)
+	log.Println("        If  this option is not provided, Kanzi reads data from stdin.\n", true)
 	log.Println("   -o, --output=<outputName>", true)
 
 	if mode == "c" {
