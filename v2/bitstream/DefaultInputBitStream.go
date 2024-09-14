@@ -217,7 +217,7 @@ func (this *DefaultInputBitStream) readFromInputStream(count int) (int, error) {
 		return 0, nil
 	}
 
-	this.read += int64((this.maxPosition + 1) << 3)
+	this.read += int64(this.position << 3)
 	size, err := this.is.Read(this.buffer[0:count])
 	this.position = 0
 
