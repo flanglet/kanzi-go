@@ -1064,6 +1064,10 @@ func (this *Reader) RemoveListener(bl kanzi.Listener) bool {
 }
 
 func (this *Reader) readHeader() error {
+	if this.headless == true || atomic.SwapInt32(&this.initialized, 1) != 0 {
+		return nil
+	}
+
 	defer func() {
 		if r := recover(); r != nil {
 			err, ok := r.(error)
@@ -1267,10 +1271,8 @@ func (this *Reader) Read(block []byte) (int, error) {
 		return 0, &IOError{msg: "Stream closed", code: kanzi.ERR_READ_FILE}
 	}
 
-	if this.headless == false && atomic.SwapInt32(&this.initialized, 1) == 0 {
-		if err := this.readHeader(); err != nil {
-			return 0, err
-		}
+	if err := this.readHeader(); err != nil {
+		return 0, err
 	}
 
 	off := 0

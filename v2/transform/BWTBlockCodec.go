@@ -100,7 +100,7 @@ func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("BWT forward failed: invalid number of chunks")
 	}
 
-        headerSize := chunks*pIndexSize+1
+	headerSize := chunks*pIndexSize + 1
 
 	// Apply forward Transform
 	iIdx, oIdx, err := this.bwt.Forward(src, dst[headerSize:])
@@ -124,7 +124,7 @@ func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	dst[0] = mode
-	return iIdx, oIdx+uint(headerSize), nil
+	return iIdx, oIdx + uint(headerSize), nil
 }
 
 // Inverse applies the reverse function to the src and writes the result
@@ -180,7 +180,7 @@ func (this *BWTBlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 				shift -= 8
 			}
 
-			if this.bwt.SetPrimaryIndex(i, primaryIndex + 1) == false {
+			if this.bwt.SetPrimaryIndex(i, primaryIndex+1) == false {
 				return 0, 0, errors.New("BWT inverse transform failed: invalid primary index in bitstream")
 			}
 
