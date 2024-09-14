@@ -293,6 +293,10 @@ func (this *Writer) RemoveListener(bl kanzi.Listener) bool {
 }
 
 func (this *Writer) writeHeader() *IOError {
+	if this.headless == true || atomic.SwapInt32(&this.initialized, 1) != 0 {
+		return nil
+	}
+
 	cksum := uint32(0)
 
 	if this.hasher != nil {
@@ -452,10 +456,8 @@ func (this *Writer) Close() error {
 }
 
 func (this *Writer) processBlock() error {
-	if this.headless == false && atomic.SwapInt32(&this.initialized, 1) == 0 {
-		if err := this.writeHeader(); err != nil {
-			return err
-		}
+	if err := this.writeHeader(); err != nil {
+		return err
 	}
 
 	if this.available == 0 {
