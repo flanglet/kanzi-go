@@ -864,13 +864,13 @@ func printHelp(mode string, showHeader bool) {
 	}
 
 	log.Println("   -i, --input=<inputName>", true)
-	log.Println("        Mandatory name of the input file or directory or 'stdin'", true)
+	log.Println("        Name of the input file or directory or 'stdin'.", true)
 	log.Println("        When the source is a directory, all files in it will be processed.", true)
 	msg := fmt.Sprintf("        Provide %c. at the end of the directory name to avoid recursion.", os.PathSeparator)
 	log.Println(msg, true)
 	msg = fmt.Sprintf("        (EG: myDir%c. => no recursion)", os.PathSeparator)
 	log.Println(msg, true)
-	log.Println("        If  this option is not provided, Kanzi reads data from stdin.\n", true)
+	log.Println("        If this option is not provided, Kanzi reads data from stdin.\n", true)
 	log.Println("   -o, --output=<outputName>", true)
 
 	if mode == "c" {
