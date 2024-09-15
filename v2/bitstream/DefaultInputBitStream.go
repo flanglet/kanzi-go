@@ -125,6 +125,7 @@ func (this *DefaultInputBitStream) ReadArray(bits []byte, count uint) uint {
 		// Copy internal buffer to bits array
 		for (remaining >> 3) > availBytes {
 			copy(bits[start:], this.buffer[this.position:this.maxPosition+1])
+			this.position = this.maxPosition + 1
 			start += availBytes
 			remaining -= (availBytes << 3)
 
@@ -217,7 +218,7 @@ func (this *DefaultInputBitStream) readFromInputStream(count int) (int, error) {
 		return 0, nil
 	}
 
-	this.read += int64(this.position << 3)
+	this.read += (int64(this.position << 3))
 	size, err := this.is.Read(this.buffer[0:count])
 	this.position = 0
 
