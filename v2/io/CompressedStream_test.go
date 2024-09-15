@@ -115,7 +115,7 @@ func compress(block []byte, entropy, transform string) int {
 		}
 
 		// Create a Writer
-		w, err2 := NewWriter(output, transform, entropy, blockSize, jobs, true, 0, false)
+		w, err2 := NewWriter(output, transform, entropy, blockSize, jobs, 32, 0, false)
 
 		if err2 != nil {
 			fmt.Printf("%v\n", err2)
@@ -186,7 +186,7 @@ func compressAfterWriteClose(block []byte) int {
 	copy(buf, block)
 	bs := internal.NewBufferStream()
 
-	os, err := NewWriter(bs, "NONE", "HUFFMAN", uint(len(block)), 1, false, 0, false)
+	os, err := NewWriter(bs, "NONE", "HUFFMAN", uint(len(block)), 1, 0, 0, false)
 
 	if err != nil {
 		fmt.Printf("%v\n", err)
@@ -219,7 +219,7 @@ func compressAfterReadClose(block []byte) int {
 	fmt.Println("Test - read after close")
 	bs := internal.NewBufferStream()
 
-	os, err := NewWriter(bs, "NONE", "NONE", uint(len(block)), 1, false, 0, false)
+	os, err := NewWriter(bs, "NONE", "NONE", uint(len(block)), 1, 0, 0, false)
 
 	if err != nil {
 		fmt.Printf("%v\n", err)

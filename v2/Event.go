@@ -32,8 +32,8 @@ const (
 	EVT_AFTER_HEADER_DECODING = 8 // Compression header decoding ends
 
 	EVT_HASH_NONE   = 0
-	EVT_HASH_32BITS = 1
-	EVT_HASH_64BITS = 2
+	EVT_HASH_32BITS = 32
+	EVT_HASH_64BITS = 64
 )
 
 // Event a compression/decompression event

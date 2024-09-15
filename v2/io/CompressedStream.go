@@ -130,7 +130,8 @@ type encodingTaskResult struct {
 // Use headerless == false to create a bitstream without a header. The decompressor
 // must know all the compression parameters to be able to decompress the bitstream.
 // The headerless mode is only useful in very specific scenarios.
-func NewWriter(os io.WriteCloser, transform, entropy string, blockSize, jobs uint, checksum bool, fileSize int64, headerless bool) (*Writer, error) {
+// checksum must be 0, 32 or 64
+func NewWriter(os io.WriteCloser, transform, entropy string, blockSize, jobs uint, checksum uint, fileSize int64, headerless bool) (*Writer, error) {
 	ctx := make(map[string]any)
 	ctx["entropy"] = entropy
 	ctx["transform"] = transform
@@ -1791,7 +1792,7 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 			res.err = &IOError{msg: errMsg, code: kanzi.ERR_CRC_CHECK}
 			return
 		}
-	} else if this.hasher32 != nil {
+	} else if this.hasher64 != nil {
 		checksum2 := this.hasher64.Hash(data[0:decoded])
 
 		if checksum2 != checksum1 {
