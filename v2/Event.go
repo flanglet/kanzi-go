@@ -30,6 +30,10 @@ const (
 	EVT_COMPRESSION_END       = 6 // Compression ends
 	EVT_DECOMPRESSION_END     = 7 // Decompression ends
 	EVT_AFTER_HEADER_DECODING = 8 // Compression header decoding ends
+
+	EVT_HASH_NONE   = 0
+	EVT_HASH_32BITS = 1
+	EVT_HASH_64BITS = 2
 )
 
 // Event a compression/decompression event
@@ -37,8 +41,8 @@ type Event struct {
 	eventType int
 	id        int
 	size      int64
-	hash      uint32
-	hashing   bool
+	hash      uint64
+	hashType  int
 	eventTime time.Time
 	msg       string
 }
@@ -53,13 +57,18 @@ func NewEventFromString(evtType, id int, msg string, evtTime time.Time) *Event {
 }
 
 // NewEvent creates a new Event instance with size and hash info
-func NewEvent(evtType, id int, size int64, hash uint32, hashing bool, evtTime time.Time) *Event {
+// Returns nil if the hashType is not in { EVT_HASH_NONE, EVT_HASH_32BITS, EVT_HASH_64BITS }
+func NewEvent(evtType, id int, size int64, hash uint64, hashType int, evtTime time.Time) *Event {
 	if evtTime.IsZero() {
 		evtTime = time.Now()
 	}
 
+	if hashType != EVT_HASH_NONE && hashType != EVT_HASH_32BITS && hashType != EVT_HASH_64BITS {
+		return nil
+	}
+
 	return &Event{eventType: evtType, id: id, size: size, hash: hash,
-		hashing: hashing, eventTime: evtTime}
+		hashType: hashType, eventTime: evtTime}
 }
 
 // Type returns the type info
@@ -83,13 +92,13 @@ func (this *Event) Size() int64 {
 }
 
 // Hash returns the hash info
-func (this *Event) Hash() uint32 {
+func (this *Event) Hash() uint64 {
 	return this.hash
 }
 
-// Hashing returns true if the event contains a hash info
-func (this *Event) Hashing() bool {
-	return this.hashing
+// HashType returns EVT_HASH_NONE, EVT_HASH_32BITS or EVT_HASH_64BITS
+func (this *Event) HashType() int {
+	return this.hashType
 }
 
 // String returns a string representation of this event.
@@ -104,7 +113,7 @@ func (this *Event) String() string {
 	t := ""
 	id := ""
 
-	if this.hashing == true {
+	if this.hashType != EVT_HASH_NONE {
 		hash = fmt.Sprintf(", \"hash\": %x", this.hash)
 	}
 

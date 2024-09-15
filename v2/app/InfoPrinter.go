@@ -185,7 +185,7 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 			}
 
 			// Optionally add hash
-			if evt.Hashing() == true {
+			if evt.HashType() != kanzi.EVT_HASH_NONE {
 				msg += fmt.Sprintf("  [%x]", evt.Hash())
 			}
 

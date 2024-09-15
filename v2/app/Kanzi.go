@@ -61,7 +61,7 @@ const (
 	_ARG_CPUPROF     = "--cpuProf="
 	_ARG_FORCE       = "--force"
 	_ARG_SKIP        = "--skip"
-	_ARG_CHECKSUM    = "--checksum"
+	_ARG_CHECKSUM    = "--checksum="
 )
 
 var (
@@ -189,7 +189,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 	blockSize := -1
 	verbose := 1
 	overwrite := false
-	checksum := -1
+	checksum := 0
 	skip := false
 	fileReorder := true
 	noDotFiles := false
@@ -361,16 +361,19 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			continue
 		}
 
-		if arg == "-x" || arg == _ARG_CHECKSUM {
-			if ctx != -1 {
-				log.Println(fmt.Sprintf(warningNoValOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
-			} else if mode != "c" {
+		if arg == "-x" || arg == "-x32" || arg == "-x64" {
+			if mode != "c" {
 				log.Println(fmt.Sprintf(warningCompressOpt, "checksum"), verbose > 0)
-			} else if checksum >= 0 {
+			} else if checksum > 0 {
 				log.Println(fmt.Sprintf(warningDupOpt, "checksum", "true"), verbose > 0)
 			}
 
-			checksum = 1
+			if arg == "-x64" {
+				checksum = 64
+			} else {
+				checksum = 32
+			}
+
 			ctx = -1
 			continue
 		}
@@ -575,6 +578,34 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 			if err != nil || level < 0 || level > 9 {
 				fmt.Println(fmt.Sprintf(warningInvalidOpt, "compression level", str))
+				return kanzi.ERR_INVALID_PARAM
+			}
+
+			ctx = -1
+			continue
+		}
+
+		if strings.HasPrefix(arg, _ARG_CHECKSUM) {
+			if mode != "c" {
+				log.Println(fmt.Sprintf(warningCompressOpt, "checksum"), verbose > 0)
+				ctx = -1
+				continue
+			}
+
+			str := strings.TrimPrefix(arg, _ARG_CHECKSUM)
+			str = strings.TrimSpace(str)
+
+			if checksum != 0 {
+				log.Println(fmt.Sprintf(warningDupOpt, "checksum", str), verbose > 0)
+				ctx = -1
+				continue
+			}
+
+			var err error
+			checksum, err = strconv.Atoi(str)
+
+			if err != nil || (checksum != 32 && checksum != 64) {
+				fmt.Println(fmt.Sprintf(warningInvalidOpt, "checksum", str))
 				return kanzi.ERR_INVALID_PARAM
 			}
 
@@ -797,8 +828,8 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 		argsMap["transform"] = transform
 	}
 
-	if checksum == 1 {
-		argsMap["checksum"] = true
+	if checksum != 0 {
+		argsMap["checksum"] = uint(checksum)
 	}
 
 	if skip == true {
@@ -911,11 +942,11 @@ func printHelp(mode string, showHeader bool) {
 		log.Println("        Transform [None|BWT|BWTS|LZ|LZX|LZP|ROLZ|ROLZX|RLT|ZRLT]", true)
 		log.Println("                  [MTFT|RANK|SRT|TEXT|MM|EXE|UTF|PACK]", true)
 		log.Println("        EG: BWT+RANK or BWTS+MTFT\n", true)
-		log.Println("   -x, --checksum", true)
-		log.Println("        Enable block checksum\n", true)
+		log.Println("   -x, -x32, -x64, --checksum=<size>", true)
+		log.Println("        Enable block checksum (32 or 64 bits).", true)
+		log.Println("        -x is equivalent to -x32\n", true)
 		log.Println("   -s, --skip", true)
 		log.Println("        Copy blocks with high entropy instead of compressing them.\n", true)
-
 	}
 
 	log.Println("   -j, --jobs=<jobs>", true)

@@ -82,15 +82,15 @@ func NewBlockDecompressor(argsMap map[string]any) (*BlockDecompressor, error) {
 		this.removeSource = false
 	}
 
-	if check, prst := argsMap["noDotFiles"]; prst == true {
-		this.noDotFiles = check.(bool)
+	if noDot, prst := argsMap["noDotFiles"]; prst == true {
+		this.noDotFiles = noDot.(bool)
 		delete(argsMap, "noDotFiles")
 	} else {
 		this.noDotFiles = false
 	}
 
-	if check, prst := argsMap["noLinks"]; prst == true {
-		this.noLinks = check.(bool)
+	if noLink, prst := argsMap["noLinks"]; prst == true {
+		this.noLinks = noLink.(bool)
 		delete(argsMap, "noLinks")
 	} else {
 		this.noLinks = false
@@ -591,7 +591,7 @@ func (this *fileDecompressTask) call() (int, uint64, error) {
 	var input io.ReadCloser
 
 	if len(this.listeners) > 0 {
-		evt := kanzi.NewEvent(kanzi.EVT_DECOMPRESSION_START, -1, 0, 0, false, time.Now())
+		evt := kanzi.NewEvent(kanzi.EVT_DECOMPRESSION_START, -1, 0, 0, kanzi.EVT_HASH_NONE, time.Now())
 		notifyBDListeners(this.listeners, evt)
 	}
 
@@ -721,7 +721,7 @@ func (this *fileDecompressTask) call() (int, uint64, error) {
 	}
 
 	if len(this.listeners) > 0 {
-		evt := kanzi.NewEvent(kanzi.EVT_DECOMPRESSION_END, -1, int64(cis.GetRead()), 0, false, time.Now())
+		evt := kanzi.NewEvent(kanzi.EVT_DECOMPRESSION_END, -1, int64(cis.GetRead()), 0, kanzi.EVT_HASH_NONE, time.Now())
 		notifyBDListeners(this.listeners, evt)
 	}
 

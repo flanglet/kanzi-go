@@ -48,7 +48,7 @@ const (
 type BlockCompressor struct {
 	verbosity     uint
 	overwrite     bool
-	checksum      bool
+	checksum      uint
 	skipBlocks    bool
 	fileReorder   bool
 	removeSource  bool
@@ -202,10 +202,10 @@ func NewBlockCompressor(argsMap map[string]any) (*BlockCompressor, error) {
 	}
 
 	if check, prst := argsMap["checksum"]; prst == true {
-		this.checksum = check.(bool)
+		this.checksum = check.(uint)
 		delete(argsMap, "checksum")
 	} else {
-		this.checksum = false
+		this.checksum = 0
 	}
 
 	if rmSrc, prst := argsMap["remove"]; prst == true {
@@ -398,7 +398,15 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		log.Println(msg, true)
 		msg = fmt.Sprintf("Overwrite: %t", this.overwrite)
 		log.Println(msg, true)
-		msg = fmt.Sprintf("Checksum: %t", this.checksum)
+		chksum := "NONE"
+
+		if this.checksum == 32 {
+			chksum = "32 bits"
+		} else if this.checksum == 64 {
+			chksum = "64 bits"
+		}
+
+		msg = fmt.Sprintf("Checksum: %s", chksum)
 		log.Println(msg, true)
 		w1 := "no"
 
@@ -799,7 +807,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64, error) {
 	buffer := make([]byte, _COMP_DEFAULT_BUFFER_SIZE)
 
 	if len(this.listeners) > 0 {
-		evt := kanzi.NewEvent(kanzi.EVT_COMPRESSION_START, -1, 0, 0, false, time.Now())
+		evt := kanzi.NewEvent(kanzi.EVT_COMPRESSION_START, -1, 0, 0, kanzi.EVT_HASH_NONE, time.Now())
 		notifyBCListeners(this.listeners, evt)
 	}
 
@@ -888,7 +896,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64, error) {
 	}
 
 	if len(this.listeners) > 0 {
-		evt := kanzi.NewEvent(kanzi.EVT_COMPRESSION_END, -1, int64(cos.GetWritten()), 0, false, time.Now())
+		evt := kanzi.NewEvent(kanzi.EVT_COMPRESSION_END, -1, int64(cos.GetWritten()), 0, kanzi.EVT_HASH_NONE, time.Now())
 		notifyBCListeners(this.listeners, evt)
 	}
 

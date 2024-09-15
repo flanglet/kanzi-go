@@ -86,7 +86,8 @@ type blockBuffer struct {
 // to an OutputBitStream.
 type Writer struct {
 	blockSize     int
-	hasher        *hash.XXHash32
+	hasher32      *hash.XXHash32
+	hasher64      *hash.XXHash64
 	buffers       []blockBuffer
 	entropyType   uint32
 	transformType uint64
@@ -106,7 +107,8 @@ type Writer struct {
 type encodingTask struct {
 	iBuffer            *blockBuffer
 	oBuffer            *blockBuffer
-	hasher             *hash.XXHash32
+	hasher32           *hash.XXHash32
+	hasher64           *hash.XXHash64
 	blockLength        uint
 	blockTransformType uint64
 	blockEntropyType   uint32
@@ -230,9 +232,16 @@ func createWriterWithCtx(obs kanzi.OutputBitStream, ctx map[string]any) (*Writer
 
 	this.nbInputBlocks = min(nbBlocks, _MAX_CONCURRENCY-1)
 
-	if checksum := ctx["checksum"].(bool); checksum == true {
+	if checksum := ctx["checksum"].(uint); checksum != 0 {
 		var err error
-		this.hasher, err = hash.NewXXHash32(_BITSTREAM_TYPE)
+
+		if checksum == 32 {
+			this.hasher32, err = hash.NewXXHash32(_BITSTREAM_TYPE)
+		} else if checksum == 64 {
+			this.hasher64, err = hash.NewXXHash64(_BITSTREAM_TYPE)
+		} else {
+			err = &IOError{msg: "The lock checksum size must be 32 or 64 bits", code: kanzi.ERR_INVALID_PARAM}
+		}
 
 		if err != nil {
 			return nil, err
@@ -297,10 +306,12 @@ func (this *Writer) writeHeader() *IOError {
 		return nil
 	}
 
-	cksum := uint32(0)
+	ckSize := 0
 
-	if this.hasher != nil {
-		cksum = 1
+	if this.hasher32 != nil {
+		ckSize = 1
+	} else if this.hasher64 != nil {
+		ckSize = 2
 	}
 
 	if this.obs.WriteBits(_BITSTREAM_TYPE, 32) != 32 {
@@ -311,8 +322,8 @@ func (this *Writer) writeHeader() *IOError {
 		return &IOError{msg: "Cannot write bitstream version to header", code: kanzi.ERR_WRITE_FILE}
 	}
 
-	if this.obs.WriteBits(uint64(cksum), 1) != 1 {
-		return &IOError{msg: "Cannot write checksum to header", code: kanzi.ERR_WRITE_FILE}
+	if this.obs.WriteBits(uint64(ckSize), 2) != 2 {
+		return &IOError{msg: "Cannot write checksum size to header", code: kanzi.ERR_WRITE_FILE}
 	}
 
 	if this.obs.WriteBits(uint64(this.entropyType), 5) != 5 {
@@ -355,7 +366,7 @@ func (this *Writer) writeHeader() *IOError {
 
 	seed := uint32(0x01030507 * _BITSTREAM_FORMAT_VERSION)
 	HASH := uint32(0x1E35A7BD)
-	cksum = HASH * seed
+	cksum := HASH * seed
 	cksum ^= (HASH * uint32(^this.entropyType))
 	cksum ^= (HASH * uint32((^this.transformType)>>32))
 	cksum ^= (HASH * uint32(^this.transformType))
@@ -370,6 +381,12 @@ func (this *Writer) writeHeader() *IOError {
 
 	if this.obs.WriteBits(uint64(cksum), 24) != 24 {
 		return &IOError{msg: "Cannot write checksum to header", code: kanzi.ERR_WRITE_FILE}
+	}
+
+	padding := uint64(0)
+
+	if this.obs.WriteBits(padding, 15) != 15 {
+		return &IOError{msg: "Cannot write padding to header", code: kanzi.ERR_WRITE_FILE}
 	}
 
 	return nil
@@ -518,7 +535,8 @@ func (this *Writer) processBlock() error {
 		task := encodingTask{
 			iBuffer:            &this.buffers[taskID],
 			oBuffer:            &this.buffers[this.jobs+taskID],
-			hasher:             this.hasher,
+			hasher32:           this.hasher32,
+			hasher64:           this.hasher64,
 			blockLength:        uint(dataLength),
 			blockTransformType: this.transformType,
 			blockEntropyType:   this.entropyType,
@@ -566,7 +584,7 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 	data := this.iBuffer.Buf
 	buffer := this.oBuffer.Buf
 	mode := byte(0)
-	checksum := uint32(0)
+	checksum := uint64(0)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -589,15 +607,21 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 		this.wg.Done()
 	}()
 
+	hashType := kanzi.EVT_HASH_NONE
+
 	// Compute block checksum
-	if this.hasher != nil {
-		checksum = this.hasher.Hash(data[0:this.blockLength])
+	if this.hasher32 != nil {
+		checksum = uint64(this.hasher32.Hash(data[0:this.blockLength]))
+		hashType = kanzi.EVT_HASH_32BITS
+	} else if this.hasher64 != nil {
+		checksum = this.hasher64.Hash(data[0:this.blockLength])
+		hashType = kanzi.EVT_HASH_64BITS
 	}
 
 	if len(this.listeners) > 0 {
 		// Notify before transform
 		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_TRANSFORM, int(this.currentBlockID),
-			int64(this.blockLength), checksum, this.hasher != nil, time.Now())
+			int64(this.blockLength), checksum, hashType, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
 
@@ -681,7 +705,7 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 	if len(this.listeners) > 0 {
 		// Notify after transform
 		evt := kanzi.NewEvent(kanzi.EVT_AFTER_TRANSFORM, int(this.currentBlockID),
-			int64(postTransformLength), checksum, this.hasher != nil, time.Now())
+			int64(postTransformLength), checksum, hashType, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
 
@@ -718,14 +742,16 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 	obs.WriteBits(uint64(postTransformLength), 8*dataSize)
 
 	// Write checksum
-	if this.hasher != nil {
-		obs.WriteBits(uint64(checksum), 32)
+	if this.hasher32 != nil {
+		obs.WriteBits(checksum, 32)
+	} else if this.hasher64 != nil {
+		obs.WriteBits(checksum, 64)
 	}
 
 	if len(this.listeners) > 0 {
 		// Notify before entropy
 		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_ENTROPY, int(this.currentBlockID),
-			int64(postTransformLength), checksum, this.hasher != nil, time.Now())
+			int64(postTransformLength), checksum, hashType, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
 
@@ -769,7 +795,7 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 	if len(this.listeners) > 0 {
 		// Notify after entropy
 		evt := kanzi.NewEvent(kanzi.EVT_AFTER_ENTROPY, int(this.currentBlockID),
-			int64((written+7)>>3), checksum, this.hasher != nil, time.Now())
+			int64((written+7)>>3), checksum, hashType, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
 
@@ -821,7 +847,7 @@ type decodingTaskResult struct {
 	decoded        int
 	blockID        int
 	skipped        bool
-	checksum       uint32
+	checksum       uint64
 	completionTime time.Time
 }
 
@@ -829,7 +855,8 @@ type decodingTaskResult struct {
 // from an InputBitStream.
 type Reader struct {
 	blockSize       int
-	hasher          *hash.XXHash32
+	hasher32        *hash.XXHash32
+	hasher64        *hash.XXHash64
 	buffers         []blockBuffer
 	entropyType     uint32
 	transformType   uint64
@@ -852,7 +879,8 @@ type Reader struct {
 type decodingTask struct {
 	iBuffer            *blockBuffer
 	oBuffer            *blockBuffer
-	hasher             *hash.XXHash32
+	hasher32           *hash.XXHash32
+	hasher64           *hash.XXHash64
 	blockLength        uint
 	blockTransformType uint64
 	blockEntropyType   uint32
@@ -878,7 +906,8 @@ func NewReader(is io.ReadCloser, jobs uint) (*Reader, error) {
 // The default value for the bitstream version is _BITSTREAM_FORMAT_VERSION.
 // If the provided compression parameters do not match those used during compression,
 // the decompression is likely to fail.
-func NewHeaderlessReader(is io.ReadCloser, jobs uint, transform, entropy string, blockSize uint, checksum bool, originalSize int64, bsVersion uint) (*Reader, error) {
+// checksum must be 0, 32 or 64
+func NewHeaderlessReader(is io.ReadCloser, jobs uint, transform, entropy string, blockSize uint, checksum uint, originalSize int64, bsVersion uint) (*Reader, error) {
 	ctx := make(map[string]any)
 	ctx["jobs"] = jobs
 	ctx["transform"] = transform
@@ -1014,8 +1043,14 @@ func (this *Reader) validateHeaderless() error {
 	}
 
 	if c, hasKey := this.ctx["checksum"]; hasKey {
-		if c.(bool) == true {
-			this.hasher, err = hash.NewXXHash32(_BITSTREAM_TYPE)
+		if c.(uint) != 0 {
+			if c == 32 {
+				this.hasher32, err = hash.NewXXHash32(_BITSTREAM_TYPE)
+			} else if c == 64 {
+				this.hasher64, err = hash.NewXXHash64(_BITSTREAM_TYPE)
+			} else {
+				err = &IOError{msg: "The lock checksum size must be 32 or 64 bits", code: kanzi.ERR_INVALID_PARAM}
+			}
 
 			if err != nil {
 				return err
@@ -1102,12 +1137,23 @@ func (this *Reader) readHeader() error {
 	var err error
 
 	// Read block checksum
-	if this.ibs.ReadBit() == 1 {
-		this.hasher, err = hash.NewXXHash32(_BITSTREAM_TYPE)
+	if bsVersion >= 6 {
+		ckSize := this.ibs.ReadBits(2)
 
-		if err != nil {
-			return err
+		if ckSize == 1 {
+			this.hasher32, err = hash.NewXXHash32(_BITSTREAM_TYPE)
+		} else if ckSize == 2 {
+			this.hasher64, err = hash.NewXXHash64(_BITSTREAM_TYPE)
+		} else if ckSize == 3 {
+			errMsg := fmt.Sprintf("Invalid bitstream, incorrect checksum size: %d", ckSize)
+			return &IOError{msg: errMsg, code: kanzi.ERR_INVALID_CODEC}
 		}
+	} else if this.ibs.ReadBit() == 1 {
+		this.hasher32, err = hash.NewXXHash32(_BITSTREAM_TYPE)
+	}
+
+	if err != nil {
+		return err
 	}
 
 	// Read entropy codec
@@ -1115,7 +1161,7 @@ func (this *Reader) readHeader() error {
 	var eType string
 
 	if eType, err = entropy.GetName(this.entropyType); err != nil {
-		errMsg := fmt.Sprintf("Invalid bitstream, invalid entropy type: %d", this.entropyType)
+		errMsg := fmt.Sprintf("Invalid bitstream, incorrect entropy type: %d", this.entropyType)
 		return &IOError{msg: errMsg, code: kanzi.ERR_INVALID_CODEC}
 	}
 
@@ -1126,7 +1172,7 @@ func (this *Reader) readHeader() error {
 	var tType string
 
 	if tType, err = transform.GetName(this.transformType); err != nil {
-		errMsg := fmt.Sprintf("Invalid bitstream, invalid transform type: %d", this.transformType)
+		errMsg := fmt.Sprintf("Invalid bitstream, incorrect transform type: %d", this.transformType)
 		return &IOError{msg: errMsg, code: kanzi.ERR_INVALID_CODEC}
 	}
 
@@ -1186,7 +1232,15 @@ func (this *Reader) readHeader() error {
 		cksum2 = (cksum2 >> 23) ^ (cksum2 >> 3)
 
 		if cksum1 != (cksum2 & ((1 << crcSize) - 1)) {
-			return &IOError{msg: "Invalid bitstream: corrupted header", code: kanzi.ERR_INVALID_FILE}
+			return &IOError{msg: "Invalid bitstream: checksum mismatch", code: kanzi.ERR_CRC_CHECK}
+		}
+
+		if bsVersion >= 6 {
+			padding := this.ibs.ReadBits(15)
+
+			if padding != 0 {
+				return &IOError{msg: "Invalid bitstream: corrupted header", code: kanzi.ERR_INVALID_FILE}
+			}
 		}
 	} else if bsVersion >= 3 {
 		// Read number of blocks in input. 0 means 'unknown' and 63 means 63 or more.
@@ -1215,8 +1269,19 @@ func (this *Reader) readHeader() error {
 
 	if len(this.listeners) > 0 {
 		var sb strings.Builder
+		var ckSize string
+
+		if this.hasher32 != nil {
+			ckSize = "32 bits"
+		} else if this.hasher64 != nil {
+			ckSize = "64 bits"
+		} else {
+
+			ckSize = "NONE"
+		}
+
 		sb.WriteString(fmt.Sprintf("Bitstream version: %d\n", bsVersion))
-		sb.WriteString(fmt.Sprintf("Checksum: %v\n", this.hasher != nil))
+		sb.WriteString(fmt.Sprintf("Checksum: %v\n", ckSize))
 		sb.WriteString(fmt.Sprintf("Block size: %d bytes\n", this.blockSize))
 		w1, _ := entropy.GetName(this.entropyType)
 
@@ -1402,7 +1467,8 @@ func (this *Reader) processBlock() (int, error) {
 			task := decodingTask{
 				iBuffer:            &this.buffers[taskID],
 				oBuffer:            &this.buffers[this.jobs+taskID],
-				hasher:             this.hasher,
+				hasher32:           this.hasher32,
+				hasher64:           this.hasher64,
 				blockLength:        uint(blkSize),
 				blockTransformType: this.transformType,
 				blockEntropyType:   this.entropyType,
@@ -1441,11 +1507,18 @@ func (this *Reader) processBlock() (int, error) {
 
 			copy(this.buffers[n].Buf, r.data[0:r.decoded])
 			n++
+			hashType := kanzi.EVT_HASH_NONE
+
+			if this.hasher32 != nil {
+				hashType = kanzi.EVT_HASH_32BITS
+			} else if this.hasher64 != nil {
+				hashType = kanzi.EVT_HASH_64BITS
+			}
 
 			if len(listeners) > 0 {
 				// Notify after transform ... in block order
 				evt := kanzi.NewEvent(kanzi.EVT_AFTER_TRANSFORM, int(r.blockID),
-					int64(r.decoded), r.checksum, this.hasher != nil, r.completionTime)
+					int64(r.decoded), r.checksum, hashType, r.completionTime)
 				notifyListeners(listeners, evt)
 			}
 		}
@@ -1481,7 +1554,7 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	data := this.iBuffer.Buf
 	buffer := this.oBuffer.Buf
 	decoded := 0
-	checksum1 := uint32(0)
+	checksum1 := uint64(0)
 	skipped := false
 
 	defer func() {
@@ -1623,15 +1696,21 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 		return
 	}
 
+	hashType := kanzi.EVT_HASH_NONE
+
 	// Extract checksum from bit stream (if any)
-	if this.hasher != nil {
-		checksum1 = uint32(ibs.ReadBits(32))
+	if this.hasher32 != nil {
+		checksum1 = ibs.ReadBits(32)
+		hashType = kanzi.EVT_HASH_32BITS
+	} else if this.hasher64 != nil {
+		checksum1 = ibs.ReadBits(64)
+		hashType = kanzi.EVT_HASH_64BITS
 	}
 
 	if len(this.listeners) > 0 {
 		// Notify before entropy (block size in bitstream is unknown)
 		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_ENTROPY, int(this.currentBlockID),
-			int64(-1), checksum1, this.hasher != nil, time.Now())
+			int64(-1), checksum1, hashType, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
 
@@ -1671,14 +1750,14 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	if len(this.listeners) > 0 {
 		// Notify after entropy
 		evt := kanzi.NewEvent(kanzi.EVT_AFTER_ENTROPY, int(this.currentBlockID),
-			int64(ibs.Read())/8, checksum1, this.hasher != nil, time.Now())
+			int64(ibs.Read())/8, checksum1, hashType, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
 
 	if len(this.listeners) > 0 {
 		// Notify before transform
 		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_TRANSFORM, int(this.currentBlockID),
-			int64(preTransformLength), checksum1, this.hasher != nil, time.Now())
+			int64(preTransformLength), checksum1, hashType, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
 
@@ -1704,8 +1783,16 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	decoded = int(oIdx)
 
 	// Verify checksum
-	if this.hasher != nil {
-		checksum2 := this.hasher.Hash(data[0:decoded])
+	if this.hasher32 != nil {
+		checksum2 := this.hasher32.Hash(data[0:decoded])
+
+		if checksum2 != uint32(checksum1) {
+			errMsg := fmt.Sprintf("Corrupted bitstream: expected checksum %x, found %x", checksum1, checksum2)
+			res.err = &IOError{msg: errMsg, code: kanzi.ERR_CRC_CHECK}
+			return
+		}
+	} else if this.hasher32 != nil {
+		checksum2 := this.hasher64.Hash(data[0:decoded])
 
 		if checksum2 != checksum1 {
 			errMsg := fmt.Sprintf("Corrupted bitstream: expected checksum %x, found %x", checksum1, checksum2)
