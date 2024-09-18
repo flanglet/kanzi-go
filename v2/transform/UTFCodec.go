@@ -166,9 +166,9 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, err
 	}
 
-	dstEnd := count - (count / 10)
+	maxTarget := count - (count / 10)
 
-	if (3*n + 6) >= dstEnd {
+	if (3*n + 6) >= maxTarget {
 		return 0, 0, errors.New("UTF forward transform skip: no improvement")
 	}
 
@@ -205,7 +205,7 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 	}
 
-	if estimate >= dstEnd {
+	if estimate >= maxTarget {
 		return 0, uint(dstIdx), errors.New("UTF forward transform skip: no improvement")
 	}
 
@@ -239,7 +239,7 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 		dstIdx++
 	}
 
-	if dstIdx >= dstEnd {
+	if dstIdx >= maxTarget {
 		return uint(srcIdx), uint(dstIdx), errors.New("UTF forward transform skip: no improvement")
 	}
 
@@ -263,13 +263,13 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	count := len(src)
-	start := int(src[0])
-	adjust := int(src[1]) // adjust end of regular processing
+	start := int(src[0]) & 0x03
+	adjust := int(src[1]) & 0x03 // adjust end of regular processing
 	n := (int(src[2]) << 8) + int(src[3])
 
 	// Protect against invalid map size value
-	if (n >= 32768) || (3*n >= count) {
-		return 0, 0, errors.New("UTF inverse transform skip: invalid data")
+	if (n == 0) || (n >= 32768) || (3*n >= count) {
+		return 0, 0, errors.New("UTF inverse transform: invalid map size")
 	}
 
 	bsVersion := uint(4)
@@ -292,7 +292,7 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			sl := unpackUTF0(s, m[i].value[:])
 
 			if sl == 0 {
-				return 0, 0, errors.New("UTF inverse transform failed: invalid data")
+				return 0, 0, errors.New("UTF inverse transform failed: invalid UTF alias")
 			}
 
 			m[i].length = uint8(sl)
@@ -300,7 +300,7 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			sl := unpackUTF1(s, m[i].value[:])
 
 			if sl == 0 {
-				return 0, 0, errors.New("UTF inverse transform failed: invalid data")
+				return 0, 0, errors.New("UTF inverse transform failed: invalid UTF alias")
 			}
 
 			m[i].length = uint8(sl)
@@ -309,8 +309,13 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		srcIdx += 3
 	}
 
-	dstIdx := 0
 	srcEnd := count - 4 + adjust
+	dstIdx := 0
+	dstEnd := len(dst) - 4
+
+	if dstEnd < 0 {
+		return 0, 0, errors.New("UTF inverse transform failed: invalid output block size")
+	}
 
 	for i := 0; i < start; i++ {
 		dst[dstIdx] = src[srcIdx]
@@ -319,7 +324,7 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	// Emit data
-	for srcIdx < srcEnd {
+	for srcIdx < srcEnd && dstIdx < dstEnd {
 		alias := int(src[srcIdx])
 		srcIdx++
 
@@ -333,13 +338,19 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		dstIdx += int(s.length)
 	}
 
-	for i := srcEnd; i < count; i++ {
-		dst[dstIdx] = src[srcIdx]
-		srcIdx++
-		dstIdx++
+	var err error
+
+	if srcIdx < srcEnd || dstIdx >= dstEnd-count+srcEnd {
+		err = errors.New("UTF inverse transform failed: invalid data")
+	} else {
+		for i := srcEnd; i < count; i++ {
+			dst[dstIdx] = src[srcIdx]
+			srcIdx++
+			dstIdx++
+		}
 	}
 
-	return uint(srcIdx), uint(dstIdx), nil
+	return uint(srcIdx), uint(dstIdx), err
 }
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
