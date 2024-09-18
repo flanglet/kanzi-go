@@ -1682,12 +1682,7 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	mask := uint64(1<<length) - 1
 	preTransformLength := uint(ibs.ReadBits(length) & mask)
 
-	if preTransformLength == 0 {
-		res.err = &IOError{msg: "Invalid block size", code: kanzi.ERR_BLOCK_SIZE}
-		return
-	}
-
-	if preTransformLength > _MAX_BITSTREAM_BLOCK_SIZE {
+	if  preTransformLength == 0 || preTransformLength > _MAX_BITSTREAM_BLOCK_SIZE {
 		// Error => cancel concurrent decoding tasks
 		errMsg := fmt.Sprintf("Invalid compressed block size: %d", preTransformLength)
 		res.err = &IOError{msg: errMsg, code: kanzi.ERR_BLOCK_SIZE}
