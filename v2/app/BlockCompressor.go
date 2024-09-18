@@ -406,7 +406,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 			chksum = "64 bits"
 		}
 
-		msg = fmt.Sprintf("Checksum: %s", chksum)
+		msg = fmt.Sprintf("Block checksum: %s", chksum)
 		log.Println(msg, true)
 		w1 := "no"
 
@@ -807,7 +807,13 @@ func (this *fileCompressTask) call() (int, uint64, uint64, error) {
 	buffer := make([]byte, _COMP_DEFAULT_BUFFER_SIZE)
 
 	if len(this.listeners) > 0 {
-		evt := kanzi.NewEvent(kanzi.EVT_COMPRESSION_START, -1, 0, 0, kanzi.EVT_HASH_NONE, time.Now())
+		inputSize := int64(0)
+
+		if val, hasKey := this.ctx["fileSize"]; hasKey {
+			inputSize = val.(int64)
+		}
+
+		evt := kanzi.NewEvent(kanzi.EVT_COMPRESSION_START, -1, inputSize, 0, kanzi.EVT_HASH_NONE, time.Now())
 		notifyBCListeners(this.listeners, evt)
 	}
 

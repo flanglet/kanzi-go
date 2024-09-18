@@ -944,7 +944,7 @@ func printHelp(mode string, showHeader bool) {
 		log.Println("        EG: BWT+RANK or BWTS+MTFT\n", true)
 		log.Println("   -x, -x32, -x64, --checksum=<size>", true)
 		log.Println("        Enable block checksum (32 or 64 bits).", true)
-		log.Println("        -x is equivalent to -x32\n", true)
+		log.Println("        -x is equivalent to -x32.\n", true)
 		log.Println("   -s, --skip", true)
 		log.Println("        Copy blocks with high entropy instead of compressing them.\n", true)
 	}
