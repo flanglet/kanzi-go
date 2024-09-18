@@ -1237,11 +1237,8 @@ func (this *Reader) readHeader() error {
 		}
 
 		if bsVersion >= 6 {
-			padding := this.ibs.ReadBits(15)
-
-			if padding != 0 {
-				return &IOError{msg: "Invalid bitstream: corrupted header", code: kanzi.ERR_INVALID_FILE}
-			}
+			// Padding
+			this.ibs.ReadBits(15)
 		}
 	} else if bsVersion >= 3 {
 		// Read number of blocks in input. 0 means 'unknown' and 63 means 63 or more.
@@ -1282,7 +1279,7 @@ func (this *Reader) readHeader() error {
 		}
 
 		sb.WriteString(fmt.Sprintf("Bitstream version: %d\n", bsVersion))
-		sb.WriteString(fmt.Sprintf("Checksum: %v\n", ckSize))
+		sb.WriteString(fmt.Sprintf("Block checksum: %v\n", ckSize))
 		sb.WriteString(fmt.Sprintf("Block size: %d bytes\n", this.blockSize))
 		w1, _ := entropy.GetName(this.entropyType)
 
