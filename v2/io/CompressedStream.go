@@ -1601,6 +1601,7 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	}
 
 	// Read shared bitstream sequentially
+	blockOffset := this.ibs.Read()
 	lr := uint(this.ibs.ReadBits(5)) + 3
 	read := this.ibs.ReadBits(lr)
 
@@ -1621,8 +1622,7 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	}
 
 	if len(data) < maxL {
-		extraBuf := make([]byte, maxL-len(data))
-		data = append(data, extraBuf...)
+		data = make([]byte, maxL)
 		this.iBuffer.Buf = data
 	}
 
@@ -1682,7 +1682,7 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	mask := uint64(1<<length) - 1
 	preTransformLength := uint(ibs.ReadBits(length) & mask)
 
-	if  preTransformLength == 0 || preTransformLength > _MAX_BITSTREAM_BLOCK_SIZE {
+	if preTransformLength == 0 || preTransformLength > _MAX_BITSTREAM_BLOCK_SIZE {
 		// Error => cancel concurrent decoding tasks
 		errMsg := fmt.Sprintf("Invalid compressed block size: %d", preTransformLength)
 		res.err = &IOError{msg: errMsg, code: kanzi.ERR_BLOCK_SIZE}
@@ -1701,17 +1701,24 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	}
 
 	if len(this.listeners) > 0 {
-		// Notify before entropy (block size in bitstream is unknown)
-		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_ENTROPY, int(this.currentBlockID),
-			int64(-1), checksum1, hashType, time.Now())
-		notifyListeners(this.listeners, evt)
+		sf := skipFlags
+
+		if mode&_TRANSFORMS_MASK == 0 {
+			sf >>= 4
+		}
+
+		msg := fmt.Sprintf("{ \"type\":\"%s\", \"id\": %d, \"offset\":%d, \"skipFlags\":%.8b }",
+			"BLOCK_INFO", int(this.currentBlockID), blockOffset, sf)
+		evt1 := kanzi.NewEventFromString(kanzi.EVT_BLOCK_INFO, int(this.currentBlockID), msg, time.Now())
+		notifyListeners(this.listeners, evt1)
+
+		// Notify before entropy
+		evt2 := kanzi.NewEvent(kanzi.EVT_BEFORE_ENTROPY, int(this.currentBlockID),
+			int64(r), checksum1, hashType, time.Now())
+		notifyListeners(this.listeners, evt2)
 	}
 
-	bufferSize := this.blockLength
-
-	if bufferSize < preTransformLength+_EXTRA_BUFFER_SIZE {
-		bufferSize = preTransformLength + _EXTRA_BUFFER_SIZE
-	}
+	bufferSize := max(this.blockLength, preTransformLength+_EXTRA_BUFFER_SIZE)
 
 	if len(buffer) < int(bufferSize) {
 		buffer = make([]byte, int(bufferSize))
@@ -1742,16 +1749,14 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 
 	if len(this.listeners) > 0 {
 		// Notify after entropy
-		evt := kanzi.NewEvent(kanzi.EVT_AFTER_ENTROPY, int(this.currentBlockID),
-			int64(ibs.Read())/8, checksum1, hashType, time.Now())
-		notifyListeners(this.listeners, evt)
-	}
-
-	if len(this.listeners) > 0 {
-		// Notify before transform
-		evt := kanzi.NewEvent(kanzi.EVT_BEFORE_TRANSFORM, int(this.currentBlockID),
+		evt1 := kanzi.NewEvent(kanzi.EVT_AFTER_ENTROPY, int(this.currentBlockID),
 			int64(preTransformLength), checksum1, hashType, time.Now())
-		notifyListeners(this.listeners, evt)
+		notifyListeners(this.listeners, evt1)
+
+		// Notify before transform
+		evt2 := kanzi.NewEvent(kanzi.EVT_BEFORE_TRANSFORM, int(this.currentBlockID),
+			int64(preTransformLength), checksum1, hashType, time.Now())
+		notifyListeners(this.listeners, evt2)
 	}
 
 	this.ctx["size"] = preTransformLength

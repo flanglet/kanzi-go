@@ -30,6 +30,7 @@ const (
 	EVT_COMPRESSION_END       = 6 // Compression ends
 	EVT_DECOMPRESSION_END     = 7 // Decompression ends
 	EVT_AFTER_HEADER_DECODING = 8 // Compression header decoding ends
+	EVT_BLOCK_INFO            = 9 // Display block information
 
 	EVT_HASH_NONE   = 0
 	EVT_HASH_32BITS = 32
