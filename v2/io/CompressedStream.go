@@ -1701,14 +1701,8 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	}
 
 	if len(this.listeners) > 0 {
-		sf := skipFlags
-
-		if mode&_TRANSFORMS_MASK == 0 {
-			sf >>= 4
-		}
-
 		msg := fmt.Sprintf("{ \"type\":\"%s\", \"id\": %d, \"offset\":%d, \"skipFlags\":%.8b }",
-			"BLOCK_INFO", int(this.currentBlockID), blockOffset, sf)
+			"BLOCK_INFO", int(this.currentBlockID), blockOffset, skipFlags)
 		evt1 := kanzi.NewEventFromString(kanzi.EVT_BLOCK_INFO, int(this.currentBlockID), msg, time.Now())
 		notifyListeners(this.listeners, evt1)
 
