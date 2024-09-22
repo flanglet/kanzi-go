@@ -729,6 +729,7 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 	// Create a bitstream local to the task
 	bufStream := internal.NewBufferStream(data[0:0:cap(data)])
 	obs, _ := bitstream.NewDefaultOutputBitStream(bufStream, 16384)
+	skipFlags := t.SkipFlags()
 
 	// Write block 'header' (mode + compressed length)
 	if ((mode & _COPY_BLOCK_MASK) != 0) || (t.Len() <= 4) {
@@ -798,6 +799,17 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 		evt := kanzi.NewEvent(kanzi.EVT_AFTER_ENTROPY, int(this.currentBlockID),
 			int64((written+7)>>3), checksum, hashType, time.Now())
 		notifyListeners(this.listeners, evt)
+
+		if v, hasKey := this.ctx["verbosity"]; hasKey {
+			blockOffset := this.obs.Written()
+
+			if v.(uint) > 4 {
+				msg := fmt.Sprintf("{ \"type\":\"%s\", \"id\":%d, \"offset\":%d, \"skipFlags\":%.8b }",
+					"BLOCK_INFO", int(this.currentBlockID), blockOffset, skipFlags)
+				evt1 := kanzi.NewEventFromString(kanzi.EVT_BLOCK_INFO, int(this.currentBlockID), msg, time.Now())
+				notifyListeners(this.listeners, evt1)
+			}
+		}
 	}
 
 	// Emit block size in bits (max size pre-entropy is 1 GB = 1 << 30 bytes)
@@ -1701,10 +1713,14 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	}
 
 	if len(this.listeners) > 0 {
-		msg := fmt.Sprintf("{ \"type\":\"%s\", \"id\": %d, \"offset\":%d, \"skipFlags\":%.8b }",
-			"BLOCK_INFO", int(this.currentBlockID), blockOffset, skipFlags)
-		evt1 := kanzi.NewEventFromString(kanzi.EVT_BLOCK_INFO, int(this.currentBlockID), msg, time.Now())
-		notifyListeners(this.listeners, evt1)
+		if v, hasKey := this.ctx["verbosity"]; hasKey {
+			if v.(uint) > 4 {
+				msg := fmt.Sprintf("{ \"type\":\"%s\", \"id\":%d, \"offset\":%d, \"skipFlags\":%.8b }",
+					"BLOCK_INFO", int(this.currentBlockID), blockOffset, skipFlags)
+				evt1 := kanzi.NewEventFromString(kanzi.EVT_BLOCK_INFO, int(this.currentBlockID), msg, time.Now())
+				notifyListeners(this.listeners, evt1)
+			}
+		}
 
 		// Notify before entropy
 		evt2 := kanzi.NewEvent(kanzi.EVT_BEFORE_ENTROPY, int(this.currentBlockID),
