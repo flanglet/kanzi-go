@@ -146,6 +146,9 @@ func (this *Event) String() string {
 
 	case EVT_DECOMPRESSION_END:
 		t = "DECOMPRESSION_END"
+
+	case EVT_BLOCK_INFO:
+		t = "BLOCK_INFO"
 	}
 
 	return fmt.Sprintf("{ \"type\":\"%s\"%s, \"size\":%d, \"time\":%d%s }", t, id, this.size,
