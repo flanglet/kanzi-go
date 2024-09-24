@@ -85,18 +85,16 @@ func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
 	} else {
 		// Partial alphabet
 		obs.WriteBit(_PARTIAL_ALPHABET)
-		masks := [32]uint8{}
+		masks := [32]byte{}
 
 		for i := 0; i < count; i++ {
 			masks[alphabet[i]>>3] |= (1 << uint8(alphabet[i]&7))
 		}
 
+		// Encode presence flags
 		lastMask := alphabet[count-1] >> 3
 		obs.WriteBits(uint64(lastMask), 5)
-
-		for i := 0; i <= lastMask; i++ {
-			obs.WriteBits(uint64(masks[i]), 8)
-		}
+		obs.WriteArray(masks[:], 8*uint(lastMask+1))
 	}
 
 	return count, nil
@@ -127,17 +125,17 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 
 	// Partial alphabet
 	lastMask := int(ibs.ReadBits(5))
+	masks := [32]byte{}
 	count := 0
+	ibs.ReadArray(masks[:], 8*uint(lastMask+1))
 
 	// Decode presence flags
 	for i := 0; i <= lastMask; i++ {
-		mask := uint8(ibs.ReadBits(8))
-
+		n := i * 8
 		for j := 0; j < 8; j++ {
-			if mask&(uint8(1)<<uint(j)) != 0 {
-				alphabet[count] = (i << 3) + j
-				count++
-			}
+			bit := int(masks[i]>>uint(j)) & 1
+			alphabet[count] = n + j
+			count += bit
 		}
 	}
 
