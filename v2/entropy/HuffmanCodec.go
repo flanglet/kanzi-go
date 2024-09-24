@@ -175,7 +175,7 @@ func (this *HuffmanEncoder) updateFrequencies(freqs []int) (int, error) {
 
 		if maxCodeLen > _HUF_MAX_SYMBOL_SIZE_V4 {
 			// Attempt to limit codes max width
-			if _, err = this.limitCodeLengths(symbols, freqs, sizes[:], ranks[0:count]); err != nil {
+			if maxCodeLen, err = this.limitCodeLengths(symbols, freqs, sizes[:], ranks[0:count]); err != nil {
 				return count, err
 			}
 		}
