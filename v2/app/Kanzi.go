@@ -315,12 +315,8 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 		verbose = 0
 	}
 
-	if verbose >= 1 {
-		log.Println("\n"+_APP_HEADER+"\n", true)
-		log.Println(_APP_SUB_HEADER, true)
-		log.Println(_APP_USAGE, true)
-	}
-
+	log.Println("\n"+_APP_HEADER+"\n", verbose >= 1)
+	log.Println(_APP_SUB_HEADER, verbose > 1)
 	inputName = ""
 	outputName = ""
 	ctx = -1
