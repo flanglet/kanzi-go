@@ -16,6 +16,7 @@ limitations under the License.
 package transform
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"sort"
@@ -28,7 +29,24 @@ const (
 )
 
 var (
-	_UTF_SIZES = []int{1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 2, 2, 3, 4}
+	_UTF_SIZES = [256]uint8{
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+		2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+		3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+		4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	}
 )
 
 type sdUTF struct {
@@ -115,9 +133,13 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	start := 0
 
-	// First (possibly) invalid symbols (due to block truncation)
-	for (start < 4) && (_UTF_SIZES[src[start]>>4] == 0) {
-		start++
+	if binary.BigEndian.Uint32(src[0:])&0x00FFFFFF == 0x00EFBBBF { // Byte Order Mark (BOM)
+		start = 3
+	} else {
+		// First (possibly) invalid symbols (due to block truncation).
+		for (start < 4) && (_UTF_SIZES[src[start]] == 0) {
+			start++
+		}
 	}
 
 	if (mustValidate == true) && (validateUTF(src[start:count-4]) == false) {
@@ -145,12 +167,25 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		if aliasMap[val] == 0 {
+			// Validation of longer sequences
+			res := true
+
+			if s == 3 {
+				// Third byte in [0x80..0xBF]
+				res = res && !((src[i+2] < 0x80) || (src[i+2] > 0xBF))
+			} else if s == 4 {
+				// Combine third and fourth bytes
+				v := (uint16(src[i+2]) << 8) | uint16(src[i+3])
+				// Third and fourth bytes in [0x80..0xBF]
+				res = res && ((v & 0xC0C0) == 0x8080)
+			}
+
 			symb[n] = sdUTF{sym: int32(val)}
 			n++
+			res = res && (n < 32768)
 
-			if n >= 32768 {
-				err = errors.New("UTF forward transform skip: too many symbols")
-				break
+			if res == false {
+				return 0, 0, errors.New("UTF forward transform skip: invalid or too complex")
 			}
 		}
 
@@ -358,10 +393,12 @@ func (this *UTFCodec) MaxEncodedLen(srcLen int) int {
 	return srcLen + 8192
 }
 
+// A quick partial validation
+// A more complete validation is done during processing for the remaining cases
+// (rules for 3 and 4 byte sequences)
 func validateUTF(block []byte) bool {
 	var freqs0 [256]int
-	var freqs [256][256]int
-	freqs1 := freqs[0:256]
+	var freqs1 [256][256]int
 	count := len(block)
 	end4 := count & -4
 	prv := byte(0)
@@ -390,8 +427,8 @@ func validateUTF(block []byte) bool {
 		prv = cur
 	}
 
-	// Check UTF-8
-	// See Unicode 14 Standard - UTF-8 Table 3.7
+	// Valid UTF-8 sequences
+	// See Unicode 16 Standard - UTF-8 Table 3.7
 	// U+0000..U+007F          00..7F
 	// U+0080..U+07FF          C2..DF 80..BF
 	// U+0800..U+0FFF          E0 A0..BF 80..BF
@@ -401,51 +438,79 @@ func validateUTF(block []byte) bool {
 	// U+10000..U+3FFFF        F0 90..BF 80..BF 80..BF
 	// U+40000..U+FFFFF        F1..F3 80..BF 80..BF 80..BF
 	// U+100000..U+10FFFF      F4 80..8F 80..BF 80..BF
-	if freqs0[0xC0] > 0 || freqs0[0xC1] > 0 {
+
+	// Check rules for 1 byte
+	sum := freqs0[0xC0] + freqs0[0xC1]
+
+	for i := 0xF5; i <= 0xFF; i++ {
+		sum += freqs0[i]
+	}
+
+	if sum != 0 {
 		return false
 	}
 
-	for i := 0xF5; i <= 0xFF; i++ {
-		if freqs0[i] > 0 {
-			return false
-		}
-	}
+	sum2 := 0
 
-	sum := 0
-
+	// Check rules for first 2 bytes
 	for i := 0; i < 256; i++ {
 		// Exclude < 0xE0A0 || > 0xE0BF
-		if (i < 0xA0 || i > 0xBF) && (freqs[0xE0][i] > 0) {
-			return false
+		if i < 0xA0 || i > 0xBF {
+			sum += freqs1[0xE0][i]
 		}
 
 		// Exclude < 0xED80 || > 0xEDE9F
-		if (i < 0x80 || i > 0x9F) && (freqs[0xED][i] > 0) {
-			return false
+		if i < 0x80 || i > 0x9F {
+			sum += freqs1[0xED][i]
 		}
 
 		// Exclude < 0xF090 || > 0xF0BF
-		if (i < 0x90 || i > 0xBF) && (freqs[0xF0][i] > 0) {
-			return false
+		if i < 0x90 || i > 0xBF {
+			sum += freqs1[0xF0][i]
 		}
 
-		// Exclude < 0xF480 || > 0xF4BF
-		if (i < 0x80 || i > 0xBF) && (freqs[0xF4][i] > 0) {
-			return false
+		// Exclude < 0xF480 || > 0xF48F
+		if i < 0x80 || i > 0x8F {
+			sum += freqs1[0xF4][i]
 		}
 
-		// Count non-primary bytes
-		if i >= 0x80 && i <= 0xBF {
-			sum += freqs0[i]
+		if i < 0x80 || i > 0xBF {
+			// Exclude < 0x??80 || > 0x??BF with ?? in [C2..DF]
+			for j := 0xC2; j <= 0xDF; j++ {
+				sum += freqs1[j][i]
+			}
+
+			// Exclude < 0x??80 || > 0x??BF with ?? in [E1..EC]
+			for j := 0xE1; j <= 0xEC; j++ {
+				sum += freqs1[j][i]
+			}
+
+			// Exclude < 0x??80 || > 0x??BF with ?? in [F1..F3]
+			sum += freqs1[0xF1][i]
+			sum += freqs1[0xF2][i]
+			sum += freqs1[0xF3][i]
+
+			// Exclude < 0xEE80 || > 0xEEBF
+			sum += freqs1[0xEE][i]
+
+			// Exclude < 0xEF80 || > 0xEFBF
+			sum += freqs1[0xEF][i]
+		} else {
+			// Count non-primary bytes
+			sum2 += freqs0[i]
+		}
+
+		if sum != 0 {
+			return false
 		}
 	}
 
 	// Ad-hoc threshold
-	return sum >= (count / 4)
+	return sum2 >= (count / 8)
 }
 
 func packUTF(in []byte, out *uint32) int {
-	s := _UTF_SIZES[uint8(in[0])>>4]
+	s := int(_UTF_SIZES[in[0]])
 
 	switch s {
 	case 1:
