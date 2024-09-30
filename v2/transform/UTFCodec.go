@@ -160,33 +160,23 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 	for i := start; i < count-4; {
 		var val uint32
 		s := packUTF(src[i:], &val)
-
-		if s == 0 {
-			err = errors.New("UTF forward transform skip: invalid UTF")
-			break
-		}
+		res := s != 0
+		// Validation of longer sequences
+		// Third byte in [0x80..0xBF]
+		res = res && ((s != 3) || ((src[i+2] >= 0x80) && (src[i+2] <= 0xBF)))
+		// Combine third and fourth bytes
+		v := (uint16(src[i+2]) << 8) | uint16(src[i+3])
+		// Third and fourth bytes in [0x80..0xBF]
+		res = res && (((s != 4) || (v & 0xC0C0) == 0x8080))
 
 		if aliasMap[val] == 0 {
-			// Validation of longer sequences
-			res := true
-
-			if s == 3 {
-				// Third byte in [0x80..0xBF]
-				res = res && !((src[i+2] < 0x80) || (src[i+2] > 0xBF))
-			} else if s == 4 {
-				// Combine third and fourth bytes
-				v := (uint16(src[i+2]) << 8) | uint16(src[i+3])
-				// Third and fourth bytes in [0x80..0xBF]
-				res = res && ((v & 0xC0C0) == 0x8080)
-			}
-
-			symb[n] = sdUTF{sym: int32(val)}
+			symb[n].sym= int32(val)
 			n++
 			res = res && (n < 32768)
+		}
 
-			if res == false {
-				return 0, 0, errors.New("UTF forward transform skip: invalid or too complex")
-			}
+		if res == false {
+			return 0, 0, errors.New("UTF forward transform skip: invalid or too complex")
 		}
 
 		aliasMap[val]++
