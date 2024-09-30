@@ -115,7 +115,7 @@ func (this *Event) String() string {
 	id := ""
 
 	if this.hashType != EVT_HASH_NONE {
-		hash = fmt.Sprintf(", \"hash\":%x", this.hash)
+		hash = fmt.Sprintf(", \"hash\":\"%x\"", this.hash)
 	}
 
 	if this.id >= 0 {
