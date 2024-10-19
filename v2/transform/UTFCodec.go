@@ -167,10 +167,10 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 		// Combine third and fourth bytes
 		v := (uint16(src[i+2]) << 8) | uint16(src[i+3])
 		// Third and fourth bytes in [0x80..0xBF]
-		res = res && (((s != 4) || (v & 0xC0C0) == 0x8080))
+		res = res && ((s != 4) || (v&0xC0C0) == 0x8080)
 
 		if aliasMap[val] == 0 {
-			symb[n].sym= int32(val)
+			symb[n].sym = int32(val)
 			n++
 			res = res && (n < 32768)
 		}
@@ -386,6 +386,7 @@ func (this *UTFCodec) MaxEncodedLen(srcLen int) int {
 // A quick partial validation
 // A more complete validation is done during processing for the remaining cases
 // (rules for 3 and 4 byte sequences)
+// Faster than utf8.Valid([]byte), especially at rejecting a block
 func validateUTF(block []byte) bool {
 	var freqs0 [256]int
 	var freqs1 [256][256]int
@@ -408,13 +409,39 @@ func validateUTF(block []byte) bool {
 		freqs1[cur1][cur2]++
 		freqs1[cur2][cur3]++
 		prv = cur3
+
+		if i&0x0FFF == 0 {
+			// Early check rules for 1 byte
+			sum := freqs0[0xC0] + freqs0[0xC1]
+
+			for _, f := range freqs0[0xF5:] {
+				sum += f
+			}
+
+			if sum != 0 {
+				return false
+			}
+		}
 	}
 
-	for i := end4; i < count; i++ {
-		cur := block[i]
-		freqs0[cur]++
-		freqs1[prv][cur]++
-		prv = cur
+	if end4 != count {
+		for i := end4; i < count; i++ {
+			cur := block[i]
+			freqs0[cur]++
+			freqs1[prv][cur]++
+			prv = cur
+		}
+
+		// Check rules for 1 byte
+		sum := freqs0[0xC0] + freqs0[0xC1]
+
+		for _, f := range freqs0[0xF5:] {
+			sum += f
+		}
+
+		if sum != 0 {
+			return false
+		}
 	}
 
 	// Valid UTF-8 sequences
@@ -428,18 +455,7 @@ func validateUTF(block []byte) bool {
 	// U+10000..U+3FFFF        F0 90..BF 80..BF 80..BF
 	// U+40000..U+FFFFF        F1..F3 80..BF 80..BF 80..BF
 	// U+100000..U+10FFFF      F4 80..8F 80..BF 80..BF
-
-	// Check rules for 1 byte
-	sum := freqs0[0xC0] + freqs0[0xC1]
-
-	for i := 0xF5; i <= 0xFF; i++ {
-		sum += freqs0[i]
-	}
-
-	if sum != 0 {
-		return false
-	}
-
+	sum := 0
 	sum2 := 0
 
 	// Check rules for first 2 bytes
