@@ -842,7 +842,7 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 
 func notifyListeners(listeners []kanzi.Listener, evt *kanzi.Event) {
 	defer func() {
-		//nolint
+		// nolint:staticcheck
 		if r := recover(); r != nil {
 			//lint:ignore SA9003
 			// Ignore panics in block listeners

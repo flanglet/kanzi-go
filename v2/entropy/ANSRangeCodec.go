@@ -731,10 +731,10 @@ func (this *ANSRangeDecoder) Read(block []byte) (int, error) {
 	for startChunk < end {
 		endChunk := min(startChunk+sizeChunk, end)
 		sizeChunk = endChunk - startChunk
-		alphabetSize, err := this.decodeHeader(this.freqs, alphabet[:])
+		alphabetSize, errH := this.decodeHeader(this.freqs, alphabet[:])
 
-		if err != nil || alphabetSize == 0 {
-			return startChunk, err
+		if errH != nil || alphabetSize == 0 {
+			return startChunk, errH
 		}
 
 		if this.order == 0 && alphabetSize == 1 {

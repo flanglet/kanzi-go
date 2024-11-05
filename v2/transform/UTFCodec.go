@@ -163,11 +163,9 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 		res := s != 0
 		// Validation of longer sequences
 		// Third byte in [0x80..0xBF]
-		res = res && ((s != 3) || ((src[i+2] >= 0x80) && (src[i+2] <= 0xBF)))
-		// Combine third and fourth bytes
-		v := (uint16(src[i+2]) << 8) | uint16(src[i+3])
+		res = res && ((s != 3) || ((src[i+2] & 0xC0) == 0x80))
 		// Third and fourth bytes in [0x80..0xBF]
-		res = res && ((s != 4) || (v&0xC0C0) == 0x8080)
+		res = res && ((s != 4) || ((((uint16(src[i+2]) << 8) | uint16(src[i+3])) & 0xC0C0) == 0x8080))
 
 		if aliasMap[val] == 0 {
 			symb[n].sym = int32(val)

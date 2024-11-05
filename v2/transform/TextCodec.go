@@ -187,8 +187,7 @@ func computeTextStats(block []byte, freqs0 []int, strict bool) byte {
 		return _TC_MASK_NOT_TEXT
 	}
 
-	var freqs [256][256]int
-	freqs1 := freqs[0:256]
+	freqs1 := make([][256]int, 256)
 	count := len(block)
 	end4 := count & -4
 	prv := byte(0)
@@ -236,16 +235,16 @@ func computeTextStats(block []byte, freqs0 []int, strict bool) byte {
 		notText = true
 	} else {
 		if strict == true {
-			notText = (nbTextChars < (count >> 2)) || (freqs0[0] >= count/100) || ((nbASCII / 95) < (count / 100))
+			notText = (nbTextChars < (count / 4)) || (freqs0[0] >= count/100) || ((nbASCII / 95) < (count / 100))
 		} else {
-			notText = (nbTextChars < (count >> 1)) || (freqs0[32] < count/50)
+			notText = (nbTextChars < (count / 2)) || (freqs0[32] < count/50)
 		}
 	}
 
 	res := byte(0)
 
 	if notText == true {
-		return res | detectTextType(freqs0, freqs[:], count)
+		return res | detectTextType(freqs0, freqs1[:], count)
 	}
 
 	if nbBinChars <= count-count/10 {
@@ -255,7 +254,7 @@ func computeTextStats(block []byte, freqs0 []int, strict bool) byte {
 		// Getting this flag wrong results in a very small compression speed degradation.
 		f1 := freqs0['<']
 		f2 := freqs0['>']
-		f3 := freqs['&']['a'] + freqs['&']['g'] + freqs['&']['l'] + freqs['&']['q']
+		f3 := freqs1['&']['a'] + freqs1['&']['g'] + freqs1['&']['l'] + freqs1['&']['q']
 		minFreq := (count - nbBinChars) >> 9
 
 		if minFreq < 2 {
