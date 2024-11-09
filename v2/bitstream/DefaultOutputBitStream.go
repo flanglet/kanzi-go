@@ -62,9 +62,10 @@ func NewDefaultOutputBitStream(stream io.WriteCloser, bufferSize uint) (*Default
 
 // WriteBit writes the least significant bit of the input integer. Panics if the bitstream is closed
 func (this *DefaultOutputBitStream) WriteBit(bit int) {
-	if this.availBits <= 1 { // availBits = 0 if stream is closed => force pushCurrent() => panic
-		this.current |= uint64(bit & 1)
-		this.pushCurrent()
+	if this.availBits <= 1 { // availBits = 0 if stream is closed => force push() => panic
+		this.push(this.current | uint64(bit&1))
+		this.current = 0
+		this.availBits = 64
 	} else {
 		this.availBits--
 		this.current |= (uint64(bit&1) << this.availBits)
@@ -84,9 +85,9 @@ func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) uint {
 	if count >= this.availBits {
 		// Not enough spots available in 'current'
 		remaining := count - this.availBits
-		this.pushCurrent()
+		this.push(this.current)
 		this.current = value << (64 - remaining)
-		this.availBits -= remaining
+		this.availBits = 64 - remaining
 	} else {
 		this.availBits -= count
 	}
@@ -172,8 +173,8 @@ func (this *DefaultOutputBitStream) WriteArray(bits []byte, count uint) uint {
 
 			for remaining >= 64 {
 				val := binary.BigEndian.Uint64(bits[start:])
-				this.current |= (val >> r)
-				this.pushCurrent()
+				this.push(this.current | (val >> r))
+				this.availBits = 64
 				this.current = val << a
 				start += 8
 				remaining -= 64
@@ -197,11 +198,9 @@ func (this *DefaultOutputBitStream) WriteArray(bits []byte, count uint) uint {
 	return count
 }
 
-// Push 64 bits of current value into buffer.
-func (this *DefaultOutputBitStream) pushCurrent() {
-	binary.BigEndian.PutUint64(this.buffer[this.position:this.position+8], this.current)
-	this.availBits = 64
-	this.current = 0
+// Push 64 bits into buffer.
+func (this *DefaultOutputBitStream) push(val uint64) {
+	binary.BigEndian.PutUint64(this.buffer[this.position:this.position+8], val)
 	this.position += 8
 
 	if this.position >= len(this.buffer)-8 {
