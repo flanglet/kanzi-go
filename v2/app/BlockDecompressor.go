@@ -394,11 +394,18 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 		} else {
 			iName = files[0].FullPath
 			ctx["fileSize"] = files[0].Size
+			tmpName := iName
+
+			if len(tmpName) >= 4 && strings.EqualFold(tmpName[len(tmpName)-4:], ".KNZ") {
+				tmpName = tmpName[0 : len(tmpName)-4]
+			} else {
+				tmpName = tmpName + ".bak"
+			}
 
 			if len(oName) == 0 {
-				oName = iName + ".bak"
+				oName = tmpName
 			} else if inputIsDir == true && specialOutput == false {
-				oName = formattedOutName + iName[len(formattedInName):] + ".bak"
+				oName = formattedOutName + tmpName[len(formattedInName):]
 			}
 		}
 
@@ -420,11 +427,18 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 		for i, f := range files {
 			iName := f.FullPath
 			oName := formattedOutName
+			tmpName := iName
+
+			if len(tmpName) >= 4 && strings.EqualFold(tmpName[len(tmpName)-4:], ".KNZ") {
+				tmpName = tmpName[0 : len(tmpName)-4]
+			} else {
+				tmpName = tmpName + ".bak"
+			}
 
 			if len(oName) == 0 {
-				oName = iName + ".bak"
+				oName = tmpName
 			} else if inputIsDir == true && specialOutput == false {
-				oName = formattedOutName + iName[len(formattedInName):] + ".bak"
+				oName = formattedOutName + tmpName[len(formattedInName):]
 			}
 
 			taskCtx := make(map[string]any)
