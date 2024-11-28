@@ -757,5 +757,5 @@ func (this *fileDecompressTask) call() (int, uint64, error) {
 		}
 	}
 
-	return res, uint64(decoded), err
+	return 0, uint64(decoded), err
 }
