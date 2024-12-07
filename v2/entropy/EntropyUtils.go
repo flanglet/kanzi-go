@@ -262,16 +262,11 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 			n++
 		}
 
-		if n == 0 {
-			freqs[idxMax] -= delta
-			return alphabetSize, nil
-		}
-
 		// Sort queue by decreasing frequency
 		queue = queue[0:n]
 		sort.Sort(queue)
 
-		for sumScaledFreq != scale {
+		for len(queue) != 0 {
 			// Remove symbol with highest frequency
 			fsd := queue[0]
 			queue = queue[1:]
@@ -285,6 +280,23 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 			*fsd.freq += inc
 			sumScaledFreq += inc
 			queue = append(queue, fsd)
+
+			if sumScaledFreq == scale {
+				break
+			}
+		}
+
+		if sumScaledFreq != scale {
+			for i := 0; i < alphabetSize; i++ {
+				if freqs[alphabet[i]] != -inc {
+					freqs[alphabet[i]] += inc
+					sumScaledFreq += inc
+
+					if sumScaledFreq == scale {
+						break
+					}
+				}
+			}
 		}
 	}
 
