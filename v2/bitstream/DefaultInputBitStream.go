@@ -64,7 +64,7 @@ func NewDefaultInputBitStream(stream io.ReadCloser, bufferSize uint) (*DefaultIn
 // ReadBit returns the next bit
 func (this *DefaultInputBitStream) ReadBit() int {
 	if this.availBits == 0 {
-		this.pullCurrent() // Panic if stream is closed
+		this.current, this.availBits = this.pull() // Panic if stream is closed
 	}
 
 	this.availBits--
@@ -88,7 +88,7 @@ func (this *DefaultInputBitStream) ReadBits(count uint) uint64 {
 	// Not enough spots available in 'current'
 	count -= this.availBits
 	res := this.current & (0xFFFFFFFFFFFFFFFF >> (64 - this.availBits))
-	this.pullCurrent()
+	this.current, this.availBits = this.pull()
 	return (res << count) | this.ReadBits(count) // handle this.availBits < count (at EOS)
 }
 
@@ -110,7 +110,7 @@ func (this *DefaultInputBitStream) ReadArray(bits []byte, count uint) uint {
 	// Byte aligned cursor ?
 	if this.availBits&7 == 0 {
 		if this.availBits == 0 {
-			this.pullCurrent()
+			this.current, this.availBits = this.pull()
 		}
 
 		// Empty this.current
@@ -153,7 +153,7 @@ func (this *DefaultInputBitStream) ReadArray(bits []byte, count uint) uint {
 			v0 := this.current
 
 			if this.position+32 > this.maxPosition {
-				this.pullCurrent()
+				this.current, this.availBits = this.pull()
 
 				if this.availBits < r {
 					panic("No more data to read in the bitstream")
@@ -182,7 +182,7 @@ func (this *DefaultInputBitStream) ReadArray(bits []byte, count uint) uint {
 
 		for remaining >= 64 {
 			v := this.current
-			this.pullCurrent()
+			this.current, this.availBits = this.pull()
 
 			if this.availBits < r {
 				panic("No more data to read in the bitstream")
@@ -246,8 +246,8 @@ func (this *DefaultInputBitStream) HasMoreToRead() (bool, error) {
 	return err == nil, err
 }
 
-// Pull 64 bits of current value from buffer.
-func (this *DefaultInputBitStream) pullCurrent() {
+// Pull 64 bits from buffer.
+func (this *DefaultInputBitStream) pull() (uint64, uint) {
 	if this.position > this.maxPosition {
 		if _, err := this.readFromInputStream(len(this.buffer)); err != nil {
 			panic(err)
@@ -257,7 +257,7 @@ func (this *DefaultInputBitStream) pullCurrent() {
 	if this.position+7 > this.maxPosition {
 		// End of stream: overshoot max position => adjust bit index
 		shift := uint(this.maxPosition-this.position) << 3
-		this.availBits = shift + 8
+		avail := shift + 8
 		val := uint64(0)
 
 		for this.position <= this.maxPosition {
@@ -266,12 +266,11 @@ func (this *DefaultInputBitStream) pullCurrent() {
 			shift -= 8
 		}
 
-		this.current = val
+		return val, avail
 	} else {
 		// Regular processing, buffer length is multiple of 8
-		this.current = binary.BigEndian.Uint64(this.buffer[this.position : this.position+8])
-		this.availBits = 64
 		this.position += 8
+		return binary.BigEndian.Uint64(this.buffer[this.position-8 : this.position]), 64
 	}
 
 }

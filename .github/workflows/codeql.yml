@@ -67,7 +67,7 @@ jobs:
     #   modify them (or add more) to build your code if your project, please refer to the EXAMPLE below for guidance.
 
     - run:
-       cd ../../v2/app && go build Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
+       cd v2/app && go build Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@b7bf0a3ed3ecfa44160715d7c442788f65f0f923 # v3.23.2

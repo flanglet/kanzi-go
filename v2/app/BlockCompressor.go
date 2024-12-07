@@ -357,7 +357,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		}
 
 		if len(files) == 0 {
-			fmt.Printf("Cannot open input file '%s'\n", this.inputName)
+			fmt.Println("Cannot find any file to compress")
 			return kanzi.ERR_OPEN_FILE, 0
 		}
 
@@ -450,7 +450,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		fi, err := os.Stat(formattedInName)
 
 		if err != nil {
-			fmt.Printf("Cannot access %s\n", formattedInName)
+			fmt.Println("Cannot find any file to compress")
 			return kanzi.ERR_OPEN_FILE, 0
 		}
 

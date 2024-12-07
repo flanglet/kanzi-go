@@ -253,7 +253,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 		}
 
 		if len(files) == 0 {
-			fmt.Printf("Cannot open input file '%s'\n", this.inputName)
+			fmt.Println("Cannot find any file to decompress")
 			return kanzi.ERR_OPEN_FILE, 0
 		}
 
@@ -394,11 +394,18 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 		} else {
 			iName = files[0].FullPath
 			ctx["fileSize"] = files[0].Size
+			tmpName := iName
+
+			if len(tmpName) >= 4 && strings.EqualFold(tmpName[len(tmpName)-4:], ".KNZ") {
+				tmpName = tmpName[0 : len(tmpName)-4]
+			} else {
+				tmpName = tmpName + ".bak"
+			}
 
 			if len(oName) == 0 {
-				oName = iName + ".bak"
+				oName = tmpName
 			} else if inputIsDir == true && specialOutput == false {
-				oName = formattedOutName + iName[len(formattedInName):] + ".bak"
+				oName = formattedOutName + tmpName[len(formattedInName):]
 			}
 		}
 
@@ -420,11 +427,18 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 		for i, f := range files {
 			iName := f.FullPath
 			oName := formattedOutName
+			tmpName := iName
+
+			if len(tmpName) >= 4 && strings.EqualFold(tmpName[len(tmpName)-4:], ".KNZ") {
+				tmpName = tmpName[0 : len(tmpName)-4]
+			} else {
+				tmpName = tmpName + ".bak"
+			}
 
 			if len(oName) == 0 {
-				oName = iName + ".bak"
+				oName = tmpName
 			} else if inputIsDir == true && specialOutput == false {
-				oName = formattedOutName + iName[len(formattedInName):] + ".bak"
+				oName = formattedOutName + tmpName[len(formattedInName):]
 			}
 
 			taskCtx := make(map[string]any)
@@ -737,10 +751,11 @@ func (this *fileDecompressTask) call() (int, uint64, error) {
 		// Delete input file
 		if inputName == "STDIN" {
 			log.Println("Warning: ignoring remove option with STDIN", verbosity > 0)
-		} else if os.Remove(inputName) != nil {
-			log.Println("Warning: input file could not be deleted", verbosity > 0)
+		} else if err := os.Remove(inputName); err != nil {
+			msg := fmt.Sprintf("Warning: input file could not be deleted (%v)\n", err)
+			log.Println(msg, verbosity > 0)
 		}
 	}
 
-	return 0, uint64(decoded), nil
+	return 0, uint64(decoded), err
 }

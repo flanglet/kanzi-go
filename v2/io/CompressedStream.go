@@ -1113,19 +1113,20 @@ func (this *Reader) RemoveListener(bl kanzi.Listener) bool {
 	return false
 }
 
-func (this *Reader) readHeader() error {
+// Use a named return value to update the error in the defer function (after return is executed)
+func (this *Reader) readHeader() (err error) {
 	if this.headless == true || atomic.SwapInt32(&this.initialized, 1) != 0 {
 		return nil
 	}
 
 	defer func() {
 		if r := recover(); r != nil {
-			err, ok := r.(error)
+			ioErr, ok := r.(error)
 
 			if ok {
-				panic(&IOError{msg: "Invalid bitstream header: " + err.Error(), code: kanzi.ERR_READ_FILE})
+				err = &IOError{msg: "Invalid bitstream header: " + ioErr.Error(), code: kanzi.ERR_READ_FILE}
 			} else {
-				panic(&IOError{msg: "Invalid bitstream header", code: kanzi.ERR_READ_FILE})
+				err = &IOError{msg: "Invalid bitstream header", code: kanzi.ERR_READ_FILE}
 			}
 		}
 	}()
@@ -1147,7 +1148,6 @@ func (this *Reader) readHeader() error {
 	}
 
 	this.ctx["bsVersion"] = bsVersion
-	var err error
 
 	// Read block checksum
 	if bsVersion >= 6 {
