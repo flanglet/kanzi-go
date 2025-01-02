@@ -93,7 +93,7 @@ func NewRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*RangeEncoder, err
 	return this, nil
 }
 
-// NewRangeEncoder creates a new instance of RangeEncoder with a context
+// NewRangeEncoderWithCtx  creates a new instance of RangeEncoder with a context
 // The given arguments are either empty or containing a chunk size and
 // a log range (to specify the precision of the encoding).
 // The default chunk size is 65536 bytes.
@@ -367,9 +367,8 @@ func NewRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*RangeDecoder, erro
 	return this, nil
 }
 
-// NewRangeDecoder creates a new instance of RangeDecoder with a context
+// NewRangeDecoderWithCtx creates a new instance of RangeDecoder with a context
 // The given arguments are either empty or containing a chunk size.
-// EG: call NewRangeDecoder(bs) or NewRangeDecoder(bs, 16384)
 // The default chunk size is 65536 bytes.
 func NewRangeDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]any, args ...uint) (*RangeDecoder, error) {
 	if bs == nil {
