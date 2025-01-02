@@ -167,10 +167,10 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 				srcIdx += 4
 				run += 4
 
-				if (run < _RLT_MAX_RUN4) && (srcIdx < srcEnd4) {
+				if run < _RLT_MAX_RUN4 && srcIdx < srcEnd4 {
 					continue
 				}
-			} else if prev == src[srcIdx] {
+			} else {
 				srcIdx++
 				run++
 
