@@ -157,15 +157,14 @@ func (this *BWTBlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 
 		chunks := 1 << logNbChunks
-
-		if chunks != GetBWTChunks(blockSize) {
-			return 0, 0, errors.New("BWT inverse transform failed: invalid number of chunks")
-		}
-
 		headerSize := chunks*pIndexSize + 1
 
 		if len(src) < headerSize || blockSize < headerSize {
 			return 0, 0, errors.New("BWT inverse transform failed: invalid header size")
+		}
+
+		if chunks != GetBWTChunks(blockSize-headerSize) {
+			return 0, 0, errors.New("BWT inverse transform failed: invalid number of chunks")
 		}
 
 		// Read header
