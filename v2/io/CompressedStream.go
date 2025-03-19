@@ -365,6 +365,12 @@ func (this *Writer) writeHeader() *IOError {
 		}
 	}
 
+	padding := uint64(0)
+
+	if this.obs.WriteBits(padding, 15) != 15 {
+		return &IOError{msg: "Cannot write padding to header", code: kanzi.ERR_WRITE_FILE}
+	}
+
 	seed := uint32(0x01030507 * _BITSTREAM_FORMAT_VERSION)
 	HASH := uint32(0x1E35A7BD)
 	cksum := HASH * seed
@@ -382,12 +388,6 @@ func (this *Writer) writeHeader() *IOError {
 
 	if this.obs.WriteBits(uint64(cksum), 24) != 24 {
 		return &IOError{msg: "Cannot write checksum to header", code: kanzi.ERR_WRITE_FILE}
-	}
-
-	padding := uint64(0)
-
-	if this.obs.WriteBits(padding, 15) != 15 {
-		return &IOError{msg: "Cannot write padding to header", code: kanzi.ERR_WRITE_FILE}
 	}
 
 	return nil
@@ -1219,6 +1219,11 @@ func (this *Reader) readHeader() (err error) {
 			this.nbInputBlocks = min(nbBlocks, _MAX_CONCURRENCY-1)
 		}
 
+		if bsVersion >= 6 {
+			// Padding
+			this.ibs.ReadBits(15)
+		}
+
 		// Read and verify checksum
 		crcSize := uint(24)
 		seed := uint32(0x01030507 * bsVersion)
@@ -1246,11 +1251,6 @@ func (this *Reader) readHeader() (err error) {
 
 		if cksum1 != (cksum2 & ((1 << crcSize) - 1)) {
 			return &IOError{msg: "Invalid bitstream: checksum mismatch", code: kanzi.ERR_CRC_CHECK}
-		}
-
-		if bsVersion >= 6 {
-			// Padding
-			this.ibs.ReadBits(15)
 		}
 	} else if bsVersion >= 3 {
 		// Read number of blocks in input. 0 means 'unknown' and 63 means 63 or more.
