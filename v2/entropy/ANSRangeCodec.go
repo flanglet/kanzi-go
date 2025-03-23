@@ -107,7 +107,7 @@ func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncode
 	this.freqs = make([]int, dim*257) // freqs[x][256] = total(freqs[x][0..255])
 	this.symbols = make([]encSymbol, dim*256)
 	this.buffer = make([]byte, 0)
-	this.logRange = max(logRange - order, 8)
+	this.logRange = max(logRange-order, 8)
 	this.chunkSize = int(chkSize)
 	return this, nil
 }
@@ -162,7 +162,7 @@ func NewANSRangeEncoderWithCtx(bs kanzi.OutputBitStream, ctx *map[string]any, ar
 	this.freqs = make([]int, dim*257) // freqs[x][256] = total(freqs[x][0..255])
 	this.symbols = make([]encSymbol, dim*256)
 	this.buffer = make([]byte, 0)
-	this.logRange = max(logRange - order, 8)
+	this.logRange = max(logRange-order, 8)
 	this.chunkSize = int(chkSize)
 	return this, nil
 }
