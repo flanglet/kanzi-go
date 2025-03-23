@@ -16,9 +16,8 @@ limitations under the License.
 package entropy
 
 import (
-	"math/bits"
-
 	internal "github.com/flanglet/kanzi-go/v2/internal"
+	"math/bits"
 )
 
 const (
@@ -218,6 +217,7 @@ func NewTPAQPredictor(ctx *map[string]any) (*TPAQPredictor, error) {
 	statesSize := uint(1) << 28
 	mixersSize := uint(1) << 12
 	hashSize := uint(_TPAQ_HASH_SIZE)
+	bsVersion := uint(6)
 	this.extra = false
 	extraMem := uint(0)
 	bufferSize := uint(_TPAQ_BUFFER_SIZE)
@@ -280,12 +280,27 @@ func NewTPAQPredictor(ctx *map[string]any) (*TPAQPredictor, error) {
 		}
 
 		bufferSize = min(bufferSize, rbsz)
-		hashSize = min(hashSize, 16*absz)
+		mxsz := uint(1 << 30)
+
+		if absz < (1 << 26) {
+			mxsz = absz * 16
+		}
+
+		hashSize = min(hashSize, mxsz)
+
+		if val, containsKey := (*ctx)["bsVersion"]; containsKey {
+			bsVersion = val.(uint)
+		}
 	}
 
 	mixersSize <<= (2 * extraMem)
 	statesSize <<= (2 * extraMem)
 	hashSize <<= (2 * extraMem)
+
+	// Cap hash size for java compatibility
+	if (bsVersion > 5) && (hashSize > 1024*1024*1024) {
+		hashSize = min(hashSize, 1024*1024*1024)
+	}
 
 	this.mixers = make([]TPAQMixer, mixersSize)
 
