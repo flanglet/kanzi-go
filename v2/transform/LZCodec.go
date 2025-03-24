@@ -28,11 +28,11 @@ import (
 const (
 	_LZX_HASH_SEED        = 0x1E35A7BD
 	_LZX_HASH_LOG1        = 17
-	_LZX_HASH_SHIFT1      = 40 - _LZX_HASH_LOG1
-	_LZX_HASH_MASK1       = (1 << _LZX_HASH_LOG1) - 1
+	_LZX_HASH_RSHIFT1     = 64 - _LZX_HASH_LOG1
+	_LZX_HASH_LSHIFT1     = 24
 	_LZX_HASH_LOG2        = 21
-	_LZX_HASH_SHIFT2      = 48 - _LZX_HASH_LOG2
-	_LZX_HASH_MASK2       = (1 << _LZX_HASH_LOG2) - 1
+	_LZX_HASH_RSHIFT2     = 64 - _LZX_HASH_LOG2
+	_LZX_HASH_LSHIFT2     = 16
 	_LZX_MAX_DISTANCE1    = (1 << 16) - 2
 	_LZX_MAX_DISTANCE2    = (1 << 24) - 2
 	_LZX_MIN_MATCH4       = 4
@@ -219,10 +219,10 @@ func emitLiteralsLZ(src, dst []byte) {
 
 func (this *LZXCodec) hash(p []byte) uint32 {
 	if this.extra == true {
-		return uint32((binary.LittleEndian.Uint64(p)*_LZX_HASH_SEED)>>_LZX_HASH_SHIFT2) & _LZX_HASH_MASK2
+		return uint32(((binary.LittleEndian.Uint64(p) << _LZX_HASH_LSHIFT2) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT2)
 	}
 
-	return uint32((binary.LittleEndian.Uint64(p)*_LZX_HASH_SEED)>>_LZX_HASH_SHIFT1) & _LZX_HASH_MASK1
+	return uint32(((binary.LittleEndian.Uint64(p) << _LZX_HASH_LSHIFT1) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT1)
 }
 
 // Forward applies the function to the src and writes the result
@@ -308,26 +308,20 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 	srcInc := 0
 
 	for srcIdx < srcEnd {
-		var minRef int
-
-		if srcIdx < maxDist {
-			minRef = 0
-		} else {
-			minRef = srcIdx - maxDist
-		}
-
-		ref := srcIdx + 1 - repd[repdIdx]
+		minRef := max(srcIdx-maxDist, 0)
 		bestLen := 0
 		maxMatch := min(srcEnd-srcIdx-1, _LZX_MAX_MATCH)
 		p := binary.LittleEndian.Uint64(src[srcIdx:])
+		srcIdx1 := srcIdx + 1
+		ref := srcIdx1 - repd[repdIdx]
 
 		// Check repd first
 		if ref > minRef && uint32(p>>8) == binary.LittleEndian.Uint32(src[ref:]) {
-			if bestLen = findMatchLZX(src, srcIdx+1, ref, maxMatch); bestLen < minMatch {
-				ref = srcIdx + 1 - repd[1-repdIdx]
+			if bestLen = findMatchLZX(src, srcIdx1, ref, maxMatch); bestLen < minMatch {
+				ref = srcIdx1 - repd[1-repdIdx]
 
 				if ref > minRef && uint32(p>>8) == binary.LittleEndian.Uint32(src[ref:]) {
-					bestLen = findMatchLZX(src, srcIdx+1, ref, maxMatch)
+					bestLen = findMatchLZX(src, srcIdx1, ref, maxMatch)
 				}
 			}
 		}
@@ -338,7 +332,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 			this.hashes[h0] = int32(srcIdx)
 
 			if ref > minRef && uint32(p) == binary.LittleEndian.Uint32(src[ref:]) {
-				bestLen = findMatchLZX(src, srcIdx, ref, min(srcEnd-srcIdx, _LZX_MAX_MATCH))
+				bestLen = 4 + findMatchLZX(src, srcIdx+4, ref+4, min(srcEnd-srcIdx-4, _LZX_MAX_MATCH))
 			}
 
 			// No good match ?
@@ -525,6 +519,11 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 	dstIdx += mIdx
 	copy(dst[dstIdx:], this.mLenBuf[0:mLenIdx])
 	dstIdx += mLenIdx
+
+	if dstIdx > count-count/100 {
+		return uint(count), uint(dstIdx), errors.New("LZCodec forward transform skip: no compression")
+	}
+
 	return uint(count), uint(dstIdx), nil
 }
 
