@@ -332,7 +332,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 			this.hashes[h0] = int32(srcIdx)
 
 			if ref > minRef && uint32(p) == binary.LittleEndian.Uint32(src[ref:]) {
-				bestLen = 4 + findMatchLZX(src, srcIdx+4, ref+4, min(srcEnd-srcIdx-4, _LZX_MAX_MATCH))
+				bestLen = findMatchLZX(src, srcIdx, ref, min(srcEnd-srcIdx, _LZX_MAX_MATCH))
 			}
 
 			// No good match ?

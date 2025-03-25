@@ -27,7 +27,7 @@ import (
 func getTransform(name string) (kanzi.ByteTransform, error) {
 	ctx := make(map[string]any)
 	ctx["transform"] = name
-	ctx["bsVersion"] = uint(4)
+	ctx["bsVersion"] = uint(6)
 
 	switch name {
 	case "LZ":
