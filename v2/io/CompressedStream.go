@@ -880,8 +880,8 @@ type Reader struct {
 	blockID         int32
 	jobs            int
 	bufferThreshold int
-	available       int // decoded not consumed bytes
-	consumed        int // decoded consumed bytes
+	available       int64 // decoded not consumed bytes
+	consumed        int   // decoded consumed bytes
 	nbInputBlocks   int
 	listeners       []kanzi.Listener
 	ctx             map[string]any
@@ -1356,19 +1356,8 @@ func (this *Reader) Read(block []byte) (int, error) {
 	remaining := len(block)
 
 	for remaining > 0 {
-		avail := this.available
 		bufOff := this.consumed % this.blockSize
-
-		if avail > this.bufferThreshold-bufOff {
-			avail = this.bufferThreshold - bufOff
-		}
-
-		lenChunk := remaining
-
-		// lenChunk = min(remaining, min(this.available, this.bufferThreshold-bufOff))
-		if lenChunk > avail {
-			lenChunk = avail
-		}
+		lenChunk := min(remaining, int(min(this.available, int64(this.bufferThreshold-bufOff))))
 
 		if lenChunk > 0 {
 			// Process a chunk of in-buffer data. No access to bitstream required
@@ -1376,7 +1365,7 @@ func (this *Reader) Read(block []byte) (int, error) {
 			copy(block[off:], this.buffers[bufID].Buf[bufOff:bufOff+lenChunk])
 			off += lenChunk
 			remaining -= lenChunk
-			this.available -= lenChunk
+			this.available -= int64(lenChunk)
 			this.consumed += lenChunk
 
 			if this.available > 0 && bufOff+lenChunk >= this.bufferThreshold {
@@ -1412,7 +1401,7 @@ func (this *Reader) Read(block []byte) (int, error) {
 	return len(block) - remaining, nil
 }
 
-func (this *Reader) processBlock() (int, error) {
+func (this *Reader) processBlock() (int64, error) {
 	if atomic.LoadInt32(&this.blockID) == _CANCEL_TASKS_ID {
 		return 0, nil
 	}
@@ -1429,7 +1418,7 @@ func (this *Reader) processBlock() (int, error) {
 	// Protect against future concurrent modification of the list of block listeners
 	listeners := make([]kanzi.Listener, len(this.listeners))
 	copy(listeners, this.listeners)
-	decoded := 0
+	decoded := int64(0)
 
 	nbTasks := this.jobs
 	var jobsPerTask []uint
@@ -1509,7 +1498,7 @@ func (this *Reader) processBlock() (int, error) {
 				return decoded, &IOError{msg: "Invalid data", code: kanzi.ERR_PROCESS_BLOCK}
 			}
 
-			decoded += r.decoded
+			decoded += int64(r.decoded)
 
 			if r.err != nil {
 				return decoded, r.err
