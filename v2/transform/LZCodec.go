@@ -27,7 +27,7 @@ import (
 
 const (
 	_LZX_HASH_SEED        = 0x1E35A7BD
-	_LZX_HASH_LOG1        = 17
+	_LZX_HASH_LOG1        = 16
 	_LZX_HASH_RSHIFT1     = 64 - _LZX_HASH_LOG1
 	_LZX_HASH_LSHIFT1     = 24
 	_LZX_HASH_LOG2        = 21
@@ -272,12 +272,10 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	srcEnd := count - 16 - 1
 	maxDist := _LZX_MAX_DISTANCE2
-	dThreshold := 1 << 16
 	dst[12] = 1
 
 	if srcEnd < 4*_LZX_MAX_DISTANCE1 {
 		maxDist = _LZX_MAX_DISTANCE1
-		dThreshold = 1 << 8
 		dst[12] = 0
 	}
 
@@ -308,12 +306,12 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 	srcInc := 0
 
 	for srcIdx < srcEnd {
-		minRef := max(srcIdx-maxDist, 0)
 		bestLen := 0
-		maxMatch := min(srcEnd-srcIdx-1, _LZX_MAX_MATCH)
 		p := binary.LittleEndian.Uint64(src[srcIdx:])
 		srcIdx1 := srcIdx + 1
+		maxMatch := min(srcEnd-srcIdx1, _LZX_MAX_MATCH)
 		ref := srcIdx1 - repd[repdIdx]
+		minRef := max(srcIdx-maxDist, 0)
 
 		// Check repd first
 		if ref > minRef && uint32(p>>8) == binary.LittleEndian.Uint32(src[ref:]) {
@@ -357,16 +355,18 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 					// Select best match
 					if (bestLen1 > bestLen) || ((bestLen1 == bestLen) && (ref1 > ref)) {
-						if src[srcIdx] == src[ref1-1] && bestLen1 < _LZX_MAX_MATCH {
-							ref = ref1 - 1
-							bestLen = bestLen1 + 1
-						} else {
-							ref = ref1
-							bestLen = bestLen1
-							srcIdx++
-						}
+						ref = ref1
+						bestLen = bestLen1
+						srcIdx = srcIdx1
 					}
 				}
+			}
+
+			// Extend backwards
+			for (bestLen < _LZX_MAX_MATCH) && (srcIdx > anchor) && (ref > minRef) && (src[srcIdx-1] == src[ref-1]) {
+				bestLen++
+				ref--
+				srcIdx--
 			}
 		} else {
 			h0 := this.hash(src[srcIdx:])
@@ -390,10 +390,10 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		// MMMM : <= 14 --> MMMM == match length (if 14, remainder encoded outside of token)
 		//        == 15 if dist == repd0 or repd1 && matchLen fully encoded outside of token
 		// F    : if MMMM == 15, flag = 0 if dist == repd0 and 1 if dist == repd1
-		//        else flag = 1 if dist >= dThreshold and 0 otherwise
+		//        else flag = 1 if dist >= threshold (256 or 65536) and 0 otherwise
 		dist := srcIdx - ref
 		litLen := srcIdx - anchor
-		var token int
+		token := 0
 
 		if dist == repd[0] {
 			token = 0x0F
@@ -407,37 +407,33 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 				if dist >= 65536 {
 					this.mBuf[mIdx] = byte(dist >> 16)
 					mIdx++
+					token |= 0x10
 				}
 
 				this.mBuf[mIdx] = byte(dist >> 8)
 				mIdx++
-			} else {
-				if dist >= 256 {
-					this.mBuf[mIdx] = byte(dist >> 8)
-					mIdx++
-				}
+			} else if dist >= 256 {
+				this.mBuf[mIdx] = byte(dist >> 8)
+				mIdx++
+				token |= 0x10
 			}
 
 			this.mBuf[mIdx] = byte(dist)
 			mIdx++
-			mLen := bestLen - minMatch
+			mLen := bestLen - minMatch - 14
 
 			// Emit match length
-			if mLen >= 14 {
-				if mLen == 14 {
+			if mLen >= 0{
+				if mLen == 0 {
 					// Avoid the penalty of one extra byte to encode match length
-					token = 0x0D
+					token |= 0x0D
 					bestLen--
 				} else {
-					token = 0x0E
-					mLenIdx += emitLengthLZ(this.mLenBuf[mLenIdx:], mLen-14)
+					token |= 0x0E
+					mLenIdx += emitLengthLZ(this.mLenBuf[mLenIdx:], mLen)
 				}
 			} else {
-				token = mLen
-			}
-
-			if dist >= dThreshold {
-				token |= 0x10
+				token += (mLen + 14)
 			}
 		}
 
