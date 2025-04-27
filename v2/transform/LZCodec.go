@@ -423,7 +423,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 			mLen := bestLen - minMatch - 14
 
 			// Emit match length
-			if mLen >= 0{
+			if mLen >= 0 {
 				if mLen == 0 {
 					// Avoid the penalty of one extra byte to encode match length
 					token |= 0x0D

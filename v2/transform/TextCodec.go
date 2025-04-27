@@ -31,7 +31,7 @@ const (
 
 	_TC_THRESHOLD1      = 128
 	_TC_THRESHOLD2      = _TC_THRESHOLD1 * _TC_THRESHOLD1
-	_TC_THRESHOLD3      = 32
+	_TC_THRESHOLD3      = 64
 	_TC_THRESHOLD4      = _TC_THRESHOLD3 * 128
 	_TC_MAX_DICT_SIZE   = 1 << 19 // must be less than 1<<24
 	_TC_MAX_WORD_LENGTH = 31      // must be less than 128
@@ -40,6 +40,7 @@ const (
 	_TC_MAX_BLOCK_SIZE  = 1 << 30    // 1 GB
 	_TC_ESCAPE_TOKEN1   = byte(0x0F) // dictionary word preceded by space symbol
 	_TC_ESCAPE_TOKEN2   = byte(0x0E) // toggle upper/lower case of first word char
+	_TC_MASK_FLIP_CASE  = 0x80
 	_TC_MASK_NOT_TEXT   = 0x80
 	_TC_MASK_CRLF       = 0x40
 	_TC_MASK_XML_HTML   = 0x20
@@ -79,6 +80,7 @@ type textCodec2 struct {
 	dictSize       int
 	logHashSize    uint
 	hashMask       int32
+	bsVersion      uint
 	isCRLF         bool // EOL = CR+LF ?
 	ctx            *map[string]any
 }
@@ -732,13 +734,13 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 				var pe *dictEntry
 				pe1 := this.dictMap[h1&this.hashMask]
 
-				// Check for hash collisions
 				if pe1 != nil && pe1.hash == h1 && pe1.data>>24 == length {
 					pe = pe1
 				} else if pe2 := this.dictMap[h2&this.hashMask]; pe2 != nil && pe2.hash == h2 && pe2.data>>24 == length {
 					pe = pe2
 				}
 
+				// Check for hash collisions
 				if pe != nil {
 					if !sameWords(pe.ptr[1:length], src[delimAnchor+2:]) {
 						pe = nil
@@ -1081,12 +1083,14 @@ func newTextCodec2() (*textCodec2, error) {
 	this.dictList = make([]dictEntry, 0)
 	this.hashMask = int32(1<<this.logHashSize) - 1
 	this.staticDictSize = _TC_STATIC_DICT_WORDS
+	this.bsVersion = 6
 	return this, nil
 }
 
 func newTextCodec2WithCtx(ctx *map[string]any) (*textCodec2, error) {
 	this := &textCodec2{}
 	log := uint32(13)
+	version := uint(6)
 
 	if ctx != nil {
 		if val, hasKey := (*ctx)["blockSize"]; hasKey {
@@ -1104,6 +1108,10 @@ func newTextCodec2WithCtx(ctx *map[string]any) (*textCodec2, error) {
 				log++
 			}
 		}
+
+		if val, hasKey := (*ctx)["bsVersion"]; hasKey {
+			version = val.(uint)
+		}
 	}
 
 	this.logHashSize = uint(log)
@@ -1113,6 +1121,7 @@ func newTextCodec2WithCtx(ctx *map[string]any) (*textCodec2, error) {
 	this.hashMask = int32(1<<this.logHashSize) - 1
 	this.staticDictSize = _TC_STATIC_DICT_WORDS
 	this.ctx = ctx
+	this.bsVersion = version
 	return this, nil
 }
 
@@ -1246,7 +1255,6 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 				var pe *dictEntry
 				pe1 := this.dictMap[h1&this.hashMask]
 
-				// Check for hash collisions
 				if pe1 != nil && pe1.hash == h1 && pe1.data>>24 == length {
 					pe = pe1
 				} else {
@@ -1255,6 +1263,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 					}
 				}
 
+				// Check for hash collisions
 				if pe != nil {
 					if !sameWords(pe.ptr[1:length], src[delimAnchor+2:]) {
 						pe = nil
@@ -1299,9 +1308,11 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 					}
 
 					if pe == pe1 {
-						dstIdx += emitWordIndex2(dst[dstIdx:dstIdx+3], int(pe.data&_TC_MASK_LENGTH), 0)
+						dstIdx += emitWordIndex2(dst[dstIdx:dstIdx+3], int(pe.data&_TC_MASK_LENGTH))
 					} else {
-						dstIdx += emitWordIndex2(dst[dstIdx:dstIdx+3], int(pe.data&_TC_MASK_LENGTH), 32)
+						dst[dstIdx] = _TC_MASK_FLIP_CASE
+						dstIdx++
+						dstIdx += emitWordIndex2(dst[dstIdx:dstIdx+3], int(pe.data&_TC_MASK_LENGTH))
 					}
 
 					emitAnchor = delimAnchor + 1 + int(pe.data>>24)
@@ -1419,26 +1430,29 @@ func (this *textCodec2) emitSymbols(src, dst []byte) int {
 	return dstIdx
 }
 
-func emitWordIndex2(dst []byte, val, mask int) int {
-	// Emit word index (varint 5 bits + 7 bits + 7 bits)
-	// 1st byte: 0x80 => word idx, 0x40 => more bytes, 0x20 => toggle case 1st symbol
-	// 2nd byte: 0x80 => 1 more byte
-	if val < _TC_THRESHOLD3 {
-		dst[0] = byte(0x80 | mask | val)
+func emitWordIndex2(dst []byte, wIdx int) int {
+	// Increment word index because 0x80 is reserved to first symbol case flip
+	wIdx++
+
+	// Emit word index (varint 6 bits + 7 bits + 7 bits)
+	// first byte: 0x80 => word idx, 0x40 => more bytes
+	// next bytes: 0x80 => 1 more byte
+	if wIdx < _TC_THRESHOLD3 {
+		dst[0] = byte(0x80 | wIdx)
 		return 1
 	}
 
-	if val < _TC_THRESHOLD4 {
-		// 5 + 7 => 2^12 = 32*128
-		dst[0] = byte(0xC0 | mask | ((val >> 7) & 0x1F))
-		dst[1] = byte(val & 0x7F)
+	if wIdx < _TC_THRESHOLD4 {
+		// 6 + 7 => 2^13 = 64*128
+		dst[0] = byte(0xC0 | (wIdx >> 7))
+		dst[1] = byte(wIdx & 0x7F)
 		return 2
 	}
 
-	// 5 + 7 + 7 => 2^19
-	dst[0] = byte(0xC0 | mask | ((val >> 14) & 0x1F))
-	dst[1] = byte(0x80 | (val >> 7))
-	dst[2] = byte(val & 0x7F)
+	// 6 + 7 + 7 => 2^20 = 64*128*128
+	dst[0] = byte(0xC0 | (wIdx >> 14))
+	dst[1] = byte(0x80 | (wIdx >> 7))
+	dst[2] = byte(wIdx & 0x7F)
 	return 3
 }
 
@@ -1460,6 +1474,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	dstIdx := 0
 	srcEnd := len(src)
 	dstEnd := len(dst)
+	oldEncoding := this.bsVersion < 6
 
 	for srcIdx < srcEnd && dstIdx < dstEnd {
 		cur := src[srcIdx]
@@ -1521,27 +1536,70 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 
 		srcIdx++
+		flipMask := byte(0)
 
 		if cur >= 128 {
 			// Word in dictionary => read word index (varint 5 bits + 7 bits + 7 bits)
-			idx := int(cur & 0x1F)
+			var idx int
 
-			if cur&0x40 != 0 {
-				idx2 := int(src[srcIdx])
-				srcIdx++
+			if oldEncoding == true {
+				idx = int(cur & 0x1F)
+				flipMask = cur & 0x20
 
-				if idx2 >= 128 {
-					idx = (idx << 7) | (idx2 & 0x7F)
-					idx2 = int(src[srcIdx])
+				if cur&0x40 != 0 {
+					idx2 := int(src[srcIdx])
+					srcIdx++
+
+					if idx2 >= 128 {
+						idx = (idx << 7) | (idx2 & 0x7F)
+						idx2 = int(src[srcIdx])
+						srcIdx++
+					}
+
+					idx = (idx << 7) | idx2
+
+					// Sanity check
+					if idx >= this.dictSize {
+						err = errors.New("Text transform failed. Invalid index")
+						break
+					}
+				}
+			} else {
+				if cur == _TC_MASK_FLIP_CASE {
+					// Flip first char case
+					flipMask = 0x20
+					cur = src[srcIdx]
 					srcIdx++
 				}
 
-				idx = (idx << 7) | idx2
+				idx = int(cur & 0x3F)
 
-				if idx >= this.dictSize {
-					err = errors.New("Text transform failed. Invalid index")
-					break
+				if cur&0x40 != 0 {
+					idx2 := int(src[srcIdx])
+					srcIdx++
+
+					if idx2 >= 128 {
+						idx = (idx << 7) | (idx2 & 0x7F)
+						idx2 = int(src[srcIdx])
+						srcIdx++
+					}
+
+					idx = (idx << 7) | idx2
+
+					// Sanity check before adjusting index
+					if idx > this.dictSize {
+						err = errors.New("Text transform failed. Invalid index")
+						break
+					}
+				} else {
+					if idx == 0 {
+						err = errors.New("Text transform failed. Invalid index")
+						break
+					}
 				}
+
+				// Adjust index
+				idx--
 			}
 
 			pe := &this.dictList[idx]
@@ -1573,7 +1631,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			copy(dst[dstIdx:], pe.ptr[0:length])
 
 			// Flip case of first character
-			dst[dstIdx] ^= (cur & 0x20)
+			dst[dstIdx] ^= flipMask
 			dstIdx += length
 		} else {
 			if cur == _TC_ESCAPE_TOKEN1 {
