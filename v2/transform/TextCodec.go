@@ -1431,29 +1431,27 @@ func (this *textCodec2) emitSymbols(src, dst []byte) int {
 }
 
 func emitWordIndex2(dst []byte, wIdx int) int {
-	// Increment word index because 0x80 is reserved to first symbol case flip
+	// 0x80 is reserved to first symbol case flip
 	wIdx++
 
-	// Emit word index (varint 6 bits + 7 bits + 7 bits)
-	// first byte: 0x80 => word idx, 0x40 => more bytes
-	// next bytes: 0x80 => 1 more byte
-	if wIdx < _TC_THRESHOLD3 {
-		dst[0] = byte(0x80 | wIdx)
-		return 1
-	}
+	if wIdx >= _TC_THRESHOLD3 {
+		if wIdx >= _TC_THRESHOLD4 {
+			// 3 byte index (1111xxxx xxxxxxxx xxxxxxxx)
+			dst[0] = byte(0xF0 | (wIdx >> 16))
+			dst[1] = byte(wIdx >> 8)
+			dst[2] = byte(wIdx)
+			return 3
+		}
 
-	if wIdx < _TC_THRESHOLD4 {
-		// 6 + 7 => 2^13 = 64*128
-		dst[0] = byte(0xC0 | (wIdx >> 7))
-		dst[1] = byte(wIdx & 0x7F)
+		// 2 byte index (110xxxxx xxxxxxxx)
+		dst[0] = byte(0xC0 | (wIdx >> 8))
+		dst[1] = byte(wIdx)
 		return 2
 	}
 
-	// 6 + 7 + 7 => 2^20 = 64*128*128
-	dst[0] = byte(0xC0 | (wIdx >> 14))
-	dst[1] = byte(0x80 | (wIdx >> 7))
-	dst[2] = byte(wIdx & 0x7F)
-	return 3
+	// 1 byte index (10xxxxxx) with 0x80 excluded
+	dst[0] = byte(0x80 | wIdx)
+	return 1
 }
 
 func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
@@ -1572,19 +1570,20 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 					srcIdx++
 				}
 
-				idx = int(cur & 0x3F)
+				// Read word index
+				// 10xxxxxx => 1 byte
+				// 110xxxxx => 2 bytes
+				// 1111xxxx => 3 bytes
+				idx = int(cur) & 0x7F
 
-				if cur&0x40 != 0 {
-					idx2 := int(src[srcIdx])
-					srcIdx++
-
-					if idx2 >= 128 {
-						idx = (idx << 7) | (idx2 & 0x7F)
-						idx2 = int(src[srcIdx])
+				if idx >= 64 {
+					if idx >= 112 {
+						idx = ((idx & 0x0F) << 16) | (int(src[srcIdx]) << 8) | int(src[srcIdx+1])
+						srcIdx += 2
+					} else {
+						idx = ((idx & 0x1F) << 8) | int(src[srcIdx])
 						srcIdx++
 					}
-
-					idx = (idx << 7) | idx2
 
 					// Sanity check before adjusting index
 					if idx > this.dictSize {
