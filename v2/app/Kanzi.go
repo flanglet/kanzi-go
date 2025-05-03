@@ -902,12 +902,12 @@ func printHelp(mode string, showHeader bool) {
 
 	if mode == "c" {
 		log.Println("        Optional name of the output file or directory (defaults to", true)
-		log.Println("        <inputName.knz>) or 'none' or 'stdout'. 'stdout' is not valid", true)
-		log.Println("        when the number of jobs is greater than 1.\n", true)
+		log.Println("        <inputName.knz> if input is <inputName> or 'stdout' if input is 'stdin').", true)
+		log.Println("        or 'none' or 'stdout'.", true)
 	} else if mode == "d" {
 		log.Println("        Optional name of the output file or directory (defaults to", true)
-		log.Println("        <inputName.bak>) or 'none' or 'stdout'. 'stdout' is not valid", true)
-		log.Println("        when the number of jobs is greater than 1.\n", true)
+		log.Println("        <inputName> if input is <inputName.knz> or 'stdout' if input is 'stdin').", true)
+		log.Println("        or 'none' or 'stdout'.", true)
 
 	} else {
 		log.Println("        optional name of the output file or 'none' or 'stdout'.\n", true)
