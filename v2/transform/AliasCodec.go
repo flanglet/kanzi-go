@@ -115,7 +115,7 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 			return 0, 0, errors.New("Alias Codec: forward transform skip, binary data")
 		}
 
-		if (this.onlyDNA == true) && (dt != internal.DT_EXE) && (dt != internal.DT_DNA) {
+		if (this.onlyDNA == true) && (dt != internal.DT_UNDEFINED) && (dt != internal.DT_DNA) {
 			return 0, 0, errors.New("DNA Alias Codec: forward transform skip, not DNA data")
 		}
 	}
