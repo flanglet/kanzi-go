@@ -36,6 +36,7 @@ const (
 	_LZX_MAX_DISTANCE1    = (1 << 16) - 2
 	_LZX_MAX_DISTANCE2    = (1 << 24) - 2
 	_LZX_MIN_MATCH4       = 4
+	_LZX_MIN_MATCH6       = 6
 	_LZX_MIN_MATCH9       = 9
 	_LZX_MAX_MATCH        = 65535 + 254 + 15 + _LZX_MIN_MATCH4
 	_LZX_MIN_BLOCK_LENGTH = 24
@@ -287,8 +288,8 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 			if dt == internal.DT_DNA {
 				// Longer min match for DNA input
-				minMatch = _LZX_MIN_MATCH9
-				dst[12] |= 2
+				minMatch = _LZX_MIN_MATCH6
+				dst[12] |= 4
 			} else if dt == internal.DT_SMALL_ALPHABET {
 				return 0, 0, errors.New("LZCodec forward transform skip: Small alphabet")
 			}
@@ -582,7 +583,7 @@ func (this *LZXCodec) inverseV4(src, dst []byte) (uint, uint, error) {
 	}
 
 	srcEnd := tkIdx - 13
-	mFlag := int(src[12]) & 1
+	mFlag := int(src[12]) & 0x01
 	dstEnd := len(dst) - 16
 	maxDist := _LZX_MAX_DISTANCE2
 
@@ -590,11 +591,9 @@ func (this *LZXCodec) inverseV4(src, dst []byte) (uint, uint, error) {
 		maxDist = _LZX_MAX_DISTANCE1
 	}
 
-	minMatch := _LZX_MIN_MATCH9
-
-	if src[12]&2 == 0 {
-		minMatch = _LZX_MIN_MATCH4
-	}
+	mmIdx := (int(src[12]) >> 1) & 0x03
+	var MIN_MATCHES = []int{_LZX_MIN_MATCH4, _LZX_MIN_MATCH9, _LZX_MIN_MATCH6, _LZX_MIN_MATCH6}
+	minMatch := MIN_MATCHES[mmIdx]
 
 	srcIdx := 13
 	dstIdx := 0
