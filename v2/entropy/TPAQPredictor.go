@@ -298,7 +298,7 @@ func NewTPAQPredictor(ctx *map[string]any) (*TPAQPredictor, error) {
 	hashSize <<= (2 * extraMem)
 
 	// Cap hash size for java compatibility
-	if (bsVersion > 5) && (hashSize > 1024*1024*1024) {
+	if bsVersion > 5 {
 		hashSize = min(hashSize, 1024*1024*1024)
 	}
 
