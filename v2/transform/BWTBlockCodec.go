@@ -151,11 +151,6 @@ func (this *BWTBlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		mode := src[0]
 		logNbChunks := uint(mode>>2) & 0x07
 		pIndexSize := int(mode&0x03) + 1
-
-		if pIndexSize == 0 {
-			return 0, 0, errors.New("BWT inverse transform failed: invalid index size")
-		}
-
 		chunks := 1 << logNbChunks
 		headerSize := chunks*pIndexSize + 1
 
