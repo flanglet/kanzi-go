@@ -341,7 +341,7 @@ func (this *FSDCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 	// Sanity check
 	if (dist < 1) || ((dist > 4) && (dist != 8) && (dist != 16)) {
-		return 0, 0, errors.New("FSD inverse transform failed: invalid data")
+		return 0, 0, errors.New("FSD inverse transform failed: invalid distance")
 	}
 
 	srcEnd := len(src)
@@ -371,12 +371,14 @@ func (this *FSDCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			srcIdx++
 			dstIdx++
 		}
-	} else { // mode == _FSD_XOR_CODING
+	} else if mode == _FSD_XOR_CODING {
 		for srcIdx < srcEnd {
 			dst[dstIdx] = src[srcIdx] ^ dst[dstIdx-dist]
 			dstIdx++
 			srcIdx++
 		}
+	} else {
+		return 0, 0, errors.New("FSD inverse transform failed: invalid mode")
 	}
 
 	var err error
