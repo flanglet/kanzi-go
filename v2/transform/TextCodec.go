@@ -704,14 +704,12 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	for srcIdx < srcEnd {
-		cur := src[srcIdx]
-
-		if isText(cur) {
+		if isText(src[srcIdx]) {
 			srcIdx++
 			continue
 		}
 
-		if (srcIdx > delimAnchor+2) && isDelimiter(cur) { // At least 2 letters
+		if (srcIdx > delimAnchor+2) && isDelimiter(src[srcIdx]) { // At least 2 letters
 			length := int32(srcIdx - delimAnchor - 1)
 
 			if length <= _TC_MAX_WORD_LENGTH {
@@ -1225,14 +1223,12 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	for srcIdx < srcEnd {
-		cur := src[srcIdx]
-
-		if isText(cur) {
+		if isText(src[srcIdx]) {
 			srcIdx++
 			continue
 		}
 
-		if (srcIdx > delimAnchor+2) && isDelimiter(cur) { // At least 2 letters
+		if (srcIdx > delimAnchor+2) && isDelimiter(src[srcIdx]) { // At least 2 letters
 			length := int32(srcIdx - delimAnchor - 1)
 
 			if length <= _TC_MAX_WORD_LENGTH {
@@ -1307,14 +1303,12 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 						break
 					}
 
-					if pe == pe1 {
-						dstIdx += emitWordIndex2(dst[dstIdx:dstIdx+3], int(pe.data&_TC_MASK_LENGTH))
-					} else {
+					if pe != pe1 {
 						dst[dstIdx] = _TC_MASK_FLIP_CASE
 						dstIdx++
-						dstIdx += emitWordIndex2(dst[dstIdx:dstIdx+3], int(pe.data&_TC_MASK_LENGTH))
 					}
 
+					dstIdx += emitWordIndex2(dst[dstIdx:dstIdx+3], int(pe.data&_TC_MASK_LENGTH))
 					emitAnchor = delimAnchor + 1 + int(pe.data>>24)
 				}
 			}
