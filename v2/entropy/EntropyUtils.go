@@ -17,7 +17,6 @@ package entropy
 
 import (
 	"fmt"
-	"sort"
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
 )
@@ -220,86 +219,68 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 		return 1, nil
 	}
 
-	if sumScaledFreq != scale {
-		delta := sumScaledFreq - scale
-		errThr := freqs[idxMax] >> 4
-		var inc, absDelta int
+	if sumScaledFreq == scale {
+		return alphabetSize, nil
+	}
 
-		if delta < 0 {
-			absDelta = -delta
-			inc = 1
-		} else {
-			absDelta = delta
-			inc = -1
-		}
+	delta := sumScaledFreq - scale
+	errThr := freqs[idxMax] >> 4
+	var inc, absDelta int
 
-		if absDelta <= errThr {
-			// Fast path (small error): just adjust the max frequency
-			freqs[idxMax] -= delta
-			return alphabetSize, nil
-		}
+	if delta < 0 {
+		absDelta = -delta
+	} else {
+		absDelta = delta
+	}
 
-		if delta < 0 {
-			freqs[idxMax] += errThr
-			sumScaledFreq += errThr
-		} else {
-			freqs[idxMax] -= errThr
-			sumScaledFreq -= errThr
-		}
+	if absDelta <= errThr {
+		// Fast path (small error): just adjust the max frequency
+		freqs[idxMax] -= delta
+		return alphabetSize, nil
+	}
 
-		// Slow path: spread error across frequencies
-		queue := make(sortByFreq, alphabetSize)
-		n := 0
+	if delta < 0 {
+		delta += errThr
+		freqs[idxMax] += errThr
+		inc = 1
+		delta = -delta
+	} else {
+		delta -= errThr
+		freqs[idxMax] -= errThr
+		inc = -1
+	}
 
-		// Create queue of present symbols
-		for i := 0; i < alphabetSize; i++ {
-			if freqs[alphabet[i]] <= 2 {
-				// Do not distort small frequencies
+	// Slow path: spread error across frequencies
+	round := 1
+
+	// Create queue of present symbols
+	for round < 6 && delta > 0 {
+		adjustments := 0
+		round++
+
+		for _, idx := range alphabet[0:alphabetSize] {
+			// Skip small frequencies to avoid big distortion
+			// Do not zero out frequencies
+			if freqs[idx] <= 2 {
 				continue
 			}
 
-			queue[n] = &freqSortData{freq: &freqs[alphabet[i]], symbol: alphabet[i]}
-			n++
-		}
+			// Adjust frequency
+			freqs[idx] += inc
+			adjustments++
+			delta--
 
-		// Sort queue by decreasing frequency
-		queue = queue[0:n]
-		sort.Sort(queue)
-
-		for len(queue) != 0 {
-			// Remove symbol with highest frequency
-			fsd := queue[0]
-			queue = queue[1:]
-
-			// Do not zero out any frequency
-			if *fsd.freq == -inc {
-				continue
-			}
-
-			// Distort frequency and re-enqueue
-			*fsd.freq += inc
-			sumScaledFreq += inc
-			queue = append(queue, fsd)
-
-			if sumScaledFreq == scale {
+			if delta == 0 {
 				break
 			}
 		}
 
-		if sumScaledFreq != scale {
-			for i := 0; i < alphabetSize; i++ {
-				if freqs[alphabet[i]] != -inc {
-					freqs[alphabet[i]] += inc
-					sumScaledFreq += inc
-
-					if sumScaledFreq == scale {
-						break
-					}
-				}
-			}
+		if adjustments == 0 {
+			break
 		}
 	}
 
+	freqs[idxMax] -= delta
 	return alphabetSize, nil
 }
 
