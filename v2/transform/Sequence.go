@@ -182,10 +182,14 @@ func (this *ByteTransformSequence) MaxEncodedLen(srcLen int) int {
 	requiredSize := srcLen
 
 	for _, t := range this.transforms {
-		reqSize := t.MaxEncodedLen(requiredSize)
+		if t == nil {
+			continue
+		}
 
-		if reqSize > requiredSize {
-			requiredSize = reqSize
+		nxtSize := t.MaxEncodedLen(requiredSize)
+
+		if nxtSize > requiredSize {
+			requiredSize = nxtSize
 		}
 	}
 
