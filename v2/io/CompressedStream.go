@@ -1221,25 +1221,26 @@ func (this *Reader) readHeader() (err error) {
 			this.nbInputBlocks = min(nbBlocks, _MAX_CONCURRENCY-1)
 		}
 
+		crcSize := uint(16)
+		seed := uint32(bsVersion)
+
 		if bsVersion >= 6 {
 			// Padding
 			this.ibs.ReadBits(15)
+			crcSize = uint(24)
+			seed = uint32(0x01030507 * bsVersion)
 		}
 
 		// Read and verify checksum
-		crcSize := uint(24)
-		seed := uint32(0x01030507 * bsVersion)
-
-		if bsVersion == 5 {
-			crcSize = uint(16)
-			seed = uint32(bsVersion)
-		}
-
 		cksum1 := uint32(this.ibs.ReadBits(crcSize))
 		var cksum2 uint32
 		HASH := uint32(0x1E35A7BD)
 		cksum2 = HASH * seed
-		cksum2 ^= (HASH * uint32(^ckSize))
+
+		if bsVersion >= 6 {
+			cksum2 ^= (HASH * uint32(^ckSize))
+		}
+
 		cksum2 ^= (HASH * uint32(^this.entropyType))
 		cksum2 ^= (HASH * uint32((^this.transformType)>>32))
 		cksum2 ^= (HASH * uint32(^this.transformType))
