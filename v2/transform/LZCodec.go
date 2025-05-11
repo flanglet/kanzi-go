@@ -592,8 +592,8 @@ func (this *LZXCodec) inverseV4(src, dst []byte) (uint, uint, error) {
 	}
 
 	mmIdx := (int(src[12]) >> 1) & 0x03
-	var MIN_MATCHES = []int{_LZX_MIN_MATCH4, _LZX_MIN_MATCH9, _LZX_MIN_MATCH6, _LZX_MIN_MATCH6}
-	minMatch := MIN_MATCHES[mmIdx]
+	var minMatches = []int{_LZX_MIN_MATCH4, _LZX_MIN_MATCH9, _LZX_MIN_MATCH6, _LZX_MIN_MATCH6}
+	minMatch := minMatches[mmIdx]
 
 	srcIdx := 13
 	dstIdx := 0
