@@ -374,6 +374,7 @@ func (this *Writer) writeHeader() *IOError {
 	seed := uint32(0x01030507 * _BITSTREAM_FORMAT_VERSION)
 	HASH := uint32(0x1E35A7BD)
 	cksum := HASH * seed
+	cksum ^= (HASH * uint32(^ckSize))
 	cksum ^= (HASH * uint32(^this.entropyType))
 	cksum ^= (HASH * uint32((^this.transformType)>>32))
 	cksum ^= (HASH * uint32(^this.transformType))
@@ -1148,10 +1149,11 @@ func (this *Reader) readHeader() (err error) {
 	}
 
 	this.ctx["bsVersion"] = bsVersion
+	ckSize := uint64(0)
 
 	// Read block checksum
 	if bsVersion >= 6 {
-		ckSize := this.ibs.ReadBits(2)
+		ckSize = this.ibs.ReadBits(2)
 
 		if ckSize == 1 {
 			this.hasher32, err = hash.NewXXHash32(_BITSTREAM_TYPE)
@@ -1237,6 +1239,7 @@ func (this *Reader) readHeader() (err error) {
 		var cksum2 uint32
 		HASH := uint32(0x1E35A7BD)
 		cksum2 = HASH * seed
+		cksum2 ^= (HASH * uint32(^ckSize))
 		cksum2 ^= (HASH * uint32(^this.entropyType))
 		cksum2 ^= (HASH * uint32((^this.transformType)>>32))
 		cksum2 ^= (HASH * uint32(^this.transformType))
@@ -1495,7 +1498,8 @@ func (this *Reader) processBlock() (int64, error) {
 			}
 
 			if r.decoded > this.blockSize {
-				return decoded, &IOError{msg: "Invalid data", code: kanzi.ERR_PROCESS_BLOCK}
+				errMsg := fmt.Sprintf("Block %i incorrectly decompressed", r.blockID)
+				return decoded, &IOError{msg: errMsg, code: kanzi.ERR_PROCESS_BLOCK}
 			}
 
 			decoded += int64(r.decoded)
