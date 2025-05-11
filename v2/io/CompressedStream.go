@@ -1499,7 +1499,7 @@ func (this *Reader) processBlock() (int64, error) {
 			}
 
 			if r.decoded > this.blockSize {
-				errMsg := fmt.Sprintf("Block %i incorrectly decompressed", r.blockID)
+				errMsg := fmt.Sprintf("Block %d incorrectly decompressed", r.blockID)
 				return decoded, &IOError{msg: errMsg, code: kanzi.ERR_PROCESS_BLOCK}
 			}
 
