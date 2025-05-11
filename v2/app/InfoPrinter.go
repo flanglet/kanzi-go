@@ -96,10 +96,7 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 	if evt.Type() == this.thresholds[1] {
 		// Register initial block size
 		bi := blockInfo{time0: evt.Time()}
-
-		if this.infoType == ENCODING {
-			bi.stage0Size = evt.Size()
-		}
+		bi.stage0Size = evt.Size()
 
 		this.lock.Lock()
 		this.infos[currentBlockID] = bi
@@ -115,10 +112,6 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 
 		if exists == true {
 			bi.time1 = evt.Time()
-
-			if this.infoType == DECODING {
-				bi.stage0Size = evt.Size()
-			}
 
 			this.lock.Lock()
 			this.infos[currentBlockID] = bi
