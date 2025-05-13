@@ -260,7 +260,7 @@ func createWriterWithCtx(obs kanzi.OutputBitStream, ctx map[string]any) (*Writer
 	this.buffers = make([]blockBuffer, 2*this.jobs)
 
 	// Allocate first buffer and add padding for incompressible blocks
-	bufSize := max(this.blockSize+this.blockSize>>6, 65536)
+	bufSize := max(this.blockSize+this.blockSize>>3, 256*1024)
 	this.buffers[0] = blockBuffer{Buf: make([]byte, bufSize)}
 	this.buffers[this.jobs] = blockBuffer{Buf: make([]byte, 0)}
 
@@ -426,7 +426,7 @@ func (this *Writer) Write(block []byte) (int, error) {
 				if bufID+1 < this.jobs {
 					// Current write buffer is full
 					if len(this.buffers[bufID+1].Buf) == 0 {
-						bufSize := max(this.blockSize+this.blockSize>>6, 65536)
+						bufSize := max(this.blockSize+this.blockSize>>3, 256*1024)
 						this.buffers[bufID+1].Buf = make([]byte, bufSize)
 					}
 				} else {
@@ -711,15 +711,7 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 		notifyListeners(this.listeners, evt)
 	}
 
-	bufSize := postTransformLength
-
-	if bufSize < this.blockLength+(this.blockLength>>3) {
-		bufSize = this.blockLength + (this.blockLength >> 3)
-	}
-
-	if bufSize < 512*1024 {
-		bufSize = 512 * 1024
-	}
+	bufSize := max(postTransformLength, max(this.blockLength+(this.blockLength>>3), 256*1024))
 
 	if len(data) < int(bufSize) {
 		// Rare case where the transform expanded the input or the entropy
