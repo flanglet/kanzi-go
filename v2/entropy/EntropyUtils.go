@@ -280,7 +280,7 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 		}
 	}
 
-	freqs[idxMax] -= delta
+	freqs[idxMax] = max(freqs[idxMax]-delta, 1)
 	return alphabetSize, nil
 }
 
