@@ -146,6 +146,10 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("UTF forward transform skip: not UTF")
 	}
 
+	if this.ctx != nil {
+		(*this.ctx)["dataType"] = internal.DT_UTF8
+	}
+
 	// 1-3 bit size + (7 or 11 or 16 or 21) bit payload
 	// 3 MSBs indicate symbol size (limit map size to 22 bits)
 	// 000 -> 7 bits

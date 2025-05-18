@@ -306,62 +306,90 @@ func detectTextType(freqs0 []int, freqs [][256]int, count int) byte {
 		return _TC_MASK_NOT_TEXT | byte(dt)
 	}
 
-	// Check UTF-8
-	// See Unicode 14 Standard - UTF-8 Table 3.7
+	// Valid UTF-8 sequences
+	// See Unicode 16 Standard - UTF-8 Table 3.7
 	// U+0000..U+007F          00..7F
 	// U+0080..U+07FF          C2..DF 80..BF
 	// U+0800..U+0FFF          E0 A0..BF 80..BF
 	// U+1000..U+CFFF          E1..EC 80..BF 80..BF
-	// U+D000..U+D7FF          ED 80..9F 80..BF
+	// U+D000..U+D7FF          ED 80..9F 80..BF 80..BF
 	// U+E000..U+FFFF          EE..EF 80..BF 80..BF
 	// U+10000..U+3FFFF        F0 90..BF 80..BF 80..BF
 	// U+40000..U+FFFFF        F1..F3 80..BF 80..BF 80..BF
 	// U+100000..U+10FFFF      F4 80..8F 80..BF 80..BF
-	if freqs0[0xC0] > 0 || freqs0[0xC1] > 0 {
+
+	// Check rules for 1 byte
+	sum := freqs0[0xC0] + freqs0[0xC1]
+
+	for _, f := range freqs0[0xF5:] {
+		sum += f
+	}
+
+	if sum != 0 {
 		return _TC_MASK_NOT_TEXT
 	}
 
-	for i := 0xF5; i <= 0xFF; i++ {
-		if freqs0[i] > 0 {
-			return _TC_MASK_NOT_TEXT
-		}
-	}
+	sum2 := 0
 
-	sum := 0
-
+	// Check rules for first 2 bytes
 	for i := 0; i < 256; i++ {
 		// Exclude < 0xE0A0 || > 0xE0BF
-		if (i < 0xA0 || i > 0xBF) && (freqs[0xE0][i] > 0) {
-			return _TC_MASK_NOT_TEXT
+		if i < 0xA0 || i > 0xBF {
+			sum += freqs[0xE0][i]
 		}
 
 		// Exclude < 0xED80 || > 0xEDE9F
-		if (i < 0x80 || i > 0x9F) && (freqs[0xED][i] > 0) {
-			return _TC_MASK_NOT_TEXT
+		if i < 0x80 || i > 0x9F {
+			sum += freqs[0xED][i]
 		}
 
 		// Exclude < 0xF090 || > 0xF0BF
-		if (i < 0x90 || i > 0xBF) && (freqs[0xF0][i] > 0) {
-			return _TC_MASK_NOT_TEXT
+		if i < 0x90 || i > 0xBF {
+			sum += freqs[0xF0][i]
 		}
 
-		// Exclude < 0xF480 || > 0xF4BF
-		if (i < 0x80 || i > 0xBF) && (freqs[0xF4][i] > 0) {
-			return _TC_MASK_NOT_TEXT
+		// Exclude < 0xF480 || > 0xF48F
+		if i < 0x80 || i > 0x8F {
+			sum += freqs[0xF4][i]
 		}
 
-		// Count non-primary bytes
-		if i >= 0x80 && i <= 0xBF {
-			sum += freqs0[i]
+		if i < 0x80 || i > 0xBF {
+			// Exclude < 0x??80 || > 0x??BF with ?? in [C2..DF]
+			for j := 0xC2; j <= 0xDF; j++ {
+				sum += freqs[j][i]
+			}
+
+			// Exclude < 0x??80 || > 0x??BF with ?? in [E1..EC]
+			for j := 0xE1; j <= 0xEC; j++ {
+				sum += freqs[j][i]
+			}
+
+			// Exclude < 0x??80 || > 0x??BF with ?? in [F1..F3]
+			sum += freqs[0xF1][i]
+			sum += freqs[0xF2][i]
+			sum += freqs[0xF3][i]
+
+			// Exclude < 0xEE80 || > 0xEEBF
+			sum += freqs[0xEE][i]
+
+			// Exclude < 0xEF80 || > 0xEFBF
+			sum += freqs[0xEF][i]
+		} else {
+			// Count non-primary bytes
+			sum2 += freqs0[i]
+		}
+
+		if sum != 0 {
+			return _TC_MASK_NOT_TEXT
 		}
 	}
 
-	// Another ad-hoc threshold
-	if int(sum) < count/4 {
+	// Ad-hoc threshold
+	if sum2 >= count/8 {
+		return _TC_MASK_NOT_TEXT | byte(internal.DT_UTF8)
+	} else {
 		return _TC_MASK_NOT_TEXT
 	}
-
-	return _TC_MASK_NOT_TEXT | byte(internal.DT_UTF8)
 }
 
 func sameWords(buf1, buf2 []byte) bool {
