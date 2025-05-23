@@ -28,9 +28,9 @@ import (
 	"github.com/flanglet/kanzi-go/v2/internal"
 )
 
-func TestHuffman(b *testing.T) {
-	if err := testEntropyCorrectness("HUFFMAN"); err != nil {
-		b.Errorf(err.Error())
+func TestHuffman(t *testing.T) {
+	if err := testEntropyCorrectness("HUFFMAN", testing.Verbose()); err != nil {
+		t.Errorf(err.Error())
 	}
 }
 
@@ -78,9 +78,9 @@ func TestFPAQCodecSpecificPatterns(t *testing.T) {
 			input: []byte{},
 		},
 		{
-			name:  "FPAQ_DistantRepetition_ABCDEFXABC",
+			name: "FPAQ_DistantRepetition_ABCDEFXABC",
 			// Using 5 repeats to make it reasonably long for FPAQ's context modeling
-			input: []byte(strRepeat("ABCDEFXABC", 5)), 
+			input: []byte(strRepeat("ABCDEFXABC", 5)),
 		},
 		{
 			name: "FPAQ_AllByteValues",
@@ -94,7 +94,7 @@ func TestFPAQCodecSpecificPatterns(t *testing.T) {
 		},
 		{
 			name:  "FPAQ_MixedFrequencies",
-			input: []byte(strRepeat("L",50) + strRepeat("M",20) + strRepeat("N",5) + strRepeat("O",1) + strRepeat("L",20)),
+			input: []byte(strRepeat("L", 50) + strRepeat("M", 20) + strRepeat("N", 5) + strRepeat("O", 1) + strRepeat("L", 20)),
 		},
 	}
 
@@ -132,10 +132,10 @@ func TestFPAQCodecSpecificPatterns(t *testing.T) {
 
 			if originalLength > 10 { // Only check for reasonable length inputs
 				isPredictable := tc.name == "FPAQ_RepeatingPattern_LMN" ||
-								tc.name == "FPAQ_AlternatingSymbols_STST" ||
-								tc.name == "FPAQ_AllSame_W50" ||
-								tc.name == "FPAQ_DistantRepetition_ABCDEFXABC"
-				
+					tc.name == "FPAQ_AlternatingSymbols_STST" ||
+					tc.name == "FPAQ_AllSame_W50" ||
+					tc.name == "FPAQ_DistantRepetition_ABCDEFXABC"
+
 				if isPredictable && encodedLength >= originalLength {
 					t.Logf("Warning: Predictable pattern '%s' for FPAQ did not compress. Original: %d, Encoded: %d. This might be acceptable for some short patterns or specific FPAQ configurations.", tc.name, originalLength, encodedLength)
 				}
@@ -234,7 +234,7 @@ func TestTPAQCodecSpecificPatterns(t *testing.T) {
 		},
 		{
 			name:  "TPAQ_MixedFrequencies",
-			input: []byte(strRepeat("X",50) + strRepeat("Y",20) + strRepeat("Z",5) + strRepeat("W",1) + strRepeat("X",20)),
+			input: []byte(strRepeat("X", 50) + strRepeat("Y", 20) + strRepeat("Z", 5) + strRepeat("W", 1) + strRepeat("X", 20)),
 		},
 	}
 
@@ -272,10 +272,10 @@ func TestTPAQCodecSpecificPatterns(t *testing.T) {
 
 			if originalLength > 10 {
 				isPredictable := tc.name == "TPAQ_RepeatingPattern_XYZ" ||
-								tc.name == "TPAQ_AlternatingSymbols_UVUV" ||
-								tc.name == "TPAQ_AllSame_K50" ||
-								tc.name == "TPAQ_DistantRepetition_DEFGHIDEF"
-				
+					tc.name == "TPAQ_AlternatingSymbols_UVUV" ||
+					tc.name == "TPAQ_AllSame_K50" ||
+					tc.name == "TPAQ_DistantRepetition_DEFGHIDEF"
+
 				if isPredictable && encodedLength >= originalLength {
 					t.Logf("Warning: Predictable pattern '%s' for TPAQ did not compress. Original: %d, Encoded: %d. This might be acceptable for some short patterns or specific TPAQ configurations.", tc.name, originalLength, encodedLength)
 				}
@@ -315,34 +315,34 @@ func TestTPAQCodecSpecificPatterns(t *testing.T) {
 	}
 }
 
-func TestANS0(b *testing.T) {
-	if err := testEntropyCorrectness("ANS0"); err != nil {
-		b.Errorf(err.Error())
+func TestANS0(t *testing.T) {
+	if err := testEntropyCorrectness("ANS0", testing.Verbose()); err != nil {
+		t.Errorf(err.Error())
 	}
 }
-func TestANS1(b *testing.T) {
-	if err := testEntropyCorrectness("ANS1"); err != nil {
-		b.Errorf(err.Error())
+func TestANS1(t *testing.T) {
+	if err := testEntropyCorrectness("ANS1", testing.Verbose()); err != nil {
+		t.Errorf(err.Error())
 	}
 }
-func TestRange(b *testing.T) {
-	if err := testEntropyCorrectness("RANGE"); err != nil {
-		b.Errorf(err.Error())
+func TestRange(t *testing.T) {
+	if err := testEntropyCorrectness("RANGE", testing.Verbose()); err != nil {
+		t.Errorf(err.Error())
 	}
 }
-func TestFPAQ(b *testing.T) {
-	if err := testEntropyCorrectness("FPAQ"); err != nil {
-		b.Errorf(err.Error())
+func TestFPAQ(t *testing.T) {
+	if err := testEntropyCorrectness("FPAQ", testing.Verbose()); err != nil {
+		t.Errorf(err.Error())
 	}
 }
-func TestCM(b *testing.T) {
-	if err := testEntropyCorrectness("CM"); err != nil {
-		b.Errorf(err.Error())
+func TestCM(t *testing.T) {
+	if err := testEntropyCorrectness("CM", testing.Verbose()); err != nil {
+		t.Errorf(err.Error())
 	}
 }
-func TestTPAQ(b *testing.T) {
-	if err := testEntropyCorrectness("TPAQ"); err != nil {
-		b.Errorf(err.Error())
+func TestTPAQ(t *testing.T) {
+	if err := testEntropyCorrectness("TPAQ", testing.Verbose()); err != nil {
+		t.Errorf(err.Error())
 	}
 }
 
@@ -376,9 +376,10 @@ func getDecoder(name string, ibs kanzi.InputBitStream) kanzi.EntropyDecoder {
 	return res
 }
 
-func testEntropyCorrectness(codecName string) error { // Renamed 'name' to 'codecName' for clarity
-	fmt.Println()
-	fmt.Printf("=== Testing %v ===\n", codecName)
+func testEntropyCorrectness(codecName string, verbose bool) error { // Renamed 'name' to 'codecName' for clarity
+	if verbose {
+		fmt.Printf("\n=== Testing %v ===\n", codecName)
+	}
 
 	type entropyTestCase struct {
 		name  string
@@ -482,20 +483,23 @@ func testEntropyCorrectness(codecName string) error { // Renamed 'name' to 'code
 
 	// Test behavior
 	for _, tc := range testCases {
-		fmt.Printf("\n\nTest %s (Codec: %s, original ii: %d)", tc.name, codecName, tc.ii)
 		values := tc.input // Use tc.input as 'values' for minimal changes to core logic
 
-		fmt.Printf("\nOriginal: \n")
-		if len(values) > 0 {
-			for i := range values {
-				fmt.Printf("%d ", values[i])
-			}
-		} else {
-			fmt.Printf("(empty)")
-		}
+		if verbose {
+			fmt.Printf("\n\nTest %s (Codec: %s, original ii: %d)", tc.name, codecName, tc.ii)
 
-		println()
-		fmt.Printf("\nEncoded: \n")
+			fmt.Printf("\nOriginal: \n")
+			if len(values) > 0 {
+				for i := range values {
+					fmt.Printf("%d ", values[i])
+				}
+			} else {
+				fmt.Printf("(empty)")
+			}
+
+			println()
+			fmt.Printf("\nEncoded: \n")
+		}
 		bs := internal.NewBufferStream()
 		obs, _ := bitstream.NewDefaultOutputBitStream(bs, 16384)
 		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
@@ -514,9 +518,10 @@ func testEntropyCorrectness(codecName string) error { // Renamed 'name' to 'code
 
 		ec.Dispose()
 		dbgbs.Close()
-		println()
-		fmt.Printf("\nDecoded: \n")
-
+		if verbose {
+			println()
+			fmt.Printf("\nDecoded: \n")
+		}
 		ibs, _ := bitstream.NewDefaultInputBitStream(bs, 16384)
 		ed := getDecoder(codecName, ibs)
 
@@ -533,8 +538,7 @@ func testEntropyCorrectness(codecName string) error { // Renamed 'name' to 'code
 		// should result in an empty slice.
 		if len(values) > 0 {
 			if _, err := ed.Read(values2); err != nil {
-				fmt.Printf("Error during decoding: %s", err)
-				return err
+				return fmt.Errorf("Error during decoding: %s", err)
 			}
 		} else if len(values2) != 0 {
 			// If input was empty, values2 should also be empty.
@@ -547,12 +551,13 @@ func testEntropyCorrectness(codecName string) error { // Renamed 'name' to 'code
 			// values2 = []byte{} // If Read doesn't handle it, this might be needed.
 		}
 
-
 		ed.Dispose()
 
 		if len(values) > 0 {
 			for i := range values2 {
-				fmt.Printf("%v ", values2[i])
+				if verbose {
+					fmt.Printf("%v ", values2[i])
+				}
 
 				if values[i] != values2[i] {
 					ok = false
@@ -560,15 +565,18 @@ func testEntropyCorrectness(codecName string) error { // Renamed 'name' to 'code
 			}
 		} else if len(values2) != 0 {
 			// If original was empty, decoded should be empty too.
-			ok = false
-			fmt.Printf("(decoded non-empty for empty input)")
+			return errors.New("(decoded non-empty for empty input)")
 		}
 
-
 		if ok == true {
-			fmt.Printf("\nIdentical")
+			if verbose {
+				fmt.Printf("\nIdentical")
+			}
 		} else {
-			fmt.Printf("\n! *** Different *** !")
+			if verbose {
+				fmt.Printf("\n! *** Different *** !")
+			}
+
 			return errors.New("Input and inverse are different")
 		}
 
@@ -602,7 +610,7 @@ func TestCMCodecSpecificPatterns(t *testing.T) {
 
 	testCases := []testCase{
 		{
-			name:  "RepeatingPattern_ABC",
+			name: "RepeatingPattern_ABC",
 			// Longer to give CM more context and see better compression. CM uses a rolling context.
 			input: []byte(strRepeat("ABC", 20)), // "ABCABC...ABC" (60 bytes)
 		},
@@ -620,7 +628,7 @@ func TestCMCodecSpecificPatterns(t *testing.T) {
 			input: []byte(strRepeat("Z", 50)),
 		},
 		{
-			name:  "AlmostAllSame_A50B1",
+			name: "AlmostAllSame_A50B1",
 			// Tests how a single different byte affects compression after a long same-byte run.
 			input: []byte(strRepeat("A", 50) + "B"),
 		},
@@ -637,7 +645,7 @@ func TestCMCodecSpecificPatterns(t *testing.T) {
 			input: []byte("XX"),
 		},
 		{
-			name: "EmptyInput",
+			name:  "EmptyInput",
 			input: []byte{},
 		},
 		{
@@ -658,8 +666,8 @@ func TestCMCodecSpecificPatterns(t *testing.T) {
 		},
 		{
 			// Test with a mix of high and low frequency symbols
-			name: "MixedFrequencies",
-			input: []byte(strRepeat("A",50) + strRepeat("B",20) + strRepeat("C",5) + strRepeat("D",1) + strRepeat("A",20)),
+			name:  "MixedFrequencies",
+			input: []byte(strRepeat("A", 50) + strRepeat("B", 20) + strRepeat("C", 5) + strRepeat("D", 1) + strRepeat("A", 20)),
 		},
 	}
 
@@ -687,7 +695,6 @@ func TestCMCodecSpecificPatterns(t *testing.T) {
 				t.Fatalf("Encoder.Write returned %d, expected %d", byteWritten, originalLength)
 			}
 
-
 			encoder.Dispose()
 			// It's critical to Close the OutputBitStream to flush any buffered bits to the underlying stream.
 			if err := obs.Close(); err != nil {
@@ -702,10 +709,10 @@ func TestCMCodecSpecificPatterns(t *testing.T) {
 			// For CM, highly predictable patterns should generally compress.
 			if originalLength > 10 { // Only check for reasonable length inputs
 				isPredictable := tc.name == "RepeatingPattern_ABC" ||
-								tc.name == "AlternatingSymbols_ABAB" ||
-								tc.name == "AllSame_Z50" ||
-								tc.name == "DistantRepetition_ABCAXYZABC"
-				
+					tc.name == "AlternatingSymbols_ABAB" ||
+					tc.name == "AllSame_Z50" ||
+					tc.name == "DistantRepetition_ABCAXYZABC"
+
 				if isPredictable && encodedLength >= originalLength {
 					t.Logf("Warning: Predictable pattern '%s' did not compress. Original: %d, Encoded: %d. This might be acceptable for some short patterns or specific CM configurations.", tc.name, originalLength, encodedLength)
 				}
@@ -713,7 +720,6 @@ func TestCMCodecSpecificPatterns(t *testing.T) {
 					t.Logf("Info: 'AllByteValues' (random-like) compressed from %d to %d. This is good.", originalLength, encodedLength)
 				}
 			}
-
 
 			// Prepare for decoding
 			ibs, err := bitstream.NewDefaultInputBitStream(bufferStream, 16384)
@@ -742,7 +748,6 @@ func TestCMCodecSpecificPatterns(t *testing.T) {
 				// If Read were called, it should return 0.
 			}
 
-
 			decoder.Dispose()
 			if err := ibs.Close(); err != nil { // Input stream should also be closed
 				t.Fatalf("Error closing InputBitStream: %v", err)
@@ -758,4 +763,3 @@ func TestCMCodecSpecificPatterns(t *testing.T) {
 		})
 	}
 }
-
