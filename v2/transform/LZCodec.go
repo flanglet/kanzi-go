@@ -38,7 +38,7 @@ const (
 	_LZX_MIN_MATCH4       = 4
 	_LZX_MIN_MATCH6       = 6
 	_LZX_MIN_MATCH9       = 9
-	_LZX_MAX_MATCH        = 65535 + 254 + 15 + _LZX_MIN_MATCH4
+	_LZX_MAX_MATCH        = 65535 + 254 + _LZX_MIN_MATCH4
 	_LZX_MIN_BLOCK_LENGTH = 24
 	_LZP_HASH_SEED        = 0x7FEB352D
 	_LZP_HASH_LOG         = 16
@@ -355,7 +355,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 					bestLen1 := findMatchLZX(src, srcIdx1, ref1, min(srcEnd-srcIdx1, _LZX_MAX_MATCH))
 
 					// Select best match
-					if bestLen1 > bestLen {
+					if bestLen1 >= bestLen {
 						ref = ref1
 						bestLen = bestLen1
 						srcIdx = srcIdx1
@@ -388,17 +388,16 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 		// Token: 3 bits litLen + 2 bits flag + 3 bits mLen (LLLFFMMM)
 		// LLL : <= 7 --> LLL == literal length (if 7, remainder encoded outside of token)
-		// MMM : <= 6 --> MMMM == match length (if 6, remainder encoded outside of token)
+		// MMM : <= 6 --> MMM == match length (if 6, remainder encoded outside of token)
 		// FF  : if MMM == 7
 		//          FF = x0 if dist == repd0
 		//          FF = x1 if dist == repd1
 		//       else
 		//          FF = 00 => 1 byte dist
 		//          FF = 01 => 2 byte dist
-		//          FF = 10 => 2 byte dist
-		//          FF = 11 => 3 byte dist
+		//          FF = 10 => 3 byte dist
+		//          FF = 11 => unused
 		dist := srcIdx - ref
-		litLen := srcIdx - anchor
 		token := 0
 
 		if dist == repd[0] {
@@ -409,17 +408,17 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 			mLenIdx += emitLengthLZ(this.mLenBuf[mLenIdx:], bestLen-minMatch)
 		} else {
 			// Emit distance since not a repeat
-			flag := 0
-
-			if dist >= 65536 {
-				this.mBuf[mIdx] = byte(dist >> 16)
-				this.mBuf[mIdx+1] = byte(dist >> 8)
-				mIdx += 2
-				flag = 2
-			} else if dist >= 256 {
-				this.mBuf[mIdx] = byte(dist >> 8)
-				mIdx++
-				flag = 1
+			if dist >= 256 {
+				if dist >= 65536 {
+					this.mBuf[mIdx] = byte(dist >> 16)
+					this.mBuf[mIdx+1] = byte(dist >> 8)
+					mIdx += 2
+					token = 0x10
+				} else {
+					this.mBuf[mIdx] = byte(dist >> 8)
+					mIdx++
+					token = 0x08
+				}
 			}
 
 			this.mBuf[mIdx] = byte(dist)
@@ -428,16 +427,17 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 			// Emit match length
 			if mLen >= 6 {
-				token = 6 + (flag << 3)
+				token += 6
 				mLenIdx += emitLengthLZ(this.mLenBuf[mLenIdx:], mLen-6)
 			} else {
-				token = mLen + (flag << 3)
+				token += mLen
 			}
 		}
 
 		repd[1] = repd[0]
 		repd[0] = dist
 		repdIdx = 1
+		litLen := srcIdx - anchor
 
 		// Emit token
 		// Literals to process ?
@@ -575,7 +575,7 @@ func (this *LZXCodec) inverseV5(src, dst []byte) (uint, uint, error) {
 	mIdx += tkIdx
 	mLenIdx += mIdx
 
-	if (tkIdx > count) || (mIdx > count) || (mLenIdx > count) {
+	if (tkIdx >= count) || (mIdx >= count) || (mLenIdx >= count) {
 		return 0, 0, errors.New("LZCodec inverse transform failed: invalid data")
 	}
 
@@ -656,12 +656,10 @@ func (this *LZXCodec) inverseV5(src, dst []byte) (uint, uint, error) {
 			dist = int(src[mIdx])
 			mIdx++
 
-			if token&0x18 != 0 {
-				dist = (dist << 8) | int(src[mIdx])
-				mIdx++
-			}
-
 			if token&0x10 != 0 {
+				dist = (dist << 16) | (int(src[mIdx]) << 8) | int(src[mIdx+1])
+				mIdx += 2
+			} else if token&0x08 != 0 {
 				dist = (dist << 8) | int(src[mIdx])
 				mIdx++
 			}
