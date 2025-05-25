@@ -16,6 +16,7 @@ limitations under the License.
 package transform
 
 import (
+	"bytes" // Added for bytes.Repeat and bytes.Equal
 	"fmt"
 	"math/rand"
 	"testing"
@@ -23,6 +24,22 @@ import (
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
 )
+
+// transformTestCase holds data for a single test case for testTransformCorrectness.
+type transformTestCase struct {
+	name      string
+	inputData []byte
+	rng       int  // Specific rng value for this test case, if different from default.
+	skip      bool // Flag to skip this test case if necessary
+}
+
+// specificTransformTestCase holds data for specific codec tests.
+type specificTransformTestCase struct {
+	name        string
+	transformID string // e.g., "LZ", "RLT"
+	input       []byte
+	description string // What this test case is trying to achieve
+}
 
 func getTransform(name string) (kanzi.ByteTransform, error) {
 	ctx := make(map[string]any)
@@ -34,318 +51,529 @@ func getTransform(name string) (kanzi.ByteTransform, error) {
 		ctx["lz"] = LZ_TYPE
 		res, err := NewLZCodecWithCtx(&ctx)
 		return res, err
-
 	case "LZX":
 		ctx["lz"] = LZX_TYPE
 		res, err := NewLZCodecWithCtx(&ctx)
 		return res, err
-
 	case "LZP":
 		ctx["lz"] = LZP_TYPE
 		res, err := NewLZCodecWithCtx(&ctx)
 		return res, err
-
 	case "ALIAS":
 		res, err := NewAliasCodecWithCtx(&ctx)
 		return res, err
-
 	case "NONE":
 		res, err := NewNullTransformWithCtx(&ctx)
 		return res, err
-
 	case "ZRLT":
 		res, err := NewZRLTWithCtx(&ctx)
 		return res, err
-
 	case "RLT":
 		res, err := NewRLTWithCtx(&ctx)
 		return res, err
-
 	case "SRT":
 		res, err := NewSRTWithCtx(&ctx)
 		return res, err
-
 	case "ROLZ", "ROLZX":
 		res, err := NewROLZCodecWithCtx(&ctx)
 		return res, err
-
 	case "RANK":
 		res, err := NewSBRT(SBRT_MODE_RANK)
 		return res, err
-
 	case "MTFT":
 		res, err := NewSBRT(SBRT_MODE_MTF)
 		return res, err
-
 	case "MM":
 		res, err := NewFSDCodecWithCtx(&ctx)
 		return res, err
-
+	case "EXE":
+		res, err := NewEXECodecWithCtx(&ctx)
+		return res, err
+	case "TEXT":
+		res, err := NewTextCodecWithCtx(&ctx)
+		return res, err
+	case "UTF":
+		res, err := NewUTFCodecWithCtx(&ctx)
+		return res, err
 	default:
 		panic(fmt.Errorf("No such transform: '%s'", name))
 	}
 }
 
-func TestLZ(b *testing.T) {
-	if err := testTransformCorrectness("LZ"); err != nil {
-		b.Errorf(err.Error())
+// Generic Tests (using testTransformCorrectness)
+func TestLZ(t *testing.T)        { testTransformCorrectness("LZ", t) }
+func TestLZX(t *testing.T)       { testTransformCorrectness("LZX", t) }
+func TestLZP(t *testing.T)       { testTransformCorrectness("LZP", t) }
+func TestROLZ(t *testing.T)      { testTransformCorrectness("ROLZ", t) }
+func TestROLZX(t *testing.T)     { testTransformCorrectness("ROLZX", t) }
+func TestCopy(t *testing.T)      { testTransformCorrectness("NONE", t) }
+func TestAlias(t *testing.T)     { testTransformCorrectness("ALIAS", t) }
+func TestZRLT(t *testing.T)      { testTransformCorrectness("ZRLT", t) }
+func TestRLT(t *testing.T)       { testTransformCorrectness("RLT", t) }
+func TestSRT(t *testing.T)       { testTransformCorrectness("SRT", t) }
+func TestMM(t *testing.T)        { testTransformCorrectness("MM", t) }
+func TestRank(t *testing.T)      { testTransformCorrectness("RANK", t) }
+func TestMTFT(t *testing.T)      { testTransformCorrectness("MTFT", t) }
+func TestEXECodec(t *testing.T)  { testTransformCorrectness("EXE", t) }
+func TestTextCodec(t *testing.T) { testTransformCorrectness("TEXT", t) }
+func TestUTFCodec(t *testing.T)  { testTransformCorrectness("UTF", t) }
+
+// generateTransformTestCases creates the suite of generic test cases.
+func generateTransformTestCases(transformName string) []transformTestCase {
+	testCases := []transformTestCase{}
+	defaultRng := 256
+
+	testCases = append(testCases, transformTestCase{name: "EmptyInput", inputData: []byte{}, rng: defaultRng})
+	testCases = append(testCases, transformTestCase{name: "SingleByteA", inputData: []byte{'A'}, rng: defaultRng})
+	testCases = append(testCases, transformTestCase{name: "TwoIdenticalBytesAA", inputData: []byte{'A', 'A'}, rng: defaultRng})
+	testCases = append(testCases, transformTestCase{name: "TwoDifferentBytesAB", inputData: []byte{'A', 'B'}, rng: defaultRng})
+
+	allByteValues := make([]byte, 256)
+	for i := 0; i < 256; i++ {
+		allByteValues[i] = byte(i)
 	}
-}
+	testCases = append(testCases, transformTestCase{name: "All256ByteValues", inputData: allByteValues, rng: defaultRng})
 
-func TestLZX(b *testing.T) {
-	if err := testTransformCorrectness("LZX"); err != nil {
-		b.Errorf(err.Error())
+	testCases = append(testCases, transformTestCase{
+		name:      "Original_SpecificSequence_0",
+		inputData: []byte{0, 1, 2, 2, 2, 2, 7, 9, 9, 16, 16, 16, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3},
+		rng:       defaultRng,
+	})
+
+	input1 := make([]byte, 80000)
+	for i := range input1 {
+		input1[i] = 8
 	}
-}
+	input1[0] = 1
+	testCases = append(testCases, transformTestCase{name: "Original_AllEights_OneOne_80k_1", inputData: input1, rng: defaultRng})
+	testCases = append(testCases, transformTestCase{name: "Original_ShortRepeats_2", inputData: []byte{0, 0, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3}, rng: defaultRng})
 
-func TestLZP(b *testing.T) {
-	if err := testTransformCorrectness("LZP"); err != nil {
-		b.Errorf(err.Error())
-	}
-}
-
-func TestROLZ(b *testing.T) {
-	if err := testTransformCorrectness("ROLZ"); err != nil {
-		b.Errorf(err.Error())
-	}
-}
-
-func TestROLZX(b *testing.T) {
-	if err := testTransformCorrectness("ROLZX"); err != nil {
-		b.Errorf(err.Error())
-	}
-}
-
-func TestCopy(b *testing.T) {
-	if err := testTransformCorrectness("NONE"); err != nil {
-		b.Errorf(err.Error())
-	}
-}
-
-func TestAlias(b *testing.T) {
-	if err := testTransformCorrectness("ALIAS"); err != nil {
-		b.Errorf(err.Error())
-	}
-}
-
-func TestZRLT(b *testing.T) {
-	if err := testTransformCorrectness("ZRLT"); err != nil {
-		b.Errorf(err.Error())
-	}
-}
-
-func TestRLT(b *testing.T) {
-	if err := testTransformCorrectness("RLT"); err != nil {
-		b.Errorf(err.Error())
-	}
-}
-
-func TestSRT(b *testing.T) {
-	if err := testTransformCorrectness("SRT"); err != nil {
-		b.Errorf(err.Error())
-	}
-}
-
-func TestMM(b *testing.T) {
-	if err := testTransformCorrectness("MM"); err != nil {
-		b.Errorf(err.Error())
-	}
-}
-
-func TestRank(b *testing.T) {
-	if err := testTransformCorrectness("RANK"); err != nil {
-		b.Errorf(err.Error())
-	}
-}
-func TestMTFT(b *testing.T) {
-	if err := testTransformCorrectness("MTFT"); err != nil {
-		b.Errorf(err.Error())
-	}
-}
-
-func testTransformCorrectness(name string) error {
-	rng := 256
-	fmt.Println()
-	fmt.Printf("=== Testing %v ===\n", name)
-
-	if name == "ZRLT" {
-		rng = 5
-	}
-
-	for ii := 0; ii < 50; ii++ {
-		rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
-		fmt.Printf("\nTest %v\n\n", ii)
-		var arr []int
-
-		if ii == 0 {
-			//arr = []int{19, 0, 0, 0, 0, 0, 0, 0, 30, 8, 0, 32, 0, 26, 2, 0, 0, 0, 0, 16, 0, 0, 1, 0, 4, 0, 3, 0, 14, 5, 0, 15, 9, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 25, 0, 0, 15, 0, 0, 13, 0, 0, 14, 0, 28, 0, 14, 0, 7, 0, 0, 12, 10, 22, 5, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 23, 15, 15, 11, 0, 0, 24, 0, 27, 0, 28, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 23, 0, 12, 3, 0, 25, 22, 26, 0, 0, 0, 12, 0, 20, 0, 0, 29, 15, 0, 0, 0, 9, 0, 0, 29, 21, 0, 0, 0, 0, 0, 0, 0, 0, 0, 28, 13, 0, 0, 0, 0, 18, 0, 0, 9, 0, 0, 0, 0, 26, 0, 0, 15, 24, 5, 0, 6, 0, 0, 1, 10, 0, 0, 0, 27, 0, 11, 0, 0, 13, 0, 32, 0, 0, 15, 0, 0, 25, 7, 0, 30, 0, 23, 0, 0, 0, 0, 17, 0, 0, 0, 0, 16, 18, 0, 0, 13, 0, 0, 0, 17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 21, 0, 4, 8, 0, 12, 0, 6, 0, 0, 14, 3, 0, 0, 22, 0, 21, 0, 0, 0, 0, 0, 12, 0, 0, 0, 22, 0, 0, 0, 29, 0, 0, 19, 16, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 27, 0, 0, 32, 22, 0, 0, 10, 0, 0, 29, 28, 0, 12, 0, 0, 0, 0, 0, 0, 10, 0, 24, 0, 0, 0, 7, 0, 17, 24, 0, 7, 0, 2, 30, 17, 0, 0, 9, 0, 17, 0, 15, 0, 2, 0, 0, 0, 13, 0, 18, 0, 0, 0, 0, 0, 0, 25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 7, 0, 17, 0, 0, 0, 3, 21, 0, 19, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 7, 0, 0, 0, 0, 0, 4, 0, 9, 0, 0, 0, 6, 0, 1, 25, 0, 0, 22, 0, 0, 0, 0, 0, 0, 7, 0, 29, 0, 0, 16, 0, 0, 0, 8, 2, 0, 30, 0, 0, 7, 0, 0, 0, 15, 0, 5, 0, 0, 0, 20, 0, 26, 0, 0, 0, 0, 0, 0, 0, 0, 11, 7, 23, 0, 0, 0, 0, 0, 0, 0, 0, 15, 19, 0, 32, 0, 21, 26, 0, 0, 7, 32, 14, 0, 0, 0, 0, 0, 0, 9, 0, 0, 0, 14, 0, 0, 18, 5, 15, 0, 17, 0, 22, 0, 0, 3, 0, 0, 1, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 13, 0, 13, 13, 0, 0, 15, 11, 0, 10, 0, 0, 0, 0, 0, 0, 0, 25, 0, 0, 0, 15, 0, 0, 0, 27, 0, 0, 0, 26, 0, 0, 0, 1, 0, 0, 30, 0, 7, 0, 13, 18, 0, 0, 0, 0, 0, 27, 0, 0, 0, 0, 0, 0, 15, 0, 12, 22, 0, 14, 0, 25, 16, 8, 0, 0, 0, 5, 0, 0, 0, 0, 27, 0, 0, 0, 0, 10, 0, 14, 0, 9, 0, 3, 26, 0, 0, 22, 0, 0, 7, 0, 31, 0, 31, 7, 0, 0, 0, 0, 3, 31, 4, 0, 20, 27, 17, 8, 0, 0, 0, 15, 10, 14, 0, 0, 24, 0, 5, 5, 0, 0, 6, 0, 5, 27, 28, 0, 28, 0, 12, 0, 0, 0, 11, 0, 0, 0, 0, 0, 0, 1, 0, 3, 0, 23, 0, 20, 14, 0, 17, 0, 17, 2, 2, 0, 0, 28, 0, 0, 0, 0, 0, 0, 4, 10, 4, 0, 0, 21, 0, 15, 0, 0, 32, 0, 9, 13, 0, 3, 16, 0, 0, 0, 0, 0, 24, 1, 0, 15, 0, 0, 0, 0, 0, 0, 32, 0, 0, 8, 0, 12, 23, 0, 0, 0, 8, 0, 0, 21, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 16, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 12, 0, 0, 0, 31, 0, 10, 22, 0, 28, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 30, 0, 30, 0, 0, 0, 0, 1, 13, 19, 0, 30, 20, 0, 4, 0, 0, 26, 28, 17, 21, 0, 31, 0, 0, 0, 28, 0, 0, 0, 5, 0, 0, 0, 0, 0, 17, 6, 0, 0, 0, 5, 0, 0, 0, 26, 0, 14, 0, 27, 0, 0, 0, 0, 0, 13, 32, 2, 0, 0, 31, 0, 0, 0, 17, 0, 1, 0, 0, 0, 0, 7, 0, 30, 13, 0, 0, 0, 3, 3, 0, 0, 7, 0, 6, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 17, 0, 0, 10, 0, 0, 28, 15, 0, 0, 0, 15, 0, 0, 0, 0, 0, 0, 29, 0, 0, 23, 29, 0, 0, 31, 30, 19, 0, 0, 18, 0, 0, 11, 28, 0, 24, 0, 0, 0, 0, 0, 0, 0, 31, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 14, 0, 13, 0, 0, 22, 0, 0, 0, 0, 24, 0, 0, 0, 0, 0, 6, 19, 21, 4, 0, 0, 0, 8, 0, 0, 0, 19, 0, 14, 23, 0, 0, 14, 0, 0, 28, 0, 0, 0, 0, 30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 27, 0, 15, 0, 0, 16, 27, 14, 8, 0, 0, 0, 0, 0, 0, 12, 0, 0, 30, 23, 0, 0, 0, 0, 13, 22, 28, 0, 0, 0, 0, 0, 0, 0, 0, 0, 25, 0, 4, 19, 0, 0, 0, 28, 29, 30, 29, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 16, 0, 0, 0, 0, 10, 0, 0, 29, 0, 1, 0, 0, 0, 0, 14, 5, 0, 31, 28, 0, 17, 0, 20, 0, 20, 0, 0, 0, 0, 6, 0, 0, 16, 0, 0, 28, 0, 0, 11, 0, 0, 0, 10, 0, 0, 0, 0, 0, 1, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 29, 0, 0, 0, 9, 26, 0, 9, 0, 0, 12, 0, 19, 0, 0, 0, 0, 10, 16, 0, 0, 0, 12, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 28, 0, 0, 0, 0, 0, 0, 0, 15, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 29, 0, 0, 0, 0, 0, 2, 0, 0, 22, 0, 18, 21, 9, 0, 9, 7, 12, 0, 0, 29, 31, 8, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 21, 0, 0, 21, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 28, 0, 0, 0, 13, 0, 0, 30, 0, 0, 0, 5, 0, 21, 0, 15, 3, 0, 29, 7, 0, 0, 25, 10, 0, 15, 6, 0, 2, 0, 0, 0, 0, 29, 0, 0, 0, 0, 0, 13, 0, 22, 0, 8, 4, 0, 11, 0, 27, 0, 0, 0, 0, 0, 30, 0, 0, 0, 26, 0, 4, 0, 26, 0, 0, 0, 17, 26, 0, 27, 0, 0, 0, 0, 28, 0, 0, 22, 0, 10, 0, 12, 0, 21, 21, 0, 12, 0, 0, 25, 3, 0, 0, 0, 0, 0, 0, 0, 31, 0, 12, 0, 13, 0, 0, 0, 0, 0, 8, 27, 0, 0, 0, 0, 0, 0, 26, 5, 24, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 19, 18, 0, 0, 29, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 0, 4, 0, 0, 16, 0, 11, 0, 0, 0, 0, 30, 2, 29, 14, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 25, 0, 0, 0, 0, 30, 0, 0, 7, 23, 17, 0, 0, 0, 22, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 25, 0, 30, 19, 20, 30, 0, 15, 7, 0, 0, 0, 0, 26, 13, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 25, 0, 0, 0, 18, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 14, 11, 31, 0, 0, 0, 17, 0, 2, 22, 21, 0, 0, 0, 6, 0, 0, 0, 0, 11, 0, 8, 30, 0, 0, 0, 0, 1, 0, 2, 0, 0, 14, 0, 27, 0, 0, 0, 0, 0, 0, 0, 11, 0, 10, 26, 11, 0, 0, 0, 0, 30, 0, 0, 3, 0, 0, 8, 0, 5, 22, 0, 2, 0, 13, 0, 0, 30, 0, 19, 0, 0, 0, 0, 14, 29, 0, 0, 2, 10, 0, 16, 0, 18, 9, 0, 0, 28, 0, 17, 0, 0, 24, 0, 0, 4, 0, 0, 0, 6, 0, 0, 20, 0, 0, 21, 14, 0, 11, 0, 0, 0, 31, 0, 17, 21, 24, 21, 32, 24, 0, 0, 14, 27, 0, 17, 0, 0, 5, 0, 0, 10, 0, 16, 24, 30, 30, 0, 10, 0, 0, 0, 0, 14, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 31, 0, 0, 0, 0, 22, 5, 3, 10, 27, 0, 3, 0, 15, 0, 22, 0, 19, 0, 25, 0, 5, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 29, 27, 4, 0, 0, 0, 0, 0, 23, 0, 17, 27, 0, 27, 13, 0, 13, 0, 27, 28, 0, 15, 0, 0, 32, 0, 0, 24, 0, 0, 0, 0, 0, 0, 27, 0, 0, 27, 0, 11, 0, 14, 0, 3, 1, 0, 0, 0, 14, 27, 26, 0, 0, 0, 0, 6, 31, 0, 0, 0, 0, 23, 23, 11, 1, 0, 0, 21, 9, 0, 0, 0, 0, 5, 0, 0, 0, 20, 0, 0, 5, 2, 0, 0, 25, 25, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 28, 0, 0, 0, 0, 0, 0, 0, 19, 25, 0, 0, 0, 0, 25, 21, 0, 0, 0, 0, 0, 27, 0, 0, 0, 0, 0, 21, 10, 11, 19, 32, 22, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 0, 0, 20, 25, 0, 31, 0, 11, 31, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 30, 0, 15, 0, 0, 0, 0, 0, 15, 0, 2, 0, 0, 9, 19, 0, 0, 0, 0, 0, 0, 0, 32, 0, 11, 28, 0, 0, 0, 30, 29, 0, 32, 0, 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 30, 0, 0, 2, 0, 0, 15, 8, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 1, 0, 27, 0, 28, 32, 26, 28, 2, 0, 32, 0, 0, 0, 0, 0, 0, 17, 0, 26, 0, 0, 18, 0, 6, 0, 17, 0, 29, 0, 0, 0, 0, 16, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 21, 22, 0, 0, 0, 6, 28, 0, 0, 0, 21, 0, 12, 19, 0, 0, 0, 0, 0, 0, 0, 23, 7, 0, 11, 0, 0, 0, 0, 0, 0, 0, 0, 23, 0, 0, 0, 0, 28, 0, 29, 0, 21, 6, 31, 0, 3, 28, 0, 7, 0, 0, 14, 0, 0, 0, 0, 10, 0, 0, 0, 0, 24, 14, 32, 0, 0, 0, 25, 0, 0, 0, 13, 28, 0, 27, 0, 19, 0, 15, 23, 4, 10, 23, 0, 0, 0, 29, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 2, 0, 16, 0, 0, 0, 15, 0}
-
-			arr = []int{0, 1, 2, 2, 2, 2, 7, 9, 9, 16, 16, 16, 1, 3,
-				3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3}
-		} else if ii == 1 {
-			arr = make([]int, 80000)
-
-			for i := range arr {
-				arr[i] = 8
-			}
-
-			arr[0] = 1
-		} else if ii == 2 {
-			arr = []int{0, 0, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3}
-		} else if ii < 6 {
-			// Lots of zeros
-			arr = make([]int, 1<<uint(ii+6))
-
-			if rng > 100 {
-				rng = 100
-			}
-
-			for i := range arr {
-				val := rand.Intn(rng)
-
-				if val >= 33 {
-					val = 0
-				}
-
-				arr[i] = val
-			}
-		} else if ii == 6 {
-			// Totally random
-			arr = make([]int, 512)
-
-			// Leave zeros at the beginning for ZRLT to succeed
-			for i := 20; i < len(arr); i++ {
-				arr[i] = rand.Intn(rng)
-			}
-		} else {
-			arr = make([]int, 1024)
-			// Leave zeros at the beginning for ZRLT to succeed
-			idx := 20
-
-			for idx < len(arr) {
-				length := rnd.Intn(120) // above LZP min match threshold
-
-				if length%3 == 0 {
-					length = 1
-				}
-
-				val := rand.Intn(rng)
-				end := idx + length
-
-				if end >= len(arr) {
-					end = len(arr) - 1
-				}
-
-				for j := idx; j < end; j++ {
-					arr[j] = val
-				}
-
-				idx += length
-
-			}
-		}
-
-		size := len(arr)
-		f, err := getTransform(name)
-
-		if err != nil {
-			fmt.Printf("\nCannot create transform '%v': %v\n", name, err)
-			return err
-		}
-
+	for i := 3; i < 6; i++ {
+		size := 1 << uint(i+6)
 		input := make([]byte, size)
-		output := make([]byte, f.MaxEncodedLen(size))
-		reverse := make([]byte, size)
-
-		for i := range output {
-			output[i] = 0xAA
-		}
-
-		for i := range arr {
-			input[i] = byte(arr[i])
-		}
-
-		f, err = getTransform(name)
-
-		if err != nil {
-			fmt.Printf("\nCannot create transform '%v': %v\n", name, err)
-			return err
-		}
-
-		fmt.Printf("\nOriginal: \n")
-
-		if ii == 1 {
-			fmt.Printf("1 8 (%v times)", len(input)-1)
+		currentRng := defaultRng
+		if transformName == "ZRLT" {
+			currentRng = 5
 		} else {
-			for i := range arr {
-				fmt.Printf("%v ", input[i])
+			currentRng = 100
+		}
+		for j := range input {
+			val := byte(rand.Intn(currentRng))
+			if val >= 33 {
+				val = 0
 			}
+			input[j] = val
 		}
+		testCases = append(testCases, transformTestCase{name: fmt.Sprintf("Original_LotsOfZeros_%d_size%d", i, size), inputData: input, rng: currentRng})
+	}
 
-		srcIdx, dstIdx, err := f.Forward(input, output)
+	input6 := make([]byte, 512)
+	currentRng6 := defaultRng
+	if transformName == "ZRLT" {
+		currentRng6 = 5
+	}
+	for i := 0; i < 20 && i < len(input6); i++ {
+		input6[i] = 0
+	}
+	for i := 20; i < len(input6); i++ {
+		input6[i] = byte(rand.Intn(currentRng6))
+	}
+	testCases = append(testCases, transformTestCase{name: "Original_Random_WithInitialZeros_6_size512", inputData: input6, rng: currentRng6})
 
-		if err != nil {
-			// Function may fail when compression ratio > 1.0
-			fmt.Printf("\nNo compression (ratio > 1.0), skip reverse")
-			continue
+	rndGen := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for i := 7; i < 50; i++ {
+		inputNext := make([]byte, 1024)
+		currentRngNext := defaultRng
+		if transformName == "ZRLT" {
+			currentRngNext = 5
 		}
-
-		if name != "MM" && (srcIdx != uint(size) || srcIdx < dstIdx) {
-			fmt.Printf("\nNo compression (ratio > 1.0), skip reverse")
-			continue
+		for j := 0; j < 20 && j < len(inputNext); j++ {
+			inputNext[j] = 0
 		}
-
-		fmt.Printf("\nCoded: \n")
-
-		for i := uint(0); i < dstIdx; i++ {
-			fmt.Printf("%v ", output[i])
-		}
-
-		fmt.Printf(" (Compression ratio: %v%%)\n", int(dstIdx)*100/size)
-
-		f, err = getTransform(name)
-
-		if err != nil {
-			fmt.Printf("\nCannot create transform '%v': %v\n", name, err)
-			return err
-		}
-
-		_, _, err = f.Inverse(output[0:dstIdx], reverse)
-
-		if err != nil {
-			fmt.Printf("Decoding error : %v\n", err)
-			return err
-		}
-
-		fmt.Printf("Decoded: \n")
-		idx := -1
-
-		// Check
-		for i := range reverse {
-			if input[i] != reverse[i] {
-				idx = i
+		idx := 20
+		for idx < len(inputNext) {
+			length := rndGen.Intn(120)
+			if length%3 == 0 {
+				length = 1
+			}
+			if length == 0 {
+				length = 1
+			}
+			val := byte(rand.Intn(currentRngNext))
+			end := idx + length
+			if end > len(inputNext) {
+				end = len(inputNext)
+			}
+			for j := idx; j < end; j++ {
+				inputNext[j] = val
+			}
+			idx += length
+			if idx >= len(inputNext) && length > 0 {
 				break
 			}
 		}
+		testCases = append(testCases, transformTestCase{name: fmt.Sprintf("Original_RandomLengthsRandomValues_%d_size1024", i), inputData: inputNext, rng: currentRngNext})
+	}
+	return testCases
+}
 
-		if idx == -1 {
-			if ii == 1 {
-				fmt.Printf("1 8 (%v times)", len(input)-1)
-			} else {
-				for i := range reverse {
-					fmt.Printf("%v ", reverse[i])
+// testTransformCorrectness is the generic test function.
+func testTransformCorrectness(transformName string, t *testing.T) {
+	testCases := generateTransformTestCases(transformName)
+
+	if testing.Verbose() {
+		fmt.Println()
+		fmt.Printf("=== Testing %s (Generic Cases) === ", transformName)
+	}
+
+	for _, tc := range testCases {
+		if tc.skip {
+			if testing.Verbose() {
+				fmt.Printf(" Skipping Test Case: %s ", tc.name)
+			}
+			continue
+		}
+
+		currentTestCase := tc
+		t.Run(currentTestCase.name, func(t_run *testing.T) {
+			if testing.Verbose() {
+				fmt.Printf(" Test Case: %s ", currentTestCase.name)
+			}
+
+			input := currentTestCase.inputData
+			size := len(input)
+
+			fwdTransform, err := getTransform(transformName)
+			if err != nil {
+				t_run.Errorf("Cannot create transform '%s': %v", transformName, err)
+				return
+			}
+
+			output := make([]byte, fwdTransform.MaxEncodedLen(size))
+			reverse := make([]byte, size)
+			for i := range output {
+				output[i] = 0xAA
+			}
+
+			if testing.Verbose() {
+				fmt.Printf("Original (%d bytes): ", size)
+				if size > 0 && size <= 64 {
+					for i := range input {
+						fmt.Printf("%v ", input[i])
+					}
+					fmt.Println()
+				} else if size > 0 {
+					fmt.Printf("(data too long to print, first byte: %v) ", input[0])
+				} else {
+					fmt.Println("(empty input)")
 				}
 			}
 
-			fmt.Printf("\n")
-		} else {
-			err := fmt.Errorf("Failure at index %v of %v (%v <-> %v)", idx, len(input), input[idx], reverse[idx])
-			return err
-		}
+			srcIdx, dstIdx, errFwd := fwdTransform.Forward(input, output)
 
-		fmt.Printf("Identical\n")
+			if errFwd != nil {
+				if testing.Verbose() {
+					fmt.Printf("Forward transform error or skip for %s: %v (src: %d, dst: %d) ", transformName, errFwd, srcIdx, dstIdx)
+				}
+				return
+			}
+
+			dataToDecode := output[0:dstIdx]
+
+			if testing.Verbose() {
+				fmt.Printf("Coded (%d bytes): ", dstIdx)
+				if dstIdx > 0 && dstIdx <= 64 {
+					for i := range dataToDecode {
+						fmt.Printf("%v ", dataToDecode[i])
+					}
+					fmt.Println()
+				} else if dstIdx > 0 {
+					fmt.Printf("(data too long to print, first byte: %v) ", dataToDecode[0])
+				} else {
+					fmt.Println("(empty output)")
+				}
+			}
+
+			if testing.Verbose() {
+				if size > 0 && dstIdx > 0 {
+					fmt.Printf("(Compression ratio: %v%%) ", int(dstIdx)*100/size)
+				} else if size == 0 && dstIdx == 0 { /* Correctly transformed empty to empty */
+				} else if size > 0 && dstIdx == 0 && errFwd == nil {
+					fmt.Printf("(Resulted in empty output from non-empty input without error) ")
+				}
+			}
+
+			invTransform, err := getTransform(transformName)
+			if err != nil {
+				t_run.Errorf("Cannot create transform '%s' for inverse: %v", transformName, err)
+				return
+			}
+
+			_, _, errInv := invTransform.Inverse(dataToDecode, reverse)
+
+			if errInv != nil {
+				if len(dataToDecode) == 0 && size == 0 {
+					if testing.Verbose() {
+						fmt.Printf("Inverse transform error for %s with empty input: %v. This may be acceptable.  ", transformName, errInv)
+					}
+				} else {
+					t_run.Errorf("Decoding error for %s: %v. Input to Inverse was %d bytes.", transformName, errInv, len(dataToDecode))
+					return
+				}
+			}
+
+			if testing.Verbose() {
+				fmt.Printf("Decoded (%d bytes): ", len(reverse))
+			}
+
+			if len(input) != len(reverse) {
+				if !(size > 0 && dstIdx == 0 && errFwd == nil && len(reverse) == 0) {
+					t_run.Errorf("Length mismatch for transform %s. Original: %d, Decoded: %d", transformName, len(input), len(reverse))
+					return
+				} else {
+					t_run.Errorf("Data mismatch for transform %s: Original non-empty data resulted in empty data after forward/inverse. Original len: %d", transformName, len(input))
+					return
+				}
+			}
+
+			idx := -1
+			for i := range input {
+				if input[i] != reverse[i] {
+					idx = i
+					break
+				}
+			}
+
+			if idx == -1 {
+				if testing.Verbose() {
+					if size > 0 && size <= 64 {
+						for i := range reverse {
+							fmt.Printf("%v ", reverse[i])
+						}
+						fmt.Println()
+					}
+					fmt.Println("Identical")
+				}
+			} else {
+				t_run.Errorf("Data mismatch after inverse transform %s at index %v. Original: %v, Decoded: %v", transformName, idx, input[idx], reverse[idx])
+				start := idx - 5
+				if start < 0 {
+					start = 0
+				}
+				endOrig := idx + 5
+				if endOrig > len(input) {
+					endOrig = len(input)
+				}
+				endRev := idx + 5
+				if endRev > len(reverse) {
+					endRev = len(reverse)
+				}
+
+				if testing.Verbose() {
+					fmt.Printf("Original around %d: %v ", idx, input[start:endOrig])
+					fmt.Printf("Decoded around %d: %v ", idx, reverse[start:endRev])
+				}
+				return
+			}
+		})
+	}
+	if testing.Verbose() {
+		fmt.Println()
+	}
+}
+
+// runSpecificTransformTest executes a single specific test case.
+func runSpecificTransformTest(t *testing.T, tc specificTransformTestCase) {
+	t.Helper() // Marks this function as a test helper
+
+	if testing.Verbose() {
+		fmt.Printf(" Running specific test: %s for %s (%s) ", tc.name, tc.transformID, tc.description)
 	}
 
-	fmt.Println()
-	return error(nil)
+	fwdTransform, err := getTransform(tc.transformID)
+	if err != nil {
+		t.Errorf("[%s] Cannot create transform '%s': %v", tc.name, tc.transformID, err)
+		return
+	}
+
+	input := tc.input
+	size := len(input)
+	output := make([]byte, fwdTransform.MaxEncodedLen(size))
+	reverse := make([]byte, size)
+
+	if testing.Verbose() {
+		fmt.Printf("Original (%d bytes): ", size)
+		if size <= 128 {
+			fmt.Printf("%v ", input)
+		} else {
+			fmt.Printf("(first 64 bytes: %v...) ", input[:64])
+		}
+	}
+
+	srcIdx, dstIdx, errFwd := fwdTransform.Forward(input, output)
+	if errFwd != nil {
+		fmt.Printf("[%s] Forward transform error for %s: %v (src: %d, dst: %d)", tc.name, tc.transformID, errFwd, srcIdx, dstIdx)
+		return
+	}
+
+	dataToDecode := output[0:dstIdx]
+
+	if testing.Verbose() {
+		fmt.Printf("Coded (%d bytes): ", dstIdx)
+		if dstIdx <= 128 {
+			fmt.Printf("%v ", dataToDecode)
+		} else {
+			fmt.Printf("(first 64 bytes: %v...) ", dataToDecode[:64])
+		}
+		if size > 0 && dstIdx > 0 {
+			fmt.Printf("(Compression ratio: %v%%) ", int(dstIdx)*100/size)
+		}
+	}
+
+	// Allow forward to produce empty from non-empty if that's the transform's nature (e.g. ZRLT on non-zeros)
+	// The crucial part is whether inverse reconstructs the original.
+	if size > 0 && dstIdx == 0 && errFwd == nil && testing.Verbose() {
+		fmt.Printf("[%s] Warning: %s transformed non-empty input to empty output without error.  ", tc.name, tc.transformID)
+	}
+
+	invTransform, err := getTransform(tc.transformID)
+	if err != nil {
+		t.Errorf("[%s] Cannot create transform '%s' for inverse: %v", tc.name, tc.transformID, err)
+		return
+	}
+
+	_, _, errInv := invTransform.Inverse(dataToDecode, reverse)
+	if errInv != nil {
+		t.Errorf("[%s] Decoding error for %s: %v. Input to Inverse was %d bytes.", tc.name, tc.transformID, errInv, len(dataToDecode))
+		return
+	}
+
+	if !bytes.Equal(input, reverse) {
+		t.Errorf("[%s] Data mismatch after inverse for %s. Expected: %v, Got: %v", tc.name, tc.transformID, input, reverse)
+		// Print more details for easier debugging if lengths are same but content differs
+		if len(input) == len(reverse) {
+			for i := range input {
+				if input[i] != reverse[i] {
+					if testing.Verbose() {
+						fmt.Printf("First mismatch at index %d: Expected %v, Got %v ", i, input[i], reverse[i])
+					}
+
+					start := i - 10
+					if start < 0 {
+						start = 0
+					}
+					end := i + 10
+					if end > len(input) {
+						end = len(input)
+					}
+					if testing.Verbose() {
+						fmt.Printf("Expected around mismatch: %v ", input[start:end])
+						fmt.Printf("Got around mismatch:      %v ", reverse[start:end])
+					}
+
+					break
+				}
+			}
+		} else {
+			if testing.Verbose() {
+				fmt.Printf("Length mismatch: Expected %d, Got %d ", len(input), len(reverse))
+			}
+		}
+	} else {
+		if testing.Verbose() {
+			fmt.Printf("Identical reconstruction for %s.  ", tc.name)
+		}
+	}
+}
+
+// TestLZCodecSpecifics provides targeted tests for LZ, LZX, and LZP codecs.
+func TestLZCodecSpecifics(t *testing.T) {
+	lzTransforms := []string{"LZ", "LZX", "LZP"}
+
+	baseTestCases := []struct {
+		name        string
+		description string
+		input       []byte
+	}{
+		{
+			name:        "HighlyRepetitiveShortPattern",
+			description: "Tests compression of short, highly repeated patterns.",
+			input:       bytes.Repeat([]byte{'a', 'b', 'c'}, 100), // "abcabcabc..."
+		},
+		{
+			name:        "HighlyRepetitiveLongPattern",
+			description: "Tests compression of longer, highly repeated patterns.",
+			input:       bytes.Repeat([]byte("abcdefghijklmnop"), 50), // "abcdefghijklmnopabcdefghijklmnop..."
+		},
+		{
+			name:        "DistantMatches",
+			description: "Tests if distant matches are found.",
+			input:       append(append(bytes.Repeat([]byte{'X'}, 500), []byte("UNIQUEPATTERN")...), bytes.Repeat([]byte{'Y'}, 500)...),
+			// Expect "UNIQUEPATTERN" to be potentially non-optimal if dictionary is small or flushed.
+			// This test is more about correctness with varying data.
+		},
+		{
+			name:        "LongerDistantMatch",
+			description: "A pattern, then lots of other data, then the pattern again.",
+			input:       append(append([]byte("REPEAT_ME_PLZ_12345"), bytes.Repeat([]byte{'z'}, 2048)...), []byte("REPEAT_ME_PLZ_12345")...),
+		},
+		{
+			name:        "IncompressibleRandom_1k",
+			description: "Tests behavior with incompressible random data (low compression expected).",
+			input: func() []byte {
+				data := make([]byte, 1024)
+				for i := range data {
+					data[i] = byte(rand.Intn(256))
+				}
+				return data
+			}(),
+		},
+		{
+			name:        "AllSameBytes_1k",
+			description: "Tests with a kilobyte of the same byte (high compression expected).",
+			input:       bytes.Repeat([]byte{'Z'}, 1024),
+		},
+		{
+			name:        "AlternatingTwoBytes_1k",
+			description: "Tests with alternating two bytes (e.g., ABABAB...).",
+			input: func() []byte {
+				data := make([]byte, 1024)
+				for i := 0; i < len(data); i += 2 {
+					data[i] = 'A'
+					if i+1 < len(data) {
+						data[i+1] = 'B'
+					}
+				}
+				return data
+			}(),
+		},
+		{
+			name:        "EmptyInputSpecific",
+			description: "Specific test for empty input.",
+			input:       []byte{},
+		},
+		{
+			name:        "SingleByteInputSpecific",
+			description: "Specific test for a single byte input.",
+			input:       []byte{'X'},
+		},
+	}
+
+	for _, transformID := range lzTransforms {
+		t.Run(transformID, func(t_run *testing.T) {
+			for _, tc := range baseTestCases {
+				// Create a full specificTransformTestCase
+				specificTC := specificTransformTestCase{
+					name:        fmt.Sprintf("%s_%s", transformID, tc.name),
+					transformID: transformID,
+					input:       tc.input,
+					description: tc.description,
+				}
+				// Run the test using a sub-test for each case to ensure isolation
+				t_run.Run(tc.name, func(t_case *testing.T) {
+					runSpecificTransformTest(t_case, specificTC)
+				})
+			}
+		})
+	}
 }

@@ -25,27 +25,32 @@ import (
 )
 
 func TestBWT(b *testing.T) {
-	if err := testCorrectnessBWT(true); err != nil {
+	if err := testCorrectnessBWT(true, testing.Verbose()); err != nil {
 		b.Errorf(err.Error())
 	}
 }
 
 func TestBWTS(b *testing.T) {
-	if err := testCorrectnessBWT(false); err != nil {
+	if err := testCorrectnessBWT(false, testing.Verbose()); err != nil {
 		b.Errorf(err.Error())
 	}
 }
 
-func testCorrectnessBWT(isBWT bool) error {
-	if isBWT {
-		fmt.Println("Test BWT")
-	} else {
-		fmt.Println("Test BWTS")
+func testCorrectnessBWT(isBWT, verbose bool) error {
+	if verbose {
+		if isBWT {
+			fmt.Println("Test BWT")
+		} else {
+			fmt.Println("Test BWTS")
+		}
 	}
 
 	// Test behavior
 	for ii := 1; ii <= 20; ii++ {
-		fmt.Printf("\nTest %v\n", ii)
+		if verbose {
+			fmt.Printf("\nTest %v\n", ii)
+		}
+
 		rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 		var buf1 []byte
@@ -90,21 +95,24 @@ func testCorrectnessBWT(isBWT bool) error {
 
 		str1 := string(buf1)
 
-		if len(str1) < 512 {
-			fmt.Printf("Input:   %s\n", str1)
+		if verbose {
+			if len(str1) < 512 {
+				fmt.Printf("Input:   %s\n", str1)
+			}
 		}
 
 		_, _, err1 := tf.Forward(buf1, buf2)
 
 		if err1 != nil {
-			fmt.Printf("Error: %v\n", err1)
-			return err1
+			return fmt.Errorf("Error: %v\n", err1)
 		}
 
 		str2 := string(buf2)
 
-		if len(str2) < 512 {
-			fmt.Printf("Encoded: %s", str2)
+		if verbose {
+			if len(str2) < 512 {
+				fmt.Printf("Encoded: %s", str2)
+			}
 		}
 
 		if isBWT {
@@ -114,7 +122,10 @@ func testCorrectnessBWT(isBWT bool) error {
 
 			for i := range pi {
 				pi[i] = bwt.PrimaryIndex(i)
-				fmt.Printf("(Primary index=%v)\n", pi[i])
+
+				if verbose {
+					fmt.Printf("(Primary index=%v)\n", pi[i])
+				}
 			}
 
 			tf, _ = NewBWT()
@@ -126,26 +137,31 @@ func testCorrectnessBWT(isBWT bool) error {
 		} else {
 			tf, _ = NewBWTS()
 
-			if len(str2) < 512 {
-				fmt.Printf("Encoded: %s\n", str2)
+			if verbose {
+				if len(str2) < 512 {
+					fmt.Printf("Encoded: %s\n", str2)
+				}
 			}
 		}
 
 		_, _, err2 := tf.Inverse(buf2, buf3)
 
 		if err2 != nil {
-			fmt.Printf("Error: %v\n", err2)
-			return err2
+			return fmt.Errorf("Error: %v\n", err2)
 		}
 
 		str3 := string(buf3)
 
-		if len(str3) < 512 {
-			fmt.Printf("Output:  %s\n", str3)
+		if verbose {
+			if len(str3) < 512 {
+				fmt.Printf("Output:  %s\n", str3)
+			}
 		}
 
 		if str1 == str3 {
-			fmt.Println("Identical")
+			if verbose {
+				fmt.Println("Identical")
+			}
 		} else {
 			idx := -1
 
