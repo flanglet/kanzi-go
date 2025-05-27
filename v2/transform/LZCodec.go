@@ -316,13 +316,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 		// Check repd first
 		if ref > minRef && uint32(p>>8) == binary.LittleEndian.Uint32(src[ref:]) {
-			if bestLen = findMatchLZX(src, srcIdx1, ref, maxMatch); bestLen < minMatch {
-				ref = srcIdx1 - repd[1-repdIdx]
-
-				if ref > minRef && uint32(p>>8) == binary.LittleEndian.Uint32(src[ref:]) {
-					bestLen = findMatchLZX(src, srcIdx1, ref, maxMatch)
-				}
-			}
+			bestLen = findMatchLZX(src, srcIdx1, ref, maxMatch)
 		}
 
 		if bestLen < minMatch {
@@ -546,14 +540,14 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		return this.inverseV3(src, dst)
 	}
 
-	if this.bsVersion == 4 {
+	if this.bsVersion == 4 || this.bsVersion == 5 {
 		return this.inverseV4(src, dst)
 	}
 
-	return this.inverseV5(src, dst)
+	return this.inverseV6(src, dst)
 }
 
-func (this *LZXCodec) inverseV5(src, dst []byte) (uint, uint, error) {
+func (this *LZXCodec) inverseV6(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 {
 		return 0, 0, nil
 	}

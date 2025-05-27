@@ -68,6 +68,7 @@ func rolzhash(p []byte) uint32 {
 }
 
 func emitCopy(buf []byte, dstIdx, ref, matchLen int) int {
+        // Handle overlapping segments
 	for matchLen >= 8 {
 		buf[dstIdx] = buf[ref]
 		buf[dstIdx+1] = buf[ref+1]
@@ -637,7 +638,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	litOrder := uint(flags & 1)
 	delta := 2
 	this.minMatch = _ROLZ_MIN_MATCH3
-	bsVersion := uint(3)
+	bsVersion := uint(6)
 
 	if len(this.matches) < int(this.logPosChecks) {
 		this.matches = make([]uint32, _ROLZ_HASH_SIZE<<this.logPosChecks)
@@ -713,22 +714,22 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			mIdxLen := int(ibs.ReadBits(32))
 
 			if litLen < 0 || litLen > len(litBuf) {
-				err = fmt.Errorf("ROLZ codec: Invalid length for literals: got %d, must be less than or equal to %d", litLen, sizeChunk)
+				err = fmt.Errorf("ROLZ codec: Invalid length for literals: got %d, must be positive and less than or equal to %d", litLen, len(litBuf))
 				goto End
 			}
 
 			if tkLen < 0 || tkLen > len(tkBuf) {
-				err = fmt.Errorf("ROLZ codec: Invalid length for tokens: got %d, must be less than or equal to %d", tkLen, sizeChunk)
+				err = fmt.Errorf("ROLZ codec: Invalid length for tokens: got %d, must be positive and less than or equal to %d", tkLen, len(tkBuf))
 				goto End
 			}
 
 			if mLenLen < 0 || mLenLen > len(mLenBuf) {
-				err = fmt.Errorf("ROLZ codec: Invalid length for match lengths: got %d, must be less than or equal to %d", mLenLen, sizeChunk)
+				err = fmt.Errorf("ROLZ codec: Invalid length for match lengths: got %d, must be positive and less than or equal to %d", mLenLen, len(mLenBuf))
 				goto End
 			}
 
 			if mIdxLen < 0 || mIdxLen > len(mIdxBuf) {
-				err = fmt.Errorf("ROLZ codec: Invalid length for match indexes: got %d, must be less than or equal to %d", mIdxLen, sizeChunk)
+				err = fmt.Errorf("ROLZ codec: Invalid length for match indexes: got %d, must be positive and less than or equal to %d", mIdxLen, len(mIdxBuf))
 				goto End
 			}
 
@@ -1220,7 +1221,7 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 	this.minMatch = _ROLZ_MIN_MATCH3
 	srcIdx := 4
-	bsVersion := uint(3)
+	bsVersion := uint(6)
 	flags := src[4]
 	delta := 2
 
