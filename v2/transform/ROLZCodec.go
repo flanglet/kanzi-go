@@ -451,33 +451,31 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 				m[this.counters[key]] = hash32 | uint32(srcIdx)
 			}
 
-			// mode LLLLLMMM -> L lit length, M match length
+			// token LLLLLMMM -> L lit length, M match length
 			litLen := srcIdx - firstLitIdx
-			var mode byte
+			var token byte
 
 			if matchLen >= 7 {
-				mode = 7
+				token = 7
 				lenIdx += emitLengthROLZ(lenBuf[lenIdx:], matchLen-7)
 			} else {
-				mode = byte(matchLen)
+				token = byte(matchLen)
 			}
 
 			// Emit literals
 			if litLen > 0 {
 				if litLen >= 31 {
-					mode |= 0xF8
+					token |= 0xF8
 					lenIdx += emitLengthROLZ(lenBuf[lenIdx:], litLen-31)
 				} else {
-					mode |= byte(litLen << 3)
+					token |= byte(litLen << 3)
 				}
 
 				copy(litBuf[litIdx:], buf[firstLitIdx:firstLitIdx+litLen])
 				litIdx += litLen
-			} else {
-				mode |= byte(litLen << 3)
 			}
 
-			tkBuf[tkIdx] = mode
+			tkBuf[tkIdx] = token
 			tkIdx++
 
 			// Emit match index
@@ -655,7 +653,6 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		} else if flags&0x0E == 8 {
 			delta = 3
 		}
-
 	} else if bsVersion >= 3 {
 		if flags&6 == 2 {
 			this.minMatch = _ROLZ_MIN_MATCH4
@@ -791,10 +788,10 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 		// Next chunk
 		for dstIdx < sizeChunk {
-			// mode LLLLLMMM -> L lit length, M match length
-			mode := tkBuf[tkIdx]
+			// token LLLLLMMM -> L lit length, M match length
+			token := tkBuf[tkIdx]
 			tkIdx++
-			matchLen := int(mode & 0x07)
+			matchLen := int(token & 0x07)
 
 			if matchLen == 7 {
 				ml, deltaIdx := readLengthROLZ(mLenBuf[lenIdx : lenIdx+4])
@@ -804,8 +801,8 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 			var litLen int
 
-			if mode < 0xF8 {
-				litLen = int(mode >> 3)
+			if token < 0xF8 {
+				litLen = int(token >> 3)
 			} else {
 				ll, deltaIdx := readLengthROLZ(mLenBuf[lenIdx : lenIdx+4])
 				lenIdx += deltaIdx
