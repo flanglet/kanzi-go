@@ -68,7 +68,7 @@ func rolzhash(p []byte) uint32 {
 }
 
 func emitCopy(buf []byte, dstIdx, ref, matchLen int) int {
-        // Handle overlapping segments
+	// Handle overlapping segments
 	for matchLen >= 8 {
 		buf[dstIdx] = buf[ref]
 		buf[dstIdx+1] = buf[ref+1]
@@ -284,10 +284,6 @@ func (this *rolzCodec1) findMatch(buf []byte, pos int, hash32 uint32, counter in
 		if n > bestLen {
 			bestIdx = int(i)
 			bestLen = n
-
-			if bestLen == maxMatch {
-				break
-			}
 		}
 	}
 
@@ -431,28 +427,28 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 				continue
 			}
 
-			{
-				// Check if better match at next position
-				if this.minMatch == _ROLZ_MIN_MATCH3 {
-					key = getKey1(buf[srcIdx+1-delta:])
-				} else {
-					key = getKey2(buf[srcIdx+1-delta:])
-				}
+			// Check if better match at next position
+			srcIdx1 := srcIdx + 1
 
-				m = this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
-				hash32 = rolzhash(buf[srcIdx+1 : srcIdx+5])
-				matchIdx2, matchLen2 := this.findMatch(buf, srcIdx+1, hash32, this.counters[key], m)
+			if this.minMatch == _ROLZ_MIN_MATCH3 {
+				key = getKey1(buf[srcIdx1-delta:])
+			} else {
+				key = getKey2(buf[srcIdx1-delta:])
+			}
 
-				if (matchIdx2 >= 0) && (matchLen2 > matchLen) {
-					// New match is better
-					matchIdx = matchIdx2
-					matchLen = matchLen2
-					srcIdx++
+			m = this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
+			hash32 = rolzhash(buf[srcIdx1 : srcIdx1+4])
+			matchIdx1, matchLen1 := this.findMatch(buf, srcIdx1, hash32, this.counters[key], m)
 
-					// Register current position
-					this.counters[key] = (this.counters[key] + 1) & this.maskChecks
-					m[this.counters[key]] = hash32 | uint32(srcIdx)
-				}
+			if (matchIdx1 >= 0) && (matchLen1 > matchLen) {
+				// New match is better
+				matchIdx = matchIdx1
+				matchLen = matchLen1
+				srcIdx = srcIdx1
+
+				// Register current position
+				this.counters[key] = (this.counters[key] + 1) & this.maskChecks
+				m[this.counters[key]] = hash32 | uint32(srcIdx)
 			}
 
 			// mode LLLLLMMM -> L lit length, M match length
@@ -878,10 +874,9 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 			m := this.matches[key<<this.logPosChecks : (key+1)<<this.logPosChecks]
 			ref := int(m[(this.counters[key]-matchIdx)&this.maskChecks])
-			savedIdx := uint32(dstIdx)
-			dstIdx = emitCopy(buf, dstIdx, ref, matchLen+this.minMatch)
 			this.counters[key] = (this.counters[key] + 1) & this.maskChecks
-			m[this.counters[key]] = savedIdx
+			m[this.counters[key]] = uint32(dstIdx)
+			dstIdx = emitCopy(buf, dstIdx, ref, matchLen+this.minMatch)
 		}
 
 		startChunk = endChunk
