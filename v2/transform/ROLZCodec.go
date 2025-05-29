@@ -68,21 +68,12 @@ func rolzhash(p []byte) uint32 {
 }
 
 func emitCopy(buf []byte, dstIdx, ref, matchLen int) int {
-	// Handle overlapping segments
-	for matchLen >= 8 {
-		buf[dstIdx] = buf[ref]
-		buf[dstIdx+1] = buf[ref+1]
-		buf[dstIdx+2] = buf[ref+2]
-		buf[dstIdx+3] = buf[ref+3]
-		buf[dstIdx+4] = buf[ref+4]
-		buf[dstIdx+5] = buf[ref+5]
-		buf[dstIdx+6] = buf[ref+6]
-		buf[dstIdx+7] = buf[ref+7]
-		dstIdx += 8
-		ref += 8
-		matchLen -= 8
+	if dstIdx >= ref+matchLen {
+		copy(buf[dstIdx:], buf[ref:ref+matchLen])
+		return dstIdx + matchLen
 	}
 
+	// Handle overlapping segments
 	for matchLen != 0 {
 		buf[dstIdx] = buf[ref]
 		dstIdx++
