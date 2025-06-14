@@ -548,6 +548,8 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		results := make(chan fileCompressResult, nbFiles)
 		cancel := make(chan bool, 1)
 
+		// When nbFiles > 1, this.jobs are distributed among tasks by ComputeJobsPerTask.
+		// Each task then receives a portion of these jobs for its internal parallel block processing.
 		jobsPerTask, _ := internal.ComputeJobsPerTask(make([]uint, nbFiles), this.jobs, uint(nbFiles))
 
 		if this.fileReorder == true {

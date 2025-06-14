@@ -62,7 +62,7 @@ func NewLZCodec() (*LZCodec, error) {
 	return this, err
 }
 
-// MaxEncodedLen returns the max size required for the encoding output mBuf
+// MaxEncodedLen returns the max size required for the encoding output buffer
 func (this *LZCodec) MaxEncodedLen(srcLen int) int {
 	return this.delegate.MaxEncodedLen(srcLen)
 }
@@ -1002,7 +1002,7 @@ func (this *LZXCodec) inverseV3(src, dst []byte) (uint, uint, error) {
 	return uint(mIdx), uint(dstIdx), err
 }
 
-// MaxEncodedLen returns the max size required for the encoding output mBuf
+// MaxEncodedLen returns the max size required for the encoding output buffer
 func (this LZXCodec) MaxEncodedLen(srcLen int) int {
 	if srcLen <= 1024 {
 		return srcLen + 16
@@ -1053,7 +1053,7 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 	count := len(src)
 
 	if n := this.MaxEncodedLen(count); len(dst) < n {
-		return 0, 0, fmt.Errorf("Output mBuf is too small - size: %d, required %d", len(dst), n)
+		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
 	}
 
 	// If too small, skip
