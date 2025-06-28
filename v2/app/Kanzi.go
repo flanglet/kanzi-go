@@ -923,7 +923,7 @@ func printHelp(mode string, showHeader bool) {
 		log.Println("        Providing this option forces entropy and transform.", true)
 		log.Println("        Defaults to level 3 if not provided.", true)
 		log.Println("        0=NONE&NONE (store)", true)
-		log.Println("        1=PACK+LZ&NONE", true)
+		log.Println("        1=LZX&NONE", true)
 		log.Println("        2=DNA+LZ&HUFFMAN", true)
 		log.Println("        3=TEXT+UTF+PACK+MM+LZX&HUFFMAN", true)
 		log.Println("        4=TEXT+UTF+EXE+PACK+MM+ROLZ&NONE", true)

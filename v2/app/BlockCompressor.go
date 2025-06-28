@@ -670,7 +670,7 @@ func getTransformAndCodec(level int) string {
 		return "NONE&NONE"
 
 	case 1:
-		return "PACK+LZ&NONE"
+		return "LZX&NONE"
 
 	case 2:
 		return "DNA+LZ&HUFFMAN"
