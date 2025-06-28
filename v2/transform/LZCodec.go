@@ -381,51 +381,53 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		srcInc = 0
 
 		// Token: 3 bits litLen + 2 bits flag + 3 bits mLen (LLLFFMMM)
+		//    or  3 bits litLen + 3 bits flag + 2 bits mLen (LLLFFFMM)
 		// LLL : <= 7 --> LLL == literal length (if 7, remainder encoded outside of token)
-		// MMM : <= 6 --> MMM == match length (if 6, remainder encoded outside of token)
-		// FF  : if MMM == 7
-		//          FF = x0 if dist == repd0
-		//          FF = x1 if dist == repd1
-		//       else
-		//          FF = 00 => 1 byte dist
-		//          FF = 01 => 2 byte dist
-		//          FF = 10 => 3 byte dist
-		//          FF = 11 => unused
+		// MMM : <= 7 --> MMM == match length (if 7, remainder encoded outside of token)
+		// FF = 01    --> 1 byte dist
+		// FF = 10    --> 2 byte dist
+		// FF = 11    --> 3 byte dist
+		// FFF = 000  --> dist == repd0
+		// FFF = 001  --> dist == repd1
 		dist := srcIdx - ref
-		token := 0
+		mLen := bestLen - minMatch
+		var token, mLenTh int
 
 		if dist == repd[0] {
-			token = 0x07
-			mLenIdx += emitLengthLZ(this.mLenBuf[mLenIdx:], bestLen-minMatch)
+			token = 0x00
+			mLenTh = 3
 		} else if dist == repd[1] {
-			token = 0x0F
-			mLenIdx += emitLengthLZ(this.mLenBuf[mLenIdx:], bestLen-minMatch)
+			token = 0x04
+			mLenTh = 3
 		} else {
+			mLenTh = 7
+
 			// Emit distance since not a repeat
 			if dist >= 256 {
 				if dist >= 65536 {
 					this.mBuf[mIdx] = byte(dist >> 16)
 					this.mBuf[mIdx+1] = byte(dist >> 8)
 					mIdx += 2
-					token = 0x10
+					token = 0x18
 				} else {
 					this.mBuf[mIdx] = byte(dist >> 8)
 					mIdx++
-					token = 0x08
+					token = 0x10
 				}
+			} else {
+				token = 0x08
 			}
 
 			this.mBuf[mIdx] = byte(dist)
 			mIdx++
-			mLen := bestLen - minMatch
+		}
 
-			// Emit match length
-			if mLen >= 6 {
-				token += 6
-				mLenIdx += emitLengthLZ(this.mLenBuf[mLenIdx:], mLen-6)
-			} else {
-				token += mLen
-			}
+		// Emit match length
+		if mLen >= mLenTh {
+			token += mLenTh
+			mLenIdx += emitLengthLZ(this.mLenBuf[mLenIdx:], mLen-mLenTh)
+		} else {
+			token += mLen
 		}
 
 		repd[1] = repd[0]
@@ -569,7 +571,7 @@ func (this *LZXCodec) inverseV6(src, dst []byte) (uint, uint, error) {
 	mIdx += tkIdx
 	mLenIdx += mIdx
 
-	if (tkIdx >= count) || (mIdx >= count) || (mLenIdx >= count) {
+	if (tkIdx > count) || (mIdx > count) || (mLenIdx > count) {
 		return 0, 0, errors.New("LZCodec inverse transform failed: invalid data")
 	}
 
@@ -600,9 +602,9 @@ func (this *LZXCodec) inverseV6(src, dst []byte) (uint, uint, error) {
 			var litLen int
 
 			if token >= 0xE0 {
-				ll, delta := readLengthLZ(src[srcIdx:])
+				ll, llIdx := readLengthLZ(src[srcIdx:])
 				litLen = 7 + ll
-				srcIdx += delta
+				srcIdx += llIdx
 			} else {
 				litLen = token >> 5
 			}
@@ -623,26 +625,34 @@ func (this *LZXCodec) inverseV6(src, dst []byte) (uint, uint, error) {
 		}
 
 		// Get match length and distance
-		mLen := token & 0x07
-		var dist int
+		var mLen, dist int
+		f := token & 0x18
 
-		if mLen == 7 {
+		if f == 0 {
 			// Repetition distance, read mLen fully outside of token
-			ll, delta := readLengthLZ(src[mLenIdx:])
-			mLen = minMatch + ll
-			mLenIdx += delta
+			mLen = token & 0x03
 
-			if token&0x08 == 0 {
+			if mLen == 3 {
+				ml, mlIdx := readLengthLZ(src[mLenIdx:])
+				mLen += (minMatch + ml)
+				mLenIdx += mlIdx
+			} else {
+				mLen += minMatch
+			}
+
+			if token&0x04 == 0 {
 				dist = repd0
 			} else {
 				dist = repd1
 			}
 		} else {
 			// Read mLen remainder (if any) outside of token
-			if mLen == 6 {
-				ll, delta := readLengthLZ(src[mLenIdx:])
-				mLen = 6 + minMatch + ll
-				mLenIdx += delta
+			mLen = token & 0x07
+
+			if mLen == 7 {
+				ml, mlIdx := readLengthLZ(src[mLenIdx:])
+				mLen += (minMatch + ml)
+				mLenIdx += mlIdx
 			} else {
 				mLen += minMatch
 			}
@@ -650,10 +660,10 @@ func (this *LZXCodec) inverseV6(src, dst []byte) (uint, uint, error) {
 			dist = int(src[mIdx])
 			mIdx++
 
-			if token&0x10 != 0 {
+			if f == 0x18 {
 				dist = (dist << 16) | (int(src[mIdx]) << 8) | int(src[mIdx+1])
 				mIdx += 2
-			} else if token&0x08 != 0 {
+			} else if f == 0x10 {
 				dist = (dist << 8) | int(src[mIdx])
 				mIdx++
 			}
