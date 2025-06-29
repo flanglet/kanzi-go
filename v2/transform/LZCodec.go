@@ -289,13 +289,14 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 			if dt == internal.DT_DNA {
 				// Longer min match for DNA input
 				minMatch = _LZX_MIN_MATCH6
-				dst[12] |= 4
 			} else if dt == internal.DT_SMALL_ALPHABET {
 				return 0, 0, errors.New("LZCodec forward transform skip: Small alphabet")
 			}
 		}
 	}
 
+	// dst[12] = 0000MMMD (4 bits + 3 bits minMatch + 1 bit max distance)
+	dst[12] |= byte(((minMatch - 2) & 0x07) << 1) // minMatch in [2..9]
 	srcIdx := 0
 	dstIdx := 13
 	anchor := 0
@@ -384,6 +385,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		//    or  3 bits litLen + 3 bits flag + 2 bits mLen (LLLFFFMM)
 		// LLL : <= 7 --> LLL == literal length (if 7, remainder encoded outside of token)
 		// MMM : <= 7 --> MMM == match length (if 7, remainder encoded outside of token)
+		// MM  : <= 3 --> MM  == match length (if 3, remainder encoded outside of token)
 		// FF = 01    --> 1 byte dist
 		// FF = 10    --> 2 byte dist
 		// FF = 11    --> 3 byte dist
@@ -584,10 +586,7 @@ func (this *LZXCodec) inverseV6(src, dst []byte) (uint, uint, error) {
 		maxDist = _LZX_MAX_DISTANCE1
 	}
 
-	mmIdx := (int(src[12]) >> 1) & 0x03
-	var minMatches = []int{_LZX_MIN_MATCH4, _LZX_MIN_MATCH9, _LZX_MIN_MATCH6, _LZX_MIN_MATCH6}
-	minMatch := minMatches[mmIdx]
-
+	minMatch := ((int(src[12]) >> 1) & 0x07) + 2
 	srcIdx := 13
 	dstIdx := 0
 	repd0 := 0
