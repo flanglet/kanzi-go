@@ -770,7 +770,7 @@ func (this *HuffmanDecoder) Read(block []byte) (int, error) {
 					}
 
 					if codeLen >= _HUF_MAX_SYMBOL_SIZE_V3 {
-						panic(errors.New("Invalid bitstream: incorrect Huffman code"))
+						return startChunk, errors.New("Invalid bitstream: incorrect Huffman code")
 					}
 				}
 			}
@@ -804,8 +804,8 @@ func (this *HuffmanDecoder) Read(block []byte) (int, error) {
 				n := startChunk
 
 				for idx < sz-8 {
-					shift := uint8((56 - bits) & 0xF8)
-					state = (state << shift) | (binary.BigEndian.Uint64(this.buffer[idx:idx+8]) >> 1 >> (63 - shift)) // handle shift = 0
+					shift := (56 - bits) & ^uint8(0x07)
+					state = (state << shift) | (binary.BigEndian.Uint64(this.buffer[idx:idx+8]) >> (64 - shift))
 					idx += int(shift >> 3)
 					bs := bits + shift - _HUF_MAX_SYMBOL_SIZE_V4
 					val0 := this.table[(state>>bs)&_HUF_DECODING_MASK_V4]
@@ -825,18 +825,10 @@ func (this *HuffmanDecoder) Read(block []byte) (int, error) {
 				}
 
 				// Last bytes
-				nbBits := idx * 8
-
 				for n < endChunk {
 					for (bits < _HUF_MAX_SYMBOL_SIZE_V4) && (idx < sz) {
 						state = (state << 8) | uint64(this.buffer[idx]&0xFF)
 						idx++
-
-						if idx == sz {
-							nbBits = int(szBits)
-						} else {
-							nbBits += 8
-						}
 
 						// 'bits' may overshoot when idx == sz due to padding state bits
 						// It is necessary to compute proper table indexes
