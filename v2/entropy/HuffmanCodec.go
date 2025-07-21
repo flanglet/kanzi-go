@@ -180,12 +180,9 @@ func (this *HuffmanEncoder) updateFrequencies(freqs []int) (int, error) {
 
 		if maxCodeLen > _HUF_MAX_SYMBOL_SIZE_V4 {
 			// Unlikely branch when no codes could be found that fit within _HUF_MAX_SYMBOL_SIZE_V4 width
-			n := uint16(0)
-
 			for i := 0; i < count; i++ {
-				this.codes[alphabet[i]] = n
+				this.codes[alphabet[i]] = uint16(i)
 				sizes[alphabet[i]] = 8
-				n++
 			}
 		} else {
 			if _, err = generateCanonicalCodes(sizes[:], this.codes[:], ranks[0:count], _HUF_MAX_SYMBOL_SIZE_V4); err != nil {
@@ -436,7 +433,7 @@ func (this *HuffmanEncoder) Write(block []byte) (int, error) {
 }
 
 func (this *HuffmanEncoder) encodeChunk(block []byte, count int) {
-	nbBits := [4]uint{0}
+	nbBits := [4]uint32{0}
 	szFrag := count / 4
 	szFrag4 := szFrag & ^3
 	szBuf := len(this.buffer) / 4
@@ -471,7 +468,7 @@ func (this *HuffmanEncoder) encodeChunk(block []byte, count int) {
 			bits &= 7
 		}
 
-		// Fragment last byte
+		// Fragment last bytes
 		for i := szFrag4; i < szFrag; i++ {
 			code := c[src[i]]
 			codeLen := (code >> 12)
@@ -479,7 +476,7 @@ func (this *HuffmanEncoder) encodeChunk(block []byte, count int) {
 			bits += int(codeLen)
 		}
 
-		nbBits[j] = uint((idx * 8) + bits)
+		nbBits[j] = uint32((idx * 8) + bits)
 
 		for bits >= 8 {
 			bits -= 8
@@ -494,10 +491,10 @@ func (this *HuffmanEncoder) encodeChunk(block []byte, count int) {
 	}
 
 	// Write chunk size in bits
-	WriteVarInt(this.bitstream, uint32(nbBits[0]))
-	WriteVarInt(this.bitstream, uint32(nbBits[1]))
-	WriteVarInt(this.bitstream, uint32(nbBits[2]))
-	WriteVarInt(this.bitstream, uint32(nbBits[3]))
+	WriteVarInt(this.bitstream, nbBits[0])
+	WriteVarInt(this.bitstream, nbBits[1])
+	WriteVarInt(this.bitstream, nbBits[2])
+	WriteVarInt(this.bitstream, nbBits[3])
 
 	// Write compressed data to the stream
 	this.bitstream.WriteArray(this.buffer[0*szBuf:], uint(nbBits[0]))
@@ -587,7 +584,7 @@ func NewHuffmanDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]any) (*Hu
 		return nil, errors.New("Huffman codec: Invalid null bitstream parameter")
 	}
 
-	bsVersion := uint(4)
+	bsVersion := uint(6)
 
 	if ctx != nil {
 		if val, containsKey := (*ctx)["bsVersion"]; containsKey {
@@ -661,7 +658,7 @@ func (this *HuffmanDecoder) buildDecodingTable(count int) bool {
 	// If the bitstream is altered, the decoder may access these default table values.
 	// The number of consumed bits cannot be 0.
 	for i := range this.table {
-		this.table[i] = 8
+		this.table[i] = 7
 	}
 
 	length := 0
