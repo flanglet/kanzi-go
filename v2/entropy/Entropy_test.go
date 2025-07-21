@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"os"
 	"testing"
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
@@ -364,7 +363,7 @@ func getEncoder(name string, obs kanzi.OutputBitStream) kanzi.EntropyEncoder {
 func getDecoder(name string, ibs kanzi.InputBitStream) kanzi.EntropyDecoder {
 	ctx := make(map[string]any)
 	ctx["entropy"] = name
-	ctx["bsVersion"] = uint(4)
+	ctx["bsVersion"] = uint(6)
 	eType, _ := GetType(name)
 
 	res, err := NewEntropyDecoder(ibs, ctx, eType)
@@ -502,10 +501,11 @@ func testEntropyCorrectness(codecName string, verbose bool) error { // Renamed '
 		}
 		bs := internal.NewBufferStream()
 		obs, _ := bitstream.NewDefaultOutputBitStream(bs, 16384)
-		dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
-		dbgbs.ShowByte(true)
+		//dbgbs, _ := bitstream.NewDebugOutputBitStream(obs, os.Stdout)
+		//dbgbs.ShowByte(true)
 		//dbgbs.Mark(true)
-		ec := getEncoder(codecName, dbgbs)
+		//ec := getEncoder(codecName, dbgbs)
+		ec := getEncoder(codecName, obs)
 
 		if ec == nil {
 			return errors.New("Cannot create entropy encoder")
@@ -517,7 +517,9 @@ func testEntropyCorrectness(codecName string, verbose bool) error { // Renamed '
 		}
 
 		ec.Dispose()
-		dbgbs.Close()
+		obs.Close()
+		//dbgbs.Close()
+
 		if verbose {
 			println()
 			fmt.Printf("\nDecoded: \n")
@@ -582,7 +584,10 @@ func testEntropyCorrectness(codecName string, verbose bool) error { // Renamed '
 
 		ibs.Close()
 		bs.Close()
-		println()
+
+		if verbose {
+			println()
+		}
 	}
 
 	return nil // Error type remains error, but return nil for success
