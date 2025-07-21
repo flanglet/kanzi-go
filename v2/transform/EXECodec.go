@@ -254,6 +254,12 @@ func (this *EXECodec) forwardX86(src, dst []byte, codeStart, codeEnd int) (uint,
 	binary.LittleEndian.PutUint32(dst[5:], uint32(dstIdx))
 	copy(dst[dstIdx:], src[srcIdx:count])
 	dstIdx += (count - srcIdx)
+
+	// Cap expansion due to false positives
+	if dstIdx > count+(count/50) {
+		return uint(srcIdx), uint(dstIdx), errors.New("ExeCodec forward transform skip: Too many false positives")
+	}
+
 	return uint(count), uint(dstIdx), nil
 }
 
@@ -511,6 +517,12 @@ func (this *EXECodec) forwardARM(src, dst []byte, codeStart, codeEnd int) (uint,
 	binary.LittleEndian.PutUint32(dst[5:], uint32(dstIdx))
 	copy(dst[dstIdx:], src[srcIdx:count])
 	dstIdx += (count - srcIdx)
+
+	// Cap expansion due to false positives
+	if dstIdx > count+(count/50) {
+		return uint(srcIdx), uint(dstIdx), errors.New("ExeCodec forward transform skip: Too many false positives")
+	}
+
 	return uint(count), uint(dstIdx), nil
 }
 
