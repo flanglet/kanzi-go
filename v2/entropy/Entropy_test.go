@@ -349,7 +349,7 @@ func TestTPAQ(t *testing.T) {
 func getEncoder(name string, obs kanzi.OutputBitStream) kanzi.EntropyEncoder {
 	ctx := make(map[string]any)
 	ctx["entropy"] = name
-	ctx["bsVersion"] = uint(4)
+	ctx["bsVersion"] = uint(6)
 	eType, _ := GetType(name)
 
 	res, err := NewEntropyEncoder(obs, ctx, eType)
@@ -404,8 +404,8 @@ func testEntropyCorrectness(codecName string, verbose bool) error { // Renamed '
 	}
 
 	testCases := []entropyTestCase{
-		{name: "all_identical_32_bytes_of_2", input: func() []byte {
-			v := make([]byte, 32)
+		{name: "all_identical_40_bytes_of_2", input: func() []byte {
+			v := make([]byte, 40)
 			for i := range v {
 				v[i] = byte(2)
 			}
@@ -413,8 +413,8 @@ func testEntropyCorrectness(codecName string, verbose bool) error { // Renamed '
 		}(), ii: 1},
 		{name: "specific_sequence_16_bytes_ascii_like", input: []byte{0x3d, 0x4d, 0x54, 0x47, 0x5a, 0x36, 0x39, 0x26, 0x72, 0x6f, 0x6c, 0x65, 0x3d, 0x70, 0x72, 0x65}, ii: 2},
 		{name: "specific_sequence_16_bytes_mixed", input: []byte{0, 0, 32, 15, 252, 16, 0, 16, 0, 7, 255, 252, 224, 0, 31, 255}, ii: 3},
-		{name: "alternating_two_symbols_32_bytes", input: func() []byte {
-			v := make([]byte, 32)
+		{name: "alternating_two_symbols_40_bytes", input: func() []byte {
+			v := make([]byte, 40)
 			for i := range v {
 				v[i] = byte(2 + (i & 1))
 			}

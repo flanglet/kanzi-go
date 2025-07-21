@@ -28,10 +28,8 @@ import (
 const (
 	_HUF_MIN_CHUNK_SIZE     = 1024
 	_HUF_MAX_CHUNK_SIZE     = 1 << 14
-	_HUF_MAX_SYMBOL_SIZE_V3 = 14
 	_HUF_MAX_SYMBOL_SIZE_V4 = 12
-	_HUF_BUFFER_SIZE        = (_HUF_MAX_SYMBOL_SIZE_V3 << 8) + 256
-	_HUF_DECODING_MASK_V3   = (1 << _HUF_MAX_SYMBOL_SIZE_V3) - 1
+	_HUF_BUFFER_SIZE        = (_HUF_MAX_SYMBOL_SIZE_V4 << 8) + 256
 	_HUF_DECODING_MASK_V4   = (1 << _HUF_MAX_SYMBOL_SIZE_V4) - 1
 )
 
@@ -411,81 +409,108 @@ func (this *HuffmanEncoder) Write(block []byte) (int, error) {
 	}
 
 	for startChunk < end {
-		endChunk := min(startChunk+this.chunkSize, len(block))
-		var freqs [256]int
-		internal.ComputeHistogram(block[startChunk:endChunk], freqs[:], true, false)
-		count, err := this.updateFrequencies(freqs[:])
+		sizeChunk := min(this.chunkSize, end-startChunk)
 
-		if err != nil {
-			return startChunk, err
-		}
+		if sizeChunk < 32 {
+			// Special case for small chunks
+			this.bitstream.WriteArray(block[startChunk:], uint(8*sizeChunk))
+		} else {
+			var freqs [256]int
+			internal.ComputeHistogram(block[startChunk:startChunk+sizeChunk], freqs[:], true, false)
+			count, err := this.updateFrequencies(freqs[:])
 
-		if count <= 1 {
+			if err != nil {
+				return startChunk, err
+			}
+
 			// Skip chunk if only one symbol
-			startChunk = endChunk
-			continue
+			if count > 1 {
+				this.encodeChunk(block[startChunk:], sizeChunk)
+			}
 		}
 
-		endChunk4 := ((endChunk - startChunk) & -4) + startChunk
+		startChunk += sizeChunk
+	}
+
+	return len(block), nil
+}
+
+func (this *HuffmanEncoder) encodeChunk(block []byte, count int) {
+	nbBits := [4]uint{0}
+	szFrag := count / 4
+	szFrag4 := szFrag & ^3
+	szBuf := len(this.buffer) / 4
+
+	// Encode chunk
+	for j := 0; j < 4; j++ {
+		src := block[j*szFrag:]
+		buf := this.buffer[j*szBuf:]
 		c := this.codes
 		idx := 0
 		state := uint64(0)
 		bits := 0 // number of accumulated bits
 
-		// Encode chunk
-		for i := startChunk; i < endChunk4; i += 4 {
+		// Encode fragments sequentially
+		for i := 0; i < szFrag4; i += 4 {
 			var code uint16
-			code = c[block[i]]
+			code = c[src[i]]
 			codeLen0 := code >> 12
 			state = (state << codeLen0) | uint64(code&0x0FFF)
-			code = c[block[i+1]]
+			code = c[src[i+1]]
 			codeLen1 := code >> 12
 			state = (state << codeLen1) | uint64(code&0x0FFF)
-			code = c[block[i+2]]
+			code = c[src[i+2]]
 			codeLen2 := code >> 12
 			state = (state << codeLen2) | uint64(code&0x0FFF)
-			code = c[block[i+3]]
+			code = c[src[i+3]]
 			codeLen3 := code >> 12
 			state = (state << codeLen3) | uint64(code&0x0FFF)
 			bits += int(codeLen0 + codeLen1 + codeLen2 + codeLen3)
-			binary.BigEndian.PutUint64(this.buffer[idx:idx+8], state<<uint(64-bits))
+			binary.BigEndian.PutUint64(buf[idx:idx+8], state<<uint(64-bits)) // bits cannot be 0
 			idx += (bits >> 3)
 			bits &= 7
 		}
 
-		for i := endChunk4; i < endChunk; i++ {
-			code := c[block[i]]
+		// Fragment last byte
+		for i := szFrag4; i < szFrag; i++ {
+			code := c[src[i]]
 			codeLen := (code >> 12)
 			state = (state << codeLen) | uint64(code&0x0FFF)
 			bits += int(codeLen)
 		}
 
-		nbBits := (idx * 8) + bits
+		nbBits[j] = uint((idx * 8) + bits)
 
 		for bits >= 8 {
 			bits -= 8
-			this.buffer[idx] = byte(state >> uint(bits))
+			buf[idx] = byte(state >> uint(bits))
 			idx++
 		}
 
 		if bits > 0 {
-			this.buffer[idx] = byte(state << uint(8-bits))
+			buf[idx] = byte(state << uint(8-bits))
 			idx++
 		}
-
-		// Write number of streams (0->1, 1->4, 2->8, 3->32)
-		this.bitstream.WriteBits(0, 2)
-
-		// Write chunk size in bits
-		WriteVarInt(this.bitstream, uint32(nbBits))
-
-		// Write compressed data to the stream
-		this.bitstream.WriteArray(this.buffer[0:], uint(nbBits))
-
-		startChunk = endChunk
 	}
 
-	return len(block), nil
+	// Write chunk size in bits
+	WriteVarInt(this.bitstream, uint32(nbBits[0]))
+	WriteVarInt(this.bitstream, uint32(nbBits[1]))
+	WriteVarInt(this.bitstream, uint32(nbBits[2]))
+	WriteVarInt(this.bitstream, uint32(nbBits[3]))
+
+	// Write compressed data to the stream
+	this.bitstream.WriteArray(this.buffer[0*szBuf:], uint(nbBits[0]))
+	this.bitstream.WriteArray(this.buffer[1*szBuf:], uint(nbBits[1]))
+	this.bitstream.WriteArray(this.buffer[2*szBuf:], uint(nbBits[2]))
+	this.bitstream.WriteArray(this.buffer[3*szBuf:], uint(nbBits[3]))
+
+	// Chunk last bytes
+	count4 := 4 * szFrag
+
+	for i := count4; i < count; i++ {
+		this.bitstream.WriteBits(uint64(block[i]), 8)
+	}
 }
 
 // Dispose this implementation does nothing
@@ -507,7 +532,7 @@ type HuffmanDecoder struct {
 	buffer        []byte
 	table         []uint16 // decoding table: code -> size, symbol
 	chunkSize     int
-	isBsVersion3  bool
+	bsVersion     uint
 	maxSymbolSize int
 }
 
@@ -540,7 +565,7 @@ func NewHuffmanDecoder(bs kanzi.InputBitStream, args ...int) (*HuffmanDecoder, e
 
 	this := &HuffmanDecoder{}
 	this.bitstream = bs
-	this.isBsVersion3 = false
+	this.bsVersion = 6
 	this.maxSymbolSize = _HUF_MAX_SYMBOL_SIZE_V4
 	this.table = make([]uint16, 1<<this.maxSymbolSize)
 	this.chunkSize = chkSize
@@ -572,12 +597,8 @@ func NewHuffmanDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]any) (*Hu
 
 	this := &HuffmanDecoder{}
 	this.bitstream = bs
-	this.isBsVersion3 = bsVersion < 4
+	this.bsVersion = bsVersion
 	this.maxSymbolSize = _HUF_MAX_SYMBOL_SIZE_V4
-
-	if this.isBsVersion3 {
-		this.maxSymbolSize = _HUF_MAX_SYMBOL_SIZE_V3
-	}
 
 	this.table = make([]uint16, 1<<this.maxSymbolSize)
 	this.chunkSize = _HUF_MAX_CHUNK_SIZE
@@ -684,11 +705,19 @@ func (this *HuffmanDecoder) Read(block []byte) (int, error) {
 		return 0, nil
 	}
 
+	if this.bsVersion < 6 {
+		return this.decodeV5(block)
+	}
+
+	return this.decodeV6(block)
+}
+
+func (this *HuffmanDecoder) decodeV5(block []byte) (int, error) {
 	end := len(block)
 	startChunk := 0
 
 	for startChunk < end {
-		endChunk := min(startChunk+this.chunkSize, end)
+		sizeChunk := min(this.chunkSize, end-startChunk)
 
 		// For each chunk, read code lengths, rebuild codes, rebuild decoding table
 		alphabetSize, err := this.readLengths()
@@ -699,167 +728,313 @@ func (this *HuffmanDecoder) Read(block []byte) (int, error) {
 
 		if alphabetSize == 1 {
 			val := byte(this.alphabet[0])
-			b := block[startChunk:endChunk]
+			b := block[startChunk : startChunk+sizeChunk]
 
 			// Shortcut for chunks with only one symbol
 			for i := range b {
 				b[i] = val
 			}
-
-			startChunk = endChunk
-			continue
-		}
-
-		if this.buildDecodingTable(alphabetSize) == false {
-			return 0, errors.New("Invalid bitstream: incorrect symbol size")
-		}
-
-		if this.isBsVersion3 == true {
-			// Compute minimum number of bits required in bitstream for fast decoding
-			minCodeLen := int(this.sizes[this.alphabet[0]]) // not 0
-			padding := 64 / minCodeLen
-
-			if minCodeLen*padding != 64 {
-				padding++
-			}
-
-			endChunk2 := startChunk
-			szChunk := endChunk - startChunk - padding
-
-			if szChunk > 0 {
-				endChunk2 += (szChunk & -2)
-			}
-
-			bits := byte(0)
-			st := uint64(0)
-
-			for i := startChunk; i < endChunk2; i += 2 {
-				if bits < 32 {
-					st = (st << 32) | this.bitstream.ReadBits(32)
-					bits += 32
-				}
-
-				val0 := this.table[int(st>>(bits-_HUF_MAX_SYMBOL_SIZE_V3))&_HUF_DECODING_MASK_V3]
-				bits -= byte(val0)
-				val1 := this.table[int(st>>(bits-_HUF_MAX_SYMBOL_SIZE_V3))&_HUF_DECODING_MASK_V3]
-				bits -= byte(val1)
-				block[i] = byte(val0 >> 8)
-				block[i+1] = byte(val1 >> 8)
-			}
-
-			// Fallback to slow decoding
-			for i := endChunk2; i < endChunk; i++ {
-				code := 0
-				codeLen := uint8(0)
-
-				for {
-					codeLen++
-
-					if bits == 0 {
-						code = (code << 1) | this.bitstream.ReadBit()
-					} else {
-						bits--
-						code = (code << 1) | int((st>>bits)&1)
-					}
-
-					idx := code << (_HUF_MAX_SYMBOL_SIZE_V3 - codeLen)
-
-					if uint8(this.table[idx]) == codeLen {
-						block[i] = byte(this.table[idx] >> 8)
-						break
-					}
-
-					if codeLen >= _HUF_MAX_SYMBOL_SIZE_V3 {
-						return startChunk, errors.New("Invalid bitstream: incorrect Huffman code")
-					}
-				}
-			}
 		} else {
-			// bsVersion >= 4
-			// Read number of streams. Only 1 stream supported for now
-			if this.bitstream.ReadBits(2) != 0 {
-				return startChunk, errors.New("Invalid Huffman data: number streams not supported in this version")
+			if this.buildDecodingTable(alphabetSize) == false {
+				return 0, errors.New("Invalid bitstream: incorrect symbol size")
 			}
 
-			// Read chunk size
-			szBits := ReadVarInt(this.bitstream)
+			_, err = this.decodeChunkV5(block[startChunk:], sizeChunk)
 
-			// Read compressed data from the bitstream
-			if szBits != 0 {
-				sz := int(szBits+7) >> 3
-				minLenBuf := sz + (sz >> 3)
-
-				if minLenBuf < 1024 {
-					minLenBuf = 1024
-				}
-
-				if len(this.buffer) < int(minLenBuf) {
-					this.buffer = make([]byte, minLenBuf)
-				}
-
-				this.bitstream.ReadArray(this.buffer, uint(szBits))
-				state := uint64(0)
-				bits := uint8(0)
-				idx := 0
-				n := startChunk
-
-				for idx < sz-8 {
-					shift := (56 - bits) & ^uint8(0x07)
-					state = (state << shift) | (binary.BigEndian.Uint64(this.buffer[idx:idx+8]) >> (64 - shift))
-					idx += int(shift >> 3)
-					bs := bits + shift - _HUF_MAX_SYMBOL_SIZE_V4
-					val0 := this.table[(state>>bs)&_HUF_DECODING_MASK_V4]
-					bs -= uint8(val0)
-					val1 := this.table[(state>>bs)&_HUF_DECODING_MASK_V4]
-					bs -= uint8(val1)
-					val2 := this.table[(state>>bs)&_HUF_DECODING_MASK_V4]
-					bs -= uint8(val2)
-					val3 := this.table[(state>>bs)&_HUF_DECODING_MASK_V4]
-					bs -= uint8(val3)
-					bits = bs + _HUF_MAX_SYMBOL_SIZE_V4
-					block[n+0] = byte(val0 >> 8)
-					block[n+1] = byte(val1 >> 8)
-					block[n+2] = byte(val2 >> 8)
-					block[n+3] = byte(val3 >> 8)
-					n += 4
-				}
-
-				// Last bytes
-				for n < endChunk {
-					for (bits < _HUF_MAX_SYMBOL_SIZE_V4) && (idx < sz) {
-						state = (state << 8) | uint64(this.buffer[idx]&0xFF)
-						idx++
-
-						// 'bits' may overshoot when idx == sz due to padding state bits
-						// It is necessary to compute proper table indexes
-						// and has no consequences (except bits != 0 at the end of chunk)
-						bits += 8
-					}
-
-					// Sanity check
-					if bits > 64 {
-						return n, errors.New("Invalid bitstream: incorrect symbol size")
-					}
-
-					var val uint16
-
-					if bits >= _HUF_MAX_SYMBOL_SIZE_V4 {
-						val = this.table[(state>>(bits-_HUF_MAX_SYMBOL_SIZE_V4))&_HUF_DECODING_MASK_V4]
-					} else {
-						val = this.table[(state<<(_HUF_MAX_SYMBOL_SIZE_V4-bits))&_HUF_DECODING_MASK_V4]
-					}
-
-					bits -= uint8(val)
-					block[n] = byte(val >> 8)
-					n++
-				}
+			if err != nil {
+				return startChunk, err
 			}
 		}
 
-		startChunk = endChunk
+		startChunk += sizeChunk
 	}
 
 	return len(block), nil
+}
+
+func (this *HuffmanDecoder) decodeV6(block []byte) (int, error) {
+	if len(this.buffer) < 2*this.chunkSize {
+		this.buffer = make([]byte, 2*this.chunkSize)
+	}
+
+	end := len(block)
+	startChunk := 0
+
+	for startChunk < end {
+		sizeChunk := min(this.chunkSize, end-startChunk)
+
+		if sizeChunk < 32 {
+			// Special case for small chunks
+			this.bitstream.ReadArray(block[startChunk:], uint(8*sizeChunk))
+		} else {
+			// For each chunk, read code lengths, rebuild codes, rebuild decoding table
+			alphabetSize, err := this.readLengths()
+
+			if alphabetSize == 0 || err != nil {
+				return startChunk, err
+			}
+
+			if alphabetSize == 1 {
+				val := byte(this.alphabet[0])
+				b := block[startChunk : startChunk+sizeChunk]
+
+				// Shortcut for chunks with only one symbol
+				for i := range b {
+					b[i] = val
+				}
+
+			} else {
+				if this.buildDecodingTable(alphabetSize) == false {
+					return startChunk, errors.New("Invalid bitstream: incorrect symbol size")
+				}
+
+				_, err = this.decodeChunkV6(block[startChunk:], sizeChunk)
+
+				if err != nil {
+					return startChunk, err
+				}
+			}
+		}
+
+		startChunk += sizeChunk
+	}
+
+	return len(block), nil
+}
+
+func (this *HuffmanDecoder) decodeChunkV6(block []byte, count int) (int, error) {
+	// Read fragment sizes
+	szBits0 := ReadVarInt(this.bitstream)
+	szBits1 := ReadVarInt(this.bitstream)
+	szBits2 := ReadVarInt(this.bitstream)
+	szBits3 := ReadVarInt(this.bitstream)
+
+	if (int(szBits0) < 0) || (int(szBits1) < 0) || (int(szBits2) < 0) || (int(szBits3) < 0) {
+		return 0, errors.New("Invalid bitstream: incorrect stream size")
+	}
+
+	for i := range this.buffer {
+		this.buffer[i] = 0
+	}
+
+	idx0 := 0 * (len(this.buffer) / 4)
+	idx1 := 1 * (len(this.buffer) / 4)
+	idx2 := 2 * (len(this.buffer) / 4)
+	idx3 := 3 * (len(this.buffer) / 4)
+
+	// Read all compressed data from bitstream
+	this.bitstream.ReadArray(this.buffer[idx0:], uint(szBits0))
+	this.bitstream.ReadArray(this.buffer[idx1:], uint(szBits1))
+	this.bitstream.ReadArray(this.buffer[idx2:], uint(szBits2))
+	this.bitstream.ReadArray(this.buffer[idx3:], uint(szBits3))
+
+	// Bits read from bitstream
+	state0 := uint64(0)
+	state1 := uint64(0)
+	state2 := uint64(0)
+	state3 := uint64(0)
+
+	// Number of available bits in state
+	bits0 := uint8(0)
+	bits1 := uint8(0)
+	bits2 := uint8(0)
+	bits3 := uint8(0)
+
+	var bs0 uint8
+	var bs1 uint8
+	var bs2 uint8
+	var bs3 uint8
+
+	szFrag := count / 4
+	block0 := block[0*szFrag:]
+	block1 := block[1*szFrag:]
+	block2 := block[2*szFrag:]
+	block3 := block[3*szFrag:]
+	n := 0
+
+	for n < szFrag-4 {
+		// Fill 64 bits of state from the bitstream for each stream
+		bs0 = this.readState(&state0, &idx0, &bits0)
+		bs1 = this.readState(&state1, &idx1, &bits1)
+		bs2 = this.readState(&state2, &idx2, &bits2)
+		bs3 = this.readState(&state3, &idx3, &bits3)
+
+		// Decompress 4 symbols per stream
+		val00 := this.table[(state0>>bs0)&_HUF_DECODING_MASK_V4]
+		bs0 -= uint8(val00)
+		val10 := this.table[(state1>>bs1)&_HUF_DECODING_MASK_V4]
+		bs1 -= uint8(val10)
+		val20 := this.table[(state2>>bs2)&_HUF_DECODING_MASK_V4]
+		bs2 -= uint8(val20)
+		val30 := this.table[(state3>>bs3)&_HUF_DECODING_MASK_V4]
+		bs3 -= uint8(val30)
+		val01 := this.table[(state0>>bs0)&_HUF_DECODING_MASK_V4]
+		bs0 -= uint8(val01)
+		val11 := this.table[(state1>>bs1)&_HUF_DECODING_MASK_V4]
+		bs1 -= uint8(val11)
+		val21 := this.table[(state2>>bs2)&_HUF_DECODING_MASK_V4]
+		bs2 -= uint8(val21)
+		val31 := this.table[(state3>>bs3)&_HUF_DECODING_MASK_V4]
+		bs3 -= uint8(val31)
+		val02 := this.table[(state0>>bs0)&_HUF_DECODING_MASK_V4]
+		bs0 -= uint8(val02)
+		val12 := this.table[(state1>>bs1)&_HUF_DECODING_MASK_V4]
+		bs1 -= uint8(val12)
+		val22 := this.table[(state2>>bs2)&_HUF_DECODING_MASK_V4]
+		bs2 -= uint8(val22)
+		val32 := this.table[(state3>>bs3)&_HUF_DECODING_MASK_V4]
+		bs3 -= uint8(val32)
+		val03 := this.table[(state0>>bs0)&_HUF_DECODING_MASK_V4]
+		bs0 -= uint8(val03)
+		val13 := this.table[(state1>>bs1)&_HUF_DECODING_MASK_V4]
+		bs1 -= uint8(val13)
+		val23 := this.table[(state2>>bs2)&_HUF_DECODING_MASK_V4]
+		bs2 -= uint8(val23)
+		val33 := this.table[(state3>>bs3)&_HUF_DECODING_MASK_V4]
+		bs3 -= uint8(val33)
+
+		bits0 = bs0 + _HUF_MAX_SYMBOL_SIZE_V4
+		bits1 = bs1 + _HUF_MAX_SYMBOL_SIZE_V4
+		bits2 = bs2 + _HUF_MAX_SYMBOL_SIZE_V4
+		bits3 = bs3 + _HUF_MAX_SYMBOL_SIZE_V4
+
+		block0[n+0] = byte(val00 >> 8)
+		block1[n+0] = byte(val10 >> 8)
+		block2[n+0] = byte(val20 >> 8)
+		block3[n+0] = byte(val30 >> 8)
+		block0[n+1] = byte(val01 >> 8)
+		block1[n+1] = byte(val11 >> 8)
+		block2[n+1] = byte(val21 >> 8)
+		block3[n+1] = byte(val31 >> 8)
+		block0[n+2] = byte(val02 >> 8)
+		block1[n+2] = byte(val12 >> 8)
+		block2[n+2] = byte(val22 >> 8)
+		block3[n+2] = byte(val32 >> 8)
+		block0[n+3] = byte(val03 >> 8)
+		block1[n+3] = byte(val13 >> 8)
+		block2[n+3] = byte(val23 >> 8)
+		block3[n+3] = byte(val33 >> 8)
+		n += 4
+	}
+
+	// Fill 64 bits of state from the bitstream for each stream
+	bs0 = this.readState(&state0, &idx0, &bits0)
+	bs1 = this.readState(&state1, &idx1, &bits1)
+	bs2 = this.readState(&state2, &idx2, &bits2)
+	bs3 = this.readState(&state3, &idx3, &bits3)
+
+	for n < szFrag {
+		// Decompress 1 symbol per stream
+		val0 := this.table[(state0>>bs0)&_HUF_DECODING_MASK_V4]
+		bs0 -= uint8(val0)
+		val1 := this.table[(state1>>bs1)&_HUF_DECODING_MASK_V4]
+		bs1 -= uint8(val1)
+		val2 := this.table[(state2>>bs2)&_HUF_DECODING_MASK_V4]
+		bs2 -= uint8(val2)
+		val3 := this.table[(state3>>bs3)&_HUF_DECODING_MASK_V4]
+		bs3 -= uint8(val3)
+
+		block0[n] = byte(val0 >> 8)
+		block1[n] = byte(val1 >> 8)
+		block2[n] = byte(val2 >> 8)
+		block3[n] = byte(val3 >> 8)
+		n++
+	}
+
+	// Process any remaining bytes at the end of the whole chunk
+	count4 := 4 * szFrag
+
+	for i := count4; i < count; i++ {
+		block[i] = byte(this.bitstream.ReadBits(8))
+	}
+
+	return count, nil
+}
+
+func (this *HuffmanDecoder) readState(state *uint64, idx *int, bits *uint8) uint8 {
+	shift := (56 - *bits) & ^uint8(0x07)
+	*state = (*state << shift) | (binary.BigEndian.Uint64(this.buffer[*idx:]) >> (64 - shift))
+	*idx += int(shift >> 3)
+	return *bits + shift - _HUF_MAX_SYMBOL_SIZE_V4
+}
+
+func (this *HuffmanDecoder) decodeChunkV5(block []byte, count int) (int, error) {
+	// Read number of streams. Only 1 stream supported
+	if this.bitstream.ReadBits(2) != 0 {
+		return 0, errors.New("Invalid Huffman data: number streams not supported in this version")
+	}
+
+	// Read chunk size
+	szBits := ReadVarInt(this.bitstream)
+
+	// Read compressed data from the bitstream
+	if szBits != 0 {
+		sz := int(szBits+7) >> 3
+		minLenBuf := min(sz+(sz>>3), 1024)
+
+		if len(this.buffer) < int(minLenBuf) {
+			this.buffer = make([]byte, minLenBuf)
+		}
+
+		this.bitstream.ReadArray(this.buffer, uint(szBits))
+		state := uint64(0)
+		bits := uint8(0)
+		idx := 0
+		n := 0
+
+		for idx < sz-8 {
+			shift := (56 - bits) & ^uint8(0x07)
+			state = (state << shift) | (binary.BigEndian.Uint64(this.buffer[idx:idx+8]) >> (64 - shift))
+			idx += int(shift >> 3)
+			bs := bits + shift - _HUF_MAX_SYMBOL_SIZE_V4
+			val0 := this.table[(state>>bs)&_HUF_DECODING_MASK_V4]
+			bs -= uint8(val0)
+			val1 := this.table[(state>>bs)&_HUF_DECODING_MASK_V4]
+			bs -= uint8(val1)
+			val2 := this.table[(state>>bs)&_HUF_DECODING_MASK_V4]
+			bs -= uint8(val2)
+			val3 := this.table[(state>>bs)&_HUF_DECODING_MASK_V4]
+			bs -= uint8(val3)
+			bits = bs + _HUF_MAX_SYMBOL_SIZE_V4
+			block[n+0] = byte(val0 >> 8)
+			block[n+1] = byte(val1 >> 8)
+			block[n+2] = byte(val2 >> 8)
+			block[n+3] = byte(val3 >> 8)
+			n += 4
+		}
+
+		// Last bytes
+		for n < count {
+			for (bits < _HUF_MAX_SYMBOL_SIZE_V4) && (idx < sz) {
+				state = (state << 8) | uint64(this.buffer[idx]&0xFF)
+				idx++
+
+				// 'bits' may overshoot when idx == sz due to padding state bits
+				// It is necessary to compute proper table indexes
+				// and has no consequences (except bits != 0 at the end of chunk)
+				bits += 8
+			}
+
+			// Sanity check
+			if bits > 64 {
+				return n, errors.New("Invalid bitstream: incorrect symbol size")
+			}
+
+			var val uint16
+
+			if bits >= _HUF_MAX_SYMBOL_SIZE_V4 {
+				val = this.table[(state>>(bits-_HUF_MAX_SYMBOL_SIZE_V4))&_HUF_DECODING_MASK_V4]
+			} else {
+				val = this.table[(state<<(_HUF_MAX_SYMBOL_SIZE_V4-bits))&_HUF_DECODING_MASK_V4]
+			}
+
+			bits -= uint8(val)
+			block[n] = byte(val >> 8)
+			n++
+		}
+	}
+
+	return count, nil
 }
 
 // BitStream returns the underlying bitstream
