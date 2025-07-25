@@ -281,8 +281,7 @@ func (this *ANSRangeEncoder) Write(block []byte) (int, error) {
 		return len(block), nil
 	}
 
-	sizeChunk := this.chunkSize
-	size := min(2*len(block), sizeChunk+(sizeChunk>>3))
+	size := min(2*len(block), this.chunkSize+(this.chunkSize>>3))
 	size = max(size, 65536)
 
 	// Add some padding
@@ -294,8 +293,7 @@ func (this *ANSRangeEncoder) Write(block []byte) (int, error) {
 	startChunk := 0
 
 	for startChunk < end {
-		endChunk := min(startChunk+sizeChunk, end)
-		sizeChunk = endChunk - startChunk
+		endChunk := min(startChunk+this.chunkSize, end)
 		alphabetSize, err := this.rebuildStatistics(block[startChunk:endChunk], this.logRange)
 
 		if err != nil {
@@ -550,7 +548,7 @@ func NewANSRangeDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]any, arg
 
 	chkSize := _DEFAULT_ANS0_CHUNK_SIZE
 	order := uint(0)
-	bsVersion := uint(4)
+	bsVersion := uint(6)
 
 	if ctx != nil {
 		if val, containsKey := (*ctx)["bsVersion"]; containsKey {
@@ -722,15 +720,13 @@ func (this *ANSRangeDecoder) Read(block []byte) (int, error) {
 		return len(block), nil
 	}
 
-	sizeChunk := this.chunkSize
 	end := len(block)
 	var err error
 	startChunk := 0
 	var alphabet [256]int
 
 	for startChunk < end {
-		endChunk := min(startChunk+sizeChunk, end)
-		sizeChunk = endChunk - startChunk
+		endChunk := min(startChunk+this.chunkSize, end)
 		alphabetSize, errH := this.decodeHeader(this.freqs, alphabet[:])
 
 		if errH != nil || alphabetSize == 0 {
