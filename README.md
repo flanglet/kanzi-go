@@ -1,16 +1,18 @@
 # Kanzi
 
+Kanzi is a modern, modular, portable, and efficient lossless data compressor written in C++.
 
-Kanzi is a modern, modular, expandable and efficient lossless data compressor implemented in Go.
+* Modern: Kanzi implements state-of-the-art compression algorithms and is built to fully utilize multi-core CPUs via built-in multi-threading.
+* Modular: Entropy codecs and data transforms can be selected and combined at runtime to best suit the specific data being compressed.
+* Portable: Supports a wide range of operating systems, compilers, and C++ standards (details below).
+* Expandable: A clean, interface-driven design—with no external dependencies—makes Kanzi easy to integrate, extend, and customize.
+* Efficient: Carefully optimized to balance compression ratio and speed for practical, high-performance usage.
 
-* modern: state-of-the-art algorithms are implemented and multi-core CPUs can take advantage of the built-in multi-tasking.
-* modular: entropy codec and a combination of transforms can be provided at runtime to best match the kind of data to compress.
-* expandable: clean design with heavy use of interfaces as contracts makes integrating and expanding the code easy. No dependencies.
-* efficient: the code is optimized for efficiency (trade-off between compression ratio and speed).
+Unlike most mainstream lossless compressors, Kanzi is not limited to a single compression paradigm. By combining multiple algorithms and techniques, it supports a broader range of compression ratios and adapts better to diverse data types.
 
-Unlike the most common lossless data compressors, Kanzi uses a variety of different compression algorithms and supports a wider range of compression ratios as a result. Most usual compressors do not take advantage of the many cores and threads available on modern CPUs (what a waste!). Kanzi is concurrent by design and uses threads to compress several blocks in parallel. It is not compatible with standard compression formats. 
+Most traditional compressors underutilize modern hardware by running single-threaded—even on machines with many cores. Kanzi, in contrast, is concurrent by design, compressing multiple blocks in parallel across threads for significant performance gains. However, it is not compatible with standard compression formats.
 
-Kanzi is a lossless data compressor, not an archiver. It uses checksums (optional but recommended) to validate data integrity but does not have a mechanism for data recovery. It also lacks data deduplication across files. However, Kanzi generates a bitstream that is seekable (one or several consecutive blocks can be decompressed without the need for the whole bitstream to be decompressed).
+It’s important to note that Kanzi is a data compressor, not an archiver. It includes optional checksums for verifying data integrity, but does not provide features like cross-file deduplication or data recovery mechanisms. That said, it produces a seekable bitstream—meaning one or more consecutive blocks can be decompressed independently, without needing to process the entire stream.
 
 For more details, see [Wiki](https://github.com/flanglet/kanzi-go/wiki), [Q&A](https://github.com/flanglet/kanzi-go/wiki/q&a) and [DeepWiki](https://deepwiki.com/flanglet/kanzi-go/1-overview)
 
@@ -30,84 +32,74 @@ There is Java implementation available here: https://github.com/flanglet/kanzi
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/flanglet/kanzi-go)
 
-
 ## Why Kanzi
 
-There are many excellent, open-source lossless data compressors available already.
+There are already many excellent, open-source lossless data compressors available.
 
-If gzip is starting to show its age, zstd and brotli are open-source, standardized and used
-daily by millions of people. Zstd is incredibly fast and probably the best choice in many cases.
-There are a few scenarios where Kanzi can be a better choice:
+If gzip is beginning to show its age, modern alternatives like **zstd** and **brotli** offer compelling replacements. Both are open-source, standardized, and used daily by millions. **Zstd** is especially notable for its exceptional speed and is often the best choice in general-purpose compression.
 
-- gzip, lzma, brotli, zstd are all LZ based. It means that they can reach certain compression
-ratios only. Kanzi also makes use of BWT and CM which can compress beyond what LZ can do.
+However, there are scenarios where **Kanzi** may offer superior performance:
 
-- These LZ based compressors are well suited for software distribution (one compression / many decompressions)
-due to their fast decompression (but low compression speed at high compression ratios). 
-There are other scenarios where compression speed is critical: when data is generated before being compressed and consumed
-(one compression / one decompression) or during backups (many compressions / one decompression).
+While gzip, LZMA, brotli, and zstd are all based on LZ (Lempel-Ziv) compression, they are inherently limited in the compression ratios they can achieve. **Kanzi** goes further by incorporating **BWT (Burrows-Wheeler Transform)** and **CM (Context Modeling)**, which can outperform traditional LZ-based methods in certain cases.
 
-- Kanzi has built-in customized data transforms (multimedia, utf, text, dna, ...) that can be chosen and combined 
-at compression time to better compress specific kinds of data.
+LZ-based compressors are ideal for software distribution, where data is compressed once and decompressed many times, thanks to their fast decompression speeds—though they tend to be slower when compressing at higher ratios. But in other scenarios—such as real-time data generation, one-off data transfers, or backups—**compression speed becomes critical**. Here, Kanzi can shine.
 
-- Kanzi can take advantage of the multiple cores of a modern CPU to improve performance
+**Kanzi** also features a suite of built-in, customizable data transforms tailored for specific data types (e.g., multimedia, UTF, text, DNA, etc.), which can be selectively applied during compression for better efficiency.
 
-- Implementing a new transform or entropy codec (to either test an idea or improve compression ratio on specific kinds of data) is simple.
+Furthermore, Kanzi is designed to **leverage modern multi-core CPUs** to boost performance.
+
+Finally, **extensibility** is a key strength: implementing new transforms or entropy codecs—whether for experimentation or to improve performance on niche data types—is straightforward and developer-friendly.
 
 
 
 ## Benchmarks
 
-AWS c5a8xlarge: AMD EPYC 7R32 (32 vCPUs), 64 GB RAM
+Test machine:
 
-go 1.21.10
+Apple M3 24 GB Sonoma 14.6.1
 
-Ubuntu 24.04 LTS
+Kanzi version 2.4.0 Go implementation
 
-Kanzi version 2.3.0
+On this machine, Kanzi uses 4 threads (half of CPUs by default).
 
-On this machine, Kanzi uses up to 16 threads (half of CPUs by default).
+bzip3 runs with 4 threads. 
 
-bzip3 and zpaq use 16 threads. 
-zstd uses 16 threads for compression and 1 for decompression, other compressors are single threaded.
+zstd and lz4 use 4 threads for compression and 1 for decompression, other compressors are single threaded.
 
 The default block size at level 9 is 32MB, severely limiting the number of threads
 in use, especially with enwik8, but all tests are performed with default values.
-
 
 
 ### silesia.tar
 
 Download at http://sun.aei.polsl.pl/~sdeor/corpus/silesia.zip
 
-|        Compressor               | Encoding (sec)  | Decoding (sec)  |    Size          |
+|        Compressor               |  Encoding (ms)  |  Decoding (ms)  |    Size          |
 |---------------------------------|-----------------|-----------------|------------------|
-|Original     	                  |                 |                 |   211,957,760    |
-|s2 -cpu 16                       |       0.494	    |      0.868	    |    86,650,932    |
-|**Kanzi -l 1**                   |   	**0.504**   |    **0.366**    |  **80,277,212**  |
-|Lz4 1.9.5 -4                     |       0.321     |      0.330      |    79,912,419    |
-|s2 -cpu 16 -slower               |       1.517	    |      0.868	    |    79,555,929    |
-|Zstd 1.5.6 -2 -T16               |	      0.151     |      0.271      |    69,556,157    |
-|**Kanzi -l 2**                   |   	**0.533**   |    **0.263**    |  **68,195,845**  |
-|Brotli 1.1.0 -2                  |       1.749     |      0.761      |    68,041,629    |
-|Gzip 1.12 -9                     |      20.09      |      1.403      |    67,652,449    |
-|**Kanzi -l 3**                   |   	**1.057**   |    **0.359**    |  **65,613,695**  |
-|Zstd 1.5.6 -5 -T16               |	      0.356     |      0.289      |    63,131,656    |
-|**Kanzi -l 4**                   |   	**1.125**   |    **0.519**    |  **61,249,959**  |
-|Zstd 1.5.5 -9 -T16               |	      0.690     |      0.278      |    59,429,335    |
-|Brotli 1.1.0 -6                  |       8.388     |      0.677      |    58,571,909    |
-|Zstd 1.5.6 -13 -T16              |	      3.244     |      0.272      |    58,041,112    |
-|Brotli 1.1.0 -9                  |      70.07      |      0.677      |    56,376,419    |
-|Bzip2 1.0.8 -9	                  |      16.94      |      6.734      |    54,572,500    |
-|**Kanzi -l 5**                   |   	**2.161**   |    **1.043**    |  **54,039,773**  |
-|Zstd 1.5.6 -19 -T16              |	     20.87      |      0.303      |    52,889,925    |
-|**Kanzi -l 6**                   |   	**2.779**   |    **2.056**    |  **49,567,817**  |
-|Lzma 5.4.5 -9                    |      95.97      |      3.172      |    48,745,354    |
-|**Kanzi -l 7**                   |   	**3.738**   |    **2.888**    |  **47,520,629**  |
-|bzip3 1.3.2.r4-gb2d61e8 -j 16    |       2.682     |      3.221      |    47,237,088    |
-|**Kanzi -l 8**                   |   	**19.47**   |    **20.01**    |  **43,167,429**  |
-|**Kanzi -l 9**                   |     **45.17**   |    **45.55**    |  **41,497,835**  |
-|zpaq 7.15 -m5 -t16               |      213.8      |     213.8       |    40,050,429    |
+|Original                         |                 |                 |   211,957,760    |
+|s2 -cpu 4                        |       179       |        294      |    86,892,891    |
+|**Kanzi -l 1**                   |     **453**     |      **127**    |    80,245,856    |
+|lz4 1.1.10 -T4 -4                |       527       |        121      |    79,919,901    |
+|zstd 1.5.8 -T4 -2                |       147       |        150      |    69,410,383    |
+|**Kanzi -l 2**                   |     **348**     |      **161**    |    68,860,099    |
+|brotli 1.1.0 -2                  |       907       |        402      |    68,039,159    |
+|Apple gzip 430.140.2 -9          |     10406       |        273      |    67,648,481    |
+|**Kanzi -l 3**                   |     **649**     |      **235**    |    64,266,936    |
+|zstd 1.5.8 -T4 -5                |       300       |        154      |    62,851,716    |
+|**Kanzi -l 4**                   |    **1009**     |      **343**    |    61,131,554    |
+|zstd 1.5.8 -T4 -9                |       752       |        137      |    59,190,090    |
+|brotli 1.1.0 -6                  |      3596       |        340      |    58,557,128    |
+|zstd 1.5.8 -T4 -13               |      4537       |        138      |    57,814,719    |
+|brotli 1.1.0 -9                  |     19809       |        329      |    56,414,012    |
+|bzip2 1.0.8 -9                   |      9673       |       3140      |    54,602,583    |
+|**Kanzi -l 5**                   |    **2375**     |     **1229**    |    54,025,588    |
+|zstd 1.5.8 -T4 -19               |     20482       |        151      |    52,858,610    |
+|**kanzi -l 6**                   |    **3771**     |     **2555**    |    49,521,392    |
+|xz 5.8.1 -9                      |     48516       |       1594      |    48,774,000    |
+|bzip3 1.5.1.r3-g428f422 -j 4     |      8559       |       3948      |    47,256,794    |
+|**Kanzi -l 7**                   |    **4858**     |     **4470**    |    47,312,772    |
+|**Kanzi -l 8**                   |   **19529**     |    **18660**    |    43,260,254    |
+|**Kanzi -l 9**                   |   **26439**     |    **26406**    |    41,858,886    |
 
 
 
@@ -115,40 +107,20 @@ Download at http://sun.aei.polsl.pl/~sdeor/corpus/silesia.zip
 
 Download at https://mattmahoney.net/dc/enwik8.zip
 
-|      Compressor        | Encoding (sec)   | Decoding (sec)   |    Size          |
-|------------------------|------------------|------------------|------------------|
-|Original                |                  |                  |   100,000,000    |
-|**Kanzi -l 1**          |     **0.425**    |    **0.149**     |  **43,746,017**  |
-|**Kanzi -l 2**          |     **0.432**    |    **0.179**     |  **37,816,913**  |
-|**Kanzi -l 3**          |     **0.683**    |    **0.245**     |  **33,865,383**  |
-|**Kanzi -l 4**          |	   **0.621**    |    **0.365**     |  **29,597,577**  |
-|**Kanzi -l 5**          |	   **0.808**    |    **0.437**     |  **26,528,023**  |
-|**Kanzi -l 6**          |	   **1.212**    |    **0.916**     |  **24,076,674**  |
-|**Kanzi -l 7**          |     **2.321**    |    **2.755**     |  **22,817,373**  |
-|**Kanzi -l 8**          |	  **12.52**     |    **12.27**     |  **21,181,983**  |
-|**Kanzi -l 9**          |	  **32.24**     |    **32.27**     |  **20,035,138**  |
+|   Compressor    | Encoding (ms)  | Decoding (ms)  |  Size        |
+|-----------------|----------------|----------------|--------------|
+|Original         |                |                |  100,000,000 |
+|Kanzi -l 1       |       250      |         76     |   43,644,013 |
+|Kanzi -l 2       |       196      |         92     |   37,570,404 |
+|Kanzi -l 3       |       443      |        151     |   32,466,232 |
+|Kanzi -l 4       |       448      |        203     |   29,536,517 |
+|Kanzi -l 5       |       823      |        447     |   26,523,940 |
+|Kanzi -l 6       |      1274      |       1247     |   24,076,765 |
+|Kanzi -l 7       |      2188      |       2223     |   22,817,360 |
+|Kanzi -l 8       |      7993      |       8110     |   21,181,992 |
+|Kanzi -l 9       |     10790      |      11078     |   20,035,144 |
 
 
-### Round-trip scores for LZ
-
-Below is a table showing silesia.tar compressed using different LZ compressors (no entropy) in single-threaded mode.
-
-The efficiency score is computed as such: score(lambda) = compTime + 2 x decompTime + 10^-lambda x compSize
-
-A lower score is better. Best scores are in bold.
-
-Tested on Ubuntu 22.04.4 LTS, i7-7700K CPU @ 4.20GHz, 32 GB RAM 
-
-|      Compressor      | Encoding (sec) | Decoding (sec)  |    Size          |  Score(5)  |  Score(6)  |  Score(7)  |
-|----------------------|----------------|-----------------|------------------|------------|------------|------------|
-|Lz4        	         |     0.91	      |      	0.53	    |    	 98375894	   |   985.73	  |   100.35	 |   11.81    |
-|s2 -cpu 1	           |     0.81	      |      	0.40	    |	     86646819	   |	 868.08   |   88.25	   |***10.27*** |
-|Kanzi 2.3 -t lz -j 1	 |     1.30	      |      	0.33	    |      83355862	   |	 835.52   |   85.31	   |   10.29    |
-|Kanzi 2.3 -t lzx -j 1 |	   1.58	      |      	0.30	    |      81485228	   |***817.04***|***83.67*** |	 10.33    |
-
-References: 
-[S2](https://github.com/klauspost/compress)
-[LZ4 (go)](github.com/pierrec/lz4)
 
 
 # Build
@@ -168,6 +140,7 @@ cd kanzi-go/v2/app
 go build Kanzi.go BlockCompressor.go BlockDecompressor.go InfoPrinter.go
 ```
 
+The bistream is backward compatible, however, the guarantee only applies to releases. Users can expect incompatibilities or breakage due to bitstream changes in between releases.
 
 Credits
 
