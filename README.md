@@ -127,7 +127,7 @@ Download at https://mattmahoney.net/dc/enwik8.zip
 
 Using formal releases is recommended (see https://github.com/flanglet/kanzi-go/releases).
 ```
-go install github.com/flanglet/kanzi-go/v2/app@v2.3.0
+go install github.com/flanglet/kanzi-go/v2/app@v2.4.0
 ```
 
 Otherwise, to build manually from the latest tag, follow the instructions below:
