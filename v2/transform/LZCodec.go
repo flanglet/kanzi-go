@@ -157,7 +157,7 @@ func NewLZXCodecWithCtx(ctx *map[string]any) (*LZXCodec, error) {
 	this.tkBuf = make([]byte, 0)
 	this.extra = false
 	this.ctx = ctx
-	this.bsVersion = uint(3)
+	this.bsVersion = uint(6)
 
 	if ctx != nil {
 		if val, containsKey := (*ctx)["lz"]; containsKey {
