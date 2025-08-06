@@ -958,7 +958,7 @@ func (this *HuffmanDecoder) readState(state *uint64, idx *int, bits *uint8) uint
 func (this *HuffmanDecoder) decodeChunkV5(block []byte, count int) (int, error) {
 	// Read number of streams. Only 1 stream supported
 	if this.bitstream.ReadBits(2) != 0 {
-		return 0, errors.New("Invalid Huffman data: number streams not supported in this version")
+		return 0, errors.New("Invalid Huffman data: only one stream supported in this version")
 	}
 
 	// Read chunk size
@@ -967,7 +967,7 @@ func (this *HuffmanDecoder) decodeChunkV5(block []byte, count int) (int, error) 
 	// Read compressed data from the bitstream
 	if szBits != 0 {
 		sz := int(szBits+7) >> 3
-		minLenBuf := min(sz+(sz>>3), 1024)
+		minLenBuf := max(sz+(sz>>3), 1024)
 
 		if len(this.buffer) < int(minLenBuf) {
 			this.buffer = make([]byte, minLenBuf)
