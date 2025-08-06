@@ -1,10 +1,9 @@
 # Kanzi
 
-Kanzi is a modern, modular, portable, and efficient lossless data compressor written in C++.
+Kanzi is a modern, modular, portable, and efficient lossless data compressor written in Go.
 
 * Modern: Kanzi implements state-of-the-art compression algorithms and is built to fully utilize multi-core CPUs via built-in multi-threading.
 * Modular: Entropy codecs and data transforms can be selected and combined at runtime to best suit the specific data being compressed.
-* Portable: Supports a wide range of operating systems, compilers, and C++ standards (details below).
 * Expandable: A clean, interface-driven design—with no external dependencies—makes Kanzi easy to integrate, extend, and customize.
 * Efficient: Carefully optimized to balance compression ratio and speed for practical, high-performance usage.
 
