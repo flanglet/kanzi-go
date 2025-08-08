@@ -903,11 +903,11 @@ func printHelp(mode string, showHeader bool) {
 	if mode == "c" {
 		log.Println("        Optional name of the output file or directory (defaults to", true)
 		log.Println("        <inputName.knz> if input is <inputName> or 'stdout' if input is 'stdin').", true)
-		log.Println("        or 'none' or 'stdout'.", true)
+		log.Println("        or 'none' or 'stdout'.\n", true)
 	} else if mode == "d" {
 		log.Println("        Optional name of the output file or directory (defaults to", true)
 		log.Println("        <inputName> if input is <inputName.knz> or 'stdout' if input is 'stdin').", true)
-		log.Println("        or 'none' or 'stdout'.", true)
+		log.Println("        or 'none' or 'stdout'.\n", true)
 
 	} else {
 		log.Println("        optional name of the output file or 'none' or 'stdout'.\n", true)
