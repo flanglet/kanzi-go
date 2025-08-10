@@ -59,6 +59,8 @@ Apple M3 24 GB Sonoma 14.6.1
 
 Kanzi version 2.4.0 Go implementation
 
+Go version 1.23.4
+
 On this machine, Kanzi uses 4 threads (half of CPUs by default).
 
 bzip3 runs with 4 threads. 
