@@ -299,23 +299,23 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("UTF inverse transform: invalid map size")
 	}
 
-	bsVersion := uint(4)
+	isBsVersion3 := false
 
 	if this.ctx != nil {
 		if val, containsKey := (*this.ctx)["bsVersion"]; containsKey {
-			bsVersion = val.(uint)
+			bsVersion := val.(uint)
+			isBsVersion3 = bsVersion < 4
 		}
 	}
 
-	isBsVersion3 := bsVersion < 4
 	m := [32768]utfSymbol{}
 	srcIdx := 4
 
 	// Build inverse mapping
-	for i := 0; i < n; i++ {
-		s := (uint32(src[srcIdx]) << 16) | (uint32(src[srcIdx+1]) << 8) | uint32(src[srcIdx+2])
+	if isBsVersion3 == true {
+		for i := 0; i < n; i++ {
+			s := (uint32(src[srcIdx]) << 16) | (uint32(src[srcIdx+1]) << 8) | uint32(src[srcIdx+2])
 
-		if isBsVersion3 == true {
 			sl := unpackUTF0(s, m[i].value[:])
 
 			if sl == 0 {
@@ -323,7 +323,12 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			m[i].length = uint8(sl)
-		} else {
+			srcIdx += 3
+		}
+	} else {
+		for i := 0; i < n; i++ {
+			s := (uint32(src[srcIdx]) << 16) | (uint32(src[srcIdx+1]) << 8) | uint32(src[srcIdx+2])
+
 			sl := unpackUTF1(s, m[i].value[:])
 
 			if sl == 0 {
@@ -331,9 +336,8 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			m[i].length = uint8(sl)
+			srcIdx += 3
 		}
-
-		srcIdx += 3
 	}
 
 	srcEnd := count - 4 + adjust
