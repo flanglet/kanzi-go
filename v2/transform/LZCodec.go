@@ -659,12 +659,14 @@ func (this *LZXCodec) inverseV6(src, dst []byte) (uint, uint, error) {
 			dist = int(src[mIdx])
 			mIdx++
 
-			if f == 0x18 {
-				dist = (dist << 16) | (int(src[mIdx]) << 8) | int(src[mIdx+1])
-				mIdx += 2
-			} else if f == 0x10 {
+			if f >= 0x10 {
 				dist = (dist << 8) | int(src[mIdx])
 				mIdx++
+
+				if f == 0x18 {
+					dist = (dist << 8) | int(src[mIdx])
+					mIdx++
+				}
 			}
 		}
 
