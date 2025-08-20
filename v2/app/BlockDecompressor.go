@@ -232,7 +232,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	isStdIn := strings.EqualFold(this.inputName, _DECOMP_STDIN)
 
 	if isStdIn == false {
-		suffix := string([]byte{os.PathSeparator, '.'})
+		suffix := string(os.PathSeparator) + "."
 		target := this.inputName
 		isRecursive := len(target) <= 2 || target[len(target)-len(suffix):] != suffix
 
@@ -335,7 +335,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 			}
 
 			if formattedInName[len(formattedInName)-1] != os.PathSeparator {
-				formattedInName += string([]byte{os.PathSeparator})
+				formattedInName += string(os.PathSeparator)
 			}
 
 			if len(formattedOutName) > 0 && specialOutput == false {
@@ -352,7 +352,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 				}
 
 				if formattedOutName[len(formattedOutName)-1] != os.PathSeparator {
-					formattedOutName += string([]byte{os.PathSeparator})
+					formattedOutName += string(os.PathSeparator)
 				}
 			}
 		} else {
@@ -682,6 +682,10 @@ func (this *fileDecompressTask) call() (int, uint64, error) {
 	// Close streams to ensure all data are flushed
 	// Deferred close is fallback for error paths
 	if err := cis.Close(); err != nil {
+		if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
+			return ioerr.ErrorCode(), uint64(decoded), err
+		}
+
 		return kanzi.ERR_PROCESS_BLOCK, uint64(decoded), err
 	}
 

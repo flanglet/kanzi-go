@@ -336,7 +336,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	isStdIn := strings.EqualFold(this.inputName, _COMP_STDIN)
 
 	if isStdIn == false {
-		suffix := string([]byte{os.PathSeparator, '.'})
+		suffix := string(os.PathSeparator) + "."
 		target := this.inputName
 		isRecursive := len(target) <= 2 || target[len(target)-len(suffix):] != suffix
 
@@ -462,7 +462,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 			}
 
 			if len(formattedInName) > 0 && formattedInName[len(formattedInName)-1] != os.PathSeparator {
-				formattedInName += string([]byte{os.PathSeparator})
+				formattedInName += string(os.PathSeparator)
 			}
 
 			if len(formattedOutName) > 0 && specialOutput == false {
@@ -479,7 +479,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 				}
 
 				if formattedOutName[len(formattedOutName)-1] != os.PathSeparator {
-					formattedOutName += string([]byte{os.PathSeparator})
+					formattedOutName += string(os.PathSeparator)
 				}
 			}
 		} else {
@@ -519,13 +519,8 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 			if this.autoBlockSize == true && this.jobs > 0 {
 				bl := files[0].Size / int64(this.jobs)
 				bl = (bl + 63) & ^63
-
-				if bl > _COMP_MAX_BLOCK_SIZE {
-					bl = _COMP_MAX_BLOCK_SIZE
-				} else if bl < _COMP_MIN_BLOCK_SIZE {
-					bl = _COMP_MIN_BLOCK_SIZE
-				}
-
+				bl = min(bl, _COMP_MAX_BLOCK_SIZE)
+				bl = max(bl, _COMP_MIN_BLOCK_SIZE)
 				this.blockSize = uint(bl)
 			}
 
@@ -856,6 +851,11 @@ func (this *fileCompressTask) call() (int, uint64, uint64, error) {
 	// Close streams to ensure all data are flushed
 	// Deferred close is fallback for error paths
 	if err := cos.Close(); err != nil {
+		if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
+			fmt.Printf("%s\n", ioerr.Error())
+			return ioerr.ErrorCode(), read, cos.GetWritten(), err
+		}
+
 		fmt.Printf("%v\n", err)
 		return kanzi.ERR_PROCESS_BLOCK, read, cos.GetWritten(), err
 	}
