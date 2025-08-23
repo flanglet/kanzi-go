@@ -306,7 +306,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 	}
 
 	if showHelp == true || len(args) == 1 {
-		printHelp(mode, true)
+		printHelp(mode, verbose, true)
 		return 0
 	}
 
@@ -867,27 +867,33 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 	return 0
 }
 
-func printHelp(mode string, showHeader bool) {
+func printHelp(mode string, verbose int, showHeader bool) {
+	log.Println("", true)
+
 	if showHeader == true {
-		log.Println("\n"+_APP_HEADER+"\n", true)
-		log.Println(_APP_SUB_HEADER, true)
-		log.Println(_APP_USAGE, true)
+		log.Println(_APP_HEADER, true)
+		log.Println("", true)
+		log.Println(_APP_SUB_HEADER, verbose > 1)
+		log.Println("", verbose > 1)
 	}
 
+	log.Println(_APP_USAGE, true)
 	log.Println("", true)
-	log.Println("Credits: Matt Mahoney, Yann Collet, Jan Ondrus, Yuta Mori, Ilya Muravyov,", true)
-	log.Println("         Neal Burns, Fabian Giesen, Jarek Duda, Ilya Grebnov", true)
-	log.Println("", true)
+	log.Println("Options\n", true)
 	log.Println("   -h, --help", true)
-	log.Println("        Display this message\n", true)
 
 	if mode != "c" && mode != "d" {
+		log.Println("        Display this message.", true)
+		log.Println("        Use in conjunction with -c to print information for compression,", true)
+		log.Println("        or -d to print information for decompression.\n", true)
 		log.Println("   -c, --compress", true)
 		log.Println("        Compress mode", true)
 		log.Println("", true)
 		log.Println("   -d, --decompress", true)
 		log.Println("        Decompress mode", true)
 		log.Println("", true)
+	} else {
+		log.Println("        Display this message.\n", true)
 	}
 
 	log.Println("   -i, --input=<inputName>", true)
@@ -977,12 +983,70 @@ func printHelp(mode string, showHeader bool) {
 	}
 
 	if mode == "c" {
+		log.Println("Transforms\n", true)
+		log.Println("  BWT: Burrows Wheeler Transform is a transform that reorders symbols", true)
+		log.Println("       in a reversible way that is more amenable to entropy coding.", true)
+		log.Println("       This implementation uses a linear time foward transform and parallel", true)
+		log.Println("       inverse tranform.\n", true)
+		log.Println("  BWTS: Burrows Wheeler Transform by Scott is a bijective variant of the BWT.\n", true)
+		log.Println("  LZ: Lempel Ziv implementation of the dictionary based LZ77 transform that", true)
+		log.Println("      removes redundancy in the data.\n", true)
+		log.Println("  LZX: Lempel Ziv Extra. Same as above with a bigger hash table and more", true)
+		log.Println("       match searches.\n", true)
+		log.Println("  LZP: Lempel Ziv Prediction can be described as an LZ implementation with only", true)
+		log.Println("       one possible match (no offset is emitted).\n", true)
+		log.Println("  RLT: Run Length Transform is a simple transform that replaces runs of similar", true)
+		log.Println("       symbols with a compact representation.\n", true)
+		log.Println("  ZRLT: Zero Run Length Transform. Similar to RLT but only processes runs of 0.", true)
+		log.Println("        Usually used post BWT.\n", true)
+		log.Println("  MTFT: Move-To-Front Transform is a transform that reduces entropy by assigning", true)
+		log.Println("        shorter symbols to recent data (like a LRU cache). Usually used post BWT.\n", true)
+		log.Println("  RANK: Rank Transform is a transform that that reduces entropy by assigning shorter", true)
+		log.Println("        symbols based on symbol frequency ranks. Usually used post BWT.\n", true)
+		log.Println("  EXE: a transform that reduces the entropy of executable files (X86 & ARM64)", true)
+		log.Println("       by replacing relative jump addresses with absolute ones.\n", true)
+		log.Println("  TEXT: a text transform that uses a dictionary to replace common words with", true)
+		log.Println("        their dictionary index.\n", true)
+		log.Println("  ROLZ: Reduced Offset Lempel Ziv is an implementation of LZ that replaces match offsets", true)
+		log.Println("        with indexes, creating a more compact output with slower decoding speeds.\n", true)
+		log.Println("  ROLZX: Extended ROLZ with more match searches and a more compact encoding.\n", true)
+		log.Println("  SRT: Sorted Rank Transform is a transform that that reduces entropy by assigning", true)
+		log.Println("       shorter symbols based on symbol frequency ranks. Usually used post BWT.\n", true)
+		log.Println("  MM: Multimedia transform is a fast transform that removes redundancy in correlated", true)
+		log.Println("      channels in some multimedia files (EG. wav, pnm).\n", true)
+		log.Println("  UTF: a fast transform replacing UTF-8 codewords with aliases based on frequencies.\n", true)
+		log.Println("  PACK: a fast transform replacing unused symbols with aliases based on frequencies.\n", true)
+		log.Println("  DNA: same as PACK but triggered only when DNA data is detected.\n", true)
 		log.Println("", true)
-		log.Println("EG. Kanzi -c -i foo.txt -o none -b 4m -l 4 -v 3\n", true)
-		log.Println("EG. Kanzi -c -i foo.txt -f -t BWT+MTFT+ZRLT -b 4m -e FPAQ -j 4\n", true)
-		log.Println("EG. Kanzi --compress --input=foo.txt --output=foo.knz --block=4m --force", true)
-		log.Println("          --transform=BWT+MTFT+ZRLT --entropy=FPAQ --jobs=4\n", true)
+		log.Println("Entropy codecs\n", true)
+		log.Println("  Huffman: a fast implementation of canonical Huffman. Both encoder and decoder", true)
+		log.Println("           use code tables and multi-streams to improve performance.\n", true)
+		log.Println("  RANGE: a fast implementation of a static range codec.\n", true)
+		log.Println("  ANS: based on Range Asymmetric Numeral Systems by Jarek Duda (specifically", true)
+		log.Println("       an implementation by Fabian Giesen). Works in a similar fashion to the Range", true)
+		log.Println("       codec but uses only 1 state instead of 2, and encodes in reverse byte order.\n", true)
+		log.Println("  FPAQ: a binary arithmetic codec based on FPAQ1 by Matt Mahoney. Uses a simple", true)
+		log.Println("        adaptive order 0 predictor based on frequencies.\n", true)
+		log.Println("  CM: a binary arithmetic codec derived from BCM by Ilya Muravyov. Uses context", true)
+		log.Println("      mixing of counters to generate a prediction of the next bit value.\n", true)
+		log.Println("  TPAQ: a binary arithmetic codec based initially on Tangelo 2.4 (itself derived", true)
+		log.Println("        from FPAQ8). Uses context mixing of predictions produced by one layer", true)
+		log.Println("        neural networks. The initial code has been heavily tuned to improve", true)
+		log.Println("        compression ratio and speed. Slow but usually excellent compression ratio.\n", true)
+		log.Println("  TPAQX: Extended TPAQ with more predictions and more memory usage. Slowest but", true)
+		log.Println("         usually the best compression ratio.\n", true)
+		log.Println("", true)
+		log.Println("Examples\n", true)
+		log.Println("  Kanzi -c -i foo.txt -o none -b 4m -l 4 -v 3\n", true)
+		log.Println("  Kanzi -c -i foo.txt -f -t BWT+MTFT+ZRLT -b 4m -e FPAQ -j 4\n", true)
+		log.Println("  Kanzi --compress --input=foo.txt --output=foo.knz --block=4m --force", true)
+		log.Println("        --transform=BWT+MTFT+ZRLT --entropy=FPAQ --jobs=4\n", true)
 	}
+
+	log.Println("", true)
+	log.Println("Credits\n", true)
+	log.Println("  Matt Mahoney, Yann Collet, Jan Ondrus, Yuta Mori, Ilya Muravyov,", true)
+	log.Println("  Neal Burns, Fabian Giesen, Jarek Duda, Ilya Grebnov\n", true)
 }
 
 // Printer a buffered printer (required in concurrent code)
