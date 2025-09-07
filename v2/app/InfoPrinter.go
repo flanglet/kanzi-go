@@ -212,7 +212,7 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 			sb.WriteString("\"")
 
 			if nbTokens > 1 {
-				sb.WriteString(", \"bsVersion\":")
+				sb.WriteString(", \"bsversion\":")
 				sb.WriteString(tokens[1])
 			}
 
@@ -230,7 +230,7 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 				e := tokens[4]
 
 				if e == "" {
-					e = "none"
+					e = "NONE"
 				}
 
 				sb.WriteString(", \"entropy\":")
@@ -243,7 +243,7 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 				t := tokens[5]
 
 				if t == "" {
-					t = "none"
+					t = "NONE"
 				}
 
 				sb.WriteString(", \"transforms\":")
@@ -278,7 +278,7 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 				sb.WriteString("Block checksum: ")
 
 				if c == "0" {
-					sb.WriteString("none\n")
+					sb.WriteString("NONE\n")
 				} else {
 					sb.WriteString(c)
 					sb.WriteString(" bits\n")

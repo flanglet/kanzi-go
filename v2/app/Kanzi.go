@@ -657,6 +657,8 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 			if mode == "y" {
 				log.Println(fmt.Sprintf(warningInvalidMod, name), verbose > 0)
+				ctx = -1
+				continue
 			}
 
 			if cpuProf != "" {
