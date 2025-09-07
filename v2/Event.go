@@ -111,7 +111,6 @@ func (this *Event) String() string {
 	}
 
 	hash := ""
-	t := ""
 	id := ""
 
 	if this.hashType != EVT_HASH_NONE {
@@ -122,7 +121,18 @@ func (this *Event) String() string {
 		id = fmt.Sprintf(", \"id\":%d", this.id)
 	}
 
+	t := this.TypeAsString()
+	return fmt.Sprintf("{ \"type\":\"%s\"%s, \"size\":%d%s, \"time\":%d }", t, id, this.size,
+		hash, this.eventTime.UnixNano()/1000000)
+}
+
+func (this *Event) TypeAsString() string {
+	t := "Unknown Type"
+
 	switch this.eventType {
+	case EVT_AFTER_HEADER_DECODING:
+		t = "EVT_AFTER_HEADER_DECODING"
+
 	case EVT_BEFORE_TRANSFORM:
 		t = "BEFORE_TRANSFORM"
 
@@ -151,8 +161,7 @@ func (this *Event) String() string {
 		t = "BLOCK_INFO"
 	}
 
-	return fmt.Sprintf("{ \"type\":\"%s\"%s, \"size\":%d, \"time\":%d%s }", t, id, this.size,
-		this.eventTime.UnixNano()/1000000, hash)
+	return t
 }
 
 // Listener is an interface implemented by event processors

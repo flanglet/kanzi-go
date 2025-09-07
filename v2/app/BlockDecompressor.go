@@ -47,10 +47,11 @@ type BlockDecompressor struct {
 	removeSource bool
 	noDotFiles   bool
 	noLinks      bool
+	isInfoMode   bool
 	inputName    string
 	outputName   string
 	jobs         uint
-	from         int // start blovk
+	from         int // start block
 	to           int // end block
 	listeners    []kanzi.Listener
 	cpuProf      string
@@ -94,6 +95,13 @@ func NewBlockDecompressor(argsMap map[string]any) (*BlockDecompressor, error) {
 		delete(argsMap, "noLinks")
 	} else {
 		this.noLinks = false
+	}
+
+	if isInfoMode, prst := argsMap["mode"]; prst == true {
+		this.isInfoMode = isInfoMode.(string) == "y"
+		delete(argsMap, "mode")
+	} else {
+		this.isInfoMode = false
 	}
 
 	this.inputName = argsMap["inputName"].(string)
@@ -230,6 +238,23 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	nbFiles := 1
 	var msg string
 	isStdIn := strings.EqualFold(this.inputName, _DECOMP_STDIN)
+	ctx := make(map[string]any)
+
+	// In mode "info", we want to display the information in the stream header only.
+	// We can reuse the existing code but we need to:
+	//   create an InfoPrinter with a dedicated INFO type
+	//   disable logging outside of this printer (=> _verbosity=0)
+	//   decompress no block (=> _outputName = NONE and --from=1 and --to=1)
+	//   disable threading for proper display (=> _jobs=1)
+	vl := this.verbosity
+
+	if this.isInfoMode == true {
+		this.verbosity = 0
+		this.outputName = "NONE"
+		this.jobs = 1
+		this.from = 1
+		this.to = 1
+	}
 
 	if isStdIn == false {
 		suffix := string(os.PathSeparator) + "."
@@ -307,8 +332,14 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 		this.verbosity = 1
 	}
 
-	if this.verbosity > 2 {
-		if listener, err2 := NewInfoPrinter(this.verbosity, DECODING, os.Stdout); err2 == nil {
+	if (vl > 2) || (this.isInfoMode == true && vl > 0) {
+		infoType := uint(DECODING)
+
+		if this.isInfoMode == true {
+			infoType = INFO
+		}
+
+		if listener, err2 := NewInfoPrinter(vl, infoType, os.Stdout); err2 == nil {
 			this.AddListener(listener)
 		}
 	}
@@ -369,7 +400,6 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 		}
 	}
 
-	ctx := make(map[string]any)
 	ctx["verbosity"] = this.verbosity
 	ctx["overwrite"] = this.overwrite
 	ctx["remove"] = this.removeSource

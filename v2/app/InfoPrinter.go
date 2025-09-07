@@ -16,9 +16,13 @@ limitations under the License.
 package main
 
 import (
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -33,6 +37,8 @@ const (
 	ENCODING = 0
 	// DECODING event type
 	DECODING = 1
+	// INFO event type
+	INFO = 2
 )
 
 type blockInfo struct {
@@ -52,6 +58,7 @@ type InfoPrinter struct {
 	thresholds []int
 	lock       sync.RWMutex
 	level      uint
+	headerInfo uint
 }
 
 // NewInfoPrinter creates a new instance of InfoPrinter
@@ -61,8 +68,9 @@ func NewInfoPrinter(infoLevel, infoType uint, writer io.Writer) (*InfoPrinter, e
 	}
 
 	this := &InfoPrinter{}
-	this.infoType = infoType & 1
+	this.infoType = infoType & 3
 	this.level = infoLevel
+	this.headerInfo = 0
 	this.writer = writer
 	this.infos = make(map[int32]blockInfo)
 
@@ -91,6 +99,11 @@ func NewInfoPrinter(infoLevel, infoType uint, writer io.Writer) (*InfoPrinter, e
 
 // ProcessEvent receives an event and writes a log record to the internal writer
 func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
+	if this.infoType == INFO {
+		this.processHeaderInfo(evt)
+		return
+	}
+
 	currentBlockID := int32(evt.ID())
 
 	if evt.Type() == this.thresholds[1] {
@@ -185,8 +198,273 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 			fmt.Fprintln(this.writer, msg)
 		}
 	} else if evt.Type() == kanzi.EVT_AFTER_HEADER_DECODING && this.level >= 3 {
-		fmt.Fprintln(this.writer, evt)
+		// Special CSV format
+		s := evt.String()
+		r := csv.NewReader(strings.NewReader(s))
+		tokens, _ := r.Read()
+		nbTokens := len(tokens)
+		var sb strings.Builder
+
+		if this.level >= 5 {
+			// JSON text
+			sb.WriteString("{ \"type\":\"")
+			sb.WriteString(evt.TypeAsString())
+			sb.WriteString("\"")
+
+			if nbTokens > 1 {
+				sb.WriteString(", \"bsVersion\":")
+				sb.WriteString(tokens[1])
+			}
+
+			if nbTokens > 2 {
+				sb.WriteString(", \"checksize\":")
+				sb.WriteString(tokens[2])
+			}
+
+			if nbTokens > 3 {
+				sb.WriteString(", \"blocksize\":")
+				sb.WriteString(tokens[3])
+			}
+
+			if nbTokens > 4 {
+				e := tokens[4]
+
+				if e == "" {
+					e = "none"
+				}
+
+				sb.WriteString(", \"entropy\":")
+				sb.WriteString("\"")
+				sb.WriteString(e)
+				sb.WriteString("\"")
+			}
+
+			if nbTokens > 5 {
+				t := tokens[5]
+
+				if t == "" {
+					t = "none"
+				}
+
+				sb.WriteString(", \"transforms\":")
+				sb.WriteString("\"")
+				sb.WriteString(t)
+				sb.WriteString("\"")
+			}
+
+			if nbTokens > 6 && tokens[6] != "" {
+				sb.WriteString(", \"compressed\":")
+				sb.WriteString(tokens[6])
+			}
+
+			if nbTokens > 7 && tokens[7] != "" {
+				sb.WriteString(", \"original\":")
+				sb.WriteString(tokens[7])
+			}
+
+			sb.WriteString(" }")
+			fmt.Fprintln(this.writer, sb.String())
+		} else {
+			// Raw text
+			if nbTokens > 1 {
+				sb.WriteString("\n")
+				sb.WriteString("Bitstream version: ")
+				sb.WriteString(tokens[1])
+				sb.WriteString("\n")
+			}
+
+			if nbTokens > 2 {
+				c := tokens[2]
+				sb.WriteString("Block checksum: ")
+
+				if c == "0" {
+					sb.WriteString("none\n")
+				} else {
+					sb.WriteString(c)
+					sb.WriteString(" bits\n")
+				}
+			}
+
+			if nbTokens > 3 {
+				sb.WriteString("Block size: ")
+				sb.WriteString(tokens[3])
+				sb.WriteString(" bytes\n")
+			}
+
+			if nbTokens > 4 {
+				e := tokens[4]
+
+				if e == "" {
+					e = "no"
+				}
+
+				sb.WriteString("Using ")
+				sb.WriteString(e)
+				sb.WriteString(" entropy codec (stage 1)\n")
+			}
+
+			if nbTokens > 5 {
+				t := tokens[5]
+
+				if t == "" {
+					t = "no"
+				}
+
+				sb.WriteString("Using ")
+				sb.WriteString(t)
+				sb.WriteString(" transform (stage 2)\n")
+			}
+
+			if nbTokens > 7 && tokens[7] != "" {
+				sb.WriteString("Original size: ")
+				sb.WriteString(tokens[7])
+				sb.WriteString(" byte(s)\n")
+			}
+
+			fmt.Fprintln(this.writer, sb.String())
+
+		}
 	} else if this.level >= 5 {
 		fmt.Fprintln(this.writer, evt)
 	}
+}
+
+func (this *InfoPrinter) processHeaderInfo(evt *kanzi.Event) {
+	if this.level == 0 || evt.Type() != kanzi.EVT_AFTER_HEADER_DECODING {
+		return
+	}
+
+	s := evt.String()
+	r := csv.NewReader(strings.NewReader(s))
+	tokens, _ := r.Read()
+	nbTokens := len(tokens)
+	var sb strings.Builder
+
+	if this.headerInfo == 0 {
+		// Display header
+		sb.WriteString("\n")
+		sb.WriteString("|     File Name      ")
+		sb.WriteString("|Ver")
+		sb.WriteString("|Check")
+		sb.WriteString("|Block Size")
+		sb.WriteString("|  File Size ")
+		sb.WriteString("| Orig. Size ")
+		sb.WriteString("| Ratio ")
+
+		if this.level >= 4 {
+			sb.WriteString("| Entropy")
+			sb.WriteString("|        Transforms        ")
+		}
+
+		sb.WriteString("|\n")
+	}
+
+	if nbTokens > 0 {
+		inputName := tokens[0]
+		idx := strings.LastIndex(inputName, string(os.PathSeparator))
+
+		if idx >= 0 {
+			inputName = inputName[idx+1:]
+		}
+
+		if len(inputName) > 20 {
+			inputName = inputName[18:] + ".."
+		}
+
+		sb.WriteString("|")
+		sb.WriteString(fmt.Sprintf("%-20s", inputName))
+		sb.WriteString("|") // inputName
+	}
+
+	if nbTokens > 1 {
+		sb.WriteString(fmt.Sprintf("%3s", tokens[1]))
+		sb.WriteString("|") //bsVersion
+	}
+
+	if nbTokens > 2 {
+		sb.WriteString(fmt.Sprintf("%5s", tokens[2]))
+		sb.WriteString("|") // checksum
+	}
+
+	if nbTokens > 3 {
+		sb.WriteString(fmt.Sprintf("%10s", tokens[3]))
+		sb.WriteString("|") // block size
+	}
+
+	if nbTokens > 6 {
+		sb.WriteString(fmt.Sprintf("%12s", this.formatSize(tokens[6])))
+		sb.WriteString("|") // compressed size
+	}
+
+	if nbTokens > 7 {
+		sb.WriteString(fmt.Sprintf("%12s", this.formatSize(tokens[7])))
+		sb.WriteString("|") // original size
+	}
+
+	if tokens[6] != "" && tokens[7] != "" {
+		compStr := tokens[6]
+		origStr := tokens[7]
+		compSz, err1 := strconv.ParseFloat(compStr, 64)
+		origSz, err2 := strconv.ParseFloat(origStr, 64)
+
+		if err1 != nil || err2 != nil {
+			sb.WriteString("  N/A  |")
+		} else {
+			ratio := compSz / origSz
+			sb.WriteString(fmt.Sprintf(" %.3f ", ratio))
+			sb.WriteString("|") // compression ratio
+		}
+	} else {
+		sb.WriteString("  N/A  |")
+	}
+
+	if this.level >= 4 && nbTokens > 4 {
+		if tokens[4] == "" {
+			sb.WriteString(fmt.Sprintf("%9s", "NONE|"))
+		} else {
+			sb.WriteString(fmt.Sprintf("%8s", tokens[4]))
+			sb.WriteString("|")
+		}
+	}
+
+	if this.level >= 4 && nbTokens > 5 {
+		t := tokens[5]
+
+		if len(t) > 26 {
+			t = t[0:24] + ".."
+		}
+
+		if t == "" {
+			sb.WriteString(fmt.Sprintf("%27s", "NONE|"))
+		} else {
+			sb.WriteString(fmt.Sprintf("%26s", t))
+			sb.WriteString("|") // transforms
+		}
+	}
+
+	fmt.Fprintln(this.writer, sb.String())
+	this.headerInfo++
+}
+
+func (this *InfoPrinter) formatSize(input string) string {
+	size, err := strconv.ParseFloat(input, 64)
+
+	if err != nil {
+		return "N/A"
+	}
+
+	s := input
+
+	if size >= float64(1<<30) {
+		size /= float64(1 << 30)
+		s = fmt.Sprintf("%.2f", size) + " GiB"
+	} else if size >= float64(1<<20) {
+		size /= float64(1 << 20)
+		s = fmt.Sprintf("%.2f", size) + " MiB"
+	} else if size >= float64(1<<10) {
+		size /= float64(1 << 10)
+		s = fmt.Sprintf("%.2f", size) + " KiB"
+	}
+
+	return s
 }

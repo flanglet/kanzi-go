@@ -1275,37 +1275,41 @@ func (this *Reader) readHeader() (err error) {
 
 	if len(this.listeners) > 0 {
 		var sb strings.Builder
-		var ckSize string
+		ckSize := 0
 
 		if this.hasher32 != nil {
-			ckSize = "32 bits"
+			ckSize = 32
 		} else if this.hasher64 != nil {
-			ckSize = "64 bits"
-		} else {
-
-			ckSize = "NONE"
+			ckSize = 64
 		}
 
-		sb.WriteString(fmt.Sprintf("Bitstream version: %d\n", bsVersion))
-		sb.WriteString(fmt.Sprintf("Block checksum: %v\n", ckSize))
-		sb.WriteString(fmt.Sprintf("Block size: %d bytes\n", this.blockSize))
+		sb.WriteString(this.ctx["inputName"].(string))
+		sb.WriteString(",")
+		sb.WriteString(fmt.Sprintf("%d,", bsVersion))
+		sb.WriteString(fmt.Sprintf("%d,", ckSize))
+		sb.WriteString(fmt.Sprintf("%d,", this.blockSize))
 		w1, _ := entropy.GetName(this.entropyType)
 
 		if w1 == "NONE" {
-			w1 = "no"
+			w1 = ""
 		}
 
-		sb.WriteString(fmt.Sprintf("Using %s entropy codec (stage 1)\n", w1))
+		sb.WriteString(w1)
+		sb.WriteString(",")
 		w2, _ := transform.GetName(this.transformType)
 
 		if w2 == "NONE" {
-			w2 = "no"
+			w2 = ""
 		}
 
-		sb.WriteString(fmt.Sprintf("Using %s transform (stage 2)\n", w2))
+		sb.WriteString(w2)
+		sb.WriteString(",")
+		fileSize := this.ctx["fileSize"].(int64)
+		sb.WriteString(fmt.Sprintf("%d,", fileSize))
 
 		if szMask != 0 {
-			sb.WriteString(fmt.Sprintf("Original size: %d byte(s)\n", this.outputSize))
+			sb.WriteString(fmt.Sprintf("%d", this.outputSize))
+			sb.WriteString(",")
 		}
 
 		evt := kanzi.NewEventFromString(kanzi.EVT_AFTER_HEADER_DECODING, 0, sb.String(), time.Now())

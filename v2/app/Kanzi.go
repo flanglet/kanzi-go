@@ -62,12 +62,13 @@ const (
 	_ARG_FORCE       = "--force"
 	_ARG_SKIP        = "--skip"
 	_ARG_CHECKSUM    = "--checksum="
+	_ARG_INFO        = "--info"
 )
 
 var (
 	_CMD_LINE_ARGS = []string{
 		"-c", "-d", "-i", "-o", "-b", "-t", "-e", "-j",
-		"-v", "-l", "-s", "-x", "-f", "-h", "-p",
+		"-v", "-l", "-s", "-x", "-f", "-h", "-p", "-y",
 	}
 
 	mutex sync.Mutex
@@ -87,12 +88,11 @@ func main() {
 	}
 
 	mode := argsMap["mode"].(string)
-	delete(argsMap, "mode")
 	status := 1
 
 	if mode == "c" {
 		status = compress(argsMap)
-	} else if mode == "d" {
+	} else if mode == "d" || mode == "y" {
 		status = decompress(argsMap)
 	} else {
 		println("Missing arguments: try --help or -h")
@@ -206,14 +206,15 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 	verboseLevel := ""
 	ctx := -1
 	level := -1
-	mode := " "
+	mode := ""
 	autoBlockSize := false
 	showHelp := false
 	warningNoValOpt := "Warning: ignoring option [%s] with no value."
 	warningCompressOpt := "Warning: ignoring option [%s]. Only applicable in compress mode."
 	warningDecompressOpt := "Warning: ignoring option [%s]. Only applicable in decompress mode."
+	warningInvalidMod := "Warning: ignoring option [%s]. Not applicable in this mode."
 	warningDupOpt := "Warning: ignoring duplicate option [%s] (%s)"
-	warningInvalidOpt := "Invalid %s provided on command line: %s"
+	warningInvalidOpt := "Warning: invalid %s provided on command line: %s"
 
 	for i, arg := range args {
 		if i == 0 {
@@ -239,8 +240,8 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 		// Extract verbosity, output and mode first
 		if arg == "-c" || arg == _ARG_COMPRESS {
-			if mode == "d" {
-				fmt.Println("Both compression and decompression options were provided.")
+			if mode != "" {
+				fmt.Printf("Only one mode can be provided (already got '%s'\n", mode)
 				return kanzi.ERR_INVALID_PARAM
 			}
 
@@ -249,12 +250,22 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 		}
 
 		if arg == "-d" || arg == _ARG_DECOMPRESS {
-			if mode == "c" {
-				fmt.Println("Both compression and decompression options were provided.")
+			if mode != "" {
+				fmt.Printf("Only one mode can be provided (already got '%s'\n", mode)
 				return kanzi.ERR_INVALID_PARAM
 			}
 
 			mode = "d"
+			continue
+		}
+
+		if arg == "-y" || arg == _ARG_INFO {
+			if mode != "" {
+				fmt.Printf("Only one mode can be provided (already got '%s'\n", mode)
+				return kanzi.ERR_INVALID_PARAM
+			}
+
+			mode = "y"
 			continue
 		}
 
@@ -328,7 +339,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 		arg = strings.TrimSpace(arg)
 
-		if arg == "-c" || arg == "-d" || arg == _ARG_COMPRESS || arg == _ARG_DECOMPRESS {
+		if arg == "-c" || arg == "-d" || arg == "-y" || arg == _ARG_COMPRESS || arg == _ARG_DECOMPRESS || arg == _ARG_INFO {
 			if ctx != -1 {
 				log.Println(fmt.Sprintf(warningNoValOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
 			}
@@ -342,6 +353,12 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 				log.Println(fmt.Sprintf(warningNoValOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
 			}
 
+			if mode == "y" {
+				log.Println(fmt.Sprintf(warningInvalidMod, _CMD_LINE_ARGS[ctx]), verbose > 0)
+				ctx = -1
+				continue
+			}
+
 			overwrite = true
 			ctx = -1
 			continue
@@ -352,6 +369,12 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 				log.Println(fmt.Sprintf(warningNoValOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
 			}
 
+			if mode != "c" {
+				log.Println(fmt.Sprintf(warningCompressOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
+				ctx = -1
+				continue
+			}
+
 			skip = true
 			ctx = -1
 			continue
@@ -360,6 +383,8 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 		if arg == "-x" || arg == "-x32" || arg == "-x64" {
 			if mode != "c" {
 				log.Println(fmt.Sprintf(warningCompressOpt, "checksum"), verbose > 0)
+				ctx = -1
+				continue
 			} else if checksum > 0 {
 				log.Println(fmt.Sprintf(warningDupOpt, "checksum", "true"), verbose > 0)
 			}
@@ -377,6 +402,12 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 		if arg == "--rm" {
 			if ctx != -1 {
 				log.Println(fmt.Sprintf(warningNoValOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
+			}
+
+			if mode == "y" {
+				log.Println(fmt.Sprintf(warningInvalidMod, _CMD_LINE_ARGS[ctx]), verbose > 0)
+				ctx = -1
+				continue
 			}
 
 			remove = true
@@ -443,6 +474,12 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 				name = arg
 			} else {
 				name = strings.TrimPrefix(arg, _ARG_OUTPUT)
+			}
+
+			if mode == "y" {
+				log.Println(fmt.Sprintf(warningInvalidMod, name), verbose > 0)
+				ctx = -1
+				continue
 			}
 
 			if outputName != "" {
@@ -616,6 +653,10 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 				name = arg
 			} else {
 				name = strings.TrimPrefix(arg, _ARG_CPUPROF)
+			}
+
+			if mode == "y" {
+				log.Println(fmt.Sprintf(warningInvalidMod, name), verbose > 0)
 			}
 
 			if cpuProf != "" {
@@ -882,7 +923,7 @@ func printHelp(mode string, verbose int, showHeader bool) {
 	log.Println("Options\n", true)
 	log.Println("   -h, --help", true)
 
-	if mode != "c" && mode != "d" {
+	if mode != "c" && mode != "d" && mode != "y" {
 		log.Println("        Display this message.", true)
 		log.Println("        Use in conjunction with -c to print information for compression,", true)
 		log.Println("        or -d to print information for decompression.\n", true)
@@ -891,6 +932,9 @@ func printHelp(mode string, verbose int, showHeader bool) {
 		log.Println("", true)
 		log.Println("   -d, --decompress", true)
 		log.Println("        Decompress mode", true)
+		log.Println("", true)
+		log.Println("   -y, --info", true)
+		log.Println("        Info mode: display information about compressed files\n", true)
 		log.Println("", true)
 	} else {
 		log.Println("        Display this message.\n", true)
@@ -904,7 +948,10 @@ func printHelp(mode string, verbose int, showHeader bool) {
 	msg = fmt.Sprintf("        (EG: myDir%c. => no recursion)", os.PathSeparator)
 	log.Println(msg, true)
 	log.Println("        If this option is not provided, Kanzi reads data from stdin.\n", true)
-	log.Println("   -o, --output=<outputName>", true)
+
+	if mode != "y" {
+		log.Println("   -o, --output=<outputName>", true)
+	}
 
 	if mode == "c" {
 		log.Println("        Optional name of the output file or directory (defaults to", true)
@@ -961,11 +1008,21 @@ func printHelp(mode string, verbose int, showHeader bool) {
 	log.Println("        4=display block size and timings, 5=display extra information", true)
 	log.Println("        Verbosity is reduced to 1 when files are processed concurrently", true)
 	log.Println("        Verbosity is reduced to 0 when the output is 'stdout'\n", true)
-	log.Println("   -f, --force", true)
-	log.Println("        Overwrite the output file if it already exists\n", true)
-	log.Println("   --rm", true)
-	log.Println("        Remove the input file after successful (de)compression.", true)
-	log.Println("        If the input is a folder, all processed files under the folder are removed.\n", true)
+
+	if mode != "y" {
+		log.Println("   -f, --force", true)
+		log.Println("        Overwrite the output file if it already exists\n", true)
+		log.Println("   --rm", true)
+
+		if mode == "c" {
+			log.Println("        Remove the input file after successful compression.", true)
+		} else if mode == "d" {
+			log.Println("        Remove the input file after successful decompression.", true)
+		}
+
+		log.Println("        If the input is a folder, all processed files under the folder are removed.\n", true)
+	}
+
 	log.Println("   --no-link", true)
 	log.Println("        Skip links\n", true)
 	log.Println("   --no-dot-file", true)
