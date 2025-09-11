@@ -63,6 +63,7 @@ const (
 	_ARG_SKIP        = "--skip"
 	_ARG_CHECKSUM    = "--checksum="
 	_ARG_INFO        = "--info"
+	_MAX_CONCURRENCY = 64
 )
 
 var (
@@ -1003,7 +1004,7 @@ func printHelp(mode string, verbose int, showHeader bool) {
 	log.Println("   -j, --jobs=<jobs>", true)
 	log.Println("        Maximum number of jobs the program may start concurrently", true)
 	log.Println("        If 0 is provided, use all available cores (maximum is 64).", true)
-	cores := runtime.NumCPU() / 2
+	cores := min(max(runtime.NumCPU()/2, 1), _MAX_CONCURRENCY)
 	log.Println("        Default is half of available cores ("+fmt.Sprintf("%d", cores)+" on this machine).\n", true)
 	log.Println("   -v, --verbose=<level>", true)
 	log.Println("        Set the verbosity level [0..5]", true)
