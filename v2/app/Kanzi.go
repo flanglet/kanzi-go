@@ -45,7 +45,7 @@ const (
 	_KANZI_VERSION   = "2.4.0"
 	_APP_HEADER      = "Kanzi " + _KANZI_VERSION + " (c) Frederic Langlet"
 	_APP_SUB_HEADER  = "Fast lossless data compressor."
-	_APP_USAGE       = "Usage: Kanzi [-c|-d] [flags and files in any order]"
+	_APP_USAGE       = "Usage: Kanzi [-c|-d|-y] [flags and files in any order]"
 	_ARG_INPUT       = "--input="
 	_ARG_OUTPUT      = "--output="
 	_ARG_LEVEL       = "--level="
@@ -1003,7 +1003,8 @@ func printHelp(mode string, verbose int, showHeader bool) {
 	log.Println("   -j, --jobs=<jobs>", true)
 	log.Println("        Maximum number of jobs the program may start concurrently", true)
 	log.Println("        If 0 is provided, use all available cores (maximum is 64).", true)
-	log.Println("        (default is half of available cores).\n", true)
+	cores := runtime.NumCPU() / 2
+	log.Println("        Default is half of available cores ("+fmt.Sprintf("%d", cores)+" on this machine).\n", true)
 	log.Println("   -v, --verbose=<level>", true)
 	log.Println("        Set the verbosity level [0..5]", true)
 	log.Println("        0=silent, 1=default, 2=display details, 3=display configuration,", true)
