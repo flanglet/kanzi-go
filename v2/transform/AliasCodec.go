@@ -266,7 +266,7 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		// Worth it ?
-		if savings*20 < count {
+		if savings < count/20 {
 			return 0, 0, errors.New("Alias Codec: forward transform skip, not enough savings")
 		}
 
