@@ -476,17 +476,32 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		anchor = srcIdx + bestLen
 		srcIdx++
 
-		for srcIdx+4 < anchor {
-			v := binary.LittleEndian.Uint64(src[srcIdx:])
-			h0 := uint32((((v >> 0) << _LZX_HASH_LSHIFT1) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT1)
-			h1 := uint32((((v >> 8) << _LZX_HASH_LSHIFT1) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT1)
-			h2 := uint32((((v >> 16) << _LZX_HASH_LSHIFT1) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT1)
-			h3 := uint32((((v >> 24) << _LZX_HASH_LSHIFT1) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT1)
-			this.hashes[h0] = int32(srcIdx + 0)
-			this.hashes[h1] = int32(srcIdx + 1)
-			this.hashes[h2] = int32(srcIdx + 2)
-			this.hashes[h3] = int32(srcIdx + 3)
-			srcIdx += 4
+		if this.extra == true {
+			for srcIdx+4 < anchor {
+				v := binary.LittleEndian.Uint64(src[srcIdx:])
+				h0 := uint32((((v >> 0) << _LZX_HASH_LSHIFT2) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT2)
+				h1 := uint32((((v >> 8) << _LZX_HASH_LSHIFT2) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT2)
+				h2 := uint32((((v >> 16) << _LZX_HASH_LSHIFT2) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT2)
+				h3 := uint32((((v >> 24) << _LZX_HASH_LSHIFT2) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT2)
+				this.hashes[h0] = int32(srcIdx + 0)
+				this.hashes[h1] = int32(srcIdx + 1)
+				this.hashes[h2] = int32(srcIdx + 2)
+				this.hashes[h3] = int32(srcIdx + 3)
+				srcIdx += 4
+			}
+		} else {
+			for srcIdx+4 < anchor {
+				v := binary.LittleEndian.Uint64(src[srcIdx:])
+				h0 := uint32((((v >> 0) << _LZX_HASH_LSHIFT1) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT1)
+				h1 := uint32((((v >> 8) << _LZX_HASH_LSHIFT1) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT1)
+				h2 := uint32((((v >> 16) << _LZX_HASH_LSHIFT1) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT1)
+				h3 := uint32((((v >> 24) << _LZX_HASH_LSHIFT1) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT1)
+				this.hashes[h0] = int32(srcIdx + 0)
+				this.hashes[h1] = int32(srcIdx + 1)
+				this.hashes[h2] = int32(srcIdx + 2)
+				this.hashes[h3] = int32(srcIdx + 3)
+				srcIdx += 4
+			}
 		}
 
 		for srcIdx < anchor {
