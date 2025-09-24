@@ -27,10 +27,10 @@ import (
 
 const (
 	_LZX_HASH_SEED        = 0x1E35A7BD
-	_LZX_HASH_LOG1        = 16
+	_LZX_HASH_LOG1        = 15
 	_LZX_HASH_RSHIFT1     = 64 - _LZX_HASH_LOG1
 	_LZX_HASH_LSHIFT1     = 24
-	_LZX_HASH_LOG2        = 21
+	_LZX_HASH_LOG2        = 19
 	_LZX_HASH_RSHIFT2     = 64 - _LZX_HASH_LOG2
 	_LZX_HASH_LSHIFT2     = 24
 	_LZX_MAX_DISTANCE1    = (1 << 16) - 2
@@ -358,12 +358,38 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 				}
 			}
 
-			// Extend backwards
-			for (bestLen < _LZX_MAX_MATCH) && (srcIdx > anchor) && (ref > minRef) && (src[srcIdx-1] == src[ref-1]) {
-				bestLen++
-				ref--
-				srcIdx--
-			}
+                        if this.extra == true {
+                                // Check if better match at position+2
+                                srcIdx2 := srcIdx + 2
+                                h2 := this.hash(src[srcIdx2:])
+                                ref2 := int(this.hashes[h2])
+                                this.hashes[h2] = int32(srcIdx2)
+
+                                // Find a match
+                                if ref2 > minRef+2 && binary.LittleEndian.Uint32(src[srcIdx2+bestLen-3:]) == binary.LittleEndian.Uint32(src[ref2+bestLen-3:]) {
+                                        bestLen2 := findMatchLZX(src, srcIdx2, ref2, min(srcEnd-srcIdx2, _LZX_MAX_MATCH))
+
+                                        // Select best match
+                                        if bestLen2 >= bestLen {
+                                                ref = ref2
+                                                bestLen = bestLen2
+                                                srcIdx = srcIdx2
+                                        }
+                                }
+                        }
+
+                        // Extend backwards
+                        for (srcIdx > anchor) && (ref > minRef) && (src[srcIdx-1] == src[ref-1]) {
+                                bestLen++
+                                ref--
+                                srcIdx--
+                        }
+
+                        if bestLen > _LZX_MAX_MATCH {
+                                srcIdx += (bestLen - _LZX_MAX_MATCH)
+                                ref += (bestLen - _LZX_MAX_MATCH)
+                                bestLen = _LZX_MAX_MATCH
+                        }
 		} else {
 			h0 := this.hash(src[srcIdx:])
 			this.hashes[h0] = int32(srcIdx)
