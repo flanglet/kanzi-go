@@ -27,7 +27,7 @@ import (
 
 const (
 	_LZX_HASH_SEED        = 0x1E35A7BD
-	_LZX_HASH_LOG1        = 15
+	_LZX_HASH_LOG1        = 16
 	_LZX_HASH_RSHIFT1     = 64 - _LZX_HASH_LOG1
 	_LZX_HASH_LSHIFT1     = 24
 	_LZX_HASH_LOG2        = 19
@@ -358,38 +358,38 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 				}
 			}
 
-                        if this.extra == true {
-                                // Check if better match at position+2
-                                srcIdx2 := srcIdx + 2
-                                h2 := this.hash(src[srcIdx2:])
-                                ref2 := int(this.hashes[h2])
-                                this.hashes[h2] = int32(srcIdx2)
+			if this.extra == true {
+				// Check if better match at position+2
+				srcIdx2 := srcIdx + 2
+				h2 := this.hash(src[srcIdx2:])
+				ref2 := int(this.hashes[h2])
+				this.hashes[h2] = int32(srcIdx2)
 
-                                // Find a match
-                                if ref2 > minRef+2 && binary.LittleEndian.Uint32(src[srcIdx2+bestLen-3:]) == binary.LittleEndian.Uint32(src[ref2+bestLen-3:]) {
-                                        bestLen2 := findMatchLZX(src, srcIdx2, ref2, min(srcEnd-srcIdx2, _LZX_MAX_MATCH))
+				// Find a match
+				if ref2 > minRef+2 && binary.LittleEndian.Uint32(src[srcIdx2+bestLen-3:]) == binary.LittleEndian.Uint32(src[ref2+bestLen-3:]) {
+					bestLen2 := findMatchLZX(src, srcIdx2, ref2, min(srcEnd-srcIdx2, _LZX_MAX_MATCH))
 
-                                        // Select best match
-                                        if bestLen2 >= bestLen {
-                                                ref = ref2
-                                                bestLen = bestLen2
-                                                srcIdx = srcIdx2
-                                        }
-                                }
-                        }
+					// Select best match
+					if bestLen2 >= bestLen {
+						ref = ref2
+						bestLen = bestLen2
+						srcIdx = srcIdx2
+					}
+				}
+			}
 
-                        // Extend backwards
-                        for (srcIdx > anchor) && (ref > minRef) && (src[srcIdx-1] == src[ref-1]) {
-                                bestLen++
-                                ref--
-                                srcIdx--
-                        }
+			// Extend backwards
+			for (srcIdx > anchor) && (ref > minRef) && (src[srcIdx-1] == src[ref-1]) {
+				bestLen++
+				ref--
+				srcIdx--
+			}
 
-                        if bestLen > _LZX_MAX_MATCH {
-                                srcIdx += (bestLen - _LZX_MAX_MATCH)
-                                ref += (bestLen - _LZX_MAX_MATCH)
-                                bestLen = _LZX_MAX_MATCH
-                        }
+			if bestLen > _LZX_MAX_MATCH {
+				srcIdx += (bestLen - _LZX_MAX_MATCH)
+				ref += (bestLen - _LZX_MAX_MATCH)
+				bestLen = _LZX_MAX_MATCH
+			}
 		} else {
 			h0 := this.hash(src[srcIdx:])
 			this.hashes[h0] = int32(srcIdx)
@@ -500,35 +500,36 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 		// Fill this.hashes and update positions
 		anchor = srcIdx + bestLen
-		srcIdx++
 
 		if this.extra == true {
 			for srcIdx+4 < anchor {
-				v := binary.LittleEndian.Uint64(src[srcIdx:])
+				srcIdx += 4
+				v := binary.LittleEndian.Uint64(src[srcIdx-3:])
 				h0 := uint32((((v >> 0) << _LZX_HASH_LSHIFT2) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT2)
 				h1 := uint32((((v >> 8) << _LZX_HASH_LSHIFT2) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT2)
 				h2 := uint32((((v >> 16) << _LZX_HASH_LSHIFT2) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT2)
 				h3 := uint32((((v >> 24) << _LZX_HASH_LSHIFT2) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT2)
-				this.hashes[h0] = int32(srcIdx + 0)
-				this.hashes[h1] = int32(srcIdx + 1)
-				this.hashes[h2] = int32(srcIdx + 2)
-				this.hashes[h3] = int32(srcIdx + 3)
-				srcIdx += 4
+				this.hashes[h0] = int32(srcIdx - 3)
+				this.hashes[h1] = int32(srcIdx - 2)
+				this.hashes[h2] = int32(srcIdx - 1)
+				this.hashes[h3] = int32(srcIdx - 0)
 			}
 		} else {
 			for srcIdx+4 < anchor {
-				v := binary.LittleEndian.Uint64(src[srcIdx:])
+				srcIdx += 4
+				v := binary.LittleEndian.Uint64(src[srcIdx-3:])
 				h0 := uint32((((v >> 0) << _LZX_HASH_LSHIFT1) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT1)
 				h1 := uint32((((v >> 8) << _LZX_HASH_LSHIFT1) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT1)
 				h2 := uint32((((v >> 16) << _LZX_HASH_LSHIFT1) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT1)
 				h3 := uint32((((v >> 24) << _LZX_HASH_LSHIFT1) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT1)
-				this.hashes[h0] = int32(srcIdx + 0)
-				this.hashes[h1] = int32(srcIdx + 1)
-				this.hashes[h2] = int32(srcIdx + 2)
-				this.hashes[h3] = int32(srcIdx + 3)
-				srcIdx += 4
+				this.hashes[h0] = int32(srcIdx - 3)
+				this.hashes[h1] = int32(srcIdx - 2)
+				this.hashes[h2] = int32(srcIdx - 1)
+				this.hashes[h3] = int32(srcIdx - 0)
 			}
 		}
+
+		srcIdx++
 
 		for srcIdx < anchor {
 			this.hashes[this.hash(src[srcIdx:])] = int32(srcIdx)
