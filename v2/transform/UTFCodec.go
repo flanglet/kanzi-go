@@ -19,7 +19,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 
 	internal "github.com/flanglet/kanzi-go/v2/internal"
 )
@@ -52,24 +52,6 @@ var (
 type sdUTF struct {
 	sym  int32 // symbol
 	freq int32 // frequency
-}
-
-type sortUTFByFreq []sdUTF
-
-func (this sortUTFByFreq) Len() int {
-	return len(this)
-}
-
-func (this sortUTFByFreq) Less(i, j int) bool {
-	if r := this[i].freq - this[j].freq; r != 0 {
-		return r < 0
-	}
-
-	return this[i].sym < this[j].sym
-}
-
-func (this sortUTFByFreq) Swap(i, j int) {
-	this[i], this[j] = this[j], this[i]
 }
 
 type utfSymbol struct {
@@ -204,7 +186,14 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	// Sort ranks by increasing frequencies
-	sort.Sort(sortUTFByFreq(symb[0:n]))
+	slices.SortStableFunc(symb[0:n], func(sb1, sb2 sdUTF) int {
+		if r := sb1.freq - sb2.freq; r != 0 {
+			return int(r)
+		}
+
+		return int(sb1.sym - sb2.sym)
+	})
+
 	dstIdx := 2
 
 	// Emit map length then map data

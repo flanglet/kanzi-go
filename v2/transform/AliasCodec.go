@@ -19,7 +19,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 
 	internal "github.com/flanglet/kanzi-go/v2/internal"
 )
@@ -31,24 +31,6 @@ const (
 type sdAlias struct {
 	val  int // symbol
 	freq int // frequency
-}
-
-type sortAliasByFreq []sdAlias
-
-func (this sortAliasByFreq) Len() int {
-	return len(this)
-}
-
-func (this sortAliasByFreq) Less(i, j int) bool {
-	if r := this[j].freq - this[i].freq; r != 0 {
-		return r < 0
-	}
-
-	return this[j].val < this[i].val
-}
-
-func (this sortAliasByFreq) Swap(i, j int) {
-	this[i], this[j] = this[j], this[i]
 }
 
 // AliasCodec is a simple codec replacing 2-byte symbols with 1-byte aliases whenever possible
@@ -240,7 +222,14 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		// Sort by decreasing order 1 frequencies
-		sort.Sort(sortAliasByFreq(symb[0:n1]))
+		slices.SortStableFunc(symb[0:n1], func(sd1, sd2 sdAlias) int {
+			if r := sd2.freq - sd1.freq; r != 0 {
+				return r
+			}
+
+			return sd2.val - sd1.val
+		})
+
 		var map16 [65536]int16
 
 		// Build map symbol -> alias
