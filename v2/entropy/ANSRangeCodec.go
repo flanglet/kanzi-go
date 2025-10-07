@@ -406,9 +406,7 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 
 // Compute chunk frequencies, cumulated frequencies and encode chunk header
 func (this *ANSRangeEncoder) rebuildStatistics(block []byte, lr uint) (int, error) {
-	for i := range this.freqs {
-		this.freqs[i] = 0
-	}
+	clear(this.freqs)
 
 	if this.order == 0 {
 		internal.ComputeHistogram(block, this.freqs, true, true)
@@ -634,9 +632,7 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies, alphabet []int) (int, err
 		f := frequencies[k<<8 : (k+1)<<8]
 
 		if alphabetSize != 256 {
-			for i := range f {
-				f[i] = 0
-			}
+			clear(f)
 		}
 
 		chkSize := 8
@@ -881,9 +877,7 @@ func (this *ANSRangeDecoder) decodeChunkV2(block []byte) bool {
 		this.buffer = make([]byte, minBufSize)
 	}
 
-	for i := range this.buffer {
-		this.buffer[i] = 0
-	}
+	clear(this.buffer)
 
 	// Read compressed data
 	this.bitstream.ReadArray(this.buffer, uint(8*sz))

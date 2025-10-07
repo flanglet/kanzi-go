@@ -84,14 +84,8 @@ func (this *DivSufSort) reset() {
 	this.ssStack.index = 0
 	this.trStack.index = 0
 	this.mergestack.index = 0
-
-	for i := range &this.bucketA {
-		this.bucketA[i] = 0
-	}
-
-	for i := range &this.bucketB {
-		this.bucketB[i] = 0
-	}
+	clear(this.bucketA[:])
+	clear(this.bucketB[:])
 }
 
 // ComputeSuffixArray generates the suffix array for the given data and returns it

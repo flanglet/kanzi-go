@@ -810,9 +810,7 @@ func (this *HuffmanDecoder) decodeChunkV6(block []byte, count int) (int, error) 
 		return 0, errors.New("Invalid bitstream: incorrect stream size")
 	}
 
-	for i := range this.buffer {
-		this.buffer[i] = 0
-	}
+	clear(this.buffer)
 
 	idx0 := 0 * (len(this.buffer) / 4)
 	idx1 := 1 * (len(this.buffer) / 4)

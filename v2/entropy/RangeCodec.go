@@ -273,10 +273,7 @@ func (this *RangeEncoder) Write(block []byte) (int, error) {
 
 // Compute chunk frequencies, cumulated frequencies and encode chunk header
 func (this *RangeEncoder) rebuildStatistics(block []byte, lr uint) (int, error) {
-	for i := range this.freqs {
-		this.freqs[i] = 0
-	}
-
+	clear(this.freqs[:])
 	internal.ComputeHistogram(block, this.freqs[:], true, false)
 	return this.updateFrequencies(this.freqs[:], len(block), lr)
 }
@@ -411,9 +408,7 @@ func (this *RangeDecoder) decodeHeader(frequencies []int) (int, error) {
 	}
 
 	if alphabetSize != 256 {
-		for i := range frequencies {
-			frequencies[i] = 0
-		}
+		clear(frequencies)
 	}
 
 	// Decode frequencies

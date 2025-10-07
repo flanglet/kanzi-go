@@ -252,9 +252,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 			this.hashes = make([]int32, 1<<_LZX_HASH_LOG1)
 		}
 	} else {
-		for i := range this.hashes {
-			this.hashes[i] = 0
-		}
+		clear(this.hashes)
 	}
 
 	minBufSize := max(count/5, 256)
@@ -271,7 +269,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		this.tkBuf = make([]byte, minBufSize)
 	}
 
-	srcEnd := count - 16 - 1
+	srcEnd := count - 16 - 2
 	maxDist := _LZX_MAX_DISTANCE2
 	dst[12] = 1
 
@@ -1133,9 +1131,7 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 	if len(this.hashes) == 0 {
 		this.hashes = make([]int32, 1<<_LZP_HASH_LOG)
 	} else {
-		for i := range this.hashes {
-			this.hashes[i] = 0
-		}
+		clear(this.hashes)
 	}
 
 	dst[0] = src[0]
@@ -1234,9 +1230,7 @@ func (this *LZPCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	if len(this.hashes) == 0 {
 		this.hashes = make([]int32, 1<<_LZP_HASH_LOG)
 	} else {
-		for i := range this.hashes {
-			this.hashes[i] = 0
-		}
+		clear(this.hashes)
 	}
 
 	srcEnd := len(src)

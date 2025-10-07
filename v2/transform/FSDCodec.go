@@ -302,10 +302,7 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	// Extra check that the transform makes sense
-	for i := range histo[0] {
-		histo[0][i] = 0
-	}
-
+	clear(histo[0][:])
 	out1 := dst[1*count5 : 1*count5+count10]
 	out2 := dst[3*count5 : 3*count5+count10]
 

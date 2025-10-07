@@ -355,9 +355,7 @@ func (this *FPAQDecoder) Read(block []byte) (int, error) {
 		this.current = this.bitstream.ReadBits(56)
 
 		if bufSize > szBytes {
-			for i := range this.buffer[szBytes:] {
-				this.buffer[i] = 0
-			}
+			clear(this.buffer[szBytes:])
 		}
 
 		this.bitstream.ReadArray(this.buffer, uint(8*szBytes))

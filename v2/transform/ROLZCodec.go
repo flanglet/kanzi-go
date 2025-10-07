@@ -308,10 +308,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	tkBuf := make([]byte, sizeChunk/4)
 	var err error
 
-	for i := range this.counters {
-		this.counters[i] = 0
-	}
-
+	clear(this.counters)
 	litOrder := uint(1)
 
 	if len(src) < 1<<17 {
@@ -369,10 +366,7 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		mIdx := 0
 		tkIdx := 0
 
-		for i := range this.matches {
-			this.matches[i] = 0
-		}
-
+		clear(this.matches)
 		endChunk := startChunk + sizeChunk
 
 		if endChunk >= srcEnd {
@@ -615,10 +609,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	tkBuf := make([]byte, sizeChunk/4)
 	var err error
 
-	for i := range this.counters {
-		this.counters[i] = 0
-	}
-
+	clear(this.counters)
 	flags := src[4]
 	litOrder := uint(flags & 1)
 	delta := 2
@@ -668,10 +659,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		litIdx := 0
 		tkIdx := 0
 
-		for i := range this.matches {
-			this.matches[i] = 0
-		}
-
+		clear(this.matches)
 		endChunk := startChunk + sizeChunk
 
 		if endChunk > dstEnd {
@@ -1074,10 +1062,7 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	binary.BigEndian.PutUint32(dst[0:], uint32(len(src)))
 	re, _ := newRolzEncoder(9, this.logPosChecks, dst, &dstIdx)
 
-	for i := range this.counters {
-		this.counters[i] = 0
-	}
-
+	clear(this.counters)
 	this.minMatch = _ROLZ_MIN_MATCH3
 	delta := 2
 	flags := byte(0)
@@ -1113,10 +1098,7 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Main loop
 	for startChunk < srcEnd {
-		for i := range this.matches {
-			this.matches[i] = 0
-		}
-
+		clear(this.matches)
 		endChunk := startChunk + sizeChunk
 
 		if endChunk >= srcEnd {
@@ -1235,17 +1217,11 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	startChunk := 0
 	sizeChunk := min(len(dst), _ROLZ_CHUNK_SIZE)
 	rd, _ := newRolzDecoder(9, this.logPosChecks, src, &srcIdx)
-
-	for i := range this.counters {
-		this.counters[i] = 0
-	}
+	clear(this.counters)
 
 	// Main loop
 	for startChunk < dstEnd {
-		for i := range this.matches {
-			this.matches[i] = 0
-		}
-
+		clear(this.matches)
 		endChunk := startChunk + sizeChunk
 
 		if endChunk > dstEnd {
