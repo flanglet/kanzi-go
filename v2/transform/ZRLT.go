@@ -28,6 +28,14 @@ import (
 // that only runs of 0 values are processed. Also, the length is
 // encoded in a different way (each digit in a different byte)
 // This algorithm is well adapted to process post BWT/MTFT data
+// ZRLT encodes zero runs as follows:
+//   - Each zero run is encoded as a sequence of bytes representing
+//     the run length in binary
+//   - The most significant bit is implied (always 1)
+//   - Each subsequent bit is stored as a separate byte (0 or 1)
+//   - Non-zero values are encoded as value+1, except for values >= 0xFE
+//
+// which are encoded as 0xFF followed by value-0xFE
 type ZRLT struct {
 }
 
@@ -161,16 +169,14 @@ func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 
 			runLength--
 
-			if runLength > 0 {
-				if runLength >= dstEnd-dstIdx {
-					break
-				}
+			if runLength >= dstEnd-dstIdx {
+				break
+			}
 
-				for runLength > 0 {
-					runLength--
-					dst[dstIdx] = 0
-					dstIdx++
-				}
+			for runLength > 0 {
+				runLength--
+				dst[dstIdx] = 0
+				dstIdx++
 			}
 		}
 
