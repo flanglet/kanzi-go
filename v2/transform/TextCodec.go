@@ -709,7 +709,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	emitAnchor := 0 // never negative
 	words := this.staticDictSize
 
-        // mode 0xx00000 : 5 bits available
+	// mode 0xx00000 : 5 bits available
 	// DOS encoded end of line (CR+LF) ?
 	this.isCRLF = mode&_TC_MASK_CRLF != 0
 	dst[0] = mode
@@ -943,9 +943,11 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	dstIdx := 0
 	delimAnchor := 0 // previous delimiter
 
-	if isText(src[srcIdx]) {
-	//	delimAnchor = -1
-	}
+        if isText(src[srcIdx]) {
+                delimAnchor = srcIdx - 1
+        } else {
+                delimAnchor = srcIdx
+        }
 
 	for srcIdx < srcEnd && dstIdx < dstEnd {
 		cur := src[srcIdx]
@@ -1226,7 +1228,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	emitAnchor := 0 // never negative
 	words := this.staticDictSize
 
-        // mode 0xx00000 : 5 bits available
+	// mode 0xx00000 : 5 bits available
 	// DOS encoded end of line (CR+LF) ?
 	this.isCRLF = mode&_TC_MASK_CRLF != 0
 	dst[0] = mode
