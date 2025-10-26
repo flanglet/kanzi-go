@@ -17,7 +17,7 @@ package transform
 
 const (
 	_SS_INSERTIONSORT_THRESHOLD = int32(16)
-	_SS_BLOCKSIZE               = int32(4096)
+	_SS_BLOCKSIZE               = int32(8192)
 	_SS_MISORT_STACKSIZE        = int32(16)
 	_SS_SMERGE_STACKSIZE        = int32(32)
 	_TR_STACKSIZE               = int32(64)
