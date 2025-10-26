@@ -882,6 +882,8 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 	if fileReorder == false {
 		argsMap["fileReorder"] = false
+	} else {
+		argsMap["fileReorder"] = true
 	}
 
 	if noDotFiles == true {
