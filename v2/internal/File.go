@@ -97,12 +97,14 @@ func CreateFileList(target string, fileList []FileData, isRecursive, ignoreLinks
 	if ignoreDotFiles == true {
 		shortName := target
 
-		if idx := strings.LastIndex(shortName, pathSeparator); idx > 0 {
-			shortName = shortName[idx+1:]
-		}
+		if len(shortName) > 1 {
+			if idx := strings.LastIndex(shortName, pathSeparator); idx > 0 {
+				shortName = shortName[idx+1:]
+			}
 
-		if len(shortName) > 0 && shortName[0] == '.' {
-			return fileList, nil
+			if shortName[0] == '.' {
+				return fileList, nil
+			}
 		}
 	}
 
