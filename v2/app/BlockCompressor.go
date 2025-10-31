@@ -201,6 +201,10 @@ func NewBlockCompressor(argsMap map[string]any) (*BlockCompressor, error) {
 		}
 	}
 
+	if _, prst := argsMap["mode"]; prst == true {
+		delete(argsMap, "mode")
+	}
+
 	if check, prst := argsMap["checksum"]; prst == true {
 		this.checksum = check.(uint)
 		delete(argsMap, "checksum")
