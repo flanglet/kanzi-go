@@ -114,7 +114,7 @@ func CreateFileList(target string, fileList []FileData, isRecursive, ignoreLinks
 	}
 
 	if isRecursive {
-		if target[len(target)-1] != os.PathSeparator {
+		if len(target) > 0 && target[len(target)-1] != os.PathSeparator {
 			target = target + pathSeparator
 		}
 
@@ -147,28 +147,30 @@ func CreateFileList(target string, fileList []FileData, isRecursive, ignoreLinks
 
 		if err == nil {
 			for _, de := range files {
-				if de.Type().IsRegular() {
-					var fi fs.FileInfo
+				if !de.Type().IsRegular() {
+					continue
+				}
 
-					if fi, err = de.Info(); err != nil {
-						break
+				var fi fs.FileInfo
+
+				if fi, err = de.Info(); err != nil {
+					break
+				}
+
+				if ignoreDotFiles == true {
+					shortName := de.Name()
+
+					if idx := strings.LastIndex(shortName, pathSeparator); idx > 0 {
+						shortName = shortName[idx+1:]
 					}
 
-					if ignoreDotFiles == true {
-						shortName := de.Name()
-
-						if idx := strings.LastIndex(shortName, pathSeparator); idx > 0 {
-							shortName = shortName[idx+1:]
-						}
-
-						if len(shortName) > 0 && shortName[0] == '.' {
-							continue
-						}
+					if len(shortName) > 0 && shortName[0] == '.' {
+						continue
 					}
+				}
 
-					if fi.Mode().IsRegular() || ((ignoreLinks == false) && (fi.Mode()&fs.ModeSymlink != 0)) {
-						fileList = append(fileList, *NewFileData(target+de.Name(), fi.Size()))
-					}
+				if fi.Mode().IsRegular() || ((ignoreLinks == false) && (fi.Mode()&fs.ModeSymlink != 0)) {
+					fileList = append(fileList, *NewFileData(target+de.Name(), fi.Size()))
 				}
 			}
 		}
