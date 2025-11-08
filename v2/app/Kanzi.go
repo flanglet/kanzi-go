@@ -432,7 +432,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			continue
 		}
 
-		if arg == "--no-dot-file" {
+		if arg == "--skip-dot-files" {
 			if ctx != -1 {
 				log.Println(fmt.Sprintf(warningNoValOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
 			}
@@ -442,7 +442,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			continue
 		}
 
-		if arg == "--no-link" {
+		if arg == "--skip-links" {
 			if ctx != -1 {
 				log.Println(fmt.Sprintf(warningNoValOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
 			}
@@ -1011,9 +1011,9 @@ func printHelp(mode string, verbose int, showHeader bool) {
 	log.Println("   -v, --verbose=<level>", true)
 	log.Println("        Set the verbosity level [0..5]", true)
 	log.Println("        0=silent, 1=default, 2=display details, 3=display configuration,", true)
-	log.Println("        4=display block size and timings, 5=display extra information", true)
-	log.Println("        Verbosity is reduced to 1 when files are processed concurrently", true)
-	log.Println("        Verbosity is reduced to 0 when the output is 'stdout'\n", true)
+	log.Println("        4=display block size and timings, 5=display extra information.", true)
+	log.Println("        Verbosity is reduced to 1 when files are processed concurrently.", true)
+	log.Println("        Verbosity is reduced to 0 when the output is 'stdout'.\n", true)
 
 	if mode != "y" {
 		log.Println("   -f, --force", true)
@@ -1029,10 +1029,10 @@ func printHelp(mode string, verbose int, showHeader bool) {
 		log.Println("        If the input is a folder, all processed files under the folder are removed.\n", true)
 	}
 
-	log.Println("   --no-link", true)
-	log.Println("        Skip links\n", true)
-	log.Println("   --no-dot-file", true)
-	log.Println("        Skip dot files\n", true)
+	log.Println("   --skip-links", true)
+	log.Println("        Do not follow links.\n", true)
+	log.Println("   --skip-dot-files", true)
+	log.Println("        Skip dot files.\n", true)
 
 	if mode == "d" {
 		log.Println("   --from=blockID", true)
