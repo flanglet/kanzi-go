@@ -88,10 +88,9 @@ func main() {
 		os.Exit(0)
 	}
 
-	mode := argsMap["mode"].(string)
 	status := 1
 
-	if mode == "c" {
+	if mode := argsMap["mode"].(string); mode == "c" {
 		status = compress(argsMap)
 	} else if mode == "d" || mode == "y" {
 		status = decompress(argsMap)
@@ -105,7 +104,6 @@ func main() {
 func compress(argsMap map[string]any) int {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	code := 0
-	verbose := argsMap["verbosity"].(uint)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -124,6 +122,7 @@ func compress(argsMap map[string]any) int {
 	}
 
 	if len(bc.CPUProf()) != 0 {
+		verbose := argsMap["verbosity"].(uint)
 		if f, err := os.Create(bc.CPUProf()); err != nil {
 			msg := fmt.Sprintf("Warning: cpu profile unavailable: %v", err)
 			log.Println(msg, verbose > 0)
@@ -147,7 +146,6 @@ func compress(argsMap map[string]any) int {
 func decompress(argsMap map[string]any) int {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	code := 0
-	verbose := argsMap["verbosity"].(uint)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -166,6 +164,7 @@ func decompress(argsMap map[string]any) int {
 	}
 
 	if len(bd.CPUProf()) != 0 {
+		verbose := argsMap["verbosity"].(uint)
 		if f, err := os.Create(bd.CPUProf()); err != nil {
 			msg := fmt.Sprintf("Warning: cpu profile unavailable: %v", err)
 			log.Println(msg, verbose > 0)

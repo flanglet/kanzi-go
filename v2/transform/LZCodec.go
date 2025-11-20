@@ -345,7 +345,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 				// Find a match
 				if ref1 > minRef+1 && binary.LittleEndian.Uint32(src[srcIdx1+bestLen-3:]) == binary.LittleEndian.Uint32(src[ref1+bestLen-3:]) {
-					bestLen1 := findMatchLZX(src, srcIdx1, ref1, min(srcEnd-srcIdx1, _LZX_MAX_MATCH))
+					bestLen1 := findMatchLZX(src, srcIdx1, ref1, maxMatch)
 
 					// Select best match
 					if bestLen1 >= bestLen {

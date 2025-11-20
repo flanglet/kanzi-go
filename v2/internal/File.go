@@ -77,9 +77,7 @@ func (this FileCompare) Less(i, j int) bool {
 	}
 
 	// First compare parent directory paths
-	res := strings.Compare(this.data[i].Path, this.data[j].Path)
-
-	if res != 0 {
+	if res := strings.Compare(this.data[i].Path, this.data[j].Path); res != 0 {
 		return res < 0
 	}
 

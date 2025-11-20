@@ -943,11 +943,11 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	dstIdx := 0
 	delimAnchor := 0 // previous delimiter
 
-        if isText(src[srcIdx]) {
-                delimAnchor = srcIdx - 1
-        } else {
-                delimAnchor = srcIdx
-        }
+	if isText(src[srcIdx]) {
+		delimAnchor = srcIdx - 1
+	} else {
+		delimAnchor = srcIdx
+	}
 
 	for srcIdx < srcEnd && dstIdx < dstEnd {
 		cur := src[srcIdx]
