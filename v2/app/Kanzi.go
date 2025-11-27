@@ -241,7 +241,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 		// Extract verbosity, output and mode first
 		if arg == "-c" || arg == _ARG_COMPRESS {
 			if mode != "" {
-				fmt.Printf("Only one mode can be provided (already got '%s'\n", mode)
+				fmt.Printf("Only one mode can be provided (already got '%s')\n", mode)
 				return kanzi.ERR_INVALID_PARAM
 			}
 
@@ -251,7 +251,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 		if arg == "-d" || arg == _ARG_DECOMPRESS {
 			if mode != "" {
-				fmt.Printf("Only one mode can be provided (already got '%s'\n", mode)
+				fmt.Printf("Only one mode can be provided (already got '%s')\n", mode)
 				return kanzi.ERR_INVALID_PARAM
 			}
 
@@ -261,7 +261,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 
 		if arg == "-y" || arg == _ARG_INFO {
 			if mode != "" {
-				fmt.Printf("Only one mode can be provided (already got '%s'\n", mode)
+				fmt.Printf("Only one mode can be provided (already got '%s')\n", mode)
 				return kanzi.ERR_INVALID_PARAM
 			}
 
