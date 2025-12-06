@@ -294,7 +294,7 @@ func (this *Writer) RemoveListener(bl kanzi.Listener) bool {
 
 	for i, e := range this.listeners {
 		if e == bl {
-			this.listeners = append(this.listeners[:i-1], this.listeners[i+1:]...)
+			this.listeners = append(this.listeners[:i], this.listeners[i+1:]...)
 			return true
 		}
 	}
@@ -590,20 +590,19 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			err, ok := r.(error)
-
-			if ok {
-				res.err = &IOError{msg: err.Error(), code: kanzi.ERR_PROCESS_BLOCK}
-			} else {
-				res.err = &IOError{msg: "Unknown error", code: kanzi.ERR_PROCESS_BLOCK}
+			switch v := r.(type) {
+			case error:
+				res.err = &IOError{msg: v.Error(), code: kanzi.ERR_PROCESS_BLOCK}
+			default:
+				res.err = &IOError{msg: fmt.Sprint(v), code: kanzi.ERR_PROCESS_BLOCK}
 			}
 		}
 
 		// Unblock other tasks
 		if res.err != nil {
 			atomic.StoreInt32(this.processedBlockID, _CANCEL_TASKS_ID)
-		} else if atomic.LoadInt32(this.processedBlockID) == this.currentBlockID-1 {
-			atomic.StoreInt32(this.processedBlockID, this.currentBlockID)
+		} else {
+			atomic.CompareAndSwapInt32(this.processedBlockID, this.currentBlockID-1, this.currentBlockID)
 		}
 
 		this.wg.Done()
@@ -1098,7 +1097,7 @@ func (this *Reader) RemoveListener(bl kanzi.Listener) bool {
 
 	for i, e := range this.listeners {
 		if e == bl {
-			this.listeners = append(this.listeners[0:i-1], this.listeners[i+1:]...)
+			this.listeners = append(this.listeners[:i], this.listeners[i+1:]...)
 			return true
 		}
 	}
@@ -1114,12 +1113,12 @@ func (this *Reader) readHeader() (err error) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			ioErr, ok := r.(error)
 
-			if ok {
-				err = &IOError{msg: "Invalid bitstream header: " + ioErr.Error(), code: kanzi.ERR_READ_FILE}
-			} else {
-				err = &IOError{msg: "Invalid bitstream header", code: kanzi.ERR_READ_FILE}
+			switch v := r.(type) {
+			case error:
+				err = &IOError{msg: v.Error(), code: kanzi.ERR_PROCESS_BLOCK}
+			default:
+				err = &IOError{msg: fmt.Sprint(v), code: kanzi.ERR_PROCESS_BLOCK}
 			}
 		}
 	}()
