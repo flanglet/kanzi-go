@@ -58,12 +58,12 @@ func NewFileCompare(data []FileData, sortBySize bool) *FileCompare {
 }
 
 // Len returns the size of the internal file data buffer
-func (this FileCompare) Len() int {
+func (this *FileCompare) Len() int {
 	return len(this.data)
 }
 
 // Swap swaps two file data in the internal buffer
-func (this FileCompare) Swap(i, j int) {
+func (this *FileCompare) Swap(i, j int) {
 	this.data[i], this.data[j] = this.data[j], this.data[i]
 }
 
@@ -71,14 +71,14 @@ func (this FileCompare) Swap(i, j int) {
 // file data buffer is less than file data buffer at index j.
 // The order is defined by lexical order of the parent directory
 // path then file size.
-func (this FileCompare) Less(i, j int) bool {
+func (this *FileCompare) Less(i, j int) bool {
 	if this.sortBySize == false {
-		return strings.Compare(this.data[i].FullPath, this.data[j].FullPath) < 0
+		return this.data[i].FullPath < this.data[j].FullPath
 	}
 
 	// First compare parent directory paths
-	if res := strings.Compare(this.data[i].Path, this.data[j].Path); res != 0 {
-		return res < 0
+	if this.data[i].Path != this.data[j].Path {
+		return this.data[i].Path < this.data[j].Path
 	}
 
 	// Then, compare file sizes (decreasing order)
@@ -86,7 +86,14 @@ func (this FileCompare) Less(i, j int) bool {
 }
 
 func CreateFileList(target string, fileList []FileData, isRecursive, ignoreLinks, ignoreDotFiles bool) ([]FileData, error) {
-	fi, err := os.Stat(target)
+	var fi os.FileInfo
+	var err error
+
+	if ignoreLinks == true {
+		fi, err = os.Lstat(target)
+	} else {
+		fi, err = os.Stat(target)
+	}
 
 	if err != nil {
 		return fileList, err
@@ -100,7 +107,7 @@ func CreateFileList(target string, fileList []FileData, isRecursive, ignoreLinks
 				shortName = shortName[idx+1:]
 			}
 
-			if shortName[0] == '.' {
+			if len(shortName) > 0 && shortName[0] == '.' {
 				return fileList, nil
 			}
 		}
@@ -137,7 +144,7 @@ func CreateFileList(target string, fileList []FileData, isRecursive, ignoreLinks
 				fileList = append(fileList, *NewFileData(path, fi.Size()))
 			}
 
-			return err
+			return nil
 		})
 	} else {
 		var files []fs.DirEntry
@@ -145,7 +152,7 @@ func CreateFileList(target string, fileList []FileData, isRecursive, ignoreLinks
 
 		if err == nil {
 			for _, de := range files {
-				if !de.Type().IsRegular() {
+				if !de.Type().IsRegular() && ((de.Type()&fs.ModeSymlink == 0) || ignoreLinks) {
 					continue
 				}
 
@@ -174,7 +181,17 @@ func CreateFileList(target string, fileList []FileData, isRecursive, ignoreLinks
 		}
 	}
 
-	return fileList, err
+	return fileList, nil
+}
+
+// isDotFile checks if the name or path refers to a dot-file
+func isDotFile(name string) bool {
+	if len(name) == 0 {
+		return false
+	}
+
+	base := filepath.Base(name)
+	return len(base) > 0 && base[0] == '.'
 }
 
 func IsReservedName(fileName string) bool {

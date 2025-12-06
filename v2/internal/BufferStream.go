@@ -52,7 +52,7 @@ func (this *BufferStream) Write(b []byte) (int, error) {
 
 // Read returns an error if the stream is closed, otherwise reads data from
 // the internal buffer at the read offset position.
-// Returns the number of bytes read.
+// Returns the number of bytes read or (0, io.EOF) when no more data remains.
 func (this *BufferStream) Read(b []byte) (int, error) {
 	if this.closed == true {
 		return 0, errors.New("Stream closed")
