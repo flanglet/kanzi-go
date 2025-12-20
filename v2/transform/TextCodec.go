@@ -236,10 +236,12 @@ func computeTextStats(block []byte, freqs0 []int, strict bool) byte {
 	if nbBinChars > (count >> 2) {
 		notText = true
 	} else {
+		notText = nbTextChars < (count / 4)
+
 		if strict == true {
-			notText = (nbTextChars < (count / 4)) || (freqs0[0] >= count/100) || ((nbASCII / 95) < (count / 100))
+			notText = notText || ((freqs0[0] >= (count / 100)) || ((nbASCII / 95) < (count / 100)))
 		} else {
-			notText = (nbTextChars < (count / 2)) || (freqs0[32] < count/50)
+			notText = notText || (freqs0[32] < (count / 50))
 		}
 	}
 
