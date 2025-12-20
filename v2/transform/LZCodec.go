@@ -642,8 +642,8 @@ func (this *LZXCodec) inverseV6(src, dst []byte) (uint, uint, error) {
 	minMatch := ((int(src[12]) >> 1) & 0x07) + 2
 	srcIdx := 13
 	dstIdx := 0
-	repd0 := 0
-	repd1 := 0
+	repd0 := count
+	repd1 := count
 
 	for {
 		token := int(src[tkIdx])
@@ -1234,6 +1234,7 @@ func (this *LZPCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	srcEnd := len(src)
+	dstEnd := len(dst)
 	dst[0] = src[0]
 	dst[1] = src[1]
 	dst[2] = src[2]
@@ -1287,6 +1288,12 @@ func (this *LZPCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 		mLen += int(src[srcIdx])
 		srcIdx++
+		mEnd := dstIdx + mLen
+
+		if mEnd > dstEnd {
+			res = false
+			break
+		}
 
 		if ref+mLen < dstIdx {
 			copy(dst[dstIdx:], dst[ref:ref+mLen])
