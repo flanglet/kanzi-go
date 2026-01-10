@@ -316,6 +316,12 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		// Check repd first
 		if ref > minRef && uint32(p>>8) == binary.LittleEndian.Uint32(src[ref:]) {
 			bestLen = findMatchLZX(src, srcIdx1, ref, maxMatch)
+		} else {
+			ref = srcIdx1 - repd[repdIdx^1]
+
+			if ref > minRef && uint32(p>>8) == binary.LittleEndian.Uint32(src[ref:]) {
+				bestLen = findMatchLZX(src, srcIdx1, ref, maxMatch)
+			}
 		}
 
 		if bestLen < minMatch {
@@ -329,8 +335,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 				}
 			}
 
-			srcIdx++
-			srcIdx += (srcInc >> 6)
+			srcIdx = srcIdx1 + (srcInc >> 6)
 			srcInc++
 			repdIdx = 0
 			continue
@@ -358,7 +363,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 			if this.extra == true {
 				// Check if better match at position+2
-				srcIdx2 := srcIdx + 2
+				srcIdx2 := srcIdx1 + 2
 				h2 := this.hash(src[srcIdx2:])
 				ref2 := int(this.hashes[h2])
 				this.hashes[h2] = int32(srcIdx2)
@@ -593,11 +598,7 @@ func findMatchLZX(src []byte, srcIdx, ref, maxMatch int) int {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
-	if this.bsVersion == 3 {
-		return this.inverseV3(src, dst)
-	}
-
-	if this.bsVersion == 4 || this.bsVersion == 5 {
+	if this.bsVersion < 6 {
 		return this.inverseV4(src, dst)
 	}
 
@@ -886,155 +887,6 @@ func (this *LZXCodec) inverseV4(src, dst []byte) (uint, uint, error) {
 		if ref < 0 || dist > maxDist || mEnd > dstEnd {
 			return uint(srcIdx), uint(dstIdx), fmt.Errorf("LZCodec: invalid distance decoded: %d", dist)
 		}
-
-		// Copy match
-		if dist >= 16 {
-			for {
-				// No overlap
-				copy(dst[dstIdx:], dst[ref:ref+16])
-				ref += 16
-				dstIdx += 16
-
-				if dstIdx >= mEnd {
-					break
-				}
-			}
-		} else {
-			for i := 0; i < mLen; i++ {
-				dst[dstIdx+i] = dst[ref+i]
-			}
-		}
-
-		dstIdx = mEnd
-	}
-
-	var err error
-
-	if srcIdx != srcEnd+13 {
-		err = errors.New("LZCodec inverse transform failed")
-	}
-
-	return uint(mIdx), uint(dstIdx), err
-}
-
-func (this *LZXCodec) inverseV3(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
-		return 0, 0, nil
-	}
-
-	count := len(src)
-
-	if count < 13 {
-		return 0, 0, errors.New("LZCodec inverse transform failed, invalid data")
-	}
-
-	tkIdx := int(binary.LittleEndian.Uint32(src[0:]))
-	mIdx := int(binary.LittleEndian.Uint32(src[4:]))
-	mLenIdx := int(binary.LittleEndian.Uint32(src[8:]))
-
-	// Sanity checks
-	if (tkIdx < 0) || (mIdx < 0) || (mLenIdx < 0) {
-		return 0, 0, errors.New("LZCodec inverse transform failed, invalid data")
-	}
-
-	if (tkIdx > count) || (mIdx > count-tkIdx) || (mLenIdx > count-tkIdx-mIdx) {
-		return 0, 0, errors.New("LZCodec inverse transform failed, invalid data")
-	}
-
-	mIdx += tkIdx
-	mLenIdx += mIdx
-	srcEnd := tkIdx - 13
-	dstEnd := len(dst) - 16
-	maxDist := _LZX_MAX_DISTANCE2
-
-	if src[12]&1 == 0 {
-		maxDist = _LZX_MAX_DISTANCE1
-	}
-
-	minMatch := _LZX_MIN_MATCH4
-
-	if src[12]&2 != 0 {
-		minMatch = _LZX_MIN_MATCH9
-	}
-
-	srcIdx := 13
-	dstIdx := 0
-	repd0 := 0
-	repd1 := 0
-
-	for {
-		token := int(src[tkIdx])
-		tkIdx++
-
-		if token >= 32 {
-			// Get literal length
-			litLen := token >> 5
-
-			if litLen == 7 {
-				ll, delta := readLengthLZ(src[srcIdx:])
-				litLen += ll
-				srcIdx += delta
-			}
-
-			// Emit literals
-			if dstIdx+litLen >= dstEnd {
-				copy(dst[dstIdx:], src[srcIdx:srcIdx+litLen])
-			} else {
-				emitLiteralsLZ(src[srcIdx:srcIdx+litLen], dst[dstIdx:])
-			}
-
-			srcIdx += litLen
-			dstIdx += litLen
-
-			if srcIdx >= srcEnd {
-				break
-			}
-		}
-
-		// Get match length
-		mLen := token & 0x0F
-
-		if mLen == 15 {
-			ll, delta := readLengthLZ(src[mLenIdx:])
-			mLen += ll
-			mLenIdx += delta
-		}
-
-		mLen += minMatch
-		mEnd := dstIdx + mLen
-
-		// Get distance
-		dist := (int(src[mIdx]) << 8) | int(src[mIdx+1])
-		mIdx += 2
-
-		if (token & 0x10) != 0 {
-			if maxDist == _LZX_MAX_DISTANCE1 {
-				dist += 65536
-			} else {
-				dist = (dist << 8) | int(src[mIdx])
-				mIdx++
-			}
-		}
-
-		if dist == 0 {
-			dist = repd0
-		} else {
-			if dist == 1 {
-				dist = repd1
-			} else {
-				dist--
-			}
-
-			repd1 = repd0
-			repd0 = dist
-		}
-
-		// Sanity check
-		if dstIdx < dist || dist > maxDist || mEnd > dstEnd+16 {
-			return uint(srcIdx), uint(dstIdx), fmt.Errorf("LZCodec: invalid distance decoded: %d", dist)
-		}
-
-		ref := dstIdx - dist
 
 		// Copy match
 		if dist >= 16 {
