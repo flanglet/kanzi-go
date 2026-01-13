@@ -769,23 +769,6 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 	obs.Close()
 	written := obs.Written()
 
-	// Lock free synchronization
-	for n := 0; ; n++ {
-		taskID := atomic.LoadInt32(this.processedBlockID)
-
-		if taskID == _CANCEL_TASKS_ID {
-			return
-		}
-
-		if taskID == this.currentBlockID-1 {
-			break
-		}
-
-		if n&0x1F == 0 {
-			runtime.Gosched()
-		}
-	}
-
 	if len(this.listeners) > 0 {
 		// Notify after entropy
 		evt := kanzi.NewEvent(kanzi.EVT_AFTER_ENTROPY, int(this.currentBlockID),
@@ -801,6 +784,23 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 				evt1 := kanzi.NewEventFromString(kanzi.EVT_BLOCK_INFO, int(this.currentBlockID), msg, time.Now())
 				notifyListeners(this.listeners, evt1)
 			}
+		}
+	}
+
+	// Lock free synchronization
+	for n := 0; ; n++ {
+		taskID := atomic.LoadInt32(this.processedBlockID)
+
+		if taskID == _CANCEL_TASKS_ID {
+			return
+		}
+
+		if taskID == this.currentBlockID-1 {
+			break
+		}
+
+		if n&0x1F == 0 {
+			runtime.Gosched()
 		}
 	}
 

@@ -438,7 +438,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	}
 
 	if this.verbosity > 2 {
-		if listener, err2 := NewInfoPrinter(this.verbosity, ENCODING, os.Stdout); err2 == nil {
+		if listener, err2 := NewInfoPrinter(this.verbosity, COMPRESSION, os.Stdout); err2 == nil {
 			this.AddListener(listener)
 		}
 	}
@@ -814,7 +814,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64, error) {
 			inputSize = val.(int64)
 		}
 
-		evt := kanzi.NewEvent(kanzi.EVT_COMPRESSION_START, -1, inputSize, 0, kanzi.EVT_HASH_NONE, time.Now())
+		evt := kanzi.NewEvent(kanzi.EVT_COMPRESSION_START, 1, inputSize, 0, kanzi.EVT_HASH_NONE, time.Now())
 		notifyBCListeners(this.listeners, evt)
 	}
 

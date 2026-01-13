@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
@@ -33,10 +34,10 @@ import (
 // of the BlockCompressor/BlockDecompressor)
 
 const (
-	// ENCODING event type
-	ENCODING = 0
-	// DECODING event type
-	DECODING = 1
+	// COMPRESSION event type
+	COMPRESSION = 0
+	// DECOMPRESSION event type
+	DECOMPRESSION = 1
 	// INFO event type
 	INFO = 2
 )
@@ -52,13 +53,17 @@ type blockInfo struct {
 
 // InfoPrinter contains all the data required to print one event
 type InfoPrinter struct {
-	writer     io.Writer
-	infoType   uint
-	infos      map[int32]blockInfo
-	thresholds []int
-	lock       sync.RWMutex
-	level      uint
-	headerInfo uint
+	writer             io.Writer
+	infoType           uint
+	infos              map[int32]blockInfo
+	orderedPending     map[int]*kanzi.Event
+	thresholds         []int
+	mapLock            sync.RWMutex
+	lock               sync.RWMutex
+	level              uint
+	headerInfo         uint
+	orderedPhase       int
+	lastEmittedBlockId atomic.Int32
 }
 
 // NewInfoPrinter creates a new instance of InfoPrinter
@@ -72,9 +77,11 @@ func NewInfoPrinter(infoLevel, infoType uint, writer io.Writer) (*InfoPrinter, e
 	this.level = infoLevel
 	this.headerInfo = 0
 	this.writer = writer
+	this.lastEmittedBlockId.Store(0)
 	this.infos = make(map[int32]blockInfo)
+	this.orderedPending = make(map[int]*kanzi.Event)
 
-	if this.infoType == ENCODING {
+	if this.infoType == COMPRESSION {
 		this.thresholds = []int{
 			kanzi.EVT_COMPRESSION_START,
 			kanzi.EVT_BEFORE_TRANSFORM,
@@ -83,6 +90,7 @@ func NewInfoPrinter(infoLevel, infoType uint, writer io.Writer) (*InfoPrinter, e
 			kanzi.EVT_AFTER_ENTROPY,
 			kanzi.EVT_COMPRESSION_END,
 		}
+		this.orderedPhase = kanzi.EVT_AFTER_ENTROPY
 	} else {
 		this.thresholds = []int{
 			kanzi.EVT_DECOMPRESSION_START,
@@ -92,6 +100,7 @@ func NewInfoPrinter(infoLevel, infoType uint, writer io.Writer) (*InfoPrinter, e
 			kanzi.EVT_AFTER_TRANSFORM,
 			kanzi.EVT_DECOMPRESSION_END,
 		}
+		this.orderedPhase = kanzi.EVT_BEFORE_ENTROPY
 	}
 
 	return this, nil
@@ -104,31 +113,68 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 		return
 	}
 
+	if evt.Type() == this.orderedPhase {
+		this.processOrderedPhase(evt)
+		return
+	}
+
+	this.processEventOrdered(evt)
+}
+
+func (this *InfoPrinter) processOrderedPhase(evt *kanzi.Event) {
+	this.lock.Lock()
+	this.orderedPending[evt.ID()] = evt
+	this.lock.Unlock()
+
+	for {
+		nextId := this.lastEmittedBlockId.Load() + 1
+		this.lock.Lock()
+		next, found := this.orderedPending[int(nextId)]
+
+		if found == false {
+			this.lock.Unlock()
+			return
+		}
+
+		delete(this.orderedPending, int(nextId))
+		this.lock.Unlock()
+
+		// Now it is safe to advance
+		this.lastEmittedBlockId.Store(nextId)
+
+		// Compression: AFTER_ENTROPY emitted in-order
+		// Decompression: BEFORE_TRANSFORM emitted in-order
+		this.processEventOrdered(next)
+	}
+}
+
+func (this *InfoPrinter) processEventOrdered(evt *kanzi.Event) {
 	currentBlockID := int32(evt.ID())
+	//fmt.Printf("%v\n", evt)
 
 	if evt.Type() == this.thresholds[1] {
 		// Register initial block size
 		bi := blockInfo{time0: evt.Time()}
 		bi.stage0Size = evt.Size()
 
-		this.lock.Lock()
+		this.mapLock.Lock()
 		this.infos[currentBlockID] = bi
-		this.lock.Unlock()
+		this.mapLock.Unlock()
 
 		if this.level >= 5 {
 			fmt.Fprintln(this.writer, evt)
 		}
 	} else if evt.Type() == this.thresholds[2] {
-		this.lock.RLock()
+		this.mapLock.RLock()
 		bi, exists := this.infos[currentBlockID]
-		this.lock.RUnlock()
+		this.mapLock.RUnlock()
 
 		if exists == true {
 			bi.time1 = evt.Time()
 
-			this.lock.Lock()
+			this.mapLock.Lock()
 			this.infos[currentBlockID] = bi
-			this.lock.Unlock()
+			this.mapLock.Unlock()
 
 			if this.level >= 5 {
 				durationMS := bi.time1.Sub(bi.time0).Nanoseconds() / int64(time.Millisecond)
@@ -136,16 +182,16 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 			}
 		}
 	} else if evt.Type() == this.thresholds[3] {
-		this.lock.RLock()
+		this.mapLock.RLock()
 		bi, exists := this.infos[currentBlockID]
-		this.lock.RUnlock()
+		this.mapLock.RUnlock()
 
 		if exists == true {
 			bi.time2 = evt.Time()
 			bi.stage1Size = evt.Size()
-			this.lock.Lock()
+			this.mapLock.Lock()
 			this.infos[currentBlockID] = bi
-			this.lock.Unlock()
+			this.mapLock.Unlock()
 
 			if this.level >= 5 {
 				durationMS := bi.time2.Sub(bi.time1).Nanoseconds() / int64(time.Millisecond)
@@ -153,17 +199,17 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 			}
 		}
 	} else if evt.Type() == this.thresholds[4] {
-		this.lock.RLock()
+		this.mapLock.RLock()
 		bi, exists := this.infos[currentBlockID]
-		this.lock.RUnlock()
+		this.mapLock.RUnlock()
 
 		if exists == false || this.level < 3 {
 			return
 		}
 
-		this.lock.Lock()
+		this.mapLock.Lock()
 		delete(this.infos, currentBlockID)
-		this.lock.Unlock()
+		this.mapLock.Unlock()
 		bi.time3 = evt.Time()
 		duration1MS := bi.time1.Sub(bi.time0).Nanoseconds() / int64(time.Millisecond)
 		duration2MS := bi.time3.Sub(bi.time2).Nanoseconds() / int64(time.Millisecond)
@@ -184,7 +230,7 @@ func (this *InfoPrinter) ProcessEvent(evt *kanzi.Event) {
 				bi.stage0Size, bi.stage1Size, duration1MS, stage2Size, duration2MS)
 
 			// Add compression ratio for encoding
-			if this.infoType == ENCODING {
+			if this.infoType == COMPRESSION {
 				if bi.stage0Size != 0 {
 					msg += fmt.Sprintf(" (%d%%)", uint64(stage2Size)*100/uint64(bi.stage0Size))
 				}

@@ -333,7 +333,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	}
 
 	if (vl > 2) || (this.isInfoMode == true && vl > 0) {
-		infoType := uint(DECODING)
+		infoType := uint(DECOMPRESSION)
 
 		if this.isInfoMode == true {
 			infoType = INFO
@@ -637,7 +637,7 @@ func (this *fileDecompressTask) call() (int, uint64, error) {
 	var input io.ReadCloser
 
 	if len(this.listeners) > 0 {
-		evt := kanzi.NewEvent(kanzi.EVT_DECOMPRESSION_START, -1, 0, 0, kanzi.EVT_HASH_NONE, time.Now())
+		evt := kanzi.NewEvent(kanzi.EVT_DECOMPRESSION_START, 1, 0, 0, kanzi.EVT_HASH_NONE, time.Now())
 		notifyBDListeners(this.listeners, evt)
 	}
 
