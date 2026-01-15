@@ -172,6 +172,7 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 	}
 
 	sumScaledFreq := 0
+	sumFreq := 0
 	idxMax := 0
 
 	// Scale frequencies by squeezing/stretching distribution over complete range
@@ -190,23 +191,21 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 			// Quantum of frequency
 			scaledFreq = 1
 		} else {
-			// Find best frequency rounding value
-			scaledFreq = int(sf / int64(totalFreq))
-			errCeiling := int64(scaledFreq+1)*int64(totalFreq) - sf
-			errFloor := sf - int64(scaledFreq)*int64(totalFreq)
-
-			if errCeiling < errFloor {
-				scaledFreq++
-			}
+			scaledFreq = int((sf + (int64(totalFreq) >> 1)) / int64(totalFreq))
 		}
 
 		alphabet[alphabetSize] = i
 		alphabetSize++
 		sumScaledFreq += scaledFreq
 		freqs[i] = scaledFreq
+		sumFreq += f
 
 		if scaledFreq > freqs[idxMax] {
 			idxMax = i
+		}
+
+		if sumFreq >= totalFreq {
+			break
 		}
 	}
 
