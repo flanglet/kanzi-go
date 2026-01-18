@@ -37,6 +37,18 @@ const (
 	EVT_HASH_64BITS = 64
 )
 
+// HeaderInfo information in the header of a compressed bitstream
+type HeaderInfo struct {
+	InputName     string
+	BsVersion     int
+	ChecksumSize  int
+	BlockSize     int
+	EntropyType   string
+	TransformType string
+	OriginalSize  int64
+	FileSize      int64
+}
+
 // Event a compression/decompression event
 type Event struct {
 	eventType int
@@ -46,6 +58,7 @@ type Event struct {
 	hashType  int
 	eventTime time.Time
 	msg       string
+	info      *HeaderInfo
 }
 
 // NewEventFromString creates a new Event instance that wraps a message
@@ -70,6 +83,16 @@ func NewEvent(evtType, id int, size int64, hash uint64, hashType int, evtTime ti
 
 	return &Event{eventType: evtType, id: id, size: size, hash: hash,
 		hashType: hashType, eventTime: evtTime}
+}
+
+func NewEventFromHeader(evtType, id int, info *HeaderInfo, evtTime time.Time) *Event {
+	if evtTime.IsZero() {
+		evtTime = time.Now()
+	}
+
+	res := &Event{eventType: evtType, id: id, eventTime: evtTime}
+	res.info = info
+	return res
 }
 
 // Type returns the type info
@@ -102,6 +125,11 @@ func (this *Event) HashType() int {
 	return this.hashType
 }
 
+// Info returns the header info
+func (this *Event) Info() *HeaderInfo {
+	return this.info
+}
+
 // String returns a string representation of this event.
 // If the event wraps a message, the the message is returned.
 // Owtherwise a string is built from the fields.
@@ -110,18 +138,23 @@ func (this *Event) String() string {
 		return this.msg
 	}
 
-	hash := ""
+	t := this.TypeAsString()
 	id := ""
-
-	if this.hashType != EVT_HASH_NONE {
-		hash = fmt.Sprintf(", \"hash\":\"%x\"", this.hash)
-	}
 
 	if this.id >= 0 {
 		id = fmt.Sprintf(", \"id\":%d", this.id)
 	}
 
-	t := this.TypeAsString()
+	if this.info != nil {
+		return fmt.Sprintf("{ \"type\":\"%s\"%s, \"inputName\":\"%s\", \"bsVersion\":%d, \"checksum\":%d, \"blockSize\":%d, \"entropy\":\"%s\", \"transform\":\"%s\", \"compressed\":%d, \"original\":%d }", t, id, this.info.InputName, this.info.BsVersion, this.info.ChecksumSize, this.info.BlockSize, this.info.EntropyType, this.info.TransformType, this.info.FileSize, this.info.OriginalSize)
+	}
+
+	hash := ""
+
+	if this.hashType != EVT_HASH_NONE {
+		hash = fmt.Sprintf(", \"hash\":\"%x\"", this.hash)
+	}
+
 	return fmt.Sprintf("{ \"type\":\"%s\"%s, \"size\":%d%s, \"time\":%d }", t, id, this.size,
 		hash, this.eventTime.UnixNano()/1000000)
 }

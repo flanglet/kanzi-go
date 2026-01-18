@@ -168,12 +168,6 @@ func NewBlockDecompressor(argsMap map[string]any) (*BlockDecompressor, error) {
 		this.cpuProf = ""
 	}
 
-	if this.verbosity > 3 && len(argsMap) > 0 {
-		for k := range argsMap {
-			log.Println("Warning: ignoring invalid option ["+k+"]", this.verbosity > 0)
-		}
-	}
-
 	return this, nil
 }
 
@@ -339,7 +333,13 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 			infoType = INFO
 		}
 
-		if listener, err2 := NewInfoPrinter(vl, infoType, os.Stdout); err2 == nil {
+		firstBlockId := 1
+
+		if this.from > 0 {
+			firstBlockId = this.from
+		}
+
+		if listener, err2 := NewInfoPrinter(vl, infoType, uint(firstBlockId), os.Stdout); err2 == nil {
 			this.AddListener(listener)
 		}
 	}
@@ -637,7 +637,7 @@ func (this *fileDecompressTask) call() (int, uint64, error) {
 	var input io.ReadCloser
 
 	if len(this.listeners) > 0 {
-		evt := kanzi.NewEvent(kanzi.EVT_DECOMPRESSION_START, 1, 0, 0, kanzi.EVT_HASH_NONE, time.Now())
+		evt := kanzi.NewEvent(kanzi.EVT_DECOMPRESSION_START, 0, 0, 0, kanzi.EVT_HASH_NONE, time.Now())
 		notifyBDListeners(this.listeners, evt)
 	}
 
@@ -771,7 +771,7 @@ func (this *fileDecompressTask) call() (int, uint64, error) {
 	}
 
 	if len(this.listeners) > 0 {
-		evt := kanzi.NewEvent(kanzi.EVT_DECOMPRESSION_END, -1, int64(cis.GetRead()), 0, kanzi.EVT_HASH_NONE, time.Now())
+		evt := kanzi.NewEvent(kanzi.EVT_DECOMPRESSION_END, 0, int64(cis.GetRead()), 0, kanzi.EVT_HASH_NONE, time.Now())
 		notifyBDListeners(this.listeners, evt)
 	}
 

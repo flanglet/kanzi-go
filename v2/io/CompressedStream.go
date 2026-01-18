@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"runtime"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -1273,45 +1272,24 @@ func (this *Reader) readHeader() (err error) {
 	}
 
 	if len(this.listeners) > 0 {
-		var sb strings.Builder
-		ckSize := 0
-
-		if this.hasher32 != nil {
-			ckSize = 32
-		} else if this.hasher64 != nil {
-			ckSize = 64
-		}
-
-		sb.WriteString(this.ctx["inputName"].(string))
-		sb.WriteString(",")
-		sb.WriteString(fmt.Sprintf("%d,", bsVersion))
-		sb.WriteString(fmt.Sprintf("%d,", ckSize))
-		sb.WriteString(fmt.Sprintf("%d,", this.blockSize))
+		info := &kanzi.HeaderInfo{}
+		info.BsVersion = int(bsVersion)
+		info.InputName = this.ctx["inputName"].(string)
+		info.ChecksumSize = int(ckSize * 32)
+		info.BlockSize = this.blockSize
 		w1, _ := entropy.GetName(this.entropyType)
-
-		if w1 == "NONE" {
-			w1 = ""
-		}
-
-		sb.WriteString(w1)
-		sb.WriteString(",")
+		info.EntropyType = w1
 		w2, _ := transform.GetName(this.transformType)
-
-		if w2 == "NONE" {
-			w2 = ""
-		}
-
-		sb.WriteString(w2)
-		sb.WriteString(",")
-		fileSize := this.ctx["fileSize"].(int64)
-		sb.WriteString(fmt.Sprintf("%d,", fileSize))
+		info.TransformType = w2
+		info.FileSize = this.ctx["fileSize"].(int64)
 
 		if szMask != 0 {
-			sb.WriteString(fmt.Sprintf("%d", this.outputSize))
-			sb.WriteString(",")
+			info.OriginalSize = this.outputSize
+		} else {
+			info.OriginalSize = -1
 		}
 
-		evt := kanzi.NewEventFromString(kanzi.EVT_AFTER_HEADER_DECODING, 0, sb.String(), time.Now())
+		evt := kanzi.NewEventFromHeader(kanzi.EVT_AFTER_HEADER_DECODING, 0, info, time.Now())
 		notifyListeners(this.listeners, evt)
 	}
 
