@@ -1108,7 +1108,7 @@ func (this *LZPCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		ref := int(this.hashes[h])
 		this.hashes[h] = int32(dstIdx)
 
-		if ref == 0 || src[srcIdx] != _LZP_MATCH_FLAG {
+		if src[srcIdx] != _LZP_MATCH_FLAG || ref == 0 {
 			dst[dstIdx] = src[srcIdx]
 			ctx = (ctx << 8) | uint32(dst[dstIdx])
 			srcIdx++
@@ -1128,14 +1128,16 @@ func (this *LZPCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 		mLen := minMatch
 
-		for srcIdx < srcEnd && src[srcIdx] == 0xFE {
-			srcIdx++
-			mLen += 254
-		}
+		if src[srcIdx] == 0xFE {
+			for srcIdx < srcEnd && src[srcIdx] == 0xFE {
+				srcIdx++
+				mLen += 254
+			}
 
-		if srcIdx >= srcEnd {
-			res = false
-			break
+			if srcIdx >= srcEnd {
+				res = false
+				break
+			}
 		}
 
 		mLen += int(src[srcIdx])
