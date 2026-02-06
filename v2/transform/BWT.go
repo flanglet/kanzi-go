@@ -92,11 +92,19 @@ func NewBWTWithCtx(ctx *map[string]any) (*BWT, error) {
 	this.primaryIndexes = [8]uint{}
 	this.jobs = 1
 
-	if _, containsKey := (*ctx)["jobs"]; containsKey {
-		this.jobs = (*ctx)["jobs"].(uint)
+	if ctx != nil {
+		if val, containsKey := (*ctx)["jobs"]; containsKey {
+			jobs, ok := val.(uint)
 
-		if this.jobs == 0 {
-			return nil, errors.New("The number of jobs must be at least 1")
+			if ok == false {
+				return nil, errors.New("The number of jobs has an invalid type")
+			}
+
+			this.jobs = jobs
+
+			if this.jobs == 0 {
+				return nil, errors.New("The number of jobs must be at least 1")
+			}
 		}
 	}
 
@@ -122,7 +130,7 @@ func (this *BWT) SetPrimaryIndex(n int, primaryIndex uint) bool {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 
@@ -168,7 +176,7 @@ func (this *BWT) Forward(src, dst []byte) (uint, uint, error) {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 
@@ -201,7 +209,7 @@ func (this *BWT) Inverse(src, dst []byte) (uint, uint, error) {
 
 // When count <= _BWT_BLOCK_SIZE_THRESHOLD2, mergeTPSI algo. Always in one chunk
 func (this *BWT) inverseMergeTPSI(src, dst []byte, count int) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 

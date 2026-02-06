@@ -47,7 +47,7 @@ func NewSRTWithCtx(ctx *map[string]any) (*SRT, error) {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *SRT) Forward(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 
@@ -180,7 +180,7 @@ func (this SRT) preprocess(freqs []int32, symbols []byte) int {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *SRT) Inverse(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 

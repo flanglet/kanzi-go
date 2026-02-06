@@ -73,7 +73,7 @@ func NewEntropyDecoder(ibs kanzi.InputBitStream, ctx map[string]any,
 		return NewNullEntropyDecoder(ibs)
 
 	default:
-		return nil, fmt.Errorf("Unsupported entropy codec type: '%c'", entropyType)
+		return nil, fmt.Errorf("Unsupported entropy codec type: '%d'", entropyType)
 	}
 }
 
@@ -109,7 +109,7 @@ func NewEntropyEncoder(obs kanzi.OutputBitStream, ctx map[string]any,
 		return NewNullEntropyEncoder(obs)
 
 	default:
-		return nil, fmt.Errorf("Unsupported entropy codec type: '%c'", entropyType)
+		return nil, fmt.Errorf("Unsupported entropy codec type: '%d'", entropyType)
 	}
 }
 
@@ -145,7 +145,7 @@ func GetName(entropyType uint32) (string, error) {
 		return "NONE", nil
 
 	default:
-		return "", fmt.Errorf("Unsupported entropy codec type: '%c'", entropyType)
+		return "", fmt.Errorf("Unsupported entropy codec type: '%d'", entropyType)
 	}
 }
 

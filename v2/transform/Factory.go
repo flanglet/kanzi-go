@@ -56,6 +56,11 @@ const (
 // New creates a new instance of ByteTransformSequence based on the provided
 // function type.
 func New(ctx *map[string]any, functionType uint64) (*ByteTransformSequence, error) {
+	if ctx == nil {
+		tmp := make(map[string]any)
+		ctx = &tmp
+	}
+
 	nbtr := 0
 
 	// Several transforms
@@ -96,7 +101,13 @@ func newToken(ctx *map[string]any, functionType uint64) (kanzi.ByteTransform, er
 		textCodecType := 1
 
 		if val, containsKey := (*ctx)["entropy"]; containsKey {
-			entropyType := strings.ToUpper(val.(string))
+			entropyName, ok := val.(string)
+
+			if ok == false {
+				return nil, fmt.Errorf("Invalid entropy type: expected string")
+			}
+
+			entropyType := strings.ToUpper(entropyName)
 
 			// Select text encoding based on entropy codec.
 			if entropyType == "NONE" || entropyType == "ANS0" ||

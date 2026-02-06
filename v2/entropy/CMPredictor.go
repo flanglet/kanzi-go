@@ -15,6 +15,8 @@ limitations under the License.
 
 package entropy
 
+import "fmt"
+
 const (
 	_CM_FAST_RATE   = 2
 	_CM_MEDIUM_RATE = 4
@@ -38,6 +40,19 @@ func NewCMPredictor(ctx *map[string]any) (*CMPredictor, error) {
 	this := &CMPredictor{}
 	this.ctx = 1
 	this.runMask = 0
+	bsVersion := uint(4)
+
+	if ctx != nil {
+		if val, containsKey := (*ctx)["bsVersion"]; containsKey {
+			var ok bool
+
+			if bsVersion, ok = val.(uint); ok == false {
+				return nil, fmt.Errorf("CM predictor: invalid bsVersion parameter type")
+			}
+		}
+	}
+
+	this.isBsVersion3 = bsVersion < 4
 
 	for i := 0; i < 256; i++ {
 		this.counter1[i] = make([]int32, 257)
@@ -62,15 +77,6 @@ func NewCMPredictor(ctx *map[string]any) (*CMPredictor, error) {
 		}
 	}
 
-	bsVersion := uint(4)
-
-	if ctx != nil {
-		if val, containsKey := (*ctx)["bsVersion"]; containsKey {
-			bsVersion = val.(uint)
-		}
-	}
-
-	this.isBsVersion3 = bsVersion < 4
 	return this, nil
 }
 

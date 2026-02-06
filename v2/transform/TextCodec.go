@@ -521,7 +521,11 @@ func NewTextCodecWithCtx(ctx *map[string]any) (*TextCodec, error) {
 
 	if ctx != nil {
 		if val, hasKey := (*ctx)["textcodec"]; hasKey {
-			encodingType := val.(int)
+			encodingType, ok := val.(int)
+
+			if ok == false {
+				return nil, errors.New("Text codec: invalid encoding type")
+			}
 
 			if encodingType == 2 {
 				d, err = newTextCodec2WithCtx(ctx)
@@ -542,7 +546,7 @@ func NewTextCodecWithCtx(ctx *map[string]any) (*TextCodec, error) {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 
@@ -565,7 +569,7 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 
@@ -603,7 +607,11 @@ func newTextCodec1WithCtx(ctx *map[string]any) (*textCodec1, error) {
 
 	if ctx != nil {
 		if val, hasKey := (*ctx)["blockSize"]; hasKey {
-			blockSize := val.(uint)
+			blockSize, ok := val.(uint)
+
+			if ok == false {
+				return nil, errors.New("Text codec: invalid block size type")
+			}
 
 			if blockSize >= 8 {
 				log, _ = internal.Log2(uint32(blockSize / 8))
@@ -613,7 +621,13 @@ func newTextCodec1WithCtx(ctx *map[string]any) (*textCodec1, error) {
 		}
 
 		if val, hasKey := (*ctx)["entropy"]; hasKey {
-			if val.(string) == "TPAQX" {
+			entropyName, ok := val.(string)
+
+			if ok == false {
+				return nil, errors.New("Text codec: invalid entropy type")
+			}
+
+			if entropyName == "TPAQX" {
 				log++
 			}
 		}
@@ -1122,7 +1136,11 @@ func newTextCodec2WithCtx(ctx *map[string]any) (*textCodec2, error) {
 
 	if ctx != nil {
 		if val, hasKey := (*ctx)["blockSize"]; hasKey {
-			blockSize := val.(uint)
+			blockSize, ok := val.(uint)
+
+			if ok == false {
+				return nil, errors.New("Text codec: invalid block size type")
+			}
 
 			if blockSize >= 32 {
 				log, _ = internal.Log2(uint32(blockSize / 32))
@@ -1132,13 +1150,24 @@ func newTextCodec2WithCtx(ctx *map[string]any) (*textCodec2, error) {
 		}
 
 		if val, hasKey := (*ctx)["entropy"]; hasKey {
-			if val.(string) == "TPAQX" {
+			entropyName, ok := val.(string)
+
+			if ok == false {
+				return nil, errors.New("Text codec: invalid entropy type")
+			}
+
+			if entropyName == "TPAQX" {
 				log++
 			}
 		}
 
 		if val, hasKey := (*ctx)["bsVersion"]; hasKey {
-			version = val.(uint)
+			var ok bool
+			version, ok = val.(uint)
+
+			if ok == false {
+				return nil, errors.New("Text codec: invalid bitstream version type")
+			}
 		}
 	}
 

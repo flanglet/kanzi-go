@@ -64,7 +64,7 @@ func NewRLTWithCtx(ctx *map[string]any) (*RLT, error) {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 
@@ -322,7 +322,7 @@ func emitRunLength(dst []byte, run int) int {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 

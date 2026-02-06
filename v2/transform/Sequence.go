@@ -39,12 +39,20 @@ func NewByteTransformSequence(transforms []kanzi.ByteTransform) (*ByteTransformS
 		return nil, errors.New("Invalid null transforms parameter")
 	}
 
-	if len(transforms) == 0 || len(transforms) > 8 {
+	cleaned := make([]kanzi.ByteTransform, 0, len(transforms))
+
+	for _, t := range transforms {
+		if t != nil {
+			cleaned = append(cleaned, t)
+		}
+	}
+
+	if len(cleaned) == 0 || len(cleaned) > 8 {
 		return nil, errors.New("Only 1 to 8 transforms allowed")
 	}
 
 	this := &ByteTransformSequence{}
-	this.transforms = transforms
+	this.transforms = cleaned
 	this.skipFlags = 0
 	return this, nil
 }
@@ -56,7 +64,7 @@ func NewByteTransformSequence(transforms []kanzi.ByteTransform) (*ByteTransformS
 func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) {
 	this.skipFlags = _TRANSFORM_SKIP_MASK
 
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 
@@ -121,7 +129,7 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 // Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 

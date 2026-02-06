@@ -1211,9 +1211,9 @@ func (this *Reader) validateHeaderless() error {
 		}
 
 		if checksum != 0 {
-			if c == 32 {
+			if checksum == 32 {
 				this.hasher32, err = hash.NewXXHash32(_BITSTREAM_TYPE)
-			} else if c == 64 {
+			} else if checksum == 64 {
 				this.hasher64, err = hash.NewXXHash64(_BITSTREAM_TYPE)
 			} else {
 				err = &IOError{msg: "The lock checksum size must be 32 or 64 bits", code: kanzi.ERR_INVALID_PARAM}
@@ -1443,14 +1443,27 @@ func (this *Reader) readHeader() (err error) {
 	if len(this.listeners) > 0 {
 		info := &kanzi.HeaderInfo{}
 		info.BsVersion = int(bsVersion)
-		info.InputName = this.ctx["inputName"].(string)
+		info.InputName = ""
+
+		if v, hasKey := this.ctx["inputName"]; hasKey == true {
+			if name, ok := v.(string); ok == true {
+				info.InputName = name
+			}
+		}
+
 		info.ChecksumSize = int(ckSize * 32)
 		info.BlockSize = this.blockSize
 		w1, _ := entropy.GetName(this.entropyType)
 		info.EntropyType = w1
 		w2, _ := transform.GetName(this.transformType)
 		info.TransformType = w2
-		info.FileSize = this.ctx["fileSize"].(int64)
+		info.FileSize = int64(-1)
+
+		if v, hasKey := this.ctx["fileSize"]; hasKey == true {
+			if fileSize, ok := v.(int64); ok == true {
+				info.FileSize = fileSize
+			}
+		}
 
 		if szMask != 0 {
 			info.OriginalSize = this.outputSize

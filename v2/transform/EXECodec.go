@@ -89,7 +89,12 @@ func NewEXECodecWithCtx(ctx *map[string]any) (*EXECodec, error) {
 
 	if ctx != nil {
 		if val, containsKey := (*ctx)["bsVersion"]; containsKey {
-			bsVersion = val.(uint)
+			var ok bool
+			bsVersion, ok = val.(uint)
+
+			if ok == false {
+				return nil, errors.New("Exe codec: invalid bitstream version type")
+			}
 		}
 	}
 
@@ -102,7 +107,7 @@ func NewEXECodecWithCtx(ctx *map[string]any) (*EXECodec, error) {
 // written and possibly an error. If the source data does not represent
 // X86 code, an error is returned.
 func (this *EXECodec) Forward(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 
@@ -267,7 +272,7 @@ func (this *EXECodec) forwardX86(src, dst []byte, codeStart, codeEnd int) (uint,
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *EXECodec) Inverse(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 

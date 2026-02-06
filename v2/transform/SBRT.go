@@ -82,8 +82,15 @@ func NewSBRT(mode int) (*SBRT, error) {
 func NewSBRTWithCtx(ctx *map[string]any) (*SBRT, error) {
 	mode := SBRT_MODE_MTF
 
-	if _, containsKey := (*ctx)["sbrt"]; containsKey {
-		mode = (*ctx)["sbrt"].(int)
+	if ctx != nil {
+		if val, containsKey := (*ctx)["sbrt"]; containsKey {
+			var ok bool
+			mode, ok = val.(int)
+
+			if ok == false {
+				return nil, errors.New("SBRT forward transform failed: invalid mode type")
+			}
+		}
 	}
 
 	if mode != SBRT_MODE_MTF && mode != SBRT_MODE_RANK && mode != SBRT_MODE_TIMESTAMP {
@@ -118,7 +125,7 @@ func NewSBRTWithCtx(ctx *map[string]any) (*SBRT, error) {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *SBRT) Forward(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 
@@ -171,7 +178,7 @@ func (this *SBRT) Forward(src, dst []byte) (uint, uint, error) {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *SBRT) Inverse(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 

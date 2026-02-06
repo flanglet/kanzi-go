@@ -550,7 +550,12 @@ func NewANSRangeDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]any, arg
 
 	if ctx != nil {
 		if val, containsKey := (*ctx)["bsVersion"]; containsKey {
-			bsVersion = val.(uint)
+			var ok bool
+			bsVersion, ok = val.(uint)
+
+			if ok == false {
+				return nil, errors.New("ANS codec: invalid bitstream version type")
+			}
 
 			if bsVersion < 4 {
 				// Prior to bitstream V4, the default chunk size was 32768

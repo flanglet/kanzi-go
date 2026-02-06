@@ -588,7 +588,12 @@ func NewHuffmanDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]any) (*Hu
 
 	if ctx != nil {
 		if val, containsKey := (*ctx)["bsVersion"]; containsKey {
-			bsVersion = val.(uint)
+			var ok bool
+			bsVersion, ok = val.(uint)
+
+			if ok == false {
+				return nil, errors.New("Huffman codec: invalid bitstream version type")
+			}
 		}
 	}
 

@@ -38,7 +38,7 @@ func NewNullTransformWithCtx(ctx *map[string]any) (*NullTransform, error) {
 }
 
 func doCopy(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 

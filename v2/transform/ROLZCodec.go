@@ -126,12 +126,18 @@ func NewROLZCodecWithCtx(ctx *map[string]any) (*ROLZCodec, error) {
 	var err error
 	var d kanzi.ByteTransform
 
-	if val, containsKey := (*ctx)["transform"]; containsKey {
-		transform := val.(string)
+	if ctx != nil {
+		if val, containsKey := (*ctx)["transform"]; containsKey {
+			transform, ok := val.(string)
 
-		if strings.Contains(transform, "ROLZX") {
-			d, err = newROLZCodec2WithCtx(_ROLZ_LOG_POS_CHECKS2, ctx)
-			this.delegate = d
+			if ok == false {
+				return nil, errors.New("ROLZ codec: invalid transform type")
+			}
+
+			if strings.Contains(transform, "ROLZX") {
+				d, err = newROLZCodec2WithCtx(_ROLZ_LOG_POS_CHECKS2, ctx)
+				this.delegate = d
+			}
 		}
 	}
 
@@ -147,7 +153,7 @@ func NewROLZCodecWithCtx(ctx *map[string]any) (*ROLZCodec, error) {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *ROLZCodec) Forward(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 
@@ -170,7 +176,7 @@ func (this *ROLZCodec) Forward(src, dst []byte) (uint, uint, error) {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *ROLZCodec) Inverse(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 

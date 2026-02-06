@@ -75,12 +75,18 @@ func NewLZCodecWithCtx(ctx *map[string]any) (*LZCodec, error) {
 	var err error
 	var d kanzi.ByteTransform
 
-	if val, containsKey := (*ctx)["lz"]; containsKey {
-		lzType := val.(uint64)
+	if ctx != nil {
+		if val, containsKey := (*ctx)["lz"]; containsKey {
+			lzType, ok := val.(uint64)
 
-		if lzType == LZP_TYPE {
-			d, err = NewLZPCodecWithCtx(ctx)
-			this.delegate = d
+			if ok == false {
+				return nil, errors.New("LZ codec: invalid lz type")
+			}
+
+			if lzType == LZP_TYPE {
+				d, err = NewLZPCodecWithCtx(ctx)
+				this.delegate = d
+			}
 		}
 	}
 
@@ -96,7 +102,7 @@ func NewLZCodecWithCtx(ctx *map[string]any) (*LZCodec, error) {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *LZCodec) Forward(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 
@@ -111,7 +117,7 @@ func (this *LZCodec) Forward(src, dst []byte) (uint, uint, error) {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *LZCodec) Inverse(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 
@@ -161,12 +167,23 @@ func NewLZXCodecWithCtx(ctx *map[string]any) (*LZXCodec, error) {
 
 	if ctx != nil {
 		if val, containsKey := (*ctx)["lz"]; containsKey {
-			lzType := val.(uint64)
+			lzType, ok := val.(uint64)
+
+			if ok == false {
+				return nil, errors.New("LZX codec: invalid lz type")
+			}
+
 			this.extra = lzType == LZX_TYPE
 		}
 
 		if val, containsKey := (*ctx)["bsVersion"]; containsKey {
-			this.bsVersion = val.(uint)
+			bsVersion, ok := val.(uint)
+
+			if ok == false {
+				return nil, errors.New("LZX codec: invalid bitstream version type")
+			}
+
+			this.bsVersion = bsVersion
 		}
 	}
 
@@ -230,7 +247,7 @@ func (this *LZXCodec) hash(p []byte) uint32 {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 
@@ -606,7 +623,7 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 }
 
 func (this *LZXCodec) inverseV6(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 
@@ -765,7 +782,7 @@ func (this *LZXCodec) inverseV6(src, dst []byte) (uint, uint, error) {
 }
 
 func (this *LZXCodec) inverseV4(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 
@@ -950,7 +967,12 @@ func NewLZPCodecWithCtx(ctx *map[string]any) (*LZPCodec, error) {
 
 	if ctx != nil {
 		if val, containsKey := (*ctx)["bsVersion"]; containsKey {
-			bsVersion = val.(uint)
+			var ok bool
+			bsVersion, ok = val.(uint)
+
+			if ok == false {
+				return nil, errors.New("LZP codec: invalid bitstream version type")
+			}
 		}
 	}
 
@@ -962,7 +984,7 @@ func NewLZPCodecWithCtx(ctx *map[string]any) (*LZPCodec, error) {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 
@@ -1071,7 +1093,7 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *LZPCodec) Inverse(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 

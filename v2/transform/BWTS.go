@@ -56,7 +56,7 @@ func NewBWTSWithCtx(ctx *map[string]any) (*BWTS, error) {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *BWTS) Forward(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 
@@ -209,7 +209,7 @@ func (this *BWTS) moveLyndonWordHead(sa, isa []int32, data []byte, count, start,
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *BWTS) Inverse(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 

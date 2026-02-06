@@ -16,6 +16,7 @@ limitations under the License.
 package entropy
 
 import (
+	"fmt"
 	internal "github.com/flanglet/kanzi-go/v2/internal"
 	"math/bits"
 )
@@ -226,7 +227,12 @@ func NewTPAQPredictor(ctx *map[string]any) (*TPAQPredictor, error) {
 		// If extra mode, add more memory for states table, hash table
 		// and add second SSE
 		if val, containsKey := (*ctx)["entropy"]; containsKey {
-			codec := val.(string)
+			codec, ok := val.(string)
+
+			if ok == false {
+				return nil, fmt.Errorf("TPAQ predictor: invalid entropy parameter type")
+			}
+
 			this.extra = codec == "TPAQX"
 		}
 
@@ -239,7 +245,12 @@ func NewTPAQPredictor(ctx *map[string]any) (*TPAQPredictor, error) {
 		rbsz := uint(32768)
 
 		if val, containsKey := (*ctx)["blockSize"]; containsKey {
-			rbsz = val.(uint)
+			var ok bool
+			rbsz, ok = val.(uint)
+
+			if ok == false {
+				return nil, fmt.Errorf("TPAQ predictor: invalid blockSize parameter type")
+			}
 		}
 
 		switch s := rbsz; {
@@ -261,7 +272,12 @@ func NewTPAQPredictor(ctx *map[string]any) (*TPAQPredictor, error) {
 		// Too many mixers hurts compression for small blocks.
 		// Too few mixers hurts compression for big blocks.
 		if val, containsKey := (*ctx)["size"]; containsKey {
-			absz = val.(uint)
+			var ok bool
+			absz, ok = val.(uint)
+
+			if ok == false {
+				return nil, fmt.Errorf("TPAQ predictor: invalid size parameter type")
+			}
 		}
 
 		switch s := absz; {
@@ -289,7 +305,12 @@ func NewTPAQPredictor(ctx *map[string]any) (*TPAQPredictor, error) {
 		hashSize = min(hashSize, mxsz)
 
 		if val, containsKey := (*ctx)["bsVersion"]; containsKey {
-			bsVersion = val.(uint)
+			var ok bool
+			bsVersion, ok = val.(uint)
+
+			if ok == false {
+				return nil, fmt.Errorf("TPAQ predictor: invalid bsVersion parameter type")
+			}
 		}
 	}
 

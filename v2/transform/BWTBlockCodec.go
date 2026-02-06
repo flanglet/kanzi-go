@@ -55,8 +55,16 @@ func NewBWTBlockCodecWithCtx(ctx *map[string]any) (*BWTBlockCodec, error) {
 	this := &BWTBlockCodec{}
 	this.bsVersion = 6
 
-	if val, containsKey := (*ctx)["bsVersion"]; containsKey {
-		this.bsVersion = val.(uint)
+	if ctx != nil {
+		if val, containsKey := (*ctx)["bsVersion"]; containsKey {
+			bsVersion, ok := val.(uint)
+
+			if ok == false {
+				return nil, errors.New("BWT block codec: invalid bitstream version type")
+			}
+
+			this.bsVersion = bsVersion
+		}
 	}
 
 	var err error
@@ -68,7 +76,7 @@ func NewBWTBlockCodecWithCtx(ctx *map[string]any) (*BWTBlockCodec, error) {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 
@@ -131,7 +139,7 @@ func (this *BWTBlockCodec) Forward(src, dst []byte) (uint, uint, error) {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *BWTBlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 {
+	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
 
