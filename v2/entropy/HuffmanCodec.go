@@ -815,18 +815,35 @@ func (this *HuffmanDecoder) decodeChunkV6(block []byte, count int) (int, error) 
 		return 0, errors.New("Invalid bitstream: incorrect stream size")
 	}
 
-	clear(this.buffer)
-
-	idx0 := 0 * (len(this.buffer) / 4)
-	idx1 := 1 * (len(this.buffer) / 4)
-	idx2 := 2 * (len(this.buffer) / 4)
-	idx3 := 3 * (len(this.buffer) / 4)
+	stride := len(this.buffer) / 4
+	idx0 := 0 * stride
+	idx1 := 1 * stride
+	idx2 := 2 * stride
+	idx3 := 3 * stride
 
 	// Read all compressed data from bitstream
 	this.bitstream.ReadArray(this.buffer[idx0:], uint(szBits0))
 	this.bitstream.ReadArray(this.buffer[idx1:], uint(szBits1))
 	this.bitstream.ReadArray(this.buffer[idx2:], uint(szBits2))
 	this.bitstream.ReadArray(this.buffer[idx3:], uint(szBits3))
+
+	// Ensure deterministic refill words past each stream payload end without
+	// clearing the whole reusable buffer.
+	if sz0 := idx0 + int((szBits0+7)>>3); sz0 < idx0+stride {
+		clear(this.buffer[sz0:min(sz0+8, idx0+stride)])
+	}
+
+	if sz1 := idx1 + int((szBits1+7)>>3); sz1 < idx1+stride {
+		clear(this.buffer[sz1:min(sz1+8, idx1+stride)])
+	}
+
+	if sz2 := idx2 + int((szBits2+7)>>3); sz2 < idx2+stride {
+		clear(this.buffer[sz2:min(sz2+8, idx2+stride)])
+	}
+
+	if sz3 := idx3 + int((szBits3+7)>>3); sz3 < idx3+stride {
+		clear(this.buffer[sz3:min(sz3+8, idx3+stride)])
+	}
 
 	// Bits read from bitstream
 	state0 := uint64(0)

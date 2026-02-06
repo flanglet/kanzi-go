@@ -882,10 +882,15 @@ func (this *ANSRangeDecoder) decodeChunkV2(block []byte) bool {
 		this.buffer = make([]byte, minBufSize)
 	}
 
-	clear(this.buffer)
-
 	// Read compressed data
 	this.bitstream.ReadArray(this.buffer, uint(8*sz))
+
+	// Ensure deterministic renormalization reads past payload end without clearing
+	// the entire reusable buffer.
+	if szBytes := int(sz); szBytes < len(this.buffer) {
+		guardEnd := min(szBytes+64, len(this.buffer))
+		clear(this.buffer[szBytes:guardEnd])
+	}
 
 	n := 0
 	lr := this.logRange
