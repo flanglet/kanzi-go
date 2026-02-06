@@ -71,7 +71,7 @@ func BenchmarkTPAQ(b *testing.B) {
 func getEncoder(name string, obs kanzi.OutputBitStream) kanzi.EntropyEncoder {
 	ctx := make(map[string]any)
 	ctx["entropy"] = name
-	ctx["bsVersion"] = uint(4)
+	ctx["bsVersion"] = uint(6)
 	eType, _ := entropy.GetType(name)
 
 	res, err := entropy.NewEntropyEncoder(obs, ctx, eType)
@@ -86,7 +86,7 @@ func getEncoder(name string, obs kanzi.OutputBitStream) kanzi.EntropyEncoder {
 func getDecoder(name string, ibs kanzi.InputBitStream) kanzi.EntropyDecoder {
 	ctx := make(map[string]any)
 	ctx["entropy"] = name
-	ctx["bsVersion"] = uint(4)
+	ctx["bsVersion"] = uint(6)
 	eType, _ := entropy.GetType(name)
 
 	res, err := entropy.NewEntropyDecoder(ibs, ctx, eType)

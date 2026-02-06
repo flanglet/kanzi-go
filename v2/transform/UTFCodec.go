@@ -360,7 +360,7 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 	var err error
 
-	if srcIdx < srcEnd || dstIdx >= dstEnd-count+srcEnd {
+	if srcIdx < srcEnd || dstIdx > len(dst)-count+srcEnd {
 		err = errors.New("UTF inverse transform failed: invalid data")
 	} else {
 		for i := srcEnd; i < count; i++ {

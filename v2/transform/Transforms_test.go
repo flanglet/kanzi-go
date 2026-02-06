@@ -577,3 +577,106 @@ func TestLZCodecSpecifics(t *testing.T) {
 		})
 	}
 }
+
+func makeUTFInput(size int) []byte {
+	input := make([]byte, size)
+	n := size / 2
+
+	for i := 0; i < n; i++ {
+		input[2*i] = 0xC3
+		input[2*i+1] = 0xA9 // "é"
+	}
+
+	if size&1 != 0 {
+		input[size-1] = 'a'
+	}
+
+	return input
+}
+
+func makeTextInput(size int) []byte {
+	input := make([]byte, size)
+	sample := []byte("The quick brown fox jumps over the lazy dog. This is a text block used for transform round-trip tests.\r\n")
+
+	for i := range input {
+		input[i] = sample[i%len(sample)]
+	}
+
+	return input
+}
+
+func TestUTFCodecMinBlockAndRoundTrip(t *testing.T) {
+	fwd, err := NewUTFCodec()
+
+	if err != nil {
+		t.Fatalf("cannot create UTF codec: %v", err)
+	}
+
+	small := makeUTFInput(_UTF_MIN_BLOCKSIZE - 1)
+	dst := make([]byte, fwd.MaxEncodedLen(len(small)))
+
+	if _, _, err = fwd.Forward(small, dst); err == nil {
+		t.Fatalf("expected UTF forward to fail below min block size (%d)", _UTF_MIN_BLOCKSIZE)
+	}
+
+	input := makeUTFInput(4 * _UTF_MIN_BLOCKSIZE)
+	dst = make([]byte, fwd.MaxEncodedLen(len(input)))
+	reverse := make([]byte, len(input))
+	_, dstIdx, err := fwd.Forward(input, dst)
+
+	if err != nil {
+		t.Fatalf("UTF forward failed for valid input: %v", err)
+	}
+
+	inv, err := NewUTFCodec()
+
+	if err != nil {
+		t.Fatalf("cannot create UTF codec inverse: %v", err)
+	}
+
+	if _, _, err = inv.Inverse(dst[:dstIdx], reverse); err != nil {
+		t.Fatalf("UTF inverse failed: %v", err)
+	}
+
+	if !bytes.Equal(input, reverse) {
+		t.Fatalf("UTF round-trip mismatch")
+	}
+}
+
+func TestTextCodecMinBlockAndRoundTrip(t *testing.T) {
+	fwd, err := NewTextCodec()
+
+	if err != nil {
+		t.Fatalf("cannot create Text codec: %v", err)
+	}
+
+	small := makeTextInput(_TC_MIN_BLOCK_SIZE - 1)
+	dst := make([]byte, fwd.MaxEncodedLen(len(small)))
+
+	if _, _, err = fwd.Forward(small, dst); err == nil {
+		t.Fatalf("expected Text forward to fail below min block size (%d)", _TC_MIN_BLOCK_SIZE)
+	}
+
+	input := makeTextInput(4 * _TC_MIN_BLOCK_SIZE)
+	dst = make([]byte, fwd.MaxEncodedLen(len(input)))
+	reverse := make([]byte, len(input))
+	_, dstIdx, err := fwd.Forward(input, dst)
+
+	if err != nil {
+		t.Fatalf("Text forward failed for valid input: %v", err)
+	}
+
+	inv, err := NewTextCodec()
+
+	if err != nil {
+		t.Fatalf("cannot create Text codec inverse: %v", err)
+	}
+
+	if _, _, err = inv.Inverse(dst[:dstIdx], reverse); err != nil {
+		t.Fatalf("Text inverse failed: %v", err)
+	}
+
+	if !bytes.Equal(input, reverse) {
+		t.Fatalf("Text round-trip mismatch")
+	}
+}

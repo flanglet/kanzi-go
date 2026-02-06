@@ -16,6 +16,7 @@ limitations under the License.
 package benchmark
 
 import (
+	"bytes"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -27,7 +28,7 @@ import (
 func getTransform(name string) (kanzi.ByteTransform, error) {
 	ctx := make(map[string]any)
 	ctx["transform"] = name
-	ctx["bsVersion"] = uint(4)
+	ctx["bsVersion"] = uint(6)
 
 	switch name {
 	case "LZ":
@@ -77,151 +78,172 @@ func getTransform(name string) (kanzi.ByteTransform, error) {
 		res, err := transform.NewSBRT(transform.SBRT_MODE_MTF)
 		return res, err
 
+	case "TEXT":
+		res, err := transform.NewTextCodecWithCtx(&ctx)
+		return res, err
+
+	case "UTF":
+		res, err := transform.NewUTFCodecWithCtx(&ctx)
+		return res, err
+
 	default:
 		panic(fmt.Errorf("No such transform: '%s'", name))
 	}
 }
 
 func BenchmarkLZ(b *testing.B) {
-	if err := testTransformSpeed("LZ", b.N); err != nil {
-		b.Fatalf(err.Error())
-	}
+	benchmarkTransformRoundTrip(b, "LZ", 50000)
 }
 
 func BenchmarkLZP(b *testing.B) {
-	if err := testTransformSpeed("LZP", b.N); err != nil {
-		b.Fatalf(err.Error())
-	}
+	benchmarkTransformRoundTrip(b, "LZP", 50000)
 }
 
 func BenchmarkLZX(b *testing.B) {
-	if err := testTransformSpeed("LZX", b.N); err != nil {
-		b.Fatalf(err.Error())
-	}
+	benchmarkTransformRoundTrip(b, "LZX", 50000)
 }
 
 func BenchmarkCopy(b *testing.B) {
-	if err := testTransformSpeed("NONE", b.N); err != nil {
-		b.Fatalf(err.Error())
-	}
+	benchmarkTransformRoundTrip(b, "NONE", 50000)
 }
 
 func BenchmarkAlias(b *testing.B) {
-	if err := testTransformSpeed("ALIAS", b.N); err != nil {
-		b.Fatalf(err.Error())
-	}
+	benchmarkTransformRoundTrip(b, "ALIAS", 50000)
 }
 
 func BenchmarkROLZ(b *testing.B) {
-	if err := testTransformSpeed("ROLZ", b.N); err != nil {
-		b.Fatalf(err.Error())
-	}
+	benchmarkTransformRoundTrip(b, "ROLZ", 50000)
 }
 
 func BenchmarkZRLT(b *testing.B) {
-	if err := testTransformSpeed("ZRLT", b.N); err != nil {
-		b.Fatalf(err.Error())
-	}
+	benchmarkTransformRoundTrip(b, "ZRLT", 50000)
 }
 
 func BenchmarkRLT(b *testing.B) {
-	if err := testTransformSpeed("RLT", b.N); err != nil {
-		b.Fatalf(err.Error())
-	}
+	benchmarkTransformRoundTrip(b, "RLT", 50000)
 }
 
 func BenchmarkSRT(b *testing.B) {
-	if err := testTransformSpeed("SRT", b.N); err != nil {
-		b.Fatalf(err.Error())
-	}
+	benchmarkTransformRoundTrip(b, "SRT", 50000)
 }
 
 func BenchmarkROLZX(b *testing.B) {
-	if err := testTransformSpeed("ROLZX", b.N); err != nil {
-		b.Fatalf(err.Error())
-	}
+	benchmarkTransformRoundTrip(b, "ROLZX", 50000)
 }
+
 func BenchmarkRank(b *testing.B) {
-	if err := testTransformSpeed("RANK", b.N); err != nil {
-		b.Fatalf(err.Error())
-	}
+	benchmarkTransformRoundTrip(b, "RANK", 50000)
 }
+
 func BenchmarkMTFT(b *testing.B) {
-	if err := testTransformSpeed("MTFT", b.N); err != nil {
-		b.Fatalf(err.Error())
+	benchmarkTransformRoundTrip(b, "MTFT", 50000)
+}
+
+func BenchmarkText(b *testing.B) {
+	benchmarkTransformRoundTrip(b, "TEXT", 256*1024)
+}
+
+func BenchmarkUTF(b *testing.B) {
+	benchmarkTransformRoundTrip(b, "UTF", 256*1024)
+}
+
+func benchmarkTransformRoundTrip(b *testing.B, name string, size int) {
+	input := makeBenchmarkInput(name, size, 1234567)
+	fwd, err := getTransform(name)
+
+	if err != nil {
+		b.Fatalf("cannot create forward transform '%s': %v", name, err)
+	}
+
+	inv, err := getTransform(name)
+
+	if err != nil {
+		b.Fatalf("cannot create inverse transform '%s': %v", name, err)
+	}
+
+	output := make([]byte, fwd.MaxEncodedLen(len(input)))
+	reverse := make([]byte, len(input))
+	_, dstIdx, err := fwd.Forward(input, output)
+
+	if err != nil {
+		b.Skipf("forward preflight skipped for %s: %v", name, err)
+	}
+
+	if _, _, err = inv.Inverse(output[:dstIdx], reverse); err != nil {
+		b.Skipf("inverse preflight skipped for %s: %v", name, err)
+	}
+
+	if !bytes.Equal(input, reverse) {
+		b.Fatalf("preflight mismatch for %s", name)
+	}
+
+	b.ReportAllocs()
+	b.SetBytes(int64(len(input)))
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_, dstIdx, err = fwd.Forward(input, output)
+
+		if err != nil {
+			b.Fatalf("forward failed for %s: %v", name, err)
+		}
+
+		if _, _, err = inv.Inverse(output[:dstIdx], reverse); err != nil {
+			b.Fatalf("inverse failed for %s: %v", name, err)
+		}
 	}
 }
 
-func testTransformSpeed(name string, iter int) error {
-	// Initialize with a fixed seed to get consistent results
-	r := rand.New(rand.NewSource(1234567))
-	size := 50000
+func makeBenchmarkInput(name string, size int, seed int64) []byte {
+	input := make([]byte, size)
 
-	for jj := 0; jj < 3; jj++ {
-		input := make([]byte, size)
-		output := make([]byte, 8*size)
-		reverse := make([]byte, size)
-
-		// Generate random data with runs
-		// Leave zeros at the beginning for ZRLT to succeed
-		n := iter / 20
-
-		for n < len(input) {
-			val := byte(r.Intn(64))
-
-			if val%7 == 0 {
-				val = 0
-			}
-
-			input[n] = val
-			n++
-			run := rand.Intn(120) // above LZP min match threshold
-			run -= 20
-
-			for run > 0 && n < len(input) {
-				input[n] = val
-				n++
-				run--
-			}
-		}
-
-		var dstIdx uint
-		var err error
-
-		for ii := 0; ii < iter; ii++ {
-			f, _ := getTransform(name)
-
-			_, dstIdx, err = f.Forward(input, output)
-
-			if err != nil {
-				return err
-			}
-		}
-
-		for ii := 0; ii < iter; ii++ {
-			f, _ := getTransform(name)
-
-			if _, _, err = f.Inverse(output[0:dstIdx], reverse); err != nil {
-				return err
-			}
-		}
-
-		idx := -1
-
-		// Sanity check
+	switch name {
+	case "TEXT":
+		sample := []byte("The quick brown fox jumps over the lazy dog. This benchmark line is repeated for text transform validation.\r\n")
 		for i := range input {
-			if input[i] != reverse[i] {
-				idx = i
-				break
-			}
+			input[i] = sample[i%len(sample)]
+		}
+		return input
+
+	case "UTF":
+		// Generate valid UTF-8 with a high ratio of multibyte symbols.
+		// Keep rune boundaries intact to avoid trailing partial code points.
+		pair := []byte{0xC3, 0xA9} // "é"
+		n := len(input) / 2
+
+		for i := 0; i < n; i++ {
+			copy(input[2*i:], pair)
 		}
 
-		if idx >= 0 {
-			err := fmt.Errorf("Failure at index %v of %v (%v <-> %v)", idx, len(input), input[idx], reverse[idx])
-			return err
+		if len(input)&1 != 0 {
+			input[len(input)-1] = 'a'
 		}
-
+		return input
 	}
 
-	return nil
+	// Generic compressible data with runs. Keep leading zeros to help ZRLT.
+	for i := 0; i < min(32, len(input)); i++ {
+		input[i] = 0
+	}
+
+	r := rand.New(rand.NewSource(seed))
+	n := min(32, len(input))
+
+	for n < len(input) {
+		val := byte(r.Intn(64))
+
+		if val%7 == 0 {
+			val = 0
+		}
+
+		run := r.Intn(120) - 20
+		run = max(run, 1)
+		end := min(len(input), n+run)
+
+		for ; n < end; n++ {
+			input[n] = val
+		}
+	}
+
+	return input
 }

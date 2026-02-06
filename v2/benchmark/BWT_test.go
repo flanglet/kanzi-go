@@ -16,8 +16,7 @@ limitations under the License.
 package benchmark
 
 import (
-	"errors"
-	"fmt"
+	"bytes"
 	"math/rand"
 	"testing"
 
@@ -26,68 +25,63 @@ import (
 )
 
 func BenchmarkBWTSmallBlock(b *testing.B) {
-	if err := testBWTSpeed(true, b.N, 256*1024); err != nil {
-		b.Errorf(err.Error())
-	}
+	benchmarkBWTRoundTrip(b, true, 256*1024)
 }
 
 func BenchmarkBWTBigBlock(b *testing.B) {
-	if err := testBWTSpeed(true, b.N, 10*1024*1024); err != nil {
-		b.Errorf(err.Error())
-	}
+	benchmarkBWTRoundTrip(b, true, 10*1024*1024)
 }
 
 func BenchmarkBWTS(b *testing.B) {
-	if err := testBWTSpeed(false, b.N, 256*1024); err != nil {
-		b.Errorf(err.Error())
-	}
+	benchmarkBWTRoundTrip(b, false, 256*1024)
 }
 
-func testBWTSpeed(isBWT bool, iter, size int) error {
+func benchmarkBWTRoundTrip(b *testing.B, isBWT bool, size int) {
 	buf1 := make([]byte, size)
 	buf2 := make([]byte, size)
 	buf3 := make([]byte, size)
+	r := rand.New(rand.NewSource(1234567))
 
-	for jj := 0; jj < 3; jj++ {
-		// Initialize with a fixed seed to get consistent results
-		r := rand.New(rand.NewSource(int64(jj * 1234567)))
-		var bwt kanzi.ByteTransform
-
-		for i := 0; i < iter; i++ {
-			if isBWT {
-				bwt, _ = transform.NewBWT()
-			} else {
-				bwt, _ = transform.NewBWTS()
-			}
-
-			for i := range buf1 {
-				buf1[i] = byte(r.Intn(255) + 1)
-			}
-
-			_, _, err1 := bwt.Forward(buf1, buf2)
-
-			if err1 != nil {
-				fmt.Printf("Error: %v\n", err1)
-				return err1
-			}
-
-			_, _, err2 := bwt.Inverse(buf2, buf3)
-
-			if err2 != nil {
-				fmt.Printf("Error: %v\n", err2)
-				return err2
-			}
-
-			// Sanity check
-			for i := range buf1 {
-				if buf1[i] != buf3[i] {
-					msg := fmt.Sprintf("Error at index %v: %v<->%v\n", i, buf1[i], buf3[i])
-					return errors.New(msg)
-				}
-			}
-		}
-
+	for i := range buf1 {
+		buf1[i] = byte(r.Intn(255) + 1)
 	}
 
-	return error(nil)
+	var tf kanzi.ByteTransform
+	var err error
+
+	if isBWT {
+		tf, err = transform.NewBWT()
+	} else {
+		tf, err = transform.NewBWTS()
+	}
+
+	if err != nil {
+		b.Fatalf("cannot create transform: %v", err)
+	}
+
+	if _, _, err = tf.Forward(buf1, buf2); err != nil {
+		b.Fatalf("forward preflight failed: %v", err)
+	}
+
+	if _, _, err = tf.Inverse(buf2, buf3); err != nil {
+		b.Fatalf("inverse preflight failed: %v", err)
+	}
+
+	if !bytes.Equal(buf1, buf3) {
+		b.Fatalf("preflight mismatch")
+	}
+
+	b.ReportAllocs()
+	b.SetBytes(int64(len(buf1)))
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		if _, _, err = tf.Forward(buf1, buf2); err != nil {
+			b.Fatalf("forward failed: %v", err)
+		}
+
+		if _, _, err = tf.Inverse(buf2, buf3); err != nil {
+			b.Fatalf("inverse failed: %v", err)
+		}
+	}
 }
