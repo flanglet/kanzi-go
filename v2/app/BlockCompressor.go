@@ -293,7 +293,7 @@ func (this *BlockCompressor) AddListener(bl kanzi.Listener) bool {
 func (this *BlockCompressor) RemoveListener(bl kanzi.Listener) bool {
 	for i, e := range this.listeners {
 		if e == bl {
-			this.listeners = append(this.listeners[:i-1], this.listeners[i+1:]...)
+			this.listeners = append(this.listeners[:i], this.listeners[i+1:]...)
 			return true
 		}
 	}

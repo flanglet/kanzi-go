@@ -101,17 +101,14 @@ func main() {
 	os.Exit(status)
 }
 
-func compress(argsMap map[string]any) int {
+func compress(argsMap map[string]any) (code int) {
 	runtime.GOMAXPROCS(runtime.NumCPU())
-	code := 0
 
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("An unexpected error occurred during compression: %v\n", r.(error))
+			fmt.Printf("An unexpected error occurred during compression: %v\n", r)
 			code = kanzi.ERR_UNKNOWN
 		}
-
-		os.Exit(code)
 	}()
 
 	bc, err := NewBlockCompressor(argsMap)
@@ -143,17 +140,14 @@ func compress(argsMap map[string]any) int {
 	return code
 }
 
-func decompress(argsMap map[string]any) int {
+func decompress(argsMap map[string]any) (code int) {
 	runtime.GOMAXPROCS(runtime.NumCPU())
-	code := 0
 
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("An unexpected error occurred during decompression: %v\n", r.(error))
+			fmt.Printf("An unexpected error occurred during decompression: %v\n", r)
 			code = kanzi.ERR_UNKNOWN
 		}
-
-		os.Exit(code)
 	}()
 
 	bd, err := NewBlockDecompressor(argsMap)
@@ -354,7 +348,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			}
 
 			if mode == "y" {
-				log.Println(fmt.Sprintf(warningInvalidMod, _CMD_LINE_ARGS[ctx]), verbose > 0)
+				log.Println(fmt.Sprintf(warningInvalidMod, arg), verbose > 0)
 				ctx = -1
 				continue
 			}
@@ -370,7 +364,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			}
 
 			if mode != "c" {
-				log.Println(fmt.Sprintf(warningCompressOpt, _CMD_LINE_ARGS[ctx]), verbose > 0)
+				log.Println(fmt.Sprintf(warningCompressOpt, arg), verbose > 0)
 				ctx = -1
 				continue
 			}
@@ -405,7 +399,7 @@ func processCommandLine(args []string, argsMap map[string]any) int {
 			}
 
 			if mode == "y" {
-				log.Println(fmt.Sprintf(warningInvalidMod, _CMD_LINE_ARGS[ctx]), verbose > 0)
+				log.Println(fmt.Sprintf(warningInvalidMod, arg), verbose > 0)
 				ctx = -1
 				continue
 			}

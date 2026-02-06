@@ -74,6 +74,86 @@ func (this IOError) ErrorCode() int {
 	return this.code
 }
 
+func getCtxString(ctx map[string]any, key string, required bool, code int) (string, error) {
+	value, hasKey := ctx[key]
+
+	if hasKey == false {
+		if required == true {
+			return "", &IOError{msg: fmt.Sprintf("Missing %s parameter", key), code: code}
+		}
+
+		return "", nil
+	}
+
+	res, ok := value.(string)
+
+	if ok == false {
+		return "", &IOError{msg: fmt.Sprintf("Invalid %s parameter type: expected string", key), code: code}
+	}
+
+	return res, nil
+}
+
+func getCtxUint(ctx map[string]any, key string, required bool, defaultValue uint, code int) (uint, error) {
+	value, hasKey := ctx[key]
+
+	if hasKey == false {
+		if required == true {
+			return 0, &IOError{msg: fmt.Sprintf("Missing %s parameter", key), code: code}
+		}
+
+		return defaultValue, nil
+	}
+
+	res, ok := value.(uint)
+
+	if ok == false {
+		return 0, &IOError{msg: fmt.Sprintf("Invalid %s parameter type: expected uint", key), code: code}
+	}
+
+	return res, nil
+}
+
+func getCtxBool(ctx map[string]any, key string, required bool, defaultValue bool, code int) (bool, error) {
+	value, hasKey := ctx[key]
+
+	if hasKey == false {
+		if required == true {
+			return false, &IOError{msg: fmt.Sprintf("Missing %s parameter", key), code: code}
+		}
+
+		return defaultValue, nil
+	}
+
+	res, ok := value.(bool)
+
+	if ok == false {
+		return false, &IOError{msg: fmt.Sprintf("Invalid %s parameter type: expected bool", key), code: code}
+	}
+
+	return res, nil
+}
+
+func getCtxInt64(ctx map[string]any, key string, required bool, defaultValue int64, code int) (int64, error) {
+	value, hasKey := ctx[key]
+
+	if hasKey == false {
+		if required == true {
+			return 0, &IOError{msg: fmt.Sprintf("Missing %s parameter", key), code: code}
+		}
+
+		return defaultValue, nil
+	}
+
+	res, ok := value.(int64)
+
+	if ok == false {
+		return 0, &IOError{msg: fmt.Sprintf("Invalid %s parameter type: expected int64", key), code: code}
+	}
+
+	return res, nil
+}
+
 type blockBuffer struct {
 	// Enclose a slice in a struct to share it between stream and tasks
 	// and reduce memory allocation.
@@ -174,16 +254,34 @@ func createWriterWithCtx(obs kanzi.OutputBitStream, ctx map[string]any) (*Writer
 		return nil, &IOError{msg: "Invalid null context parameter", code: kanzi.ERR_INVALID_PARAM}
 	}
 
-	entropyCodec := ctx["entropy"].(string)
-	t := ctx["transform"].(string)
-	tasks := ctx["jobs"].(uint)
+	entropyCodec, err := getCtxString(ctx, "entropy", true, kanzi.ERR_MISSING_PARAM)
+
+	if err != nil {
+		return nil, err
+	}
+
+	t, err := getCtxString(ctx, "transform", true, kanzi.ERR_MISSING_PARAM)
+
+	if err != nil {
+		return nil, err
+	}
+
+	tasks, err := getCtxUint(ctx, "jobs", true, 0, kanzi.ERR_MISSING_PARAM)
+
+	if err != nil {
+		return nil, err
+	}
 
 	if tasks == 0 || tasks > _MAX_CONCURRENCY {
 		errMsg := fmt.Sprintf("The number of jobs must be in [1..%d], got %d", _MAX_CONCURRENCY, tasks)
 		return nil, &IOError{msg: errMsg, code: kanzi.ERR_INVALID_PARAM}
 	}
 
-	bSize := ctx["blockSize"].(uint)
+	bSize, err := getCtxUint(ctx, "blockSize", true, 0, kanzi.ERR_MISSING_PARAM)
+
+	if err != nil {
+		return nil, err
+	}
 
 	if bSize > _MAX_BITSTREAM_BLOCK_SIZE {
 		errMsg := fmt.Sprintf("The block size must be at most %d MB", _MAX_BITSTREAM_BLOCK_SIZE>>20)
@@ -205,8 +303,6 @@ func createWriterWithCtx(obs kanzi.OutputBitStream, ctx map[string]any) (*Writer
 
 	// Check entropy type validity (panic on error)
 	var eType uint32
-	var err error
-
 	if eType, err = entropy.GetType(entropyCodec); err != nil {
 		return nil, &IOError{msg: err.Error(), code: kanzi.ERR_INVALID_PARAM}
 	}
@@ -225,14 +321,23 @@ func createWriterWithCtx(obs kanzi.OutputBitStream, ctx map[string]any) (*Writer
 	nbBlocks := 0
 
 	// If input size has been provided, calculate the number of blocks
-	if val, hasKey := ctx["fileSize"]; hasKey {
-		this.inputSize = val.(int64)
+	if _, hasKey := ctx["fileSize"]; hasKey {
+		if this.inputSize, err = getCtxInt64(ctx, "fileSize", false, 0, kanzi.ERR_INVALID_PARAM); err != nil {
+			return nil, err
+		}
+
 		nbBlocks = int((this.inputSize + int64(bSize-1)) / int64(bSize))
 	}
 
 	this.nbInputBlocks = min(nbBlocks, _MAX_CONCURRENCY-1)
 
-	if checksum := ctx["checksum"].(uint); checksum != 0 {
+	checksum, err := getCtxUint(ctx, "checksum", false, 0, kanzi.ERR_INVALID_PARAM)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if checksum != 0 {
 		var err error
 
 		if checksum == 32 {
@@ -248,10 +353,20 @@ func createWriterWithCtx(obs kanzi.OutputBitStream, ctx map[string]any) (*Writer
 		}
 	}
 
-	if hdl, hasKey := ctx["headerless"]; hasKey == true {
-		this.headless = hdl.(bool)
-	} else {
-		this.headless = false
+	if this.headless, err = getCtxBool(ctx, "headerless", false, false, kanzi.ERR_INVALID_PARAM); err != nil {
+		return nil, err
+	}
+
+	if _, hasKey := ctx["skipBlocks"]; hasKey {
+		if _, err = getCtxBool(ctx, "skipBlocks", false, false, kanzi.ERR_INVALID_PARAM); err != nil {
+			return nil, err
+		}
+	}
+
+	if _, hasKey := ctx["verbosity"]; hasKey {
+		if _, err = getCtxUint(ctx, "verbosity", false, 0, kanzi.ERR_INVALID_PARAM); err != nil {
+			return nil, err
+		}
 	}
 
 	ctx["bsVersion"] = uint(_BITSTREAM_FORMAT_VERSION)
@@ -954,7 +1069,11 @@ func createReaderWithCtx(ibs kanzi.InputBitStream, ctx map[string]any) (*Reader,
 		return nil, &IOError{msg: "Invalid null context parameter", code: kanzi.ERR_CREATE_DECOMPRESSOR}
 	}
 
-	tasks := ctx["jobs"].(uint)
+	tasks, err := getCtxUint(ctx, "jobs", true, 0, kanzi.ERR_MISSING_PARAM)
+
+	if err != nil {
+		return nil, err
+	}
 
 	if tasks == 0 || tasks > _MAX_CONCURRENCY {
 		errMsg := fmt.Sprintf("The number of jobs must be in [1..%d], got %d", _MAX_CONCURRENCY, tasks)
@@ -984,9 +1103,29 @@ func createReaderWithCtx(ibs kanzi.InputBitStream, ctx map[string]any) (*Reader,
 	this.transformType = transform.NONE_TYPE
 	this.headless = false
 
-	if hdl, hasKey := ctx["headerless"]; hasKey == true {
-		this.headless = hdl.(bool)
+	if this.headless, err = getCtxBool(ctx, "headerless", false, false, kanzi.ERR_INVALID_PARAM); err != nil {
+		return nil, err
+	}
 
+	if _, hasKey := ctx["from"]; hasKey {
+		if _, ok := ctx["from"].(int); ok == false {
+			return nil, &IOError{msg: "Invalid from parameter type: expected int", code: kanzi.ERR_INVALID_PARAM}
+		}
+	}
+
+	if _, hasKey := ctx["to"]; hasKey {
+		if _, ok := ctx["to"].(int); ok == false {
+			return nil, &IOError{msg: "Invalid to parameter type: expected int", code: kanzi.ERR_INVALID_PARAM}
+		}
+	}
+
+	if _, hasKey := ctx["verbosity"]; hasKey {
+		if _, err = getCtxUint(ctx, "verbosity", false, 0, kanzi.ERR_INVALID_PARAM); err != nil {
+			return nil, err
+		}
+	}
+
+	if this.headless == true {
 		// Validate required values
 		if err := this.validateHeaderless(); err != nil {
 			return nil, err
@@ -1000,7 +1139,11 @@ func (this *Reader) validateHeaderless() error {
 	var err error
 
 	if bsv, hasKey := this.ctx["bsVersion"]; hasKey {
-		bsVersion := bsv.(uint)
+		bsVersion, ok := bsv.(uint)
+
+		if ok == false {
+			return &IOError{msg: "Invalid bsVersion parameter type: expected uint", code: kanzi.ERR_INVALID_PARAM}
+		}
 
 		if bsVersion > _BITSTREAM_FORMAT_VERSION {
 			errMsg := fmt.Sprintf("Invalid bitstream version, cannot read this version of the stream: %d", bsVersion)
@@ -1011,7 +1154,12 @@ func (this *Reader) validateHeaderless() error {
 	}
 
 	if e, hasKey := this.ctx["entropy"]; hasKey {
-		eName := e.(string)
+		eName, ok := e.(string)
+
+		if ok == false {
+			return &IOError{msg: "Invalid entropy parameter type: expected string", code: kanzi.ERR_INVALID_PARAM}
+		}
+
 		this.entropyType, err = entropy.GetType(eName)
 
 		if err != nil {
@@ -1022,7 +1170,12 @@ func (this *Reader) validateHeaderless() error {
 	}
 
 	if t, hasKey := this.ctx["transform"]; hasKey {
-		tName := t.(string)
+		tName, ok := t.(string)
+
+		if ok == false {
+			return &IOError{msg: "Invalid transform parameter type: expected string", code: kanzi.ERR_INVALID_PARAM}
+		}
+
 		this.transformType, err = transform.GetType(tName)
 
 		if err != nil {
@@ -1033,7 +1186,11 @@ func (this *Reader) validateHeaderless() error {
 	}
 
 	if b, hasKey := this.ctx["blockSize"]; hasKey {
-		blk := b.(uint)
+		blk, ok := b.(uint)
+
+		if ok == false {
+			return &IOError{msg: "Invalid blockSize parameter type: expected uint", code: kanzi.ERR_INVALID_PARAM}
+		}
 
 		if blk < _MIN_BITSTREAM_BLOCK_SIZE || blk > _MAX_BITSTREAM_BLOCK_SIZE {
 			errMsg := fmt.Sprintf("Invalid block size: %d", blk)
@@ -1047,7 +1204,13 @@ func (this *Reader) validateHeaderless() error {
 	}
 
 	if c, hasKey := this.ctx["checksum"]; hasKey {
-		if c.(uint) != 0 {
+		checksum, ok := c.(uint)
+
+		if ok == false {
+			return &IOError{msg: "Invalid checksum parameter type: expected uint", code: kanzi.ERR_INVALID_PARAM}
+		}
+
+		if checksum != 0 {
 			if c == 32 {
 				this.hasher32, err = hash.NewXXHash32(_BITSTREAM_TYPE)
 			} else if c == 64 {
@@ -1063,7 +1226,13 @@ func (this *Reader) validateHeaderless() error {
 	}
 
 	if s, hasKey := this.ctx["outputSize"]; hasKey {
-		this.outputSize = s.(int64)
+		outputSize, ok := s.(int64)
+
+		if ok == false {
+			return &IOError{msg: "Invalid outputSize parameter type: expected int64", code: kanzi.ERR_INVALID_PARAM}
+		}
+
+		this.outputSize = outputSize
 
 		if this.outputSize < 0 || this.outputSize >= (1<<48) {
 			this.outputSize = 0 // 'not provided'
