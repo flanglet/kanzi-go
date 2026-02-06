@@ -65,6 +65,7 @@ type TextCodec struct {
 type textCodec1 struct {
 	dictMap        []*dictEntry
 	dictList       []dictEntry
+	stats1         [256][256]int
 	staticDictSize int
 	dictSize       int
 	logHashSize    uint
@@ -76,6 +77,7 @@ type textCodec1 struct {
 type textCodec2 struct {
 	dictMap        []*dictEntry
 	dictList       []dictEntry
+	stats1         [256][256]int
 	staticDictSize int
 	dictSize       int
 	logHashSize    uint
@@ -182,14 +184,14 @@ var (
 
 // Analyze the block and return an 8-bit status (see MASK flags constants)
 // The goal is to detect text data amenable to pre-processing.
-func computeTextStats(block []byte, freqs0 []int, strict bool) byte {
+func computeTextStats(block []byte, freqs0 []int, freqs1 *[256][256]int, strict bool) byte {
 	if strict == false && internal.GetMagicType(block) != internal.NO_MAGIC {
 		// This is going to fail if the block is not the first of the file.
 		// But this is a cheap test, good enough for fast mode.
 		return _TC_MASK_NOT_TEXT
 	}
 
-	freqs1 := make([][256]int, 256)
+	clear((*freqs1)[:])
 	count := len(block)
 	end4 := count & -4
 	prv := byte(0)
@@ -204,17 +206,17 @@ func computeTextStats(block []byte, freqs0 []int, strict bool) byte {
 		freqs0[cur1]++
 		freqs0[cur2]++
 		freqs0[cur3]++
-		freqs1[prv][cur0]++
-		freqs1[cur0][cur1]++
-		freqs1[cur1][cur2]++
-		freqs1[cur2][cur3]++
+		(*freqs1)[prv][cur0]++
+		(*freqs1)[cur0][cur1]++
+		(*freqs1)[cur1][cur2]++
+		(*freqs1)[cur2][cur3]++
 		prv = cur3
 	}
 
 	for i := end4; i < count; i++ {
 		cur := block[i]
 		freqs0[cur]++
-		freqs1[prv][cur]++
+		(*freqs1)[prv][cur]++
 		prv = cur
 	}
 
@@ -248,7 +250,7 @@ func computeTextStats(block []byte, freqs0 []int, strict bool) byte {
 	res := byte(0)
 
 	if notText == true {
-		return res | detectTextType(freqs0, freqs1[:], count)
+		return res | detectTextType(freqs0, (*freqs1)[:], count)
 	}
 
 	if nbBinChars <= count-count/10 {
@@ -258,7 +260,7 @@ func computeTextStats(block []byte, freqs0 []int, strict bool) byte {
 		// Getting this flag wrong results in a very small compression speed degradation.
 		f1 := freqs0['<']
 		f2 := freqs0['>']
-		f3 := freqs1['&']['a'] + freqs1['&']['g'] + freqs1['&']['l'] + freqs1['&']['q']
+		f3 := (*freqs1)['&']['a'] + (*freqs1)['&']['g'] + (*freqs1)['&']['l'] + (*freqs1)['&']['q']
 		minFreq := (count - nbBinChars) >> 9
 
 		if minFreq < 2 {
@@ -284,12 +286,12 @@ func computeTextStats(block []byte, freqs0 []int, strict bool) byte {
 		isCRLF := true
 
 		for i := 0; i < 256; i++ {
-			if (i != int(LF)) && (freqs1[CR][i] != 0) {
+			if (i != int(LF)) && ((*freqs1)[CR][i] != 0) {
 				isCRLF = false
 				break
 			}
 
-			if (i != int(CR)) && (freqs1[i][LF] != 0) {
+			if (i != int(CR)) && ((*freqs1)[i][LF] != 0) {
 				isCRLF = false
 				break
 			}
@@ -674,8 +676,7 @@ func (this *textCodec1) reset(count int) {
 
 	// Update map
 	for i := 0; i < this.staticDictSize; i++ {
-		e := this.dictList[i]
-		this.dictMap[e.hash&this.hashMask] = &e
+		this.dictMap[this.dictList[i].hash&this.hashMask] = &this.dictList[i]
 	}
 
 	// Pre-allocate all dictionary entries
@@ -703,7 +704,7 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	freqs0 := [256]int{}
-	mode := computeTextStats(src[0:count], freqs0[:], true)
+	mode := computeTextStats(src[0:count], freqs0[:], &this.stats1, true)
 
 	// Not text ?
 	if mode&_TC_MASK_NOT_TEXT != 0 {
@@ -1208,8 +1209,7 @@ func (this *textCodec2) reset(count int) {
 
 	// Update map
 	for i := 0; i < this.staticDictSize; i++ {
-		e := this.dictList[i]
-		this.dictMap[e.hash&this.hashMask] = &e
+		this.dictMap[this.dictList[i].hash&this.hashMask] = &this.dictList[i]
 	}
 
 	// Pre-allocate all dictionary entries
@@ -1237,7 +1237,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	freqs0 := [256]int{}
-	mode := computeTextStats(src[0:count], freqs0[:], false)
+	mode := computeTextStats(src[0:count], freqs0[:], &this.stats1, false)
 
 	// Not text ?
 	if mode&_TC_MASK_NOT_TEXT != 0 {
