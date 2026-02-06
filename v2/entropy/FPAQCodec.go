@@ -224,6 +224,15 @@ func NewFPAQDecoder(bs kanzi.InputBitStream) (*FPAQDecoder, error) {
 	this.buffer = make([]byte, 0)
 	this.index = 0
 	this.ctx = 1
+
+	for i := 0; i < 4; i++ {
+		this.probs[i] = make([]int, 256)
+
+		for j := range this.probs[0] {
+			this.probs[i][j] = _FPAQ_PSCALE >> 1
+		}
+	}
+
 	this.p = this.probs[0]
 	this.isBsVersion3 = false
 	return this, nil
