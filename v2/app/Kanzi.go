@@ -101,15 +101,32 @@ func main() {
 	os.Exit(status)
 }
 
-func compress(argsMap map[string]any) (code int) {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-
+func runWithRecovery(op string, fn func() int) (code int) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("An unexpected error occurred during compression: %v\n", r)
-			code = kanzi.ERR_UNKNOWN
+			msg := fmt.Sprint(r)
+
+			switch {
+			case strings.Contains(msg, "No more data to read in the bitstream"):
+				if op == "decompression" {
+					code = kanzi.ERR_INVALID_FILE
+				} else {
+					code = kanzi.ERR_PROCESS_BLOCK
+				}
+			default:
+				code = kanzi.ERR_UNKNOWN
+			}
+
+			fmt.Printf("Fatal %s error: %s\n", op, msg)
 		}
 	}()
+
+	return fn()
+}
+
+func compress(argsMap map[string]any) int {
+	return runWithRecovery("compression", func() int {
+		runtime.GOMAXPROCS(runtime.NumCPU())
 
 	bc, err := NewBlockCompressor(argsMap)
 
@@ -136,19 +153,14 @@ func compress(argsMap map[string]any) (code int) {
 		}
 	}
 
-	code, _ = bc.Compress()
+	code, _ := bc.Compress()
 	return code
+	})
 }
 
-func decompress(argsMap map[string]any) (code int) {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Printf("An unexpected error occurred during decompression: %v\n", r)
-			code = kanzi.ERR_UNKNOWN
-		}
-	}()
+func decompress(argsMap map[string]any) int {
+	return runWithRecovery("decompression", func() int {
+		runtime.GOMAXPROCS(runtime.NumCPU())
 
 	bd, err := NewBlockDecompressor(argsMap)
 
@@ -175,8 +187,9 @@ func decompress(argsMap map[string]any) (code int) {
 		}
 	}
 
-	code, _ = bd.Decompress()
+	code, _ := bd.Decompress()
 	return code
+	})
 }
 
 func processCommandLine(args []string, argsMap map[string]any) int {
