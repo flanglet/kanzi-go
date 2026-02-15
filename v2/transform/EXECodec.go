@@ -285,6 +285,10 @@ func (this *EXECodec) Inverse(src, dst []byte) (uint, uint, error) {
 		return this.inverseV2(src, dst)
 	}
 
+	if len(src) < 9 {
+		return 0, 0, errors.New("ExeCodec inverse transform failed: invalid data")
+	}
+
 	mode := src[0]
 
 	if mode == _EXE_X86 {

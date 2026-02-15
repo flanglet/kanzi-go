@@ -575,6 +575,10 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, nil
 	}
 
+	if len(src) < 2 {
+		return 0, 0, fmt.Errorf("Input block is too small - size: %d, required %d", len(src), 2)
+	}
+
 	// ! no min test
 	if len(src) > _TC_MAX_BLOCK_SIZE {
 		return 0, 0, fmt.Errorf("The max text transform block size is %d, got %d", _TC_MAX_BLOCK_SIZE, len(src))

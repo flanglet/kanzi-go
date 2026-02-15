@@ -284,7 +284,7 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	n := (int(src[2]) << 8) + int(src[3])
 
 	// Protect against invalid map size value
-	if (n == 0) || (n >= 32768) || (3*n >= count) {
+	if (n == 0) || (n >= 32768) || (4+3*n > count) {
 		return 0, 0, errors.New("UTF inverse transform: invalid map size")
 	}
 
@@ -337,6 +337,10 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("UTF inverse transform failed: invalid output block size")
 	}
 
+	if srcEnd < srcIdx || srcEnd > count || srcIdx+start > count {
+		return 0, 0, errors.New("UTF inverse transform failed: invalid data")
+	}
+
 	for i := 0; i < start; i++ {
 		dst[dstIdx] = src[srcIdx]
 		srcIdx++
@@ -349,6 +353,10 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		srcIdx++
 
 		if alias >= 128 {
+			if srcIdx >= srcEnd {
+				return 0, 0, errors.New("UTF inverse transform failed: invalid data")
+			}
+
 			alias = (int(src[srcIdx]) << 7) + (alias & 0x7F)
 			srcIdx++
 		}

@@ -328,6 +328,10 @@ func (this *FSDCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, nil
 	}
 
+	if len(src) < 2 {
+		return 0, 0, fmt.Errorf("Input block is too small - size: %d, required %d", len(src), 2)
+	}
+
 	if &src[0] == &dst[0] {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
@@ -345,6 +349,15 @@ func (this *FSDCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	dstEnd := len(dst)
 	srcIdx := 2
 	dstIdx := 0
+	var err error
+
+	if srcEnd-srcIdx < dist {
+		return 0, 0, errors.New("FSD inverse transform failed: invalid data")
+	}
+
+	if dstEnd < dist {
+		return 0, 0, errors.New("FSD inverse transform failed: output buffer too small")
+	}
 
 	// Emit first bytes
 	for i := 0; i < dist; i++ {
@@ -364,12 +377,17 @@ func (this *FSDCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			srcIdx++
+			if srcIdx >= srcEnd {
+				err = errors.New("FSD inverse transform failed: invalid data")
+				break
+			}
+
 			dst[dstIdx] = src[srcIdx] ^ dst[dstIdx-dist]
 			srcIdx++
 			dstIdx++
 		}
 	} else if mode == _FSD_XOR_CODING {
-		for srcIdx < srcEnd {
+		for srcIdx < srcEnd && dstIdx < dstEnd {
 			dst[dstIdx] = src[srcIdx] ^ dst[dstIdx-dist]
 			dstIdx++
 			srcIdx++
@@ -377,8 +395,6 @@ func (this *FSDCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	} else {
 		return 0, 0, errors.New("FSD inverse transform failed: invalid mode")
 	}
-
-	var err error
 
 	if srcIdx != srcEnd {
 		err = errors.New("FSD inverse transform failed: output buffer too small")

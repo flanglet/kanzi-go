@@ -586,37 +586,36 @@ func (this *fileDecompressTask) call() (int, uint64, error) {
 		}
 	}
 
-	if strings.EqualFold(outputName, _DECOMP_NONE) {
-		output, _ = kio.NewNullOutputStream()
-		checkOutputSize = false
-	} else if strings.EqualFold(outputName, _DECOMP_STDOUT) {
-		output = os.Stdout
+		if strings.EqualFold(outputName, _DECOMP_NONE) {
+			output, _ = kio.NewNullOutputStream()
+			checkOutputSize = false
+		} else if strings.EqualFold(outputName, _DECOMP_STDOUT) {
+			output = os.Stdout
 		checkOutputSize = false
 	} else {
 		var err error
 
-		if output, err = os.OpenFile(outputName, os.O_RDWR, 0666); err == nil {
-			// File exists
-			if overwrite == false {
-				fmt.Printf("File '%s' exists and the 'force' command ", outputName)
-				fmt.Println("line option has not been provided")
-				return kanzi.ERR_OVERWRITE_FILE, 0, err
-			}
+			if output, err = os.OpenFile(outputName, os.O_RDWR, 0666); err == nil {
+				// File exists
+				if err = output.Close(); err != nil {
+					fmt.Printf("Cannot create output file '%s': error closing existing file\n", outputName)
+					return kanzi.ERR_OVERWRITE_FILE, 0, err
+				}
+
+				if overwrite == false {
+					fmt.Printf("File '%s' exists and the 'force' command ", outputName)
+					fmt.Println("line option has not been provided")
+					return kanzi.ERR_OVERWRITE_FILE, 0, err
+				}
 
 			path1, _ := filepath.Abs(inputName)
 			path2, _ := filepath.Abs(outputName)
 
-			if path1 == path2 {
-				fmt.Print("The input and output files must be different")
-				return kanzi.ERR_CREATE_FILE, 0, err
+				if path1 == path2 {
+					fmt.Print("The input and output files must be different")
+					return kanzi.ERR_CREATE_FILE, 0, err
+				}
 			}
-
-			// Reopen in truncate mode below.
-			if err = output.Close(); err != nil {
-				fmt.Printf("Cannot create output file '%s': error closing existing file\n", outputName)
-				return kanzi.ERR_OVERWRITE_FILE, 0, err
-			}
-		}
 
 		output, err = os.Create(outputName)
 
@@ -735,15 +734,15 @@ func (this *fileDecompressTask) call() (int, uint64, error) {
 
 	if checkOutputSize == true && hasTo == false && hasFrom == false {
 		if osz, prst := this.ctx["outputSize"]; prst == true {
-			outputSize := osz.(int64)
+				outputSize := osz.(int64)
 
-			if outputSize != 0 && decoded != outputSize {
-				errMsg := fmt.Sprintf("Corrupted bitstream: invalid output size (expected %d, got %d)", decoded, outputSize)
-				fmt.Println(errMsg)
-				return kanzi.ERR_INVALID_FILE, uint64(decoded), errors.New(errMsg)
+				if outputSize != 0 && decoded != outputSize {
+					errMsg := fmt.Sprintf("Corrupted bitstream: invalid output size (expected %d, got %d)", outputSize, decoded)
+					fmt.Println(errMsg)
+					return kanzi.ERR_INVALID_FILE, uint64(decoded), errors.New(errMsg)
+				}
 			}
 		}
-	}
 
 	if verbosity >= 1 {
 		log.Println("", verbosity > 1)

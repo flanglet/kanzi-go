@@ -180,6 +180,10 @@ func (this *ROLZCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, nil
 	}
 
+	if len(src) < 5 {
+		return 0, 0, errors.New("ROLZ codec inverse transform failed: invalid input data (input array too small)")
+	}
+
 	if &src[0] == &dst[0] {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
@@ -1184,6 +1188,10 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
+	if len(src) < 5 {
+		return 0, 0, errors.New("ROLZX codec inverse transform failed: invalid data")
+	}
+
 	dstEnd := int(binary.BigEndian.Uint32(src[0:]))
 
 	if dstEnd <= 0 || dstEnd > len(dst) {
