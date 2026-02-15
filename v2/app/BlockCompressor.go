@@ -351,7 +351,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		files, err = internal.CreateFileList(target, files, isRecursive, this.noLinks, this.noDotFiles)
 
 		if err != nil {
-			if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
+			if ioerr, isIOErr := err.(*kio.IOError); isIOErr == true {
 				fmt.Printf("%s\n", ioerr.Error())
 				return ioerr.ErrorCode(), 0
 			}
@@ -771,7 +771,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64, error) {
 	cos, err := kio.NewWriterWithCtx(output, this.ctx)
 
 	if err != nil {
-		if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
+		if ioerr, isIOErr := err.(*kio.IOError); isIOErr == true {
 			fmt.Printf("%s\n", ioerr.Error())
 			return ioerr.ErrorCode(), 0, 0, err
 		}
@@ -837,7 +837,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64, error) {
 			read += uint64(length)
 
 			if _, err = cos.Write(buffer[0:length]); err != nil {
-				if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
+				if ioerr, isIOErr := err.(*kio.IOError); isIOErr == true {
 					fmt.Printf("%s\n", ioerr.Error())
 					return ioerr.ErrorCode(), read, cos.GetWritten(), err
 				}
@@ -855,7 +855,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64, error) {
 	// Close streams to ensure all data are flushed
 	// Deferred close is fallback for error paths
 	if err := cos.Close(); err != nil {
-		if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
+		if ioerr, isIOErr := err.(*kio.IOError); isIOErr == true {
 			fmt.Printf("%s\n", ioerr.Error())
 			return ioerr.ErrorCode(), read, cos.GetWritten(), err
 		}

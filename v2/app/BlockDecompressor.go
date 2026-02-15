@@ -262,7 +262,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 		files, err = internal.CreateFileList(target, files, isRecursive, this.noLinks, this.noDotFiles)
 
 		if err != nil {
-			if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
+			if ioerr, isIOErr := err.(*kio.IOError); isIOErr == true {
 				fmt.Printf("%s\n", ioerr.Error())
 				return ioerr.ErrorCode(), 0
 			}
@@ -610,21 +610,27 @@ func (this *fileDecompressTask) call() (int, uint64, error) {
 				fmt.Print("The input and output files must be different")
 				return kanzi.ERR_CREATE_FILE, 0, err
 			}
-		} else {
-			output, err = os.Create(outputName)
+
+			// Reopen in truncate mode below.
+			if err = output.Close(); err != nil {
+				fmt.Printf("Cannot create output file '%s': error closing existing file\n", outputName)
+				return kanzi.ERR_OVERWRITE_FILE, 0, err
+			}
+		}
+
+		output, err = os.Create(outputName)
+
+		if err != nil {
+			if overwrite {
+				// Attempt to create the full folder hierarchy to file
+				if err = os.MkdirAll(path.Dir(strings.ReplaceAll(outputName, "\\", "/")), os.ModePerm); err == nil {
+					output, err = os.Create(outputName)
+				}
+			}
 
 			if err != nil {
-				if overwrite {
-					// Attempt to create the full folder hierarchy to file
-					if err = os.MkdirAll(path.Dir(strings.ReplaceAll(outputName, "\\", "/")), os.ModePerm); err == nil {
-						output, err = os.Create(outputName)
-					}
-				}
-
-				if err != nil {
-					fmt.Printf("Cannot open output file '%s' for writing: %v\n", outputName, err)
-					return kanzi.ERR_CREATE_FILE, 0, err
-				}
+				fmt.Printf("Cannot open output file '%s' for writing: %v\n", outputName, err)
+				return kanzi.ERR_CREATE_FILE, 0, err
 			}
 		}
 	}
@@ -657,9 +663,9 @@ func (this *fileDecompressTask) call() (int, uint64, error) {
 	cis, err := kio.NewReaderWithCtx(input, this.ctx)
 
 	if err != nil {
-		if err.(*kio.IOError) != nil {
-			fmt.Printf("%s\n", err.(*kio.IOError).Message())
-			return err.(*kio.IOError).ErrorCode(), 0, err
+		if ioerr, isIOErr := err.(*kio.IOError); isIOErr == true {
+			fmt.Printf("%s\n", ioerr.Message())
+			return ioerr.ErrorCode(), 0, err
 		}
 
 		fmt.Printf("Cannot create compressed stream: %v\n", err)
@@ -712,7 +718,7 @@ func (this *fileDecompressTask) call() (int, uint64, error) {
 	// Close streams to ensure all data are flushed
 	// Deferred close is fallback for error paths
 	if err := cis.Close(); err != nil {
-		if ioerr, isIOErr := err.(kio.IOError); isIOErr == true {
+		if ioerr, isIOErr := err.(*kio.IOError); isIOErr == true {
 			return ioerr.ErrorCode(), uint64(decoded), err
 		}
 
