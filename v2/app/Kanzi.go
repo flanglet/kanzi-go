@@ -42,7 +42,7 @@ const (
 	//_ARG_IDX_FROM      = 10
 	//_ARG_IDX_TO        = 11
 	_ARG_IDX_PROFILE = 14
-	_KANZI_VERSION   = "2.4.0"
+	_KANZI_VERSION   = "2.5.0"
 	_APP_HEADER      = "Kanzi " + _KANZI_VERSION + " (c) Frederic Langlet"
 	_APP_SUB_HEADER  = "Fast lossless data compressor."
 	_APP_USAGE       = "Usage: Kanzi [-c|-d|-y] [flags and files in any order]"
