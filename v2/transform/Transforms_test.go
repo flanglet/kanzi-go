@@ -151,11 +151,9 @@ func generateTransformTestCases(transformName string) []transformTestCase {
 	for i := 3; i < 6; i++ {
 		size := 1 << uint(i+6)
 		input := make([]byte, size)
-		currentRng := defaultRng
+		currentRng := 100
 		if transformName == "ZRLT" {
 			currentRng = 5
-		} else {
-			currentRng = 100
 		}
 		for j := range input {
 			val := byte(rand.Intn(currentRng))

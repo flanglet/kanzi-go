@@ -123,7 +123,7 @@ func CreateFileList(target string, fileList []FileData, isRecursive, ignoreLinks
 			target = target + pathSeparator
 		}
 
-		err = filepath.Walk(target, func(path string, fi os.FileInfo, err error) error {
+		filepath.Walk(target, func(path string, fi os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}

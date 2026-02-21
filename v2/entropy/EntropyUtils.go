@@ -31,33 +31,6 @@ const (
 	_ALPHABET_0       = 1 // Flag for alphabet not with no symbol
 )
 
-type freqSortData struct {
-	freq   *int
-	symbol int
-}
-
-type sortByFreq []*freqSortData
-
-func (this sortByFreq) Len() int {
-	return len(this)
-}
-
-func (this sortByFreq) Less(i, j int) bool {
-	di := this[i]
-	dj := this[j]
-
-	// Decreasing frequency then decreasing symbol
-	if *dj.freq == *di.freq {
-		return dj.symbol < di.symbol
-	}
-
-	return *dj.freq < *di.freq
-}
-
-func (this sortByFreq) Swap(i, j int) {
-	this[i], this[j] = this[j], this[i]
-}
-
 // EncodeAlphabet writes the alphabet to the bitstream and return the number
 // of symbols written or an error.
 // alphabet must be composed of values in [0..255] sorted in increasing order
