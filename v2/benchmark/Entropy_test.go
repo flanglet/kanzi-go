@@ -28,43 +28,43 @@ import (
 
 func BenchmarkExpGolomb(b *testing.B) {
 	if err := testEntropySpeed(b, "EXPGOLOMB"); err != nil {
-		b.Errorf(err.Error())
+		b.Error(err)
 	}
 }
 
 func BenchmarkHuffman(b *testing.B) {
 	if err := testEntropySpeed(b, "HUFFMAN"); err != nil {
-		b.Errorf(err.Error())
+		b.Error(err)
 	}
 }
 
 func BenchmarkANS0(b *testing.B) {
 	if err := testEntropySpeed(b, "ANS0"); err != nil {
-		b.Errorf(err.Error())
+		b.Error(err)
 	}
 }
 
 func BenchmarkANS1(b *testing.B) {
 	if err := testEntropySpeed(b, "ANS1"); err != nil {
-		b.Errorf(err.Error())
+		b.Error(err)
 	}
 }
 
 func BenchmarkFPAQ(b *testing.B) {
 	if err := testEntropySpeed(b, "FPAQ"); err != nil {
-		b.Errorf(err.Error())
+		b.Error(err)
 	}
 }
 
 func BenchmarkCM(b *testing.B) {
 	if err := testEntropySpeed(b, "CM"); err != nil {
-		b.Errorf(err.Error())
+		b.Error(err)
 	}
 }
 
 func BenchmarkTPAQ(b *testing.B) {
 	if err := testEntropySpeed(b, "TPAQ"); err != nil {
-		b.Errorf(err.Error())
+		b.Error(err)
 	}
 }
 
@@ -136,14 +136,14 @@ func testEntropySpeed(b *testing.B, name string) error {
 			// Encode
 			if _, err := ec.Write(values1); err != nil {
 				msg := fmt.Sprintf("An error occurred during encoding: %v\n", err)
-				b.Fatalf(msg)
+				b.Fatal(msg)
 			}
 
 			ec.Dispose()
 
 			if err := obs.Close(); err != nil {
 				msg := fmt.Sprintf("Error during close: %v\n", err)
-				b.Fatalf(msg)
+				b.Fatal(msg)
 			}
 
 			ibs, _ := bitstream.NewDefaultInputBitStream(bs, uint(size))
@@ -152,14 +152,14 @@ func testEntropySpeed(b *testing.B, name string) error {
 			// Decode
 			if _, err := ed.Read(values2); err != nil {
 				msg := fmt.Sprintf("An error occurred during decoding: %v\n", err)
-				b.Fatalf(msg)
+				b.Fatal(msg)
 			}
 
 			ed.Dispose()
 
 			if err := ibs.Close(); err != nil {
 				msg := fmt.Sprintf("Error during close: %v\n", err)
-				b.Fatalf(msg)
+				b.Fatal(msg)
 			}
 		}
 

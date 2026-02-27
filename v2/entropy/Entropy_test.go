@@ -29,7 +29,7 @@ import (
 
 func TestHuffman(t *testing.T) {
 	if err := testEntropyCorrectness("HUFFMAN", testing.Verbose()); err != nil {
-		t.Errorf(err.Error())
+		t.Error(err)
 	}
 }
 
@@ -316,32 +316,32 @@ func TestTPAQCodecSpecificPatterns(t *testing.T) {
 
 func TestANS0(t *testing.T) {
 	if err := testEntropyCorrectness("ANS0", testing.Verbose()); err != nil {
-		t.Errorf(err.Error())
+		t.Error(err)
 	}
 }
 func TestANS1(t *testing.T) {
 	if err := testEntropyCorrectness("ANS1", testing.Verbose()); err != nil {
-		t.Errorf(err.Error())
+		t.Error(err)
 	}
 }
 func TestRange(t *testing.T) {
 	if err := testEntropyCorrectness("RANGE", testing.Verbose()); err != nil {
-		t.Errorf(err.Error())
+		t.Error(err)
 	}
 }
 func TestFPAQ(t *testing.T) {
 	if err := testEntropyCorrectness("FPAQ", testing.Verbose()); err != nil {
-		t.Errorf(err.Error())
+		t.Error(err)
 	}
 }
 func TestCM(t *testing.T) {
 	if err := testEntropyCorrectness("CM", testing.Verbose()); err != nil {
-		t.Errorf(err.Error())
+		t.Error(err)
 	}
 }
 func TestTPAQ(t *testing.T) {
 	if err := testEntropyCorrectness("TPAQ", testing.Verbose()); err != nil {
-		t.Errorf(err.Error())
+		t.Error(err)
 	}
 }
 

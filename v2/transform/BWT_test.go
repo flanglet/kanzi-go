@@ -26,13 +26,13 @@ import (
 
 func TestBWT(b *testing.T) {
 	if err := testCorrectnessBWT(true, testing.Verbose()); err != nil {
-		b.Errorf(err.Error())
+		b.Error(err)
 	}
 }
 
 func TestBWTS(b *testing.T) {
 	if err := testCorrectnessBWT(false, testing.Verbose()); err != nil {
-		b.Errorf(err.Error())
+		b.Error(err)
 	}
 }
 
