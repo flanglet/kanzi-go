@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	_BWT_MAX_HEADER_SIZE = 8 * 4
+	_BWT_MAX_HEADER_SIZE = 1 + 8*4
 )
 
 // Utility class to en/de-code a BWT data block and its associated primary index(es)
