@@ -128,33 +128,33 @@ func compress(argsMap map[string]any) int {
 	return runWithRecovery("compression", func() int {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 
-	bc, err := NewBlockCompressor(argsMap)
+		bc, err := NewBlockCompressor(argsMap)
 
-	if err != nil {
-		fmt.Printf("Failed to create block compressor: %v\n", err)
-		return kanzi.ERR_CREATE_COMPRESSOR
-	}
+		if err != nil {
+			fmt.Printf("Failed to create block compressor: %v\n", err)
+			return kanzi.ERR_CREATE_COMPRESSOR
+		}
 
-	if len(bc.CPUProf()) != 0 {
-		verbose := argsMap["verbosity"].(uint)
-		if f, err := os.Create(bc.CPUProf()); err != nil {
-			msg := fmt.Sprintf("Warning: cpu profile unavailable: %v", err)
-			log.Println(msg, verbose > 0)
-		} else {
-			if err := pprof.StartCPUProfile(f); err != nil {
+		if len(bc.CPUProf()) != 0 {
+			verbose := argsMap["verbosity"].(uint)
+			if f, err := os.Create(bc.CPUProf()); err != nil {
 				msg := fmt.Sprintf("Warning: cpu profile unavailable: %v", err)
 				log.Println(msg, verbose > 0)
+			} else {
+				if err := pprof.StartCPUProfile(f); err != nil {
+					msg := fmt.Sprintf("Warning: cpu profile unavailable: %v", err)
+					log.Println(msg, verbose > 0)
+				}
+
+				defer func() {
+					pprof.StopCPUProfile()
+					f.Close()
+				}()
 			}
-
-			defer func() {
-				pprof.StopCPUProfile()
-				f.Close()
-			}()
 		}
-	}
 
-	code, _ := bc.Compress()
-	return code
+		code, _ := bc.Compress()
+		return code
 	})
 }
 
@@ -162,33 +162,33 @@ func decompress(argsMap map[string]any) int {
 	return runWithRecovery("decompression", func() int {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 
-	bd, err := NewBlockDecompressor(argsMap)
+		bd, err := NewBlockDecompressor(argsMap)
 
-	if err != nil {
-		fmt.Printf("Failed to create block decompressor: %v\n", err)
-		return kanzi.ERR_CREATE_DECOMPRESSOR
-	}
+		if err != nil {
+			fmt.Printf("Failed to create block decompressor: %v\n", err)
+			return kanzi.ERR_CREATE_DECOMPRESSOR
+		}
 
-	if len(bd.CPUProf()) != 0 {
-		verbose := argsMap["verbosity"].(uint)
-		if f, err := os.Create(bd.CPUProf()); err != nil {
-			msg := fmt.Sprintf("Warning: cpu profile unavailable: %v", err)
-			log.Println(msg, verbose > 0)
-		} else {
-			if err := pprof.StartCPUProfile(f); err != nil {
+		if len(bd.CPUProf()) != 0 {
+			verbose := argsMap["verbosity"].(uint)
+			if f, err := os.Create(bd.CPUProf()); err != nil {
 				msg := fmt.Sprintf("Warning: cpu profile unavailable: %v", err)
 				log.Println(msg, verbose > 0)
+			} else {
+				if err := pprof.StartCPUProfile(f); err != nil {
+					msg := fmt.Sprintf("Warning: cpu profile unavailable: %v", err)
+					log.Println(msg, verbose > 0)
+				}
+
+				defer func() {
+					pprof.StopCPUProfile()
+					f.Close()
+				}()
 			}
-
-			defer func() {
-				pprof.StopCPUProfile()
-				f.Close()
-			}()
 		}
-	}
 
-	code, _ := bd.Decompress()
-	return code
+		code, _ := bd.Decompress()
+		return code
 	})
 }
 
