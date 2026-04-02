@@ -175,8 +175,9 @@ func (this *EXECodec) forwardX86(src, dst []byte, codeStart, codeEnd int) (uint,
 	dstEnd := len(dst) - 5
 	dst[0] = _EXE_X86
 	matches = 0
+	boundaryReached := false
 
-	if codeStart > len(src) || codeEnd > len(src) {
+	if codeStart < 0 || codeEnd < codeStart || codeEnd > len(src) {
 		return 0, 0, fmt.Errorf("ExeCodec forward transform skip: Input is not a supported executable format")
 	}
 
@@ -187,6 +188,11 @@ func (this *EXECodec) forwardX86(src, dst []byte, codeStart, codeEnd int) (uint,
 
 	for srcIdx < codeEnd && dstIdx < dstEnd {
 		if src[srcIdx] == _EXE_X86_TWO_BYTE_PREFIX {
+			if srcIdx+1 >= codeEnd {
+				boundaryReached = true
+				break
+			}
+
 			dst[dstIdx] = src[srcIdx]
 			srcIdx++
 			dstIdx++
@@ -203,6 +209,11 @@ func (this *EXECodec) forwardX86(src, dst []byte, codeStart, codeEnd int) (uint,
 				dstIdx++
 				continue
 			}
+
+			if srcIdx+4 >= codeEnd {
+				boundaryReached = true
+				break
+			}
 		} else if (src[srcIdx] & _EXE_X86_MASK_JUMP) != _EXE_X86_INSTRUCTION_JUMP {
 			// Not a relative call
 			if src[srcIdx] == _EXE_X86_ESCAPE {
@@ -214,6 +225,9 @@ func (this *EXECodec) forwardX86(src, dst []byte, codeStart, codeEnd int) (uint,
 			srcIdx++
 			dstIdx++
 			continue
+		} else if srcIdx+4 >= codeEnd {
+			boundaryReached = true
+			break
 		}
 
 		// Current instruction is a jump/call.
@@ -251,7 +265,7 @@ func (this *EXECodec) forwardX86(src, dst []byte, codeStart, codeEnd int) (uint,
 	count := len(src)
 
 	// Cap expansion due to false positives
-	if srcIdx < codeEnd || dstIdx+(count-srcIdx) > dstEnd {
+	if (srcIdx < codeEnd) && (boundaryReached == false) {
 		return uint(srcIdx), uint(dstIdx), errors.New("ExeCodec forward transform skip: Too many false positives")
 	}
 
@@ -435,7 +449,7 @@ func (this *EXECodec) forwardARM(src, dst []byte, codeStart, codeEnd int) (uint,
 	dst[0] = _EXE_ARM64
 	matches = 0
 
-	if codeStart > len(src) || codeEnd > len(src) {
+	if codeStart < 0 || codeEnd < codeStart || codeEnd > len(src) {
 		return 0, 0, fmt.Errorf("ExeCodec forward failed: Input is not a supported executable format")
 	}
 
@@ -703,7 +717,7 @@ func detectExeType(src []byte, codeStart, codeEnd *int) byte {
 	}
 
 	// Ad-hoc thresholds
-	if jumpsX86 >= (count/200) && histo[255] >= (count/50) {
+	if jumpsX86 >= (count / 200) {
 		return _EXE_X86
 	}
 
