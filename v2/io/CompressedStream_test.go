@@ -23,12 +23,12 @@ import (
 	"github.com/flanglet/kanzi-go/v2/internal"
 	"math/rand"
 	"os"
-	"path/filepath"
 	"testing"
 )
 
 func TestCompressedStream(b *testing.T) {
 	fmt.Println("Correctness Test")
+	rng := rand.New(rand.NewSource(0x4B414E5A))
 	values := make([]byte, 65536<<6)
 	incompressible := make([]byte, 65536<<6)
 	sum := 0
@@ -38,11 +38,11 @@ func TestCompressedStream(b *testing.T) {
 		fmt.Printf("\nIteration %v\n", test)
 
 		for i := range values {
-			values[i] = byte(rand.Intn(4*test + 1))
-			incompressible[i] = byte(rand.Intn(256))
+			values[i] = byte(rng.Intn(4*test + 1))
+			incompressible[i] = byte(rng.Intn(256))
 		}
 
-		if res := compress(values[0:length], "HUFFMAN", "LZ"); res == 0 {
+		if res := compress(values[0:length], "HUFFMAN", "LZ", rng); res == 0 {
 			fmt.Println("Success")
 		} else {
 			fmt.Printf("Failure %v\n", res)
@@ -50,7 +50,7 @@ func TestCompressedStream(b *testing.T) {
 			break
 		}
 
-		if res := compress(values[0:length], "NONE", "ROLZ"); res == 0 {
+		if res := compress(values[0:length], "NONE", "ROLZ", rng); res == 0 {
 			fmt.Println("Success")
 		} else {
 			fmt.Printf("Failure %v\n", res)
@@ -58,7 +58,7 @@ func TestCompressedStream(b *testing.T) {
 			break
 		}
 
-		if res := compress(values[0:length], "FPAQ", "BWT"); res == 0 {
+		if res := compress(values[0:length], "FPAQ", "BWT", rng); res == 0 {
 			fmt.Println("Success")
 		} else {
 			fmt.Printf("Failure %v\n", res)
@@ -66,7 +66,7 @@ func TestCompressedStream(b *testing.T) {
 			break
 		}
 
-		if res := compress(incompressible[0:length], "HUFFMAN", "LZ"); res == 0 {
+		if res := compress(incompressible[0:length], "HUFFMAN", "LZ", rng); res == 0 {
 			fmt.Println("Success")
 		} else {
 			fmt.Printf("Failure %v\n", res)
@@ -95,27 +95,30 @@ func TestCompressedStream(b *testing.T) {
 	}
 }
 
-func compress(block []byte, entropy, transform string) int {
-	jobs := uint(rand.Intn(4) + 1)
+func compress(block []byte, entropy, transform string, rng *rand.Rand) int {
+	jobs := uint(rng.Intn(4) + 1)
 	var blockSize uint
 
-	if n := rand.Intn(3); n == 1 {
+	if n := rng.Intn(3); n == 1 {
 		blockSize = uint(len(block))
 	} else {
 		blockSize = uint((len(block) / (n + 1)) & -16)
 	}
 
 	fmt.Printf("Block size: %v, transform %v, entropy: %v, jobs: %v \n", blockSize, transform, entropy, jobs)
+	outputName := ""
 
 	{
 		// Create an io.WriteCloser
-		outputName := filepath.Join(os.TempDir(), "compressed.knz")
-		output, err := os.Create(outputName)
+		output, err := os.CreateTemp("", "compressed-*.knz")
 
 		if err != nil {
 			fmt.Printf("%v\n", err)
 			return 1
 		}
+
+		outputName = output.Name()
+		defer os.Remove(outputName)
 
 		// Create a Writer
 		w, err2 := NewWriter(output, transform, entropy, blockSize, jobs, 32, 0, false)
@@ -144,8 +147,7 @@ func compress(block []byte, entropy, transform string) int {
 
 	{
 		// Create an io.ReadCloser
-		inputName := filepath.Join(os.TempDir(), "compressed.knz")
-		input, err := os.Open(inputName)
+		input, err := os.Open(outputName)
 
 		if err != nil {
 			fmt.Printf("%v\n", err)
