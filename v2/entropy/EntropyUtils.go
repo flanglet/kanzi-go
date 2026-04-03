@@ -34,18 +34,12 @@ const (
 // EncodeAlphabet writes the alphabet to the bitstream and return the number
 // of symbols written or an error.
 // alphabet must be composed of values in [0..255] sorted in increasing order
-// alphabet size must be a power of 2 up to 256
+// alphabet size must be at most 256
 func EncodeAlphabet(obs kanzi.OutputBitStream, alphabet []int) (int, error) {
-	alphabetSize := cap(alphabet)
 	count := len(alphabet)
 
-	// Alphabet length must be a power of 2
-	if alphabetSize&(alphabetSize-1) != 0 {
-		return 0, fmt.Errorf("The alphabet length must be a power of 2, got %v", alphabetSize)
-	}
-
-	if alphabetSize > 256 {
-		return 0, fmt.Errorf("The max alphabet length is 256, got %v", alphabetSize)
+	if count > 256 {
+		return 0, fmt.Errorf("The max alphabet length is 256, got %v", count)
 	}
 
 	if count == 0 {
@@ -106,8 +100,17 @@ func DecodeAlphabet(ibs kanzi.InputBitStream, alphabet []int) (int, error) {
 		n := i * 8
 		for j := 0; j < 8; j++ {
 			bit := int(masks[i]>>uint(j)) & 1
+
+			if bit == 0 {
+				continue
+			}
+
+			if count >= len(alphabet) {
+				return count, fmt.Errorf("Invalid bitstream: incorrect alphabet size: %v", count+1)
+			}
+
 			alphabet[count] = n + j
-			count += bit
+			count++
 		}
 	}
 

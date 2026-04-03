@@ -161,6 +161,90 @@ func TestPredictorFactoryErrors(t *testing.T) {
 	}
 }
 
+func TestEncodeAlphabetUsesSliceLength(t *testing.T) {
+	bs := internal.NewBufferStream()
+	obs, err := bitstream.NewDefaultOutputBitStream(bs, 16384)
+
+	if err != nil {
+		t.Fatalf("create output bitstream: %v", err)
+	}
+
+	backing := make([]int, 256)
+	copy(backing, []int{1, 3, 5})
+	alphabet := backing[:3]
+	count, err := EncodeAlphabet(obs, alphabet)
+
+	if err != nil {
+		t.Fatalf("encode alphabet: %v", err)
+	}
+
+	if count != len(alphabet) {
+		t.Fatalf("invalid symbol count: got %d, want %d", count, len(alphabet))
+	}
+
+	if err = obs.Close(); err != nil {
+		t.Fatalf("close output bitstream: %v", err)
+	}
+
+	ibs, err := bitstream.NewDefaultInputBitStream(bs, 16384)
+
+	if err != nil {
+		t.Fatalf("create input bitstream: %v", err)
+	}
+
+	decoded := make([]int, 256)
+	read, err := DecodeAlphabet(ibs, decoded)
+
+	if err != nil {
+		t.Fatalf("decode alphabet: %v", err)
+	}
+
+	if read != len(alphabet) {
+		t.Fatalf("invalid decoded count: got %d, want %d", read, len(alphabet))
+	}
+
+	for i, v := range alphabet {
+		if decoded[i] != v {
+			t.Fatalf("invalid decoded symbol at %d: got %d, want %d", i, decoded[i], v)
+		}
+	}
+
+	if err = ibs.Close(); err != nil {
+		t.Fatalf("close input bitstream: %v", err)
+	}
+}
+
+func TestDecodeAlphabetRejectsShortDestination(t *testing.T) {
+	bs := internal.NewBufferStream()
+	obs, err := bitstream.NewDefaultOutputBitStream(bs, 16384)
+
+	if err != nil {
+		t.Fatalf("create output bitstream: %v", err)
+	}
+
+	if _, err = EncodeAlphabet(obs, []int{1, 3, 5}); err != nil {
+		t.Fatalf("encode alphabet: %v", err)
+	}
+
+	if err = obs.Close(); err != nil {
+		t.Fatalf("close output bitstream: %v", err)
+	}
+
+	ibs, err := bitstream.NewDefaultInputBitStream(bs, 16384)
+
+	if err != nil {
+		t.Fatalf("create input bitstream: %v", err)
+	}
+
+	if _, err = DecodeAlphabet(ibs, make([]int, 2)); err == nil {
+		t.Fatal("expected decode alphabet to reject short destination slice")
+	}
+
+	if err = ibs.Close(); err != nil {
+		t.Fatalf("close input bitstream: %v", err)
+	}
+}
+
 func TestFPAQCodecSpecificPatterns(t *testing.T) {
 	type testCase struct {
 		name  string
