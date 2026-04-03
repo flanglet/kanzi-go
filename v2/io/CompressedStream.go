@@ -1035,6 +1035,7 @@ func NewHeaderlessReader(is io.ReadCloser, jobs uint, transform, entropy string,
 	ctx["checksum"] = checksum
 	ctx["outputSize"] = originalSize
 	ctx["bsVersion"] = bsVersion
+	ctx["headerless"] = true
 	return NewReaderWithCtx(is, ctx)
 }
 
