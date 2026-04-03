@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	stdio "io"
 	"math/rand"
 	"os"
 	"testing"
@@ -581,5 +582,103 @@ func TestDebugBitStreamArrayPartialTail(t *testing.T) {
 
 	if in.String() != "101r" {
 		t.Fatalf("invalid debug input log: got %q, want %q", in.String(), "101r")
+	}
+}
+
+type partialReadCloser struct {
+	data []byte
+	read bool
+	err  error
+}
+
+func (this *partialReadCloser) Read(buf []byte) (int, error) {
+	if this.read == true {
+		return 0, this.err
+	}
+
+	this.read = true
+	copy(buf, this.data)
+	return len(this.data), this.err
+}
+
+func (this *partialReadCloser) Close() error {
+	return nil
+}
+
+func TestInputBitStreamDefersReadErrorUntilBufferedBytesAreConsumed(t *testing.T) {
+	ibs, err := NewDefaultInputBitStream(&partialReadCloser{data: []byte{0x80}, err: stdio.EOF}, 1024)
+
+	if err != nil {
+		t.Fatalf("create input bitstream: %v", err)
+	}
+
+	if got := ibs.ReadBit(); got != 1 {
+		t.Fatalf("ReadBit()=%d, want 1", got)
+	}
+
+	for i := 0; i < 7; i++ {
+		if got := ibs.ReadBit(); got != 0 {
+			t.Fatalf("ReadBit()=%d, want 0", got)
+		}
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			if err, ok := r.(error); ok == true && errors.Is(err, stdio.EOF) {
+				return
+			}
+
+			t.Fatalf("unexpected panic: %v", r)
+		}
+
+		t.Fatal("expected EOF panic")
+	}()
+
+	ibs.ReadBit()
+}
+
+func TestInputBitStreamHasMoreToReadDefersEOFUntilBufferedBytesAreConsumed(t *testing.T) {
+	ibs, err := NewDefaultInputBitStream(&partialReadCloser{data: []byte{0x80}, err: stdio.EOF}, 1024)
+
+	if err != nil {
+		t.Fatalf("create input bitstream: %v", err)
+	}
+
+	more, err := ibs.HasMoreToRead()
+
+	if more != true || err != nil {
+		t.Fatalf("HasMoreToRead()=(%v,%v), want (true,<nil>)", more, err)
+	}
+
+	if got := ibs.ReadBit(); got != 1 {
+		t.Fatalf("ReadBit()=%d, want 1", got)
+	}
+
+	for i := 0; i < 6; i++ {
+		more, err = ibs.HasMoreToRead()
+
+		if more != true || err != nil {
+			t.Fatalf("HasMoreToRead()=(%v,%v), want (true,<nil>)", more, err)
+		}
+
+		if got := ibs.ReadBit(); got != 0 {
+			t.Fatalf("ReadBit()=%d, want 0", got)
+		}
+	}
+
+	more, err = ibs.HasMoreToRead()
+
+	if more != true || err != nil {
+		t.Fatalf("HasMoreToRead()=(%v,%v), want (true,<nil>)", more, err)
+	}
+
+	if got := ibs.ReadBit(); got != 0 {
+		t.Fatalf("ReadBit()=%d, want 0", got)
+	}
+
+	more, err = ibs.HasMoreToRead()
+
+	if more != false || errors.Is(err, stdio.EOF) == false {
+		t.Fatalf("HasMoreToRead()=(%v,%v), want (false,EOF)", more, err)
 	}
 }

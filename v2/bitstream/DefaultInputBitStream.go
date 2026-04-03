@@ -32,6 +32,7 @@ type DefaultInputBitStream struct {
 	buffer      []byte
 	maxPosition int
 	current     uint64 // cached bits
+	pendingErr  error
 }
 
 // NewDefaultInputBitStream creates a bitstream for reading, using the provided stream as
@@ -218,17 +219,30 @@ func (this *DefaultInputBitStream) readFromInputStream(count int) (int, error) {
 		return 0, nil
 	}
 
+	if this.pendingErr != nil {
+		this.maxPosition = -1
+		return 0, this.pendingErr
+	}
+
 	this.read += (int64(this.position << 3))
 	size, err := this.is.Read(this.buffer[0:count])
 	this.position = 0
 
 	if size <= 0 {
 		this.maxPosition = -1
+
+		if err != nil {
+			return 0, err
+		}
+
 		return 0, errors.New("No more data to read in the bitstream")
 	}
 
 	this.maxPosition = size - 1
-	return size, err
+
+	// Defer this.pendingErr until the buffered bytes are exhausted.
+	this.pendingErr = err
+	return size, nil
 }
 
 // HasMoreToRead returns false is the stream is closed or there is no
@@ -240,6 +254,10 @@ func (this *DefaultInputBitStream) HasMoreToRead() (bool, error) {
 
 	if this.position < this.maxPosition || this.availBits != 0 {
 		return true, nil
+	}
+
+	if this.pendingErr != nil {
+		return false, this.pendingErr
 	}
 
 	_, err := this.readFromInputStream(len(this.buffer))
@@ -288,6 +306,7 @@ func (this *DefaultInputBitStream) Close() error {
 	this.read -= int64(this.availBits) // can be negative
 	this.availBits = 0
 	this.maxPosition = -1
+	this.pendingErr = nil
 	return nil
 }
 
