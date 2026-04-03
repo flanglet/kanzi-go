@@ -51,6 +51,69 @@ func TestNoneCodecRejectsNilBitstream(t *testing.T) {
 	}
 }
 
+func TestVarIntUtils(t *testing.T) {
+	values := []uint32{
+		0,
+		1,
+		127,
+		128,
+		255,
+		16384,
+		1<<21 - 1,
+		1 << 21,
+		1<<28 - 1,
+		1 << 28,
+		^uint32(0),
+	}
+
+	for _, value := range values {
+		t.Run(fmt.Sprintf("value_%d", value), func(t *testing.T) {
+			bs := internal.NewBufferStream()
+			obs, err := bitstream.NewDefaultOutputBitStream(bs, 16384)
+
+			if err != nil {
+				t.Fatalf("create output bitstream: %v", err)
+			}
+
+			written := WriteVarInt(obs, value)
+
+			if err = obs.Close(); err != nil {
+				t.Fatalf("close output bitstream: %v", err)
+			}
+
+			expectedWritten := 1
+
+			for v := value; v >= 128; v >>= 7 {
+				expectedWritten++
+			}
+
+			if written != expectedWritten {
+				t.Fatalf("invalid encoded length: got %d, want %d", written, expectedWritten)
+			}
+
+			if bs.Len() != expectedWritten {
+				t.Fatalf("invalid stream length: got %d, want %d", bs.Len(), expectedWritten)
+			}
+
+			ibs, err := bitstream.NewDefaultInputBitStream(bs, 16384)
+
+			if err != nil {
+				t.Fatalf("create input bitstream: %v", err)
+			}
+
+			decoded := ReadVarInt(ibs)
+
+			if err = ibs.Close(); err != nil {
+				t.Fatalf("close input bitstream: %v", err)
+			}
+
+			if decoded != value {
+				t.Fatalf("invalid decoded value: got %d, want %d", decoded, value)
+			}
+		})
+	}
+}
+
 func TestFPAQCodecSpecificPatterns(t *testing.T) {
 	type testCase struct {
 		name  string

@@ -259,7 +259,7 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 // WriteVarInt writes the provided value to the bitstream as a VarInt.
 // Returns the number of bytes written.
 func WriteVarInt(bs kanzi.OutputBitStream, value uint32) int {
-	res := 0
+	res := 1
 
 	for value >= 128 {
 		bs.WriteBits(uint64(0x80|(value&0x7F)), 8)
@@ -273,25 +273,21 @@ func WriteVarInt(bs kanzi.OutputBitStream, value uint32) int {
 
 // ReadVarInt reads a VarInt from the bitstream and returns it as an uint32.
 func ReadVarInt(bs kanzi.InputBitStream) uint32 {
-	value := uint32(bs.ReadBits(8))
+	res := uint32(0)
+	shift := uint(0)
 
-	if value < 128 {
-		return value
-	}
+	for i := 0; i < 4; i++ {
+		value := uint32(bs.ReadBits(8))
+		res |= (value & 0x7F) << shift
 
-	res := value & 0x7F
-	value = uint32(bs.ReadBits(8))
-	res |= ((value & 0x7F) << 7)
-
-	if value >= 128 {
-		value = uint32(bs.ReadBits(8))
-		res |= ((value & 0x7F) << 14)
-
-		if value >= 128 {
-			value = uint32(bs.ReadBits(8))
-			res |= ((value & 0x7F) << 21)
+		if value < 128 {
+			return res
 		}
+
+		shift += 7
 	}
 
-	return res
+	// A uint32 varint can use at most 5 bytes. Only the low 4 bits are relevant.
+	value := uint32(bs.ReadBits(8))
+	return res | ((value & 0x0F) << 28)
 }
