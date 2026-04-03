@@ -172,6 +172,7 @@ type Writer struct {
 	transformType uint64
 	inputSize     int64
 	obs           kanzi.OutputBitStream
+	streamCloser  io.Closer
 	initialized   int32
 	closing       int32
 	closed        int32
@@ -237,7 +238,14 @@ func NewWriterWithCtx(os io.WriteCloser, ctx map[string]any) (*Writer, error) {
 		return nil, &IOError{msg: errMsg, code: kanzi.ERR_CREATE_BITSTREAM}
 	}
 
-	return createWriterWithCtx(obs, ctx)
+	res, err := createWriterWithCtx(obs, ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	res.streamCloser = os
+	return res, nil
 }
 
 // NewWriterWithCtx2 creates a new instance of Writer using a
@@ -590,6 +598,14 @@ func (this *Writer) Close() error {
 
 	if err := this.obs.Close(); err != nil {
 		return err
+	}
+
+	if this.streamCloser != nil {
+		if err := this.streamCloser.Close(); err != nil {
+			return err
+		}
+
+		this.streamCloser = nil
 	}
 
 	atomic.StoreInt32(&this.closed, 1)
@@ -995,6 +1011,7 @@ type Reader struct {
 	transformType   uint64
 	outputSize      int64
 	ibs             kanzi.InputBitStream
+	streamCloser    io.Closer
 	initialized     int32
 	closed          int32
 	blockID         int32
@@ -1065,7 +1082,14 @@ func NewReaderWithCtx(is io.ReadCloser, ctx map[string]any) (*Reader, error) {
 		return nil, &IOError{msg: errMsg, code: kanzi.ERR_CREATE_BITSTREAM}
 	}
 
-	return createReaderWithCtx(ibs, ctx)
+	res, err := createReaderWithCtx(ibs, ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	res.streamCloser = is
+	return res, nil
 }
 
 // NewReaderWithCtx2 creates a new instance of Reader.
@@ -1506,6 +1530,14 @@ func (this *Reader) Close() error {
 
 	if err := this.ibs.Close(); err != nil {
 		return err
+	}
+
+	if this.streamCloser != nil {
+		if err := this.streamCloser.Close(); err != nil {
+			return err
+		}
+
+		this.streamCloser = nil
 	}
 
 	this.available = 0

@@ -220,9 +220,9 @@ func compressAfterWriteClose(block []byte) int {
 
 func compressAfterReadClose(block []byte) int {
 	fmt.Println("Test - read after close")
-	bs := internal.NewBufferStream()
+	dst := &memoryWriteCloser{}
 
-	os, err := NewWriter(bs, "NONE", "NONE", uint(len(block)), 1, 0, 0, false)
+	os, err := NewWriter(dst, "NONE", "NONE", uint(len(block)), 1, 0, 0, false)
 
 	if err != nil {
 		fmt.Printf("%v\n", err)
@@ -241,7 +241,7 @@ func compressAfterReadClose(block []byte) int {
 		return 3
 	}
 
-	is, err := NewReader(bs, 1)
+	is, err := NewReader(stdio.NopCloser(bytes.NewReader(dst.data)), 1)
 
 	if err != nil {
 		fmt.Printf("%v\n", err)
@@ -277,12 +277,18 @@ type failingReadCloser struct {
 }
 
 type memoryWriteCloser struct {
-	data []byte
+	data   []byte
+	closed bool
 }
 
 type failingWriteCloser struct {
 	data     []byte
 	failures int
+}
+
+type trackingReadCloser struct {
+	reader *bytes.Reader
+	closed bool
 }
 
 func (this *memoryWriteCloser) Write(buf []byte) (int, error) {
@@ -291,6 +297,7 @@ func (this *memoryWriteCloser) Write(buf []byte) (int, error) {
 }
 
 func (this *memoryWriteCloser) Close() error {
+	this.closed = true
 	return nil
 }
 
@@ -324,6 +331,15 @@ func (this *failingReadCloser) Read(buf []byte) (int, error) {
 }
 
 func (this *failingReadCloser) Close() error {
+	return nil
+}
+
+func (this *trackingReadCloser) Read(buf []byte) (int, error) {
+	return this.reader.Read(buf)
+}
+
+func (this *trackingReadCloser) Close() error {
+	this.closed = true
 	return nil
 }
 
@@ -426,5 +442,58 @@ func TestWriterCloseRetriesAfterFailure(t *testing.T) {
 
 	if bytes.Equal(buf, input) == false {
 		t.Fatal("decoded data mismatch after close retry")
+	}
+}
+
+func TestWriterCloseClosesWrappedStream(t *testing.T) {
+	dst := &memoryWriteCloser{}
+	w, err := NewWriter(dst, "NONE", "NONE", 1024, 1, 0, 0, false)
+
+	if err != nil {
+		t.Fatalf("create writer: %v", err)
+	}
+
+	if _, err = w.Write(make([]byte, 1024)); err != nil {
+		t.Fatalf("write compressed stream: %v", err)
+	}
+
+	if err = w.Close(); err != nil {
+		t.Fatalf("close writer: %v", err)
+	}
+
+	if dst.closed == false {
+		t.Fatal("expected wrapped writer to be closed")
+	}
+}
+
+func TestReaderCloseClosesWrappedStream(t *testing.T) {
+	dst := &memoryWriteCloser{}
+	w, err := NewWriter(dst, "NONE", "NONE", 1024, 1, 0, 0, false)
+
+	if err != nil {
+		t.Fatalf("create writer: %v", err)
+	}
+
+	if _, err = w.Write(make([]byte, 1024)); err != nil {
+		t.Fatalf("write compressed stream: %v", err)
+	}
+
+	if err = w.Close(); err != nil {
+		t.Fatalf("close writer: %v", err)
+	}
+
+	src := &trackingReadCloser{reader: bytes.NewReader(dst.data)}
+	r, err := NewReader(src, 1)
+
+	if err != nil {
+		t.Fatalf("create reader: %v", err)
+	}
+
+	if err = r.Close(); err != nil {
+		t.Fatalf("close reader: %v", err)
+	}
+
+	if src.closed == false {
+		t.Fatal("expected wrapped reader to be closed")
 	}
 }
