@@ -16,6 +16,7 @@ limitations under the License.
 package bitstream
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -261,7 +262,6 @@ func testCorrectnessMisaligned1() error {
 		dbgibs.Close()
 		testReadPostClose(dbgibs)
 		bs.Close()
-
 		println()
 		println()
 		fmt.Printf("Bits written: %v\n", dbgobs.Written())
@@ -521,6 +521,65 @@ func TestBitStreamWriteArrayPartialTail(t *testing.T) {
 			if err := bs.Close(); err != nil {
 				t.Fatalf("close buffer stream: %v", err)
 			}
+
 		})
+	}
+}
+
+func TestDebugBitStreamArrayPartialTail(t *testing.T) {
+	bs := internal.NewBufferStream()
+	obs, err := NewDefaultOutputBitStream(bs, 1024)
+
+	if err != nil {
+		t.Fatalf("create output bitstream: %v", err)
+	}
+
+	var out bytes.Buffer
+	dbgobs, err := NewDebugOutputBitStream(obs, &out)
+
+	if err != nil {
+		t.Fatalf("create debug output bitstream: %v", err)
+	}
+
+	dbgobs.Mark(true)
+
+	if got := dbgobs.WriteArray([]byte{0xA0}, 3); got != 3 {
+		t.Fatalf("WriteArray()=%d, want 3", got)
+	}
+
+	if out.String() != "101w" {
+		t.Fatalf("invalid debug output log: got %q, want %q", out.String(), "101w")
+	}
+
+	if err = dbgobs.Close(); err != nil {
+		t.Fatalf("close debug output bitstream: %v", err)
+	}
+
+	ibs, err := NewDefaultInputBitStream(bs, 1024)
+
+	if err != nil {
+		t.Fatalf("create input bitstream: %v", err)
+	}
+
+	var in bytes.Buffer
+	dbgibs, err := NewDebugInputBitStream(ibs, &in)
+
+	if err != nil {
+		t.Fatalf("create debug input bitstream: %v", err)
+	}
+
+	dbgibs.Mark(true)
+	dst := make([]byte, 1)
+
+	if got := dbgibs.ReadArray(dst, 3); got != 3 {
+		t.Fatalf("ReadArray()=%d, want 3", got)
+	}
+
+	if dst[0] != 0xA0 {
+		t.Fatalf("invalid decoded byte: got 0x%02x, want 0xa0", dst[0])
+	}
+
+	if in.String() != "101r" {
+		t.Fatalf("invalid debug input log: got %q, want %q", in.String(), "101r")
 	}
 }
