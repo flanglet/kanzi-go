@@ -16,7 +16,10 @@ limitations under the License.
 package io
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	stdio "io"
 	"github.com/flanglet/kanzi-go/v2/internal"
 	"math/rand"
 	"os"
@@ -265,4 +268,163 @@ func compressAfterReadClose(block []byte) int {
 	}
 
 	return 7
+}
+
+type failingReadCloser struct {
+	data   []byte
+	offset int
+	failed bool
+}
+
+type memoryWriteCloser struct {
+	data []byte
+}
+
+type failingWriteCloser struct {
+	data     []byte
+	failures int
+}
+
+func (this *memoryWriteCloser) Write(buf []byte) (int, error) {
+	this.data = append(this.data, buf...)
+	return len(buf), nil
+}
+
+func (this *memoryWriteCloser) Close() error {
+	return nil
+}
+
+func (this *failingWriteCloser) Write(buf []byte) (int, error) {
+	if this.failures > 0 {
+		this.failures--
+		return 0, errors.New("temporary write failure")
+	}
+
+	this.data = append(this.data, buf...)
+	return len(buf), nil
+}
+
+func (this *failingWriteCloser) Close() error {
+	return nil
+}
+
+func (this *failingReadCloser) Read(buf []byte) (int, error) {
+	if this.failed == false {
+		this.failed = true
+		return 0, errors.New("temporary read failure")
+	}
+
+	if this.offset >= len(this.data) {
+		return 0, stdio.EOF
+	}
+
+	n := copy(buf, this.data[this.offset:])
+	this.offset += n
+	return n, nil
+}
+
+func (this *failingReadCloser) Close() error {
+	return nil
+}
+
+func TestReaderReadHeaderRetriesAfterFailure(t *testing.T) {
+	input := make([]byte, 1024)
+
+	for i := range input {
+		input[i] = byte(i)
+	}
+
+	dst := &memoryWriteCloser{}
+	w, err := NewWriter(dst, "NONE", "NONE", uint(len(input)), 1, 0, 0, false)
+
+	if err != nil {
+		t.Fatalf("create writer: %v", err)
+	}
+
+	if _, err = w.Write(input); err != nil {
+		t.Fatalf("write compressed stream: %v", err)
+	}
+
+	if err = w.Close(); err != nil {
+		t.Fatalf("close writer: %v", err)
+	}
+
+	src := &failingReadCloser{data: append([]byte(nil), dst.data...)}
+	r, err := NewReader(src, 1)
+
+	if err != nil {
+		t.Fatalf("create reader: %v", err)
+	}
+
+	buf := make([]byte, len(input))
+
+	if _, err = r.Read(buf); err == nil {
+		t.Fatal("expected first read to fail")
+	}
+
+	n, err := r.Read(buf)
+
+	if err != nil {
+		t.Fatalf("retry read failed: %v", err)
+	}
+
+	if n != len(input) {
+		t.Fatalf("invalid decoded length: got %d, want %d", n, len(input))
+	}
+
+	if bytes.Equal(buf, input) == false {
+		t.Fatal("decoded data mismatch after retry")
+	}
+}
+
+func TestWriterCloseRetriesAfterFailure(t *testing.T) {
+	input := make([]byte, 1024)
+
+	for i := range input {
+		input[i] = byte(i)
+	}
+
+	dst := &failingWriteCloser{failures: 1}
+	w, err := NewWriter(dst, "NONE", "NONE", uint(len(input)), 1, 0, 0, false)
+
+	if err != nil {
+		t.Fatalf("create writer: %v", err)
+	}
+
+	if _, err = w.Write(input); err != nil {
+		t.Fatalf("write compressed stream: %v", err)
+	}
+
+	if err = w.Close(); err == nil {
+		t.Fatal("expected first close to fail")
+	}
+
+	if _, err = w.Write(input[:1]); err == nil {
+		t.Fatal("expected writes to be rejected after close started")
+	}
+
+	if err = w.Close(); err != nil {
+		t.Fatalf("retry close failed: %v", err)
+	}
+
+	r, err := NewReader(stdio.NopCloser(bytes.NewReader(dst.data)), 1)
+
+	if err != nil {
+		t.Fatalf("create reader: %v", err)
+	}
+
+	buf := make([]byte, len(input))
+	n, err := r.Read(buf)
+
+	if err != nil {
+		t.Fatalf("read roundtrip data: %v", err)
+	}
+
+	if n != len(input) {
+		t.Fatalf("invalid decoded length: got %d, want %d", n, len(input))
+	}
+
+	if bytes.Equal(buf, input) == false {
+		t.Fatal("decoded data mismatch after close retry")
+	}
 }

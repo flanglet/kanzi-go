@@ -173,7 +173,9 @@ type Writer struct {
 	inputSize     int64
 	obs           kanzi.OutputBitStream
 	initialized   int32
+	closing       int32
 	closed        int32
+	finalized     int32
 	blockID       int32
 	jobs          int
 	nbInputBlocks int
@@ -512,7 +514,7 @@ func (this *Writer) writeHeader() *IOError {
 // Returns the number of bytes written from block (0 <= n <= len(block)) and
 // any error encountered that caused the write to stop early.
 func (this *Writer) Write(block []byte) (int, error) {
-	if atomic.LoadInt32(&this.closed) == 1 {
+	if atomic.LoadInt32(&this.closed) == 1 || atomic.LoadInt32(&this.closing) == 1 {
 		return 0, &IOError{msg: "Stream closed", code: kanzi.ERR_WRITE_FILE}
 	}
 
@@ -564,21 +566,33 @@ func (this *Writer) Write(block []byte) (int, error) {
 // a final empty block and releases resources.
 // Close makes the bitstream unavailable for further writes. Idempotent.
 func (this *Writer) Close() error {
-	if atomic.SwapInt32(&this.closed, 1) == 1 {
+	if atomic.LoadInt32(&this.closed) == 1 {
 		return nil
 	}
 
-	if err := this.processBlock(); err != nil {
-		return err
-	}
+	if atomic.LoadInt32(&this.finalized) == 0 {
+		if atomic.CompareAndSwapInt32(&this.closing, 0, 1) == false {
+			if atomic.LoadInt32(&this.finalized) == 0 {
+				return &IOError{msg: "Stream closed", code: kanzi.ERR_WRITE_FILE}
+			}
+		} else {
+			if err := this.processBlock(); err != nil {
+				atomic.StoreInt32(&this.closing, 0)
+				return err
+			}
 
-	// Write end block of size 0
-	this.obs.WriteBits(0, 5) // write length-3 (5 bits max)
-	this.obs.WriteBits(0, 3)
+			// Write end block of size 0
+			this.obs.WriteBits(0, 5) // write length-3 (5 bits max)
+			this.obs.WriteBits(0, 3)
+			atomic.StoreInt32(&this.finalized, 1)
+		}
+	}
 
 	if err := this.obs.Close(); err != nil {
 		return err
 	}
+
+	atomic.StoreInt32(&this.closed, 1)
 
 	// Release resources
 	for i := range this.buffers {
@@ -1289,6 +1303,10 @@ func (this *Reader) readHeader() (err error) {
 			default:
 				err = &IOError{msg: fmt.Sprint(v), code: kanzi.ERR_PROCESS_BLOCK}
 			}
+		}
+
+		if err != nil {
+			atomic.StoreInt32(&this.initialized, 0)
 		}
 	}()
 
