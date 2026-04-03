@@ -62,11 +62,21 @@ func NewEntropyDecoder(ibs kanzi.InputBitStream, ctx map[string]any,
 		return NewFPAQDecoderWithCtx(ibs, &ctx)
 
 	case CM_TYPE:
-		predictor, _ := NewCMPredictor(&ctx)
+		predictor, err := NewCMPredictor(&ctx)
+
+		if err != nil {
+			return nil, err
+		}
+
 		return NewBinaryEntropyDecoder(ibs, predictor)
 
 	case TPAQ_TYPE, TPAQX_TYPE:
-		predictor, _ := NewTPAQPredictor(&ctx)
+		predictor, err := NewTPAQPredictor(&ctx)
+
+		if err != nil {
+			return nil, err
+		}
+
 		return NewBinaryEntropyDecoder(ibs, predictor)
 
 	case NONE_TYPE:
@@ -98,11 +108,21 @@ func NewEntropyEncoder(obs kanzi.OutputBitStream, ctx map[string]any,
 		return NewFPAQEncoderWithCtx(obs, &ctx)
 
 	case CM_TYPE:
-		predictor, _ := NewCMPredictor(&ctx)
+		predictor, err := NewCMPredictor(&ctx)
+
+		if err != nil {
+			return nil, err
+		}
+
 		return NewBinaryEntropyEncoder(obs, predictor)
 
 	case TPAQ_TYPE, TPAQX_TYPE:
-		predictor, _ := NewTPAQPredictor(&ctx)
+		predictor, err := NewTPAQPredictor(&ctx)
+
+		if err != nil {
+			return nil, err
+		}
+
 		return NewBinaryEntropyEncoder(obs, predictor)
 
 	case NONE_TYPE:

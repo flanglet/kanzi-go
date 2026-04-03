@@ -114,6 +114,53 @@ func TestVarIntUtils(t *testing.T) {
 	}
 }
 
+func TestPredictorFactoryErrors(t *testing.T) {
+	bufferStream := internal.NewBufferStream()
+	obs, err := bitstream.NewDefaultOutputBitStream(bufferStream, 16384)
+
+	if err != nil {
+		t.Fatalf("create output bitstream: %v", err)
+	}
+
+	ibs, err := bitstream.NewDefaultInputBitStream(internal.NewBufferStream(), 16384)
+
+	if err != nil {
+		t.Fatalf("create input bitstream: %v", err)
+	}
+
+	tests := []struct {
+		name string
+		ctx  map[string]any
+		typ  uint32
+	}{
+		{name: "CM_InvalidBsVersion", ctx: map[string]any{"bsVersion": "bad"}, typ: CM_TYPE},
+		{name: "TPAQ_InvalidBsVersion", ctx: map[string]any{"bsVersion": "bad"}, typ: TPAQ_TYPE},
+		{name: "TPAQX_InvalidBlockSize", ctx: map[string]any{"entropy": "TPAQX", "blockSize": "bad"}, typ: TPAQX_TYPE},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name+"_Encoder", func(t *testing.T) {
+			if _, err := NewEntropyEncoder(obs, tc.ctx, tc.typ); err == nil {
+				t.Fatal("expected encoder factory to reject invalid predictor context")
+			}
+		})
+
+		t.Run(tc.name+"_Decoder", func(t *testing.T) {
+			if _, err := NewEntropyDecoder(ibs, tc.ctx, tc.typ); err == nil {
+				t.Fatal("expected decoder factory to reject invalid predictor context")
+			}
+		})
+	}
+
+	if err = obs.Close(); err != nil {
+		t.Fatalf("close output bitstream: %v", err)
+	}
+
+	if err = ibs.Close(); err != nil {
+		t.Fatalf("close input bitstream: %v", err)
+	}
+}
+
 func TestFPAQCodecSpecificPatterns(t *testing.T) {
 	type testCase struct {
 		name  string
