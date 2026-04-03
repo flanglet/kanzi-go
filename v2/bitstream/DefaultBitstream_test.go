@@ -471,3 +471,56 @@ func testReadPostClose(ibs kanzi.InputBitStream) {
 	fmt.Printf("\nTrying to read from closed stream\n")
 	ibs.ReadBit()
 }
+
+func TestBitStreamWriteArrayPartialTail(t *testing.T) {
+	tests := []struct {
+		name    string
+		prefix  int
+		src     byte
+		count   uint
+		want    uint64
+		wantLen uint
+	}{
+		{name: "aligned", prefix: -1, src: 0xAA, count: 1, want: 0x1, wantLen: 1},
+		{name: "misaligned", prefix: 0, src: 0xA0, count: 3, want: 0x5, wantLen: 4},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			bs := internal.NewBufferStream()
+			obs, err := NewDefaultOutputBitStream(bs, 1024)
+			if err != nil {
+				t.Fatalf("create output bitstream: %v", err)
+			}
+
+			if tc.prefix >= 0 {
+				obs.WriteBit(tc.prefix)
+			}
+
+			if got := obs.WriteArray([]byte{tc.src}, tc.count); got != tc.count {
+				t.Fatalf("WriteArray()=%d, want %d", got, tc.count)
+			}
+
+			if err := obs.Close(); err != nil {
+				t.Fatalf("close output bitstream: %v", err)
+			}
+
+			ibs, err := NewDefaultInputBitStream(bs, 1024)
+			if err != nil {
+				t.Fatalf("create input bitstream: %v", err)
+			}
+
+			if got := ibs.ReadBits(tc.wantLen); got != tc.want {
+				t.Fatalf("ReadBits()=%b, want %b", got, tc.want)
+			}
+
+			if err := ibs.Close(); err != nil {
+				t.Fatalf("close input bitstream: %v", err)
+			}
+
+			if err := bs.Close(); err != nil {
+				t.Fatalf("close buffer stream: %v", err)
+			}
+		})
+	}
+}

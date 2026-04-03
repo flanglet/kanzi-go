@@ -192,7 +192,7 @@ func (this *DefaultOutputBitStream) WriteArray(bits []byte, count uint) uint {
 	}
 
 	if remaining > 0 {
-		this.WriteBits(binary.BigEndian.Uint64(bits[start:start+8])>>uint(64-remaining), uint(remaining))
+		this.WriteBits(uint64(bits[start])>>uint(8-remaining), uint(remaining))
 	}
 
 	return count
