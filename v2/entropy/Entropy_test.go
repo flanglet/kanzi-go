@@ -33,6 +33,24 @@ func TestHuffman(t *testing.T) {
 	}
 }
 
+func TestNoneCodecRejectsNilBitstream(t *testing.T) {
+	if _, err := NewEntropyEncoder(nil, nil, NONE_TYPE); err == nil {
+		t.Fatal("expected NONE encoder factory to reject nil bitstream")
+	}
+
+	if _, err := NewEntropyDecoder(nil, nil, NONE_TYPE); err == nil {
+		t.Fatal("expected NONE decoder factory to reject nil bitstream")
+	}
+
+	if _, err := NewNullEntropyEncoder(nil); err == nil {
+		t.Fatal("expected null encoder constructor to reject nil bitstream")
+	}
+
+	if _, err := NewNullEntropyDecoder(nil); err == nil {
+		t.Fatal("expected null decoder constructor to reject nil bitstream")
+	}
+}
+
 func TestFPAQCodecSpecificPatterns(t *testing.T) {
 	type testCase struct {
 		name  string

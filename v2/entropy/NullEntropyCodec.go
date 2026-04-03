@@ -16,6 +16,8 @@ limitations under the License.
 package entropy
 
 import (
+	"errors"
+
 	kanzi "github.com/flanglet/kanzi-go/v2"
 )
 
@@ -27,6 +29,10 @@ type NullEntropyEncoder struct {
 
 // NewNullEntropyEncoder  creates a new instance of NullEntropyEncoder
 func NewNullEntropyEncoder(bs kanzi.OutputBitStream) (*NullEntropyEncoder, error) {
+	if bs == nil {
+		return nil, errors.New("Null entropy codec: Invalid null bitstream parameter")
+	}
+
 	this := &NullEntropyEncoder{}
 	this.bitstream = bs
 	return this, nil
@@ -71,6 +77,10 @@ type NullEntropyDecoder struct {
 
 // NewNullEntropyDecoder  creates a new instance of NullEntropyDecoder
 func NewNullEntropyDecoder(bs kanzi.InputBitStream) (*NullEntropyDecoder, error) {
+	if bs == nil {
+		return nil, errors.New("Null entropy codec: Invalid null bitstream parameter")
+	}
+
 	this := &NullEntropyDecoder{}
 	this.bitstream = bs
 	return this, nil
