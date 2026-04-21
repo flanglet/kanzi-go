@@ -152,20 +152,23 @@ func (this *EXECodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	mode &= ^byte(_EXE_MASK_DT)
+	var read uint
+	var written uint
+	var err error
 
-	if this.ctx != nil {
+	if mode == _EXE_X86 {
+		read, written, err = this.forwardX86(src, dst, codeStart, codeEnd)
+	} else if mode == _EXE_ARM64 {
+		read, written, err = this.forwardARM(src, dst, codeStart, codeEnd)
+	} else {
+		return 0, 0, fmt.Errorf("ExeCodec forward transform skip: Input is not a supported executable format")
+	}
+
+	if err == nil && this.ctx != nil {
 		(*this.ctx)["dataType"] = internal.DT_EXE
 	}
 
-	if mode == _EXE_X86 {
-		return this.forwardX86(src, dst, codeStart, codeEnd)
-	}
-
-	if mode == _EXE_ARM64 {
-		return this.forwardARM(src, dst, codeStart, codeEnd)
-	}
-
-	return 0, 0, fmt.Errorf("ExeCodec forward transform skip: Input is not a supported executable format")
+	return read, written, err
 }
 
 func (this *EXECodec) forwardX86(src, dst []byte, codeStart, codeEnd int) (uint, uint, error) {
@@ -191,6 +194,13 @@ func (this *EXECodec) forwardX86(src, dst []byte, codeStart, codeEnd int) (uint,
 			if srcIdx+1 >= codeEnd {
 				boundaryReached = true
 				break
+			}
+
+			if (src[srcIdx+1] & _EXE_X86_MASK_JCC) == _EXE_X86_INSTRUCTION_JCC {
+				if srcIdx+5 >= codeEnd {
+					boundaryReached = true
+					break
+				}
 			}
 
 			dst[dstIdx] = src[srcIdx]
@@ -269,6 +279,10 @@ func (this *EXECodec) forwardX86(src, dst []byte, codeStart, codeEnd int) (uint,
 		return uint(srcIdx), uint(dstIdx), errors.New("ExeCodec forward transform skip: Too many false positives")
 	}
 
+	if dstIdx+(count-srcIdx) > dstEnd {
+		return uint(srcIdx), uint(dstIdx), errors.New("ExeCodec forward transform skip: Too many false positives")
+	}
+
 	binary.LittleEndian.PutUint32(dst[1:], uint32(codeStart))
 	binary.LittleEndian.PutUint32(dst[5:], uint32(dstIdx))
 	copy(dst[dstIdx:], src[srcIdx:count])
@@ -323,7 +337,7 @@ func (this *EXECodec) inverseX86(src, dst []byte) (uint, uint, error) {
 	codeEnd := int(binary.LittleEndian.Uint32(src[5:]))
 
 	// Sanity check
-	if codeStart+srcIdx > len(src) || codeStart+dstIdx > len(dst) || codeEnd > len(src) {
+	if codeStart < 0 || codeEnd < srcIdx || codeEnd > len(src) || codeStart > codeEnd-srcIdx || codeStart > len(dst)-dstIdx {
 		return 0, 0, errors.New("ExeCodec inverse transform failed: invalid data")
 	}
 
@@ -335,6 +349,23 @@ func (this *EXECodec) inverseX86(src, dst []byte) (uint, uint, error) {
 
 	for srcIdx < codeEnd {
 		if src[srcIdx] == _EXE_X86_TWO_BYTE_PREFIX {
+			if srcIdx+1 >= codeEnd {
+				// Accept legacy streams where a trailing 0x0F was emitted in
+				// the code section and the remaining bytes were copied as tail.
+				if dstIdx >= len(dst) {
+					return 0, 0, errors.New("ExeCodec inverse transform failed: invalid data")
+				}
+
+				dst[dstIdx] = src[srcIdx]
+				srcIdx++
+				dstIdx++
+				break
+			}
+
+			if dstIdx >= len(dst) {
+				return 0, 0, errors.New("ExeCodec inverse transform failed: invalid data")
+			}
+
 			dst[dstIdx] = src[srcIdx]
 			srcIdx++
 			dstIdx++
@@ -343,6 +374,14 @@ func (this *EXECodec) inverseX86(src, dst []byte) (uint, uint, error) {
 				// Not a relative jump
 				if src[srcIdx] == _EXE_X86_ESCAPE {
 					srcIdx++
+
+					if srcIdx >= codeEnd {
+						return 0, 0, errors.New("ExeCodec inverse transform failed: invalid data")
+					}
+				}
+
+				if dstIdx >= len(dst) {
+					return 0, 0, errors.New("ExeCodec inverse transform failed: invalid data")
 				}
 
 				dst[dstIdx] = src[srcIdx]
@@ -354,12 +393,28 @@ func (this *EXECodec) inverseX86(src, dst []byte) (uint, uint, error) {
 			// Not a relative call
 			if src[srcIdx] == _EXE_X86_ESCAPE {
 				srcIdx++
+
+				if srcIdx >= codeEnd {
+					return 0, 0, errors.New("ExeCodec inverse transform failed: invalid data")
+				}
+			}
+
+			if dstIdx >= len(dst) {
+				return 0, 0, errors.New("ExeCodec inverse transform failed: invalid data")
 			}
 
 			dst[dstIdx] = src[srcIdx]
 			srcIdx++
 			dstIdx++
 			continue
+		}
+
+		if srcIdx+4 >= codeEnd {
+			return 0, 0, errors.New("ExeCodec inverse transform failed: invalid data")
+		}
+
+		if dstIdx+5 > len(dst) {
+			return 0, 0, errors.New("ExeCodec inverse transform failed: invalid data")
 		}
 
 		// Current instruction is a jump/call. Decode absolute address
@@ -381,6 +436,10 @@ func (this *EXECodec) inverseX86(src, dst []byte) (uint, uint, error) {
 
 	count := len(src)
 
+	if dstIdx+(count-srcIdx) > len(dst) {
+		return 0, 0, errors.New("ExeCodec inverse transform failed: invalid data")
+	}
+
 	if srcIdx < count {
 		copy(dst[dstIdx:], src[srcIdx:count])
 		dstIdx += (count - srcIdx)
@@ -394,6 +453,10 @@ func (this *EXECodec) inverseV2(src, dst []byte) (uint, uint, error) {
 	srcIdx := 0
 	dstIdx := 0
 	end := count - 8
+
+	if count > len(dst) {
+		return 0, 0, errors.New("ExeCodec inverse transform failed: invalid data")
+	}
 
 	for srcIdx < end {
 		dst[dstIdx] = src[srcIdx]
@@ -458,7 +521,7 @@ func (this *EXECodec) forwardARM(src, dst []byte, codeStart, codeEnd int) (uint,
 		dstIdx += codeStart
 	}
 
-	for srcIdx < codeEnd && dstIdx < dstEnd {
+	for srcIdx+4 <= codeEnd && dstIdx < dstEnd {
 		instr := int(binary.LittleEndian.Uint32(src[srcIdx:]))
 		opcode1 := instr & _EXE_ARM_B_OPCODE_MASK
 		//opcode2 := instr & ARM_CB_OPCODE_MASK
@@ -532,7 +595,7 @@ func (this *EXECodec) forwardARM(src, dst []byte, codeStart, codeEnd int) (uint,
 	count := len(src)
 
 	// Cap expansion due to false positives
-	if srcIdx < codeEnd || dstIdx+(count-srcIdx) > dstEnd {
+	if (srcIdx+4 <= codeEnd && dstIdx >= dstEnd) || dstIdx+(count-srcIdx) > dstEnd {
 		return uint(srcIdx), uint(dstIdx), errors.New("ExeCodec forward transform skip: Too many false positives")
 	}
 
@@ -556,7 +619,7 @@ func (this *EXECodec) inverseARM(src, dst []byte) (uint, uint, error) {
 	codeEnd := int(binary.LittleEndian.Uint32(src[5:]))
 
 	// Sanity check
-	if codeStart+srcIdx > len(src) || codeStart+dstIdx > len(dst) || codeEnd > len(src) {
+	if codeStart < 0 || codeEnd < srcIdx || codeEnd > len(src) || codeStart > codeEnd-srcIdx || codeStart > len(dst)-dstIdx {
 		return 0, 0, errors.New("ExeCodec inverse transform failed: invalid data")
 	}
 
@@ -567,6 +630,14 @@ func (this *EXECodec) inverseARM(src, dst []byte) (uint, uint, error) {
 	}
 
 	for srcIdx < codeEnd {
+		if srcIdx+4 > codeEnd {
+			return 0, 0, errors.New("ExeCodec inverse transform failed: invalid data")
+		}
+
+		if dstIdx+4 > len(dst) {
+			return 0, 0, errors.New("ExeCodec inverse transform failed: invalid data")
+		}
+
 		instr := int(binary.LittleEndian.Uint32(src[srcIdx:]))
 		opcode1 := instr & _EXE_ARM_B_OPCODE_MASK
 		//copcode2 := instr & ARM_CB_OPCODE_MASK
@@ -597,6 +668,10 @@ func (this *EXECodec) inverseARM(src, dst []byte) (uint, uint, error) {
 		}
 
 		if addr == 0 {
+			if srcIdx+8 > codeEnd {
+				return 0, 0, errors.New("ExeCodec inverse transform failed: invalid data")
+			}
+
 			copy(dst[dstIdx:], src[srcIdx+4:srcIdx+8])
 			srcIdx += 8
 			dstIdx += 4
@@ -609,6 +684,10 @@ func (this *EXECodec) inverseARM(src, dst []byte) (uint, uint, error) {
 	}
 
 	count := len(src)
+
+	if dstIdx+(count-srcIdx) > len(dst) {
+		return 0, 0, errors.New("ExeCodec inverse transform failed: invalid data")
+	}
 
 	if srcIdx < count {
 		copy(dst[dstIdx:], src[srcIdx:count])
