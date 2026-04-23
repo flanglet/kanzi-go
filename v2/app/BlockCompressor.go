@@ -21,7 +21,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -700,6 +699,42 @@ func getTransformAndCodec(level int) string {
 	}
 }
 
+var (
+	errOutputExists    = errors.New("output file exists")
+	errSameInputOutput = errors.New("input and output files must be different")
+)
+
+func openOutputFile(outputName, inputName string, overwrite bool) (*os.File, error) {
+	if overwrite == false {
+		output, err := os.OpenFile(outputName, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
+
+		if os.IsExist(err) {
+			return nil, errOutputExists
+		}
+
+		return output, err
+	}
+
+	if strings.EqualFold(inputName, _COMP_STDIN) == false {
+		if inputInfo, inputErr := os.Stat(inputName); inputErr == nil {
+			if outputInfo, outputErr := os.Stat(outputName); outputErr == nil && os.SameFile(inputInfo, outputInfo) {
+				return nil, errSameInputOutput
+			}
+		}
+	}
+
+	output, err := os.OpenFile(outputName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+
+	if err != nil {
+		// Attempt to create the full folder hierarchy to file
+		if err = os.MkdirAll(path.Dir(strings.ReplaceAll(outputName, "\\", "/")), os.ModePerm); err == nil {
+			output, err = os.OpenFile(outputName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+		}
+	}
+
+	return output, err
+}
+
 type fileCompressTask struct {
 	ctx       map[string]any
 	listeners []kanzi.Listener
@@ -727,42 +762,22 @@ func (this *fileCompressTask) call() (int, uint64, uint64, error) {
 	} else {
 		var err error
 
-		if output, err = os.OpenFile(outputName, os.O_RDWR, 0666); err == nil {
-			// File exists
-			if err = output.Close(); err != nil {
-				fmt.Printf("Cannot create output file '%s': error closing existing file\n", outputName)
-				return kanzi.ERR_OVERWRITE_FILE, 0, 0, err
-			}
+		output, err = openOutputFile(outputName, inputName, overwrite)
 
-			if overwrite == false {
+		if err != nil {
+			if errors.Is(err, errOutputExists) {
 				fmt.Printf("File '%s' exists and the 'force' command ", outputName)
 				fmt.Println("line option has not been provided")
 				return kanzi.ERR_OVERWRITE_FILE, 0, 0, err
 			}
 
-			path1, _ := filepath.Abs(inputName)
-			path2, _ := filepath.Abs(outputName)
-
-			if path1 == path2 {
+			if errors.Is(err, errSameInputOutput) {
 				fmt.Print("The input and output files must be different")
 				return kanzi.ERR_CREATE_FILE, 0, 0, err
 			}
-		}
 
-		output, err = os.Create(outputName)
-
-		if err != nil {
-			if overwrite {
-				// Attempt to create the full folder hierarchy to file
-				if err = os.MkdirAll(path.Dir(strings.ReplaceAll(outputName, "\\", "/")), os.ModePerm); err == nil {
-					output, err = os.Create(outputName)
-				}
-			}
-
-			if err != nil {
-				fmt.Printf("Cannot open output file '%s' for writing: %v\n", outputName, err)
-				return kanzi.ERR_CREATE_FILE, 0, 0, err
-			}
+			fmt.Printf("Cannot open output file '%s' for writing: %v\n", outputName, err)
+			return kanzi.ERR_CREATE_FILE, 0, 0, err
 		}
 
 		defer output.Close()
