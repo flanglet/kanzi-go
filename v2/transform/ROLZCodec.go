@@ -752,9 +752,10 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 		if onlyLiterals == true {
 			// Shortcut when no match
+			dstIdx = 0
 			copy(buf[dstIdx:], litBuf[0:sizeChunk])
+			dstIdx = sizeChunk
 			startChunk = endChunk
-			dstIdx += sizeChunk
 			continue
 		}
 
