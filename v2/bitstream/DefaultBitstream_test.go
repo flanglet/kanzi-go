@@ -591,6 +591,10 @@ type partialReadCloser struct {
 	err  error
 }
 
+type singleByteThenEOFReadCloser struct {
+	read bool
+}
+
 func (this *partialReadCloser) Read(buf []byte) (int, error) {
 	if this.read == true {
 		return 0, this.err
@@ -602,6 +606,20 @@ func (this *partialReadCloser) Read(buf []byte) (int, error) {
 }
 
 func (this *partialReadCloser) Close() error {
+	return nil
+}
+
+func (this *singleByteThenEOFReadCloser) Read(buf []byte) (int, error) {
+	if this.read == true {
+		return 0, stdio.EOF
+	}
+
+	this.read = true
+	buf[0] = 0x80
+	return 1, nil
+}
+
+func (this *singleByteThenEOFReadCloser) Close() error {
 	return nil
 }
 
@@ -635,6 +653,26 @@ func TestInputBitStreamDefersReadErrorUntilBufferedBytesAreConsumed(t *testing.T
 	}()
 
 	ibs.ReadBit()
+}
+
+func TestInputBitStreamHasMoreToReadKeepsSingleBufferedByte(t *testing.T) {
+	ibs, err := NewDefaultInputBitStream(&singleByteThenEOFReadCloser{}, 1024)
+
+	if err != nil {
+		t.Fatalf("create input bitstream: %v", err)
+	}
+
+	for i := 0; i < 2; i++ {
+		more, err := ibs.HasMoreToRead()
+
+		if more != true || err != nil {
+			t.Fatalf("HasMoreToRead()=(%v,%v), want (true,<nil>)", more, err)
+		}
+	}
+
+	if got := ibs.ReadBit(); got != 1 {
+		t.Fatalf("ReadBit()=%d, want 1", got)
+	}
 }
 
 func TestInputBitStreamHasMoreToReadDefersEOFUntilBufferedBytesAreConsumed(t *testing.T) {

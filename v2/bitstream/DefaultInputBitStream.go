@@ -252,7 +252,7 @@ func (this *DefaultInputBitStream) HasMoreToRead() (bool, error) {
 		return false, errors.New("Stream closed")
 	}
 
-	if this.position < this.maxPosition || this.availBits != 0 {
+	if this.position <= this.maxPosition || this.availBits != 0 {
 		return true, nil
 	}
 
