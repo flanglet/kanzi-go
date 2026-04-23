@@ -847,7 +847,7 @@ func (this *fileCompressTask) call() (int, uint64, uint64, error) {
 			}
 		}
 
-		if length < len(buffer) {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 	}

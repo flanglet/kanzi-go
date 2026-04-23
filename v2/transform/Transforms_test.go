@@ -118,6 +118,49 @@ func TestEXECodec(t *testing.T)  { testTransformCorrectness("EXE", t) }
 func TestTextCodec(t *testing.T) { testTransformCorrectness("TEXT", t) }
 func TestUTFCodec(t *testing.T)  { testTransformCorrectness("UTF", t) }
 
+func TestROLZInverseLiteralOnlyChunkAfterCompressedChunk(t *testing.T) {
+	input := bytes.Repeat([]byte{'A'}, _ROLZ_CHUNK_SIZE)
+
+	for i := 0; i < 64; i++ {
+		input = append(input, byte(i))
+	}
+
+	input = append(input, 0xCA, 0xFE, 0xBA, 0xBE)
+	fwdTransform, err := getTransform("ROLZ")
+
+	if err != nil {
+		t.Fatalf("create ROLZ transform: %v", err)
+	}
+
+	output := make([]byte, fwdTransform.MaxEncodedLen(len(input)))
+	_, encoded, err := fwdTransform.Forward(input, output)
+
+	if err != nil {
+		t.Fatalf("forward ROLZ: %v", err)
+	}
+
+	invTransform, err := getTransform("ROLZ")
+
+	if err != nil {
+		t.Fatalf("create inverse ROLZ transform: %v", err)
+	}
+
+	reverse := make([]byte, len(input))
+	_, decoded, err := invTransform.Inverse(output[:encoded], reverse)
+
+	if err != nil {
+		t.Fatalf("inverse ROLZ: %v", err)
+	}
+
+	if decoded != uint(len(input)) {
+		t.Fatalf("decoded length=%d, want %d", decoded, len(input))
+	}
+
+	if bytes.Equal(reverse, input) == false {
+		t.Fatal("ROLZ inverse mismatch across chunk boundary")
+	}
+}
+
 // generateTransformTestCases creates the suite of generic test cases.
 func generateTransformTestCases(transformName string) []transformTestCase {
 	testCases := []transformTestCase{}
