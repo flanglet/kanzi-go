@@ -49,16 +49,20 @@ const (
 // the result in the output int slice. The result may have a different size.
 // The transform must be stateless to ensure that the compression results
 // are the same regardless of the number of jobs (ie no information is retained
-// between to invocations of Forward or Inverse).
+// between two invocations of Forward or Inverse).
 type IntTransform interface {
 	// Forward applies the function to the source and writes the result
 	// to the destination. Returns number of bytes read, number of bytes
 	// written and possibly an error.
+        // When an error is returned, the number of bytes read and written is
+        // best effort only.
 	Forward(src, dst []int) (uint, uint, error)
 
 	// Inverse applies the reverse function to the source and writes the result
 	// to the destination. Returns number of bytes read, number of bytes
 	// written and possibly an error.
+        // When an error is returned, the number of bytes read and written is
+        // best effort only.
 	Inverse(src, dst []int) (uint, uint, error)
 
 	// MaxEncodedLen returns the max size required for the encoding output buffer
