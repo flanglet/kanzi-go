@@ -679,6 +679,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		sizeChunk = endChunk - startChunk
 		buf := dst[startChunk:endChunk]
 		onlyLiterals := false
+		litLenDecoded := 0
 
 		// Scope to deallocate resources early
 		{
@@ -690,15 +691,16 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 				goto End
 			}
 
-			litLen := int(ibs.ReadBits(32))
-			tkLen := int(ibs.ReadBits(32))
-			mLenLen := int(ibs.ReadBits(32))
-			mIdxLen := int(ibs.ReadBits(32))
+				litLen := int(ibs.ReadBits(32))
+				tkLen := int(ibs.ReadBits(32))
+				mLenLen := int(ibs.ReadBits(32))
+				mIdxLen := int(ibs.ReadBits(32))
+				firstLitLen := min(sizeChunk, 8)
 
-			if litLen < 0 || litLen > len(litBuf) {
-				err = fmt.Errorf("ROLZ codec: Invalid length for literals: got %d, must be positive and less than or equal to %d", litLen, len(litBuf))
-				goto End
-			}
+				if litLen < 0 || litLen > len(litBuf) {
+					err = fmt.Errorf("ROLZ codec: Invalid length for literals: got %d, must be positive and less than or equal to %d", litLen, len(litBuf))
+					goto End
+				}
 
 			if tkLen < 0 || tkLen > len(tkBuf) {
 				err = fmt.Errorf("ROLZ codec: Invalid length for tokens: got %d, must be positive and less than or equal to %d", tkLen, len(tkBuf))
@@ -710,10 +712,22 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 				goto End
 			}
 
-			if mIdxLen < 0 || mIdxLen > len(mIdxBuf) {
-				err = fmt.Errorf("ROLZ codec: Invalid length for match indexes: got %d, must be positive and less than or equal to %d", mIdxLen, len(mIdxBuf))
-				goto End
-			}
+				if mIdxLen < 0 || mIdxLen > len(mIdxBuf) {
+					err = fmt.Errorf("ROLZ codec: Invalid length for match indexes: got %d, must be positive and less than or equal to %d", mIdxLen, len(mIdxBuf))
+					goto End
+				}
+
+				if litLen < firstLitLen || litLen > sizeChunk {
+					err = errors.New("ROLZ codec inverse transform failed: invalid data")
+					goto End
+				}
+
+				if (tkLen == 0 && mIdxLen != 0) || (tkLen > 0 && mIdxLen+1 != tkLen) {
+					err = errors.New("ROLZ codec inverse transform failed: invalid data")
+					goto End
+				}
+
+				litLenDecoded = litLen
 
 			var litDec *entropy.ANSRangeDecoder
 
@@ -750,12 +764,17 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			ibs.Close()
 		}
 
-		if onlyLiterals == true {
-			// Shortcut when no match
-			dstIdx = 0
-			copy(buf[dstIdx:], litBuf[0:sizeChunk])
-			dstIdx = sizeChunk
-			startChunk = endChunk
+			if onlyLiterals == true {
+				// Shortcut when no match
+				if litLenDecoded != sizeChunk {
+					err = errors.New("ROLZ codec inverse transform failed: invalid data")
+					goto End
+				}
+
+				dstIdx = 0
+				copy(buf[dstIdx:], litBuf[0:sizeChunk])
+				dstIdx = sizeChunk
+				startChunk = endChunk
 			continue
 		}
 
@@ -869,15 +888,15 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		startChunk = endChunk
 	}
 
-End:
-	if err == nil {
-		// Emit last literals
-		dstIdx += (startChunk - sizeChunk)
+	End:
+		if err == nil {
+			// Emit last literals
+			dstIdx += (startChunk - sizeChunk)
 
-		if dstIdx+4 > len(dst) && srcIdx+4 > len(src) {
-			err = errors.New("ROLZ codec inverse transform failed: invalid input data")
-		} else {
-			dst[dstIdx] = src[srcIdx]
+			if dstIdx+4 > len(dst) || len(src)-srcIdx != 4 {
+				err = errors.New("ROLZ codec inverse transform failed: invalid input data")
+			} else {
+				dst[dstIdx] = src[srcIdx]
 			dst[dstIdx+1] = src[srcIdx+1]
 			dst[dstIdx+2] = src[srcIdx+2]
 			dst[dstIdx+3] = src[srcIdx+3]
