@@ -645,6 +645,8 @@ func (this *LZXCodec) inverseV6(src, dst []byte) (uint, uint, error) {
 	}
 
 	srcEnd := tkIdx - 13
+	litEnd := tkIdx
+	dstLimit := len(dst)
 	mFlag := int(src[12]) & 0x01
 	dstEnd := len(dst) - 16
 	maxDist := _LZX_MAX_DISTANCE2
@@ -673,6 +675,10 @@ func (this *LZXCodec) inverseV6(src, dst []byte) (uint, uint, error) {
 				srcIdx += llIdx
 			} else {
 				litLen = token >> 5
+			}
+
+			if litLen > dstLimit-dstIdx || litLen > litEnd-srcIdx {
+				return uint(srcIdx), uint(dstIdx), errors.New("LZCodec inverse transform failed: invalid literal length")
 			}
 
 			// Emit literals
@@ -804,6 +810,7 @@ func (this *LZXCodec) inverseV4(src, dst []byte) (uint, uint, error) {
 	}
 
 	srcEnd := tkIdx - 13
+	dstLimit := len(dst)
 	mFlag := int(src[12]) & 0x01
 	dstEnd := len(dst) - 16
 	maxDist := _LZX_MAX_DISTANCE2
@@ -816,6 +823,7 @@ func (this *LZXCodec) inverseV4(src, dst []byte) (uint, uint, error) {
 	var minMatches = []int{_LZX_MIN_MATCH4, _LZX_MIN_MATCH9, _LZX_MIN_MATCH6, _LZX_MIN_MATCH6}
 	minMatch := minMatches[mmIdx]
 
+	litEnd := tkIdx
 	srcIdx := 13
 	dstIdx := 0
 	repd0 := 0
@@ -835,6 +843,10 @@ func (this *LZXCodec) inverseV4(src, dst []byte) (uint, uint, error) {
 				srcIdx += delta
 			} else {
 				litLen = token >> 5
+			}
+
+			if litLen > dstLimit-dstIdx || litLen > litEnd-srcIdx {
+				return uint(srcIdx), uint(dstIdx), errors.New("LZCodec inverse transform failed: invalid literal length")
 			}
 
 			// Emit literals
