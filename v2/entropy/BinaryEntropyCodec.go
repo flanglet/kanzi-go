@@ -43,6 +43,18 @@ type BinaryEntropyEncoder struct {
 	index     int
 }
 
+func growBinaryEntropyBuffer(buf []byte, required int) []byte {
+	if len(buf) >= required {
+		return buf
+	}
+
+	grownSize := len(buf) + max(len(buf)>>2, 1<<20)
+	newSize := max(required, max(grownSize, 1024))
+	newBuf := make([]byte, newSize)
+	copy(newBuf, buf)
+	return newBuf
+}
+
 // NewBinaryEntropyEncoder creates an instance of BinaryEntropyEncoder using the
 // given predictor to predict the probability of the next bit to be one. It outputs
 // to the given OutputBitstream
@@ -127,10 +139,7 @@ func (this *BinaryEntropyEncoder) Write(block []byte) (int, error) {
 	}
 
 	bufSize := length + (length >> 3)
-
-	if len(this.buffer) < bufSize {
-		this.buffer = make([]byte, bufSize)
-	}
+	this.buffer = growBinaryEntropyBuffer(this.buffer, bufSize)
 
 	// Split block into chunks, read bit array from bitstream and decode chunk
 	for startChunk < end {
@@ -155,6 +164,7 @@ func (this *BinaryEntropyEncoder) Write(block []byte) (int, error) {
 }
 
 func (this *BinaryEntropyEncoder) flush() {
+	this.buffer = growBinaryEntropyBuffer(this.buffer, this.index+4)
 	binary.BigEndian.PutUint32(this.buffer[this.index:], uint32(this.high>>24))
 	this.index += 4
 	this.low <<= 32
@@ -288,19 +298,18 @@ func (this *BinaryEntropyDecoder) Read(block []byte) (int, error) {
 	}
 
 	bufSize := length + (length >> 3)
-
-	if len(this.buffer) < bufSize {
-		this.buffer = make([]byte, bufSize)
-	}
+	this.buffer = growBinaryEntropyBuffer(this.buffer, bufSize)
 
 	// Split block into chunks, read bit array from bitstream and decode chunk
 	for startChunk < end {
 		chunkSize := min(length, end-startChunk)
 		szBytes := ReadVarInt(this.bitstream)
 
-		if szBytes > uint32(bufSize) {
+		if szBytes > uint32(_BINARY_ENTROPY_MAX_BLOCK) {
 			return startChunk, errors.New("Binary entropy codec: Invalid bitstream")
 		}
+
+		this.buffer = growBinaryEntropyBuffer(this.buffer, int(szBytes))
 
 		this.current = this.bitstream.ReadBits(56)
 

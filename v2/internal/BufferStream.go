@@ -26,6 +26,13 @@ type BufferStream struct {
 	closed bool
 }
 
+// StagedBuffer a closable write-only byte stream with access to the backing slice.
+type StagedBuffer struct {
+	buf    []byte
+	length int
+	closed bool
+}
+
 // NewBufferStream creates a new instance of BufferStream
 func NewBufferStream(args ...[]byte) *BufferStream {
 	this := &BufferStream{}
@@ -37,6 +44,11 @@ func NewBufferStream(args ...[]byte) *BufferStream {
 	}
 
 	return this
+}
+
+// NewStagedBuffer creates a new instance of StagedBuffer backed by the provided slice.
+func NewStagedBuffer(buf []byte) *StagedBuffer {
+	return &StagedBuffer{buf: buf[:0]}
 }
 
 // Write returns an error if the stream is closed, otherwise writes the given
@@ -79,4 +91,54 @@ func (this *BufferStream) Available() int {
 	}
 
 	return this.buf.Available()
+}
+
+// Write returns an error if the stream is closed, otherwise writes the given
+// data to the internal buffer (growing the buffer as needed).
+// Returns the number of bytes written.
+func (this *StagedBuffer) Write(b []byte) (int, error) {
+	if this.closed == true {
+		return 0, errors.New("Stream closed")
+	}
+
+	required := this.length + len(b)
+
+	if cap(this.buf) < required {
+		newBuf := make([]byte, growStagedBufferSize(cap(this.buf), required))
+		copy(newBuf, this.buf[:this.length])
+		this.buf = newBuf[:this.length]
+	}
+
+	if len(this.buf) < required {
+		this.buf = this.buf[:required]
+	}
+
+	copy(this.buf[this.length:], b)
+	this.length += len(b)
+	return len(b), nil
+}
+
+// Close makes the stream unavailable for future writes.
+func (this *StagedBuffer) Close() error {
+	this.closed = true
+	return nil
+}
+
+// Bytes returns the bytes written so far.
+func (this *StagedBuffer) Bytes() []byte {
+	return this.buf[:this.length]
+}
+
+// Backing returns the full backing slice capacity.
+func (this *StagedBuffer) Backing() []byte {
+	if cap(this.buf) == 0 {
+		return this.buf
+	}
+
+	return this.buf[:cap(this.buf)]
+}
+
+func growStagedBufferSize(current, required int) int {
+	grownSize := current + max(current>>2, 1<<20)
+	return max(required, max(grownSize, 1024))
 }

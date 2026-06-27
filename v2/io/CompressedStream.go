@@ -161,6 +161,11 @@ type blockBuffer struct {
 	Buf []byte
 }
 
+func growStageBufferSize(current, required int) int {
+	grownSize := current + max(current>>2, 1<<20)
+	return max(required, max(grownSize, 1024))
+}
+
 // Writer a Writer that writes compressed data
 // to an OutputBitStream.
 type Writer struct {
@@ -859,11 +864,12 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 	if len(data) < int(bufSize) {
 		// Rare case where the transform expanded the input or the entropy
 		// coder may expand the size
-		data = make([]byte, bufSize)
+		data = make([]byte, growStageBufferSize(len(data), int(bufSize)))
+		this.iBuffer.Buf = data
 	}
 
 	// Create a bitstream local to the task
-	bufStream := internal.NewBufferStream(data[0:0:cap(data)])
+	bufStream := internal.NewStagedBuffer(data)
 	obs, _ := bitstream.NewDefaultOutputBitStream(bufStream, 16384)
 	skipFlags := t.SkipFlags()
 
@@ -912,6 +918,9 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 	ee.Dispose()
 	obs.Close()
 	written := obs.Written()
+	data = bufStream.Backing()
+	this.iBuffer.Buf = data
+	encoded := bufStream.Bytes()
 
 	if len(this.listeners) > 0 {
 		// Notify after entropy
@@ -965,7 +974,7 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 
 	// Emit data to shared bitstream
 	for n := uint(0); written > 0; {
-		this.obs.WriteArray(data[n:], chkSize)
+		this.obs.WriteArray(encoded[n:], chkSize)
 		n += (chkSize + 7) >> 3
 		written -= uint64(chkSize)
 		chkSize = uint(1 << 30)
