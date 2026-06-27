@@ -140,8 +140,8 @@ func (this *EXECodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	codeStart := 0
-	codeEnd := count - 8
-	mode := detectExeType(src[:codeEnd+4], &codeStart, &codeEnd)
+	codeEnd := count
+	mode := detectExeType(src, &codeStart, &codeEnd)
 
 	if mode&_EXE_NOT_EXE != 0 {
 		if this.ctx != nil {
@@ -712,8 +712,13 @@ func detectExeType(src []byte, codeStart, codeEnd *int) byte {
 	// Best effort
 	magic := internal.GetMagicType(src)
 	arch := 0
+	blockSize := len(src)
 
 	if parseExeHeader(src, magic, &arch, codeStart, codeEnd) == true {
+		if *codeStart < 0 || *codeStart > blockSize || *codeEnd < *codeStart || *codeEnd > blockSize {
+			return _EXE_NOT_EXE | byte(internal.DT_UNDEFINED)
+		}
+
 		if (arch == _EXE_ELF_X86_ARCH) || (arch == _EXE_ELF_AMD64_ARCH) {
 			return _EXE_X86
 		}
@@ -735,6 +740,14 @@ func detectExeType(src []byte, codeStart, codeEnd *int) byte {
 		}
 	}
 
+	if *codeStart < 0 || *codeStart > blockSize || *codeEnd < *codeStart || *codeEnd > blockSize {
+		return _EXE_NOT_EXE | byte(internal.DT_UNDEFINED)
+	}
+
+	if len(src) == 0 {
+		return _EXE_NOT_EXE | byte(internal.DT_UNDEFINED)
+	}
+
 	jumpsX86 := 0
 	jumpsARM64 := 0
 	count := *codeEnd - *codeStart
@@ -744,28 +757,31 @@ func detectExeType(src []byte, codeStart, codeEnd *int) byte {
 		histo[src[i]]++
 
 		// X86
-		if (src[i] & _EXE_X86_MASK_JUMP) == _EXE_X86_INSTRUCTION_JUMP {
+		if i+4 < *codeEnd && (src[i]&_EXE_X86_MASK_JUMP) == _EXE_X86_INSTRUCTION_JUMP {
 			if (src[i+4] == 0) || (src[i+4] == 0xFF) {
 				// Count relative jumps (CALL = E8/ JUMP = E9 .. .. .. 00/FF)
 				jumpsX86++
 				continue
 			}
-		} else if src[i] == _EXE_X86_TWO_BYTE_PREFIX {
-			i++
+		} else if src[i] == _EXE_X86_TWO_BYTE_PREFIX && i+1 < *codeEnd {
+			j := i + 1
 
-			if (src[i] == 0x38) || (src[i] == 0x3A) {
-				i++
+			if ((src[j] == 0x38) || (src[j] == 0x3A)) && j+1 < *codeEnd {
+				j++
 			}
 
 			// Count relative conditional jumps (0x0F 0x8?) with 16/32 offsets
-			if (src[i] & _EXE_X86_MASK_JCC) == _EXE_X86_INSTRUCTION_JCC {
+			if (src[j] & _EXE_X86_MASK_JCC) == _EXE_X86_INSTRUCTION_JCC {
 				jumpsX86++
+				i = j
 				continue
 			}
+
+			i = j
 		}
 
 		// ARM
-		if (i & 3) != 0 {
+		if (i&3) != 0 || i+4 > *codeEnd {
 			continue
 		}
 

@@ -368,7 +368,7 @@ func (this *BWT) inverseBiPSIv2(src, dst []byte, count int) (uint, uint, error) 
 
 	pIdx := int(this.PrimaryIndex(0))
 
-	if pIdx > len(src) {
+	if pIdx <= 0 || pIdx > len(src) {
 		return 0, 0, errors.New("Invalid input: corrupted BWT primary index")
 	}
 

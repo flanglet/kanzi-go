@@ -304,8 +304,9 @@ func (this *BinaryEntropyDecoder) Read(block []byte) (int, error) {
 	for startChunk < end {
 		chunkSize := min(length, end-startChunk)
 		szBytes := ReadVarInt(this.bitstream)
+		maxEncodedSize := min(uint64(chunkSize)<<5, uint64(^uint(0)>>3))
 
-		if szBytes > uint32(_BINARY_ENTROPY_MAX_BLOCK) {
+		if uint64(szBytes) > maxEncodedSize {
 			return startChunk, errors.New("Binary entropy codec: Invalid bitstream")
 		}
 

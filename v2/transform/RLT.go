@@ -412,7 +412,7 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 		run += (_RLT_RUN_THRESHOLD - 1)
 
 		// Sanity check
-		if run > _RLT_MAX_RUN || dstIdx+run >= dstEnd {
+		if run > _RLT_MAX_RUN || dstIdx+run > dstEnd {
 			err = errors.New("RLT inverse transform failed: invalid run length")
 			break
 		}

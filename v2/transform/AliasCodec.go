@@ -417,15 +417,46 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			srcIdx += 3
 		}
 
-		for srcIdx < srcEnd {
-			val := map16[int(src[srcIdx])]
-			srcIdx++
-			dst[dstIdx] = byte(val)
-			dst[dstIdx+1] = byte(val >> 8)
-			dstIdx += (val >> 16)
+		nbAliases := srcEnd - srcIdx
+		dstAvail := len(dst) - dstIdx
+
+		if nbAliases <= (dstAvail >> 1) {
+			for srcIdx < srcEnd {
+				val := map16[int(src[srcIdx])]
+				srcIdx++
+				dst[dstIdx] = byte(val)
+				dst[dstIdx+1] = byte(val >> 8)
+				dstIdx += (val >> 16)
+			}
+		} else {
+			for srcIdx < srcEnd && dstIdx+1 < len(dst) {
+				val := map16[int(src[srcIdx])]
+				srcIdx++
+				dst[dstIdx] = byte(val)
+				dst[dstIdx+1] = byte(val >> 8)
+				dstIdx += (val >> 16)
+			}
+
+			for srcIdx < srcEnd {
+				val := map16[int(src[srcIdx])]
+				srcIdx++
+				inc := val >> 16
+
+				if dstIdx+inc > len(dst) {
+					return 0, 0, errors.New("Alias codec inverse transform failed: invalid data")
+				}
+
+				dst[dstIdx+inc-1] = byte(val >> 8)
+				dst[dstIdx] = byte(val)
+				dstIdx += inc
+			}
 		}
 
 		if src[1] != 0 {
+			if dstIdx >= len(dst) {
+				return 0, 0, errors.New("Alias codec inverse transform failed: invalid data")
+			}
+
 			dst[dstIdx] = src[srcIdx]
 			srcIdx++
 			dstIdx++
