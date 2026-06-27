@@ -118,6 +118,68 @@ func TestEXECodec(t *testing.T)  { testTransformCorrectness("EXE", t) }
 func TestTextCodec(t *testing.T) { testTransformCorrectness("TEXT", t) }
 func TestUTFCodec(t *testing.T)  { testTransformCorrectness("UTF", t) }
 
+func TestTextCodecSelfDescribing(t *testing.T) {
+	sample := bytes.Repeat([]byte("The quick brown fox jumps over the lazy dog. Text compression works best on repeated natural language content.\n"), 32)
+
+	for encType := 1; encType <= 2; encType++ {
+		encCtx := make(map[string]any)
+		encCtx["textcodec"] = encType
+		encCtx["bsVersion"] = uint(7)
+		encCtx["blockSize"] = uint(len(sample))
+		encoder, err := NewTextCodecWithCtx(&encCtx)
+
+		if err != nil {
+			t.Fatalf("encoder init failed for codec %d: %v", encType, err)
+		}
+
+		encoded := make([]byte, encoder.MaxEncodedLen(len(sample)))
+		read, written, err := encoder.Forward(sample, encoded)
+
+		if err != nil {
+			t.Fatalf("encode failed for codec %d: %v", encType, err)
+		}
+
+		if int(read) != len(sample) || written == 0 {
+			t.Fatalf("unexpected encode result for codec %d: read=%d written=%d", encType, read, written)
+		}
+
+		gotType := 1
+
+		if encoded[0]&_TC_MASK_TEXT_CODEC != 0 {
+			gotType = 2
+		}
+
+		if gotType != encType {
+			t.Fatalf("invalid codec selector in header: got %d want %d", gotType, encType)
+		}
+
+		decCtx := make(map[string]any)
+		decCtx["textcodec"] = 3 - encType
+		decCtx["bsVersion"] = uint(7)
+		decoder, err := NewTextCodecWithCtx(&decCtx)
+
+		if err != nil {
+			t.Fatalf("decoder init failed for codec %d: %v", encType, err)
+		}
+
+		decoded := make([]byte, len(sample))
+		encodedSize := written
+		read, written, err = decoder.Inverse(encoded[:encodedSize], decoded)
+
+		if err != nil {
+			t.Fatalf("decode failed for codec %d: %v", encType, err)
+		}
+
+		if int(read) != len(encoded[:encodedSize]) {
+			t.Fatalf("unexpected decoded input length for codec %d: %d", encType, read)
+		}
+
+		if int(written) != len(sample) || !bytes.Equal(sample, decoded[:written]) {
+			t.Fatalf("round-trip mismatch for codec %d", encType)
+		}
+	}
+}
+
 func TestROLZInverseLiteralOnlyChunkAfterCompressedChunk(t *testing.T) {
 	input := bytes.Repeat([]byte{'A'}, _ROLZ_CHUNK_SIZE)
 

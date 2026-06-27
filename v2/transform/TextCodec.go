@@ -44,6 +44,7 @@ const (
 	_TC_MASK_NOT_TEXT   = 0x80
 	_TC_MASK_CRLF       = 0x40
 	_TC_MASK_XML_HTML   = 0x20
+	_TC_MASK_TEXT_CODEC = 0x10
 	_TC_MASK_DT         = 0x0F
 	_TC_MASK_LENGTH     = 0x0007FFFF         // 19 bits
 	_TC_HASH1           = int32(2146121005)  // 0x7FEB352D
@@ -59,7 +60,10 @@ type dictEntry struct {
 // TextCodec is a simple one-pass text codec that replaces words with indexes.
 // Uses a default (small) static dictionary. Generates a dynamic dictionary.
 type TextCodec struct {
-	delegate kanzi.ByteTransform
+	delegate     kanzi.ByteTransform
+	ctx          *map[string]any
+	encodingType int
+	bsVersion    uint
 }
 
 type textCodec1 struct {
@@ -508,20 +512,28 @@ func isDelimiter(val byte) bool {
 // NewTextCodec creates a new instance of TextCodec
 func NewTextCodec() (*TextCodec, error) {
 	this := &TextCodec{}
-	d, err := newTextCodec1()
-	this.delegate = d
-	return this, err
+	this.bsVersion = 7
+	return this, this.setEncodingType(1)
 }
 
 // NewTextCodecWithCtx creates a new instance of TextCodec using a
 // configuration map as parameter.
 func NewTextCodecWithCtx(ctx *map[string]any) (*TextCodec, error) {
 	this := &TextCodec{}
-
-	var err error
-	var d kanzi.ByteTransform
+	this.ctx = ctx
+	this.bsVersion = 7
 
 	if ctx != nil {
+		if val, hasKey := (*ctx)["bsVersion"]; hasKey {
+			version, ok := val.(uint)
+
+			if ok == false {
+				return nil, errors.New("Text codec: invalid bitstream version")
+			}
+
+			this.bsVersion = version
+		}
+
 		if val, hasKey := (*ctx)["textcodec"]; hasKey {
 			encodingType, ok := val.(int)
 
@@ -529,19 +541,45 @@ func NewTextCodecWithCtx(ctx *map[string]any) (*TextCodec, error) {
 				return nil, errors.New("Text codec: invalid encoding type")
 			}
 
-			if encodingType == 2 {
-				d, err = newTextCodec2WithCtx(ctx)
-				this.delegate = d
-			}
+			return this, this.setEncodingType(encodingType)
 		}
 	}
 
-	if this.delegate == nil && err == nil {
-		d, err = newTextCodec1WithCtx(ctx)
-		this.delegate = d
+	return this, this.setEncodingType(1)
+}
+
+func (this *TextCodec) setEncodingType(encodingType int) error {
+	if this.delegate != nil && this.encodingType == encodingType {
+		return nil
 	}
 
-	return this, err
+	var (
+		d   kanzi.ByteTransform
+		err error
+	)
+
+	this.encodingType = encodingType
+
+	if encodingType == 2 {
+		if this.ctx != nil {
+			d, err = newTextCodec2WithCtx(this.ctx)
+		} else {
+			d, err = newTextCodec2()
+		}
+	} else {
+		if this.ctx != nil {
+			d, err = newTextCodec1WithCtx(this.ctx)
+		} else {
+			d, err = newTextCodec1()
+		}
+	}
+
+	if err != nil {
+		return err
+	}
+
+	this.delegate = d
+	return nil
 }
 
 // Forward applies the function to the src and writes the result
@@ -564,7 +602,17 @@ func (this *TextCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	return this.delegate.Forward(src, dst)
+	read, written, err := this.delegate.Forward(src, dst)
+
+	if err == nil && this.bsVersion >= 7 && written > 0 {
+		if this.encodingType == 1 {
+			dst[0] &= ^byte(_TC_MASK_TEXT_CODEC)
+		} else {
+			dst[0] |= _TC_MASK_TEXT_CODEC
+		}
+	}
+
+	return read, written, err
 }
 
 // Inverse applies the reverse function to the src and writes the result
@@ -586,6 +634,18 @@ func (this *TextCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 	if &src[0] == &dst[0] {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
+	}
+
+	if this.bsVersion >= 7 {
+		encodingType := 1
+
+		if src[0]&_TC_MASK_TEXT_CODEC != 0 {
+			encodingType = 2
+		}
+
+		if err := this.setEncodingType(encodingType); err != nil {
+			return 0, 0, err
+		}
 	}
 
 	return this.delegate.Inverse(src, dst)
