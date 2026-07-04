@@ -54,15 +54,15 @@ type IntTransform interface {
 	// Forward applies the function to the source and writes the result
 	// to the destination. Returns number of bytes read, number of bytes
 	// written and possibly an error.
-        // When an error is returned, the number of bytes read and written is
-        // best effort only.
+	// When an error is returned, the number of bytes read and written is
+	// best effort only.
 	Forward(src, dst []int) (uint, uint, error)
 
 	// Inverse applies the reverse function to the source and writes the result
 	// to the destination. Returns number of bytes read, number of bytes
 	// written and possibly an error.
-        // When an error is returned, the number of bytes read and written is
-        // best effort only.
+	// When an error is returned, the number of bytes read and written is
+	// best effort only.
 	Inverse(src, dst []int) (uint, uint, error)
 
 	// MaxEncodedLen returns the max size required for the encoding output buffer
