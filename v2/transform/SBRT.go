@@ -133,11 +133,11 @@ func (this *SBRT) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	if n := this.MaxEncodedLen(len(src)); len(dst) < n {
-		return 0, 0, fmt.Errorf("SBRT forward transform skip: output buffer is too small - size: %d, required %d", len(dst), n)
-	}
-
 	count := len(src)
+
+	if count > len(dst) {
+		return 0, 0, fmt.Errorf("SBRT forward transform skip: output buffer is too small - size: %d, required %d", len(dst), count)
+	}
 	s2r := [256]uint8{}
 	r2s := [256]uint8{}
 

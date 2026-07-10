@@ -36,6 +36,29 @@ func TestBWTS(b *testing.T) {
 	}
 }
 
+func TestTransformCapacityValidation(t *testing.T) {
+	src := []byte{1, 2}
+	dst := []byte{0x7E}
+
+	tfBWT, _ := NewBWT()
+
+	if _, _, err := tfBWT.Forward(src, dst); err == nil {
+		t.Fatal("BWT should reject an undersized output buffer")
+	}
+
+	tfBWTS, _ := NewBWTS()
+
+	if _, _, err := tfBWTS.Forward(src, dst); err == nil {
+		t.Fatal("BWTS should reject an undersized output buffer")
+	}
+
+	tfSBRT, _ := NewSBRT(SBRT_MODE_RANK)
+
+	if _, _, err := tfSBRT.Forward(src, dst); err == nil {
+		t.Fatal("SBRT should reject an undersized output buffer")
+	}
+}
+
 func testCorrectnessBWT(isBWT, verbose bool) error {
 	if verbose {
 		if isBWT {
