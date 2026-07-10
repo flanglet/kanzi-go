@@ -73,11 +73,16 @@ func (this *DefaultOutputBitStream) WriteBit(bit int) {
 }
 
 // WriteBits writes 'count' from 'value' to the bitstream.
-// Panics if the bitstream is closed or 'count' is outside of [1..64].
+// A zero count is a successful no-op, including when the bitstream is closed.
+// Otherwise, panics if the bitstream is closed or 'count' is outside of [0..64].
 // Returns the number of written bits.
 func (this *DefaultOutputBitStream) WriteBits(value uint64, count uint) uint {
+	if count == 0 {
+		return 0
+	}
+
 	if count > 64 {
-		panic(fmt.Errorf("Invalid bit count: %d (must be in [1..64])", count))
+		panic(fmt.Errorf("Invalid bit count: %d (must be in [0..64])", count))
 	}
 
 	this.current |= ((value << (64 - count)) >> (64 - this.availBits))

@@ -86,9 +86,10 @@ func (this *DebugOutputBitStream) WriteBit(bit int) {
 }
 
 // WriteBits writes the least significant bits of 'bits' to the bitstream.
-// Length is the number of bits to write (in [1..64]).
+// Length is the number of bits to write (in [0..64]). A zero length is a
+// successful no-op regardless of the stream status.
 // Returns the number of bits written.
-// Panics if closed or an IO error is received.
+// Panics if closed and length is not zero or an IO error is received.
 // Calls WriteBits() on the underlying bitstream delegate.
 func (this *DebugOutputBitStream) WriteBits(bits uint64, length uint) uint {
 	res := this.delegate.WriteBits(bits, length)
