@@ -90,8 +90,8 @@ func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncode
 		if len(args) > 2 {
 			logRange = args[2]
 
-			if logRange < 8 || logRange > 16 {
-				return nil, fmt.Errorf("ANS codec: Invalid range: %d (must be in [8..16])", logRange)
+			if logRange < 8 || logRange > 15 {
+				return nil, fmt.Errorf("ANS codec: Invalid range: %d (must be in [8..15])", logRange)
 			}
 		}
 
@@ -145,8 +145,8 @@ func NewANSRangeEncoderWithCtx(bs kanzi.OutputBitStream, ctx *map[string]any, ar
 		if len(args) > 2 {
 			logRange = args[2]
 
-			if logRange < 8 || logRange > 16 {
-				return nil, fmt.Errorf("ANS codec: Invalid range: %d (must be in [8..16])", logRange)
+			if logRange < 8 || logRange > 15 {
+				return nil, fmt.Errorf("ANS codec: Invalid range: %d (must be in [8..15])", logRange)
 			}
 		}
 
@@ -605,8 +605,8 @@ func NewANSRangeDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]any, arg
 func (this *ANSRangeDecoder) decodeHeader(frequencies, alphabet []int) (int, error) {
 	this.logRange = uint(8 + this.bitstream.ReadBits(3))
 
-	if this.logRange < 8 || this.logRange > 16 {
-		return 0, fmt.Errorf("Invalid bitstream: range = %d (must be in [8..16])", this.logRange)
+	if this.logRange < 8 || this.logRange > 15 {
+		return 0, fmt.Errorf("Invalid bitstream: range = %d (must be in [8..15])", this.logRange)
 	}
 
 	res := 0

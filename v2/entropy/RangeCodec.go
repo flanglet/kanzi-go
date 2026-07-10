@@ -79,8 +79,8 @@ func NewRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*RangeEncoder, err
 		return nil, fmt.Errorf("Range codec: The chunk size must be at most %d", _RANGE_MAX_CHUNK_SIZE)
 	}
 
-	if logRange < 8 || logRange > 16 {
-		return nil, fmt.Errorf("Range codec: Invalid range parameter: %v (must be in [8..16])", logRange)
+	if logRange < 8 || logRange > 15 {
+		return nil, fmt.Errorf("Range codec: Invalid range parameter: %v (must be in [8..15])", logRange)
 	}
 
 	this := &RangeEncoder{}
@@ -122,8 +122,8 @@ func NewRangeEncoderWithCtx(bs kanzi.OutputBitStream, ctx *map[string]any, args 
 		return nil, fmt.Errorf("Range codec: The chunk size must be at most %d", _RANGE_MAX_CHUNK_SIZE)
 	}
 
-	if logRange < 8 || logRange > 16 {
-		return nil, fmt.Errorf("Range codec: Invalid range parameter: %v (must be in [8..16])", logRange)
+	if logRange < 8 || logRange > 15 {
+		return nil, fmt.Errorf("Range codec: Invalid range parameter: %v (must be in [8..15])", logRange)
 	}
 
 	this := &RangeEncoder{}
