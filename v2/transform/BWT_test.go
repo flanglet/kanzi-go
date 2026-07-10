@@ -46,16 +46,28 @@ func TestTransformCapacityValidation(t *testing.T) {
 		t.Fatal("BWT should reject an undersized output buffer")
 	}
 
+	if _, _, err := tfBWT.Inverse(src, dst); err == nil {
+		t.Fatal("BWT inverse should reject an undersized output buffer")
+	}
+
 	tfBWTS, _ := NewBWTS()
 
 	if _, _, err := tfBWTS.Forward(src, dst); err == nil {
 		t.Fatal("BWTS should reject an undersized output buffer")
 	}
 
+	if _, _, err := tfBWTS.Inverse(src, dst); err == nil {
+		t.Fatal("BWTS inverse should reject an undersized output buffer")
+	}
+
 	tfSBRT, _ := NewSBRT(SBRT_MODE_RANK)
 
 	if _, _, err := tfSBRT.Forward(src, dst); err == nil {
 		t.Fatal("SBRT should reject an undersized output buffer")
+	}
+
+	if _, _, err := tfSBRT.Inverse(src, dst); err == nil {
+		t.Fatal("SBRT inverse should reject an undersized output buffer")
 	}
 }
 
