@@ -816,10 +816,14 @@ func (this *HuffmanDecoder) decodeChunkV6(block []byte, count int) (int, error) 
 	}
 
 	stride := len(this.buffer) / 4
-	idx0 := 0 * stride
-	idx1 := 1 * stride
-	idx2 := 2 * stride
-	idx3 := 3 * stride
+	base0 := 0 * stride
+	base1 := 1 * stride
+	base2 := 2 * stride
+	base3 := 3 * stride
+	idx0 := base0
+	idx1 := base1
+	idx2 := base2
+	idx3 := base3
 
 	// Read all compressed data from bitstream
 	this.bitstream.ReadArray(this.buffer[idx0:], uint(szBits0))
@@ -965,6 +969,13 @@ func (this *HuffmanDecoder) decodeChunkV6(block []byte, count int) (int, error) 
 		block[i] = byte(this.bitstream.ReadBits(8))
 	}
 
+	if (((idx0 - base0) << 3) - int(bs0+_HUF_MAX_SYMBOL_SIZE_V4) != int(szBits0)) ||
+		(((idx1 - base1) << 3) - int(bs1+_HUF_MAX_SYMBOL_SIZE_V4) != int(szBits1)) ||
+		(((idx2 - base2) << 3) - int(bs2+_HUF_MAX_SYMBOL_SIZE_V4) != int(szBits2)) ||
+		(((idx3 - base3) << 3) - int(bs3+_HUF_MAX_SYMBOL_SIZE_V4) != int(szBits3)) {
+		return 0, errors.New("Invalid bitstream: incorrect Huffman stream size")
+	}
+
 	return count, nil
 }
 
@@ -1048,6 +1059,10 @@ func (this *HuffmanDecoder) decodeChunkV5(block []byte, count int) (int, error) 
 			bits -= uint8(val)
 			block[n] = byte(val >> 8)
 			n++
+		}
+
+		if ((idx << 3) - int(bits)) != int(szBits) {
+			return 0, errors.New("Invalid bitstream: incorrect Huffman stream size")
 		}
 	}
 

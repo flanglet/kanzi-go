@@ -953,7 +953,7 @@ func (this *ANSRangeDecoder) decodeChunkV2(block []byte) bool {
 		n++
 	}
 
-	return true
+	return n == int(sz)
 }
 
 // BitStream returns the underlying bitstream

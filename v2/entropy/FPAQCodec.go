@@ -413,6 +413,10 @@ func (this *FPAQDecoder) Read(block []byte) (int, error) {
 			}
 		}
 
+		if this.index > szBytes {
+			return 0, fmt.Errorf("FPAQ codec: Invalid bitstream")
+		}
+
 		startChunk += chunkSize
 	}
 
