@@ -283,7 +283,7 @@ func (this *BWT) inverseMergeTPSI(src, dst []byte, count int) (uint, uint, error
 			return 0, 0, errors.New("BWT inverse transform failed: corrupted BWT primary index")
 		}
 
-		if t0 >= int32(len(data)) || t1 >= int32(len(data)) || t2 >= int32(len(data)) || t3 >= int32(len(data)) || t4 >= int32(len(data)) || t5 >= int32(len(data)) || t6 >= int32(len(data)) || t7 >= int32(len(data)) {
+		if t0 >= int32(count) || t1 >= int32(count) || t2 >= int32(count) || t3 >= int32(count) || t4 >= int32(count) || t5 >= int32(count) || t6 >= int32(count) || t7 >= int32(count) {
 			return 0, 0, errors.New("BWT inverse transform failed: corrupted BWT primary index")
 		}
 
@@ -370,6 +370,14 @@ func (this *BWT) inverseBiPSIv2(src, dst []byte, count int) (uint, uint, error) 
 
 	if pIdx <= 0 || pIdx > len(src) {
 		return 0, 0, errors.New("Invalid input: corrupted BWT primary index")
+	}
+
+	for i := 1; i < 8; i++ {
+		p := int(this.PrimaryIndex(i))
+
+		if p <= 0 || p > count {
+			return 0, 0, errors.New("Invalid input: corrupted BWT primary index")
+		}
 	}
 
 	freqs := [256]int{}

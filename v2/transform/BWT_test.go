@@ -71,6 +71,58 @@ func TestTransformCapacityValidation(t *testing.T) {
 	}
 }
 
+func TestBWTInvalidSecondaryIndex(t *testing.T) {
+	const largeSize = 1024
+	const smallSize = 256
+
+	encoder, _ := NewBWT()
+	decoder, _ := NewBWT()
+
+	largeInput := make([]byte, largeSize)
+
+	for i := range largeInput {
+		largeInput[i] = byte(i)
+	}
+
+	largeTransform := make([]byte, largeSize)
+	largeReverse := make([]byte, largeSize)
+
+	if _, _, err := encoder.Forward(largeInput, largeTransform); err != nil {
+		t.Fatalf("large forward failed: %v", err)
+	}
+
+	for i := 0; i < GetBWTChunks(largeSize); i++ {
+		decoder.SetPrimaryIndex(i, encoder.PrimaryIndex(i))
+	}
+
+	if _, _, err := decoder.Inverse(largeTransform, largeReverse); err != nil {
+		t.Fatalf("large inverse failed: %v", err)
+	}
+
+	smallInput := make([]byte, smallSize)
+
+	for i := range smallInput {
+		smallInput[i] = byte((i * 17) & 0xFF)
+	}
+
+	smallTransform := make([]byte, smallSize)
+	smallReverse := make([]byte, smallSize)
+
+	if _, _, err := encoder.Forward(smallInput, smallTransform); err != nil {
+		t.Fatalf("small forward failed: %v", err)
+	}
+
+	for i := 0; i < GetBWTChunks(smallSize); i++ {
+		decoder.SetPrimaryIndex(i, encoder.PrimaryIndex(i))
+	}
+
+	decoder.SetPrimaryIndex(1, uint(smallSize+1))
+
+	if _, _, err := decoder.Inverse(smallTransform, smallReverse); err == nil {
+		t.Fatal("inverse should reject a secondary index greater than the active block size")
+	}
+}
+
 func testCorrectnessBWT(isBWT, verbose bool) error {
 	if verbose {
 		if isBWT {

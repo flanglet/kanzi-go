@@ -204,6 +204,7 @@ type FPAQDecoder struct {
 	current      uint64
 	bitstream    kanzi.InputBitStream
 	buffer       []byte
+	bufLimit     int
 	index        int
 	probs        [4][]int // probability of bit=1
 	p            []int    // pointer to current prob
@@ -334,6 +335,13 @@ func (this *FPAQDecoder) decodeBitV2(p []int) byte {
 func (this *FPAQDecoder) read() {
 	this.low = (this.low << 32) & _FPAQ_MASK_0_56
 	this.high = ((this.high << 32) | _FPAQ_MASK_0_32) & _FPAQ_MASK_0_56
+
+	if this.index+4 > this.bufLimit {
+		this.current = (this.current << 32) & _FPAQ_MASK_0_56
+		this.index = this.bufLimit + 1
+		return
+	}
+
 	val := uint64(binary.BigEndian.Uint32(this.buffer[this.index:]))
 	this.current = ((this.current << 32) | val) & _FPAQ_MASK_0_56
 	this.index += 4
@@ -375,6 +383,7 @@ func (this *FPAQDecoder) Read(block []byte) (int, error) {
 		}
 
 		this.bitstream.ReadArray(this.buffer, uint(8*szBytes))
+		this.bufLimit = szBytes
 		this.index = 0
 		chunkSize := min(_FPAQ_DEFAULT_CHUNK_SIZE, end-startChunk)
 		buf := block[startChunk : startChunk+chunkSize]
@@ -393,6 +402,11 @@ func (this *FPAQDecoder) Read(block []byte) (int, error) {
 				this.decodeBitV1(this.p[this.ctx] >> 4)
 				this.decodeBitV1(this.p[this.ctx] >> 4)
 				buf[i] = byte(this.ctx)
+
+				if this.index > szBytes {
+					return 0, fmt.Errorf("FPAQ codec: Invalid bitstream")
+				}
+
 				this.p = this.probs[(this.ctx&0xFF)>>6]
 			}
 		} else {
@@ -409,6 +423,11 @@ func (this *FPAQDecoder) Read(block []byte) (int, error) {
 				this.decodeBitV2(p)
 				this.decodeBitV2(p)
 				buf[i] = byte(this.ctx)
+
+				if this.index > szBytes {
+					return 0, fmt.Errorf("FPAQ codec: Invalid bitstream")
+				}
+
 				p = this.probs[(this.ctx&0xFF)>>6]
 			}
 		}

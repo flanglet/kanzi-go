@@ -155,6 +155,10 @@ func (this *BWTBlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	blockSize := len(src)
 
 	if this.bsVersion > 5 {
+		if blockSize < 1 {
+			return 0, 0, errors.New("BWT inverse transform failed: invalid size")
+		}
+
 		// Number of chunks and primary index size in bitstream since bsVersion 6
 		mode := src[0]
 		logNbChunks := uint(mode>>2) & 0x07

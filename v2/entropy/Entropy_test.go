@@ -27,6 +27,16 @@ import (
 	"github.com/flanglet/kanzi-go/v2/internal"
 )
 
+func fpaqVarIntLength(buf []byte) int {
+	for i, b := range buf {
+		if b < 0x80 {
+			return i + 1
+		}
+	}
+
+	return 0
+}
+
 func TestHuffman(t *testing.T) {
 	if err := testEntropyCorrectness("HUFFMAN", testing.Verbose()); err != nil {
 		t.Error(err)
@@ -383,6 +393,84 @@ func TestFPAQCodecSpecificPatterns(t *testing.T) {
 					tc.name, len(tc.input), string(tc.input), len(decodedBytes), string(decodedBytes))
 			}
 		})
+	}
+}
+
+func TestFPAQZeroDeclaredSize(t *testing.T) {
+	const size = 1 << 20
+	values := make([]byte, size)
+
+	for i := range values {
+		values[i] = byte((i * 17) & 0xFF)
+	}
+
+	bufferStream := internal.NewBufferStream()
+	obs, err := bitstream.NewDefaultOutputBitStream(bufferStream, 16384)
+
+	if err != nil {
+		t.Fatalf("Failed to create OutputBitStream: %v", err)
+	}
+
+	encoder := getEncoder("FPAQ", obs)
+
+	if encoder == nil {
+		t.Fatal("Cannot create FPAQ encoder")
+	}
+
+	written, err := encoder.Write(values)
+
+	if err != nil {
+		t.Fatalf("Error during FPAQ encoding: %v", err)
+	}
+
+	if written != len(values) {
+		t.Fatalf("FPAQ Encoder.Write returned %d, expected %d", written, len(values))
+	}
+
+	encoder.Dispose()
+
+	if err = obs.Close(); err != nil {
+		t.Fatalf("Error closing OutputBitStream for FPAQ: %v", err)
+	}
+
+	encoded := make([]byte, bufferStream.Len())
+	_, err = bufferStream.Read(encoded)
+
+	if err != nil {
+		t.Fatalf("Error reading encoded FPAQ payload: %v", err)
+	}
+
+	skip := fpaqVarIntLength(encoded)
+
+	if skip <= 0 {
+		t.Fatal("Could not parse FPAQ declared size")
+	}
+
+	mutated := make([]byte, 1+len(encoded)-skip)
+	mutated[0] = 0
+	copy(mutated[1:], encoded[skip:])
+	ibs, err := bitstream.NewDefaultInputBitStream(internal.NewBufferStream(mutated), 16384)
+
+	if err != nil {
+		t.Fatalf("Failed to create InputBitStream for FPAQ: %v", err)
+	}
+
+	decoder := getDecoder("FPAQ", ibs)
+
+	if decoder == nil {
+		t.Fatal("Cannot create FPAQ decoder")
+	}
+
+	decoded := make([]byte, len(values))
+	read, err := decoder.Read(decoded)
+	decoder.Dispose()
+
+	if closeErr := ibs.Close(); closeErr != nil {
+		t.Fatalf("Error closing InputBitStream for FPAQ: %v", closeErr)
+	}
+
+	if err == nil && read == len(values) {
+		t.Fatal("Malformed zero-sized FPAQ payload was accepted")
 	}
 }
 
