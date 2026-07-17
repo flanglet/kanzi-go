@@ -20,7 +20,6 @@ package io
 import (
 	"fmt"
 	"io"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -52,6 +51,7 @@ const (
 	_SMALL_BLOCK_SIZE           = 15
 	_MAX_CONCURRENCY            = 64
 	_CANCEL_TASKS_ID            = -1
+	_ORDERED_GATE_SPIN_COUNT    = 64
 )
 
 func mix32(checksum, hash, value uint32) uint32 {
@@ -62,6 +62,64 @@ func mix32(checksum, hash, value uint32) uint32 {
 
 func mix32v6(checksum, hash, value uint32) uint32 {
 	return checksum ^ (hash * ^value)
+}
+
+// orderedGate serializes access to a shared bitstream while allowing the
+// transform and entropy stages to run concurrently. It briefly spins for the
+// common fast handoff case, then parks waiters to avoid wasting a core when a
+// preceding task has a long tail.
+type orderedGate struct {
+	mu      sync.Mutex
+	cond    *sync.Cond
+	blockID *int32
+}
+
+func newOrderedGate(blockID *int32) *orderedGate {
+	gate := &orderedGate{blockID: blockID}
+	gate.cond = sync.NewCond(&gate.mu)
+	return gate
+}
+
+func (this *orderedGate) waitFor(previousBlockID int32) bool {
+	for i := 0; i < _ORDERED_GATE_SPIN_COUNT; i++ {
+		blockID := atomic.LoadInt32(this.blockID)
+
+		if blockID == _CANCEL_TASKS_ID {
+			return false
+		}
+
+		if blockID == previousBlockID {
+			return true
+		}
+	}
+
+	this.mu.Lock()
+	defer this.mu.Unlock()
+
+	for blockID := atomic.LoadInt32(this.blockID); blockID != _CANCEL_TASKS_ID && blockID != previousBlockID; {
+		this.cond.Wait()
+		blockID = atomic.LoadInt32(this.blockID)
+	}
+
+	return atomic.LoadInt32(this.blockID) != _CANCEL_TASKS_ID
+}
+
+func (this *orderedGate) complete(previousBlockID, currentBlockID int32) {
+	this.mu.Lock()
+
+	if atomic.LoadInt32(this.blockID) == previousBlockID {
+		atomic.StoreInt32(this.blockID, currentBlockID)
+		this.cond.Broadcast()
+	}
+
+	this.mu.Unlock()
+}
+
+func (this *orderedGate) cancel() {
+	this.mu.Lock()
+	atomic.StoreInt32(this.blockID, _CANCEL_TASKS_ID)
+	this.cond.Broadcast()
+	this.mu.Unlock()
 }
 
 // IOError an extended error containing a message and a code value
@@ -211,7 +269,7 @@ type encodingTask struct {
 	blockTransformType uint64
 	blockEntropyType   uint32
 	currentBlockID     int32
-	processedBlockID   *int32
+	gate               *orderedGate
 	wg                 *sync.WaitGroup
 	listeners          []kanzi.Listener
 	obs                kanzi.OutputBitStream
@@ -669,6 +727,7 @@ func (this *Writer) processBlock() error {
 	wg := sync.WaitGroup{}
 	results := make([]encodingTaskResult, nbTasks)
 	firstID := this.blockID
+	gate := newOrderedGate(&this.blockID)
 
 	// Invoke as many go routines as required
 	for taskID := 0; taskID < nbTasks; taskID++ {
@@ -703,7 +762,7 @@ func (this *Writer) processBlock() error {
 			blockTransformType: this.transformType,
 			blockEntropyType:   this.entropyType,
 			currentBlockID:     firstID + int32(taskID) + 1,
-			processedBlockID:   &this.blockID,
+			gate:               gate,
 			wg:                 &wg,
 			obs:                this.obs,
 			listeners:          listeners,
@@ -760,9 +819,9 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 
 		// Unblock other tasks
 		if res.err != nil {
-			atomic.StoreInt32(this.processedBlockID, _CANCEL_TASKS_ID)
+			this.gate.cancel()
 		} else {
-			atomic.CompareAndSwapInt32(this.processedBlockID, this.currentBlockID-1, this.currentBlockID)
+			this.gate.complete(this.currentBlockID-1, this.currentBlockID)
 		}
 
 		this.wg.Done()
@@ -1022,21 +1081,9 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 		}
 	}
 
-	// Lock free synchronization
-	for n := 0; ; n++ {
-		taskID := atomic.LoadInt32(this.processedBlockID)
-
-		if taskID == _CANCEL_TASKS_ID {
-			return
-		}
-
-		if taskID == this.currentBlockID-1 {
-			break
-		}
-
-		if n&0x1F == 0 {
-			runtime.Gosched()
-		}
+	// Serialize writes to the shared bitstream in block order.
+	if this.gate.waitFor(this.currentBlockID-1) == false {
+		return
 	}
 
 	// Emit block size in bits (max size pre-entropy is 1 GB = 1 << 30 bytes)
@@ -1126,7 +1173,7 @@ type decodingTask struct {
 	blockTransformType uint64
 	blockEntropyType   uint32
 	currentBlockID     int32
-	processedBlockID   *int32
+	gate               *orderedGate
 	wg                 *sync.WaitGroup
 	listeners          []kanzi.Listener
 	ibs                kanzi.InputBitStream
@@ -1752,6 +1799,7 @@ func (this *Reader) processBlock() (int64, error) {
 		results := make([]decodingTaskResult, nbTasks)
 		wg := sync.WaitGroup{}
 		firstID := this.blockID
+		gate := newOrderedGate(&this.blockID)
 
 		// Invoke as many go routines as required
 		for taskID := 0; taskID < nbTasks; taskID++ {
@@ -1778,7 +1826,7 @@ func (this *Reader) processBlock() (int64, error) {
 				blockTransformType: this.transformType,
 				blockEntropyType:   this.entropyType,
 				currentBlockID:     firstID + int32(taskID) + 1,
-				processedBlockID:   &this.blockID,
+				gate:               gate,
 				wg:                 &wg,
 				listeners:          listeners,
 				ibs:                this.ibs,
@@ -1985,29 +2033,17 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 
 		// Unblock other tasks
 		if res.err != nil || (res.decoded == 0 && res.skipped == false) {
-			atomic.StoreInt32(this.processedBlockID, _CANCEL_TASKS_ID)
-		} else if atomic.LoadInt32(this.processedBlockID) == this.currentBlockID-1 {
-			atomic.StoreInt32(this.processedBlockID, this.currentBlockID)
+			this.gate.cancel()
+		} else {
+			this.gate.complete(this.currentBlockID-1, this.currentBlockID)
 		}
 
 		this.wg.Done()
 	}()
 
-	// Lock free synchronization
-	for n := 0; ; n++ {
-		taskID := atomic.LoadInt32(this.processedBlockID)
-
-		if taskID == _CANCEL_TASKS_ID {
-			return
-		}
-
-		if taskID == this.currentBlockID-1 {
-			break
-		}
-
-		if n&0x1F == 0 {
-			runtime.Gosched()
-		}
+	// Serialize reads from the shared bitstream in block order.
+	if this.gate.waitFor(this.currentBlockID-1) == false {
+		return
 	}
 
 	// Read shared bitstream sequentially
@@ -2098,7 +2134,7 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 
 	// After completion of the bitstream reading, increment the block id.
 	// It unblocks the task processing the next block (if any)
-	atomic.StoreInt32(this.processedBlockID, this.currentBlockID)
+	this.gate.complete(this.currentBlockID-1, this.currentBlockID)
 
 	// Check if the block must be skipped
 	if v, hasKey := this.ctx["from"]; hasKey {
