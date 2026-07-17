@@ -123,7 +123,7 @@ func CreateFileList(target string, fileList []FileData, isRecursive, ignoreLinks
 			target = target + pathSeparator
 		}
 
-		filepath.Walk(target, func(path string, fi os.FileInfo, err error) error {
+		err = filepath.Walk(target, func(path string, fi os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
@@ -146,6 +146,10 @@ func CreateFileList(target string, fileList []FileData, isRecursive, ignoreLinks
 
 			return nil
 		})
+
+		if err != nil {
+			return fileList, err
+		}
 	} else {
 		var files []fs.DirEntry
 		files, err = os.ReadDir(target)
