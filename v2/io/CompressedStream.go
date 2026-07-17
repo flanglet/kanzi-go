@@ -41,17 +41,28 @@ import (
 
 const (
 	_BITSTREAM_TYPE             = 0x4B414E5A // "KANZ"
-	_BITSTREAM_FORMAT_VERSION   = 6
+	_BITSTREAM_FORMAT_VERSION   = 7
 	_STREAM_DEFAULT_BUFFER_SIZE = 256 * 1024
 	_EXTRA_BUFFER_SIZE          = 512
 	_COPY_BLOCK_MASK            = 0x80
 	_TRANSFORMS_MASK            = 0x10
 	_MIN_BITSTREAM_BLOCK_SIZE   = 1024
 	_MAX_BITSTREAM_BLOCK_SIZE   = 1024 * 1024 * 1024
+	_TRANSFORMED_COPY_VERSION   = 7
 	_SMALL_BLOCK_SIZE           = 15
 	_MAX_CONCURRENCY            = 64
 	_CANCEL_TASKS_ID            = -1
 )
+
+func mix32(checksum, hash, value uint32) uint32 {
+	checksum ^= hash * ^value
+	checksum = (checksum << 13) | (checksum >> 19)
+	return checksum*5 + 0x52DCE729
+}
+
+func mix32v6(checksum, hash, value uint32) uint32 {
+	return checksum ^ (hash * ^value)
+}
 
 // IOError an extended error containing a message and a code value
 type IOError struct {
@@ -503,15 +514,15 @@ func (this *Writer) writeHeader() *IOError {
 	seed := uint32(0x01030507 * _BITSTREAM_FORMAT_VERSION)
 	HASH := uint32(0x1E35A7BD)
 	cksum := HASH * seed
-	cksum ^= (HASH * uint32(^ckSize))
-	cksum ^= (HASH * uint32(^this.entropyType))
-	cksum ^= (HASH * uint32((^this.transformType)>>32))
-	cksum ^= (HASH * uint32(^this.transformType))
-	cksum ^= (HASH * uint32(^this.blockSize))
+	cksum = mix32(cksum, HASH, uint32(ckSize))
+	cksum = mix32(cksum, HASH, uint32(this.entropyType))
+	cksum = mix32(cksum, HASH, uint32(this.transformType>>32))
+	cksum = mix32(cksum, HASH, uint32(this.transformType))
+	cksum = mix32(cksum, HASH, uint32(this.blockSize))
 
 	if szMask > 0 {
-		cksum ^= (HASH * uint32((^this.inputSize)>>32))
-		cksum ^= (HASH * uint32(^this.inputSize))
+		cksum = mix32(cksum, HASH, uint32(this.inputSize>>32))
+		cksum = mix32(cksum, HASH, uint32(this.inputSize))
 	}
 
 	cksum = (cksum >> 23) ^ (cksum >> 3)
@@ -872,10 +883,16 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 	bufStream := internal.NewStagedBuffer(data)
 	obs, _ := bitstream.NewDefaultOutputBitStream(bufStream, 16384)
 	skipFlags := t.SkipFlags()
+	headerSkipFlags := skipFlags
 
 	// Write block 'header' (mode + compressed length)
 	if ((mode & _COPY_BLOCK_MASK) != 0) || (t.Len() <= 4) {
 		mode |= byte(t.SkipFlags() >> 4)
+		if (mode & _COPY_BLOCK_MASK) != 0 {
+			headerSkipFlags = 0
+		} else {
+			headerSkipFlags = (mode << 4) | 0x0F
+		}
 		obs.WriteBits(uint64(mode), 8)
 	} else {
 		mode |= _TRANSFORMS_MASK
@@ -884,6 +901,16 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 	}
 
 	obs.WriteBits(uint64(postTransformLength), 8*dataSize)
+	// Reserve the block header checksum byte. The encoded block length is
+	// only known after entropy coding, so patch this byte once the complete
+	// temporary block has been written.
+	headerChecksumIndex := 1 + int(dataSize)
+
+	if (mode&_COPY_BLOCK_MASK) == 0 && t.Len() > 4 {
+		headerChecksumIndex++
+	}
+
+	obs.WriteBits(0, 8)
 
 	// Write checksum
 	if this.hasher32 != nil {
@@ -921,6 +948,61 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 	data = bufStream.Backing()
 	this.iBuffer.Buf = data
 	encoded := bufStream.Bytes()
+
+	if (mode & _COPY_BLOCK_MASK) == 0 {
+		rawPayloadBytes := uint64(postTransformLength)
+		entropyPayloadBytes := (written + 7) >> 3
+
+		if rawPayloadBytes < entropyPayloadBytes {
+			copyStream := internal.NewStagedBuffer(data)
+			copyObs, _ := bitstream.NewDefaultOutputBitStream(copyStream, 16384)
+			copyMode := mode | byte(_COPY_BLOCK_MASK) | byte(_TRANSFORMS_MASK)
+			copyObs.WriteBits(uint64(copyMode), 8)
+
+			if t.Len() > 4 {
+				copyObs.WriteBits(uint64(skipFlags), 8)
+			}
+
+			copyObs.WriteBits(uint64(postTransformLength), 8*dataSize)
+			headerChecksumIndex = 1 + int(dataSize)
+
+			if t.Len() > 4 {
+				headerChecksumIndex++
+				headerSkipFlags = skipFlags
+			} else {
+				headerSkipFlags = (copyMode << 4) | 0x0F
+			}
+
+			copyObs.WriteBits(0, 8)
+
+			if this.hasher32 != nil {
+				copyObs.WriteBits(checksum, 32)
+			} else if this.hasher64 != nil {
+				copyObs.WriteBits(checksum, 64)
+			}
+
+			copyObs.WriteArray(buffer[0:postTransformLength], uint(8*postTransformLength))
+			copyObs.Close()
+			written = copyObs.Written()
+			data = copyStream.Backing()
+			this.iBuffer.Buf = data
+			encoded = copyStream.Bytes()
+			mode = copyMode
+		}
+	}
+
+	// Protect the block header and its outer encoded bit length independently
+	// from the optional checksum of the decoded payload.
+	const HASH uint32 = 0x1E35A7BD
+	seed := uint32(0x01030507)
+	cksum := HASH * seed
+	cksum = mix32(cksum, HASH, uint32(mode))
+	cksum = mix32(cksum, HASH, uint32(headerSkipFlags))
+	cksum = mix32(cksum, HASH, uint32(postTransformLength))
+	cksum = mix32(cksum, HASH, uint32(written>>32))
+	cksum = mix32(cksum, HASH, uint32(written))
+	cksum = (cksum >> 23) ^ (cksum >> 3)
+	encoded[headerChecksumIndex] = byte(cksum)
 
 	if len(this.listeners) > 0 {
 		// Notify after entropy
@@ -1447,19 +1529,24 @@ func (this *Reader) readHeader() (err error) {
 		var cksum2 uint32
 		HASH := uint32(0x1E35A7BD)
 		cksum2 = HASH * seed
+		mixFn := mix32v6
 
-		if bsVersion >= 6 {
-			cksum2 ^= (HASH * uint32(^ckSize))
+		if bsVersion >= 7 {
+			mixFn = mix32
 		}
 
-		cksum2 ^= (HASH * uint32(^this.entropyType))
-		cksum2 ^= (HASH * uint32((^this.transformType)>>32))
-		cksum2 ^= (HASH * uint32(^this.transformType))
-		cksum2 ^= (HASH * uint32(^this.blockSize))
+		if bsVersion >= 6 {
+			cksum2 = mixFn(cksum2, HASH, uint32(ckSize))
+		}
+
+		cksum2 = mixFn(cksum2, HASH, uint32(this.entropyType))
+		cksum2 = mixFn(cksum2, HASH, uint32(this.transformType>>32))
+		cksum2 = mixFn(cksum2, HASH, uint32(this.transformType))
+		cksum2 = mixFn(cksum2, HASH, uint32(this.blockSize))
 
 		if szMask > 0 {
-			cksum2 ^= (HASH * uint32((^this.outputSize)>>32))
-			cksum2 ^= (HASH * uint32(^this.outputSize))
+			cksum2 = mixFn(cksum2, HASH, uint32(this.outputSize>>32))
+			cksum2 = mixFn(cksum2, HASH, uint32(this.outputSize))
 		}
 
 		cksum2 = (cksum2 >> 23) ^ (cksum2 >> 3)
@@ -1769,12 +1856,114 @@ func (this *Reader) GetRead() uint64 {
 // mode | 0b00000000
 //
 // then 0byyyyyyyy => transform sequence skip flags (1 means skip)
+type parsedBlockHeader struct {
+	bytes              []byte
+	skipFlags          byte
+	preTransformLength uint
+	transformedCopy    bool
+	rawCopy            bool
+}
+
+func (this *decodingTask) readBlockHeader(ibs kanzi.InputBitStream, bsVersion uint,
+	encodedBlockLength uint64) (*parsedBlockHeader, *IOError) {
+	if encodedBlockLength < 8 {
+		return nil, &IOError{msg: "Invalid block size", code: kanzi.ERR_BLOCK_SIZE}
+	}
+
+	mode := byte(ibs.ReadBits(8))
+	skipFlags := byte(0)
+	hasSkipFlags := false
+	transformedCopy := false
+	copyBlock := mode&_COPY_BLOCK_MASK != 0
+
+	if copyBlock {
+		if bsVersion >= _TRANSFORMED_COPY_VERSION && mode&_TRANSFORMS_MASK != 0 {
+			transformedCopy = true
+			tSeq, err := transform.New(&this.ctx, this.blockTransformType)
+
+			if err != nil {
+				return nil, &IOError{msg: err.Error(), code: kanzi.ERR_CREATE_CODEC}
+			}
+
+			if tSeq.Len() > 4 {
+				hasSkipFlags = true
+			} else {
+				skipFlags = (mode << 4) | 0x0F
+			}
+		}
+	} else if mode&_TRANSFORMS_MASK != 0 {
+		hasSkipFlags = true
+	} else {
+		skipFlags = (mode << 4) | 0x0F
+	}
+
+	dataSize := 1 + uint((mode>>5)&0x03)
+	headerSize := 1 + int(dataSize)
+
+	if hasSkipFlags {
+		headerSize++
+	}
+
+	if bsVersion >= 7 {
+		headerSize++
+	}
+
+	if encodedBlockLength < uint64(headerSize<<3) {
+		return nil, &IOError{msg: "Invalid block size", code: kanzi.ERR_BLOCK_SIZE}
+	}
+
+	header := &parsedBlockHeader{bytes: make([]byte, headerSize), transformedCopy: transformedCopy,
+		rawCopy: copyBlock && !transformedCopy}
+	header.bytes[0] = mode
+	idx := 1
+
+	if hasSkipFlags {
+		skipFlags = byte(ibs.ReadBits(8))
+		header.bytes[idx] = skipFlags
+		idx++
+	}
+
+	preTransformLength := uint32(0)
+
+	for i := uint(0); i < dataSize; i++ {
+		value := byte(ibs.ReadBits(8))
+		header.bytes[idx] = value
+		idx++
+		preTransformLength = (preTransformLength << 8) | uint32(value)
+	}
+
+	header.skipFlags = skipFlags
+	header.preTransformLength = uint(preTransformLength)
+
+	if bsVersion >= 7 {
+		headerChecksum := uint32(ibs.ReadBits(8))
+		header.bytes[idx] = byte(headerChecksum)
+		const HASH uint32 = 0x1E35A7BD
+		seed := uint32(0x01030507)
+		cksum := HASH * seed
+		cksum = mix32(cksum, HASH, uint32(mode))
+		cksum = mix32(cksum, HASH, uint32(skipFlags))
+		cksum = mix32(cksum, HASH, preTransformLength)
+		cksum = mix32(cksum, HASH, uint32(encodedBlockLength>>32))
+		cksum = mix32(cksum, HASH, uint32(encodedBlockLength))
+		cksum = (cksum >> 23) ^ (cksum >> 3)
+
+		if headerChecksum != (cksum & 0xFF) {
+			return nil, &IOError{msg: "Invalid bitstream, block header checksum mismatch",
+				code: kanzi.ERR_CRC_CHECK}
+		}
+	}
+
+	return header, nil
+}
+
 func (this *decodingTask) decode(res *decodingTaskResult) {
 	data := this.iBuffer.Buf
 	buffer := this.oBuffer.Buf
 	decoded := 0
 	checksum1 := uint64(0)
 	skipped := false
+	bsVersion := this.ctx["bsVersion"].(uint)
 
 	defer func() {
 		res.data = this.iBuffer.Buf
@@ -1830,12 +2019,55 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 		return
 	}
 
-	if read > uint64(1)<<34 {
+	encodedBlockBytes := (read + 7) >> 3
+	encodedBlockLength := read
+	var blockHeader *parsedBlockHeader
+	maxTransformLength := min(max(this.blockLength+this.blockLength/2, 2048), _MAX_BITSTREAM_BLOCK_SIZE)
+
+	if bsVersion >= 7 {
+		var err *IOError
+		blockHeader, err = this.readBlockHeader(this.ibs, bsVersion, encodedBlockLength)
+
+		if err != nil {
+			res.err = err
+			return
+		}
+
+		if blockHeader.preTransformLength == 0 || blockHeader.preTransformLength > maxTransformLength {
+			errMsg := fmt.Sprintf("Invalid compressed block size: %d", blockHeader.preTransformLength)
+			res.err = &IOError{msg: errMsg, code: kanzi.ERR_BLOCK_SIZE}
+			return
+		}
+
+		checksumSize := uint64(0)
+
+		if this.hasher64 != nil {
+			checksumSize = 8
+		} else if this.hasher32 != nil {
+			checksumSize = 4
+		}
+
+		maxEncodedBlockBytes := uint64(blockHeader.preTransformLength) + uint64(len(blockHeader.bytes)) + checksumSize
+
+		if encodedBlockBytes > maxEncodedBlockBytes {
+			res.err = &IOError{msg: "Invalid block size", code: kanzi.ERR_BLOCK_SIZE}
+			return
+		}
+
+		read -= uint64(len(blockHeader.bytes) << 3)
+	} else if uint64(int(encodedBlockBytes)) != encodedBlockBytes {
+		// The largest encoded lengths do not fit in an int on 32-bit targets.
 		res.err = &IOError{msg: "Invalid block size", code: kanzi.ERR_BLOCK_SIZE}
 		return
 	}
 
-	r := int((read + 7) >> 3)
+	r := int(encodedBlockBytes)
+	blockHeaderSize := 0
+
+	if blockHeader != nil {
+		blockHeaderSize = len(blockHeader.bytes)
+	}
+
 	maxL := r
 
 	if int(this.blockLength) > r {
@@ -1847,8 +2079,12 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 		this.iBuffer.Buf = data
 	}
 
+	if blockHeader != nil {
+		copy(data, blockHeader.bytes)
+	}
+
 	// Read data from shared bitstream
-	for n := uint(0); read > 0; {
+	for n := uint(blockHeaderSize); read > 0; {
 		chkSize := uint(1 << 30)
 
 		if read < 1<<30 {
@@ -1884,25 +2120,28 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	bufStream := internal.NewBufferStream(data[0:r])
 	ibs, _ := bitstream.NewDefaultInputBitStream(bufStream, 16384)
 
-	mode := byte(ibs.ReadBits(8))
-	skipFlags := byte(0)
+	if blockHeader == nil {
+		var err *IOError
+		blockHeader, err = this.readBlockHeader(ibs, bsVersion, encodedBlockLength)
 
-	if mode&_COPY_BLOCK_MASK != 0 {
-		this.blockTransformType = transform.NONE_TYPE
-		this.blockEntropyType = entropy.NONE_TYPE
-	} else {
-		if mode&_TRANSFORMS_MASK != 0 {
-			skipFlags = byte(ibs.ReadBits(8))
-		} else {
-			skipFlags = (mode << 4) | 0x0F
+		if err != nil {
+			res.err = err
+			return
 		}
+	} else {
+		ibs.ReadBits(uint(len(blockHeader.bytes) << 3))
 	}
 
-	dataSize := 1 + uint((mode>>5)&0x03)
-	length := dataSize << 3
-	mask := uint64(1<<length) - 1
-	preTransformLength := uint(ibs.ReadBits(length) & mask)
-	maxTransformLength := min(max(this.blockLength+this.blockLength/2, 2048), _MAX_BITSTREAM_BLOCK_SIZE)
+	skipFlags := blockHeader.skipFlags
+	transformedCopy := blockHeader.transformedCopy
+	preTransformLength := blockHeader.preTransformLength
+
+	if blockHeader.rawCopy {
+		this.blockTransformType = transform.NONE_TYPE
+		this.blockEntropyType = entropy.NONE_TYPE
+	} else if transformedCopy {
+		this.blockEntropyType = entropy.NONE_TYPE
+	}
 
 	if preTransformLength == 0 || preTransformLength > maxTransformLength {
 		// Error => cancel concurrent decoding tasks
@@ -1947,24 +2186,32 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 
 	this.ctx["size"] = preTransformLength
 
-	// Each block is decoded separately
-	// Rebuild the entropy decoder to reset block statistics
-	ed, err := entropy.NewEntropyDecoder(ibs, this.ctx, this.blockEntropyType)
+	if transformedCopy {
+		if ibs.ReadArray(buffer[0:preTransformLength], uint(8*preTransformLength)) != uint(8*preTransformLength) {
+			res.err = &IOError{msg: "Transformed copy block read failed", code: kanzi.ERR_PROCESS_BLOCK}
+			return
+		}
+	} else {
+		// Each block is decoded separately
+		// Rebuild the entropy decoder to reset block statistics
+		ed, err := entropy.NewEntropyDecoder(ibs, this.ctx, this.blockEntropyType)
 
-	if err != nil {
-		// Error => cancel concurrent decoding tasks
-		res.err = &IOError{msg: err.Error(), code: kanzi.ERR_INVALID_CODEC}
-		return
+		if err != nil {
+			// Error => cancel concurrent decoding tasks
+			res.err = &IOError{msg: err.Error(), code: kanzi.ERR_INVALID_CODEC}
+			return
+		}
+
+		// Block entropy decode
+		if _, err = ed.Read(buffer[0:preTransformLength]); err != nil {
+			// Error => cancel concurrent decoding tasks
+			res.err = &IOError{msg: err.Error(), code: kanzi.ERR_PROCESS_BLOCK}
+			return
+		}
+
+		ed.Dispose()
 	}
 
-	// Block entropy decode
-	if _, err = ed.Read(buffer[0:preTransformLength]); err != nil {
-		// Error => cancel concurrent decoding tasks
-		res.err = &IOError{msg: err.Error(), code: kanzi.ERR_PROCESS_BLOCK}
-		return
-	}
-
-	ed.Dispose()
 	ibs.Close()
 
 	if len(this.listeners) > 0 {

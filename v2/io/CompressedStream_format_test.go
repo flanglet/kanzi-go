@@ -53,7 +53,7 @@ func computeHeaderChecksumFixture(bsVersion int, checksumSize uint64, entropyTyp
 	mixFn := mix32v6
 
 	if bsVersion >= 7 {
-		mixFn = mix32v7
+		mixFn = mix32
 	}
 
 	if bsVersion >= 6 {
@@ -73,12 +73,15 @@ func computeHeaderChecksumFixture(bsVersion int, checksumSize uint64, entropyTyp
 	return (checksum >> 23) ^ (checksum >> 3)
 }
 
-func computeBlockHeaderChecksumFixture(mode byte, skipFlags byte, length uint32) uint32 {
+func computeBlockHeaderChecksumFixture(mode byte, skipFlags byte, length uint32,
+	encodedBlockLength uint64) uint32 {
 	hashValue := uint32(0x1E35A7BD)
 	checksum := hashValue * uint32(0x01030507)
-	checksum = mix32v7(checksum, hashValue, uint32(mode))
-	checksum = mix32v7(checksum, hashValue, uint32(skipFlags))
-	checksum = mix32v7(checksum, hashValue, length)
+	checksum = mix32(checksum, hashValue, uint32(mode))
+	checksum = mix32(checksum, hashValue, uint32(skipFlags))
+	checksum = mix32(checksum, hashValue, length)
+	checksum = mix32(checksum, hashValue, uint32(encodedBlockLength>>32))
+	checksum = mix32(checksum, hashValue, uint32(encodedBlockLength))
 	return (checksum >> 23) ^ (checksum >> 3)
 }
 
@@ -162,7 +165,14 @@ func buildBlockPayloadFixture(t *testing.T, mode byte, encodedSkipFlags *byte, h
 	obs.WriteBits(uint64(preTransformLength), 8*dataSize)
 
 	if includeHeaderChecksum {
-		checksum := computeBlockHeaderChecksumFixture(mode, headerSkipFlags, uint32(preTransformLength))
+		encodedBlockLength := uint64(8 * (1 + len(payload) + int(dataSize) + 1 + int(checksumBits>>3)))
+
+		if encodedSkipFlags != nil {
+			encodedBlockLength += 8
+		}
+
+		checksum := computeBlockHeaderChecksumFixture(mode, headerSkipFlags,
+			uint32(preTransformLength), encodedBlockLength)
 
 		if validHeaderChecksum == false {
 			checksum ^= 1
@@ -215,6 +225,80 @@ func buildStreamFixture(t *testing.T, header []byte, blocks ...[]byte) []byte {
 	// Terminator block
 	obs.WriteBits(0, 5)
 	obs.WriteBits(0, 3)
+
+	if err = obs.Close(); err != nil {
+		t.Fatalf("close stream bitstream: %v", err)
+	}
+
+	return append([]byte(nil), dst.data...)
+}
+
+func buildTruncatedBlockStreamFixture(t *testing.T, header []byte, block []byte,
+	retainedBlockBytes int) []byte {
+	t.Helper()
+	dst := &memoryWriteCloser{}
+	obs, err := bitstream.NewDefaultOutputBitStream(dst, 16384)
+
+	if err != nil {
+		t.Fatalf("create stream bitstream: %v", err)
+	}
+
+	blockBits := uint64(len(block) << 3)
+	lw := uint(bits.Len64(blockBits>>3) + 3)
+	obs.WriteArray(header, uint(len(header)<<3))
+	obs.WriteBits(uint64(lw-3), 5)
+	obs.WriteBits(blockBits, lw)
+	obs.WriteArray(block[:retainedBlockBytes], uint(retainedBlockBytes<<3))
+
+	if err = obs.Close(); err != nil {
+		t.Fatalf("close stream bitstream: %v", err)
+	}
+
+	return append([]byte(nil), dst.data...)
+}
+
+func buildOversizedEncodedBlockStreamFixture(t *testing.T) []byte {
+	t.Helper()
+	transformType, err := transform.GetType("NONE")
+
+	if err != nil {
+		t.Fatalf("get NONE transform type: %v", err)
+	}
+
+	header := buildHeaderFixture(t, _BITSTREAM_TYPE, 7, 0, entropy.NONE_TYPE,
+		transformType, 1024, 0, 0, true)
+	const declaredBlockBits uint64 = 40
+	const mode byte = _COPY_BLOCK_MASK
+	dst := &memoryWriteCloser{}
+	obs, err := bitstream.NewDefaultOutputBitStream(dst, 16384)
+
+	if err != nil {
+		t.Fatalf("create block bitstream: %v", err)
+	}
+
+	obs.WriteBits(uint64(mode), 8)
+	obs.WriteBits(1, 8)
+	checksum := computeBlockHeaderChecksumFixture(mode, 0, 1, declaredBlockBits)
+	obs.WriteBits(uint64(checksum&0xFF), 8)
+	obs.WriteBits(0x2A, 8)
+
+	if err = obs.Close(); err != nil {
+		t.Fatalf("close block bitstream: %v", err)
+	}
+
+	block := append([]byte(nil), dst.data...)
+	dst = &memoryWriteCloser{}
+	obs, err = bitstream.NewDefaultOutputBitStream(dst, 16384)
+
+	if err != nil {
+		t.Fatalf("create stream bitstream: %v", err)
+	}
+
+	lw := uint(bits.Len64(declaredBlockBits>>3) + 3)
+	obs.WriteArray(header, uint(len(header)<<3))
+	obs.WriteBits(uint64(lw-3), 5)
+	obs.WriteBits(declaredBlockBits, lw)
+	obs.WriteArray(block, uint(len(block)<<3))
 
 	if err = obs.Close(); err != nil {
 		t.Fatalf("close stream bitstream: %v", err)
@@ -453,6 +537,26 @@ func TestMalformedStream(t *testing.T) {
 			}(),
 			code: kanzi.ERR_CRC_CHECK,
 			msg:  "block header checksum mismatch",
+		},
+		{
+			name: "block header checksum checked before payload read",
+			data: func() []byte {
+				header := buildHeaderFixture(t, _BITSTREAM_TYPE, 7, 0, entropy.NONE_TYPE,
+					uint64(transform.NONE_TYPE)<<42, 1024, 0, 0, true)
+				mode := byte(_COPY_BLOCK_MASK)
+				payload := []byte{0x2A}
+				block := buildBlockPayloadFixture(t, mode, nil, 0, len(payload), 0, 0,
+					payload, true, false)
+				return buildTruncatedBlockStreamFixture(t, header, block, len(block)-len(payload))
+			}(),
+			code: kanzi.ERR_CRC_CHECK,
+			msg:  "block header checksum mismatch",
+		},
+		{
+			name: "encoded block length exceeds payload bound",
+			data: buildOversizedEncodedBlockStreamFixture(t),
+			code: kanzi.ERR_BLOCK_SIZE,
+			msg:  "Invalid block size",
 		},
 	}
 
