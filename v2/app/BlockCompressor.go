@@ -24,6 +24,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
@@ -305,23 +306,32 @@ func (this *BlockCompressor) CPUProf() string {
 	return this.cpuProf
 }
 
-func fileCompressWorker(tasks <-chan fileCompressTask, cancel <-chan bool, results chan<- fileCompressResult) {
+func fileCompressWorker(tasks <-chan fileCompressTask, cancel <-chan struct{}, results chan<- fileCompressResult, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	// Pull tasks from channel and run them
-	more := true
-
-	for more {
+	for {
+		// Give cancellation precedence over queued tasks.
 		select {
-		case t, m := <-tasks:
-			more = m
+		case <-cancel:
+			return
+		default:
+		}
 
-			if more {
-				res, read, written, err := t.call()
-				results <- fileCompressResult{code: res, read: read, written: written, err: err}
-				more = res == 0
+		select {
+		case <-cancel:
+			return
+		case t, more := <-tasks:
+			if more == false {
+				return
 			}
 
-		case c := <-cancel:
-			more = !c
+			res, read, written, err := t.call()
+			results <- fileCompressResult{code: res, read: read, written: written, err: err}
+
+			if res != 0 {
+				return
+			}
 		}
 	}
 }
@@ -544,7 +554,8 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		// Create channels for task synchronization
 		tasks := make(chan fileCompressTask, nbFiles)
 		results := make(chan fileCompressResult, nbFiles)
-		cancel := make(chan bool, 1)
+		cancel := make(chan struct{})
+		var wg sync.WaitGroup
 
 		// When nbFiles > 1, this.jobs are distributed among tasks by ComputeJobsPerTask.
 		// Each task then receives a portion of these jobs for its internal parallel block processing.
@@ -594,7 +605,8 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 
 		// Create one worker per job. A worker calls several tasks sequentially.
 		for j := uint(0); j < this.jobs; j++ {
-			go fileCompressWorker(tasks, cancel, results)
+			wg.Add(1)
+			go fileCompressWorker(tasks, cancel, results, &wg)
 		}
 
 		res = 0
@@ -612,8 +624,8 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 			}
 		}
 
-		cancel <- true
 		close(cancel)
+		wg.Wait()
 		close(results)
 	}
 

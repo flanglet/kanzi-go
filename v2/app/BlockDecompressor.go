@@ -23,6 +23,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
@@ -198,23 +199,32 @@ func (this *BlockDecompressor) CPUProf() string {
 	return this.cpuProf
 }
 
-func fileDecompressWorker(tasks <-chan fileDecompressTask, cancel <-chan bool, results chan<- fileDecompressResult) {
+func fileDecompressWorker(tasks <-chan fileDecompressTask, cancel <-chan struct{}, results chan<- fileDecompressResult, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	// Pull tasks from channel and run them
-	more := true
-
-	for more {
+	for {
+		// Give cancellation precedence over queued tasks.
 		select {
-		case t, m := <-tasks:
-			more = m
+		case <-cancel:
+			return
+		default:
+		}
 
-			if more {
-				res, read, err := t.call()
-				results <- fileDecompressResult{code: res, read: read, err: err}
-				more = res == 0
+		select {
+		case <-cancel:
+			return
+		case t, more := <-tasks:
+			if more == false {
+				return
 			}
 
-		case c := <-cancel:
-			more = !c
+			res, read, err := t.call()
+			results <- fileDecompressResult{code: res, read: read, err: err}
+
+			if res != 0 {
+				return
+			}
 		}
 	}
 }
@@ -452,7 +462,8 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 		// Create channels for task synchronization
 		tasks := make(chan fileDecompressTask, nbFiles)
 		results := make(chan fileDecompressResult, nbFiles)
-		cancel := make(chan bool, 1)
+		cancel := make(chan struct{})
+		var wg sync.WaitGroup
 
 		// When nbFiles > 1, this.jobs are distributed among tasks by ComputeJobsPerTask.
 		// Each task then receives a portion of these jobs for its internal parallel block processing.
@@ -496,7 +507,8 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 
 		// Create one worker per job. A worker calls several tasks sequentially.
 		for j := uint(0); j < this.jobs; j++ {
-			go fileDecompressWorker(tasks, cancel, results)
+			wg.Add(1)
+			go fileDecompressWorker(tasks, cancel, results, &wg)
 		}
 
 		res = 0
@@ -513,8 +525,8 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 			}
 		}
 
-		cancel <- true
 		close(cancel)
+		wg.Wait()
 		close(results)
 	}
 
