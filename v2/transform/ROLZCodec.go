@@ -333,7 +333,12 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 		dt := internal.DT_UNDEFINED
 
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
-			dt = val.(internal.DataType)
+			var ok bool
+			dt, ok = val.(internal.DataType)
+
+			if ok == false {
+				return 0, 0, errors.New("ROLZ codec forward transform failed: invalid data type")
+			}
 		}
 
 		if dt == internal.DT_UNDEFINED {
@@ -633,7 +638,12 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 	if this.ctx != nil {
 		if val, containsKey := (*this.ctx)["bsVersion"]; containsKey {
-			bsVersion = val.(uint)
+			var ok bool
+			bsVersion, ok = val.(uint)
+
+			if ok == false {
+				return 0, 0, errors.New("ROLZ codec inverse transform failed: invalid bitstream version type")
+			}
 		}
 	}
 
@@ -1121,7 +1131,12 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 		dt := internal.DT_UNDEFINED
 
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
-			dt = val.(internal.DataType)
+			var ok bool
+			dt, ok = val.(internal.DataType)
+
+			if ok == false {
+				return 0, 0, errors.New("ROLZX codec forward transform failed: invalid data type")
+			}
 		}
 
 		if dt == internal.DT_UNDEFINED {
@@ -1246,7 +1261,12 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 	if this.ctx != nil {
 		if val, containsKey := (*this.ctx)["bsVersion"]; containsKey {
-			bsVersion = val.(uint)
+			var ok bool
+			bsVersion, ok = val.(uint)
+
+			if ok == false {
+				return 0, 0, errors.New("ROLZX codec inverse transform failed: invalid bitstream version type")
+			}
 		}
 	}
 

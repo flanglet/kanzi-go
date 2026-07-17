@@ -131,7 +131,11 @@ func (this *EXECodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	if this.ctx != nil {
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
-			dt := val.(internal.DataType)
+			dt, ok := val.(internal.DataType)
+
+			if ok == false {
+				return 0, 0, errors.New("ExeCodec forward transform failed: invalid data type")
+			}
 
 			if dt != internal.DT_UNDEFINED && dt != internal.DT_EXE && dt != internal.DT_BIN {
 				return 0, 0, fmt.Errorf("ExeCodec forward transform skip: Input is not an executable")

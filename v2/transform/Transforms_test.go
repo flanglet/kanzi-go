@@ -150,6 +150,42 @@ func TestInverseMalformedInput(t *testing.T) {
 	}
 }
 
+func TestTransformInvalidContextTypes(t *testing.T) {
+	src := make([]byte, 1024)
+	rltDataTypeCtx := map[string]any{"dataType": "invalid"}
+	rltDataType, _ := NewRLTWithCtx(&rltDataTypeCtx)
+	rltEntropyCtx := map[string]any{"entropy": 42}
+	rltEntropy, _ := NewRLTWithCtx(&rltEntropyCtx)
+	aliasCtx := map[string]any{"dataType": "invalid"}
+	alias, _ := NewAliasCodecWithCtx(&aliasCtx)
+
+	tests := []struct {
+		name      string
+		transform kanzi.ByteTransform
+		dst       []byte
+	}{
+		{"RLT invalid data type", rltDataType, make([]byte, rltDataType.MaxEncodedLen(len(src)))},
+		{"RLT invalid entropy type", rltEntropy, make([]byte, rltEntropy.MaxEncodedLen(len(src)))},
+		{"Alias invalid data type", alias, make([]byte, alias.MaxEncodedLen(len(src)))},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			defer func() {
+				if recovered := recover(); recovered != nil {
+					t.Fatalf("forward panicked: %v", recovered)
+				}
+			}()
+
+			_, _, err := test.transform.Forward(src, test.dst)
+
+			if err == nil {
+				t.Fatal("expected an error for an invalid context value")
+			}
+		})
+	}
+}
+
 func TestTextCodecSelfDescribing(t *testing.T) {
 	sample := bytes.Repeat([]byte("The quick brown fox jumps over the lazy dog. Text compression works best on repeated natural language content.\n"), 32)
 

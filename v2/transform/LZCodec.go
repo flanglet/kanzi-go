@@ -299,7 +299,11 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	if this.ctx != nil {
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
-			dt := val.(internal.DataType)
+			dt, ok := val.(internal.DataType)
+
+			if ok == false {
+				return 0, 0, errors.New("LZCodec forward transform failed: invalid data type")
+			}
 
 			if dt == internal.DT_DNA {
 				// Longer min match for DNA input

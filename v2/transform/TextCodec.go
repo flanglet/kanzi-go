@@ -758,7 +758,11 @@ func (this *textCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 	if this.ctx != nil {
 		if val, hasKey := (*this.ctx)["dataType"]; hasKey {
-			dt := val.(internal.DataType)
+			dt, ok := val.(internal.DataType)
+
+			if ok == false {
+				return 0, 0, errors.New("Text codec forward transform failed: invalid data type")
+			}
 
 			// Filter out most types. Still check binaries which may contain significant parts of text
 			if dt != internal.DT_UNDEFINED && dt != internal.DT_TEXT && dt != internal.DT_BIN {
@@ -1291,7 +1295,11 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 
 	if this.ctx != nil {
 		if val, hasKey := (*this.ctx)["dataType"]; hasKey {
-			dt := val.(internal.DataType)
+			dt, ok := val.(internal.DataType)
+
+			if ok == false {
+				return 0, 0, errors.New("Text codec forward transform failed: invalid data type")
+			}
 
 			// Filter out most types. Still check binaries which may contain significant parts of text
 			if dt != internal.DT_UNDEFINED && dt != internal.DT_TEXT && dt != internal.DT_BIN {

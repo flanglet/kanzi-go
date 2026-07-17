@@ -85,7 +85,12 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 
 	if this.ctx != nil {
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
-			dt = val.(internal.DataType)
+			var ok bool
+			dt, ok = val.(internal.DataType)
+
+			if ok == false {
+				return 0, 0, errors.New("RLT forward transform failed: invalid data type")
+			}
 
 			if dt == internal.DT_DNA || dt == internal.DT_BASE64 || dt == internal.DT_UTF8 {
 				return 0, 0, fmt.Errorf("RLT forward transform skip")
@@ -93,7 +98,13 @@ func (this *RLT) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		if val, containsKey := (*this.ctx)["entropy"]; containsKey {
-			entropyType := strings.ToUpper(val.(string))
+			entropyName, ok := val.(string)
+
+			if ok == false {
+				return 0, 0, errors.New("RLT forward transform failed: invalid entropy type")
+			}
+
+			entropyType := strings.ToUpper(entropyName)
 
 			// Fast track if fast entropy coder is used
 			if entropyType == "NONE" || entropyType == "ANS0" ||
