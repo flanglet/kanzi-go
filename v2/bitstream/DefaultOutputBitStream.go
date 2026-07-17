@@ -222,8 +222,20 @@ func (this *DefaultOutputBitStream) flush() error {
 	}
 
 	if this.position > 0 {
-		if _, err := this.os.Write(this.buffer[0:this.position]); err != nil {
-			return err
+		buf := this.buffer[0:this.position]
+
+		for len(buf) > 0 {
+			n, err := this.os.Write(buf)
+
+			if err != nil {
+				return err
+			}
+
+			if n <= 0 || n > len(buf) {
+				return io.ErrShortWrite
+			}
+
+			buf = buf[n:]
 		}
 
 		this.written += (int64(this.position) << 3)

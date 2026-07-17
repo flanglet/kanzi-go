@@ -34,6 +34,23 @@ const (
 	_READ    = "Read: "
 )
 
+type shortWriteCloser struct {
+	bytes.Buffer
+	maxWrite int
+}
+
+func (this *shortWriteCloser) Write(buf []byte) (int, error) {
+	if len(buf) > this.maxWrite {
+		buf = buf[:this.maxWrite]
+	}
+
+	return this.Buffer.Write(buf)
+}
+
+func (this *shortWriteCloser) Close() error {
+	return nil
+}
+
 func TestBitStreamAligned(b *testing.T) {
 	if err := testCorrectnessAligned1(); err != nil {
 		b.Error(err)
@@ -524,6 +541,33 @@ func TestBitStreamWriteArrayPartialTail(t *testing.T) {
 			}
 
 		})
+	}
+}
+
+func TestBitStreamShortWrites(t *testing.T) {
+	stream := &shortWriteCloser{maxWrite: 17}
+	obs, err := NewDefaultOutputBitStream(stream, 1024)
+
+	if err != nil {
+		t.Fatalf("create output bitstream: %v", err)
+	}
+
+	src := make([]byte, 2048)
+
+	for i := range src {
+		src[i] = byte(i)
+	}
+
+	if got := obs.WriteArray(src, uint(len(src)<<3)); got != uint(len(src)<<3) {
+		t.Fatalf("WriteArray()=%d, want %d", got, len(src)<<3)
+	}
+
+	if err := obs.Close(); err != nil {
+		t.Fatalf("close output bitstream: %v", err)
+	}
+
+	if !bytes.Equal(stream.Bytes(), src) {
+		t.Fatal("short writes corrupted the output")
 	}
 }
 
