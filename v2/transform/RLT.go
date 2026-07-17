@@ -338,12 +338,20 @@ func (this *RLT) Inverse(src, dst []byte) (uint, uint, error) {
 	srcIdx++
 	var err error
 
+	if srcIdx >= srcEnd {
+		return uint(srcIdx), uint(dstIdx), errors.New("RLT inverse transform failed: invalid data")
+	}
+
 	if src[srcIdx] == escape {
 		srcIdx++
 
 		// The data cannot start with a run but may start with an escape literal
 		if srcIdx < srcEnd && src[srcIdx] != 0 {
 			return uint(srcIdx), uint(dstIdx), errors.New("RLT inverse transform failed: input starts with a run")
+		}
+
+		if srcIdx >= srcEnd {
+			return uint(srcIdx), uint(dstIdx), errors.New("RLT inverse transform failed: invalid data")
 		}
 
 		srcIdx++

@@ -323,6 +323,10 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 		if n == 1 {
 			// One symbol
+			if len(src) < 6 {
+				return 0, 0, errors.New("Alias codec inverse transform failed: truncated header")
+			}
+
 			val := src[1]
 			oSize := int(binary.LittleEndian.Uint32(src[2:]))
 
@@ -338,6 +342,10 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			dstIdx = oSize
 		} else {
 			// Rebuild map alias -> symbol
+			if len(src) < srcIdx+n+1 {
+				return 0, 0, errors.New("Alias codec inverse transform failed: truncated header")
+			}
+
 			var idx2symb [16]byte
 
 			for i := 0; i < n; i++ {
@@ -353,6 +361,10 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			if n <= 4 {
+				if adjust > srcEnd-srcIdx || adjust > len(dst)-dstIdx || srcEnd-srcIdx-adjust > (len(dst)-dstIdx-adjust)/4 {
+					return 0, 0, errors.New("Alias codec inverse transform failed: invalid data")
+				}
+
 				// 4 symbols or less
 				var decodeMap [256]uint32
 
@@ -378,6 +390,10 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 					dstIdx += 4
 				}
 			} else {
+				if adjust > srcEnd-srcIdx || adjust > len(dst)-dstIdx || srcEnd-srcIdx-adjust > (len(dst)-dstIdx-adjust)/2 {
+					return 0, 0, errors.New("Alias codec inverse transform failed: invalid data")
+				}
+
 				// 16 symbols or less
 				var decodeMap [256]uint16
 
@@ -405,7 +421,13 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	} else {
 		// Rebuild map alias -> symbol
 		var map16 [256]int
-		srcEnd := len(src) - int(src[1])
+		adjust := int(src[1])
+
+		if adjust > 1 || len(src) < 2+3*n+adjust {
+			return 0, 0, errors.New("Alias codec inverse transform failed: truncated header")
+		}
+
+		srcEnd := len(src) - adjust
 		srcIdx = 2
 
 		for i := range &map16 {
@@ -452,7 +474,7 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 		}
 
-		if src[1] != 0 {
+		if adjust != 0 {
 			if dstIdx >= len(dst) {
 				return 0, 0, errors.New("Alias codec inverse transform failed: invalid data")
 			}

@@ -190,7 +190,12 @@ func (this *SRT) Inverse(src, dst []byte) (uint, uint, error) {
 
 	// init arrays
 	freqs := [256]int32{}
-	headerSize := this.decodeHeader(src, freqs[:])
+	headerSize, err := this.decodeHeader(src, freqs[:])
+
+	if err != nil {
+		return 0, 0, err
+	}
+
 	src = src[headerSize:]
 
 	if len(src) > len(dst) {
@@ -206,14 +211,23 @@ func (this *SRT) Inverse(src, dst []byte) (uint, uint, error) {
 	for i, bucketPos := 0, 0; i < nbSymbols; i++ {
 		c := symbols[i]
 
-		if bucketPos < 0 || bucketPos > len(src) {
+		if freqs[c] <= 0 || bucketPos < 0 || bucketPos >= len(src) {
 			return 0, 0, errors.New("SRT inverse transform failed: invalid data")
 		}
 
 		r2s[src[bucketPos]] = c
 		buckets[c] = bucketPos + 1
 		bucketPos += int(freqs[c])
+
+		if bucketPos > len(src) {
+			return 0, 0, errors.New("SRT inverse transform failed: invalid data")
+		}
+
 		bucketEnds[c] = bucketPos
+
+		if i == nbSymbols-1 && bucketPos != len(src) {
+			return 0, 0, errors.New("SRT inverse transform failed: invalid data")
+		}
 	}
 
 	// decoding
@@ -282,10 +296,14 @@ func (this SRT) encodeHeader(freqs []int32, dst []byte) int {
 	return n
 }
 
-func (this SRT) decodeHeader(src []byte, freqs []int32) int {
+func (this SRT) decodeHeader(src []byte, freqs []int32) (int, error) {
 	n := 0
 
 	for i := range freqs {
+		if n >= len(src) {
+			return 0, errors.New("SRT inverse transform failed: truncated header")
+		}
+
 		val := int32(src[n])
 		n++
 
@@ -295,26 +313,43 @@ func (this SRT) decodeHeader(src []byte, freqs []int32) int {
 		}
 
 		res := val & 0x7F
+
+		if n >= len(src) {
+			return 0, errors.New("SRT inverse transform failed: truncated header")
+		}
+
 		val = int32(src[n])
 		n++
 		res |= ((val & 0x7F) << 7)
 
 		if val >= 128 {
+			if n >= len(src) {
+				return 0, errors.New("SRT inverse transform failed: truncated header")
+			}
+
 			val = int32(src[n])
 			n++
 			res |= ((val & 0x7F) << 14)
 
 			if val >= 128 {
+				if n >= len(src) {
+					return 0, errors.New("SRT inverse transform failed: truncated header")
+				}
+
 				val = int32(src[n])
 				n++
 				res |= ((val & 0x7F) << 21)
+
+				if val >= 128 {
+					return 0, errors.New("SRT inverse transform failed: invalid header")
+				}
 			}
 		}
 
 		freqs[i] = res
 	}
 
-	return n
+	return n, nil
 }
 
 // MaxEncodedLen returns the max size required for the encoding output buffer

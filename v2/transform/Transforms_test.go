@@ -118,6 +118,38 @@ func TestEXECodec(t *testing.T)  { testTransformCorrectness("EXE", t) }
 func TestTextCodec(t *testing.T) { testTransformCorrectness("TEXT", t) }
 func TestUTFCodec(t *testing.T)  { testTransformCorrectness("UTF", t) }
 
+func TestInverseMalformedInput(t *testing.T) {
+	tests := []struct {
+		name      string
+		transform kanzi.ByteTransform
+		src       []byte
+		dst       []byte
+	}{
+		{"RLT missing initial literal", &RLT{}, []byte{0}, make([]byte, 8)},
+		{"RLT incomplete escaped literal", &RLT{}, []byte{0, 0}, make([]byte, 8)},
+		{"SRT truncated header", &SRT{}, []byte{0x80}, make([]byte, 8)},
+		{"Alias truncated one-symbol header", &AliasCodec{}, []byte{255, 0}, make([]byte, 8)},
+		{"Alias packed output too large", &AliasCodec{}, []byte{252, 1, 2, 3, 4, 3, 1, 2, 3}, make([]byte, 1)},
+		{"Alias truncated digram header", &AliasCodec{}, []byte{16, 0}, make([]byte, 8)},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			defer func() {
+				if recovered := recover(); recovered != nil {
+					t.Fatalf("inverse panicked: %v", recovered)
+				}
+			}()
+
+			_, _, err := test.transform.Inverse(test.src, test.dst)
+
+			if err == nil {
+				t.Fatal("expected an error for malformed input")
+			}
+		})
+	}
+}
+
 func TestTextCodecSelfDescribing(t *testing.T) {
 	sample := bytes.Repeat([]byte("The quick brown fox jumps over the lazy dog. Text compression works best on repeated natural language content.\n"), 32)
 
