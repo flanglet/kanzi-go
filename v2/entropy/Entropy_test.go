@@ -474,6 +474,80 @@ func TestFPAQZeroDeclaredSize(t *testing.T) {
 	}
 }
 
+func TestBinaryEntropyZeroDeclaredSize(t *testing.T) {
+	const size = 1 << 20
+	values := make([]byte, size)
+
+	bufferStream := internal.NewBufferStream()
+	obs, err := bitstream.NewDefaultOutputBitStream(bufferStream, 16384)
+
+	if err != nil {
+		t.Fatalf("Failed to create OutputBitStream: %v", err)
+	}
+
+	encoder := getEncoder("CM", obs)
+
+	if encoder == nil {
+		t.Fatal("Cannot create binary entropy encoder")
+	}
+
+	written, err := encoder.Write(values)
+
+	if err != nil {
+		t.Fatalf("Error during binary entropy encoding: %v", err)
+	}
+
+	if written != len(values) {
+		t.Fatalf("Binary entropy encoder.Write returned %d, expected %d", written, len(values))
+	}
+
+	encoder.Dispose()
+
+	if err = obs.Close(); err != nil {
+		t.Fatalf("Error closing OutputBitStream for binary entropy codec: %v", err)
+	}
+
+	encoded := make([]byte, bufferStream.Len())
+	_, err = bufferStream.Read(encoded)
+
+	if err != nil {
+		t.Fatalf("Error reading encoded binary entropy payload: %v", err)
+	}
+
+	skip := fpaqVarIntLength(encoded)
+
+	if skip <= 0 {
+		t.Fatal("Could not parse binary entropy declared size")
+	}
+
+	mutated := make([]byte, 1+len(encoded)-skip)
+	mutated[0] = 0
+	copy(mutated[1:], encoded[skip:])
+	ibs, err := bitstream.NewDefaultInputBitStream(internal.NewBufferStream(mutated), 16384)
+
+	if err != nil {
+		t.Fatalf("Failed to create InputBitStream for binary entropy codec: %v", err)
+	}
+
+	decoder := getDecoder("CM", ibs)
+
+	if decoder == nil {
+		t.Fatal("Cannot create binary entropy decoder")
+	}
+
+	decoded := make([]byte, len(values))
+	read, err := decoder.Read(decoded)
+	decoder.Dispose()
+
+	if closeErr := ibs.Close(); closeErr != nil {
+		t.Fatalf("Error closing InputBitStream for binary entropy codec: %v", closeErr)
+	}
+
+	if err == nil && read == len(values) {
+		t.Fatal("Malformed zero-sized binary entropy payload was accepted")
+	}
+}
+
 func TestTPAQCodecSpecificPatterns(t *testing.T) {
 	type testCase struct {
 		name  string
