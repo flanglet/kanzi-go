@@ -291,6 +291,63 @@ func TestROLZInverseLiteralOnlyChunkAfterCompressedChunk(t *testing.T) {
 	}
 }
 
+// ROLZX detects ACGT as DNA and hashes 8 bytes (getKey2); the DNA branch must read
+// backward (delta=8) and tag the block (flags|=4), else it overran the buffer near
+// the chunk end. Mirrors rolzCodec1 and the C++/Java references.
+func TestROLZXDNARoundTrip(t *testing.T) {
+	acgt := []byte("ACGT")
+
+	for _, size := range []int{_ROLZ_MIN_BLOCK_SIZE, 65, 70, 128, 256, 1024, 4096, 70000} {
+		t.Run(fmt.Sprintf("size%d", size), func(t *testing.T) {
+			input := make([]byte, size)
+			for i := range input {
+				input[i] = acgt[i&3]
+			}
+
+			fwd, err := getTransform("ROLZX")
+			if err != nil {
+				t.Fatalf("create ROLZX transform: %v", err)
+			}
+
+			output := make([]byte, fwd.MaxEncodedLen(size))
+			var dstIdx uint
+
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						t.Fatalf("ROLZX forward panicked on DNA data (size=%d): %v", size, r)
+					}
+				}()
+				_, dstIdx, err = fwd.Forward(input, output)
+			}()
+
+			if err != nil {
+				t.Fatalf("forward ROLZX on DNA data (size=%d): %v", size, err)
+			}
+
+			if output[4]&0x0E != 4 {
+				t.Fatalf("data not tagged as DNA: header flags=%#x", output[4])
+			}
+
+			inv, err := getTransform("ROLZX")
+			if err != nil {
+				t.Fatalf("create inverse ROLZX transform: %v", err)
+			}
+
+			reverse := make([]byte, size)
+			_, decoded, err := inv.Inverse(output[:dstIdx], reverse)
+
+			if err != nil {
+				t.Fatalf("inverse ROLZX on DNA data (size=%d): %v", size, err)
+			}
+
+			if decoded != uint(size) || bytes.Equal(input, reverse) == false {
+				t.Fatalf("ROLZX DNA round-trip mismatch at size %d (decoded %d)", size, decoded)
+			}
+		})
+	}
+}
+
 // generateTransformTestCases creates the suite of generic test cases.
 func generateTransformTestCases(transformName string) []transformTestCase {
 	testCases := []transformTestCase{}
