@@ -1153,8 +1153,9 @@ func (this *rolzCodec2) Forward(src, dst []byte) (uint, uint, error) {
 			delta = 3
 			flags |= 8
 		} else if dt == internal.DT_DNA {
+			delta = 8
 			this.minMatch = _ROLZ_MIN_MATCH7
-			flags = 1
+			flags |= 4
 		}
 	}
 
