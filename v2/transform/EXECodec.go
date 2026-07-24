@@ -422,17 +422,21 @@ func (this *EXECodec) inverseX86(src, dst []byte) (uint, uint, error) {
 		}
 
 		// Current instruction is a jump/call. Decode absolute address
-		addr := int(binary.BigEndian.Uint32(src[srcIdx+1:])) ^ _EXE_MASK_ADDRESS
-		offset := addr - dstIdx
+		addr := int64(int32(binary.BigEndian.Uint32(src[srcIdx+1:]) ^ uint32(_EXE_MASK_ADDRESS)))
+		offset := addr - int64(dstIdx)
+		var encodedOffset int32
+
+		if offset >= 0 {
+			encodedOffset = int32(offset)
+		} else {
+			encodedOffset = -int32((-offset) & _EXE_X86_ADDR_MASK)
+		}
+
 		dst[dstIdx] = src[srcIdx]
 		srcIdx++
 		dstIdx++
 
-		if offset >= 0 {
-			binary.LittleEndian.PutUint32(dst[dstIdx:], uint32(offset))
-		} else {
-			binary.LittleEndian.PutUint32(dst[dstIdx:], uint32(-(-offset & _EXE_X86_ADDR_MASK)))
-		}
+		binary.LittleEndian.PutUint32(dst[dstIdx:], uint32(encodedOffset))
 
 		srcIdx += 4
 		dstIdx += 4
@@ -828,6 +832,19 @@ func detectExeType(src []byte, codeStart, codeEnd *int) byte {
 	return _EXE_NOT_EXE | byte(dt)
 }
 
+func setExeCodeRange(count int, codeStart, codeEnd *int, start, length int64) bool {
+	if start < 0 || length < 0 || start > int64(count) || length > int64(count)-start {
+		return false
+	}
+
+	if *codeStart == 0 {
+		*codeStart = int(start)
+	}
+
+	*codeEnd = int(start + length)
+	return true
+}
+
 // Return true if known header
 func parseExeHeader(src []byte, magic uint, arch, codeStart, codeEnd *int) bool {
 	count := len(src)
@@ -837,8 +854,12 @@ func parseExeHeader(src []byte, magic uint, arch, codeStart, codeEnd *int) bool 
 			posPE := int(binary.LittleEndian.Uint32(src[60:]))
 
 			if (posPE > 0) && (posPE <= count-48) && (int(binary.LittleEndian.Uint32(src[posPE:])) == _EXE_WIN_PE) {
-				*codeStart = min(int(binary.LittleEndian.Uint32(src[posPE+44:])), count)
-				*codeEnd = min(*codeStart+int(binary.LittleEndian.Uint32(src[posPE+28:])), count)
+				if !setExeCodeRange(count, codeStart, codeEnd,
+					int64(binary.LittleEndian.Uint32(src[posPE+44:])),
+					int64(binary.LittleEndian.Uint32(src[posPE+28:]))) {
+					return false
+				}
+
 				*arch = int(binary.LittleEndian.Uint16(src[posPE+4:]))
 			}
 
@@ -856,50 +877,54 @@ func parseExeHeader(src []byte, magic uint, arch, codeStart, codeEnd *int) bool 
 					// 64 bits
 					nbEntries := int(binary.LittleEndian.Uint16(src[0x3C:]))
 					szEntry := int(binary.LittleEndian.Uint16(src[0x3A:]))
-					posSection := int(binary.LittleEndian.Uint64(src[0x28:]))
+					posSection := int64(binary.LittleEndian.Uint64(src[0x28:]))
+
+					if szEntry <= 0 || posSection < 0 || posSection > int64(count)-0x28 {
+						return false
+					}
 
 					for i := 0; i < nbEntries; i++ {
-						startEntry := posSection + i*szEntry
+						startEntry := posSection + int64(i)*int64(szEntry)
 
-						if startEntry+0x28 >= count {
+						if startEntry > int64(count)-0x28 {
 							return false
 						}
 
 						typeSection := int(binary.LittleEndian.Uint32(src[startEntry+4:]))
-						offSection := int(binary.LittleEndian.Uint64(src[startEntry+0x18:]))
-						lenSection := int(binary.LittleEndian.Uint64(src[startEntry+0x20:]))
+						offSection := int64(binary.LittleEndian.Uint64(src[startEntry+0x18:]))
+						lenSection := int64(binary.LittleEndian.Uint64(src[startEntry+0x20:]))
 
 						if typeSection == 1 && lenSection >= 64 {
-							if *codeStart == 0 {
-								*codeStart = offSection
+							if !setExeCodeRange(count, codeStart, codeEnd, offSection, lenSection) {
+								return false
 							}
-
-							*codeEnd = offSection + lenSection
 						}
 					}
 				} else {
 					// 32 bits
 					nbEntries := int(binary.LittleEndian.Uint16(src[0x30:]))
 					szEntry := int(binary.LittleEndian.Uint16(src[0x2E:]))
-					posSection := int(binary.LittleEndian.Uint32(src[0x20:]))
+					posSection := int64(binary.LittleEndian.Uint32(src[0x20:]))
+
+					if szEntry <= 0 || posSection < 0 || posSection > int64(count)-0x18 {
+						return false
+					}
 
 					for i := 0; i < nbEntries; i++ {
-						startEntry := posSection + i*szEntry
+						startEntry := posSection + int64(i)*int64(szEntry)
 
-						if startEntry+0x18 >= count {
+						if startEntry > int64(count)-0x18 {
 							return false
 						}
 
 						typeSection := int(binary.LittleEndian.Uint32(src[startEntry+4:]))
-						offSection := int(binary.LittleEndian.Uint32(src[startEntry+0x10:]))
-						lenSection := int(binary.LittleEndian.Uint32(src[startEntry+0x14:]))
+						offSection := int64(binary.LittleEndian.Uint32(src[startEntry+0x10:]))
+						lenSection := int64(binary.LittleEndian.Uint32(src[startEntry+0x14:]))
 
 						if typeSection == 1 && lenSection >= 64 {
-							if *codeStart == 0 {
-								*codeStart = offSection
+							if !setExeCodeRange(count, codeStart, codeEnd, offSection, lenSection) {
+								return false
 							}
-
-							*codeEnd = offSection + lenSection
 						}
 					}
 				}
@@ -911,50 +936,54 @@ func parseExeHeader(src []byte, magic uint, arch, codeStart, codeEnd *int) bool 
 					// 64 bits
 					nbEntries := int(binary.BigEndian.Uint16(src[0x3C:]))
 					szEntry := int(binary.BigEndian.Uint16(src[0x3A:]))
-					posSection := int(binary.BigEndian.Uint64(src[0x28:]))
+					posSection := int64(binary.BigEndian.Uint64(src[0x28:]))
+
+					if szEntry <= 0 || posSection < 0 || posSection > int64(count)-0x28 {
+						return false
+					}
 
 					for i := 0; i < nbEntries; i++ {
-						startEntry := posSection + i*szEntry
+						startEntry := posSection + int64(i)*int64(szEntry)
 
-						if startEntry+0x28 >= count {
+						if startEntry > int64(count)-0x28 {
 							return false
 						}
 
 						typeSection := int(binary.BigEndian.Uint32(src[startEntry+4:]))
-						offSection := int(binary.BigEndian.Uint64(src[startEntry+0x18:]))
-						lenSection := int(binary.BigEndian.Uint64(src[startEntry+0x20:]))
+						offSection := int64(binary.BigEndian.Uint64(src[startEntry+0x18:]))
+						lenSection := int64(binary.BigEndian.Uint64(src[startEntry+0x20:]))
 
 						if typeSection == 1 && lenSection >= 64 {
-							if *codeStart == 0 {
-								*codeStart = offSection
+							if !setExeCodeRange(count, codeStart, codeEnd, offSection, lenSection) {
+								return false
 							}
-
-							*codeEnd = offSection + lenSection
 						}
 					}
 				} else {
 					// 32 bits
 					nbEntries := int(binary.BigEndian.Uint16(src[0x30:]))
 					szEntry := int(binary.BigEndian.Uint16(src[0x2E:]))
-					posSection := int(binary.BigEndian.Uint32(src[0x20:]))
+					posSection := int64(binary.BigEndian.Uint32(src[0x20:]))
+
+					if szEntry <= 0 || posSection < 0 || posSection > int64(count)-0x18 {
+						return false
+					}
 
 					for i := 0; i < nbEntries; i++ {
-						startEntry := posSection + i*szEntry
+						startEntry := posSection + int64(i)*int64(szEntry)
 
-						if startEntry+0x18 >= count {
+						if startEntry > int64(count)-0x18 {
 							return false
 						}
 
 						typeSection := int(binary.BigEndian.Uint32(src[startEntry+4:]))
-						offSection := int(binary.BigEndian.Uint32(src[startEntry+0x10:]))
-						lenSection := int(binary.BigEndian.Uint32(src[startEntry+0x14:]))
+						offSection := int64(binary.BigEndian.Uint32(src[startEntry+0x10:]))
+						lenSection := int64(binary.BigEndian.Uint32(src[startEntry+0x14:]))
 
 						if typeSection == 1 && lenSection >= 64 {
-							if *codeStart == 0 {
-								*codeStart = offSection
+							if !setExeCodeRange(count, codeStart, codeEnd, offSection, lenSection) {
+								return false
 							}
-
-							*codeEnd = offSection + lenSection
 						}
 					}
 				}
@@ -988,6 +1017,10 @@ func parseExeHeader(src []byte, magic uint, arch, codeStart, codeEnd *int) bool 
 			}
 
 			for cmd < nbCmds {
+				if pos < 0 || pos > count-8 {
+					return false
+				}
+
 				ldCmd := int(binary.LittleEndian.Uint32(src[pos:]))
 				szCmd := int(binary.LittleEndian.Uint32(src[pos+4:]))
 				szSegHdr := 0x38
@@ -996,8 +1029,12 @@ func parseExeHeader(src []byte, magic uint, arch, codeStart, codeEnd *int) bool 
 					szSegHdr = 0x48
 				}
 
+				if szCmd < 8 || szCmd > count-pos {
+					return false
+				}
+
 				if ldCmd == _EXE_MAC_LC_SEGMENT || ldCmd == _EXE_MAC_LC_SEGMENT64 {
-					if pos+14 >= count {
+					if pos > count-14 || pos > count-szSegHdr {
 						return false
 					}
 
@@ -1005,8 +1042,13 @@ func parseExeHeader(src []byte, magic uint, arch, codeStart, codeEnd *int) bool 
 
 					if nameSegment == 0x5F5F54455854 {
 						posSection := pos + szSegHdr
+						minSectionSize := 0x30
 
-						if posSection+0x34 >= count {
+						if is64Bits == true {
+							minSectionSize = 0x38
+						}
+
+						if posSection > count-minSectionSize {
 							return false
 						}
 
@@ -1015,12 +1057,18 @@ func parseExeHeader(src []byte, magic uint, arch, codeStart, codeEnd *int) bool 
 						if nameSection == 0x5F5F74657874 {
 							// Text section in TEXT segment
 							if is64Bits == true {
-								*codeStart = int(int32(binary.LittleEndian.Uint64(src[posSection+0x30:])))
-								*codeEnd = *codeStart + int(int32(binary.LittleEndian.Uint32(src[posSection+0x28:])))
+								if !setExeCodeRange(count, codeStart, codeEnd,
+									int64(binary.LittleEndian.Uint64(src[posSection+0x30:])),
+									int64(binary.LittleEndian.Uint32(src[posSection+0x28:]))) {
+									return false
+								}
 								break
 							} else {
-								*codeStart = int(int32(binary.LittleEndian.Uint32(src[posSection+0x2C:])))
-								*codeEnd = *codeStart + int(int32(binary.LittleEndian.Uint32(src[posSection+0x28:])))
+								if !setExeCodeRange(count, codeStart, codeEnd,
+									int64(binary.LittleEndian.Uint32(src[posSection+0x2C:])),
+									int64(binary.LittleEndian.Uint32(src[posSection+0x28:]))) {
+									return false
+								}
 								break
 							}
 						}
