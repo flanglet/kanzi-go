@@ -47,6 +47,7 @@ const (
 	_LZP_MIN_MATCH64      = 64
 	_LZP_MATCH_FLAG       = 0xFC
 	_LZP_MIN_BLOCK_LENGTH = 128
+	_LZ_READ_LENGTH_GUARD = 2
 )
 
 // LZCodec encapsulates an implementation of a Lempel-Ziv codec
@@ -633,6 +634,14 @@ func (this *LZXCodec) inverseV6(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("LZCodec inverse transform failed: invalid data")
 	}
 
+	if (cap(src) < _LZ_READ_LENGTH_GUARD) || (count > cap(src)-_LZ_READ_LENGTH_GUARD) {
+		return 0, 0, errors.New("LZCodec inverse transform failed: input buffer has no guard bytes")
+	}
+
+	// Keep the logical count unchanged while exposing the caller-provided tail
+	// to readLengthLZ().
+	src = src[:count+_LZ_READ_LENGTH_GUARD]
+
 	tkIdx := int(binary.LittleEndian.Uint32(src[0:]))
 	mIdx := int(binary.LittleEndian.Uint32(src[4:]))
 	mLenIdx := int(binary.LittleEndian.Uint32(src[8:]))
@@ -798,6 +807,14 @@ func (this *LZXCodec) inverseV4(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("LZCodec inverse transform failed: invalid data")
 	}
 
+	if (cap(src) < _LZ_READ_LENGTH_GUARD) || (count > cap(src)-_LZ_READ_LENGTH_GUARD) {
+		return 0, 0, errors.New("LZCodec inverse transform failed: input buffer has no guard bytes")
+	}
+
+	// Keep the logical count unchanged while exposing the caller-provided tail
+	// to readLengthLZ().
+	src = src[:count+_LZ_READ_LENGTH_GUARD]
+
 	tkIdx := int(binary.LittleEndian.Uint32(src[0:]))
 	mIdx := int(binary.LittleEndian.Uint32(src[4:]))
 	mLenIdx := int(binary.LittleEndian.Uint32(src[8:]))
@@ -949,11 +966,12 @@ func (this *LZXCodec) inverseV4(src, dst []byte) (uint, uint, error) {
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
 func (this LZXCodec) MaxEncodedLen(srcLen int) int {
+	// Keep two guard bytes after the encoded data for readLengthLZ().
 	if srcLen <= 1024 {
-		return srcLen + 16
+		return srcLen + 16 + _LZ_READ_LENGTH_GUARD
 	}
 
-	return srcLen + srcLen/64
+	return srcLen + srcLen/64 + _LZ_READ_LENGTH_GUARD
 }
 
 // LZPCodec an implementation of the Lempel Ziv Predict algorithm
