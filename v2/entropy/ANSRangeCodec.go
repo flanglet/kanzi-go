@@ -96,7 +96,7 @@ func NewANSRangeEncoder(bs kanzi.OutputBitStream, args ...uint) (*ANSRangeEncode
 		}
 
 		if order == 1 {
-			chkSize = min(chkSize<<8, _ANS_MAX_CHUNK_SIZE)
+			chkSize = int(min(uint64(chkSize)<<8, uint64(_ANS_MAX_CHUNK_SIZE)))
 		}
 	}
 
@@ -151,7 +151,7 @@ func NewANSRangeEncoderWithCtx(bs kanzi.OutputBitStream, ctx *map[string]any, ar
 		}
 
 		if order == 1 {
-			chkSize = min(chkSize<<8, _ANS_MAX_CHUNK_SIZE)
+			chkSize = int(min(uint64(chkSize)<<8, uint64(_ANS_MAX_CHUNK_SIZE)))
 		}
 	}
 
@@ -519,7 +519,7 @@ func NewANSRangeDecoder(bs kanzi.InputBitStream, args ...uint) (*ANSRangeDecoder
 		}
 
 		if order == 1 {
-			chkSize = min(chkSize<<8, _ANS_MAX_CHUNK_SIZE)
+			chkSize = int(min(uint64(chkSize)<<8, uint64(_ANS_MAX_CHUNK_SIZE)))
 		}
 	}
 
@@ -584,7 +584,7 @@ func NewANSRangeDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]any, arg
 		}
 
 		if order == 1 {
-			chkSize = min(chkSize<<8, _ANS_MAX_CHUNK_SIZE)
+			chkSize = int(min(uint64(chkSize)<<8, uint64(_ANS_MAX_CHUNK_SIZE)))
 		}
 	}
 
