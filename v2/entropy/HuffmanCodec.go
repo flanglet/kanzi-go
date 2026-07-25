@@ -969,10 +969,10 @@ func (this *HuffmanDecoder) decodeChunkV6(block []byte, count int) (int, error) 
 		block[i] = byte(this.bitstream.ReadBits(8))
 	}
 
-	if (((idx0 - base0) << 3) - int(bs0+_HUF_MAX_SYMBOL_SIZE_V4) != int(szBits0)) ||
-		(((idx1 - base1) << 3) - int(bs1+_HUF_MAX_SYMBOL_SIZE_V4) != int(szBits1)) ||
-		(((idx2 - base2) << 3) - int(bs2+_HUF_MAX_SYMBOL_SIZE_V4) != int(szBits2)) ||
-		(((idx3 - base3) << 3) - int(bs3+_HUF_MAX_SYMBOL_SIZE_V4) != int(szBits3)) {
+	if (((idx0-base0)<<3)-int(bs0+_HUF_MAX_SYMBOL_SIZE_V4) != int(szBits0)) ||
+		(((idx1-base1)<<3)-int(bs1+_HUF_MAX_SYMBOL_SIZE_V4) != int(szBits1)) ||
+		(((idx2-base2)<<3)-int(bs2+_HUF_MAX_SYMBOL_SIZE_V4) != int(szBits2)) ||
+		(((idx3-base3)<<3)-int(bs3+_HUF_MAX_SYMBOL_SIZE_V4) != int(szBits3)) {
 		return 0, errors.New("Invalid bitstream: incorrect Huffman stream size")
 	}
 

@@ -63,7 +63,6 @@ func NewCMPredictor(ctx *map[string]any) (*CMPredictor, error) {
 		counter1Idx := i * _CM_COUNTER1_STRIDE
 		counter2Idx := (i + i) * _CM_COUNTER2_STRIDE
 
-
 		for j := 0; j <= 256; j++ {
 			this.counter1[counter1Idx+j] = _CM_PSCALE >> 1
 		}

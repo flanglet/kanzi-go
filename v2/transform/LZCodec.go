@@ -561,7 +561,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 	// Emit last literals
 	litLen := count - anchor
 
-	if dstIdx+litLen+tkIdx+mIdx >= count {
+	if dstIdx+litLen+tkIdx+mIdx+mLenIdx >= count {
 		return uint(count), uint(dstIdx), errors.New("LZCodec forward transform skip: no compression")
 	}
 
@@ -769,7 +769,8 @@ func (this *LZXCodec) inverseV6(src, dst []byte) (uint, uint, error) {
 		// Copy match
 		if dist >= 16 {
 			for {
-				// No overlap
+				// The decoder reserves trailing padding for this 16-byte copy,
+				// which may write up to 15 bytes past mEnd.
 				copy(dst[dstIdx:], dst[ref:ref+16])
 				ref += 16
 				dstIdx += 16
@@ -937,7 +938,8 @@ func (this *LZXCodec) inverseV4(src, dst []byte) (uint, uint, error) {
 		// Copy match
 		if dist >= 16 {
 			for {
-				// No overlap
+				// The decoder reserves trailing padding for this 16-byte copy,
+				// which may write up to 15 bytes past mEnd.
 				copy(dst[dstIdx:], dst[ref:ref+16])
 				ref += 16
 				dstIdx += 16
@@ -1066,6 +1068,10 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 			dstIdx++
 
 			if ref != 0 && val == _LZP_MATCH_FLAG {
+				if dstIdx >= dstEnd {
+					return uint(srcIdx), uint(dstIdx), errors.New("LZP forward transform skip: output buffer too small")
+				}
+
 				dst[dstIdx] = byte(0xFF)
 				dstIdx++
 			}
@@ -1090,6 +1096,10 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 			}
 		}
 
+		if dstIdx >= dstEnd {
+			return uint(srcIdx), uint(dstIdx), errors.New("LZP forward transform skip: output buffer too small")
+		}
+
 		dst[dstIdx] = byte(bestLen)
 		dstIdx++
 	}
@@ -1105,6 +1115,10 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 		dstIdx++
 
 		if (ref != 0) && (val == _LZP_MATCH_FLAG) {
+			if dstIdx >= dstEnd {
+				return uint(srcIdx), uint(dstIdx), errors.New("LZP forward transform skip: output buffer too small")
+			}
+
 			dst[dstIdx] = 0xFF
 			dstIdx++
 		}
@@ -1129,6 +1143,10 @@ func (this *LZPCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 	if len(src) < 4 {
 		return 0, 0, errors.New("LZP inverse transform failed: block too small")
+	}
+
+	if len(dst) < len(src) {
+		return 0, 0, errors.New("LZP inverse transform failed: output buffer too small")
 	}
 
 	if len(this.hashes) == 0 {
@@ -1161,6 +1179,10 @@ func (this *LZPCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		this.hashes[h] = int32(dstIdx)
 
 		if src[srcIdx] != _LZP_MATCH_FLAG || ref == 0 {
+			if dstIdx >= dstEnd {
+				return uint(srcIdx), uint(dstIdx), errors.New("LZP inverse transform failed: output buffer too small")
+			}
+
 			dst[dstIdx] = src[srcIdx]
 			ctx = (ctx << 8) | uint32(dst[dstIdx])
 			srcIdx++
@@ -1170,7 +1192,15 @@ func (this *LZPCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 		srcIdx++
 
+		if srcIdx >= srcEnd {
+			return uint(srcIdx), uint(dstIdx), errors.New("LZP inverse transform failed: invalid data")
+		}
+
 		if src[srcIdx] == 0xFF {
+			if dstIdx >= dstEnd {
+				return uint(srcIdx), uint(dstIdx), errors.New("LZP inverse transform failed: output buffer too small")
+			}
+
 			dst[dstIdx] = _LZP_MATCH_FLAG
 			ctx = (ctx << 8) | uint32(_LZP_MATCH_FLAG)
 			srcIdx++
