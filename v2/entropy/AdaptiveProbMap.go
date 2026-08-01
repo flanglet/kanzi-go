@@ -114,7 +114,13 @@ func (this *LogisticAdaptiveProbMap) Get(bit int, pr int, ctx int) int {
 
 func newFastLogisticAdaptiveProbMap(n, rate uint) (*FastLogisticAdaptiveProbMap, error) {
 	this := &FastLogisticAdaptiveProbMap{}
-	this.data = make([]uint16, n*32)
+	size := n * 32
+
+	if size == 0 {
+		size = 32
+	}
+
+	this.data = make([]uint16, size)
 	this.rate = rate
 
 	for j := 0; j < 32; j++ {
@@ -151,7 +157,13 @@ func newLinearAdaptiveProbMap(n, rate uint) (*LinearAdaptiveProbMap, error) {
 	this.rate = rate
 
 	for j := 0; j <= 64; j++ {
-		this.data[j] = uint16(j<<6) << 4
+		// 65536 does not fit in uint16. Keep the endpoint aligned
+		// with the maximum target used by the adaptive update.
+		if j == 64 {
+			this.data[j] = uint16(65528)
+		} else {
+			this.data[j] = uint16(j << 10)
+		}
 	}
 
 	for i := uint(1); i < n; i++ {

@@ -316,6 +316,11 @@ func NewTPAQPredictor(ctx *map[string]any) (*TPAQPredictor, error) {
 		}
 	}
 
+	// The ring buffer and hash table use bit masks for indexing.
+	// Normalize their sizes to powers of two before creating the masks.
+	bufferSize = uint(1) << internal.Log2NoCheck(uint32(bufferSize))
+	hashSize = uint(1) << internal.Log2NoCheck(uint32(hashSize))
+
 	mixersSize <<= (2 * extraMem)
 	statesSize <<= (2 * extraMem)
 	hashSize <<= (2 * extraMem)
