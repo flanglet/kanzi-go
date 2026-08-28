@@ -103,6 +103,66 @@ func TestExpGolombUnsignedRoundTrip(t *testing.T) {
 	}
 }
 
+func TestExpGolombSignedRoundTrip(t *testing.T) {
+	const size = 256
+	values := make([]byte, size)
+
+	for i := range values {
+		values[i] = byte(i)
+	}
+
+	bs := internal.NewBufferStream()
+	obs, err := bitstream.NewDefaultOutputBitStream(bs, 16384)
+
+	if err != nil {
+		t.Fatalf("create output bitstream: %v", err)
+	}
+
+	encoder, err := NewExpGolombEncoder(obs, true)
+
+	if err != nil {
+		t.Fatalf("create signed Exp-Golomb encoder: %v", err)
+	}
+
+	if written, err := encoder.Write(values); err != nil || written != size {
+		t.Fatalf("signed Exp-Golomb encode returned (%d, %v), want (%d, nil)", written, err, size)
+	}
+
+	encoder.Dispose()
+
+	if err = obs.Close(); err != nil {
+		t.Fatalf("close output bitstream: %v", err)
+	}
+
+	ibs, err := bitstream.NewDefaultInputBitStream(bs, 16384)
+
+	if err != nil {
+		t.Fatalf("create input bitstream: %v", err)
+	}
+
+	decoder, err := NewExpGolombDecoder(ibs, true)
+
+	if err != nil {
+		t.Fatalf("create signed Exp-Golomb decoder: %v", err)
+	}
+
+	decoded := make([]byte, size)
+
+	if read, err := decoder.Read(decoded); err != nil || read != size {
+		t.Fatalf("signed Exp-Golomb decode returned (%d, %v), want (%d, nil)", read, err, size)
+	}
+
+	decoder.Dispose()
+
+	if err = ibs.Close(); err != nil {
+		t.Fatalf("close input bitstream: %v", err)
+	}
+
+	if !bytes.Equal(values, decoded) {
+		t.Fatal("signed Exp-Golomb round-trip mismatch")
+	}
+}
+
 func TestNoneCodecRejectsNilBitstream(t *testing.T) {
 	if _, err := NewEntropyEncoder(nil, nil, NONE_TYPE); err == nil {
 		t.Fatal("expected NONE encoder factory to reject nil bitstream")
