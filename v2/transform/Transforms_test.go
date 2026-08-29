@@ -148,6 +148,58 @@ func TestInverseMalformedInput(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("SRT inconsistent frequency table", func(t *testing.T) {
+		encoded := make([]byte, 257+1024)
+		encoded[0] = 0xFF // frequency[0] = 1023
+		encoded[1] = 0x07
+		encoded[2] = 2 // frequency[1] = 2
+		encoded[257+1] = 1
+		encoded[257+1023] = 1
+
+		input := append([]byte(nil), encoded...)
+		dst := bytes.Repeat([]byte{0x7E}, 1024)
+		_, _, err := (&SRT{}).Inverse(input, dst)
+
+		if err == nil {
+			t.Fatal("expected an error for an inconsistent frequency table")
+		}
+	})
+
+	t.Run("ROLZX truncated arithmetic stream", func(t *testing.T) {
+		encoded := []byte{0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x7F,
+			0xB1, 0x47, 0x07, 0x91, 0x2F, 0xBF}
+		dst := bytes.Repeat([]byte{0x7E}, 512)
+		codec, err := NewROLZCodecWithFlag(true)
+
+		if err != nil {
+			t.Fatalf("failed to create ROLZX codec: %v", err)
+		}
+
+		_, _, err = codec.Inverse(encoded, dst)
+
+		if err == nil {
+			t.Fatal("expected an error for a truncated arithmetic stream")
+		}
+	})
+
+	t.Run("TextCodec truncated dictionary sequences", func(t *testing.T) {
+		encoded := [][]byte{{0x00, 0x0F}, {0x10, 0x0F}}
+		codec, err := NewTextCodec()
+
+		if err != nil {
+			t.Fatalf("failed to create text codec: %v", err)
+		}
+
+		for _, stream := range encoded {
+			dst := bytes.Repeat([]byte{0x7E}, 16)
+			_, _, err = codec.Inverse(stream, dst)
+
+			if err == nil {
+				t.Fatal("expected an error for a truncated dictionary sequence")
+			}
+		}
+	})
 }
 
 func TestTransformInvalidContextTypes(t *testing.T) {

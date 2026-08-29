@@ -1097,16 +1097,33 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 		if cur == _TC_ESCAPE_TOKEN1 || cur == _TC_ESCAPE_TOKEN2 {
 			// Word in dictionary => read word index (varint 5 bits + 7 bits + 7 bits)
+			if srcIdx >= srcEnd {
+				err = errors.New("Text transform failed. Truncated word index")
+				break
+			}
+
 			idx := int(src[srcIdx])
 			srcIdx++
 
 			if idx >= 128 {
 				idx &= 0x7F
+
+				if srcIdx >= srcEnd {
+					err = errors.New("Text transform failed. Truncated word index")
+					break
+				}
+
 				idx2 := int(src[srcIdx])
 				srcIdx++
 
 				if idx2 >= 0x80 {
 					idx = ((idx & 0x1F) << 7) | (idx2 & 0x7F)
+
+					if srcIdx >= srcEnd {
+						err = errors.New("Text transform failed. Truncated word index")
+						break
+					}
+
 					idx2 = int(src[srcIdx])
 					srcIdx++
 				}
@@ -1666,11 +1683,27 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 				flipMask = cur & 0x20
 
 				if cur&0x40 != 0 {
+					if srcIdx >= srcEnd {
+						err = errors.New("Text transform failed. Truncated word index")
+						break
+					}
+
 					idx2 := int(src[srcIdx])
 					srcIdx++
 
 					if idx2 >= 128 {
+						if srcIdx >= srcEnd {
+							err = errors.New("Text transform failed. Truncated word index")
+							break
+						}
+
 						idx = (idx << 7) | (idx2 & 0x7F)
+
+						if srcIdx >= srcEnd {
+							err = errors.New("Text transform failed. Truncated word index")
+							break
+						}
+
 						idx2 = int(src[srcIdx])
 						srcIdx++
 					}
@@ -1687,6 +1720,12 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 				if cur == _TC_MASK_FLIP_CASE {
 					// Flip first char case
 					flipMask = 0x20
+
+					if srcIdx >= srcEnd {
+						err = errors.New("Text transform failed. Truncated word index")
+						break
+					}
+
 					cur = src[srcIdx]
 					srcIdx++
 				}
@@ -1699,9 +1738,19 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 				if idx >= 64 {
 					if idx >= 112 {
+						if srcEnd-srcIdx < 2 {
+							err = errors.New("Text transform failed. Truncated word index")
+							break
+						}
+
 						idx = ((idx & 0x0F) << 16) | (int(src[srcIdx]) << 8) | int(src[srcIdx+1])
 						srcIdx += 2
 					} else {
+						if srcIdx >= srcEnd {
+							err = errors.New("Text transform failed. Truncated word index")
+							break
+						}
+
 						idx = ((idx & 0x1F) << 8) | int(src[srcIdx])
 						srcIdx++
 					}
@@ -1755,6 +1804,11 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			dstIdx += length
 		} else {
 			if cur == _TC_ESCAPE_TOKEN1 {
+				if srcIdx >= srcEnd {
+					err = errors.New("Text transform failed. Truncated escaped literal")
+					break
+				}
+
 				dst[dstIdx] = src[srcIdx]
 				srcIdx++
 				dstIdx++

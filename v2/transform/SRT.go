@@ -196,6 +196,21 @@ func (this *SRT) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, err
 	}
 
+	dataLength := len(src) - headerSize
+	var totalFreq uint64
+
+	for _, freq := range freqs {
+		if freq < 0 {
+			return 0, 0, errors.New("SRT inverse transform failed: invalid data")
+		}
+
+		totalFreq += uint64(freq)
+	}
+
+	if totalFreq != uint64(dataLength) {
+		return 0, 0, errors.New("SRT inverse transform failed: invalid data")
+	}
+
 	src = src[headerSize:]
 
 	if len(src) > len(dst) {

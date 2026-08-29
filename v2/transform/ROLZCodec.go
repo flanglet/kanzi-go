@@ -1291,7 +1291,12 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	dstIdx := 0
 	startChunk := 0
 	sizeChunk := min(len(dst), _ROLZ_CHUNK_SIZE)
-	rd, _ := newRolzDecoder(9, this.logPosChecks, src, &srcIdx)
+	rd, err := newRolzDecoder(9, this.logPosChecks, src, &srcIdx, len(src))
+
+	if err != nil {
+		return 0, 0, err
+	}
+
 	clear(this.counters)
 
 	// Main loop
@@ -1324,6 +1329,11 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 		for j := 0; j < mm; j++ {
 			val := rd.decode9Bits()
 
+			if rd.valid == false {
+				dstIdx += startChunk
+				return uint(srcIdx), uint(dstIdx), errors.New("ROLZX codec inverse transform failed: invalid data")
+			}
+
 			// Sanity check
 			if val>>8 == _ROLZ_MATCH_FLAG {
 				dstIdx += startChunk
@@ -1349,6 +1359,11 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			rd.setContext(_ROLZ_LITERAL_CTX, buf[dstIdx-1])
 			val := rd.decode9Bits()
 
+			if rd.valid == false {
+				dstIdx += startChunk
+				return uint(srcIdx), uint(dstIdx), errors.New("ROLZX codec inverse transform failed: invalid data")
+			}
+
 			if val>>8 == _ROLZ_LITERAL_FLAG {
 				buf[dstIdx] = byte(val)
 				dstIdx++
@@ -1364,6 +1379,12 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 				rd.setContext(_ROLZ_MATCH_CTX, buf[dstIdx-1])
 				matchIdx := int32(rd.decodeBits(this.logPosChecks))
+
+				if rd.valid == false {
+					dstIdx += startChunk
+					return uint(srcIdx), uint(dstIdx), errors.New("ROLZX codec inverse transform failed: invalid data")
+				}
+
 				ref := int(m[(this.counters[key]-matchIdx)&this.maskChecks])
 				dstIdx = emitCopy(buf, dstIdx, ref, matchLen+this.minMatch)
 			}
@@ -1377,7 +1398,6 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	rd.dispose()
-	var err error
 	dstIdx += (startChunk - sizeChunk)
 
 	if srcIdx != len(src) {
@@ -1503,6 +1523,8 @@ func (this *rolzEncoder) dispose() {
 type rolzDecoder struct {
 	buf     []byte
 	idx     *int
+	end     int
+	valid   bool
 	low     uint64
 	high    uint64
 	current uint64
@@ -1514,13 +1536,19 @@ type rolzDecoder struct {
 	p       []int
 }
 
-func newRolzDecoder(litLogSize, mLogSize uint, buf []byte, idx *int) (*rolzDecoder, error) {
+func newRolzDecoder(litLogSize, mLogSize uint, buf []byte, idx *int, end int) (*rolzDecoder, error) {
 	this := &rolzDecoder{}
 	this.low = 0
 	this.high = _ROLZ_TOP
 	this.buf = buf
 	this.idx = idx
+	this.end = end
 	this.current = uint64(0)
+	this.valid = (idx != nil) && (*idx >= 0) && (*idx <= end) && (end-*idx >= 8)
+
+	if this.valid == false {
+		return this, errors.New("ROLZX codec inverse transform failed: truncated data")
+	}
 
 	for i := 0; i < 8; i++ {
 		this.current = (this.current << 8) | (uint64(this.buf[*this.idx+i]) & 0xFF)
@@ -1582,6 +1610,10 @@ func (this *rolzDecoder) decode9Bits() int {
 }
 
 func (this *rolzDecoder) decodeBit() int {
+	if this.valid == false {
+		return 0
+	}
+
 	// Calculate interval split
 	mid := this.low + ((((this.high - this.low) >> 4) * uint64(this.p[this.c1]>>4)) >> 8)
 	var bit int
@@ -1601,6 +1633,11 @@ func (this *rolzDecoder) decodeBit() int {
 
 	// Read 32 bits from bitstream
 	for (this.low^this.high)>>24 == 0 {
+		if *this.idx < 0 || *this.idx > this.end || this.end-*this.idx < 4 {
+			this.valid = false
+			return bit
+		}
+
 		this.low = (this.low << 32) & _MASK_0_56
 		this.high = ((this.high << 32) | _MASK_0_32) & _MASK_0_56
 		val := uint64(binary.BigEndian.Uint32(this.buf[*this.idx : *this.idx+4]))
