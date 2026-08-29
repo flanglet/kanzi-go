@@ -44,7 +44,7 @@ type specificTransformTestCase struct {
 func getTransform(name string) (kanzi.ByteTransform, error) {
 	ctx := make(map[string]any)
 	ctx["transform"] = name
-	ctx["bsVersion"] = uint(6)
+	ctx["bsVersion"] = uint(7)
 
 	switch name {
 	case "LZ":
