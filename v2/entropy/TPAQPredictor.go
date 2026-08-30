@@ -163,6 +163,11 @@ func hashTPAQ(x, y int32) int32 {
 	return h>>1 ^ h>>9 ^ x>>2 ^ y>>3 ^ _TPAQ_HASH
 }
 
+func hashTPAQLogical(x, y int32) int32 {
+	h := x*_TPAQ_HASH ^ y*_TPAQ_HASH
+	return h>>1 ^ h>>9 ^ int32(uint32(x)>>2) ^ int32(uint32(y)>>3) ^ _TPAQ_HASH
+}
+
 // TPAQPredictor bit predictor for binary entropy codecs.
 // It uses a mixer to combine initial predictions derived for several
 // local contexts and a secondary symbol estimation to improve the
@@ -171,46 +176,46 @@ func hashTPAQ(x, y int32) int32 {
 // PAQ8 is written by Matt Mahoney.
 // See http://encode.su/threads/1738-TANGELO-new-compressor-(derived-from-PAQ8-FP8)
 type TPAQPredictor struct {
-	pr                  int   // next predicted value (0-4095)
-	c0                  int32 // bitwise context: last 0-7 bits with a leading 1 (1-255)
-	c4                  int32 // last 4 whole bytes, last is in low 8 bits
-	c8                  int32 // last 8 to 4 whole bytes, last is in low 8 bits
-	bpos                uint  // number of bits in c0 (0-7)
-	pos                 int32
-	binCount            int32
-	matchLen            int32
-	matchPos            int32
-	matchVal            int32
-	hash                int32
-	statesMask          int32
-	mixersMask          int32
-	hashMask            int32
-	bufferMask          int32
-	sse0                AdaptiveProbMap
-	sse1                AdaptiveProbMap
-	mixers              []TPAQMixer
-	mixer               *TPAQMixer // current mixer
-	buffer              []uint8
-	hashes              []int32 // hash table(context, buffer position)
-	bigStatesMap        []uint8 // hash table(context, prediction)
-	smallStatesMap0     []uint8 // hash table(context, prediction)
-	smallStatesMap1     []uint8 // hash table(context, prediction)
-	cp0                 *uint8  // context pointers
-	cp1                 *uint8
-	cp2                 *uint8
-	cp3                 *uint8
-	cp4                 *uint8
-	cp5                 *uint8
-	cp6                 *uint8
-	ctx0                int32 // contexts
-	ctx1                int32
-	ctx2                int32
-	ctx3                int32
-	ctx4                int32
-	ctx5                int32
-	ctx6                int32
-	extra               bool
-	useLogicalCtx6Shift bool
+	pr              int   // next predicted value (0-4095)
+	c0              int32 // bitwise context: last 0-7 bits with a leading 1 (1-255)
+	c4              int32 // last 4 whole bytes, last is in low 8 bits
+	c8              int32 // last 8 to 4 whole bytes, last is in low 8 bits
+	bpos            uint  // number of bits in c0 (0-7)
+	pos             int32
+	binCount        int32
+	matchLen        int32
+	matchPos        int32
+	matchVal        int32
+	hash            int32
+	statesMask      int32
+	mixersMask      int32
+	hashMask        int32
+	bufferMask      int32
+	sse0            AdaptiveProbMap
+	sse1            AdaptiveProbMap
+	mixers          []TPAQMixer
+	mixer           *TPAQMixer // current mixer
+	buffer          []uint8
+	hashes          []int32 // hash table(context, buffer position)
+	bigStatesMap    []uint8 // hash table(context, prediction)
+	smallStatesMap0 []uint8 // hash table(context, prediction)
+	smallStatesMap1 []uint8 // hash table(context, prediction)
+	cp0             *uint8  // context pointers
+	cp1             *uint8
+	cp2             *uint8
+	cp3             *uint8
+	cp4             *uint8
+	cp5             *uint8
+	cp6             *uint8
+	ctx0            int32 // contexts
+	ctx1            int32
+	ctx2            int32
+	ctx3            int32
+	ctx4            int32
+	ctx5            int32
+	ctx6            int32
+	extra           bool
+	useLogicalShift bool
 }
 
 // NewTPAQPredictor creates a new instance of TPAQPredictor using the provided
@@ -332,9 +337,9 @@ func NewTPAQPredictor(ctx *map[string]any) (*TPAQPredictor, error) {
 		hashSize = min(hashSize, 1024*1024*1024)
 	}
 
-	// TPAQX bitstreams drifted across implementations due to signed vs logical shifts
-	// in ctx6. Keep the legacy behavior for older bitstreams for backward compatibility.
-	this.useLogicalCtx6Shift = this.extra == true && bsVersion >= _TPAQ_LOGICAL_SHIFT_VERSION
+	// Java and Go bitstreams generated in version 6 drifted from the C++ bitstreams.
+	// Version 7 reconciles the implementations while preserving legacy behavior.
+	this.useLogicalShift = bsVersion >= _TPAQ_LOGICAL_SHIFT_VERSION
 
 	this.mixers = make([]TPAQMixer, mixersSize)
 
@@ -411,7 +416,13 @@ func (this *TPAQPredictor) Update(bit byte) {
 		if this.binCount < this.pos>>2 {
 			// Mostly text or mixed
 			this.ctx4 = createContext(this.ctx1, this.c4^(this.c8&0xFFFF))
-			this.ctx5 = (this.c8 & _TPAQ_MASK_F0F0F000) | ((this.c4 & _TPAQ_MASK_F0F0F000) >> 4)
+			this.ctx5 = this.c8 & _TPAQ_MASK_F0F0F000
+
+			if this.useLogicalShift {
+				this.ctx5 |= int32(uint32(this.c4&_TPAQ_MASK_F0F0F000) >> 4)
+			} else {
+				this.ctx5 |= (this.c4 & _TPAQ_MASK_F0F0F000) >> 4
+			}
 
 			if this.extra == true {
 				var h1, h2 int32
@@ -428,8 +439,8 @@ func (this *TPAQPredictor) Update(bit byte) {
 					h2 = this.c8 & _TPAQ_MASK_80808080
 				}
 
-				if this.useLogicalCtx6Shift == true {
-					this.ctx6 = hashTPAQ(h1<<2, int32(uint32(h2)>>2))
+				if this.useLogicalShift {
+					this.ctx6 = hashTPAQLogical(h1<<2, int32(uint32(h2)>>2))
 				} else {
 					this.ctx6 = hashTPAQ(h1<<2, h2>>2)
 				}
@@ -440,8 +451,8 @@ func (this *TPAQPredictor) Update(bit byte) {
 			this.ctx5 = this.ctx0 | (this.c8 << 16)
 
 			if this.extra == true {
-				if this.useLogicalCtx6Shift == true {
-					this.ctx6 = hashTPAQ(this.c4&_TPAQ_MASK_FFFF0000, int32(uint32(this.c8)>>16))
+				if this.useLogicalShift {
+					this.ctx6 = hashTPAQLogical(this.c4&_TPAQ_MASK_FFFF0000, int32(uint32(this.c8)>>16))
 				} else {
 					this.ctx6 = hashTPAQ(this.c4&_TPAQ_MASK_FFFF0000, this.c8>>16)
 				}
