@@ -95,7 +95,7 @@ func (this *XXHash64) Hash(data []byte) uint64 {
 	}
 
 	for n < end {
-		h64 += (uint64(data[n]) * _XXHASH_PRIME64_5)
+		h64 ^= (uint64(data[n]) * _XXHASH_PRIME64_5)
 		h64 = ((h64 << 11) | (h64 >> 53)) * _XXHASH_PRIME64_1
 		n++
 	}

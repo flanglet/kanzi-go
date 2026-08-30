@@ -2292,7 +2292,11 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 			res.err = &IOError{msg: errMsg, code: kanzi.ERR_CRC_CHECK}
 			return
 		}
-	} else if this.hasher64 != nil {
+	} else if this.hasher64 != nil && bsVersion >= 7 {
+		// Version 6 Go 64-bit checksums are incompatible with other
+		// implementations due to a bug. This discrepancy is fixed in version 7.
+		// The checksum has already been consumed above, so skip only its
+		// validation for legacy streams.
 		checksum2 := this.hasher64.Hash(data[0:decoded])
 
 		if checksum2 != checksum1 {

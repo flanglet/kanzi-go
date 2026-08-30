@@ -593,6 +593,28 @@ func TestReaderAcceptsLegacyV6Stream(t *testing.T) {
 	}
 }
 
+func TestReaderIgnoresLegacyV6XXHash64(t *testing.T) {
+	payload := []byte("legacy-v6-stream")
+	stream := buildCopyBlockStreamFixture(t, 6, payload, 64, 0, true)
+	r, err := NewReader(stdio.NopCloser(bytes.NewReader(stream)), 1)
+
+	if err != nil {
+		t.Fatalf("create reader: %v", err)
+	}
+
+	defer r.Close()
+	dst := make([]byte, len(payload))
+	n, err := r.Read(dst)
+
+	if err != nil {
+		t.Fatalf("read legacy V6 stream: %v", err)
+	}
+
+	if n != len(payload) || bytes.Equal(dst, payload) == false {
+		t.Fatal("decoded legacy V6 payload mismatch")
+	}
+}
+
 func TestHeaderlessRoundTrip(t *testing.T) {
 	input := bytes.Repeat([]byte("headerless-roundtrip-"), 64)
 	compressed := compressToBytes(t, input, "LZ", "ANS0", 1024, 1, 32, true)
@@ -685,6 +707,18 @@ func TestPayloadChecksumMismatch(t *testing.T) {
 	}
 
 	stream := buildCopyBlockStreamFixture(t, 7, payload, 32, uint64(hasher.Hash(payload)^1), true)
+	expectReadIOError(t, stream, kanzi.ERR_CRC_CHECK, "Corrupted bitstream")
+}
+
+func TestPayloadXXHash64Mismatch(t *testing.T) {
+	payload := bytes.Repeat([]byte{0xA5}, 64)
+	hasher, err := hash.NewXXHash64(_BITSTREAM_TYPE)
+
+	if err != nil {
+		t.Fatalf("create hasher: %v", err)
+	}
+
+	stream := buildCopyBlockStreamFixture(t, 7, payload, 64, hasher.Hash(payload)^1, true)
 	expectReadIOError(t, stream, kanzi.ERR_CRC_CHECK, "Corrupted bitstream")
 }
 
