@@ -1371,6 +1371,10 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 				// Read one match length and index
 				matchLen := val & 0xFF
 
+				// CompressedInputStream provides trailing output padding.
+				// The +3 bound is the regular minimum match length; DNA mode
+				// adds four more bytes, and emitCopy() may write up to seven
+				// bytes past the logical match end.
 				// Sanity check
 				if matchLen+3 > dstEnd {
 					dstIdx += startChunk
