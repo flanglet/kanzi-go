@@ -102,12 +102,14 @@ var _FSD_ZIGZAG2 = [256]int{
 // FSDCodec Fixed Step Delta codec is used to decorrelate values separated
 // by a constant distance (step) and encode residuals
 type FSDCodec struct {
-	ctx *map[string]any
+	ctx       *map[string]any
+	bsVersion uint
 }
 
 // NewFSDCodec creates a new instance of FSDCodec
 func NewFSDCodec() (*FSDCodec, error) {
 	this := &FSDCodec{}
+	this.bsVersion = 7
 	return this, nil
 }
 
@@ -116,6 +118,20 @@ func NewFSDCodec() (*FSDCodec, error) {
 func NewFSDCodecWithCtx(ctx *map[string]any) (*FSDCodec, error) {
 	this := &FSDCodec{}
 	this.ctx = ctx
+	this.bsVersion = 7
+
+	if ctx != nil {
+		if val, containsKey := (*ctx)["bsVersion"]; containsKey {
+			version, ok := val.(uint)
+
+			if ok == false {
+				return nil, errors.New("FSD codec: invalid bitstream version type")
+			}
+
+			this.bsVersion = version
+		}
+	}
+
 	return this, nil
 }
 
@@ -137,10 +153,10 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	count := len(src)
-	dstEnd := this.MaxEncodedLen(count)
+	maxEncodedLen := this.MaxEncodedLen(count)
 
-	if len(dst) < dstEnd {
-		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), dstEnd)
+	if len(dst) < maxEncodedLen {
+		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), maxEncodedLen)
 	}
 
 	// If too small, skip
@@ -250,16 +266,17 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 	for i := 2 * count5; i < 3*count5; i++ {
 		delta := int32(src[i]) - int32(src[i-dist])
 
-		if (delta < -127) || (delta > 127) {
+		if uint32(delta+127) > 254 {
 			largeDeltas++
 		}
 	}
 
-	// Delta coding works better for pictures & xor coding better for wav files
-	// Select xor coding if large deltas are over 3% (ad-hoc threshold)
+	// Select xor coding if large signed deltas approach the rate expected for
+	// unrelated byte pairs. With modular delta coding, large signed deltas
+	// no longer cause expansion, so the old 3% threshold is too conservative.
 	mode := _FSD_DELTA_CODING
 
-	if largeDeltas > (count5 >> 5) {
+	if largeDeltas > (count5 >> 2) {
 		mode = _FSD_XOR_CODING
 	}
 
@@ -277,21 +294,21 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	// Emit modified bytes
 	if mode == _FSD_DELTA_CODING {
-		for srcIdx < count && dstIdx < dstEnd-1 {
-			delta := 127 + int32(src[srcIdx]) - int32(src[srcIdx-dist])
+		for srcIdx < count {
+			// Encode the delta modulo 256. The signed difference is not
+			// needed to reconstruct a byte, and all 256 residuals fit in
+			// one byte. Values in [-127..127] retain the previous zigzag
+			// mapping; -128 and +128 share the same modular residual.
+			residual := uint8(int32(src[srcIdx]) - int32(src[srcIdx-dist]))
+			zigzag := uint32(residual) << 1
 
-			if delta >= 0 && delta < 255 {
-				dst[dstIdx] = _FSD_ZIGZAG1[delta] // zigzag encode delta
-				srcIdx++
-				dstIdx++
-				continue
+			if residual&0x80 != 0 {
+				zigzag = (uint32(256)-uint32(residual))<<1 - 1
 			}
 
-			// Skip delta, encode with escape
-			dst[dstIdx] = _FSD_ESCAPE_TOKEN
-			dst[dstIdx+1] = src[srcIdx] ^ src[srcIdx-dist]
+			dst[dstIdx] = byte(zigzag)
 			srcIdx++
-			dstIdx += 2
+			dstIdx++
 		}
 	} else { // mode == _FSD_XOR_CODING
 		for srcIdx < count {
@@ -338,6 +355,10 @@ func (this *FSDCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 	if &src[0] == &dst[0] {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
+	}
+
+	if this.bsVersion >= 7 {
+		return this.inverseV7(src, dst)
 	}
 
 	// Retrieve mode & step value
@@ -405,4 +426,59 @@ func (this *FSDCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	return uint(srcIdx), uint(dstIdx), err
+}
+
+func (this *FSDCodec) inverseV7(src, dst []byte) (uint, uint, error) {
+	count := len(src)
+
+	if count < 4 {
+		return 0, 0, errors.New("FSD inverse transform failed: input block is too small")
+	}
+
+	// Retrieve mode & step value
+	mode := src[0]
+	dist := int(src[1])
+
+	// Sanity check
+	if (dist < 1) || ((dist > 4) && (dist != 8) && (dist != 16)) {
+		return 0, 0, errors.New("FSD inverse transform failed: invalid distance")
+	}
+
+	if (count < dist+2) || (len(dst) < dist) {
+		return 0, 0, errors.New("FSD inverse transform failed: invalid data")
+	}
+
+	// Emit first bytes
+	srcIdx := 2
+	dstIdx := 0
+
+	for i := 0; i < dist; i++ {
+		dst[dstIdx] = src[srcIdx]
+		dstIdx++
+		srcIdx++
+	}
+
+	// Recover original bytes
+	if mode == _FSD_DELTA_CODING {
+		for srcIdx < count && dstIdx < len(dst) {
+			delta := _FSD_ZIGZAG2[src[srcIdx]]
+			dst[dstIdx] = byte(int(dst[dstIdx-dist]) + delta)
+			dstIdx++
+			srcIdx++
+		}
+	} else if mode == _FSD_XOR_CODING {
+		for srcIdx < count && dstIdx < len(dst) {
+			dst[dstIdx] = src[srcIdx] ^ dst[dstIdx-dist]
+			dstIdx++
+			srcIdx++
+		}
+	} else {
+		return 0, 0, errors.New("FSD inverse transform failed: invalid mode")
+	}
+
+	if srcIdx != count {
+		return uint(srcIdx), uint(dstIdx), errors.New("FSD inverse transform failed: output buffer too small")
+	}
+
+	return uint(srcIdx), uint(dstIdx), nil
 }
