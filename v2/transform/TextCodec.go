@@ -33,6 +33,8 @@ const (
 	_TC_THRESHOLD2      = _TC_THRESHOLD1 * _TC_THRESHOLD1
 	_TC_THRESHOLD3      = 64
 	_TC_THRESHOLD4      = _TC_THRESHOLD3 * 128
+	_TC_V7_INDEX_BASE2  = 63
+	_TC_V7_INDEX_BASE3  = 8255
 	_TC_MAX_DICT_SIZE   = 1 << 19 // must be less than 1<<24
 	_TC_MAX_WORD_LENGTH = 31      // must be less than 128
 	_TC_LOG_HASHES_SIZE = 24      // 16 MB
@@ -1455,7 +1457,7 @@ func (this *textCodec2) Forward(src, dst []byte) (uint, uint, error) {
 						dstIdx++
 					}
 
-					dstIdx += emitWordIndex2(dst[dstIdx:dstIdx+3], int(pe.data&_TC_MASK_LENGTH))
+					dstIdx += emitWordIndex(dst[dstIdx:dstIdx+3], int(pe.data&_TC_MASK_LENGTH))
 					emitAnchor = delimAnchor + 1 + int(pe.data>>24)
 				}
 			}
@@ -1571,28 +1573,27 @@ func (this *textCodec2) emitSymbols(src, dst []byte) int {
 	return dstIdx
 }
 
-func emitWordIndex2(dst []byte, wIdx int) int {
+func emitWordIndex(dst []byte, wIdx int) int {
 	// 0x80 is reserved to first symbol case flip
-	wIdx++
+	if wIdx < _TC_V7_INDEX_BASE2 {
+		dst[0] = byte(0x80 | (wIdx + 1))
+		return 1
+	}
 
-	if wIdx >= _TC_THRESHOLD3 {
-		if wIdx >= _TC_THRESHOLD4 {
-			// 3 byte index (1111xxxx xxxxxxxx xxxxxxxx)
-			dst[0] = byte(0xF0 | (wIdx >> 16))
-			dst[1] = byte(wIdx >> 8)
-			dst[2] = byte(wIdx)
-			return 3
-		}
-
-		// 2 byte index (110xxxxx xxxxxxxx)
+	if wIdx < _TC_V7_INDEX_BASE3 {
+		// Encode the rank relative to the one-byte range.
+		wIdx -= _TC_V7_INDEX_BASE2
 		dst[0] = byte(0xC0 | (wIdx >> 8))
 		dst[1] = byte(wIdx)
 		return 2
 	}
 
-	// 1 byte index (10xxxxxx) with 0x80 excluded
-	dst[0] = byte(0x80 | wIdx)
-	return 1
+	// Encode the rank relative to the one- and two-byte ranges.
+	wIdx -= _TC_V7_INDEX_BASE3
+	dst[0] = byte(0xF0 | (wIdx >> 16))
+	dst[1] = byte(wIdx >> 8)
+	dst[2] = byte(wIdx)
+	return 3
 }
 
 func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
@@ -1717,6 +1718,8 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 					}
 				}
 			} else {
+				rankedEncoding := this.bsVersion >= 7
+
 				if cur == _TC_MASK_FLIP_CASE {
 					// Flip first char case
 					flipMask = 0x20
@@ -1735,9 +1738,12 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 				// 110xxxxx => 2 bytes
 				// 1111xxxx => 3 bytes
 				idx = int(cur) & 0x7F
+				oneByte := idx < 64
 
 				if idx >= 64 {
-					if idx >= 112 {
+					threeBytes := idx >= 112
+
+					if threeBytes {
 						if srcEnd-srcIdx < 2 {
 							err = errors.New("Text transform failed. Truncated word index")
 							break
@@ -1755,20 +1761,44 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 						srcIdx++
 					}
 
-					// Sanity check before adjusting index
-					if idx > this.dictSize {
+					if rankedEncoding {
+						// Add the rank of the shorter forms. This prevents
+						// zero or negative dictionary indexes for malformed
+						// multi-byte encodings such as C0 00 or F0 00 00.
+						if threeBytes {
+							idx += _TC_V7_INDEX_BASE3
+						} else {
+							idx += _TC_V7_INDEX_BASE2
+						}
+
+						if idx >= this.dictSize {
+							err = errors.New("Text transform failed. Invalid index")
+							break
+						}
+					} else if idx > this.dictSize {
 						err = errors.New("Text transform failed. Invalid index")
 						break
+					}
+				}
+
+				if rankedEncoding {
+					if idx == 0 {
+						err = errors.New("Text transform failed. Invalid index")
+						break
+					}
+
+					if oneByte {
+						idx--
 					}
 				} else {
 					if idx == 0 {
 						err = errors.New("Text transform failed. Invalid index")
 						break
 					}
-				}
 
-				// Adjust index
-				idx--
+					// Adjust the original V6 one-based index.
+					idx--
+				}
 			}
 
 			pe := &this.dictList[idx]
