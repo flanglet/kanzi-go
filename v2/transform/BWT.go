@@ -529,7 +529,7 @@ func (this *BWT) inverseBiPSIv2Task(dst []byte, buckets []int, fastBits []uint16
 	dst6 := dst[6*ckSize:]
 	dst7 := dst[7*ckSize:]
 
-	if start+8*ckSize <= total {
+	if start+8*ckSize <= total && (ckSize&1) == 0 {
 		for c+7 < lastChunk {
 			end := start + ckSize
 			p0 := int(indexes[c])

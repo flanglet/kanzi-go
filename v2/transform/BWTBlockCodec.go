@@ -199,6 +199,10 @@ func (this *BWTBlockCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 		for i := 0; i < chunks; i++ {
 			// Read block header (mode + primary index). See top of file for format
+			if srcIdx >= len(src) {
+				return 0, 0, errors.New("BWT inverse transform failed: invalid compressed length in bitstream")
+			}
+
 			blockMode := int(src[srcIdx])
 			srcIdx++
 			pIndexSizeBytes := 1 + ((blockMode >> 6) & 0x03)
