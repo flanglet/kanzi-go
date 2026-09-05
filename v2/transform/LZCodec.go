@@ -248,6 +248,19 @@ func (this *LZXCodec) hash(p []byte) uint32 {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
+	// Forward LZ processing:
+	// 1. Allocate/reset the hash table and staging buffers.
+	// 2. Reserve the last 18 input bytes as a safe literal tail.
+	// 3. At each position:
+	//    - hash the current position;
+	//    - test the two repeat distances at srcIdx + 1;
+	//    - if no repeat match is found, test the latest hash candidate at srcIdx;
+	//    - optionally test matches at srcIdx + 1 and srcIdx + 2;
+	//    - extend the selected match backwards to reduce the literal run.
+	// 4. Emit the literal length, repeat or explicit distance, match length,
+	//    and literals.
+	// 5. Insert sampled positions covered by the match into the hash table.
+	// 6. Append the final literals and concatenate the staging buffers.
 	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
@@ -522,43 +535,28 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 			}
 		}
 
-		// Fill this.hashes and update positions
+		// Fill this.hashes and update positions. The current position was already
+		// inserted above; sample four positions out of every eight (offsets
+		// 0, 3, 5, and 6; two even and two odd) to reduce hash-table work
+		// while retaining coverage.
 		anchor = srcIdx + bestLen
 
-		if this.extra == true {
-			for srcIdx+4 < anchor {
-				srcIdx += 4
-				v := binary.LittleEndian.Uint64(src[srcIdx-3:])
-				h0 := uint32((((v >> 0) << _LZX_HASH_LSHIFT2) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT2)
-				h1 := uint32((((v >> 8) << _LZX_HASH_LSHIFT2) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT2)
-				h2 := uint32((((v >> 16) << _LZX_HASH_LSHIFT2) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT2)
-				h3 := uint32((((v >> 24) << _LZX_HASH_LSHIFT2) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT2)
-				this.hashes[h0] = int32(srcIdx - 3)
-				this.hashes[h1] = int32(srcIdx - 2)
-				this.hashes[h2] = int32(srcIdx - 1)
-				this.hashes[h3] = int32(srcIdx - 0)
-			}
-		} else {
-			for srcIdx+4 < anchor {
-				srcIdx += 4
-				v := binary.LittleEndian.Uint64(src[srcIdx-3:])
-				h0 := uint32((((v >> 0) << _LZX_HASH_LSHIFT1) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT1)
-				h1 := uint32((((v >> 8) << _LZX_HASH_LSHIFT1) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT1)
-				h2 := uint32((((v >> 16) << _LZX_HASH_LSHIFT1) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT1)
-				h3 := uint32((((v >> 24) << _LZX_HASH_LSHIFT1) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT1)
-				this.hashes[h0] = int32(srcIdx - 3)
-				this.hashes[h1] = int32(srcIdx - 2)
-				this.hashes[h2] = int32(srcIdx - 1)
-				this.hashes[h3] = int32(srcIdx - 0)
-			}
+		hashIdx := srcIdx + 1
+
+		for hashIdx+6 < anchor {
+			this.hashes[this.hash(src[hashIdx:])] = int32(hashIdx)
+			this.hashes[this.hash(src[hashIdx+3:])] = int32(hashIdx + 3)
+			this.hashes[this.hash(src[hashIdx+5:])] = int32(hashIdx + 5)
+			this.hashes[this.hash(src[hashIdx+6:])] = int32(hashIdx + 6)
+			hashIdx += 8
 		}
 
-		srcIdx++
-
-		for srcIdx < anchor {
-			this.hashes[this.hash(src[srcIdx:])] = int32(srcIdx)
-			srcIdx++
+		for hashIdx < anchor {
+			this.hashes[this.hash(src[hashIdx:])] = int32(hashIdx)
+			hashIdx++
 		}
+
+		srcIdx = anchor
 	}
 
 	// Emit last literals
@@ -619,6 +617,8 @@ func findMatchLZX(src []byte, srcIdx, ref, maxMatch int) int {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
+	// The versioned decoders rely on the caller-provided trailing input
+	// padding for readLengthLZ() lookahead and direct distance reads.
 	if this.bsVersion < 6 {
 		return this.inverseV4(src, dst)
 	}
@@ -657,12 +657,15 @@ func (this *LZXCodec) inverseV7(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("LZCodec inverse transform failed: invalid data")
 	}
 
+	if (tkIdx <= 13) || (tkIdx > count) || (mIdx > count-tkIdx) || (mLenIdx > count-tkIdx-mIdx) {
+		return 0, 0, errors.New("LZCodec inverse transform failed: invalid data")
+	}
+
 	mIdx += tkIdx
 	mLenIdx += mIdx
 
-	if (tkIdx > count) || (mIdx > count) || (mLenIdx > count) {
-		return 0, 0, errors.New("LZCodec inverse transform failed: invalid data")
-	}
+	tokenEnd := mIdx
+	matchEnd := mLenIdx
 
 	srcEnd := tkIdx - 13
 	litEnd := tkIdx
@@ -696,6 +699,10 @@ func (this *LZXCodec) inverseV7(src, dst []byte) (uint, uint, error) {
 			mLen = token & 0x03
 
 			if mLen == 3 {
+				if mLenIdx >= count {
+					return uint(mIdx), uint(dstIdx), errors.New("LZCodec inverse transform failed: invalid match length")
+				}
+
 				ml, mlIdx := readLengthLZ(src[mLenIdx:])
 				mLen += (minMatch + ml)
 				mLenIdx += mlIdx
@@ -713,11 +720,19 @@ func (this *LZXCodec) inverseV7(src, dst []byte) (uint, uint, error) {
 			mLen = token & 0x07
 
 			if mLen == 7 {
+				if mLenIdx >= count {
+					return uint(mIdx), uint(dstIdx), errors.New("LZCodec inverse transform failed: invalid match length")
+				}
+
 				ml, mlIdx := readLengthLZ(src[mLenIdx:])
 				mLen += (minMatch + ml)
 				mLenIdx += mlIdx
 			} else {
 				mLen += minMatch
+			}
+
+			if mIdx >= count {
+				return uint(mIdx), uint(dstIdx), errors.New("LZCodec inverse transform failed: invalid distance")
 			}
 
 			width := (token >> 3) & 3
@@ -791,7 +806,7 @@ func (this *LZXCodec) inverseV7(src, dst []byte) (uint, uint, error) {
 
 	var err error
 
-	if srcIdx != srcEnd+13 {
+	if srcIdx != srcEnd+13 || tkIdx != tokenEnd || mIdx != matchEnd || mLenIdx != count {
 		err = errors.New("LZCodec inverse transform failed")
 	}
 
@@ -825,12 +840,15 @@ func (this *LZXCodec) inverseV6(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("LZCodec inverse transform failed: invalid data")
 	}
 
+	if (tkIdx <= 13) || (tkIdx > count) || (mIdx > count-tkIdx) || (mLenIdx > count-tkIdx-mIdx) {
+		return 0, 0, errors.New("LZCodec inverse transform failed: invalid data")
+	}
+
 	mIdx += tkIdx
 	mLenIdx += mIdx
 
-	if (tkIdx > count) || (mIdx > count) || (mLenIdx > count) {
-		return 0, 0, errors.New("LZCodec inverse transform failed: invalid data")
-	}
+	tokenEnd := mIdx
+	matchEnd := mLenIdx
 
 	srcEnd := tkIdx - 13
 	litEnd := tkIdx
@@ -893,6 +911,10 @@ func (this *LZXCodec) inverseV6(src, dst []byte) (uint, uint, error) {
 			mLen = token & 0x03
 
 			if mLen == 3 {
+				if mLenIdx >= count {
+					return uint(mIdx), uint(dstIdx), errors.New("LZCodec inverse transform failed: invalid match length")
+				}
+
 				ml, mlIdx := readLengthLZ(src[mLenIdx:])
 				mLen += (minMatch + ml)
 				mLenIdx += mlIdx
@@ -910,11 +932,19 @@ func (this *LZXCodec) inverseV6(src, dst []byte) (uint, uint, error) {
 			mLen = token & 0x07
 
 			if mLen == 7 {
+				if mLenIdx >= count {
+					return uint(mIdx), uint(dstIdx), errors.New("LZCodec inverse transform failed: invalid match length")
+				}
+
 				ml, mlIdx := readLengthLZ(src[mLenIdx:])
 				mLen += (minMatch + ml)
 				mLenIdx += mlIdx
 			} else {
 				mLen += minMatch
+			}
+
+			if mIdx >= count {
+				return uint(mIdx), uint(dstIdx), errors.New("LZCodec inverse transform failed: invalid distance")
 			}
 
 			dist = int(src[mIdx])
@@ -937,7 +967,7 @@ func (this *LZXCodec) inverseV6(src, dst []byte) (uint, uint, error) {
 		ref := dstIdx - dist
 
 		// Sanity check
-		if ref < 0 || dist > maxDist || mEnd > dstEnd {
+		if dist == 0 || ref < 0 || dist > maxDist || mEnd > dstEnd {
 			return uint(srcIdx), uint(dstIdx), fmt.Errorf("LZCodec: invalid distance decoded: %d", dist)
 		}
 
@@ -965,7 +995,7 @@ func (this *LZXCodec) inverseV6(src, dst []byte) (uint, uint, error) {
 
 	var err error
 
-	if srcIdx != srcEnd+13 {
+	if srcIdx != srcEnd+13 || tkIdx != tokenEnd || mIdx != matchEnd || mLenIdx != count {
 		err = errors.New("LZCodec inverse transform failed")
 	}
 
@@ -999,12 +1029,15 @@ func (this *LZXCodec) inverseV4(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("LZCodec inverse transform failed: invalid data")
 	}
 
+	if (tkIdx <= 13) || (tkIdx > count) || (mIdx > count-tkIdx) || (mLenIdx > count-tkIdx-mIdx) {
+		return 0, 0, errors.New("LZCodec inverse transform failed: invalid data")
+	}
+
 	mIdx += tkIdx
 	mLenIdx += mIdx
 
-	if (tkIdx > count) || (mIdx > count) || (mLenIdx > count) {
-		return 0, 0, errors.New("LZCodec inverse transform failed: invalid data")
-	}
+	tokenEnd := mIdx
+	matchEnd := mLenIdx
 
 	srcEnd := tkIdx - 13
 	dstLimit := len(dst)
@@ -1067,6 +1100,10 @@ func (this *LZXCodec) inverseV4(src, dst []byte) (uint, uint, error) {
 
 		if mLen == 15 {
 			// Repetition distance, read mLen fully outside of token
+			if mLenIdx >= count {
+				return uint(mIdx), uint(dstIdx), errors.New("LZCodec inverse transform failed: invalid match length")
+			}
+
 			ll, delta := readLengthLZ(src[mLenIdx:])
 			mLen = minMatch + ll
 			mLenIdx += delta
@@ -1079,11 +1116,19 @@ func (this *LZXCodec) inverseV4(src, dst []byte) (uint, uint, error) {
 		} else {
 			// Read mLen remainder (if any) outside of token
 			if mLen == 14 {
+				if mLenIdx >= count {
+					return uint(mIdx), uint(dstIdx), errors.New("LZCodec inverse transform failed: invalid match length")
+				}
+
 				ll, delta := readLengthLZ(src[mLenIdx:])
 				mLen = 14 + minMatch + ll
 				mLenIdx += delta
 			} else {
 				mLen += minMatch
+			}
+
+			if mIdx >= count {
+				return uint(mIdx), uint(dstIdx), errors.New("LZCodec inverse transform failed: invalid distance")
 			}
 
 			dist = int(src[mIdx])
@@ -1106,7 +1151,7 @@ func (this *LZXCodec) inverseV4(src, dst []byte) (uint, uint, error) {
 		ref := dstIdx - dist
 
 		// Sanity check
-		if ref < 0 || dist > maxDist || mEnd > dstEnd {
+		if dist == 0 || ref < 0 || dist > maxDist || mEnd > dstEnd {
 			return uint(srcIdx), uint(dstIdx), fmt.Errorf("LZCodec: invalid distance decoded: %d", dist)
 		}
 
@@ -1134,7 +1179,7 @@ func (this *LZXCodec) inverseV4(src, dst []byte) (uint, uint, error) {
 
 	var err error
 
-	if srcIdx != srcEnd+13 {
+	if srcIdx != srcEnd+13 || tkIdx != tokenEnd || mIdx != matchEnd || mLenIdx != count {
 		err = errors.New("LZCodec inverse transform failed")
 	}
 
