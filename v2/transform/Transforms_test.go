@@ -531,6 +531,14 @@ func testTransformCorrectness(transformName string, t *testing.T) {
 
 			output := make([]byte, fwdTransform.MaxEncodedLen(size))
 			reverse := make([]byte, size)
+			reverseBuf := reverse
+
+			if size > 0 && (transformName == "LZ" || transformName == "LZX") {
+				// LZ/LZX inverse uses a fixed-width 16-byte match copy and
+				// requires trailing destination padding.
+				reverseBuf = make([]byte, size+16)
+			}
+
 			for i := range output {
 				output[i] = 0xAA
 			}
@@ -589,7 +597,7 @@ func testTransformCorrectness(transformName string, t *testing.T) {
 				return
 			}
 
-			_, _, errInv := invTransform.Inverse(dataToDecode, reverse)
+			_, _, errInv := invTransform.Inverse(dataToDecode, reverseBuf)
 
 			if errInv != nil {
 				if len(dataToDecode) == 0 && size == 0 {
@@ -601,6 +609,8 @@ func testTransformCorrectness(transformName string, t *testing.T) {
 					return
 				}
 			}
+
+			reverse = reverseBuf[:size]
 
 			if testing.Verbose() {
 				fmt.Printf("Decoded (%d bytes): ", len(reverse))
@@ -680,6 +690,13 @@ func runSpecificTransformTest(t *testing.T, tc specificTransformTestCase) {
 	size := len(input)
 	output := make([]byte, fwdTransform.MaxEncodedLen(size))
 	reverse := make([]byte, size)
+	reverseBuf := reverse
+
+	if size > 0 && (tc.transformID == "LZ" || tc.transformID == "LZX") {
+		// LZ/LZX inverse uses a fixed-width 16-byte match copy and
+		// requires trailing destination padding.
+		reverseBuf = make([]byte, size+16)
+	}
 
 	if testing.Verbose() {
 		fmt.Printf("Original (%d bytes): ", size)
@@ -722,11 +739,13 @@ func runSpecificTransformTest(t *testing.T, tc specificTransformTestCase) {
 		return
 	}
 
-	_, _, errInv := invTransform.Inverse(dataToDecode, reverse)
+	_, _, errInv := invTransform.Inverse(dataToDecode, reverseBuf)
 	if errInv != nil {
 		t.Errorf("[%s] Decoding error for %s: %v. Input to Inverse was %d bytes.", tc.name, tc.transformID, errInv, len(dataToDecode))
 		return
 	}
+
+	reverse = reverseBuf[:size]
 
 	if !bytes.Equal(input, reverse) {
 		t.Errorf("[%s] Data mismatch after inverse for %s. Expected: %v, Got: %v", tc.name, tc.transformID, input, reverse)
@@ -853,6 +872,50 @@ func TestLZCodecSpecifics(t *testing.T) {
 				t_run.Run(tc.name, func(t_case *testing.T) {
 					runSpecificTransformTest(t_case, specificTC)
 				})
+			}
+		})
+	}
+}
+
+// TestLZXDestinationPadding verifies the destination-buffer contract of the
+// fixed-width 16-byte match copy used by LZ/LZX inverse transforms.
+func TestLZXDestinationPadding(t *testing.T) {
+	input := make([]byte, 128)
+
+	for i := range input {
+		input[i] = byte(i & 15)
+	}
+
+	for _, transformID := range []string{"LZ", "LZX"} {
+		t.Run(transformID, func(t *testing.T) {
+			forward, err := getTransform(transformID)
+
+			if err != nil {
+				t.Fatalf("create %s transform: %v", transformID, err)
+			}
+
+			encoded := make([]byte, forward.MaxEncodedLen(len(input)))
+			_, encodedSize, err := forward.Forward(input, encoded)
+
+			if err != nil {
+				t.Fatalf("forward %s: %v", transformID, err)
+			}
+
+			inverse, err := getTransform(transformID)
+
+			if err != nil {
+				t.Fatalf("create inverse %s transform: %v", transformID, err)
+			}
+
+			padded := bytes.Repeat([]byte{0x7E}, len(input)+16)
+			_, decoded, err := inverse.Inverse(encoded[:encodedSize], padded)
+
+			if err != nil {
+				t.Fatalf("inverse %s with padded destination: %v", transformID, err)
+			}
+
+			if decoded != uint(len(input)) || !bytes.Equal(input, padded[:len(input)]) {
+				t.Fatalf("%s inverse mismatch: decoded=%d", transformID, decoded)
 			}
 		})
 	}
