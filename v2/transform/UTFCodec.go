@@ -371,6 +371,13 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 
 		s := m[alias]
+
+		// The symbol length controls the logical output advance, but the
+		// decoder always copies four bytes from the packed symbol value.
+		if dstIdx+4 > len(dst) {
+			return 0, 0, errors.New("UTF inverse transform failed: output buffer too small")
+		}
+
 		copy(dst[dstIdx:], s.value[:4])
 		dstIdx += int(s.length)
 	}

@@ -1370,13 +1370,12 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 			} else {
 				// Read one match length and index
 				matchLen := val & 0xFF
+				copyLen := matchLen + this.minMatch
 
-				// CompressedInputStream provides trailing output padding.
-				// The +3 bound is the regular minimum match length; DNA mode
-				// adds four more bytes, and emitCopy() may write up to seven
-				// bytes past the logical match end.
-				// Sanity check
-				if matchLen+3 > dstEnd {
+				// Sanity check against the remaining space in the current
+				// chunk. The match length is stored without the minimum match
+				// size, which is data type dependent.
+				if copyLen > sizeChunk-dstIdx {
 					dstIdx += startChunk
 					return uint(srcIdx), uint(dstIdx), errors.New("ROLZX codec inverse transform failed: invalid data")
 				}
@@ -1390,7 +1389,7 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 				}
 
 				ref := int(m[(this.counters[key]-matchIdx)&this.maskChecks])
-				dstIdx = emitCopy(buf, dstIdx, ref, matchLen+this.minMatch)
+				dstIdx = emitCopy(buf, dstIdx, ref, copyLen)
 			}
 
 			// Update map
