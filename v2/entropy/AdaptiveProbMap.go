@@ -185,7 +185,8 @@ func (this *LinearAdaptiveProbMap) Get(bit int, pr int, ctx int) int {
 	// Find index: 65*ctx + quantized prediction in [0..64]
 	this.index = (pr >> 6) + 65*ctx
 
-	// Return interpolated probability
-	w := pr & 127
-	return (int(this.data[this.index+1])*w + int(this.data[this.index])*(128-w)) >> 11
+	// Return interpolated probability. The table index advances every 64
+	// prediction units, so use the matching 6-bit fractional part.
+	w := pr & 63
+	return (int(this.data[this.index+1])*w + int(this.data[this.index])*(64-w)) >> 10
 }
