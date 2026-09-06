@@ -357,29 +357,91 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	// Emit data
-	for srcIdx < srcEnd && dstIdx < dstEnd {
-		alias := int(src[srcIdx])
-		srcIdx++
+	if n <= 128 {
+		// All valid aliases fit in one byte.
+		for srcIdx < srcEnd {
+			alias := int(src[srcIdx])
+			srcIdx++
 
-		if alias >= 128 {
-			if srcIdx >= srcEnd {
+			if alias >= n {
 				return 0, 0, errors.New("UTF inverse transform failed: invalid data")
 			}
 
-			alias = (int(src[srcIdx]) << 7) + (alias & 0x7F)
+			s := m[alias]
+
+			// The symbol length controls the logical output advance, but the
+			// decoder always copies four bytes from the packed symbol value.
+			if dstIdx+4 > len(dst) {
+				return 0, 0, errors.New("UTF inverse transform failed: output buffer too small")
+			}
+
+			copy(dst[dstIdx:], s.value[:4])
+			dstIdx += int(s.length)
+		}
+	} else {
+		// Decode the next alias and load its value before storing the current
+		// one. This allows independent dictionary lookups to overlap.
+		for srcIdx < srcEnd {
+			alias := int(src[srcIdx])
 			srcIdx++
+
+			if alias >= 128 {
+				if srcIdx >= srcEnd {
+					return 0, 0, errors.New("UTF inverse transform failed: invalid data")
+				}
+
+				alias = (int(src[srcIdx]) << 7) + (alias & 0x7F)
+				srcIdx++
+			}
+
+			if alias >= n {
+				return 0, 0, errors.New("UTF inverse transform failed: invalid data")
+			}
+
+			s0 := m[alias]
+			val0 := s0.value
+			len0 := int(s0.length)
+
+			if srcIdx >= srcEnd {
+				if dstIdx+4 > len(dst) {
+					return 0, 0, errors.New("UTF inverse transform failed: output buffer too small")
+				}
+
+				copy(dst[dstIdx:], val0[:])
+				dstIdx += len0
+				break
+			}
+
+			alias = int(src[srcIdx])
+			srcIdx++
+
+			if alias >= 128 {
+				if srcIdx >= srcEnd {
+					return 0, 0, errors.New("UTF inverse transform failed: invalid data")
+				}
+
+				alias = (int(src[srcIdx]) << 7) + (alias & 0x7F)
+				srcIdx++
+			}
+
+			if alias >= n {
+				return 0, 0, errors.New("UTF inverse transform failed: invalid data")
+			}
+
+			s1 := m[alias]
+			val1 := s1.value
+			len1 := int(s1.length)
+			needed := len0 + len1 + 4
+
+			if len(dst)-dstIdx < needed {
+				return 0, 0, errors.New("UTF inverse transform failed: output buffer too small")
+			}
+
+			copy(dst[dstIdx:], val0[:])
+			dstIdx += len0
+			copy(dst[dstIdx:], val1[:])
+			dstIdx += len1
 		}
-
-		s := m[alias]
-
-		// The symbol length controls the logical output advance, but the
-		// decoder always copies four bytes from the packed symbol value.
-		if dstIdx+4 > len(dst) {
-			return 0, 0, errors.New("UTF inverse transform failed: output buffer too small")
-		}
-
-		copy(dst[dstIdx:], s.value[:4])
-		dstIdx += int(s.length)
 	}
 
 	var err error

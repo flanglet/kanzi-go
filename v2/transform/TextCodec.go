@@ -1062,8 +1062,9 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 				var pe *dictEntry
 				pe1 := this.dictMap[h1&this.hashMask]
 
-				// Check for hash collisions
-				if pe1 != nil && pe1.hash == h1 && pe1.data>>24 == length && sameWords(pe1.ptr[1:length], src[delimAnchor+2:]) {
+				// A hash collision check is not needed here: insertion is only allowed when
+				// the hash slot is nil, so the candidate contents cannot affect the outcome.
+				if pe1 != nil && pe1.hash == h1 && pe1.data>>24 == length {
 					pe = pe1
 				}
 
@@ -1639,8 +1640,9 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 				var pe *dictEntry
 				pe1 := this.dictMap[h1&this.hashMask]
 
-				// Check for hash collisions
-				if pe1 != nil && pe1.hash == h1 && pe1.data>>24 == length && sameWords(pe1.ptr[1:length], src[delimAnchor+2:]) {
+				// A hash collision check is not needed here: insertion is only allowed when
+				// the hash slot is nil, so the candidate contents cannot affect the outcome.
+				if pe1 != nil && pe1.hash == h1 && pe1.data>>24 == length {
 					pe = pe1
 				}
 

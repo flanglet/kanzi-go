@@ -16,6 +16,7 @@ limitations under the License.
 package transform
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 
@@ -181,6 +182,33 @@ func (this *ZRLT) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 
 		// Regular data processing
+		if src[srcIdx] != 0xFF {
+			startIdx := srcIdx
+
+			for srcIdx+4 <= srcEnd && dstIdx+4 <= dstEnd {
+				word := binary.LittleEndian.Uint32(src[srcIdx:])
+				// Detect bytes below 2 or equal to 0xFF before lane-wise subtraction.
+				invalid := (((word - 0x02020202) & ^word) |
+					((^word - 0x01010101) & word)) & 0x80808080
+
+				if invalid != 0 {
+					break
+				}
+
+				binary.LittleEndian.PutUint32(dst[dstIdx:], word-0x01010101)
+				srcIdx += 4
+				dstIdx += 4
+			}
+
+			if srcIdx != startIdx {
+				if srcIdx >= srcEnd || dstIdx >= dstEnd {
+					break
+				}
+
+				continue
+			}
+		}
+
 		if src[srcIdx] == 0xFF {
 			srcIdx++
 

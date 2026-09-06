@@ -681,7 +681,6 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		litIdx := 0
 		tkIdx := 0
 
-		clear(this.matches)
 		endChunk := startChunk + sizeChunk
 
 		if endChunk > dstEnd {
@@ -792,6 +791,8 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			startChunk = endChunk
 			continue
 		}
+
+		clear(this.matches)
 
 		dstIdx = 0
 		mm := 8
@@ -1310,7 +1311,9 @@ func (this *rolzCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 
 		buf := dst[startChunk:endChunk]
-		rd.reset()
+		if startChunk > 0 {
+			rd.reset()
+		}
 		dstIdx = 0
 
 		// First literals
