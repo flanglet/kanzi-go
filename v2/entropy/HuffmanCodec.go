@@ -995,6 +995,13 @@ func (this *HuffmanDecoder) decodeChunkV5(block []byte, count int) (int, error) 
 	// Read chunk size
 	szBits := ReadVarInt(this.bitstream)
 
+	// A non-empty chunk with multiple symbols cannot have an empty
+	// encoded payload. Reject malformed input instead of reporting a
+	// successful decode while leaving the destination untouched.
+	if szBits == 0 {
+		return 0, errors.New("Invalid bitstream: empty Huffman payload")
+	}
+
 	// Read compressed data from the bitstream
 	if szBits != 0 {
 		sz := int(szBits+7) >> 3

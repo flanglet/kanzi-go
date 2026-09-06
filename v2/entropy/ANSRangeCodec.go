@@ -631,6 +631,11 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies, alphabet []int) (int, err
 		}
 
 		if alphabetSize == 0 {
+			if this.order == 1 && k == 0 {
+				err := errors.New("Invalid bitstream: missing ANS1 context 0")
+				return alphabetSize, err
+			}
+
 			continue
 		}
 
