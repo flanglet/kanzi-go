@@ -129,18 +129,17 @@ func (this *FPAQEncoder) Write(block []byte) (int, error) {
 
 	startChunk := 0
 	end := count
+	size := min(_FPAQ_DEFAULT_CHUNK_SIZE, count)
+	extra := max(size>>3, min(size, 1<<16))
+	bufSize := max(size+extra, 1024)
+
+	if len(this.buffer) < bufSize {
+		this.buffer = make([]byte, bufSize)
+	}
 
 	// Split block into chunks, read bit array from bitstream and decode chunk
 	for startChunk < end {
-		chunkSize := _FPAQ_DEFAULT_CHUNK_SIZE
-
-		if startChunk+_FPAQ_DEFAULT_CHUNK_SIZE >= end {
-			chunkSize = end - startChunk
-		}
-
-		if len(this.buffer) < (chunkSize + (chunkSize >> 3)) {
-			this.buffer = make([]byte, chunkSize+(chunkSize>>3))
-		}
+		chunkSize := min(_FPAQ_DEFAULT_CHUNK_SIZE, end-startChunk)
 
 		this.index = 0
 		buf := block[startChunk : startChunk+chunkSize]
@@ -172,6 +171,12 @@ func (this *FPAQEncoder) Write(block []byte) (int, error) {
 }
 
 func (this *FPAQEncoder) flush() {
+	if this.index+4 > len(this.buffer) {
+		newBuf := make([]byte, this.index+4)
+		copy(newBuf, this.buffer)
+		this.buffer = newBuf
+	}
+
 	binary.BigEndian.PutUint32(this.buffer[this.index:], uint32(this.high>>24))
 	this.index += 4
 	this.low <<= 32

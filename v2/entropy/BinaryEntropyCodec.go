@@ -29,7 +29,6 @@ const (
 	_BINARY_MASK_0_32         = uint64(0x00000000FFFFFFFF)
 	_BINARY_ENTROPY_MAX_BLOCK = 1 << 30
 	_BINARY_ENTROPY_MAX_CHUNK = 1 << 26
-	_BINARY_ENTROPY_BUF_FLOOR = 8 << 20
 )
 
 // BinaryEntropyEncoder entropy encoder based on arithmetic coding and
@@ -49,7 +48,7 @@ func growBinaryEntropyBuffer(buf []byte, required int) []byte {
 		return buf
 	}
 
-	grownSize := len(buf) + max(len(buf)>>2, 1<<20)
+	grownSize := len(buf) + max(len(buf)>>2, 1<<10)
 	newSize := max(required, max(grownSize, 1024))
 	newBuf := make([]byte, newSize)
 	copy(newBuf, buf)
@@ -139,7 +138,8 @@ func (this *BinaryEntropyEncoder) Write(block []byte) (int, error) {
 		length = 64
 	}
 
-	bufSize := max(length+(length>>3), _BINARY_ENTROPY_BUF_FLOOR)
+	extra := max(length>>3, min(length, 1<<16))
+	bufSize := length + extra
 	this.buffer = growBinaryEntropyBuffer(this.buffer, bufSize)
 
 	// Split block into chunks, read bit array from bitstream and decode chunk

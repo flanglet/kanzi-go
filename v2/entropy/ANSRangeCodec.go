@@ -281,12 +281,13 @@ func (this *ANSRangeEncoder) Write(block []byte) (int, error) {
 		return len(block), nil
 	}
 
-	size := min(2*len(block), this.chunkSize+(this.chunkSize>>3))
-	size = max(size, 65536)
+	size := min(this.chunkSize, len(block))
+	extra := max(size>>3, min(size, 1<<16))
+	bufSize := size + extra
 
 	// Add some padding
-	if len(this.buffer) < size {
-		this.buffer = make([]byte, size)
+	if len(this.buffer) < bufSize {
+		this.buffer = make([]byte, bufSize)
 	}
 
 	end := len(block)
@@ -880,7 +881,9 @@ func (this *ANSRangeDecoder) decodeChunkV2(block []byte) bool {
 		return true
 	}
 
-	minBufSize := max(2*len(block), 256) // protect against corrupted bitstream
+	size := min(this.chunkSize, len(block))
+	extra := max(size>>3, min(size, 1<<16))
+	minBufSize := size + extra + 2 // protect against corrupted bitstream
 
 	// Add some padding
 	if len(this.buffer) < minBufSize {
