@@ -529,9 +529,10 @@ func (this *BWT) inverseBiPSIv2Task(dst []byte, buckets []int, fastBits []uint16
 	dst6 := dst[6*ckSize:]
 	dst7 := dst[7*ckSize:]
 
-	if start+8*ckSize <= total && (ckSize&1) == 0 {
+	if start+7*ckSize <= total {
 		for c+7 < lastChunk {
-			end := start + ckSize
+			end := start + ckSize - 1
+			end8 := min(end, total-7*ckSize-1)
 			p0 := int(indexes[c])
 			p1 := int(indexes[c+1])
 			p2 := int(indexes[c+2])
@@ -541,7 +542,7 @@ func (this *BWT) inverseBiPSIv2Task(dst []byte, buckets []int, fastBits []uint16
 			p6 := int(indexes[c+6])
 			p7 := int(indexes[c+7])
 
-			for i := start + 1; i <= end; i += 2 {
+			for i := start + 1; i <= end8; i += 2 {
 				s0 := fastBits[p0>>shift]
 				s1 := fastBits[p1>>shift]
 				s2 := fastBits[p2>>shift]
@@ -609,8 +610,286 @@ func (this *BWT) inverseBiPSIv2Task(dst []byte, buckets []int, fastBits []uint16
 				p7 = int(data[p7])
 			}
 
+			oddCommon := ((end8 - start + 1) & 1) != 0
+
+			if oddCommon {
+				s0 := fastBits[p0>>shift]
+				s1 := fastBits[p1>>shift]
+				s2 := fastBits[p2>>shift]
+				s3 := fastBits[p3>>shift]
+				s4 := fastBits[p4>>shift]
+				s5 := fastBits[p5>>shift]
+				s6 := fastBits[p6>>shift]
+				s7 := fastBits[p7>>shift]
+				for buckets[s0] <= p0 {
+					s0++
+				}
+				for buckets[s1] <= p1 {
+					s1++
+				}
+				for buckets[s2] <= p2 {
+					s2++
+				}
+				for buckets[s3] <= p3 {
+					s3++
+				}
+				for buckets[s4] <= p4 {
+					s4++
+				}
+				for buckets[s5] <= p5 {
+					s5++
+				}
+				for buckets[s6] <= p6 {
+					s6++
+				}
+				for buckets[s7] <= p7 {
+					s7++
+				}
+				dst0[end8] = byte(s0 >> 8)
+				dst1[end8] = byte(s1 >> 8)
+				dst2[end8] = byte(s2 >> 8)
+				dst3[end8] = byte(s3 >> 8)
+				dst4[end8] = byte(s4 >> 8)
+				dst5[end8] = byte(s5 >> 8)
+				dst6[end8] = byte(s6 >> 8)
+				dst7[end8] = byte(s7 >> 8)
+
+				if end8 < end {
+					dst0[end8+1] = byte(s0)
+					dst1[end8+1] = byte(s1)
+					dst2[end8+1] = byte(s2)
+					dst3[end8+1] = byte(s3)
+					dst4[end8+1] = byte(s4)
+					dst5[end8+1] = byte(s5)
+					dst6[end8+1] = byte(s6)
+				}
+
+				p0 = int(data[p0])
+				p1 = int(data[p1])
+				p2 = int(data[p2])
+				p3 = int(data[p3])
+				p4 = int(data[p4])
+				p5 = int(data[p5])
+				p6 = int(data[p6])
+				p7 = int(data[p7])
+			}
+
+			if end8 < end {
+				nextPos := end8 + 1
+				if oddCommon {
+					nextPos++
+				}
+				tailStart := nextPos + 1
+
+				for i := tailStart; i <= end; i += 2 {
+					s0 := fastBits[p0>>shift]
+					s1 := fastBits[p1>>shift]
+					s2 := fastBits[p2>>shift]
+					s3 := fastBits[p3>>shift]
+					s4 := fastBits[p4>>shift]
+					s5 := fastBits[p5>>shift]
+					s6 := fastBits[p6>>shift]
+					for buckets[s0] <= p0 {
+						s0++
+					}
+					for buckets[s1] <= p1 {
+						s1++
+					}
+					for buckets[s2] <= p2 {
+						s2++
+					}
+					for buckets[s3] <= p3 {
+						s3++
+					}
+					for buckets[s4] <= p4 {
+						s4++
+					}
+					for buckets[s5] <= p5 {
+						s5++
+					}
+					for buckets[s6] <= p6 {
+						s6++
+					}
+					dst0[i-1] = byte(s0 >> 8)
+					dst0[i] = byte(s0)
+					dst1[i-1] = byte(s1 >> 8)
+					dst1[i] = byte(s1)
+					dst2[i-1] = byte(s2 >> 8)
+					dst2[i] = byte(s2)
+					dst3[i-1] = byte(s3 >> 8)
+					dst3[i] = byte(s3)
+					dst4[i-1] = byte(s4 >> 8)
+					dst4[i] = byte(s4)
+					dst5[i-1] = byte(s5 >> 8)
+					dst5[i] = byte(s5)
+					dst6[i-1] = byte(s6 >> 8)
+					dst6[i] = byte(s6)
+					p0 = int(data[p0])
+					p1 = int(data[p1])
+					p2 = int(data[p2])
+					p3 = int(data[p3])
+					p4 = int(data[p4])
+					p5 = int(data[p5])
+					p6 = int(data[p6])
+				}
+
+				if nextPos <= end && ((end-nextPos+1)&1) != 0 {
+					s0 := fastBits[p0>>shift]
+					s1 := fastBits[p1>>shift]
+					s2 := fastBits[p2>>shift]
+					s3 := fastBits[p3>>shift]
+					s4 := fastBits[p4>>shift]
+					s5 := fastBits[p5>>shift]
+					s6 := fastBits[p6>>shift]
+					for buckets[s0] <= p0 {
+						s0++
+					}
+					for buckets[s1] <= p1 {
+						s1++
+					}
+					for buckets[s2] <= p2 {
+						s2++
+					}
+					for buckets[s3] <= p3 {
+						s3++
+					}
+					for buckets[s4] <= p4 {
+						s4++
+					}
+					for buckets[s5] <= p5 {
+						s5++
+					}
+					for buckets[s6] <= p6 {
+						s6++
+					}
+					dst0[end] = byte(s0 >> 8)
+					dst1[end] = byte(s1 >> 8)
+					dst2[end] = byte(s2 >> 8)
+					dst3[end] = byte(s3 >> 8)
+					dst4[end] = byte(s4 >> 8)
+					dst5[end] = byte(s5 >> 8)
+					dst6[end] = byte(s6 >> 8)
+				}
+			}
+
 			start += 8 * ckSize
 			c += 8
+		}
+	}
+
+	if start+3*ckSize <= total && (ckSize&1) == 0 {
+		for c+3 < lastChunk {
+			end := start + ckSize - 1
+			end4 := min(end, total-3*ckSize-1)
+			p0 := int(indexes[c])
+			p1 := int(indexes[c+1])
+			p2 := int(indexes[c+2])
+			p3 := int(indexes[c+3])
+
+			for i := start + 1; i <= end4; i += 2 {
+				s0 := fastBits[p0>>shift]
+				s1 := fastBits[p1>>shift]
+				s2 := fastBits[p2>>shift]
+				s3 := fastBits[p3>>shift]
+				for buckets[s0] <= p0 {
+					s0++
+				}
+				for buckets[s1] <= p1 {
+					s1++
+				}
+				for buckets[s2] <= p2 {
+					s2++
+				}
+				for buckets[s3] <= p3 {
+					s3++
+				}
+				dst0[i-1] = byte(s0 >> 8)
+				dst0[i] = byte(s0)
+				dst1[i-1] = byte(s1 >> 8)
+				dst1[i] = byte(s1)
+				dst2[i-1] = byte(s2 >> 8)
+				dst2[i] = byte(s2)
+				dst3[i-1] = byte(s3 >> 8)
+				dst3[i] = byte(s3)
+				p0 = int(data[p0])
+				p1 = int(data[p1])
+				p2 = int(data[p2])
+				p3 = int(data[p3])
+			}
+
+			if end4 < end {
+				tailStart := end4 + 1 + (end4 & 1)
+
+				for i := tailStart; i <= end; i += 2 {
+					s0 := fastBits[p0>>shift]
+					s1 := fastBits[p1>>shift]
+					s2 := fastBits[p2>>shift]
+					for buckets[s0] <= p0 {
+						s0++
+					}
+					for buckets[s1] <= p1 {
+						s1++
+					}
+					for buckets[s2] <= p2 {
+						s2++
+					}
+					dst0[i-1] = byte(s0 >> 8)
+					dst0[i] = byte(s0)
+					dst1[i-1] = byte(s1 >> 8)
+					dst1[i] = byte(s1)
+					dst2[i-1] = byte(s2 >> 8)
+					dst2[i] = byte(s2)
+					p0 = int(data[p0])
+					p1 = int(data[p1])
+					p2 = int(data[p2])
+				}
+			}
+
+			start += 4 * ckSize
+			c += 4
+		}
+	}
+
+	if start+ckSize <= total && (ckSize&1) == 0 {
+		for c+1 < lastChunk {
+			end := start + ckSize - 1
+			end2 := min(end, total-ckSize-1)
+			p0 := int(indexes[c])
+			p1 := int(indexes[c+1])
+
+			for i := start + 1; i <= end2; i += 2 {
+				s0 := fastBits[p0>>shift]
+				s1 := fastBits[p1>>shift]
+				for buckets[s0] <= p0 {
+					s0++
+				}
+				for buckets[s1] <= p1 {
+					s1++
+				}
+				dst0[i-1] = byte(s0 >> 8)
+				dst0[i] = byte(s0)
+				dst1[i-1] = byte(s1 >> 8)
+				dst1[i] = byte(s1)
+				p0 = int(data[p0])
+				p1 = int(data[p1])
+			}
+
+			if end2 < end {
+				tailStart := end2 + 1 + (end2 & 1)
+
+				for i := tailStart; i <= end; i += 2 {
+					s0 := fastBits[p0>>shift]
+					for buckets[s0] <= p0 {
+						s0++
+					}
+					dst0[i-1] = byte(s0 >> 8)
+					dst0[i] = byte(s0)
+					p0 = int(data[p0])
+				}
+			}
+
+			start += 2 * ckSize
+			c += 2
 		}
 	}
 
