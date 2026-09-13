@@ -490,6 +490,13 @@ func (this *BWT) inverseBiPSIv2(src, dst []byte, count int) (uint, uint, error) 
 	}
 
 	nbTasks := min(int(this.jobs), chunks)
+
+	if nbTasks == 1 {
+		this.inverseBiPSIv2Task(dst, buckets, fastBits, this.primaryIndexes[:], count, 0, ckSize, 0, chunks)
+		dst[count-1] = byte(lastc)
+		return uint(count), uint(count), nil
+	}
+
 	jobsPerTask, _ := internal.ComputeJobsPerTask(make([]uint, nbTasks), uint(chunks), uint(nbTasks))
 	var wg sync.WaitGroup
 

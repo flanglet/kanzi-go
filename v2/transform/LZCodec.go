@@ -1475,8 +1475,9 @@ func (this *LZPCodec) Inverse(src, dst []byte) (uint, uint, error) {
 
 func (this *LZPCodec) findMatch(src []byte, srcIdx, ref, maxMatch int) int {
 	bestLen := 0
+	matchLimit := maxMatch - 8
 
-	for bestLen+8 <= maxMatch {
+	for bestLen <= matchLimit {
 		diff := binary.LittleEndian.Uint64(src[srcIdx+bestLen:]) ^ binary.LittleEndian.Uint64(src[ref+bestLen:])
 
 		if diff != 0 {
