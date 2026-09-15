@@ -29,7 +29,6 @@ const (
 	_HUF_MIN_CHUNK_SIZE     = 1024
 	_HUF_MAX_CHUNK_SIZE     = 1 << 14
 	_HUF_MAX_SYMBOL_SIZE_V4 = 12
-	_HUF_BUFFER_SIZE        = (_HUF_MAX_SYMBOL_SIZE_V4 << 8) + 256
 	_HUF_DECODING_MASK_V4   = (1 << _HUF_MAX_SYMBOL_SIZE_V4) - 1
 )
 
@@ -41,25 +40,52 @@ func generateCanonicalCodes(sizes []byte, codes []uint16, symbols []int, maxSymb
 		return 0, nil
 	}
 
+	if count > 256 {
+		return -1, errors.New("Could not generate Huffman codes: invalid symbol count")
+	}
+
 	if count > 1 {
-		var buf [_HUF_BUFFER_SIZE]byte
+		var present [256]bool
+		var offsets [_HUF_MAX_SYMBOL_SIZE_V4 + 1]uint16
 
 		for _, s := range symbols {
-			if s > 255 {
+			if s < 0 || s > 255 {
+				return -1, errors.New("Could not generate Huffman codes: invalid symbol")
+			}
+
+			length := sizes[s]
+
+			if length == 0 {
 				return -1, errors.New("Could not generate Huffman codes: invalid code length")
 			}
 
-			// Max length reached
-			if sizes[s] > byte(maxSymbolSize) {
+			if int(length) > maxSymbolSize || int(length) > _HUF_MAX_SYMBOL_SIZE_V4 {
 				return -1, fmt.Errorf("Could not generate Huffman codes: max code length (%d bits) exceeded", maxSymbolSize)
 			}
 
-			buf[(int(sizes[s]-1)<<8)|s] = 1
+			if present[s] {
+				return -1, errors.New("Could not generate Huffman codes: duplicate symbol")
+			}
+
+			present[s] = true
+			offsets[length]++
 		}
 
-		for i, n := 0, 0; n < count; i++ {
-			symbols[n] = i & 0xFF
-			n += int(buf[i])
+		var offset uint16
+
+		for length := 1; length <= _HUF_MAX_SYMBOL_SIZE_V4; length++ {
+			n := offsets[length]
+			offsets[length] = offset
+			offset += n
+		}
+
+		// Scanning symbols in value order preserves the previous tie break.
+		for s := 0; s < 256; s++ {
+			if present[s] {
+				length := sizes[s]
+				symbols[offsets[length]] = s
+				offsets[length]++
+			}
 		}
 	}
 
