@@ -137,8 +137,8 @@ func NormalizeFrequencies(freqs []int, alphabet []int, totalFreq, scale int) (in
 
 	// Shortcut
 	if totalFreq == scale {
-		for i := 0; i < 256; i++ {
-			if freqs[i] != 0 {
+		for i, freq := range freqs {
+			if freq != 0 {
 				alphabet[alphabetSize] = i
 				alphabetSize++
 			}
