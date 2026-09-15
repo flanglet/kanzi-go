@@ -818,6 +818,95 @@ func TestANS1(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestANS1ImplicitContext(t *testing.T) {
+	const size = 40
+	alphabet := []int{1}
+
+	// Exercise both freshly allocated tables and tables from an earlier chunk.
+	for warm := 0; warm < 2; warm++ {
+		bufferStream := internal.NewBufferStream()
+		obs, err := bitstream.NewDefaultOutputBitStream(bufferStream, 16384)
+
+		if err != nil {
+			t.Fatalf("create output bitstream: %v", err)
+		}
+
+		previous := bytes.Repeat([]byte{1}, size)
+
+		if warm != 0 {
+			encoder, err := NewANSRangeEncoder(obs, 1)
+
+			if err != nil {
+				t.Fatalf("create ANS1 encoder: %v", err)
+			}
+
+			if written, err := encoder.Write(previous); err != nil || written != size {
+				t.Fatalf("ANS1 warm-up encode returned (%d, %v), want (%d, nil)", written, err, size)
+			}
+		}
+
+		// Context 0 emits 1; empty contexts implicitly emit 0.
+		obs.WriteBits(0, 3) // log range = 8
+		if _, err = EncodeAlphabet(obs, alphabet); err != nil {
+			t.Fatalf("encode ANS1 context 0 alphabet: %v", err)
+		}
+
+		for i := 1; i < 256; i++ {
+			if _, err = EncodeAlphabet(obs, nil); err != nil {
+				t.Fatalf("encode ANS1 empty context %d alphabet: %v", i, err)
+			}
+		}
+
+		WriteVarInt(obs, 8)
+
+		for i := 0; i < 4; i++ {
+			obs.WriteBits(1<<15, 32)
+		}
+
+		obs.WriteBits(0, 64)
+
+		if err = obs.Close(); err != nil {
+			t.Fatalf("close output bitstream: %v", err)
+		}
+
+		ibs, err := bitstream.NewDefaultInputBitStream(bufferStream, 16384)
+
+		if err != nil {
+			t.Fatalf("create input bitstream: %v", err)
+		}
+
+		decoder, err := NewANSRangeDecoder(ibs, 1)
+
+		if err != nil {
+			t.Fatalf("create ANS1 decoder: %v", err)
+		}
+
+		decoded := make([]byte, size)
+
+		if warm != 0 {
+			if read, err := decoder.Read(decoded); err != nil || read != size || !bytes.Equal(decoded, previous) {
+				t.Fatalf("ANS1 warm-up decode returned (%d, %v), want (%d, nil)", read, err, size)
+			}
+		}
+
+		if read, err := decoder.Read(decoded); err != nil || read != size {
+			t.Fatalf("ANS1 implicit-context decode returned (%d, %v), want (%d, nil)", read, err, size)
+		}
+
+		for i := range decoded {
+			if decoded[i] != byte(1-((i%(size/4))&1)) {
+				t.Fatalf("ANS1 implicit-context output mismatch at byte %d: got %d", i, decoded[i])
+			}
+		}
+
+		decoder.Dispose()
+		if err = ibs.Close(); err != nil {
+			t.Fatalf("close input bitstream: %v", err)
+		}
+	}
+}
+
 func TestRange(t *testing.T) {
 	if err := testEntropyCorrectness("RANGE", testing.Verbose()); err != nil {
 		t.Error(err)

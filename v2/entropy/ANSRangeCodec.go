@@ -202,6 +202,11 @@ func (this *ANSRangeEncoder) updateFrequencies(frequencies []int, lr uint) (int,
 			}
 		}
 
+		if this.order == 1 && alphabetSize == 0 {
+			// The empty alphabet marker implicitly models the singleton {0}.
+			symb[0].reset(0, 1<<lr, lr)
+		}
+
 		if err = this.encodeHeader(alphabet[0:alphabetSize], f, lr); err != nil {
 			break
 		}
@@ -635,6 +640,13 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies, alphabet []int) (int, err
 			if this.order == 1 && k == 0 {
 				err := errors.New("Invalid bitstream: missing ANS1 context 0")
 				return alphabetSize, err
+			}
+
+			if this.order == 1 {
+				// Empty ANS1 alphabets implicitly model the singleton {0}.
+				freq2sym := this.f2s[k<<this.logRange : (k+1)<<this.logRange]
+				clear(freq2sym)
+				this.symbols[k<<8].reset(0, scale, this.logRange)
 			}
 
 			continue
