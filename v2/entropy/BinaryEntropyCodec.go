@@ -200,6 +200,7 @@ type BinaryEntropyDecoder struct {
 	buffer    []byte
 	index     int
 	bufLimit  int
+	err       error
 }
 
 // NewBinaryEntropyDecoder creates an instance of BinaryEntropyDecoder using the
@@ -223,6 +224,7 @@ func NewBinaryEntropyDecoder(bs kanzi.InputBitStream, predictor kanzi.Predictor)
 	this.buffer = make([]byte, 0)
 	this.index = 0
 	this.bufLimit = 0
+	this.err = nil
 	return this, nil
 }
 
@@ -266,14 +268,15 @@ func (this *BinaryEntropyDecoder) DecodeBit(pred int) byte {
 }
 
 func (this *BinaryEntropyDecoder) read() {
-	this.low = (this.low << 32) & _BINARY_MASK_0_56
-	this.high = ((this.high << 32) | _BINARY_MASK_0_32) & _BINARY_MASK_0_56
-
 	if this.index+4 > this.bufLimit {
-		this.current = (this.current << 32) & _BINARY_MASK_0_56
-		this.index = this.bufLimit + 1
+		if this.err == nil {
+			this.err = errors.New("Invalid bitstream: binary entropy payload underrun")
+		}
 		return
 	}
+
+	this.low = (this.low << 32) & _BINARY_MASK_0_56
+	this.high = ((this.high << 32) | _BINARY_MASK_0_32) & _BINARY_MASK_0_56
 
 	val := uint64(binary.BigEndian.Uint32(this.buffer[this.index:]))
 	this.current = ((this.current << 32) | val) & _BINARY_MASK_0_56
@@ -330,14 +333,19 @@ func (this *BinaryEntropyDecoder) Read(block []byte) (int, error) {
 
 		this.bufLimit = int(szBytes)
 		this.index = 0
+		this.err = nil
 		buf := block[startChunk : startChunk+chunkSize]
 
 		for i := range buf {
 			buf[i] = this.DecodeByte()
 
-			if this.index > int(szBytes) {
-				return startChunk, errors.New("Binary entropy codec: Invalid bitstream")
+			if this.err != nil {
+				return startChunk, this.err
 			}
+		}
+
+		if this.index != int(szBytes) {
+			return startChunk, errors.New("Binary entropy codec: Invalid bitstream")
 		}
 
 		startChunk += chunkSize
