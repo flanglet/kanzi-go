@@ -664,19 +664,21 @@ func (this *Writer) Close() error {
 			}
 
 			// Write end block of size 0
-			this.obs.WriteBits(0, 5) // write length-3 (5 bits max)
-			this.obs.WriteBits(0, 3)
+			if err := this.writeEndBlock(); err != nil {
+				atomic.StoreInt32(&this.closing, 0)
+				return err
+			}
 			atomic.StoreInt32(&this.finalized, 1)
 		}
 	}
 
 	if err := this.obs.Close(); err != nil {
-		return err
+		return &IOError{msg: err.Error(), code: kanzi.ERR_WRITE_FILE}
 	}
 
 	if this.streamCloser != nil {
 		if err := this.streamCloser.Close(); err != nil {
-			return err
+			return &IOError{msg: err.Error(), code: kanzi.ERR_WRITE_FILE}
 		}
 
 		this.streamCloser = nil
@@ -687,6 +689,28 @@ func (this *Writer) Close() error {
 	// Release resources
 	for i := range this.buffers {
 		this.buffers[i] = blockBuffer{Buf: make([]byte, 0)}
+	}
+
+	return nil
+}
+
+// writeEndBlock writes the terminator and converts bitstream panics into the
+// normal writer error type. OutputBitStream uses panics for write failures.
+func (this *Writer) writeEndBlock() (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			switch v := r.(type) {
+			case error:
+				err = &IOError{msg: v.Error(), code: kanzi.ERR_WRITE_FILE}
+			default:
+				err = &IOError{msg: fmt.Sprint(v), code: kanzi.ERR_WRITE_FILE}
+			}
+		}
+	}()
+
+	// Write last block: length-3 (0) and 0 bits
+	if this.obs.WriteBits(0, 5)+this.obs.WriteBits(0, 3) != 8 {
+		return &IOError{msg: "Cannot write end block", code: kanzi.ERR_WRITE_FILE}
 	}
 
 	return nil
@@ -809,11 +833,13 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			switch v := r.(type) {
-			case error:
-				res.err = &IOError{msg: v.Error(), code: kanzi.ERR_PROCESS_BLOCK}
-			default:
-				res.err = &IOError{msg: fmt.Sprint(v), code: kanzi.ERR_PROCESS_BLOCK}
+			if res.err == nil {
+				switch v := r.(type) {
+				case error:
+					res.err = &IOError{msg: v.Error(), code: kanzi.ERR_PROCESS_BLOCK}
+				default:
+					res.err = &IOError{msg: fmt.Sprint(v), code: kanzi.ERR_PROCESS_BLOCK}
+				}
 			}
 		}
 
@@ -921,6 +947,14 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 
 	// Record size of 'block size' - 1 in bytes
 	mode |= byte(((dataSize - 1) & 0x03) << 5)
+	transformedCopy := false
+
+	// Entropy coding cannot represent blocks at or above its maximum size.
+	// Keep the transformed bytes and use the transformed-copy representation.
+	if (mode&_COPY_BLOCK_MASK) == 0 && postTransformLength >= _MAX_BITSTREAM_BLOCK_SIZE {
+		transformedCopy = true
+		mode |= _COPY_BLOCK_MASK | _TRANSFORMS_MASK
+	}
 
 	if len(this.listeners) > 0 {
 		// Notify after transform
@@ -945,7 +979,19 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 	headerSkipFlags := skipFlags
 
 	// Write block 'header' (mode + compressed length)
-	if ((mode & _COPY_BLOCK_MASK) != 0) || (t.Len() <= 4) {
+	if transformedCopy {
+		if t.Len() <= 4 {
+			mode |= byte(skipFlags >> 4)
+			headerSkipFlags = (mode << 4) | 0x0F
+		} else {
+			headerSkipFlags = skipFlags
+		}
+		obs.WriteBits(uint64(mode), 8)
+
+		if t.Len() > 4 {
+			obs.WriteBits(uint64(skipFlags), 8)
+		}
+	} else if ((mode & _COPY_BLOCK_MASK) != 0) || (t.Len() <= 4) {
 		mode |= byte(t.SkipFlags() >> 4)
 		if (mode & _COPY_BLOCK_MASK) != 0 {
 			headerSkipFlags = 0
@@ -965,7 +1011,7 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 	// temporary block has been written.
 	headerChecksumIndex := 1 + int(dataSize)
 
-	if (mode&_COPY_BLOCK_MASK) == 0 && t.Len() > 4 {
+	if (mode&_TRANSFORMS_MASK) != 0 && t.Len() > 4 {
 		headerChecksumIndex++
 	}
 
@@ -985,28 +1031,59 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 		notifyListeners(this.listeners, evt)
 	}
 
-	// Each block is encoded separately
-	// Rebuild the entropy encoder to reset block statistics
-	ee, err := entropy.NewEntropyEncoder(obs, this.ctx, this.blockEntropyType)
+	var written uint64
+	var encoded []byte
 
-	if err != nil {
-		res.err = &IOError{msg: err.Error(), code: kanzi.ERR_CREATE_CODEC}
-		return
+	if transformedCopy {
+		remaining := postTransformLength
+
+		for srcIdx := uint(0); remaining > 0; {
+			chunk := min(remaining, uint(1<<23))
+			bits := 8 * chunk
+
+			if obs.WriteArray(buffer[srcIdx:srcIdx+chunk], bits) != bits {
+				res.err = &IOError{msg: "Transformed copy block write failed", code: kanzi.ERR_PROCESS_BLOCK}
+				return
+			}
+
+			srcIdx += chunk
+			remaining -= chunk
+		}
+		if err = obs.Close(); err != nil {
+			res.err = &IOError{msg: err.Error(), code: kanzi.ERR_PROCESS_BLOCK}
+			return
+		}
+		written = obs.Written()
+		data = bufStream.Backing()
+		this.iBuffer.Buf = data
+		encoded = bufStream.Bytes()
+	} else {
+		// Each block is encoded separately
+		// Rebuild the entropy encoder to reset block statistics
+		ee, err := entropy.NewEntropyEncoder(obs, this.ctx, this.blockEntropyType)
+
+		if err != nil {
+			res.err = &IOError{msg: err.Error(), code: kanzi.ERR_CREATE_CODEC}
+			return
+		}
+
+		// Entropy encode block
+		if _, err = ee.Write(buffer[0:postTransformLength]); err != nil {
+			res.err = &IOError{msg: err.Error(), code: kanzi.ERR_PROCESS_BLOCK}
+			return
+		}
+
+		// Dispose before displaying statistics. Dispose may write to the bitstream
+		ee.Dispose()
+		if err = obs.Close(); err != nil {
+			res.err = &IOError{msg: err.Error(), code: kanzi.ERR_PROCESS_BLOCK}
+			return
+		}
+		written = obs.Written()
+		data = bufStream.Backing()
+		this.iBuffer.Buf = data
+		encoded = bufStream.Bytes()
 	}
-
-	// Entropy encode block
-	if _, err = ee.Write(buffer[0:postTransformLength]); err != nil {
-		res.err = &IOError{msg: err.Error(), code: kanzi.ERR_PROCESS_BLOCK}
-		return
-	}
-
-	// Dispose before displaying statistics. Dispose may write to the bitstream
-	ee.Dispose()
-	obs.Close()
-	written := obs.Written()
-	data = bufStream.Backing()
-	this.iBuffer.Buf = data
-	encoded := bufStream.Bytes()
 
 	if (mode & _COPY_BLOCK_MASK) == 0 {
 		rawPayloadBytes := uint64(postTransformLength)
@@ -1041,7 +1118,10 @@ func (this *encodingTask) encode(res *encodingTaskResult) {
 			}
 
 			copyObs.WriteArray(buffer[0:postTransformLength], uint(8*postTransformLength))
-			copyObs.Close()
+			if err = copyObs.Close(); err != nil {
+				res.err = &IOError{msg: err.Error(), code: kanzi.ERR_PROCESS_BLOCK}
+				return
+			}
 			written = copyObs.Written()
 			data = copyStream.Backing()
 			this.iBuffer.Buf = data
@@ -2058,7 +2138,8 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 	encodedBlockBytes := (read + 7) >> 3
 	encodedBlockLength := read
 	var blockHeader *parsedBlockHeader
-	maxTransformLength := min(max(this.blockLength+this.blockLength/2, 2048), _MAX_BITSTREAM_BLOCK_SIZE)
+	maxTransformedCopyLength := max(this.blockLength+this.blockLength/2, 2048)
+	maxEntropyTransformLength := min(maxTransformedCopyLength, _MAX_BITSTREAM_BLOCK_SIZE)
 
 	if bsVersion >= 7 {
 		var err *IOError
@@ -2069,7 +2150,13 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 			return
 		}
 
-		if blockHeader.preTransformLength == 0 || blockHeader.preTransformLength > maxTransformLength {
+		maxAllowedTransformLength := maxEntropyTransformLength
+
+		if blockHeader.transformedCopy {
+			maxAllowedTransformLength = maxTransformedCopyLength
+		}
+
+		if blockHeader.preTransformLength == 0 || blockHeader.preTransformLength > maxAllowedTransformLength {
 			errMsg := fmt.Sprintf("Invalid compressed block size: %d", blockHeader.preTransformLength)
 			res.err = &IOError{msg: errMsg, code: kanzi.ERR_BLOCK_SIZE}
 			return
@@ -2179,7 +2266,13 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 		this.blockEntropyType = entropy.NONE_TYPE
 	}
 
-	if preTransformLength == 0 || preTransformLength > maxTransformLength {
+	maxAllowedTransformLength := maxEntropyTransformLength
+
+	if transformedCopy {
+		maxAllowedTransformLength = maxTransformedCopyLength
+	}
+
+	if preTransformLength == 0 || preTransformLength > maxAllowedTransformLength {
 		// Error => cancel concurrent decoding tasks
 		errMsg := fmt.Sprintf("Invalid compressed block size: %d", preTransformLength)
 		res.err = &IOError{msg: errMsg, code: kanzi.ERR_BLOCK_SIZE}
