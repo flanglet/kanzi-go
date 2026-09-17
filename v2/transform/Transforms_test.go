@@ -118,6 +118,122 @@ func TestEXECodec(t *testing.T)  { testTransformCorrectness("EXE", t) }
 func TestTextCodec(t *testing.T) { testTransformCorrectness("TEXT", t) }
 func TestUTFCodec(t *testing.T)  { testTransformCorrectness("UTF", t) }
 
+func TestFSDBucketedRoundTrip(t *testing.T) {
+	const dist = 4
+	const bucketLength = 1 << 15
+	const size = 2 * dist * bucketLength
+	data := make([]byte, size)
+
+	for lane := 0; lane < dist; lane++ {
+		value := lane*37 + 17
+
+		for sample := 0; sample < size/dist; sample++ {
+			data[sample*dist+lane] = byte(value)
+
+			if (sample*17+lane*13)%5 == 0 {
+				value++
+			}
+		}
+	}
+
+	ctx := map[string]any{"bsVersion": uint(7)}
+	codec, err := NewFSDCodecWithCtx(&ctx)
+
+	if err != nil {
+		t.Fatalf("create FSD codec: %v", err)
+	}
+
+	encoded := make([]byte, codec.MaxEncodedLen(size))
+	read, written, err := codec.Forward(data, encoded)
+
+	if err != nil {
+		t.Fatalf("FSD forward: %v", err)
+	}
+
+	if read != uint(size) || written != uint(size+2) {
+		t.Fatalf("unexpected FSD forward result: read=%d written=%d", read, written)
+	}
+
+	if encoded[1] != dist || encoded[0]&2 == 0 {
+		t.Fatalf("invalid bucketed FSD header: mode=%d distance=%d", encoded[0], encoded[1])
+	}
+
+	outputIndex := 2 + dist
+	tileLength := dist * bucketLength
+
+	for tileStart := 0; tileStart < size; tileStart += tileLength {
+		tileEnd := min(tileStart+tileLength, size)
+
+		for lane := 0; lane < dist; lane++ {
+			firstPos := tileStart + lane
+
+			if tileStart == 0 {
+				firstPos += dist
+			}
+
+			for pos := firstPos; pos < tileEnd; pos += dist {
+				var expected byte
+
+				if encoded[0]&1 == 0 {
+					residual := uint8(int32(data[pos]) - int32(data[pos-dist]))
+					zigzag := uint32(residual) << 1
+
+					if residual&0x80 != 0 {
+						zigzag = (uint32(256)-uint32(residual))<<1 - 1
+					}
+
+					expected = byte(zigzag)
+				} else {
+					expected = data[pos] ^ data[pos-dist]
+				}
+
+				if encoded[outputIndex] != expected {
+					t.Fatalf("bucketed FSD output order mismatch at %d", outputIndex)
+				}
+
+				outputIndex++
+			}
+		}
+	}
+
+	if outputIndex != int(written) {
+		t.Fatalf("bucketed FSD output length mismatch: got=%d want=%d", outputIndex, written)
+	}
+
+	decoded := make([]byte, size)
+	read, decodedSize, err := codec.Inverse(encoded[:int(written)], decoded)
+
+	if err != nil {
+		t.Fatalf("FSD inverse: %v", err)
+	}
+
+	if read != written || decodedSize != uint(size) || !bytes.Equal(data, decoded) {
+		t.Fatal("bucketed FSD round trip mismatch")
+	}
+}
+
+func TestFSDLegacyInverse(t *testing.T) {
+	encoded := []byte{0, 2, 10, 20, 2, 3, 0, 2}
+	expected := []byte{10, 20, 11, 18, 11, 19}
+	ctx := map[string]any{"bsVersion": uint(6)}
+	codec, err := NewFSDCodecWithCtx(&ctx)
+
+	if err != nil {
+		t.Fatalf("create FSD codec: %v", err)
+	}
+
+	decoded := make([]byte, len(expected))
+	read, written, err := codec.Inverse(encoded, decoded)
+
+	if err != nil {
+		t.Fatalf("FSD legacy inverse: %v", err)
+	}
+
+	if read != uint(len(encoded)) || written != uint(len(expected)) || !bytes.Equal(decoded, expected) {
+		t.Fatal("FSD legacy inverse mismatch")
+	}
+}
+
 func TestInverseMalformedInput(t *testing.T) {
 	tests := []struct {
 		name      string
