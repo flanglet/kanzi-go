@@ -226,6 +226,22 @@ func computeTextStats(block []byte, freqs0 []int, freqs1 *[256][256]int, strict 
 		prv = cur
 	}
 
+	// Reject simple alphabets before the text heuristic. Ignore line
+	// whitespace so wrapped DNA, Base64, and numeric data are detected too.
+	freqsSimple := make([]int, len(freqs0))
+	copy(freqsSimple, freqs0)
+	nbWhitespace := freqsSimple[' '] + freqsSimple['\t'] +
+		freqsSimple['\n'] + freqsSimple['\r']
+	simpleCount := count - nbWhitespace
+	freqsSimple[' '] = 0
+	freqsSimple['\t'] = 0
+	freqsSimple['\n'] = 0
+	freqsSimple['\r'] = 0
+
+	if simpleType := internal.DetectSimpleType(simpleCount, freqsSimple); simpleType != internal.DT_UNDEFINED {
+		return _TC_MASK_NOT_TEXT | byte(simpleType)
+	}
+
 	nbTextChars := int(freqs0[CR]) + int(freqs0[LF])
 	nbASCII := 0
 
@@ -1577,7 +1593,7 @@ func (this *textCodec2) emitSymbols(src, dst []byte) int {
 func emitWordIndex(dst []byte, wIdx int) int {
 	// 0x80 is reserved to first symbol case flip
 	if wIdx < _TC_V7_INDEX_BASE2 {
-		dst[0] = byte(0x80 | (wIdx + 1))
+		dst[0] = byte(0x81 + wIdx)
 		return 1
 	}
 
