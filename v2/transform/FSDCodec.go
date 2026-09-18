@@ -225,25 +225,7 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	var distances = []int{0, 1, 2, 3, 4, 8, 16}
 	dist := distances[minIdx]
-	largeDeltas := 0
-
-	// Detect best coding by sampling for large deltas
-	for i := 2 * count5; i < 3*count5; i++ {
-		delta := int32(src[i]) - int32(src[i-dist])
-
-		if uint32(delta+127) > 254 {
-			largeDeltas++
-		}
-	}
-
-	// Select xor coding if large signed deltas approach the rate expected for
-	// unrelated byte pairs. With modular delta coding, large signed deltas
-	// no longer cause expansion, so the old 3% threshold is too conservative.
 	coding := _FSD_DELTA_CODING
-
-	if largeDeltas > (count5 >> 2) {
-		coding = _FSD_XOR_CODING
-	}
 
 	// Keep triplet-correlated data interleaved since phase bucketing can
 	// disrupt downstream matches for this layout.
@@ -283,18 +265,14 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 				}
 
 				for pos := firstPos; pos < tileEnd; pos += dist {
-					if coding == _FSD_DELTA_CODING {
-						residual := uint8(int32(src[pos]) - int32(src[pos-dist]))
-						zigzag := uint32(residual) << 1
+					residual := uint8(int32(src[pos]) - int32(src[pos-dist]))
+					zigzag := uint32(residual) << 1
 
-						if residual&0x80 != 0 {
-							zigzag = (uint32(256)-uint32(residual))<<1 - 1
-						}
-
-						dst[dstIdx] = byte(zigzag)
-					} else {
-						dst[dstIdx] = src[pos] ^ src[pos-dist]
+					if residual&0x80 != 0 {
+						zigzag = (uint32(256)-uint32(residual))<<1 - 1
 					}
+
+					dst[dstIdx] = byte(zigzag)
 
 					dstIdx++
 				}
@@ -302,7 +280,7 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		srcIdx = count
-	} else if coding == _FSD_DELTA_CODING {
+	} else {
 		for srcIdx < count {
 			// Encode the delta modulo 256. The signed difference is not
 			// needed to reconstruct a byte, and all 256 residuals fit in
@@ -316,12 +294,6 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 			}
 
 			dst[dstIdx] = byte(zigzag)
-			srcIdx++
-			dstIdx++
-		}
-	} else { // coding == _FSD_XOR_CODING
-		for srcIdx < count {
-			dst[dstIdx] = src[srcIdx] ^ src[srcIdx-dist]
 			srcIdx++
 			dstIdx++
 		}
