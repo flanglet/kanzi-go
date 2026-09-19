@@ -367,30 +367,30 @@ func (this *FPAQDecoder) Read(block []byte) (int, error) {
 
 	// Split block into chunks, read bit array from bitstream and decode chunk
 	for startChunk < end {
+		chunkSize := min(_FPAQ_DEFAULT_CHUNK_SIZE, end-startChunk)
 		szBytes := int(ReadVarInt(this.bitstream))
 
-		if szBytes < 0 || szBytes >= 2*len(block) {
+		// A payload belongs to one chunk, not to the whole block. Besides
+		// preventing excessive allocations, this keeps the bit count below
+		// the range where 8*szBytes could overflow.
+		if szBytes < 0 || uint64(szBytes) > uint64(chunkSize)<<1 {
 			return 0, fmt.Errorf("FPAQ codec: Invalid chunk size (%v)", szBytes)
 		}
 
-		bufSize := max(int(szBytes+(szBytes>>2)), 1024)
-
-		if len(this.buffer) < bufSize {
-			this.buffer = make([]byte, bufSize)
+		if len(this.buffer) < szBytes {
+			this.buffer = make([]byte, szBytes)
 		}
 
 		this.current = this.bitstream.ReadBits(56)
 
-		// Ensure deterministic refill words past payload end without clearing the whole tail.
-		if szBytes < len(this.buffer) {
-			guardEnd := min(szBytes+8, len(this.buffer))
-			clear(this.buffer[szBytes:guardEnd])
+		// read() checks bufLimit before accessing the buffer, so no padding or
+		// clearing beyond the payload is necessary.
+		if szBytes != 0 {
+			this.bitstream.ReadArray(this.buffer, uint(8*szBytes))
 		}
 
-		this.bitstream.ReadArray(this.buffer, uint(8*szBytes))
 		this.bufLimit = szBytes
 		this.index = 0
-		chunkSize := min(_FPAQ_DEFAULT_CHUNK_SIZE, end-startChunk)
 		buf := block[startChunk : startChunk+chunkSize]
 
 		if this.isBsVersion3 == true {
