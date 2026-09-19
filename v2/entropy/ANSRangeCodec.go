@@ -29,11 +29,13 @@ import (
 // For an alternate C implementation example, see https://github.com/Cyan4973/FiniteStateEntropy
 
 const (
-	_ANS_TOP                 = 1 << 15 // max possible for ANS_TOP=1<23
-	_DEFAULT_ANS0_CHUNK_SIZE = 16384
-	_ANS_MIN_CHUNK_SIZE      = 1024
-	_ANS_MAX_CHUNK_SIZE      = 1 << 27 // 8*MAX_CHUNK_SIZE must not overflow
-	_DEFAULT_ANS_LOG_RANGE   = uint(12)
+	_ANS_TOP                   = 1 << 15 // max possible for ANS_TOP=1<23
+	_DEFAULT_ANS0_CHUNK_SIZE   = 16384
+	_ANS_MIN_CHUNK_SIZE        = 1024
+	_ANS_MAX_CHUNK_SIZE        = 1 << 27 // 8*MAX_CHUNK_SIZE must not overflow
+	_DEFAULT_ANS_LOG_RANGE     = uint(12)
+	_ANS_DECODE_CHECK_INTERVAL = 128
+	_ANS_PAYLOAD_GUARD         = 2*_ANS_DECODE_CHECK_INTERVAL + 2
 )
 
 // ANSRangeEncoder Asymmetric Numeral System Encoder
@@ -895,22 +897,21 @@ func (this *ANSRangeDecoder) decodeChunkV2(block []byte) bool {
 
 	size := min(this.chunkSize, len(block))
 	extra := max(size>>3, min(size, 1<<16))
-	minBufSize := size + extra + 2 // protect against corrupted bitstream
+	minBufSize := size + extra + _ANS_PAYLOAD_GUARD
 
-	// Add some padding
 	if len(this.buffer) < minBufSize {
 		this.buffer = make([]byte, minBufSize)
 	}
 
-	// Read compressed data
-	this.bitstream.ReadArray(this.buffer, uint(8*sz))
+	szBytes := int(sz)
 
-	// Ensure deterministic renormalization reads past payload end without clearing
-	// the entire reusable buffer.
-	if szBytes := int(sz); szBytes < len(this.buffer) {
-		guardEnd := min(szBytes+64, len(this.buffer))
-		clear(this.buffer[szBytes:guardEnd])
+	if szBytes > len(this.buffer)-_ANS_PAYLOAD_GUARD {
+		return false
 	}
+
+	// Read compressed data
+	this.bitstream.ReadArray(this.buffer[:szBytes], uint(8*sz))
+	clear(this.buffer[szBytes : szBytes+_ANS_PAYLOAD_GUARD])
 
 	n := 0
 	lr := this.logRange
@@ -921,51 +922,73 @@ func (this *ANSRangeDecoder) decodeChunkV2(block []byte) bool {
 		freq2sym := this.f2s[0 : mask+1]
 		symb := this.symbols[0:256]
 
-		for i := 0; i < end4; i += 4 {
-			cur3 := freq2sym[st3&mask]
-			block[i] = cur3
-			n, st3 = this.decodeSymbol(n, st3, symb[cur3], mask)
-			cur2 := freq2sym[st2&mask]
-			block[i+1] = cur2
-			n, st2 = this.decodeSymbol(n, st2, symb[cur2], mask)
-			cur1 := freq2sym[st1&mask]
-			block[i+2] = cur1
-			n, st1 = this.decodeSymbol(n, st1, symb[cur1], mask)
-			cur0 := freq2sym[st0&mask]
-			block[i+3] = cur0
-			n, st0 = this.decodeSymbol(n, st0, symb[cur0], mask)
+		for batch := 0; batch < end4; batch += _ANS_DECODE_CHECK_INTERVAL {
+			endBatch := min(batch+_ANS_DECODE_CHECK_INTERVAL, end4)
+
+			for i := batch; i < endBatch; i += 4 {
+				cur3 := freq2sym[st3&mask]
+				block[i] = cur3
+				n, st3 = this.decodeSymbol(n, st3, symb[cur3], mask)
+				cur2 := freq2sym[st2&mask]
+				block[i+1] = cur2
+				n, st2 = this.decodeSymbol(n, st2, symb[cur2], mask)
+				cur1 := freq2sym[st1&mask]
+				block[i+2] = cur1
+				n, st1 = this.decodeSymbol(n, st1, symb[cur1], mask)
+				cur0 := freq2sym[st0&mask]
+				block[i+3] = cur0
+				n, st0 = this.decodeSymbol(n, st0, symb[cur0], mask)
+			}
+
+			if n > szBytes {
+				return false
+			}
 		}
 	} else { // order 1
 		quarter := end4 >> 2
 		i0, i1, i2, i3 := 0, 1*quarter, 2*quarter, 3*quarter
 		prv0, prv1, prv2, prv3 := 0, 0, 0, 0
 
-		for i0 < quarter {
-			symbols3 := this.symbols[prv3<<8 : (prv3<<8)+256]
-			symbols2 := this.symbols[prv2<<8 : (prv2<<8)+256]
-			symbols1 := this.symbols[prv1<<8 : (prv1<<8)+256]
-			symbols0 := this.symbols[prv0<<8 : (prv0<<8)+256]
-			cur3 := this.f2s[(prv3<<this.logRange)+(st3&mask)]
-			block[i3] = cur3
-			n, st3 = this.decodeSymbol(n, st3, symbols3[cur3], mask)
-			cur2 := this.f2s[(prv2<<this.logRange)+(st2&mask)]
-			block[i2] = cur2
-			n, st2 = this.decodeSymbol(n, st2, symbols2[cur2], mask)
-			cur1 := this.f2s[(prv1<<this.logRange)+(st1&mask)]
-			block[i1] = cur1
-			n, st1 = this.decodeSymbol(n, st1, symbols1[cur1], mask)
-			cur0 := this.f2s[(prv0<<this.logRange)+(st0&mask)]
-			block[i0] = cur0
-			n, st0 = this.decodeSymbol(n, st0, symbols0[cur0], mask)
-			prv3 = int(cur3)
-			prv2 = int(cur2)
-			prv1 = int(cur1)
-			prv0 = int(cur0)
-			i0++
-			i1++
-			i2++
-			i3++
+		for batch := 0; batch < quarter; batch += _ANS_DECODE_CHECK_INTERVAL >> 2 {
+			endBatch := min(batch+(_ANS_DECODE_CHECK_INTERVAL>>2), quarter)
+
+			for i0 < endBatch {
+				symbols3 := this.symbols[prv3<<8 : (prv3<<8)+256]
+				symbols2 := this.symbols[prv2<<8 : (prv2<<8)+256]
+				symbols1 := this.symbols[prv1<<8 : (prv1<<8)+256]
+				symbols0 := this.symbols[prv0<<8 : (prv0<<8)+256]
+				cur3 := this.f2s[(prv3<<this.logRange)+(st3&mask)]
+				block[i3] = cur3
+				n, st3 = this.decodeSymbol(n, st3, symbols3[cur3], mask)
+				cur2 := this.f2s[(prv2<<this.logRange)+(st2&mask)]
+				block[i2] = cur2
+				n, st2 = this.decodeSymbol(n, st2, symbols2[cur2], mask)
+				cur1 := this.f2s[(prv1<<this.logRange)+(st1&mask)]
+				block[i1] = cur1
+				n, st1 = this.decodeSymbol(n, st1, symbols1[cur1], mask)
+				cur0 := this.f2s[(prv0<<this.logRange)+(st0&mask)]
+				block[i0] = cur0
+				n, st0 = this.decodeSymbol(n, st0, symbols0[cur0], mask)
+				prv3 = int(cur3)
+				prv2 = int(cur2)
+				prv1 = int(cur1)
+				prv0 = int(cur0)
+				i0++
+				i1++
+				i2++
+				i3++
+			}
+
+			if n > szBytes {
+				return false
+			}
 		}
+	}
+
+	tail := len(block) - end4
+
+	if szBytes-n < tail {
+		return false
 	}
 
 	for i := end4; i < len(block); i++ {
@@ -973,7 +996,7 @@ func (this *ANSRangeDecoder) decodeChunkV2(block []byte) bool {
 		n++
 	}
 
-	return n == int(sz)
+	return n == szBytes
 }
 
 // BitStream returns the underlying bitstream
