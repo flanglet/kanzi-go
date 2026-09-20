@@ -16,6 +16,7 @@ limitations under the License.
 package transform
 
 import (
+	"container/heap"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -232,14 +233,23 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 			}
 		}
 
-		// Sort by decreasing order 1 frequencies
-		slices.SortStableFunc(symb[0:n1], func(sd1, sd2 sdAlias) int {
-			if r := sd2.freq - sd1.freq; r != 0 {
-				return r
+		// Keep only the n0 most frequent digrams, in decreasing order.
+		if n0 < n1 {
+			top := aliasHeap(symb[:n0])
+			heap.Init(&top)
+
+			for i := n0; i < n1; i++ {
+				candidate := symb[i]
+				if isAliasBetter(candidate, top[0]) {
+					top[0] = candidate
+					heap.Fix(&top, 0)
+				}
 			}
 
-			return sd2.val - sd1.val
-		})
+			slices.SortStableFunc(top, compareAliases)
+		} else {
+			slices.SortStableFunc(symb[:n1], compareAliases)
+		}
 
 		var map16 [65536]int16
 
@@ -294,6 +304,49 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	return uint(srcIdx), uint(dstIdx), nil
+}
+
+type aliasHeap []sdAlias
+
+func (h aliasHeap) Len() int {
+	return len(h)
+}
+
+func (h aliasHeap) Less(i, j int) bool {
+	if h[i].freq != h[j].freq {
+		return h[i].freq < h[j].freq
+	}
+
+	return h[i].val < h[j].val
+}
+
+func (h aliasHeap) Swap(i, j int) {
+	h[i], h[j] = h[j], h[i]
+}
+
+func (h *aliasHeap) Push(value any) {
+	*h = append(*h, value.(sdAlias))
+}
+
+func (h *aliasHeap) Pop() any {
+	old := *h
+	n := len(old)
+	value := old[n-1]
+	*h = old[:n-1]
+	return value
+}
+
+func isAliasBetter(candidate, current sdAlias) bool {
+	return candidate.freq > current.freq ||
+		(candidate.freq == current.freq && candidate.val > current.val)
+}
+
+func compareAliases(sd1, sd2 sdAlias) int {
+	if r := sd2.freq - sd1.freq; r != 0 {
+		return r
+	}
+
+	return sd2.val - sd1.val
 }
 
 // Inverse applies the reverse function to the src and writes the result
