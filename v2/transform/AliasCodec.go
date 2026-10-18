@@ -26,9 +26,7 @@ import (
 )
 
 const (
-	_ALIAS_MIN_BLOCKSIZE       = 1024
-	_ALIAS_ENTROPY_SAMPLE_SIZE = 64 * 1024
-	_ALIAS_ENTROPY1_MAX        = 352 // 2.75 bits per byte or less
+	_ALIAS_MIN_BLOCKSIZE = 1024
 )
 
 type sdAlias struct {
@@ -40,55 +38,6 @@ type sdAlias struct {
 type AliasCodec struct {
 	ctx     *map[string]any
 	onlyDNA bool
-}
-
-func isHighlyPredictable(src []byte, sourceLength int) bool {
-	sampleSize := min(sourceLength, _ALIAS_ENTROPY_SAMPLE_SIZE)
-	lastOffset := sourceLength - sampleSize
-	offsets := [3]int{0, lastOffset / 2, lastOffset}
-	previousOffset := -1
-	histo := make([]int, 256*256)
-
-	for _, offset := range offsets {
-		if offset == previousOffset {
-			continue
-		}
-
-		previousOffset = offset
-		clear(histo)
-		internal.ComputeHistogram(src[offset:offset+sampleSize], histo, false, false)
-		var sum uint64
-
-		for prev := 0; prev < 256; prev++ {
-			base := prev * 256
-			total := 0
-
-			for cur := 0; cur < 256; cur++ {
-				total += histo[base+cur]
-			}
-
-			if total == 0 {
-				continue
-			}
-
-			logTotal, _ := internal.Log2ScaledBy1024(uint32(total))
-
-			for cur := 0; cur < 256; cur++ {
-				freq := histo[base+cur]
-
-				if freq != 0 {
-					logFreq, _ := internal.Log2ScaledBy1024(uint32(freq))
-					sum += (uint64(freq) * uint64(logTotal-logFreq)) >> 3
-				}
-			}
-		}
-
-		if int(sum/uint64(sampleSize)) <= _ALIAS_ENTROPY1_MAX {
-			return true
-		}
-	}
-
-	return false
 }
 
 // NewAliasCodec creates a new instance of AliasCodec
@@ -352,14 +301,6 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	if dstIdx >= count {
 		return 0, 0, errors.New("Alias Codec: forward transform skip, not enough savings")
-	}
-
-	if (dt != internal.DT_DNA) && (n0 >= 240) && (n0 < 252) && isHighlyPredictable(src, count) {
-		if this.ctx != nil {
-			(*this.ctx)["dataType"] = internal.DT_UNDEFINED
-		}
-
-		return 0, 0, errors.New("Alias Codec: forward transform skip, highly predictable data")
 	}
 
 	return uint(srcIdx), uint(dstIdx), nil
