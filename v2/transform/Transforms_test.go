@@ -23,6 +23,7 @@ import (
 	"time"
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
+	internal "github.com/flanglet/kanzi-go/v2/internal"
 )
 
 // transformTestCase holds data for a single test case for testTransformCorrectness.
@@ -117,6 +118,70 @@ func TestMTFT(t *testing.T)      { testTransformCorrectness("MTFT", t) }
 func TestEXECodec(t *testing.T)  { testTransformCorrectness("EXE", t) }
 func TestTextCodec(t *testing.T) { testTransformCorrectness("TEXT", t) }
 func TestUTFCodec(t *testing.T)  { testTransformCorrectness("UTF", t) }
+
+func TestAliasApplicability(t *testing.T) {
+	const size = 65536
+	repetitiveSymbols := []byte{'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'i', '\n'}
+	repetitive := make([]byte, size)
+
+	for i := range repetitive {
+		repetitive[i] = repetitiveSymbols[i%len(repetitiveSymbols)]
+	}
+
+	repetitiveCtx := map[string]any{"bsVersion": uint(7)}
+	repetitiveCodec, _ := NewAliasCodecWithCtx(&repetitiveCtx)
+	repetitiveEncoded := make([]byte, repetitiveCodec.MaxEncodedLen(size))
+	read, written, err := repetitiveCodec.Forward(repetitive, repetitiveEncoded)
+
+	if err == nil || read != 0 || written != 0 {
+		t.Fatal("Alias should skip highly predictable non-DNA data")
+	}
+
+	if repetitiveCtx["dataType"] != internal.DT_UNDEFINED {
+		t.Fatalf("expected data type reset after skip, got %v", repetitiveCtx["dataType"])
+	}
+
+	varied := make([]byte, size)
+	state := uint32(1)
+
+	for i := range varied {
+		state = state*1664525 + 1013904223
+		varied[i] = repetitiveSymbols[(state>>16)%uint32(len(repetitiveSymbols))]
+	}
+
+	variedCtx := map[string]any{"bsVersion": uint(7)}
+	variedCodec, _ := NewAliasCodecWithCtx(&variedCtx)
+	variedEncoded := make([]byte, variedCodec.MaxEncodedLen(size))
+	read, written, err = variedCodec.Forward(varied, variedEncoded)
+
+	if err != nil || read != size || written >= size {
+		t.Fatalf("Alias should keep useful small-alphabet packing: read=%d written=%d err=%v", read, written, err)
+	}
+
+	dnaSymbols := []byte("ACGTN")
+	dna := make([]byte, size)
+
+	for i := range dna {
+		dna[i] = dnaSymbols[i%len(dnaSymbols)]
+	}
+
+	dnaCtx := map[string]any{"bsVersion": uint(7)}
+	dnaCodec, _ := NewAliasCodecWithCtx(&dnaCtx)
+	dnaEncoded := make([]byte, dnaCodec.MaxEncodedLen(size))
+	read, written, err = dnaCodec.Forward(dna, dnaEncoded)
+
+	if err != nil || read != size || written >= size {
+		t.Fatalf("Alias should keep DNA packing: read=%d written=%d err=%v", read, written, err)
+	}
+
+	encodedSize := written
+	decoded := make([]byte, size)
+	read, written, err = dnaCodec.Inverse(dnaEncoded[:encodedSize], decoded)
+
+	if err != nil || read != encodedSize || written != size || !bytes.Equal(dna, decoded) {
+		t.Fatalf("Alias DNA round trip failed: read=%d written=%d err=%v", read, written, err)
+	}
+}
 
 func TestFSDBucketedRoundTrip(t *testing.T) {
 	const dist = 4
