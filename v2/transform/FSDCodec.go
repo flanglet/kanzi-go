@@ -315,7 +315,7 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	var err error
 
-	if entropy := internal.ComputeFirstOrderEntropy1024(count5, histo[0][:]); entropy >= ent[0] {
+	if entropy := internal.ComputeFirstOrderEntropy1024(count5, histo[0][:]); entropy*100 >= ent[0]*99 {
 		err = errors.New("FSD forward transform skip: no improvement")
 	}
 
