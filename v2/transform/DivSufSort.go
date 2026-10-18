@@ -15,6 +15,8 @@ limitations under the License.
 
 package transform
 
+import "bytes"
+
 const (
 	_SS_INSERTIONSORT_THRESHOLD = int32(16)
 	_SS_BLOCKSIZE               = int32(8192)
@@ -205,6 +207,17 @@ func (this *DivSufSort) constructBWT(bucketA, bucketB []int32, n, m int32, index
 		step++
 	}
 
+	powerOfTwo := step&(step-1) == 0
+	shift := int32(0)
+
+	if powerOfTwo {
+		for int32(1)<<shift < step {
+			shift++
+		}
+	}
+
+	mask := step - 1
+
 	if m > 0 {
 		for c1 := 254; c1 >= 0; c1-- {
 			idx := c1 << 8
@@ -224,7 +237,11 @@ func (this *DivSufSort) constructBWT(bucketA, bucketB []int32, n, m int32, index
 					continue
 				}
 
-				if s%step == 0 {
+				if powerOfTwo {
+					if s&mask == 0 {
+						indexes[s>>shift] = uint(j + 1)
+					}
+				} else if s%step == 0 {
 					indexes[s/step] = uint(j + 1)
 				}
 
@@ -255,7 +272,11 @@ func (this *DivSufSort) constructBWT(bucketA, bucketB []int32, n, m int32, index
 	k := bucketA[c2]
 
 	if this.buffer[n-2] < c2 {
-		if (n-1)%step == 0 {
+		if powerOfTwo {
+			if (n-1)&mask == 0 {
+				indexes[(n-1)>>shift] = uint(n)
+			}
+		} else if (n-1)%step == 0 {
 			indexes[(n-1)/step] = uint(n)
 		}
 
@@ -280,7 +301,11 @@ func (this *DivSufSort) constructBWT(bucketA, bucketB []int32, n, m int32, index
 			continue
 		}
 
-		if (s % step) == 0 {
+		if powerOfTwo {
+			if s&mask == 0 {
+				indexes[s>>shift] = uint(i + 1)
+			}
+		} else if s%step == 0 {
 			indexes[s/step] = uint(i + 1)
 		}
 
@@ -295,7 +320,11 @@ func (this *DivSufSort) constructBWT(bucketA, bucketB []int32, n, m int32, index
 		}
 
 		if s > 0 && this.buffer[s-1] < c0 {
-			if (s % step) == 0 {
+			if powerOfTwo {
+				if s&mask == 0 {
+					indexes[s>>shift] = uint(k + 1)
+				}
+			} else if s%step == 0 {
 				indexes[s/step] = uint(k + 1)
 			}
 
@@ -607,70 +636,46 @@ func (this *DivSufSort) ssSort(pa, first, last, buf, bufSize, depth, n int32, la
 }
 
 func (this *DivSufSort) ssCompare4(pa, pb, p2, depth int32) int {
-	u1n := pb + 2
-	u1 := pa + depth
-	u2n := this.sa[p2+1] + 2
-	u2 := this.sa[p2] + depth
+	return this.compareBytes(pa+depth, pb+2, this.sa[p2]+depth, this.sa[p2+1]+2)
+}
 
-	if u1n-u1 > u2n-u2 {
-		for u2 < u2n && this.buffer[u1] == this.buffer[u2] {
-			u1++
-			u2++
-		}
-	} else {
-		for u1 < u1n && this.buffer[u1] == this.buffer[u2] {
-			u1++
-			u2++
+func (this *DivSufSort) compareBytes(p1, end1, p2, end2 int32) int {
+	len1 := end1 - p1
+	len2 := end2 - p2
+	common := len1
+
+	if len2 < common {
+		common = len2
+	}
+
+	if common >= 16 {
+		return bytes.Compare(this.buffer[p1:end1], this.buffer[p2:end2])
+	}
+
+	for i := int32(0); i < common; i++ {
+		if this.buffer[p1+i] != this.buffer[p2+i] {
+			if this.buffer[p1+i] < this.buffer[p2+i] {
+				return -1
+			}
+
+			return 1
 		}
 	}
 
-	if u1 < u1n {
-		if u2 < u2n {
-			return int(this.buffer[u1]) - int(this.buffer[u2])
-		}
-
-		return 1
-	}
-
-	if u2 < u2n {
+	if len1 < len2 {
 		return -1
+	}
+
+	if len1 > len2 {
+		return 1
 	}
 
 	return 0
 }
 
 func (this *DivSufSort) ssCompare3(p1, p2, depth int32) int {
-	u1n := this.sa[p1+1] + 2
-	u1 := this.sa[p1] + depth
-	u2n := this.sa[p2+1] + 2
-	u2 := this.sa[p2] + depth
-	buf := this.buffer
-
-	if u1n-u1 > u2n-u2 {
-		for u2 < u2n && buf[u1] == buf[u2] {
-			u1++
-			u2++
-		}
-	} else {
-		for u1 < u1n && buf[u1] == buf[u2] {
-			u1++
-			u2++
-		}
-	}
-
-	if u1 < u1n {
-		if u2 < u2n {
-			return int(buf[u1]) - int(buf[u2])
-		}
-
-		return 1
-	}
-
-	if u2 < u2n {
-		return -1
-	}
-
-	return 0
+	return this.compareBytes(this.sa[p1]+depth, this.sa[p1+1]+2,
+		this.sa[p2]+depth, this.sa[p2+1]+2)
 }
 
 func (this *DivSufSort) ssInplaceMerge(pa, first, middle, last, depth int32) {
