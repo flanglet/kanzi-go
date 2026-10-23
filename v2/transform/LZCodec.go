@@ -87,6 +87,9 @@ func NewLZCodecWithCtx(ctx *map[string]any) (*LZCodec, error) {
 			if lzType == LZP_TYPE {
 				d, err = NewLZPCodecWithCtx(ctx)
 				this.delegate = d
+			} else if lzType == LZF_TYPE {
+				d, err = NewLZFCodecWithCtx(ctx)
+				this.delegate = d
 			}
 		}
 	}
@@ -237,11 +240,15 @@ func emitLiteralsLZ(src, dst []byte) {
 }
 
 func (this *LZXCodec) hash(p []byte) uint32 {
+	return this.hashWord(binary.LittleEndian.Uint64(p))
+}
+
+func (this *LZXCodec) hashWord(value uint64) uint32 {
 	if this.extra == true {
-		return uint32(((binary.LittleEndian.Uint64(p) << _LZX_HASH_LSHIFT2) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT2)
+		return uint32(((value << _LZX_HASH_LSHIFT2) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT2)
 	}
 
-	return uint32(((binary.LittleEndian.Uint64(p) << _LZX_HASH_LSHIFT1) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT1)
+	return uint32(((value << _LZX_HASH_LSHIFT1) * _LZX_HASH_SEED) >> _LZX_HASH_RSHIFT1)
 }
 
 // Forward applies the function to the src and writes the result
@@ -342,22 +349,24 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	for srcIdx < srcEnd {
 		bestLen := 0
-		h0 := this.hash(src[srcIdx:])
+		word0 := binary.LittleEndian.Uint64(src[srcIdx:])
+		word1 := word0 >> 8
+		word2 := word1 >> 8
+		h0 := this.hashWord(word0)
 		ref0 := int(this.hashes[h0])
 		this.hashes[h0] = int32(srcIdx)
-		p := binary.LittleEndian.Uint64(src[srcIdx:])
 		srcIdx1 := srcIdx + 1
 		maxMatch := min(srcEnd-srcIdx1, _LZX_MAX_MATCH)
 		ref := srcIdx1 - repd[repdIdx]
 		minRef := max(srcIdx-maxDist, 0)
 
 		// Check repd first
-		if ref > minRef && uint32(p>>8) == binary.LittleEndian.Uint32(src[ref:]) {
+		if ref > minRef && uint32(word1) == binary.LittleEndian.Uint32(src[ref:]) {
 			bestLen = findMatchLZX(src, srcIdx1, ref, maxMatch)
 		} else {
 			ref = srcIdx1 - repd[repdIdx^1]
 
-			if ref > minRef && uint32(p>>8) == binary.LittleEndian.Uint32(src[ref:]) {
+			if ref > minRef && uint32(word1) == binary.LittleEndian.Uint32(src[ref:]) {
 				bestLen = findMatchLZX(src, srcIdx1, ref, maxMatch)
 			}
 		}
@@ -365,7 +374,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		if bestLen < minMatch {
 			ref = ref0
 
-			if ref > minRef && uint32(p) == binary.LittleEndian.Uint32(src[ref:]) {
+			if ref > minRef && uint32(word0) == binary.LittleEndian.Uint32(src[ref:]) {
 				if bestLen = findMatchLZX(src, srcIdx, ref, min(srcEnd-srcIdx, _LZX_MAX_MATCH)); bestLen >= minMatch {
 					goto checkNext
 				}
@@ -379,7 +388,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		checkNext:
 			if ref != srcIdx-repd[0] && ref != srcIdx-repd[1] {
 				// Check if better match at next position
-				h1 := this.hash(src[srcIdx1:])
+				h1 := this.hashWord(word1)
 				ref1 := int(this.hashes[h1])
 				this.hashes[h1] = int32(srcIdx1)
 
@@ -397,7 +406,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 				if this.extra == true {
 					// Check if better match at position+2
 					srcIdx2 := srcIdx1 + 1
-					h2 := this.hash(src[srcIdx2:])
+					h2 := this.hashWord(word2)
 					ref2 := int(this.hashes[h2])
 					this.hashes[h2] = int32(srcIdx2)
 
@@ -416,7 +425,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 			}
 
 			// Extend backwards
-			for (srcIdx > anchor) && (ref > minRef) && (src[srcIdx-1] == src[ref-1]) {
+			for (srcIdx > anchor) && (ref > 0) && (src[srcIdx-1] == src[ref-1]) {
 				bestLen++
 				ref--
 				srcIdx--
@@ -433,7 +442,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 				ref--
 			} else {
 				srcIdx++
-				h1 := this.hash(src[srcIdx:])
+				h1 := this.hashWord(word1)
 				this.hashes[h1] = int32(srcIdx)
 			}
 		}
@@ -551,10 +560,9 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 			hashIdx += 8
 		}
 
-		for hashIdx < anchor {
-			this.hashes[this.hash(src[hashIdx:])] = int32(hashIdx)
-			hashIdx++
-		}
+		this.hashes[this.hash(src[anchor-4:])] = int32(anchor - 4)
+		this.hashes[this.hash(src[anchor-2:])] = int32(anchor - 2)
+		this.hashes[this.hash(src[anchor-1:])] = int32(anchor - 1)
 
 		srcIdx = anchor
 	}
@@ -619,6 +627,14 @@ func findMatchLZX(src []byte, srcIdx, ref, maxMatch int) int {
 func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	// The versioned decoders rely on the caller-provided trailing input
 	// padding for readLengthLZ() lookahead and direct distance reads.
+	if len(src) == 0 || len(dst) == 0 {
+		return 0, 0, nil
+	}
+
+	if len(src) < 13 {
+		return 0, 0, errors.New("LZCodec inverse transform failed: invalid data")
+	}
+
 	if this.bsVersion < 6 {
 		return this.inverseV4(src, dst)
 	}
@@ -631,15 +647,7 @@ func (this *LZXCodec) Inverse(src, dst []byte) (uint, uint, error) {
 }
 
 func (this *LZXCodec) inverseV7(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 || len(dst) == 0 {
-		return 0, 0, nil
-	}
-
 	count := len(src)
-
-	if count < 13 {
-		return 0, 0, errors.New("LZCodec inverse transform failed: invalid data")
-	}
 
 	if (cap(src) < _LZ_READ_LENGTH_GUARD) || (count > cap(src)-_LZ_READ_LENGTH_GUARD) {
 		return 0, 0, errors.New("LZCodec inverse transform failed: input buffer has no guard bytes")
@@ -683,7 +691,6 @@ func (this *LZXCodec) inverseV7(src, dst []byte) (uint, uint, error) {
 	dstIdx := 0
 	repd0 := count
 	repd1 := count
-	distShift := [4]uint{0, 24, 16, 8}
 	distBias := [4]uint32{0, 1, 257, 65793}
 
 	for {
@@ -737,7 +744,7 @@ func (this *LZXCodec) inverseV7(src, dst []byte) (uint, uint, error) {
 
 			width := (token >> 3) & 3
 			value := binary.BigEndian.Uint32(src[mIdx:])
-			dist = int((value >> distShift[width]) + distBias[width])
+			dist = int((value >> uint(32-(token&0x18))) + distBias[width])
 			mIdx += width
 		}
 
@@ -814,15 +821,7 @@ func (this *LZXCodec) inverseV7(src, dst []byte) (uint, uint, error) {
 }
 
 func (this *LZXCodec) inverseV6(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 || len(dst) == 0 {
-		return 0, 0, nil
-	}
-
 	count := len(src)
-
-	if count < 13 {
-		return 0, 0, errors.New("LZCodec inverse transform failed: invalid data")
-	}
 
 	if (cap(src) < _LZ_READ_LENGTH_GUARD) || (count > cap(src)-_LZ_READ_LENGTH_GUARD) {
 		return 0, 0, errors.New("LZCodec inverse transform failed: input buffer has no guard bytes")
@@ -1003,15 +1002,7 @@ func (this *LZXCodec) inverseV6(src, dst []byte) (uint, uint, error) {
 }
 
 func (this *LZXCodec) inverseV4(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 || len(dst) == 0 {
-		return 0, 0, nil
-	}
-
 	count := len(src)
-
-	if count < 13 {
-		return 0, 0, errors.New("LZCodec inverse transform failed: invalid data")
-	}
 
 	if (cap(src) < _LZ_READ_LENGTH_GUARD) || (count > cap(src)-_LZ_READ_LENGTH_GUARD) {
 		return 0, 0, errors.New("LZCodec inverse transform failed: input buffer has no guard bytes")

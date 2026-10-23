@@ -48,7 +48,7 @@ const (
 	UTF_TYPE    = uint64(17) // UTF codec
 	PACK_TYPE   = uint64(18) // Alias Codec
 	DNA_TYPE    = uint64(19) // DNA Alias Codec
-	RESERVED3   = uint64(20) // Reserved
+	LZF_TYPE    = uint64(20) // Lempel Ziv Fast
 	RESERVED4   = uint64(21) // Reserved
 	RESERVED5   = uint64(22) // Reserved
 )
@@ -141,6 +141,10 @@ func newToken(ctx *map[string]any, functionType uint64) (kanzi.ByteTransform, er
 
 	case LZP_TYPE:
 		(*ctx)["lz"] = LZP_TYPE
+		return NewLZCodecWithCtx(ctx)
+
+	case LZF_TYPE:
+		(*ctx)["lz"] = LZF_TYPE
 		return NewLZCodecWithCtx(ctx)
 
 	case UTF_TYPE:
@@ -245,6 +249,9 @@ func getByteFunctionNameToken(functionType uint64) (string, error) {
 
 	case LZP_TYPE:
 		return "LZP", nil
+
+	case LZF_TYPE:
+		return "LZF", nil
 
 	case UTF_TYPE:
 		return "UTF", nil
@@ -355,6 +362,9 @@ func getByteFunctionTypeToken(name string) (uint64, error) {
 
 	case "LZP":
 		return LZP_TYPE, nil
+
+	case "LZF":
+		return LZF_TYPE, nil
 
 	case "UTF":
 		return UTF_TYPE, nil

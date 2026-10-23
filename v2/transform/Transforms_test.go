@@ -55,6 +55,10 @@ func getTransform(name string) (kanzi.ByteTransform, error) {
 		ctx["lz"] = LZX_TYPE
 		res, err := NewLZCodecWithCtx(&ctx)
 		return res, err
+	case "LZF":
+		ctx["lz"] = LZF_TYPE
+		res, err := NewLZCodecWithCtx(&ctx)
+		return res, err
 	case "LZP":
 		ctx["lz"] = LZP_TYPE
 		res, err := NewLZCodecWithCtx(&ctx)
@@ -104,6 +108,7 @@ func getTransform(name string) (kanzi.ByteTransform, error) {
 func TestLZ(t *testing.T)        { testTransformCorrectness("LZ", t) }
 func TestLZX(t *testing.T)       { testTransformCorrectness("LZX", t) }
 func TestLZP(t *testing.T)       { testTransformCorrectness("LZP", t) }
+func TestLZF(t *testing.T)       { testLZFRoundTrip(t) }
 func TestROLZ(t *testing.T)      { testTransformCorrectness("ROLZ", t) }
 func TestROLZX(t *testing.T)     { testTransformCorrectness("ROLZX", t) }
 func TestCopy(t *testing.T)      { testTransformCorrectness("NONE", t) }
@@ -653,6 +658,8 @@ func testTransformCorrectness(transformName string, t *testing.T) {
 				// LZ/LZX inverse uses a fixed-width 16-byte match copy and
 				// requires trailing destination padding.
 				reverseBuf = make([]byte, size+16)
+			} else if size > 0 && transformName == "LZF" {
+				reverseBuf = make([]byte, size+15)
 			}
 
 			for i := range output {
@@ -812,6 +819,8 @@ func runSpecificTransformTest(t *testing.T, tc specificTransformTestCase) {
 		// LZ/LZX inverse uses a fixed-width 16-byte match copy and
 		// requires trailing destination padding.
 		reverseBuf = make([]byte, size+16)
+	} else if size > 0 && tc.transformID == "LZF" {
+		reverseBuf = make([]byte, size+15)
 	}
 
 	if testing.Verbose() {
@@ -903,7 +912,7 @@ func runSpecificTransformTest(t *testing.T, tc specificTransformTestCase) {
 
 // TestLZCodecSpecifics provides targeted tests for LZ, LZX, and LZP codecs.
 func TestLZCodecSpecifics(t *testing.T) {
-	lzTransforms := []string{"LZ", "LZX", "LZP"}
+	lzTransforms := []string{"LZ", "LZX", "LZP", "LZF"}
 
 	baseTestCases := []struct {
 		name        string
@@ -991,6 +1000,115 @@ func TestLZCodecSpecifics(t *testing.T) {
 			}
 		})
 	}
+}
+
+func testLZFRoundTrip(t *testing.T) {
+	t.Helper()
+
+	input := bytes.Repeat([]byte("LZF raw codec round trip: "), 128)
+	forward, err := getTransform("LZF")
+
+	if err != nil {
+		t.Fatalf("create LZF transform: %v", err)
+	}
+
+	encoded := make([]byte, forward.MaxEncodedLen(len(input)))
+	read, written, err := forward.Forward(input, encoded)
+
+	if err != nil {
+		t.Fatalf("forward LZF: %v", err)
+	}
+
+	if read != uint(len(input)) || written == 0 {
+		t.Fatalf("unexpected LZF forward counts: read=%d written=%d", read, written)
+	}
+
+	inverse, err := getTransform("LZF")
+
+	if err != nil {
+		t.Fatalf("create inverse LZF transform: %v", err)
+	}
+
+	decoded := make([]byte, len(input)+15)
+	_, decodedSize, err := inverse.Inverse(encoded[:written], decoded)
+
+	if err != nil {
+		t.Fatalf("inverse LZF: %v", err)
+	}
+
+	if decodedSize != uint(len(input)) || !bytes.Equal(input, decoded[:len(input)]) {
+		t.Fatalf("LZF round trip mismatch: decoded=%d", decodedSize)
+	}
+
+	transformType, err := GetType("LZF")
+
+	if err != nil {
+		t.Fatalf("parse LZF transform label: %v", err)
+	}
+
+	name, err := GetName(transformType)
+
+	if err != nil || name != "LZF" {
+		t.Fatalf("LZF transform label mismatch: name=%q err=%v", name, err)
+	}
+
+	ctx := make(map[string]any)
+	if _, err = New(&ctx, transformType); err != nil {
+		t.Fatalf("create LZF transform from type: %v", err)
+	}
+}
+
+func TestLZFDecoderValidation(t *testing.T) {
+	codec, err := NewLZFCodec()
+	if err != nil {
+		t.Fatalf("create LZF codec: %v", err)
+	}
+
+	validPayload := append([]byte{39}, bytes.Repeat([]byte{0x5A}, 24)...)
+	valid := makeLZFTestStream(24, 0x08, validPayload)
+	badFlags := append([]byte(nil), valid...)
+	badFlags[4] |= 0x20
+	shortLiterals := makeLZFTestStream(24, 0x08, append([]byte{39}, bytes.Repeat([]byte{0x5A}, 23)...))
+	badDistance := makeLZFTestStream(24, 0x08, []byte{0})
+
+	cases := []struct {
+		name   string
+		stream []byte
+		valid  bool
+	}{
+		{name: "final literal run", stream: valid, valid: true},
+		{name: "reserved flags", stream: badFlags},
+		{name: "truncated final literals", stream: shortLiterals},
+		{name: "repeat before distance", stream: badDistance},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			guarded := make([]byte, len(tc.stream)+_LZF_READ_LENGTH_GUARD)
+			copy(guarded, tc.stream)
+			dst := make([]byte, 24+15)
+			_, decoded, decodeErr := codec.Inverse(guarded[:len(tc.stream)], dst)
+
+			if tc.valid {
+				if decodeErr != nil || decoded != 24 || !bytes.Equal(dst[:24], bytes.Repeat([]byte{0x5A}, 24)) {
+					t.Fatalf("valid literal block rejected: decoded=%d err=%v", decoded, decodeErr)
+				}
+			} else if decodeErr == nil {
+				t.Fatal("malformed block accepted")
+			}
+		})
+	}
+}
+
+func makeLZFTestStream(size int, flags byte, payload []byte) []byte {
+	stream := make([]byte, 5+len(payload))
+	stream[0] = byte(size)
+	stream[1] = byte(size >> 8)
+	stream[2] = byte(size >> 16)
+	stream[3] = byte(size >> 24)
+	stream[4] = flags
+	copy(stream[5:], payload)
+	return stream
 }
 
 // TestLZXDestinationPadding verifies the destination-buffer contract of the
