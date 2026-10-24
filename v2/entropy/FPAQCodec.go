@@ -97,24 +97,37 @@ func NewFPAQEncoderWithCtx(bs kanzi.OutputBitStream, ctx *map[string]any) (*FPAQ
 	return this, nil
 }
 
-func (this *FPAQEncoder) encodeBit(bit byte, p *int) {
+func (this *FPAQEncoder) encodeBit(bit byte, p *int, low, high *uint64, index *int) {
 	// Calculate interval split
 	// Written in a way to maximize accuracy of multiplication/division
-	split := (((this.high - this.low) >> 8) * uint64(*p)) >> 8
+	split := (((*high - *low) >> 8) * uint64(*p)) >> 8
 
 	// Update probabilities
 	if bit == 0 {
-		this.low += (split + 1)
+		*low += (split + 1)
 		*p -= (*p >> 6)
 	} else {
-		this.high = this.low + split
+		*high = *low + split
 		*p -= ((*p - _FPAQ_PSCALE + 64) >> 6)
 	}
 
 	// Write unchanged first 32 bits to bitstream
-	if (this.low ^ this.high) < (1 << 24) {
-		this.flush()
+	if (*low ^ *high) < (1 << 24) {
+		this.flushLocal(low, high, index)
 	}
+}
+
+func (this *FPAQEncoder) flushLocal(low, high *uint64, index *int) {
+	if *index+4 > len(this.buffer) {
+		newBuf := make([]byte, *index+4)
+		copy(newBuf, this.buffer)
+		this.buffer = newBuf
+	}
+
+	binary.BigEndian.PutUint32(this.buffer[*index:], uint32(*high>>24))
+	*index += 4
+	*low <<= 32
+	*high = (*high << 32) | _FPAQ_MASK_0_32
 }
 
 // Write encodes the data provided into the bitstream. Return the number of byte
@@ -141,25 +154,30 @@ func (this *FPAQEncoder) Write(block []byte) (int, error) {
 	for startChunk < end {
 		chunkSize := min(_FPAQ_DEFAULT_CHUNK_SIZE, end-startChunk)
 
-		this.index = 0
+		index := 0
 		buf := block[startChunk : startChunk+chunkSize]
 		p := this.probs[0]
+		low := this.low
+		high := this.high
 
 		for _, val := range buf {
 			bits := int(val) + 256
-			this.encodeBit(val&0x80, &p[1])
-			this.encodeBit(val&0x40, &p[bits>>7])
-			this.encodeBit(val&0x20, &p[bits>>6])
-			this.encodeBit(val&0x10, &p[bits>>5])
-			this.encodeBit(val&0x08, &p[bits>>4])
-			this.encodeBit(val&0x04, &p[bits>>3])
-			this.encodeBit(val&0x02, &p[bits>>2])
-			this.encodeBit(val&0x01, &p[bits>>1])
+			this.encodeBit(val&0x80, &p[1], &low, &high, &index)
+			this.encodeBit(val&0x40, &p[bits>>7], &low, &high, &index)
+			this.encodeBit(val&0x20, &p[bits>>6], &low, &high, &index)
+			this.encodeBit(val&0x10, &p[bits>>5], &low, &high, &index)
+			this.encodeBit(val&0x08, &p[bits>>4], &low, &high, &index)
+			this.encodeBit(val&0x04, &p[bits>>3], &low, &high, &index)
+			this.encodeBit(val&0x02, &p[bits>>2], &low, &high, &index)
+			this.encodeBit(val&0x01, &p[bits>>1], &low, &high, &index)
 			p = this.probs[val>>6]
 		}
 
-		WriteVarInt(this.bitstream, uint32(this.index))
-		this.bitstream.WriteArray(this.buffer, uint(8*this.index))
+		this.low = low
+		this.high = high
+		this.index = index
+		WriteVarInt(this.bitstream, uint32(index))
+		this.bitstream.WriteArray(this.buffer, uint(8*index))
 		startChunk += chunkSize
 
 		if startChunk < end {
@@ -311,30 +329,38 @@ func (this *FPAQDecoder) decodeBitV1(pred int) byte {
 	return bit
 }
 
-func (this *FPAQDecoder) decodeBitV2(p []int) byte {
+func decodeFPAQBitV2(low, high, current *uint64, p []int, ctx *byte, index *int, buf []byte, limit int) {
 	// Calculate interval split
-	split := ((((this.high - this.low) >> 8) * uint64(p[this.ctx])) >> 8) + this.low
-	var bit byte
-
+	split := ((((*high - *low) >> 8) * uint64(p[*ctx])) >> 8) + *low
 	// Update probabilities
-	if split >= this.current {
-		bit = 1
-		this.high = split
-		p[this.ctx] -= ((p[this.ctx] - _FPAQ_PSCALE + 64) >> 6)
-		this.ctx += (this.ctx + 1)
+	if split >= *current {
+		*high = split
+		p[*ctx] -= ((p[*ctx] - _FPAQ_PSCALE + 64) >> 6)
+		*ctx += (*ctx + 1)
 	} else {
-		bit = 0
-		this.low = -^split
-		p[this.ctx] -= (p[this.ctx] >> 6)
-		this.ctx += this.ctx
+		*low = -^split
+		p[*ctx] -= (p[*ctx] >> 6)
+		*ctx += *ctx
 	}
 
-	// Read 32 bits from bitstream
-	if (this.low ^ this.high) < (1 << 24) {
-		this.read()
+	// Renormalize the local range state after each bit.
+	if (*low ^ *high) < (1 << 24) {
+		renormalizeFPAQDecoder(low, high, current, index, buf, limit)
 	}
+}
 
-	return bit
+func renormalizeFPAQDecoder(low, high, current *uint64, index *int, buf []byte, limit int) {
+	*low = (*low << 32) & _FPAQ_MASK_0_56
+	*high = ((*high << 32) | _FPAQ_MASK_0_32) & _FPAQ_MASK_0_56
+	*current = (*current << 32) & _FPAQ_MASK_0_56
+
+	if *index+4 > limit {
+		*index = limit + 1
+	} else {
+		val := uint64(binary.BigEndian.Uint32(buf[*index:]))
+		*current |= val
+		*index += 4
+	}
 }
 
 func (this *FPAQDecoder) read() {
@@ -416,25 +442,44 @@ func (this *FPAQDecoder) Read(block []byte) (int, error) {
 			}
 		} else {
 			p := this.probs[0]
+			low := this.low
+			high := this.high
+			current := this.current
+			index := 0
+			ctx := byte(1)
+			payload := this.buffer[:szBytes]
 
 			for i := range buf {
-				this.ctx = 1
-				this.decodeBitV2(p)
-				this.decodeBitV2(p)
-				this.decodeBitV2(p)
-				this.decodeBitV2(p)
-				this.decodeBitV2(p)
-				this.decodeBitV2(p)
-				this.decodeBitV2(p)
-				this.decodeBitV2(p)
-				buf[i] = byte(this.ctx)
+				ctx = 1
+				decodeFPAQBitV2(&low, &high, &current, p, &ctx, &index, payload, szBytes)
+				decodeFPAQBitV2(&low, &high, &current, p, &ctx, &index, payload, szBytes)
+				decodeFPAQBitV2(&low, &high, &current, p, &ctx, &index, payload, szBytes)
+				decodeFPAQBitV2(&low, &high, &current, p, &ctx, &index, payload, szBytes)
+				decodeFPAQBitV2(&low, &high, &current, p, &ctx, &index, payload, szBytes)
+				decodeFPAQBitV2(&low, &high, &current, p, &ctx, &index, payload, szBytes)
+				decodeFPAQBitV2(&low, &high, &current, p, &ctx, &index, payload, szBytes)
+				decodeFPAQBitV2(&low, &high, &current, p, &ctx, &index, payload, szBytes)
+				buf[i] = ctx
 
-				if this.index > szBytes {
+				if index > szBytes {
+					this.low = low
+					this.high = high
+					this.current = current
+					this.index = index
+					this.ctx = ctx
+					this.p = p
 					return 0, fmt.Errorf("FPAQ codec: Invalid bitstream")
 				}
 
-				p = this.probs[(this.ctx&0xFF)>>6]
+				p = this.probs[(ctx&0xFF)>>6]
 			}
+
+			this.low = low
+			this.high = high
+			this.current = current
+			this.index = index
+			this.ctx = ctx
+			this.p = p
 		}
 
 		if this.index > szBytes {

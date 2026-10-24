@@ -481,6 +481,7 @@ type ANSRangeDecoder struct {
 	freqs     []int
 	symbols   []decSymbol
 	f2s       []byte // mapping frequency -> symbol
+	packed    []uint32
 	buffer    []byte
 	chunkSize int
 	logRange  uint
@@ -620,6 +621,11 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies, alphabet []int) (int, err
 	res := 0
 	dim := int(255*this.order + 1)
 	scale := 1 << this.logRange
+	packed := this.order == 0 && this.logRange == 12
+
+	if packed && len(this.packed) < scale {
+		this.packed = make([]uint32, scale)
+	}
 
 	if len(this.f2s) < dim*scale {
 		this.f2s = make([]byte, dim*scale)
@@ -706,8 +712,13 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies, alphabet []int) (int, err
 
 		f[alphabet[0]] = scale - sum
 		sum = 0
-		symb := this.symbols[k<<8 : (k+1)<<8]
-		freq2sym := this.f2s[k<<this.logRange : (k+1)<<this.logRange]
+		var symb []decSymbol
+		var freq2sym []byte
+
+		if packed == false {
+			symb = this.symbols[k<<8 : (k+1)<<8]
+			freq2sym = this.f2s[k<<this.logRange : (k+1)<<this.logRange]
+		}
 
 		// Create reverse mapping
 		for i := range f {
@@ -715,11 +726,23 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies, alphabet []int) (int, err
 				continue
 			}
 
-			for j := f[i] - 1; j >= 0; j-- {
-				freq2sym[sum+j] = byte(i)
+			if packed {
+				// Each 12-bit slot stores symbol[8], frequency[12], and
+				// slot - cumulative frequency[12], replacing two decode lookups.
+				freq := min(f[i], scale-1)
+				entry := uint32(i)<<24 | uint32(freq)<<12
+
+				for j := 0; j < f[i]; j++ {
+					this.packed[sum+j] = entry | uint32(j)
+				}
+			} else {
+				for j := f[i] - 1; j >= 0; j-- {
+					freq2sym[sum+j] = byte(i)
+				}
+
+				symb[i].reset(sum, f[i], this.logRange)
 			}
 
-			symb[i].reset(sum, f[i], this.logRange)
 			sum += f[i]
 		}
 
@@ -877,6 +900,39 @@ func (this *ANSRangeDecoder) decodeSymbol(n int, st int, sym decSymbol, mask int
 	return n, st
 }
 
+func (this *ANSRangeDecoder) decodeSymbolUnbranched(n int, st int, sym decSymbol, mask int) (int, int) {
+	// Compute next ANS state
+	// D(x) = (s, q_s (x/M) + mod(x,M) - b_s) where s is such b_s <= x mod M < b_{s+1}
+	st = sym.freq*(st>>this.logRange) + (st & mask) - sym.cumFreq
+
+	// Speculatively read two guarded bytes and select them only when needed.
+	x := -1
+	if st >= _ANS_TOP {
+		x = 0
+	}
+	bytes := (int(this.buffer[n]) << 8) | int(this.buffer[n+1])
+	st = (st << uint(x&16)) | (x & bytes)
+	n -= x + x
+
+	return n, st
+}
+
+func (this *ANSRangeDecoder) decodeSymbolPacked(n int, st int, entry uint32) (int, int) {
+	freq := int((entry >> 12) & 4095)
+	offset := int(entry & 4095)
+	st = freq*(st>>12) + offset
+
+	x := -1
+	if st >= _ANS_TOP {
+		x = 0
+	}
+	bytes := (int(this.buffer[n]) << 8) | int(this.buffer[n+1])
+	st = (st << uint(x&16)) | (x & bytes)
+	n -= x + x
+
+	return n, st
+}
+
 func (this *ANSRangeDecoder) decodeChunkV2(block []byte) bool {
 	// Read chunk size
 	sz := ReadVarInt(this.bitstream)
@@ -919,29 +975,56 @@ func (this *ANSRangeDecoder) decodeChunkV2(block []byte) bool {
 	end4 := len(block) & -4
 
 	if this.order == 0 {
-		freq2sym := this.f2s[0 : mask+1]
-		symb := this.symbols[0:256]
+		if lr == 12 {
+			packed := this.packed
 
-		for batch := 0; batch < end4; batch += _ANS_DECODE_CHECK_INTERVAL {
-			endBatch := min(batch+_ANS_DECODE_CHECK_INTERVAL, end4)
+			for batch := 0; batch < end4; batch += _ANS_DECODE_CHECK_INTERVAL {
+				endBatch := min(batch+_ANS_DECODE_CHECK_INTERVAL, end4)
 
-			for i := batch; i < endBatch; i += 4 {
-				cur3 := freq2sym[st3&mask]
-				block[i] = cur3
-				n, st3 = this.decodeSymbol(n, st3, symb[cur3], mask)
-				cur2 := freq2sym[st2&mask]
-				block[i+1] = cur2
-				n, st2 = this.decodeSymbol(n, st2, symb[cur2], mask)
-				cur1 := freq2sym[st1&mask]
-				block[i+2] = cur1
-				n, st1 = this.decodeSymbol(n, st1, symb[cur1], mask)
-				cur0 := freq2sym[st0&mask]
-				block[i+3] = cur0
-				n, st0 = this.decodeSymbol(n, st0, symb[cur0], mask)
+				for i := batch; i < endBatch; i += 4 {
+					entry3 := packed[st3&mask]
+					block[i] = byte(entry3 >> 24)
+					n, st3 = this.decodeSymbolPacked(n, st3, entry3)
+					entry2 := packed[st2&mask]
+					block[i+1] = byte(entry2 >> 24)
+					n, st2 = this.decodeSymbolPacked(n, st2, entry2)
+					entry1 := packed[st1&mask]
+					block[i+2] = byte(entry1 >> 24)
+					n, st1 = this.decodeSymbolPacked(n, st1, entry1)
+					entry0 := packed[st0&mask]
+					block[i+3] = byte(entry0 >> 24)
+					n, st0 = this.decodeSymbolPacked(n, st0, entry0)
+				}
+
+				if n > szBytes {
+					return false
+				}
 			}
+		} else {
+			freq2sym := this.f2s[0 : mask+1]
+			symb := this.symbols[0:256]
 
-			if n > szBytes {
-				return false
+			for batch := 0; batch < end4; batch += _ANS_DECODE_CHECK_INTERVAL {
+				endBatch := min(batch+_ANS_DECODE_CHECK_INTERVAL, end4)
+
+				for i := batch; i < endBatch; i += 4 {
+					cur3 := freq2sym[st3&mask]
+					block[i] = cur3
+					n, st3 = this.decodeSymbolUnbranched(n, st3, symb[cur3], mask)
+					cur2 := freq2sym[st2&mask]
+					block[i+1] = cur2
+					n, st2 = this.decodeSymbolUnbranched(n, st2, symb[cur2], mask)
+					cur1 := freq2sym[st1&mask]
+					block[i+2] = cur1
+					n, st1 = this.decodeSymbolUnbranched(n, st1, symb[cur1], mask)
+					cur0 := freq2sym[st0&mask]
+					block[i+3] = cur0
+					n, st0 = this.decodeSymbolUnbranched(n, st0, symb[cur0], mask)
+				}
+
+				if n > szBytes {
+					return false
+				}
 			}
 		}
 	} else { // order 1

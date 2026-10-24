@@ -71,6 +71,10 @@ func (this *LZPXCodec) Forward(src, dst []byte) (uint, uint, error) {
 	srcIdx := 0
 
 	for srcIdx < count {
+		if count-dstIdx < _LZPX_MIN_CHUNK_SIZE {
+			return 0, 0, errors.New("LZPX forward transform skip: output buffer too small")
+		}
+
 		size := count - srcIdx
 
 		if size > _LZPX_CHUNK_SIZE {
@@ -90,6 +94,8 @@ func (this *LZPXCodec) Forward(src, dst []byte) (uint, uint, error) {
 			freqs[v]++
 		}
 
+		// Keep at least MIN_ABSENT_CODES absent values: one for the end marker
+		// and the rest for match lengths. Dense alphabets need smaller chunks.
 		if alphabet > 256-_LZPX_MIN_ABSENT_CODES {
 			clear(freqs[:])
 			alphabet = 0
@@ -105,10 +111,6 @@ func (this *LZPXCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 				freqs[v]++
 			}
-		}
-
-		if count-dstIdx < _LZPX_MIN_CHUNK_SIZE {
-			return 0, 0, errors.New("LZPX forward transform skip: output buffer too small")
 		}
 
 		bitmapIdx := dstIdx
@@ -130,15 +132,13 @@ func (this *LZPXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		maxMatch := minMatch + nbCodes - 2
 
 		if srcIdx == 0 {
-			for srcIdx < 4 {
-				if dstIdx >= count {
-					return 0, 0, errors.New("LZPX forward transform skip: output buffer too small")
-				}
-
-				dst[dstIdx] = src[srcIdx]
-				dstIdx++
-				srcIdx++
+			if count-dstIdx < 4 {
+				return 0, 0, errors.New("LZPX forward transform skip: output buffer too small")
 			}
+
+			copy(dst[dstIdx:dstIdx+4], src[srcIdx:srcIdx+4])
+			dstIdx += 4
+			srcIdx += 4
 		}
 
 		for srcIdx < end {
