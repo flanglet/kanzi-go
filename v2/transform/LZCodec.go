@@ -87,6 +87,9 @@ func NewLZCodecWithCtx(ctx *map[string]any) (*LZCodec, error) {
 			if lzType == LZP_TYPE {
 				d, err = NewLZPCodecWithCtx(ctx)
 				this.delegate = d
+			} else if lzType == LZPX_TYPE {
+				d, err = NewLZPXCodec()
+				this.delegate = d
 			} else if lzType == LZF_TYPE {
 				d, err = NewLZFCodecWithCtx(ctx)
 				this.delegate = d
