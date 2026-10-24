@@ -28,6 +28,8 @@ import (
 const (
 	_HUF_MIN_CHUNK_SIZE     = 1024
 	_HUF_MAX_CHUNK_SIZE     = 1 << 14
+	_HUF_ORDER1_CHUNK_SHIFT = 5
+	_HUF_ORDER1_CONTEXTS    = 256
 	_HUF_MAX_SYMBOL_SIZE_V4 = 12
 	_HUF_DECODING_MASK_V4   = (1 << _HUF_MAX_SYMBOL_SIZE_V4) - 1
 )
@@ -105,10 +107,13 @@ func generateCanonicalCodes(sizes []byte, codes []uint16, symbols []int, maxSymb
 // HuffmanEncoder  Implementation of a static Huffman encoder.
 // Uses in place generation of canonical codes instead of a tree
 type HuffmanEncoder struct {
-	bitstream kanzi.OutputBitStream
-	codes     [256]uint16
-	buffer    []byte
-	chunkSize int
+	bitstream   kanzi.OutputBitStream
+	codes       [256]uint16
+	buffer      []byte
+	freqs       []int
+	codesOrder1 []uint16
+	chunkSize   int
+	order       int
 }
 
 // NewHuffmanEncoder creates an instance of HuffmanEncoder.
@@ -116,8 +121,19 @@ type HuffmanEncoder struct {
 // NewHuffmanEncoder(bs) or NewHuffmanEncoder(bs, 16384) (the second argument
 // being the chunk size)
 func NewHuffmanEncoder(bs kanzi.OutputBitStream, args ...int) (*HuffmanEncoder, error) {
+	return NewHuffmanEncoderWithOrder(bs, 0, args...)
+}
+
+// NewHuffmanEncoderWithOrder creates a Huffman encoder for the requested order.
+// The optional chunk size is the order-0 base size and is multiplied by 32 for
+// order 1.
+func NewHuffmanEncoderWithOrder(bs kanzi.OutputBitStream, order int, args ...int) (*HuffmanEncoder, error) {
 	if bs == nil {
 		return nil, errors.New("Huffman codec: Invalid null bitstream parameter")
+	}
+
+	if order != 0 && order != 1 {
+		return nil, errors.New("Huffman codec: The order must be 0 or 1")
 	}
 
 	if len(args) > 1 {
@@ -140,7 +156,8 @@ func NewHuffmanEncoder(bs kanzi.OutputBitStream, args ...int) (*HuffmanEncoder, 
 
 	this := &HuffmanEncoder{}
 	this.bitstream = bs
-	this.chunkSize = chkSize
+	this.chunkSize = chkSize << (order * _HUF_ORDER1_CHUNK_SHIFT)
+	this.order = order
 
 	// Default frequencies, sizes and codes
 	for i := range &this.codes {
@@ -422,6 +439,10 @@ func (this *HuffmanEncoder) Write(block []byte) (int, error) {
 		return 0, nil
 	}
 
+	if this.order == 1 {
+		return this.writeOrder1(block)
+	}
+
 	end := len(block)
 	startChunk := 0
 	minBufLen := min(this.chunkSize+(this.chunkSize>>3), 2*len(block))
@@ -450,6 +471,127 @@ func (this *HuffmanEncoder) Write(block []byte) (int, error) {
 			if count > 1 {
 				this.encodeChunk(block[startChunk:], sizeChunk)
 			}
+		}
+
+		startChunk += sizeChunk
+	}
+
+	return len(block), nil
+}
+
+// writeOrder1 encodes four independent fragments using the preceding byte as context.
+func (this *HuffmanEncoder) writeOrder1(block []byte) (int, error) {
+	if this.freqs == nil {
+		this.freqs = make([]int, _HUF_ORDER1_CONTEXTS*256)
+	}
+
+	if this.codesOrder1 == nil {
+		this.codesOrder1 = make([]uint16, _HUF_ORDER1_CONTEXTS*256)
+	}
+
+	for startChunk := 0; startChunk < len(block); {
+		sizeChunk := min(this.chunkSize, len(block)-startChunk)
+		src := block[startChunk : startChunk+sizeChunk]
+
+		if sizeChunk < 32 {
+			this.bitstream.WriteArray(src, uint(8*sizeChunk))
+			startChunk += sizeChunk
+			continue
+		}
+
+		clear(this.freqs)
+		internal.ComputeHistogram(src, this.freqs, false, false)
+		fragSize := sizeChunk / 4
+
+		for ctx := 0; ctx < _HUF_ORDER1_CONTEXTS; ctx++ {
+			base := ctx << 8
+
+			if _, err := this.updateFrequencies(this.freqs[base : base+256]); err != nil {
+				return startChunk, err
+			}
+
+			copy(this.codesOrder1[base:base+256], this.codes[:])
+		}
+
+		// At most twelve bits per symbol, plus padding and an eight-byte refill guard.
+		stride := ((fragSize*_HUF_MAX_SYMBOL_SIZE_V4 + 7) >> 3) + 1
+		minBufSize := 4*stride + 8
+
+		if len(this.buffer) < minBufSize {
+			this.buffer = make([]byte, minBufSize)
+		}
+
+		var nbBits [4]uint32
+
+		for j := 0; j < 4; j++ {
+			prev := 0
+
+			if j != 0 {
+				prev = int(src[j*fragSize-1])
+			}
+
+			state := uint64(0)
+			bits := 0
+			pos := j * stride
+			fragStart := j * fragSize
+			fragEnd := fragStart + fragSize
+			end4 := fragStart + (fragSize & ^3)
+
+			for i := fragStart; i < end4; i += 4 {
+				code0 := this.codesOrder1[(prev<<8)|int(src[i])]
+				codeLen0 := int(code0 >> 12)
+				prev = int(src[i])
+				code1 := this.codesOrder1[(prev<<8)|int(src[i+1])]
+				codeLen1 := int(code1 >> 12)
+				prev = int(src[i+1])
+				code2 := this.codesOrder1[(prev<<8)|int(src[i+2])]
+				codeLen2 := int(code2 >> 12)
+				prev = int(src[i+2])
+				code3 := this.codesOrder1[(prev<<8)|int(src[i+3])]
+				codeLen3 := int(code3 >> 12)
+				prev = int(src[i+3])
+
+				pack01 := (uint32(code0&0x0FFF) << uint(codeLen1)) | uint32(code1&0x0FFF)
+				pack23 := (uint32(code2&0x0FFF) << uint(codeLen3)) | uint32(code3&0x0FFF)
+				state = (state << uint(codeLen0+codeLen1)) | uint64(pack01)
+				state = (state << uint(codeLen2+codeLen3)) | uint64(pack23)
+				bits += codeLen0 + codeLen1 + codeLen2 + codeLen3
+				binary.BigEndian.PutUint64(this.buffer[pos:pos+8], state<<uint(64-bits))
+				pos += bits >> 3
+				bits &= 7
+			}
+
+			for i := end4; i < fragEnd; i++ {
+				code := this.codesOrder1[(prev<<8)|int(src[i])]
+				codeLen := int(code >> 12)
+				state = (state << uint(codeLen)) | uint64(code&0x0FFF)
+				bits += codeLen
+				prev = int(src[i])
+			}
+
+			nbBits[j] = uint32((pos-j*stride)*8 + bits)
+
+			for bits >= 8 {
+				bits -= 8
+				this.buffer[pos] = byte(state >> uint(bits))
+				pos++
+			}
+
+			if bits != 0 {
+				this.buffer[pos] = byte(state << uint(8-bits))
+			}
+		}
+
+		for j := 0; j < 4; j++ {
+			WriteVarInt(this.bitstream, nbBits[j])
+		}
+
+		for j := 0; j < 4; j++ {
+			this.bitstream.WriteArray(this.buffer[j*stride:], uint(nbBits[j]))
+		}
+
+		for i := 4 * fragSize; i < sizeChunk; i++ {
+			this.bitstream.WriteBits(uint64(src[i]), 8)
 		}
 
 		startChunk += sizeChunk
@@ -554,7 +696,9 @@ type HuffmanDecoder struct {
 	sizes         [256]byte
 	buffer        []byte
 	table         []uint16 // decoding table: code -> size, symbol
+	tablesOrder1  []uint16
 	chunkSize     int
+	order         int
 	bsVersion     uint
 	maxSymbolSize int
 }
@@ -564,8 +708,23 @@ type HuffmanDecoder struct {
 // NewHuffmanDecoder(bs) or NewHuffmanDecoder(bs, 16384) (the second argument
 // being the chunk size)
 func NewHuffmanDecoder(bs kanzi.InputBitStream, args ...int) (*HuffmanDecoder, error) {
+	return NewHuffmanDecoderWithCtxAndOrder(bs, nil, 0, args...)
+}
+
+// NewHuffmanDecoderWithOrder creates a Huffman decoder for the requested order.
+// The optional chunk size is the order-0 base size and is multiplied by 32 for
+// order 1.
+func NewHuffmanDecoderWithOrder(bs kanzi.InputBitStream, order int, args ...int) (*HuffmanDecoder, error) {
+	return NewHuffmanDecoderWithCtxAndOrder(bs, nil, order, args...)
+}
+
+func newHuffmanDecoder(bs kanzi.InputBitStream, ctx *map[string]any, order int, args ...int) (*HuffmanDecoder, error) {
 	if bs == nil {
 		return nil, errors.New("Huffman codec: Invalid null bitstream parameter")
+	}
+
+	if order != 0 && order != 1 {
+		return nil, errors.New("Huffman codec: The order must be 0 or 1")
 	}
 
 	if len(args) > 1 {
@@ -586,30 +745,6 @@ func NewHuffmanDecoder(bs kanzi.InputBitStream, args ...int) (*HuffmanDecoder, e
 		}
 	}
 
-	this := &HuffmanDecoder{}
-	this.bitstream = bs
-	this.bsVersion = 6
-	this.maxSymbolSize = _HUF_MAX_SYMBOL_SIZE_V4
-	this.table = make([]uint16, 1<<this.maxSymbolSize)
-	this.chunkSize = chkSize
-	this.buffer = make([]byte, 0)
-
-	// Default lengths & canonical codes
-	for i := 0; i < 256; i++ {
-		this.sizes[i] = 8
-		this.codes[i] = uint16(i)
-	}
-
-	return this, nil
-}
-
-// NewHuffmanDecoderWithCtx creates an instance of HuffmanDecoder providing a
-// context map.
-func NewHuffmanDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]any) (*HuffmanDecoder, error) {
-	if bs == nil {
-		return nil, errors.New("Huffman codec: Invalid null bitstream parameter")
-	}
-
 	bsVersion := uint(6)
 
 	if ctx != nil {
@@ -623,14 +758,15 @@ func NewHuffmanDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]any) (*Hu
 		}
 	}
 
-	this := &HuffmanDecoder{}
-	this.bitstream = bs
-	this.bsVersion = bsVersion
-	this.maxSymbolSize = _HUF_MAX_SYMBOL_SIZE_V4
-
-	this.table = make([]uint16, 1<<this.maxSymbolSize)
-	this.chunkSize = _HUF_MAX_CHUNK_SIZE
-	this.buffer = make([]byte, 0)
+	this := &HuffmanDecoder{
+		bitstream:     bs,
+		bsVersion:     bsVersion,
+		maxSymbolSize: _HUF_MAX_SYMBOL_SIZE_V4,
+		table:         make([]uint16, 1<<_HUF_MAX_SYMBOL_SIZE_V4),
+		chunkSize:     chkSize << (order * _HUF_ORDER1_CHUNK_SHIFT),
+		order:         order,
+		buffer:        make([]byte, 0),
+	}
 
 	// Default lengths & canonical codes
 	for i := 0; i < 256; i++ {
@@ -639,6 +775,19 @@ func NewHuffmanDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]any) (*Hu
 	}
 
 	return this, nil
+}
+
+// NewHuffmanDecoderWithCtx creates an instance of HuffmanDecoder providing a
+// context map.
+func NewHuffmanDecoderWithCtx(bs kanzi.InputBitStream, ctx *map[string]any) (*HuffmanDecoder, error) {
+	return newHuffmanDecoder(bs, ctx, 0)
+}
+
+// NewHuffmanDecoderWithCtxAndOrder creates a Huffman decoder with a context map
+// and the requested order.
+func NewHuffmanDecoderWithCtxAndOrder(bs kanzi.InputBitStream, ctx *map[string]any,
+	order int, args ...int) (*HuffmanDecoder, error) {
+	return newHuffmanDecoder(bs, ctx, order, args...)
 }
 
 // readLengths decodes the code lengths from the bitstream and generates
@@ -733,6 +882,10 @@ func (this *HuffmanDecoder) Read(block []byte) (int, error) {
 		return 0, nil
 	}
 
+	if this.order == 1 {
+		return this.decodeOrder1(block)
+	}
+
 	if this.bsVersion < 6 {
 		return this.decodeV5(block)
 	}
@@ -822,6 +975,177 @@ func (this *HuffmanDecoder) decodeV6(block []byte) (int, error) {
 					return startChunk, err
 				}
 			}
+		}
+
+		startChunk += sizeChunk
+	}
+
+	return len(block), nil
+}
+
+func (this *HuffmanDecoder) decodeOrder1(block []byte) (int, error) {
+	if this.tablesOrder1 == nil {
+		this.tablesOrder1 = make([]uint16, _HUF_ORDER1_CONTEXTS*(1<<_HUF_MAX_SYMBOL_SIZE_V4))
+	}
+
+	for startChunk := 0; startChunk < len(block); {
+		sizeChunk := min(this.chunkSize, len(block)-startChunk)
+		dst := block[startChunk : startChunk+sizeChunk]
+
+		if sizeChunk < 32 {
+			this.bitstream.ReadArray(dst, uint(8*sizeChunk))
+			startChunk += sizeChunk
+			continue
+		}
+
+		clear(this.tablesOrder1)
+
+		for ctx := 0; ctx < _HUF_ORDER1_CONTEXTS; ctx++ {
+			count, err := this.readLengths()
+
+			if err != nil {
+				return startChunk, err
+			}
+
+			table := this.tablesOrder1[ctx<<_HUF_MAX_SYMBOL_SIZE_V4 : (ctx+1)<<_HUF_MAX_SYMBOL_SIZE_V4]
+
+			for i := 0; i < count; i++ {
+				sym := this.alphabet[i]
+				length := int(this.sizes[sym])
+				begin := int(this.codes[sym]) << (_HUF_MAX_SYMBOL_SIZE_V4 - length)
+				end := begin + (1 << (_HUF_MAX_SYMBOL_SIZE_V4 - length))
+
+				if end > 1<<_HUF_MAX_SYMBOL_SIZE_V4 {
+					return startChunk, errors.New("Invalid bitstream: incorrect Huffman symbol size")
+				}
+
+				val := uint16((sym << 8) | length)
+
+				for k := begin; k < end; k++ {
+					if table[k] != 0 {
+						return startChunk, errors.New("Invalid bitstream: duplicate Huffman code")
+					}
+
+					table[k] = val
+				}
+			}
+		}
+
+		fragSize := sizeChunk / 4
+		var nbBits [4]uint32
+
+		for j := 0; j < 4; j++ {
+			nbBits[j] = ReadVarInt(this.bitstream)
+
+			if nbBits[j] < uint32(fragSize) || uint64(nbBits[j]) > uint64(fragSize)*_HUF_MAX_SYMBOL_SIZE_V4 {
+				return startChunk, errors.New("Invalid bitstream: incorrect Huffman stream size")
+			}
+		}
+
+		minBufSize := ((fragSize*_HUF_MAX_SYMBOL_SIZE_V4 + 7) >> 3) + 8
+
+		if len(this.buffer) < minBufSize {
+			this.buffer = make([]byte, minBufSize)
+		}
+
+		for j := 0; j < 4; j++ {
+			payloadBytes := int((nbBits[j] + 7) >> 3)
+			this.bitstream.ReadArray(this.buffer, uint(nbBits[j]))
+			clear(this.buffer[payloadBytes : payloadBytes+8])
+
+			consumed := uint32(0)
+			idx := 0
+			state := uint64(0)
+			bits := uint8(0)
+			prev := 0
+
+			if j != 0 {
+				prev = int(dst[j*fragSize-1])
+			}
+
+			fragStart := j * fragSize
+			fragEnd := fragStart + fragSize
+			i := fragStart
+
+			for i < fragEnd-4 {
+				bs := this.readState(&state, &idx, &bits)
+				val0 := this.tablesOrder1[(prev<<_HUF_MAX_SYMBOL_SIZE_V4)|int((state>>bs)&_HUF_DECODING_MASK_V4)]
+				len0 := uint32(val0 & 255)
+
+				if len0 == 0 || consumed+len0 > nbBits[j] {
+					return startChunk, errors.New("Invalid bitstream: invalid Huffman context")
+				}
+
+				bs -= uint8(len0)
+				prev = int(val0 >> 8)
+				dst[i] = byte(prev)
+				i++
+
+				val1 := this.tablesOrder1[(prev<<_HUF_MAX_SYMBOL_SIZE_V4)|int((state>>bs)&_HUF_DECODING_MASK_V4)]
+				len1 := uint32(val1 & 255)
+
+				if len1 == 0 || consumed+len0+len1 > nbBits[j] {
+					return startChunk, errors.New("Invalid bitstream: invalid Huffman context")
+				}
+
+				bs -= uint8(len1)
+				prev = int(val1 >> 8)
+				dst[i] = byte(prev)
+				i++
+
+				val2 := this.tablesOrder1[(prev<<_HUF_MAX_SYMBOL_SIZE_V4)|int((state>>bs)&_HUF_DECODING_MASK_V4)]
+				len2 := uint32(val2 & 255)
+
+				if len2 == 0 || consumed+len0+len1+len2 > nbBits[j] {
+					return startChunk, errors.New("Invalid bitstream: invalid Huffman context")
+				}
+
+				bs -= uint8(len2)
+				prev = int(val2 >> 8)
+				dst[i] = byte(prev)
+				i++
+
+				val3 := this.tablesOrder1[(prev<<_HUF_MAX_SYMBOL_SIZE_V4)|int((state>>bs)&_HUF_DECODING_MASK_V4)]
+				len3 := uint32(val3 & 255)
+
+				if len3 == 0 || consumed+len0+len1+len2+len3 > nbBits[j] {
+					return startChunk, errors.New("Invalid bitstream: invalid Huffman context")
+				}
+
+				bs -= uint8(len3)
+				prev = int(val3 >> 8)
+				dst[i] = byte(prev)
+				i++
+				consumed += len0 + len1 + len2 + len3
+				bits = bs + _HUF_MAX_SYMBOL_SIZE_V4
+			}
+
+			bs := this.readState(&state, &idx, &bits)
+
+			for i < fragEnd {
+				val := this.tablesOrder1[(prev<<_HUF_MAX_SYMBOL_SIZE_V4)|int((state>>bs)&_HUF_DECODING_MASK_V4)]
+				length := uint32(val & 255)
+
+				if length == 0 || consumed+length > nbBits[j] {
+					return startChunk, errors.New("Invalid bitstream: invalid Huffman context")
+				}
+
+				bs -= uint8(length)
+				prev = int(val >> 8)
+				dst[i] = byte(prev)
+				i++
+				consumed += length
+			}
+
+			used := (idx << 3) - (int(int8(bs)) + _HUF_MAX_SYMBOL_SIZE_V4)
+
+			if consumed != nbBits[j] || used != int(nbBits[j]) {
+				return startChunk, errors.New("Invalid bitstream: incorrect Huffman stream size")
+			}
+		}
+
+		for i := 4 * fragSize; i < sizeChunk; i++ {
+			dst[i] = byte(this.bitstream.ReadBits(8))
 		}
 
 		startChunk += sizeChunk

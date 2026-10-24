@@ -43,6 +43,150 @@ func TestHuffman(t *testing.T) {
 	}
 }
 
+func TestHuffman1(t *testing.T) {
+	if codecType, err := GetType("huffman0"); err != nil || codecType != HUFFMAN0_TYPE {
+		t.Fatalf("GetType(huffman0) returned (%d, %v), want (%d, nil)", codecType, err, HUFFMAN0_TYPE)
+	}
+
+	if codecType, err := GetType("huffman1"); err != nil || codecType != HUFFMAN1_TYPE {
+		t.Fatalf("GetType(huffman1) returned (%d, %v), want (%d, nil)", codecType, err, HUFFMAN1_TYPE)
+	}
+
+	if codecName, err := GetName(HUFFMAN1_TYPE); err != nil || codecName != "HUFFMAN1" {
+		t.Fatalf("GetName(HUFFMAN1_TYPE) returned (%q, %v), want (%q, nil)", codecName, err, "HUFFMAN1")
+	}
+
+	if err := testEntropyCorrectness("HUFFMAN1", testing.Verbose()); err != nil {
+		t.Fatal(err)
+	}
+
+	sizes := []int{0, 1, 31, 32, 33, 35, 1024, 8191, 8192, 8193, 8225,
+		32767, 32768, 32769, 32801, 131071, 131072, 131073, 262143, 262144,
+		262145, 262177, 524287, 524288, 524289, 524321}
+
+	for pattern := 0; pattern < 4; pattern++ {
+		for _, size := range sizes {
+			src := make([]byte, size+6)
+			dst := make([]byte, size+6)
+			for i := range src {
+				src[i] = 93
+				dst[i] = 93
+			}
+
+			state := uint32(12345)
+
+			for i := 0; i < size; i++ {
+				state = state*1664525 + 1013904223
+
+				switch pattern {
+				case 0:
+					src[i+3] = 7
+				case 1:
+					src[i+3] = byte(i & 255)
+				case 2:
+					src[i+3] = byte(state >> 24)
+				default:
+					if state>>24 < 240 {
+						src[i+3] = 0
+					} else {
+						src[i+3] = byte(state >> 16)
+					}
+				}
+			}
+
+			bs := internal.NewBufferStream()
+			obs, err := bitstream.NewDefaultOutputBitStream(bs, 16384)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			enc, err := NewHuffmanEncoderWithOrder(obs, 1, 1024)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if written, err := enc.Write(src[3 : 3+size]); err != nil || written != size {
+				t.Fatalf("Huffman1 encode returned (%d, %v), want (%d, nil) for size %d pattern %d", written, err, size, size, pattern)
+			}
+
+			obs.WriteBits(0x12345678, 32)
+
+			if err = obs.Close(); err != nil {
+				t.Fatal(err)
+			}
+
+			ibs, err := bitstream.NewDefaultInputBitStream(bs, 16384)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			dec, err := NewHuffmanDecoderWithOrder(ibs, 1, 1024)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if read, err := dec.Read(dst[3 : 3+size]); err != nil || read != size {
+				t.Fatalf("Huffman1 decode returned (%d, %v), want (%d, nil) for size %d pattern %d", read, err, size, size, pattern)
+			}
+
+			if !bytes.Equal(src, dst) {
+				t.Fatalf("Huffman1 round-trip mismatch for size %d, pattern %d", size, pattern)
+			}
+
+			if marker := ibs.ReadBits(32); marker != 0x12345678 {
+				t.Fatalf("Huffman1 consumed %d bits beyond its payload", marker)
+			}
+
+			if err = ibs.Close(); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	bs := internal.NewBufferStream()
+	obs, err := bitstream.NewDefaultOutputBitStream(bs, 16384)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < 256; i++ {
+		if _, err = EncodeAlphabet(obs, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	for i := 0; i < 4; i++ {
+		WriteVarInt(obs, 8)
+	}
+
+	obs.WriteBits(0, 32)
+
+	if err = obs.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	ibs, err := bitstream.NewDefaultInputBitStream(bs, 16384)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dec, err := NewHuffmanDecoderWithOrder(ibs, 1, 1024)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err = dec.Read(make([]byte, 32)); err == nil {
+		t.Fatal("Huffman1 accepted a payload that references an empty context")
+	}
+}
+
 func TestExpGolombUnsignedRoundTrip(t *testing.T) {
 	const size = 256
 	values := make([]byte, size)

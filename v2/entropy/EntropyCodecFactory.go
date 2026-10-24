@@ -23,22 +23,23 @@ import (
 )
 
 const (
-	NONE_TYPE    = uint32(0)  // No compression
-	HUFFMAN_TYPE = uint32(1)  // Huffman
-	FPAQ_TYPE    = uint32(2)  // Fast PAQ (order 0)
-	PAQ_TYPE     = uint32(3)  // Obsolete
-	RANGE_TYPE   = uint32(4)  // Range
-	ANS0_TYPE    = uint32(5)  // Asymmetric Numerical System order 0
-	CM_TYPE      = uint32(6)  // Context Model
-	TPAQ_TYPE    = uint32(7)  // Tangelo PAQ
-	ANS1_TYPE    = uint32(8)  // Asymmetric Numerical System order 1
-	TPAQX_TYPE   = uint32(9)  // Tangelo PAQ Extra
-	RESERVED1    = uint32(10) // Reserved
-	RESERVED2    = uint32(11) // Reserved
-	RESERVED3    = uint32(12) // Reserved
-	RESERVED4    = uint32(13) // Reserved
-	RESERVED5    = uint32(14) // Reserved
-	RESERVED6    = uint32(15) // Reserved
+	NONE_TYPE     = uint32(0)     // No compression
+	HUFFMAN0_TYPE = uint32(1)     // Huffman order 0
+	HUFFMAN_TYPE  = HUFFMAN0_TYPE // Backward-compatible alias
+	FPAQ_TYPE     = uint32(2)     // Fast PAQ (order 0)
+	PAQ_TYPE      = uint32(3)     // Obsolete
+	RANGE_TYPE    = uint32(4)     // Range
+	ANS0_TYPE     = uint32(5)     // Asymmetric Numerical System order 0
+	CM_TYPE       = uint32(6)     // Context Model
+	TPAQ_TYPE     = uint32(7)     // Tangelo PAQ
+	ANS1_TYPE     = uint32(8)     // Asymmetric Numerical System order 1
+	TPAQX_TYPE    = uint32(9)     // Tangelo PAQ Extra
+	HUFFMAN1_TYPE = uint32(10)    // Huffman order 1
+	RESERVED2     = uint32(11)    // Reserved
+	RESERVED3     = uint32(12)    // Reserved
+	RESERVED4     = uint32(13)    // Reserved
+	RESERVED5     = uint32(14)    // Reserved
+	RESERVED6     = uint32(15)    // Reserved
 )
 
 // NewEntropyDecoder creates a new entropy decoder using the provided type and bitstream
@@ -46,8 +47,11 @@ func NewEntropyDecoder(ibs kanzi.InputBitStream, ctx map[string]any,
 	entropyType uint32) (kanzi.EntropyDecoder, error) {
 	switch entropyType {
 
-	case HUFFMAN_TYPE:
+	case HUFFMAN0_TYPE:
 		return NewHuffmanDecoderWithCtx(ibs, &ctx)
+
+	case HUFFMAN1_TYPE:
+		return NewHuffmanDecoderWithCtxAndOrder(ibs, &ctx, 1)
 
 	case ANS0_TYPE:
 		return NewANSRangeDecoderWithCtx(ibs, &ctx, 0)
@@ -92,8 +96,11 @@ func NewEntropyEncoder(obs kanzi.OutputBitStream, ctx map[string]any,
 	entropyType uint32) (kanzi.EntropyEncoder, error) {
 	switch entropyType {
 
-	case HUFFMAN_TYPE:
+	case HUFFMAN0_TYPE:
 		return NewHuffmanEncoder(obs)
+
+	case HUFFMAN1_TYPE:
+		return NewHuffmanEncoderWithOrder(obs, 1)
 
 	case ANS0_TYPE:
 		return NewANSRangeEncoderWithCtx(obs, &ctx, 0)
@@ -137,8 +144,11 @@ func NewEntropyEncoder(obs kanzi.OutputBitStream, ctx map[string]any,
 func GetName(entropyType uint32) (string, error) {
 	switch entropyType {
 
-	case HUFFMAN_TYPE:
+	case HUFFMAN0_TYPE:
 		return "HUFFMAN", nil
+
+	case HUFFMAN1_TYPE:
+		return "HUFFMAN1", nil
 
 	case ANS0_TYPE:
 		return "ANS0", nil
@@ -173,8 +183,11 @@ func GetName(entropyType uint32) (string, error) {
 func GetType(entropyName string) (uint32, error) {
 	switch strings.ToUpper(entropyName) {
 
-	case "HUFFMAN":
-		return HUFFMAN_TYPE, nil
+	case "HUFFMAN", "HUFFMAN0":
+		return HUFFMAN0_TYPE, nil
+
+	case "HUFFMAN1":
+		return HUFFMAN1_TYPE, nil
 
 	case "ANS0":
 		return ANS0_TYPE, nil
