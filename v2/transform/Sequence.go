@@ -81,7 +81,7 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 	blockSize := uint(len(src))
 	length := blockSize
 	in, out := src, dst
-	swaps := 0
+	inIsDst, outIsDst := false, true
 
 	// Process transforms sequentially
 	for i := range this.transforms {
@@ -93,6 +93,7 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 				out = out[:requiredSize]
 			} else {
 				out = make([]byte, requiredSize)
+				outIsDst = false
 			}
 		}
 
@@ -106,14 +107,14 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 
 		this.skipFlags &= ^(1 << (7 - uint(i)))
 		in, out = out, in
-		swaps++
+		inIsDst, outIsDst = outIsDst, inIsDst
 
 		if i == this.Len()-1 {
 			break
 		}
 	}
 
-	if swaps&1 == 0 {
+	if !inIsDst {
 		if len(dst) < int(length) {
 			this.skipFlags = _TRANSFORM_SKIP_MASK
 		} else {
