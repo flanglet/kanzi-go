@@ -151,9 +151,8 @@ func (this *DefaultInputBitStream) ReadArray(bits []byte, count uint) uint {
 		a := this.availBits
 
 		for remaining >= 256 {
-			v0 := this.current
-
 			if this.position+32 > this.maxPosition {
+				v0 := this.current
 				this.current, this.availBits = this.pull()
 
 				if this.availBits < r {
@@ -167,18 +166,32 @@ func (this *DefaultInputBitStream) ReadArray(bits []byte, count uint) uint {
 				continue
 			}
 
-			v1 := binary.BigEndian.Uint64(this.buffer[this.position:])
-			v2 := binary.BigEndian.Uint64(this.buffer[this.position+8:])
-			v3 := binary.BigEndian.Uint64(this.buffer[this.position+16:])
-			v4 := binary.BigEndian.Uint64(this.buffer[this.position+24:])
-			this.position += 32
-			binary.BigEndian.PutUint64(bits[start:], (v0<<r)|(v1>>a))
-			binary.BigEndian.PutUint64(bits[start+8:], (v1<<r)|(v2>>a))
-			binary.BigEndian.PutUint64(bits[start+16:], (v2<<r)|(v3>>a))
-			binary.BigEndian.PutUint64(bits[start+24:], (v3<<r)|(v4>>a))
-			start += 32
-			remaining -= 256
-			this.current = v4
+			bytes := (remaining >> 8) << 5
+			avail := ((this.maxPosition + 1 - this.position) >> 5) << 5
+			if bytes > avail {
+				bytes = avail
+			}
+
+			src := this.buffer[this.position : this.position+bytes]
+			dst := bits[start : start+bytes]
+			current := this.current
+
+			for offset := 0; offset < bytes; offset += 32 {
+				v1 := binary.BigEndian.Uint64(src[offset:])
+				v2 := binary.BigEndian.Uint64(src[offset+8:])
+				v3 := binary.BigEndian.Uint64(src[offset+16:])
+				v4 := binary.BigEndian.Uint64(src[offset+24:])
+				binary.BigEndian.PutUint64(dst[offset:], (current<<r)|(v1>>a))
+				binary.BigEndian.PutUint64(dst[offset+8:], (v1<<r)|(v2>>a))
+				binary.BigEndian.PutUint64(dst[offset+16:], (v2<<r)|(v3>>a))
+				binary.BigEndian.PutUint64(dst[offset+24:], (v3<<r)|(v4>>a))
+				current = v4
+			}
+
+			this.current = current
+			this.position += bytes
+			start += bytes
+			remaining -= bytes << 3
 		}
 
 		for remaining >= 64 {

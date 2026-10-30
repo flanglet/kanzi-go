@@ -153,27 +153,39 @@ func (this *DefaultOutputBitStream) WriteArray(bits []byte, count uint) uint {
 			a := this.availBits
 
 			for remaining >= 256 {
-				val1 := binary.BigEndian.Uint64(bits[start:])
-				val2 := binary.BigEndian.Uint64(bits[start+8:])
-				val3 := binary.BigEndian.Uint64(bits[start+16:])
-				val4 := binary.BigEndian.Uint64(bits[start+24:])
-				this.current |= (val1 >> r)
-
 				if this.position >= len(this.buffer)-32 {
 					if err := this.flush(); err != nil {
 						panic(err)
 					}
 				}
 
-				binary.BigEndian.PutUint64(this.buffer[this.position:], this.current)
-				binary.BigEndian.PutUint64(this.buffer[this.position+8:], (val1<<a)|(val2>>r))
-				binary.BigEndian.PutUint64(this.buffer[this.position+16:], (val2<<a)|(val3>>r))
-				binary.BigEndian.PutUint64(this.buffer[this.position+24:], (val3<<a)|(val4>>r))
-				this.current = val4 << a
-				start += 32
-				remaining -= 256
+				bytes := (remaining >> 8) << 5
+				avail := ((len(this.buffer) - 8 - this.position) >> 5) << 5
+				if bytes > avail {
+					bytes = avail
+				}
+
+				src := bits[start : start+bytes]
+				dst := this.buffer[this.position : this.position+bytes]
+				current := this.current
+
+				for offset := 0; offset < bytes; offset += 32 {
+					val1 := binary.BigEndian.Uint64(src[offset:])
+					val2 := binary.BigEndian.Uint64(src[offset+8:])
+					val3 := binary.BigEndian.Uint64(src[offset+16:])
+					val4 := binary.BigEndian.Uint64(src[offset+24:])
+					binary.BigEndian.PutUint64(dst[offset:], current|(val1>>r))
+					binary.BigEndian.PutUint64(dst[offset+8:], (val1<<a)|(val2>>r))
+					binary.BigEndian.PutUint64(dst[offset+16:], (val2<<a)|(val3>>r))
+					binary.BigEndian.PutUint64(dst[offset+24:], (val3<<a)|(val4>>r))
+					current = val4 << a
+				}
+
+				this.current = current
 				this.availBits = 64
-				this.position += 32
+				this.position += bytes
+				start += bytes
+				remaining -= bytes << 3
 			}
 
 			for remaining >= 64 {
