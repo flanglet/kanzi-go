@@ -1834,6 +1834,18 @@ func (this *Reader) Read(block []byte) (int, error) {
 	return len(block) - remaining, nil
 }
 
+func (this *Reader) isFullBlockExpected(result decodingTaskResult) bool {
+	if this.outputSize <= 0 || result.skipped {
+		return false
+	}
+
+	if to, hasKey := this.ctx["to"].(int); hasKey && result.blockID >= to {
+		return false
+	}
+
+	return int64(result.blockID) <= this.outputSize/int64(this.blockSize)
+}
+
 func (this *Reader) processBlock() (int64, error) {
 	if atomic.LoadInt32(&this.blockID) == _CANCEL_TASKS_ID {
 		return 0, nil
@@ -1937,6 +1949,11 @@ func (this *Reader) processBlock() (int64, error) {
 
 			if r.err != nil {
 				return decoded, r.err
+			}
+
+			if this.isFullBlockExpected(r) && r.decoded != this.blockSize {
+				errMsg := fmt.Sprintf("Block %d incorrectly decompressed", r.blockID)
+				return decoded, &IOError{msg: errMsg, code: kanzi.ERR_PROCESS_BLOCK}
 			}
 
 			copy(this.buffers[n].Buf, r.data[0:r.decoded])
