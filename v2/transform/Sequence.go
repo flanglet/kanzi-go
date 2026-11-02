@@ -87,18 +87,22 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 	for i := range this.transforms {
 		var err error
 		savedLength := length
+		// Limit this stage to its declared maximum output size.
+		stageSize := this.transforms[i].MaxEncodedLen(int(length))
 
-		if len(out) < requiredSize {
-			if cap(out) >= requiredSize {
-				out = out[:requiredSize]
+		if len(out) < stageSize {
+			if cap(out) >= stageSize {
+				out = out[:stageSize]
 			} else {
-				out = make([]byte, requiredSize)
+				out = make([]byte, stageSize)
 				outIsDst = false
 			}
 		}
 
+		stageDst := out[:stageSize]
+
 		// Apply forward transform
-		if _, length, err = this.transforms[i].Forward((in)[0:length], out); err != nil {
+		if _, length, err = this.transforms[i].Forward(in[0:length], stageDst); err != nil {
 			// Transform failed. Either it does not apply to this type
 			// of data or a recoverable error occurred => revert
 			length = savedLength
@@ -106,7 +110,7 @@ func (this *ByteTransformSequence) Forward(src, dst []byte) (uint, uint, error) 
 		}
 
 		this.skipFlags &= ^(1 << (7 - uint(i)))
-		in, out = out, in
+		in, out = stageDst, in
 		inIsDst, outIsDst = outIsDst, inIsDst
 
 		if i == this.Len()-1 {
