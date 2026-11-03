@@ -180,8 +180,12 @@ func (this SRT) preprocess(freqs []int32, symbols []byte) int {
 // to the destination. Returns number of bytes read, number of bytes
 // written and possibly an error.
 func (this *SRT) Inverse(src, dst []byte) (uint, uint, error) {
-	if len(src) == 0 || len(dst) == 0 {
+	if len(src) == 0 {
 		return 0, 0, nil
+	}
+
+	if len(dst) == 0 {
+		return 0, 0, errors.New("SRT inverse transform failed: invalid data")
 	}
 
 	if &src[0] == &dst[0] {
@@ -197,6 +201,12 @@ func (this *SRT) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	dataLength := len(src) - headerSize
+
+	// Empty input is represented by a zero-length transform block, not a header-only block.
+	if dataLength <= 0 {
+		return 0, 0, errors.New("SRT inverse transform failed: invalid data")
+	}
+
 	var totalFreq uint64
 
 	for _, freq := range freqs {
