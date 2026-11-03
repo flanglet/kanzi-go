@@ -187,7 +187,11 @@ func (this *ByteTransformSequence) Inverse(src, dst []byte) (uint, uint, error) 
 		}
 	}
 
-	return blockSize, length, err
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return blockSize, length, nil
 }
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
