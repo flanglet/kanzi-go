@@ -890,9 +890,75 @@ func parseExeHeader(src []byte, magic uint, arch, codeStart, codeEnd *int) bool 
 			posPE := int(binary.LittleEndian.Uint32(src[60:]))
 
 			if (posPE > 0) && (posPE <= count-48) && (int(binary.LittleEndian.Uint32(src[posPE:])) == _EXE_WIN_PE) {
-				if !setExeCodeRange(count, codeStart, codeEnd,
-					int64(binary.LittleEndian.Uint32(src[posPE+44:])),
-					int64(binary.LittleEndian.Uint32(src[posPE+28:]))) {
+				numSections := int(binary.LittleEndian.Uint16(src[posPE+6:]))
+				optionalHeaderSize := int(binary.LittleEndian.Uint16(src[posPE+20:]))
+				sectionTable := int64(posPE) + 24 + int64(optionalHeaderSize)
+
+				if numSections <= 0 || optionalHeaderSize < 24 || sectionTable > int64(count) ||
+					int64(numSections) > (int64(count)-sectionTable)/40 {
+					return false
+				}
+
+				baseCodeRVA := binary.LittleEndian.Uint32(src[posPE+44:])
+				sizeOfCode := binary.LittleEndian.Uint32(src[posPE+28:])
+				foundCodeSection := false
+
+				// Map BaseOfCode (an RVA) to the corresponding bytes on disk.
+				for i := 0; i < numSections; i++ {
+					section := int(sectionTable) + i*40
+					virtualSize := binary.LittleEndian.Uint32(src[section+8:])
+					virtualAddress := binary.LittleEndian.Uint32(src[section+12:])
+					rawSize := binary.LittleEndian.Uint32(src[section+16:])
+					rawOffset := binary.LittleEndian.Uint32(src[section+20:])
+					characteristics := binary.LittleEndian.Uint32(src[section+36:])
+					virtualSpan := virtualSize
+
+					if rawSize > virtualSpan {
+						virtualSpan = rawSize
+					}
+
+					virtualEnd := uint64(virtualAddress) + uint64(virtualSpan)
+
+					if characteristics&0x20000000 == 0 || uint64(baseCodeRVA) < uint64(virtualAddress) ||
+						uint64(baseCodeRVA) >= virtualEnd {
+						continue
+					}
+
+					delta := uint64(baseCodeRVA) - uint64(virtualAddress)
+
+					if delta >= uint64(rawSize) {
+						continue
+					}
+
+					fileOffset := uint64(rawOffset) + delta
+
+					if fileOffset >= uint64(count) {
+						continue
+					}
+
+					codeLength := uint64(rawSize) - delta
+
+					if sizeOfCode != 0 && uint64(sizeOfCode) < codeLength {
+						codeLength = uint64(sizeOfCode)
+					}
+
+					if remaining := uint64(count) - fileOffset; remaining < codeLength {
+						codeLength = remaining
+					}
+
+					if codeLength < 64 {
+						continue
+					}
+
+					if !setExeCodeRange(count, codeStart, codeEnd, int64(fileOffset), int64(codeLength)) {
+						return false
+					}
+
+					foundCodeSection = true
+					break
+				}
+
+				if !foundCodeSection {
 					return false
 				}
 
