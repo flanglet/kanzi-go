@@ -319,13 +319,8 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 	var err error
 
 	clear(this.counters)
-	litOrder := uint(1)
-
-	if len(src) < 1<<17 {
-		litOrder = 0
-	}
-
-	flags := byte(litOrder)
+	litOrder := uint(0)
+	flags := byte(0)
 	this.minMatch = _ROLZ_MIN_MATCH3
 	delta := 2
 
@@ -509,6 +504,14 @@ func (this *rolzCodec1) Forward(src, dst []byte) (uint, uint, error) {
 
 			copy(litBuf[litIdx:], buf[firstLitIdx:firstLitIdx+litLen])
 			litIdx += litLen
+		}
+
+		// Choose from the first chunk's literals and reuse the order for all chunks.
+		if startChunk == 0 {
+			if litIdx >= 1<<17 {
+				litOrder = 1
+			}
+			dst[4] = flags | byte(litOrder)
 		}
 
 		os := internal.NewBufferStream(make([]byte, 0, sizeChunk/4))
