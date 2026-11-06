@@ -1418,15 +1418,41 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int32) {
 
 		v := buf1[buf2[this.sa[a]]]
 		this.sa[a], this.sa[first] = this.sa[first], this.sa[a]
-		b := first + 1
+		b := first
 
-		// partition
-		for b < last {
-			if x = buf1[buf2[this.sa[b]]]; x != v {
+		// Probe two suffixes before testing either key to overlap their dependent loads.
+		mismatch := false
+
+		for last-b > 2 {
+			x0 := buf1[buf2[this.sa[b+1]]]
+			x1 := buf1[buf2[this.sa[b+2]]]
+
+			if x0 != v {
+				b++
+				x = x0
+				mismatch = true
 				break
 			}
 
+			if x1 != v {
+				b += 2
+				x = x1
+				mismatch = true
+				break
+			}
+
+			b += 2
+		}
+
+		if !mismatch {
 			b++
+			for b < last {
+				if x = buf1[buf2[this.sa[b]]]; x != v {
+					break
+				}
+
+				b++
+			}
 		}
 
 		a = b
@@ -1448,14 +1474,39 @@ func (this *DivSufSort) ssMultiKeyIntroSort(pa, first, last, depth int32) {
 			}
 		}
 
-		c := last - 1
+		c := last
+		mismatch2 := false
 
-		for c > b {
-			if x = buf1[buf2[this.sa[c]]]; x != v {
+		for c-b > 2 {
+			x0 := buf1[buf2[this.sa[c-1]]]
+			x1 := buf1[buf2[this.sa[c-2]]]
+
+			if x0 != v {
+				c--
+				x = x0
+				mismatch2 = true
 				break
 			}
 
+			if x1 != v {
+				c -= 2
+				x = x1
+				mismatch2 = true
+				break
+			}
+
+			c -= 2
+		}
+
+		if !mismatch2 {
 			c--
+			for c > b {
+				if x = buf1[buf2[this.sa[c]]]; x != v {
+					break
+				}
+
+				c--
+			}
 		}
 
 		d := c
