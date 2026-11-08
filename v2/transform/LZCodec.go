@@ -296,7 +296,7 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		clear(this.hashes)
 	}
 
-	minBufSize := max(count/5, 256)
+	minBufSize := max(count/4, 256)
 
 	if len(this.mLenBuf) < minBufSize {
 		this.mLenBuf = make([]byte, minBufSize)
@@ -538,13 +538,8 @@ func (this *LZXCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		if mIdx >= len(this.mBuf)-8 {
-			extraBuf1 := make([]byte, len(this.mBuf)/2)
-			this.mBuf = append(this.mBuf, extraBuf1...)
-
-			if mLenIdx >= len(this.mLenBuf)-8 {
-				extraBuf2 := make([]byte, len(this.mLenBuf)/2)
-				this.mLenBuf = append(this.mLenBuf, extraBuf2...)
-			}
+			extraBuf := make([]byte, len(this.mBuf)/2)
+			this.mBuf = append(this.mBuf, extraBuf...)
 		}
 
 		// Fill this.hashes and update positions. The current position was already
@@ -697,6 +692,10 @@ func (this *LZXCodec) inverseV7(src, dst []byte) (uint, uint, error) {
 	distBias := [4]uint32{0, 1, 257, 65793}
 
 	for {
+		if tkIdx >= tokenEnd {
+			return uint(srcIdx), uint(dstIdx), errors.New("LZCodec inverse transform failed: invalid data")
+		}
+
 		token := int(src[tkIdx])
 		tkIdx++
 
@@ -870,6 +869,10 @@ func (this *LZXCodec) inverseV6(src, dst []byte) (uint, uint, error) {
 	repd1 := count
 
 	for {
+		if tkIdx >= tokenEnd {
+			return uint(srcIdx), uint(dstIdx), errors.New("LZCodec inverse transform failed: invalid data")
+		}
+
 		token := int(src[tkIdx])
 		tkIdx++
 
@@ -1054,6 +1057,10 @@ func (this *LZXCodec) inverseV4(src, dst []byte) (uint, uint, error) {
 	repd1 := 0
 
 	for {
+		if tkIdx >= tokenEnd {
+			return uint(srcIdx), uint(dstIdx), errors.New("LZCodec inverse transform failed: invalid data")
+		}
+
 		token := int(src[tkIdx])
 		tkIdx++
 
