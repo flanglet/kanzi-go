@@ -50,8 +50,18 @@ func createPEBlock(arch int) []byte {
 	data[posPE+2] = 0
 	data[posPE+3] = 0
 	writeInt16LE(data[posPE+4:], arch)
+	writeInt16LE(data[posPE+6:], 1)   // one section
+	writeInt16LE(data[posPE+20:], 224) // PE32 optional header size
 	writeInt32LE(data[posPE+28:], codeLen)
-	writeInt32LE(data[posPE+44:], codeStart)
+	writeInt32LE(data[posPE+44:], 0x1000) // BaseOfCode RVA
+
+	// Map BaseOfCode to the code bytes through a valid executable section.
+	const section = posPE + 24 + 224
+	writeInt32LE(data[section+8:], codeLen)    // VirtualSize
+	writeInt32LE(data[section+12:], 0x1000)   // VirtualAddress
+	writeInt32LE(data[section+16:], codeLen)   // SizeOfRawData
+	writeInt32LE(data[section+20:], codeStart) // PointerToRawData
+	writeInt32LE(data[section+36:], 0x60000020) // Executable code section
 	return data
 }
 
