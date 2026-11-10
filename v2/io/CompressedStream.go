@@ -2355,6 +2355,11 @@ func (this *decodingTask) decode(res *decodingTaskResult) {
 			return
 		}
 
+		if ibs.Read() > encodedBlockLength {
+			res.err = &IOError{msg: "Entropy decoding failed", code: kanzi.ERR_PROCESS_BLOCK}
+			return
+		}
+
 		ed.Dispose()
 	}
 
