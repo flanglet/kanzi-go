@@ -903,8 +903,9 @@ func (this *BWT) inverseBiPSIv2Task(dst []byte, buckets []int, fastBits []uint16
 	for c < lastChunk {
 		end := min(start+ckSize, total-1)
 		p := int(indexes[c])
+		i := start + 1
 
-		for i := start + 1; i <= end; i += 2 {
+		for ; i < end; i += 2 {
 			s := fastBits[p>>shift]
 
 			for buckets[s] <= p {
@@ -914,6 +915,16 @@ func (this *BWT) inverseBiPSIv2Task(dst []byte, buckets []int, fastBits []uint16
 			dst[i-1] = byte(s >> 8)
 			dst[i] = byte(s)
 			p = int(data[p])
+		}
+
+		if i == end {
+			s := fastBits[p>>shift]
+
+			for buckets[s] <= p {
+				s++
+			}
+
+			dst[end-1] = byte(s >> 8)
 		}
 
 		start = end
