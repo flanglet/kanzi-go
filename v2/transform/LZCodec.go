@@ -88,7 +88,7 @@ func NewLZCodecWithCtx(ctx *map[string]any) (*LZCodec, error) {
 				d, err = NewLZPCodecWithCtx(ctx)
 				this.delegate = d
 			} else if lzType == LZPX_TYPE {
-				d, err = NewLZPXCodec()
+				d, err = NewLZPXCodecWithCtx(ctx)
 				this.delegate = d
 			} else if lzType == LZF_TYPE {
 				d, err = NewLZFCodecWithCtx(ctx)
@@ -1308,14 +1308,10 @@ func (this *LZPCodec) Forward(src, dst []byte) (uint, uint, error) {
 		bestLen -= _LZP_MIN_MATCH64
 
 		// Emit match length
-		for bestLen >= 254 {
+		for bestLen >= 254 && dstIdx < dstEnd {
 			bestLen -= 254
 			dst[dstIdx] = 0xFE
 			dstIdx++
-
-			if dstIdx >= dstEnd {
-				break
-			}
 		}
 
 		if dstIdx >= dstEnd {

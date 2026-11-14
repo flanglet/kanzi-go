@@ -63,6 +63,10 @@ func getTransform(name string) (kanzi.ByteTransform, error) {
 		ctx["lz"] = LZP_TYPE
 		res, err := NewLZCodecWithCtx(&ctx)
 		return res, err
+	case "LZPX":
+		ctx["lz"] = LZPX_TYPE
+		res, err := NewLZCodecWithCtx(&ctx)
+		return res, err
 	case "ALIAS":
 		res, err := NewAliasCodecWithCtx(&ctx)
 		return res, err
@@ -1255,5 +1259,154 @@ func TestTextCodecMinBlockAndRoundTrip(t *testing.T) {
 
 	if !bytes.Equal(input, reverse) {
 		t.Fatalf("Text round-trip mismatch")
+	}
+}
+
+func TestLZPX(t *testing.T) {
+	sizes := []int{128, 1024, 65535, 65536, 65537, 131073}
+
+	for lzpxType := 1; lzpxType <= 2; lzpxType++ {
+		ctx := map[string]any{"lzpxType": lzpxType}
+		codec, err := NewLZPXCodecWithCtx(&ctx)
+
+		if err != nil {
+			t.Fatalf("create LZPX codec: %v", err)
+		}
+
+		seed := uint32(1)
+
+		for mode := 0; mode < 4; mode++ {
+			for _, size := range sizes {
+				src := make([]byte, size)
+				enc := make([]byte, size)
+				dec := make([]byte, size)
+
+				for i := 0; i < size; i++ {
+					seed = seed*1664525 + 1013904223
+
+					switch mode {
+					case 0:
+						src[i] = 7
+					case 1:
+						src[i] = byte(i % 13)
+					case 2:
+						src[i] = byte(seed >> 24)
+					default:
+						src[i] = byte((seed >> 24) & 3)
+					}
+				}
+
+				inRead, outWritten, err := codec.Forward(src, enc)
+
+				if err != nil {
+					if inRead != 0 || outWritten != 0 || (mode < 2 && size >= 1024) {
+						t.Fatalf("LZPX forward failed unexpectedly (type=%d mode=%d size=%d): %v", lzpxType, mode, size, err)
+					}
+
+					continue
+				}
+
+				if int(inRead) != size {
+					t.Fatalf("LZPX forward read mismatch: got %d want %d", inRead, size)
+				}
+
+				length := int(outWritten)
+				decRead, decWritten, err := codec.Inverse(enc[:length], dec)
+
+				if err != nil || int(decRead) != length || int(decWritten) != size || !bytes.Equal(src, dec) {
+					t.Fatalf("LZPX round-trip failed (type=%d mode=%d size=%d): read=%d/%d written=%d/%d err=%v",
+						lzpxType, mode, size, decRead, length, decWritten, size, err)
+				}
+
+				if _, _, err = codec.Inverse(enc[:length-1], dec); err == nil {
+					t.Fatalf("LZPX truncated inverse succeeded unexpectedly (type=%d mode=%d size=%d)", lzpxType, mode, size)
+				}
+
+				if _, _, err = codec.Inverse(enc[:length], dec[:size-1]); err == nil {
+					t.Fatalf("LZPX undersized dst inverse succeeded unexpectedly (type=%d mode=%d size=%d)", lzpxType, mode, size)
+				}
+			}
+		}
+	}
+
+	codec, err := NewLZPXCodec()
+
+	if err != nil {
+		t.Fatalf("create LZPX codec: %v", err)
+	}
+
+	// A non-default minimum length: five literals followed by a length-4
+	// overlapping match. Absent byte 0 is EOB and absent byte 1 is length 4.
+	encoded := make([]byte, 40)
+	encoded[0] = 2
+	encoded[13] = 2 // Literal 'a' (97)
+	for i := 33; i < 38; i++ {
+		encoded[i] = 'a'
+	}
+	encoded[38] = 1
+	decoded := make([]byte, 9)
+	_, decWritten, err := codec.Inverse(encoded, decoded)
+
+	if err != nil || decWritten != 9 {
+		t.Fatalf("LZPX non-default minMatch failed: written=%d err=%v", decWritten, err)
+	}
+
+	for i := 0; i < 9; i++ {
+		if decoded[i] != 'a' {
+			t.Fatalf("LZPX non-default minMatch mismatch at %d: %d", i, decoded[i])
+		}
+	}
+
+	// A match cannot precede the four bytes needed to seed its hash context.
+	earlyMatch := make([]byte, 37)
+	earlyMatch[33] = 1
+	earlyMatchOutput := make([]byte, 8)
+
+	if _, _, err = codec.Inverse(earlyMatch, earlyMatchOutput); err == nil {
+		t.Fatal("LZPX early match validation failed")
+	}
+
+	// Fewer than 4 absent codes leaves no room for EOB, short match, and both extended prefixes.
+	tooFewCodes := bytes.Repeat([]byte{0xFF}, 38)
+	tooFewCodes[0] = 0
+	tooFewCodes[1] = 0xF8 // absent codes: 0, 1, 2 only (nbCodes = 3)
+	for i := 33; i < 37; i++ {
+		tooFewCodes[i] = 'a'
+	}
+	tooFewCodes[37] = 0
+	fewCodesOut := make([]byte, 8)
+
+	if _, _, err = codec.Inverse(tooFewCodes, fewCodesOut); err == nil {
+		t.Fatal("LZPX nbCodes < 4 validation failed")
+	}
+
+	// Truncated extended-1, truncated LEB128 extended-2, and overlong LEB128 must fail cleanly.
+	truncExt := make([]byte, 48)
+	truncExt[13] = 2 // 'a' (97) literal; maxShort = 253, code 254 = ext1, code 255 = ext2
+	for i := 33; i < 37; i++ {
+		truncExt[i] = 'a'
+	}
+	truncExt[37] = 254 // extended-1 token with missing offset byte
+	truncExtOut := make([]byte, 32)
+
+	if _, _, err = codec.Inverse(truncExt[:38], truncExtOut); err == nil {
+		t.Fatal("LZPX truncated extended-1 validation failed")
+	}
+
+	truncExt[37] = 255
+	truncExt[38] = 0x80 // extended-2 LEB128 with continuation bit at EOF
+
+	if _, _, err = codec.Inverse(truncExt[:39], truncExtOut); err == nil {
+		t.Fatal("LZPX truncated LEB128 validation failed")
+	}
+
+	truncExt[39] = 0x80
+	truncExt[40] = 0x80
+	truncExt[41] = 0x80
+	truncExt[42] = 0x80 // 5th LEB128 byte exceeds max shift (21)
+	truncExt[43] = 0
+
+	if _, _, err = codec.Inverse(truncExt[:44], truncExtOut); err == nil {
+		t.Fatal("LZPX overlong LEB128 validation failed")
 	}
 }

@@ -144,6 +144,25 @@ func newToken(ctx *map[string]any, functionType uint64) (kanzi.ByteTransform, er
 		return NewLZCodecWithCtx(ctx)
 
 	case LZPX_TYPE:
+		lzpxType := 1
+
+		if val, containsKey := (*ctx)["entropy"]; containsKey {
+			entropyName, ok := val.(string)
+
+			if ok == false {
+				return nil, fmt.Errorf("Invalid entropy type: expected string")
+			}
+
+			entropyType := strings.ToUpper(entropyName)
+
+			// Select LZPX type based on entropy codec.
+			if entropyType == "NONE" || entropyType == "ANS0" ||
+				entropyType == "HUFFMAN" || entropyType == "RANGE" {
+				lzpxType = 2
+			}
+		}
+
+		(*ctx)["lzpxType"] = lzpxType
 		(*ctx)["lz"] = LZPX_TYPE
 		return NewLZCodecWithCtx(ctx)
 
