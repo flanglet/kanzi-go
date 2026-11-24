@@ -16,8 +16,13 @@ limitations under the License.
 package transform
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
+	"math/bits"
+
 	"fmt"
+	"github.com/flanglet/kanzi-go/v2/internal"
 )
 
 const (
@@ -62,26 +67,28 @@ func (this *SRT) Forward(src, dst []byte) (uint, uint, error) {
 	count := len(src)
 	s2r := [256]byte{}
 	r2s := [256]byte{}
-	freqs := [256]int32{}
+	freqs := [256]int{}
 
-	// find first symbols and count occurrences
-	for i, b := 0, 0; i < count; {
-		c := src[i]
-
-		if freqs[c] == 0 {
-			r2s[b] = c
-			s2r[c] = byte(b)
-			b++
+	// Count frequencies separately from finding the initial move-to-front order.
+	internal.ComputeHistogram(src, freqs[:], true, false)
+	first := [256]int{}
+	n := 0
+	for c, freq := range freqs {
+		if freq == 0 {
+			continue
 		}
-
-		j := i + 1
-
-		for (j < count) && (src[j] == c) {
-			j++
+		pos := bytes.IndexByte(src, byte(c))
+		first[c] = pos
+		j := n
+		for j > 0 && first[r2s[j-1]] > pos {
+			r2s[j] = r2s[j-1]
+			j--
 		}
-
-		freqs[c] += int32(j - i)
-		i = j
+		r2s[j] = byte(c)
+		n++
+	}
+	for i, c := range r2s[:n] {
+		s2r[c] = byte(i)
 	}
 
 	// init arrays
@@ -123,11 +130,11 @@ func (this *SRT) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		i++
-
-		for (i < count) && (src[i] == c) {
-			dst[p] = 0
-			p++
-			i++
+		if i < count && src[i] == c {
+			end := srtRunEnd(src, i+1, count, c)
+			clear(dst[p : p+end-i])
+			p += end - i
+			i = end
 		}
 
 		buckets[c] = p
@@ -136,7 +143,23 @@ func (this *SRT) Forward(src, dst []byte) (uint, uint, error) {
 	return uint(count), uint(count + headerSize), nil
 }
 
-func (this SRT) preprocess(freqs []int32, symbols []byte) int {
+// srtRunEnd returns the end of an identical-byte run.
+func srtRunEnd(src []byte, pos, end int, value byte) int {
+	word := uint64(value) * 0x0101010101010101
+	for end-pos >= 8 {
+		diff := binary.LittleEndian.Uint64(src[pos:]) ^ word
+		if diff != 0 {
+			return pos + bits.TrailingZeros64(diff)/8
+		}
+		pos += 8
+	}
+	for pos < end && src[pos] == value {
+		pos++
+	}
+	return pos
+}
+
+func (this SRT) preprocess(freqs []int, symbols []byte) int {
 	nbSymbols := 0
 
 	for i := range freqs {
@@ -193,7 +216,7 @@ func (this *SRT) Inverse(src, dst []byte) (uint, uint, error) {
 	}
 
 	// init arrays
-	freqs := [256]int32{}
+	freqs := [256]int{}
 	headerSize, err := this.decodeHeader(src, freqs[:])
 
 	if err != nil {
@@ -258,45 +281,39 @@ func (this *SRT) Inverse(src, dst []byte) (uint, uint, error) {
 	// decoding
 	c := r2s[0]
 
-	for i := range dst {
+	for i := 0; i < dataLength; {
+		pos := buckets[c]
+		if pos < bucketEnds[c] && src[pos] == 0 {
+			end := srtRunEnd(src, pos+1, bucketEnds[c], 0)
+			run := end - pos
+			if run >= dataLength-i {
+				return 0, 0, errors.New("SRT inverse transform failed: invalid data")
+			}
+			word := uint64(c) * 0x0101010101010101
+			limit := i + run
+			for limit-i >= 8 {
+				binary.LittleEndian.PutUint64(dst[i:], word)
+				i += 8
+			}
+			for i < limit {
+				dst[i] = c
+				i++
+			}
+			buckets[c] = end
+			pos = end
+		}
+
 		dst[i] = c
-
-		if buckets[c] < bucketEnds[c] {
-			r := src[buckets[c]]
+		i++
+		if pos < bucketEnds[c] {
+			r := src[pos]
 			buckets[c]++
-
-			if r == 0 {
-				continue
-			}
-
-			s := 0
-
-			for s+4 < int(r) {
-				r2s[s] = r2s[s+1]
-				r2s[s+1] = r2s[s+2]
-				r2s[s+2] = r2s[s+3]
-				r2s[s+3] = r2s[s+4]
-				s += 4
-			}
-
-			for s < int(r) {
-				r2s[s] = r2s[s+1]
-				s++
-			}
-
+			copy(r2s[:r], r2s[1:int(r)+1])
 			r2s[r] = c
 			c = r2s[0]
-		} else {
-			if nbSymbols == 1 {
-				continue
-			}
-
+		} else if nbSymbols > 1 {
 			nbSymbols--
-
-			for s := 0; s < nbSymbols; s++ {
-				r2s[s] = r2s[s+1]
-			}
-
+			copy(r2s[:nbSymbols], r2s[1:nbSymbols+1])
 			c = r2s[0]
 		}
 	}
@@ -304,7 +321,7 @@ func (this *SRT) Inverse(src, dst []byte) (uint, uint, error) {
 	return uint(len(src) + headerSize), uint(len(src)), nil
 }
 
-func (this SRT) encodeHeader(freqs []int32, dst []byte) int {
+func (this SRT) encodeHeader(freqs []int, dst []byte) int {
 	n := 0
 
 	for _, f := range freqs {
@@ -321,7 +338,7 @@ func (this SRT) encodeHeader(freqs []int32, dst []byte) int {
 	return n
 }
 
-func (this SRT) decodeHeader(src []byte, freqs []int32) (int, error) {
+func (this SRT) decodeHeader(src []byte, freqs []int) (int, error) {
 	n := 0
 
 	for i := range freqs {
@@ -329,7 +346,7 @@ func (this SRT) decodeHeader(src []byte, freqs []int32) (int, error) {
 			return 0, errors.New("SRT inverse transform failed: truncated header")
 		}
 
-		val := int32(src[n])
+		val := int(src[n])
 		n++
 
 		if val < 128 {
@@ -343,7 +360,7 @@ func (this SRT) decodeHeader(src []byte, freqs []int32) (int, error) {
 			return 0, errors.New("SRT inverse transform failed: truncated header")
 		}
 
-		val = int32(src[n])
+		val = int(src[n])
 		n++
 		res |= ((val & 0x7F) << 7)
 
@@ -352,7 +369,7 @@ func (this SRT) decodeHeader(src []byte, freqs []int32) (int, error) {
 				return 0, errors.New("SRT inverse transform failed: truncated header")
 			}
 
-			val = int32(src[n])
+			val = int(src[n])
 			n++
 			res |= ((val & 0x7F) << 14)
 
@@ -361,7 +378,7 @@ func (this SRT) decodeHeader(src []byte, freqs []int32) (int, error) {
 					return 0, errors.New("SRT inverse transform failed: truncated header")
 				}
 
-				val = int32(src[n])
+				val = int(src[n])
 				n++
 				res |= ((val & 0x7F) << 21)
 

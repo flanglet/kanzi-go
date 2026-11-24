@@ -16,7 +16,7 @@ limitations under the License.
 package transform
 
 import (
-	"container/heap"
+	"cmp"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -29,9 +29,176 @@ const (
 	_ALIAS_MIN_BLOCKSIZE = 1024
 )
 
-type sdAlias struct {
-	val  int // symbol
-	freq int // frequency
+// aliasMinHeap tracks the top n0 (< 240) digrams using packed uint64 keys
+// (freq << 16) | val so items[0] is always the weakest retained entry.
+type aliasMinHeap struct {
+	items  [256]uint64
+	size   int
+	cap    int
+	minKey uint64
+}
+
+func (h *aliasMinHeap) siftDown(i int) {
+	for {
+		left := 2*i + 1
+		if left >= h.size {
+			break
+		}
+		smallest := left
+		if right := left + 1; right < h.size && h.items[right] < h.items[left] {
+			smallest = right
+		}
+		if h.items[i] <= h.items[smallest] {
+			break
+		}
+		h.items[i], h.items[smallest] = h.items[smallest], h.items[i]
+		i = smallest
+	}
+}
+
+func (h *aliasMinHeap) push(val, freq int) {
+	key := (uint64(freq) << 16) | uint64(val)
+
+	if h.size < h.cap {
+		i := h.size
+		h.items[i] = key
+		h.size++
+		for i > 0 {
+			p := (i - 1) >> 1
+			if h.items[p] <= h.items[i] {
+				break
+			}
+			h.items[p], h.items[i] = h.items[i], h.items[p]
+			i = p
+		}
+		h.minKey = h.items[0]
+	} else if key > h.minKey {
+		h.items[0] = key
+		h.siftDown(0)
+		h.minKey = h.items[0]
+	}
+}
+
+// encodeDigram8 encodes src in 8 parallel streams to break the serial s += (1 or 2)
+// dependency chain. At split m, chunk k-1 ends at m or m+1; advancing from both
+// until they meet at conv[k] syncs chunk k cleanly (or returns -1 if not met in
+// 64 steps). Staging chunk k at dst[dstIdx+conv[k]:] is safe because output <= input.
+func encodeDigram8(src, dst []byte, dstIdx, count int, map16 *[65536]int16) int {
+	srcEnd := count - 1
+	step := srcEnd >> 3
+	var end [8]int
+	var conv [8]int
+	conv[0] = 0
+	src = src[:count:count]
+	_ = dst[dstIdx+count-1]
+
+	// Chunk k - 1 stops at or just past split, so chunk k can safely start
+	// wherever parses from split and split + 1 first meet.
+	for k := 1; k < 8; k++ {
+		split := k * step
+		end[k-1] = split
+		pos0 := split
+		pos1 := split + 1
+
+		for steps := 64; pos0 != pos1 && steps > 0 && pos0 < srcEnd && pos1 < srcEnd; steps-- {
+			if pos0 < pos1 {
+				pos0 += int(map16[binary.LittleEndian.Uint16(src[pos0:])] >> 8)
+			} else {
+				pos1 += int(map16[binary.LittleEndian.Uint16(src[pos1:])] >> 8)
+			}
+		}
+
+		if pos0 != pos1 || pos0 >= srcEnd {
+			return -1
+		}
+
+		conv[k] = pos0
+	}
+
+	end[7] = srcEnd
+
+	s0, s1, s2, s3 := 0, conv[1], conv[2], conv[3]
+	s4, s5, s6, s7 := conv[4], conv[5], conv[6], conv[7]
+	d0, d1, d2, d3 := dstIdx, dstIdx+conv[1], dstIdx+conv[2], dstIdx+conv[3]
+	d4, d5, d6, d7 := dstIdx+conv[4], dstIdx+conv[5], dstIdx+conv[6], dstIdx+conv[7]
+	e0, e1, e2, e3 := end[0], end[1], end[2], end[3]
+	e4, e5, e6, e7 := end[4], end[5], end[6], end[7]
+
+	// Run all 8 streams in parallel while every chunk has input
+	for s0 < e0 && s1 < e1 && s2 < e2 && s3 < e3 && s4 < e4 && s5 < e5 && s6 < e6 && s7 < e7 {
+		a0 := map16[binary.LittleEndian.Uint16(src[s0:])]
+		dst[d0] = byte(a0)
+		d0++
+		s0 += int(a0 >> 8)
+		a1 := map16[binary.LittleEndian.Uint16(src[s1:])]
+		dst[d1] = byte(a1)
+		d1++
+		s1 += int(a1 >> 8)
+		a2 := map16[binary.LittleEndian.Uint16(src[s2:])]
+		dst[d2] = byte(a2)
+		d2++
+		s2 += int(a2 >> 8)
+		a3 := map16[binary.LittleEndian.Uint16(src[s3:])]
+		dst[d3] = byte(a3)
+		d3++
+		s3 += int(a3 >> 8)
+		a4 := map16[binary.LittleEndian.Uint16(src[s4:])]
+		dst[d4] = byte(a4)
+		d4++
+		s4 += int(a4 >> 8)
+		a5 := map16[binary.LittleEndian.Uint16(src[s5:])]
+		dst[d5] = byte(a5)
+		d5++
+		s5 += int(a5 >> 8)
+		a6 := map16[binary.LittleEndian.Uint16(src[s6:])]
+		dst[d6] = byte(a6)
+		d6++
+		s6 += int(a6 >> 8)
+		a7 := map16[binary.LittleEndian.Uint16(src[s7:])]
+		dst[d7] = byte(a7)
+		d7++
+		s7 += int(a7 >> 8)
+	}
+
+	s := [8]int{s0, s1, s2, s3, s4, s5, s6, s7}
+	d := [8]int{d0, d1, d2, d3, d4, d5, d6, d7}
+
+	// Drain the leftover tail of each chunk
+	for k := 0; k < 8; k++ {
+		sk, dk, ek := s[k], d[k], end[k]
+		for sk < ek {
+			a := map16[binary.LittleEndian.Uint16(src[sk:])]
+			dst[dk] = byte(a)
+			dk++
+			sk += int(a >> 8)
+		}
+		s[k], d[k] = sk, dk
+	}
+
+	// Stitch chunks together: encode the short bridge [s[k-1], conv[k]) and shift chunk k down
+	curDst := d[0]
+	for k := 1; k < 8; k++ {
+		pos := s[k-1]
+		cEnd := conv[k]
+		for pos < cEnd {
+			a := map16[binary.LittleEndian.Uint16(src[pos:])]
+			dst[curDst] = byte(a)
+			curDst++
+			pos += int(a >> 8)
+		}
+		ds := dstIdx + conv[k]
+		n := d[k] - ds
+		copy(dst[curDst:curDst+n], dst[ds:d[k]])
+		curDst += n
+	}
+
+	if s[7] != count {
+		dst[1] = 1
+		dst[curDst] = src[s[7]]
+		curDst++
+	}
+
+	return curDst
 }
 
 // AliasCodec is a simple codec replacing 2-byte symbols with 1-byte aliases whenever possible
@@ -119,11 +286,16 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 	internal.ComputeHistogram(src[:], freqs0[:], true, false)
 	n0 := 0
 	var absent [256]int
+	var present [256]int
+	nPres := 0
 
 	for i := range &freqs0 {
 		if freqs0[i] == 0 {
 			absent[n0] = i
 			n0++
+		} else {
+			present[nPres] = i
+			nPres++
 		}
 	}
 
@@ -181,6 +353,21 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 				srcIdx += c3
 				dstIdx += c3
 
+				end16 := count - 15
+				for srcIdx < end16 {
+					b0 := uint32((map8[int(src[srcIdx+0])] << 6) | (map8[int(src[srcIdx+1])] << 4) |
+						(map8[int(src[srcIdx+2])] << 2) | map8[int(src[srcIdx+3])])
+					b1 := uint32((map8[int(src[srcIdx+4])] << 6) | (map8[int(src[srcIdx+5])] << 4) |
+						(map8[int(src[srcIdx+6])] << 2) | map8[int(src[srcIdx+7])])
+					b2 := uint32((map8[int(src[srcIdx+8])] << 6) | (map8[int(src[srcIdx+9])] << 4) |
+						(map8[int(src[srcIdx+10])] << 2) | map8[int(src[srcIdx+11])])
+					b3 := uint32((map8[int(src[srcIdx+12])] << 6) | (map8[int(src[srcIdx+13])] << 4) |
+						(map8[int(src[srcIdx+14])] << 2) | map8[int(src[srcIdx+15])])
+					binary.LittleEndian.PutUint32(dst[dstIdx:], b0|(b1<<8)|(b2<<16)|(b3<<24))
+					srcIdx += 16
+					dstIdx += 4
+				}
+
 				for srcIdx < count {
 					dst[dstIdx] = (map8[int(src[srcIdx+0])] << 6) | (map8[int(src[srcIdx+1])] << 4) |
 						(map8[int(src[srcIdx+2])] << 2) | map8[int(src[srcIdx+3])]
@@ -198,6 +385,17 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 					dstIdx++
 				}
 
+				end8 := count - 7
+				for srcIdx < end8 {
+					b0 := uint32((map8[int(src[srcIdx+0])] << 4) | map8[int(src[srcIdx+1])])
+					b1 := uint32((map8[int(src[srcIdx+2])] << 4) | map8[int(src[srcIdx+3])])
+					b2 := uint32((map8[int(src[srcIdx+4])] << 4) | map8[int(src[srcIdx+5])])
+					b3 := uint32((map8[int(src[srcIdx+6])] << 4) | map8[int(src[srcIdx+7])])
+					binary.LittleEndian.PutUint32(dst[dstIdx:], b0|(b1<<8)|(b2<<16)|(b3<<24))
+					srcIdx += 8
+					dstIdx += 4
+				}
+
 				for srcIdx < count {
 					dst[dstIdx] = (map8[int(src[srcIdx])] << 4) | map8[int(src[srcIdx+1])]
 					srcIdx += 2
@@ -207,72 +405,43 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 	} else {
 		// Digram encoding
-		symb := [65536]sdAlias{}
-		n1 := 0
+		h := aliasMinHeap{cap: n0}
 
 		{
 			var freqs1 [65536]int
 			internal.ComputeHistogram(src[:], freqs1[:], false, false)
 
-			for i := range &freqs1 {
-				if freqs1[i] == 0 {
-					continue
-				}
+			// Scan present symbol pairs to keep only the top n0 most frequent digrams
+			for hiIdx := 0; hiIdx < nPres; hiIdx++ {
+				hi := present[hiIdx]
+				base := hi << 8
+				row := freqs1[base : base+256]
 
-				symb[n1] = sdAlias{val: i, freq: freqs1[i]}
-				n1++
+				for loIdx := 0; loIdx < nPres; loIdx++ {
+					lo := present[loIdx]
+					if row[lo] != 0 {
+						h.push(base|lo, row[lo])
+					}
+				}
+			}
+
+			if freqs0[0] == 0 && freqs1[int(src[0])] != 0 {
+				h.push(int(src[0]), freqs1[int(src[0])])
 			}
 		}
 
-		if n0 > n1 {
+		if h.size < n0 {
 			// Fewer distinct 2-byte symbols than 1-byte symbols
-			n0 = n1
+			n0 = h.size
 
 			if n0 < 16 {
 				return 0, 0, errors.New("Alias Codec: forward transform skip, not enough free slots")
 			}
 		}
 
-		// Keep only the n0 most frequent digrams, in decreasing order.
-		if n0 < n1 {
-			top := aliasHeap(symb[:n0])
-			heap.Init(&top)
-
-			for i := n0; i < n1; i++ {
-				candidate := symb[i]
-				if isAliasBetter(candidate, top[0]) {
-					top[0] = candidate
-					heap.Fix(&top, 0)
-				}
-			}
-
-			slices.SortStableFunc(top, compareAliases)
-		} else {
-			slices.SortStableFunc(symb[:n1], compareAliases)
-		}
-
-		var map16 [65536]int16
-
-		// Build map symbol -> alias
-		for i := range &map16 {
-			map16[i] = int16(0x100 | (i >> 8))
-		}
-
 		savings := 0
-		dst[0] = byte(n0)
-		dst[1] = 0
-		srcIdx = 0
-		dstIdx = 2
-
-		// Header: emit map length then map data
 		for i := 0; i < n0; i++ {
-			savings += symb[i].freq // ignore factor 2
-			idx := symb[i].val
-			map16[idx] = int16(0x200 | absent[i])
-			dst[dstIdx] = byte(idx >> 8)
-			dst[dstIdx+1] = byte(idx)
-			dst[dstIdx+2] = byte(absent[i])
-			dstIdx += 3
+			savings += int(h.items[i] >> 16)
 		}
 
 		// Worth it ?
@@ -280,23 +449,64 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 			return 0, 0, errors.New("Alias Codec: forward transform skip, not enough savings")
 		}
 
-		srcEnd := count - 1
+		// Order top digrams descending so the most frequent get the first aliases
+		slices.SortFunc(h.items[:n0], func(a, b uint64) int {
+			return cmp.Compare(b, a)
+		})
 
-		// Emit aliased data
-		for srcIdx < srcEnd {
-			alias := map16[(int(src[srcIdx])<<8)|int(src[srcIdx+1])]
-			dst[dstIdx] = byte(alias)
-			srcIdx += int(alias >> 8)
-			dstIdx++
+		// Build branchless symbol -> alias lookup (upper byte holds src advance: 1 or 2)
+		var map16 [65536]int16
+		var row0 [256]int16
+		for j := 0; j < 256; j++ {
+			row0[j] = int16(0x100 | j)
+		}
+		for j := 0; j < nPres; j++ {
+			base := present[j] << 8
+			copy(map16[base:base+256], row0[:])
 		}
 
-		if srcIdx != count {
-			dst[1] = 1
-			dst[dstIdx] = src[srcIdx]
-			srcIdx++
-			dstIdx++
+		dst[0] = byte(n0)
+		dst[1] = 0
+		srcIdx = 0
+		dstIdx = 2
+
+		// Header: emit map data
+		for i := 0; i < n0; i++ {
+			idx := int(h.items[i] & 0xFFFF)
+			hi := idx >> 8
+			lo := idx & 0xFF
+			map16[(lo<<8)|hi] = int16(0x200 | absent[i])
+			dst[dstIdx] = byte(hi)
+			dst[dstIdx+1] = byte(lo)
+			dst[dstIdx+2] = byte(absent[i])
+			dstIdx += 3
 		}
 
+		encodedLen := -1
+		if count >= 4096 {
+			encodedLen = encodeDigram8(src, dst, dstIdx, count, &map16)
+		}
+
+		if encodedLen >= 0 {
+			dstIdx = encodedLen
+			srcIdx = count
+		} else {
+			srcEnd := count - 1
+
+			for srcIdx < srcEnd {
+				alias := map16[binary.LittleEndian.Uint16(src[srcIdx:])]
+				dst[dstIdx] = byte(alias)
+				srcIdx += int(alias >> 8)
+				dstIdx++
+			}
+
+			if srcIdx != count {
+				dst[1] = 1
+				dst[dstIdx] = src[srcIdx]
+				srcIdx++
+				dstIdx++
+			}
+		}
 	}
 
 	if dstIdx >= count {
@@ -304,49 +514,6 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 	}
 
 	return uint(srcIdx), uint(dstIdx), nil
-}
-
-type aliasHeap []sdAlias
-
-func (h aliasHeap) Len() int {
-	return len(h)
-}
-
-func (h aliasHeap) Less(i, j int) bool {
-	if h[i].freq != h[j].freq {
-		return h[i].freq < h[j].freq
-	}
-
-	return h[i].val < h[j].val
-}
-
-func (h aliasHeap) Swap(i, j int) {
-	h[i], h[j] = h[j], h[i]
-}
-
-func (h *aliasHeap) Push(value any) {
-	*h = append(*h, value.(sdAlias))
-}
-
-func (h *aliasHeap) Pop() any {
-	old := *h
-	n := len(old)
-	value := old[n-1]
-	*h = old[:n-1]
-	return value
-}
-
-func isAliasBetter(candidate, current sdAlias) bool {
-	return candidate.freq > current.freq ||
-		(candidate.freq == current.freq && candidate.val > current.val)
-}
-
-func compareAliases(sd1, sd2 sdAlias) int {
-	if r := sd2.freq - sd1.freq; r != 0 {
-		return r
-	}
-
-	return sd2.val - sd1.val
 }
 
 // Inverse applies the reverse function to the src and writes the result
@@ -442,7 +609,15 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 				srcIdx += adjust
 				dstIdx += adjust
 
-				for srcIdx < srcEnd {
+				srcEnd2 := srcEnd - 1
+				for srcIdx < srcEnd2 {
+					q := uint64(decodeMap[int(src[srcIdx+0])]) | (uint64(decodeMap[int(src[srcIdx+1])]) << 32)
+					binary.LittleEndian.PutUint64(dst[dstIdx:], q)
+					srcIdx += 2
+					dstIdx += 8
+				}
+
+				if srcIdx < srcEnd {
 					binary.LittleEndian.PutUint32(dst[dstIdx:], decodeMap[int(src[srcIdx])])
 					srcIdx++
 					dstIdx += 4
@@ -466,6 +641,17 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 					dst[dstIdx] = src[srcIdx]
 					srcIdx++
 					dstIdx++
+				}
+
+				srcEnd4 := srcEnd - 3
+				for srcIdx < srcEnd4 {
+					q := uint64(decodeMap[int(src[srcIdx+0])]) |
+						(uint64(decodeMap[int(src[srcIdx+1])]) << 16) |
+						(uint64(decodeMap[int(src[srcIdx+2])]) << 32) |
+						(uint64(decodeMap[int(src[srcIdx+3])]) << 48)
+					binary.LittleEndian.PutUint64(dst[dstIdx:], q)
+					srcIdx += 4
+					dstIdx += 8
 				}
 
 				for srcIdx < srcEnd {
@@ -501,11 +687,40 @@ func (this *AliasCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		dstAvail := len(dst) - dstIdx
 
 		if nbAliases <= (dstAvail >> 1) {
+			// Safe to prefix-sum and write 16 bits unconditionally for each 8-symbol batch
+			srcEnd8 := srcEnd - 7
+			for srcIdx < srcEnd8 {
+				v0 := map16[int(src[srcIdx+0])]
+				v1 := map16[int(src[srcIdx+1])]
+				v2 := map16[int(src[srcIdx+2])]
+				v3 := map16[int(src[srcIdx+3])]
+				v4 := map16[int(src[srcIdx+4])]
+				v5 := map16[int(src[srcIdx+5])]
+				v6 := map16[int(src[srcIdx+6])]
+				v7 := map16[int(src[srcIdx+7])]
+				o1 := v0 >> 16
+				o2 := o1 + (v1 >> 16)
+				o3 := o2 + (v2 >> 16)
+				o4 := o3 + (v3 >> 16)
+				o5 := o4 + (v4 >> 16)
+				o6 := o5 + (v5 >> 16)
+				o7 := o6 + (v6 >> 16)
+				binary.LittleEndian.PutUint16(dst[dstIdx:], uint16(v0))
+				binary.LittleEndian.PutUint16(dst[dstIdx+o1:], uint16(v1))
+				binary.LittleEndian.PutUint16(dst[dstIdx+o2:], uint16(v2))
+				binary.LittleEndian.PutUint16(dst[dstIdx+o3:], uint16(v3))
+				binary.LittleEndian.PutUint16(dst[dstIdx+o4:], uint16(v4))
+				binary.LittleEndian.PutUint16(dst[dstIdx+o5:], uint16(v5))
+				binary.LittleEndian.PutUint16(dst[dstIdx+o6:], uint16(v6))
+				binary.LittleEndian.PutUint16(dst[dstIdx+o7:], uint16(v7))
+				dstIdx += o7 + (v7 >> 16)
+				srcIdx += 8
+			}
+
 			for srcIdx < srcEnd {
 				val := map16[int(src[srcIdx])]
 				srcIdx++
-				dst[dstIdx] = byte(val)
-				dst[dstIdx+1] = byte(val >> 8)
+				binary.LittleEndian.PutUint16(dst[dstIdx:], uint16(val))
 				dstIdx += (val >> 16)
 			}
 		} else {
