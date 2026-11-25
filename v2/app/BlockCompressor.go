@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -170,7 +170,7 @@ func NewBlockCompressor(argsMap map[string]any) (*BlockCompressor, error) {
 		return nil, fmt.Errorf("'%s' is a reserved name", this.outputName)
 	}
 
-	if len(this.outputName) == 0 && this.inputName == _COMP_STDIN {
+	if len(this.outputName) == 0 && strings.EqualFold(this.inputName, _COMP_STDIN) {
 		this.outputName = _COMP_STDOUT
 	}
 
@@ -351,7 +351,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 	if isStdIn == false {
 		suffix := string(os.PathSeparator) + "."
 		target := this.inputName
-		isRecursive := len(target) <= 2 || target[len(target)-len(suffix):] != suffix
+		isRecursive := !strings.HasSuffix(target, suffix)
 
 		if isRecursive == false {
 			target = target[0 : len(target)-1]
@@ -470,11 +470,11 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 		if fi.IsDir() {
 			inputIsDir = true
 
-			if len(formattedInName) > 1 && formattedInName[len(formattedInName)-1] == '.' {
-				formattedInName = formattedInName[0 : len(formattedInName)-1]
-			}
+			formattedInName = filepath.Clean(formattedInName)
 
-			if len(formattedInName) > 0 && formattedInName[len(formattedInName)-1] != os.PathSeparator {
+			if formattedInName == "." {
+				formattedInName = ""
+			} else if !strings.HasSuffix(formattedInName, string(os.PathSeparator)) {
 				formattedInName += string(os.PathSeparator)
 			}
 
@@ -540,7 +540,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 			if len(oName) == 0 {
 				oName = iName + ".knz"
 			} else if inputIsDir == true && specialOutput == false {
-				oName = formattedOutName + iName[len(formattedInName):] + ".knz"
+				oName = formattedOutName + strings.TrimPrefix(filepath.Clean(iName), formattedInName) + ".knz"
 			}
 		}
 
@@ -573,7 +573,7 @@ func (this *BlockCompressor) Compress() (int, uint64) {
 			if len(oName) == 0 {
 				oName = iName + ".knz"
 			} else if inputIsDir == true && specialOutput == false {
-				oName = formattedOutName + iName[len(formattedInName):] + ".knz"
+				oName = formattedOutName + strings.TrimPrefix(filepath.Clean(iName), formattedInName) + ".knz"
 			}
 
 			taskCtx := make(map[string]any)
@@ -738,9 +738,11 @@ func openOutputFile(outputName, inputName string, overwrite bool) (*os.File, err
 	output, err := os.OpenFile(outputName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 
 	if err != nil {
-		// Attempt to create the full folder hierarchy to file
-		if err = os.MkdirAll(path.Dir(strings.ReplaceAll(outputName, "\\", "/")), os.ModePerm); err == nil {
-			output, err = os.OpenFile(outputName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+		parent := filepath.Dir(outputName)
+		if parent != "." {
+			if err = os.MkdirAll(parent, os.ModePerm); err == nil {
+				output, err = os.OpenFile(outputName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+			}
 		}
 	}
 

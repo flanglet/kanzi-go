@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -121,7 +122,8 @@ func NewBlockDecompressor(argsMap map[string]any) (*BlockDecompressor, error) {
 		return nil, fmt.Errorf("'%s' is a reserved name", this.outputName)
 	}
 
-	if len(this.outputName) == 0 && this.inputName == _DECOMP_STDIN {
+	if (len(this.outputName) == 0 && strings.EqualFold(this.inputName, _DECOMP_STDIN)) ||
+		(os.PathSeparator == '/' && this.outputName == "/dev/stdout") {
 		this.outputName = _DECOMP_STDOUT
 	}
 
@@ -266,7 +268,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 	if isStdIn == false {
 		suffix := string(os.PathSeparator) + "."
 		target := this.inputName
-		isRecursive := len(target) <= 2 || target[len(target)-len(suffix):] != suffix
+		isRecursive := !strings.HasSuffix(target, suffix)
 
 		if isRecursive == false {
 			target = target[0 : len(target)-1]
@@ -374,11 +376,11 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 		if fi.IsDir() {
 			inputIsDir = true
 
-			if len(formattedInName) > 1 && formattedInName[len(formattedInName)-1] == '.' {
-				formattedInName = formattedInName[0 : len(formattedInName)-1]
-			}
+			formattedInName = filepath.Clean(formattedInName)
 
-			if formattedInName[len(formattedInName)-1] != os.PathSeparator {
+			if formattedInName == "." {
+				formattedInName = ""
+			} else if !strings.HasSuffix(formattedInName, string(os.PathSeparator)) {
 				formattedInName += string(os.PathSeparator)
 			}
 
@@ -448,7 +450,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 			if len(oName) == 0 {
 				oName = tmpName
 			} else if inputIsDir == true && specialOutput == false {
-				oName = formattedOutName + tmpName[len(formattedInName):]
+				oName = formattedOutName + strings.TrimPrefix(filepath.Clean(tmpName), formattedInName)
 			}
 		}
 
@@ -484,7 +486,7 @@ func (this *BlockDecompressor) Decompress() (int, uint64) {
 			if len(oName) == 0 {
 				oName = tmpName
 			} else if inputIsDir == true && specialOutput == false {
-				oName = formattedOutName + tmpName[len(formattedInName):]
+				oName = formattedOutName + strings.TrimPrefix(filepath.Clean(tmpName), formattedInName)
 			}
 
 			taskCtx := make(map[string]any)
@@ -589,24 +591,11 @@ func (this *fileDecompressTask) call() (int, uint64, error) {
 
 	overwrite := this.ctx["overwrite"].(bool)
 	var output io.WriteCloser
-	checkOutputSize := true
-
-	if runtime.GOOS == "windows" {
-		if strings.EqualFold(outputName, "NUL") {
-			checkOutputSize = false
-		}
-	} else {
-		if strings.EqualFold(outputName, "/DEV/NULL") {
-			checkOutputSize = false
-		}
-	}
 
 	if strings.EqualFold(outputName, _DECOMP_NONE) {
 		output, _ = kio.NewNullOutputStream()
-		checkOutputSize = false
 	} else if strings.EqualFold(outputName, _DECOMP_STDOUT) {
 		output = os.Stdout
-		checkOutputSize = false
 	} else {
 		var err error
 
@@ -727,13 +716,13 @@ func (this *fileDecompressTask) call() (int, uint64, error) {
 	_, hasTo := this.ctx["to"]
 	_, hasFrom := this.ctx["from"]
 
-	if checkOutputSize == true && hasTo == false && hasFrom == false {
+	if !hasTo && !hasFrom {
 		if osz, prst := this.ctx["outputSize"]; prst == true {
 			outputSize := osz.(int64)
 
 			if outputSize != 0 && decoded != outputSize {
 				errMsg := fmt.Sprintf("Corrupted bitstream: invalid output size (expected %d, got %d)", outputSize, decoded)
-				fmt.Println(errMsg)
+				fmt.Fprintln(os.Stderr, errMsg)
 				return kanzi.ERR_INVALID_FILE, uint64(decoded), errors.New(errMsg)
 			}
 		}
