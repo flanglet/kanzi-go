@@ -19,14 +19,15 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
+	"math"
 	"math/bits"
 
-	"fmt"
 	"github.com/flanglet/kanzi-go/v2/internal"
 )
 
 const (
-	_SRT_MAX_HEADER_SIZE = 4 * 256
+	_SRT_MAX_HEADER_SIZE = 5 * 256
 )
 
 // SRT Sorted Ranks Transform
@@ -60,8 +61,8 @@ func (this *SRT) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
-	if n := this.MaxEncodedLen(len(src)); len(dst) < n {
-		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), n)
+	if len(dst)-_SRT_MAX_HEADER_SIZE < len(src) {
+		return 0, 0, fmt.Errorf("Output buffer is too small - size: %d, required %d", len(dst), this.MaxEncodedLen(len(src)))
 	}
 
 	count := len(src)
@@ -74,6 +75,10 @@ func (this *SRT) Forward(src, dst []byte) (uint, uint, error) {
 	first := [256]int{}
 	n := 0
 	for c, freq := range freqs {
+		if uint64(freq) >= 1<<35 {
+			return 0, 0, errors.New("SRT forward transform failed: frequency exceeds five bytes")
+		}
+
 		if freq == 0 {
 			continue
 		}
@@ -383,7 +388,18 @@ func (this SRT) decodeHeader(src []byte, freqs []int) (int, error) {
 				res |= ((val & 0x7F) << 21)
 
 				if val >= 128 {
-					return 0, errors.New("SRT inverse transform failed: invalid header")
+					if n >= len(src) {
+						return 0, errors.New("SRT inverse transform failed: truncated header")
+					}
+
+					val = int(src[n])
+					n++
+
+					if val >= 128 || val > math.MaxInt>>28 {
+						return 0, errors.New("SRT inverse transform failed: invalid header")
+					}
+
+					res |= val << 28
 				}
 			}
 		}
@@ -396,5 +412,9 @@ func (this SRT) decodeHeader(src []byte, freqs []int) (int, error) {
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
 func (this *SRT) MaxEncodedLen(srcLen int) int {
+	if srcLen > math.MaxInt-_SRT_MAX_HEADER_SIZE {
+		return math.MaxInt
+	}
+
 	return srcLen + _SRT_MAX_HEADER_SIZE
 }
