@@ -182,7 +182,9 @@ func (this *LinearAdaptiveProbMap) Get(bit int, pr int, ctx int) int {
 	this.data[this.index+1] += uint16((g - int(this.data[this.index+1])) >> this.rate)
 	this.data[this.index] += uint16((g - int(this.data[this.index])) >> this.rate)
 
-	// Find index: 65*ctx + quantized prediction in [0..64]
+	pr = min(max(pr, 0), 4095)
+
+	// Find index: 65*ctx + quantized prediction in [0..63]
 	this.index = (pr >> 6) + 65*ctx
 
 	// Return interpolated probability. The table index advances every 64

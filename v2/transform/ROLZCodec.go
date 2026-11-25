@@ -691,6 +691,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		}
 
 		sizeChunk = endChunk - startChunk
+		firstLitLen := min(sizeChunk, 8)
 		buf := dst[startChunk:endChunk]
 		onlyLiterals := false
 		litLenDecoded := 0
@@ -712,7 +713,6 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			tkLen = int(ibs.ReadBits(32))
 			mLenLen = int(ibs.ReadBits(32))
 			mIdxLen = int(ibs.ReadBits(32))
-			firstLitLen := min(sizeChunk, 8)
 
 			if litLen < 0 || litLen > len(litBuf) {
 				err = fmt.Errorf("ROLZ codec: Invalid length for literals: got %d, must be positive and less than or equal to %d", litLen, len(litBuf))
@@ -798,14 +798,10 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 		clear(this.matches)
 
 		dstIdx = 0
-		mm := 8
+		mm := firstLitLen
 
 		if bsVersion < 3 {
 			mm = 2
-		}
-
-		if startChunk >= dstEnd {
-			mm = dstEnd - startChunk
 		}
 
 		for j := 0; j < mm; j++ {
@@ -892,7 +888,7 @@ func (this *rolzCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 			}
 
 			// Sanity check
-			if dstIdx+matchLen+this.minMatch > dstEnd {
+			if matchLen > sizeChunk-dstIdx-this.minMatch {
 				err = errors.New("ROLZ codec inverse transform failed: invalid data")
 				goto End
 			}
