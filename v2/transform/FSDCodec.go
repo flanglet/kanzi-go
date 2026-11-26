@@ -16,6 +16,7 @@ limitations under the License.
 package transform
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 
@@ -62,6 +63,202 @@ var _FSD_ZIGZAG2 = [256]int{
 	116, -117, 117, -118, 118, -119, 119, -120,
 	120, -121, 121, -122, 122, -123, 123, -124,
 	124, -125, 125, -126, 126, -127, 127, -128,
+}
+
+const (
+	_FSD_SWAR_MASK_01 uint64 = 0x0101010101010101
+	_FSD_SWAR_MASK_7F uint64 = 0x7F7F7F7F7F7F7F7F
+	_FSD_SWAR_MASK_80 uint64 = 0x8080808080808080
+)
+
+func fsdZigzagByte(cur, prev byte) byte {
+	residual := uint32(cur - prev)
+	return byte((residual << 1) ^ (0 - (residual >> 7)))
+}
+
+func fsdZigzagSwar64(a, b uint64) uint64 {
+	residual := ((a | _FSD_SWAR_MASK_80) - (b & _FSD_SWAR_MASK_7F)) ^ ((a ^ ^b) & _FSD_SWAR_MASK_80)
+	msb := residual & _FSD_SWAR_MASK_80
+	sign := msb | (msb - (msb >> 7))
+	return ((residual & _FSD_SWAR_MASK_7F) << 1) ^ sign
+}
+
+func fsdUnzigzagSwar64(v uint64) uint64 {
+	lsb := v & _FSD_SWAR_MASK_01
+	m := lsb << 7
+	return ((v >> 1) & _FSD_SWAR_MASK_7F) ^ (m | (m - lsb))
+}
+
+func fsdAddBytesSwar64(a, b uint64) uint64 {
+	return ((a & _FSD_SWAR_MASK_7F) + (b & _FSD_SWAR_MASK_7F)) ^ ((a ^ b) & _FSD_SWAR_MASK_80)
+}
+
+func fsdSampleHistograms(src []byte, count10, count5 int, histo *[7][256]int) {
+	for s := 0; s < 3; s++ {
+		in := src[s*(2*count5):]
+		i := count10
+		p16 := binary.LittleEndian.Uint32(in[i-16:])
+		p12 := binary.LittleEndian.Uint32(in[i-12:])
+		p8 := binary.LittleEndian.Uint32(in[i-8:])
+		p4 := binary.LittleEndian.Uint32(in[i-4:])
+		for ; i+4 <= count5; i += 4 {
+			cur := binary.LittleEndian.Uint32(in[i:])
+			x0 := cur
+			histo[0][byte(x0>>0)]++
+			histo[0][byte(x0>>8)]++
+			histo[0][byte(x0>>16)]++
+			histo[0][byte(x0>>24)]++
+			x1 := cur ^ ((cur << 8) | (p4 >> 24))
+			histo[1][byte(x1>>0)]++
+			histo[1][byte(x1>>8)]++
+			histo[1][byte(x1>>16)]++
+			histo[1][byte(x1>>24)]++
+			x2 := cur ^ ((cur << 16) | (p4 >> 16))
+			histo[2][byte(x2>>0)]++
+			histo[2][byte(x2>>8)]++
+			histo[2][byte(x2>>16)]++
+			histo[2][byte(x2>>24)]++
+			x3 := cur ^ ((cur << 24) | (p4 >> 8))
+			histo[3][byte(x3>>0)]++
+			histo[3][byte(x3>>8)]++
+			histo[3][byte(x3>>16)]++
+			histo[3][byte(x3>>24)]++
+			x4 := cur ^ p4
+			histo[4][byte(x4>>0)]++
+			histo[4][byte(x4>>8)]++
+			histo[4][byte(x4>>16)]++
+			histo[4][byte(x4>>24)]++
+			x5 := cur ^ p8
+			histo[5][byte(x5>>0)]++
+			histo[5][byte(x5>>8)]++
+			histo[5][byte(x5>>16)]++
+			histo[5][byte(x5>>24)]++
+			x6 := cur ^ p16
+			histo[6][byte(x6>>0)]++
+			histo[6][byte(x6>>8)]++
+			histo[6][byte(x6>>16)]++
+			histo[6][byte(x6>>24)]++
+			p16 = p12
+			p12 = p8
+			p8 = p4
+			p4 = cur
+		}
+		for ; i < count5; i++ {
+			histo[0][in[i]]++
+			histo[1][in[i]^in[i-1]]++
+			histo[2][in[i]^in[i-2]]++
+			histo[3][in[i]^in[i-3]]++
+			histo[4][in[i]^in[i-4]]++
+			histo[5][in[i]^in[i-8]]++
+			histo[6][in[i]^in[i-16]]++
+		}
+	}
+}
+
+func fsdForwardBucketed(src, dst []byte, dstIdx, dist int) int {
+	tileLength := dist * (1 << 15)
+	var outs, idxs [8]int
+	for tileStart := 0; tileStart < len(src); tileStart += tileLength {
+		tileEnd := tileStart + min(tileLength, len(src)-tileStart)
+		firstStart := tileStart
+		if tileStart == 0 {
+			firstStart += dist
+		}
+		cur := dstIdx
+		for lane := 0; lane < dist; lane++ {
+			outs[lane] = cur
+			fp := firstStart + lane
+			if fp < tileEnd {
+				cur += (tileEnd-1-fp)/dist + 1
+			}
+		}
+		dstIdx = cur
+		pos, outIdx := firstStart, 0
+		if dist == 2 {
+			for ; pos+8 <= tileEnd; pos += 8 {
+				z0 := fsdZigzagSwar64(binary.LittleEndian.Uint64(src[pos+0:]), binary.LittleEndian.Uint64(src[pos+-2:]))
+				binary.LittleEndian.PutUint32(dst[outs[0]+outIdx:], (uint32(byte(z0>>0))<<0)|(uint32(byte(z0>>16))<<8)|(uint32(byte(z0>>32))<<16)|(uint32(byte(z0>>48))<<24))
+				binary.LittleEndian.PutUint32(dst[outs[1]+outIdx:], (uint32(byte(z0>>8))<<0)|(uint32(byte(z0>>24))<<8)|(uint32(byte(z0>>40))<<16)|(uint32(byte(z0>>56))<<24))
+				outIdx += 4
+			}
+		} else if dist == 4 {
+			for ; pos+16 <= tileEnd; pos += 16 {
+				z0 := fsdZigzagSwar64(binary.LittleEndian.Uint64(src[pos+0:]), binary.LittleEndian.Uint64(src[pos+-4:]))
+				z1 := fsdZigzagSwar64(binary.LittleEndian.Uint64(src[pos+8:]), binary.LittleEndian.Uint64(src[pos+4:]))
+				binary.LittleEndian.PutUint32(dst[outs[0]+outIdx:], (uint32(byte(z0>>0))<<0)|(uint32(byte(z0>>32))<<8)|(uint32(byte(z1>>0))<<16)|(uint32(byte(z1>>32))<<24))
+				binary.LittleEndian.PutUint32(dst[outs[1]+outIdx:], (uint32(byte(z0>>8))<<0)|(uint32(byte(z0>>40))<<8)|(uint32(byte(z1>>8))<<16)|(uint32(byte(z1>>40))<<24))
+				binary.LittleEndian.PutUint32(dst[outs[2]+outIdx:], (uint32(byte(z0>>16))<<0)|(uint32(byte(z0>>48))<<8)|(uint32(byte(z1>>16))<<16)|(uint32(byte(z1>>48))<<24))
+				binary.LittleEndian.PutUint32(dst[outs[3]+outIdx:], (uint32(byte(z0>>24))<<0)|(uint32(byte(z0>>56))<<8)|(uint32(byte(z1>>24))<<16)|(uint32(byte(z1>>56))<<24))
+				outIdx += 4
+			}
+		} else if dist == 8 {
+			for ; pos+8 <= tileEnd; pos += 8 {
+				z0 := fsdZigzagSwar64(binary.LittleEndian.Uint64(src[pos+0:]), binary.LittleEndian.Uint64(src[pos+-8:]))
+				dst[outs[0]+outIdx] = byte(z0 >> 0)
+				dst[outs[1]+outIdx] = byte(z0 >> 8)
+				dst[outs[2]+outIdx] = byte(z0 >> 16)
+				dst[outs[3]+outIdx] = byte(z0 >> 24)
+				dst[outs[4]+outIdx] = byte(z0 >> 32)
+				dst[outs[5]+outIdx] = byte(z0 >> 40)
+				dst[outs[6]+outIdx] = byte(z0 >> 48)
+				dst[outs[7]+outIdx] = byte(z0 >> 56)
+				outIdx += 1
+			}
+		}
+		for lane := range idxs {
+			idxs[lane] = outIdx
+		}
+		for ; pos < tileEnd; pos++ {
+			lane := (pos - firstStart) & (dist - 1)
+			dst[outs[lane]+idxs[lane]] = fsdZigzagByte(src[pos], src[pos-dist])
+			idxs[lane]++
+		}
+	}
+	return dstIdx
+}
+
+func fsdInverseLegacy(src, dst []byte, srcIdx, dstIdx, dist int, mode byte) (int, int, error) {
+	if mode == _FSD_DELTA_CODING {
+		for srcIdx < len(src) && dstIdx < len(dst) {
+			if src[srcIdx] != _FSD_ESCAPE_TOKEN {
+				dst[dstIdx] = byte(int(dst[dstIdx-dist]) + _FSD_ZIGZAG2[src[srcIdx]])
+				srcIdx++
+			} else {
+				srcIdx++
+				if srcIdx == len(src) {
+					return srcIdx, dstIdx, errors.New("FSD inverse transform failed: invalid data")
+				}
+				dst[dstIdx] = src[srcIdx] ^ dst[dstIdx-dist]
+				srcIdx++
+			}
+			dstIdx++
+		}
+	} else {
+		srcIdx, dstIdx = fsdInverseXor(src, dst, srcIdx, dstIdx, dist)
+	}
+	if srcIdx != len(src) {
+		return srcIdx, dstIdx, errors.New("FSD inverse transform failed: output buffer too small")
+	}
+	return srcIdx, dstIdx, nil
+}
+
+func fsdInverseXor(src, dst []byte, srcIdx, dstIdx, dist int) (int, int) {
+	if dist == 16 || dist == 8 {
+		for srcIdx+dist <= len(src) && dstIdx+dist <= len(dst) {
+			for k := 0; k < dist; k += 8 {
+				v := binary.LittleEndian.Uint64(src[srcIdx+k:]) ^ binary.LittleEndian.Uint64(dst[dstIdx+k-dist:])
+				binary.LittleEndian.PutUint64(dst[dstIdx+k:], v)
+			}
+			srcIdx += dist
+			dstIdx += dist
+		}
+	}
+	for srcIdx < len(src) && dstIdx < len(dst) {
+		dst[dstIdx] = src[srcIdx] ^ dst[dstIdx-dist]
+		srcIdx++
+		dstIdx++
+	}
+	return srcIdx, dstIdx
 }
 
 // FSDCodec Fixed Step Delta codec is used to decorrelate values separated
@@ -166,37 +363,8 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 	// Check several step values on a few sub-blocks (no memory allocation)
 	count10 := count / 10
 	count5 := 2 * count10 // count5=count/5 does not guarantee count5=2*count10 !
-	in0 := src[0*count5:]
-	in1 := src[2*count5:]
-	in2 := src[4*count5:]
 	var histo [7][256]int
-
-	for i := count10; i < count5; i++ {
-		b0 := in0[i]
-		histo[0][b0]++
-		histo[1][b0^in0[i-1]]++
-		histo[2][b0^in0[i-2]]++
-		histo[3][b0^in0[i-3]]++
-		histo[4][b0^in0[i-4]]++
-		histo[5][b0^in0[i-8]]++
-		histo[6][b0^in0[i-16]]++
-		b1 := in1[i]
-		histo[0][b1]++
-		histo[1][b1^in1[i-1]]++
-		histo[2][b1^in1[i-2]]++
-		histo[3][b1^in1[i-3]]++
-		histo[4][b1^in1[i-4]]++
-		histo[5][b1^in1[i-8]]++
-		histo[6][b1^in1[i-16]]++
-		b2 := in2[i]
-		histo[0][b2]++
-		histo[1][b2^in2[i-1]]++
-		histo[2][b2^in2[i-2]]++
-		histo[3][b2^in2[i-3]]++
-		histo[4][b2^in2[i-4]]++
-		histo[5][b2^in2[i-8]]++
-		histo[6][b2^in2[i-16]]++
-	}
+	fsdSampleHistograms(src, count10, count5, &histo)
 
 	// Find if entropy is lower post transform
 	var ent [7]int
@@ -219,10 +387,6 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 		return 0, 0, fmt.Errorf("FSD forward transform skip")
 	}
 
-	if this.ctx != nil {
-		(*this.ctx)["dataType"] = internal.DT_MULTIMEDIA
-	}
-
 	var distances = []int{0, 1, 2, 3, 4, 8, 16}
 	dist := distances[minIdx]
 	coding := _FSD_DELTA_CODING
@@ -241,82 +405,60 @@ func (this *FSDCodec) Forward(src, dst []byte) (uint, uint, error) {
 	srcIdx := 0
 	dstIdx := 2
 
-	// Emit first bytes
-	for i := 0; i < dist; i++ {
-		dst[dstIdx] = src[srcIdx]
-		dstIdx++
-		srcIdx++
-	}
-
-	// Emit modified bytes. The bucketed layout keeps each phase together in
-	// 32 KiB source tiles so entropy chunks can use phase-specific statistics.
+	copy(dst[dstIdx:], src[:dist])
+	srcIdx += dist
+	dstIdx += dist
 	if bucketed {
-		const bucketLength = 1 << 15
-		tileLength := dist * bucketLength
-
-		for tileStart := 0; tileStart < count; tileStart += tileLength {
-			tileEnd := min(tileStart+tileLength, count)
-
-			for lane := 0; lane < dist; lane++ {
-				firstPos := tileStart + lane
-
-				if tileStart == 0 {
-					firstPos += dist
-				}
-
-				for pos := firstPos; pos < tileEnd; pos += dist {
-					residual := uint8(int32(src[pos]) - int32(src[pos-dist]))
-					zigzag := uint32(residual) << 1
-
-					if residual&0x80 != 0 {
-						zigzag = (uint32(256)-uint32(residual))<<1 - 1
-					}
-
-					dst[dstIdx] = byte(zigzag)
-
-					dstIdx++
-				}
-			}
-		}
-
+		dstIdx = fsdForwardBucketed(src, dst, dstIdx, dist)
 		srcIdx = count
 	} else {
+		for srcIdx+8 <= count {
+			z := fsdZigzagSwar64(binary.LittleEndian.Uint64(src[srcIdx:]), binary.LittleEndian.Uint64(src[srcIdx-dist:]))
+			binary.LittleEndian.PutUint64(dst[dstIdx:], z)
+			srcIdx += 8
+			dstIdx += 8
+		}
 		for srcIdx < count {
-			// Encode the delta modulo 256. The signed difference is not
-			// needed to reconstruct a byte, and all 256 residuals fit in
-			// one byte. Values in [-127..127] retain the previous zigzag
-			// mapping; -128 and +128 share the same modular residual.
-			residual := uint8(int32(src[srcIdx]) - int32(src[srcIdx-dist]))
-			zigzag := uint32(residual) << 1
-
-			if residual&0x80 != 0 {
-				zigzag = (uint32(256)-uint32(residual))<<1 - 1
-			}
-
-			dst[dstIdx] = byte(zigzag)
+			dst[dstIdx] = fsdZigzagByte(src[srcIdx], src[srcIdx-dist])
 			srcIdx++
 			dstIdx++
 		}
 	}
 
-	if srcIdx != count {
-		return uint(srcIdx), uint(dstIdx), errors.New("FSD forward transform skip: output buffer too small")
+	clear(histo[1][:])
+	clear(histo[2][:])
+	out1 := dst[count5:]
+	out2 := dst[3*count5:]
+	oi := 0
+	for ; oi+4 <= count10; oi += 4 {
+		v1 := binary.LittleEndian.Uint32(out1[oi:])
+		v2 := binary.LittleEndian.Uint32(out2[oi:])
+		histo[1][byte(v1>>0)]++
+		histo[2][byte(v1>>8)]++
+		histo[1][byte(v1>>16)]++
+		histo[2][byte(v1>>24)]++
+		histo[1][byte(v2>>0)]++
+		histo[2][byte(v2>>8)]++
+		histo[1][byte(v2>>16)]++
+		histo[2][byte(v2>>24)]++
 	}
-
-	// Extra check that the transform makes sense
-	clear(histo[0][:])
-	out1 := dst[1*count5 : 1*count5+count10]
-	out2 := dst[3*count5 : 3*count5+count10]
-
-	for i := 0; i < count10; i++ {
-		histo[0][out1[i]]++
-		histo[0][out2[i]]++
+	for ; oi < count10; oi++ {
+		histo[1][out1[oi]]++
+		histo[2][out2[oi]]++
+	}
+	for b := 0; b < 256; b++ {
+		histo[1][b] += histo[2][b]
 	}
 
 	var err error
 
-	if entropy := internal.ComputeFirstOrderEntropy1024(count5, histo[0][:]); entropy*100 >= ent[0]*99 {
+	if entropy := internal.ComputeFirstOrderEntropy1024(count5, histo[1][:]); entropy*100 >= ent[0]*99 {
+		if this.ctx != nil {
+			(*this.ctx)["dataType"] = internal.DetectSimpleType(3*count10, histo[0][:])
+		}
 		err = errors.New("FSD forward transform skip: no improvement")
+	} else if this.ctx != nil {
+		(*this.ctx)["dataType"] = internal.DT_MULTIMEDIA
 	}
 
 	return uint(srcIdx), uint(dstIdx), err // Allowed to expand
@@ -330,8 +472,8 @@ func (this *FSDCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, nil
 	}
 
-	if len(src) < 2 {
-		return 0, 0, fmt.Errorf("Input block is too small - size: %d, required %d", len(src), 2)
+	if len(src) < 4 {
+		return 0, 0, fmt.Errorf("Input block is too small - size: %d, required %d", len(src), 4)
 	}
 
 	if &src[0] == &dst[0] {
@@ -350,7 +492,7 @@ func (this *FSDCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("FSD inverse transform failed: invalid distance")
 	}
 
-	if this.bsVersion >= 7 && (modeValue&^3) != 0 {
+	if (this.bsVersion >= 7 && (modeValue&^3) != 0) || (this.bsVersion < 7 && modeValue > 1) {
 		return 0, 0, errors.New("FSD inverse transform failed: invalid mode")
 	}
 
@@ -369,7 +511,7 @@ func (this *FSDCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		return 0, 0, errors.New("FSD inverse transform failed: output buffer too small")
 	}
 
-	if bucketed && dstEnd < dataLength {
+	if this.bsVersion >= 7 && dstEnd < dataLength {
 		return 0, 0, errors.New("FSD inverse transform failed: output buffer too small")
 	}
 
@@ -380,77 +522,135 @@ func (this *FSDCodec) Inverse(src, dst []byte) (uint, uint, error) {
 		srcIdx++
 	}
 
-	// Recover original bytes
 	if this.bsVersion < 7 {
-		if mode == _FSD_DELTA_CODING {
-			for srcIdx < srcEnd && dstIdx < dstEnd {
-				if src[srcIdx] != _FSD_ESCAPE_TOKEN {
-					dst[dstIdx] = byte(int(dst[dstIdx-dist]) + _FSD_ZIGZAG2[src[srcIdx]])
-					srcIdx++
-					dstIdx++
-					continue
-				}
-
-				srcIdx++
-				if srcIdx >= srcEnd {
-					err = errors.New("FSD inverse transform failed: invalid data")
-					break
-				}
-
-				dst[dstIdx] = src[srcIdx] ^ dst[dstIdx-dist]
-				srcIdx++
-				dstIdx++
-			}
-		} else if mode == _FSD_XOR_CODING {
-			for srcIdx < srcEnd && dstIdx < dstEnd {
-				dst[dstIdx] = src[srcIdx] ^ dst[dstIdx-dist]
-				dstIdx++
-				srcIdx++
-			}
-		} else {
-			return 0, 0, errors.New("FSD inverse transform failed: invalid mode")
+		srcIdx, dstIdx, err = fsdInverseLegacy(src, dst, srcIdx, dstIdx, dist, mode)
+		if err != nil {
+			return uint(srcIdx), uint(dstIdx), err
 		}
 	} else if bucketed {
-		const bucketLength = 1 << 15
-		tileLength := dist * bucketLength
-
-		for tileStart := 0; tileStart < dataLength; tileStart += tileLength {
-			tileEnd := min(tileStart+tileLength, dataLength)
-
-			for lane := 0; lane < dist; lane++ {
-				firstPos := tileStart + lane
-
-				if tileStart == 0 {
-					firstPos += dist
-				}
-
-				for pos := firstPos; pos < tileEnd; pos += dist {
-					if coding == _FSD_DELTA_CODING {
-						dst[pos] = byte(int(dst[pos-dist]) + _FSD_ZIGZAG2[src[srcIdx]])
-					} else {
-						dst[pos] = src[srcIdx] ^ dst[pos-dist]
+		tileLength := dist * (1 << 15)
+		if coding == _FSD_DELTA_CODING {
+			for tileStart := 0; tileStart < dataLength; tileStart += tileLength {
+				tileEnd := tileStart + min(tileLength, dataLength-tileStart)
+				for lane := 0; lane < dist; lane++ {
+					pos := tileStart + lane
+					if tileStart == 0 {
+						pos += dist
 					}
-
-					srcIdx++
+					if pos >= tileEnd {
+						continue
+					}
+					acc := dst[pos-dist]
+					for ; pos+3*dist < tileEnd; pos += 4 * dist {
+						d0 := _FSD_ZIGZAG2[src[srcIdx+0]]
+						d1 := _FSD_ZIGZAG2[src[srcIdx+1]]
+						d2 := _FSD_ZIGZAG2[src[srcIdx+2]]
+						d3 := _FSD_ZIGZAG2[src[srcIdx+3]]
+						acc = byte(int(acc) + d0)
+						dst[pos+0*dist] = acc
+						acc = byte(int(acc) + d1)
+						dst[pos+1*dist] = acc
+						acc = byte(int(acc) + d2)
+						dst[pos+2*dist] = acc
+						acc = byte(int(acc) + d3)
+						dst[pos+3*dist] = acc
+						srcIdx += 4
+					}
+					for ; pos < tileEnd; pos += dist {
+						acc = byte(int(acc) + _FSD_ZIGZAG2[src[srcIdx]])
+						srcIdx++
+						dst[pos] = acc
+					}
+				}
+			}
+		} else {
+			for tileStart := 0; tileStart < dataLength; tileStart += tileLength {
+				tileEnd := tileStart + min(tileLength, dataLength-tileStart)
+				for lane := 0; lane < dist; lane++ {
+					firstPos := tileStart + lane
+					if tileStart == 0 {
+						firstPos += dist
+					}
+					for pos := firstPos; pos < tileEnd; pos += dist {
+						dst[pos] = src[srcIdx] ^ dst[pos-dist]
+						srcIdx++
+					}
 				}
 			}
 		}
-
 		dstIdx = dataLength
 	} else if coding == _FSD_DELTA_CODING {
-		for srcIdx < srcEnd && dstIdx < dstEnd {
-			dst[dstIdx] = byte(int(dst[dstIdx-dist]) + _FSD_ZIGZAG2[src[srcIdx]])
-			dstIdx++
-			srcIdx++
+		if dist == 16 {
+			prev0 := binary.LittleEndian.Uint64(dst[0:])
+			prev1 := binary.LittleEndian.Uint64(dst[8:])
+			for srcIdx+16 <= srcEnd {
+				prev0 = fsdAddBytesSwar64(prev0, fsdUnzigzagSwar64(binary.LittleEndian.Uint64(src[srcIdx+0:])))
+				binary.LittleEndian.PutUint64(dst[dstIdx+0:], prev0)
+				prev1 = fsdAddBytesSwar64(prev1, fsdUnzigzagSwar64(binary.LittleEndian.Uint64(src[srcIdx+8:])))
+				binary.LittleEndian.PutUint64(dst[dstIdx+8:], prev1)
+				srcIdx += 16
+				dstIdx += 16
+			}
+		} else if dist == 8 {
+			prev0 := binary.LittleEndian.Uint64(dst[0:])
+			for srcIdx+8 <= srcEnd {
+				prev0 = fsdAddBytesSwar64(prev0, fsdUnzigzagSwar64(binary.LittleEndian.Uint64(src[srcIdx+0:])))
+				binary.LittleEndian.PutUint64(dst[dstIdx+0:], prev0)
+				srcIdx += 8
+				dstIdx += 8
+			}
+		} else if dist == 3 {
+			a0 := dst[0]
+			a1 := dst[1]
+			a2 := dst[2]
+			for srcIdx+6 <= srcEnd {
+				d0 := _FSD_ZIGZAG2[src[srcIdx+0]]
+				d1 := _FSD_ZIGZAG2[src[srcIdx+1]]
+				d2 := _FSD_ZIGZAG2[src[srcIdx+2]]
+				d3 := _FSD_ZIGZAG2[src[srcIdx+3]]
+				d4 := _FSD_ZIGZAG2[src[srcIdx+4]]
+				d5 := _FSD_ZIGZAG2[src[srcIdx+5]]
+				a0 = byte(int(a0) + d0)
+				dst[dstIdx+0] = a0
+				a1 = byte(int(a1) + d1)
+				dst[dstIdx+1] = a1
+				a2 = byte(int(a2) + d2)
+				dst[dstIdx+2] = a2
+				a0 = byte(int(a0) + d3)
+				dst[dstIdx+3] = a0
+				a1 = byte(int(a1) + d4)
+				dst[dstIdx+4] = a1
+				a2 = byte(int(a2) + d5)
+				dst[dstIdx+5] = a2
+				srcIdx += 6
+				dstIdx += 6
+			}
+		} else if dist == 1 {
+			a0 := dst[0]
+			for srcIdx+4 <= srcEnd {
+				d0 := _FSD_ZIGZAG2[src[srcIdx+0]]
+				d1 := _FSD_ZIGZAG2[src[srcIdx+1]]
+				d2 := _FSD_ZIGZAG2[src[srcIdx+2]]
+				d3 := _FSD_ZIGZAG2[src[srcIdx+3]]
+				a0 = byte(int(a0) + d0)
+				dst[dstIdx+0] = a0
+				a0 = byte(int(a0) + d1)
+				dst[dstIdx+1] = a0
+				a0 = byte(int(a0) + d2)
+				dst[dstIdx+2] = a0
+				a0 = byte(int(a0) + d3)
+				dst[dstIdx+3] = a0
+				srcIdx += 4
+				dstIdx += 4
+			}
 		}
-	} else if coding == _FSD_XOR_CODING {
-		for srcIdx < srcEnd && dstIdx < dstEnd {
-			dst[dstIdx] = src[srcIdx] ^ dst[dstIdx-dist]
-			dstIdx++
+		for srcIdx < srcEnd {
+			dst[dstIdx] = byte(int(dst[dstIdx-dist]) + _FSD_ZIGZAG2[src[srcIdx]])
 			srcIdx++
+			dstIdx++
 		}
 	} else {
-		return 0, 0, errors.New("FSD inverse transform failed: invalid mode")
+		srcIdx, dstIdx = fsdInverseXor(src, dst, srcIdx, dstIdx, dist)
 	}
 
 	if srcIdx != srcEnd {
