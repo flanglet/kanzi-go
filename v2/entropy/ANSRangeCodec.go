@@ -358,7 +358,7 @@ func (this *ANSRangeEncoder) encodeChunk(block []byte) {
 			n, st2 = this.encodeSymbol(n, st2, symb[block[i-2]])
 			n, st3 = this.encodeSymbol(n, st3, symb[block[i-3]])
 		}
-	} else if len(block) > 1 { // order 1
+	} else if end4 != 0 { // Order 1 with at least one symbol per lane.
 		quarter := end4 >> 2
 		i0 := 1*quarter - 2
 		i1 := 2*quarter - 2
@@ -706,7 +706,7 @@ func (this *ANSRangeDecoder) decodeHeader(frequencies, alphabet []int) (int, err
 
 		// Infer first frequency
 		if scale <= sum {
-			err := fmt.Errorf("Invalid bitstream: incorrect frequency %d for symbol '%d' in ANS range decoder", frequencies[alphabet[0]], alphabet[0])
+			err := fmt.Errorf("Invalid bitstream: ANS frequency sum %d must be less than scale %d in context %d", sum, scale, k)
 			return alphabetSize, err
 		}
 
