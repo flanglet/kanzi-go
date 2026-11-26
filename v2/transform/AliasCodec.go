@@ -20,6 +20,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 
 	internal "github.com/flanglet/kanzi-go/v2/internal"
@@ -77,6 +78,18 @@ func (h *aliasMinHeap) push(val, freq int) {
 		h.siftDown(0)
 		h.minKey = h.items[0]
 	}
+}
+
+// Two nonempty byte slices overlap if either slice starts inside the other.
+func aliasBuffersOverlap(src, dst []byte) bool {
+	srcStart := reflect.ValueOf(&src[0]).Pointer()
+	dstStart := reflect.ValueOf(&dst[0]).Pointer()
+
+	if srcStart <= dstStart {
+		return dstStart-srcStart < uintptr(len(src))
+	}
+
+	return srcStart-dstStart < uintptr(len(dst))
 }
 
 // encodeDigram8 encodes src in 8 parallel streams to break the serial s += (1 or 2)
@@ -483,7 +496,8 @@ func (this *AliasCodec) Forward(src, dst []byte) (uint, uint, error) {
 		}
 
 		encodedLen := -1
-		if count >= 4096 {
+		// The staged encoder writes ahead of the current output position.
+		if count >= 4096 && !aliasBuffersOverlap(src, dst[:this.MaxEncodedLen(count)]) {
 			encodedLen = encodeDigram8(src, dst, dstIdx, count, &map16)
 		}
 
