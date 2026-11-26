@@ -19,6 +19,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math/bits"
 	"slices"
 
 	internal "github.com/flanglet/kanzi-go/v2/internal"
@@ -61,7 +62,9 @@ type utfSymbol struct {
 
 // UTFCodec is a simple one-pass UTF8 codec that replaces code points with indexes.
 type UTFCodec struct {
-	ctx *map[string]any
+	ctx      *map[string]any
+	aliasMap []int32
+	tokens   []uint32
 }
 
 // NewUTFCodec creates a new instance of UTFCodec
@@ -105,7 +108,7 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 		if val, containsKey := (*this.ctx)["dataType"]; containsKey {
 			dt, ok := val.(internal.DataType)
 
-			if ok == false {
+			if !ok {
 				return 0, 0, errors.New("UTF forward transform failed: invalid data type")
 			}
 
@@ -119,151 +122,183 @@ func (this *UTFCodec) Forward(src, dst []byte) (uint, uint, error) {
 
 	start := 0
 
-	if binary.BigEndian.Uint32(src[0:])&0x00FFFFFF == 0x00EFBBBF { // Byte Order Mark (BOM)
+	if src[0] == 0xEF && src[1] == 0xBB && src[2] == 0xBF {
 		start = 3
 	} else {
-		// First (possibly) invalid symbols (due to block truncation).
-		for (start < 4) && (_UTF_SIZES[src[start]] == 0) {
+		// Skip up to three leading continuation bytes from a sequence split across blocks.
+		for start < 3 && src[start]&0xC0 == 0x80 {
 			start++
 		}
 	}
 
-	if (mustValidate == true) && (validateUTF(src[start:count-4]) == false) {
+	srcEnd := count - 4
+	if mustValidate && countHighBitBytes(src, start, srcEnd) < uint64((count-start-4)/8) {
 		return 0, 0, errors.New("UTF forward transform skip: not UTF")
 	}
 
+	if this.aliasMap == nil {
+		this.aliasMap = make([]int32, 1<<22)
+	}
+	if cap(this.tokens) < count {
+		this.tokens = make([]uint32, count)
+	} else {
+		this.tokens = this.tokens[:count]
+	}
+
+	asciiFreq := [128]uint32{}
+	mbKeys := make([]uint32, 0, max(count>>9, 256))
+	defer func() {
+		clear(this.aliasMap[:128])
+		for _, key := range mbKeys {
+			this.aliasMap[key] = 0
+		}
+	}()
+
+	tokens := this.tokens
+	ntok := 0
+	var contBytes uint
+	i := start
+
+	// Validate sequences, count frequencies, and record packed tokens.
+	for i < srcEnd {
+		b0 := src[i]
+		if b0 < 0x80 {
+			if i+8 <= srcEnd && binary.LittleEndian.Uint64(src[i:])&0x8080808080808080 == 0 {
+				for k := 0; k < 8; k++ {
+					c := src[i+k]
+					asciiFreq[c]++
+					tokens[ntok] = uint32(c)
+					ntok++
+				}
+				i += 8
+				continue
+			}
+
+			asciiFreq[b0]++
+			tokens[ntok] = uint32(b0)
+			ntok++
+			i++
+			continue
+		}
+
+		var val uint32
+		var size int
+		if b0 < 0xE0 {
+			b1 := src[i+1]
+			if b0 < 0xC2 || b1&0xC0 != 0x80 {
+				return 0, 0, errors.New("UTF forward transform skip: invalid or too complex")
+			}
+			val = (1 << 19) | (uint32(b0) << 8) | uint32(b1)
+			size = 2
+			contBytes++
+		} else if b0 < 0xF0 {
+			b1, b2 := src[i+1], src[i+2]
+			slot := b0 & 0x1F
+			if b1 < utfMinB1[slot] || b1-utfMinB1[slot] > utfSpanB1[slot] || b2&0xC0 != 0x80 {
+				return 0, 0, errors.New("UTF forward transform skip: invalid or too complex")
+			}
+			val = (2 << 19) | (uint32(b0&0x0F) << 12) | (uint32(b1&0x3F) << 6) | uint32(b2&0x3F)
+			size = 3
+			contBytes += 2
+		} else {
+			b1, b2, b3 := src[i+1], src[i+2], src[i+3]
+			if b0 > 0xF4 {
+				return 0, 0, errors.New("UTF forward transform skip: invalid or too complex")
+			}
+			slot := b0 & 0x1F
+			if b1 < utfMinB1[slot] || b1-utfMinB1[slot] > utfSpanB1[slot] || b2&0xC0 != 0x80 || b3&0xC0 != 0x80 {
+				return 0, 0, errors.New("UTF forward transform skip: invalid or too complex")
+			}
+			val = (4 << 19) | (uint32(b0&0x07) << 18) | (uint32(b1&0x3F) << 12) | (uint32(b2&0x3F) << 6) | uint32(b3&0x3F)
+			size = 4
+			contBytes += 3
+		}
+
+		if this.aliasMap[val] == 0 {
+			if len(mbKeys) >= 32767 {
+				return 0, 0, errors.New("UTF forward transform skip: invalid or too complex")
+			}
+			mbKeys = append(mbKeys, val)
+		}
+		this.aliasMap[val]++
+		tokens[ntok] = val
+		ntok++
+		i += size
+	}
+
+	if mustValidate && contBytes < uint((count-start-4)/8) {
+		return 0, 0, errors.New("UTF forward transform skip: not UTF")
+	}
+
+	items := make([]uint64, 0, len(mbKeys)+128)
+	for c, freq := range asciiFreq {
+		if freq != 0 {
+			items = append(items, uint64(freq)<<24|uint64(c))
+		}
+	}
+	for _, val := range mbKeys {
+		items = append(items, uint64(uint32(this.aliasMap[val]))<<24|uint64(val))
+	}
+	n := len(items)
+	maxTarget := count - count/10
+	if n == 0 || n >= 32768 {
+		return 0, 0, errors.New("UTF forward transform skip: invalid or too complex")
+	}
 	if this.ctx != nil {
 		(*this.ctx)["dataType"] = internal.DT_UTF8
 	}
-
-	// 1-3 bit size + (7 or 11 or 16 or 21) bit payload
-	// 3 MSBs indicate symbol size (limit map size to 22 bits)
-	// 000 -> 7 bits
-	// 001 -> 11 bits
-	// 010 -> 16 bits
-	// 1xx -> 21 bits
-	aliasMap := make([]int32, 1<<22)
-	symb := [32768]sdUTF{}
-	n := 0
-	var err error
-
-	for i := start; i < count-4; {
-		var val uint32
-		s := packUTF(src[i:], &val)
-		res := s != 0
-		// Validation of longer sequences
-		// Third byte in [0x80..0xBF]
-		res = res && ((s != 3) || ((src[i+2] & 0xC0) == 0x80))
-		// Third and fourth bytes in [0x80..0xBF]
-		res = res && ((s != 4) || ((((uint16(src[i+2]) << 8) | uint16(src[i+3])) & 0xC0C0) == 0x8080))
-
-		if aliasMap[val] == 0 {
-			symb[n].sym = int32(val)
-			n++
-			res = res && (n < 32768)
-		}
-
-		if res == false {
-			return 0, 0, errors.New("UTF forward transform skip: invalid or too complex")
-		}
-
-		aliasMap[val]++
-		i += s
-	}
-
-	if n == 0 {
-		return 0, 0, errors.New("UTF forward transform skip: not UTF")
-	}
-
-	if err != nil {
-		return 0, 0, err
-	}
-
-	maxTarget := count - (count / 10)
-
-	if (3*n + 6) >= maxTarget {
+	if 3*n+6 >= maxTarget {
 		return 0, 0, errors.New("UTF forward transform skip: no improvement")
 	}
 
-	for i := 0; i < n; i++ {
-		symb[i].freq = aliasMap[symb[i].sym]
-	}
-
-	// Sort ranks by increasing frequencies
-	slices.SortStableFunc(symb[0:n], func(sb1, sb2 sdUTF) int {
-		if r := sb1.freq - sb2.freq; r != 0 {
-			return int(r)
-		}
-
-		return int(sb1.sym - sb2.sym)
-	})
-
+	// Ascending sort, then emit in reverse: decreasing frequency and decreasing symbol.
+	slices.Sort(items)
 	dstIdx := 2
-
-	// Emit map length then map data
 	dst[dstIdx] = byte(n >> 8)
 	dstIdx++
 	dst[dstIdx] = byte(n)
 	dstIdx++
-	estimate := dstIdx + 6
-
-	for i := 0; i < n; i++ {
-		r := n - 1 - i
-		s := symb[r].sym
-
-		dst[dstIdx] = byte(s >> 16)
-		dst[dstIdx+1] = byte(s >> 8)
-		dst[dstIdx+2] = byte(s)
-		dstIdx += 3
-
-		if i < 128 {
-			estimate += int(symb[r].freq)
-			aliasMap[s] = int32(i)
+	estimate := dstIdx + 3*n + start + 1
+	for rank := 0; rank < n; rank++ {
+		item := items[n-1-rank]
+		freq := int(item >> 24)
+		sym := uint32(item & 0xFFFFFF)
+		if rank < 128 {
+			estimate += freq
+			this.aliasMap[sym] = int32(rank)
 		} else {
-			estimate += 2 * int(symb[r].freq)
-			aliasMap[s] = 0x10080 | int32((i<<1)&0xFF00) | int32(i&0x7F)
+			estimate += 2 * freq
+			this.aliasMap[sym] = int32(0x10080 | ((rank << 1) & 0xFF00) | (rank & 0x7F))
 		}
+		dst[dstIdx] = byte(sym >> 16)
+		dst[dstIdx+1] = byte(sym >> 8)
+		dst[dstIdx+2] = byte(sym)
+		dstIdx += 3
 	}
-
 	if estimate >= maxTarget {
 		return 0, uint(dstIdx), errors.New("UTF forward transform skip: no improvement")
 	}
 
-	// Emit first (possibly) invalid symbols (due to block truncation)
-	for i := 0; i < start; {
-		dst[dstIdx] = src[i]
-		i++
-		dstIdx++
-	}
-
-	srcIdx := start
-
-	// Emit aliases
-	for srcIdx < count-4 {
-		var val uint32
-		srcIdx += packUTF(src[srcIdx:], &val)
-		alias := aliasMap[val]
+	copy(dst[dstIdx:], src[:start])
+	dstIdx += start
+	for k := 0; k < ntok; k++ {
+		alias := uint32(this.aliasMap[tokens[k]])
 		dst[dstIdx] = byte(alias)
 		dstIdx++
-		dst[dstIdx] = byte(alias >> 8)
-		dstIdx += int(alias >> 16)
+		if alias>>16 != 0 {
+			dst[dstIdx] = byte(alias >> 8)
+			dstIdx++
+		}
 	}
-
 	dst[0] = byte(start)
-	dst[1] = byte(srcIdx - (count - 4))
-
-	// Emit last (possibly) invalid symbols (due to block truncation)
-	for srcIdx < count {
-		dst[dstIdx] = src[srcIdx]
-		srcIdx++
-		dstIdx++
-	}
+	dst[1] = byte(i - srcEnd)
+	copy(dst[dstIdx:], src[i:])
+	dstIdx += count - i
 
 	if dstIdx >= maxTarget {
-		return uint(srcIdx), uint(dstIdx), errors.New("UTF forward transform skip: no improvement")
+		return uint(count), uint(dstIdx), errors.New("UTF forward transform skip: no improvement")
 	}
-
-	return uint(srcIdx), uint(dstIdx), err
+	return uint(count), uint(dstIdx), nil
 }
 
 // Inverse applies the reverse function to the src and writes the result
@@ -273,195 +308,232 @@ func (this *UTFCodec) Inverse(src, dst []byte) (uint, uint, error) {
 	if len(src) == 0 || len(dst) == 0 {
 		return 0, 0, nil
 	}
-
 	if len(src) < 4 {
 		return 0, 0, fmt.Errorf("Input block is too small - size: %d, required %d", len(src), 4)
 	}
-
 	if &src[0] == &dst[0] {
 		return 0, 0, errors.New("Input and output buffers cannot be equal")
 	}
 
 	count := len(src)
 	start := int(src[0]) & 0x03
-	adjust := int(src[1]) & 0x03 // adjust end of regular processing
+	adjust := int(src[1]) & 0x03
 	n := (int(src[2]) << 8) + int(src[3])
-
-	// Protect against invalid map size value
-	if (n == 0) || (n >= 32768) || (4+3*n > count) {
+	if n == 0 || n >= 32768 || 3*n > count-4 {
 		return 0, 0, errors.New("UTF inverse transform: invalid map size")
 	}
 
 	isBsVersion3 := false
-
 	if this.ctx != nil {
 		if val, containsKey := (*this.ctx)["bsVersion"]; containsKey {
 			bsVersion, ok := val.(uint)
-
-			if ok == false {
+			if !ok {
 				return 0, 0, errors.New("UTF inverse transform failed: invalid bitstream version type")
 			}
-
 			isBsVersion3 = bsVersion < 4
 		}
 	}
 
 	m := [32768]utfSymbol{}
 	srcIdx := 4
-
-	// Build inverse mapping
-	if isBsVersion3 == true {
-		for i := 0; i < n; i++ {
-			s := (uint32(src[srcIdx]) << 16) | (uint32(src[srcIdx+1]) << 8) | uint32(src[srcIdx+2])
-
-			sl := unpackUTF0(s, m[i].value[:])
-
-			if sl == 0 {
-				return 0, 0, errors.New("UTF inverse transform failed: invalid UTF alias")
-			}
-
-			m[i].length = uint8(sl)
-			srcIdx += 3
+	maxLen := 1
+	for j := 0; j < n; j++ {
+		sym := (uint32(src[srcIdx]) << 16) | (uint32(src[srcIdx+1]) << 8) | uint32(src[srcIdx+2])
+		var size int
+		if isBsVersion3 {
+			size = unpackUTF0(sym, m[j].value[:])
+		} else {
+			size = unpackUTF1(sym, m[j].value[:])
 		}
-	} else {
-		for i := 0; i < n; i++ {
-			s := (uint32(src[srcIdx]) << 16) | (uint32(src[srcIdx+1]) << 8) | uint32(src[srcIdx+2])
-
-			sl := unpackUTF1(s, m[i].value[:])
-
-			if sl == 0 {
-				return 0, 0, errors.New("UTF inverse transform failed: invalid UTF alias")
-			}
-
-			m[i].length = uint8(sl)
-			srcIdx += 3
+		if size == 0 {
+			return 0, 0, errors.New("UTF inverse transform failed: invalid UTF alias")
 		}
+		m[j].length = uint8(size)
+		if size > maxLen {
+			maxLen = size
+		}
+		srcIdx += 3
 	}
 
 	srcEnd := count - 4 + adjust
 	dstIdx := 0
-	dstEnd := len(dst) - 4
-
-	if dstEnd < 0 {
+	if len(dst) < 4 {
 		return 0, 0, errors.New("UTF inverse transform failed: invalid output block size")
 	}
-
-	if srcEnd < srcIdx || srcEnd > count || srcIdx+start > count {
+	if srcEnd < srcIdx || srcEnd > count || srcIdx+start > srcEnd || start > len(dst) {
 		return 0, 0, errors.New("UTF inverse transform failed: invalid data")
 	}
+	copy(dst[:start], src[srcIdx:srcIdx+start])
+	srcIdx += start
+	dstIdx += start
 
-	for i := 0; i < start; i++ {
-		dst[dstIdx] = src[srcIdx]
-		srcIdx++
-		dstIdx++
-	}
-
-	// Emit data
 	if n <= 128 {
-		// All valid aliases fit in one byte.
+		for srcIdx < srcEnd && len(dst)-dstIdx >= 4 {
+			safeSteps := min(srcEnd-srcIdx, (len(dst)-dstIdx-4)/maxLen)
+			if safeSteps < 4 {
+				break
+			}
+			batchEnd := srcIdx + (safeSteps &^ 3)
+			for srcIdx < batchEnd {
+				aliases := [4]int{int(src[srcIdx]), int(src[srcIdx+1]), int(src[srcIdx+2]), int(src[srcIdx+3])}
+				srcIdx += 4
+				for _, alias := range aliases {
+					if alias >= n {
+						return 0, 0, errors.New("UTF inverse transform failed: invalid data")
+					}
+					sym := m[alias]
+					copy(dst[dstIdx:dstIdx+4], sym.value[:])
+					dstIdx += int(sym.length)
+				}
+			}
+		}
 		for srcIdx < srcEnd {
 			alias := int(src[srcIdx])
 			srcIdx++
-
 			if alias >= n {
 				return 0, 0, errors.New("UTF inverse transform failed: invalid data")
 			}
-
-			s := m[alias]
-
-			// The symbol length controls the logical output advance, but the
-			// decoder always copies four bytes from the packed symbol value.
-			if dstIdx+4 > len(dst) {
+			sym := m[alias]
+			length := int(sym.length)
+			if dstIdx+4 <= len(dst) {
+				copy(dst[dstIdx:dstIdx+4], sym.value[:])
+			} else if dstIdx+length <= len(dst) {
+				copy(dst[dstIdx:dstIdx+length], sym.value[:length])
+			} else {
 				return 0, 0, errors.New("UTF inverse transform failed: output buffer too small")
 			}
-
-			copy(dst[dstIdx:], s.value[:4])
-			dstIdx += int(s.length)
+			dstIdx += length
 		}
 	} else {
-		// Decode the next alias and load its value before storing the current
-		// one. This allows independent dictionary lookups to overlap.
+		pairStride := 2 * maxLen
+		for srcEnd-srcIdx >= 4 && len(dst)-dstIdx >= 4 {
+			safePairs := min((srcEnd-srcIdx)>>2, (len(dst)-dstIdx-4)/pairStride)
+			if safePairs == 0 {
+				break
+			}
+			for p := 0; p < safePairs; p++ {
+				w4 := binary.LittleEndian.Uint32(src[srcIdx:])
+				if p+1 < safePairs && w4&0x80808080 == 0 {
+					for k := 0; k < 4; k++ {
+						sym := m[src[srcIdx+k]]
+						copy(dst[dstIdx:dstIdx+4], sym.value[:])
+						dstIdx += int(sym.length)
+					}
+					srcIdx += 4
+					p++
+					continue
+				}
+				for k := 0; k < 2; k++ {
+					alias := int(src[srcIdx])
+					srcIdx++
+					if alias >= 128 {
+						if srcIdx >= srcEnd {
+							return 0, 0, errors.New("UTF inverse transform failed: invalid data")
+						}
+						alias = (int(src[srcIdx]) << 7) + (alias & 0x7F)
+						srcIdx++
+					}
+					if alias >= n {
+						return 0, 0, errors.New("UTF inverse transform failed: invalid data")
+					}
+					sym := m[alias]
+					copy(dst[dstIdx:dstIdx+4], sym.value[:])
+					dstIdx += int(sym.length)
+				}
+			}
+		}
 		for srcIdx < srcEnd {
 			alias := int(src[srcIdx])
 			srcIdx++
-
 			if alias >= 128 {
 				if srcIdx >= srcEnd {
 					return 0, 0, errors.New("UTF inverse transform failed: invalid data")
 				}
-
 				alias = (int(src[srcIdx]) << 7) + (alias & 0x7F)
 				srcIdx++
 			}
-
 			if alias >= n {
 				return 0, 0, errors.New("UTF inverse transform failed: invalid data")
 			}
-
-			s0 := m[alias]
-			val0 := s0.value
-			len0 := int(s0.length)
-
+			sym0 := m[alias]
+			len0 := int(sym0.length)
 			if srcIdx >= srcEnd {
-				if dstIdx+4 > len(dst) {
+				if dstIdx+4 <= len(dst) {
+					copy(dst[dstIdx:dstIdx+4], sym0.value[:])
+				} else if dstIdx+len0 <= len(dst) {
+					copy(dst[dstIdx:dstIdx+len0], sym0.value[:len0])
+				} else {
 					return 0, 0, errors.New("UTF inverse transform failed: output buffer too small")
 				}
-
-				copy(dst[dstIdx:], val0[:])
 				dstIdx += len0
 				break
 			}
-
 			alias = int(src[srcIdx])
 			srcIdx++
-
 			if alias >= 128 {
 				if srcIdx >= srcEnd {
 					return 0, 0, errors.New("UTF inverse transform failed: invalid data")
 				}
-
 				alias = (int(src[srcIdx]) << 7) + (alias & 0x7F)
 				srcIdx++
 			}
-
 			if alias >= n {
 				return 0, 0, errors.New("UTF inverse transform failed: invalid data")
 			}
-
-			s1 := m[alias]
-			val1 := s1.value
-			len1 := int(s1.length)
-			needed := len0 + len1 + 4
-
-			if len(dst)-dstIdx < needed {
-				return 0, 0, errors.New("UTF inverse transform failed: output buffer too small")
+			sym1 := m[alias]
+			len1 := int(sym1.length)
+			if len(dst)-dstIdx >= len0+len1+4 {
+				copy(dst[dstIdx:dstIdx+4], sym0.value[:])
+				dstIdx += len0
+				copy(dst[dstIdx:dstIdx+4], sym1.value[:])
+				dstIdx += len1
+			} else {
+				if len(dst)-dstIdx < len0+len1 {
+					return 0, 0, errors.New("UTF inverse transform failed: output buffer too small")
+				}
+				copy(dst[dstIdx:dstIdx+len0], sym0.value[:len0])
+				dstIdx += len0
+				copy(dst[dstIdx:dstIdx+len1], sym1.value[:len1])
+				dstIdx += len1
 			}
-
-			copy(dst[dstIdx:], val0[:])
-			dstIdx += len0
-			copy(dst[dstIdx:], val1[:])
-			dstIdx += len1
 		}
 	}
 
-	var err error
-
-	if srcIdx < srcEnd || dstIdx > len(dst)-count+srcEnd {
-		err = errors.New("UTF inverse transform failed: invalid data")
-	} else {
-		for i := srcEnd; i < count; i++ {
-			dst[dstIdx] = src[srcIdx]
-			srcIdx++
-			dstIdx++
-		}
+	if srcIdx != srcEnd || srcIdx+4-adjust > count || dstIdx+4-adjust > len(dst) {
+		return 0, 0, errors.New("UTF inverse transform failed: invalid data")
 	}
-
-	return uint(srcIdx), uint(dstIdx), err
+	copy(dst[dstIdx:dstIdx+4-adjust], src[srcIdx:srcIdx+4-adjust])
+	srcIdx += 4 - adjust
+	dstIdx += 4 - adjust
+	return uint(srcIdx), uint(dstIdx), nil
 }
 
 // MaxEncodedLen returns the max size required for the encoding output buffer
 func (this *UTFCodec) MaxEncodedLen(srcLen int) int {
+	maxInt := int(^uint(0) >> 1)
+	if srcLen > maxInt-8192 {
+		return maxInt
+	}
 	return srcLen + 8192
+}
+
+var utfMinB1 = [32]byte{0xA0, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x90, 0x80, 0x80, 0x80, 0x80, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
+var utfSpanB1 = [32]byte{0x1F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x1F, 0x3F, 0x3F, 0x2F, 0x3F, 0x3F, 0x3F, 0x0F, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+
+func countHighBitBytes(src []byte, start, end int) uint64 {
+	var count uint64
+	i := start
+	for i+8 <= end {
+		count += uint64(bits.OnesCount64(binary.LittleEndian.Uint64(src[i:]) & 0x8080808080808080))
+		i += 8
+	}
+	for i < end {
+		if src[i]&0x80 != 0 {
+			count++
+		}
+		i++
+	}
+	return count
 }
 
 // A quick partial validation
