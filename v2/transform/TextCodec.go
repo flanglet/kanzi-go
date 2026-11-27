@@ -18,6 +18,7 @@ package transform
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	kanzi "github.com/flanglet/kanzi-go/v2"
 	internal "github.com/flanglet/kanzi-go/v2/internal"
@@ -37,7 +38,7 @@ const (
 	_TC_V7_INDEX_BASE3  = 8255
 	_TC_MAX_DICT_SIZE   = 1 << 19 // must be less than 1<<24
 	_TC_MAX_WORD_LENGTH = 31      // must be less than 128
-	_TC_LOG_HASHES_SIZE = 24      // 16 MB
+	_TC_LOG_HASHES_SIZE = 13      // 32 KB
 	_TC_MIN_BLOCK_SIZE  = 1024
 	_TC_MAX_BLOCK_SIZE  = 1 << 30    // 1 GB
 	_TC_ESCAPE_TOKEN1   = byte(0x0F) // dictionary word preceded by space symbol
@@ -687,7 +688,7 @@ func newTextCodec1() (*textCodec1, error) {
 
 func newTextCodec1WithCtx(ctx *map[string]any) (*textCodec1, error) {
 	this := &textCodec1{}
-	log := uint32(13)
+	log := uint32(_TC_LOG_HASHES_SIZE)
 
 	if ctx != nil {
 		if val, hasKey := (*ctx)["blockSize"]; hasKey {
@@ -700,7 +701,7 @@ func newTextCodec1WithCtx(ctx *map[string]any) (*textCodec1, error) {
 			if blockSize >= 8 {
 				log, _ = internal.Log2(uint32(blockSize / 8))
 				log = min(log, 26)
-				log = max(log, 13)
+				log = max(log, _TC_LOG_HASHES_SIZE)
 			}
 		}
 
@@ -711,7 +712,7 @@ func newTextCodec1WithCtx(ctx *map[string]any) (*textCodec1, error) {
 				return nil, errors.New("Text codec: invalid entropy type")
 			}
 
-			if entropyName == "TPAQX" {
+			if strings.ToUpper(entropyName) == "TPAQX" {
 				log++
 			}
 		}
@@ -728,13 +729,16 @@ func newTextCodec1WithCtx(ctx *map[string]any) (*textCodec1, error) {
 }
 
 func (this *textCodec1) reset(count int) {
+	log := uint32(13)
+
 	if count >= 1024 {
 		// Select an appropriate initial dictionary size
-		log, _ := internal.Log2(uint32(count / 128))
+		log, _ = internal.Log2(uint32(count / 128))
 		log = min(log, 18)
 		log = max(log, 13)
-		this.dictSize = 1 << log
 	}
+
+	this.dictSize = 1 << log
 
 	// Allocate lazily (only if text input detected)
 	if len(this.dictMap) < 1<<this.logHashSize {
@@ -953,13 +957,17 @@ func (this *textCodec1) expandDictionary() bool {
 		return false
 	}
 
-	this.dictList = append(this.dictList, make([]dictEntry, this.dictSize)...)
+	newDictSize := this.dictSize << 1
 
-	for i := this.dictSize; i < this.dictSize*2; i++ {
+	if len(this.dictList) < newDictSize {
+		this.dictList = append(this.dictList, make([]dictEntry, newDictSize-len(this.dictList))...)
+	}
+
+	for i := this.dictSize; i < newDictSize; i++ {
 		this.dictList[i] = dictEntry{ptr: nil, hash: 0, data: int32(i)}
 	}
 
-	this.dictSize <<= 1
+	this.dictSize = newDictSize
 	return true
 }
 
@@ -1039,6 +1047,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 	srcEnd := len(src)
 	dstEnd := len(dst)
 	words := this.staticDictSize
+	maxWords := this.staticDictSize
 	wordRun := false
 	err := error(nil)
 	this.isCRLF = src[0]&_TC_MASK_CRLF != 0
@@ -1100,6 +1109,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 						this.dictMap[h1&this.hashMask] = pe
 						words++
+						maxWords = max(maxWords, words)
 
 						// Dictionary full ? Expand or reset index to end of static dictionary
 						if words >= this.dictSize {
@@ -1149,7 +1159,7 @@ func (this *textCodec1) Inverse(src, dst []byte) (uint, uint, error) {
 
 				idx = (idx << 7) | idx2
 
-				if idx >= this.dictSize {
+				if idx >= maxWords {
 					err = errors.New("Text transform failed. Invalid index")
 					break
 				}
@@ -1230,14 +1240,14 @@ func newTextCodec2() (*textCodec2, error) {
 	this.dictList = make([]dictEntry, 0)
 	this.hashMask = int32(1<<this.logHashSize) - 1
 	this.staticDictSize = _TC_STATIC_DICT_WORDS
-	this.bsVersion = 6
+	this.bsVersion = 7
 	return this, nil
 }
 
 func newTextCodec2WithCtx(ctx *map[string]any) (*textCodec2, error) {
 	this := &textCodec2{}
-	log := uint32(13)
-	version := uint(6)
+	log := uint32(_TC_LOG_HASHES_SIZE)
+	version := uint(7)
 
 	if ctx != nil {
 		if val, hasKey := (*ctx)["blockSize"]; hasKey {
@@ -1250,7 +1260,7 @@ func newTextCodec2WithCtx(ctx *map[string]any) (*textCodec2, error) {
 			if blockSize >= 32 {
 				log, _ = internal.Log2(uint32(blockSize / 32))
 				log = min(log, 24)
-				log = max(log, 13)
+				log = max(log, _TC_LOG_HASHES_SIZE)
 			}
 		}
 
@@ -1261,7 +1271,7 @@ func newTextCodec2WithCtx(ctx *map[string]any) (*textCodec2, error) {
 				return nil, errors.New("Text codec: invalid entropy type")
 			}
 
-			if entropyName == "TPAQX" {
+			if strings.ToUpper(entropyName) == "TPAQX" {
 				log++
 			}
 		}
@@ -1288,13 +1298,16 @@ func newTextCodec2WithCtx(ctx *map[string]any) (*textCodec2, error) {
 }
 
 func (this *textCodec2) reset(count int) {
+	log := uint32(13)
+
 	if count >= 1024 {
 		// Select an appropriate initial dictionary size
-		log, _ := internal.Log2(uint32(count / 128))
+		log, _ = internal.Log2(uint32(count / 128))
 		log = min(log, 18)
 		log = max(log, 13)
-		this.dictSize = 1 << log
 	}
+
+	this.dictSize = 1 << log
 
 	// Allocate lazily (only if text input detected)
 	if len(this.dictMap) < 1<<this.logHashSize {
@@ -1506,20 +1519,24 @@ func (this *textCodec2) expandDictionary() bool {
 		return false
 	}
 
-	this.dictList = append(this.dictList, make([]dictEntry, this.dictSize)...)
+	newDictSize := this.dictSize << 1
 
-	for i := this.dictSize; i < this.dictSize*2; i++ {
+	if len(this.dictList) < newDictSize {
+		this.dictList = append(this.dictList, make([]dictEntry, newDictSize-len(this.dictList))...)
+	}
+
+	for i := this.dictSize; i < newDictSize; i++ {
 		this.dictList[i] = dictEntry{ptr: nil, hash: 0, data: int32(i)}
 	}
 
-	this.dictSize <<= 1
+	this.dictSize = newDictSize
 	return true
 }
 
 func (this *textCodec2) emitSymbols(src, dst []byte) int {
 	dstIdx := 0
 
-	if 2*len(src) < len(dst) {
+	if len(src) < (len(dst) >> 1) {
 		for _, cur := range src {
 			switch cur {
 			case _TC_ESCAPE_TOKEN1:
@@ -1616,6 +1633,7 @@ func emitWordIndex(dst []byte, wIdx int) int {
 func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 	this.reset(len(dst))
 	words := this.staticDictSize
+	maxWords := this.staticDictSize
 	wordRun := false
 	var err error
 	this.isCRLF = src[0]&_TC_MASK_CRLF != 0
@@ -1678,6 +1696,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 
 						this.dictMap[h1&this.hashMask] = pe
 						words++
+						maxWords = max(maxWords, words)
 
 						// Dictionary full ? Expand or reset index to end of static dictionary
 						if words >= this.dictSize {
@@ -1730,7 +1749,7 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 					idx = (idx << 7) | idx2
 
 					// Sanity check
-					if idx >= this.dictSize {
+					if idx >= maxWords {
 						err = errors.New("Text transform failed. Invalid index")
 						break
 					}
@@ -1789,11 +1808,11 @@ func (this *textCodec2) Inverse(src, dst []byte) (uint, uint, error) {
 							idx += _TC_V7_INDEX_BASE2
 						}
 
-						if idx >= this.dictSize {
+						if idx >= maxWords {
 							err = errors.New("Text transform failed. Invalid index")
 							break
 						}
-					} else if idx > this.dictSize {
+					} else if idx > maxWords {
 						err = errors.New("Text transform failed. Invalid index")
 						break
 					}
